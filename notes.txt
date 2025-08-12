@@ -1,0 +1,12 @@
+create table runners (
+  id serial primary key,
+  name text not null,
+  age int,
+  best_5k_time interval -- napr. '00:17:30'
+);
+
+alter table runners
+add column mail_address text unique;
+
+alter table runners
+add constraint runners_mail_unique unique (mail_address);

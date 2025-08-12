@@ -93,7 +93,7 @@ def get_activities(token=None, after_timestamp=None):
 
     all_activities = []
     page = 1
-    per_page = 200  # maximum podľa Strava API
+    per_page = 200
 
     while True:
         params = {"per_page": per_page, "page": page}
@@ -117,7 +117,6 @@ def get_activities(token=None, after_timestamp=None):
         page += 1
 
     return all_activities
-
 
 def get_activity_details(activity_id, token=None):
     token = token or get_access_token()

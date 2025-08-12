@@ -5,8 +5,6 @@ from datetime import datetime, timezone, timedelta
 SUMMARY_CSV = "data/activity_summary.csv"
 STREAMS_CSV = "data/activity_streams.csv"
 
-# --- SUMÁRE ---
-
 def load_existing_activity_ids():
     if not os.path.exists(SUMMARY_CSV):
         return set()
@@ -38,18 +36,15 @@ def save_activity_summary(summary, details):
     ]
 
     rows = []
-    # Načítaj existujúce dáta, ak sú
     if os.path.exists(SUMMARY_CSV):
         with open(SUMMARY_CSV, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # Odstráň None kľúče a nechaj len tie z fieldnames
                 if None in row:
                     del row[None]
                 clean_row = {k: row.get(k, "") for k in fieldnames}
                 rows.append(clean_row)
 
-    # Pridaj novú aktivitu
     new_row = {
         "id": summary["id"],
         "name": summary["name"],
@@ -63,7 +58,6 @@ def save_activity_summary(summary, details):
     }
     rows.append(new_row)
 
-    # Zoradenie podľa dátumu (najnovšie hore)
     def sort_key(r):
         try:
             return datetime.fromisoformat(r["date"].replace("Z", "+00:00"))
@@ -72,7 +66,6 @@ def save_activity_summary(summary, details):
 
     rows.sort(key=sort_key, reverse=True)
 
-    # Zápis do CSV
     with open(SUMMARY_CSV, "w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -80,20 +73,15 @@ def save_activity_summary(summary, details):
 
     print(f"💾 Súhrn uložený: {SUMMARY_CSV}")
 
-
-# --- STREAMY ---
-
 def save_activity_streams(activity_id, streams, activity_date=None):
     os.makedirs(os.path.dirname(STREAMS_CSV), exist_ok=True)
     rows = []
 
-    # Načítaj existujúce streamy
     if os.path.exists(STREAMS_CSV):
         with open(STREAMS_CSV, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-    # Priprav nové dáta
     times = streams.get("time", {}).get("data", [])
     latlng = streams.get("latlng", {}).get("data", [])
     altitude = streams.get("altitude", {}).get("data", [])
@@ -116,7 +104,6 @@ def save_activity_streams(activity_id, streams, activity_date=None):
         }
         rows.append(row)
 
-    # --- Filter: necháme len posledných 7 dní ---
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
     filtered_rows = []
     for r in rows:
@@ -128,7 +115,6 @@ def save_activity_streams(activity_id, streams, activity_date=None):
         if dt is None or dt >= cutoff_date:
             filtered_rows.append(r)
 
-    # Zoradenie podľa dátumu a času
     def sort_key(r):
         date_str = r.get("activity_date") or r.get("date") or ""
         try:
@@ -143,7 +129,6 @@ def save_activity_streams(activity_id, streams, activity_date=None):
 
     filtered_rows.sort(key=sort_key)
 
-    # Uloženie
     required_keys = ["activity_id", "activity_date", "time", "lat", "lng", "altitude_m", "heartrate_bpm", "cadence_rpm", "speed_m_s"]
     with open(STREAMS_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=required_keys)
@@ -151,3 +136,24 @@ def save_activity_streams(activity_id, streams, activity_date=None):
         writer.writerows(filtered_rows)
 
     print(f"💾 Streamy uložené (len posledných 7 dní): {STREAMS_CSV}")
+
+def load_activities_from_CSV():
+    activities = []
+    with open(SUMMARY_CSV, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                activity_date = datetime.fromisoformat(row["date"].replace("Z", "+00:00"))
+                activities.append({
+                    "id": int(row["id"]),
+                    "name": row["name"],
+                    "date": activity_date,
+                    "type": row["type"],
+                    "distance_km": float(row["distance_km"]),
+                    "moving_time_min": int(row["moving_time_min"]),
+                    "avg_hr": float(row["avg_hr"]) if row["avg_hr"] != "N/A" else None,
+                    "max_hr": float(row["max_hr"]) if row["max_hr"] != "N/A" else None,
+                    "elevation_gain_m": float(row["elevation_gain_m"]),
+                })
+            except Exception as e:
+                print(f"⚠️ Skipping invalid row due to error: {e}")
