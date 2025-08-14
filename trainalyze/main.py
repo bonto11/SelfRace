@@ -38,12 +38,12 @@ def sync_activities(user_id: int, force_full: bool = False):
             saved += 1
             # nechaj si svoj print/log podľa zvyku:
             print(f"💾 Uložená/aktualizovaná aktivita: {act.get('name')} ({act.get('start_date_local') or act.get('start_date') or act.get('date')})")
-
+    
 def cache_detail_for_activity(user_id: int, activity_id: int, activity_date: str | None = None):
-    details = api_strava.get_activity_detail(activity_id)
-    ok = sql_dm.insert_activity_detail(activity_id, details, user_id, activity_date)
+    streams = api_strava.get_activity_detail(activity_id)
+    ok = sql_dm.replace_activity_detail(user_id=user_id, activity_id=activity_id, streams=streams, activity_date=activity_date)
     if ok:
-        print(f"✅ Streamy uložené pre activity_id={activity_id}")
+        print(f"✅ activity_detail pre user_id={user_id} bol nahradený novými dátami (activity_id={activity_id})")
     else:
         print(f"❌ Ukladanie streamov zlyhalo pre activity_id={activity_id}")
 

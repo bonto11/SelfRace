@@ -4,7 +4,7 @@ from postgrest import APIError  # nech vieme rozlíšiť “column does not exis
 from typing import Optional, Set, List
 
 ACTIVITIES_SUMMARY = "activities_summary"
-ACTIVITIY_DETAIL = "activity_detail"
+ACTIVITY_DETAIL = "activity_detail"
 
 supabase = get_client()
 
@@ -64,7 +64,7 @@ def insert_activity_detail(activity_id: int, streams: dict, user_id: int, activi
     BATCH = 1000
     for start in range(0, len(rows), BATCH):
         chunk = rows[start:start+BATCH]
-        supabase.table(ACTIVITIY_DETAIL).upsert(chunk).execute()
+        supabase.table(ACTIVITY_DETAIL).upsert(chunk).execute()
 
     return True
 
@@ -135,11 +135,42 @@ def upsert_activities_summary(user_id: int, act: dict) -> bool:
     Očakávam, že dict `act` už obsahuje mapované polia na stĺpce tabuľky.
     Kľúčové je, aby bola v DB unikátna kombinácia (user_id, activity_id).
     """
-    sb = get_client()
     payload = {**act, "user_id": user_id}
     try:
-        sb.table(ACTIVITIES_SUMMARY).upsert(payload).execute()
+        supabase.table(ACTIVITIES_SUMMARY).upsert(payload).execute()
         return True
     except Exception as e:
         print("❌ upsert_activities_summary error:", e)
+        return False
+
+def delete_activity_detail_for_user(user_id: int) -> int:
+    """
+    Zmaže všetky riadky z activity_detail pre daného usera.
+    Vracia počet zmazaných riadkov (ak API vráti data).
+    """
+    res = (supabase
+           .table(ACTIVITY_DETAIL)
+           .delete()
+           .eq("user_id", int(user_id))
+           .execute())
+    return len(res.data or [])
+
+def delete_activity_detail_for_activity(user_id: int, activity_id: int) -> int:
+    res = (supabase.table(ACTIVITY_DETAIL)
+           .delete()
+           .eq("user_id", int(user_id))
+           .eq("activity_id", int(activity_id))
+           .execute())
+    return len(res.data or [])
+
+def replace_activity_detail(user_id: int, activity_id: int, streams: dict, activity_date: str | None = None) -> bool:
+    """
+    Vymaže všetky staré detail dáta pre usera a uloží nové pre vybranú aktivitu.
+    """
+    try:
+        delete_activity_detail_for_user(user_id)  # alebo delete_activity_detail_for_activity(user_id, activity_id)
+        ok = insert_activity_detail(activity_id=activity_id, streams=streams, user_id=user_id, activity_date=activity_date)
+        return bool(ok)
+    except Exception as e:
+        print("❌ replace_activity_detail error:", e)
         return False
