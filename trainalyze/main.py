@@ -39,12 +39,22 @@ def sync_activities(user_id: int, force_full: bool = False):
             # nechaj si svoj print/log podľa zvyku:
             print(f"💾 Uložená/aktualizovaná aktivita: {act.get('name')} ({act.get('start_date_local') or act.get('start_date') or act.get('date')})")
 
+def cache_detail_for_activity(user_id: int, activity_id: int, activity_date: str | None = None):
+    details = api_strava.get_activity_detail(activity_id)
+    ok = sql_dm.insert_activity_detail(activity_id, details, user_id, activity_date)
+    if ok:
+        print(f"✅ Streamy uložené pre activity_id={activity_id}")
+    else:
+        print(f"❌ Ukladanie streamov zlyhalo pre activity_id={activity_id}")
+
 def main():
     email = "patrikmbontar@gmail.com"
-    user_id = get_or_create_user_id(email)   
+    user_id = get_or_create_user_id(email) 
+    activity_id = 15342917851
     sync_activities(user_id, False)
     user_crud()
     reporting.generate_report(user_id)
+    cache_detail_for_activity(user_id, activity_id)
 
 if __name__ == "__main__":
     main()

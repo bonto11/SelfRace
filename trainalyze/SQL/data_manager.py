@@ -50,7 +50,7 @@ def insert_activity_detail(activity_id: int, streams: dict, user_id: int, activi
             "activity_id": activity_id,
             "user_id": user_id,
             "activity_date": activity_date,
-            "time": times[i] if i < len(times) else None,
+            "time": times[i] if i < len(times) else None,         # sekundy od štartu
             "lat": lat,
             "lng": lng,
             "altitude_m": altitude[i] if i < len(altitude) else None,
@@ -60,9 +60,13 @@ def insert_activity_detail(activity_id: int, streams: dict, user_id: int, activi
         }
         rows.append(row)
 
-    # Batch insert, môžeš rozdeliť na menšie dávky podľa potreby
-    response = supabase.table(ACTIVITIY_DETAIL).upsert(rows).execute()
-    return response.data
+    # odporúčam batchovať, ak je veľa bodov (410–1000 na dávku)
+    BATCH = 1000
+    for start in range(0, len(rows), BATCH):
+        chunk = rows[start:start+BATCH]
+        supabase.table(ACTIVITIY_DETAIL).upsert(chunk).execute()
+
+    return True
 
 def load_activities_from_db(user_id):
     try:
@@ -76,7 +80,7 @@ def load_activities_from_db(user_id):
     except Exception as e:
         print(f"Chyba pri načítaní aktivít: {e}")
         return []
-#def get_last_timestamp_from_db(user_id: int):    
+ 
 def get_last_timestamp_from_db(user_id: int) -> Optional[datetime]:
     """
     Vráti poslednú (najväčšiu) start_date_local pre daného usera z activity_summary.

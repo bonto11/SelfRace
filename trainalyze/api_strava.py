@@ -129,6 +129,7 @@ def get_activity_data(activity_id, token=None):
 
 def get_activity_detail(activity_id, token=None):
     token = token or get_access_token()
+    
     response = requests.get(
         f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
         params={"keys": "time,latlng,altitude,heartrate,cadence,velocity_smooth", "key_by_type": "true"},
