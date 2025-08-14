@@ -1,10 +1,16 @@
+from datetime import datetime, timezone
 from trainalyze.SQL.db_handler import get_client
+from postgrest import APIError  # nech vieme rozlíšiť “column does not exist”
+from typing import Optional, Set, List
+
+ACTIVITIES_SUMMARY = "activities_summary"
+ACTIVITIY_DETAIL = "activity_detail"
 
 supabase = get_client()
 
-def insert_activity_summary(activity: dict, details: dict, user_id: int):
+def insert_activities_summary(activity: dict, details: dict, user_id: int):
     data = {
-        "id": activity["id"],
+        "activity_id": activity["id"],
         "user_id": user_id,
         "name": activity["name"],
         "date": activity["start_date_local"],
@@ -15,7 +21,7 @@ def insert_activity_summary(activity: dict, details: dict, user_id: int):
         "max_hr": details.get("max_heartrate"),
         "elevation_gain_m": details.get("total_elevation_gain"),
     }
-    response = supabase.table("activity_summary").upsert(data).execute()
+    response = supabase.table(ACTIVITIES_SUMMARY).upsert(data).execute()
     
     # response je APIResponse, ktorá má tieto atribúty:
     # - data
@@ -29,7 +35,7 @@ def insert_activity_summary(activity: dict, details: dict, user_id: int):
 
     return True
 
-def insert_activity_streams(activity_id: int, streams: dict, user_id: int, activity_date: str = None):
+def insert_activity_detail(activity_id: int, streams: dict, user_id: int, activity_date: str = None):
     rows = []
     times = streams.get("time", {}).get("data", [])
     latlng = streams.get("latlng", {}).get("data", [])
@@ -55,12 +61,12 @@ def insert_activity_streams(activity_id: int, streams: dict, user_id: int, activ
         rows.append(row)
 
     # Batch insert, môžeš rozdeliť na menšie dávky podľa potreby
-    response = supabase.table("activity_streams").upsert(rows).execute()
+    response = supabase.table(ACTIVITIY_DETAIL).upsert(rows).execute()
     return response.data
 
 def load_activities_from_db(user_id):
     try:
-        response = supabase.table("activity_summary") \
+        response = supabase.table(ACTIVITIES_SUMMARY) \
                            .select("*") \
                            .eq("user_id", user_id) \
                            .execute()
@@ -70,3 +76,66 @@ def load_activities_from_db(user_id):
     except Exception as e:
         print(f"Chyba pri načítaní aktivít: {e}")
         return []
+#def get_last_timestamp_from_db(user_id: int):    
+def get_last_timestamp_from_db(user_id: int) -> Optional[datetime]:
+    """
+    Vráti poslednú (najväčšiu) start_date_local pre daného usera z activity_summary.
+    Ak nič nie je, vráti None.
+    """
+    # vezmeme len stĺpec s časom, zoradíme desc a limit 1
+    response = supabase.table(ACTIVITIES_SUMMARY) \
+            .select("date") \
+            .eq("user_id", user_id) \
+            .order("date", desc=True) \
+            .limit(1) \
+            .execute()
+
+    rows = response.data or []
+    if not rows:
+        return None
+
+    value = rows[0].get("date")
+    if not value:
+        return None
+
+    if isinstance(value, str):
+        if value.endswith("Z"):
+            value = value.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(value)
+    else:
+        dt = value  # už datetime z klienta
+
+    # 🔒 vždy vráť timezone-aware UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+
+    return dt
+    
+def get_existing_activities_ids_from_db(user_id: int) -> Set[int]:
+    """
+    Načíta všetky už uložené Strava activity_id pre daného usera z ACTIVITIES_SUMMARY.
+    """
+    # prispôsob názov stĺpca s ID aktivity (používam `activity_id`)
+    response = (supabase.table(ACTIVITIES_SUMMARY)
+             .select("activity_id")
+             .eq("user_id", user_id)
+             .execute())
+    
+    return {int(row["id"]) for row in (response.data or []) if row.get("id") is not None}
+
+def upsert_activities_summary(user_id: int, act: dict) -> bool:
+    """
+    Tvoja existujúca/updatnutá upsert logika.
+    Očakávam, že dict `act` už obsahuje mapované polia na stĺpce tabuľky.
+    Kľúčové je, aby bola v DB unikátna kombinácia (user_id, activity_id).
+    """
+    sb = get_client()
+    payload = {**act, "user_id": user_id}
+    try:
+        sb.table(ACTIVITIES_SUMMARY).upsert(payload).execute()
+        return True
+    except Exception as e:
+        print("❌ upsert_activities_summary error:", e)
+        return False

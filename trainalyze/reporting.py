@@ -1,13 +1,9 @@
 from datetime import datetime, timezone, timedelta
-import csv
 from collections import defaultdict
 from trainalyze.utils import format_minutes_to_hours_minutes
 from trainalyze.SQL.data_manager import load_activities_from_db
 
-SUMMARY_CSV = "data/activity_summary.csv"
-
 def load_activities(user_id: str):
-    #activities = load_activities_from_CSV()
     raw_activities = load_activities_from_db(user_id)
     activities = []
     for row in raw_activities:

@@ -118,7 +118,7 @@ def get_activities(token=None, after_timestamp=None):
 
     return all_activities
 
-def get_activity_details(activity_id, token=None):
+def get_activity_data(activity_id, token=None):
     token = token or get_access_token()
     response = requests.get(
         f"https://www.strava.com/api/v3/activities/{activity_id}",
@@ -127,7 +127,7 @@ def get_activity_details(activity_id, token=None):
     response.raise_for_status()
     return response.json()
 
-def get_activity_streams(activity_id, token=None):
+def get_activity_detail(activity_id, token=None):
     token = token or get_access_token()
     response = requests.get(
         f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
