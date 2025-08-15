@@ -3,8 +3,9 @@ from Modules.SQL.db_handler import get_client
 from postgrest import APIError  # nech vieme rozlíšiť “column does not exist”
 from typing import Optional, Set, List
 
-ACTIVITIES_SUMMARY = "activities_summary"
-ACTIVITY_DETAIL = "activity_detail"
+TABLE_ACTIVITIES_SUMMARY = "activities_summary"
+TABLE_ACTIVITY_DETAIL = "activity_detail"
+TABLE_USERS = "users"
 
 supabase = get_client()
 
@@ -21,7 +22,7 @@ def insert_activities_summary(activity: dict, details: dict, user_id: int):
         "max_hr": details.get("max_heartrate"),
         "elevation_gain_m": details.get("total_elevation_gain"),
     }
-    response = supabase.table(ACTIVITIES_SUMMARY).upsert(data).execute()
+    response = supabase.table(TABLE_ACTIVITIES_SUMMARY).upsert(data).execute()
     
     # response je APIResponse, ktorá má tieto atribúty:
     # - data
@@ -64,13 +65,13 @@ def insert_activity_detail(activity_id: int, streams: dict, user_id: int, activi
     BATCH = 1000
     for start in range(0, len(rows), BATCH):
         chunk = rows[start:start+BATCH]
-        supabase.table(ACTIVITY_DETAIL).upsert(chunk).execute()
+        supabase.table(TABLE_ACTIVITY_DETAIL).upsert(chunk).execute()
 
     return True
 
 def load_activities_from_db(user_id):
     try:
-        response = supabase.table(ACTIVITIES_SUMMARY) \
+        response = supabase.table(TABLE_ACTIVITIES_SUMMARY) \
                            .select("*") \
                            .eq("user_id", user_id) \
                            .execute()
@@ -87,7 +88,7 @@ def get_last_timestamp_from_db(user_id: int) -> Optional[datetime]:
     Ak nič nie je, vráti None.
     """
     # vezmeme len stĺpec s časom, zoradíme desc a limit 1
-    response = supabase.table(ACTIVITIES_SUMMARY) \
+    response = supabase.table(TABLE_ACTIVITIES_SUMMARY) \
             .select("date") \
             .eq("user_id", user_id) \
             .order("date", desc=True) \
@@ -122,7 +123,7 @@ def get_existing_activities_ids_from_db(user_id: int) -> Set[int]:
     Načíta všetky už uložené Strava activity_id pre daného usera z ACTIVITIES_SUMMARY.
     """
     # prispôsob názov stĺpca s ID aktivity (používam `activity_id`)
-    response = (supabase.table(ACTIVITIES_SUMMARY)
+    response = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
              .select("activity_id")
              .eq("user_id", user_id)
              .execute())
@@ -137,7 +138,7 @@ def upsert_activities_summary(user_id: int, act: dict) -> bool:
     """
     payload = {**act, "user_id": user_id}
     try:
-        supabase.table(ACTIVITIES_SUMMARY).upsert(payload).execute()
+        supabase.table(TABLE_ACTIVITIES_SUMMARY).upsert(payload).execute()
         return True
     except Exception as e:
         print("❌ upsert_activities_summary error:", e)
@@ -149,14 +150,14 @@ def delete_activity_detail_for_user(user_id: int) -> int:
     Vracia počet zmazaných riadkov (ak API vráti data).
     """
     res = (supabase
-           .table(ACTIVITY_DETAIL)
+           .table(TABLE_ACTIVITY_DETAIL)
            .delete()
            .eq("user_id", int(user_id))
            .execute())
     return len(res.data or [])
 
 def delete_activity_detail_for_activity(user_id: int, activity_id: int) -> int:
-    res = (supabase.table(ACTIVITY_DETAIL)
+    res = (supabase.table(TABLE_ACTIVITY_DETAIL)
            .delete()
            .eq("user_id", int(user_id))
            .eq("activity_id", int(activity_id))

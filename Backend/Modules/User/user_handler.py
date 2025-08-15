@@ -1,15 +1,17 @@
 from Modules.SQL.db_handler import get_client
 
+TABLE_USERS = "users"
 supabase = get_client()
 
+
 def create_user(name: str, age: int, best_5k_time: str, mail_address: str, primary_sport: str):
-    check = supabase.table("runners").select("id").eq("mail_address", mail_address).execute()
+    check = supabase.table(TABLE_USERS).select("id").eq("mail_address", mail_address).execute()
 
     if check.data:
         print(f"E-mail {mail_address} už existuje. Nevkladám.")
         return None
 
-    response = supabase.table("runners").insert({
+    response = supabase.table(TABLE_USERS).insert({
         "name": name,
         "age": age,
         "best_5k_time": best_5k_time,
@@ -21,15 +23,15 @@ def create_user(name: str, age: int, best_5k_time: str, mail_address: str, prima
     return response.data
 
 def get_user_by_email(mail_address: str):
-    response = supabase.table("runners").select("*").eq("mail_address", mail_address).execute()
+    response = supabase.table(TABLE_USERS).select("*").eq("mail_address", mail_address).execute()
     return response.data
 
 def update_user(mail_address: str, **fields):
-    response = supabase.table("runners").update(fields).eq("mail_address", mail_address).execute()
+    response = supabase.table(TABLE_USERS).update(fields).eq("mail_address", mail_address).execute()
     return response.data
 
 def delete_user(mail_address: str):
-    response = supabase.table("runners").delete().eq("mail_address", mail_address).execute()
+    response = supabase.table(TABLE_USERS).delete().eq("mail_address", mail_address).execute()
     return response.data
 
 def get_or_create_user_id(email: str):

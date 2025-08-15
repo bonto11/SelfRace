@@ -1,2 +1,2 @@
-# trainalyze/SQL/__init__.py
+# Modules/SQL/__init__.py
 # package initializer

@@ -1,4 +1,44 @@
-venv/
-__pycache__/
-*.pyc
-.env
+# Python
+Backend/__pycache__/
+Backend/*.pyc
+Backend/*.pyo
+Backend/*.pyd
+Backend/*.egg-info/
+Backend/.coverage
+Backend/.pytest_cache/
+
+# Virtual environment
+Backend/.venv/
+Backend/venv/
+
+# Environment and local data
+Backend/.env
+Backend/*.env
+Backend/data/
+Backend/tokens.json
+
+# Editors
+Backend/.vscode/
+Backend/.idea/
+Backend/.DS_Store
+
+# Dependencies
+Frontend/node_modules/
+
+# Build output
+Frontend/dist/
+
+# Logs
+Frontend/npm-debug.log*
+Frontend/yarn-debug.log*
+Frontend/yarn-error.log*
+Frontend/pnpm-debug.log*
+
+# Env
+Frontend/.env
+Frontend/.env.*.local
+
+# Editors
+Frontend/.vscode/
+Frontend/.idea/
+Frontend/.DS_Store

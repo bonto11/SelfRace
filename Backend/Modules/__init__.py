@@ -1,2 +1,2 @@
-# trainalyze/__init__.py
+# Backend/Modules/__init__.py
 # package initializer

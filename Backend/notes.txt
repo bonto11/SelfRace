@@ -10,3 +10,22 @@ add column mail_address text unique;
 
 alter table runners
 add constraint runners_mail_unique unique (mail_address);
+
+--TRUNCATE TABLE activity_detail;
+ALTER TABLE runners RENAME TO users;
+
+BACKEND
+cd project_trainalyze\backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app:app --host 127.0.0.1 --port 8000
+
+
+FRONTEND
+cd project_trainalyze\frontend
+npm ci   # preferované, použije presný package-lock.json
+# ak nemáš lockfile, tak:
+# npm install
+npm run dev
+npm run build
