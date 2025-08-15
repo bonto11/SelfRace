@@ -1,4 +1,4 @@
-from trainalyze.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client
 
 supabase = get_client()
 

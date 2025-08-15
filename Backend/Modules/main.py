@@ -1,9 +1,9 @@
 from datetime import datetime, timezone, timedelta
-from trainalyze.user_handler import user_crud
-from trainalyze.user_handler import get_or_create_user_id
-import trainalyze.api_strava as api_strava
-import trainalyze.reporting as reporting
-import trainalyze.SQL.data_manager as sql_dm
+from Modules.User.user_handler import user_crud
+from Modules.User.user_handler import get_or_create_user_id
+import Modules.API.api_strava as api_strava
+import Modules.Reporting.reporting as reporting
+import Modules.SQL.data_manager as sql_dm
 
 def sync_activities(user_id: int, force_full: bool = False):
     """

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
-from trainalyze.utils import format_minutes_to_hours_minutes
-from trainalyze.SQL.data_manager import load_activities_from_db
+from Modules.utils import format_minutes_to_hours_minutes
+from Modules.SQL.data_manager import load_activities_from_db
 
 def load_activities(user_id: str):
     raw_activities = load_activities_from_db(user_id)

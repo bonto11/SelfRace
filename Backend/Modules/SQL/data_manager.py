@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from trainalyze.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client
 from postgrest import APIError  # nech vieme rozlíšiť “column does not exist”
 from typing import Optional, Set, List
 
