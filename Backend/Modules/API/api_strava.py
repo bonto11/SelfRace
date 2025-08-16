@@ -11,6 +11,7 @@ CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
 TOKENS_FILE = os.getenv("TOKENS_FILE", "data/tokens.json")
+STRAVA_BASE = "https://www.strava.com/api/v3"
 
 app = Flask(__name__)
 
@@ -55,11 +56,17 @@ def get_access_token():
             return refresh_access_token()
     return None
 
+def _auth_headers(token=None):
+    token = token or get_access_token()
+    if not token:
+        raise RuntimeError("Chýba Strava access token.")
+    return {"Authorization": f"Bearer {token}"}
+
 @app.route("/exchange_token")
 def exchange_token():
     auth_code = request.args.get("code")
     response = requests.post(
-        "https://www.strava.com/api/v3/oauth/token",
+        STRAVA_BASE + "/oauth/token",
         data={
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
@@ -101,7 +108,7 @@ def get_activities(token=None, after_timestamp=None):
             params["after"] = int(after_timestamp)
 
         response = requests.get(
-            "https://www.strava.com/api/v3/athlete/activities",
+            "{STRAVA_BASE}/athlete/activities",
             headers={"Authorization": f"Bearer {token}"},
             params=params
         )
@@ -121,7 +128,7 @@ def get_activities(token=None, after_timestamp=None):
 def get_activity_data(activity_id, token=None):
     token = token or get_access_token()
     response = requests.get(
-        f"https://www.strava.com/api/v3/activities/{activity_id}",
+        f"{STRAVA_BASE}/activities/{activity_id}",
         headers={"Authorization": f"Bearer {token}"}
     )
     response.raise_for_status()
@@ -131,9 +138,65 @@ def get_activity_detail(activity_id, token=None):
     token = token or get_access_token()
     
     response = requests.get(
-        f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+        f"{STRAVA_BASE}/activities/{activity_id}/streams",
         params={"keys": "time,latlng,altitude,heartrate,cadence,velocity_smooth", "key_by_type": "true"},
         headers={"Authorization": f"Bearer {token}"}
     )
     response.raise_for_status()
     return response.json()
+
+def get_activity_full(activity_id: int, include_all_efforts: bool = True, token=None):
+    """Kompletný JSON detail aktivity (nie streams)."""
+    headers = _auth_headers(token)
+    resp = requests.get(
+        f"{STRAVA_BASE}/activities/{activity_id}",
+        headers=headers,
+        params={"include_all_efforts": "true" if include_all_efforts else "false"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def get_activity_streams_all(activity_id: int, token=None):
+    """
+    Streamy – Strava vyžaduje zoznam kľúčov; dáme 'široký' set.
+    Kľúče, ktoré bežne existujú: time, latlng, distance, altitude, velocity_smooth,
+    heartrate, cadence, watts, temp, grade_smooth, moving.
+    """
+    headers = _auth_headers(token)
+    keys = [
+        "time", "latlng", "distance", "altitude", "velocity_smooth",
+        "heartrate", "cadence", "watts", "temp", "grade_smooth", "moving"
+    ]
+    resp = requests.get(
+        f"{STRAVA_BASE}/activities/{activity_id}/streams",
+        headers=headers,
+        params={"keys": ",".join(keys), "key_by_type": "true"},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def get_activity_laps(activity_id: int, token=None):
+    headers = _auth_headers(token)
+    resp = requests.get(f"{STRAVA_BASE}/activities/{activity_id}/laps", headers=headers, timeout=30)
+    
+     # Špeciálne ošetrenie prémiových dát
+    if resp.status_code == 402:
+        # nemáš prístup k zones – vrátime None a necháme volajúceho pokračovať
+        return None
+    
+    resp.raise_for_status()
+    return resp.json()
+
+def get_activity_zones(activity_id: int, token=None):
+    headers = _auth_headers(token)
+    resp = requests.get(f"{STRAVA_BASE}/activities/{activity_id}/zones", headers=headers, timeout=30)
+    
+     # Špeciálne ošetrenie prémiových dát
+    if resp.status_code == 402:
+        # nemáš prístup k zones – vrátime None a necháme volajúceho pokračovať
+        return None
+    
+    resp.raise_for_status()
+    return resp.json()

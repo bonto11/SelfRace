@@ -1,6 +1,12 @@
 # app.py – minimálny backend server s API pre frontend
 
+import os, sys
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+    
 import os
+import json
 import logging
 from typing import List, Optional
 from fastapi import FastAPI, Query, Path, HTTPException
@@ -8,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import math
-
+import Modules.API.api_strava as api_strava
 
 logger = logging.getLogger("uvicorn.error")
 load_dotenv()  # načíta .env z koreňa backendu
@@ -59,7 +65,6 @@ def list_activities(
     Vráti aktivity normalizované do SI:
     - distance_m (z distance_km * 1000)
     - moving_time_s (z moving_time_min * 60)
-    - elapsed_time_s (z elapsed_time * 60)  # POZOR: ak máš elapsed_time už v sekundách, zmeň konverziu nižšie
     - average_speed_mps (primárne z distance_m / moving_time_s; ak chýba, a 'avg_speed' je dostupný a je to km/h, tak km/h -> m/s)
     - average_heartrate_bpm (z avg_hr)
     - max_heartrate_bpm (z max_hr)
@@ -71,13 +76,12 @@ def list_activities(
     try:
         # berieme presne tvoje DB mená stĺpcov
         selection = (
-            "id,"
+            "activity_id,"
             "user_id,"
             "name,"
             "date,"
             "distance_km,"
             "moving_time_min,"
-            "elapsed_time,"
             "avg_hr,"
             "max_hr,"
             "avg_speed,"            # ak je to km/h, dopočítame m/s
@@ -98,7 +102,6 @@ def list_activities(
             # Vstupy z DB
             distance_km        = row.get("distance_km")
             moving_time_min    = row.get("moving_time_min")
-            elapsed_time_raw   = row.get("elapsed_time")
             avg_hr             = row.get("avg_hr")
             max_hr             = row.get("max_hr")
             avg_speed_raw      = row.get("avg_speed")  # nevieme jednotku, radšej sa nespoliehame
@@ -107,10 +110,6 @@ def list_activities(
             # Normalizácia do SI
             distance_m      = (distance_km or 0) * 1000
             moving_time_s   = (moving_time_min or 0) * 60
-
-            # ⚠️ PREDPOKLAD: elapsed_time je v MINÚTACH. Ak ho máš už v SEKUNDÁCH, zmeň nasledujúci riadok na:
-            # elapsed_time_s = int(elapsed_time_raw or 0)
-            elapsed_time_s  = int((elapsed_time_raw or 0) * 60)
 
             # Rýchlosť (m/s) – preferujeme fyzikálnu definíciu z dĺžky a času
             average_speed_mps = None
@@ -137,7 +136,6 @@ def list_activities(
                 # SI normalizované
                 "distance_m": distance_m,
                 "moving_time_s": moving_time_s,
-                "elapsed_time_s": elapsed_time_s,
                 "average_speed_mps": average_speed_mps,
                 "average_heartrate_bpm": avg_hr,
                 "max_heartrate_bpm": max_hr,
@@ -150,7 +148,6 @@ def list_activities(
                 # voliteľne: surové pre debug (ak nechceš, vyhoď tieto položky)
                 "distance_km": distance_km,
                 "moving_time_min": moving_time_min,
-                "elapsed_time_raw": elapsed_time_raw,
                 "avg_speed_raw": avg_speed_raw,
             })
 
@@ -240,3 +237,79 @@ def get_streams(
         return res.data or []
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB error: {e}")
+
+
+
+@app.get("/api/activities/{activity_id}/strava_raw")
+def probe_strava_activity(
+    activity_id: int = Path(..., description="Strava activity id"),
+    include_streams: bool = Query(False),
+    include_laps: bool = Query(False),
+    include_zones: bool = Query(False),
+    pretty: bool = Query(True, description="pretty print do logu")
+):
+    """
+    Vráti surové dáta zo Stravy pre danú aktivitu:
+      - full (detaily aktivity) – vždy
+      - streams – ak include_streams=true
+      - laps – ak include_laps=true
+      - zones – ak include_zones=true (môže vrátiť 402 pri ne-prémiu)
+    Zároveň to vypíše do konzoly (pretty JSON), ak pretty=true.
+    """
+    
+    # FULL – povinné
+    try:
+        full = api_strava.get_activity_full(activity_id, include_all_efforts=True)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Strava FULL error: {e}")
+
+    # STREAMS – voliteľné
+    streams = None
+    if include_streams:
+        try:
+            streams = api_strava.get_activity_streams_all(activity_id)
+        except Exception as e:
+            logger.info("Streams fetch failed: %s", e)
+            streams = {"__error__": str(e)}
+
+    # LAPS – voliteľné
+    laps = None
+    if include_laps:
+        try:
+            laps = api_strava.get_activity_laps(activity_id)
+        except Exception as e:
+            logger.info("Laps fetch failed: %s", e)
+            laps = {"__error__": str(e)}
+
+    # ZONES – voliteľné (často 402 bez premium)
+    zones = None
+    if include_zones:
+        try:
+            zones = api_strava.get_activity_zones(activity_id)
+        except Exception as e:
+            msg = str(e)
+            if "402" in msg or "Payment Required" in msg:
+                logger.info("Zones not available (402) for %s", activity_id)
+                zones = {"__note__": "zones require premium (402)"}
+            else:
+                logger.info("Zones fetch failed: %s", e)
+                zones = {"__error__": msg}
+
+    # Log do konzoly (prehľadne)
+    if pretty:
+        logger.info("=== STRAVA FULL %s ===\n%s", activity_id, json.dumps(full, indent=2, ensure_ascii=False))
+        if streams is not None:
+            logger.info("=== STRAVA STREAMS %s ===\n%s", activity_id, json.dumps(streams, indent=2, ensure_ascii=False))
+        if laps is not None:
+            logger.info("=== STRAVA LAPS %s ===\n%s", activity_id, json.dumps(laps, indent=2, ensure_ascii=False))
+        if zones is not None:
+            logger.info("=== STRAVA ZONES %s ===\n%s", activity_id, json.dumps(zones, indent=2, ensure_ascii=False))
+
+    # Vrátime komplet JSON (presne to, čo chceš vidieť)
+    return {
+        "activity_id": activity_id,
+        "full": full,
+        "streams": streams,
+        "laps": laps,
+        "zones": zones,
+    }

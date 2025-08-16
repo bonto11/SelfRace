@@ -20,7 +20,6 @@ export type ActivitySummary = {
   // Normalizované SI polia
   distance_m: number | null;                // metre
   moving_time_s: number | null;             // sekundy
-  elapsed_time_s: number | null;            // sekundy
   average_speed_mps: number | null;         // m/s
   average_heartrate_bpm: number | null;     // bpm
   max_heartrate_bpm: number | null;         // bpm

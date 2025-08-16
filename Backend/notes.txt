@@ -29,3 +29,8 @@ npm ci   # preferované, použije presný package-lock.json
 # npm install
 npm run dev
 npm run build
+
+
+
+
+Invoke-WebRequest "http://127.0.0.1:8000/api/activities/15342917851/strava_raw"
