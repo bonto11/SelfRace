@@ -1,99 +1,68 @@
-from datetime import datetime, timezone
-from Modules.SQL.db_handler import get_client
-from postgrest import APIError  # nech vieme rozlíšiť “column does not exist”
-from typing import Optional, Set, List
+from __future__ import annotations
 
+from datetime import datetime, timezone
+from typing import Optional, Set, List, Dict, Any
+
+from postgrest import APIError
+from Modules.SQL.db_handler import get_client
+
+# ---- Názvy tabuliek (podľa tvojej DB) ----
 TABLE_ACTIVITIES_SUMMARY = "activities_summary"
-TABLE_ACTIVITY_DETAIL = "activity_detail"
-TABLE_USERS = "users"
+TABLE_ACTIVITY_DETAILS   = "activity_details"
+TABLE_ACTIVITIES_SPLITS  = "activities_splits"
+TABLE_ACTIVITIES_LAPS    = "activities_laps"
+TABLE_ACTIVITIES_RAW     = "activities_raw"
+TABLE_USERS              = "users"
 
 supabase = get_client()
 
-def insert_activities_summary(activity: dict, details: dict, user_id: int):
-    data = {
-        "activity_id": activity["id"],
-        "user_id": user_id,
-        "name": activity["name"],
-        "date": activity["start_date_local"],
-        "type": activity["type"],
-        "distance_km": round(activity["distance"] / 1000, 2),
-        "moving_time_min": activity["moving_time"] // 60,
-        "avg_hr": details.get("average_heartrate"),
-        "max_hr": details.get("max_heartrate"),
-        "elevation_gain_m": details.get("total_elevation_gain"),
-    }
-    response = supabase.table(TABLE_ACTIVITIES_SUMMARY).upsert(data).execute()
-    
-    # response je APIResponse, ktorá má tieto atribúty:
-    # - data
-    # - count
-    # - error (niekedy None)
 
-     # Tu je tá zmena
-    if hasattr(response, 'error') and response.error is not None:
-        print(f"Chyba pri ukladaní: {response.error}")
-        return False
-
-    return True
-
-def insert_activity_detail(activity_id: int, streams: dict, user_id: int, activity_date: str = None):
-    rows = []
-    times = streams.get("time", {}).get("data", [])
-    latlng = streams.get("latlng", {}).get("data", [])
-    altitude = streams.get("altitude", {}).get("data", [])
-    heartrate = streams.get("heartrate", {}).get("data", [])
-    cadence = streams.get("cadence", {}).get("data", [])
-    velocity = streams.get("velocity_smooth", {}).get("data", [])
-
-    for i in range(len(times)):
-        lat, lng = (latlng[i] if i < len(latlng) else (None, None))
-        row = {
-            "activity_id": activity_id,
-            "user_id": user_id,
-            "activity_date": activity_date,
-            "time": times[i] if i < len(times) else None,         # sekundy od štartu
-            "lat": lat,
-            "lng": lng,
-            "altitude_m": altitude[i] if i < len(altitude) else None,
-            "heartrate_bpm": heartrate[i] if i < len(heartrate) else None,
-            "cadence_rpm": cadence[i] if i < len(cadence) else None,
-            "speed_m_s": velocity[i] if i < len(velocity) else None,
-        }
-        rows.append(row)
-
-    # odporúčam batchovať, ak je veľa bodov (410–1000 na dávku)
-    BATCH = 1000
-    for start in range(0, len(rows), BATCH):
-        chunk = rows[start:start+BATCH]
-        supabase.table(TABLE_ACTIVITY_DETAIL).upsert(chunk).execute()
-
-    return True
-
-def load_activities_from_db(user_id):
+# =============================
+# Pomocné konverzné funkcie
+# =============================
+def _to_float(x: Any, default: float | None = None) -> float | None:
     try:
-        response = supabase.table(TABLE_ACTIVITIES_SUMMARY) \
-                           .select("*") \
-                           .eq("user_id", user_id) \
-                           .execute()
+        return float(x)
+    except (TypeError, ValueError):
+        return default
 
-        return response.data or []  # ak nie sú žiadne dáta, vráti prázdny list
+def _to_int(x: Any, default: int | None = None) -> int | None:
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return default
 
+def _compute_pace_seconds_per_km(distance_m: int | float | None, moving_time_s: int | float | None) -> int | None:
+    if not distance_m or not moving_time_s or distance_m <= 0 or moving_time_s <= 0:
+        return None
+    seconds = float(moving_time_s) / (float(distance_m) / 1000.0)
+    return int(round(seconds))
+
+
+# =============================
+# Čítanie z DB
+# =============================
+def load_activities_from_db(user_id: int) -> List[Dict[str, Any]]:
+    try:
+        response = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
+                    .select("*")
+                    .eq("user_id", user_id)
+                    .execute())
+        return response.data or []
     except Exception as e:
         print(f"Chyba pri načítaní aktivít: {e}")
         return []
- 
+
 def get_last_timestamp_from_db(user_id: int) -> Optional[datetime]:
     """
-    Vráti poslednú (najväčšiu) start_date_local pre daného usera z activity_summary.
-    Ak nič nie je, vráti None.
+    Vráti posledný (max) čas 'date' pre daného usera z activities_summary.
     """
-    # vezmeme len stĺpec s časom, zoradíme desc a limit 1
-    response = supabase.table(TABLE_ACTIVITIES_SUMMARY) \
-            .select("date") \
-            .eq("user_id", user_id) \
-            .order("date", desc=True) \
-            .limit(1) \
-            .execute()
+    response = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
+                .select("date")
+                .eq("user_id", user_id)
+                .order("date", desc=True)
+                .limit(1)
+                .execute())
 
     rows = response.data or []
     if not rows:
@@ -104,74 +73,356 @@ def get_last_timestamp_from_db(user_id: int) -> Optional[datetime]:
         return None
 
     if isinstance(value, str):
+        # Supabase vracia ISO8601, niekedy s 'Z'
         if value.endswith("Z"):
             value = value.replace("Z", "+00:00")
         dt = datetime.fromisoformat(value)
     else:
-        dt = value  # už datetime z klienta
+        dt = value
 
-    # 🔒 vždy vráť timezone-aware UTC
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     else:
         dt = dt.astimezone(timezone.utc)
 
     return dt
-    
+
 def get_existing_activities_ids_from_db(user_id: int) -> Set[int]:
     """
-    Načíta všetky už uložené Strava activity_id pre daného usera z ACTIVITIES_SUMMARY.
+    Načíta všetky už uložené Strava activity_id pre daného usera z activities_summary.
     """
-    # prispôsob názov stĺpca s ID aktivity (používam `activity_id`)
     response = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
-             .select("activity_id")
-             .eq("user_id", user_id)
-             .execute())
-    
-    return {int(row["id"]) for row in (response.data or []) if row.get("id") is not None}
+                .select("activity_id")
+                .eq("user_id", user_id)
+                .execute())
 
-def upsert_activities_summary(user_id: int, act: dict) -> bool:
+    return {int(row["activity_id"]) for row in (response.data or []) if row.get("activity_id") is not None}
+
+
+# =============================
+# SUMMARY (FULL JSON -> SI)
+# =============================
+def upsert_activity_summary_from_full(user_id: int, full: Dict[str, Any]) -> bool:
     """
-    Tvoja existujúca/updatnutá upsert logika.
-    Očakávam, že dict `act` už obsahuje mapované polia na stĺpce tabuľky.
-    Kľúčové je, aby bola v DB unikátna kombinácia (user_id, activity_id).
+    Uloží/aktualizuje riadok v activities_summary zo Strava FULL JSONu v SI jednotkách.
+    Očakáva polia ako v tvojom vzorku: distance (m), moving_time (s), average_speed (m/s), atď.
     """
-    payload = {**act, "user_id": user_id}
     try:
+        activity_id = _to_int(full.get("id"))
+        if activity_id is None:
+            raise ValueError("FULL JSON neobsahuje 'id' aktivity.")
+
+        distance_m = _to_int(round(full.get("distance") or 0))
+        moving_time_s = _to_int(full.get("moving_time") or 0)
+        elapsed_time_s = _to_int(full.get("elapsed_time") or 0)
+
+        payload = {
+            "activity_id": activity_id,
+            "user_id": user_id,
+            "name": full.get("name"),
+            "date": full.get("start_date_local"),
+            "timezone": full.get("timezone"),
+            "utc_offset_s": _to_int(full.get("utc_offset")),
+            "distance_m": distance_m,
+            "moving_time_s": moving_time_s,
+            "elapsed_time_s": elapsed_time_s,
+            "elevation_gain_m": _to_int(round(full.get("total_elevation_gain") or 0)),
+            "average_speed_mps": _to_float(full.get("average_speed")),
+            "max_speed_mps": _to_float(full.get("max_speed")),
+            "average_cadence_rpm": _to_float(full.get("average_cadence")),
+            "average_temp_c": _to_float(full.get("average_temp")),
+            "average_watts": _to_float(full.get("average_watts")),
+            "max_watts": _to_float(full.get("max_watts")),
+            "average_heartrate_bpm": _to_int(round(full.get("average_heartrate"))) if full.get("average_heartrate") is not None else None,
+            "max_heartrate_bpm": _to_int(full.get("max_heartrate")),
+            "elev_high_m": _to_float(full.get("elev_high")),
+            "elev_low_m": _to_float(full.get("elev_low")),
+            "achievement_count": _to_int(full.get("achievement_count")),
+            "pr_count": _to_int(full.get("pr_count")),
+            "calories_kcal": _to_int(full.get("calories")),
+            "sport_type": full.get("sport_type") or full.get("type"),
+            "description": full.get("description"),
+            "gear_id": (full.get("gear") or {}).get("id"),
+            "gear_name": (full.get("gear") or {}).get("name"),
+            "pace_seconds_per_km": _compute_pace_seconds_per_km(distance_m, moving_time_s),
+        }
+
         supabase.table(TABLE_ACTIVITIES_SUMMARY).upsert(payload).execute()
         return True
+
     except Exception as e:
-        print("❌ upsert_activities_summary error:", e)
+        print("❌ upsert_activity_summary_from_full error:", e)
         return False
 
-def delete_activity_detail_for_user(user_id: int) -> int:
-    """
-    Zmaže všetky riadky z activity_detail pre daného usera.
-    Vracia počet zmazaných riadkov (ak API vráti data).
-    """
-    res = (supabase
-           .table(TABLE_ACTIVITY_DETAIL)
-           .delete()
-           .eq("user_id", int(user_id))
-           .execute())
-    return len(res.data or [])
 
-def delete_activity_detail_for_activity(user_id: int, activity_id: int) -> int:
-    res = (supabase.table(TABLE_ACTIVITY_DETAIL)
+# =============================
+# STREAMS (activity_details)
+# =============================
+def insert_activity_details(activity_id: int, streams: dict, user_id: int, activity_date: str | None = None) -> bool:
+    """
+    Ukladá time-series z /streams. Očakáva key_by_type=True štruktúru.
+    """
+    rows: List[Dict[str, Any]] = []
+
+    times = streams.get("time", {}).get("data", []) or []
+    latlng = streams.get("latlng", {}).get("data", []) or []
+    altitude = streams.get("altitude", {}).get("data", []) or []
+    heartrate = streams.get("heartrate", {}).get("data", []) or []
+    cadence = streams.get("cadence", {}).get("data", []) or []
+    velocity = streams.get("velocity_smooth", {}).get("data", []) or []
+
+    # voliteľné
+    watts = streams.get("watts", {}).get("data", []) or []
+    temp = streams.get("temp", {}).get("data", []) or []
+    grade = streams.get("grade_smooth", {}).get("data", []) or []
+    distance_stream = streams.get("distance", {}).get("data", []) or []
+    moving_flag = streams.get("moving", {}).get("data", []) or []
+
+    n = len(times)
+    for i in range(n):
+        lat, lng = (latlng[i] if i < len(latlng) else (None, None))
+        row = {
+            "activity_id": activity_id,
+            "user_id": user_id,
+            "activity_date": activity_date,
+            "time": times[i] if i < len(times) else None,   # sekunda od štartu
+            "lat": lat,
+            "lng": lng,
+            "altitude_m": altitude[i] if i < len(altitude) else None,
+            "heartrate_bpm": heartrate[i] if i < len(heartrate) else None,
+            "cadence_rpm": cadence[i] if i < len(cadence) else None,
+            "speed_m_s": velocity[i] if i < len(velocity) else None,
+            # voliteľné:
+            "watts": watts[i] if i < len(watts) else None,
+            "temp_c": temp[i] if i < len(temp) else None,
+            "grade_smooth_pct": grade[i] if i < len(grade) else None,
+            "distance_stream_m": distance_stream[i] if i < len(distance_stream) else None,
+            "moving_flag": moving_flag[i] if i < len(moving_flag) else None,
+        }
+        rows.append(row)
+
+    if not rows:
+        return True
+
+    BATCH = 1000
+    for start in range(0, len(rows), BATCH):
+        chunk = rows[start:start + BATCH]
+        supabase.table(TABLE_ACTIVITY_DETAILS).upsert(chunk).execute()
+
+    return True
+
+def delete_activity_details_for_activity(user_id: int, activity_id: int) -> int:
+    res = (supabase.table(TABLE_ACTIVITY_DETAILS)
            .delete()
            .eq("user_id", int(user_id))
            .eq("activity_id", int(activity_id))
            .execute())
     return len(res.data or [])
 
-def replace_activity_detail(user_id: int, activity_id: int, streams: dict, activity_date: str | None = None) -> bool:
+def replace_activity_details(user_id: int, activity_id: int, streams: dict, activity_date: str | None = None) -> bool:
     """
-    Vymaže všetky staré detail dáta pre usera a uloží nové pre vybranú aktivitu.
+    Vymaže staré detailné dáta len pre danú aktivitu a vloží nové.
     """
     try:
-        delete_activity_detail_for_user(user_id)  # alebo delete_activity_detail_for_activity(user_id, activity_id)
-        ok = insert_activity_detail(activity_id=activity_id, streams=streams, user_id=user_id, activity_date=activity_date)
+        delete_activity_details_for_activity(user_id, activity_id)
+        ok = insert_activity_details(activity_id=activity_id, streams=streams, user_id=user_id, activity_date=activity_date)
         return bool(ok)
     except Exception as e:
-        print("❌ replace_activity_detail error:", e)
+        print("❌ replace_activity_details error:", e)
         return False
+
+
+# =============================
+# SPLITS (auto km/mile Strava)
+# =============================
+def replace_activity_splits(user_id: int, activity_id: int, splits_metric: List[Dict[str, Any]] | None) -> bool:
+    try:
+        (supabase.table(TABLE_ACTIVITIES_SPLITS)
+         .delete()
+         .eq("user_id", user_id)
+         .eq("activity_id", activity_id)
+         .execute())
+
+        if not splits_metric:
+            return True
+
+        rows: List[Dict[str, Any]] = []
+        for s in splits_metric:
+            distance_m = _to_int(round(s.get("distance") or 0), 0)
+            moving_time_s = _to_int(s.get("moving_time"), 0)
+
+            rows.append({
+                "activity_id": activity_id,
+                "user_id": user_id,
+                "split_index": _to_int(s.get("split"), 0),
+                "distance_m": distance_m,
+                "moving_time_s": moving_time_s,
+                "elapsed_time_s": _to_int(s.get("elapsed_time"), 0),
+                "elevation_diff_m": _to_float(s.get("elevation_difference")),
+                "avg_speed_mps": _to_float(s.get("average_speed")),
+                "avg_gap_mps": _to_float(s.get("average_grade_adjusted_speed")),
+                "avg_hr_bpm": _to_int(round(s.get("average_heartrate"))) if s.get("average_heartrate") is not None else None,
+                "pace_s_per_km": _compute_pace_seconds_per_km(distance_m, moving_time_s),
+            })
+
+        if rows:
+            supabase.table(TABLE_ACTIVITIES_SPLITS).upsert(rows).execute()
+        return True
+
+    except Exception as e:
+        print("❌ replace_activity_splits error:", e)
+        return False
+
+
+# =============================
+# LAPS (zariadením/manuálne)
+# =============================
+def replace_activity_laps(user_id: int, activity_id: int, laps: List[Dict[str, Any]] | None) -> bool:
+    try:
+        (supabase.table(TABLE_ACTIVITIES_LAPS)
+         .delete()
+         .eq("user_id", user_id)
+         .eq("activity_id", activity_id)
+         .execute())
+
+        if not laps:
+            return True
+
+        rows: List[Dict[str, Any]] = []
+        for i, l in enumerate(laps, start=1):
+            distance_m = _to_int(round(l.get("distance") or 0), 0)
+            moving_time_s = _to_int(l.get("moving_time"), 0)
+
+            rows.append({
+                "activity_id": activity_id,
+                "user_id": user_id,
+                "lap_index": _to_int(l.get("lap_index"), i),
+                "start_date_local": l.get("start_date_local"),
+                "distance_m": distance_m,
+                "moving_time_s": moving_time_s,
+                "elapsed_time_s": _to_int(l.get("elapsed_time"), 0),
+                "total_elev_gain_m": _to_float(l.get("total_elevation_gain")),
+                "avg_speed_mps": _to_float(l.get("average_speed")),
+                "max_speed_mps": _to_float(l.get("max_speed")),
+                "avg_cadence_rpm": _to_float(l.get("average_cadence")),
+                "avg_watts": _to_float(l.get("average_watts")),
+                "avg_hr_bpm": _to_int(round(l.get("average_heartrate"))) if l.get("average_heartrate") is not None else None,
+                "max_hr_bpm": _to_int(l.get("max_heartrate")),
+                "pace_s_per_km": _compute_pace_seconds_per_km(distance_m, moving_time_s),
+            })
+
+        if rows:
+            supabase.table(TABLE_ACTIVITIES_LAPS).upsert(rows).execute()
+        return True
+
+    except Exception as e:
+        print("❌ replace_activity_laps error:", e)
+        return False
+
+
+# =============================
+# BEST EFFORTS -> USERS PR
+# =============================
+_BEST_MAP = {
+    "400m": ("best_400", "best_400_id"),
+    "1k":   ("best_1k", "best_1k_id"),
+    "5K":   ("best_5k", "best_5k_id"),
+    "10k":  ("best_10k", "best_10k_id"),
+    "Half-Marathon": ("best_half", "best_half_id"),
+    "Marathon":      ("best_marathon", "best_marathon_id"),
+}
+
+def maybe_update_user_bests_from_full(user_id: int, activity_id: int, best_efforts: List[Dict[str, Any]] | None) -> None:
+    """
+    Porovná PR v users s best_efforts zo Stravy. Ak je nový čas lepší (menší), updatuje users.* polia.
+    Časy ukladáme v sekundách.
+    """
+    if not best_efforts:
+        return
+
+    # načítaj aktuálne hodnoty usera
+    user_resp = (supabase.table(TABLE_USERS)
+                 .select("*")
+                 .eq("id", user_id)
+                 .limit(1)
+                 .execute())
+    if not user_resp.data:
+        return
+    user_row = user_resp.data[0]
+
+    updates: Dict[str, Any] = {}
+
+    for b in best_efforts:
+        name = b.get("name")
+        mapping = _BEST_MAP.get(name)
+        if not mapping:
+            continue
+
+        time_seconds = _to_int(b.get("moving_time"))
+        if time_seconds is None or time_seconds <= 0:
+            continue
+
+        time_col, id_col = mapping
+        current_best: Optional[int] = user_row.get(time_col)
+
+        # ak neexistuje alebo nový je lepší (menší), aktualizuj
+        if current_best is None or (isinstance(current_best, int) and time_seconds < current_best):
+            updates[time_col] = time_seconds
+            updates[id_col] = activity_id
+
+    if updates:
+        (supabase.table(TABLE_USERS)
+         .update(updates)
+         .eq("id", user_id)
+         .execute())
+
+
+# =============================
+# RAW ARCHÍV (voliteľné)
+# =============================
+def archive_activity_raw(user_id: int, activity_id: int, full_payload: Dict[str, Any]) -> bool:
+    try:
+        (supabase.table(TABLE_ACTIVITIES_RAW)
+         .upsert({
+             "activity_id": int(activity_id),
+             "user_id": int(user_id),
+             "payload": full_payload,
+         })
+         .execute())
+        return True
+    except Exception as e:
+        print("❌ archive_activity_raw error:", e)
+        return False
+    
+def get_activity_date(user_id: int, activity_id: int) -> str | None:
+    """
+    Vráti `date` (timestamptz) z activities_summary pre danú aktivitu/usera
+    vo formáte ISO8601 (string), alebo None ak nenájde.
+    """
+    try:
+        resp = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
+                .select("date")
+                .eq("user_id", user_id)
+                .eq("activity_id", activity_id)
+                .limit(1)
+                .execute())
+        row = (resp.data or [None])[0]
+        if not row:
+            return None
+        return row.get("date")
+    except Exception as e:
+        print(f"❌ get_activity_date error: {e}")
+        return None
+
+def get_activity_summary(user_id: int, activity_id: int) -> dict | None:
+    try:
+        resp = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("activity_id", activity_id)
+                .limit(1)
+                .execute())
+        return (resp.data or [None])[0]
+    except Exception as e:
+        print(f"❌ get_activity_summary error: {e}")
+        return None

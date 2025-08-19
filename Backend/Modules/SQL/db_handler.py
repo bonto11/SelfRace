@@ -6,5 +6,7 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
  
-def get_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+def get_client():
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE")  # backend používa service role!
+    return create_client(url, key)

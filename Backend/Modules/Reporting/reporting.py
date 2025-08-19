@@ -3,17 +3,50 @@ from collections import defaultdict
 from Modules.utils import format_minutes_to_hours_minutes
 from Modules.SQL.data_manager import load_activities_from_db
 
+def _parse_iso(dt_str: str):
+    if not dt_str:
+        return None
+    # Supabase/Strava: niekedy končí na 'Z'
+    if isinstance(dt_str, str) and dt_str.endswith("Z"):
+        dt_str = dt_str.replace("Z", "+00:00")
+    return datetime.fromisoformat(dt_str)
+
 def load_activities(user_id: str):
     raw_activities = load_activities_from_db(user_id)
     activities = []
     for row in raw_activities:
         try:
-            row["date"] = datetime.fromisoformat(row["date"].replace("Z", "+00:00"))
-            row["distance_km"] = float(row["distance_km"])
-            row["moving_time_min"] = int(row["moving_time_min"])
-            row["avg_hr"] = float(row["avg_hr"]) if row["avg_hr"] not in (None, "N/A") else None
-            row["max_hr"] = float(row["max_hr"]) if row["max_hr"] not in (None, "N/A") else None
-            row["elevation_gain_m"] = float(row["elevation_gain_m"])
+            # --- dátum ---
+            row_date = row.get("date")
+            row["date"] = _parse_iso(row_date)
+
+            # --- SI -> ľudské metriky pre reporting ---
+            distance_m = row.get("distance_m") or 0
+            moving_time_s = row.get("moving_time_s") or 0
+            row["distance_km"] = float(distance_m) / 1000.0
+            row["moving_time_min"] = int(round(float(moving_time_s) / 60.0))
+
+            # HR a prevýšenie
+            row["avg_hr"] = (
+                float(row.get("average_heartrate_bpm"))
+                if row.get("average_heartrate_bpm") not in (None, "N/A")
+                else None
+            )
+            row["max_hr"] = (
+                float(row.get("max_heartrate_bpm"))
+                if row.get("max_heartrate_bpm") not in (None, "N/A")
+                else None
+            )
+            elev = row.get("elevation_gain_m")
+            row["elevation_gain_m"] = float(elev) if elev is not None else 0.0
+
+            # typ aktivity
+            row["type"] = row.get("sport_type") or row.get("type") or "Unknown"
+
+            # validácia dátumu
+            if row["date"] is None:
+                raise ValueError("missing/invalid date")
+
             activities.append(row)
         except Exception as e:
             print(f"⚠️ Skipping invalid row due to error: {e}")
@@ -22,7 +55,6 @@ def load_activities(user_id: str):
 def filter_activities(activities, start_date, end_date):
     def remove_tz(dt):
         return dt.replace(tzinfo=None)
-
     return [
         act for act in activities
         if remove_tz(start_date) <= remove_tz(act["date"]) < remove_tz(end_date)
@@ -41,11 +73,13 @@ def summarize_activities(activities):
         summary["total_moving_time_min"] += act["moving_time_min"]
         summary["total_elevation_gain_m"] += act["elevation_gain_m"]
         count_by_type[act["type"]] += 1
+
         if act["avg_hr"] is not None:
             avg_hr_values.append(act["avg_hr"])
         if act["max_hr"] is not None:
             max_hr_values.append(act["max_hr"])
-        if act["type"].lower() == "run" and act["distance_km"] > longest_run:
+
+        if str(act["type"]).lower() == "run" and act["distance_km"] > longest_run:
             longest_run = act["distance_km"]
         if act["elevation_gain_m"] > biggest_climb:
             biggest_climb = act["elevation_gain_m"]
