@@ -273,6 +273,17 @@ def replace_activity_splits(user_id: int, activity_id: int, splits_metric: List[
         print("❌ replace_activity_splits error:", e)
         return False
 
+def delete_activity_splits(user_id: int, activity_id: int) -> int:
+    """
+    Zmaže všetky SPLITS pre daného používateľa a aktivitu.
+    Vracia počet zmazaných riadkov (ak API vráti data).
+    """
+    res = (supabase.table(TABLE_ACTIVITIES_SPLITS)
+           .delete()
+           .eq("user_id", int(user_id))
+           .eq("activity_id", int(activity_id))
+           .execute())
+    return len(res.data or [])
 
 # =============================
 # LAPS (zariadením/manuálne)
@@ -318,6 +329,18 @@ def replace_activity_laps(user_id: int, activity_id: int, laps: List[Dict[str, A
     except Exception as e:
         print("❌ replace_activity_laps error:", e)
         return False
+
+def delete_activity_laps(user_id: int, activity_id: int) -> int:
+    """
+    Zmaže všetky LAPS pre daného používateľa a aktivitu.
+    Vracia počet zmazaných riadkov (ak API vráti data).
+    """
+    res = (supabase.table(TABLE_ACTIVITIES_LAPS)
+           .delete()
+           .eq("user_id", int(user_id))
+           .eq("activity_id", int(activity_id))
+           .execute())
+    return len(res.data or [])
 
 
 # =============================
