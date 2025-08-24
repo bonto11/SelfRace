@@ -1,10 +1,16 @@
 from typing import Optional
 from Modules.SQL.db_handler import get_service_client
 
-supabase = get_service_client()
 TABLE_USERS = "users"
+TABLE_USERS_PROFILE = "users_profile"
+TABLE_USERS_ZONES = "users_zones"
+TABLE_USERS_THRESHOLDS = "users_thresholds"
+TABLE_USERS_BESTS = "users_bests"
+TABLE_USERS_RECOVERY = "users_recovery"
 
-def create_user(name: str, age: int, mail_address: str, primary_sport: str,
+supabase = get_service_client()
+
+def create_user(name: str, age: int, mail_address: str,
                 display_name: Optional[str] = None, auth_uid: Optional[str] = None):
     exists = supabase.table(TABLE_USERS).select("id").eq("mail_address", mail_address).limit(1).execute()
     if exists.data:
@@ -15,7 +21,6 @@ def create_user(name: str, age: int, mail_address: str, primary_sport: str,
         "name": name,
         "age": age,
         "mail_address": mail_address,
-        "primary_sport": primary_sport,
         "display_name": display_name or name,
     }
     if auth_uid:
@@ -38,7 +43,6 @@ def delete_user(mail_address: str):
 
 def get_or_create_user_id(email: str, *,
                           name: str = "New User",
-                          primary_sport: str = "running",
                           display_name: Optional[str] = None,
                           auth_uid: Optional[str] = None) -> int:
     user = get_user_by_email(email)
@@ -48,7 +52,6 @@ def get_or_create_user_id(email: str, *,
             name=name,
             age=0,
             mail_address=email,
-            primary_sport=primary_sport,
             display_name=display_name or name,
             auth_uid=auth_uid
         )
@@ -56,3 +59,61 @@ def get_or_create_user_id(email: str, *,
         if not user:
             raise RuntimeError("Nepodarilo sa vytvoriť používateľa")
     return user[0]["id"]
+
+# --- USER PROFILE ---
+def insert_or_update_user_profile(user_id: int, **fields):
+    payload = {"user_id": user_id, **fields}
+    resp = supabase.table(TABLE_USERS_PROFILE).upsert(payload).execute()
+    print("✅ user_profile uložené:", resp.data)
+    return resp.data
+
+def get_user_profile(user_id: int):
+    return supabase.table(TABLE_USERS_PROFILE).select("*").eq("user_id", user_id).limit(1).execute().data
+
+
+# --- USER ZONES ---
+def insert_or_update_user_zones(user_id: int, **fields):
+
+    payload = {"user_id": user_id, **fields}
+    resp = supabase.table(TABLE_USERS_ZONES).upsert(payload).execute()
+    print("✅ user_zones uložené:", resp.data)
+    return resp.data
+
+def get_user_zones(user_id: int):
+    return supabase.table(TABLE_USERS_ZONES).select("*").eq("user_id", user_id).limit(1).execute().data
+
+
+# --- USER THRESHOLDS ---
+def insert_or_update_user_thresholds(user_id: int, **fields):
+
+    payload = {"user_id": user_id, **fields}
+    resp = supabase.table(TABLE_USERS_THRESHOLDS).upsert(payload).execute()
+    print("✅ user_thresholds uložené:", resp.data)
+    return resp.data
+
+def get_user_thresholds(user_id: int):
+    return supabase.table(TABLE_USERS_THRESHOLDS).select("*").eq("user_id", user_id).limit(1).execute().data
+
+
+# --- USER BESTS ---
+def insert_or_update_user_bests(user_id: int, **fields):
+
+    payload = {"user_id": user_id, **fields}
+    resp = supabase.table(TABLE_USERS_BESTS).upsert(payload).execute()
+    print("✅ user_bests uložené:", resp.data)
+    return resp.data
+
+def get_user_bests(user_id: int):
+    return supabase.table(TABLE_USERS_BESTS).select("*").eq("user_id", user_id).limit(1).execute().data
+
+# --- USER DAILY RECOVERY ---
+def insert_or_update_user_recovery(user_id: int, **fields):
+
+    payload = {"user_id": user_id, **fields}
+    resp = supabase.table(TABLE_USERS_RECOVERY).upsert(payload).execute()
+    print("✅ user_daily_recovery uložené:", resp.data)
+    return resp.data
+
+def get_user_recovery(user_id: int):
+    return supabase.table(TABLE_USERS_RECOVERY).select("*").eq("user_id", user_id).limit(1).execute().data
+
