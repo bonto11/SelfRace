@@ -1,12 +1,22 @@
 from typing import Optional
 from Modules.SQL.db_handler import get_service_client
 
-TABLE_USERS = "users"
-TABLE_USERS_PROFILE = "users_profile"
-TABLE_USERS_ZONES = "users_zones"
-TABLE_USERS_THRESHOLDS = "users_thresholds"
-TABLE_USERS_BESTS = "users_bests"
-TABLE_USERS_RECOVERY = "users_recovery"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TABLE_ACTIVITIES_SUMMARY = os.getenv("TABLE_ACTIVITIES_SUMMARY")
+TABLE_ACTIVITY_DETAILS = os.getenv("TABLE_ACTIVITY_DETAILS")
+TABLE_ACTIVITIES_SPLITS = os.getenv("TABLE_ACTIVITIES_SPLITS")
+TABLE_ACTIVITIES_LAPS = os.getenv("TABLE_ACTIVITIES_LAPS")
+TABLE_ACTIVITIES_RAW = os.getenv("TABLE_ACTIVITIES_RAW")
+TABLE_USERS = os.getenv("TABLE_USERS")
+TABLE_USERS_PROFILE = os.getenv("TABLE_USERS_PROFILE")
+TABLE_USERS_ZONES = os.getenv("TABLE_USERS_ZONES")
+TABLE_USERS_THRESHOLDS = os.getenv("TABLE_USERS_THRESHOLDS")
+TABLE_USERS_BESTS = os.getenv("TABLE_USERS_BESTS")
+TABLE_USERS_RECOVERY = os.getenv("TABLE_USERS_RECOVERY")
 
 supabase = get_service_client()
 

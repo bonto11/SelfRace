@@ -2,20 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Optional, Set, List, Dict, Any
-
-from postgrest import APIError
 from Modules.SQL.db_handler import get_client
-
-# ---- Názvy tabuliek (podľa tvojej DB) ----
-TABLE_ACTIVITIES_SUMMARY = "activities_summary"
-TABLE_ACTIVITY_DETAILS   = "activity_details"
-TABLE_ACTIVITIES_SPLITS  = "activities_splits"
-TABLE_ACTIVITIES_LAPS    = "activities_laps"
-TABLE_ACTIVITIES_RAW     = "activities_raw"
-TABLE_USERS              = "users"
+from .config import TABLE_ACTIVITIES_SUMMARY, TABLE_ACTIVITY_DETAILS, TABLE_ACTIVITIES_SPLITS, TABLE_ACTIVITIES_LAPS, TABLE_ACTIVITIES_RAW, TABLE_USERS, TABLE_USERS_PROFILE, TABLE_USERS_ZONES, TABLE_USERS_THRESHOLDS, TABLE_USERS_BESTS, TABLE_USERS_RECOVERY
 
 supabase = get_client()
-
 
 # =============================
 # Pomocné konverzné funkcie
@@ -154,7 +144,6 @@ def upsert_activity_summary_from_full(user_id: int, full: Dict[str, Any]) -> boo
         print("❌ upsert_activity_summary_from_full error:", e)
         return False
 
-
 # =============================
 # STREAMS (activity_details)
 # =============================
@@ -230,7 +219,6 @@ def replace_activity_details(user_id: int, activity_id: int, streams: dict, acti
     except Exception as e:
         print("❌ replace_activity_details error:", e)
         return False
-
 
 # =============================
 # SPLITS (auto km/mile Strava)
@@ -344,63 +332,6 @@ def delete_activity_laps(user_id: int, activity_id: int) -> int:
 
 
 # =============================
-# BEST EFFORTS -> USERS PR
-# =============================
-_BEST_MAP = {
-    "400m": ("best_400", "best_400_id"),
-    "1k":   ("best_1k", "best_1k_id"),
-    "5K":   ("best_5k", "best_5k_id"),
-    "10k":  ("best_10k", "best_10k_id"),
-    "Half-Marathon": ("best_half", "best_half_id"),
-    "Marathon":      ("best_marathon", "best_marathon_id"),
-}
-
-def maybe_update_user_bests_from_full(user_id: int, activity_id: int, best_efforts: List[Dict[str, Any]] | None) -> None:
-    """
-    Porovná PR v users s best_efforts zo Stravy. Ak je nový čas lepší (menší), updatuje users.* polia.
-    Časy ukladáme v sekundách.
-    """
-    if not best_efforts:
-        return
-
-    # načítaj aktuálne hodnoty usera
-    user_resp = (supabase.table(TABLE_USERS)
-                 .select("*")
-                 .eq("id", user_id)
-                 .limit(1)
-                 .execute())
-    if not user_resp.data:
-        return
-    user_row = user_resp.data[0]
-
-    updates: Dict[str, Any] = {}
-
-    for b in best_efforts:
-        name = b.get("name")
-        mapping = _BEST_MAP.get(name)
-        if not mapping:
-            continue
-
-        time_seconds = _to_int(b.get("moving_time"))
-        if time_seconds is None or time_seconds <= 0:
-            continue
-
-        time_col, id_col = mapping
-        current_best: Optional[int] = user_row.get(time_col)
-
-        # ak neexistuje alebo nový je lepší (menší), aktualizuj
-        if current_best is None or (isinstance(current_best, int) and time_seconds < current_best):
-            updates[time_col] = time_seconds
-            updates[id_col] = activity_id
-
-    if updates:
-        (supabase.table(TABLE_USERS)
-         .update(updates)
-         .eq("id", user_id)
-         .execute())
-
-
-# =============================
 # RAW ARCHÍV (voliteľné)
 # =============================
 def archive_activity_raw(user_id: int, activity_id: int, full_payload: Dict[str, Any]) -> bool:
@@ -449,3 +380,4 @@ def get_activity_summary(user_id: int, activity_id: int) -> dict | None:
     except Exception as e:
         print(f"❌ get_activity_summary error: {e}")
         return None
+

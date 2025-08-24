@@ -4,8 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-STRAVA_BASE = "https://www.strava.com/api/v3"
-
+STRAVA_BASE = os.getenv("STRAVA_BASE")
 CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
