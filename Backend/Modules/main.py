@@ -9,7 +9,7 @@ def main():
 
     #sync_history(user_id, datetime(2023,5,1,tzinfo=timezone.utc), datetime.now(timezone.utc))
 
-    #sync_activities(user_id, force_full_30d=False, archive_raw=False)
+    sync.sync_activities(user_id, force_full_30d=False, archive_raw=False)
 
     #user_hdl.insert_or_update_user_profile(user_id, weight_kg=82.3, height_cm=186, body_fat_pct=7.7, HR_max=201, RHR=52, birth_date = "1996-11-19", VO2Max = 46.5)
 
@@ -45,9 +45,9 @@ def main():
     #cache_streams_for_activity(user_id, activity_id, activity_date=None)
 
     # 4) AI analýza
-    report = AI_analyze_last_week(user_id)
-    print("===== AI REPORT =====")
-    print(report)
+    #report = AI_analyze_last_week(user_id)
+    #print("===== AI REPORT =====")
+    #print(report)
 
 
 if __name__ == "__main__":

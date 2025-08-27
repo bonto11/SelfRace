@@ -48,7 +48,7 @@ def sync_activities(user_id: int, force_full_30d: bool = False, archive_raw: boo
     last_timestamp = sql_dm.get_last_timestamp_from_db(user_id)
 
     if last_timestamp is None or force_full_30d:
-        download_since_utc = datetime.now(timezone.utc) - timedelta(days=90)
+        download_since_utc = datetime.now(timezone.utc) - timedelta(days=30)
     else:
         download_since_utc = last_timestamp + timedelta(seconds=1)
 
