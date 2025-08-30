@@ -11,7 +11,6 @@ export async function getUserId(authUid: string): Promise<number | null> {
   });
 
   const json = await res.json();
-  console.log("➡️ getUserId: odpoveď z backendu =", json);
 
   if (!json.success) return null;
   return json.user_id;

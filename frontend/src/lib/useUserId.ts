@@ -12,11 +12,11 @@ export function useUserId() {
 
   useEffect(() => {
     async function fetchUserId() {
-      console.log("➡️ useUserId: user =", user);
+      //console.log("➡️ useUserId: user =", user);
 
       if (user?.id) {
         const dbId = await getUserId(user.id); // auth_uid → int id
-        console.log("➡️ useUserId: dbId =", dbId);
+        //console.log("➡️ useUserId: dbId =", dbId);
         setUserId(dbId);
       } else {
         console.warn("❌ useUserId: žiadny user");

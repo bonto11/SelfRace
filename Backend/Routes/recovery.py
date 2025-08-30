@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from datetime import datetime
 from Modules.SQL.db_handler import get_client
 
 router = APIRouter(prefix="/recovery", tags=["recovery"])
 supabase = get_client()
-
 
 class RecoveryIn(BaseModel):
     user_id: int | None = None       # priamo DB id
@@ -18,28 +18,37 @@ class RecoveryIn(BaseModel):
     alcohol_type_pct: int | None = None
     food_2h_before: bool | None = None
     caffeine_8h: bool | None = None
-    comment: str | None = None
+    comments: str | None = None
 
 
 # --- POST: vloženie recovery záznamu ---
 @router.post("")
 def insert_recovery(payload: RecoveryIn):
     try:
-        # Rozhodnutie, odkiaľ zobrať user_id
-        user_id = None
-        if payload.user_id is not None:
-            user_id = payload.user_id
-        elif payload.auth_uid:
-            resp = supabase.table("users").select("id").eq("auth_uid", payload.auth_uid).execute()
-            if not resp.data:
-                raise HTTPException(status_code=404, detail="User not found")
-            user_id = resp.data[0]["id"]
-        else:
-            raise HTTPException(status_code=400, detail="Missing user_id or auth_uid")
+        # vypočítaj date (len YYYY-MM-DD)
+        date_val = (
+            payload.sleep_start_timestampz.split("T")[0]
+            if payload.sleep_start_timestampz
+            else datetime.now().date().isoformat()
+        )
+
+        # z users si nájdi auth_uid (uuid)
+        resp = supabase.table("users").select("auth_uid").eq("id", payload.user_id).execute()
+        user_uid = resp.data[0]["auth_uid"] if resp.data else None
+
+        # 1. check či existuje pre user_id + date
+        existing = (
+            supabase.table("users_recovery")
+            .select("id")
+            .eq("user_id", payload.user_id)
+            .eq("date", date_val)
+            .execute()
+        )
 
         data = {
-            "user_id": user_id,
-            "date": payload.sleep_start_timestampz.split("T")[0] if payload.sleep_start_timestampz else None,
+            "user_id": payload.user_id,
+            "user_uid": user_uid,   # doplnené backendom
+            "date": date_val,
             "RHR_bpm": payload.RHR_bpm,
             "HRV_avg_ms": payload.HRV_avg_ms,
             "HRV_max_ms": payload.HRV_max_ms,
@@ -49,18 +58,27 @@ def insert_recovery(payload: RecoveryIn):
             "alcohol_type_pct": payload.alcohol_type_pct,
             "food_2h_before": payload.food_2h_before,
             "caffeine_8h": payload.caffeine_8h,
-            "comment": payload.comment,
+            "comments": payload.comments,
         }
 
-        res = supabase.table("users_recovery").insert(data).execute()
-        if res.error:
-            raise HTTPException(status_code=400, detail=res.error)
+        if existing.data:
+            # update namiesto duplicity
+            rec_id = existing.data[0]["id"]
+            res = (
+                supabase.table("users_recovery")
+                .update(data)
+                .eq("id", rec_id)
+                .execute()
+            )
+        else:
+            res = supabase.table("users_recovery").insert(data).execute()
 
         return {"success": True, "data": res.data}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+ 
 # --- GET: načítanie posledných recovery záznamov ---
 @router.get("/{identifier}")
 async def get_recovery(identifier: str):
