@@ -1,3 +1,23 @@
-from Modules.API import Strava
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from Routes import recovery, users
 
-print(Strava.get_activities(after_timestamp=0)[:2])  # prvé 2 aktivity
+app = FastAPI()
+
+# ---- CORS ----
+origins = [
+    "http://localhost:3000",  # FE dev server
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,       # kto môže volať BE
+    allow_credentials=True,
+    allow_methods=["*"],         # GET, POST, PUT...
+    allow_headers=["*"],
+)
+
+# ---- Routers ----
+app.include_router(recovery.router)
+app.include_router(users.router)

@@ -1,17 +1,20 @@
-// src/lib/getUserId.ts
-import { supabase } from "./supabaseClient";
+//"use client";
 
-export default async function getUserId(authUid: string): Promise<number | null> {
-  const { data, error } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_uid", authUid)
-    .single();
+import { API_URL } from "@/lib/config";
 
-  if (error || !data) {
-    console.error("Nepodarilo sa nájsť user_id:", error, authUid);
-    return null;
-  }
+export async function getUserId(authUid: string): Promise<number | null> {
 
-  return data.id;
+  const res = await fetch(`${API_URL}/users/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ auth_uid: authUid }),
+  });
+
+  const json = await res.json();
+  console.log("➡️ getUserId: odpoveď z backendu =", json);
+
+  if (!json.success) return null;
+  return json.user_id;
 }
+
+

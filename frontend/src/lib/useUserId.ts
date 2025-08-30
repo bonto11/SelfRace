@@ -1,8 +1,9 @@
+// src/lib/useUserId.ts
 "use client";
 
 import { useEffect, useState } from "react";
 import { useUser } from "./useUser";
-import  getUserId  from "./getUserId";
+import { getUserId } from "./getUserId";
 
 export function useUserId() {
   const { user, loading: userLoading } = useUser();
@@ -11,10 +12,14 @@ export function useUserId() {
 
   useEffect(() => {
     async function fetchUserId() {
+      console.log("➡️ useUserId: user =", user);
+
       if (user?.id) {
-        const dbId = await getUserId(user.id); // auth.uid → int id
+        const dbId = await getUserId(user.id); // auth_uid → int id
+        console.log("➡️ useUserId: dbId =", dbId);
         setUserId(dbId);
       } else {
+        console.warn("❌ useUserId: žiadny user");
         setUserId(null);
       }
       setLoading(false);
@@ -22,5 +27,5 @@ export function useUserId() {
     fetchUserId();
   }, [user]);
 
-  return { userId, loading };
+  return { userId, loading: userLoading || loading };
 }
