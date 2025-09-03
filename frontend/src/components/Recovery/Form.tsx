@@ -7,20 +7,20 @@ import { API_URL } from "@/lib/config";
 export default function RecoveryForm() {
   const { userId, loading } = useUserId();
 
-  // Prednastavíme na včerajší deň
+  // prednastavíme včerajší deň
   const [date, setDate] = useState<string>(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 1);
+    d.setDate(d.getDate());
     return d.toISOString().split("T")[0];
   });
 
-  const [rhr, setRhr] = useState<number | "">("");
-  const [hrvAvg, setHrvAvg] = useState<number | "">("");
-  const [hrvMax, setHrvMax] = useState<number | "">("");
-  const [sleepDuration, setSleepDuration] = useState<number | "">("");
-  const [sleepStart, setSleepStart] = useState<string>(""); 
-  const [alcoholVolume, setAlcoholVolume] = useState<number | "">("");
-  const [alcoholType, setAlcoholType] = useState<number | "">("");
+  const [rhr, setRhr] = useState("");
+  const [hrvAvg, setHrvAvg] = useState("");
+  const [hrvMax, setHrvMax] = useState("");
+  const [sleepDuration, setSleepDuration] = useState(""); // HH:MM
+  const [sleepStart, setSleepStart] = useState("");       // HH:MM
+  const [alcoholVolume, setAlcoholVolume] = useState("");
+  const [alcoholType, setAlcoholType] = useState("");
   const [lateFood, setLateFood] = useState(false);
   const [lateCaffeine, setLateCaffeine] = useState(false);
   const [comment, setComment] = useState("");
@@ -32,19 +32,26 @@ export default function RecoveryForm() {
       return;
     }
 
+    // spracovanie sleepDuration (HH:MM → minúty)
+    let sleepMinutes: number | null = null;
+    if (sleepDuration) {
+      const [h, m] = sleepDuration.split(":").map(Number);
+      sleepMinutes = h * 60 + m;
+    }
+
     const payload = {
       user_id: userId,
-      date, // ⬅️ kľúčové, backend podľa toho robí update
-      RHR_bpm: rhr || null,
-      HRV_avg_ms: hrvAvg || null,
-      HRV_max_ms: hrvMax || null,
-      sleep_duration_min: sleepDuration || null,
-      sleep_start_timestampz: sleepStart || null,
-      alcohol_volume_ml: alcoholVolume || null,
-      alcohol_type_pct: alcoholType || null,
+      date,
+      RHR_bpm: rhr ? Number(rhr) : null,
+      HRV_avg_ms: hrvAvg ? Number(hrvAvg) : null,
+      HRV_max_ms: hrvMax ? Number(hrvMax) : null,
+      sleep_duration_min: sleepMinutes,
+      sleep_start_time: sleepStart,
+      alcohol_volume_ml: alcoholVolume ? Number(alcoholVolume) : null,
+      alcohol_type_pct: alcoholType ? Number(alcoholType) : null,
       food_2h_before: lateFood,
       caffeine_8h: lateCaffeine,
-      comments: comment || null,
+      comment,
     };
 
     console.log("➡️ Posielam recovery:", payload);
@@ -63,10 +70,13 @@ export default function RecoveryForm() {
     }
   }
 
-  if (loading) return <div>Načítavam...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 p-4 rounded shadow">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 bg-white dark:bg-gray-800 p-4 rounded shadow"
+    >
       <label className="block">Date</label>
       <input
         type="date"
@@ -76,40 +86,45 @@ export default function RecoveryForm() {
       />
 
       <input
-        type="number"
+        type="text"
         placeholder="Resting HR (bpm)"
         value={rhr}
-        onChange={(e) => setRhr(Number(e.target.value))}
+        onChange={(e) => setRhr(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
       <input
-        type="number"
+        type="text"
         placeholder="HRV avg (ms)"
         value={hrvAvg}
-        onChange={(e) => setHrvAvg(Number(e.target.value))}
+        onChange={(e) => setHrvAvg(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
       <input
-        type="number"
+        type="text"
         placeholder="HRV max (ms)"
         value={hrvMax}
-        onChange={(e) => setHrvMax(Number(e.target.value))}
+        onChange={(e) => setHrvMax(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
+      <label className="block">Sleep duration (HH:MM)</label>
       <input
-        type="number"
-        placeholder="Sleep duration (min)"
+        type="text"
+        placeholder="napr. 07:45"
+        pattern="^([01]\d|2[0-3]):([0-5]\d)$"
         value={sleepDuration}
-        onChange={(e) => setSleepDuration(Number(e.target.value))}
+        onChange={(e) => setSleepDuration(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
-      <label className="block">Sleep start</label>
+      <label className="block">Sleep start (HH:MM)</label>
       <input
-        type="datetime-local"
+        type="text"
+        placeholder="napr. 22:30"
+        pattern="^([01]\d|2[0-3]):([0-5]\d)$"
+        title="Zadajte čas vo formáte HH:MM (00–23:59)"
         value={sleepStart}
         onChange={(e) => setSleepStart(e.target.value)}
         className="w-full p-2 border rounded"
@@ -134,18 +149,18 @@ export default function RecoveryForm() {
       </div>
 
       <input
-        type="number"
+        type="text"
         placeholder="Alcohol consumed (ml)"
         value={alcoholVolume}
-        onChange={(e) => setAlcoholVolume(Number(e.target.value))}
+        onChange={(e) => setAlcoholVolume(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
       <input
-        type="number"
+        type="text"
         placeholder="Alcohol type (%)"
         value={alcoholType}
-        onChange={(e) => setAlcoholType(Number(e.target.value))}
+        onChange={(e) => setAlcoholType(e.target.value)}
         className="w-full p-2 border rounded"
       />
 

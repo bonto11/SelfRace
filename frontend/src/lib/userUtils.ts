@@ -6,9 +6,6 @@ import { supabase } from "./supabaseClient";
  * Ak neexistuje, vloží ho. Vráti jeho numerické id.
  */
 export async function ensureUserExists(authUid: string, email: string): Promise<number | null> {
-  console.log("➡️ ensureUserExists: spúšťam s:");
-  console.log("   authUid =", authUid);
-  console.log("   email   =", email);
 
   // Skús nájsť užívateľa
   const { data: existing, error: selError } = await supabase
@@ -21,6 +18,7 @@ export async function ensureUserExists(authUid: string, email: string): Promise<
     console.error("❌ Chyba pri hľadaní usera:", selError);
     return null;
   }
+  
   if (existing && existing.length > 0) {
     return existing[0].id;
   }

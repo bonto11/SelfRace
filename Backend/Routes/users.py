@@ -21,3 +21,14 @@ async def resolve_user(payload: ResolveIn):
     except Exception as e:
         print("❌ users/resolve error:", e)
         raise HTTPException(status_code=500, detail=str(e))
+    
+    from fastapi import APIRouter, HTTPException
+from Modules.SQL.db_handler import get_client
+
+@router.get("/{user_id}/profile")
+def get_user_profile(user_id: int):
+    resp = supabase.table("users_profile").select("*").eq("user_id", user_id).limit(1).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return {"success": True, "data": resp.data[0]}
+

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUserId } from "@/lib/useUserId"; // 👈 import hook
+import { useUserId } from "@/lib/useUserId";
 import { API_URL } from "@/lib/config";
 
 interface RecoveryRow {
@@ -11,34 +11,64 @@ interface RecoveryRow {
   HRV_avg_ms: number | null;
   HRV_max_ms: number | null;
   sleep_duration_min: number | null;
-  sleep_start_timestampz: string | null;
+  sleep_start_time: string | null;
   food_2h_before: boolean | null;
   caffeine_8h: boolean | null;
   alcohol_volume_ml: number | null;
   alcohol_type_pct: number | null;
-  comment: string | null;
+  comments: string | null;
+}
+
+function formatDate(iso: string | null) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(iso: string | null) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false, // 👈 fix 24h
+  });
+}
+
+function formatMinutes(mins: number | null) {
+  if (!mins) return "-";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
 export default function RecoveryTable() {
-  const { userId, loading: userLoading } = useUserId(); // 👈 získa userId
+  const { userId, loading: userLoading } = useUserId();
   const [rows, setRows] = useState<RecoveryRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  async function load() {
-    console.log("➡️ Načítavam recovery pre user:", userId);
-    const res = await fetch(`${API_URL}/recovery/${userId}`);
-    const json = await res.json();
+    async function load() {
+      console.log("➡️ Načítavam recovery pre user:", userId);
+      const res = await fetch(`${API_URL}/recovery/${userId}`);
+      const json = await res.json();
 
-    if (!json.success) {
-      console.error("Chyba pri načítaní recovery:", json.error);
-    } else {
-      setRows(json.data);
+      if (!json.success) {
+        console.error("Chyba pri načítaní recovery:", json.error);
+      } else {
+        setRows(json.data);
+      }
+      setLoading(false);
     }
-    setLoading(false);
-  }
-  if (userId) load();
-}, [userId]);
+    if (userId) load();
+  }, [userId]);
 
   if (userLoading || loading) return <div>Načítavam...</div>;
   if (!userId) return <div>❌ User not found.</div>;
@@ -49,33 +79,36 @@ export default function RecoveryTable() {
       <table className="w-full text-sm">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>RHR</th>
-            <th>HRV avg</th>
-            <th>HRV max</th>
-            <th>Sleep start</th>
-            <th>Sleep (min)</th>
-            <th>Late food?</th>
-            <th>Late caffeine?</th>
-            <th>Alcohol consumed</th>
-            <th>Alcohol type</th>
-            <th>Comment</th>
+            <th className="text-center">Date</th>
+            <th className="text-center">RHR</th>
+            <th className="text-center">HRV avg</th>
+            <th className="text-center">HRV max</th>
+            <th className="text-center">Sleep start</th>
+            <th className="text-center">Sleep (hh:mm)</th>
+            <th className="text-center">Late food?</th>
+            <th className="text-center">Late caffeine?</th>
+            <th className="text-center">Alcohol consumed</th>
+            <th className="text-center">Alcohol type</th>
+            <th className="text-center">Comment</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td>{row.date}</td>
-              <td>{row.RHR_bpm ?? "-"}</td>
-              <td>{row.HRV_avg_ms ?? "-"}</td>
-              <td>{row.HRV_max_ms ?? "-"}</td>
-              <td>{row.sleep_start_timestampz ?? "-"}</td>
-              <td>{row.sleep_duration_min ?? "-"}</td>
-              <td>{row.food_2h_before ? "✅" : "❌"}</td>
-              <td>{row.caffeine_8h ? "✅" : "❌"}</td>
-              <td>{row.alcohol_volume_ml ?? "-"}</td>
-              <td>{row.alcohol_type_pct ?? "-"}</td>
-              <td>{row.comment ?? "-"}</td>
+              <td className="text-center">{formatDate(row.date)}</td>
+              <td className="text-center">{row.RHR_bpm ?? "-"}</td>
+              <td className="text-center">{row.HRV_avg_ms ?? "-"}</td>
+              <td className="text-center">{row.HRV_max_ms ?? "-"}</td>
+              <td className="text-center">{row.sleep_start_time}
+              </td>
+              <td className="text-center">
+                {formatMinutes(row.sleep_duration_min)}
+              </td>
+              <td className="text-center">{row.food_2h_before ? "✅" : "❌"}</td>
+              <td className="text-center">{row.caffeine_8h ? "✅" : "❌"}</td>
+              <td className="text-center">{row.alcohol_volume_ml ?? "-"}</td>
+              <td className="text-center">{row.alcohol_type_pct ?? "-"}</td>
+              <td className="text-center">{row.comments ?? "-"}</td>
             </tr>
           ))}
         </tbody>
