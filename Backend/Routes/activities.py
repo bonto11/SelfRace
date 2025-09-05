@@ -23,7 +23,6 @@ def get_activities(user_id: int, days: int = 30):
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- GET: detail aktivity podľa ID vrátane laps/splits ---
-# --- GET: detail aktivity podľa ID ---
 @router.get("/detail/{activity_id}")
 def get_activity_detail(activity_id: int):
     try:

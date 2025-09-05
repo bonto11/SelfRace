@@ -27,25 +27,46 @@ export default function ActivityTable() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ActivityDetail | null>(null);
 
+  //nacitanie aktivit
   useEffect(() => {
     async function load() {
-      const res = await fetch(`${API_URL}/activities/${userId}`);
-      const json = await res.json();
-      if (json.success) setRows(json.data);
+      console.log("➡️ [FE] Načítavam aktivity pre userId =", userId);
+      try {
+        const res = await fetch(`${API_URL}/activities/${userId}`);
+        const json = await res.json();
+
+        if (json.success) {
+          setRows(json.data);
+        } else {
+          console.error("❌ [FE] Backend error JSON:", json);
+        }
+      } catch (err) {
+        console.error("❌ [FE] Fetch error:", err);
+      }
       setLoading(false);
     }
     if (userId) load();
   }, [userId]);
 
   async function handleSelect(activityId: number) {
-    console.log("➡️ Klik na aktivitu:", activityId);
+    console.log("🖱️ [FE] Klik na aktivitu, posielam activityId =", activityId);
+    try {
+      const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
+      console.log("➡️ [FE] GET detail status =", res.status);
+      const json = await res.json();
+      console.log("➡️ [FE] GET detail JSON =", json);
 
-    const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
-    const json = await res.json();
-    if (json.success) {
-      setSelected(json.data);
+      if (json.success) {
+        setSelected(json);
+        console.log("✅ [FE] Uložený detail aktivity");
+      } else {
+        console.error("❌ [FE] Chyba detail JSON:", json);
+      }
+    } catch (err) {
+      console.error("❌ [FE] Fetch detail error:", err);
     }
   }
+
 
   if (userLoading || loading) return <div>Načítavam...</div>;
   if (!userId) return <div>❌ User not found.</div>;
@@ -54,6 +75,7 @@ export default function ActivityTable() {
     <div className="space-y-4">
       <h2 className="text-lg font-bold">Posledný mesiac aktivít</h2>
 
+      {/* TABUĽKA ZOZNAMU */}
       <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded shadow">
         <table className="w-full text-sm">
           <thead>
@@ -68,9 +90,9 @@ export default function ActivityTable() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, idx) => (
               <tr
-                key={row.activity_id}
+                key={row.activity_id ?? idx}
                 className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                 onClick={() => handleSelect(row.activity_id)}
               >
@@ -95,10 +117,11 @@ export default function ActivityTable() {
         </table>
       </div>
 
+      {/* DETAIL AKTIVITY */}
       {selected && (
         <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded">
           <h3 className="font-bold mb-2">
-            Detail: {selected.summary.name} (
+            Detail aktivity: {selected.summary.name} (
             {new Date(selected.summary.date).toLocaleDateString("sk-SK")})
           </h3>
 
@@ -121,48 +144,28 @@ export default function ActivityTable() {
           {selected.laps.length > 0 && (
             <>
               <h4 className="font-bold mt-4">Laps</h4>
-              <table className="w-full text-sm border">
-                <thead>
-                  <tr>
-                    <th>Lap</th>
-                    <th>Distance (m)</th>
-                    <th>Time (s)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selected.laps.map((lap, idx) => (
-                    <tr key={idx}>
-                      <td>{lap.lap_index}</td>
-                      <td>{lap.distance_m}</td>
-                      <td>{lap.moving_time_s}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <ul className="list-disc pl-5">
+                {selected.laps.map((lap, idx) => (
+                  <li key={lap.lap_index ?? idx}>
+                    Lap {lap.lap_index}: {lap.distance_m} m,{" "}
+                    {lap.moving_time_s}s
+                  </li>
+                ))}
+              </ul>
             </>
           )}
 
           {selected.splits.length > 0 && (
             <>
               <h4 className="font-bold mt-4">Splits</h4>
-              <table className="w-full text-sm border">
-                <thead>
-                  <tr>
-                    <th>Split</th>
-                    <th>Distance (m)</th>
-                    <th>Time (s)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selected.splits.map((split, idx) => (
-                    <tr key={idx}>
-                      <td>{split.split_index}</td>
-                      <td>{split.distance_m}</td>
-                      <td>{split.moving_time_s}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <ul className="list-disc pl-5">
+                {selected.splits.map((split, idx) => (
+                  <li key={split.split_index ?? idx}>
+                    Split {split.split_index}: {split.distance_m} m,{" "}
+                    {split.moving_time_s}s
+                  </li>
+                ))}
+              </ul>
             </>
           )}
         </div>
