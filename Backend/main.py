@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from Routes import recovery, users
+from Routes import recovery, users, activities
 
 app = FastAPI()
 
@@ -21,3 +21,5 @@ app.add_middleware(
 # ---- Routers ----
 app.include_router(recovery.router)
 app.include_router(users.router)
+app.include_router(activities.router)
+

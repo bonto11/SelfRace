@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from Modules.SQL.db_handler import get_client
 from datetime import datetime
+from Modules.SQL.db_handler import get_client
+from Modules.SQL.config import TABLE_USERS, TABLE_ACTIVITIES_SUMMARY, TABLE_ACTIVITIES_SPLITS, TABLE_ACTIVITIES_LAPS, TABLE_USERS_PROFILE, TABLE_USERS_ZONES, TABLE_USERS_THRESHOLDS, TABLE_USERS_BESTS, TABLE_USERS_RECOVERY
 
 router = APIRouter(prefix="/recovery", tags=["recovery"])
 supabase = get_client()
@@ -26,7 +27,7 @@ def insert_or_update_recovery(payload: RecoveryIn):
     try:
         # nájdi auth_uid podľa user_id
         user_resp = (
-            supabase.table("users")
+            supabase.table(TABLE_USERS)
             .select("auth_uid")
             .eq("id", payload.user_id)
             .limit(1)
@@ -42,7 +43,7 @@ def insert_or_update_recovery(payload: RecoveryIn):
 
         # check či existuje pre user_id + date
         existing = (
-            supabase.table("users_recovery")
+            supabase.table(TABLE_USERS_RECOVERY)
             .select("id")
             .eq("user_id", payload.user_id)
             .eq("date", date_val)
@@ -57,28 +58,25 @@ def insert_or_update_recovery(payload: RecoveryIn):
         if existing.data:
             rec_id = existing.data[0]["id"]
             res = (
-                supabase.table("users_recovery")
+                supabase.table(TABLE_USERS_RECOVERY)
                 .update(data)
                 .eq("id", rec_id)
                 .execute()
             )
         else:
-            res = supabase.table("users_recovery").insert(data).execute()
+            res = supabase.table(TABLE_USERS_RECOVERY).insert(data).execute()
 
         return {"success": True, "data": res.data}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-
 # --- GET všetky za posledných X dní ---
 @router.get("/{user_id}")
 def get_recovery(user_id: int, days: int = 14):
     try:
         rec = (
-            supabase.table("users_recovery")
+            supabase.table(TABLE_USERS_RECOVERY)
             .select("*")
             .eq("user_id", user_id)
             .order("date", desc=True)

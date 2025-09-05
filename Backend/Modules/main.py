@@ -7,7 +7,7 @@ def main():
     email = "patrikmbontar@gmail.com"
     user_id = user_hdl.get_or_create_user_id(email)
 
-    #sync_history(user_id, datetime(2023,5,1,tzinfo=timezone.utc), datetime.now(timezone.utc))
+    #sync.sync_history(user_id, datetime(2025,8,20,tzinfo=timezone.utc), datetime.now(timezone.utc))
 
     sync.sync_activities(user_id, force_full_30d=False, archive_raw=False)
 
@@ -46,7 +46,7 @@ def main():
 
     # 4) AI analýza
     #report = AI_analyze_last_week(user_id)
-    #print("===== AI REPORT =====")
+    print("===== AI REPORT =====")
     #print(report)
 
 

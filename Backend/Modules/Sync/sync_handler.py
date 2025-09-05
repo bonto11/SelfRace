@@ -44,6 +44,7 @@ def is_429(err: Exception) -> bool:
 # ===============================
 # Sync nových aktivít
 # ===============================
+
 def sync_activities(user_id: int, force_full_30d: bool = False, archive_raw: bool = False) -> int:
     last_timestamp = sql_dm.get_last_timestamp_from_db(user_id)
 
@@ -53,7 +54,9 @@ def sync_activities(user_id: int, force_full_30d: bool = False, archive_raw: boo
         download_since_utc = last_timestamp + timedelta(seconds=1)
 
     after_epoch = int(download_since_utc.timestamp())
+    
     print(f"➡️  Sťahujem aktivity po {download_since_utc.isoformat()} (epoch={after_epoch})")
+
 
     activities = api_strava.get_activities(after_timestamp=after_epoch)
     existing_ids = sql_dm.get_existing_activities_ids_from_db(user_id)
@@ -78,7 +81,7 @@ def sync_activities(user_id: int, force_full_30d: bool = False, archive_raw: boo
             sport = (full.get("sport_type") or full.get("type") or "").lower()
 
             if sport != "run":
-                sql_dm.maybe_update_user_bests_from_full(user_id, activity_id, full.get("best_efforts"))
+                #sql_dm.maybe_update_user_bests_from_full(user_id, activity_id, full.get("best_efforts"))
                 if archive_raw:
                     sql_dm.archive_activity_raw(user_id, activity_id, full)
                 if ok_summary:
@@ -103,7 +106,7 @@ def sync_activities(user_id: int, force_full_30d: bool = False, archive_raw: boo
                     pass
                 inserted = sql_dm.replace_activity_splits(user_id, activity_id, decision.get("splits") or [])
 
-            sql_dm.maybe_update_user_bests_from_full(user_id, activity_id, full.get("best_efforts"))
+            #sql_dm.maybe_update_user_bests_from_full(user_id, activity_id, full.get("best_efforts"))
             if archive_raw:
                 sql_dm.archive_activity_raw(user_id, activity_id, full)
 
@@ -122,7 +125,6 @@ def sync_activities(user_id: int, force_full_30d: bool = False, archive_raw: boo
 
     print(f"✅ Hotovo. Uložených/aktualizovaných summary: {saved_summary}")
     return saved_summary
-
 
 # ===============================
 # Sync pre okno (mesiac)
