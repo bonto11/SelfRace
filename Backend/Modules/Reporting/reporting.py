@@ -3,6 +3,7 @@ from collections import defaultdict
 from Modules.utils import format_minutes_to_hours_minutes
 from Modules.SQL.data_manager import load_activities_from_db
 
+
 def _parse_iso(dt_str: str):
     if not dt_str:
         return None
@@ -10,6 +11,7 @@ def _parse_iso(dt_str: str):
     if isinstance(dt_str, str) and dt_str.endswith("Z"):
         dt_str = dt_str.replace("Z", "+00:00")
     return datetime.fromisoformat(dt_str)
+
 
 def load_activities(user_id: str):
     raw_activities = load_activities_from_db(user_id)
@@ -52,13 +54,17 @@ def load_activities(user_id: str):
             print(f"⚠️ Skipping invalid row due to error: {e}")
     return activities
 
+
 def filter_activities(activities, start_date, end_date):
     def remove_tz(dt):
         return dt.replace(tzinfo=None)
+
     return [
-        act for act in activities
+        act
+        for act in activities
         if remove_tz(start_date) <= remove_tz(act["date"]) < remove_tz(end_date)
     ]
+
 
 def summarize_activities(activities):
     summary = defaultdict(float)
@@ -84,7 +90,9 @@ def summarize_activities(activities):
         if act["elevation_gain_m"] > biggest_climb:
             biggest_climb = act["elevation_gain_m"]
 
-    avg_hr = round(sum(avg_hr_values) / len(avg_hr_values), 1) if avg_hr_values else None
+    avg_hr = (
+        round(sum(avg_hr_values) / len(avg_hr_values), 1) if avg_hr_values else None
+    )
     max_hr = max(max_hr_values) if max_hr_values else None
 
     return {
@@ -99,10 +107,12 @@ def summarize_activities(activities):
         "biggest_climb_m": round(biggest_climb, 1),
     }
 
+
 def percent_change(current, previous):
     if previous == 0:
         return None
     return round(((current - previous) / previous) * 100, 1)
+
 
 def generate_report(user_id: str):
     activities = load_activities(user_id)
@@ -111,7 +121,9 @@ def generate_report(user_id: str):
         return
 
     now = datetime.now(timezone.utc)
-    this_month_start = datetime(year=now.year, month=now.month, day=1, tzinfo=timezone.utc)
+    this_month_start = datetime(
+        year=now.year, month=now.month, day=1, tzinfo=timezone.utc
+    )
     last_month_end = this_month_start
     last_month_start = (last_month_end - timedelta(days=1)).replace(day=1)
     this_year_start = datetime(year=now.year, month=1, day=1, tzinfo=timezone.utc)
@@ -119,7 +131,9 @@ def generate_report(user_id: str):
     last_year_end = datetime(year=now.year - 1, month=12, day=31, tzinfo=timezone.utc)
 
     this_month_activities = filter_activities(activities, this_month_start, now)
-    last_month_activities = filter_activities(activities, last_month_start, last_month_end)
+    last_month_activities = filter_activities(
+        activities, last_month_start, last_month_end
+    )
     this_year_activities = filter_activities(activities, this_year_start, now)
     last_year_activities = filter_activities(activities, last_year_start, last_year_end)
 
@@ -128,28 +142,40 @@ def generate_report(user_id: str):
     this_year_summary = summarize_activities(this_year_activities)
     last_year_summary = summarize_activities(last_year_activities)
 
-    print(f"=== Štatistiky za tento mesiac ({this_month_start.strftime('%Y-%m-%d')} - {now.strftime('%Y-%m-%d')}) ===")
+    print(
+        f"=== Štatistiky za tento mesiac ({this_month_start.strftime('%Y-%m-%d')} - {now.strftime('%Y-%m-%d')}) ==="
+    )
     print(f"Počet aktivít: {this_month_summary['total_activities']}")
     print(f"Celková vzdialenosť: {this_month_summary['total_distance_km']} km")
-    print(f"Celkový čas pohybu: {format_minutes_to_hours_minutes(this_month_summary['total_moving_time_min'])}")
+    print(
+        f"Celkový čas pohybu: {format_minutes_to_hours_minutes(this_month_summary['total_moving_time_min'])}"
+    )
     print(f"Priemerný tep: {this_month_summary['avg_hr']}")
     print(f"Maximálny tep: {this_month_summary['max_hr']}")
     print(f"Najdlhší beh: {this_month_summary['longest_run_km']} km")
     print(f"Najväčšie prevýšenie: {this_month_summary['biggest_climb_m']} m")
     print()
 
-    print(f"=== Štatistiky za minulý mesiac ({last_month_start.strftime('%Y-%m-%d')} - {last_month_end.strftime('%Y-%m-%d')}) ===")
+    print(
+        f"=== Štatistiky za minulý mesiac ({last_month_start.strftime('%Y-%m-%d')} - {last_month_end.strftime('%Y-%m-%d')}) ==="
+    )
     print(f"Počet aktivít: {last_month_summary['total_activities']}")
     print(f"Celková vzdialenosť: {last_month_summary['total_distance_km']} km")
-    print(f"Celkový čas pohybu: {format_minutes_to_hours_minutes(last_month_summary['total_moving_time_min'])}")
+    print(
+        f"Celkový čas pohybu: {format_minutes_to_hours_minutes(last_month_summary['total_moving_time_min'])}"
+    )
     print()
 
-    print(f"=== Štatistiky za tento rok ({this_year_start.strftime('%Y-%m-%d')} - {now.strftime('%Y-%m-%d')}) ===")
+    print(
+        f"=== Štatistiky za tento rok ({this_year_start.strftime('%Y-%m-%d')} - {now.strftime('%Y-%m-%d')}) ==="
+    )
     print(f"Počet aktivít: {this_year_summary['total_activities']}")
     print(f"Celková vzdialenosť: {this_year_summary['total_distance_km']} km")
     print()
 
-    print(f"=== Štatistiky za minulý rok ({last_year_start.strftime('%Y-%m-%d')} - {last_year_end.strftime('%Y-%m-%d')}) ===")
+    print(
+        f"=== Štatistiky za minulý rok ({last_year_start.strftime('%Y-%m-%d')} - {last_year_end.strftime('%Y-%m-%d')}) ==="
+    )
     print(f"Počet aktivít: {last_year_summary['total_activities']}")
     print(f"Celková vzdialenosť: {last_year_summary['total_distance_km']} km")
     print()

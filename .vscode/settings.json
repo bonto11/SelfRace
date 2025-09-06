@@ -1,0 +1,29 @@
+{
+  // AutoSave
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 500,
+
+  // Formátovanie
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode", // Pre JavaScript/React
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter" // Black pre Python
+  },
+
+  // Tabs vs Spaces
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+
+  // Linting (Python + ESLint)
+  "python.analysis.typeCheckingMode": "basic",
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "eslint.enable": true,
+
+  // Terminal default
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+
+  // Prepojenie s Git
+  "git.enableSmartCommit": true,
+  "git.autofetch": true
+}

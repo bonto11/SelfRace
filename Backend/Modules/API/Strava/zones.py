@@ -1,13 +1,15 @@
 from typing import List, Optional, Any
 import requests
 
-from .config import STRAVA_BASE
+from backend.Modules.config import STRAVA_BASE
 from .auth import _auth_headers
 from .client import _maybe_sleep_to_respect_limits
 from .cache import _maybe_load_or_cache
 
 
-def get_activity_zones(activity_id: int, token: Optional[str] = None) -> Optional[List[Any]]:
+def get_activity_zones(
+    activity_id: int, token: Optional[str] = None
+) -> Optional[List[Any]]:
     """
     Zóny (HR/power). Môže vrátiť 402 Payment Required pri ne-prémiu.
     """

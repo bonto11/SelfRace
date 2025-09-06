@@ -6,7 +6,13 @@ from datetime import datetime, timezone
 import requests
 from typing import Optional
 
-from .config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TOKENS_FILE, STRAVA_BASE
+from backend.Modules.config import (
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URI,
+    TOKENS_FILE,
+    STRAVA_BASE,
+)
 
 
 def save_tokens(tokens: dict) -> None:

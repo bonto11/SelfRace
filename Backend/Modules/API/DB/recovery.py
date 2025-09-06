@@ -7,8 +7,8 @@ from datetime import date
 
 router = APIRouter()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE")
+from backend.Modules.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE
+
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
 
@@ -31,7 +31,9 @@ class RecoveryInput(BaseModel):
 @router.post("/recovery")
 async def insert_recovery(payload: RecoveryInput):
     # 1) auth_uid -> user_id
-    resp = supabase.table("users").select("id").eq("auth_uid", payload.auth_uid).execute()
+    resp = (
+        supabase.table("users").select("id").eq("auth_uid", payload.auth_uid).execute()
+    )
     if not resp.data:
         return {"success": False, "error": "User not found"}
     user_id = resp.data[0]["id"]

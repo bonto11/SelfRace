@@ -1,6 +1,9 @@
 import json
 
-def build_prompt_analyze_last_week(user_profile: dict, activities: list[dict], details: dict, recovery: list[dict]) -> str:
+
+def build_prompt_analyze_last_week(
+    user_profile: dict, activities: list[dict], details: dict, recovery: list[dict]
+) -> str:
     return f"""
 Si tréningový analytik. Používateľ: {user_profile.get('display_name')}, 
 vek {user_profile.get('age')} rokov, VO2max {user_profile.get('vo2max', 'N/A')}.

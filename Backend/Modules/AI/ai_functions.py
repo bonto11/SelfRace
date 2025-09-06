@@ -1,6 +1,7 @@
 from Modules.AI.ai_client import ask_ai
 import Modules.SQL.data_manager_ai as dm_ai
 
+
 def AI_analyze_last_week(user_id: int):
     print("🔍 Spúšťam AI_analyze_last_week pre user_id=", user_id)
     activities = dm_ai.ai_get_last_week_summary_data(user_id)

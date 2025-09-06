@@ -1,12 +1,14 @@
 from typing import List, Dict, Any, Optional
 
-from .config import STRAVA_BASE
+from backend.Modules.config import STRAVA_BASE
 from .auth import get_access_token, _auth_headers, authorize_user
 from .client import _request_json
 from .cache import _maybe_load_or_cache
 
 
-def get_activities(token: Optional[str] = None, after_timestamp: Optional[int] = None) -> List[Dict[str, Any]]:
+def get_activities(
+    token: Optional[str] = None, after_timestamp: Optional[int] = None
+) -> List[Dict[str, Any]]:
     """
     Zoznam aktivít prihláseného atléta.
     after_timestamp = epoch sekundy (UTC). Ak je zadané, Strava vráti len aktivity po tomto čase.
@@ -67,7 +69,9 @@ def get_activity_data(activity_id: int, token: Optional[str] = None) -> Dict[str
     return _maybe_load_or_cache(filename, _fetch)
 
 
-def get_activity_full(activity_id: int, include_all_efforts: bool = True, token: Optional[str] = None) -> Dict[str, Any]:
+def get_activity_full(
+    activity_id: int, include_all_efforts: bool = True, token: Optional[str] = None
+) -> Dict[str, Any]:
     filename = f"activity_full_{activity_id}.json"
 
     def _fetch():

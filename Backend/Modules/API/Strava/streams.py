@@ -1,12 +1,14 @@
 from typing import Dict, Any, Optional
 
-from .config import STRAVA_BASE
+from backend.Modules.config import STRAVA_BASE
 from .auth import get_access_token, _auth_headers
 from .client import _request_json
 from .cache import _maybe_load_or_cache
 
 
-def get_activity_detail(activity_id: int, token: Optional[str] = None) -> Dict[str, Any]:
+def get_activity_detail(
+    activity_id: int, token: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Legacy streamy – len základné kľúče.
     """
@@ -28,7 +30,9 @@ def get_activity_detail(activity_id: int, token: Optional[str] = None) -> Dict[s
     return _maybe_load_or_cache(filename, _fetch)
 
 
-def get_activity_streams_all(activity_id: int, token: Optional[str] = None) -> Dict[str, Any]:
+def get_activity_streams_all(
+    activity_id: int, token: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Streamy (time-series). Širšia množina kľúčov:
     time, latlng, distance, altitude, velocity_smooth, heartrate, cadence, watts, temp, grade_smooth, moving

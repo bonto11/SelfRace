@@ -1,14 +1,16 @@
 from typing import List, Dict, Any, Optional
 import requests
 
-from .config import STRAVA_BASE, USE_STRAVA_CACHE, CACHE_DIR
+from backend.Modules.config import STRAVA_BASE, USE_STRAVA_CACHE, CACHE_DIR
 from .auth import _auth_headers
 from .client import _parse_rate_headers, _maybe_sleep_to_respect_limits, _request_json
 from .cache import _cache_read, _cache_write
 from math import isfinite
 
 
-def _is_autolap_window(distances_m: List[float], *, window: int = 4, target_m: int = 1000, tol_m: int = 50) -> bool:
+def _is_autolap_window(
+    distances_m: List[float], *, window: int = 4, target_m: int = 1000, tol_m: int = 50
+) -> bool:
     """
     True, ak existuje aspoň jedno okno `window` po sebe idúcich úsekov,
     kde všetky majú dĺžku v [target_m - tol_m, target_m + tol_m].
@@ -17,8 +19,11 @@ def _is_autolap_window(distances_m: List[float], *, window: int = 4, target_m: i
         return False
     lo, hi = target_m - tol_m, target_m + tol_m
     for i in range(0, len(distances_m) - window + 1):
-        chunk = distances_m[i:i + window]
-        if all((d is not None) and isfinite(float(d)) and lo <= float(d) <= hi for d in chunk):
+        chunk = distances_m[i : i + window]
+        if all(
+            (d is not None) and isfinite(float(d)) and lo <= float(d) <= hi
+            for d in chunk
+        ):
             return True
     return False
 
@@ -33,7 +38,9 @@ def _extract_lap_distances(laps: List[Dict[str, Any]]) -> List[float]:
     return dists
 
 
-def _is_interval_workout(laps: List[Dict[str, Any]], *, km_target: int = 1000, tol_m: int = 50) -> bool:
+def _is_interval_workout(
+    laps: List[Dict[str, Any]], *, km_target: int = 1000, tol_m: int = 50
+) -> bool:
     """
     Heuristika:
       - ak sa nájde okno 4 po sebe idúcich ~1 km auto-lapov → NIE je intervalový tréning
@@ -50,10 +57,14 @@ def _is_interval_workout(laps: List[Dict[str, Any]], *, km_target: int = 1000, t
     return False
 
 
-def _fetch_laps_no_cache(activity_id: int, token: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+def _fetch_laps_no_cache(
+    activity_id: int, token: Optional[str] = None
+) -> Optional[List[Dict[str, Any]]]:
     # pri rozhodovaní potrebujeme „raw“ (kvôli 402 aj rate-limit hlavičkám)
     headers = _auth_headers(token)
-    resp = requests.get(f"{STRAVA_BASE}/activities/{activity_id}/laps", headers=headers, timeout=30)
+    resp = requests.get(
+        f"{STRAVA_BASE}/activities/{activity_id}/laps", headers=headers, timeout=30
+    )
     if resp.status_code == 402:
         return None
     resp.raise_for_status()
@@ -61,7 +72,9 @@ def _fetch_laps_no_cache(activity_id: int, token: Optional[str] = None) -> Optio
     return resp.json() or []
 
 
-def get_activity_laps(activity_id: int, token: Optional[str] = None, *, filter_autolaps: bool = True) -> Optional[List[Dict[str, Any]]]:
+def get_activity_laps(
+    activity_id: int, token: Optional[str] = None, *, filter_autolaps: bool = True
+) -> Optional[List[Dict[str, Any]]]:
     """
     Lapy (zariadenie/manuálne/tréningové intervaly).
 
@@ -79,7 +92,9 @@ def get_activity_laps(activity_id: int, token: Optional[str] = None, *, filter_a
     # 2) Inak fetchneme zo Stravy (ručne, kvôli 402)
     try:
         headers = _auth_headers(token)
-        resp = requests.get(f"{STRAVA_BASE}/activities/{activity_id}/laps", headers=headers, timeout=30)
+        resp = requests.get(
+            f"{STRAVA_BASE}/activities/{activity_id}/laps", headers=headers, timeout=30
+        )
         if resp.status_code == 402:
             return None
         resp.raise_for_status()
@@ -90,9 +105,13 @@ def get_activity_laps(activity_id: int, token: Optional[str] = None, *, filter_a
         raise
 
     # 3) Aplikuj filter na auto-lapy (pred uložením cache!)
-    if filter_autolaps and _is_autolap_window(_extract_lap_distances(laps), window=4, target_m=1000, tol_m=50):
+    if filter_autolaps and _is_autolap_window(
+        _extract_lap_distances(laps), window=4, target_m=1000, tol_m=50
+    ):
         # Bežné auto-lapy -> nechceme ich ani v JSON cache, ani v DB
-        print(f"ℹ️  Laps pre activity_id={activity_id} vynechané (auto-lap 1 km ±50 m zistený).")
+        print(
+            f"ℹ️  Laps pre activity_id={activity_id} vynechané (auto-lap 1 km ±50 m zistený)."
+        )
         return None
 
     # 4) Ulož cache len ak lapy nechávame
@@ -104,7 +123,13 @@ def get_activity_laps(activity_id: int, token: Optional[str] = None, *, filter_a
     return laps
 
 
-def decide_laps_or_splits(activity_id: int, token: Optional[str] = None, *, km_target: int = 1000, tol_m: int = 50):
+def decide_laps_or_splits(
+    activity_id: int,
+    token: Optional[str] = None,
+    *,
+    km_target: int = 1000,
+    tol_m: int = 50,
+):
     """
     Rozhodne, či uložiť LAPS (intervaly) alebo SPLITS (bežné 1 km auto-lapy).
     Vráti dict: {"mode": "laps"|"splits", "laps": list|None, "splits": list|None}

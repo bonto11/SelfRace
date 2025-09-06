@@ -1,19 +1,16 @@
-import os
 from openai import OpenAI
-from dotenv import load_dotenv
+from backend.Modules.config import OPENAI_API_KEY, DEFAULT_MODEL
 
-load_dotenv()
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 def ask_ai(prompt: str) -> str:
     try:
         resp = client.chat.completions.create(
-            model=DEFAULT_MODEL,
-            messages=[{"role": "user", "content": prompt}]
+            model=DEFAULT_MODEL, messages=[{"role": "user", "content": prompt}]
         )
-        return resp.choices[0].message.content
+        content = resp.choices[0].message.content if resp.choices else None
+        return content or ""
     except Exception as e:
         print(f"❌ AI error: {e}")
         return ""

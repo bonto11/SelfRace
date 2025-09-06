@@ -2,10 +2,15 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 from Modules.SQL.db_handler import get_client
-from Modules.SQL.config import TABLE_USERS, TABLE_ACTIVITIES_SUMMARY, TABLE_ACTIVITIES_SPLITS, TABLE_ACTIVITIES_LAPS, TABLE_USERS_PROFILE, TABLE_USERS_ZONES, TABLE_USERS_THRESHOLDS, TABLE_USERS_BESTS, TABLE_USERS_RECOVERY
+from Modules.config import (
+    TABLE_USERS,
+    TABLE_USERS_PROFILE,
+    TABLE_USERS_RECOVERY,
+)
 
 router = APIRouter(prefix="/recovery", tags=["recovery"])
 supabase = get_client()
+
 
 class RecoveryIn(BaseModel):
     user_id: int
@@ -14,12 +19,13 @@ class RecoveryIn(BaseModel):
     HRV_avg_ms: int | None = None
     HRV_max_ms: int | None = None
     sleep_duration_min: int | None = None
-    sleep_start_time: str | None = None   # 👈 len HH:MM
+    sleep_start_time: str | None = None  # 👈 len HH:MM
     alcohol_volume_ml: int | None = None
     alcohol_type_pct: int | None = None
     food_2h_before: bool | None = None
     caffeine_8h: bool | None = None
     comments: str | None = None
+
 
 # --- CREATE alebo UPDATE podľa existencie ---
 @router.post("")
@@ -70,6 +76,7 @@ def insert_or_update_recovery(payload: RecoveryIn):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # --- GET všetky za posledných X dní ---
 @router.get("/{user_id}")
