@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timedelta, timezone
 from Modules.SQL.db_handler import get_client
+from Modules.Sync import sync_handler
 from Modules.config import (
     TABLE_USERS,
     TABLE_ACTIVITIES_SUMMARY,
@@ -89,4 +90,16 @@ def get_activity_detail(activity_id: int):
 
     except Exception as e:
         print("❌ get_activity_detail error:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sync/{user_id}")
+def sync_activities(user_id: int):
+    """
+    Spustí synchronizáciu aktivít pre usera (max posledných 30 dní).
+    Sync sa vykoná priamo a FE dostane odpoveď až po dokončení.
+    """
+    try:
+        saved = sync_handler.sync_activities(user_id, False, False)
+        return {"success": True, "message": f"✅ Hotovo, uložených {saved} aktivít"}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

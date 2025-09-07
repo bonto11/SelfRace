@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 
-from backend.Modules.config import STRAVA_BASE
+from Modules.config import STRAVA_BASE
 from .auth import get_access_token, _auth_headers
 from .client import _request_json
 from .cache import _maybe_load_or_cache

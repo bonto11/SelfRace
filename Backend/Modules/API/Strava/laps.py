@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 import requests
 
-from backend.Modules.config import STRAVA_BASE, USE_STRAVA_CACHE, CACHE_DIR
+from Modules.config import STRAVA_BASE, USE_STRAVA_CACHE, CACHE_DIR
 from .auth import _auth_headers
 from .client import _parse_rate_headers, _maybe_sleep_to_respect_limits, _request_json
 from .cache import _cache_read, _cache_write

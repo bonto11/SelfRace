@@ -1,7 +1,7 @@
 from typing import List, Optional, Any
 import requests
 
-from backend.Modules.config import STRAVA_BASE
+from Modules.config import STRAVA_BASE
 from .auth import _auth_headers
 from .client import _maybe_sleep_to_respect_limits
 from .cache import _maybe_load_or_cache

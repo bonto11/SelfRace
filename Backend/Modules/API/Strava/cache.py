@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Callable, Any
 
-from backend.Modules.config import USE_STRAVA_CACHE, CACHE_DIR
+from Modules.config import USE_STRAVA_CACHE, CACHE_DIR
 
 
 def _cache_read(path: Path):

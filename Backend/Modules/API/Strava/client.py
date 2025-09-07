@@ -2,7 +2,7 @@ import time
 import requests
 from typing import Tuple, Optional, Dict, Any
 
-from backend.Modules.config import REQUEST_DELAY_SECS
+from Modules.config import REQUEST_DELAY_SECS
 
 
 def _parse_rate_headers(resp) -> Tuple[Tuple[int, int], Tuple[int, int]]:

@@ -26,28 +26,57 @@ export default function ActivityTable() {
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ActivityDetail | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
-  //nacitanie aktivit
-  useEffect(() => {
-    async function load() {
-      console.log("➡️ [FE] Načítavam aktivity pre userId =", userId);
-      try {
-        const res = await fetch(`${API_URL}/activities/${userId}`);
-        const json = await res.json();
-
-        if (json.success) {
-          setRows(json.data);
-        } else {
-          console.error("❌ [FE] Backend error JSON:", json);
-        }
-      } catch (err) {
-        console.error("❌ [FE] Fetch error:", err);
+  // 🔄 načítanie aktivít
+  async function load() {
+    if (!userId) return;
+    setLoading(true);
+    console.log("➡️ [FE] Načítavam aktivity pre userId =", userId);
+    try {
+      const res = await fetch(`${API_URL}/activities/${userId}`);
+      const json = await res.json();
+      if (json.success) {
+        setRows(json.data);
+        console.log(`✅ [FE] Načítaných ${json.data.length} aktivít`);
+      } else {
+        console.error("❌ [FE] Backend error JSON:", json);
       }
-      setLoading(false);
+    } catch (err) {
+      console.error("❌ [FE] Fetch error:", err);
     }
+    setLoading(false);
+  }
+
+  useEffect(() => {
     if (userId) load();
   }, [userId]);
 
+  // 🔘 klik na sync
+  async function handleSync() {
+    if (!userId) return;
+    setSyncing(true);
+    console.log("➡️ [FE] Spúšťam sync pre userId =", userId);
+    try {
+      const res = await fetch(`${API_URL}/activities/sync/${userId}`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      console.log("➡️ [FE] Sync response:", json);
+
+      if (json.success) {
+        console.log("✅ [FE] Sync hotový, re-loadujem tabuľku");
+        await load(); // refresh tabuľky
+      } else {
+        console.error("❌ [FE] Sync error JSON:", json);
+      }
+    } catch (err) {
+      console.error("❌ [FE] Chyba pri sync requeste:", err);
+    }
+    setSyncing(false);
+  }
+
+  // 🖱️ klik na aktivitu → detail
   async function handleSelect(activityId: number) {
     console.log("🖱️ [FE] Klik na aktivitu, posielam activityId =", activityId);
     try {
@@ -67,13 +96,25 @@ export default function ActivityTable() {
     }
   }
 
-
   if (userLoading || loading) return <div>Načítavam...</div>;
   if (!userId) return <div>❌ User not found.</div>;
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold">Posledný mesiac aktivít</h2>
+      {/* Sync button so spinnerom */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold">Posledný mesiac aktivít</h2>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+        >
+          {syncing && (
+            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+          )}
+          {syncing ? "Synchronizujem..." : "Sync"}
+        </button>
+      </div>
 
       {/* TABUĽKA ZOZNAMU */}
       <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded shadow">
