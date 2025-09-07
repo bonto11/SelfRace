@@ -7,10 +7,9 @@ import { API_URL } from "@/lib/config";
 export default function RecoveryForm() {
   const { userId, loading } = useUserId();
 
-  // prednastavíme včerajší deň
+  // prednastavíme dnešný deň
   const [date, setDate] = useState<string>(() => {
     const d = new Date();
-    d.setDate(d.getDate());
     return d.toISOString().split("T")[0];
   });
 
@@ -80,21 +79,23 @@ export default function RecoveryForm() {
       <label className="block">Date</label>
       <input
         type="date"
+        required
         value={date}
         onChange={(e) => setDate(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
       <input
-        type="text"
+        type="number"
         placeholder="Resting HR (bpm)"
+        required
         value={rhr}
         onChange={(e) => setRhr(e.target.value)}
         className="w-full p-2 border rounded"
       />
 
       <input
-        type="text"
+        type="number"
         placeholder="HRV avg (ms)"
         value={hrvAvg}
         onChange={(e) => setHrvAvg(e.target.value)}
@@ -102,7 +103,7 @@ export default function RecoveryForm() {
       />
 
       <input
-        type="text"
+        type="number"
         placeholder="HRV max (ms)"
         value={hrvMax}
         onChange={(e) => setHrvMax(e.target.value)}
@@ -112,8 +113,10 @@ export default function RecoveryForm() {
       <label className="block">Sleep duration (HH:MM)</label>
       <input
         type="text"
+        required
         placeholder="napr. 07:45"
         pattern="^([01]\d|2[0-3]):([0-5]\d)$"
+        title="Zadajte čas vo formáte HH:MM (00–23:59)"
         value={sleepDuration}
         onChange={(e) => setSleepDuration(e.target.value)}
         className="w-full p-2 border rounded"
@@ -122,6 +125,7 @@ export default function RecoveryForm() {
       <label className="block">Sleep start (HH:MM)</label>
       <input
         type="text"
+        required
         placeholder="napr. 22:30"
         pattern="^([01]\d|2[0-3]):([0-5]\d)$"
         title="Zadajte čas vo formáte HH:MM (00–23:59)"
@@ -149,7 +153,7 @@ export default function RecoveryForm() {
       </div>
 
       <input
-        type="text"
+        type="number"
         placeholder="Alcohol consumed (ml)"
         value={alcoholVolume}
         onChange={(e) => setAlcoholVolume(e.target.value)}
@@ -157,7 +161,7 @@ export default function RecoveryForm() {
       />
 
       <input
-        type="text"
+        type="number"
         placeholder="Alcohol type (%)"
         value={alcoholType}
         onChange={(e) => setAlcoholType(e.target.value)}
