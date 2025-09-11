@@ -3,35 +3,38 @@
 import { useState } from "react";
 import { useUserId } from "@/lib/useUserId";
 import { API_URL } from "@/lib/config";
+import Columns from "./Columns";
 
 export default function RecoveryForm() {
-  const { userId, loading } = useUserId();
+  const { userId } = useUserId();
 
-  // prednastavíme dnešný deň
-  const [date, setDate] = useState<string>(() => {
-    const d = new Date();
-    return d.toISOString().split("T")[0];
-  });
-
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [rhr, setRhr] = useState("");
   const [hrvAvg, setHrvAvg] = useState("");
   const [hrvMax, setHrvMax] = useState("");
-  const [sleepDuration, setSleepDuration] = useState(""); // HH:MM
-  const [sleepStart, setSleepStart] = useState("");       // HH:MM
-  const [alcoholVolume, setAlcoholVolume] = useState("");
-  const [alcoholType, setAlcoholType] = useState("");
+  const [sleepStart, setSleepStart] = useState("");
+  const [sleepDuration, setSleepDuration] = useState("");
   const [lateFood, setLateFood] = useState(false);
   const [lateCaffeine, setLateCaffeine] = useState(false);
+  const [alcoholVolume, setAlcoholVolume] = useState("");
+  const [alcoholType, setAlcoholType] = useState("");
   const [comment, setComment] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!userId) {
-      alert("❌ Užívateľ neznámy.");
-      return;
-    }
+  function handleTimeInput(
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: string) => void
+  ) {
+    let value = e.target.value.replace(/\D/g, ""); // odstráni nečíselné znaky
 
-    // spracovanie sleepDuration (HH:MM → minúty)
+    if (value.length >= 3) {
+      value = value.slice(0, 2) + ":" + value.slice(2, 4);
+    }
+    setter(value);
+  }
+
+  async function handleSave() {
+    if (!userId) return alert("❌ Užívateľ neznámy");
+
     let sleepMinutes: number | null = null;
     if (sleepDuration) {
       const [h, m] = sleepDuration.split(":").map(Number);
@@ -44,16 +47,14 @@ export default function RecoveryForm() {
       RHR_bpm: rhr ? Number(rhr) : null,
       HRV_avg_ms: hrvAvg ? Number(hrvAvg) : null,
       HRV_max_ms: hrvMax ? Number(hrvMax) : null,
-      sleep_duration_min: sleepMinutes,
       sleep_start_time: sleepStart,
-      alcohol_volume_ml: alcoholVolume ? Number(alcoholVolume) : null,
-      alcohol_type_pct: alcoholType ? Number(alcoholType) : null,
+      sleep_duration_min: sleepMinutes,
       food_2h_before: lateFood,
       caffeine_8h: lateCaffeine,
+      alcohol_volume_ml: alcoholVolume ? Number(alcoholVolume) : null,
+      alcohol_type_pct: alcoholType ? Number(alcoholType) : null,
       comment,
     };
-
-    console.log("➡️ Posielam recovery:", payload);
 
     const res = await fetch(`${API_URL}/recovery`, {
       method: "POST",
@@ -63,125 +64,137 @@ export default function RecoveryForm() {
 
     const json = await res.json();
     if (!json.success) {
-      alert("Chyba: " + json.error);
+      alert("❌ Chyba: " + json.error);
     } else {
-      alert("✅ Recovery uložené/aktualizované");
+      alert("✅ Recovery uložené");
     }
   }
 
-  if (loading) return <div>Loading...</div>;
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 bg-white dark:bg-gray-800 p-4 rounded shadow"
-    >
-      <label className="block">Date</label>
-      <input
-        type="date"
-        required
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <input
-        type="number"
-        placeholder="Resting HR (bpm)"
-        required
-        value={rhr}
-        onChange={(e) => setRhr(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <input
-        type="number"
-        placeholder="HRV avg (ms)"
-        value={hrvAvg}
-        onChange={(e) => setHrvAvg(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <input
-        type="number"
-        placeholder="HRV max (ms)"
-        value={hrvMax}
-        onChange={(e) => setHrvMax(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <label className="block">Sleep duration (HH:MM)</label>
-      <input
-        type="text"
-        required
-        placeholder="napr. 07:45"
-        pattern="^([01]\d|2[0-3]):([0-5]\d)$"
-        title="Zadajte čas vo formáte HH:MM (00–23:59)"
-        value={sleepDuration}
-        onChange={(e) => setSleepDuration(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <label className="block">Sleep start (HH:MM)</label>
-      <input
-        type="text"
-        required
-        placeholder="napr. 22:30"
-        pattern="^([01]\d|2[0-3]):([0-5]\d)$"
-        title="Zadajte čas vo formáte HH:MM (00–23:59)"
-        value={sleepStart}
-        onChange={(e) => setSleepStart(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          checked={lateFood}
-          onChange={(e) => setLateFood(e.target.checked)}
-        />
-        <label>Food within 2h before sleep</label>
+    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+      <h2 className="text-lg font-bold mb-2">Recovery Inputs</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <Columns />
+          <thead>
+            <tr className="bg-gray-200 dark:bg-gray-700">
+              <th>Date</th>
+              <th>RHR</th>
+              <th>HRV avg</th>
+              <th>HRV max</th>
+              <th>Sleep start</th>
+              <th>Sleep (hh:mm)</th>
+              <th>Food?</th>
+              <th>Caffeine?</th>
+              <th>Alcohol (ml)</th>
+              <th>Alc. %</th>
+              <th>Comment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-gray-100 dark:bg-gray-700">
+              <td>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  value={rhr}
+                  onChange={(e) => setRhr(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  value={hrvAvg}
+                  onChange={(e) => setHrvAvg(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  value={hrvMax}
+                  onChange={(e) => setHrvMax(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="text"
+                  placeholder="HH:MM"
+                  value={sleepStart}
+                  onChange={(e) => handleTimeInput(e, setSleepStart)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="text"
+                  placeholder="HH:MM"
+                  value={sleepDuration}
+                  onChange={(e) => handleTimeInput(e, setSleepDuration)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td className="text-center">
+                <input
+                  type="checkbox"
+                  checked={lateFood}
+                  onChange={(e) => setLateFood(e.target.checked)}
+                />
+              </td>
+              <td className="text-center">
+                <input
+                  type="checkbox"
+                  checked={lateCaffeine}
+                  onChange={(e) => setLateCaffeine(e.target.checked)}
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  value={alcoholVolume}
+                  onChange={(e) => setAlcoholVolume(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  value={alcoholType}
+                  onChange={(e) => setAlcoholType(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+              <td>
+                <input
+                  type="text"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
+                />
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={11} className="text-right py-2">
+                <button
+                  onClick={handleSave}
+                  className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          checked={lateCaffeine}
-          onChange={(e) => setLateCaffeine(e.target.checked)}
-        />
-        <label>Caffeine within 8h before sleep</label>
-      </div>
-
-      <input
-        type="number"
-        placeholder="Alcohol consumed (ml)"
-        value={alcoholVolume}
-        onChange={(e) => setAlcoholVolume(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <input
-        type="number"
-        placeholder="Alcohol type (%)"
-        value={alcoholType}
-        onChange={(e) => setAlcoholType(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <textarea
-        placeholder="Comment"
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        className="w-full p-2 border rounded"
-      />
-
-      <button
-        type="submit"
-        disabled={!userId}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        Save
-      </button>
-    </form>
+    </div>
   );
 }

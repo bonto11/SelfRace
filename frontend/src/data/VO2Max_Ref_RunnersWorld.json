@@ -1,0 +1,122 @@
+[
+  {
+    "sex": "M",
+    "age_min": 0,
+    "age_max": 29,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 24.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 25, "max": 33.9, "color": "#EAB308" },
+      { "label": "Average", "min": 34, "max": 43.9, "color": "#84CC16" },
+      { "label": "Good", "min": 44, "max": 52.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 53, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "M",
+    "age_min": 30,
+    "age_max": 39,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 22.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 23, "max": 30.9, "color": "#EAB308" },
+      { "label": "Average", "min": 31, "max": 41.9, "color": "#84CC16" },
+      { "label": "Good", "min": 42, "max": 49.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 50, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "M",
+    "age_min": 40,
+    "age_max": 49,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 19.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 20, "max": 26.9, "color": "#EAB308" },
+      { "label": "Average", "min": 27, "max": 38.9, "color": "#84CC16" },
+      { "label": "Good", "min": 39, "max": 44.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 45, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "M",
+    "age_min": 50,
+    "age_max": 59,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 17.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 18, "max": 24.9, "color": "#EAB308" },
+      { "label": "Average", "min": 25, "max": 35.9, "color": "#84CC16" },
+      { "label": "Good", "min": 36, "max": 42.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 43, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "M",
+    "age_min": 60,
+    "age_max": 69,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 15.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 16, "max": 22.9, "color": "#EAB308" },
+      { "label": "Average", "min": 23, "max": 35.9, "color": "#84CC16" },
+      { "label": "Good", "min": 36, "max": 40.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 41, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "F",
+    "age_min": 0,
+    "age_max": 29,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 23.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 24, "max": 30.9, "color": "#EAB308" },
+      { "label": "Average", "min": 31, "max": 38.9, "color": "#84CC16" },
+      { "label": "Good", "min": 39, "max": 48.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 49, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "F",
+    "age_min": 30,
+    "age_max": 39,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 19.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 20, "max": 27.9, "color": "#EAB308" },
+      { "label": "Average", "min": 28, "max": 36.9, "color": "#84CC16" },
+      { "label": "Good", "min": 37, "max": 44.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 45, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "F",
+    "age_min": 40,
+    "age_max": 49,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 16.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 17, "max": 24.9, "color": "#EAB308" },
+      { "label": "Average", "min": 25, "max": 34.9, "color": "#84CC16" },
+      { "label": "Good", "min": 35, "max": 41.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 42, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "F",
+    "age_min": 50,
+    "age_max": 59,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 14.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 15, "max": 21.9, "color": "#EAB308" },
+      { "label": "Average", "min": 22, "max": 33.9, "color": "#84CC16" },
+      { "label": "Good", "min": 34, "max": 39.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 40, "max": null, "color": "#15803D" }
+    ]
+  },
+  {
+    "sex": "F",
+    "age_min": 60,
+    "age_max": 69,
+    "ranges": [
+      { "label": "Poor", "min": null, "max": 12.9, "color": "#DC2626" },
+      { "label": "Fair", "min": 13, "max": 20.9, "color": "#EAB308" },
+      { "label": "Average", "min": 21, "max": 32.9, "color": "#84CC16" },
+      { "label": "Good", "min": 33, "max": 36.9, "color": "#22C55E" },
+      { "label": "Excellent", "min": 37, "max": null, "color": "#15803D" }
+    ]
+  }
+]

@@ -27,21 +27,16 @@ export default function ActivityTable() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ActivityDetail | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [note, setNote] = useState<string>("");
 
   // 🔄 načítanie aktivít
   async function load() {
     if (!userId) return;
     setLoading(true);
-    console.log("➡️ [FE] Načítavam aktivity pre userId =", userId);
     try {
       const res = await fetch(`${API_URL}/activities/${userId}`);
       const json = await res.json();
-      if (json.success) {
-        setRows(json.data);
-        console.log(`✅ [FE] Načítaných ${json.data.length} aktivít`);
-      } else {
-        console.error("❌ [FE] Backend error JSON:", json);
-      }
+      if (json.success) setRows(json.data);
     } catch (err) {
       console.error("❌ [FE] Fetch error:", err);
     }
@@ -52,47 +47,61 @@ export default function ActivityTable() {
     if (userId) load();
   }, [userId]);
 
-  // 🔘 klik na sync
+  // 🔘 sync
   async function handleSync() {
     if (!userId) return;
     setSyncing(true);
-    console.log("➡️ [FE] Spúšťam sync pre userId =", userId);
     try {
       const res = await fetch(`${API_URL}/activities/sync/${userId}`, {
         method: "POST",
       });
       const json = await res.json();
-      console.log("➡️ [FE] Sync response:", json);
-
-      if (json.success) {
-        console.log("✅ [FE] Sync hotový, re-loadujem tabuľku");
-        await load(); // refresh tabuľky
-      } else {
-        console.error("❌ [FE] Sync error JSON:", json);
-      }
+      if (json.success) await load();
     } catch (err) {
       console.error("❌ [FE] Chyba pri sync requeste:", err);
     }
     setSyncing(false);
   }
 
-  // 🖱️ klik na aktivitu → detail
+  // 🖱️ detail
   async function handleSelect(activityId: number) {
-    console.log("🖱️ [FE] Klik na aktivitu, posielam activityId =", activityId);
     try {
       const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
-      console.log("➡️ [FE] GET detail status =", res.status);
       const json = await res.json();
-      console.log("➡️ [FE] GET detail JSON =", json);
 
       if (json.success) {
         setSelected(json);
-        console.log("✅ [FE] Uložený detail aktivity");
-      } else {
-        console.error("❌ [FE] Chyba detail JSON:", json);
+
+        const noteRes = await fetch(`${API_URL}/notes/${userId}/${activityId}`);
+        const noteJson = await noteRes.json();
+        setNote(noteJson.data?.feeling || "");
       }
     } catch (err) {
       console.error("❌ [FE] Fetch detail error:", err);
+    }
+  }
+
+  // 💾 poznámka
+  async function handleSaveNote() {
+    if (!userId || !selected) return;
+    try {
+      const res = await fetch(`${API_URL}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          activity_id: selected.summary.activity_id,
+          feeling: note,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        alert("❌ Chyba pri ukladaní poznámky");
+      } else {
+        alert("✅ Poznámka uložená");
+      }
+    } catch (err) {
+      console.error("❌ [FE] Save note error:", err);
     }
   }
 
@@ -100,10 +109,10 @@ export default function ActivityTable() {
   if (!userId) return <div>❌ User not found.</div>;
 
   return (
-    <div className="space-y-4">
-      {/* Sync button so spinnerom */}
+    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-4">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold">Posledný mesiac aktivít</h2>
+        <h2 className="text-lg font-bold">Activities</h2>
         <button
           onClick={handleSync}
           disabled={syncing}
@@ -116,11 +125,11 @@ export default function ActivityTable() {
         </button>
       </div>
 
-      {/* TABUĽKA ZOZNAMU */}
-      <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded shadow">
-        <table className="w-full text-sm">
+      {/* TABUĽKA */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse text-center">
           <thead>
-            <tr>
+            <tr className="bg-gray-200 dark:bg-gray-700">
               <th>Date</th>
               <th>Sport</th>
               <th>Name</th>
@@ -134,12 +143,14 @@ export default function ActivityTable() {
             {rows.map((row, idx) => (
               <tr
                 key={row.activity_id ?? idx}
-                className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
                 onClick={() => handleSelect(row.activity_id)}
               >
                 <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
                 <td>{row.sport_type}</td>
-                <td>{row.name}</td>
+                <td className="truncate max-w-[200px]" title={row.name}>
+                  {row.name}
+                </td>
                 <td>
                   {row.moving_time_s
                     ? Math.floor(row.moving_time_s / 60) + " min"
@@ -158,11 +169,11 @@ export default function ActivityTable() {
         </table>
       </div>
 
-      {/* DETAIL AKTIVITY */}
+      {/* DETAIL */}
       {selected && (
-        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded">
+        <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded shadow">
           <h3 className="font-bold mb-2">
-            Detail aktivity: {selected.summary.name} (
+            {selected.summary.name} (
             {new Date(selected.summary.date).toLocaleDateString("sk-SK")})
           </h3>
 
@@ -181,6 +192,23 @@ export default function ActivityTable() {
           </p>
           <p>Avg HR: {selected.summary.average_heartrate_bpm ?? "-"}</p>
           <p>Max HR: {selected.summary.max_heartrate_bpm ?? "-"}</p>
+
+          {/* NOTE */}
+          <div className="mt-4">
+            <label className="block font-bold mb-1">Feeling / poznámka</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-800"
+              placeholder="Ako sa ti bežalo?"
+            />
+            <button
+              onClick={handleSaveNote}
+              className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            >
+              Uložiť poznámku
+            </button>
+          </div>
 
           {selected.laps.length > 0 && (
             <>
