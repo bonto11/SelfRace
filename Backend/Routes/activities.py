@@ -4,15 +4,9 @@ from datetime import datetime, timedelta, timezone
 from Modules.SQL.db_handler import get_client
 from Modules.Sync import sync_handler
 from Modules.config import (
-    TABLE_USERS,
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_SPLITS,
-    TABLE_ACTIVITIES_LAPS,
-    TABLE_USERS_PROFILE,
-    TABLE_USERS_ZONES,
-    TABLE_USERS_THRESHOLDS,
-    TABLE_USERS_BESTS,
-    TABLE_USERS_RECOVERY,
+    TABLE_ACTIVITIES_LAPS
 )
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -38,9 +32,6 @@ def get_activities(user_id: int, days: int = 30):
         )
 
         print(f"➡️ get_activities: DB response count={len(rec.data)}")
-        if rec.data:
-            print("➡️ First row keys =", list(rec.data[0].keys()))
-            print("➡️ Example row =", rec.data[0])
 
         return {"success": True, "data": rec.data}
     except Exception as e:

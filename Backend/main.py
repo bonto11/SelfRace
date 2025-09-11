@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from Routes import recovery, users, activities, profile, notes
+from Routes import recovery, users, activities, profile, notes, analytics
 
 app = FastAPI()
 
@@ -24,5 +24,6 @@ app.include_router(users.router)
 app.include_router(activities.router)
 app.include_router(profile.router)
 app.include_router(notes.router)
+app.include_router(analytics.router)
 
 
