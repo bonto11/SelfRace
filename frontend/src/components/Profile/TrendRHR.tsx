@@ -16,7 +16,7 @@ import annotationPlugin from "chartjs-plugin-annotation";
 
 import { API_URL } from "@/lib/config";
 import { useUserId } from "@/lib/useUserId";
-import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
+import rhrRef from "@/data/RHR_Ref_VerywellFit.json";
 
 ChartJS.register(
   CategoryScale,
@@ -30,7 +30,7 @@ ChartJS.register(
 );
 
 interface HistoryRow {
-  VO2Max: number | null;
+  RHR: number | null;
   updated_at: string;
 }
 interface Range {
@@ -39,14 +39,8 @@ interface Range {
   max: number | null;
   color: string;
 }
-interface Group {
-  sex: "M" | "F";
-  age_min: number;
-  age_max: number;
-  ranges: Range[];
-}
 
-export default function TrendVO2Max() {
+export default function TrendRHR() {
   const { userId } = useUserId();
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [sex, setSex] = useState<"M" | "F">("M");
@@ -55,7 +49,7 @@ export default function TrendVO2Max() {
   useEffect(() => {
     if (!userId) return;
     async function load() {
-      const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`);
+      const res = await fetch(`${API_URL}/profile/rhr-history/${userId}`);
       const json = await res.json();
       if (json.success) {
         setHistory(json.history);
@@ -66,24 +60,27 @@ export default function TrendVO2Max() {
     load();
   }, [userId]);
 
-  if (!history.length) return <div>Načítavam VO₂Max...</div>;
+  if (!history.length) return <div>Načítavam RHR...</div>;
 
-  // vek a skupina z JSONu
+  const latestRHR = history[history.length - 1]?.RHR ?? null;
+
+  // vek & skupina z JSONu
   const age = Math.floor(
     (Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000)
   );
-  const group = (vo2Ref as Group[]).find(
+  const group = (rhrRef as any[]).find(
     (g) => g.sex === sex && age >= g.age_min && age <= g.age_max
   );
   const ranges: Range[] = group?.ranges ?? [];
 
-  // posledná hodnota a jej úroveň
-  const latestVO2 = history[history.length - 1]?.VO2Max ?? null;
+  // aktuálna kategória
   let currentLabel: string | null = null;
-  if (latestVO2 != null && ranges.length) {
+  if (latestRHR != null && ranges.length) {
     for (const r of ranges) {
-      if ((r.min == null || latestVO2 >= r.min) &&
-          (r.max == null || latestVO2 <= r.max)) {
+      if (
+        (r.min == null || latestRHR >= r.min) &&
+        (r.max == null || latestRHR <= r.max)
+      ) {
         currentLabel = r.label.trim();
         break;
       }
@@ -97,16 +94,16 @@ export default function TrendVO2Max() {
     ),
     datasets: [
       {
-        label: "VO₂Max",
-        data: history.map((h) => h.VO2Max),
-        borderColor: "cyan",
-        backgroundColor: "cyan",
+        label: "Resting HR",
+        data: history.map((h) => h.RHR),
+        borderColor: "orange",
+        backgroundColor: "orange",
         tension: 0.2,
       },
     ],
   };
 
-  // pásma + tooltip priamo na boxe
+  // podfarbené pásma + tooltip priamo na pásmach
   const annotations = ranges.reduce((acc: any, r: Range, idx: number) => {
     acc["range" + idx] = {
       type: "box",
@@ -120,7 +117,7 @@ export default function TrendVO2Max() {
           label: () => {
             const min = r.min ?? "≥";
             const max = r.max ?? "≤";
-            return `${r.label}: ${min}–${max}`;
+            return `${r.label}: ${min}–${max} bpm`;
           },
         },
       },
@@ -131,52 +128,47 @@ export default function TrendVO2Max() {
   const options = {
     responsive: true,
     plugins: {
-      legend: { display: false },    // dataset legendu skrývame
+      legend: { display: false }, // skryjeme dataset legendu
       annotation: { annotations },
       tooltip: { enabled: true },
     },
     scales: {
-      y: { beginAtZero: true, suggestedMax: 70 },
+      y: { beginAtZero: false, suggestedMin: 40, suggestedMax: 100 },
     },
   };
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow mt-4">
-      <h2 className="text-lg font-bold mb-2">Trend VO₂Max</h2>
+      <h2 className="text-lg font-bold mb-2">Trend Resting HR</h2>
       <div className="flex">
         {/* graf */}
         <div className="w-3/4">
           <Line data={data} options={options} />
         </div>
 
-        {/* “Legenda” vpravo – len názvy; rozsah je v title tooltipe */}
-        <div className="w-1/4 pl-4 flex flex-col justify-center text-sm">
-          {ranges
-            .slice()
-            .reverse() // nech je „Excellent“ hore
-            .map((r, idx) => {
-              const title = `${r.min ?? "≥"}–${r.max ?? "≤"}`;
-              const isCurrent = currentLabel === r.label.trim();
-              return (
-                <div
-                  key={idx}
-                  className={`flex items-center mb-1 ${
-                    isCurrent
-                      ? "font-bold text-blue-500"
-                      : ""
-                  }`}
-                  title={title}
-                >
-                  <span
+        {/* “Legenda” s kategóriami (bez čísel), čísla sú v title tooltipe */}
+        <div className="w-1/4 pl-4 flex flex-col justify-center">
+          {ranges.map((r, idx) => {
+            const title = `${r.min ?? "≥"}–${r.max ?? "≤"} bpm`; // tooltip po nabehnutí myšou
+            const isCurrent = currentLabel === r.label.trim();
+            return (
+              <div
+                key={idx}
+                className={`flex items-center mb-1 ${
+                  isCurrent ? "font-bold text-blue-500" : ""
+                }`}
+                title={title}
+              >
+                <span
                   className={`inline-block w-4 h-4 mr-2 rounded ${
                     isCurrent ? "ring-2 ring-black dark:ring-white" : ""
                   }`}
                   style={{ backgroundColor: r.color }}
                 />
-                  {r.label}
-                </div>
-              );
-            })}
+                {r.label}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

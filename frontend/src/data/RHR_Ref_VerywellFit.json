@@ -1,0 +1,132 @@
+[
+  {
+    "metric": "RHR",
+    "sex": "M",
+    "age_min": 18,
+    "age_max": 25,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 55, "color": "#15803D" },
+      { "label": "Excellent", "min": 56, "max": 61, "color": "#22C55E" },
+      { "label": "Good", "min": 62, "max": 65, "color": "#84CC16" },
+      { "label": "Average", "min": 66, "max": 73, "color": "#EAB308" },
+      { "label": "Poor", "min": 74, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "M",
+    "age_min": 26,
+    "age_max": 35,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 54, "color": "#15803D" },
+      { "label": "Excellent", "min": 55, "max": 61, "color": "#22C55E" },
+      { "label": "Good", "min": 62, "max": 66, "color": "#84CC16" },
+      { "label": "Average", "min": 67, "max": 74, "color": "#EAB308" },
+      { "label": "Poor", "min": 75, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "M",
+    "age_min": 36,
+    "age_max": 45,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 53, "color": "#15803D" },
+      { "label": "Excellent", "min": 54, "max": 60, "color": "#22C55E" },
+      { "label": "Good", "min": 61, "max": 67, "color": "#84CC16" },
+      { "label": "Average", "min": 68, "max": 75, "color": "#EAB308" },
+      { "label": "Poor", "min": 76, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "M",
+    "age_min": 46,
+    "age_max": 55,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 52, "color": "#15803D" },
+      { "label": "Excellent", "min": 53, "max": 60, "color": "#22C55E" },
+      { "label": "Good", "min": 61, "max": 67, "color": "#84CC16" },
+      { "label": "Average", "min": 68, "max": 76, "color": "#EAB308" },
+      { "label": "Poor", "min": 77, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "M",
+    "age_min": 56,
+    "age_max": 65,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 51, "color": "#15803D" },
+      { "label": "Excellent", "min": 52, "max": 59, "color": "#22C55E" },
+      { "label": "Good", "min": 60, "max": 67, "color": "#84CC16" },
+      { "label": "Average", "min": 68, "max": 77, "color": "#EAB308" },
+      { "label": "Poor", "min": 78, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "F",
+    "age_min": 18,
+    "age_max": 25,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 54, "color": "#15803D" },
+      { "label": "Excellent", "min": 55, "max": 65, "color": "#22C55E" },
+      { "label": "Good", "min": 66, "max": 69, "color": "#84CC16" },
+      { "label": "Average", "min": 70, "max": 78, "color": "#EAB308" },
+      { "label": "Poor", "min": 79, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "F",
+    "age_min": 26,
+    "age_max": 35,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 53, "color": "#15803D" },
+      { "label": "Excellent", "min": 54, "max": 64, "color": "#22C55E" },
+      { "label": "Good", "min": 65, "max": 68, "color": "#84CC16" },
+      { "label": "Average", "min": 69, "max": 76, "color": "#EAB308" },
+      { "label": "Poor", "min": 77, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "F",
+    "age_min": 36,
+    "age_max": 45,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 52, "color": "#15803D" },
+      { "label": "Excellent", "min": 53, "max": 63, "color": "#22C55E" },
+      { "label": "Good", "min": 64, "max": 69, "color": "#84CC16" },
+      { "label": "Average", "min": 70, "max": 78, "color": "#EAB308" },
+      { "label": "Poor", "min": 79, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "F",
+    "age_min": 46,
+    "age_max": 55,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 51, "color": "#15803D" },
+      { "label": "Excellent", "min": 52, "max": 63, "color": "#22C55E" },
+      { "label": "Good", "min": 64, "max": 70, "color": "#84CC16" },
+      { "label": "Average", "min": 71, "max": 78, "color": "#EAB308" },
+      { "label": "Poor", "min": 79, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "RHR",
+    "sex": "F",
+    "age_min": 56,
+    "age_max": 65,
+    "ranges": [
+      { "label": "Athlete", "min": null, "max": 50, "color": "#15803D" },
+      { "label": "Excellent", "min": 51, "max": 62, "color": "#22C55E" },
+      { "label": "Good", "min": 63, "max": 70, "color": "#84CC16" },
+      { "label": "Average", "min": 71, "max": 79, "color": "#EAB308" },
+      { "label": "Poor", "min": 80, "max": null, "color": "#DC2626" }
+    ]
+  }
+]

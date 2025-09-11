@@ -1,0 +1,132 @@
+[
+  {
+    "metric": "BodyFat",
+    "sex": "M",
+    "age_min": 20,
+    "age_max": 29,
+    "ranges": [
+      { "label": "Essential", "min": 2, "max": 5, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 6, "max": 13, "color": "#15803D" },
+      { "label": "Fitness", "min": 14, "max": 17, "color": "#22C55E" },
+      { "label": "Average", "min": 18, "max": 24, "color": "#EAB308" },
+      { "label": "Obese", "min": 25, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "M",
+    "age_min": 30,
+    "age_max": 39,
+    "ranges": [
+      { "label": "Essential", "min": 2, "max": 5, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 6, "max": 14, "color": "#15803D" },
+      { "label": "Fitness", "min": 15, "max": 18, "color": "#22C55E" },
+      { "label": "Average", "min": 19, "max": 25, "color": "#EAB308" },
+      { "label": "Obese", "min": 26, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "M",
+    "age_min": 40,
+    "age_max": 49,
+    "ranges": [
+      { "label": "Essential", "min": 2, "max": 5, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 6, "max": 15, "color": "#15803D" },
+      { "label": "Fitness", "min": 16, "max": 19, "color": "#22C55E" },
+      { "label": "Average", "min": 20, "max": 26, "color": "#EAB308" },
+      { "label": "Obese", "min": 27, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "M",
+    "age_min": 50,
+    "age_max": 59,
+    "ranges": [
+      { "label": "Essential", "min": 2, "max": 6, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 7, "max": 16, "color": "#15803D" },
+      { "label": "Fitness", "min": 17, "max": 20, "color": "#22C55E" },
+      { "label": "Average", "min": 21, "max": 27, "color": "#EAB308" },
+      { "label": "Obese", "min": 28, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "M",
+    "age_min": 60,
+    "age_max": 69,
+    "ranges": [
+      { "label": "Essential", "min": 2, "max": 7, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 8, "max": 17, "color": "#15803D" },
+      { "label": "Fitness", "min": 18, "max": 21, "color": "#22C55E" },
+      { "label": "Average", "min": 22, "max": 28, "color": "#EAB308" },
+      { "label": "Obese", "min": 29, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "F",
+    "age_min": 20,
+    "age_max": 29,
+    "ranges": [
+      { "label": "Essential", "min": 10, "max": 13, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 14, "max": 20, "color": "#15803D" },
+      { "label": "Fitness", "min": 21, "max": 24, "color": "#22C55E" },
+      { "label": "Average", "min": 25, "max": 31, "color": "#EAB308" },
+      { "label": "Obese", "min": 32, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "F",
+    "age_min": 30,
+    "age_max": 39,
+    "ranges": [
+      { "label": "Essential", "min": 10, "max": 13, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 14, "max": 21, "color": "#15803D" },
+      { "label": "Fitness", "min": 22, "max": 25, "color": "#22C55E" },
+      { "label": "Average", "min": 26, "max": 32, "color": "#EAB308" },
+      { "label": "Obese", "min": 33, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "F",
+    "age_min": 40,
+    "age_max": 49,
+    "ranges": [
+      { "label": "Essential", "min": 10, "max": 13, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 14, "max": 22, "color": "#15803D" },
+      { "label": "Fitness", "min": 23, "max": 26, "color": "#22C55E" },
+      { "label": "Average", "min": 27, "max": 33, "color": "#EAB308" },
+      { "label": "Obese", "min": 34, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "F",
+    "age_min": 50,
+    "age_max": 59,
+    "ranges": [
+      { "label": "Essential", "min": 10, "max": 14, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 15, "max": 23, "color": "#15803D" },
+      { "label": "Fitness", "min": 24, "max": 27, "color": "#22C55E" },
+      { "label": "Average", "min": 28, "max": 34, "color": "#EAB308" },
+      { "label": "Obese", "min": 35, "max": null, "color": "#DC2626" }
+    ]
+  },
+  {
+    "metric": "BodyFat",
+    "sex": "F",
+    "age_min": 60,
+    "age_max": 69,
+    "ranges": [
+      { "label": "Essential", "min": 10, "max": 15, "color": "#0EA5E9" },
+      { "label": "Athletes", "min": 16, "max": 24, "color": "#15803D" },
+      { "label": "Fitness", "min": 25, "max": 28, "color": "#22C55E" },
+      { "label": "Average", "min": 29, "max": 35, "color": "#EAB308" },
+      { "label": "Obese", "min": 36, "max": null, "color": "#DC2626" }
+    ]
+  }
+]
