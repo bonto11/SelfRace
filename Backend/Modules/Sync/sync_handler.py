@@ -39,6 +39,20 @@ def to_float(v, default=None):
         return float(v)
     except Exception:
         return default
+    
+def clamp_int(v: int | None, lo: int = -32768, hi: int = 32767) -> int | None:
+    if v is None:
+        return None
+    return max(lo, min(hi, v))
+
+def to_int_rounded(v, default=None, clamp_smallint=False):
+    if v is None or v == "":
+        return default
+    try:
+        n = int(round(float(v)))
+        return clamp_int(n) if clamp_smallint else n
+    except Exception:
+        return default
 
 def to_str(v, default=""):
     return str(v) if v is not None else default
@@ -233,42 +247,59 @@ def _normalize_summary(user_id: int, a: dict) -> dict:
 
 
 def _normalize_lap(l: dict, user_id: int, activity_id: int) -> dict:
-    """Strava lap -> activities_laps (názvy podľa tvojej DB)."""
+    """Mapuje Strava lap -> activities_laps podľa tvojej schémy (SMALLINT fix)."""
     return {
         "user_id":             user_id,
-        "activity_id":         int(l.get("activity_id") or activity_id),
-        "lap_index":           to_int(l.get("lap_index")),
+        "activity_id":         to_int_rounded(l.get("activity_id") or activity_id),
+        "lap_index":           to_int_rounded(l.get("lap_index"), clamp_smallint=True),
+
+        # DB: text/timestamp with tz – nechávame string od Stravy
         "start_date_local":    l.get("start_date") or l.get("start_date_local"),
-        "distance_m":          to_int(l.get("distance")),
-        "moving_time_s":       to_int(l.get("moving_time")),
-        "elapsed_time_s":      to_int(l.get("elapsed_time")),
+
+        # INT polia (v DB pravdepodobne int/smallint)
+        "distance_m":          to_int_rounded(l.get("distance")),          # m
+        "moving_time_s":       to_int_rounded(l.get("moving_time")),       # s
+        "elapsed_time_s":      to_int_rounded(l.get("elapsed_time")),      # s
+        "pace_s_per_km":       to_int_rounded(l.get("pace_s_per_km"), clamp_smallint=True),
+
+        # FLOAT polia
         "total_elev_gain_m":   to_float(l.get("total_elevation_gain") or l.get("total_elev_gain_m")),
         "avg_speed_mps":       to_float(l.get("average_speed") or l.get("avg_speed_mps")),
         "max_speed_mps":       to_float(l.get("max_speed") or l.get("max_speed_mps")),
         "avg_cadence_rpm":     to_float(l.get("average_cadence") or l.get("avg_cadence_rpm")),
         "avg_watts":           to_float(l.get("average_watts") or l.get("avg_watts")),
-        "avg_hr_bpm":          to_float(l.get("average_heartrate") or l.get("avg_hr_bpm")),
-        "max_hr_bpm":          to_float(l.get("max_heartrate") or l.get("max_hr_bpm")),
-        "pace_s_per_km":       to_int(l.get("pace_s_per_km")),
-        # user_uid je u teba voliteľné – ak ho chceš dopĺňať, pridaj si ho z user profilu
-        # "user_uid":          "...",
+
+        # HR v DB máš SMALLINT → nutné zaokrúhliť na celé a prípadne ohraničiť
+        "avg_hr_bpm":          to_int_rounded(l.get("average_heartrate") or l.get("avg_hr_bpm"),
+                                              clamp_smallint=True),
+        "max_hr_bpm":          to_int_rounded(l.get("max_heartrate")      or l.get("max_hr_bpm"),
+                                              clamp_smallint=True),
     }
 
 def _normalize_split(s: dict, user_id: int, activity_id: int, idx1: int) -> dict:
-    """Strava splits_metric -> activities_splits (názvy podľa tvojej DB)."""
+    """Mapuje Strava splits_metric -> activities_splits (SMALLINT fix)."""
     return {
-        "user_id":            user_id,
-        "activity_id":        int(s.get("activity_id") or activity_id),
-        "split_index":        to_int(s.get("split") or s.get("split_index") or idx1),
-        "distance_m":         to_int(s.get("distance")),
-        "moving_time_s":      to_int(s.get("moving_time")),
-        "elapsed_time_s":     to_int(s.get("elapsed_time")),
-        "elevation_diff_m":   to_float(s.get("elevation_difference") or s.get("elevation_diff_m")),
-        "avg_speed_mps":      to_float(s.get("average_speed") or s.get("avg_speed_mps")),
-        "avg_gap_mps":        to_float(s.get("average_grade_adjusted_speed") or s.get("avg_gap_mps")),
-        "avg_hr_bpm":         to_float(s.get("average_heartrate") or s.get("avg_hr_bpm")),
-        "pace_s_per_km":      to_int(s.get("pace_s_per_km")),
-        # ak by si neskôr chcel aj max HR: "max_hr_bpm": to_float(...),
+        "user_id":           user_id,
+        "activity_id":       to_int_rounded(s.get("activity_id") or activity_id),
+        "split_index":       to_int_rounded(s.get("split") or s.get("split_index") or idx1,
+                                            clamp_smallint=True),
+
+        # INT polia
+        "distance_m":        to_int_rounded(s.get("distance")),
+        "moving_time_s":     to_int_rounded(s.get("moving_time")),
+        "elapsed_time_s":    to_int_rounded(s.get("elapsed_time")),
+        "pace_s_per_km":     to_int_rounded(s.get("pace_s_per_km"), clamp_smallint=True),
+
+        # FLOAT polia
+        "elevation_diff_m":  to_float(s.get("elevation_difference") or s.get("elevation_diff_m")),
+        "avg_speed_mps":     to_float(s.get("average_speed") or s.get("avg_speed_mps")),
+        "avg_gap_mps":       to_float(s.get("average_grade_adjusted_speed") or s.get("avg_gap_mps")),
+
+        # HR → SMALLINT v DB, Strava dáva často float → zaokrúhliť
+        "avg_hr_bpm":        to_int_rounded(s.get("average_heartrate") or s.get("avg_hr_bpm"),
+                                            clamp_smallint=True),
+        # ak by si niekedy dopĺňal max HR na splits, urob rovnako:
+        # "max_hr_bpm":     to_int_rounded(some_value, clamp_smallint=True),
     }
 
 
