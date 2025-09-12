@@ -18,7 +18,7 @@ export default function RecoveryForm() {
   const [lateCaffeine, setLateCaffeine] = useState(false);
   const [alcoholVolume, setAlcoholVolume] = useState("");
   const [alcoholType, setAlcoholType] = useState("");
-  const [comment, setComment] = useState("");
+  const [comments, setComment] = useState("");
 
   function handleTimeInput(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -53,7 +53,7 @@ export default function RecoveryForm() {
       caffeine_8h: lateCaffeine,
       alcohol_volume_ml: alcoholVolume ? Number(alcoholVolume) : null,
       alcohol_type_pct: alcoholType ? Number(alcoholType) : null,
-      comment,
+      comments,
     };
 
     const res = await fetch(`${API_URL}/recovery`, {
@@ -176,7 +176,7 @@ export default function RecoveryForm() {
               <td>
                 <input
                   type="text"
-                  value={comment}
+                  value={comments}
                   onChange={(e) => setComment(e.target.value)}
                   className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
                 />
