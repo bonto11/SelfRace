@@ -1,39 +1,48 @@
-// src/components/Activity/TrendWeeklyLoad.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Bar } from "react-chartjs-2";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
-  LineElement,
   PointElement,
+  LineElement,
+  BarElement,
+  Title,
   Tooltip,
   Legend,
+  ChartData,
+  ChartOptions,
 } from "chart.js";
+import { Chart as MixedChart, getElementAtEvent } from "react-chartjs-2";
+import WeeklySummary from "@/components/Activity/WeeklySummary";
 import { API_URL } from "@/lib/config";
 import { useUserId } from "@/lib/useUserId";
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  BarElement,
-  LineElement,
   PointElement,
+  LineElement,
+  BarElement,
+  Title,
   Tooltip,
   Legend
 );
 
+type Metric = "km" | "time" | "trimp";
+
 type WeekRow = {
-  week: string; // napr. "2025-W36"
-  label: string; // napr. "2025-W36"
-  // vzdialenosti (km)
+  week: string;
+  label: string;
+  start: string;   // YYYY-MM-DD  (NEW)
+  end: string;     // YYYY-MM-DD  (NEW)
+  // km
   km_run: number;
   km_ride: number;
   km_total: number;
-  // časy (min)
+  // time
+  time_min: number;              // 👈 total
   time_run_min: number;
   time_ride_min: number;
   time_strength_min: number;
@@ -44,133 +53,115 @@ type WeekRow = {
   trimp_strength: number;
   trimp_other: number;
   trimp: number;
-  // indexy
-  monotony: number; // y1
-  strain: number; // y1
+  // indexy – objekt podľa metriky
+  monotony: { km?: number; time?: number; trimp?: number };
+  strain:   { km?: number; time?: number; trimp?: number };
 };
 
-type Metric = "km" | "time" | "trimp";
-
-const COLORS = {
-  run: "rgba(56, 189, 248, 0.6)", // cyan-400
-  ride: "rgba(168, 85, 247, 0.6)", // purple-500
-  strength: "rgba(251, 191, 36, 0.6)", // amber-400
-  other: "rgba(148, 163, 184, 0.6)", // slate-400
-  lineMonotony: "rgba(34, 197, 94, 0.95)", // green-500
-  lineStrain: "rgba(250, 204, 21, 0.95)", // yellow-400
+const C = {
+  run: "#22D3EE",      // cyan-400
+  bike: "#A78BFA",     // violet-400
+  strength: "#F59E0B", // amber-500
+  other: "#9CA3AF",    // gray-400
+  monotony: "#84CC16", // lime-400
+  strain: "#FDE047",   // yellow-300
 };
 
-function HelpBadge() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="ml-2 relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="text-xs px-2 py-1 rounded bg-slate-600 hover:bg-slate-500"
-        title="Čo znamenajú metriky?"
-      >
-        i
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-72 text-sm bg-slate-800 text-slate-100 p-3 rounded shadow-xl z-10">
-          <p className="font-semibold mb-1">Metriky</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <b>Km</b> – súčet vzdialenosti, rozdelený na Beh/Bike.
-            </li>
-            <li>
-              <b>Čas</b> – minúty rozdelené na Beh/Bike/Sila/Iné.
-            </li>
-            <li>
-              <b>TRIMP</b> – tréningový impulz (intenzita × čas), rozdelený
-              podľa športu.
-            </li>
-            <li>
-              <b>Monotony</b> – konzistentnosť (priemer / SD tréningovej záťaže;
-              0–2 je ok, &gt;2 = riziko).
-            </li>
-            <li>
-              <b>Strain</b> – Monotony × týždenný súčet záťaže.
-            </li>
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
+const alpha = (hex: string, a: number) =>
+  `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(
+    hex.slice(3, 5),
+    16
+  )},${parseInt(hex.slice(5, 7), 16)},${a})`;
 
-export default function TrendWeeklyLoad() {
+const fmtMin = (m: number) => {
+  const mm = Math.round(m || 0);
+  if (mm < 60) return `${mm} min`;
+  const h = Math.floor(mm / 60);
+  const r = mm % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+};
+const fmtKm = (v: number) => `${(v || 0).toFixed(1)} km`;
+
+export type WeekPick = { week: string; start: string; end: string };
+
+export default function TrendWeeklyLoad({onPickWeek,}: { onPickWeek?: (w: WeekPick) => void;}) {
   const { userId } = useUserId();
 
-  // --- UI state (HOOKY VŽDY NA TOP-LEVELE!) ---
   const [metric, setMetric] = useState<Metric>("km");
-  const [showRun, setShowRun] = useState(true);
-  const [showRide, setShowRide] = useState(true);
-  const [showStrength, setShowStrength] = useState(true);
-  const [showOther, setShowOther] = useState(false);
-  const [weeks, setWeeks] = useState<WeekRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sRun, setSRun] = useState(true);
+  const [sBike, setSBike] = useState(true);
+  const [sStrength, setSStrength] = useState(true);
+  const [sOther, setSOther] = useState(false);
 
-  // --- fetch ---
+  const [weeks, setWeeks] = useState<WeekRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [picked, setPicked] = useState<{week:string,start:string,end:string}|null>(null);
+
+
+  // fetch + normalizácia
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
       try {
-        const url = `${API_URL}/analytics/weekly/${userId}?weeks=12`;
-        const res = await fetch(url);
+        const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=12`);
         const json = await res.json();
-        console.log("[FE] /analytics/weekly json →", json);
 
-        // očakávame pole v json.weeks; niektoré implementácie vracajú json.data
         const raw: any[] = Array.isArray(json?.weeks)
           ? json.weeks
           : Array.isArray(json?.data)
           ? json.data
           : [];
 
-        // 🔧 normalizácia názvov + čísel (string -> number)
-        const toNum = (v: any) =>
-          v == null || v === "" ? 0 : typeof v === "number" ? v : Number(v);
-
-        const normalize = (w: any) => {
-          // podporíme aj alternatívne mená kľúčov (pre prípad, že BE vracia inak)
-          return {
-            week: w.week ?? w.iso_week ?? w.isoWeek ?? "",
-            label: w.label ?? w.week_label ?? w.week ?? "",
-            // km
-            km_run: toNum(w.km_run ?? w.run_km ?? w.dist_run_km ?? w.kmRun),
-            km_ride: toNum(
-              w.km_ride ?? w.ride_km ?? w.dist_ride_km ?? w.kmRide
-            ),
-            km_total: toNum(w.km_total ?? w.total_km ?? w.kmTotal),
-            // čas (min)
-            time_run_min: toNum(w.time_run_min ?? w.run_min ?? w.run_time_min),
-            time_ride_min: toNum(
-              w.time_ride_min ?? w.ride_min ?? w.ride_time_min
-            ),
-            time_strength_min: toNum(
-              w.time_strength_min ?? w.strength_min ?? w.gym_min
-            ),
-            time_other_min: toNum(w.time_other_min ?? w.other_min),
-            // TRIMP
-            trimp_run: toNum(w.trimp_run ?? w.run_trimp),
-            trimp_bike: toNum(w.trimp_bike ?? w.bike_trimp),
-            trimp_strength: toNum(w.trimp_strength ?? w.strength_trimp),
-            trimp_other: toNum(w.trimp_other ?? w.other_trimp),
-            trimp: toNum(w.trimp ?? w.total_trimp),
-            // indexy
-            monotony: toNum(w.monotony),
-            strain: toNum(w.strain),
-          };
+        const toNum = (v: any) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
         };
 
-        const norm = raw.map(normalize);
+        const norm: WeekRow[] = raw.map((w) => ({
+          week: w.week ?? w.iso_week ?? w.label ?? "",
+          label: w.label ?? w.week ?? w.iso_week ?? "",
+          start: w.start ?? "",                // NEW
+          end:   w.end ?? "",                  // NEW
+          km_run: toNum(w.km_run ?? w.run_km ?? w.dist_run_km),
+          km_ride: toNum(w.km_ride ?? w.ride_km ?? w.dist_ride_km ?? w.km_bike),
+          km_total: toNum(w.km_total ?? w.total_km),
 
-        console.table(norm.slice(-5)); // posledných 5 týždňov do konzoly
+          time_min: toNum(w.time_min ?? w.total_min ?? w.total_time_min),
+          time_run_min: toNum(w.time_run_min ?? w.run_min ?? w.run_time_min),
+          time_ride_min: toNum(w.time_ride_min ?? w.ride_min ?? w.ride_time_min),
+          time_strength_min: toNum(w.time_strength_min ?? w.strength_min ?? w.gym_min),
+          time_other_min: toNum(w.time_other_min ?? w.other_min),
+
+          trimp_run: toNum(w.trimp_run ?? w.run_trimp),
+          trimp_bike: toNum(w.trimp_bike ?? w.bike_trimp ?? w.trimp_ride),
+          trimp_strength: toNum(w.trimp_strength ?? w.strength_trimp),
+          trimp_other: toNum(w.trimp_other ?? w.other_trimp),
+          trimp: toNum(w.trimp ?? w.total_trimp),
+
+          monotony: w.monotony ?? {},
+          strain:   w.strain ?? {},
+        }));
+
+        console.table(
+          norm.map((w) => ({
+            week: w.week,
+            km: w.km_total,
+            time_min: w.time_min,
+            trimp: w.trimp,
+            mono_km: w.monotony.km,
+            mono_time: w.monotony.time,
+            mono_trimp: w.monotony.trimp,
+            strain_km: w.strain.km,
+            strain_time: w.strain.time,
+            strain_trimp: w.strain.trimp,
+          }))
+        );
+
         setWeeks(norm);
       } catch (e) {
-        console.error("[FE] weekly load error:", e);
+        console.error("[FE] weekly error:", e);
         setWeeks([]);
       } finally {
         setLoading(false);
@@ -178,296 +169,347 @@ export default function TrendWeeklyLoad() {
     })();
   }, [userId]);
 
-  const labels = useMemo(() => weeks.map((w) => w.label), [weeks]);
+  const chartRef = useRef<any>(null);
 
-  // --- bar datasety (len výpočet, žiadne nové hooky) ---
-  const barDatasets = useMemo(() => {
-    const ds: any[] = [];
+  function handleChartClick(evt: React.MouseEvent<HTMLCanvasElement>) {
+    if (!chartRef.current) return;
+    const elems = getElementAtEvent(chartRef.current, evt);
+    if (!elems.length) return;
+    const idx = elems[0].index;
+    const w = weeks[idx];
+    if (!w) return;
+    onPickWeek?.({ week: w.week, start: w.start, end: w.end });
+
+    console.log("click", elems, idx, weeks[idx]);
+  }
+
+  const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
+
+  // série indexov viazané na vybranú metriku
+  const monoSeries = useMemo(
+    () => weeks.map((w) => (w.monotony?.[metric] ?? null)),
+    [weeks, metric]
+  );
+  const strainSeries = useMemo(
+    () => weeks.map((w) => (w.strain?.[metric] ?? null)),
+    [weeks, metric]
+  );
+
+  const monoMax = Math.max(1, ...monoSeries.filter((v): v is number => v != null));
+  const strainMax = Math.max(1, ...strainSeries.filter((v): v is number => v != null));
+  
+
+  // datasety
+  const datasets = useMemo(() => {
+    const arr: any[] = [];
 
     if (metric === "km") {
-      if (showRun) {
-        ds.push({
-          type: "bar",
+      if (sRun)
+        arr.push({
+          type: "bar" as const,
           label: "Km (run)",
-          data: weeks.map((w) => w.km_run ?? 0),
-          backgroundColor: COLORS.run,
-          borderColor: COLORS.run.replace("0.6", "1"),
+          data: weeks.map((w) => w.km_run),
+          backgroundColor: alpha(C.run, 0.85),
+          borderColor: C.run,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "km",
+          yAxisID: "y",
         });
-      }
-      if (showRide) {
-        ds.push({
-          type: "bar",
+      if (sBike)
+        arr.push({
+          type: "bar" as const,
           label: "Km (bike)",
-          data: weeks.map((w) => w.km_ride ?? 0),
-          backgroundColor: COLORS.ride,
-          borderColor: COLORS.ride.replace("0.6", "1"),
+          data: weeks.map((w) => w.km_ride),
+          backgroundColor: alpha(C.bike, 0.85),
+          borderColor: C.bike,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "km",
+          yAxisID: "y",
         });
-      }
     }
 
     if (metric === "time") {
-      if (showRun) {
-        ds.push({
-          type: "bar",
-          label: "Čas beh (min)",
-          data: weeks.map((w) => w.time_run_min ?? 0),
-          backgroundColor: COLORS.run,
-          borderColor: COLORS.run.replace("0.6", "1"),
+      if (sRun)
+        arr.push({
+          type: "bar" as const,
+          label: "Run",
+          data: weeks.map((w) => w.time_run_min),
+          backgroundColor: alpha(C.run, 0.85),
+          borderColor: C.run,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "time",
+          yAxisID: "y",
         });
-      }
-      if (showRide) {
-        ds.push({
-          type: "bar",
-          label: "Čas bike (min)",
-          data: weeks.map((w) => w.time_ride_min ?? 0),
-          backgroundColor: COLORS.ride,
-          borderColor: COLORS.ride.replace("0.6", "1"),
+      if (sBike)
+        arr.push({
+          type: "bar" as const,
+          label: "Bike",
+          data: weeks.map((w) => w.time_ride_min),
+          backgroundColor: alpha(C.bike, 0.85),
+          borderColor: C.bike,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "time",
+          yAxisID: "y",
         });
-      }
-      if (showStrength) {
-        ds.push({
-          type: "bar",
-          label: "Čas sila (min)",
-          data: weeks.map((w) => w.time_strength_min ?? 0),
-          backgroundColor: COLORS.strength,
-          borderColor: COLORS.strength.replace("0.6", "1"),
+      if (sStrength)
+        arr.push({
+          type: "bar" as const,
+          label: "Strength",
+          data: weeks.map((w) => w.time_strength_min),
+          backgroundColor: alpha(C.strength, 0.9),
+          borderColor: C.strength,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "time",
+          yAxisID: "y",
         });
-      }
-      if (showOther) {
-        ds.push({
-          type: "bar",
-          label: "Čas iné (min)",
-          data: weeks.map((w) => w.time_other_min ?? 0),
-          backgroundColor: COLORS.other,
-          borderColor: COLORS.other.replace("0.6", "1"),
+      if (sOther)
+        arr.push({
+          type: "bar" as const,
+          label: "Other",
+          data: weeks.map((w) => w.time_other_min),
+          backgroundColor: alpha(C.other, 0.9),
+          borderColor: C.other,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "time",
+          yAxisID: "y",
         });
-      }
     }
 
     if (metric === "trimp") {
-      if (showRun) {
-        ds.push({
-          type: "bar",
-          label: "TRIMP beh",
-          data: weeks.map((w) => w.trimp_run ?? 0),
-          backgroundColor: COLORS.run,
-          borderColor: COLORS.run.replace("0.6", "1"),
+      if (sRun)
+        arr.push({
+          type: "bar" as const,
+          label: "TRIMP (run)",
+          data: weeks.map((w) => w.trimp_run),
+          backgroundColor: alpha(C.run, 0.85),
+          borderColor: C.run,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "trimp",
+          yAxisID: "y",
         });
-      }
-      if (showRide) {
-        ds.push({
-          type: "bar",
-          label: "TRIMP bike",
-          data: weeks.map((w) => w.trimp_bike ?? 0),
-          backgroundColor: COLORS.ride,
-          borderColor: COLORS.ride.replace("0.6", "1"),
+      if (sBike)
+        arr.push({
+          type: "bar" as const,
+          label: "TRIMP (bike)",
+          data: weeks.map((w) => w.trimp_bike),
+          backgroundColor: alpha(C.bike, 0.85),
+          borderColor: C.bike,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "trimp",
+          yAxisID: "y",
         });
-      }
-      if (showStrength) {
-        ds.push({
-          type: "bar",
-          label: "TRIMP sila",
-          data: weeks.map((w) => w.trimp_strength ?? 0),
-          backgroundColor: COLORS.strength,
-          borderColor: COLORS.strength.replace("0.6", "1"),
+      if (sStrength)
+        arr.push({
+          type: "bar" as const,
+          label: "TRIMP (strength)",
+          data: weeks.map((w) => w.trimp_strength),
+          backgroundColor: alpha(C.strength, 0.9),
+          borderColor: C.strength,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "trimp",
+          yAxisID: "y",
         });
-      }
-      if (showOther) {
-        ds.push({
-          type: "bar",
-          label: "TRIMP iné",
-          data: weeks.map((w) => w.trimp_other ?? 0),
-          backgroundColor: COLORS.other,
-          borderColor: COLORS.other.replace("0.6", "1"),
+      if (sOther)
+        arr.push({
+          type: "bar" as const,
+          label: "TRIMP (other)",
+          data: weeks.map((w) => w.trimp_other),
+          backgroundColor: alpha(C.other, 0.9),
+          borderColor: C.other,
           borderWidth: 1,
-          yAxisID: "yMain",
-          stack: "trimp",
+          yAxisID: "y",
         });
-      }
     }
 
-    // čiary – pravá os
-    ds.push({
-      type: "line",
+    // Monotony (pravá os y1)
+    arr.push({
+      type: "line" as const,
       label: "Monotony",
-      data: weeks.map((w) => w.monotony ?? 0),
-      borderColor: COLORS.lineMonotony,
-      backgroundColor: COLORS.lineMonotony,
-      yAxisID: "yIdx",
-      tension: 0.25,
+      data: monoSeries,
+      yAxisID: "y1",
+      borderColor: C.monotony,
+      backgroundColor: C.monotony,
+      tension: 0.3,
       pointRadius: 2,
-      borderWidth: 2,
-      order: 0,
+      borderWidth: 3,
+      spanGaps: true,
+      order: 99,
     });
 
-    ds.push({
-      type: "line",
+    // Strain (druhá pravá os y2)
+    arr.push({
+      type: "line" as const,
       label: "Strain",
-      data: weeks.map((w) => w.strain ?? 0),
-      borderColor: COLORS.lineStrain,
-      backgroundColor: COLORS.lineStrain,
-      yAxisID: "yIdx",
-      tension: 0.25,
+      data: strainSeries,
+      yAxisID: "y2",
+      borderColor: C.strain,
+      backgroundColor: C.strain,
+      tension: 0.3,
       pointRadius: 2,
-      borderWidth: 2,
-      order: 0,
+      borderWidth: 3,
+      borderDash: [4, 4],
+      spanGaps: true,
+      order: 99,
     });
 
-    return ds;
-  }, [metric, showRun, showRide, showStrength, showOther, weeks]);
+    return arr;
+  }, [weeks, metric, sRun, sBike, sStrength, sOther, monoSeries, strainSeries]);
 
-  const data = useMemo(
-    () => ({
-      labels,
-      datasets: barDatasets,
-    }),
-    [labels, barDatasets]
-  );
+  const data: ChartData<"bar" | "line", number[], string> = {
+    labels,
+    datasets,
+  };
 
-  const unitLeft = metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP";
+  const options: ChartOptions<"bar" | "line"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { position: "top" },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.dataset.label || "";
+            const v = ctx.parsed.y as number;
 
-  const options = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          position: "top" as const,
-          labels: { color: "#cbd5e1" },
-        },
-        tooltip: {
-          mode: "index" as const,
-          intersect: false,
-        },
-      },
-      scales: {
-        yMain: {
-          type: "linear" as const,
-          position: "left" as const,
-          grid: { color: "rgba(148,163,184,0.2)" },
-          ticks: {
-            color: "#cbd5e1",
-            callback: (v: any) => `${v} ${unitLeft}`,
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v?.toFixed?.(2) ?? v}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+
+            if (metric === "km") return `${label}: ${fmtKm(v)}`;
+            if (metric === "time") return `${label}: ${fmtMin(v)}`;
+            if (metric === "trimp") return `${label}: ${Math.round(v)} TRIMP`;
+            return `${label}: ${v}`;
           },
-          beginAtZero: true,
-        },
-        yIdx: {
-          type: "linear" as const,
-          position: "right" as const,
-          grid: { drawOnChartArea: false },
-          ticks: { color: "#e5e7eb" },
-          beginAtZero: true,
-        },
-        x: {
-          grid: { color: "rgba(148,163,184,0.15)" },
-          ticks: { color: "#cbd5e1" },
         },
       },
-    }),
-    [unitLeft]
-  );
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
+        },
+        grid: { color: "rgba(255,255,255,0.07)" },
+      },
+      y1: {
+        position: "right",
+        min: 0,
+        max: Math.max(3, Math.ceil(monoMax + 0.5)),
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: "Monotony" },
+      },
+      y2: {
+        position: "right",
+        min: 0,
+        max: Math.ceil(strainMax * 1.1),
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: "Strain" },
+      },
+      x: {
+        grid: { color: "rgba(255,255,255,0.05)" },
+      },
+    },
+    onClick: (_evt, els) => {
+    const idx = els?.[0]?.index;
+    if (idx != null) {
+      const w = weeks[idx];
+      setPicked({ week: w.week, start: w.start, end: w.end });
+      // ak filtruješ tabuľku:
+      onPickWeek?.({ week: w.week, start: w.start, end: w.end });
+    }
+},
+  };
 
-  if (loading) return <div>Načítavam…</div>;
-  if (!weeks.length) return <div>Žiadne dáta.</div>;
+  const helpText =
+    metric === "km"
+      ? "Rozdelenosť vzdialenosti podľa športu."
+      : metric === "time"
+      ? "Odtrénovaný čas podľa športu."
+      : "TRIMP – tréningový impulz (intenzita × trvanie). Monotony = týždenná konzistentnosť; Strain = celkový stres (TRIMP × Monotony).";
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold">Weekly Load</h3>
-          <HelpBadge />
-        </div>
+    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-base font-semibold">Weekly Load</h3>
 
-        <div className="flex items-center gap-4 text-sm">
-          {/* Metric selector */}
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* metrika */}
+          <div className="flex items-center gap-1 text-xs">
             <span className="opacity-70">Zobraziť:</span>
-            {(["km", "time", "trimp"] as Metric[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMetric(m)}
-                className={`px-2 py-1 rounded ${
-                  metric === m
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-600 text-slate-100"
-                }`}
-              >
-                {m === "km" ? "Km" : m === "time" ? "Čas" : "TRIMP"}
-              </button>
-            ))}
+            <button
+              onClick={() => setMetric("km")}
+              className={`px-2 py-1 rounded ${metric === "km" ? "bg-blue-600 text-white" : "bg-gray-700"}`}
+            >
+              Km
+            </button>
+            <button
+              onClick={() => setMetric("time")}
+              className={`px-2 py-1 rounded ${metric === "time" ? "bg-blue-600 text-white" : "bg-gray-700"}`}
+            >
+              Čas
+            </button>
+            <button
+              onClick={() => setMetric("trimp")}
+              className={`px-2 py-1 rounded ${metric === "trimp" ? "bg-blue-600 text-white" : "bg-gray-700"}`}
+            >
+              TRIMP
+            </button>
           </div>
 
-          {/* Sport filters */}
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showRun}
-                onChange={(e) => setShowRun(e.target.checked)}
-              />
-              <span>Beh</span>
+          {/* filtre športov */}
+          <div className="flex items-center gap-2 text-xs">
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={sRun} onChange={(e) => setSRun(e.target.checked)} />
+              Beh
             </label>
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showRide}
-                onChange={(e) => setShowRide(e.target.checked)}
-              />
-              <span>Bike</span>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={sBike} onChange={(e) => setSBike(e.target.checked)} />
+              Bike
             </label>
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showStrength}
-                onChange={(e) => setShowStrength(e.target.checked)}
-                disabled={metric === "km"} // pri km nedáva zmysel
-              />
-              <span className={metric === "km" ? "opacity-40" : ""}>Sila</span>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={sStrength} onChange={(e) => setSStrength(e.target.checked)} />
+              Sila
             </label>
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showOther}
-                onChange={(e) => setShowOther(e.target.checked)}
-                disabled={metric === "km"} // pri km nedáva zmysel
-              />
-              <span className={metric === "km" ? "opacity-40" : ""}>Iné</span>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={sOther} onChange={(e) => setSOther(e.target.checked)} />
+              Iné
             </label>
+          </div>
+
+          {/* help */}
+          <div className="relative">
+            <button
+              className="w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-600 text-white text-xs"
+              onClick={() => setShowHelp((v) => !v)}
+              aria-label="Help"
+              title="Čo je zobrazené?"
+            >
+              i
+            </button>
+            {showHelp && (
+              <div className="absolute right-0 mt-2 w-80 text-sm bg-gray-900 text-gray-100 border border-gray-700 rounded shadow-xl p-3 z-10">
+                <div className="font-semibold mb-1">Nápoveda</div>
+                <p className="mb-2">{helpText}</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><b>Monotony</b>: čím bližšie k ~1, tým vyrovnanejší týždeň.</li>
+                  <li><b>Strain</b>: celkový týždenný stres (vyššie = náročnejšie).</li>
+                  <li>Pre <b>Čas</b> sú jednotky v minútach (tooltip formát: h/min).</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <div style={{ height: 360 }}>
-        <Bar data={data} options={options} />
+        {loading ? (
+          <div className="opacity-70 text-sm">Načítavam…</div>
+        ) : (
+          <MixedChart 
+          ref={chartRef}
+          type="bar" 
+          data={data} 
+          options={options}
+          onClick={handleChartClick} />
+        )}
       </div>
+      <WeeklySummary
+        weeks={weeks as any}
+        metric={metric}
+        selectedWeek={picked?.week ?? weeks.at(-1)?.week}
+      />
     </div>
   );
 }

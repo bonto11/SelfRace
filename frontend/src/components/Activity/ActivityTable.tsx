@@ -1,8 +1,11 @@
+// src/components/Activity/ActivityTable.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/lib/useUserId";
 import { API_URL } from "@/lib/config";
+
+type DateRange = { start: string; end: string } | null;
 
 interface ActivityRow {
   activity_id: number;
@@ -12,7 +15,7 @@ interface ActivityRow {
   moving_time_s: number | null;
   average_heartrate_bpm: number | null;
   max_heartrate_bpm: number | null;
-  date: string;
+  date: string; // ISO
 }
 
 interface ActivityDetail {
@@ -21,8 +24,26 @@ interface ActivityDetail {
   splits: any[];
 }
 
-export default function ActivityTable() {
+function fmtMin(totalSec?: number | null) {
+  if (!totalSec) return "-";
+  const m = Math.round(totalSec / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+function fmtKm(m?: number | null) {
+  if (!m) return "-";
+  return (m / 1000).toFixed(2) + " km";
+}
+function safeDateOnly(iso: string) {
+  // vyrež len YYYY-MM-DD a sprav si “poludnie”, aby TZ neskreslila filter
+  return (iso || "").slice(0, 10) + "T12:00:00";
+}
+
+export default function ActivityTable({ filterRange }: { filterRange: DateRange }) {
   const { userId, loading: userLoading } = useUserId();
+
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ActivityDetail | null>(null);
@@ -36,9 +57,19 @@ export default function ActivityTable() {
     try {
       const res = await fetch(`${API_URL}/activities/${userId}`);
       const json = await res.json();
-      if (json.success) setRows(json.data);
+      if (json.success && Array.isArray(json.data)) {
+        // zoradíme najnovšie hore
+        const sorted: ActivityRow[] = [...json.data].sort(
+          (a: ActivityRow, b: ActivityRow) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setRows(sorted);
+      } else {
+        setRows([]);
+      }
     } catch (err) {
-      console.error("❌ [FE] Fetch error:", err);
+      console.error("❌ [FE] Fetch activities error:", err);
+      setRows([]);
     }
     setLoading(false);
   }
@@ -46,6 +77,45 @@ export default function ActivityTable() {
   useEffect(() => {
     if (userId) load();
   }, [userId]);
+
+  // 🗂️ lokálny filter podľa týždňa z grafu
+  const filteredRows = useMemo(() => {
+    if (!filterRange) return rows;
+    try {
+      const s = new Date(filterRange.start + "T00:00:00");
+      const e = new Date(filterRange.end + "T23:59:59");
+      const out = rows.filter((r) => {
+        const d = new Date(safeDateOnly(r.date));
+        return d >= s && d <= e;
+      });
+      // malý debug do konzoly
+      console.debug(
+        "[ActivityTable] filterRange",
+        filterRange,
+        "→", out.length, "záznamov"
+      );
+      return out;
+    } catch {
+      return rows;
+    }
+  }, [rows, filterRange]);
+
+  // 🖱️ detail
+  async function handleSelect(activityId: number) {
+    try {
+      const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
+      const json = await res.json();
+      if (json.success) {
+        setSelected(json);
+
+        const noteRes = await fetch(`${API_URL}/notes/${userId}/${activityId}`);
+        const noteJson = await noteRes.json();
+        setNote(noteJson.data?.feeling || "");
+      }
+    } catch (err) {
+      console.error("❌ [FE] Fetch detail error:", err);
+    }
+  }
 
   // 🔘 sync
   async function handleSync() {
@@ -58,27 +128,9 @@ export default function ActivityTable() {
       const json = await res.json();
       if (json.success) await load();
     } catch (err) {
-      console.error("❌ [FE] Chyba pri sync requeste:", err);
+      console.error("❌ [FE] Sync error:", err);
     }
     setSyncing(false);
-  }
-
-  // 🖱️ detail
-  async function handleSelect(activityId: number) {
-    try {
-      const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
-      const json = await res.json();
-
-      if (json.success) {
-        setSelected(json);
-
-        const noteRes = await fetch(`${API_URL}/notes/${userId}/${activityId}`);
-        const noteJson = await noteRes.json();
-        setNote(noteJson.data?.feeling || "");
-      }
-    } catch (err) {
-      console.error("❌ [FE] Fetch detail error:", err);
-    }
   }
 
   // 💾 poznámka
@@ -95,11 +147,7 @@ export default function ActivityTable() {
         }),
       });
       const json = await res.json();
-      if (!json.success) {
-        alert("❌ Chyba pri ukladaní poznámky");
-      } else {
-        alert("✅ Poznámka uložená");
-      }
+      if (!json.success) alert("❌ Chyba pri ukladaní poznámky");
     } catch (err) {
       console.error("❌ [FE] Save note error:", err);
     }
@@ -112,14 +160,20 @@ export default function ActivityTable() {
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold">Activities</h2>
+        <h2 className="text-lg font-bold">
+          Activities{filterRange ? (
+            <span className="ml-2 text-xs font-normal opacity-70">
+              – filter: {filterRange.start} – {filterRange.end}
+            </span>
+          ) : null}
+        </h2>
         <button
           onClick={handleSync}
           disabled={syncing}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
         >
           {syncing && (
-            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
           )}
           {syncing ? "Synchronizujem..." : "Sync"}
         </button>
@@ -140,31 +194,31 @@ export default function ActivityTable() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => (
-              <tr
-                key={row.activity_id ?? idx}
-                className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={() => handleSelect(row.activity_id)}
-              >
-                <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
-                <td>{row.sport_type}</td>
-                <td className="truncate max-w-[200px]" title={row.name}>
-                  {row.name}
-                </td>
-                <td>
-                  {row.moving_time_s
-                    ? Math.floor(row.moving_time_s / 60) + " min"
-                    : "-"}
-                </td>
-                <td>{row.average_heartrate_bpm ?? "-"}</td>
-                <td>{row.max_heartrate_bpm ?? "-"}</td>
-                <td>
-                  {row.distance_m
-                    ? (row.distance_m / 1000).toFixed(2) + " km"
-                    : "-"}
+            {filteredRows.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-6 opacity-70">
+                  Žiadne aktivity pre zvolený interval.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredRows.map((row) => (
+                <tr
+                  key={row.activity_id}
+                  className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSelect(row.activity_id)}
+                >
+                  <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
+                  <td>{row.sport_type}</td>
+                  <td className="truncate max-w-[220px]" title={row.name}>
+                    {row.name}
+                  </td>
+                  <td>{fmtMin(row.moving_time_s)}</td>
+                  <td>{row.average_heartrate_bpm ?? "-"}</td>
+                  <td>{row.max_heartrate_bpm ?? "-"}</td>
+                  <td>{fmtKm(row.distance_m)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -177,21 +231,13 @@ export default function ActivityTable() {
             {new Date(selected.summary.date).toLocaleDateString("sk-SK")})
           </h3>
 
-          <p>Sport: {selected.summary.sport_type}</p>
-          <p>
-            Distance:{" "}
-            {selected.summary.distance_m
-              ? (selected.summary.distance_m / 1000).toFixed(2) + " km"
-              : "-"}
-          </p>
-          <p>
-            Moving time:{" "}
-            {selected.summary.moving_time_s
-              ? Math.floor(selected.summary.moving_time_s / 60) + " min"
-              : "-"}
-          </p>
-          <p>Avg HR: {selected.summary.average_heartrate_bpm ?? "-"}</p>
-          <p>Max HR: {selected.summary.max_heartrate_bpm ?? "-"}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-1 gap-x-4 text-sm">
+            <div><b>Sport:</b> {selected.summary.sport_type}</div>
+            <div><b>Distance:</b> {fmtKm(selected.summary.distance_m)}</div>
+            <div><b>Moving time:</b> {fmtMin(selected.summary.moving_time_s)}</div>
+            <div><b>Avg HR:</b> {selected.summary.average_heartrate_bpm ?? "-"}</div>
+            <div><b>Max HR:</b> {selected.summary.max_heartrate_bpm ?? "-"}</div>
+          </div>
 
           {/* NOTE */}
           <div className="mt-4">
@@ -210,28 +256,26 @@ export default function ActivityTable() {
             </button>
           </div>
 
-          {selected.laps.length > 0 && (
+          {selected.laps?.length > 0 && (
             <>
               <h4 className="font-bold mt-4">Laps</h4>
               <ul className="list-disc pl-5">
-                {selected.laps.map((lap, idx) => (
+                {selected.laps.map((lap: any, idx: number) => (
                   <li key={lap.lap_index ?? idx}>
-                    Lap {lap.lap_index}: {lap.distance_m} m,{" "}
-                    {lap.moving_time_s}s
+                    Lap {lap.lap_index}: {lap.distance_m} m, {lap.moving_time_s}s
                   </li>
                 ))}
               </ul>
             </>
           )}
 
-          {selected.splits.length > 0 && (
+          {selected.splits?.length > 0 && (
             <>
               <h4 className="font-bold mt-4">Splits</h4>
               <ul className="list-disc pl-5">
-                {selected.splits.map((split, idx) => (
+                {selected.splits.map((split: any, idx: number) => (
                   <li key={split.split_index ?? idx}>
-                    Split {split.split_index}: {split.distance_m} m,{" "}
-                    {split.moving_time_s}s
+                    Split {split.split_index}: {split.distance_m} m, {split.moving_time_s}s
                   </li>
                 ))}
               </ul>

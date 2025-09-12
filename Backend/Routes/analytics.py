@@ -86,8 +86,8 @@ def monotony_and_strain(day_dict: dict[str, float],
 def weekly(user_id: int, weeks: int = 12):
     """
     Týždenná agregácia za posledných N týždňov.
-    - Stĺpce (stĺpce/stacky): TRIMP / čas / km (so splitmi podľa športu)
-    - Krivky: Monotony, Strain (pre každú metriku zvlášť)
+    - Stĺpce: km / čas / TRIMP (so splitmi podľa športu)
+    - Krivky: Monotony, Strain (viazané k rovnakej metrike)
     """
     try:
         # --- načítaj sex + aktuálne HR parametre (HRmax, RHR) ---
@@ -134,7 +134,7 @@ def weekly(user_id: int, weeks: int = 12):
             "trimp": 0.0, "trimp_run": 0.0, "trimp_ride": 0.0, "trimp_strength": 0.0, "trimp_other": 0.0,
             "time_min": 0.0, "time_run_min": 0.0, "time_ride_min": 0.0, "time_strength_min": 0.0, "time_other_min": 0.0,
             "km_total": 0.0, "km_run": 0.0, "km_ride": 0.0,
-            # na výpočet monotony (po dňoch)
+            # na výpočet monotony/strain podľa dní
             "day_trimp": defaultdict(float),
             "day_time": defaultdict(float),
             "day_km": defaultdict(float),
@@ -201,17 +201,47 @@ def weekly(user_id: int, weeks: int = 12):
                 "time_strength_min": wa["time_strength_min"], "time_other_min": wa["time_other_min"],
                 "trimp": wa["trimp"], "trimp_run": wa["trimp_run"], "trimp_ride": wa["trimp_ride"],
                 "trimp_strength": wa["trimp_strength"], "trimp_other": wa["trimp_other"],
-                # metriky monotony/strain
+                # metriky monotony/strain (objekt)
                 "monotony": {"km": mono_km, "time": mono_tm, "trimp": mono_tr},
                 "strain":   {"km": strain_km, "time": strain_tm, "trimp": strain_tr},
             })
 
-        print(f"[ANALYTICS] weekly: weeks={len(out_weeks)} "
-              f"(sex={sex}, HRmax={hr_max}, RHR={rhr})")
+        print(f"[ANALYTICS] weekly: weeks={len(out_weeks)} (sex={sex}, HRmax={hr_max}, RHR={rhr})")
 
+        # ⚠️ Vráť len JSON-safe štruktúru
         return {
             "success": True,
-            "weeks": out_weeks,
+            "weeks": [
+                {
+                    "week": w["week"],
+                    "start": w["start"],
+                    "end": w["end"],
+                    "km_total": float(w["km_total"]),
+                    "km_run": float(w["km_run"]),
+                    "km_ride": float(w["km_ride"]),
+                    "time_min": float(w["time_min"]),
+                    "time_run_min": float(w["time_run_min"]),
+                    "time_ride_min": float(w["time_ride_min"]),
+                    "time_strength_min": float(w["time_strength_min"]),
+                    "time_other_min": float(w["time_other_min"]),
+                    "trimp": float(w["trimp"]),
+                    "trimp_run": float(w["trimp_run"]),
+                    "trimp_ride": float(w["trimp_ride"]),
+                    "trimp_strength": float(w["trimp_strength"]),
+                    "trimp_other": float(w["trimp_other"]),
+                    "monotony": {
+                        "km": float(w["monotony"]["km"]),
+                        "time": float(w["monotony"]["time"]),
+                        "trimp": float(w["monotony"]["trimp"]),
+                    },
+                    "strain": {
+                        "km": float(w["strain"]["km"]),
+                        "time": float(w["strain"]["time"]),
+                        "trimp": float(w["strain"]["trimp"]),
+                    },
+                }
+                for w in out_weeks
+            ],
             "hr_used": {"sex": sex, "hr_max": hr_max, "rhr": rhr},
         }
 

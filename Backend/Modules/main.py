@@ -46,9 +46,9 @@ def main():
     # cache_streams_for_activity(user_id, activity_id, activity_date=None)
 
     # 4) AI analýza
-    # report = AI_analyze_last_week(user_id)
+    report = AI_analyze_last_week(user_id)
     print("===== AI REPORT =====")
-    # print(report)
+    print(report)
 
 
 if __name__ == "__main__":
