@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 import requests
+import statistics
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Iterable
 
@@ -75,7 +76,70 @@ def iso_to_timestamptz_str(iso: Optional[str]) -> Optional[str]:
         return dt.strftime("%Y-%m-%d %H:%M:%S+00")
     except Exception:
         return None
+def _num(v) -> float:
+    try:
+        return float(v)
+    except Exception:
+        return 0.0
 
+def _extract_dt_pairs_from_laps(laps_raw: list[dict]) -> list[tuple[float, float]]:
+    # (distance_m, moving_time_s) z raw lapov
+    out: list[tuple[float, float]] = []
+    for L in laps_raw:
+        d = _num(L.get("distance") or L.get("distance_m"))
+        t = _num(L.get("moving_time") or L.get("moving_time_s"))
+        if d > 0 and t > 0:
+            out.append((d, t))
+    return out
+
+def _extract_dt_pairs_from_splits(splits_raw: list[dict]) -> list[tuple[float, float]]:
+    # (distance_m, moving_time_s) zo splits_metric
+    out: list[tuple[float, float]] = []
+    for S in splits_raw:
+        d = _num(S.get("distance") or S.get("distance_m"))
+        t = _num(S.get("moving_time") or S.get("moving_time_s"))
+        if d > 0 and t > 0:
+            out.append((d, t))
+    return out
+
+def _match_ratio(laps_dt: list[tuple[float, float]], splits_dt: list[tuple[float, float]],
+                 tol_m: float = 20.0, tol_s: float = 10.0) -> float:
+    """
+    Spáruje splits s najbližšími lapmi. Vráti pomer úspešne spárovaných párov.
+    """
+    if not laps_dt or not splits_dt:
+        return 0.0
+
+    used = set()
+    matches = 0
+    for (sd, st) in splits_dt:
+        best_i = None
+        best_err = 1e18
+        for i, (ld, lt) in enumerate(laps_dt):
+            if i in used:
+                continue
+            # preferujeme najmenší súčet chýb (ľahká heuristika)
+            err = abs(ld - sd) + 3 * abs(lt - st)
+            if err < best_err:
+                best_err = err
+                best_i = i
+        if best_i is None:
+            continue
+        ld, lt = laps_dt[best_i]
+        if abs(ld - sd) <= tol_m and abs(lt - st) <= tol_s:
+            matches += 1
+            used.add(best_i)
+
+    denom = max(1, min(len(laps_dt), len(splits_dt)))
+    return matches / denom
+
+def _median_dist(laps_dt: list[tuple[float, float]]) -> float | None:
+    if not laps_dt:
+        return None
+    try:
+        return float(statistics.median([d for (d, _) in laps_dt]))
+    except Exception:
+        return None
 
 # -----------------------------------------------------------------------------
 # Strava session (token berieme z tvojej auth vrstvy)
@@ -302,6 +366,45 @@ def _normalize_split(s: dict, user_id: int, activity_id: int, idx1: int) -> dict
         # "max_hr_bpm":     to_int_rounded(some_value, clamp_smallint=True),
     }
 
+def _decide_laps_or_splits(laps_raw: list[dict], splits_raw: list[dict]) -> str:
+    """
+    Vráti 'splits' | 'laps' | 'none' podľa podobnosti.
+    Pravidlá:
+      - ak máme iba jeden typ -> ten
+      - ak match_ratio >= 0.70 -> splits
+      - fallback: ak median lap ≈ 1000 m a match_ratio >= 0.5 -> splits
+      - inak -> laps
+    """
+    if not laps_raw and not splits_raw:
+        return "none"
+    if laps_raw and not splits_raw:
+        return "laps"
+    if splits_raw and not laps_raw:
+        return "splits"
+
+    laps_dt   = _extract_dt_pairs_from_laps(laps_raw)
+    splits_dt = _extract_dt_pairs_from_splits(splits_raw)
+
+    if not laps_dt and not splits_dt:
+        return "none"
+    if laps_dt and not splits_dt:
+        return "laps"
+    if splits_dt and not laps_dt:
+        return "splits"
+
+    ratio = _match_ratio(laps_dt, splits_dt, tol_m=20.0, tol_s=10.0)
+
+    # silná zhoda -> splits
+    if ratio >= 0.70:
+        return "splits"
+
+    # fallback: laps ~ 1km -> pravdepodobne bežné km splitovanie -> skôr splits
+    med = _median_dist(laps_dt)
+    if med is not None and 900.0 <= med <= 1100.0 and ratio >= 0.50:
+        return "splits"
+
+    # inak laps (intervaly / odlišné dĺžky)
+    return "laps"
 
 # -----------------------------------------------------------------------------
 # Hlavná sync funkcia
@@ -382,7 +485,7 @@ def sync_activities(
         print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
         to_upsert.clear()
 
-    # ---------- detaily (laps/splits) ----------
+    # -------- detaily (laps/splits) --------
     if fetch_details and fetched:
         ids_rows = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
@@ -393,37 +496,49 @@ def sync_activities(
             .limit(MAX_FULL_DETAILS_PER_RUN)
             .execute()
         )
-        ids = [int(r["activity_id"]) for r in (ids_rows.data or [])]
-        print(f"[SYNC] fetching details for last {len(ids)} activities")
+        ids = [int(r["activity_id"]) for r in ids_rows.data or []]
 
-        for aid in ids:
-            # LAPS
+        for i, aid in enumerate(ids, start=1):
             try:
+                # 1) načítaj surové dáta
                 rl = ses.get(f"{STRAVA_BASE}/activities/{aid}/laps", timeout=30)
                 rl.raise_for_status()
-                laps = rl.json() or []
-                for L in laps:
-                    Lrow = _normalize_lap(L, user_id, aid)
-                    supabase.table(TABLE_ACTIVITIES_LAPS).upsert(
-                        Lrow, on_conflict="activity_id,lap_index"
-                    ).execute()
-            except Exception as e:
-                print(f"[SYNC] laps failed id={aid}: {e}")
-                skipped += 1
+                laps_raw = rl.json() or []
 
-            # SPLITS (z detailu)
-            try:
                 rd = ses.get(f"{STRAVA_BASE}/activities/{aid}", timeout=30)
                 rd.raise_for_status()
                 detail = rd.json() or {}
-                for idx, S in enumerate(detail.get("splits_metric") or []):
-                    Srow = _normalize_split(S, user_id, aid, idx + 1)
-                    supabase.table(TABLE_ACTIVITIES_SPLITS).upsert(
-                        Srow, on_conflict="activity_id,split_index"
-                    ).execute()
+                splits_raw = detail.get("splits_metric") or []
+
+                # 2) rozhodni režim
+                mode = _decide_laps_or_splits(laps_raw, splits_raw)
+
+                # 3) najprv vymaž “ten druhý typ”, aby nezostali staré záznamy
+                if mode == "splits":
+                    supabase.table(TABLE_ACTIVITIES_LAPS).delete().eq("activity_id", aid).execute()
+                elif mode == "laps":
+                    supabase.table(TABLE_ACTIVITIES_SPLITS).delete().eq("activity_id", aid).execute()
+
+                # 4) ulož podľa režimu (normalizácia rieši smallint vs float)
+                if mode == "splits":
+                    for idx, S in enumerate(splits_raw, start=1):
+                        row = _normalize_split(S, user_id, aid, idx)
+                        supabase.table(TABLE_ACTIVITIES_SPLITS).upsert(
+                            row, on_conflict="activity_id,split_index"
+                        ).execute()
+                elif mode == "laps":
+                    for L in laps_raw:
+                        row = _normalize_lap(L, user_id, aid)
+                        supabase.table(TABLE_ACTIVITIES_LAPS).upsert(
+                            row, on_conflict="activity_id,lap_index"
+                        ).execute()
+                else:
+                    # nič na uloženie
+                    pass
+
             except Exception as e:
-                print(f"[SYNC] splits failed id={aid}: {e}")
                 skipped += 1
+                print(f"[SYNC] details failed id={aid}: {e}")
 
             time.sleep(0.1)
 
