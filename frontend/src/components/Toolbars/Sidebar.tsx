@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Activity, User, HeartPulse, Settings } from "lucide-react";
+import { Home, Activity, User, HeartPulse, Settings, Dumbbell } from "lucide-react";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/activities", label: "Activities", icon: Activity },
+  { href: "/coach", label: "Coach", icon: Dumbbell },
   { href: "/recovery", label: "Recovery", icon: HeartPulse },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -25,6 +26,11 @@ export default function Sidebar() {
         <Link href="/activities" className="flex items-center space-x-2 p-2 rounded hover:bg-gray-700">
           <Activity size={18} />
           <span>Activities</span>
+        </Link>
+
+        <Link href="/coach" className="flex items-center space-x-2 p-2 rounded hover:bg-gray-700">
+          <Dumbbell size={18} />
+          <span>AI Coach</span>
         </Link>
 
         <Link href="/recovery" className="flex items-center space-x-2 p-2 rounded hover:bg-gray-700">

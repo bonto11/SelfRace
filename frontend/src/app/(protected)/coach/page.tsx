@@ -1,175 +1,161 @@
-// src/app/coach/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { API_URL } from "@/lib/config";
 import { useUserId } from "@/lib/useUserId";
+import Calendar, { extractDailyPlan } from "@/components/Coach/Calendar";
+import BestsEditor from "@/components/Coach/BestsEditor";
+import GoalPicker from "@/components/Coach/GoalPicker";
+import PrefsForm from "@/components/Coach/PrefsForm";
+import type { CoachPrefs } from "@/components/Coach/prefsTypes";
+
+function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
+  return (
+    <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded shadow-lg">
+      <div className="mb-1">{msg}</div>
+      <button className="underline text-xs opacity-80" onClick={onClose}>OK</button>
+    </div>
+  );
+}
+
+function mergePrefs(prev: CoachPrefs | null, patch: Partial<CoachPrefs>): CoachPrefs {
+  return { ...(prev ?? ({} as CoachPrefs)), ...patch };
+}
 
 export default function CoachPage() {
   const { userId } = useUserId();
-  const [weeks, setWeeks] = useState(6);
-  const [goal, setGoal] = useState("Zlepšiť 10 km čas o 2-3% v 6-8 týždňoch");
-  const [sports, setSports] = useState<string[]>(["run","bike","strength"]);
+  const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
+  const [bests, setBests] = useState<any>({});
   const [loading, setLoading] = useState(false);
-
-  const [contextDbg, setContextDbg] = useState<any>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const toggleSport = (s:string) =>
-    setSports(prev => prev.includes(s) ? prev.filter(x=>x!==s) : [...prev, s]);
+
+  const updatePrefs = useCallback(
+    (patch: Partial<CoachPrefs>) => setPrefs(p => mergePrefs(p, patch)),
+    []
+  );
+
+  const canAnalyze =
+    !!userId &&
+    !!prefs &&
+    !!(prefs.primary_sports ?? prefs.sports)?.length &&
+    !!prefs.weeks &&
+    !loading;
 
   async function handleAnalyze() {
-    if (!userId) return;
-    setLoading(true); setError(null); setResult(null); setContextDbg(null);
-    try {
-      // 1) context (debug)
-      const ctxRes = await fetch(`${API_URL}/coach/context/${userId}?weeks=${weeks}`);
-      const ctxJson = await ctxRes.json();
-      setContextDbg(ctxJson);
+    if (!canAnalyze || !userId || !prefs) return;
+    setLoading(true);
+    setResult(null);
 
-      // 2) analysis
+    try {
+      const goalText =
+        prefs.goal_text_override ??
+        (prefs.goal_kind === "race_time"
+          ? `Zlepšiť čas na ${prefs.distance} (aktuálne ${prefs.current_pace || "?"}/km → cieľ ${prefs.target_pace || "?"}/km)`
+          : prefs.goal_kind === "improve_speed"
+          ? "Zlepšiť rýchlosť"
+          : prefs.goal_kind === "improve_endurance"
+          ? "Zlepšiť vytrvalosť"
+          : prefs.goal_kind === "improve_overall"
+          ? "Zlepšiť celkovo"
+          : "Udržať kondíciu");
+
+      const payload = {
+        weeks: prefs.weeks,
+        goal: goalText,
+        primary_sports: prefs.primary_sports ?? prefs.sports,
+        goal_structured: prefs,
+        bests, // ak chceš posielať PB aj do backendu
+      };
+
       const res = await fetch(`${API_URL}/coach/analyze/${userId}`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ weeks, goal, primary_sports: sports })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status} ${res.statusText}${txt ? ` – ${txt}` : ""}`);
+      }
+
       const json = await res.json();
-      if (!json.success) throw new Error(json.detail || "Unknown error");
+      if (!json?.success) throw new Error(json?.detail || "Unknown error");
+
       setResult(json);
-      console.log("[Coach] analysis", json);
-    } catch (e:any) {
-      console.error(e);
-      setError(e.message || "Analyze error");
+      setToast(
+        `✅ Analýza hotová (${json.model}${json.analysis?._meta?.plan_source === "fallback_min" ? " • fallback plan" : ""})`
+      );
+    } catch (e: any) {
+      setToast(`❌ AI error: ${e?.message || String(e)}`);
     } finally {
       setLoading(false);
     }
   }
 
+  const daily = useMemo(() => {
+    const plan = result?.analysis?.next_week_plan;
+    return plan ? extractDailyPlan(plan) : null;
+  }, [result]);
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">AI Coach (MVP)</h1>
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold">AI Coach</h2>
 
-      {/* Controls */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-3">
-        <div className="flex gap-3 items-center">
-          <label className="text-sm opacity-80">Weeks:</label>
-          {[4,6,8,12].map(w => (
-            <button key={w}
-              onClick={()=>setWeeks(w)}
-              className={`px-3 py-1 rounded text-sm ${weeks===w ? "bg-blue-600 text-white":"bg-gray-700"}`}
-            >{w}</button>
-          ))}
-        </div>
+      {/* Preferences POD AI Coach */}
+      <PrefsForm value={prefs ?? undefined} onChange={updatePrefs} />
 
-        <div>
-          <label className="block text-sm opacity-80 mb-1">Goal</label>
-          <input
-            className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-600 rounded p-2"
-            value={goal}
-            onChange={e=>setGoal(e.target.value)}
-            placeholder="Napíš cieľ (preteky, výkon...)"
-          />
-        </div>
+      {/* Personal Bests – read-only + ⚙️ */}
+      <BestsEditor value={bests} onChange={setBests} />
 
-        <div className="flex gap-3 items-center">
-          <span className="text-sm opacity-80">Sports:</span>
-          {["run","bike","strength"].map(s => (
-            <label key={s} className="flex items-center gap-1 text-sm">
-              <input type="checkbox" checked={sports.includes(s)} onChange={()=>toggleSport(s)} />
-              {s}
-            </label>
-          ))}
-        </div>
+      {/* Goal picker (znovu distance/current/target pri race_time) */}
+      <GoalPicker value={prefs ?? undefined} onChange={setPrefs} />
 
-        <div className="flex justify-end">
-          <button
-            onClick={handleAnalyze}
-            disabled={!userId || loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded disabled:opacity-50"
-          >
-            {loading ? "Analyzujem…" : "Analyze last weeks"}
-          </button>
-        </div>
+      {/* Analyze tlačidlo úplne pod tým */}
+      <div className="pt-1">
+        <button
+          onClick={handleAnalyze}
+          disabled={!canAnalyze}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded disabled:opacity-50 flex items-center gap-2"
+        >
+          {loading && (
+            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+          )}
+          {loading ? "Analyzujem…" : "Analyze"}
+        </button>
       </div>
 
-      {/* Result */}
-      {error && <div className="bg-red-900/40 border border-red-700 text-red-200 p-3 rounded">{error}</div>}
-
+      {/* Výstup */}
       {result && (
-        <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-4">
-          <h2 className="text-lg font-semibold">Výstup</h2>
-          <p className="opacity-80">model: {result.model}</p>
+        <div className="bg-gray-800 p-4 rounded space-y-4">
+          <p className="opacity-80 text-sm">
+            model: {result.model}
+            {result.analysis?._meta?.plan_source === "fallback_min" && (
+              <span className="ml-2 rounded bg-yellow-700/40 px-1.5 py-0.5 text-xs">fallback plan</span>
+            )}
+          </p>
 
-          <div>
-            <h3 className="font-bold mb-1">Summary</h3>
-            <p>{result.analysis?.summary}</p>
-          </div>
-
-          {Array.isArray(result.analysis?.insights) && (
+          {result.analysis?.summary && (
             <div>
-              <h3 className="font-bold mb-1">Insights</h3>
-              <ul className="list-disc pl-5">
-                {result.analysis.insights.map((i:string, idx:number)=> <li key={idx}>{i}</li>)}
-              </ul>
+              <h3 className="font-semibold">Summary</h3>
+              <p>{result.analysis.summary}</p>
             </div>
           )}
 
-          {Array.isArray(result.analysis?.red_flags) && result.analysis.red_flags.length>0 && (
-            <div>
-              <h3 className="font-bold mb-1">Red flags</h3>
-              <ul className="list-disc pl-5">
-                {result.analysis.red_flags.map((r:any, idx:number)=>(
-                  <li key={idx}><b>{r.type}:</b> {r.details} <span className="opacity-70">({r.evidence})</span></li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {result.analysis?.next_week_plan && (
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-gray-900/30 border border-gray-700 rounded p-3">
-                <h4 className="font-semibold mb-1">Run</h4>
-                <p className="text-sm opacity-80">weekly_km_target: {result.analysis.next_week_plan.run?.weekly_km_target ?? "—"}</p>
-                <ul className="list-disc pl-5">
-                  {(result.analysis.next_week_plan.run?.sessions ?? []).map((s:any, i:number)=>(
-                    <li key={i}><b>{s.title}</b> — {s.duration_min} min {s.intensity ? `(${s.intensity})`:""} {s.notes?`– ${s.notes}`:""}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-gray-900/30 border border-gray-700 rounded p-3">
-                <h4 className="font-semibold mb-1">Bike</h4>
-                <p className="text-sm opacity-80">weekly_time_target: {result.analysis.next_week_plan.bike?.weekly_time_target_min ?? "—"} min</p>
-                <ul className="list-disc pl-5">
-                  {(result.analysis.next_week_plan.bike?.sessions ?? []).map((s:any, i:number)=>(
-                    <li key={i}><b>{s.title}</b> — {s.duration_min} min</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-gray-900/30 border border-gray-700 rounded p-3 md:col-span-2">
-                <h4 className="font-semibold mb-1">Strength</h4>
-                <ul className="list-disc pl-5">
-                  {(result.analysis.next_week_plan.strength?.sessions ?? []).map((s:any, i:number)=>(
-                    <li key={i}><b>{s.title}</b> — {s.duration_min} min</li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-sm opacity-80"><b>Rest days:</b> {(result.analysis.next_week_plan.rest_days ?? []).join(", ")}</p>
-              </div>
-            </div>
-          )}
-
-          <details className="mt-2">
-            <summary className="cursor-pointer">Debug – raw JSON</summary>
-            <pre className="text-xs mt-2 bg-black/40 p-2 rounded overflow-auto">{JSON.stringify(result, null, 2)}</pre>
-          </details>
-
-          {contextDbg && (
-            <details className="mt-2">
-              <summary className="cursor-pointer">Debug – context</summary>
-              <pre className="text-xs mt-2 bg-black/40 p-2 rounded overflow-auto">{JSON.stringify(contextDbg, null, 2)}</pre>
+          {daily ? (
+            <Calendar daily={daily} />
+          ) : result.analysis?.next_week_plan ? (
+            <details open>
+              <summary className="cursor-pointer">Raw plan</summary>
+              <pre className="text-xs bg-black/40 p-2 rounded overflow-auto">
+                {JSON.stringify(result.analysis.next_week_plan, null, 2)}
+              </pre>
             </details>
-          )}
+          ) : null}
         </div>
       )}
+
+      {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
