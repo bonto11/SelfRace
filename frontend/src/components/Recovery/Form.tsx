@@ -82,8 +82,8 @@ export default function RecoveryForm() {
               <th>RHR</th>
               <th>HRV avg</th>
               <th>HRV max</th>
+              <th>Sleep duration</th>
               <th>Sleep start</th>
-              <th>Sleep (hh:mm)</th>
               <th>Food?</th>
               <th>Caffeine?</th>
               <th>Alcohol (ml)</th>
@@ -129,8 +129,8 @@ export default function RecoveryForm() {
                 <input
                   type="text"
                   placeholder="HH:MM"
-                  value={sleepStart}
-                  onChange={(e) => handleTimeInput(e, setSleepStart)}
+                  value={sleepDuration}
+                  onChange={(e) => handleTimeInput(e, setSleepDuration)}
                   className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
                 />
               </td>
@@ -138,8 +138,8 @@ export default function RecoveryForm() {
                 <input
                   type="text"
                   placeholder="HH:MM"
-                  value={sleepDuration}
-                  onChange={(e) => handleTimeInput(e, setSleepDuration)}
+                  value={sleepStart}
+                  onChange={(e) => handleTimeInput(e, setSleepStart)}
                   className="w-full px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600"
                 />
               </td>

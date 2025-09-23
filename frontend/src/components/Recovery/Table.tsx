@@ -72,8 +72,8 @@ export default function RecoveryHistory() {
               <th>RHR</th>
               <th>HRV avg</th>
               <th>HRV max</th>
-              <th>Sleep start</th>
-              <th>Sleep (hh:mm)</th>
+              <th>Sleep duration</th>
+              <th>Sleep start</th>   
               <th>Food?</th>
               <th>Caffeine?</th>
               <th>Alcohol (ml)</th>
@@ -90,8 +90,7 @@ export default function RecoveryHistory() {
                 <td>{r.date}</td>
                 <td>{r.RHR_bpm ?? "-"}</td>
                 <td>{r.HRV_avg_ms ?? "-"}</td>
-                <td>{r.HRV_max_ms ?? "-"}</td>
-                <td>{r.sleep_start_time ?? "-"}</td>
+                <td>{r.HRV_max_ms ?? "-"}</td>  
                 <td>
                   {r.sleep_duration_min
                     ? `${Math.floor(r.sleep_duration_min / 60)}h ${
@@ -99,6 +98,7 @@ export default function RecoveryHistory() {
                       }m`
                     : "-"}
                 </td>
+                <td>{r.sleep_start_time ?? "-"}</td>
                 <td>{r.food_2h_before ? "✓" : "✗"}</td>
                 <td>{r.caffeine_8h ? "✓" : "✗"}</td>
                 <td>{r.alcohol_volume_ml ?? "-"}</td>

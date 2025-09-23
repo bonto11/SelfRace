@@ -15,7 +15,12 @@ ChartJS.register(
 );
 
 type Point = { date: string; value: number | null };
-type Band  = { label: string; min: number | null; max: number | null; color: string };
+export type Band  = { 
+  label: string; 
+  min: number | null; 
+  max: number | null; 
+  color: string 
+};
 
 interface Props {
   title: string;
