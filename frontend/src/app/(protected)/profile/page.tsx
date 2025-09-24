@@ -1,11 +1,11 @@
 "use client";
 
-import TableMetrics from "@/components/Profile/TableMetrics";
-import TableHistory from "@/components/Profile/TableHistory";
-import TrendVO2Max from "@/components/Profile/TrendVO2Max";
-import TrendBodyFat from "@/components/Profile/TrendBodyFat";
+import TableMetrics from "@/features/profile/components/TableMetrics";
+import TableHistory from "@/features/profile/components/TableHistory";
+import TrendVO2Max from "@/features/profile/components/TrendVO2Max";
+import TrendBodyFat from "@/features/profile/components/TrendBodyFat";
 // prípadne Static ak ho chceš vidieť
-import TableStatic from "@/components/Profile/TableStatic";
+import TableStatic from "@/features/profile/components/TableStatic";
 
 export default function ProfilePage() {
   return (

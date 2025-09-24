@@ -1,11 +1,11 @@
 "use client";
 
-import RecoveryForm from "@/components/Recovery/Form";
-import RecoveryTable from "@/components/Recovery/Table";
-import TrendRHR from "@/components/Recovery/TrendRHR";
-import TrendHRV from "@/components/Recovery/TrendHRV";
-import TrendSleepDuration from "@/components/Recovery/TrendSleepDuration";
-import TrendSleepStart from "@/components/Recovery/TrendSleepStart";
+import RecoveryForm from "@/features/recovery/components/Form";
+import RecoveryTable from "@/features/recovery/components/Table";
+import TrendRHR from "@/features/recovery/components/TrendRHR";
+import TrendHRV from "@/features/recovery/components/TrendHRV";
+import TrendSleepDuration from "@/features/recovery/components/TrendSleepDuration";
+import TrendSleepStart from "@/features/recovery/components/TrendSleepStart";
 
 export default function RecoveryPage() {
   return (
