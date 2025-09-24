@@ -1,32 +1,37 @@
 // src/features/coach/components/PersonalBestsPanel.tsx
-// Panel pre Personal Bests:
-//  - hore JEDEN riadok-formulár (Distance, Time, Activity ID?, Date?)
-//  - pod tým tabuľka existujúcich rekordov s možnosťou "Edit" (načíta záznam do formulára)
+// Panel pre Personal Bests (RUN by default):
+//  - jednoriadkový formulár (Distance, Time, Activity ID?, Date?)
+//  - tabuľka rekordov s "Edit" a dvojkrokovým "Delete"
+//  - číta/ukladá cez shared/api/bests (distanceOptions, distanceLabel, getBests, saveBest, deleteBest)
 
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
+
 import {
-  RUN_DISTANCE_OPTIONS,
+  distanceOptions,
   distanceLabel,
   getBests,
   saveBest,
+  deleteBest,
   type UserBest,
+  type Sport,
 } from "@/shared/api/bests";
 import { maskHHMMSS, hhmmssToSec, secToHHMMSS } from "@/shared/utils/time";
 
 type Props = {
   value?: UserBest[];
   onChange?: (v: UserBest[]) => void;
+  sport?: Sport; // default "run"
 };
 
 type Form = {
-  distance_m: string;     // držíme ako string (ľahšie sa renderuje v <select>)
-  time_str: string;       // "hh:mm:ss"
-  activity_id: string;    // voliteľné (string, aby sme sa vyhli NaN)
-  achieved_at: string;    // "YYYY-MM-DD"
+  distance_m: string;
+  time_str: string;
+  activity_id: string;
+  achieved_at: string;
 };
 
 const EMPTY_FORM: Form = {
@@ -36,11 +41,12 @@ const EMPTY_FORM: Form = {
   achieved_at: "",
 };
 
-export default function BestsPanel_Run({ value, onChange }: Props) {
+export default function PersonalBestsPanel({ value, onChange, sport = "run" }: Props) {
   const { userId } = useUserId();
-  const { success, error } = useInfoMessage();
+  // ⬇️ tvoj hook vracia { push, success, error } (bez "info")
+  const { push, success, error } = useInfoMessage();
 
-  // ----- data & načítanie
+  // ----- data
   const [rows, setRows] = useState<UserBest[]>(value ?? []);
   const [loading, setLoading] = useState(false);
 
@@ -50,7 +56,7 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
     if (!userId) return;
     setLoading(true);
     try {
-      const arr = await getBests(userId);
+      const arr = await getBests(userId, sport);
       setRows(arr);
       onChange?.(arr);
     } catch (e: any) {
@@ -60,16 +66,14 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
     }
   };
 
-  // prvé načítanie, ak parent neposlal value
   useEffect(() => {
     if (userId && (!value || value.length === 0)) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, sport]);
 
-  // ----- formulár (jednoriadkový)
+  // ----- formulár
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-
   const setF = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
 
   const canSave = useMemo(
@@ -96,14 +100,15 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
       const sec = hhmmssToSec(form.time_str.trim());
 
       await saveBest(userId, {
+        sport,
         distance_m,
-        time_sec: Number.isFinite(sec ?? NaN) ? sec! : undefined,
         time_str: Number.isFinite(sec ?? NaN) ? undefined : form.time_str.trim(),
         activity_id: form.activity_id.trim()
           ? Number.parseInt(form.activity_id.trim(), 10)
           : undefined,
         achieved_at: form.achieved_at.trim() || undefined,
-      });
+        ...(Number.isFinite(sec ?? NaN) ? { time_sec: sec! } : {}),
+      } as any);
 
       success("Personal best saved");
       clearForm();
@@ -115,10 +120,27 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
     }
   };
 
+  // ----- mazanie (dvojkrokové)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const askDelete = (m: number) => setPendingDelete(m);
+  const cancelDelete = () => setPendingDelete(null);
+
+  const confirmDelete = async (m: number) => {
+    if (!userId) return;
+    try {
+      await deleteBest(userId, m, sport);
+      success("Record deleted"); // predtým "info"
+      setPendingDelete(null);
+      await refresh();
+    } catch (e: any) {
+      error(`Delete failed: ${e?.message ?? e}`);
+    }
+  };
+
   // ----- UI
   return (
     <div className="bg-gray-800 rounded p-3 space-y-3">
-      <h3 className="font-semibold">Personal Bests</h3>
+      <h3 className="font-semibold">Personal Bests — {sport === "run" ? "Running" : sport}</h3>
 
       {/* jednoriadkový formulár */}
       <div className="grid grid-cols-[160px_160px_160px_180px_auto] gap-2 items-center">
@@ -128,7 +150,7 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
           onChange={(e) => setF({ distance_m: e.target.value })}
         >
           <option value="">— choose distance —</option>
-          {RUN_DISTANCE_OPTIONS.map((opt) => (
+          {distanceOptions(sport).map((opt) => (
             <option key={opt.m} value={opt.m}>
               {opt.label}
             </option>
@@ -144,18 +166,18 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
         />
 
         <input
-          type="date"
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
-          value={form.achieved_at}
-          onChange={(e) => setF({ achieved_at: e.target.value })}
-        />
-
-         <input
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
           placeholder="Activity ID (optional)"
           value={form.activity_id}
           onChange={(e) => setF({ activity_id: e.target.value })}
           inputMode="numeric"
+        />
+
+        <input
+          type="date"
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
+          value={form.achieved_at}
+          onChange={(e) => setF({ achieved_at: e.target.value })}
         />
 
         <div className="flex gap-2">
@@ -183,7 +205,7 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
         </div>
       </div>
 
-      {/* tabuľka s aktuálnymi PB */}
+      {/* tabuľka */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left opacity-80">
@@ -207,20 +229,45 @@ export default function BestsPanel_Run({ value, onChange }: Props) {
                 .slice()
                 .sort((a, b) => a.distance_m - b.distance_m)
                 .map((b) => (
-                  <tr key={b.distance_m} className="border-t border-gray-700/60">
-                    <td className="py-2 pr-4">{distanceLabel(b.distance_m)}</td>
+                  <tr key={`${sport}-${b.distance_m}`} className="border-t border-gray-700/60">
+                    <td className="py-2 pr-4">{distanceLabel(b.distance_m, sport)}</td>
                     <td className="py-2 pr-4">
                       {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
                     </td>
                     <td className="py-2 pr-4">{b.activity_id ?? "—"}</td>
                     <td className="py-2 pr-4">{b.achieved_at ?? "—"}</td>
                     <td className="py-2 pr-2">
-                      <button
-                        className="text-xs underline opacity-90 hover:opacity-100"
-                        onClick={() => handleEditClick(b)}
-                      >
-                        Edit
-                      </button>
+                      {pendingDelete === b.distance_m ? (
+                        <div className="flex gap-2">
+                          <button
+                            className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-0.5 rounded"
+                            onClick={() => confirmDelete(b.distance_m)}
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            className="text-xs underline opacity-90 hover:opacity-100"
+                            onClick={cancelDelete}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <button
+                            className="text-xs underline opacity-90 hover:opacity-100"
+                            onClick={() => handleEditClick(b)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="text-xs underline opacity-90 hover:opacity-100"
+                            onClick={() => askDelete(b.distance_m)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

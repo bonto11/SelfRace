@@ -4,7 +4,7 @@
 
 from typing import Any, Dict
 from fastapi import APIRouter, Body, HTTPException
-from Services.bests import fetch_user_bests, upsert_user_best
+from Services.bests import fetch_user_bests, upsert_user_best, delete_user_best
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -22,5 +22,13 @@ def put_best(user_id: int, payload: Dict[str, Any] = Body(...)):
         return {"success": True, "saved": saved}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{user_id}/bests/{sport}/{distance_m}")
+def del_best(user_id: int, sport: str, distance_m: int):
+    try:
+        deleted = delete_user_best(user_id, sport, int(distance_m))
+        return {"success": True, "deleted": deleted}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
