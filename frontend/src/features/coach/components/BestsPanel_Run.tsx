@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import {
-  BEST_DISTANCE_OPTIONS,
+  RUN_DISTANCE_OPTIONS,
   distanceLabel,
   getBests,
   saveBest,
@@ -36,7 +36,7 @@ const EMPTY_FORM: Form = {
   achieved_at: "",
 };
 
-export default function PersonalBestsPanel({ value, onChange }: Props) {
+export default function BestsPanel_Run({ value, onChange }: Props) {
   const { userId } = useUserId();
   const { success, error } = useInfoMessage();
 
@@ -128,7 +128,7 @@ export default function PersonalBestsPanel({ value, onChange }: Props) {
           onChange={(e) => setF({ distance_m: e.target.value })}
         >
           <option value="">— choose distance —</option>
-          {BEST_DISTANCE_OPTIONS.map((opt) => (
+          {RUN_DISTANCE_OPTIONS.map((opt) => (
             <option key={opt.m} value={opt.m}>
               {opt.label}
             </option>

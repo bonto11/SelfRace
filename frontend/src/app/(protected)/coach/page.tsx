@@ -10,6 +10,7 @@ import { Calendar, GoalPicker, PrefsForm, PersonalBestsPanel } from "@/features/
 import { extractDailyPlan } from "@/features/coach/utils/plan";
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import type { UserBest } from "@/shared/api/bests"; // ak si typ presunul do services, uprav cestu
+import SportsBestsAccordion from "@/features/coach/components/SportsBestsAccordion";
 
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import { API_URL } from "@/shared/config";
@@ -99,7 +100,7 @@ export default function CoachPage() {
       <h2 className="text-lg font-semibold">AI Coach</h2>
 
       <PrefsForm value={prefs ?? undefined} onChange={updatePrefs} />
-      <PersonalBestsPanel value={bests} onChange={setBests} />
+      <SportsBestsAccordion />
       <GoalPicker value={prefs ?? undefined} onChange={setPrefs} />
 
       <div className="pt-1">

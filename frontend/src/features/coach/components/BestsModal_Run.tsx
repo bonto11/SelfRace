@@ -1,4 +1,4 @@
-// src/features/coach/components/PersonalBestsModal.tsx
+// src/features/coach/components/BestsModal_Run.tsx
 // Modal na edit PB. V lokálnom stave používame stringy (ľahšie ovládanie inputov),
 // pri save konvertujeme na shape očakávaný backendom.
 
@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import {
-  BEST_DISTANCES_M,
+  RUN_DISTANCES_M,
   distanceLabel,
   saveBest,
   type UserBest,
@@ -35,13 +35,13 @@ export default function PersonalBestsModal({
   onSaved,
 }: Props) {
   const [rows, setRows] = useState<EditRow[]>(() =>
-    BEST_DISTANCES_M.map((d) => {
+    RUN_DISTANCES_M.map((d) => {
       const found = initial.find((x) => x.distance_m === d);
       return {
         distance_m: d,
         time_str: found?.time_str ?? (secToHHMMSS(found?.best_time_s ?? null) ?? ""),
         activity_id: found?.activity_id != null ? String(found.activity_id) : "",
-        achieved_at: found?.achieved_at ?? found?.date ?? "",
+        achieved_at: found?.achieved_at ?? found?.achieved_at ?? "",
       };
     })
   );
