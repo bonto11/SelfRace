@@ -22,32 +22,45 @@ export function formatHHMMSS(total?: number | null): string {
   return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
 }
 
-export function hhmmssToSec(s: string): number | null {
+// Plynulá maska pri písaní času
+export function maskHHMMSS(raw: string): string {
+  if (!raw) return "";
+  const d = raw.replace(/\D/g, ""); // číslice
+  if (d.length <= 2) return d;                             // s
+  if (d.length <= 4) return `${d.slice(0, -2)}:${d.slice(-2)}`; // m:s
+
+  // 5+ číslic: h:mm:ss (hodiny môžu mať ľubovoľný počet číslic)
+  const s = d.slice(-2);
+  const m = d.slice(-4, -2);
+  const h = d.slice(0, -4);
+  return `${h}:${m}:${s}`;
+}
+
+// Tolerantný parser "ss" | "m:ss" | "h:mm:ss"
+export function hhmmssToSec(s?: string | null): number | null {
   if (!s) return null;
-  const parts = s.split(":").map(x => x.trim());
-  if (parts.length < 2 || parts.length > 3) return null;
-  const [h, m, sec] =
-    parts.length === 3 ? parts.map(Number) : [0, Number(parts[0]), Number(parts[1])];
-  if ([h,m,sec].some(n => Number.isNaN(n) || n < 0)) return null;
+  const parts = s.split(":").map(p => p.trim()).filter(Boolean);
+  if (!parts.length) return null;
+
+  const nums = parts.map(p => Number.parseInt(p, 10));
+  if (nums.some(n => Number.isNaN(n))) return null;
+
+  let h = 0, m = 0, sec = 0;
+  if (nums.length === 1) [sec] = nums;
+  else if (nums.length === 2) [m, sec] = nums;
+  else {
+    const last3 = nums.slice(-3);
+    [h, m, sec] = last3;
+  }
   return h * 3600 + m * 60 + sec;
 }
 
+// Vždy vráti "H:MM:SS" (H bez nulovania na 2 cifry)
 export function secToHHMMSS(sec?: number | null): string {
-  if (sec == null) return "";
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  return [h, m, s].map(v => v.toString().padStart(2, "0")).join(":");
-}
-
-/** auto vkladanie `:` pri písaní (ako v Recovery) */
-export function maskHHMMSS(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 6); // max 6 číslic (hhmmss bez dvojbodiek)
-  const [h, m, s] = [
-    digits.slice(0, Math.max(0, digits.length - 4)),
-    digits.slice(Math.max(0, digits.length - 4), Math.max(0, digits.length - 2)),
-    digits.slice(Math.max(0, digits.length - 2))
-  ];
-  const seg = [h, m, s].filter(Boolean);
-  return seg.map(v => v.padStart(2, "0")).join(":");
+  if (sec == null || Number.isNaN(sec)) return "";
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }

@@ -1,26 +1,27 @@
 // src/shared/components/InfoMessage.tsx
 "use client";
+import React from "react";
+
+export type InfoKind = "info" | "success" | "error";
 
 export default function InfoMessage({
-  kind = "info",
   text,
+  kind = "info",
   onClose,
 }: {
-  kind?: "info" | "success" | "error";
   text: string;
+  kind?: InfoKind;
   onClose: () => void;
 }) {
-  const bg =
-    kind === "success"
-      ? "bg-emerald-700"
-      : kind === "error"
-      ? "bg-rose-700"
-      : "bg-gray-800";
+  const color =
+    kind === "success" ? "bg-emerald-700" :
+    kind === "error"   ? "bg-rose-700"    :
+                         "bg-gray-900";
 
   return (
-    <div className={`fixed top-4 right-4 z-50 text-sm text-white px-4 py-3 rounded shadow-lg ${bg}`}>
+    <div className={`text-white text-sm px-4 py-3 rounded shadow-lg ${color}`}>
       <div className="mb-1">{text}</div>
-      <button className="underline text-xs opacity-90 hover:opacity-100" onClick={onClose}>
+      <button className="underline text-xs opacity-80" onClick={onClose}>
         OK
       </button>
     </div>

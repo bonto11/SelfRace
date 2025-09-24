@@ -1,24 +1,16 @@
 // src/app/(protected)/layout.tsx
 "use client";
-
 import Sidebar from "@/features/Toolbars/Sidebar";
 import Topbar from "@/features/Toolbars/Topbar";
 import { useUser } from "@/shared/hooks/useUser";
-import InfoMessageProvider from "@/shared/components/InfoMessageProvider";
+import { InfoMessageHost } from "@/shared/components";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useUser(true);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-500">
-        Loading…
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center h-screen text-gray-500">Loading…</div>;
 
   return (
-    <InfoMessageProvider>
+    <InfoMessageHost>
       <div className="flex h-screen">
         <Sidebar />
         <main className="flex-1 flex flex-col">
@@ -26,6 +18,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-6 overflow-y-auto">{children}</div>
         </main>
       </div>
-    </InfoMessageProvider>
+    </InfoMessageHost>
   );
 }
