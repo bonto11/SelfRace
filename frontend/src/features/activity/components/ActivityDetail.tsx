@@ -1,3 +1,4 @@
+// src/features/activity/components/ActivityDetail.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,14 +11,53 @@ interface Props {
 interface ActivityDetailData {
   id: number;
   name: string;
-  sport_type: string;
+  sport_type?: string | null;      // pôvodný string zo Stravy
+  sport_type_fe?: string | null;   // náš auto FE canonical
+  sport_type_ovrd?: string | null; // manuálny override
   distance_m: number;
   moving_time_s: number;
   average_heartrate_bpm: number | null;
   max_heartrate_bpm: number | null;
   total_elevation_gain_m: number | null;
-  date: string;
-  // doplníme ďalšie polia podľa BE
+  date: string; // ISO
+}
+
+// FE fallback – zjednotenie športu do našich košov
+function toEffSport(row: Partial<ActivityDetailData>): string {
+  const s = (
+    row.sport_type_ovrd ??
+    row.sport_type_fe ??
+    row.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  if (!s) return "other";
+  if (s.includes("run")) return "run";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "bike";
+  if (s.includes("strength") || s.includes("weight") || s.includes("gym")) return "strength";
+  if (s.includes("skate")) return "skate";
+  if (s.includes("mix")) return "mixed";
+  if (s.includes("walk")) return "walk";
+  if (s.includes("hike")) return "hike";
+  if (s.includes("swim")) return "swim";
+  return s;
+}
+
+function sportUiLabel(s: string): string {
+  const L: Record<string, string> = {
+    run: "Run",
+    bike: "Bike",
+    strength: "Strength",
+    mixed: "Mixed",
+    skate: "Skate",
+    walk: "Walk",
+    hike: "Hike",
+    swim: "Swim",
+    other: "Other",
+  };
+  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function ActivityDetail({ activityId }: Props) {
@@ -25,25 +65,32 @@ export default function ActivityDetail({ activityId }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    if (!activityId) return;
+    (async () => {
       setLoading(true);
       const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
-      const json = await res.json();
-      if (json.success) setData(json.data);
+      const json = await res.json().catch(() => ({}));
+      if (json?.success) setData(json.data ?? json.summary ?? null);
+      else setData(null);
       setLoading(false);
-    }
-    if (activityId) load();
+    })();
   }, [activityId]);
 
   if (loading) return <div>Načítavam detail...</div>;
   if (!data) return <div>❌ Nepodarilo sa načítať detail.</div>;
 
+  const eff = toEffSport(data);
+  const dist = Number(data.distance_m ?? 0);
+  const move = Number(data.moving_time_s ?? 0);
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-2">
       <h3 className="text-lg font-bold">{data.name}</h3>
+
       <p>
-        <strong>Sport:</strong> {data.sport_type}
+        <strong>Sport:</strong> {sportUiLabel(eff)}
       </p>
+
       <p>
         <strong>Date:</strong>{" "}
         {new Date(data.date).toLocaleString("sk-SK", {
@@ -54,20 +101,25 @@ export default function ActivityDetail({ activityId }: Props) {
           minute: "2-digit",
         })}
       </p>
+
       <p>
-        <strong>Distance:</strong> {(data.distance_m / 1000).toFixed(2)} km
+        <strong>Distance:</strong> {(dist / 1000).toFixed(2)} km
       </p>
+
       <p>
-        <strong>Time:</strong> {Math.floor(data.moving_time_s / 60)} min
+        <strong>Time:</strong> {Math.floor(move / 60)} min
       </p>
+
       <p>
-        <strong>Avg HR:</strong> {data.average_heartrate_bpm ?? "-"}
+        <strong>Avg HR:</strong> {data.average_heartrate_bpm ?? "—"}
       </p>
+
       <p>
-        <strong>Max HR:</strong> {data.max_heartrate_bpm ?? "-"}
+        <strong>Max HR:</strong> {data.max_heartrate_bpm ?? "—"}
       </p>
+
       <p>
-        <strong>Elevation gain:</strong> {data.total_elevation_gain_m ?? "-"} m
+        <strong>Elevation gain:</strong> {data.total_elevation_gain_m ?? "—"} m
       </p>
     </div>
   );

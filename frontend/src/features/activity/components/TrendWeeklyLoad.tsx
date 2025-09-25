@@ -1,3 +1,6 @@
+// src/features/activity/components/TrendWeeklyLoad.tsx
+// Weekly stacked bar + monotony/strain – koše: run, bike, strength, mixed, skate (+other).
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -37,19 +40,29 @@ type WeekRow = {
   label: string;
   start: string;
   end: string;
+
   km_run: number;
   km_ride: number;
+  km_mixed: number;
+  km_skate: number;
   km_total: number;
+
   time_min: number;
   time_run_min: number;
   time_ride_min: number;
   time_strength_min: number;
+  time_mixed_min: number;
+  time_skate_min: number;
   time_other_min: number;
+
   trimp_run: number;
-  trimp_bike: number;
+  trimp_ride: number;
   trimp_strength: number;
+  trimp_mixed: number;
+  trimp_skate: number;
   trimp_other: number;
   trimp: number;
+
   monotony: { km?: number; time?: number; trimp?: number };
   strain: { km?: number; time?: number; trimp?: number };
 };
@@ -58,6 +71,8 @@ const C = {
   run: "#22D3EE",
   bike: "#A78BFA",
   strength: "#F59E0B",
+  mixed: "#34D399",
+  skate: "#60A5FA",
   other: "#9CA3AF",
   monotony: "#84CC16",
   strain: "#FDE047",
@@ -67,6 +82,7 @@ const alpha = (hex: string, a: number) =>
     hex.slice(3, 5),
     16
   )},${parseInt(hex.slice(5, 7), 16)},${a})`;
+
 const fmtMin = (m: number) => {
   const mm = Math.round(m || 0);
   if (mm < 60) return `${mm} min`;
@@ -86,85 +102,68 @@ export default function TrendWeeklyLoad({
   const { userId } = useUserId();
 
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(26); // ⬅️ OVLÁDANIE V UI
+  const [lookback, setLookback] = useState<number>(26);
   const [sRun, setSRun] = useState(true);
   const [sBike, setSBike] = useState(true);
   const [sStrength, setSStrength] = useState(true);
+  const [sMixed, setSMixed] = useState(true);
+  const [sSkate, setSSkate] = useState(false);
   const [sOther, setSOther] = useState(false);
 
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [picked, setPicked] = useState<WeekPick | null>(null); // tabuľka pod grafom je default prázdna
+  const [picked, setPicked] = useState<WeekPick | null>(null);
 
-  // fetch + normalizácia
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
       try {
         const url = `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}`;
-        console.log("[FE] WeeklyLoad fetch:", url);
         const res = await fetch(url);
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
 
         const raw: any[] = Array.isArray(json?.weeks)
           ? json.weeks
           : Array.isArray(json?.data)
           ? json.data
           : [];
-
-        const toNum = (v: any) => {
-          const n = Number(v);
-          return Number.isFinite(n) ? n : 0;
-        };
+        const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
 
         const norm: WeekRow[] = raw.map((w) => ({
           week: w.week ?? w.iso_week ?? w.label ?? "",
           label: w.label ?? w.week ?? w.iso_week ?? "",
           start: w.start ?? "",
           end: w.end ?? "",
-          km_run: toNum(w.km_run ?? w.run_km ?? w.dist_run_km),
-          km_ride: toNum(w.km_ride ?? w.ride_km ?? w.dist_ride_km ?? w.km_bike),
-          km_total: toNum(w.km_total ?? w.total_km),
 
-          time_min: toNum(w.time_min ?? w.total_min ?? w.total_time_min),
-          time_run_min: toNum(w.time_run_min ?? w.run_min ?? w.run_time_min),
-          time_ride_min: toNum(
-            w.time_ride_min ?? w.ride_min ?? w.ride_time_min
-          ),
-          time_strength_min: toNum(
-            w.time_strength_min ?? w.strength_min ?? w.gym_min
-          ),
-          time_other_min: toNum(w.time_other_min ?? w.other_min),
+          km_run: num(w.km_run ?? w.run_km),
+          km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
+          km_mixed: num(w.km_mixed),
+          km_skate: num(w.km_skate),
+          km_total: num(w.km_total ?? w.total_km),
 
-          trimp_run: toNum(w.trimp_run ?? w.run_trimp),
-          trimp_bike: toNum(w.trimp_bike ?? w.bike_trimp ?? w.trimp_ride),
-          trimp_strength: toNum(w.trimp_strength ?? w.strength_trimp),
-          trimp_other: toNum(w.trimp_other ?? w.other_trimp),
-          trimp: toNum(w.trimp ?? w.total_trimp),
+          time_min: num(w.time_min ?? w.total_min),
+          time_run_min: num(w.time_run_min ?? w.run_min),
+          time_ride_min: num(w.time_ride_min ?? w.ride_min),
+          time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
+          time_mixed_min: num(w.time_mixed_min),
+          time_skate_min: num(w.time_skate_min),
+          time_other_min: num(w.time_other_min ?? w.other_min),
+
+          trimp_run: num(w.trimp_run ?? w.run_trimp),
+          trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
+          trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
+          trimp_mixed: num(w.trimp_mixed),
+          trimp_skate: num(w.trimp_skate),
+          trimp_other: num(w.trimp_other ?? w.other_trimp),
+          trimp: num(w.trimp ?? w.total_trimp),
 
           monotony: w.monotony ?? {},
           strain: w.strain ?? {},
         }));
 
-        console.table(
-          norm.map((w) => ({
-            week: w.week,
-            km: w.km_total,
-            time_min: w.time_min,
-            trimp: w.trimp,
-            mono_km: w.monotony.km,
-            mono_time: w.monotony.time,
-            mono_trimp: w.monotony.trimp,
-            strain_km: w.strain.km,
-            strain_time: w.strain.time,
-            strain_trimp: w.strain.trimp,
-          }))
-        );
-
         setWeeks(norm);
-        // žiadny auto-pick
       } catch (e) {
         console.error("[FE] weekly error:", e);
         setWeeks([]);
@@ -175,8 +174,6 @@ export default function TrendWeeklyLoad({
   }, [userId, lookback]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-
-  // série indexov podľa metriky
   const monoSeries = useMemo(
     () => weeks.map((w) => w.monotony?.[metric] ?? null),
     [weeks, metric]
@@ -186,14 +183,15 @@ export default function TrendWeeklyLoad({
     [weeks, metric]
   );
 
-  const monoMax = monoSeries.filter((v): v is number => v != null).length
-    ? Math.max(1, ...monoSeries.filter((v): v is number => v != null))
-    : 3;
-  const strainMax = strainSeries.filter((v): v is number => v != null).length
-    ? Math.max(1, ...strainSeries.filter((v): v is number => v != null))
-    : 10;
+  const monoMax =
+    monoSeries.filter((v): v is number => v != null).length > 0
+      ? Math.max(1, ...monoSeries.filter((v): v is number => v != null))
+      : 3;
+  const strainMax =
+    strainSeries.filter((v): v is number => v != null).length > 0
+      ? Math.max(1, ...strainSeries.filter((v): v is number => v != null))
+      : 10;
 
-  // datasety
   const datasets = useMemo(() => {
     const arr: any[] = [];
 
@@ -215,6 +213,26 @@ export default function TrendWeeklyLoad({
           data: weeks.map((w) => w.km_ride),
           backgroundColor: alpha(C.bike, 0.85),
           borderColor: C.bike,
+          borderWidth: 1,
+          yAxisID: "y",
+        });
+      if (sMixed)
+        arr.push({
+          type: "bar" as const,
+          label: "Km (mixed)",
+          data: weeks.map((w) => w.km_mixed),
+          backgroundColor: alpha(C.mixed, 0.85),
+          borderColor: C.mixed,
+          borderWidth: 1,
+          yAxisID: "y",
+        });
+      if (sSkate)
+        arr.push({
+          type: "bar" as const,
+          label: "Km (skate)",
+          data: weeks.map((w) => w.km_skate),
+          backgroundColor: alpha(C.skate, 0.85),
+          borderColor: C.skate,
           borderWidth: 1,
           yAxisID: "y",
         });
@@ -251,6 +269,26 @@ export default function TrendWeeklyLoad({
           borderWidth: 1,
           yAxisID: "y",
         });
+      if (sMixed)
+        arr.push({
+          type: "bar" as const,
+          label: "Mixed",
+          data: weeks.map((w) => w.time_mixed_min),
+          backgroundColor: alpha(C.mixed, 0.9),
+          borderColor: C.mixed,
+          borderWidth: 1,
+          yAxisID: "y",
+        });
+      if (sSkate)
+        arr.push({
+          type: "bar" as const,
+          label: "Skate",
+          data: weeks.map((w) => w.time_skate_min),
+          backgroundColor: alpha(C.skate, 0.9),
+          borderColor: C.skate,
+          borderWidth: 1,
+          yAxisID: "y",
+        });
       if (sOther)
         arr.push({
           type: "bar" as const,
@@ -278,7 +316,7 @@ export default function TrendWeeklyLoad({
         arr.push({
           type: "bar" as const,
           label: "TRIMP (bike)",
-          data: weeks.map((w) => w.trimp_bike),
+          data: weeks.map((w) => w.trimp_ride),
           backgroundColor: alpha(C.bike, 0.85),
           borderColor: C.bike,
           borderWidth: 1,
@@ -294,6 +332,26 @@ export default function TrendWeeklyLoad({
           borderWidth: 1,
           yAxisID: "y",
         });
+      if (sMixed)
+        arr.push({
+          type: "bar" as const,
+          label: "TRIMP (mixed)",
+          data: weeks.map((w) => w.trimp_mixed),
+          backgroundColor: alpha(C.mixed, 0.9),
+          borderColor: C.mixed,
+          borderWidth: 1,
+          yAxisID: "y",
+        });
+      if (sSkate)
+        arr.push({
+          type: "bar" as const,
+          label: "TRIMP (skate)",
+          data: weeks.map((w) => w.trimp_skate),
+          backgroundColor: alpha(C.skate, 0.9),
+          borderColor: C.skate,
+          borderWidth: 1,
+          yAxisID: "y",
+        });
       if (sOther)
         arr.push({
           type: "bar" as const,
@@ -306,7 +364,7 @@ export default function TrendWeeklyLoad({
         });
     }
 
-    // Monotony (pravá os y1)
+    // Indexy
     arr.push({
       type: "line" as const,
       label: "Monotony",
@@ -320,8 +378,6 @@ export default function TrendWeeklyLoad({
       spanGaps: true,
       order: 99,
     });
-
-    // Strain (pravá os y2)
     arr.push({
       type: "line" as const,
       label: "Strain",
@@ -338,12 +394,9 @@ export default function TrendWeeklyLoad({
     });
 
     return arr;
-  }, [weeks, metric, sRun, sBike, sStrength, sOther, monoSeries, strainSeries]);
+  }, [weeks, metric, sRun, sBike, sStrength, sMixed, sSkate, sOther, monoSeries, strainSeries]);
 
-  const data: ChartData<"bar" | "line", number[], string> = {
-    labels,
-    datasets,
-  };
+  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
 
   const options: ChartOptions<"bar" | "line"> = {
     responsive: true,
@@ -356,10 +409,8 @@ export default function TrendWeeklyLoad({
           label: (ctx) => {
             const label = ctx.dataset.label || "";
             const v = ctx.parsed.y as number;
-            if (ctx.dataset.yAxisID === "y1")
-              return `${label}: ${v?.toFixed?.(2) ?? v}`;
-            if (ctx.dataset.yAxisID === "y2")
-              return `${label}: ${Math.round(v)}`;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v?.toFixed?.(2) ?? v}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
             if (metric === "km") return `${label}: ${fmtKm(v)}`;
             if (metric === "time") return `${label}: ${fmtMin(v)}`;
             if (metric === "trimp") return `${label}: ${Math.round(v)} TRIMP`;
@@ -367,7 +418,6 @@ export default function TrendWeeklyLoad({
           },
         },
       },
-      decimation: { enabled: false },
     },
     onClick: (_evt, els) => {
       const idx = els?.[0]?.index;
@@ -377,7 +427,6 @@ export default function TrendWeeklyLoad({
       const pick = { week: w.week, start: w.start, end: w.end };
       setPicked(pick);
       onPickWeek?.(pick);
-      console.log("[FE] pick week:", pick);
     },
     scales: {
       y: {
@@ -411,7 +460,7 @@ export default function TrendWeeklyLoad({
       ? "Rozdelenosť vzdialenosti podľa športu."
       : metric === "time"
       ? "Odtrénovaný čas podľa športu."
-      : "TRIMP – tréningový impulz (intenzita × trvanie). Monotony = týždenná konzistentnosť; Strain = celkový stres (TRIMP × Monotony).";
+      : "TRIMP – intenzita × trvanie. Monotony ≈ konzistentnosť; Strain = TRIMP × Monotony.";
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
@@ -472,7 +521,7 @@ export default function TrendWeeklyLoad({
                 checked={sRun}
                 onChange={(e) => setSRun(e.target.checked)}
               />{" "}
-              Beh
+              Run
             </label>
             <label className="flex items-center gap-1">
               <input
@@ -488,7 +537,23 @@ export default function TrendWeeklyLoad({
                 checked={sStrength}
                 onChange={(e) => setSStrength(e.target.checked)}
               />{" "}
-              Sila
+              Strength
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={sMixed}
+                onChange={(e) => setSMixed(e.target.checked)}
+              />{" "}
+              Mixed
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={sSkate}
+                onChange={(e) => setSSkate(e.target.checked)}
+              />{" "}
+              Skate
             </label>
             <label className="flex items-center gap-1">
               <input
@@ -496,7 +561,7 @@ export default function TrendWeeklyLoad({
                 checked={sOther}
                 onChange={(e) => setSOther(e.target.checked)}
               />{" "}
-              Iné
+              Other
             </label>
           </div>
 
@@ -541,7 +606,6 @@ export default function TrendWeeklyLoad({
         )}
       </div>
 
-      {/* WeeklySummary ukáž len keď je niečo vybrané */}
       {picked && (
         <WeeklySummary
           weeks={weeks as any}

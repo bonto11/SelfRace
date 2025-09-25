@@ -1,7 +1,7 @@
 # backend/Routes/activities.py
 from fastapi import APIRouter, HTTPException
-from datetime import datetime, timedelta, timezone, date
-from typing import List, Dict, Any
+from datetime import datetime, timedelta, timezone, time, date
+from Services.time import iso_date
 from Modules.SQL.db_handler import get_client
 from Modules.Sync import sync_handler
 from Modules.config import (
@@ -13,77 +13,20 @@ from Modules.config import (
 router = APIRouter(prefix="/activities", tags=["activities"])
 supabase = get_client()
 
-
-# -------- helpers -------------------------------------------------------------
-
-def _iso_date(d: datetime | date | str) -> str:
-    """Normalize to YYYY-MM-DD (string)."""
-    if isinstance(d, str):
-        return d[:10]
-    if isinstance(d, datetime):
-        return d.date().isoformat()
-    return d.isoformat()
-
-
-def _parse_sync_result(res: Any) -> dict[str, int]:
-    """
-    Prijme rôzne formáty zo sync_handler-a a vráti počty imported/updated/skipped/count.
-    Podporované:
-      - int -> berieme ako imported, updated=0, skipped=0
-      - tuple/list[imported, updated, (skipped?)]
-      - dict s kľúčmi imported/updated/skipped/count
-    """
-    imported = updated = skipped = 0
-    count = 0
-
-    try:
-        if isinstance(res, dict):
-            imported = int(res.get("imported", 0) or 0)
-            updated = int(res.get("updated", 0) or 0)
-            skipped = int(res.get("skipped", 0) or 0)
-            if "count" in res and res["count"] is not None:
-                count = int(res["count"])
-            else:
-                count = imported + updated + skipped
-
-        elif isinstance(res, (list, tuple)):
-            if len(res) >= 1:
-                imported = int(res[0] or 0)
-            if len(res) >= 2:
-                updated = int(res[1] or 0)
-            if len(res) >= 3:
-                skipped = int(res[2] or 0)
-            count = imported + updated + skipped
-
-        else:
-            # napr. res je číslo - celkový počet uložených
-            cnt = int(res or 0)
-            imported = cnt
-            count = cnt
-
-    except Exception:
-        # fallback – nech endpoint nikdy nespadne na castoch
-        pass
-
-    return {"imported": imported, "updated": updated, "skipped": skipped, "count": count}
-
-
 # -------- endpoints -----------------------------------------------------------
-
 # GET: posledných X dní (default 30)
 @router.get("/{user_id}")
 def get_activities(user_id: int, days: int = 30):
     try:
-        since_date = (
-            (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
-        )
+        since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
         print(f"➡️ get_activities: user_id={user_id}, since_date={since_date}")
 
         rec = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select(
-                "activity_id,name,sport_type,distance_m,moving_time_s,"
-                "average_heartrate_bpm,max_heartrate_bpm,date"
+                "activity_id,name,"
+                "sport_type,sport_type_fe,sport_type_ovrd,"
+                "distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,date"
             )
             .eq("user_id", user_id)
             .gte("date", since_date)
@@ -91,8 +34,9 @@ def get_activities(user_id: int, days: int = 30):
             .execute()
         )
 
-        print(f"➡️ get_activities: DB response count={len(rec.data or [])}")
-        return {"success": True, "data": rec.data or []}
+        data = rec.data or []
+        print(f"➡️ get_activities: DB response count={len(data)}")
+        return {"success": True, "data": data}
 
     except Exception as e:
         print("❌ get_activities error:", e)
@@ -131,10 +75,7 @@ def get_activity_detail(activity_id: int):
             .execute()
         )
 
-        print(
-            f"➡️ detail: laps={len(laps_res.data or [])}, "
-            f"splits={len(splits_res.data or [])}"
-        )
+        print(f"➡️ detail: laps={len(laps_res.data or [])}, splits={len(splits_res.data or [])}")
 
         return {
             "success": True,
@@ -157,32 +98,46 @@ def sync_activities_route(user_id: int):
     except Exception as e:
         return {"success": False, "detail": str(e)}
 
-# GET: aktivity v rozsahu [start, end] (vrátane)
+
 @router.get("/range/{user_id}")
 def activities_in_range(user_id: int, start: str, end: str):
     """
-    Vráti aktivity v rozsahu [start, end] (ISO YYYY-MM-DD).
+    Aktivity v rozsahu [start, end] vrátane.
+    Stĺpec 'date' je timestamp -> použijeme < (end + 1 deň) ako exkluzívnu hornú hranicu.
     """
     try:
-        start_d = _iso_date(start)
-        end_d = _iso_date(end)
-        print(f"[BE] /activities/range user_id={user_id} start={start_d} end={end_d}")
+        # → urob z ISO stringov naozaj 'date'
+        start_d = date.fromisoformat(start)
+        end_d   = date.fromisoformat(end)
+
+        # 00:00:00Z na začiatku 'start', a 00:00:00Z nasledujúceho dňa po 'end' (exkluzívne)
+        start_ts = datetime.combine(start_d, time(0, 0, 0, tzinfo=timezone.utc))
+        end_ts   = datetime.combine(end_d,   time(0, 0, 0, tzinfo=timezone.utc)) + timedelta(days=1)
+
+        print(f"[BE] /activities/range user_id={user_id} start={start_ts.isoformat()} end<{end_ts.isoformat()}")
 
         res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select(
-                "activity_id,name,sport_type,distance_m,moving_time_s,"
-                "average_heartrate_bpm,max_heartrate_bpm,date"
+                # ⬇️ pridávame FE/override, aby sa tabuľka zhodovala s grafom
+                "activity_id,name,"
+                "sport_type,sport_type_fe,sport_type_ovrd,"
+                "distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,date"
             )
             .eq("user_id", user_id)
-            .gte("date", start_d)
-            .lte("date", end_d)
+            .gte("date", start_ts.isoformat())
+            .lt("date",  end_ts.isoformat())   # end exkluzívne
             .order("date", desc=True)
             .execute()
         )
+
         data = res.data or []
         print(f"[BE] /activities/range -> {len(data)} rows")
-        return {"success": True, "data": data, "range": {"start": start_d, "end": end_d}}
+        return {
+            "success": True,
+            "data": data,
+            "range": {"start": start_d.isoformat(), "end": end_d.isoformat()},
+        }
 
     except Exception as e:
         print("[BE] /activities/range error:", e)

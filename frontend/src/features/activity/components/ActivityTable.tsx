@@ -1,3 +1,4 @@
+// src/features/activity/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,7 +8,9 @@ import { API_URL } from "@/shared/config";
 interface ActivityRow {
   activity_id: number;
   name: string;
-  sport_type: string;
+  sport_type?: string | null;
+  sport_type_fe?: string | null;
+  sport_type_ovrd?: string | null;
   distance_m: number | null;
   moving_time_s: number | null;
   average_heartrate_bpm: number | null;
@@ -18,6 +21,43 @@ interface ActivityDetail {
   summary: ActivityRow;
   laps: any[];
   splits: any[];
+}
+
+// FE fallback normalizácia športu
+function toEffSport(row: Partial<ActivityRow>): string {
+  const s = (
+    row.sport_type_ovrd ??
+    row.sport_type_fe ??
+    row.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  if (!s) return "other";
+  if (s.includes("run")) return "run";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "bike";
+  if (s.includes("strength") || s.includes("weight") || s.includes("gym")) return "strength";
+  if (s.includes("skate")) return "skate";
+  if (s.includes("mix")) return "mixed";
+  if (s.includes("walk")) return "walk";
+  if (s.includes("hike")) return "hike";
+  if (s.includes("swim")) return "swim";
+  return s;
+}
+function sportUiLabel(s: string): string {
+  const L: Record<string, string> = {
+    run: "Run",
+    bike: "Bike",
+    strength: "Strength",
+    mixed: "Mixed",
+    skate: "Skate",
+    walk: "Walk",
+    hike: "Hike",
+    swim: "Swim",
+    other: "Other",
+  };
+  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function ActivityTable({
@@ -34,7 +74,6 @@ export default function ActivityTable({
   const [syncing, setSyncing] = useState(false);
   const [note, setNote] = useState<string>("");
 
-  // ❗ reset detailu a poznámky pri zmene filtra
   useEffect(() => {
     setSelected(null);
     setNote("");
@@ -49,11 +88,9 @@ export default function ActivityTable({
     setLoading(true);
     try {
       const url = `${API_URL}/activities/range/${userId}?start=${start}&end=${end}`;
-      console.log("[FE] Fetch activities:", url);
       const res = await fetch(url);
-      const json = await res.json();
-      if (json.success) setRows(json.data);
-      else setRows([]);
+      const json = await res.json().catch(() => ({}));
+      setRows(json?.success ? json.data ?? [] : []);
     } catch (err) {
       console.error("❌ [FE] Fetch error:", err);
       setRows([]);
@@ -74,8 +111,8 @@ export default function ActivityTable({
       const res = await fetch(`${API_URL}/activities/sync/${userId}`, {
         method: "POST",
       });
-      const json = await res.json();
-      if (json.success) {
+      const json = await res.json().catch(() => ({}));
+      if (json?.success) {
         alert(
           `✅ Sync OK.\nimported: ${json.imported ?? "?"}\nupdated: ${
             json.updated ?? "?"
@@ -83,7 +120,7 @@ export default function ActivityTable({
         );
         await load();
       } else {
-        alert("❌ Sync error: " + (json.detail || "unknown"));
+        alert("❌ Sync error: " + (json?.detail || "unknown"));
       }
     } catch (err) {
       console.error("❌ [FE] Sync request error:", err);
@@ -96,16 +133,16 @@ export default function ActivityTable({
   async function handleSelect(activityId: number) {
     try {
       const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
-      const json = await res.json();
-      if (json.success) {
+      const json = await res.json().catch(() => ({}));
+      if (json?.success) {
         setSelected({
-          summary: json.summary,
+          summary: json.summary ?? json.data,
           laps: Array.isArray(json.laps) ? json.laps : [],
           splits: Array.isArray(json.splits) ? json.splits : [],
         });
         const noteRes = await fetch(`${API_URL}/notes/${userId}/${activityId}`);
-        const noteJson = await noteRes.json();
-        setNote(noteJson.data?.feeling || "");
+        const noteJson = await noteRes.json().catch(() => ({}));
+        setNote(noteJson?.data?.feeling || "");
       }
     } catch (err) {
       console.error("❌ [FE] Fetch detail error:", err);
@@ -131,7 +168,7 @@ export default function ActivityTable({
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
         >
           {syncing && (
-            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
           )}
           {syncing ? "Synchronizujem..." : "Sync Strava"}
         </button>
@@ -160,30 +197,33 @@ export default function ActivityTable({
               </tr>
             )}
             {!loading &&
-              rows.map((row) => (
-                <tr
-                  key={row.activity_id}
-                  className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => handleSelect(row.activity_id)}
-                  title={row.name}
-                >
-                  <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
-                  <td>{row.sport_type}</td>
-                  <td className="truncate max-w-[250px]">{row.name}</td>
-                  <td>
-                    {row.moving_time_s
-                      ? `${Math.floor(row.moving_time_s / 60)} min`
-                      : "-"}
-                  </td>
-                  <td>{row.average_heartrate_bpm ?? "-"}</td>
-                  <td>{row.max_heartrate_bpm ?? "-"}</td>
-                  <td>
-                    {row.distance_m
-                      ? `${(row.distance_m / 1000).toFixed(2)} km`
-                      : "-"}
-                  </td>
-                </tr>
-              ))}
+              rows.map((row) => {
+                const eff = toEffSport(row);
+                return (
+                  <tr
+                    key={row.activity_id}
+                    className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSelect(row.activity_id)}
+                    title={row.name}
+                  >
+                    <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
+                    <td>{sportUiLabel(eff)}</td>
+                    <td className="truncate max-w-[250px]">{row.name}</td>
+                    <td>
+                      {row.moving_time_s != null
+                        ? `${Math.floor((row.moving_time_s || 0) / 60)} min`
+                        : "—"}
+                    </td>
+                    <td>{row.average_heartrate_bpm ?? "—"}</td>
+                    <td>{row.max_heartrate_bpm ?? "—"}</td>
+                    <td>
+                      {row.distance_m != null
+                        ? `${((row.distance_m || 0) / 1000).toFixed(2)} km`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             {!loading && !rows.length && (
               <tr>
                 <td colSpan={7} className="py-6 opacity-70">
@@ -205,23 +245,22 @@ export default function ActivityTable({
             {new Date(selected.summary.date).toLocaleDateString("sk-SK")})
           </h3>
 
-          <p>Sport: {selected.summary.sport_type}</p>
+          <p>Sport: {sportUiLabel(toEffSport(selected.summary))}</p>
           <p>
             Distance:{" "}
-            {selected.summary.distance_m
+            {selected.summary.distance_m != null
               ? (selected.summary.distance_m / 1000).toFixed(2) + " km"
-              : "-"}
+              : "—"}
           </p>
           <p>
             Moving time:{" "}
-            {selected.summary.moving_time_s
+            {selected.summary.moving_time_s != null
               ? Math.floor(selected.summary.moving_time_s / 60) + " min"
-              : "-"}
+              : "—"}
           </p>
-          <p>Avg HR: {selected.summary.average_heartrate_bpm ?? "-"}</p>
-          <p>Max HR: {selected.summary.max_heartrate_bpm ?? "-"}</p>
+          <p>Avg HR: {selected.summary.average_heartrate_bpm ?? "—"}</p>
+          <p>Max HR: {selected.summary.max_heartrate_bpm ?? "—"}</p>
 
-          {/* Laps / Splits – ak nie sú, nič neriešime, neskôr doplníme grafy */}
           {selected.laps?.length > 0 && (
             <>
               <h4 className="font-bold mt-4">Laps</h4>
@@ -269,8 +308,8 @@ export default function ActivityTable({
                       feeling: note,
                     }),
                   });
-                  const json = await res.json();
-                  if (json.success) alert("✅ Poznámka uložená");
+                  const json = await res.json().catch(() => ({}));
+                  if (res.ok && json?.success) alert("✅ Poznámka uložená");
                   else alert("❌ Chyba pri ukladaní poznámky");
                 } catch (e) {
                   console.error(e);
