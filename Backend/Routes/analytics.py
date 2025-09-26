@@ -36,9 +36,16 @@ def weekly(user_id: int, weeks: int = 12):
 
         # dáta za obdobie
         since = (datetime.utcnow() - timedelta(weeks=weeks + 1)).date().isoformat()
-        res = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
-               .select("date, sport_type:sport_type_fe, distance_m, moving_time_s, average_heartrate_bpm")
-               .eq("user_id", user_id).gte("date", since).execute())
+        res = (
+            supabase.table(TABLE_ACTIVITIES_SUMMARY)
+            .select(
+                "date, sport_type, sport_type_fe, sport_type_ovrd, "
+                "distance_m, moving_time_s, average_heartrate_bpm"
+            )
+            .eq("user_id", user_id)
+            .gte("date", since)
+            .execute()
+        )
         rows = res.data or []
 
         def new_week():
@@ -61,8 +68,16 @@ def weekly(user_id: int, weeks: int = 12):
                 continue
 
             wk = week_key(d)
+            # vezmi najprv override, potom FE kanoniku, potom pôvodný typ
+            raw_type = (r.get("sport_type_ovrd")
+                        or r.get("sport_type_fe")
+                        or r.get("sport_type")
+                        or "")
             dist_km = float(r.get("distance_m") or 0.0) / 1000.0
-            bucket = sport_bucket(r.get("sport_type") or "", r.get("distance_m") or 0)
+            bucket = sport_bucket(raw_type, dist_km) or "other"
+
+            if bucket == "other" and dist_km > 0:
+                bucket = "mixed"
 
             time_min = float(r.get("moving_time_s") or 0.0) / 60.0
             avg_hr = r.get("average_heartrate_bpm")

@@ -107,8 +107,8 @@ export default function TrendWeeklyLoad({
   const [sBike, setSBike] = useState(true);
   const [sStrength, setSStrength] = useState(true);
   const [sMixed, setSMixed] = useState(true);
-  const [sSkate, setSSkate] = useState(false);
-  const [sOther, setSOther] = useState(false);
+  const [sSkate, setSSkate] = useState(true);
+  const [sOther, setSOther] = useState(true);
 
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,7 +146,9 @@ export default function TrendWeeklyLoad({
           time_min: num(w.time_min ?? w.total_min),
           time_run_min: num(w.time_run_min ?? w.run_min),
           time_ride_min: num(w.time_ride_min ?? w.ride_min),
-          time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
+          time_strength_min: num(
+            w.time_strength_min ?? w.strength_min ?? w.gym_min
+          ),
           time_mixed_min: num(w.time_mixed_min),
           time_skate_min: num(w.time_skate_min),
           time_other_min: num(w.time_other_min ?? w.other_min),
@@ -394,9 +396,23 @@ export default function TrendWeeklyLoad({
     });
 
     return arr;
-  }, [weeks, metric, sRun, sBike, sStrength, sMixed, sSkate, sOther, monoSeries, strainSeries]);
+  }, [
+    weeks,
+    metric,
+    sRun,
+    sBike,
+    sStrength,
+    sMixed,
+    sSkate,
+    sOther,
+    monoSeries,
+    strainSeries,
+  ]);
 
-  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
+  const data: ChartData<"bar" | "line", number[], string> = {
+    labels,
+    datasets,
+  };
 
   const options: ChartOptions<"bar" | "line"> = {
     responsive: true,
@@ -409,8 +425,10 @@ export default function TrendWeeklyLoad({
           label: (ctx) => {
             const label = ctx.dataset.label || "";
             const v = ctx.parsed.y as number;
-            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v?.toFixed?.(2) ?? v}`;
-            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            if (ctx.dataset.yAxisID === "y1")
+              return `${label}: ${v?.toFixed?.(2) ?? v}`;
+            if (ctx.dataset.yAxisID === "y2")
+              return `${label}: ${Math.round(v)}`;
             if (metric === "km") return `${label}: ${fmtKm(v)}`;
             if (metric === "time") return `${label}: ${fmtMin(v)}`;
             if (metric === "trimp") return `${label}: ${Math.round(v)} TRIMP`;

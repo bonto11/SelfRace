@@ -1,7 +1,7 @@
 // src/hooks/useBests.ts
 import { useCallback, useEffect, useState } from "react";
 import type { Best } from "@/features/coach/types/coach";
-import { getBests, saveBest } from "@/features/coach/api/bests";
+import { getBests, saveBest } from "@/shared/api/bests";
 import { formatHHMMSS } from "@/shared/utils/time";
 
 const CANONICAL_DISTANCES = [400, 1000, 5000, 21097, 42195] as const;

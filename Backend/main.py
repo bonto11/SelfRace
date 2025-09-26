@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from Routes import recovery, users, activities, profile, notes, analytics
+from Routes import recovery, users, activities, profile, notes, analytics, account
 
 from Routes.context import router as context_router
 from Routes.user_bests import router as bests_router
@@ -31,6 +31,7 @@ app.include_router(activities.router)
 app.include_router(profile.router)
 app.include_router(notes.router)
 app.include_router(analytics.router)
+app.include_router(account.router)
 
 app.include_router(context_router)
 app.include_router(bests_router)

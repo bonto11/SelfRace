@@ -1,4 +1,4 @@
-# Services/analytics
+# Services/analytics.py
 # ČO: analytické helpery pre weekly agregáciu (bucketovanie športov, TRIMP, monotony/strain)
 # POUŽITIE: importuj v Routes/analytics.py:
 #   from Services.analytics import sport_bucket, compute_trimp, monotony_and_strain
@@ -7,40 +7,39 @@ from datetime import date, timedelta
 import math, statistics
 from typing import Optional
 
-
 def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
     """
-    Zaradenie aktivity do koša:
-      - run, bike, strength, skate, mixed, other
-    Pravidlá:
-      - 'run' v názve → run
-      - 'ride' | 'bike' | 'cycle' → bike
-      - 'strength' | 'weight' | 'gym' → strength
-      - 'skate' | 'skating' | 'inline' | 'roller' → skate
-      - 'workout' | 'cross' | 'mixed' | 'brick' | 'duathlon' → mixed (ak distance_m > 0, inak other)
-      - inak other
+    Koše: run, bike, strength, skate, mixed, other
+    - 'trail_run' / 'trailrun' -> run
+    - 'inline' / 'inlineskate' / 'roller' -> skate
+    - 'workout' / 'mixed' / 'brick' / 'duathlon' / 'triathlon' -> mixed (ak je vzdialenosť > 0)
+    - fallback: ak je neznáme a distance > 0, ber mixed, inak other
     """
     s = (s or "").lower()
 
-    if "run" in s:  # run, trail_run (už sme na kanonike, ale pre istotu)
+    # beh (vrátane trailu)
+    if s in ("trail_run", "trailrun", "trail-running", "trailrunning"):
+        return "run"
+    if "run" in s:
         return "run"
 
-    if "ride" in s or "bike" in s or "cycle" in s or "cycling" in s:
+    # bicykel
+    if any(k in s for k in ("ride", "bike", "cycle", "cycling", "virtual_ride", "ebike")):
         return "bike"
 
-    if any(k in s for k in ("strength", "weight", "gym")):
+    # sila
+    if any(k in s for k in ("strength", "weight", "weighttraining", "gym", "crossfit")):
         return "strength"
 
-    if any(k in s for k in ("skate", "skating", "inline", "roller")):
+    # korčule
+    if any(k in s for k in ("skate", "inlineskate", "inline", "roller", "rollerskate", "rollerblade")):
         return "skate"
 
+    # mixované tréningy
     if any(k in s for k in ("workout", "cross", "mixed", "brick", "duathlon", "triathlon")):
-        # miešaná / workout session: ak má vzdialenosť, berieme ju ako MIXED (nech sa km nestratia)
         return "mixed" if (distance_m or 0) > 0 else "other"
 
-    # fallback:
-    # - ak je to „iné“, ale má nenulovú vzdialenosť (napr. 'workout' bez kľúčového slova),
-    #   tiež to vieme zaradiť do mixed, nech km nezmiznú z prehľadu
+    # fallback – nech sa km nestratia
     if (distance_m or 0) > 0:
         return "mixed"
 

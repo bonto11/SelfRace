@@ -18,7 +18,7 @@ export function useUser(redirectToLogin: boolean = false) {
       setLoading(false);
 
       if (redirectToLogin && !user) {
-        router.push("/login");
+        router.push("/signin");
       }
     }
 
@@ -28,7 +28,7 @@ export function useUser(redirectToLogin: boolean = false) {
       async (_event, session) => {
         setUser(session?.user ?? null);
         if (redirectToLogin && !session?.user) {
-          router.push("/login");
+          router.push("/signin");
         }
       }
     );

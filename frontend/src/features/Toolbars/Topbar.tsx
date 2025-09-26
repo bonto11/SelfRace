@@ -1,29 +1,26 @@
+// src/features/Toolbars/Topbar.tsx
 "use client";
 
-import { supabase } from "@/shared/hooks/supabaseClient";
-import { useRouter } from "next/navigation";
+import UserMenu from "@/features/auth/components/UserMenu";
 
-export default function Topbar({ user }: { user: any }) {
-  const router = useRouter();
+type TopbarUser = { email?: string | null } | null;
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-  }
-
+export default function Topbar({ user }: { user?: TopbarUser }) {
   return (
-    <div className="flex justify-between items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="flex items-center gap-4 px-6 py-3 border-b border-gray-800 bg-gray-900">
+      {/* brand / názov */}
       <h1 className="text-lg font-bold">Trainalyze</h1>
-      <div className="flex items-center gap-4">
-        {user && <span className="text-sm">👤 {user.email}</span>}
-        {user && (
-          <button
-            onClick={handleLogout}
-            className="text-sm bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"
-          >
-            Logout
-          </button>
-        )}
+
+      {/* voliteľne zobrazíme email (malé, vľavo) */}
+      {user?.email && (
+        <span className="text-sm opacity-70 hidden sm:inline">
+          {user.email}
+        </span>
+      )}
+
+      {/* avatar + menu zarovnane doprava */}
+      <div className="ml-auto">
+        <UserMenu />
       </div>
     </div>
   );

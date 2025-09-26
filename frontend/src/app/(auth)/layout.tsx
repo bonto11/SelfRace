@@ -1,14 +1,18 @@
+// src/app/(public)/layout.tsx
 // src/app/(auth)/layout.tsx
-"use client";
-
-import InfoMessageProvider from "@/shared/components/InfoMessageProvider";
-
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <InfoMessageProvider>
-      <main className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        {children}
-      </main>
-    </InfoMessageProvider>
+    <html lang="sk">
+      <body className="bg-gray-900 text-gray-100">
+        <header className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="font-semibold">Trainalyze</div>
+          <nav className="flex gap-3 text-sm">
+            <a href="/signin" className="underline">Sign in</a>
+            <a href="/signup" className="underline">Sign up</a>
+          </nav>
+        </header>
+        <main className="max-w-md mx-auto px-4 py-8">{children}</main>
+      </body>
+    </html>
   );
 }
