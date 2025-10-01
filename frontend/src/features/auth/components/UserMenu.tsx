@@ -1,125 +1,130 @@
 // src/features/auth/components/UserMenu.tsx
-// Avatar v topbare + menu. Sign out volá FE signOut aj serverové /api/auth/signout a presmeruje na /signin.
-
+// src/features/auth/components/UserMenu.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/shared/hooks/supabaseClient";
-import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
-import ChangeEmailModal from "@/features/auth/components/ChangeEmailModal";
-import DeleteAccountModal from "@/features/auth/components/DeleteAccountModal";
-import { useRouter} from "next/navigation"
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
-function initialsFrom(email?: string | null) {
-  if (!email) return "?";
-  return email.trim().charAt(0).toUpperCase();
-}
+type LocalUser = { email: string; name: string; avatarUrl: string | null };
 
-export default function UserMenu() {
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
-  const [pwdOpen, setPwdOpen] = useState(false);
-  const [emailOpen, setEmailOpen] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
-
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
+export default function UserMenu({ user }: { user: LocalUser }) {
   const router = useRouter();
+  const sb = getSupabaseBrowser();
+  const [open, setOpen] = useState(false);
+  const [u, setU] = useState<LocalUser | null>(user ?? null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
 
-  async function handleLogout() {
-    // 1) klientsky logout (hneď skryje usera v UI)
-    await supabase.auth.signOut().catch(() => {});
-    // 2) server logout – zmaže SSR cookies (s path "/")
-    await fetch("/api/auth/signout", { method: "POST", cache: "no-store" }).catch(() => {});
-    // 3) presmerovanie (a poistný hard reload)
-    router.replace("/signin");
-    setTimeout(() => { window.location.href = "/signin"; }, 20);
-  }
-
+  // 1) init — dotiahni usera ak treba
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
-  }, []);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!open) return;
-      const t = e.target as Node;
-      if (
-        btnRef.current &&
-        !btnRef.current.contains(t) &&
-        menuRef.current &&
-        !menuRef.current.contains(t)
-      ) {
-        setOpen(false);
+    sb.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
+      if (!data.user) return;
+      const meta = (data.user.user_metadata as Record<string, any>) || {};
+      setU({
+        email: data.user.email ?? "",
+        name: meta.full_name ?? meta.name ?? "",
+        avatarUrl: meta.avatar_url ?? meta.picture ?? null,
+      });
+    });
+    // 2) reaguj na zmeny auth stavu
+    const sub = sb.auth.onAuthStateChange(
+      (_ev: AuthChangeEvent, session: Session | null) => {
+        const sUser = session?.user;
+        if (!sUser) return;
+        const meta = (sUser.user_metadata as Record<string, any>) || {};
+        setU({
+          email: sUser.email ?? "",
+          name: meta.full_name ?? meta.name ?? "",
+          avatarUrl: meta.avatar_url ?? meta.picture ?? null,
+        });
       }
-    }
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("click", onDoc);
+    );
+    return () => sub.data.subscription.unsubscribe();
+  }, [sb]);
+
+  // zavri pri kliku mimo / ESC
+  useEffect(() => {
+    const onDoc = (ev: MouseEvent) => {
+      if (!boxRef.current) return;
+      if (!boxRef.current.contains(ev.target as Node)) setOpen(false);
+    };
+    const onEsc = (ev: KeyboardEvent) => ev.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onEsc);
     return () => {
-      document.removeEventListener("click", onDoc);
+      document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onEsc);
     };
-  }, [open]);
+  }, []);
+
+  const initials = useMemo(() => {
+    const n = (u?.name || u?.email || "").trim();
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "U";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }, [u?.name, u?.email]);
+
+  async function signOut() {
+    await sb.auth.signOut();
+    setOpen(false);
+    router.replace("/signin");
+  }
 
   return (
-    <div className="relative ml-auto">
+    <div ref={boxRef} className="relative">
       <button
-        ref={btnRef}
+        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10"
         onClick={() => setOpen((v) => !v)}
-        className="w-9 h-9 rounded-full bg-blue-600 text-white font-semibold grid place-items-center select-none"
-        title={email ?? "Account"}
-        aria-haspopup="menu"
-        aria-expanded={open}
       >
-        {initialsFrom(email)}
+        {u?.avatarUrl ? (
+          <Image
+            src={u.avatarUrl}
+            alt="avatar"
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">
+            {initials}
+          </div>
+        )}
+        <span className="text-sm hidden sm:block">{u?.email}</span>
       </button>
 
       {open && (
-        <div
-          ref={menuRef}
-          className="absolute right-0 mt-2 w-56 rounded border border-gray-700 bg-gray-900 text-sm shadow-xl z-50"
-          role="menu"
-        >
-          <div className="px-3 py-2 border-b border-gray-700 opacity-80 truncate">
-            {email ?? "—"}
+        <div className="absolute right-0 mt-2 w-56 rounded-md border bg-background shadow-lg z-50">
+          <div className="px-3 py-2 text-sm border-b">
+            <div className="font-medium">{u?.name || "User"}</div>
+            <div className="opacity-70 truncate">{u?.email}</div>
           </div>
-
-          <button
-            className="block w-full text-left px-3 py-2 hover:bg-gray-800"
-            onClick={() => { setOpen(false); setPwdOpen(true); }}
-          >
-            Change password
-          </button>
-
-          <button
-            className="block w-full text-left px-3 py-2 hover:bg-gray-800"
-            onClick={() => { setOpen(false); setEmailOpen(true); }}
-          >
-            Change email
-          </button>
-
-          <button className="block w-full text-left px-3 py-2 hover:bg-gray-800" onClick={handleLogout}>
-            Sign out
-          </button>
-
-          <div className="border-t border-gray-700" />
-
-          <button
-            className="block w-full text-left px-3 py-2 hover:bg-gray-800 text-red-400"
-            onClick={() => { setOpen(false); setShowDelete(true); }}
-          >
-            Delete account…
-          </button>
+          <nav className="py-1">
+            <a
+              className="block px-3 py-2 text-sm hover:bg-white/10"
+              href="/update-password"
+              onClick={() => setOpen(false)}
+            >
+              Update password
+            </a>
+            <a
+              className="block px-3 py-2 text-sm hover:bg-white/10"
+              href="/profile"
+              onClick={() => setOpen(false)}
+            >
+              Change email
+            </a>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10"
+              onClick={signOut}
+            >
+              Sign out
+            </button>
+          </nav>
         </div>
       )}
-
-      <ChangePasswordModal open={pwdOpen} onClose={() => setPwdOpen(false)} />
-      <ChangeEmailModal    open={emailOpen} onClose={() => setEmailOpen(false)} />
-      {showDelete && <DeleteAccountModal onClose={() => setShowDelete(false)} />}
     </div>
   );
 }

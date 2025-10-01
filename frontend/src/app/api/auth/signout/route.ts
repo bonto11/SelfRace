@@ -1,33 +1,13 @@
-// src/app/api/auth/signout/route.ts
+// src/app/api/signout/route.ts
 import { NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-function createSb() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async get(name: string) {
-          const jar = await cookies();
-          return jar.get(name)?.value;
-        },
-        async set(name: string, value: string, options: CookieOptions) {
-          const jar = await cookies();
-          jar.set(name, value, { ...(options as any), path: "/" } as any);
-        },
-        async remove(name: string, options: CookieOptions) {
-          const jar = await cookies();
-          jar.set(name, "", { ...(options as any), path: "/", maxAge: 0 } as any);
-        },
-      },
-    }
-  );
-}
+import { getSupabaseServer } from "@/shared/utils/supabaseServer";
 
 export async function POST() {
-  const supabase = createSb();
-  await supabase.auth.signOut();
-  return NextResponse.json({ ok: true });
+  try {
+    const supabase = getSupabaseServer();
+    await supabase.auth.signOut();
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+  }
 }

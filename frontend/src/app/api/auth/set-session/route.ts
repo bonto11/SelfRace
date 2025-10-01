@@ -1,40 +1,41 @@
-// src/app/api/auth/set-session/route.ts
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+// src/app/api/set-session/route.ts
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
-function createSb() {
-  return createServerClient(
+export async function POST(req: Request) {
+  const { event, session } = await req.json();
+
+  const cookieStore = cookies();
+  const sb = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async get(name: string) {
-          const jar = await cookies();
-          return jar.get(name)?.value;
+        get(name: string) {
+          return cookieStore.get(name)?.value;
         },
-        async set(name: string, value: string, options: CookieOptions) {
-          const jar = await cookies();
-          jar.set(name, value, { ...(options as any), path: "/" } as any);
+        set(name: string, value: string, options: any) {
+          cookieStore.set({ name, value, ...options });
         },
-        async remove(name: string, options: CookieOptions) {
-          const jar = await cookies();
-          jar.set(name, "", { ...(options as any), path: "/", maxAge: 0 } as any);
+        remove(name: string, options: any) {
+          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
         },
       },
     }
   );
-}
 
-export async function POST(req: NextRequest) {
-  const { access_token, refresh_token } = await req.json().catch(() => ({}));
-  const supabase = createSb();
-
-  if (access_token && refresh_token) {
-    await supabase.auth.setSession({ access_token, refresh_token });
+  if (event === "SIGNED_OUT") {
+    await sb.auth.signOut();
     return NextResponse.json({ ok: true });
   }
 
-  await supabase.auth.signOut();
+  if (session?.access_token && session?.refresh_token) {
+    await sb.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

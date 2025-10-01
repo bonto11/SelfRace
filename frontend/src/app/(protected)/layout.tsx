@@ -1,22 +1,43 @@
 // src/app/(protected)/layout.tsx
-"use client";
-import Sidebar from "@/features/Toolbars/Sidebar";
-import Topbar from "@/features/Toolbars/Topbar";
-import { useUser } from "@/shared/hooks/useUser";
-import { InfoMessageHost } from "@/shared/components";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useUser(true);
-  if (loading) return <div className="flex items-center justify-center h-screen text-gray-500">Loading…</div>;
+import { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { getSupabaseServer } from "@/shared/utils/supabaseServer";
+import Sidebar from "@/features/Toolbars/Sidebar";
+import UserMenu from "@/features/auth/components/UserMenu";
+import AuthSync from "@/features/auth/components/AuthSync";
+import InfoMessageHost from "@/shared/components/InfoMessageHost";
+
+export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+  const sb = getSupabaseServer();
+  const { data } = await sb.auth.getUser();
+  const user = data?.user;
+  if (!user) redirect("/(auth)/signin");
+
+  const userInfo = {
+    email: user.email ?? "",
+    name:
+      (user.user_metadata as any)?.full_name ||
+      (user.user_metadata as any)?.name ||
+      "",
+    avatarUrl:
+      (user.user_metadata as any)?.avatar_url ||
+      (user.user_metadata as any)?.picture ||
+      null,
+  };
 
   return (
     <InfoMessageHost>
-      <div className="flex h-screen">
+      <div className="min-h-dvh flex">
         <Sidebar />
-        <main className="flex-1 flex flex-col">
-          <Topbar user={user} />
-          <div className="p-6 overflow-y-auto">{children}</div>
-        </main>
+        <div className="flex-1 flex flex-col">
+          <header className="h-14 border-b flex items-center justify-between px-4">
+            <div className="font-semibold">Trainalyze</div>
+            <UserMenu user={userInfo} />
+          </header>
+          <main className="flex-1 p-4">{children}</main>
+        </div>
+        <AuthSync />
       </div>
     </InfoMessageHost>
   );

@@ -1,106 +1,131 @@
 // src/features/auth/components/ChangePasswordModal.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import { supabase } from "@/shared/hooks/supabaseClient";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/shared/hooks/supabaseClient";
 
 type Props = { open: boolean; onClose: () => void };
 
+function validatePassword(p: string) {
+  if (p.length < 8) return "Min. 8 znakov.";
+  if (!/[0-9]/.test(p)) return "Aspoň 1 číslica.";
+  if (!/[!@#$%^&*()_\-+=\[{\]}|\\:;\"'<>,.?/]/.test(p))
+    return "Aspoň 1 špeciálny znak.";
+  return null;
+}
+
 export default function ChangePasswordModal({ open, onClose }: Props) {
-  const [pwd, setPwd]   = useState("");
-  const [pwd2, setPwd2] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
   const router = useRouter();
+  const [pwd, setPwd] = useState("");
+  const [pwd2, setPwd2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [hasSession, setHasSession] = useState(false);
 
-  // požiadavky: 8+ znakov, aspoň 1 číslica a 1 špeciálny znak
-  const policy = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+  const ref = useRef<HTMLDivElement>(null);
 
-  const pwdError = useMemo(() => {
-    if (!pwd) return "";
-    if (pwd.length < 8) return "Minimálne 8 znakov.";
-    if (!/\d/.test(pwd)) return "Aspoň jedna číslica.";
-    if (!/[^A-Za-z0-9]/.test(pwd)) return "Aspoň jeden špeciálny znak.";
-    return "";
-  }, [pwd]);
+  // zisti, či je auth session (inak vypíš hlášku)
+  useEffect(() => {
+    if (!open) return;
+    let unsub = () => {};
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      setHasSession(!!data.session);
 
-  const matchError = useMemo(() => {
-    if (!pwd2) return "";
-    return pwd === pwd2 ? "" : "Heslá sa nezhodujú.";
-  }, [pwd, pwd2]);
+      const sub = supabase.auth.onAuthStateChange((_e, session) => {
+        setHasSession(!!session);
+      });
+      unsub = () => sub.data.subscription.unsubscribe();
+    })();
+    return () => unsub();
+  }, [open]);
 
-  const canSave = !loading && policy.test(pwd) && pwd === pwd2;
+  // zavri ESC a klik mimo
+  useEffect(() => {
+    if (!open) return;
+    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current && !ref.current.contains(t)) onClose();
+    };
+    document.addEventListener("keydown", onEsc);
+    document.addEventListener("mousedown", onDoc);
+    return () => {
+      document.removeEventListener("keydown", onEsc);
+      document.removeEventListener("mousedown", onDoc);
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
-    if (!canSave) return;
+    setErr(null);
 
+    const v = validatePassword(pwd);
+    if (v) return setErr(v);
+    if (pwd !== pwd2) return setErr("Heslá sa nezhodujú.");
+
+    setBusy(true);
     try {
-      setLoading(true);
       const { error } = await supabase.auth.updateUser({ password: pwd });
       if (error) throw error;
 
-      // Odhlásiť (aj globálne, ak chceš zrušiť všetky zariadenia)
-      await supabase.auth.signOut({ scope: "global" }); // alebo bez parametra len aktuálna session
+      // odhlás serverovo (cookies) aby middleware okamžite uvidel logout
+      await fetch("/api/auth/signout", { method: "POST" });
 
-      // Presmerovať na signin
+      onClose();
       router.replace("/signin");
-    } catch (err: any) {
-      setMsg(err?.message ?? "Chyba pri zmene hesla");
+    } catch (e: any) {
+      setErr(e?.message ?? "Zmena hesla zlyhala.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-lg bg-gray-800 p-5 text-sm shadow-xl">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-semibold">Zmeniť heslo</h3>
-          <button onClick={onClose} className="opacity-70 hover:opacity-100">✕</button>
+    <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4">
+      <div ref={ref} className="w-full max-w-md bg-gray-800 rounded shadow p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">Zmeniť heslo</h3>
+          <button onClick={onClose} className="text-sm opacity-70 hover:opacity-100">✕</button>
         </div>
 
-        <form className="space-y-3" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-1 block opacity-80">Nové heslo</label>
-            <input
-              type="password"
-              value={pwd}
-              onChange={(e) => setPwd(e.target.value)}
-              className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
-              placeholder="min. 8 znakov, číslica, špec. znak"
-            />
-            {pwdError && <div className="mt-1 text-amber-400">{pwdError}</div>}
-          </div>
+        <form onSubmit={handleSave} className="space-y-3">
+          <input
+            type="password"
+            placeholder="Nové heslo"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          />
+          <input
+            type="password"
+            placeholder="Zopakuj nové heslo"
+            value={pwd2}
+            onChange={(e) => setPwd2(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+          />
 
-          <div>
-            <label className="mb-1 block opacity-80">Zopakuj heslo</label>
-            <input
-              type="password"
-              value={pwd2}
-              onChange={(e) => setPwd2(e.target.value)}
-              className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
-            />
-            {matchError && <div className="mt-1 text-amber-400">{matchError}</div>}
-          </div>
+          {!hasSession && (
+            <div className="text-sm text-amber-400">
+              Auth session missing!
+            </div>
+          )}
 
-          {msg && <div className="rounded bg-gray-700/60 px-3 py-2">{msg}</div>}
+          {err && <div className="text-sm text-red-400">✖ {err}</div>}
 
-          <div className="mt-2 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded bg-gray-700 px-4 py-2 hover:bg-gray-600">
+          <div className="flex gap-2 justify-end pt-2">
+            <button type="button" onClick={onClose} className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600">
               Zavrieť
             </button>
             <button
               type="submit"
-              disabled={!canSave}
-              className="rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-50 hover:bg-emerald-700"
+              disabled={busy || !hasSession}
+              className="px-3 py-2 rounded bg-green-600 hover:bg-green-700 disabled:opacity-50"
             >
-              {loading ? "Ukladám…" : "Uložiť"}
+              {busy ? "Ukladám…" : "Uložiť"}
             </button>
           </div>
         </form>

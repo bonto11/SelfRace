@@ -1,11 +1,8 @@
 // src/middleware.ts
-// Next.js middleware: púšťa public routy, chráni protected a drží Supabase session v serverových cookies.
-// Dôležité: implementácia cookies.remove s path="/" a maxAge=0, inak cookies nezmiznú.
-
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
-const RE = (x: string) => new RegExp(`^\\/(?:auth\\/)?${x}(?:\\/)?$`, "i"); // povolí s aj bez "auth/"
+const RE = (x: string) => new RegExp(`^\\/(?:auth\\/)?${x}(?:\\/)?$`, "i");
 
 const PUBLIC_ROUTES = [
   /^\/$/i,
@@ -13,6 +10,7 @@ const PUBLIC_ROUTES = [
   RE("signup"),
   RE("reset-password"),
   RE("update-password"),
+  RE("forgot-password"),
   /^\/favicon\.ico$/i,
 ];
 
@@ -25,12 +23,12 @@ function createSb(req: NextRequest, res: NextResponse) {
         get(name: string) {
           return req.cookies.get(name)?.value;
         },
-        set(name: string, value: string, options: CookieOptions) {
-          res.cookies.set({ name, value, ...options, path: "/" });
+        // <- options: any, a voláme ResponseCookies.set s (name, value, options)
+        set(name: string, value: string, options?: any) {
+          res.cookies.set(name, value, options);
         },
-        remove(name: string, options: CookieOptions) {
-          // ⬇️ kľúčové: path + maxAge=0
-          res.cookies.set({ name, value: "", ...options, path: "/", maxAge: 0 });
+        remove(name: string, options?: any) {
+          res.cookies.set(name, "", options);
         },
       },
     }
@@ -40,13 +38,19 @@ function createSb(req: NextRequest, res: NextResponse) {
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
   const res = NextResponse.next();
-  const sb = createSb(req, res);
-  const { data: { session } } = await sb.auth.getSession();
 
-  const isPublic = PUBLIC_ROUTES.some(re => re.test(url.pathname));
+  const sb = createSb(req, res);
+  const {
+    data: { session },
+  } = await sb.auth.getSession();
+
+  const isPublic = PUBLIC_ROUTES.some((re) => re.test(url.pathname));
 
   if (isPublic) {
-    if (session && (RE("signin").test(url.pathname) || RE("signup").test(url.pathname))) {
+    if (
+      session &&
+      (RE("signin").test(url.pathname) || RE("signup").test(url.pathname))
+    ) {
       url.pathname = "/dashboard";
       return NextResponse.redirect(url, { headers: res.headers });
     }

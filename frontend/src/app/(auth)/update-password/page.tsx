@@ -1,65 +1,86 @@
 // src/app/(auth)/update-password/page.tsx
-// Stránka po kliknutí na reset-link z e-mailu. Po úspechu odhlási FE aj server a presmeruje na /signin.
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/shared/hooks/supabaseClient";
+import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
-function validatePassword(p: string) {
-  if (p.length < 8) return "Minimálne 8 znakov.";
-  if (!/[0-9]/.test(p)) return "Aspoň jedna číslica.";
-  if (!/[!@#$%^&*()_\-+=\[{\]}|\\:;\"'<>,.?/]/.test(p))
-    return "Aspoň jeden špeciálny znak.";
-  return null;
+function passwordScore(p: string) {
+  let score = 0;
+  if (p.length >= 8) score++;
+  if (/[0-9]/.test(p)) score++;
+  if (/[a-z]/.test(p)) score++;
+  if (/[A-Z]/.test(p)) score++;
+  if (/[^A-Za-z0-9]/.test(p)) score++;
+  return Math.min(score, 5);
 }
 
 export default function UpdatePasswordPage() {
+  const sb = getSupabaseBrowser();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
+
+  const [allowed, setAllowed] = useState(false); // stránka dostupná pri session (prihlásený alebo recovery)
   const [pwd, setPwd] = useState("");
   const [pwd2, setPwd2] = useState("");
   const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const strength = useMemo(() => passwordScore(pwd), [pwd]);
+
   useEffect(() => {
-    let unsub = () => {};
+    let unsubscribe: (() => void) | undefined;
+
     (async () => {
-      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-          setReady(true);
-          setEmail(session?.user?.email ?? null);
+      // 1) ak si PRIHlÁSENÝ → povolíme rovno
+      const {
+        data: { session },
+      } = await sb.auth.getSession();
+      if (session) setAllowed(true);
+
+      // 2) ak prídeš z mailu (recovery), supabase vyvolá PASSWORD_RECOVERY a tiež povolíme
+      const { data } = sb.auth.onAuthStateChange(
+        (event: AuthChangeEvent, _session: Session | null) => {
+          if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+            setAllowed(true);
+          }
         }
-      });
-      unsub = () => sub.subscription.unsubscribe();
-
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setReady(true);
-        setEmail(data.session.user?.email ?? null);
-      }
+      );
+      unsubscribe = data.subscription.unsubscribe;
     })();
-    return () => unsub();
-  }, []);
 
-  async function handleSave(e: React.FormEvent) {
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [sb]);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setMsg(null);
     setErr(null);
-    const v = validatePassword(pwd);
-    if (v) return setErr(v);
-    if (pwd !== pwd2) return setErr("Heslá sa nezhodujú.");
+
+    if (pwd !== pwd2) {
+      setErr("Heslá sa nezhodujú.");
+      return;
+    }
+    // minimálne požiadavky – 8 znakov a aspoň 3 typy znakov
+    const classesOK = [/[0-9]/, /[a-z]/, /[A-Z]/, /[^A-Za-z0-9]/].filter((r) =>
+      r.test(pwd)
+    ).length;
+    if (pwd.length < 8 || classesOK < 3) {
+      setErr("Heslo musí mať min. 8 znakov a aspoň 3 typy znakov.");
+      return;
+    }
+
     setSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: pwd });
+      const { error } = await sb.auth.updateUser({ password: pwd });
       if (error) throw error;
 
-      await supabase.auth.signOut().catch(() => {});
-      await fetch("/api/auth/signout", { method: "POST", cache: "no-store" }).catch(() => {});
-      router.replace("/signin");
-      setTimeout(() => { window.location.href = "/signin"; }, 20);
-
+      setMsg("Heslo bolo zmenené. Môžeš sa prihlásiť.");
+      // po pár sekundách späť na /signin
+      setTimeout(() => router.replace("/signin"), 1200);
     } catch (e: any) {
       setErr(e?.message ?? "Nepodarilo sa zmeniť heslo.");
     } finally {
@@ -67,37 +88,67 @@ export default function UpdatePasswordPage() {
     }
   }
 
-  return (
-    <div className="min-h-[70vh] flex items-center justify-center">
-      <div className="w-full max-w-md bg-gray-800 rounded p-6 shadow">
-        <h1 className="text-xl font-bold mb-4">Nastaviť nové heslo</h1>
-
-        {!ready ? (
-          <>
-            <p className="text-sm opacity-80">
-              ✉️ Otvor <b>odkaz z e-mailu</b> pre reset hesla. Ak si sem prišiel
-              manuálne, najprv na stránke <i>Sign in</i> klikni „Forgot password“,
-              zadaj e-mail a použi link z mailu.
-            </p>
-            <p className="mt-3 text-red-400 text-sm">✖ Auth session missing!</p>
-          </>
-        ) : (
-          <form onSubmit={handleSave} className="space-y-3">
-            {email && <div className="text-sm opacity-80">Účet: <b>{email}</b></div>}
-            <input type="password" placeholder="Nové heslo" value={pwd}
-              onChange={(e) => setPwd(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2" />
-            <input type="password" placeholder="Zopakuj nové heslo" value={pwd2}
-              onChange={(e) => setPwd2(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2" />
-            <button type="submit" disabled={saving}
-              className="w-full bg-green-600 hover:bg-green-700 text-white rounded px-3 py-2 disabled:opacity-50">
-              {saving ? "Ukladám…" : "Uložiť heslo"}
-            </button>
-            {err && <p className="text-red-400 text-sm mt-2">✖ {err}</p>}
-          </form>
-        )}
+  if (!allowed) {
+    // Bez session – používateľ by sem nemal prísť priamo: nech ho navigujeme
+    return (
+      <div className="mx-auto max-w-sm p-4">
+        <h1 className="text-xl font-semibold mb-3">Zmena hesla</h1>
+        <p className="text-sm opacity-80">
+          Pre zmenu hesla sa prihlás alebo použij link z e-mailu{" "}
+          <em>Reset password</em>.
+        </p>
+        <a className="inline-block mt-4 underline" href="/signin">
+          Späť na prihlásenie
+        </a>
       </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-sm p-4">
+      <h1 className="text-xl font-semibold mb-4">Zmeniť heslo</h1>
+
+      <form onSubmit={submit} className="space-y-3">
+        <div>
+          <label className="block text-sm mb-1">Nové heslo</label>
+          <input
+            type="password"
+            className="w-full rounded border bg-transparent px-3 py-2"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+            autoFocus
+          />
+          <div className="text-xs mt-1 opacity-70">
+            Sila:{" "}
+            <span>
+              {["slabé", "ok", "dobré", "silné", "veľmi silné"][
+                Math.max(0, strength - 1)
+              ] || "slabé"}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Nové heslo znova</label>
+          <input
+            type="password"
+            className="w-full rounded border bg-transparent px-3 py-2"
+            value={pwd2}
+            onChange={(e) => setPwd2(e.target.value)}
+          />
+        </div>
+
+        {err && <div className="text-sm text-red-400">{err}</div>}
+        {msg && <div className="text-sm text-green-400">{msg}</div>}
+
+        <button
+          type="submit"
+          className="rounded bg-white/10 px-3 py-2 hover:bg-white/15 disabled:opacity-60"
+          disabled={saving}
+        >
+          {saving ? "Ukladám…" : "Uložiť nové heslo"}
+        </button>
+      </form>
     </div>
   );
 }

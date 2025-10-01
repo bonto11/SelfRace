@@ -2,64 +2,75 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/shared/hooks/supabaseClient";
+import Link from "next/link";
+import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
 
-function validatePassword(p: string) {
-  if (p.length < 8) return "Minimálne 8 znakov.";
-  if (!/[0-9]/.test(p)) return "Aspoň jedna číslica.";
-  if (!/[!@#$%^&*()_\-+\[\]{}|\\:;\"'<>,.?/]/.test(p)) return "Aspoň jeden špeciálny znak.";
-  return null;
-}
-
-export default function SignupPage() {
+export default function SignUpPage() {
+  const sb = getSupabaseBrowser();
   const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  async function handleSignup() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
     setMsg(null);
-    setErr(null);
-    const v = validatePassword(pass);
-    if (v) { setErr(v); return; }
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({ email: email.trim(), password: pass });
-    setLoading(false);
-    if (error) setErr(error.message);
-    else setMsg("✅ Check your email to confirm your account.");
+    const { error } = await sb.auth.signUp({
+      email,
+      password: pwd,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: `${window.location.origin}/coach`,
+      },
+    });
+    setBusy(false);
+    setMsg(error ? error.message : "Skontroluj e-mail a potvrď registráciu.");
   }
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center">
-      <div className="w-full max-w-md bg-gray-800 rounded p-6 space-y-4 shadow">
-        <h1 className="text-xl font-bold">Sign up</h1>
+    <div className="mx-auto max-w-md space-y-4">
+      <h1 className="text-2xl font-semibold">Vytvoriť účet</h1>
+      <form onSubmit={submit} className="space-y-3">
         <input
-          className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700"
-          placeholder="Email"
+          className="w-full rounded-md bg-slate-900 px-3 py-2"
+          placeholder="Meno (voliteľné)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          required
           type="email"
+          className="w-full rounded-md bg-slate-900 px-3 py-2"
+          placeholder="tvoje@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
         />
         <input
-          className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700"
-          placeholder="Password"
+          required
           type="password"
-          value={pass}
-          onChange={(e) => setPass(e.target.value)}
-          autoComplete="new-password"
+          className="w-full rounded-md bg-slate-900 px-3 py-2"
+          placeholder="Heslo (min. 6 znakov)"
+          value={pwd}
+          onChange={(e) => setPwd(e.target.value)}
         />
         <button
-          className="w-full bg-green-600 hover:bg-green-700 rounded py-2 text-white disabled:opacity-50"
-          disabled={loading}
-          onClick={handleSignup}
+          disabled={busy}
+          className="w-full rounded-md bg-white/10 px-3 py-2 hover:bg-white/20 disabled:opacity-50"
         >
-          {loading ? "Creating…" : "Create account"}
+          {busy ? "Vytváram…" : "Registrovať"}
         </button>
-        {err && <div className="text-sm text-red-400">{err}</div>}
-        {msg && <div className="text-sm opacity-80">{msg}</div>}
+      </form>
+
+      <div className="text-sm text-white/60">
+        Už máš účet?{" "}
+        <Link className="underline" href="/signin">
+          Prihlás sa
+        </Link>
       </div>
+
+      {msg && <div className="text-sm text-white/80">{msg}</div>}
     </div>
   );
 }
