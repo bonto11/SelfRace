@@ -24,3 +24,33 @@ body {
     --foreground: #ededed;
   }
 }
+
+/* ===== Design tokens ===== */
+:root {
+  --background: #0b1020;    /* stránka */
+  --surface:    #131a2b;    /* polia, karty */
+  --border:     #2a3550;    /* okraje */
+  --text:       #e6eaf4;    /* primárny text */
+  --muted:      #9aa4bc;    /* sekundárny text / placeholder */
+
+  --primary:    #3b82f6;    /* tlačidlá, focus ring */
+  --on-primary: #ffffff;
+
+  --success:    #22c55e;
+  --danger:     #ef4444;
+  --warning:    #f59e0b;
+
+  --ring:       #60a5fa;    /* focus ring */
+}
+
+/* (ak používaš light mode, pridaj si aj .light) */
+.dark {
+  /* (môžeš neskôr doladiť, teraz necháme rovnaké) */
+}
+
+/* Utility – zvyš kontrast placeholderov a inputov */
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
