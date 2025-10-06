@@ -12,7 +12,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   const sb = getSupabaseServer();
   const { data } = await sb.auth.getUser();
   const user = data?.user;
-  if (!user) redirect("/(auth)/signin");
+  if (!user) redirect("/signin");
 
   const userInfo = {
     email: user.email ?? "",
