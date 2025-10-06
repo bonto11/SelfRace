@@ -7,8 +7,9 @@ import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 type LocalUser = { email: string; name: string; avatarUrl: string | null };
+type Props = { user?: LocalUser };              // ⬅️ user je voliteľný
 
-export default function UserMenu({ user }: { user: LocalUser }) {
+export default function UserMenu({ user }: Props) {   // ⬅️ zmena TU
   const router = useRouter();
   const sb = getSupabaseBrowser();
   const [open, setOpen] = useState(false);
