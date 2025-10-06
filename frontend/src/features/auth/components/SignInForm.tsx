@@ -2,34 +2,61 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
 
 export default function SignInForm() {
   const router = useRouter();
   const sb = getSupabaseBrowser();
 
-  const [email, setEmail] = useState<string>("");
-  const [pwd, setPwd] = useState<string>("");
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const sp = useSearchParams();
+  const info =
+    sp.get("checkEmail") === "1"
+      ? "Poslali sme ti e-mail s odkazom na zmenu hesla. Skontroluj inbox/spam."
+      : null;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
+
     const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
     setLoading(false);
     if (error) {
-      setErr(error.message);
+      setErr(error.message || "Prihlásenie zlyhalo.");
       return;
     }
-    router.replace("/dashboard"); // alebo tvoja landing protected stránka
+
+    // ⬇️ pošli session serveru (cookies bridge)
+    try {
+      const { data } = await sb.auth.getSession();
+      if (data.session) {
+        await fetch("/api/auth/set-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
+        });
+      }
+    } catch {}
+
+    router.replace("/dashboard");
   }
 
   return (
     <div className="max-w-sm mx-auto mt-16">
       <h1 className="text-xl font-semibold mb-4">Sign in</h1>
+
+      {info && (
+        <div className="mb-3 rounded border px-3 py-2 text-sm opacity-90">
+          {info}
+        </div>
+      )}
+
       <form onSubmit={submit} className="space-y-3">
         <input
           className="w-full rounded border px-3 py-2 bg-background"
@@ -38,6 +65,7 @@ export default function SignInForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          autoComplete="email"
         />
         <input
           className="w-full rounded border px-3 py-2 bg-background"
@@ -46,6 +74,7 @@ export default function SignInForm() {
           value={pwd}
           onChange={(e) => setPwd(e.target.value)}
           required
+          autoComplete="current-password"
         />
         {err && <div className="text-red-500 text-sm">{err}</div>}
         <button
@@ -56,12 +85,13 @@ export default function SignInForm() {
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
       <div className="mt-3 text-sm">
-        <p className="text-sm">
-            <a className="underline opacity-80 hover:opacity-100" href="/forgot-password">
-                Zabudnuté heslo?
-            </a>
-            </p>
+        <p>
+          <a className="underline opacity-80 hover:opacity-100" href="/forgot-password">
+            Zabudnuté heslo?
+          </a>
+        </p>
       </div>
     </div>
   );

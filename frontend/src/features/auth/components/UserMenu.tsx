@@ -1,5 +1,3 @@
-// src/features/auth/components/UserMenu.tsx
-// src/features/auth/components/UserMenu.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,9 +13,10 @@ export default function UserMenu({ user }: { user: LocalUser }) {
   const sb = getSupabaseBrowser();
   const [open, setOpen] = useState(false);
   const [u, setU] = useState<LocalUser | null>(user ?? null);
+  const [busy, setBusy] = useState<"reset" | "signout" | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // 1) init — dotiahni usera ak treba
+  // INIT + auth listener
   useEffect(() => {
     sb.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       if (!data.user) return;
@@ -28,7 +27,6 @@ export default function UserMenu({ user }: { user: LocalUser }) {
         avatarUrl: meta.avatar_url ?? meta.picture ?? null,
       });
     });
-    // 2) reaguj na zmeny auth stavu
     const sub = sb.auth.onAuthStateChange(
       (_ev: AuthChangeEvent, session: Session | null) => {
         const sUser = session?.user;
@@ -44,7 +42,7 @@ export default function UserMenu({ user }: { user: LocalUser }) {
     return () => sub.data.subscription.unsubscribe();
   }, [sb]);
 
-  // zavri pri kliku mimo / ESC
+  // close on outside/Esc
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
       if (!boxRef.current) return;
@@ -68,9 +66,32 @@ export default function UserMenu({ user }: { user: LocalUser }) {
   }, [u?.name, u?.email]);
 
   async function signOut() {
-    await sb.auth.signOut();
-    setOpen(false);
-    router.replace("/signin");
+    setBusy("signout");
+    try {
+      await sb.auth.signOut();
+      setOpen(false);
+      router.replace("/signin");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // === RESET PASSWORD via EMAIL ===
+async function handlePasswordReset() {
+    try {
+      const { data, error: meErr } = await sb.auth.getUser();
+      if (meErr || !data?.user?.email) throw new Error("not_signed_in");
+
+      await sb.auth.resetPasswordForEmail(data.user.email, {
+        redirectTo: `${window.location.origin}/update-password`,
+      });
+
+      await sb.auth.signOut();
+      setOpen(false);
+      router.replace("/signin?checkEmail=1");
+    } catch (e: any) {
+      alert(e?.message ?? "Nepodarilo sa odoslať reset e-mail.");
+    }
   }
 
   return (
@@ -80,13 +101,7 @@ export default function UserMenu({ user }: { user: LocalUser }) {
         onClick={() => setOpen((v) => !v)}
       >
         {u?.avatarUrl ? (
-          <Image
-            src={u.avatarUrl}
-            alt="avatar"
-            width={28}
-            height={28}
-            className="rounded-full"
-          />
+          <Image src={u.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
         ) : (
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">
             {initials}
@@ -102,13 +117,11 @@ export default function UserMenu({ user }: { user: LocalUser }) {
             <div className="opacity-70 truncate">{u?.email}</div>
           </div>
           <nav className="py-1">
-            <a
-              className="block px-3 py-2 text-sm hover:bg-white/10"
-              href="/update-password"
-              onClick={() => setOpen(false)}
-            >
-              Update password
-            </a>
+            <button className="w-full text-left px-3 py-2 text-sm hover:bg-white/10"
+                    onClick={handlePasswordReset}>
+              Zmeniť heslo (e-mailom)
+            </button>
+
             <a
               className="block px-3 py-2 text-sm hover:bg-white/10"
               href="/profile"
@@ -116,11 +129,13 @@ export default function UserMenu({ user }: { user: LocalUser }) {
             >
               Change email
             </a>
+
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
               onClick={signOut}
+              disabled={busy === "signout"}
             >
-              Sign out
+              {busy === "signout" ? "Signing out…" : "Sign out"}
             </button>
           </nav>
         </div>
