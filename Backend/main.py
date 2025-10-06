@@ -11,10 +11,12 @@ app = FastAPI()
 
 # ---- CORS ----
 origins = [
+    "https://patrikmbontar.eu",
+    "https://www.patrikmbontar.eu",
+    "https://trainalyze.vercel.app",
     "http://localhost:3000",  # FE dev server
     "http://127.0.0.1:3000",
-    "http://192.168.1.63:3000",
-    "https://patrikmbontar.eu"
+    "http://192.168.1.63:3000"
 ]
 
 app.add_middleware(

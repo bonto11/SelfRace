@@ -5,4 +5,6 @@ export function middleware(_req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/((?!_next|.*\\..*).*)"] };
+export const config = {
+  matcher: ["/((?!api|_next|static|.*\\..*).*)"],
+};

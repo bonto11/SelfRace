@@ -69,9 +69,15 @@ export default function UserMenu({ user }: Props) {   // ⬅️ zmena TU
   async function signOut() {
     setBusy("signout");
     try {
-      await sb.auth.signOut();
+      await sb.auth.signOut(); // client (vyčistí local storage)
+      await fetch("/api/auth/set-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: "SIGNED_OUT" }),
+      });
       setOpen(false);
       router.replace("/signin");
+
     } finally {
       setBusy(null);
     }
