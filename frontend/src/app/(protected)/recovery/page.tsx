@@ -1,26 +1,12 @@
-"use client";
+import { Suspense } from "react";
+import ClientPage from "./ClientPage";
 
-import RecoveryForm from "@/features/recovery/components/Form";
-import RecoveryTable from "@/features/recovery/components/Table";
-import TrendRHR from "@/features/recovery/components/TrendRHR";
-import TrendHRV from "@/features/recovery/components/TrendHRV";
-import TrendSleepDuration from "@/features/recovery/components/TrendSleepDuration";
-import TrendSleepStart from "@/features/recovery/components/TrendSleepStart";
+export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
 
-export default function RecoveryPage() {
+export default function Page() {
   return (
-    <div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-        <TrendRHR />
-        <TrendHRV />
-        <TrendSleepDuration />
-        <TrendSleepStart />
-      </div>
-      <div className="space-y-6">
-      <h1 className="text-2xl font-bold mb-4">Recovery Tracking</h1>
-      <RecoveryForm />
-      <RecoveryTable />
-      </div>
-    </div>
+    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
+      <ClientPage />
+    </Suspense>
   );
 }

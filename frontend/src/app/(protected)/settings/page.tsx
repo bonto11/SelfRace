@@ -1,8 +1,12 @@
-export default function SettingsPage() {
+import { Suspense } from "react";
+import ClientPage from "./ClientPage";
+
+export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
+
+export default function Page() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <p className="text-gray-600">App settings and preferences.</p>
-    </div>
+    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
+      <ClientPage />
+    </Suspense>
   );
 }

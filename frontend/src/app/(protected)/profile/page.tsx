@@ -1,28 +1,12 @@
-"use client";
+import { Suspense } from "react";
+import ClientPage from "./ClientPage";
 
-import TableMetrics from "@/features/profile/components/TableMetrics";
-import TableHistory from "@/features/profile/components/TableHistory";
-import TrendVO2Max from "@/features/profile/components/TrendVO2Max";
-import TrendBodyFat from "@/features/profile/components/TrendBodyFat";
-// prípadne Static ak ho chceš vidieť
-import TableStatic from "@/features/profile/components/TableStatic";
+export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
 
-export default function ProfilePage() {
+export default function Page() {
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-4">User profile</h1>
-
-      <div className="flex gap-4 mt-6">
-        <div className="w-1/2">
-          <TrendVO2Max />
-        </div>
-        <div className="w-1/2">
-          <TrendBodyFat />
-        </div>
-      </div>
-      <TableStatic />
-      <TableMetrics />
-      <TableHistory />
-    </div>
+    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
+      <ClientPage />
+    </Suspense>
   );
 }
