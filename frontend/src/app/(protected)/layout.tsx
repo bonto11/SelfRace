@@ -1,5 +1,5 @@
 // src/app/(protected)/layout.tsx
-//zmena
+//zmena2
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/shared/utils/supabaseServer";
