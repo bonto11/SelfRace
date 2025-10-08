@@ -10,6 +10,7 @@ import { Chart as MixedChart } from "react-chartjs-2";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
+import { useLocalStorage } from "@/shared/hooks/useLocalStorage";
 
 ChartJS.register(
   CategoryScale,
@@ -56,15 +57,11 @@ type WeekRow = {
   strain: { km?: number; time?: number; trimp?: number };
 };
 
-const DEFAULTS = {
-  lookback: 12,
-  metric: "km" as const,
-  sports: { run: true, bike: true, strength: true, mixed: true, skate: false, other: false },
-};
 
-// init z localStorage (ak chceš perzistenciu)
-const load = <T,>(k: string, d: T): T => {
-  try { return JSON.parse(localStorage.getItem(k) || "") ?? d; } catch { return d; }
+const DEFAULTS = {
+  lookback: 26,
+  metric: "km" as const,
+  sports: { run: true, bike: true, strength: true, mixed: true, skate: true, other: true },
 };
 
 const C = {
@@ -101,14 +98,15 @@ export default function TrendWeeklyLoad({
 }) {
   const { userId } = useUserId();
 
-  const [metric, setMetric] = useState<Metric>(() => load("tw_metric", DEFAULTS.metric));
-  const [lookback, setLookback] = useState<number>(() => load("tw_lookback", DEFAULTS.lookback));
-  const [sRun, setSRun]         = useState(() => load("tw_run", DEFAULTS.sports.run));
-  const [sBike, setSBike]       = useState(() => load("tw_bike", DEFAULTS.sports.bike));
-  const [sStrength, setSStrength]= useState(() => load("tw_strength", DEFAULTS.sports.strength));
-  const [sMixed, setSMixed]     = useState(() => load("tw_mixed", DEFAULTS.sports.mixed));
-  const [sSkate, setSSkate]     = useState(() => load("tw_skate", DEFAULTS.sports.skate));
-  const [sOther, setSOther]     = useState(() => load("tw_other", DEFAULTS.sports.other));
+  const [metric, setMetric]         = useLocalStorage<"km"|"time"|"trimp">("tw_metric", DEFAULTS.metric);
+  const [lookback, setLookback]     = useLocalStorage<number>("tw_lookback", DEFAULTS.lookback);
+
+  const [sRun, setSRun]             = useLocalStorage<boolean>("tw_run", DEFAULTS.sports.run);
+  const [sBike, setSBike]           = useLocalStorage<boolean>("tw_bike", DEFAULTS.sports.bike);
+  const [sStrength, setSStrength]   = useLocalStorage<boolean>("tw_strength", DEFAULTS.sports.strength);
+  const [sMixed, setSMixed]         = useLocalStorage<boolean>("tw_mixed", DEFAULTS.sports.mixed);
+  const [sSkate, setSSkate]         = useLocalStorage<boolean>("tw_skate", DEFAULTS.sports.skate);
+  const [sOther, setSOther]         = useLocalStorage<boolean>("tw_other", DEFAULTS.sports.other);
 
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
