@@ -1,45 +1,40 @@
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-def env_required(key: str) -> str:
-    val = os.getenv(key)
-    if val is None:
-        raise RuntimeError(f"Missing required env var: {key}")
-    return val
+TABLE_ACTIVITIES_SUMMARY = "activities_summary"
+TABLE_ACTIVITY_DETAILS   = "activity_details"
+TABLE_ACTIVITIES_SPLITS  = "activities_splits"
+TABLE_ACTIVITIES_LAPS    = "activities_laps"
+TABLE_ACTIVITIES_RAW     = "activities_raw"
+TABLE_USERS              = "users"
+TABLE_USERS_PROFILE = "users_profile"
+TABLE_USERS_STATIC = "users_static"
+TABLE_USERS_METRICS = "users_metrics"
+TABLE_USERS_ZONES = "users_zones"
+TABLE_USERS_THRESHOLDS = "users_thresholds"
+TABLE_USERS_BESTS = "users_bests"
+TABLE_USERS_RECOVERY = "users_recovery"
+TABLE_USERS_NOTES = "users_notes"
+TABLE_COACH_FEEDBACK = "coach_feedback"
+TABLE_COACH_PREFERENCES = "coach_preferences"
 
-TABLE_ACTIVITIES_SUMMARY = env_required("TABLE_ACTIVITIES_SUMMARY")
-TABLE_ACTIVITY_DETAILS = env_required("TABLE_ACTIVITY_DETAILS")
-TABLE_ACTIVITIES_SPLITS = env_required("TABLE_ACTIVITIES_SPLITS")
-TABLE_ACTIVITIES_LAPS = env_required("TABLE_ACTIVITIES_LAPS")
-TABLE_ACTIVITIES_RAW = env_required("TABLE_ACTIVITIES_RAW")
-TABLE_USERS = env_required("TABLE_USERS")
-TABLE_USERS_PROFILE = env_required("TABLE_USERS_PROFILE")
-TABLE_USERS_STATIC = env_required("TABLE_USERS_STATIC")
-TABLE_USERS_METRICS = env_required("TABLE_USERS_METRICS")
-TABLE_USERS_ZONES = env_required("TABLE_USERS_ZONES")
-TABLE_USERS_THRESHOLDS = env_required("TABLE_USERS_THRESHOLDS")
-TABLE_USERS_BESTS = env_required("TABLE_USERS_BESTS")
-TABLE_USERS_RECOVERY = env_required("TABLE_USERS_RECOVERY")
-TABLE_USERS_NOTES = env_required("TABLE_USERS_NOTES")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
-SUPABASE_URL = env_required("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE = env_required("SUPABASE_SERVICE_ROLE")
-SUPABASE_ANON_KEY = env_required("SUPABASE_ANON_KEY")
-
-STRAVA_BASE = os.getenv("STRAVA_BASE")
 CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI")
-TOKENS_FILE = os.getenv("TOKENS_FILE", "data/tokens.json")
+STRAVA_BASE = "https://www.strava.com/api/v3"
+REDIRECT_URI = "http://localhost:5000/exchange_token"
+TOKENS_FILE = "data/tokens.json"
 
-USE_STRAVA_CACHE = os.getenv("STRAVA_USE_CACHE", "false").lower() in {"1", "true", "yes", "on"}
-CACHE_DIR = Path(os.getenv("STRAVA_CACHE_DIR", "data/strava_cache"))
+USE_STRAVA_CACHE = "true"
+CACHE_DIR = "data/strava_cache"
 
 # dobrovoľný globálny delay medzi requestami (sekundy, napr. 0, 0.5, 1.0…)
-REQUEST_DELAY_SECS = float(os.getenv("STRAVA_REQUEST_DELAY", "0"))
-
+REQUEST_DELAY_SECS = 0.3
+DEFAULT_MODEL = "gpt-4o-mini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+

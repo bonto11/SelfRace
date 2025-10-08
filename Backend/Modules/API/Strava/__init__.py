@@ -12,8 +12,4 @@
 #      └─ zones.py             # get_activity_zones
 
 # re-exporty – nech sa ti inde v projekte nič nemusí meniť
-from .activities import get_activities, get_activity_full, get_activity_data
-from .streams import get_activity_streams_all, get_activity_detail
-from .laps import get_activity_laps, decide_laps_or_splits
-from .zones import get_activity_zones
 from .auth import authorize_user, register_exchange_token_route, get_access_token, refresh_access_token

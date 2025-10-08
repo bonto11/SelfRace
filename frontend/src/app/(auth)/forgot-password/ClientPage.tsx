@@ -1,4 +1,5 @@
 // src/app/(auth)/forgot-password/page.tsx
+//test
 "use client";
 
 import { useState } from "react";
@@ -22,8 +23,7 @@ export default function ForgotPasswordPage() {
     setSending(true);
     try {
       // redirectTo musí byť plná URL
-      const origin =
-        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const redirectTo = `${origin}/update-password`;
 
       const { error } = await sb.auth.resetPasswordForEmail(email, {
