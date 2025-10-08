@@ -18,7 +18,7 @@ export default function AuthSync() {
     const listener = sb.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         try {
-          await fetch("/api/set-session", {
+          await fetch("/api/auth/set-session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ event, session }),
