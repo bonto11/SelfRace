@@ -2,21 +2,10 @@
 // Weekly stacked bar + monotony/strain – koše: run, bike, strength, mixed, skate (+other).
 
 "use client";
+import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend,  Chart as ChartJS, ChartData, ChartOptions} from 'chart.js';
+Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartData,
-  ChartOptions,
-} from "chart.js";
 import { Chart as MixedChart } from "react-chartjs-2";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { API_URL } from "@/shared/config";
@@ -67,6 +56,17 @@ type WeekRow = {
   strain: { km?: number; time?: number; trimp?: number };
 };
 
+const DEFAULTS = {
+  lookback: 12,
+  metric: "km" as const,
+  sports: { run: true, bike: true, strength: true, mixed: true, skate: false, other: false },
+};
+
+// init z localStorage (ak chceš perzistenciu)
+const load = <T,>(k: string, d: T): T => {
+  try { return JSON.parse(localStorage.getItem(k) || "") ?? d; } catch { return d; }
+};
+
 const C = {
   run: "#22D3EE",
   bike: "#A78BFA",
@@ -101,19 +101,28 @@ export default function TrendWeeklyLoad({
 }) {
   const { userId } = useUserId();
 
-  const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(26);
-  const [sRun, setSRun] = useState(true);
-  const [sBike, setSBike] = useState(true);
-  const [sStrength, setSStrength] = useState(true);
-  const [sMixed, setSMixed] = useState(true);
-  const [sSkate, setSSkate] = useState(true);
-  const [sOther, setSOther] = useState(true);
+  const [metric, setMetric] = useState<Metric>(() => load("tw_metric", DEFAULTS.metric));
+  const [lookback, setLookback] = useState<number>(() => load("tw_lookback", DEFAULTS.lookback));
+  const [sRun, setSRun]         = useState(() => load("tw_run", DEFAULTS.sports.run));
+  const [sBike, setSBike]       = useState(() => load("tw_bike", DEFAULTS.sports.bike));
+  const [sStrength, setSStrength]= useState(() => load("tw_strength", DEFAULTS.sports.strength));
+  const [sMixed, setSMixed]     = useState(() => load("tw_mixed", DEFAULTS.sports.mixed));
+  const [sSkate, setSSkate]     = useState(() => load("tw_skate", DEFAULTS.sports.skate));
+  const [sOther, setSOther]     = useState(() => load("tw_other", DEFAULTS.sports.other));
 
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [picked, setPicked] = useState<WeekPick | null>(null);
+
+  useEffect(() => { localStorage.setItem("tw_lookback", JSON.stringify(lookback)); }, [lookback]);
+  useEffect(() => { localStorage.setItem("tw_metric", JSON.stringify(metric)); }, [metric]);
+  useEffect(() => { localStorage.setItem("tw_run", JSON.stringify(sRun)); }, [sRun]);
+  useEffect(() => { localStorage.setItem("tw_bike", JSON.stringify(sBike)); }, [sBike]);
+  useEffect(() => { localStorage.setItem("tw_strength", JSON.stringify(sStrength)); }, [sStrength]);
+  useEffect(() => { localStorage.setItem("tw_mixed", JSON.stringify(sMixed)); }, [sMixed]);
+  useEffect(() => { localStorage.setItem("tw_skate", JSON.stringify(sSkate)); }, [sSkate]);
+  useEffect(() => { localStorage.setItem("tw_other", JSON.stringify(sOther)); }, [sOther]);
 
   useEffect(() => {
     if (!userId) return;

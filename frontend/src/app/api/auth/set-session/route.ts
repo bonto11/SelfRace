@@ -24,7 +24,9 @@ function serverClient(req: NextRequest, res: NextResponse) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as any;
+  //const body = (await req.json().catch(() => ({}))) as any;
+  const body = await req.json().catch(() => ({}));
+  console.log('set-session body keys:', Object.keys(body), 'has session?', !!body.session);
   const event   = body?.event as string | undefined;
   const session = body?.session;
 
@@ -35,17 +37,22 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  if (event === "SIGNED_IN" && session?.access_token && session?.refresh_token) {
-    const res = NextResponse.json({ ok: true });
-    const sb = serverClient(req, res);
-    const { error } = await sb.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (event === 'SIGNED_IN') {
+    if (!session?.access_token || !session?.refresh_token) {
+      return new NextResponse(null, { status: 204 }); // nič nerob, middleware cookies osvieži
     }
-    return res;
+    else {
+      const res = NextResponse.json({ ok: true });
+      const sb = serverClient(req, res);
+      const { error } = await sb.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      if (error) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      return res;
+    }
   }
 
   return NextResponse.json({ ok: false, error: "bad_payload" }, { status: 400 });

@@ -1,35 +1,42 @@
 // src/features/auth/components/AuthSync.tsx
-"use client";
+'use client';
+import { useEffect } from 'react';
+import { getSupabaseBrowser } from '@/shared/utils/supabaseBrowser';
 
-import { useEffect, useRef } from "react";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
-
-/** Mounted klienták, ktorý syncuje auth eventy -> /api/set-session */
 export default function AuthSync() {
-  const once = useRef(false);
-
   useEffect(() => {
-    if (once.current) return;
-    once.current = true;
-
     const sb = getSupabaseBrowser();
 
-    const listener = sb.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        try {
-          await fetch("/api/auth/set-session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ event, session }),
-          });
-        } catch {
-          // ticho ignorujeme (UI sa aj tak rehydratuje)
-        }
+    // úvodný sync – len ak máme refresh_token
+    sb.auth.getSession().then(({ data }) => {
+      const s = data.session;
+      if (s?.access_token && s?.refresh_token) {
+        fetch('/api/auth/set-session', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ event: 'SIGNED_IN', session: s }),
+        });
       }
-    );
+    });
 
-    return () => listener.data.subscription.unsubscribe();
+    // live zmeny – SIGNED_IN / SIGNED_OUT
+    const { data: sub } = sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.access_token && session?.refresh_token) {
+        await fetch('/api/auth/set-session', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ event, session }),
+        });
+      } else if (event === 'SIGNED_OUT') {
+        await fetch('/api/auth/set-session', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ event }),
+        });
+      }
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   return null;
