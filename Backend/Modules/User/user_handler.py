@@ -2,9 +2,6 @@ from typing import Optional
 from Modules.SQL.db_handler import get_service_client
 from backend.Modules.config import (
     TABLE_USERS,
-    TABLE_ACTIVITIES_SUMMARY,
-    TABLE_ACTIVITIES_SPLITS,
-    TABLE_ACTIVITIES_LAPS,
     TABLE_USERS_PROFILE,
     TABLE_USERS_ZONES,
     TABLE_USERS_THRESHOLDS,

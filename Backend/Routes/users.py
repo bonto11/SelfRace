@@ -2,15 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from Modules.SQL.db_handler import get_client
 from Modules.config import (
-    TABLE_USERS,
-    TABLE_ACTIVITIES_SUMMARY,
-    TABLE_ACTIVITIES_SPLITS,
-    TABLE_ACTIVITIES_LAPS,
-    TABLE_USERS_PROFILE,
-    TABLE_USERS_ZONES,
-    TABLE_USERS_THRESHOLDS,
-    TABLE_USERS_BESTS,
-    TABLE_USERS_RECOVERY,
+    TABLE_USERS
 )
 
 router = APIRouter(prefix="/users", tags=["users"])

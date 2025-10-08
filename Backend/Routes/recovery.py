@@ -4,7 +4,6 @@ from datetime import datetime
 from Modules.SQL.db_handler import get_client
 from Modules.config import (
     TABLE_USERS,
-    TABLE_USERS_PROFILE,
     TABLE_USERS_RECOVERY,
 )
 
