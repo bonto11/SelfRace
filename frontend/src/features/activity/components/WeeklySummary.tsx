@@ -1,5 +1,6 @@
 // src/features/activity/components/WeeklySummary.tsx
 "use client";
+import "@/shared/charts/register";
 
 type Metric = "km" | "time" | "trimp";
 

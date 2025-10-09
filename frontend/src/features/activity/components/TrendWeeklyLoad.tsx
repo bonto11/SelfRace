@@ -2,8 +2,6 @@
 // Weekly stacked bar + monotony/strain – koše: run, bike, strength, mixed, skate (+other).
 
 "use client";
-import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend,  Chart as ChartJS, ChartData, ChartOptions} from 'chart.js';
-Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 import { useEffect, useMemo, useState } from "react";
 import { Chart as MixedChart } from "react-chartjs-2";
@@ -11,17 +9,8 @@ import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useLocalStorage } from "@/shared/hooks/useLocalStorage";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+import "@/shared/charts/register";
+import type { ChartData, ChartOptions } from "chart.js";
 
 type Metric = "km" | "time" | "trimp";
 
