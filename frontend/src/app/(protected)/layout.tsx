@@ -2,8 +2,12 @@
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/shared/utils/supabaseServer";
-import InfoMessageHost from "@/shared/components/InfoMessageHost";
 import ClientShell from "@/shared/components/ClientShell";
+
+import Sidebar from "@/features/Toolbars/components/Sidebar";
+import UserMenu from "@/features/auth/components/UserMenu";
+import AuthSync from "@/features/auth/components/AuthSync";
+import InfoMessageHost from "@/shared/components/InfoMessageHost";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   const sb = getSupabaseServer();
@@ -25,9 +29,19 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
 
   return (
     <InfoMessageHost>
-      <ClientShell user={userInfo}>
-        {children}
-      </ClientShell>
+      <div className="min-h-dvh flex">
+        <Sidebar />
+        <div className="flex-1 flex flex-col">
+          <header className="h-14 border-b flex items-center justify-between px-4">
+            <div className="font-semibold">Trainalyze</div>
+            <UserMenu user={userInfo} />
+          </header>
+          <main className="flex-1 p-4">{children}</main>
+        </div>
+      </div>
+
+      {/* AuthSync presne jedenkrát, mimo headeru */}
+      <AuthSync />
     </InfoMessageHost>
   );
 }

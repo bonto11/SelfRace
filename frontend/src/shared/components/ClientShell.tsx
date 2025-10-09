@@ -3,7 +3,6 @@
 import { ReactNode } from 'react';
 import Sidebar from '@/features/Toolbars/components/Sidebar';
 import UserMenu from '@/features/auth/components/UserMenu';
-import AuthSync from '@/features/auth/components/AuthSync';
 import { SidebarProvider, useSidebar } from '@/features/Toolbars/hooks/useSidebar';
 
 type UserInfo = { email: string; name: string; avatarUrl: string | null };
@@ -40,7 +39,6 @@ function ShellBody({ children, user }: { children: ReactNode; user: UserInfo }) 
           <header className="hidden lg:flex h-14 items-center justify-between px-4 border-b border-neutral-800 bg-neutral-950">
             <div className="font-semibold">Trainalyze</div>
             <UserMenu user={user} />
-            <AuthSync />
           </header>
 
           <main className="flex-1">{children}</main>
@@ -59,7 +57,6 @@ function ShellBody({ children, user }: { children: ReactNode; user: UserInfo }) 
         <Sidebar />
       </div>
 
-      <AuthSync />
     </div>
   );
 }
