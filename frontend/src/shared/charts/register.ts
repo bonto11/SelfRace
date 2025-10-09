@@ -1,3 +1,5 @@
 // register.ts
+import annotationPlugin from 'chartjs-plugin-annotation';
 import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
-Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+Chart.register(annotationPlugin, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+

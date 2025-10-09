@@ -25,10 +25,11 @@ export default function SignInForm() {
     setErr(null);
     setLoading(true);
 
-    const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
 
     setLoading(false);
     if (error) {
+      console.error("[signin]", { code: error.code, status: error.status, message: error.message });
       setErr(error.message || "Prihlásenie zlyhalo.");
       return;
     }
