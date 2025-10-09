@@ -1,58 +1,49 @@
 //src/(auth)/api/auth/set-session/route
-import { NextResponse, type NextRequest } from "next/server";
+// /src/(auth)/api/auth/set-session/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-function serverClient(req: NextRequest, res: NextResponse) {
-  return createServerClient(URL, ANON, {
-    cookies: {
-      get(name: string) {
-        return req.cookies.get(name)?.value;
-      },
-      set(name: string, value: string, options?: CookieOptions) {
-        // zápis cookie je povolený v route handleri cez NextResponse
-        res.cookies.set(name, value, options as any);
-      },
-      remove(name: string, _options?: CookieOptions) {
-        // stačí delete; Supabase si poradí
-        res.cookies.delete(name);
-      },
-    },
-  });
-}
-
 export async function POST(req: NextRequest) {
-  //const body = (await req.json().catch(() => ({}))) as any;
+  const res = NextResponse.json({ ok: true });           // <<— TOTO musí byť to, čo vrátiš
+
+  const sb = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll().map(c => ({ name: c.name, value: c.value }));
+        },
+        setAll(cookies) {
+          for (const { name, value, options } of cookies) {
+            res.cookies.set(name, value, options as CookieOptions); // zapisujeme do *res*
+          }
+        },
+      },
+    }
+  );
+
   const body = await req.json().catch(() => ({}));
-  console.log('set-session body keys:', Object.keys(body), 'has session?', !!body.session);
-  const event   = body?.event as string | undefined;
+  const event = body?.event as string | undefined;
   const session = body?.session;
 
   if (event === "SIGNED_OUT") {
-    const res = NextResponse.json({ ok: true });
-    const sb = serverClient(req, res);
     await sb.auth.signOut();
-    return res;
+    return res;                                          // <<— vracaj *res*
   }
 
-  if (event === 'SIGNED_IN') {
+  if (event === "SIGNED_IN") {
     if (!session?.access_token || !session?.refresh_token) {
-      return new NextResponse(null, { status: 204 }); // nič nerob, middleware cookies osvieži
+      return new NextResponse(null, { status: 204 });    // ticho ignoruj neúplný payload
     }
-    else {
-      const res = NextResponse.json({ ok: true });
-      const sb = serverClient(req, res);
-      const { error } = await sb.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
-      if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-      }
-      return res;
+    const { error } = await sb.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    return res;                                          // <<— vracaj *res*
   }
 
   return NextResponse.json({ ok: false, error: "bad_payload" }, { status: 400 });

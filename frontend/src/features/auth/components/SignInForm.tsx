@@ -26,6 +26,7 @@ export default function SignInForm() {
     setLoading(true);
 
     const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+
     setLoading(false);
     if (error) {
       setErr(error.message || "Prihlásenie zlyhalo.");
