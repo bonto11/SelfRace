@@ -9,7 +9,7 @@ export default function Topbar({ user }: { user?: TopbarUser }) {
   return (
     <div className="flex items-center gap-4 px-6 py-3 border-b border-gray-800 bg-gray-900">
       {/* brand / názov */}
-      <h1 className="text-lg font-bold">Trainalyze</h1>
+      <h1 className="text-lg font-bold">SelfRace</h1>
 
       {/* voliteľne zobrazíme email (malé, vľavo) */}
       {user?.email && (
