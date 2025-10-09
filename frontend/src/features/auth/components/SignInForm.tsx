@@ -37,6 +37,7 @@ export default function SignInForm() {
     // ⬇️ pošli session serveru (cookies bridge)
     try {
       const { data } = await sb.auth.getSession();
+      console.log("SignInForm data" + data)
       if (data.session) {
         await fetch("/api/auth/set-session", {
           method: "POST",
