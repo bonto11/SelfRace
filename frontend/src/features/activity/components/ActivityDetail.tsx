@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { API_URL } from "@/shared/config";
+import "@/shared/charts/register";
 
 interface Props {
   activityId: number;

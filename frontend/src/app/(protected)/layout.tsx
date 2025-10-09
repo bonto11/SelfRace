@@ -34,10 +34,11 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
           <header className="h-14 border-b flex items-center justify-between px-4">
             <div className="font-semibold">Trainalyze</div>
             <UserMenu user={userInfo} />
+            <AuthSync />
           </header>
           <main className="flex-1 p-4">{children}</main>
         </div>
-        <AuthSync />
+        
       </div>
     </InfoMessageHost>
   );

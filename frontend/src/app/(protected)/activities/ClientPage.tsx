@@ -1,5 +1,5 @@
 "use client";
-
+import "@/shared/charts/register";
 import { useState } from "react";
 import TrendWeeklyLoad, {
   WeekPick,

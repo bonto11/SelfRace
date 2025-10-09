@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { API_URL } from "@/shared/config";
+import "@/shared/charts/register";
 
 interface ActivityRow {
   activity_id: number;
