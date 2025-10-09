@@ -4,13 +4,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Chart as MixedChart } from "react-chartjs-2";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useLocalStorage } from "@/shared/hooks/useLocalStorage";
-import "@/shared/charts/register";
+import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
+import { ensureChartJSRegistered } from "@/shared/charts/register";
+ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
 
