@@ -8,11 +8,8 @@ export default function Sidebar() {
 
   return (
     <nav
-      className="
-        h-full w-[280px] bg-neutral-900 text-neutral-100
-        lg:static lg:translate-x-0 lg:shadow-none
-      "
-      onClick={() => setOpen(false)} // zatvor po kliku v mobile
+      className="h-full w-[280px] bg-neutral-900 text-neutral-100 lg:static lg:translate-x-0 lg:shadow-none"
+      onClick={() => setOpen(false)} // zatvoriť po kliknutí v mobile
     >
       <div className="p-4 font-bold">SelfRace</div>
       <ul className="space-y-1 px-2 pb-4">

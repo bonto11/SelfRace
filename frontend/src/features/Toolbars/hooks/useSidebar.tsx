@@ -1,20 +1,22 @@
 'use client';
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-type Ctx = { open: boolean; setOpen: (v: boolean) => void; toggle: () => void };
-const SidebarCtx = createContext<Ctx | null>(null);
+type SidebarCtx = {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  toggle: () => void;
+};
+
+const Ctx = createContext<SidebarCtx | null>(null);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  return (
-    <SidebarCtx.Provider value={{ open, setOpen, toggle: () => setOpen(v => !v) }}>
-      {children}
-    </SidebarCtx.Provider>
-  );
+  const toggle = () => setOpen(v => !v);
+  return <Ctx.Provider value={{ open, setOpen, toggle }}>{children}</Ctx.Provider>;
 }
 
-export const useSidebar = () => {
-  const ctx = useContext(SidebarCtx);
+export function useSidebar() {
+  const ctx = useContext(Ctx);
   if (!ctx) throw new Error('useSidebar must be used inside <SidebarProvider>');
   return ctx;
-};
+}
