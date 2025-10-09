@@ -25,3 +25,8 @@ Chart.register(
   Legend,
   annotationPlugin
 );
+
+if (typeof window !== "undefined") {
+  // uvidíš raz v konzole na /activity
+  console.log("[charts] registered controllers/plugins");
+}

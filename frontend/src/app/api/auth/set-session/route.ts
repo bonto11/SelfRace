@@ -1,23 +1,23 @@
 //src/(auth)/api/auth/set-session/route
-// /src/(auth)/api/auth/set-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function POST(req: NextRequest) {
-  const res = NextResponse.json({ ok: true });           // <<— TOTO musí byť to, čo vrátiš
+  const res = NextResponse.json({ ok: true });           // <- toto potom aj vrátime
+  const jar = cookies();
 
   const sb = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return req.cookies.getAll().map(c => ({ name: c.name, value: c.value }));
+        get(name: string) { return jar.get(name)?.value; },
+        set(name: string, value: string, options?: CookieOptions) {
+          jar.set({ name, value, ...(options ?? {}) });
         },
-        setAll(cookies) {
-          for (const { name, value, options } of cookies) {
-            res.cookies.set(name, value, options as CookieOptions); // zapisujeme do *res*
-          }
+        remove(name: string, options?: CookieOptions) {
+          jar.set({ name, value: "", ...(options ?? {}), maxAge: 0 });
         },
       },
     }
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   if (event === "SIGNED_OUT") {
     await sb.auth.signOut();
-    return res;                                          // <<— vracaj *res*
+    return res;                                          // <- vraciame ten istý `res`
   }
 
   if (event === "SIGNED_IN") {
@@ -40,11 +40,9 @@ export async function POST(req: NextRequest) {
       access_token: session.access_token,
       refresh_token: session.refresh_token,
     });
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    return res;                                          // <<— vracaj *res*
+    if (error) return NextResponse.json({ ok:false, error:error.message }, { status:500 });
+    return res;                                          // <- vraciame `res`
   }
 
-  return NextResponse.json({ ok: false, error: "bad_payload" }, { status: 400 });
+  return NextResponse.json({ ok:false, error:"bad_payload" }, { status:400 });
 }
