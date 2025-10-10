@@ -1,11 +1,11 @@
 // src/features/activity/components/ActivityTable.tsx
+// src/features/activity/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { API_URL } from "@/shared/config";
 import { SUBCARD, CARD } from "@/shared/ui/classes";
-
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 import { THEME } from "@/shared/theme/tokens";
 
@@ -125,7 +125,7 @@ export default function ActivityTable({
       : "História (vyber týždeň v grafe vyššie)";
 
   return (
-   <div className={`${CARD} space-y-4`}>
+    <div className={`${CARD} space-y-4`}>
       {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
@@ -141,70 +141,112 @@ export default function ActivityTable({
         </button>
       </div>
 
-      {/* TABUĽKA */}
-      <div className="overflow-x-auto -mx-2 sm:mx-0">
-        <table
-          className="w-full text-sm border-collapse text-center"
-          style={{ minWidth: THEME.layout.tableMinWidth }}
-         >
-          <thead>
-            <tr className="bg-gray-200 dark:bg-gray-700">
-              <th>Date</th>
-              <th>Sport</th>
-              <th>Name</th>
-              <th>Time</th>
-              <th>Avg HR</th>
-              <th>Max HR</th>
-              <th>Distance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="py-6 opacity-70">
-                  Načítavam…
-                </td>
+      {/* MOBILE: karty */}
+      <div className="sm:hidden space-y-2">
+        {loading && <div className="opacity-70 py-4">Načítavam…</div>}
+        {!loading &&
+          rows.map((row) => {
+            const eff = toEffSport(row);
+            return (
+              <button
+                key={row.activity_id}
+                onClick={() => handleSelect(row.activity_id)}
+                className="w-full text-left rounded border border-gray-700 p-3 bg-gray-900"
+                title={row.name}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">
+                    {new Date(row.date).toLocaleDateString("sk-SK")}
+                  </div>
+                  <div className="text-xs px-2 py-0.5 rounded bg-gray-700">
+                    {sportUiLabel(eff)}
+                  </div>
+                </div>
+                <div className="truncate opacity-90">{row.name}</div>
+                <div className="mt-1 text-xs opacity-75 flex gap-3">
+                  <span>
+                    {row.moving_time_s != null
+                      ? `${Math.floor((row.moving_time_s || 0) / 60)} min`
+                      : "—"}
+                  </span>
+                  <span>
+                    {row.distance_m != null
+                      ? `${((row.distance_m || 0) / 1000).toFixed(1)} km`
+                      : "—"}
+                  </span>
+                  <span>HR: {row.average_heartrate_bpm ?? "—"}</span>
+                </div>
+              </button>
+            );
+          })}
+        {!loading && !rows.length && (
+          <div className="text-center opacity-70 py-4">Žiadne aktivity.</div>
+        )}
+      </div>
+
+      {/* DESKTOP/LANDSCAPE: tabuľka */}
+      <div className="hidden sm:block overflow-x-auto">
+        <div style={{ minWidth: THEME.layout.tableMinWidth }}>
+          <table className="w-full text-sm border-collapse text-center">
+            <thead>
+              <tr className="bg-gray-200 dark:bg-gray-700">
+                <th>Date</th>
+                <th>Sport</th>
+                <th>Name</th>
+                <th>Time</th>
+                <th>Avg HR</th>
+                <th>Max HR</th>
+                <th>Distance</th>
               </tr>
-            )}
-            {!loading &&
-              rows.map((row) => {
-                const eff = toEffSport(row);
-                return (
-                  <tr
-                    key={row.activity_id}
-                    className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => handleSelect(row.activity_id)}
-                    title={row.name}
-                  >
-                    <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
-                    <td>{sportUiLabel(eff)}</td>
-                    <td className="truncate max-w-[250px]">{row.name}</td>
-                    <td>
-                      {row.moving_time_s != null
-                        ? `${Math.floor((row.moving_time_s || 0) / 60)} min`
-                        : "—"}
-                    </td>
-                    <td>{row.average_heartrate_bpm ?? "—"}</td>
-                    <td>{row.max_heartrate_bpm ?? "—"}</td>
-                    <td>
-                      {row.distance_m != null
-                        ? `${((row.distance_m || 0) / 1000).toFixed(2)} km`
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            {!loading && !rows.length && (
-              <tr>
-                <td colSpan={7} className="py-6 opacity-70">
-                  {start && end
-                    ? "Žiadne aktivity v tomto období."
-                    : "Klikni na týždeň v grafe, aby sa zobrazili aktivity."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={7} className="py-6 opacity-70">
+                    Načítavam…
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                rows.map((row) => {
+                  const eff = toEffSport(row);
+                  return (
+                    <tr
+                      key={row.activity_id}
+                      className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => handleSelect(row.activity_id)}
+                      title={row.name}
+                    >
+                      <td>{new Date(row.date).toLocaleDateString("sk-SK")}</td>
+                      <td>{sportUiLabel(eff)}</td>
+                      <td className="truncate max-w-[250px]">{row.name}</td>
+                      <td>
+                        {row.moving_time_s != null
+                          ? `${Math.floor((row.moving_time_s || 0) / 60)} min`
+                          : "—"}
+                      </td>
+                      <td>{row.average_heartrate_bpm ?? "—"}</td>
+                      <td>{row.max_heartrate_bpm ?? "—"}</td>
+                      <td>
+                        {row.distance_m != null
+                          ? `${((row.distance_m || 0) / 1000).toFixed(2)} km`
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              {!loading && !rows.length && (
+                <tr>
+                  <td colSpan={7} className="py-6 opacity-70">
+                    {start && end
+                      ? "Žiadne aktivity v tomto období."
+                      : "Klikni na týždeň v grafe, aby sa zobrazili aktivity."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* DETAIL + NOTE */}

@@ -29,6 +29,8 @@ export const THEME = {
 
     // fix výšky grafov podľa breakpointov (používa ChartContainer)
     height: { sm: 256, md: 288, lg: 360, xl: 420 },
+    weeklyHeight: 360,       // default desktop výška
+    weeklyHeightCompact: 180, // mini výška v mobile
   },
 
   // ===== tabuľky / layout =====
@@ -47,6 +49,15 @@ export const THEME = {
   i18n: {
     dateLocale: 'sk-SK',
     units: { km: 'km', min: 'min', trimp: 'TRIMP' },
+  },
+
+  // ===== “obsahové” konštanty =====
+  mobile: {
+    miniWeeks: 2,            // koľko týždňov ukázať v "mini" grafe
+    tableMinWidth: 720       // šírka „full“ grafu/table pre horizontálny scroll
+  },
+  copy: {
+    rotateHint: "Pre detailný graf otočte telefón na šírku."
   },
 
   // ===== športové labely (centrálne) =====
