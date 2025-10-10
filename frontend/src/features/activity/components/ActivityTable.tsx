@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { API_URL } from "@/shared/config";
-
+import { SUBCARD } from "@/shared/ui/classes";
 interface ActivityRow {
   activity_id: number;
   name: string;
@@ -175,8 +175,8 @@ export default function ActivityTable({
       </div>
 
       {/* TABUĽKA */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse text-center">
+      <div className="overflow-x-auto -mx-2 sm:mx-0">
+        <table className="w-full min-w-[720px] text-sm border-collapse text-center">
           <thead>
             <tr className="bg-gray-200 dark:bg-gray-700">
               <th>Date</th>
@@ -239,7 +239,7 @@ export default function ActivityTable({
 
       {/* DETAIL + NOTE */}
       {selected && (
-        <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded shadow">
+        <div className={SUBCARD}>
           <h3 className="font-bold mb-2">
             {selected.summary.name} (
             {new Date(selected.summary.date).toLocaleDateString("sk-SK")})

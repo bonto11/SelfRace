@@ -3,6 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { API_URL } from "@/shared/config";
+import { CARD } from "@/shared/ui/classes";
+import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 
 interface Props {
   activityId: number;
@@ -22,43 +24,6 @@ interface ActivityDetailData {
   date: string; // ISO
 }
 
-// FE fallback – zjednotenie športu do našich košov
-function toEffSport(row: Partial<ActivityDetailData>): string {
-  const s = (
-    row.sport_type_ovrd ??
-    row.sport_type_fe ??
-    row.sport_type ??
-    ""
-  )
-    .toString()
-    .toLowerCase();
-
-  if (!s) return "other";
-  if (s.includes("run")) return "run";
-  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "bike";
-  if (s.includes("strength") || s.includes("weight") || s.includes("gym")) return "strength";
-  if (s.includes("skate")) return "skate";
-  if (s.includes("mix")) return "mixed";
-  if (s.includes("walk")) return "walk";
-  if (s.includes("hike")) return "hike";
-  if (s.includes("swim")) return "swim";
-  return s;
-}
-
-function sportUiLabel(s: string): string {
-  const L: Record<string, string> = {
-    run: "Run",
-    bike: "Bike",
-    strength: "Strength",
-    mixed: "Mixed",
-    skate: "Skate",
-    walk: "Walk",
-    hike: "Hike",
-    swim: "Swim",
-    other: "Other",
-  };
-  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function ActivityDetail({ activityId }: Props) {
   const [data, setData] = useState<ActivityDetailData | null>(null);
@@ -84,7 +49,7 @@ export default function ActivityDetail({ activityId }: Props) {
   const move = Number(data.moving_time_s ?? 0);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-2">
+    <div className={`${CARD} space-y-4`}>
       <h3 className="text-lg font-bold">{data.name}</h3>
 
       <p>

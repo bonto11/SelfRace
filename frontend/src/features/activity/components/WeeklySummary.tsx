@@ -69,8 +69,15 @@ export default function WeeklySummary({
       ? Number(last?.strain?.time ?? NaN)
       : Number(last?.strain?.trimp ?? NaN);
 
-  const acwrColor = kpiColor(acwr, { ok: [0.8, 1.3], warn: [0.7, 1.5] });
-  const monoColor = kpiColor(mono, { ok: [0.8, 1.5], warn: [1.5, 2.0] });
+  const THRESH = {
+    acwr:  { ok: [0.8, 1.3] as [number,number], warn: [0.7, 1.5] as [number,number] },
+    mono:  { ok: [0.8, 1.5] as [number,number], warn: [1.5, 2.0] as [number,number] },
+    strn:  { ok: [0.8, 1.3] as [number,number], warn: [0.7, 1.6] as [number,number] },
+    };
+
+  const acwrColor   = kpiColor(acwr, THRESH.acwr);
+  const monoColor   = kpiColor(mono, THRESH.mono);
+  const strainColor = kpiColor(strn, THRESH.strn);
 
   const hist = weeks
     .slice(Math.max(0, idx - 6), idx)
@@ -85,8 +92,6 @@ export default function WeeklySummary({
 
   const base = mean(hist);
   const strainRatio = base > 0 && Number.isFinite(strn) ? strn / base : NaN;
-  const strainColor = kpiColor(strainRatio, { ok: [0.8, 1.3], warn: [0.7, 1.6] });
-
   const unit = metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP";
 
   const tips: string[] = [];
@@ -98,7 +103,7 @@ export default function WeeklySummary({
   if (Number.isFinite(strainRatio) && strainRatio > 1.6) tips.push("Strain vysoko nad bežným – sleduj únavu, spi viac.");
 
   return (
-    <div className="mt-3 border border-gray-700 rounded p-3 bg-gray-900 text-sm">
+    <div className="mt-3 w-full max-w-full border border-gray-700 rounded p-3 bg-gray-900 text-sm">
       <div className="flex items-center justify-between mb-2">
         <div className="font-semibold">
           Week-in-Review {last.week} <span className="opacity-60">({last.start} – {last.end})</span>

@@ -19,7 +19,6 @@ ensureChartJSRegistered();
 
 const C = THEME.chart; // používaj centrálne farby
 
-
 type Metric = "km" | "time" | "trimp";
 
 type WeekRow = {
@@ -54,14 +53,18 @@ type WeekRow = {
   strain: { km?: number; time?: number; trimp?: number };
 };
 
-
 const DEFAULTS = {
   lookback: 8,
   metric: "km" as const,
-  sports: { run: true, bike: true, strength: true, mixed: true, skate: true, other: true },
+  sports: {
+    run: true,
+    bike: true,
+    strength: true,
+    mixed: true,
+    skate: true,
+    other: true,
+  },
 };
-
-
 
 const fmtMin = (m: number) => {
   const mm = Math.round(m || 0);
@@ -81,29 +84,69 @@ export default function TrendWeeklyLoad({
 }) {
   const { userId } = useUserId();
 
-  const [metric, setMetric]         = useLocalStorage<"km"|"time"|"trimp">("tw_metric", DEFAULTS.metric);
-  const [lookback, setLookback]     = useLocalStorage<number>("tw_lookback", DEFAULTS.lookback);
+  const [metric, setMetric] = useLocalStorage<"km" | "time" | "trimp">(
+    "tw_metric",
+    DEFAULTS.metric
+  );
+  const [lookback, setLookback] = useLocalStorage<number>(
+    "tw_lookback",
+    DEFAULTS.lookback
+  );
 
-  const [sRun, setSRun]             = useLocalStorage<boolean>("tw_run", DEFAULTS.sports.run);
-  const [sBike, setSBike]           = useLocalStorage<boolean>("tw_bike", DEFAULTS.sports.bike);
-  const [sStrength, setSStrength]   = useLocalStorage<boolean>("tw_strength", DEFAULTS.sports.strength);
-  const [sMixed, setSMixed]         = useLocalStorage<boolean>("tw_mixed", DEFAULTS.sports.mixed);
-  const [sSkate, setSSkate]         = useLocalStorage<boolean>("tw_skate", DEFAULTS.sports.skate);
-  const [sOther, setSOther]         = useLocalStorage<boolean>("tw_other", DEFAULTS.sports.other);
+  const [sRun, setSRun] = useLocalStorage<boolean>(
+    "tw_run",
+    DEFAULTS.sports.run
+  );
+  const [sBike, setSBike] = useLocalStorage<boolean>(
+    "tw_bike",
+    DEFAULTS.sports.bike
+  );
+  const [sStrength, setSStrength] = useLocalStorage<boolean>(
+    "tw_strength",
+    DEFAULTS.sports.strength
+  );
+  const [sMixed, setSMixed] = useLocalStorage<boolean>(
+    "tw_mixed",
+    DEFAULTS.sports.mixed
+  );
+  const [sSkate, setSSkate] = useLocalStorage<boolean>(
+    "tw_skate",
+    DEFAULTS.sports.skate
+  );
+  const [sOther, setSOther] = useLocalStorage<boolean>(
+    "tw_other",
+    DEFAULTS.sports.other
+  );
 
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
-  useEffect(() => { localStorage.setItem("tw_lookback", JSON.stringify(lookback)); }, [lookback]);
-  useEffect(() => { localStorage.setItem("tw_metric", JSON.stringify(metric)); }, [metric]);
-  useEffect(() => { localStorage.setItem("tw_run", JSON.stringify(sRun)); }, [sRun]);
-  useEffect(() => { localStorage.setItem("tw_bike", JSON.stringify(sBike)); }, [sBike]);
-  useEffect(() => { localStorage.setItem("tw_strength", JSON.stringify(sStrength)); }, [sStrength]);
-  useEffect(() => { localStorage.setItem("tw_mixed", JSON.stringify(sMixed)); }, [sMixed]);
-  useEffect(() => { localStorage.setItem("tw_skate", JSON.stringify(sSkate)); }, [sSkate]);
-  useEffect(() => { localStorage.setItem("tw_other", JSON.stringify(sOther)); }, [sOther]);
+  useEffect(() => {
+    localStorage.setItem("tw_lookback", JSON.stringify(lookback));
+  }, [lookback]);
+  useEffect(() => {
+    localStorage.setItem("tw_metric", JSON.stringify(metric));
+  }, [metric]);
+  useEffect(() => {
+    localStorage.setItem("tw_run", JSON.stringify(sRun));
+  }, [sRun]);
+  useEffect(() => {
+    localStorage.setItem("tw_bike", JSON.stringify(sBike));
+  }, [sBike]);
+  useEffect(() => {
+    localStorage.setItem("tw_strength", JSON.stringify(sStrength));
+  }, [sStrength]);
+  useEffect(() => {
+    localStorage.setItem("tw_mixed", JSON.stringify(sMixed));
+  }, [sMixed]);
+  useEffect(() => {
+    localStorage.setItem("tw_skate", JSON.stringify(sSkate));
+  }, [sSkate]);
+  useEffect(() => {
+    localStorage.setItem("tw_other", JSON.stringify(sOther));
+  }, [sOther]);
 
   useEffect(() => {
     if (!userId) return;
@@ -423,7 +466,6 @@ export default function TrendWeeklyLoad({
       return `${label}: ${v}`;
     },
   });
-
 
   const helpText =
     metric === "km"
