@@ -1,5 +1,6 @@
 // src/features/activity/components/WeeklySummary.tsx
 "use client";
+import { THEME } from "@/shared/theme/tokens";
 
 type Metric = "km" | "time" | "trimp";
 
@@ -69,16 +70,9 @@ export default function WeeklySummary({
       ? Number(last?.strain?.time ?? NaN)
       : Number(last?.strain?.trimp ?? NaN);
 
-  const THRESH = {
-    acwr:  { ok: [0.8, 1.3] as [number,number], warn: [0.7, 1.5] as [number,number] },
-    mono:  { ok: [0.8, 1.5] as [number,number], warn: [1.5, 2.0] as [number,number] },
-    strn:  { ok: [0.8, 1.3] as [number,number], warn: [0.7, 1.6] as [number,number] },
-    };
-
-  const acwrColor   = kpiColor(acwr, THRESH.acwr);
-  const monoColor   = kpiColor(mono, THRESH.mono);
-  const strainColor = kpiColor(strn, THRESH.strn);
-
+  const acwrColor = kpiColor(acwr, THEME.thresholds.acwr);
+  const monoColor = kpiColor(mono, THEME.thresholds.mono);
+  const strainColor = kpiColor(strn, THEME.thresholds.strn);
   const hist = weeks
     .slice(Math.max(0, idx - 6), idx)
     .map((w) =>

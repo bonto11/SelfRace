@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { API_URL } from "@/shared/config";
 import { CARD } from "@/shared/ui/classes";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
+import { THEME } from "@/shared/theme/tokens";
 
 interface Props {
   activityId: number;
@@ -49,7 +50,7 @@ export default function ActivityDetail({ activityId }: Props) {
   const move = Number(data.moving_time_s ?? 0);
 
   return (
-    <div className={`${CARD} space-y-4`}>
+    <div className={`${CARD} space-y-2`}>
       <h3 className="text-lg font-bold">{data.name}</h3>
 
       <p>
@@ -58,7 +59,7 @@ export default function ActivityDetail({ activityId }: Props) {
 
       <p>
         <strong>Date:</strong>{" "}
-        {new Date(data.date).toLocaleString("sk-SK", {
+          {new Date(data.date).toLocaleString(THEME.i18n.dateLocale, {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",

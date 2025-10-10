@@ -1,13 +1,11 @@
-// FE fallback – zjednotenie športu do našich košov + UI labely
+import { THEME } from "@/shared/theme/tokens";
 
 export function toEffSport(row: {
   sport_type?: string | null;
   sport_type_fe?: string | null;
   sport_type_ovrd?: string | null;
 }): string {
-  const s = (
-    row.sport_type_ovrd ?? row.sport_type_fe ?? row.sport_type ?? ""
-  )
+  const s = (row.sport_type_ovrd ?? row.sport_type_fe ?? row.sport_type ?? "")
     .toString()
     .toLowerCase();
 
@@ -23,18 +21,7 @@ export function toEffSport(row: {
   return s;
 }
 
-const LABELS: Record<string, string> = {
-  run: "Run",
-  bike: "Bike",
-  strength: "Strength",
-  mixed: "Mixed",
-  skate: "Skate",
-  walk: "Walk",
-  hike: "Hike",
-  swim: "Swim",
-  other: "Other",
-};
-
 export function sportUiLabel(s: string): string {
-  return LABELS[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const L = THEME.sportLabels;
+  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

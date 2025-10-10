@@ -4,7 +4,11 @@
 import { useEffect, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { API_URL } from "@/shared/config";
-import { SUBCARD } from "@/shared/ui/classes";
+import { SUBCARD, CARD } from "@/shared/ui/classes";
+
+import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
+import { THEME } from "@/shared/theme/tokens";
+
 interface ActivityRow {
   activity_id: number;
   name: string;
@@ -21,43 +25,6 @@ interface ActivityDetail {
   summary: ActivityRow;
   laps: any[];
   splits: any[];
-}
-
-// FE fallback normalizácia športu
-function toEffSport(row: Partial<ActivityRow>): string {
-  const s = (
-    row.sport_type_ovrd ??
-    row.sport_type_fe ??
-    row.sport_type ??
-    ""
-  )
-    .toString()
-    .toLowerCase();
-
-  if (!s) return "other";
-  if (s.includes("run")) return "run";
-  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "bike";
-  if (s.includes("strength") || s.includes("weight") || s.includes("gym")) return "strength";
-  if (s.includes("skate")) return "skate";
-  if (s.includes("mix")) return "mixed";
-  if (s.includes("walk")) return "walk";
-  if (s.includes("hike")) return "hike";
-  if (s.includes("swim")) return "swim";
-  return s;
-}
-function sportUiLabel(s: string): string {
-  const L: Record<string, string> = {
-    run: "Run",
-    bike: "Bike",
-    strength: "Strength",
-    mixed: "Mixed",
-    skate: "Skate",
-    walk: "Walk",
-    hike: "Hike",
-    swim: "Swim",
-    other: "Other",
-  };
-  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function ActivityTable({
@@ -158,7 +125,7 @@ export default function ActivityTable({
       : "História (vyber týždeň v grafe vyššie)";
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-4">
+   <div className={`${CARD} space-y-4`}>
       {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
@@ -176,7 +143,10 @@ export default function ActivityTable({
 
       {/* TABUĽKA */}
       <div className="overflow-x-auto -mx-2 sm:mx-0">
-        <table className="w-full min-w-[720px] text-sm border-collapse text-center">
+        <table
+          className="w-full text-sm border-collapse text-center"
+          style={{ minWidth: THEME.layout.tableMinWidth }}
+         >
           <thead>
             <tr className="bg-gray-200 dark:bg-gray-700">
               <th>Date</th>
