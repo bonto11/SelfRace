@@ -4,6 +4,7 @@
 
 body {
   @apply bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  overflow-x: hidden;
 }
 
 :root {
@@ -54,3 +55,9 @@ input::placeholder {
   opacity: 1;
 }
 
+/* ChartJS nikdy nepresiahne kontajner */
+.chart-wrap, .chart-wrap canvas {
+  max-width: 100% !important;
+  width: 100% !important;
+  display: block;
+}
