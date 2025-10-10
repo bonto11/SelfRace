@@ -9,9 +9,16 @@ import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useLocalStorage } from "@/shared/hooks/useLocalStorage";
 import { Chart as MixedChart } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import type { ChartData } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
+import { THEME } from "@/shared/theme/tokens";
+import { alpha } from "@/shared/theme/color";
+import { buildWeeklyOptions } from "@/shared/charts/options";
+import ChartContainer from "@/shared/charts/ChartContainer";
 ensureChartJSRegistered();
+
+const C = THEME.chart; // používaj centrálne farby
+
 
 type Metric = "km" | "time" | "trimp";
 
@@ -49,26 +56,12 @@ type WeekRow = {
 
 
 const DEFAULTS = {
-  lookback: 26,
+  lookback: 8,
   metric: "km" as const,
   sports: { run: true, bike: true, strength: true, mixed: true, skate: true, other: true },
 };
 
-const C = {
-  run: "#22D3EE",
-  bike: "#A78BFA",
-  strength: "#F59E0B",
-  mixed: "#34D399",
-  skate: "#60A5FA",
-  other: "#9CA3AF",
-  monotony: "#84CC16",
-  strain: "#FDE047",
-};
-const alpha = (hex: string, a: number) =>
-  `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(
-    hex.slice(3, 5),
-    16
-  )},${parseInt(hex.slice(5, 7), 16)},${a})`;
+
 
 const fmtMin = (m: number) => {
   const mm = Math.round(m || 0);
@@ -411,29 +404,7 @@ export default function TrendWeeklyLoad({
     datasets,
   };
 
-  const options: ChartOptions<"bar" | "line"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    plugins: {
-      legend: { position: "top" },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => {
-            const label = ctx.dataset.label || "";
-            const v = ctx.parsed.y as number;
-            if (ctx.dataset.yAxisID === "y1")
-              return `${label}: ${v?.toFixed?.(2) ?? v}`;
-            if (ctx.dataset.yAxisID === "y2")
-              return `${label}: ${Math.round(v)}`;
-            if (metric === "km") return `${label}: ${fmtKm(v)}`;
-            if (metric === "time") return `${label}: ${fmtMin(v)}`;
-            if (metric === "trimp") return `${label}: ${Math.round(v)} TRIMP`;
-            return `${label}: ${v}`;
-          },
-        },
-      },
-    },
+  const options = buildWeeklyOptions(metric, monoMax, strainMax, {
     onClick: (_evt, els) => {
       const idx = els?.[0]?.index;
       if (idx == null) return;
@@ -443,32 +414,16 @@ export default function TrendWeeklyLoad({
       setPicked(pick);
       onPickWeek?.(pick);
     },
-    scales: {
-      y: {
-        beginAtZero: true,
-        title: {
-          display: true,
-          text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
-        },
-        grid: { color: "rgba(255,255,255,0.07)" },
-      },
-      y1: {
-        position: "right",
-        min: 0,
-        max: Math.max(3, Math.ceil(monoMax + 0.5)),
-        grid: { drawOnChartArea: false },
-        title: { display: true, text: "Monotony" },
-      },
-      y2: {
-        position: "right",
-        min: 0,
-        max: Math.ceil(strainMax * 1.1),
-        grid: { drawOnChartArea: false },
-        title: { display: true, text: "Strain" },
-      },
-      x: { grid: { color: "rgba(255,255,255,0.05)" } },
+    tooltipLabel: (label, v) => {
+      if (label === "Monotony") return `${label}: ${v.toFixed(2)}`;
+      if (label === "Strain") return `${label}: ${Math.round(v)}`;
+      if (metric === "km") return `${label}: ${fmtKm(v)}`;
+      if (metric === "time") return `${label}: ${fmtMin(v)}`;
+      if (metric === "trimp") return `${label}: ${Math.round(v)} TRIMP`;
+      return `${label}: ${v}`;
     },
-  };
+  });
+
 
   const helpText =
     metric === "km"
@@ -613,13 +568,13 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      <div style={{ height: 360 }}>
+      <ChartContainer>
         {loading ? (
           <div className="opacity-70 text-sm">Načítavam…</div>
         ) : (
           <MixedChart type="bar" data={data} options={options} />
         )}
-      </div>
+      </ChartContainer>
 
       {picked && (
         <WeeklySummary
