@@ -1,39 +1,75 @@
 // src/features/Toolbars/Sidebar.tsx
 'use client';
-import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { useSidebar } from '@/features/Toolbars/hooks/useSidebar';
+import { useBodyScrollLock } from '@/features/Toolbars/hooks/useBodyScrollLock';
+import NavLink from './NavLink';
 
 export default function Sidebar() {
   const { open, setOpen } = useSidebar();
+  useBodyScrollLock(open);
+
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // ESC to close
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, setOpen]);
+
+  // mini focus trap – po otvorení zaostri na panel
+  useEffect(() => {
+    if (open) panelRef.current?.focus();
+  }, [open]);
 
   return (
     <>
-      {/* Overlay len na mobile */}
+      {/* Overlay (mobile only) */}
       {open && (
         <button
           aria-label="Close menu overlay"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
         />
       )}
 
+      {/* Panel */}
       <nav
-        className={`
-          fixed z-50 inset-y-0 left-0 w-[280px]
-          bg-neutral-900 text-neutral-100
-          transform transition-transform duration-200
-          ${open ? 'translate-x-0' : '-translate-x-full'}
-          lg:static lg:translate-x-0 lg:z-auto
-        `}
-        onClick={() => setOpen(false)} /* zatvor po kliku v mobile */
+        ref={panelRef}
+        tabIndex={-1}
+        aria-label="Primary"
+        aria-hidden={false}
+        className={[
+          'fixed z-50 inset-y-0 left-0 w-[280px]',
+          'bg-neutral-900 text-neutral-100',
+          'transform transition-transform duration-200',
+          open ? 'translate-x-0' : '-translate-x-full',
+          'lg:static lg:translate-x-0 lg:z-auto lg:h-dvh lg:border-r lg:border-neutral-800',
+        ].join(' ')}
+        onClick={() => setOpen(false)} // zatvor po kliknutí v mobile
       >
-        <div className="p-4 font-bold">SelfRace</div>
+        <div className="p-4 flex items-center justify-between">
+          <div className="font-bold">SelfRace</div>
+          {/* Close button (mobile only) */}
+          <button
+            className="lg:hidden inline-flex items-center justify-center w-8 h-8 rounded hover:bg-neutral-800"
+            aria-label="Close menu"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          >
+            ✕
+          </button>
+        </div>
+
         <ul className="space-y-1 px-2 pb-4">
-          <li><Link className="block px-3 py-2 rounded hover:bg-neutral-800" href="/dashboard">Dashboard</Link></li>
-          <li><Link className="block px-3 py-2 rounded hover:bg-neutral-800" href="/activities">Activities</Link></li>
-          <li><Link className="block px-3 py-2 rounded hover:bg-neutral-800" href="/recovery">Recovery</Link></li>
-          <li><Link className="block px-3 py-2 rounded hover:bg-neutral-800" href="/coach">AI Coach</Link></li>
-          <li><Link className="block px-3 py-2 rounded hover:bg-neutral-800" href="/profile">Profile</Link></li>
+          <li><NavLink href="/dashboard"  onClick={() => setOpen(false)}>Dashboard</NavLink></li>
+          <li><NavLink href="/activities" onClick={() => setOpen(false)}>Activities</NavLink></li>
+          <li><NavLink href="/recovery"   onClick={() => setOpen(false)}>Recovery</NavLink></li>
+          <li><NavLink href="/coach"      onClick={() => setOpen(false)}>AI Coach</NavLink></li>
+          <li><NavLink href="/profile"    onClick={() => setOpen(false)}>Profile</NavLink></li>
         </ul>
       </nav>
     </>
