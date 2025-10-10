@@ -1,17 +1,19 @@
 // src/shared/hooks/useOrientation.ts
-"use client";
-import { useEffect, useState } from "react";
+// src/shared/hooks/useOrientation.ts
+'use client';
+import { useEffect, useState } from 'react';
 
 export function useOrientation() {
-  const [isPortrait, setPortrait] = useState<boolean>(true);
+  const [portrait, setPortrait] = useState(true);
 
   useEffect(() => {
-    const mq = window.matchMedia("(orientation: portrait)");
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(orientation: portrait)');
     const update = () => setPortrait(mq.matches);
     update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
   }, []);
 
-  return { isPortrait };
+  return { portrait, landscape: !portrait };
 }
