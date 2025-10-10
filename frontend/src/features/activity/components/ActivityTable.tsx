@@ -1,5 +1,4 @@
 // src/features/activity/components/ActivityTable.tsx
-// src/features/activity/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useState } from "react";

@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 
 export function useOrientation() {
-  const [portrait, setPortrait] = useState(true);
+  const [isPortrait, setPortrait] = useState(true);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -15,5 +15,5 @@ export function useOrientation() {
     return () => mq.removeEventListener?.('change', update);
   }, []);
 
-  return { portrait, landscape: !portrait };
+  return { isPortrait, landscape: !isPortrait };
 }
