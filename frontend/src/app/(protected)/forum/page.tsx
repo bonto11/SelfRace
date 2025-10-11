@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import ClientPage from "./ClientPage";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // vždy SSR, bez prerenderu
 
 export default function Page() {
   return (

@@ -1,69 +1,56 @@
 // src/shared/theme/tokens.ts
 export const THEME = {
-  // ===== farby UI =====
   color: {
-    bgApp:    "#0a0a0a",
-    bgTopbar: "rgba(10,10,10,0.9)",
-    border:   "#27272a",
-    text:     "#e5e7eb",
-    card:     "#111827",
-    sidebar:  "#111111",
-    panel:    "#1f2937",
+    bgApp: '#0a0a0a',
+    bgTopbar: 'rgba(10,10,10,0.9)',
+    border: '#27272a',
+    text: '#e5e7eb',
+    card: '#111827',
+    sidebar: '#111111',
+    panel: '#1f2937',
   },
 
-  // ===== grafy =====
   chart: {
-    run:      "#22D3EE",
-    bike:     "#A78BFA",
-    strength: "#F59E0B",
-    mixed:    "#34D399",
-    skate:    "#60A5FA",
-    other:    "#9CA3AF",
-    monotony: "#84CC16",
-    strain:   "#FDE047",
+    run: '#22D3EE',
+    bike: '#A78BFA',
+    strength: '#F59E0B',
+    mixed: '#34D399',
+    skate: '#60A5FA',
+    other: '#9CA3AF',
+    monotony: '#84CC16',
+    strain: '#FDE047',
 
-    grid:     "rgba(255,255,255,0.07)",
-    gridSoft: "rgba(255,255,255,0.05)",
-    legendPosition: "top" as const,
+    grid: 'rgba(255,255,255,0.07)',
+    gridSoft: 'rgba(255,255,255,0.05)',
+    legendPosition: 'top' as const,
 
-    height: { sm: 256, md: 288, lg: 360, xl: 420 },
     weeklyHeight: 360,
     weeklyHeightCompact: 180,
-
-    // horizontálna mierka / limit na šírku
-    weekPx: 44,
-    maxWeeksPerViewport: 8,
   },
 
-  // ===== mobile / scroll kontajnery =====
   mobile: {
     miniWeeks: 2,
     tableMinWidth: 720,
   },
-
   copy: {
     rotateHint: "Pre detailný graf otočte telefón na šírku.",
   },
 
-  // ===== tabuľky / layout =====
   layout: {
     tableMinWidth: 720,
   },
 
-  // ===== KPI prahy =====
   thresholds: {
     acwr: { ok: [0.8, 1.3] as [number, number], warn: [0.7, 1.5] as [number, number] },
     mono: { ok: [0.8, 1.5] as [number, number], warn: [1.5, 2.0] as [number, number] },
     strn: { ok: [0.8, 1.3] as [number, number], warn: [0.7, 1.6] as [number, number] },
   },
 
-  // ===== i18n =====
   i18n: {
-    dateLocale: "sk-SK",
-    units: { km: "km", min: "min", trimp: "TRIMP" },
+    dateLocale: 'sk-SK',
+    units: { km: 'km', min: 'min', trimp: 'TRIMP' },
   },
 
-  // ===== labely športov =====
   sportLabels: {
     run: "Run",
     bike: "Bike",
