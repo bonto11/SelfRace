@@ -1,15 +1,19 @@
 "use client";
+
 import { useState } from "react";
 import ActivityTable from "@/features/activity/components/ActivityTable";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklyLoadWidget, { WeekPick } from "@/features/widgets/WeeklyLoadWidget";
+import MonoStrainWidget from "@/features/widgets/MonoStrainWidget";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
     <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded shadow-lg">
       <div className="mb-1">{msg}</div>
-      <button className="underline text-xs opacity-80" onClick={onClose}>OK</button>
+      <button className="underline text-xs opacity-80" onClick={onClose}>
+        OK
+      </button>
     </div>
   );
 }
@@ -43,6 +47,7 @@ export default function ClientPage() {
 
   return (
     <div>
+      {/* header */}
       <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg font-semibold">Aktivity</h2>
         <button
@@ -51,13 +56,20 @@ export default function ClientPage() {
           className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
           title="Stiahnuť nové aktivity zo Stravy"
         >
-          {syncing && <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />}
+          {syncing && (
+            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+          )}
           {syncing ? "Synchronizujem…" : "Sync Strava"}
         </button>
       </div>
 
-      <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} />
+      {/* widgety – na mobile pod sebou, na >=lg vedľa seba */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <WeeklyLoadWidget title="Týždenná záťaž (čas)" onPickWeek={(w) => setPicked(w)} />
+        <MonoStrainWidget title="Indexy záťaže" />
+      </div>
 
+      {/* tabuľka aktivít podľa zvoleného týždňa */}
       <div className="mt-6">
         <ActivityTable start={picked?.start} end={picked?.end} />
       </div>
