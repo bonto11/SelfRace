@@ -1,11 +1,10 @@
-// src/shared/charts/options.ts
 import type { ChartOptions } from "chart.js";
 import { THEME } from "@/shared/theme/tokens";
 
 type BuildOpts = {
   onClick?: ChartOptions<"bar" | "line">["onClick"];
   tooltipLabel?: (label: string, v: number) => string;
-  showLegend?: boolean; // ak chceš manuálne zapnúť/vypnúť legendu
+  showLegend?: boolean;
 };
 
 export function buildWeeklyOptions(
@@ -18,10 +17,18 @@ export function buildWeeklyOptions(
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
+
+    /** NOVÉ: rovnaká šírka stĺpcov ako vo widgetoch */
+    datasets: {
+      bar: { barThickness: THEME.chart.weeklyBarThickness },
+    },
+    elements: { point: { radius: 2, hitRadius: 8 } },
+
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
         display: extra?.showLegend ?? true,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
       },
       tooltip: {
         callbacks: {
@@ -34,13 +41,11 @@ export function buildWeeklyOptions(
       },
     },
     onClick: extra?.onClick,
+
     scales: {
       y: {
         beginAtZero: true,
-        title: {
-          display: true,
-          text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
-        },
+        title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" },
         grid: { color: THEME.chart.grid },
       },
       y1: {
@@ -57,7 +62,10 @@ export function buildWeeklyOptions(
         grid: { drawOnChartArea: false },
         title: { display: true, text: "Strain" },
       },
-      x: { grid: { color: THEME.chart.gridSoft }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+      x: {
+        grid: { color: THEME.chart.gridSoft },
+        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+      },
     },
   };
 }

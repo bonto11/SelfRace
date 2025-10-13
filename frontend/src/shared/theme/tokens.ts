@@ -1,4 +1,3 @@
-// src/shared/theme/tokens.ts
 export const THEME = {
   color: {
     bgApp: '#0a0a0a',
@@ -26,6 +25,10 @@ export const THEME = {
 
     weeklyHeight: 360,
     weeklyHeightCompact: 180,
+
+    /** NOVÉ: zjednotená šírka stĺpcov a px/label pre detail */
+    weeklyBarThickness: 12,
+    weeklyPxPerLabel: 56,
   },
 
   mobile: {
