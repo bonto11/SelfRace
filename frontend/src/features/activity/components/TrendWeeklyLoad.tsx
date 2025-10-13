@@ -73,6 +73,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
   const mono   = useMemo(()=>weeks.map(w=>w.monotony?.[metric] ?? null), [weeks, metric]);
   const strn   = useMemo(()=>weeks.map(w=>w.strain?.[metric]   ?? null), [weeks, metric]);
 
+ 
   const monoMax = useMemo(() => {
     const vals = mono.filter((v): v is number => Number.isFinite(v as number));
     const m = vals.length ? Math.max(...vals) : 1.5;
@@ -84,6 +85,10 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
     const m = vals.length ? Math.max(...vals) : 100;
     return Math.ceil(m * 1.1);
   }, [strn]);
+
+  const leftAxisLabel = metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP";
+  const rightMonoMax  = Math.max(3, Math.ceil(monoMax + 0.5));
+  const rightStrainMax = Math.ceil(strainMax * 1.1);
 
   const datasets = useMemo(() => {
     const W = weeks;
@@ -172,7 +177,10 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
             options={options}
             labels={labels as string[]}
             height={THEME.chart.weeklyHeight}
-            pxPerLabel={26}  // rovnaké ako vo widgete => tyčky rovnako hrubé
+            pxPerLabel={26}                 // rovnaké bary ako vo widgete
+            leftAxisLabel={leftAxisLabel}   // vľavo metrika
+            rightMonoMax={rightMonoMax}     // vpravo Monotony
+            rightStrainMax={rightStrainMax} // vpravo Strain
           />
         </div>
       </div>
