@@ -66,3 +66,22 @@ input::placeholder {
   height: 100% !important; /* kľúčové – nie auto */
   display: block;
 }
+
+/* horizontálny scroller pre detail grafu */
+.hscroll {
+  overflow-x: auto;
+  overflow-y: hidden;             /* dôležité – inak to „pretečie“ dole */
+  -webkit-overflow-scrolling: touch;
+}
+
+.hscroll-inner {
+  display: inline-block;          /* nech minWidth platí len pre vnútro */
+  width: auto;
+  height: 100%;
+}
+
+.hscroll-inner canvas {
+  width: 100% !important;         /* drž sa šírky wrappera */
+  height: 100% !important;        /* drž sa výšky wrappera */
+  display: block;                 /* žiadne baseline medzery */
+}

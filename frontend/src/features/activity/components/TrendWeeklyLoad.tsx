@@ -19,28 +19,35 @@ type WeekRow = {
   km_run: number; km_ride: number; km_mixed: number; km_skate: number;
   time_run_min: number; time_ride_min: number; time_strength_min: number;
   time_mixed_min: number; time_skate_min: number; time_other_min: number;
-  trimp_run: number; trimp_ride: number; trimp_strength: number; trimp_mixed: number;
-  trimp_skate: number; trimp_other: number;
+  trimp_run: number; trimp_ride: number; trimp_strength: number; trimp_mixed: number; trimp_skate: number; trimp_other: number;
   monotony: { km?: number; time?: number; trimp?: number };
-  strain: { km?: number; time?: number; trimp?: number };
+  strain:    { km?: number; time?: number; trimp?: number };
 };
 
 const C = {
-  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B",
-  mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
-  monotony: "#84CC16", strain: "#FDE047",
+  run:"#22D3EE", bike:"#A78BFA", strength:"#F59E0B", mixed:"#34D399", skate:"#60A5FA", other:"#9CA3AF",
+  monotony:"#84CC16", strain:"#FDE047",
 };
 
-// pevná šírka barov + medzera na výpočet celkovej šírky
-const BAR_THICKNESS = 12;   // rovnaké ako vo widgete
-const BAR_GAP = 4;          // medzera medzi bar-mi v skupine
+// ——— spoločné „témy“ pre šírku ———
+// nech to máš z jedného miesta ako widgety
+const BAR_THICKNESS = (THEME as any)?.chart?.weeklyBarThickness
+  ?? (THEME as any)?.chart?.barThickness
+  ?? 12;               // px – rovnaké ako vo widgete
+const PX_PER_LABEL   = (THEME as any)?.chart?.weeklyPxPerLabel
+  ?? 56;               // px – koľko vodorovných pixelov pripadá na 1 týždeň v detaile
 
 export type WeekPick = { week: string; start: string; end: string };
 
-export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekPick) => void }) {
+export default function TrendWeeklyLoad({
+  onPickWeek,
+}: {
+  onPickWeek?: (w: WeekPick) => void;
+}) {
   const { userId } = useUserId();
+
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(8);
+  const [lookback, setLookback] = useState<number>(8); // 8/12/26
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
@@ -50,98 +57,107 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=${lookback}`);
       const json = await res.json().catch(() => ({}));
       const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-      const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
+      const num = (v:any) => (Number.isFinite(+v) ? +v : 0);
+
       setWeeks(raw.map((w) => ({
         week: w.week ?? w.iso_week ?? w.label ?? "",
         label: w.label ?? w.week ?? w.iso_week ?? "",
         start: w.start ?? "", end: w.end ?? "",
         km_run: num(w.km_run ?? w.run_km),
         km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
-        km_mixed: num(w.km_mixed),
-        km_skate: num(w.km_skate),
+        km_mixed: num(w.km_mixed), km_skate: num(w.km_skate),
+
         time_run_min: num(w.time_run_min ?? w.run_min),
         time_ride_min: num(w.time_ride_min ?? w.ride_min),
         time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
         time_mixed_min: num(w.time_mixed_min),
         time_skate_min: num(w.time_skate_min),
         time_other_min: num(w.time_other_min ?? w.other_min),
+
         trimp_run: num(w.trimp_run ?? w.run_trimp),
         trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
         trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
         trimp_mixed: num(w.trimp_mixed),
         trimp_skate: num(w.trimp_skate),
         trimp_other: num(w.trimp_other ?? w.other_trimp),
+
         monotony: w.monotony ?? {},
-        strain: w.strain ?? {},
+        strain:   w.strain   ?? {},
       })));
     })();
   }, [userId, lookback]);
 
-  const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-  const mono   = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
-  const strn   = useMemo(() => weeks.map((w) => w.strain?.[metric] ?? null),   [weeks, metric]);
+  const labels = useMemo(() => weeks.map(w => w.label || w.week), [weeks]);
+  const mono   = useMemo(() => weeks.map(w => w.monotony?.[metric] ?? null), [weeks, metric]);
+  const strn   = useMemo(() => weeks.map(w => w.strain?.[metric]   ?? null), [weeks, metric]);
 
-  // autorescale pravých osí
+  // dynamické maximá pre pravé osi (aby boli krivky vždy celé)
   const monoMax = useMemo(() => {
-    const nums = mono.filter((v): v is number => Number.isFinite(v as number));
-    return nums.length ? Math.max(1, Math.ceil(Math.max(...nums) + 0.2)) : 3;
+    const vals = mono.filter((v): v is number => Number.isFinite(v as number));
+    const m = vals.length ? Math.max(...vals) : 1.5;
+    return Math.max(3, Math.ceil(m + 0.3));
   }, [mono]);
+
   const strainMax = useMemo(() => {
-    const nums = strn.filter((v): v is number => Number.isFinite(v as number));
-    return nums.length ? Math.ceil(Math.max(...nums) * 1.1) : 10;
+    const vals = strn.filter((v): v is number => Number.isFinite(v as number));
+    const m = vals.length ? Math.max(...vals) : 100;
+    return Math.ceil(m * 1.1);
   }, [strn]);
 
   const datasets = useMemo(() => {
     const W = weeks;
     const ds: any[] = [];
-    const add = (label: string, data: number[], color: string) =>
-      ds.push({ type: "bar" as const, label, data, backgroundColor: color, borderColor: color, borderWidth: 1, yAxisID: "y" });
+    const pushBar = (label:string, data:number[], color:string) =>
+      ds.push({ type:"bar" as const, label, data, backgroundColor:color, borderColor:color, borderWidth:1, yAxisID:"y" });
 
     if (metric === "km") {
-      add("Km (run)", W.map(w=>w.km_run), C.run);
-      add("Km (bike)", W.map(w=>w.km_ride), C.bike);
-      add("Km (mixed)", W.map(w=>w.km_mixed), C.mixed);
-      add("Km (skate)", W.map(w=>w.km_skate), C.skate);
+      pushBar("Km (run)",   W.map(w=>w.km_run), C.run);
+      pushBar("Km (bike)",  W.map(w=>w.km_ride), C.bike);
+      pushBar("Km (mixed)", W.map(w=>w.km_mixed), C.mixed);
+      pushBar("Km (skate)", W.map(w=>w.km_skate), C.skate);
     } else if (metric === "time") {
-      add("Run", W.map(w=>w.time_run_min), C.run);
-      add("Bike", W.map(w=>w.time_ride_min), C.bike);
-      add("Strength", W.map(w=>w.time_strength_min), C.strength);
-      add("Mixed", W.map(w=>w.time_mixed_min), C.mixed);
-      add("Skate", W.map(w=>w.time_skate_min), C.skate);
-      add("Other", W.map(w=>w.time_other_min), C.other);
+      pushBar("Run",      W.map(w=>w.time_run_min),      C.run);
+      pushBar("Bike",     W.map(w=>w.time_ride_min),     C.bike);
+      pushBar("Strength", W.map(w=>w.time_strength_min), C.strength);
+      pushBar("Mixed",    W.map(w=>w.time_mixed_min),    C.mixed);
+      pushBar("Skate",    W.map(w=>w.time_skate_min),    C.skate);
+      pushBar("Other",    W.map(w=>w.time_other_min),    C.other);
     } else {
-      add("TRIMP (run)", W.map(w=>w.trimp_run), C.run);
-      add("TRIMP (bike)", W.map(w=>w.trimp_ride), C.bike);
-      add("TRIMP (strength)", W.map(w=>w.trimp_strength), C.strength);
-      add("TRIMP (mixed)", W.map(w=>w.trimp_mixed), C.mixed);
-      add("TRIMP (skate)", W.map(w=>w.trimp_skate), C.skate);
-      add("TRIMP (other)", W.map(w=>w.trimp_other), C.other);
+      pushBar("TRIMP (run)",      W.map(w=>w.trimp_run),      C.run);
+      pushBar("TRIMP (bike)",     W.map(w=>w.trimp_ride),     C.bike);
+      pushBar("TRIMP (strength)", W.map(w=>w.trimp_strength), C.strength);
+      pushBar("TRIMP (mixed)",    W.map(w=>w.trimp_mixed),    C.mixed);
+      pushBar("TRIMP (skate)",    W.map(w=>w.trimp_skate),    C.skate);
+      pushBar("TRIMP (other)",    W.map(w=>w.trimp_other),    C.other);
     }
 
-    ds.push({ type:"line" as const, label:"Monotony", data:mono, yAxisID:"y1",
-      borderColor:C.monotony, backgroundColor:C.monotony, tension:0.3, pointRadius:2, borderWidth:2, spanGaps:true, order:99 });
-    ds.push({ type:"line" as const, label:"Strain", data:strn, yAxisID:"y2",
-      borderColor:C.strain, backgroundColor:C.strain, tension:0.3, pointRadius:2, borderWidth:2, borderDash:[4,4], spanGaps:true, order:99 });
+    ds.push({
+      type:"line" as const, label:"Monotony", data:mono, yAxisID:"y1",
+      borderColor:C.monotony, backgroundColor:C.monotony, tension:0.3,
+      pointRadius:2, borderWidth:2, spanGaps:true, order:99,
+    });
+    ds.push({
+      type:"line" as const, label:"Strain", data:strn, yAxisID:"y2",
+      borderColor:C.strain, backgroundColor:C.strain, tension:0.3,
+      pointRadius:2, borderWidth:2, borderDash:[4,4], spanGaps:true, order:99,
+    });
 
     return ds;
   }, [weeks, metric, mono, strn]);
 
-  const data: ChartData<"bar"|"line", (number|null)[], string> = { labels, datasets };
-
-  // koľko bar datasetov je aktívnych (ovplyvní výpočet minWidth, aby bary mali stále BAR_THICKNESS)
-  const barCount = useMemo(() => datasets.filter((d: any) => d.type === "bar").length, [datasets]);
+  const data: ChartData<"bar"|"line",(number|null)[],string> = { labels, datasets };
 
   const options: ChartOptions<"bar"|"line"> = {
     responsive: true,
     maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    // pevná hrúbka barov – ako vo widgete
-    datasets: { bar: { barThickness: BAR_THICKNESS, categoryPercentage: 1, barPercentage: 1 } },
-    elements: { point: { radius: 2, hitRadius: 8 } },
+    interaction: { mode:"index", intersect:false },
+    // fixná šírka stĺpcov – nech je rovnaká ako vo widgete
+    datasets: { bar: { barThickness: BAR_THICKNESS } },
+    elements: { point: { radius:2, hitRadius:8 } },
     plugins: {
       legend: {
-        position: "top",
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+        position: THEME.chart.legendPosition || "top",
+        labels: { usePointStyle:true, pointStyle:"circle", boxWidth:6, boxHeight:6, padding:10 },
       },
       tooltip: {
         callbacks: {
@@ -150,8 +166,8 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
             const v = (ctx.parsed.y ?? 0) as number;
             if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed?.(2) ?? v}`;
             if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
-            if (metric === "km")   return `${label}: ${(v||0).toFixed(1)} km`;
-            if (metric === "time") return `${label}: ${Math.round(v)} min`;
+            if (metric === "km")  return `${label}: ${(v||0).toFixed(1)} km`;
+            if (metric === "time")return `${label}: ${Math.round(v)} min`;
             return `${label}: ${Math.round(v)} TRIMP`;
           },
         },
@@ -160,33 +176,31 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
     onClick: (_evt, els) => {
       const idx = els?.[0]?.index;
       if (idx == null) return;
-      const w = weeks[idx];
-      if (!w) return;
-      const pick = { week: w.week, start: w.start, end: w.end };
+      const w = weeks[idx]; if (!w) return;
+      const pick = { week:w.week, start:w.start, end:w.end };
       setPicked(pick);
       onPickWeek?.(pick);
     },
     scales: {
-      y:  { beginAtZero: true, title: { display: true, text: metric==="km"?"km": metric==="time"?"min":"TRIMP" }, grid: { color: THEME.chart.grid } },
-      y1: { position: "right", min: 0, max: monoMax, grid: { drawOnChartArea: false }, title: { display: true, text: "Monotony" } },
-      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false }, title: { display: true, text: "Strain" } },
-      x:  { grid: { color: THEME.chart.gridSoft }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+      y:  { beginAtZero:true, title:{ display:true, text: metric==="km" ? "km" : metric==="time" ? "min" : "TRIMP" }, grid:{ color:THEME.chart.grid } },
+      y1: { position:"right", min:0, max: monoMax,  grid:{ drawOnChartArea:false }, title:{ display:true, text:"Monotony" } },
+      y2: { position:"right", min:0, max: strainMax,grid:{ drawOnChartArea:false }, title:{ display:true, text:"Strain" } },
+      x:  { grid:{ color:THEME.chart.gridSoft }, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:8 } },
     },
   };
 
-  // šírka scroll zóny = počet týždňov * (súčet šírok barov v skupine + medzery) + rezerva na osi
-  const groupWidth = barCount * BAR_THICKNESS + (barCount - 1) * BAR_GAP + 20;
-  const minWidth = labels.length * groupWidth + 120; // +120 rezerva pre pravé osi
+  // šírka plátna podľa počtu týždňov (konštantné px na týždeň)
+  const minWidth = Math.max(320, Math.round(labels.length * PX_PER_LABEL));
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full">
       {/* ovládanie */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
-          <button onClick={() => setMetric("km")}   className={`px-2 py-1 rounded ${metric==="km"   ? "bg-blue-600 text-white":"bg-gray-700"}`}>Km</button>
-          <button onClick={() => setMetric("time")} className={`px-2 py-1 rounded ${metric==="time" ? "bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
-          <button onClick={() => setMetric("trimp")}className={`px-2 py-1 rounded ${metric==="trimp"? "bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
+          <button onClick={()=>setMetric("km")}    className={`px-2 py-1 rounded ${metric==="km"?"bg-blue-600 text-white":"bg-gray-700"}`}>Km</button>
+          <button onClick={()=>setMetric("time")}  className={`px-2 py-1 rounded ${metric==="time"?"bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
+          <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
         </div>
         <div className="text-xs">
           <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
@@ -197,14 +211,16 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
         </div>
       </div>
 
-      {/* horizontálny scroll, nič nepretečie */}
-      <div className="overflow-x-auto">
-        <div style={{ minWidth, height: THEME.chart.weeklyHeight }}>
+      {/* graf – horizontálny scroll bez pretekania */}
+      <div className="hscroll rounded-md">
+        <div className="hscroll-inner" style={{ minWidth, height: THEME.chart.weeklyHeight }}>
           <MixedChart type="bar" data={data} options={options} />
         </div>
       </div>
 
-      {picked && <WeeklySummary weeks={weeks as any} metric={metric} selectedWeek={picked.week} />}
+      {picked && (
+        <WeeklySummary weeks={weeks as any} metric={metric} selectedWeek={picked.week} />
+      )}
     </div>
   );
 }
