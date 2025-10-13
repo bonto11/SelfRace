@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklyLoadWidget from "@/features/widgets/WeeklyLoadWidget";
@@ -57,9 +58,19 @@ export default function ClientPage() {
         </button>
       </div>
 
-      {/* len widgety */}
+      {/* widgety */}
       <div className="grid gap-4">
         <WeeklyLoadWidget />
+
+        {/* nové tlačidlo medzi widgetami */}
+        <Link
+          href="/activities/detail"
+          className="inline-flex w-full justify-center items-center gap-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-3"
+          title="Otvoriť detailný trend"
+        >
+          Otvoriť detailný trend
+        </Link>
+
         <MonoStrainWidget />
       </div>
 

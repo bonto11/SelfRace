@@ -1,15 +1,24 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
 
 export const dynamic = "force-dynamic";
 
-export default function DetailWeekLoadPage() {
+export default function ActivitiesDetailPage() {
   return (
     <Suspense fallback={<div className="p-6">Načítavam…</div>}>
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Weekly Load – detail</h2>
-        <TrendWeeklyLoad />
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h2 className="text-lg font-semibold">Detail – Weekly Load</h2>
+        <Link
+          href="/activities"
+          className="text-sm px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white"
+        >
+          ← Späť na Aktivity
+        </Link>
       </div>
+
+      {/* veľký kombinovaný trend s prepínačmi */}
+      <TrendWeeklyLoad />
     </Suspense>
   );
 }
