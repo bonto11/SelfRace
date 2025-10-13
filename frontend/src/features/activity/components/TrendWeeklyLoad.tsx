@@ -9,6 +9,7 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { THEME } from "@/shared/theme/tokens";
 import { buildWeeklyOptions } from "@/shared/charts/options";
+import ChartFrozenAxes from "./ChartFrozenAxes";
 
 ensureChartJSRegistered();
 
@@ -166,9 +167,13 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       <div className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
            style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <MixedChart type="bar" data={data} options={options} />
-          </div>
+          <ChartFrozenAxes
+            data={data}
+            options={options}
+            labels={labels as string[]}
+            height={THEME.chart.weeklyHeight}
+            pxPerLabel={26}  // rovnaké ako vo widgete => tyčky rovnako hrubé
+          />
         </div>
       </div>
 
