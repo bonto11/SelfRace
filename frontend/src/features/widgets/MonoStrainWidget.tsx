@@ -6,9 +6,10 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { THEME } from "@/shared/theme/tokens";
+import { useUserId } from "@/shared/hooks/useUserId";
 ensureChartJSRegistered();
 
-type Row = { label: string; mono?: number | null; strain?: number | null };
+type Row = { label: string; mono: number | null; strain: number | null };
 
 export default function MonoStrainWidget({
   title = "Indexy záťaže",
@@ -17,30 +18,37 @@ export default function MonoStrainWidget({
   title?: string;
   onOpenDetail?: () => void;
 }) {
+  const { userId } = useUserId();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // --- fetch posledné 4 týždne z rovnakého endpointu ako WeeklyLoad ---
   useEffect(() => {
+    if (!userId) return;
     (async () => {
       setLoading(true);
       try {
-        // endpoint na posledné 4 týždne (ľubovoľne uprav)
-        const res = await fetch(`${API_URL}/analytics/mono-strain?weeks=4`);
+        const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=4`);
         const json = await res.json().catch(() => ({}));
-        const data: any[] = Array.isArray(json?.data) ? json.data : [];
-        const num = (v: any) => (Number.isFinite(+v) ? +v : null);
-        setRows(
-          data.map((r) => ({
-            label: r.label ?? r.week ?? "",
-            mono: num(r.monotony),
-            strain: num(r.strain),
-          }))
-        );
+        const src: any[] = Array.isArray(json?.weeks)
+          ? json.weeks
+          : Array.isArray(json?.data)
+          ? json.data
+          : [];
+
+        const map: Row[] = src.map((w) => ({
+          label: w.label ?? w.week ?? w.iso_week ?? "",
+          // berieme TIME verziu indexov (ako si chcel)
+          mono: Number.isFinite(w?.monotony?.time) ? +w.monotony.time : null,
+          strain: Number.isFinite(w?.strain?.time) ? +w.strain.time : null,
+        }));
+
+        setRows(map);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [userId]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
 
@@ -49,7 +57,7 @@ export default function MonoStrainWidget({
       {
         type: "line" as const,
         label: "Monotony",
-        data: rows.map((r) => (r.mono ?? NaN) as number | null),
+        data: rows.map((r) => (r.mono ?? null)),
         yAxisID: "y1",
         borderColor: THEME.chart.monotony,
         backgroundColor: THEME.chart.monotony,
@@ -57,11 +65,12 @@ export default function MonoStrainWidget({
         pointRadius: 2,
         borderWidth: 2,
         spanGaps: true,
+        order: 2,
       },
       {
         type: "line" as const,
         label: "Strain",
-        data: rows.map((r) => (r.strain ?? NaN) as number | null),
+        data: rows.map((r) => (r.strain ?? null)),
         yAxisID: "y2",
         borderColor: THEME.chart.strain,
         backgroundColor: THEME.chart.strain,
@@ -70,35 +79,61 @@ export default function MonoStrainWidget({
         borderWidth: 2,
         borderDash: [4, 4],
         spanGaps: true,
+        order: 3,
       },
     ],
     [rows]
   );
 
-  const data: ChartData<"bar" | "line", (number | null)[], string> = { labels, datasets };
+  const data: ChartData<"bar" | "line", (number | null)[], string> = {
+    labels,
+    datasets,
+  };
 
   const options: ChartOptions<"bar" | "line"> = {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: false, // dôležité – výšku riadi parent
     elements: { point: { radius: 2, hitRadius: 8 } },
+    interaction: { mode: "index", intersect: false },
+    animation: false,
     plugins: {
       legend: {
         position: "top",
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 12 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 10,
+        },
       },
       tooltip: {
         callbacks: {
           label: (ctx) => {
             const label = ctx.dataset.label || "";
             const v = (ctx.parsed.y ?? 0) as number;
-            return `${label}: ${ctx.dataset.yAxisID === "y1" ? v.toFixed(2) : Math.round(v)}`;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            return `${label}: ${Math.round(v)}`;
           },
         },
       },
     },
+    layout: { padding: { left: 8, right: 16 } },
     scales: {
-      y1: { min: 0, max: 3, title: { display: true, text: "Monotony" }, grid: { color: THEME.chart.grid } },
-      y2: { min: 0, max: 200, title: { display: true, text: "Strain" }, grid: { drawOnChartArea: false } },
+      y1: {
+        position: "left",
+        min: 0,
+        max: 3,
+        title: { display: true, text: "Monotony" },
+        grid: { color: THEME.chart.grid },
+      },
+      y2: {
+        position: "right",
+        min: 0,
+        // ak nemáš pevný max pre Strain, nechaj auto, ale bez kreslenia mriežky
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: "Strain" },
+      },
       x: { grid: { color: THEME.chart.gridSoft } },
     },
   };
@@ -111,7 +146,15 @@ export default function MonoStrainWidget({
           Detail
         </button>
       </div>
-      {loading ? <div className="opacity-70 text-sm">Načítavam…</div> : <MixedChart type="line" data={data} options={options} />}
+
+      {loading ? (
+        <div className="opacity-70 text-sm">Načítavam…</div>
+      ) : (
+        // Fix rozliezania: pevná výška wrappera
+        <div style={{ height: THEME.chart.weeklyHeightCompact }}>
+          <MixedChart type="line" data={data} options={options} />
+        </div>
+      )}
     </div>
   );
 }
