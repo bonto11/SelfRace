@@ -29,6 +29,10 @@ export const THEME = {
     /** NOVÉ: zjednotená šírka stĺpcov a px/label pre detail */
     weeklyBarThickness: 12,
     weeklyPxPerLabel: 56,
+
+    maxBarThickness: 12,
+    categoryPercentage: 0.6,
+    barPercentage: 0.7,
   },
 
   mobile: {
