@@ -55,9 +55,15 @@ input::placeholder {
   opacity: 1;
 }
 
-/* ChartJS nikdy nepresiahne kontajner */
-.chart-wrap, .chart-wrap canvas {
-  max-width: 100% !important;
+/* Fix pre Chart.js aby sa widget NENAŤAHOVAL */
+.chart-fixed {
+  position: relative;
+  height: 180px;           /* rovná sa THEME.chart.weeklyHeightCompact */
+  width: 100%;
+  overflow: hidden;
+}
+.chart-fixed > canvas {
+  height: 100% !important; /* kritické – drží sa výšky parenta */
   width: 100% !important;
-  display: block;
+  display: block;          /* bez inline baseline “dier” */
 }
