@@ -24,7 +24,7 @@ export default function ClientPage() {
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // otvorenie spoločného detailu (TrendWeeklyLoad)
+  // otvorenie spoločného detailu (TrendWeeklyLoad) 
   const [showDetail, setShowDetail] = useState(false);
 
   async function handleSync() {
