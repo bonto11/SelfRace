@@ -1,3 +1,4 @@
+// src/features/widgets/MonoStrainWidget.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,8 +13,8 @@ ensureChartJSRegistered();
 
 type Row = {
   label: string;
-  mono: number | null;    // monotony (time)
-  strain: number | null;  // strain (time)
+  mono: number | null;
+  strain: number | null;
 };
 
 export default function MonoStrainWidget({
@@ -27,12 +28,12 @@ export default function MonoStrainWidget({
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // --- fetch posledné 4 týždne (stačí pre widget) ---
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
       try {
+        // widget: stačia posledné 4 týždne
         const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=4`);
         const json = await res.json().catch(() => ({}));
         const src: any[] = Array.isArray(json?.weeks)
@@ -40,7 +41,8 @@ export default function MonoStrainWidget({
           : Array.isArray(json?.data)
           ? json.data
           : [];
-        const out: Row[] = src.map((w) => ({
+
+        const norm: Row[] = src.map((w) => ({
           label: w.label ?? w.week ?? w.iso_week ?? "",
           mono:
             w?.monotony?.time != null && Number.isFinite(+w.monotony.time)
@@ -51,30 +53,34 @@ export default function MonoStrainWidget({
               ? +w.strain.time
               : null,
         }));
-        setRows(out);
+        setRows(norm);
       } finally {
         setLoading(false);
       }
     })();
   }, [userId]);
 
-  // --- series (Chart.js chce number[], na “dieru” použijeme NaN) ---
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
-  const monoSeries: number[] = useMemo(
-    () => rows.map((r) => (r.mono == null ? NaN : r.mono)),
+
+  // Použi null namiesto NaN — Chart.js to korektne “vynechá”
+  const monoSeries = useMemo<(number | null)[]>(
+    () => rows.map((r) => (r.mono == null ? null : r.mono)),
     [rows]
   );
-  const strainSeries: number[] = useMemo(
-    () => rows.map((r) => (r.strain == null ? NaN : r.strain)),
+  const strainSeries = useMemo<(number | null)[]>(
+    () => rows.map((r) => (r.strain == null ? null : r.strain)),
     [rows]
   );
 
   const strainMax = useMemo(() => {
-    const nums = strainSeries.filter((v) => Number.isFinite(v)) as number[];
+    const nums = strainSeries.filter(
+      (v): v is number => typeof v === "number" && Number.isFinite(v)
+    );
     return nums.length ? Math.ceil(Math.max(...nums) * 1.1) : 10;
   }, [strainSeries]);
 
-  const data: ChartData<"line", number[], string> = {
+  // DÔLEŽITÉ: povoľ (number | null)[] v ChartData
+  const data: ChartData<"line", (number | null)[], string> = {
     labels,
     datasets: [
       {
@@ -87,7 +93,6 @@ export default function MonoStrainWidget({
         tension: 0.3,
         spanGaps: true,
         pointRadius: 2,
-        pointHitRadius: 8,
         borderWidth: 2,
         order: 2,
       },
@@ -102,17 +107,15 @@ export default function MonoStrainWidget({
         spanGaps: true,
         borderDash: [4, 4],
         pointRadius: 2,
-        pointHitRadius: 8,
         borderWidth: 2,
         order: 3,
       },
     ],
   };
 
-  // --- options: presne ako WeeklyLoadMini (fixná výška parenta) ---
   const options: ChartOptions<"line"> = {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: false, // nech sa riadi výškou parenta
     animation: false,
     interaction: { mode: "index", intersect: false },
     elements: { point: { radius: 2, hitRadius: 8 } },
@@ -151,7 +154,7 @@ export default function MonoStrainWidget({
       y2: {
         position: "right",
         min: 0,
-        max: strainMax, // stabilné: žiadne auto-prepočty
+        max: strainMax,
         grid: { drawOnChartArea: false },
         title: { display: true, text: "Strain" },
       },
@@ -163,10 +166,7 @@ export default function MonoStrainWidget({
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-base font-semibold">{title}</h3>
-        <button
-          onClick={onOpenDetail}
-          className="text-xs px-2 py-1 rounded bg-gray-700"
-        >
+        <button onClick={onOpenDetail} className="text-xs px-2 py-1 rounded bg-gray-700">
           Detail
         </button>
       </div>
@@ -174,7 +174,7 @@ export default function MonoStrainWidget({
       {loading ? (
         <div className="opacity-70 text-sm">Načítavam…</div>
       ) : (
-        // rovnaký wrapper ako WeeklyLoadMini – fixná výška (180 px)
+        // presne rovnaký pattern ako WeeklyLoadMini – fixná výška inline
         <div style={{ height: THEME.chart.weeklyHeightCompact }}>
           <MixedChart type="line" data={data} options={options} />
         </div>
