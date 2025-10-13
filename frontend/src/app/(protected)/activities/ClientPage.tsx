@@ -44,7 +44,7 @@ export default function ClientPage() {
 
   return (
     <div>
-      {/* header */}
+      {/*  header */}
       <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg font-semibold">Aktivity</h2>
         <button
