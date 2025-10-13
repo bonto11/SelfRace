@@ -85,3 +85,13 @@ input::placeholder {
   height: 100% !important;        /* drž sa výšky wrappera */
   display: block;                 /* žiadne baseline medzery */
 }
+
+/* Prevent intrinsic-width children (canvas) from widening ancestors */
+.min-w-0 { min-width: 0 !important; }
+
+/* Optional: a utility if you prefer a class name */
+.card-clamp {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
