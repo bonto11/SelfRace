@@ -1,11 +1,11 @@
 "use client";
+
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import ActivityTable from "@/features/activity/components/ActivityTable";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import WeeklyLoadWidget, { WeekPick } from "@/features/widgets/WeeklyLoadWidget";
+import WeeklyLoadWidget from "@/features/widgets/WeeklyLoadWidget";
 import MonoStrainWidget from "@/features/widgets/MonoStrainWidget";
+// (Ak chceš tabuľku, môžeš si ju pridať späť – teraz nechávam len widgety)
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
@@ -18,8 +18,6 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
 
 export default function ClientPage() {
   const { userId } = useUserId();
-  const router = useRouter();
-  const [picked, setPicked] = useState<WeekPick | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -44,8 +42,6 @@ export default function ClientPage() {
     }
   }
 
-  const goDetail = () => router.push("/activities/detailWeekLoad");
-
   return (
     <div>
       {/* header */}
@@ -62,15 +58,10 @@ export default function ClientPage() {
         </button>
       </div>
 
-      {/* widgety */}
+      {/* WIDGETY */}
       <div className="grid gap-4">
-        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={goDetail} />
-        <MonoStrainWidget onOpenDetail={goDetail} />
-      </div>
-
-      {/* tabuľka aktivít pre vybraný týždeň */}
-      <div className="mt-6">
-        <ActivityTable start={picked?.start} end={picked?.end} />
+        <WeeklyLoadWidget />
+        <MonoStrainWidget />
       </div>
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
