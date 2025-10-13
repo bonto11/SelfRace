@@ -17,8 +17,8 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
 }
 
 export default function ClientPage() {
-  const router = useRouter();
   const { userId } = useUserId();
+  const router = useRouter();
   const [picked, setPicked] = useState<WeekPick | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export default function ClientPage() {
     }
   }
 
-  const goToTrend = () => router.push("/activities/trend");
+  const goDetail = () => router.push("/activities/detailWeekLoad");
 
   return (
     <div>
@@ -64,8 +64,8 @@ export default function ClientPage() {
 
       {/* widgety */}
       <div className="grid gap-4">
-        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={goToTrend} />
-        <MonoStrainWidget onOpenDetail={goToTrend} />
+        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={goDetail} />
+        <MonoStrainWidget onOpenDetail={goDetail} />
       </div>
 
       {/* tabuľka aktivít pre vybraný týždeň */}

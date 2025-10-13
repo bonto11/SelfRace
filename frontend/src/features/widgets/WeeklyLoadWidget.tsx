@@ -22,7 +22,8 @@ type WeekRow = {
 };
 
 const C = {
-  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B", mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
+  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B",
+  mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
 };
 
 function rangeLabel(start?: string, end?: string) {
@@ -42,12 +43,13 @@ export default function WeeklyLoadWidget({
   onPickWeek?: (w: WeekPick) => void;
   onOpenDetail?: () => void;
 }) {
-  const router = useRouter();
   const { userId } = useUserId();
+  const router = useRouter();
   const metric: Metric = "time";
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // fetch 2 týždne
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -70,9 +72,7 @@ export default function WeeklyLoadWidget({
           time_other_min: num(w.time_other_min ?? w.other_min),
         }));
         setWeeks(norm);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
   }, [userId]);
 
@@ -117,7 +117,8 @@ export default function WeeklyLoadWidget({
     },
   };
 
-  const openDetail = () => (onOpenDetail ? onOpenDetail() : router.push("/activities/trend"));
+  const openDetail = () =>
+    onOpenDetail ? onOpenDetail() : router.push("/activities/detailWeekLoad");
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
@@ -125,7 +126,11 @@ export default function WeeklyLoadWidget({
         <h3 className="text-base font-semibold">{title}</h3>
         <button onClick={openDetail} className="text-xs px-2 py-1 rounded bg-gray-700">Detail</button>
       </div>
-      {loading ? <div className="opacity-70 text-sm">Načítavam…</div> : <WeeklyLoadMini data={data} options={options} />}
+      {loading ? (
+        <div className="opacity-70 text-sm">Načítavam…</div>
+      ) : (
+        <WeeklyLoadMini data={data} options={options} />
+      )}
     </div>
   );
 }
