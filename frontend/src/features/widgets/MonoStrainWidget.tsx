@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
@@ -11,10 +10,9 @@ import { useUserId } from "@/shared/hooks/useUserId";
 
 ensureChartJSRegistered();
 
-type Row = { label: string; mono: number | null; strain: number | null; };
+type Row = { label: string; mono: number | null; strain: number | null };
 
 export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title?: string }) {
-  const router = useRouter();
   const { userId } = useUserId();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,18 +25,16 @@ export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title
         const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=4`);
         const json = await res.json().catch(() => ({}));
         const src: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-        setRows(
-          src.map((w) => ({
-            label: w.label ?? w.week ?? w.iso_week ?? "",
-            mono:   w?.monotony?.time != null && Number.isFinite(+w.monotony.time) ? +w.monotony.time : null,
-            strain: w?.strain?.time    != null && Number.isFinite(+w.strain.time)    ? +w.strain.time    : null,
-          }))
-        );
+        setRows(src.map((w) => ({
+          label: w.label ?? w.week ?? w.iso_week ?? "",
+          mono:   w?.monotony?.time != null && Number.isFinite(+w.monotony.time) ? +w.monotony.time : null,
+          strain: w?.strain?.time    != null && Number.isFinite(+w.strain.time)    ? +w.strain.time    : null,
+        })));
       } finally { setLoading(false); }
     })();
   }, [userId]);
 
-  const labels = useMemo(() => rows.map((r) => r.label), [rows]);
+  const labels = useMemo(() => rows.map(r => r.label), [rows]);
   const mono   = useMemo<number[]>(() => rows.map(r => r.mono   == null ? NaN : r.mono),   [rows]);
   const strn   = useMemo<number[]>(() => rows.map(r => r.strain == null ? NaN : r.strain), [rows]);
 
@@ -83,13 +79,11 @@ export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-base font-semibold">{title}</h3>
-        <button onClick={() => router.push("/activities/detailWeekLoad")} className="text-xs px-2 py-1 rounded bg-gray-700">Detail</button>
       </div>
-
       {loading ? (
         <div className="opacity-70 text-sm">Načítavam…</div>
       ) : (
-        <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeightCompact }}>
+        <div style={{ height: THEME.chart.weeklyHeightCompact }}>
           <MixedChart type="line" data={data} options={options} />
         </div>
       )}

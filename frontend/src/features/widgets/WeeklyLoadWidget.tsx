@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
@@ -22,34 +21,22 @@ type WeekRow = {
 };
 
 const C = {
-  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B",
-  mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
+  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B", mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
 };
 
 function rangeLabel(start?: string, end?: string) {
   if (!start || !end) return "";
   const s = new Date(start), e = new Date(end);
-  const sd = s.getDate(), sm = s.getMonth() + 1;
-  const ed = e.getDate(), em = e.getMonth() + 1;
-  return `${sd}.${sm}–${ed}.${em}`;
+  const fmt = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.`;
+  return `${fmt(s)}–${fmt(e)}`;
 }
 
-export default function WeeklyLoadWidget({
-  title = "Týždenná záťaž (čas)",
-  onPickWeek,
-  onOpenDetail,
-}: {
-  title?: string;
-  onPickWeek?: (w: WeekPick) => void;
-  onOpenDetail?: () => void;
-}) {
+export default function WeeklyLoadWidget({ title = "Týždenná záťaž (čas)" }: { title?: string }) {
   const { userId } = useUserId();
-  const router = useRouter();
   const metric: Metric = "time";
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // fetch 2 týždne
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -59,19 +46,17 @@ export default function WeeklyLoadWidget({
         const json = await res.json().catch(() => ({}));
         const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
         const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
-        const norm: WeekRow[] = raw.map((w) => ({
+        setWeeks(raw.map((w) => ({
           week: w.week ?? w.iso_week ?? w.label ?? "",
           label: rangeLabel(w.start, w.end) || (w.label ?? w.week ?? ""),
-          start: w.start ?? "",
-          end: w.end ?? "",
+          start: w.start ?? "", end: w.end ?? "",
           time_run_min: num(w.time_run_min ?? w.run_min),
           time_ride_min: num(w.time_ride_min ?? w.ride_min),
           time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
           time_mixed_min: num(w.time_mixed_min),
           time_skate_min: num(w.time_skate_min),
           time_other_min: num(w.time_other_min ?? w.other_min),
-        }));
-        setWeeks(norm);
+        })));
       } finally { setLoading(false); }
     })();
   }, [userId]);
@@ -83,12 +68,14 @@ export default function WeeklyLoadWidget({
     const ds: any[] = [];
     const push = (label: string, data: number[], color: string) =>
       ds.push({ type: "bar" as const, label, data, backgroundColor: color, borderColor: color, borderWidth: 1, yAxisID: "y" });
+
     push("Run", W.map((w) => w.time_run_min), C.run);
-    if (W.some((w) => w.time_ride_min > 0))       push("Bike",     W.map((w) => w.time_ride_min),     C.bike);
-    if (W.some((w) => w.time_strength_min > 0))   push("Strength", W.map((w) => w.time_strength_min), C.strength);
-    if (W.some((w) => w.time_mixed_min > 0))      push("Mixed",    W.map((w) => w.time_mixed_min),    C.mixed);
-    if (W.some((w) => w.time_skate_min > 0))      push("Skate",    W.map((w) => w.time_skate_min),    C.skate);
-    if (W.some((w) => w.time_other_min > 0))      push("Other",    W.map((w) => w.time_other_min),    C.other);
+    if (W.some(w => w.time_ride_min > 0))      push("Bike",     W.map(w => w.time_ride_min),     C.bike);
+    if (W.some(w => w.time_strength_min > 0))  push("Strength", W.map(w => w.time_strength_min), C.strength);
+    if (W.some(w => w.time_mixed_min > 0))     push("Mixed",    W.map(w => w.time_mixed_min),    C.mixed);
+    if (W.some(w => w.time_skate_min > 0))     push("Skate",    W.map(w => w.time_skate_min),    C.skate);
+    if (W.some(w => w.time_other_min > 0))     push("Other",    W.map(w => w.time_other_min),    C.other);
+
     return ds;
   }, [weeks]);
 
@@ -101,15 +88,9 @@ export default function WeeklyLoadWidget({
     datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
     elements: { point: { radius: 2, hitRadius: 8 } },
     plugins: {
-      legend: {
-        position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
-      },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => `${ctx.dataset.label || ""}: ${Math.round((ctx.parsed.y ?? 0) as number)} min`,
-        },
-      },
+      legend: { position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 } },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${Math.round((ctx.parsed.y ?? 0) as number)} min` } },
     },
     scales: {
       y: { beginAtZero: true, title: { display: true, text: "min" }, grid: { color: THEME.chart.grid } },
@@ -117,20 +98,12 @@ export default function WeeklyLoadWidget({
     },
   };
 
-  const openDetail = () =>
-    onOpenDetail ? onOpenDetail() : router.push("/activities/detailWeekLoad");
-
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-base font-semibold">{title}</h3>
-        <button onClick={openDetail} className="text-xs px-2 py-1 rounded bg-gray-700">Detail</button>
       </div>
-      {loading ? (
-        <div className="opacity-70 text-sm">Načítavam…</div>
-      ) : (
-        <WeeklyLoadMini data={data} options={options} />
-      )}
+      {loading ? <div className="opacity-70 text-sm">Načítavam…</div> : <WeeklyLoadMini data={data} options={options} />}
     </div>
   );
 }

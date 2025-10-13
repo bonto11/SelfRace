@@ -5,7 +5,6 @@ import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklyLoadWidget from "@/features/widgets/WeeklyLoadWidget";
 import MonoStrainWidget from "@/features/widgets/MonoStrainWidget";
-// (Ak chceš tabuľku, môžeš si ju pridať späť – teraz nechávam len widgety)
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
@@ -58,7 +57,7 @@ export default function ClientPage() {
         </button>
       </div>
 
-      {/* WIDGETY */}
+      {/* len widgety */}
       <div className="grid gap-4">
         <WeeklyLoadWidget />
         <MonoStrainWidget />
