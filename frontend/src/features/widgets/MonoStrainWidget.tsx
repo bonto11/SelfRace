@@ -7,9 +7,14 @@ import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { THEME } from "@/shared/theme/tokens";
 import { useUserId } from "@/shared/hooks/useUserId";
+
 ensureChartJSRegistered();
 
-type Row = { label: string; mono: number | null; strain: number | null };
+type Row = {
+  label: string;
+  mono: number | null;    // monotony (time)
+  strain: number | null;  // strain (time)
+};
 
 export default function MonoStrainWidget({
   title = "Indexy záťaže",
@@ -22,12 +27,12 @@ export default function MonoStrainWidget({
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // --- fetch posledné 4 týždne (stačí pre widget) ---
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
       try {
-        // stačia posledné 4 týždne
         const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=4`);
         const json = await res.json().catch(() => ({}));
         const src: any[] = Array.isArray(json?.weeks)
@@ -35,38 +40,41 @@ export default function MonoStrainWidget({
           : Array.isArray(json?.data)
           ? json.data
           : [];
-
-        const mapped: Row[] = src.map((w) => ({
+        const out: Row[] = src.map((w) => ({
           label: w.label ?? w.week ?? w.iso_week ?? "",
-          // používame TIME verziu indexov
-          mono: Number.isFinite(w?.monotony?.time) ? +w.monotony.time : null,
-          strain: Number.isFinite(w?.strain?.time) ? +w.strain.time : null,
+          mono:
+            w?.monotony?.time != null && Number.isFinite(+w.monotony.time)
+              ? +w.monotony.time
+              : null,
+          strain:
+            w?.strain?.time != null && Number.isFinite(+w.strain.time)
+              ? +w.strain.time
+              : null,
         }));
-
-        setRows(mapped);
+        setRows(out);
       } finally {
         setLoading(false);
       }
     })();
   }, [userId]);
 
+  // --- series (Chart.js chce number[], na “dieru” použijeme NaN) ---
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
-
-  const monoSeries = useMemo(
-    () => rows.map((r) => (r.mono ?? null)),
+  const monoSeries: number[] = useMemo(
+    () => rows.map((r) => (r.mono == null ? NaN : r.mono)),
     [rows]
   );
-  const strainSeries = useMemo(
-    () => rows.map((r) => (r.strain ?? null)),
+  const strainSeries: number[] = useMemo(
+    () => rows.map((r) => (r.strain == null ? NaN : r.strain)),
     [rows]
   );
 
-  const maxStrain = useMemo(() => {
-    const nums = strainSeries.filter((v): v is number => v != null);
+  const strainMax = useMemo(() => {
+    const nums = strainSeries.filter((v) => Number.isFinite(v)) as number[];
     return nums.length ? Math.ceil(Math.max(...nums) * 1.1) : 10;
   }, [strainSeries]);
 
-  const data: ChartData<"line", (number | null)[], string> = {
+  const data: ChartData<"line", number[], string> = {
     labels,
     datasets: [
       {
@@ -78,7 +86,6 @@ export default function MonoStrainWidget({
         backgroundColor: THEME.chart.monotony,
         tension: 0.3,
         spanGaps: true,
-        // malé bodky
         pointRadius: 2,
         pointHitRadius: 8,
         borderWidth: 2,
@@ -102,19 +109,16 @@ export default function MonoStrainWidget({
     ],
   };
 
+  // --- options: presne ako WeeklyLoadMini (fixná výška parenta) ---
   const options: ChartOptions<"line"> = {
     responsive: true,
-    maintainAspectRatio: false,            // nech výšku riadi parent
-    resizeDelay: 150,                      // zabráni “pumpovaniu”
+    maintainAspectRatio: false,
     animation: false,
     interaction: { mode: "index", intersect: false },
-    elements: {
-      point: { radius: 2, hitRadius: 8 },
-      line: { borderJoinStyle: "round" },
-    },
+    elements: { point: { radius: 2, hitRadius: 8 } },
     plugins: {
       legend: {
-        position: "top",
+        position: THEME.chart.legendPosition,
         labels: {
           usePointStyle: true,
           pointStyle: "circle",
@@ -127,10 +131,10 @@ export default function MonoStrainWidget({
         callbacks: {
           label: (ctx) => {
             const label = ctx.dataset.label || "";
-            const y = (ctx.parsed.y ?? 0) as number;
-            return ctx.dataset.yAxisID === "y1"
-              ? `${label}: ${y.toFixed(2)}`
-              : `${label}: ${Math.round(y)}`;
+            const v = ctx.parsed.y as number;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            return `${label}: ${v}`;
           },
         },
       },
@@ -141,13 +145,13 @@ export default function MonoStrainWidget({
         position: "left",
         min: 0,
         max: 3,
-        title: { display: true, text: "Monotony" },
         grid: { color: THEME.chart.grid },
+        title: { display: true, text: "Monotony" },
       },
       y2: {
         position: "right",
         min: 0,
-        max: maxStrain,                    // stabilné – žiadne auto prepočty
+        max: strainMax, // stabilné: žiadne auto-prepočty
         grid: { drawOnChartArea: false },
         title: { display: true, text: "Strain" },
       },
@@ -170,14 +174,9 @@ export default function MonoStrainWidget({
       {loading ? (
         <div className="opacity-70 text-sm">Načítavam…</div>
       ) : (
-        // FIX: wrapper s pevnou výškou + canvas 100%
-        <div className="chart-fixed">
-          <MixedChart
-            type="line"
-            data={data}
-            options={options}
-            style={{ height: "100%", width: "100%" }}
-          />
+        // rovnaký wrapper ako WeeklyLoadMini – fixná výška (180 px)
+        <div style={{ height: THEME.chart.weeklyHeightCompact }}>
+          <MixedChart type="line" data={data} options={options} />
         </div>
       )}
     </div>
