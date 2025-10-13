@@ -66,9 +66,10 @@ export default function ClientPage() {
         </button>
       </div>
 
-      {/* widgety  <MonoStrainWidget onOpenDetail={() => setShowDetail(true)} /> */}
+      {/* widgety */}
       <div className="grid gap-4">
-        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={() => setShowDetail(true)} /> 
+        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={() => setShowDetail(true)} />
+        <MonoStrainWidget onOpenDetail={() => setShowDetail(true)} />
       </div>
 
       {/* spoločný detail – celý graf + prepínače */}
