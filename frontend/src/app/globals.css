@@ -4,6 +4,7 @@
 
 body {
   @apply bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  overflow-x: hidden;
 }
 
 :root {
@@ -54,3 +55,43 @@ input::placeholder {
   opacity: 1;
 }
 
+/* --- Chart wrappers: nedovoliť canvasu rásť na výšku --- */
+.chart-fixed-h {
+  position: relative;
+  width: 100%;
+  /* výška sa nastavuje inline na wrapper (style={{height: ...}}) */
+}
+.chart-fixed-h canvas {
+  width: 100% !important;
+  height: 100% !important; /* kľúčové – nie auto */
+  display: block;
+}
+
+/* horizontálny scroller pre detail grafu */
+.hscroll {
+  overflow-x: auto;
+  overflow-y: hidden;             /* dôležité – inak to „pretečie“ dole */
+  -webkit-overflow-scrolling: touch;
+}
+
+.hscroll-inner {
+  display: inline-block;          /* nech minWidth platí len pre vnútro */
+  width: auto;
+  height: 100%;
+}
+
+.hscroll-inner canvas {
+  width: 100% !important;         /* drž sa šírky wrappera */
+  height: 100% !important;        /* drž sa výšky wrappera */
+  display: block;                 /* žiadne baseline medzery */
+}
+
+/* Prevent intrinsic-width children (canvas) from widening ancestors */
+.min-w-0 { min-width: 0 !important; }
+
+/* Optional: a utility if you prefer a class name */
+.card-clamp {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}

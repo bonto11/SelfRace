@@ -25,30 +25,36 @@ export default function SignInForm() {
     setErr(null);
     setLoading(true);
 
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+    const { data, error } = await sb.auth.signInWithPassword({
+      email,
+      password: pwd,
+    });
 
     setLoading(false);
+
     if (error) {
-      console.error("[signin]", { code: error.code, status: error.status, message: error.message });
       setErr(error.message || "Prihlásenie zlyhalo.");
       return;
     }
 
-    // ⬇️ pošli session serveru (cookies bridge)
-    try {
-      const { data } = await sb.auth.getSession();
-      console.log("SignInForm data" + data)
-      if (data.session) {
+    // 🔑 DOPLNENÉ: nastav serverové cookies ešte na /signin
+    if (data?.session?.access_token && data?.session?.refresh_token) {
+      try {
         await fetch("/api/auth/set-session", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "content-type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
         });
+      } catch {
+        /* no-op, fallback spraví AuthSync po načítaní dashboardu */
       }
-    } catch {}
+    }
 
+    // až teraz presmeruj
     router.replace("/dashboard");
   }
+
 
   return (
     <div className="max-w-sm mx-auto mt-16">
