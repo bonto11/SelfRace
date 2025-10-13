@@ -1,31 +1,27 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import ActivityTable from "@/features/activity/components/ActivityTable";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklyLoadWidget, { WeekPick } from "@/features/widgets/WeeklyLoadWidget";
 import MonoStrainWidget from "@/features/widgets/MonoStrainWidget";
-import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
     <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded shadow-lg">
       <div className="mb-1">{msg}</div>
-      <button className="underline text-xs opacity-80" onClick={onClose}>
-        OK
-      </button>
+      <button className="underline text-xs opacity-80" onClick={onClose}>OK</button>
     </div>
   );
 }
 
 export default function ClientPage() {
+  const router = useRouter();
   const { userId } = useUserId();
   const [picked, setPicked] = useState<WeekPick | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-
-  // otvorenie spoločného detailu (TrendWeeklyLoad) 
-  const [showDetail, setShowDetail] = useState(false);
 
   async function handleSync() {
     if (!userId) return;
@@ -48,6 +44,8 @@ export default function ClientPage() {
     }
   }
 
+  const goToTrend = () => router.push("/activities/trend");
+
   return (
     <div>
       {/* header */}
@@ -59,31 +57,16 @@ export default function ClientPage() {
           className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
           title="Stiahnuť nové aktivity zo Stravy"
         >
-          {syncing && (
-            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-          )}
+          {syncing && <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />}
           {syncing ? "Synchronizujem…" : "Sync Strava"}
         </button>
       </div>
 
       {/* widgety */}
       <div className="grid gap-4">
-        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={() => setShowDetail(true)} />
-        <MonoStrainWidget onOpenDetail={() => setShowDetail(true)} />
+        <WeeklyLoadWidget onPickWeek={(w) => setPicked(w)} onOpenDetail={goToTrend} />
+        <MonoStrainWidget onOpenDetail={goToTrend} />
       </div>
-
-      {/* spoločný detail – celý graf + prepínače */}
-      {showDetail && (
-        <div className="mt-6">
-          <TrendWeeklyLoad
-            onPickWeek={(w) => {
-              setPicked(w);
-              // necháme detail otvorený; ak chceš zavrieť, odkomentuj:
-              // setShowDetail(false);
-            }}
-          />
-        </div>
-      )}
 
       {/* tabuľka aktivít pre vybraný týždeň */}
       <div className="mt-6">

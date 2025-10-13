@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
@@ -12,7 +13,7 @@ import WeeklyLoadMini from "@/features/widgets/WeeklyLoadMini";
 ensureChartJSRegistered();
 
 export type WeekPick = { week: string; start: string; end: string };
-type Metric = "time"; // natvrdo čas, podľa požiadavky
+type Metric = "time";
 
 type WeekRow = {
   week: string; label: string; start: string; end: string;
@@ -24,6 +25,14 @@ const C = {
   run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B", mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
 };
 
+function rangeLabel(start?: string, end?: string) {
+  if (!start || !end) return "";
+  const s = new Date(start), e = new Date(end);
+  const sd = s.getDate(), sm = s.getMonth() + 1;
+  const ed = e.getDate(), em = e.getMonth() + 1;
+  return `${sd}.${sm}–${ed}.${em}`;
+}
+
 export default function WeeklyLoadWidget({
   title = "Týždenná záťaž (čas)",
   onPickWeek,
@@ -33,12 +42,12 @@ export default function WeeklyLoadWidget({
   onPickWeek?: (w: WeekPick) => void;
   onOpenDetail?: () => void;
 }) {
+  const router = useRouter();
   const { userId } = useUserId();
   const metric: Metric = "time";
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // mini = vždy 2 týždne
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -46,15 +55,11 @@ export default function WeeklyLoadWidget({
       try {
         const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=2&metric=${metric}`);
         const json = await res.json().catch(() => ({}));
-        const raw: any[] = Array.isArray(json?.weeks)
-          ? json.weeks
-          : Array.isArray(json?.data)
-          ? json.data
-          : [];
+        const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
         const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
         const norm: WeekRow[] = raw.map((w) => ({
           week: w.week ?? w.iso_week ?? w.label ?? "",
-          label: w.label ?? w.week ?? w.iso_week ?? "",
+          label: rangeLabel(w.start, w.end) || (w.label ?? w.week ?? ""),
           start: w.start ?? "",
           end: w.end ?? "",
           time_run_min: num(w.time_run_min ?? w.run_min),
@@ -71,42 +76,29 @@ export default function WeeklyLoadWidget({
     })();
   }, [userId]);
 
-  const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
+  const labels = useMemo(() => weeks.map((w) => w.label), [weeks]);
 
   const datasets = useMemo(() => {
     const W = weeks;
     const ds: any[] = [];
     const push = (label: string, data: number[], color: string) =>
-      ds.push({
-        type: "bar" as const,
-        label,
-        data,
-        backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1,
-        yAxisID: "y",
-      });
+      ds.push({ type: "bar" as const, label, data, backgroundColor: color, borderColor: color, borderWidth: 1, yAxisID: "y" });
     push("Run", W.map((w) => w.time_run_min), C.run);
-    if (W.some((w) => w.time_ride_min > 0)) push("Bike", W.map((w) => w.time_ride_min), C.bike);
-    if (W.some((w) => w.time_strength_min > 0))
-      push("Strength", W.map((w) => w.time_strength_min), C.strength);
-    if (W.some((w) => w.time_mixed_min > 0)) push("Mixed", W.map((w) => w.time_mixed_min), C.mixed);
-    if (W.some((w) => w.time_skate_min > 0)) push("Skate", W.map((w) => w.time_skate_min), C.skate);
-    if (W.some((w) => w.time_other_min > 0)) push("Other", W.map((w) => w.time_other_min), C.other);
+    if (W.some((w) => w.time_ride_min > 0))       push("Bike",     W.map((w) => w.time_ride_min),     C.bike);
+    if (W.some((w) => w.time_strength_min > 0))   push("Strength", W.map((w) => w.time_strength_min), C.strength);
+    if (W.some((w) => w.time_mixed_min > 0))      push("Mixed",    W.map((w) => w.time_mixed_min),    C.mixed);
+    if (W.some((w) => w.time_skate_min > 0))      push("Skate",    W.map((w) => w.time_skate_min),    C.skate);
+    if (W.some((w) => w.time_other_min > 0))      push("Other",    W.map((w) => w.time_other_min),    C.other);
     return ds;
   }, [weeks]);
 
-  // POZOR: ChartData generiká -> povoľujeme (number|null)[]
   const data: ChartData<"bar" | "line", (number | null)[], string> = { labels, datasets };
 
   const options: ChartOptions<"bar" | "line"> = {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
-    // správne umiestnenie bar parametrov
-    datasets: {
-      bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 },
-    },
+    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
     elements: { point: { radius: 2, hitRadius: 8 } },
     plugins: {
       legend: {
@@ -115,11 +107,7 @@ export default function WeeklyLoadWidget({
       },
       tooltip: {
         callbacks: {
-          label: (ctx) => {
-            const label = ctx.dataset.label || "";
-            const v = (ctx.parsed.y ?? 0) as number;
-            return `${label}: ${Math.round(v)} min`;
-          },
+          label: (ctx) => `${ctx.dataset.label || ""}: ${Math.round((ctx.parsed.y ?? 0) as number)} min`,
         },
       },
     },
@@ -129,20 +117,15 @@ export default function WeeklyLoadWidget({
     },
   };
 
+  const openDetail = () => (onOpenDetail ? onOpenDetail() : router.push("/activities/trend"));
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-base font-semibold">{title}</h3>
-        <button onClick={onOpenDetail} className="text-xs px-2 py-1 rounded bg-gray-700">
-          Detail
-        </button>
+        <button onClick={openDetail} className="text-xs px-2 py-1 rounded bg-gray-700">Detail</button>
       </div>
-
-      {loading ? (
-        <div className="opacity-70 text-sm">Načítavam…</div>
-      ) : (
-        <WeeklyLoadMini data={data} options={options} />
-      )}
+      {loading ? <div className="opacity-70 text-sm">Načítavam…</div> : <WeeklyLoadMini data={data} options={options} />}
     </div>
   );
 }

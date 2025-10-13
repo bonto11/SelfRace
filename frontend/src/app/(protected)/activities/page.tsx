@@ -1,12 +1,15 @@
-import { Suspense } from "react";
-import ClientPage from "./ClientPage";
+// app/(protected)/activities/trend/page.tsx
+"use client";
 
-export const dynamic = "force-dynamic";
+import { Suspense } from "react";
+import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
 
 export default function Page() {
   return (
     <Suspense fallback={<div className="p-6">Načítavam…</div>}>
-      <ClientPage />
+      <div className="p-0">
+        <TrendWeeklyLoad />
+      </div>
     </Suspense>
   );
 }
