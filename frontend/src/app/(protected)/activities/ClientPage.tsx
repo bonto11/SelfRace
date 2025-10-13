@@ -35,7 +35,7 @@ export default function ClientPage() {
       } else {
         setToast(`❌ Sync error: ${json.detail || "unknown"}`);
       }
-    } catch (e: any) {
+    } catch (e:any) {
       setToast(`❌ Sync request failed: ${e?.message || e}`);
     } finally {
       setSyncing(false);
@@ -62,11 +62,10 @@ export default function ClientPage() {
       <div className="grid gap-4">
         <WeeklyLoadWidget />
 
-        {/* nové tlačidlo medzi widgetami */}
+        {/* 👇 TOTO JE TO TLAČIDLO MEDZI WIDGETAMI */}
         <Link
           href="/activities/detail"
-          className="inline-flex w-full justify-center items-center gap-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-3"
-          title="Otvoriť detailný trend"
+          className="inline-flex w-full justify-center items-center rounded bg-blue-600 hover:bg-blue-700 text-white text-sm py-2"
         >
           Otvoriť detailný trend
         </Link>
