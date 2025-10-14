@@ -18,17 +18,30 @@ export function buildWeeklyOptions(
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
 
-    /** NOVÉ: rovnaká šírka stĺpcov ako vo widgetoch */
+    // ✅ konzistentné bary (rovnaké ako widgety)
     datasets: {
-      bar: { barThickness: THEME.chart.weeklyBarThickness },
+      bar: {
+        maxBarThickness: THEME.chart.bar.maxThickness,
+        categoryPercentage: THEME.chart.bar.categoryPct,
+        barPercentage: THEME.chart.bar.barPct,
+      },
     },
-    elements: { point: { radius: 2, hitRadius: 8 } },
+
+    elements: {
+      point: { radius: 2, hitRadius: 8 },
+    },
 
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
         display: extra?.showLegend ?? true,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 10,
+        },
       },
       tooltip: {
         callbacks: {
@@ -40,31 +53,47 @@ export function buildWeeklyOptions(
         },
       },
     },
+
     onClick: extra?.onClick,
 
+    layout: { padding: { left: 8, right: 16 } },
+
+    // ✅ fixnuté osi: ľavá hlavná, vpravo mono+strain, bez prekryvov
     scales: {
       y: {
         beginAtZero: true,
-        title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" },
+        position: "left",
+        title: {
+          display: true,
+          text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
+          color: THEME.color.text,
+        },
+        ticks: { color: THEME.color.text },
         grid: { color: THEME.chart.grid },
       },
       y1: {
         position: "right",
         min: 0,
-        max: Math.max(3, Math.ceil(monoMax + 0.5)),
+        max: Math.max(3, Math.ceil(monoMax + 0.3)),
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Monotony" },
+        title: { display: true, text: "Monotony", color: THEME.chart.monotony },
+        ticks: { color: THEME.chart.monotony },
+        border: { color: THEME.chart.monotony },
+        weight: 1,
       },
       y2: {
         position: "right",
         min: 0,
         max: Math.ceil(strainMax * 1.1),
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Strain" },
+        title: { display: true, text: "Strain", color: THEME.chart.strain },
+        ticks: { color: THEME.chart.strain },
+        border: { color: THEME.chart.strain },
+        weight: 1,
       },
       x: {
         grid: { color: THEME.chart.gridSoft },
-        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8, color: THEME.color.text },
       },
     },
   };

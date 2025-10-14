@@ -1,3 +1,4 @@
+// src/features/widgets/MonoStrainWidget.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
