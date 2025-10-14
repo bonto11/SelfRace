@@ -1,3 +1,4 @@
+// src/features/activity/components/TrendWeeklyLoad.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -29,11 +30,22 @@ const C = {
 
 export type WeekPick = { week: string; start: string; end: string };
 
+/** ✔️ krátky popis rozsahu týždňa: 1–8.10. alebo 28.9.–5.10. */
+function rangeLabel(start?: string, end?: string) {
+  if (!start || !end) return "";
+  const s = new Date(start);
+  const e = new Date(end);
+  const sd = s.getDate(), sm = s.getMonth() + 1;
+  const ed = e.getDate(), em = e.getMonth() + 1;
+  if (sm === em) return `${sd}–${ed}.${em}.`;
+  return `${sd}.${sm}.–${ed}.${em}.`;
+}
+
 export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekPick) => void; }) {
   const { userId } = useUserId();
 
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(8);          // 4 / 8 / 12
+  const [lookback, setLookback] = useState<number>(8); // 4/8/12
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
@@ -46,7 +58,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       const num = (v:any)=> (Number.isFinite(+v) ? +v : 0);
       setWeeks(raw.map((w)=>({
         week: w.week ?? w.iso_week ?? w.label ?? "",
-        label: w.label ?? w.week ?? w.iso_week ?? "",
+        label: rangeLabel(w.start, w.end) || w.label || w.week || "",
         start: w.start ?? "", end: w.end ?? "",
         km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
         km_mixed: num(w.km_mixed),         km_skate: num(w.km_skate),
@@ -71,7 +83,6 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
   const mono   = useMemo(()=>weeks.map(w=>w.monotony?.[metric] ?? null), [weeks, metric]);
   const strn   = useMemo(()=>weeks.map(w=>w.strain?.[metric]   ?? null), [weeks, metric]);
 
-  // maxy pre pravé osi
   const monoMax = useMemo(() => {
     const vals = mono.filter((v): v is number => Number.isFinite(v as number));
     const m = vals.length ? Math.max(...vals) : 1.5;
@@ -126,12 +137,10 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
     elements: { point: { radius: 2, hitRadius: 8 } },
-    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } }, // == widget
+    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
     plugins: {
-      legend: {
-        position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
-      },
+      legend: { position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 } },
       tooltip: {
         callbacks: {
           label: (ctx) => {
@@ -153,7 +162,6 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       setPicked(pick);
       onPickWeek?.(pick);
     },
-    // ľavá os = km/min/TRIMP, pravé dve = Monotony + Strain (farby podľa čiar)
     scales: {
       y:  { beginAtZero: true, position: "left",  grid: { color: THEME.chart.grid },
             title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" } },
@@ -163,16 +171,16 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
             border: { color: C.strain }, ticks: { color: C.strain },
             title: { display: true, text: "Strain", color: C.strain } },
-      x:  { grid: { color: THEME.chart.gridSoft }, ticks: { maxRotation: 0, autoSkip: true } },
+      // ✔️ grid pri každom týždni (žiadny “každý 2.”)
+      x:  { grid: { color: THEME.chart.gridSoft },
+            ticks: { autoSkip: false, maxRotation: 0 } },
     },
   }), [metric, weeks, monoMax, strainMax, onPickWeek]);
 
-  // konzistentná hrúbka barov + horizontálny scroll len vo vnútri
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
-      {/* header filter */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
@@ -181,6 +189,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
           <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
         </div>
         <div className="text-xs">
+          {/* len 4 / 8 / 12 */}
           <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
@@ -189,20 +198,13 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
         </div>
       </div>
 
-      {/* scroll only inside */}
-      <div className="relative">
-        {/* “frozen” osi – len vizuálne lišty, prekryjú scrollujúci obsah pri okrajoch */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-800/80 to-transparent border-r border-gray-700/60 z-10" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-gray-800/80 to-transparent border-l border-gray-700/60 z-10" />
-
-        <div
-          className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
-          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-        >
-          <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
-            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <MixedChart type="bar" data={data} options={options} />
-            </div>
+      <div
+        className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
+        <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <MixedChart type="bar" data={data} options={options} />
           </div>
         </div>
       </div>
