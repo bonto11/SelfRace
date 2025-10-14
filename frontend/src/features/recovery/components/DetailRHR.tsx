@@ -35,29 +35,33 @@ export default function DetailRHR() {
       const days = weeks * 7;
       const res = await fetch(`${API_URL}/recovery/${userId}?days=${days}`);
       const json = await res.json().catch(() => ({}));
-      if (json?.success && Array.isArray(json?.data)) setRows(json.data as Row[]);
+      if (json?.success && Array.isArray(json?.data))
+        setRows(json.data as Row[]);
       else setRows([]);
     })();
   }, [userId, weeks]);
 
   // os X: zoradíme dni chronologicky (ASC) a až potom mapujeme
-const points: DayPoint[] = useMemo(() => {
-  const sorted = [...rows].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  return sorted.map(r => ({
-    date: isoDate(r.date),
-    value: r.RHR_bpm ?? null,
-    comment: r.comments ?? null,
-  }));
-}, [rows]);
+  const points: DayPoint[] = useMemo(() => {
+    const sorted = [...rows].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    return sorted.map((r) => ({
+      date: isoDate(r.date),
+      value: r.RHR_bpm ?? null,
+      comment: r.comments ?? null,
+    }));
+  }, [rows]);
 
   const labelsISO = useMemo(() => points.map((p) => p.date), [points]);
   const values = useMemo(() => points.map((p) => p.value), [points]);
 
   // rolling baseline = priemer z predchádzajúcich 14 dní (bez aktuálneho dňa)
   const baseline = useMemo(() => rollingMean(values, 14), [values]);
-  const { lower, upper } = useMemo(() => bandsAround(baseline, 0.05), [baseline]);
+  const { lower, upper } = useMemo(
+    () => bandsAround(baseline, 0.05),
+    [baseline]
+  );
 
   // tooltip: k dátumu doplníme aj komentár (ak je) len pre dataset "Resting HR"
   const commentsMap = useMemo(() => {
