@@ -69,6 +69,7 @@ export function makeRollingBaseline(
   return { baseline, lower, upper, latestBaseline };
 }
 
+
 export function compareLatestToBaseline(
   latest: number | null | undefined,
   baseline: number | null | undefined,
@@ -113,3 +114,4 @@ export function formatWeekRange(startIso: string) {
   const ed = e.getDate(), em = e.getMonth() + 1;
   return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
+

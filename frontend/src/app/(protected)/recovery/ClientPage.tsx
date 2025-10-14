@@ -1,24 +1,20 @@
-// src/app/(protected)/recovery/page.tsx (alebo tvoja ClientPage)
-"use client";
 
+// src/app/recovery/page.tsx (alebo kde máš klientsku stránku)
+"use client";
+import { useRouter } from "next/navigation";
 import WidgetRHR from "@/features/widgets/WidgetRHR";
 import WidgetHRV from "@/features/widgets/WidgetHRV";
 import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
-// (pôvodné Trend* komponenty si nechaj na detail view)
+export default function RecoveryPage() {
+  const router = useRouter();
 
-export default function ClientPage() {
   return (
-    <div>
-      {/* 4 malé widgety */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        <WidgetRHR />
-        <WidgetHRV />
-        <WidgetSleepDuration />
-        <WidgetSleepStart />
-      </div>
-
-      {/* sem neskôr pridáme prekliky na full-screen trendy */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+      <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
+      <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
+      <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
+      <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
     </div>
   );
 }
