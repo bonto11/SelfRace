@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import WeeklyLoadWidget from "@/features/widgets/WeeklyLoad";
-import MonoStrainWidget from "@/features/widgets/MonoStrain";
+import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
+import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (

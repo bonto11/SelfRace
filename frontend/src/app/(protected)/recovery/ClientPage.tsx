@@ -1,10 +1,10 @@
 // src/app/(protected)/recovery/page.tsx (alebo tvoja ClientPage)
 "use client";
 
-import WidgetRHR from "@/features/widgets/RHR";
-import WidgetHRV from "@/features/widgets/HRV";
-import WidgetSleepDuration from "@/features/widgets/SleepDuration";
-import WidgetSleepStart from "@/features/widgets/SleepStart";
+import WidgetRHR from "@/features/widgets/WidgetRHR";
+import WidgetHRV from "@/features/widgets/WidgetHRV";
+import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
+import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
 // (pôvodné Trend* komponenty si nechaj na detail view)
 
 export default function ClientPage() {

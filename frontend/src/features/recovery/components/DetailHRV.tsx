@@ -20,7 +20,7 @@ function median(xs: number[]) {
   return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
 }
 
-export default function TrendHRV() {
+export default function DetailHRV() {
   const { userId } = useUserId();
   const [rows, setRows] = useState<RecoveryRow[]>([]);
 
