@@ -47,10 +47,10 @@ export function buildRecoveryLineOptions({
     scales: {
       x: {
         grid: {
-          // týždenný grid – len pondelky
-          // @ts-ignore scriptable context
+          // @ts-ignore
           color: (ctx: any) => {
-            const idx = ctx?.index ?? 0;
+            const idx = typeof ctx?.index === "number" ? ctx.index : -1;
+            if (idx < 0) return THEME.chart.gridSoft;
             const iso = labelsISO[idx] ?? "";
             return isMonday(iso) ? THEME.chart.grid : "transparent";
           },
