@@ -28,7 +28,6 @@ export function buildRecoveryLineOptions({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    parsing: false,
     interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
       legend: {
