@@ -1,23 +1,25 @@
 // Jeden spoločný „builder“ pre všetky recovery line grafy
 // - 55° popisky týždňov
 // - grid len v pondelky
-// - nič nepretečie (maintainAspectRatio:false; výšku rieši wrapper)
+// - nič nepretečie (maintainAspectRatio:false; výška cez wrapper)
 
-import type { ChartOptions, ScriptableScaleContext } from "chart.js";
+import type { ChartOptions } from "chart.js";
 import { THEME } from "@/shared/theme/tokens";
 import { isMonday, formatWeekRange } from "@/shared/utils/recovery";
 
 type RecoveryLineOptsParams = {
-  labelsISO: string[];
-  yTitle: string;
+  labelsISO: string[];                    // "YYYY-MM-DD" pre každý DEŇ v grafe (x-os zobrazuje len týždne)
+  yTitle: string;                         // "bpm", "ms", "min"...
+  yTickFormatter?: (v: number) => string; // voliteľné formátovanie Y
   tooltipTitleForIndex?: (i: number) => string;
-  tooltipLabelForItem?: (ctx: any) => string;   // <- striktne string
+  tooltipLabelForItem?: (ctx: any) => string;
   tooltipFilter?: (item: any) => boolean;
 };
 
 export function buildRecoveryLineOptions({
   labelsISO,
   yTitle,
+  yTickFormatter,
   tooltipTitleForIndex,
   tooltipLabelForItem,
   tooltipFilter,
@@ -26,7 +28,7 @@ export function buildRecoveryLineOptions({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    parsing: false,                        // dôležité kvôli NaN/null
+    parsing: false,
     interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
       legend: {
@@ -34,18 +36,21 @@ export function buildRecoveryLineOptions({
         labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
       },
       tooltip: {
-        filter: (item) => (tooltipFilter ? tooltipFilter(item) : true),
+        filter: (item: any) => (tooltipFilter ? tooltipFilter(item) : true),
         callbacks: {
-          title: (items) => {
+          title: (items: any[]) => {
             const i = items?.[0]?.dataIndex ?? 0;
             if (tooltipTitleForIndex) return tooltipTitleForIndex(i);
             const iso = labelsISO[i] ?? "";
             const d = new Date(iso + "T00:00:00");
             return d.toLocaleDateString("sk-SK");
           },
-          label: (ctx) => {
+          label: (ctx: any) => {
             if (tooltipLabelForItem) return tooltipLabelForItem(ctx);
-            return `${ctx.dataset?.label || ""}: ${ctx.formattedValue}`;
+            const raw = ctx.parsed?.y as number | undefined;
+            const base = `${ctx.dataset?.label || ""}: `;
+            if (typeof raw === "number" && yTickFormatter) return base + yTickFormatter(raw);
+            return base + (ctx.formattedValue ?? "");
           },
         },
       },
@@ -53,8 +58,10 @@ export function buildRecoveryLineOptions({
     scales: {
       x: {
         grid: {
-          color: (ctx: ScriptableScaleContext) => {
-            const idx = (ctx as any)?.index ?? 0;
+          // týždenný grid – len pondelky
+          // @ts-ignore – stačí nám index
+          color: (ctx: any) => {
+            const idx = ctx?.index ?? 0;
             const iso = labelsISO[idx] ?? "";
             return isMonday(iso) ? THEME.chart.grid : "transparent";
           },
@@ -63,10 +70,10 @@ export function buildRecoveryLineOptions({
           autoSkip: false,
           maxRotation: 55,
           minRotation: 55,
-          callback: (_val, idx: number) => {
+          callback: (_val: any, idx: number) => {
             const iso = labelsISO[idx] ?? "";
-            if (!isMonday(iso)) return "";     // popisok len v pondelok
-            return formatWeekRange(iso);       // napr. "6–12.10." / "28.9.–5.10."
+            if (!isMonday(iso)) return "";
+            return formatWeekRange(iso);
           },
         },
       },
@@ -74,6 +81,12 @@ export function buildRecoveryLineOptions({
         beginAtZero: false,
         title: { display: true, text: yTitle },
         grid: { color: THEME.chart.grid },
+        ticks: {
+          callback: (v: any) => {
+            const num = Number(v);
+            return yTickFormatter ? yTickFormatter(num) : String(v);
+          },
+        },
       },
     },
   };

@@ -6,6 +6,7 @@ import WidgetRHR from "@/features/widgets/WidgetRHR";
 import WidgetHRV from "@/features/widgets/WidgetHRV";
 import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
+import RecoveryForm  from "@/features/recovery/components/Form";
 export default function RecoveryPage() {
   const router = useRouter();
 
@@ -15,6 +16,7 @@ export default function RecoveryPage() {
       <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
       <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
       <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
+      <RecoveryForm />  
     </div>
   );
 }
