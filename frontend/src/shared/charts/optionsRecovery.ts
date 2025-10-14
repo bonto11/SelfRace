@@ -1,20 +1,23 @@
-import type { ChartOptions } from "chart.js";
+// Jeden spoločný „builder“ pre všetky recovery line grafy
+// - 55° popisky týždňov
+// - grid len v pondelky
+// - nič nepretečie (maintainAspectRatio:false; výšku rieši wrapper)
+
+import type { ChartOptions, ScriptableScaleContext } from "chart.js";
 import { THEME } from "@/shared/theme/tokens";
 import { isMonday, formatWeekRange } from "@/shared/utils/recovery";
 
 type RecoveryLineOptsParams = {
-  labelsISO: string[];               // ISO pre každý DEŇ
-  yTitle: string;                    // "bpm" | "ms" | "min" ...
-  yTickFormatter?: (v: number) => string; // voliteľné formátovanie Y osi
+  labelsISO: string[];                // "YYYY-MM-DD" pre každý DEŇ (x)
+  yTitle: string;                     // "bpm", "ms", "min"...
   tooltipTitleForIndex?: (i: number) => string;
-  tooltipLabelForItem?: (ctx: any) => string | string[];
+  tooltipLabelForItem?: (ctx: any) => string;   // ← musí vrátiť string
   tooltipFilter?: (item: any) => boolean;
 };
 
 export function buildRecoveryLineOptions({
   labelsISO,
   yTitle,
-  yTickFormatter,
   tooltipTitleForIndex,
   tooltipLabelForItem,
   tooltipFilter,
@@ -23,7 +26,7 @@ export function buildRecoveryLineOptions({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    parsing: false,
+    parsing: false,                        // dôležité kvôli NaN/null
     interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
       legend: {
@@ -31,26 +34,27 @@ export function buildRecoveryLineOptions({
         labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
       },
       tooltip: {
-        displayColors: true,
-        filter: (item: any) => (tooltipFilter ? tooltipFilter(item) : true),
+        filter: (item) => (tooltipFilter ? tooltipFilter(item) : true),
         callbacks: {
-          title: (items: any[]) => {
+          title: (items) => {
             const i = items?.[0]?.dataIndex ?? 0;
             if (tooltipTitleForIndex) return tooltipTitleForIndex(i);
             const iso = labelsISO[i] ?? "";
-            return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
+            const d = new Date(iso + "T00:00:00");
+            return d.toLocaleDateString("sk-SK");
           },
-          label: (ctx: any) => (tooltipLabelForItem ? tooltipLabelForItem(ctx) : `${ctx.dataset?.label}: ${ctx.formattedValue}`),
+          label: (ctx) => {
+            if (tooltipLabelForItem) return tooltipLabelForItem(ctx);
+            return `${ctx.dataset?.label || ""}: ${ctx.formattedValue}`;
+          },
         },
       },
     },
     scales: {
       x: {
         grid: {
-          // @ts-ignore
-          color: (ctx: any) => {
-            const idx = typeof ctx?.index === "number" ? ctx.index : -1;
-            if (idx < 0) return THEME.chart.gridSoft;
+          color: (ctx: ScriptableScaleContext) => {
+            const idx = (ctx as any)?.index ?? 0;
             const iso = labelsISO[idx] ?? "";
             return isMonday(iso) ? THEME.chart.grid : "transparent";
           },
@@ -59,9 +63,10 @@ export function buildRecoveryLineOptions({
           autoSkip: false,
           maxRotation: 55,
           minRotation: 55,
-          callback: (_val: any, idx: number) => {
+          callback: (_val, idx: number) => {
             const iso = labelsISO[idx] ?? "";
-            return isMonday(iso) ? formatWeekRange(iso) : "";
+            if (!isMonday(iso)) return "";     // popisok len v pondelok
+            return formatWeekRange(iso);       // napr. "6–12.10." / "28.9.–5.10."
           },
         },
       },
@@ -69,11 +74,6 @@ export function buildRecoveryLineOptions({
         beginAtZero: false,
         title: { display: true, text: yTitle },
         grid: { color: THEME.chart.grid },
-        ticks: yTickFormatter
-          ? {
-              callback: (raw: any) => yTickFormatter(Number(raw)),
-            }
-          : undefined,
       },
     },
   };
