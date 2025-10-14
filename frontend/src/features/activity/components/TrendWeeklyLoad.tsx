@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Chart as MixedChart } from "react-chartjs-2";
-import type { ChartData } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { THEME } from "@/shared/theme/tokens";
-import { buildWeeklyOptions } from "@/shared/charts/options";
 
 ensureChartJSRegistered();
 
@@ -34,7 +33,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
   const { userId } = useUserId();
 
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(8);
+  const [lookback, setLookback] = useState<number>(8);          // 4 / 8 / 12
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
@@ -72,6 +71,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
   const mono   = useMemo(()=>weeks.map(w=>w.monotony?.[metric] ?? null), [weeks, metric]);
   const strn   = useMemo(()=>weeks.map(w=>w.strain?.[metric]   ?? null), [weeks, metric]);
 
+  // maxy pre pravé osi
   const monoMax = useMemo(() => {
     const vals = mono.filter((v): v is number => Number.isFinite(v as number));
     const m = vals.length ? Math.max(...vals) : 1.5;
@@ -121,32 +121,58 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
 
   const data: ChartData<"bar"|"line",(number|null)[],string> = { labels, datasets };
 
-  const options = useMemo(() => buildWeeklyOptions(
-    metric, monoMax, strainMax, {
-      tooltipLabel: (label, v) => {
-        if (label.includes("Monotony")) return `${label}: ${v.toFixed(2)}`;
-        if (label.includes("Strain"))   return `${label}: ${Math.round(v)}`;
-        if (metric === "km")   return `${label}: ${v.toFixed(1)} km`;
-        if (metric === "time") return `${label}: ${Math.round(v)} min`;
-        return `${label}: ${Math.round(v)} TRIMP`;
+  const options: ChartOptions<"bar"|"line"> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    elements: { point: { radius: 2, hitRadius: 8 } },
+    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } }, // == widget
+    plugins: {
+      legend: {
+        position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
       },
-      onClick: (_evt, els) => {
-        const idx = els?.[0]?.index; if (idx == null) return;
-        const w = weeks[idx]; if (!w) return;
-        const pick = { week:w.week, start:w.start, end:w.end };
-        setPicked(pick);
-        onPickWeek?.(pick);
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.dataset.label || "";
+            const v = (ctx.parsed.y ?? 0) as number;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            if (metric === "km")   return `${label}: ${v.toFixed(1)} km`;
+            if (metric === "time") return `${label}: ${Math.round(v)} min`;
+            return `${label}: ${Math.round(v)} TRIMP`;
+          },
+        },
       },
-      showLegend: true,
-    }
-  ), [metric, monoMax, strainMax, weeks, onPickWeek]);
+    },
+    onClick: (_evt, els) => {
+      const idx = els?.[0]?.index; if (idx == null) return;
+      const w = weeks[idx]; if (!w) return;
+      const pick = { week:w.week, start:w.start, end:w.end };
+      setPicked(pick);
+      onPickWeek?.(pick);
+    },
+    // ľavá os = km/min/TRIMP, pravé dve = Monotony + Strain (farby podľa čiar)
+    scales: {
+      y:  { beginAtZero: true, position: "left",  grid: { color: THEME.chart.grid },
+            title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" } },
+      y1: { position: "right", min: 0, max: monoMax, grid: { drawOnChartArea: false },
+            border: { color: C.monotony }, ticks: { color: C.monotony },
+            title: { display: true, text: "Monotony", color: C.monotony } },
+      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
+            border: { color: C.strain }, ticks: { color: C.strain },
+            title: { display: true, text: "Strain", color: C.strain } },
+      x:  { grid: { color: THEME.chart.gridSoft }, ticks: { maxRotation: 0, autoSkip: true } },
+    },
+  }), [metric, weeks, monoMax, strainMax, onPickWeek]);
 
-  // ✅ bary konštantne široké + scroll len vnútri karty
-  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.pxPerLabel));
+  // konzistentná hrúbka barov + horizontálny scroll len vo vnútri
+  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
-      {/* ovládanie */}
+      {/* header filter */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
@@ -156,31 +182,32 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
         </div>
         <div className="text-xs">
           <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
+            <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
-            <option value={26}>26 týždňov</option>
           </select>
         </div>
       </div>
 
-      {/* scrolluje sa LEN vnútri karty; canvas má fixnú výšku */}
-      <div
-        className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
-        style={{
-          WebkitOverflowScrolling: "touch",
-          contain: "inline-size",     // zabráni rozťahovaniu layoutu
-        }}
-      >
-        <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <MixedChart type="bar" data={data} options={options} />
+      {/* scroll only inside */}
+      <div className="relative">
+        {/* “frozen” osi – len vizuálne lišty, prekryjú scrollujúci obsah pri okrajoch */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-800/80 to-transparent border-r border-gray-700/60 z-10" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-gray-800/80 to-transparent border-l border-gray-700/60 z-10" />
+
+        <div
+          className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
+          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+        >
+          <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
+            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+              <MixedChart type="bar" data={data} options={options} />
+            </div>
           </div>
         </div>
       </div>
 
-      {picked && (
-        <WeeklySummary weeks={weeks as any} metric={metric} selectedWeek={picked.week} />
-      )}
+      {picked && <WeeklySummary weeks={weeks as any} metric={metric} selectedWeek={picked.week} />}
     </div>
   );
 }

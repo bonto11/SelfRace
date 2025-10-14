@@ -24,6 +24,9 @@ export const THEME = {
     gridSoft: 'rgba(255,255,255,0.05)',
     legendPosition: 'top' as const,
 
+    /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
+    weeklyPxPerLabel: 56,
+    
     // výšky
     weeklyHeight: 360,
     weeklyHeightCompact: 180,
