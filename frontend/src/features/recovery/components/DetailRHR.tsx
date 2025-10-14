@@ -48,7 +48,7 @@ export default function DetailRHR() {
       const json = await res.json().catch(() => ({}));
       const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
       const norm = arr
-        .map(r => ({ date: isoDate(r.date), RHR_bpm: r?.RHR_bpm ?? null, note: r?.note ?? null }))
+        .map(r => ({ date: isoDate(r.date), RHR_bpm: r?.RHR_bpm ?? null, comments: r?.comments ?? null }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setRows(norm);
     })();
