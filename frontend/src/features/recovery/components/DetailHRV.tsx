@@ -15,7 +15,7 @@ import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
 ensureChartJSRegistered();
 
-type Row = { date: string; HRV_avg_ms: number | null; note?: string | null };
+type Row = { date: string; HRV_avg_ms: number | null; comments?: string | null };
 
 function wrapToWidth(text: string, max = 44): string {
   if (!text) return "";
@@ -65,7 +65,7 @@ export default function DetailHRV() {
 
   const comments = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) if (r.note) m.set(r.date, r.note);
+    for (const r of rows) if (r.comments) m.set(r.date, r.comments);
     return m;
   }, [rows]);
 
