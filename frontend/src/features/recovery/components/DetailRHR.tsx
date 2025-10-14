@@ -14,8 +14,8 @@ ensureChartJSRegistered();
 type Row = { date: string; RHR_bpm: number | null; comment?: string };
 
 function fmtDay(d: Date) {
-  const dd = String(d.getDate()).padStart(1, "0");
-  const mm = String(d.getMonth() + 1);
+  const dd = d.getDate();
+  const mm = d.getMonth() + 1;
   return `${dd}.${mm}.`;
 }
 function rangeLabel(startISO?: string, endISO?: string) {
@@ -28,7 +28,7 @@ function rangeLabel(startISO?: string, endISO?: string) {
 
 export default function DetailRHR() {
   const { userId } = useUserId();
-  const [weeks, setWeeks] = useState(8); // 2/4/8/12
+  const [weeks, setWeeks] = useState(8); // 2 / 4 / 8 / 12
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
@@ -41,26 +41,29 @@ export default function DetailRHR() {
     })();
   }, [userId, weeks]);
 
-  // Zoradené denné dáta (1 bod = 1 deň)
-  const days = useMemo(() => {
-    const a = [...rows].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-    return a;
-  }, [rows]);
+  // zoradené denné dáta
+  const days = useMemo(
+    () => [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [rows]
+  );
 
-  // Denné popisky (nebudú sa zobrazovať; používame len na indexy)
   const labelsDaily = useMemo(() => days.map((d) => d.date), [days]);
+  const values = useMemo(
+    () => days.map((d) => (d.RHR_bpm == null ? NaN : Number(d.RHR_bpm))),
+    [days]
+  );
+  const comments = useMemo(() => days.map((d) => d.comment ?? ""), [days]);
 
-  // Týždenné labely / grid: na každý 7. index zobrazíme rozsah týždňa
+  // týždenné popisky a grid (každý 7. deň)
   const weekLabelForIndex = useMemo(() => {
-    // rozsekaj po 7 dňoch
     const chunks: { start?: string; end?: string }[] = [];
     for (let i = 0; i < days.length; i += 7) {
-      chunks.push({ start: days[i]?.date, end: days[Math.min(i + 6, days.length - 1)]?.date });
+      chunks.push({
+        start: days[i]?.date,
+        end: days[Math.min(i + 6, days.length - 1)]?.date,
+      });
     }
     return (index: number) => {
-      // label ukážeme na poslednom dni v bloku (…6, …13, …20, …)
       if ((index + 1) % 7 !== 0) return "";
       const block = Math.floor(index / 7);
       const c = chunks[block];
@@ -68,20 +71,76 @@ export default function DetailRHR() {
     };
   }, [days]);
 
-  // Dataset – denné body
-  const series = useMemo(
-    () => days.map((d) => (d.RHR_bpm == null ? null : Number(d.RHR_bpm))),
-    [days]
-  );
-  const comments = useMemo(() => days.map((d) => d.comment ?? ""), [days]);
+  // ----- Rolling baseline (14 dní) a pásmo ±5 % -----
+  const WINDOW = 14;        // veľkosť okna
+  const TOL = 0.05;         // +-5 %
+  const baseline = useMemo(() => {
+    const out: (number | null)[] = new Array(values.length).fill(null);
+    for (let i = 0; i < values.length; i++) {
+      const from = Math.max(0, i - WINDOW);      // berieme posledných 14 dní PRED daným dňom
+      const to = i - 1;
+      if (to < from) continue;
+      const slice = values.slice(from, to + 1).filter((v) => Number.isFinite(v)) as number[];
+      if (slice.length >= Math.min(7, WINDOW / 2)) {
+        out[i] = slice.reduce((s, v) => s + v, 0) / slice.length;
+      }
+    }
+    return out;
+  }, [values]);
 
+  const bandLower = useMemo(
+    () => baseline.map((b) => (b == null ? NaN : b * (1 - TOL))),
+    [baseline]
+  );
+  const bandUpper = useMemo(
+    () => baseline.map((b) => (b == null ? NaN : b * (1 + TOL))),
+    [baseline]
+  );
+
+  // Datasety: spodná a horná hranica pásma (vyplní sa plocha medzi nimi),
+  // tenká baseline (stred) a hlavná séria RHR bodov.
   const data = useMemo(
     () => ({
       labels: labelsDaily,
       datasets: [
         {
+          // lower bound
+          type: "line" as const,
+          label: "Baseline −5%",
+          data: bandLower,
+          yAxisID: "y",
+          borderWidth: 0,
+          pointRadius: 0,
+        },
+        {
+          // upper bound – fill k predošlému datasetu => vyfarbené pásmo
+          type: "line" as const,
+          label: "Baseline +5%",
+          data: bandUpper,
+          yAxisID: "y",
+          borderWidth: 0,
+          pointRadius: 0,
+          backgroundColor: "rgba(34,197,94,0.12)", // bledozelená
+          fill: "-1" as const,
+        },
+        {
+          // stred baseline – tenká čiara
+          type: "line" as const,
+          label: "Baseline (14d priemer)",
+          data: baseline.map((b) => (b == null ? NaN : b)),
+          yAxisID: "y",
+          borderColor: "rgba(34,197,94,0.9)",
+          backgroundColor: "rgba(34,197,94,0.9)",
+          borderDash: [6, 3],
+          pointRadius: 0,
+          tension: 0.25,
+        },
+        {
+          // hlavná séria – jediné „klikateľné“ body
+          type: "line" as const,
           label: "Resting HR",
-          data: series,
+          data: values,
+          yAxisID: "y",
           borderColor: "#f59e0b",
           backgroundColor: "#f59e0b",
           tension: 0.25,
@@ -90,32 +149,28 @@ export default function DetailRHR() {
         },
       ],
     }),
-    [labelsDaily, series]
+    [labelsDaily, bandLower, bandUpper, baseline, values]
   );
 
-  // Spoločné options (fixná výška, žiadne pretekanie, 55° popisky po týždňoch)
+  // Options – 55° X ticks, týždenný grid; tooltip len pre „Resting HR“
   const options = useMemo(() => {
     const base = buildRecoveryOptions("bpm", { min: 40, max: 100 }, weekLabelForIndex);
-    // doplníme tooltip (title = dátum dňa, label = hodnota + komentár)
     return {
       ...base,
       plugins: {
         ...base.plugins,
         tooltip: {
           ...base.plugins?.tooltip,
+          filter: (item: any) => item.dataset?.label === "Resting HR", // ignoruj pásmo/baseline
           callbacks: {
             title: (ctx: any) => {
               const iso = labelsDaily[ctx[0].dataIndex];
-              const d = new Date(iso);
-              return d.toLocaleDateString("sk-SK");
+              return new Date(iso).toLocaleDateString("sk-SK");
             },
             label: (ctx: any) => {
               const v = ctx.parsed.y;
               const c = comments[ctx.dataIndex];
-              return [
-                `RHR: ${v?.toFixed?.(1)} bpm`,
-                c ? `Komentár: ${c}` : undefined,
-              ].filter(Boolean) as string[];
+              return c ? [`RHR: ${v?.toFixed?.(1)} bpm`, `Komentár: ${c}`] : [`RHR: ${v?.toFixed?.(1)} bpm`];
             },
           },
         },
@@ -127,9 +182,7 @@ export default function DetailRHR() {
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Detail – Resting HR</h2>
-        <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 text-sm">
-          Späť
-        </Link>
+        <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 text-sm">Späť</Link>
       </div>
 
       <div className="mb-3 text-xs flex items-center gap-2">
@@ -146,7 +199,7 @@ export default function DetailRHR() {
         </select>
       </div>
 
-      {/* fixná výška – žiadne pretekanie */}
+      {/* fixná výška – nepretečie */}
       <div className="rounded-md overflow-hidden" style={{ height: THEME.chart.weeklyHeight }}>
         <Line data={data} options={options} />
       </div>
