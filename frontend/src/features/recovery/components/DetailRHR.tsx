@@ -19,7 +19,7 @@ import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
 ensureChartJSRegistered();
 
-type Row = { date: string; RHR_bpm: number | null; note?: string | null };
+type Row = { date: string; RHR_bpm: number | null; comments?: string | null };
 
 export default function DetailRHR() {
   const router = useRouter();
@@ -40,16 +40,17 @@ export default function DetailRHR() {
     })();
   }, [userId, weeks]);
 
-  // os X: každý deň (ISO), hodnoty a komentáre 1:1 poradie
-  const points: DayPoint[] = useMemo(
-    () =>
-      rows.map((r) => ({
-        date: isoDate(r.date),
-        value: r.RHR_bpm ?? null,
-        comment: r.note ?? null,
-      })),
-    [rows]
+  // os X: zoradíme dni chronologicky (ASC) a až potom mapujeme
+const points: DayPoint[] = useMemo(() => {
+  const sorted = [...rows].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
+  return sorted.map(r => ({
+    date: isoDate(r.date),
+    value: r.RHR_bpm ?? null,
+    comment: r.comments ?? null,
+  }));
+}, [rows]);
 
   const labelsISO = useMemo(() => points.map((p) => p.date), [points]);
   const values = useMemo(() => points.map((p) => p.value), [points]);
