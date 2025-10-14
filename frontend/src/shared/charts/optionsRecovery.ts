@@ -8,10 +8,10 @@ import { THEME } from "@/shared/theme/tokens";
 import { isMonday, formatWeekRange } from "@/shared/utils/recovery";
 
 type RecoveryLineOptsParams = {
-  labelsISO: string[];                // "YYYY-MM-DD" pre každý DEŇ (x)
-  yTitle: string;                     // "bpm", "ms", "min"...
+  labelsISO: string[];
+  yTitle: string;
   tooltipTitleForIndex?: (i: number) => string;
-  tooltipLabelForItem?: (ctx: any) => string;   // ← musí vrátiť string
+  tooltipLabelForItem?: (ctx: any) => string;   // <- striktne string
   tooltipFilter?: (item: any) => boolean;
 };
 

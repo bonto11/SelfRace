@@ -1,25 +1,24 @@
+// src/features/recovery/components/DetailRHR.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
+import Link from "next/link";
+
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
-import {
-  isoDate,
-  rollingMean,
-  bandsAround,
-} from "@/shared/utils/recovery";
+import { isoDate, rollingMean, bandsAround } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import Link from "next/link";
 
 ensureChartJSRegistered();
 
 type Row = { date: string; RHR_bpm: number | null; note?: string | null };
 
+/** jednoduché zalamovanie textu pre tooltip */
 function wrapToWidth(text: string, max = 44): string {
   if (!text) return "";
   const words = text.split(/\s+/);
@@ -30,7 +29,6 @@ function wrapToWidth(text: string, max = 44): string {
     if (tryAdd.length > max) {
       if (curr) lines.push(curr);
       if (w.length > max) {
-        // slovo dlhšie než max -> akceptuj ako zvlášť riadok
         lines.push(w);
         curr = "";
       } else {
@@ -56,25 +54,34 @@ export default function DetailRHR() {
       const res = await fetch(`${API_URL}/recovery/${userId}?days=${days}`);
       const json = await res.json().catch(() => ({}));
       const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
-      // normalizácia dátumu + záruka fixed pořadia zľava -> vpravo
       const norm = arr
-        .map((r) => ({ date: isoDate(r.date), RHR_bpm: r?.RHR_bpm ?? null, note: r?.note ?? null }))
+        .map((r) => ({
+          date: isoDate(r.date),
+          RHR_bpm: r?.RHR_bpm ?? null,
+          note: r?.note ?? null,
+        }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setRows(norm);
     })();
   }, [userId, weeks]);
 
+  // x-os: každý DEŇ (chronologicky zľava doprava)
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
+
+  // denné RHR (NaN pre chýbajúce)
   const rhr = useMemo(
     () => rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : NaN)),
     [rows]
   );
 
-  // baseline (rolling mean z predchádzajúcich dní)
-  const baseline = useMemo(() => rollingMean(rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)), 14), [rows]);
-  const { lower, upper } = useMemo(() => bandsAround(baseline, 0.05), [baseline]);
+  // baseline (rolling priemer z predchádzajúcich dní) + pásma ±5 %
+  const baselineArr = useMemo(
+    () => rollingMean(rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)), 14),
+    [rows]
+  );
+  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  // mapka komentárov
+  // mapka komentárov k dňom
   const comments = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rows) if (r.note) m.set(r.date, r.note);
@@ -83,14 +90,13 @@ export default function DetailRHR() {
 
   // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const asNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
 
-    // Pozadie pásma: prvý dataset (lower) bez fill, druhý (upper) fill k predchádzajúcemu
     const bandLower = {
       type: "line" as const,
       label: "Baseline −5%",
-      data: asNum(lower),
-      borderColor: "rgba(16,185,129,0.0)",
+      data: toNum(lower),
+      borderColor: "rgba(16,185,129,0)",
       backgroundColor: "rgba(16,185,129,0.15)",
       pointRadius: 0,
       borderWidth: 0,
@@ -100,20 +106,20 @@ export default function DetailRHR() {
     const bandUpper = {
       type: "line" as const,
       label: "Baseline +5%",
-      data: asNum(upper),
-      borderColor: "rgba(16,185,129,0.0)",
+      data: toNum(upper),
+      borderColor: "rgba(16,185,129,0)",
       backgroundColor: "rgba(16,185,129,0.15)",
       pointRadius: 0,
       borderWidth: 0,
       tension: 0.2,
-      fill: "-1" as const,      // vyplň k predošlému datasetu (lower)
+      fill: "-1" as const, // vyplň k bandLower
       order: 1,
     };
 
-    const baseLine = {
+    const baselineLine = {
       type: "line" as const,
       label: "Baseline (14d priemer)",
-      data: asNum(baseline),
+      data: toNum(baselineArr),
       borderColor: "#22c55e",
       backgroundColor: "#22c55e",
       pointRadius: 0,
@@ -136,40 +142,46 @@ export default function DetailRHR() {
       order: 3,
     };
 
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, baseLine, rhrLine] };
-  }, [labelsISO, lower, upper, baseline, rhr]);
+    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, rhrLine] };
+  }, [labelsISO, lower, upper, baselineArr, rhr]);
 
-  // options (spoločné)
-  const options = useMemo(() =>
-    buildRecoveryLineOptions({
-      labelsISO,
-      yTitle: "bpm",
-      tooltipFilter: (item) => item.datasetIndex >= 2, // skryť „bandy“ z tooltipu
-      tooltipTitleForIndex: (i) => {
-        const iso = labelsISO[i] ?? "";
-        const d = new Date(iso + "T00:00:00");
-        return d.toLocaleDateString("sk-SK");
-      },
-      tooltipLabelForItem: (ctx) => {
-        const idx = ctx?.dataIndex ?? 0;
-        const iso = labelsISO[idx] ?? "";
+  // options (spoločné pre recovery line grafy)
+  const options = useMemo(
+    () =>
+      buildRecoveryLineOptions({
+        labelsISO,
+        yTitle: "bpm",
+        tooltipTitleForIndex: (i) => {
+          const iso = labelsISO[i] ?? "";
+          return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
+        },
+        // ⬇︎ MUSÍ vrátiť string
+        tooltipLabelForItem: (ctx): string => {
+          const idx = ctx.dataIndex ?? 0;
+          const lines: string[] = [];
 
-        // RHR dataset (posledný)
-        if (ctx.datasetIndex === 3) {
-          const v = rhr[idx];
-          let s = `RHR: ${Number.isFinite(v) ? Math.round(v as number) : "—"} bpm`;
-          const c = comments.get(iso);
-          if (c) s += ` — ${wrapToWidth(c, 44)}`;
-          return s;
-        }
-        // baseline dataset (zelená čiara)
-        if (ctx.datasetIndex === 2) {
-          const b = baseline[idx];
-          return `Baseline: ${typeof b === "number" ? Math.round(b) : "—"} bpm`;
-        }
-        return ""; // nič iné v tooltipe
-      },
-    }), [labelsISO, rhr, baseline, comments]);
+          // RHR + komentár
+          if (ctx.datasetIndex === 3) {
+            const v = rhr[idx];
+            if (Number.isFinite(v)) lines.push(`RHR: ${Math.round(v as number)} bpm`);
+            const c = comments.get(labelsISO[idx] ?? "");
+            if (c) lines.push(wrapToWidth(c, 44));
+          }
+
+          // Baseline (14d)
+          if (ctx.datasetIndex === 2) {
+            const b = baselineArr[idx];
+            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} bpm`);
+          }
+
+          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          return lines.join("\n");
+        },
+        // tooltip iba pre baselineLine(2) a rhrLine(3)
+        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+      }),
+    [labelsISO, rhr, baselineArr, comments]
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
@@ -186,10 +198,7 @@ export default function DetailRHR() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link
-            href="/recovery"
-            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
-          >
+          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
             Späť
           </Link>
         </div>
