@@ -92,9 +92,16 @@ export function buildWeeklyOptions(
         weight: 1,
       },
       x: {
-        grid: { color: THEME.chart.gridSoft },
-        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8, color: THEME.color.text },
-      },
+           grid: { color: THEME.chart.gridSoft },
+            ticks: {
+              autoSkip: false,
+              maxRotation: 90,
+              minRotation: 90,     // natvrdo zvislo
+              padding: 8,
+              font: { size: 10 },
+              align: "center",
+            },
+        },
     },
   };
 }
