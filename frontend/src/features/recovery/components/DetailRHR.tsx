@@ -1,28 +1,31 @@
-// src/features/recovery/components/DetailRHR.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import { useRouter } from "next/navigation";
+
+import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
 import {
-  toISODate,
-  makeRollingBaseline,
+  isoDate,
+  rollingMean,
+  bandsAround,
+  DayPoint,
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import { ensureChartJSRegistered } from "@/shared/charts/register";
+
 ensureChartJSRegistered();
-type Row = {
-  date: string;
-  RHR_bpm: number | null;
-  note?: string | null;
-};
+
+type Row = { date: string; RHR_bpm: number | null; note?: string | null };
 
 export default function DetailRHR() {
+  const router = useRouter();
   const { userId } = useUserId();
+
+  // výber rozsahu ako pri WeeklyLoad (2/4/8/12 týždňov)
   const [weeks, setWeeks] = useState<number>(8);
   const [rows, setRows] = useState<Row[]>([]);
 
@@ -32,125 +35,146 @@ export default function DetailRHR() {
       const days = weeks * 7;
       const res = await fetch(`${API_URL}/recovery/${userId}?days=${days}`);
       const json = await res.json().catch(() => ({}));
-      if (json?.success && Array.isArray(json.data)) setRows(json.data);
+      if (json?.success && Array.isArray(json?.data)) setRows(json.data as Row[]);
+      else setRows([]);
     })();
   }, [userId, weeks]);
 
-  // x-os: každý deň
-  const labelsISO = useMemo<string[]>(
-    () => rows.map(r => toISODate(r.date)),
+  // os X: každý deň (ISO), hodnoty a komentáre 1:1 poradie
+  const points: DayPoint[] = useMemo(
+    () =>
+      rows.map((r) => ({
+        date: isoDate(r.date),
+        value: r.RHR_bpm ?? null,
+        comment: r.note ?? null,
+      })),
     [rows]
   );
 
-  const rhr = useMemo<number[]>(
-    () => rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : NaN)),
-    [rows]
-  );
+  const labelsISO = useMemo(() => points.map((p) => p.date), [points]);
+  const values = useMemo(() => points.map((p) => p.value), [points]);
 
+  // rolling baseline = priemer z predchádzajúcich 14 dní (bez aktuálneho dňa)
+  const baseline = useMemo(() => rollingMean(values, 14), [values]);
+  const { lower, upper } = useMemo(() => bandsAround(baseline, 0.05), [baseline]);
+
+  // tooltip: k dátumu doplníme aj komentár (ak je) len pre dataset "Resting HR"
   const commentsMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) if (r.note) m.set(toISODate(r.date), r.note);
+    for (const p of points) if (p.comment) m.set(p.date, p.comment);
     return m;
-  }, [rows]);
+  }, [points]);
 
-  // Rolling baseline ±5 %
-  const { baseline, lower, upper } = useMemo(
-    () => makeRollingBaseline(rhr, 14, 0.05),
-    [rhr]
+  const data = useMemo(
+    () => ({
+      labels: labelsISO,
+      datasets: [
+        // 1) spodná hranica pásma (skrytá čiara – bez legendy)
+        {
+          type: "line" as const,
+          label: "_bandLower",
+          data: lower,
+          borderWidth: 0,
+          pointRadius: 0,
+          hitRadius: 0,
+        },
+        // 2) horná hranica pásma – vyplní priestor po predchádzajúcu
+        {
+          type: "line" as const,
+          label: "_bandUpper",
+          data: upper,
+          borderWidth: 0,
+          pointRadius: 0,
+          hitRadius: 0,
+          fill: "-1", // vyplň k predošlej dátasade (lower)
+          backgroundColor: "rgba(34,197,94,0.12)", // zelená jemne
+        },
+        // 3) baseline
+        {
+          type: "line" as const,
+          label: "Baseline (14d priemer)",
+          data: baseline,
+          borderColor: "#22C55E",
+          backgroundColor: "#22C55E",
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.25,
+          order: 10,
+        },
+        // 4) skutočný RHR
+        {
+          type: "line" as const,
+          label: "Resting HR",
+          data: values,
+          borderColor: "#F59E0B",
+          backgroundColor: "#F59E0B",
+          borderWidth: 2,
+          pointRadius: 2,
+          tension: 0.2,
+          order: 20,
+        },
+      ],
+    }),
+    [labelsISO, lower, upper, baseline, values]
   );
 
-  const data: ChartData<"line"> = useMemo(() => ({
-    labels: labelsISO,
-    datasets: [
-      // baseline pásma – tenké linky (ak chceš, dá sa neskôr nahradiť „box“ anotáciami)
-      {
-        type: "line",
-        label: "Baseline −5%",
-        data: lower.map(v => (typeof v === "number" ? v : NaN)),
-        borderColor: "#ef4444",
-        borderWidth: 1,
-        pointRadius: 0,
-        tension: 0.2,
-        order: 1,
-      },
-      {
-        type: "line",
-        label: "Baseline +5%",
-        data: upper.map(v => (typeof v === "number" ? v : NaN)),
-        borderColor: "#ef4444",
-        borderWidth: 1,
-        pointRadius: 0,
-        tension: 0.2,
-        order: 1,
-      },
-      {
-        type: "line",
-        label: "Baseline (14d priemer)",
-        data: baseline.map(v => (typeof v === "number" ? v : NaN)),
-        borderColor: "#22c55e",
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.2,
-        order: 2,
-      },
-      {
-        type: "line",
-        label: "Resting HR",
-        data: rhr,
-        borderColor: "#f59e0b",
-        backgroundColor: "#f59e0b",
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        tension: 0.2,
-        order: 3,
-      },
-    ],
-  }), [labelsISO, lower, upper, baseline, rhr]);
-
-  const options: ChartOptions<"line"> = useMemo(
+  const options = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
         yTitle: "bpm",
-        // tooltip title – už je z buildera, tu iba doplníme komentár do „label“
-        tooltipLabelForItem: (ctx: any) => {
-          // iba pre RHR dataset (posledný dataset)
-          const isRhr = ctx.datasetIndex === 3;
-          if (!isRhr) return `${ctx.dataset?.label}: ${ctx.formattedValue}`;
-          const idx = ctx.dataIndex ?? 0;
-          const iso = labelsISO[idx] ?? "";
-          const c = commentsMap.get(iso);
-          return c
-            ? `RHR: ${ctx.formattedValue} bpm — ${c}`
-            : `RHR: ${ctx.formattedValue} bpm`;
+        tooltipTitleForIndex: (i) => {
+          const iso = labelsISO[i] ?? "";
+          return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
         },
-        // skryť tooltip položky baseline −/+5 (nech zostane prehľadný)
-        tooltipFilter: (item: any) => item.datasetIndex >= 2,
+        tooltipLabelForItem: (ctx) => {
+          const di = ctx.dataIndex as number;
+          const label = ctx.dataset?.label as string;
+          // len pre "Resting HR" pripájame komentár
+          if (label === "Resting HR") {
+            const iso = labelsISO[di] ?? "";
+            const c = commentsMap.get(iso);
+            const base = `RHR: ${Math.round(Number(ctx.parsed.y))} bpm`;
+            return c ? `${base} — ${c}` : base;
+          }
+          if (label?.startsWith("Baseline")) {
+            return `Baseline: ${Math.round(Number(ctx.parsed.y))} bpm`;
+          }
+          return ""; // skry pre band datasets
+        },
+        // neukazuj položky tooltipu pre band dataset-y
+        tooltipFilter: (item) => !(item.dataset?.label || "").startsWith("_"),
       }),
     [labelsISO, commentsMap]
   );
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+      {/* Header + späť */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <h2 className="text-lg font-semibold">Detail — Resting HR</h2>
-        <div className="text-xs flex items-center gap-2">
-          <span className="opacity-70">Rozsah:</span>
+        <div className="flex items-center gap-2">
           <select
             value={weeks}
             onChange={(e) => setWeeks(Number(e.target.value))}
-            className="px-2 py-1 rounded bg-gray-700"
+            className="px-2 py-1 rounded bg-gray-700 text-sm"
           >
             <option value={2}>2 týždne</option>
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
+          <button
+            onClick={() => router.back()}
+            className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
+            Späť
+          </button>
         </div>
       </div>
 
-      {/* fixná výška – nič nepretečie, X oseľ rotácia 55° */}
-      <div style={{ height: THEME.chart.weeklyHeight }}>
+      {/* pevná výška – nič nepretečie; šírka sa prispôsobí kontajneru */}
+      <div style={{ height: THEME.chart.weeklyHeight || 360 }}>
         <Line data={data} options={options} />
       </div>
     </div>

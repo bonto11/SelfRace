@@ -24,9 +24,17 @@ export function buildRecoveryLineOptions({
     animation: false,
     interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
-      legend: {
+       legend: {
         position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 10,
+          // ⬇️ skryť datasets s labelmi začínajúcimi na "_"
+          filter: (legendItem) => !(legendItem.text || "").startsWith("_"),
+        },
       },
       tooltip: {
         filter: (item: any) => (tooltipFilter ? tooltipFilter(item) : true),
