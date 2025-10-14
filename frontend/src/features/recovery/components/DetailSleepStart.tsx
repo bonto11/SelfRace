@@ -1,84 +1,93 @@
 // src/components/Recovery/TrendSleepStart.tsx
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
+import { Line } from "react-chartjs-2";
+import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import TrendWithBands from "@/shared/components/TrendWithBands";
+import {
+  isoDate, hhmmToMinutes, minutesToHHMM, wrapTextToLines,
+} from "@/shared/utils/recovery";
+import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
-type Row = {
-  date: string; // ISO (YYYY-MM-DD)
-  sleep_start_time: string | null; // "HH:MM" alebo null
-};
+ensureChartJSRegistered();
 
-function hhmmToMinutes(hhmm: string): number | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
-  if (!m) return null;
-  const h = Number(m[1]),
-    min = Number(m[2]);
-  if (isNaN(h) || isNaN(min)) return null;
-  return h * 60 + min;
-}
+type Row = { date: string; sleep_start_time: string | null; note?: string | null };
 
-function minutesToHHMM(total: number): string {
-  const t = Math.max(0, Math.min(1439, Math.round(total)));
-  const h = Math.floor(t / 60);
-  const m = t % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
-export default function TrendSleepStart() {
+export default function DetailSleepStart() {
   const { userId } = useUserId();
+  const [weeks, setWeeks] = useState(8);
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
     if (!userId) return;
     (async () => {
-      try {
-        // načítaj posledných 90 dní, kľudne uprav
-        const res = await fetch(`${API_URL}/recovery/${userId}?days=90`);
-        const json = await res.json();
-        if (json.success) {
-          setRows(json.data);
-        }
-      } catch (e) {
-        console.error("❌ [FE] SleepStart fetch err:", e);
-      }
+      const days = weeks * 7;
+      const res = await fetch(`${API_URL}/recovery/${userId}?days=${days}`);
+      const json = await res.json().catch(() => ({}));
+      const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
+      arr.sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime());
+      setRows(arr);
     })();
-  }, [userId]);
+  }, [userId, weeks]);
 
-  const points = useMemo(() => {
-    return rows
-      .filter((r) => !!r.sleep_start_time)
-      .map((r) => ({
-        date: r.date,
-        value: hhmmToMinutes(r.sleep_start_time as string),
-      }))
-      .filter((p) => p.value != null) as { date: string; value: number }[];
-  }, [rows]);
+  const labelsISO = useMemo(()=>rows.map(r=>isoDate(r.date)),[rows]);
+  const times = useMemo(()=>rows.map(r => {
+    const m = r.sleep_start_time ? hhmmToMinutes(r.sleep_start_time) : null;
+    return m;
+  }),[rows]);
 
-  // voliteľné: odporúčaný interval zaspania (21:30–23:30)
-  const bands = useMemo(
-    () => [
-      {
-        label: "Recommended",
-        min: 21 * 60 + 30,
-        max: 23 * 60 + 30,
-        color: "#22C55E",
-      },
+  // baseline pásmo: 22:30 ± 30 min
+  const minBand = 22*60;      // 22:00
+  const maxBand = 23*60;      // 23:00
+
+  const comments = useMemo(()=>{
+    const m = new Map<string,string>();
+    for (const r of rows) if (r.note) m.set(isoDate(r.date), r.note);
+    return m;
+  },[rows]);
+
+  const data = useMemo(()=>({
+    labels: labelsISO,
+    datasets: [
+      { type:"line" as const, label:"22:00", data: labelsISO.map(()=>minBand), borderColor:"transparent", pointRadius:0, fill:"+1", backgroundColor:"rgba(34,197,94,0.18)" },
+      { type:"line" as const, label:"23:00", data: labelsISO.map(()=>maxBand), borderColor:"transparent", pointRadius:0, fill:"-1", backgroundColor:"rgba(34,197,94,0.18)" },
+      { type:"line" as const, label:"Sleep start", data: times, borderColor:"#0ea5e9", backgroundColor:"#0ea5e9", pointRadius:3, tension:0.25 },
     ],
-    []
-  );
+  }),[labelsISO, times]);
+
+  const options = useMemo(()=>buildRecoveryLineOptions({
+    labelsISO,
+    yTitle:"čas",
+    yTickFormatter:(v)=>minutesToHHMM(v),
+    tooltipLabelForItem:(ctx)=>{
+      const idx = ctx.dataIndex ?? 0;
+      const iso = labelsISO[idx] ?? "";
+      if (ctx.datasetIndex === 2) {
+        const v = times[idx];
+        const lines = [`Zaspal: ${isFinite(v as number) ? minutesToHHMM(v as number) : "—"}`];
+        const c = comments.get(iso); if (c) lines.push(...wrapTextToLines(c,44));
+        return lines;
+      }
+      return "";
+    },
+    tooltipFilter:(it)=>it.datasetIndex === 2,
+  }),[labelsISO, times, comments]);
 
   return (
-    <TrendWithBands
-      title="Trend Sleep Start"
-      points={points}
-      bands={bands}
-      lineColor="#06b6d4"
-      ySuggestedMin={0}
-      ySuggestedMax={1440}
-      yTickFormatter={(v) => minutesToHHMM(v)}
-    />
+    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h2 className="text-lg font-semibold">Detail — Sleep start</h2>
+        <div className="flex items-center gap-2">
+          <span className="opacity-70 text-sm">Rozsah:</span>
+          <select value={weeks} onChange={(e)=>setWeeks(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700 text-sm">
+            <option value={2}>2 týždne</option><option value={4}>4 týždne</option>
+            <option value={8}>8 týždňov</option><option value={12}>12 týždňov</option>
+          </select>
+          <button onClick={()=>history.back()} className="px-3 py-1 rounded bg-gray-700">Späť</button>
+        </div>
+      </div>
+      <div style={{height:360}}><Line data={data} options={options} /></div>
+    </div>
   );
 }

@@ -115,3 +115,17 @@ export function formatWeekRange(startIso: string) {
   return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
 
+/** zalomenie textu po maxN znakoch tak, aby sa slovám nelámali písmená */
+export function wrapTextToLines(text: string, maxN = 42): string[] {
+  if (!text) return [];
+  const words = text.split(/\s+/);
+  const out: string[] = [];
+  let line = "";
+  for (const w of words) {
+    if (!line.length) { line = w; continue; }
+    if ((line + " " + w).length <= maxN) line += " " + w;
+    else { out.push(line); line = w; }
+  }
+  if (line) out.push(line);
+  return out;
+}
