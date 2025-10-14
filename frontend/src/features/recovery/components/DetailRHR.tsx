@@ -13,7 +13,8 @@ import {
   makeRollingBaseline,
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-
+import { ensureChartJSRegistered } from "@/shared/charts/register";
+ensureChartJSRegistered();
 type Row = {
   date: string;
   RHR_bpm: number | null;

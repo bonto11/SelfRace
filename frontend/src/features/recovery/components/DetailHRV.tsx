@@ -7,7 +7,8 @@ import TrendWithBands, {
   Band,
   Point,
 } from "@/shared/components/TrendWithBands";
-
+import { ensureChartJSRegistered } from "@/shared/charts/register";
+ensureChartJSRegistered();
 type RecoveryRow = {
   date: string;
   HRV_avg_ms: number | null;
