@@ -1,60 +1,88 @@
+//shared/charts/optionsRecovery
+
+
+// Jeden spoločný „builder“ pre všetky recovery line grafy
+// - 55° popisky týždňov
+// - grid len v pondelky
+// - nič nepretečie (maintainAspectRatio:false; výška dáš cez wrapper)
+
 import type { ChartOptions } from "chart.js";
 import { THEME } from "@/shared/theme/tokens";
+import { isMonday, formatWeekRange } from "@/shared/utils/recovery";
 
-/**
- * Spoločné options pre recovery trendy (denné body, týždenné značky).
- *
- * @param yTitle   Jednotka osi Y (napr. "bpm", "ms", "min")
- * @param yMinMax  Explicitné min/max alebo null ak nechceš
- * @param weekLabelForIndex  Funkcia ktorá vráti týždenný popisok pre daný index (inak vráť "")
- */
-export function buildRecoveryOptions(
-  yTitle: string,
-  yMinMax: { min?: number | null; max?: number | null } = {},
-  weekLabelForIndex?: (index: number) => string
-): ChartOptions<"line"> {
+type RecoveryLineOptsParams = {
+  labelsISO: string[];      // "YYYY-MM-DD" pre každý DEŇ v grafe (aj keď x-os zobrazuje len týždne)
+  yTitle: string;           // "bpm", "ms", "min"...
+  // tieto dve nechávame na konkrétny graf (napr. RHR potrebuje komentáre atď.)
+  tooltipTitleForIndex?: (i: number) => string;
+  tooltipLabelForItem?: (ctx: any) => string;
+  tooltipFilter?: (item: any) => boolean;
+};
+
+export function buildRecoveryLineOptions({
+  labelsISO,
+  yTitle,
+  tooltipTitleForIndex,
+  tooltipLabelForItem,
+  tooltipFilter,
+}: RecoveryLineOptsParams): ChartOptions<"line"> {
   return {
     responsive: true,
     maintainAspectRatio: false,
-    interaction: { mode: "nearest", intersect: true }, // len body
-    elements: { point: { radius: 3, hitRadius: 8 } },
+    animation: false,
+    parsing: false,
+    interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          boxWidth: 6,
-          boxHeight: 6,
-          padding: 10,
-        },
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
       },
       tooltip: {
-        // title/label nastavuje komponent (cez callbacks) – tu necháme default
+        // ❗️Filter patrí na úroveň tooltipu (nie do callbacks)
+        filter: (item: any) => (tooltipFilter ? tooltipFilter(item) : true),
+        callbacks: {
+          // titulok – dátum podľa indexu
+          title: (items: any[]) => {
+            const i = items?.[0]?.dataIndex ?? 0;
+            if (tooltipTitleForIndex) return tooltipTitleForIndex(i);
+            const iso = labelsISO[i] ?? "";
+            const d = new Date(iso + "T00:00:00");
+            return d.toLocaleDateString("sk-SK");
+          },
+          // vlastné labely (napr. RHR + komentár)
+          label: (ctx: any) => {
+            if (tooltipLabelForItem) return tooltipLabelForItem(ctx);
+            return `${ctx.dataset?.label || ""}: ${ctx.formattedValue}`;
+          },
+        },
       },
     },
     scales: {
-      y: {
-        beginAtZero: false,
-        min: yMinMax.min ?? undefined,
-        max: yMinMax.max ?? undefined,
-        grid: { color: THEME.chart.grid },
-        title: { display: true, text: yTitle },
-      },
       x: {
-        // grid iba pri týždenných značkách (ostatné "priehľadné")
         grid: {
-          color: (ctx) =>
-            ctx.index % 7 === 6 ? THEME.chart.gridSoft : "rgba(0,0,0,0)",
+          // týždenný grid – len pondelky
+          // @ts-ignore – Chart.js tu dáva ScriptableScaleContext, stačí nám index
+          color: (ctx: any) => {
+            const idx = ctx?.index ?? 0;
+            const iso = labelsISO[idx] ?? "";
+            return isMonday(iso) ? THEME.chart.grid : "transparent";
+          },
         },
         ticks: {
           autoSkip: false,
-          // 55° natočenie popiskov
-          minRotation: 55,
           maxRotation: 55,
-          callback: (_value, index) =>
-            weekLabelForIndex ? weekLabelForIndex(index) : ("" as any),
+          minRotation: 55,
+          callback: (val: any, idx: number) => {
+            const iso = labelsISO[idx] ?? "";
+            if (!isMonday(iso)) return "";          // nezobrazuj každý deň
+            return formatWeekRange(iso);            // napr. "6–12.10." / "28.9.–5.10."
+          },
         },
+      },
+      y: {
+        beginAtZero: false,
+        title: { display: true, text: yTitle },
+        grid: { color: THEME.chart.grid },
       },
     },
   };
