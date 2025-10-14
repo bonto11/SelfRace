@@ -7,7 +7,7 @@ import { API_URL } from "@/shared/config";
 import { THEME } from "@/shared/theme/tokens";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
-  isoDate, rollingMean, bandsAround, wrapTextToLines,
+  isoDate, rollingMean, bandsAround, wrapTextToLines, bandFromBaseline
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
@@ -41,7 +41,7 @@ export default function DetailRHR() {
 
   // baseline (rolling priemer z predchádzajúcich 14 dní) + ±5 %
   const baseline = useMemo(() => rollingMean(rhr, 14), [rhr]);
-  const { lower, upper } = useMemo(() => bandsAround(baseline, 0.05), [baseline]);
+  const { lower, upper } = useMemo(() => bandFromBaseline(baseline, 0.05), [baseline]);
 
   // mapka komentárov podľa dňa
   const commentsMap = useMemo(() => {

@@ -129,3 +129,36 @@ export function wrapTextToLines(text: string, maxN = 42): string[] {
   if (line) out.push(line);
   return out;
 }
+
+/** vyhladí okrajové null tak, aby fill medzi dvomi líniami nespadol */
+export function solidifyForBand(a: (number | null)[]): number[] {
+  const out = [...a] as (number | null)[];
+  // dopredu – doplň prvé non-null naspäť
+  let first: number | null = null;
+  for (let i = 0; i < out.length; i++) {
+    if (typeof out[i] === "number") { first = out[i] as number; break; }
+  }
+  for (let i = 0; i < out.length; i++) {
+    if (out[i] == null) out[i] = first;
+    else break;
+  }
+  // dozadu – doplň poslednú známu dopredu
+  let last: number | null = null;
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (typeof out[i] === "number") { last = out[i] as number; break; }
+  }
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i] == null) out[i] = last;
+    else break;
+  }
+  // vnútorné null necháme (Chart.js si poradí so spanGaps)
+  return out.map(v => (typeof v === "number" ? v : (last ?? first ?? 0)));
+}
+
+/** pásmo ±pct okolo baseline, pripravené na fill (bez okrajových null) */
+export function bandFromBaseline(baseline: (number | null)[], pct = 0.05) {
+  const solid = solidifyForBand(baseline);
+  const lower = solid.map(b => b * (1 - pct));
+  const upper = solid.map(b => b * (1 + pct));
+  return { lower, upper };
+}
