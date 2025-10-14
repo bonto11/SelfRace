@@ -30,7 +30,7 @@ const C = {
 
 export type WeekPick = { week: string; start: string; end: string };
 
-/** ✔️ krátky popis rozsahu týždňa: 1–8.10. alebo 28.9.–5.10. */
+/** krátky popis rozsahu týždňa: 1–8.10. alebo 28.9.–5.10. */
 function rangeLabel(start?: string, end?: string) {
   if (!start || !end) return "";
   const s = new Date(start);
@@ -138,6 +138,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
     interaction: { mode: "index", intersect: false },
     elements: { point: { radius: 2, hitRadius: 8 } },
     datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
+    layout: { padding: { bottom: 12 } },
     plugins: {
       legend: { position: THEME.chart.legendPosition,
         labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 } },
@@ -171,9 +172,16 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
             border: { color: C.strain }, ticks: { color: C.strain },
             title: { display: true, text: "Strain", color: C.strain } },
-      // ✔️ grid pri každom týždni (žiadny “každý 2.”)
-      x:  { grid: { color: THEME.chart.gridSoft },
-            ticks: { autoSkip: false, maxRotation: 0 } },
+      x:  {
+        grid: { color: THEME.chart.gridSoft },
+        ticks: {
+          autoSkip: true,
+          minRotation: 55,
+          maxRotation: 55,
+          padding: 6,
+          font: { size: 10 },
+        },
+      },
     },
   }), [metric, weeks, monoMax, strainMax, onPickWeek]);
 
