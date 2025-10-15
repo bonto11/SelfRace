@@ -16,9 +16,9 @@ import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
 ensureChartJSRegistered();
 
-type Row = { date: string; RHR_bpm: number | null; comments?: string | null };
+type Row = { date: string; HRV_avg_ms: number | null; comments?: string | null };
 
-export default function DetailRHR() {
+export default function DetailHRV() {
   const { userId } = useUserId();
   const [weeks, setWeeks] = useState<number>(2); // default 2
   const [rows, setRows] = useState<Row[]>([]);
@@ -30,17 +30,17 @@ export default function DetailRHR() {
       const json = await res.json().catch(() => ({}));
       const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
       const norm = arr
-        .map(r => ({ date: isoDate(r.date), RHR_bpm: r?.RHR_bpm ?? null, comments: r?.comments ?? null }))
+        .map(r => ({ date: isoDate(r.date), HRV_avg_ms: r?.HRV_avg_ms ?? null, comments: r?.comments ?? null }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setRows(norm);
     })();
   }, [userId, weeks]);
 
   const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
-  const rhr = useMemo(() => rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : NaN)), [rows]);
+  const hrv = useMemo(() => rows.map(r => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : NaN)), [rows]);
 
   const baselineArr = useMemo(
-    () => rollingMean(rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)), 14),
+    () => rollingMean(rows.map(r => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)), 14),
     [rows]
   );
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
@@ -89,12 +89,12 @@ export default function DetailRHR() {
       spanGaps: true,
       order: 2,
     };
-    const rhrLine = {
+    const hrvLine = {
       type: "line" as const,
-      label: "Resting HR",
-      data: rhr,
-      borderColor: "#f59e0b",
-      backgroundColor: "#f59e0b",
+      label: "HRV (RMSSD)",
+      data: hrv,
+      borderColor: "#0ea5e9",
+      backgroundColor: "#0ea5e9",
       pointRadius: 3,
       borderWidth: 2,
       tension: 0.2,
@@ -102,14 +102,14 @@ export default function DetailRHR() {
       order: 3,
     };
 
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, rhrLine] };
-  }, [labelsISO, lower, upper, baselineArr, rhr]);
+    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, hrvLine] };
+  }, [labelsISO, lower, upper, baselineArr, hrv]);
 
   const options = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
-        yTitle: "bpm",
+        yTitle: "ms",
         tooltipTitleForIndex: (i) => {
           const iso = labelsISO[i] ?? "";
           return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
@@ -118,27 +118,27 @@ export default function DetailRHR() {
           const idx = ctx.dataIndex ?? 0;
           const lines: string[] = [];
           if (ctx.datasetIndex === 3) {
-            const v = rhr[idx];
-            if (Number.isFinite(v)) lines.push(`RHR: ${Math.round(v as number)} bpm`);
+            const v = hrv[idx];
+            if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
           if (ctx.datasetIndex === 2) {
             const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} bpm`);
+            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
           }
           if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines;
         },
         tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
       }),
-    [labelsISO, rhr, baselineArr, comments]
+    [labelsISO, hrv, baselineArr, comments]
   );
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-semibold">Detail — Resting HR</h2>
+        <h2 className="text-lg font-semibold">Detail — HRV (RMSSD)</h2>
         <div className="flex items-center gap-2">
           <select
             value={weeks}
