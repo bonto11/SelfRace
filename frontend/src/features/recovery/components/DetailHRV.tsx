@@ -17,23 +17,24 @@ ensureChartJSRegistered();
 
 type Row = { date: string; HRV_avg_ms: number | null; comments?: string | null };
 
-function wrapToWidth(text: string, max = 44): string {
-  if (!text) return "";
+function wrapToLines(text: string, max = 44): string[] {
+  if (!text) return [];
   const words = text.split(/\s+/);
-  const lines: string[] = [];
+  const out: string[] = [];
   let curr = "";
   for (const w of words) {
     const tryAdd = curr ? curr + " " + w : w;
     if (tryAdd.length > max) {
-      if (curr) lines.push(curr);
-      if (w.length > max) { lines.push(w); curr = ""; }
+      if (curr) out.push(curr);
+      // extra dlhé „slovo“ daj na samostatný riadok
+      if (w.length > max) { out.push(w); curr = ""; }
       else { curr = w; }
     } else {
       curr = tryAdd;
     }
   }
-  if (curr) lines.push(curr);
-  return lines.join("\n");
+  if (curr) out.push(curr);
+  return out;
 }
 
 export default function DetailHRV() {
@@ -132,7 +133,7 @@ export default function DetailHRV() {
           const iso = labelsISO[i] ?? "";
           return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
         },
-        tooltipLabelForItem: (ctx): string => {
+        tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const lines: string[] = [];
 
@@ -140,7 +141,7 @@ export default function DetailHRV() {
             const v = hrv[idx];
             if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
-            if (c) lines.push(wrapToWidth(c, 44));
+            if (c) lines.push(...wrapToLines(c, 44));
           }
           if (ctx.datasetIndex === 2) {
             const b = baselineArr[idx];
@@ -148,7 +149,7 @@ export default function DetailHRV() {
           }
 
           if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
-          return lines.join("\n");
+          return lines; // ⬅️ dôležité: pole, nie string
         },
         tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
       }),
