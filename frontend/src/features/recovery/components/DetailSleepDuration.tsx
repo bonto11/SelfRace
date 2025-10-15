@@ -12,7 +12,7 @@ import { THEME } from "@/shared/theme/tokens";
 
 import {
   isoDate,
-  minutesToHhMm as minutesToHhMm,
+  minutesToHHMM,
   wrapToLines
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
@@ -98,7 +98,7 @@ export default function DetailSleepDuration() {
       buildRecoveryLineOptions({
         labelsISO,
         yTitle: "min",
-        yTickFormatter: (v: number) => minutesToHhMm(v),
+        yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) => {
           const iso = labelsISO[i] ?? "";
           return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
@@ -109,7 +109,7 @@ export default function DetailSleepDuration() {
 
           if (ctx.datasetIndex === 2) {
             const v = sleepMin[idx];
-            if (Number.isFinite(v)) lines.push(`Spánok: ${minutesToHhMm(v as number)}`);
+            if (Number.isFinite(v)) lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }

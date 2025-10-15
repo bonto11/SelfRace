@@ -12,7 +12,7 @@ import { THEME } from "@/shared/theme/tokens";
 
 import {
   isoDate,
-  hhmmToMinutes,
+  HHMMToMinutes,
   minutesToHHMM,
   wrapToLines,
 } from "@/shared/utils/recovery";
@@ -55,7 +55,7 @@ export default function DetailSleepStart() {
   const startMin = useMemo(
     () =>
       rows.map((r) => {
-        const m = r.sleep_start_time ? hhmmToMinutes(r.sleep_start_time) : null;
+        const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
         return typeof m === "number" ? m : NaN; // Chart.js chce čísla
       }),
     [rows]

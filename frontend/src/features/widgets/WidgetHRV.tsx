@@ -1,9 +1,15 @@
+// src/features/widgets/WidgetHRV.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import RecoveryStatCard from "./RecoveryStatCard";
+import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
+import {
+  makeRollingBaseline,
+  compareLatestToBaseline,
+  checkRecoveryFreshness,
+} from "@/shared/utils/recovery";
 
 type Row = { date: string; HRV_avg_ms: number | null };
 
@@ -15,33 +21,45 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
     if (!userId) return;
     (async () => {
       const res = await fetch(`${API_URL}/recovery/${userId}?days=35`);
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) setRows(json.data);
+      const json = await res.json().catch(() => ({}));
+      if (json?.success && Array.isArray(json.data)) setRows(json.data);
     })();
   }, [userId]);
 
-  const vals = useMemo(() => rows.map(r => r.HRV_avg_ms ?? NaN), [rows]);
-  const yesterday = useMemo(() => vals.at(-1), [vals]);
-  const baseline = useMemo(() => {
-    const last28 = vals.slice(-29, -1); // 28 dní pred včerajškom
-    const src = last28.length ? last28 : vals.slice(0, -1);
-    const a = src.filter(Number.isFinite) as number[];
-    return a.length ? a.reduce((s,v)=>s+v,0)/a.length : NaN;
-  }, [vals]);
+  // "čerstvosť" záznamu
+  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
 
-  let note = "Bez dát.";
-  let accent = "bg-slate-700";
-  if (Number.isFinite(yesterday) && Number.isFinite(baseline)) {
-    const diff = (yesterday! - baseline!) / baseline!;
-    if (diff >= 0.05) { note = "Včerajšie HRV bolo NAD priemerom (↑)"; accent="bg-emerald-600"; }
-    else if (diff <= -0.05) { note = "Včerajšie HRV bolo POD priemerom (↓)"; accent="bg-amber-600"; }
-    else { note = "Včerajšie HRV bolo V PRIEMERE"; accent="bg-sky-600"; }
-  }
+  // hodnoty a "včerajšok"
+  const values = useMemo<(number | null)[]>(
+    () => rows.map((r) => (r?.HRV_avg_ms ?? null)),
+    [rows]
+  );
+
+  const yesterday = useMemo<number | null>(() => {
+    const v = values.at(-1);
+    return typeof v === "number" ? v : null;
+  }, [values]);
+
+  // baseline = klzavý priemer z *predchádzajúcich dní* (aktuálny deň vylúčený)
+  const baselinePoint = useMemo<number | null>(() => {
+    if (values.length < 2) return null;
+    const window = values.slice(0, -1);           // bez včerajška
+    const { baseline } = makeRollingBaseline(window, 14, 0.05);
+    const last = baseline.at(-1);
+    return typeof last === "number" ? last : null;
+  }, [values]);
+
+  // pri HRV platí "higher-better"
+  const cmp = compareLatestToBaseline(yesterday, baselinePoint, "higher-better", 0.05);
+
+  // ak chýba dnešok, prepíš text na hlášku o chýbajúcich dátach
+  const note = freshness.hasToday ? cmp.note : freshness.message;
+  const accent = cmp.accent;
 
   return (
     <RecoveryStatCard
       title="HRV (RMSSD)"
-      value={Number.isFinite(yesterday) ? String(Math.round(yesterday as number)) : "—"}
+      value={Number.isFinite(yesterday as number) ? String(Math.round(yesterday as number)) : "—"}
       unit="ms"
       note={note}
       accent={accent}

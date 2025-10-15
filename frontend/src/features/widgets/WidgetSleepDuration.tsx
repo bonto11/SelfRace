@@ -1,18 +1,18 @@
+// src/features/widgets/WidgetSleepDuration.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import RecoveryStatCard from "./RecoveryStatCard";
+import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
+import {
+  checkRecoveryFreshness,
+  minutesToHHMM,
+  makeBaselinePoint,
+  compareLatestToBaseline,
+} from "@/shared/utils/recovery";
 
 type Row = { date: string; sleep_duration_min: number | null };
-
-function minutesToHhMm(total: number): string {
-  const t = Math.max(0, Math.round(total));
-  const h = Math.floor(t / 60);
-  const m = t % 60;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
-}
 
 export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { userId } = useUserId();
@@ -22,34 +22,39 @@ export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: (
     if (!userId) return;
     (async () => {
       const res = await fetch(`${API_URL}/recovery/${userId}?days=35`);
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) setRows(json.data);
+      const json = await res.json().catch(() => ({}));
+      if (json?.success && Array.isArray(json.data)) setRows(json.data);
     })();
   }, [userId]);
 
-  const vals = useMemo(() => rows.map(r => r.sleep_duration_min ?? NaN), [rows]);
-  const yesterday = useMemo(() => vals.at(-1), [vals]);
-  const baseline = useMemo(() => {
-    const src = vals.slice(0, -1).slice(-28);
-    const a = (src.length ? src : vals.slice(0, -1)).filter(Number.isFinite) as number[];
-    return a.length ? a.reduce((s,v)=>s+v,0)/a.length : NaN;
-  }, [vals]);
+  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
 
-  let note = "Bez dát.";
-  let accent = "bg-slate-700";
-  if (Number.isFinite(yesterday) && Number.isFinite(baseline)) {
-    const diff = (yesterday! - baseline!) / baseline!;
-    if (diff >= 0.05) { note = "Spánok bol DLHŠÍ než priemer (↑)"; accent="bg-emerald-600"; }
-    else if (diff <= -0.05) { note = "Spánok bol KRATŠÍ než priemer (↓)"; accent="bg-amber-600"; }
-    else { note = "Spánok bol V PRIEMERE"; accent="bg-sky-600"; }
-  }
+  const values = useMemo<(number | null)[]>(
+    () => rows.map(r => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null)),
+    [rows]
+  );
+
+  const latest = useMemo<number | null>(() => {
+    const v = values.at(-1);
+    return typeof v === "number" ? v : null;
+  }, [values]);
+
+  // rolling baseline z posledných 14 dní bez aktuálneho dňa
+  const baselinePoint = useMemo(
+    () => makeBaselinePoint(values, 14, true),
+    [values]
+  );
+
+  // pri dĺžke spánku: "higher-better", tolerancia 5 %
+  const cmp = compareLatestToBaseline(latest, baselinePoint, "higher-better", 0.05);
+  const note = freshness.hasToday ? cmp.note : freshness.message;
 
   return (
     <RecoveryStatCard
       title="Sleep duration"
-      value={Number.isFinite(yesterday) ? minutesToHhMm(yesterday as number) : "—"}
+      value={Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—"}
       note={note}
-      accent={accent}
+      accent={cmp.accent}
       onOpenDetail={onOpenDetail}
     />
   );

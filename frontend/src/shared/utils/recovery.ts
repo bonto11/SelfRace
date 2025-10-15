@@ -9,25 +9,18 @@ export function pctDiff(curr: number, base: number) {
   return (curr - base) / base;
 }
 
-export function minutesToHhMm(total: number): string {
+export function minutesToHHMM(total: number): string {
   const t = Math.max(0, Math.round(total));
   const h = Math.floor(t / 60);
   const m = t % 60;
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
-export function hhmmToMinutes(hhmm: string): number | null {
+export function HHMMToMinutes(hhmm: string): number | null {
   const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
   if (!m) return null;
   const h = Number(m[1]), min = Number(m[2]);
   return h * 60 + min;
-}
-
-export function minutesToHHMM(total: number): string {
-  const t = Math.max(0, Math.min(1439, Math.round(total)));
-  const h = Math.floor(t / 60);
-  const m = t % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 export type DayPoint = { date: string; value: number | null; comment?: string | null };
@@ -60,13 +53,11 @@ export function bandsAround(baseline: (number | null)[], pct = 0.05) {
 export function makeRollingBaseline(
   values: (number | null)[],
   windowDays = 14,
-  pct = 0.05
-) {
+  bandPct = 0.05
+): { baseline: (number | null)[], lower: (number | null)[], upper: (number | null)[] } {
   const baseline = rollingMean(values, windowDays);
-  const { lower, upper } = bandsAround(baseline, pct);
-  const latestBaseline =
-    baseline.length ? baseline[baseline.length - 1] ?? null : null;
-  return { baseline, lower, upper, latestBaseline };
+  const { lower, upper } = bandsAround(baseline, bandPct);
+  return { baseline, lower, upper };
 }
 
 
@@ -167,4 +158,114 @@ export function wrapToLines(text?: string | null, max = 44): string[] {
   }
   if (curr) out.push(curr);
   return out;
+}
+
+/** Lokálny "dnes" v tvare YYYY-MM-DD (bez UTC posunu). */
+export function todayLocalISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Bezpečne vytiahne ISO dátum (YYYY-MM-DD) z hodnoty string/Date. */
+export function toISODateLoose(v: string | Date | null | undefined): string | null {
+  if (!v) return null;
+  if (typeof v === "string") {
+    // predpokladáme "YYYY-MM-DD" alebo ISO datetime → vezmi prvých 10 znakov
+    const s = v.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+  }
+  // Date → lokálna ISO bez časovej zóny
+  const y = v.getFullYear();
+  const m = String(v.getMonth() + 1).padStart(2, "0");
+  const d = String(v.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Formát na zobrazenie pre SK (napr. 9. 10. 2025). */
+export function formatSk(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("sk-SK");
+}
+
+export type FreshnessResult = {
+  hasToday: boolean;        // či už je záznam za dnešok
+  latestISO: string | null; // posledný vložený dátum
+  daysAgo: number | null;   // koľko dní dozadu je posledný záznam
+  message: string;          // hotový text pre widget (prázdny ak je všetko OK)
+};
+
+/**
+ * Zistí „čerstvosť“ recovery dát.
+ * @param rows    - pole riadkov z DB
+ * @param getDate - extractor, ktorý vráti `date`/`created_at`/pod.
+ */
+export function checkRecoveryFreshness<T>(
+  rows: T[],
+  getDate: (row: T) => string | Date | null | undefined
+): FreshnessResult {
+  const today = todayLocalISO();
+  let latest: string | null = null;
+
+  for (const r of rows) {
+    const iso = toISODateLoose(getDate(r));
+    if (!iso) continue;
+    if (!latest || iso > latest) latest = iso; // porovnanie ISO stringov funguje lexikograficky
+  }
+
+  if (!latest) {
+    return {
+      hasToday: false,
+      latestISO: null,
+      daysAgo: null,
+      message: "Chýbajú dáta (zatím žiadny záznam).",
+    };
+  }
+
+  if (latest === today) {
+    return { hasToday: true, latestISO: latest, daysAgo: 0, message: "" };
+  }
+
+  // rozdiel dní (len približne po dňoch; stačí na widget)
+  const start = new Date(latest + "T00:00:00");
+  const end = new Date(today + "T00:00:00");
+  const days = Math.round((+end - +start) / (24 * 3600 * 1000));
+
+  return {
+    hasToday: false,
+    latestISO: latest,
+    daysAgo: days,
+    message: `Chýbajú dáta za dnešok. Posledný záznam: ${formatSk(latest)}.`,
+  };
+}
+
+/** Vráti posledný baseline bod (klzavý priemer) – často stačí pre widget. */
+export function makeBaselinePoint(
+  values: (number | null)[],
+  windowDays = 14,
+  excludeLast = true // pre widgety chceme baseline bez "včerajška"
+): number | null {
+  const src = excludeLast ? values.slice(0, -1) : values;
+  if (!src.length) return null;
+  const { baseline } = makeRollingBaseline(src, windowDays, 0.05);
+  const last = baseline.at(-1);
+  return typeof last === "number" ? last : null;
+}
+
+/** Porovnanie „času v minútach“ voči baseline s toleranciou v minútach. */
+export function compareTimeToBaselineMinutes(
+  latestMin: number | null | undefined,
+  baselineMin: number | null | undefined,
+  tolMinutes = 30
+): { note: string; accent: "bg-emerald-600" | "bg-amber-600" | "bg-sky-600" } {
+  if (!(typeof latestMin === "number") || !(typeof baselineMin === "number")) {
+    return { note: "Bez dát.", accent: "bg-slate-700" as any };
+  }
+  const diff = latestMin - baselineMin;
+  const abs = Math.abs(diff);
+  if (abs <= tolMinutes) return { note: "Čas zaspania bol V PRIEMERE (±30 min)", accent: "bg-sky-600" };
+  if (diff < 0) return { note: "Zaspal si SKÔR než obvykle", accent: "bg-emerald-600" };
+  return { note: "Zaspal si NESKÔR než obvykle", accent: "bg-amber-600" };
 }

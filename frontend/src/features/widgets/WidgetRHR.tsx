@@ -8,6 +8,7 @@ import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
 import {
   compareLatestToBaseline,
   makeRollingBaseline,
+  checkRecoveryFreshness
 } from "@/shared/utils/recovery";
 
 type Row = { date: string; RHR_bpm: number | null };
@@ -25,6 +26,10 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
     })();
   }, [userId]);
 
+  // "čerstvosť" záznamu
+  const freshness = checkRecoveryFreshness(rows, r => r.date);
+
+  // hodnoty a "včerajšok"
   const values = useMemo<(number | null)[]>(
     () => rows.map(r => (r?.RHR_bpm ?? null)),
     [rows]
@@ -44,21 +49,21 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
     return (typeof last === "number" ? last : null);
   }, [values]);
 
-  const { note, accent } = compareLatestToBaseline(
-    yesterday,
-    baselinePoint,
-    "lower-better",
-    0.05
-  );
+  // pri HRV platí "higher-better"
+  const cmp = compareLatestToBaseline(yesterday, baselinePoint, "lower-better", 0.05);
 
-  return (
+  // ak chýba dnešok, prepíš text na hlášku o chýbajúcich dátach
+  const note = freshness.hasToday ? cmp.note : freshness.message;
+  const accent = cmp.accent;
+  
+   return (
     <RecoveryStatCard
       title="Resting HR"
-      value={Number.isFinite(yesterday) ? String(Math.round(yesterday as number)) : "—"}
+      value={Number.isFinite(yesterday as number) ? String(Math.round(yesterday as number)) : "—"}
       unit="bpm"
       note={note}
       accent={accent}
-      onOpenDetail={onOpenDetail}   // celý panel je klikateľný
+      onOpenDetail={onOpenDetail}
     />
   );
 }
