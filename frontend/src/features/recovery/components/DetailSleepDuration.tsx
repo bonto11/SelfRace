@@ -13,31 +13,13 @@ import { THEME } from "@/shared/theme/tokens";
 import {
   isoDate,
   minutesToHhMm as minutesToHhMm,
+  wrapToLines
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
 ensureChartJSRegistered();
 
-type Row = { date: string; sleep_duration_min: number | null; note?: string | null };
-
-function wrapToWidth(text: string, max = 44): string {
-  if (!text) return "";
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let curr = "";
-  for (const w of words) {
-    const tryAdd = curr ? curr + " " + w : w;
-    if (tryAdd.length > max) {
-      if (curr) lines.push(curr);
-      if (w.length > max) { lines.push(w); curr = ""; }
-      else { curr = w; }
-    } else {
-      curr = tryAdd;
-    }
-  }
-  if (curr) lines.push(curr);
-  return lines.join("\n");
-}
+type Row = { date: string; sleep_duration_min: number | null; comments?: string | null };
 
 export default function DetailSleepDuration() {
   const { userId } = useUserId();
@@ -51,7 +33,7 @@ export default function DetailSleepDuration() {
       const json = await res.json().catch(() => ({}));
       const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
       const norm = arr
-        .map(r => ({ date: isoDate(r.date), sleep_duration_min: r?.sleep_duration_min ?? null, note: r?.note ?? null }))
+        .map(r => ({ date: isoDate(r.date), sleep_duration_min: r?.sleep_duration_min ?? null, comments: r?.comments ?? null }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setRows(norm);
     })();
@@ -67,7 +49,7 @@ export default function DetailSleepDuration() {
   // komentáre
   const comments = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) if (r.note) m.set(r.date, r.note);
+    for (const r of rows) if (r.comments) m.set(r.date, r.comments);
     return m;
   }, [rows]);
 
@@ -129,7 +111,7 @@ export default function DetailSleepDuration() {
             const v = sleepMin[idx];
             if (Number.isFinite(v)) lines.push(`Spánok: ${minutesToHhMm(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
-            if (c) lines.push(wrapToWidth(c, 44));
+            if (c) lines.push(...wrapToLines(c, 44));
           }
           // fallback – ak by klikol mimo hlavného datasetu
           if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;

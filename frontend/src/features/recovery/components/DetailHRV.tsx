@@ -10,32 +10,13 @@ import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
-import { isoDate, rollingMean, bandsAround } from "@/shared/utils/recovery";
+import { isoDate, rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
 ensureChartJSRegistered();
 
 type Row = { date: string; HRV_avg_ms: number | null; comments?: string | null };
 
-function wrapToLines(text: string, max = 44): string[] {
-  if (!text) return [];
-  const words = text.split(/\s+/);
-  const out: string[] = [];
-  let curr = "";
-  for (const w of words) {
-    const tryAdd = curr ? curr + " " + w : w;
-    if (tryAdd.length > max) {
-      if (curr) out.push(curr);
-      // extra dlhé „slovo“ daj na samostatný riadok
-      if (w.length > max) { out.push(w); curr = ""; }
-      else { curr = w; }
-    } else {
-      curr = tryAdd;
-    }
-  }
-  if (curr) out.push(curr);
-  return out;
-}
 
 export default function DetailHRV() {
   const { userId } = useUserId();

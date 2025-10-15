@@ -115,20 +115,6 @@ export function formatWeekRange(startIso: string) {
   return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
 
-/** zalomenie textu po maxN znakoch tak, aby sa slovám nelámali písmená */
-export function wrapTextToLines(text: string, maxN = 42): string[] {
-  if (!text) return [];
-  const words = text.split(/\s+/);
-  const out: string[] = [];
-  let line = "";
-  for (const w of words) {
-    if (!line.length) { line = w; continue; }
-    if ((line + " " + w).length <= maxN) line += " " + w;
-    else { out.push(line); line = w; }
-  }
-  if (line) out.push(line);
-  return out;
-}
 
 /** vyhladí okrajové null tak, aby fill medzi dvomi líniami nespadol */
 export function solidifyForBand(a: (number | null)[]): number[] {
@@ -161,4 +147,24 @@ export function bandFromBaseline(baseline: (number | null)[], pct = 0.05) {
   const lower = solid.map(b => b * (1 - pct));
   const upper = solid.map(b => b * (1 + pct));
   return { lower, upper };
+}
+
+/** zalomenie textu po maxN znakoch tak, aby sa slovám nelámali písmená */
+export function wrapToLines(text?: string | null, max = 44): string[] {
+  if (!text) return [];
+  const words = String(text).split(/\s+/);
+  const out: string[] = [];
+  let curr = "";
+  for (const w of words) {
+    const tryAdd = curr ? curr + " " + w : w;
+    if (tryAdd.length > max) {
+      if (curr) out.push(curr);
+      if (w.length > max) { out.push(w); curr = ""; } // extra dlhé „slovo“
+      else { curr = w; }
+    } else {
+      curr = tryAdd;
+    }
+  }
+  if (curr) out.push(curr);
+  return out;
 }

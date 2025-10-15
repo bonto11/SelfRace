@@ -14,6 +14,7 @@ import {
   isoDate,
   hhmmToMinutes,
   minutesToHHMM,
+  wrapToLines,
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
@@ -22,27 +23,8 @@ ensureChartJSRegistered();
 type Row = {
   date: string;
   sleep_start_time: string | null; // "HH:MM"
-  note?: string | null;
+  comments?: string | null;
 };
-
-function wrapToWidth(text: string, max = 44): string {
-  if (!text) return "";
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let curr = "";
-  for (const w of words) {
-    const tryAdd = curr ? curr + " " + w : w;
-    if (tryAdd.length > max) {
-      if (curr) lines.push(curr);
-      if (w.length > max) { lines.push(w); curr = ""; }
-      else { curr = w; }
-    } else {
-      curr = tryAdd;
-    }
-  }
-  if (curr) lines.push(curr);
-  return lines.join("\n");
-}
 
 export default function DetailSleepStart() {
   const { userId } = useUserId();
@@ -52,14 +34,16 @@ export default function DetailSleepStart() {
   useEffect(() => {
     if (!userId) return;
     (async () => {
-      const res = await fetch(`${API_URL}/recovery/${userId}?days=${weeks * 7}`);
+      const res = await fetch(
+        `${API_URL}/recovery/${userId}?days=${weeks * 7}`
+      );
       const json = await res.json().catch(() => ({}));
       const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
       const norm = arr
-        .map(r => ({
+        .map((r) => ({
           date: isoDate(r.date),
           sleep_start_time: r?.sleep_start_time ?? null,
-          note: r?.note ?? null,
+          comments: r?.comments ?? null,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setRows(norm);
@@ -67,23 +51,24 @@ export default function DetailSleepStart() {
   }, [userId, weeks]);
 
   // osi + hodnoty
-  const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
+  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const startMin = useMemo(
-    () => rows.map(r => {
-      const m = r.sleep_start_time ? hhmmToMinutes(r.sleep_start_time) : null;
-      return typeof m === "number" ? m : NaN; // Chart.js chce čísla
-    }),
+    () =>
+      rows.map((r) => {
+        const m = r.sleep_start_time ? hhmmToMinutes(r.sleep_start_time) : null;
+        return typeof m === "number" ? m : NaN; // Chart.js chce čísla
+      }),
     [rows]
   );
 
   // fixné odporúčané pásmo: 22:00–23:00 -> 1320–1380 min
-  const lowerBand = useMemo(() => rows.map(() => 22 * 60), [rows]);      // 1320
-  const upperBand = useMemo(() => rows.map(() => 23 * 60), [rows]);      // 1380
+  const lowerBand = useMemo(() => rows.map(() => 22 * 60), [rows]); // 1320
+  const upperBand = useMemo(() => rows.map(() => 23 * 60), [rows]); // 1380
 
   // komentáre
   const comments = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) if (r.note) m.set(r.date, r.note);
+    for (const r of rows) if (r.comments) m.set(r.date, r.comments);
     return m;
   }, [rows]);
 
@@ -145,12 +130,14 @@ export default function DetailSleepStart() {
 
           if (ctx.datasetIndex === 2) {
             const v = startMin[idx];
-            if (Number.isFinite(v)) lines.push(`Zaspal: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v))
+            lines.push(`Zaspal: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
-            if (c) lines.push(wrapToWidth(c, 44));
+            if (c) lines.push(...wrapToLines(c, 44));
           }
 
-          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length)
+            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines.join("\n");
         },
         tooltipFilter: (item) => item.datasetIndex === 2, // zobraz len hlavnú krivku
@@ -173,7 +160,10 @@ export default function DetailSleepStart() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+          <Link
+            href="/recovery"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
             Späť
           </Link>
         </div>
