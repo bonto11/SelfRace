@@ -4,7 +4,7 @@
 import { useState, useMemo } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { addDaysIso, handleTimeInput,} from "@/shared/utils/recovery";
+import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
 
 export default function InputsCard() {
   const { userId } = useUserId();
@@ -69,7 +69,7 @@ export default function InputsCard() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+    <div className="w-full max-w-none bg-white dark:bg-gray-800 p-4 rounded shadow">
       {/* HEADER */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <h2 className="text-lg font-semibold">Recovery Inputs</h2>
@@ -97,7 +97,7 @@ export default function InputsCard() {
         </div>
       </div>
 
-      {/* BODY */}
+      {/* BODY – 1 stĺpec na mobile, 2 stĺpce od md */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* RHR */}
         <div className="p-3 rounded bg-gray-900/30">
@@ -108,51 +108,52 @@ export default function InputsCard() {
               value={rhr}
               onChange={(e) => setRhr(e.target.value)}
               placeholder="bpm"
-              className="flex-1 px-2 py-2 rounded bg-gray-700"
+              className="flex-1 w-full px-2 py-2 rounded bg-gray-700"
             />
             <span className="text-sm opacity-70">bpm</span>
           </div>
         </div>
 
-        {/* HRV avg / max */}
+        {/* HRV avg / max – stacked na mobile, vedľa seba od sm */}
         <div className="p-3 rounded bg-gray-900/30">
           <div className="text-sm text-gray-400 mb-1">HRV (RMSSD)</div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
             <input
               type="number"
               value={hrvAvg}
               onChange={(e) => setHrvAvg(e.target.value)}
               placeholder="avg ms"
-              className="w-1/2 px-2 py-2 rounded bg-gray-700"
+              className="w-full px-2 py-2 rounded bg-gray-700"
             />
             <input
               type="number"
               value={hrvMax}
               onChange={(e) => setHrvMax(e.target.value)}
               placeholder="max ms"
-              className="w-1/2 px-2 py-2 rounded bg-gray-700"
+              className="w-full px-2 py-2 rounded bg-gray-700"
             />
-            <span className="text-sm opacity-70 hidden md:block">ms</span>
           </div>
         </div>
 
-        {/* Sleep (duration | start) – vedľa seba */}
+        {/* Sleep (duration | start) – stacked na mobile, vedľa seba od sm; naprieč na md */}
         <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
           <div className="text-sm text-gray-400 mb-1">Sleep</div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               type="text"
               placeholder="HH:MM duration"
               value={sleepDuration}
               onChange={(e) => handleTimeInput(e, setSleepDuration)}
-              className="px-2 py-2 rounded bg-gray-700"
+              className="w-full px-2 py-2 rounded bg-gray-700"
+              inputMode="numeric"
             />
             <input
               type="text"
               placeholder="HH:MM start"
               value={sleepStart}
               onChange={(e) => handleTimeInput(e, setSleepStart)}
-              className="px-2 py-2 rounded bg-gray-700"
+              className="w-full px-2 py-2 rounded bg-gray-700"
+              inputMode="numeric"
             />
           </div>
         </div>
@@ -178,23 +179,23 @@ export default function InputsCard() {
           </label>
         </div>
 
-        {/* Alcohol */}
+        {/* Alcohol – stacked na mobile, vedľa seba od sm */}
         <div className="p-3 rounded bg-gray-900/30">
           <div className="text-sm text-gray-400 mb-1">Alcohol</div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               type="number"
               value={alcoholVolume}
               onChange={(e) => setAlcoholVolume(e.target.value)}
               placeholder="ml"
-              className="w-1/2 px-2 py-2 rounded bg-gray-700"
+              className="w-full px-2 py-2 rounded bg-gray-700"
             />
             <input
               type="number"
               value={alcoholType}
               onChange={(e) => setAlcoholType(e.target.value)}
               placeholder="%"
-              className="w-1/2 px-2 py-2 rounded bg-gray-700"
+              className="w-full px-2 py-2 rounded bg-gray-700"
             />
           </div>
         </div>
@@ -217,7 +218,9 @@ export default function InputsCard() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`px-4 py-2 rounded text-white ${saving ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"}`}
+          className={`px-4 py-2 rounded text-white ${
+            saving ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
           {saving ? "Ukladám…" : "Save"}
         </button>
