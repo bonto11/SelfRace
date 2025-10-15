@@ -6,6 +6,7 @@ import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
 import {
+  isoDate,
   checkRecoveryFreshness,
   HHMMToMinutes,
   minutesToHHMM,
@@ -26,7 +27,15 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
     (async () => {
       const res = await fetch(`${API_URL}/recovery/${userId}?days=35`);
       const json = await res.json().catch(() => ({}));
-      if (json?.success && Array.isArray(json.data)) setRows(json.data);
+      if (json?.success && Array.isArray(json.data)) {
+        const norm: Row[] = json.data
+          .map((r: any) => ({
+            date: isoDate(r.date),
+            sleep_start_time: r?.sleep_start_time ?? null,
+          }))
+          .sort((a: {date: string}, b: {date: string}) => a.date.localeCompare(b.date));
+        setRows(norm);
+      }
     })();
   }, [userId]);
 
@@ -40,18 +49,13 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
     return typeof v === "number" ? v : null;
   }, [values]);
 
-  // fixná baseline
+  // Fix baseline 22:30 ± 30 min
   const cmp = compareTimeToBaselineMinutes(latest, FIX_BASELINE_MIN, TOL_MIN);
 
-  // "čerstvosť" záznamu
   const freshness = checkRecoveryFreshness(rows, r => r.date);
   const showNA = !freshness.hasToday;
 
-  // ak chýba dnešok, prepíš text na hlášku o chýbajúcich dátach
-  const valueText = showNA
-  ? "—" // alebo "N/A"
-  : Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—";
-
+  const valueText = showNA ? "—" : Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—";
   const note  = showNA ? freshness.message : cmp.note;
   const accent = showNA ? "bg-slate-700" : cmp.accent;
 
