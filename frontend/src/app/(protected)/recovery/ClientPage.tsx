@@ -16,7 +16,10 @@ export default function RecoveryPage() {
       <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
       <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
       <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
-      <InputsCard />  
+      <div className="col-span-1 lg:col-span2">
+        <InputsCard />  
+      </div>
     </div>
+    
   );
 }
