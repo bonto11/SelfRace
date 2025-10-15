@@ -1,36 +1,40 @@
+// src/features/recovery/components/RecoveryInputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 
-/** jednoduchý maskovač času "HH:MM" pri písaní */
+/* ---------- helpers ---------- */
+
+// robustný addDays pre ISO bez časovej zóny (žiadne skákanie o dva dni)
+function addDaysIso(iso: string, delta: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 function handleTimeInput(
   e: React.ChangeEvent<HTMLInputElement>,
   setter: (val: string) => void
 ) {
-  let value = e.target.value.replace(/\D/g, "");
-  if (value.length >= 3) value = value.slice(0, 2) + ":" + value.slice(2, 4);
-  setter(value);
+  let v = e.target.value.replace(/\D/g, "").slice(0, 4);
+  if (v.length >= 3) v = v.slice(0, 2) + ":" + v.slice(2);
+  setter(v);
 }
 
-/** pekný formát dátumu do titulku */
-function fmtDate(iso: string) {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
+/* ---------- component ---------- */
 
-type Props = {
-  /** predvyplnený dátum; default dnes */
-  initialDate?: string;
-};
-
-export default function InputsCard({ initialDate }: Props) {
+export default function InputsCard() {
   const { userId } = useUserId();
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
 
-  const [date, setDate] = useState<string>(initialDate || todayIso);
+  const [date, setDate] = useState<string>(todayIso);
   const [rhr, setRhr] = useState("");
   const [hrvAvg, setHrvAvg] = useState("");
   const [hrvMax, setHrvMax] = useState("");
@@ -43,9 +47,7 @@ export default function InputsCard({ initialDate }: Props) {
   const [comments, setComments] = useState("");
 
   function shiftDate(deltaDays: number) {
-    const d = new Date(date + "T00:00:00");
-    d.setDate(d.getDate() + deltaDays);
-    setDate(d.toISOString().slice(0, 10));
+    setDate((prev) => addDaysIso(prev, deltaDays));
   }
 
   async function handleSave() {
@@ -118,7 +120,7 @@ export default function InputsCard({ initialDate }: Props) {
         </div>
       </div>
 
-      {/* BODY – grid ako tvoje widgety (2 stĺpce na md, 1 na mobile) */}
+      {/* BODY */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* RHR */}
         <div className="p-3 rounded bg-gray-900/30">
@@ -157,35 +159,28 @@ export default function InputsCard({ initialDate }: Props) {
           </div>
         </div>
 
-        {/* Sleep duration */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Sleep duration</div>
-          <div className="flex items-center gap-2">
+        {/* Sleep (duration | start) – vedľa seba */}
+        <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
+          <div className="text-sm text-gray-400 mb-1">Sleep</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <input
               type="text"
-              placeholder="HH:MM"
+              placeholder="HH:MM duration"
               value={sleepDuration}
               onChange={(e) => handleTimeInput(e, setSleepDuration)}
-              className="flex-1 px-2 py-2 rounded bg-gray-700"
+              className="px-2 py-2 rounded bg-gray-700"
             />
-          </div>
-        </div>
-
-        {/* Sleep start */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Sleep start</div>
-          <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="HH:MM"
+              placeholder="HH:MM start"
               value={sleepStart}
               onChange={(e) => handleTimeInput(e, setSleepStart)}
-              className="flex-1 px-2 py-2 rounded bg-gray-700"
+              className="px-2 py-2 rounded bg-gray-700"
             />
           </div>
         </div>
 
-        {/* Toggles */}
+        {/* Evening factors */}
         <div className="p-3 rounded bg-gray-900/30">
           <div className="text-sm text-gray-400 mb-2">Evening factors</div>
           <label className="flex items-center gap-2 mb-2">
@@ -227,22 +222,21 @@ export default function InputsCard({ initialDate }: Props) {
           </div>
         </div>
 
-        {/* Comment – cez dva stĺpce na md */}
+        {/* Comment */}
         <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
           <div className="text-sm text-gray-400 mb-1">Comment</div>
           <textarea
             value={comments}
             onChange={(e) => setComments(e.target.value)}
             rows={3}
-            placeholder="Poznámka k dňu (prečo vyšší RHR, jet lag, preťaž.)"
+            placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
             className="w-full px-2 py-2 rounded bg-gray-700 resize-y"
           />
         </div>
       </div>
 
       {/* FOOTER */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="text-xs text-gray-400">{fmtDate(date)}</div>
+      <div className="flex items-center justify-end mt-4">
         <button
           onClick={handleSave}
           disabled={saving}
