@@ -28,7 +28,7 @@ type Row = {
 
 export default function DetailSleepStart() {
   const { userId } = useUserId();
-  const [weeks, setWeeks] = useState<number>(8); // 2/4/8/12
+  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {

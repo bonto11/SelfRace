@@ -26,9 +26,6 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
     })();
   }, [userId]);
 
-  // "čerstvosť" záznamu
-  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
-
   // hodnoty a "včerajšok"
   const values = useMemo<(number | null)[]>(
     () => rows.map((r) => (r?.HRV_avg_ms ?? null)),
@@ -52,14 +49,22 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   // pri HRV platí "higher-better"
   const cmp = compareLatestToBaseline(yesterday, baselinePoint, "higher-better", 0.05);
 
+  // "čerstvosť" záznamu
+  const freshness = checkRecoveryFreshness(rows, r => r.date);
+  const showNA = !freshness.hasToday;
+
   // ak chýba dnešok, prepíš text na hlášku o chýbajúcich dátach
-  const note = freshness.hasToday ? cmp.note : freshness.message;
-  const accent = cmp.accent;
+  const valueText = showNA
+  ? "—" // alebo "N/A"
+  : Number.isFinite(yesterday) ? String(Math.round(yesterday as number)) : "—";
+
+  const note  = showNA ? freshness.message : cmp.note;
+  const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
     <RecoveryStatCard
       title="HRV (RMSSD)"
-      value={Number.isFinite(yesterday as number) ? String(Math.round(yesterday as number)) : "—"}
+      value={valueText}
       unit="ms"
       note={note}
       accent={accent}

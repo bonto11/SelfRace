@@ -4,30 +4,7 @@
 import { useState, useMemo } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-
-/* ---------- helpers ---------- */
-
-// robustný addDays pre ISO bez časovej zóny (žiadne skákanie o dva dni)
-function addDaysIso(iso: string, delta: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
-  dt.setUTCDate(dt.getUTCDate() + delta);
-  const yy = dt.getUTCFullYear();
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getUTCDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
-function handleTimeInput(
-  e: React.ChangeEvent<HTMLInputElement>,
-  setter: (val: string) => void
-) {
-  let v = e.target.value.replace(/\D/g, "").slice(0, 4);
-  if (v.length >= 3) v = v.slice(0, 2) + ":" + v.slice(2);
-  setter(v);
-}
-
-/* ---------- component ---------- */
+import { addDaysIso, handleTimeInput,} from "@/shared/utils/recovery";
 
 export default function InputsCard() {
   const { userId } = useUserId();

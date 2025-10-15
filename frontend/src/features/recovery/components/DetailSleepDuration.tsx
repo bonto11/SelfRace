@@ -23,7 +23,7 @@ type Row = { date: string; sleep_duration_min: number | null; comments?: string 
 
 export default function DetailSleepDuration() {
   const { userId } = useUserId();
-  const [weeks, setWeeks] = useState<number>(8);
+  const [weeks, setWeeks] = useState<number>(2);// 2/4/8/12
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {

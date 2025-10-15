@@ -30,8 +30,6 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
     })();
   }, [userId]);
 
-  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
-
   const values = useMemo<(number | null)[]>(
     () => rows.map(r => (r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time)! : null)),
     [rows]
@@ -44,14 +42,25 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
 
   // fixná baseline
   const cmp = compareTimeToBaselineMinutes(latest, FIX_BASELINE_MIN, TOL_MIN);
-  const note = freshness.hasToday ? cmp.note : freshness.message;
+
+  // "čerstvosť" záznamu
+  const freshness = checkRecoveryFreshness(rows, r => r.date);
+  const showNA = !freshness.hasToday;
+
+  // ak chýba dnešok, prepíš text na hlášku o chýbajúcich dátach
+  const valueText = showNA
+  ? "—" // alebo "N/A"
+  : Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—";
+
+  const note  = showNA ? freshness.message : cmp.note;
+  const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
     <RecoveryStatCard
       title="Sleep start"
-      value={Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—"}
+      value={valueText}
       note={note}
-      accent={cmp.accent}
+      accent={accent}
       onOpenDetail={onOpenDetail}
     />
   );
