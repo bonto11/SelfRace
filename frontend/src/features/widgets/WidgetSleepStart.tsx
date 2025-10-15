@@ -18,7 +18,7 @@ type Row = { date: string; sleep_start_time: string | null };
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
 const TOL_MIN = 30;
 
-export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetSleepStart({ onOpenDetail, refreshKey = 0 }: { onOpenDetail?: () => void, refreshKey?: number }) {
   const { userId } = useUserId();
   const [rows, setRows] = useState<Row[]>([]);
 
@@ -37,7 +37,7 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
         setRows(norm);
       }
     })();
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   const values = useMemo<(number | null)[]>(
     () => rows.map(r => (r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time)! : null)),

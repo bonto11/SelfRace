@@ -15,7 +15,7 @@ import {
 
 type Row = { date: string; sleep_duration_min: number | null };
 
-export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetSleepDuration({ onOpenDetail, refreshKey = 0 }: { onOpenDetail?: () => void, refreshKey?: number }) {
   const { userId } = useUserId();
   const [rows, setRows] = useState<Row[]>([]);
 
@@ -31,7 +31,7 @@ export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: (
           setRows(norm);
       }
     })();
-  }, [userId]);
+  }, [userId,refreshKey]);
 
   const values = useMemo<(number | null)[]>(
     () => rows.map(r => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null)),

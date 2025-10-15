@@ -14,7 +14,7 @@ import {
 
 type Row = { date: string; RHR_bpm: number | null };
 
-export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetRHR({ onOpenDetail, refreshKey = 0 }: { onOpenDetail?: () => void, refreshKey?: number }) {
   const { userId } = useUserId();
   const [rows, setRows] = useState<Row[]>([]);
 
@@ -30,7 +30,7 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
         setRows(norm);
       }
     })();
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   const values = useMemo<(number | null)[]>(
     () => rows.map(r => (r?.RHR_bpm ?? null)),
