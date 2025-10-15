@@ -8,7 +8,7 @@ import WidgetRHR from '@/features/widgets/WidgetRHR';
 import WidgetHRV from '@/features/widgets/WidgetHRV';
 import WidgetSleepDuration from '@/features/widgets/WidgetSleepDuration';
 import WidgetSleepStart from '@/features/widgets/WidgetSleepStart';
-import InputsCard from '@/features/recovery/components/InputsCard';
+import InputsCard from '@/features/recovery/components/RecoveryInputsCard';
 
 function RefreshButton() {
   const { refresh, loading } = useRecoveryData();
