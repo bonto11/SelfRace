@@ -28,6 +28,7 @@ export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: (
         const norm: Row[] = json.data
           .map((r: any) => ({ date: isoDate(r.date), sleep_duration_min: r?.sleep_duration_min ?? null }))
           .sort((a: {date: string}, b: {date: string}) => a.date.localeCompare(b.date));
+          setRows(norm);
       }
     })();
   }, [userId]);
