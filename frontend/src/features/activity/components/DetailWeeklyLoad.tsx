@@ -1,14 +1,14 @@
+// src/features/activity/components/TrendWeeklyLoad.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Chart as MixedChart } from "react-chartjs-2";
-import type { ChartData } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { THEME } from "@/shared/theme/tokens";
-import { buildWeeklyOptions } from "@/shared/charts/options";
 
 ensureChartJSRegistered();
 
@@ -30,11 +30,22 @@ const C = {
 
 export type WeekPick = { week: string; start: string; end: string };
 
+/** krátky popis rozsahu týždňa: 1–8.10. alebo 28.9.–5.10. */
+function rangeLabel(start?: string, end?: string) {
+  if (!start || !end) return "";
+  const s = new Date(start);
+  const e = new Date(end);
+  const sd = s.getDate(), sm = s.getMonth() + 1;
+  const ed = e.getDate(), em = e.getMonth() + 1;
+  if (sm === em) return `${sd}–${ed}.${em}.`;
+  return `${sd}.${sm}.–${ed}.${em}.`;
+}
+
 export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekPick) => void; }) {
   const { userId } = useUserId();
 
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(8);
+  const [lookback, setLookback] = useState<number>(8); // 4/8/12
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
@@ -47,7 +58,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       const num = (v:any)=> (Number.isFinite(+v) ? +v : 0);
       setWeeks(raw.map((w)=>({
         week: w.week ?? w.iso_week ?? w.label ?? "",
-        label: w.label ?? w.week ?? w.iso_week ?? "",
+        label: rangeLabel(w.start, w.end) || w.label || w.week || "",
         start: w.start ?? "", end: w.end ?? "",
         km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
         km_mixed: num(w.km_mixed),         km_skate: num(w.km_skate),
@@ -121,50 +132,84 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
 
   const data: ChartData<"bar"|"line",(number|null)[],string> = { labels, datasets };
 
-  const options = useMemo(() => buildWeeklyOptions(
-    metric, monoMax, strainMax, {
-      tooltipLabel: (label, v) => {
-        if (label.includes("Monotony")) return `${label}: ${v.toFixed(2)}`;
-        if (label.includes("Strain"))   return `${label}: ${Math.round(v)}`;
-        if (metric === "km")   return `${label}: ${v.toFixed(1)} km`;
-        if (metric === "time") return `${label}: ${Math.round(v)} min`;
-        return `${label}: ${Math.round(v)} TRIMP`;
+  const options: ChartOptions<"bar"|"line"> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    elements: { point: { radius: 2, hitRadius: 8 } },
+    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
+    layout: { padding: { bottom: 12 } },
+    plugins: {
+      legend: { position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.dataset.label || "";
+            const v = (ctx.parsed.y ?? 0) as number;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            if (metric === "km")   return `${label}: ${v.toFixed(1)} km`;
+            if (metric === "time") return `${label}: ${Math.round(v)} min`;
+            return `${label}: ${Math.round(v)} TRIMP`;
+          },
+        },
       },
-      onClick: (_evt, els) => {
-        const idx = els?.[0]?.index; if (idx == null) return;
-        const w = weeks[idx]; if (!w) return;
-        const pick = { week:w.week, start:w.start, end:w.end };
-        setPicked(pick);
-        onPickWeek?.(pick);
+    },
+    onClick: (_evt, els) => {
+      const idx = els?.[0]?.index; if (idx == null) return;
+      const w = weeks[idx]; if (!w) return;
+      const pick = { week:w.week, start:w.start, end:w.end };
+      setPicked(pick);
+      onPickWeek?.(pick);
+    },
+    scales: {
+      y:  { beginAtZero: true, position: "left",  grid: { color: THEME.chart.grid },
+            title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" } },
+      y1: { position: "right", min: 0, max: monoMax, grid: { drawOnChartArea: false },
+            border: { color: C.monotony }, ticks: { color: C.monotony },
+            title: { display: true, text: "Monotony", color: C.monotony } },
+      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
+            border: { color: C.strain }, ticks: { color: C.strain },
+            title: { display: true, text: "Strain", color: C.strain } },
+      x:  {
+        grid: { color: THEME.chart.gridSoft },
+        ticks: {
+          autoSkip: true,
+          minRotation: 55,
+          maxRotation: 55,
+          padding: 6,
+          font: { size: 10 },
+        },
       },
-    }
-  ), [metric, monoMax, strainMax, weeks, onPickWeek]);
+    },
+  }), [metric, weeks, monoMax, strainMax, onPickWeek]);
 
-  // pevný vizuál barov + horizontálny scroll iba vnútri karty
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
-      {/* ovládanie */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
           <button onClick={()=>setMetric("km")}    className={`px-2 py-1 rounded ${metric==="km"?"bg-blue-600 text-white":"bg-gray-700"}`}>Km</button>
-        <button onClick={()=>setMetric("time")}  className={`px-2 py-1 rounded ${metric==="time"?"bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
+          <button onClick={()=>setMetric("time")}  className={`px-2 py-1 rounded ${metric==="time"?"bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
           <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
         </div>
         <div className="text-xs">
+          {/* len 4 / 8 / 12 */}
           <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
+            <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
-            <option value={26}>26 týždňov</option>
           </select>
         </div>
       </div>
 
-      {/* scrolluje sa LEN vnútri karty */}
-      <div className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
-           style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+      <div
+        className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
         <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
             <MixedChart type="bar" data={data} options={options} />

@@ -10,6 +10,7 @@ export const THEME = {
   },
 
   chart: {
+    // série
     run: '#22D3EE',
     bike: '#A78BFA',
     strength: '#F59E0B',
@@ -23,12 +24,20 @@ export const THEME = {
     gridSoft: 'rgba(255,255,255,0.05)',
     legendPosition: 'top' as const,
 
+    /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
+    weeklyPxPerLabel: 56,
+    
+    // výšky
     weeklyHeight: 360,
     weeklyHeightCompact: 180,
 
-    /** NOVÉ: zjednotená šírka stĺpcov a px/label pre detail */
-    weeklyBarThickness: 12,
-    weeklyPxPerLabel: 56,
+    // 🔒 konzistencia barov + vodorovný layout
+    bar: {
+      maxThickness: 12,      // rovnaké ako vo widgetoch
+      categoryPct: 0.6,
+      barPct: 0.7,
+    },
+    pxPerLabel: 26,          // šírka 1 týždňa (rovnaké ako widget)
   },
 
   mobile: {

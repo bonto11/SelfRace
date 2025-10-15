@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
+import TrendWeeklyLoad from "@/features/activity/components/DetailWeeklyLoad";
 
 export const dynamic = "force-dynamic";
 
