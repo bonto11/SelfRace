@@ -1,4 +1,4 @@
-// src/features/recovery/components/RecoveryInputsCard.tsx
+// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
