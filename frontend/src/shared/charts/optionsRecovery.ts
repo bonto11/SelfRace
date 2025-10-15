@@ -12,7 +12,7 @@ type RecoveryLineOptsParams = {
   yTitle: string;                         // "bpm", "ms", "min"...
   yTickFormatter?: (v: number) => string; // voliteľné formátovanie Y
   tooltipTitleForIndex?: (i: number) => string;
-  tooltipLabelForItem?: (ctx: any) => string;
+  tooltipLabelForItem?: (ctx: any) => string | string[];
   tooltipFilter?: (item: any) => boolean;
 };
 
