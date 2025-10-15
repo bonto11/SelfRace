@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import RecoveryDataProvider, { useRecoveryData } from '@/features/recovery/data/RecoveryDataContext';
+import { useRecoveryData, RecoveryDataProvider } from '@/features/recovery/data/RecoveryDataContext';
 
 // ak chceš, nechaj aj widgety – inak ich pokojne vymaž z gridu
 import WidgetRHR from '@/features/widgets/WidgetRHR';
