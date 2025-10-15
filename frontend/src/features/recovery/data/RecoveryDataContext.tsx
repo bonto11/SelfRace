@@ -1,61 +1,80 @@
-'use client';
+// src/features/recovery/data/RecoveryDataContext.tsx
+"use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { API_URL } from '@/shared/config';
-import { useUserId } from '@/shared/hooks/useUserId';
-import { isoDate } from '@/shared/utils/recovery';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import { API_URL } from "@/shared/config";
+import { useUserId } from "@/shared/hooks/useUserId";
+import { isoDate } from "@/shared/utils/recovery";
+
+/* ---------- Typy ---------- */
 
 export type RecoveryRow = {
   date: string;
   RHR_bpm: number | null;
   HRV_avg_ms: number | null;
   HRV_max_ms: number | null;
-  sleep_start_time: string | null;   // "HH:MM"
-  sleep_duration_min: number | null; // minutes
-  comments?: string | null;
+  sleep_start_time: string | null;
+  sleep_duration_min: number | null;
+  comments: string | null;
 };
 
-type Ctx = {
+type CtxValue = {
   rows: RecoveryRow[];
   loading: boolean;
   refresh: (force?: boolean) => Promise<void>;
 };
 
-const RecoveryDataContext = createContext<Ctx | null>(null);
+/* ---------- Pomocné funkcie (cache) ---------- */
 
-// ---- sessionStorage cache helpers -------------------------------------------------
+function hasSessionStorage() {
+  return typeof window !== "undefined" && !!window.sessionStorage;
+}
 
-const KEY = (userId: string, days: number) => `recovery:u_${userId}:days_${days}`;
-
-function loadCache(userId: string, days: number): RecoveryRow[] {
-  try {
-    const raw = sessionStorage.getItem(KEY(userId, days));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+function cacheKey(userId: string, days: number) {
+  return `RECOVERY:${userId}:${days}`;
 }
 
 function saveCache(userId: string, days: number, rows: RecoveryRow[]) {
+  if (!hasSessionStorage()) return;
   try {
-    sessionStorage.setItem(KEY(userId, days), JSON.stringify(rows));
-  } catch {
-    /* ignore quota errors */
-  }
+    const key = cacheKey(userId, days);
+    const payload = JSON.stringify({
+      savedAt: Date.now(),
+      rows,
+    });
+    sessionStorage.setItem(key, payload);
+  } catch {}
 }
 
-// ---- fetch & normalize ------------------------------------------------------------
+function loadCache(userId: string, days: number): RecoveryRow[] {
+  if (!hasSessionStorage()) return [];
+  try {
+    const raw = sessionStorage.getItem(cacheKey(userId, days));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.rows)) return parsed.rows as RecoveryRow[];
+  } catch {}
+  return [];
+}
 
-async function fetchRecovery(userId: string, days: number): Promise<RecoveryRow[]> {
-  const res = await fetch(`${API_URL}/recovery/${userId}?days=${days}`, { cache: 'no-store' });
-  const json = await res.json().catch(() => ({} as any));
+/* ---------- Fetch + normalizácia ---------- */
+
+async function fetchRecovery(userId: string, days = 90): Promise<RecoveryRow[]> {
+  const res = await fetch(`${API_URL}/recovery/${userId}?days=${days}`);
+  const json = await res.json().catch(() => ({}));
   const arr: any[] = Array.isArray(json?.data) ? json.data : [];
 
   return arr
     .map((r) => ({
-      date: isoDate(r.date),
+      date: isoDate(r?.date),
       RHR_bpm: r?.RHR_bpm ?? null,
       HRV_avg_ms: r?.HRV_avg_ms ?? null,
       HRV_max_ms: r?.HRV_max_ms ?? null,
@@ -63,70 +82,84 @@ async function fetchRecovery(userId: string, days: number): Promise<RecoveryRow[
       sleep_duration_min: r?.sleep_duration_min ?? null,
       comments: r?.comments ?? null,
     }))
-    .sort((a: RecoveryRow, b: RecoveryRow) => a.date.localeCompare(b.date));
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// ---- Provider ---------------------------------------------------------------------
+/* ---------- Context ---------- */
 
-type ProviderProps = {
+const RecoveryDataContext = createContext<CtxValue | null>(null);
+
+export function useRecoveryData(): CtxValue {
+  const ctx = useContext(RecoveryDataContext);
+  if (!ctx) throw new Error("useRecoveryData must be used within RecoveryDataProvider");
+  return ctx;
+}
+
+/* ---------- Provider ---------- */
+
+export function RecoveryDataProvider({
+  children,
+  days = 90, // default: 3 mesiace
+}: {
   children: React.ReactNode;
-  days?: number; // koľko dní držíme v cache; default 90
-};
-
-export function RecoveryDataProvider({ children, days = 90 }: ProviderProps) {
+  days?: number;
+}) {
   const { userId } = useUserId();
+  // userId v projekte býva number => bezpečne ho zreťazím na string pre kľúče/cache/fetch
+  const userIdStr = useMemo(() => (userId == null ? "" : String(userId)), [userId]);
+
   const [rows, setRows] = useState<RecoveryRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(
     async (force = false) => {
-      if (!userId) return;
+      if (!userIdStr) return;
       setLoading(true);
       try {
+        // Najprv skús cache (ak nie je force)
         if (!force) {
-          // najprv cache
-          const cached = loadCache(userId, days);
+          const cached = loadCache(userIdStr, days);
           if (cached.length) {
             setRows(cached);
             setLoading(false);
-            // tichý refresh
-            fetchRecovery(userId, days)
-              .then((fresh) => {
-                setRows(fresh);
-                saveCache(userId, days, fresh);
-              })
-              .catch(() => {});
-            return;
           }
+          // Tichý fetch na pozadí pre aktualizáciu
+          fetchRecovery(userIdStr, days)
+            .then((fresh) => {
+              setRows(fresh);
+              saveCache(userIdStr, days, fresh);
+            })
+            .catch(() => {});
+          return;
         }
-        const fresh = await fetchRecovery(userId, days);
+
+        // Force fetch – okamžite ťahaj z API
+        const fresh = await fetchRecovery(userIdStr, days);
         setRows(fresh);
-        saveCache(userId, days, fresh);
+        saveCache(userIdStr, days, fresh);
       } finally {
         setLoading(false);
       }
     },
-    [userId, days]
+    [userIdStr, days]
   );
 
-  // init: načítaj cache + tichý refresh
+  // Init: načítaj cache a spusti tichý refresh
   useEffect(() => {
-    if (!userId) return;
-    const cached = loadCache(userId, days);
+    if (!userIdStr) return;
+    const cached = loadCache(userIdStr, days);
     if (cached.length) setRows(cached);
     refresh(true).catch(() => {});
-  }, [userId, days, refresh]);
+  }, [userIdStr, days, refresh]);
 
-  const value = useMemo<Ctx>(() => ({ rows, loading, refresh }), [rows, loading, refresh]);
+  const value = useMemo<CtxValue>(
+    () => ({ rows, loading, refresh }),
+    [rows, loading, refresh]
+  );
 
-  return <RecoveryDataContext.Provider value={value}>{children}</RecoveryDataContext.Provider>;
-}
-
-// named aj default export (aby nepadali importy)
-export default RecoveryDataProvider;
-
-export function useRecoveryData(): Ctx {
-  const ctx = useContext(RecoveryDataContext);
-  if (!ctx) throw new Error('useRecoveryData must be used within a RecoveryDataProvider');
-  return ctx;
+  return (
+    <RecoveryDataContext.Provider value={value}>
+      {children}
+    </RecoveryDataContext.Provider>
+  );
 }
