@@ -1,46 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
 
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
-import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
-import {
-  isoDate,
-  minutesToHHMM,
-  wrapToLines
-} from "@/shared/utils/recovery";
+import { minutesToHHMM, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
+
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
 
 ensureChartJSRegistered();
 
-type Row = { date: string; sleep_duration_min: number | null; comments?: string | null };
-
 export default function DetailSleepDuration() {
-  const { userId } = useUserId();
-  const [weeks, setWeeks] = useState<number>(2);// 2/4/8/12
-  const [rows, setRows] = useState<Row[]>([]);
+  const { rows: all } = useRecoveryData();
+  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      const res = await fetch(`${API_URL}/recovery/${userId}?days=${weeks * 7}`);
-      const json = await res.json().catch(() => ({}));
-      const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
-      const norm = arr
-        .map(r => ({ date: isoDate(r.date), sleep_duration_min: r?.sleep_duration_min ?? null, comments: r?.comments ?? null }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-      setRows(norm);
-    })();
-  }, [userId, weeks]);
+  // vždy orež na posledných N dní z provideru
+  const days = weeks * 7;
+  const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
-  const sleepMin = useMemo(() => rows.map(r => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : NaN)), [rows]);
+  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
+  const sleepMin = useMemo(
+    () =>
+      rows.map((r) =>
+        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : NaN
+      ),
+    [rows]
+  );
 
   // fixné odporúčané pásmo 7–9h (420–540 min)
   const lowerBand = useMemo(() => rows.map(() => 420), [rows]);
@@ -109,12 +99,14 @@ export default function DetailSleepDuration() {
 
           if (ctx.datasetIndex === 2) {
             const v = sleepMin[idx];
-            if (Number.isFinite(v)) lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v))
+              lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
           // fallback – ak by klikol mimo hlavného datasetu
-          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length)
+            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines.join("\n");
         },
         tooltipFilter: (item) => item.datasetIndex === 2, // zobraz len hlavnú krivku
@@ -137,7 +129,10 @@ export default function DetailSleepDuration() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+          <Link
+            href="/recovery"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
             Späť
           </Link>
         </div>

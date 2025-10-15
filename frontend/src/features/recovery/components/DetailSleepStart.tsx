@@ -1,54 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
 
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
-import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
 import {
-  isoDate,
   HHMMToMinutes,
   minutesToHHMM,
   wrapToLines,
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
+
 ensureChartJSRegistered();
 
-type Row = {
-  date: string;
-  sleep_start_time: string | null; // "HH:MM"
-  comments?: string | null;
-};
-
 export default function DetailSleepStart() {
-  const { userId } = useUserId();
+  const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
-  const [rows, setRows] = useState<Row[]>([]);
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      const res = await fetch(
-        `${API_URL}/recovery/${userId}?days=${weeks * 7}`
-      );
-      const json = await res.json().catch(() => ({}));
-      const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
-      const norm = arr
-        .map((r) => ({
-          date: isoDate(r.date),
-          sleep_start_time: r?.sleep_start_time ?? null,
-          comments: r?.comments ?? null,
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-      setRows(norm);
-    })();
-  }, [userId, weeks]);
+  // vždy orež na posledných N dní z provideru
+  const days = weeks * 7;
+  const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
   // osi + hodnoty
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
