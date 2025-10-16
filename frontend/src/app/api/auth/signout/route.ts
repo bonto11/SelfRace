@@ -1,4 +1,14 @@
-// src/app/api/signout/route.ts
+// src/app/api/auth/signout/route.ts
+import { NextResponse } from "next/server";
+import { getSupabaseServer } from "@/shared/utils/supabaseServer";
+
+export async function POST() {
+  const sb = getSupabaseServer();
+  await sb.auth.signOut(); // zneplatní httpOnly cookies
+  return NextResponse.json({ ok: true });
+}
+
+/*
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
@@ -27,3 +37,4 @@ export async function POST(req: NextRequest) {
   await sb.auth.signOut();
   return res;
 }
+*/

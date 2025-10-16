@@ -1,3 +1,136 @@
+// src/features/auth/components/UserMenu.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+
+type LocalUser = { email: string; name: string; avatarUrl: string | null };
+type Props = { user?: LocalUser };
+
+export default function UserMenu({ user }: Props) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [u, setU] = useState<LocalUser | null>(user ?? null);
+  const [busy, setBusy] = useState<"reset" | "signout" | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  // ak sa props.user zmení, premietni do lokálneho stavu
+  useEffect(() => { setU(user ?? null); }, [user]);
+
+  // close on outside/Esc
+  useEffect(() => {
+    const onDoc = (ev: MouseEvent) => {
+      if (!boxRef.current) return;
+      if (!boxRef.current.contains(ev.target as Node)) setOpen(false);
+    };
+    const onEsc = (ev: KeyboardEvent) => ev.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, []);
+
+  const initials = useMemo(() => {
+    const n = (u?.name || u?.email || "").trim();
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (!parts.length) return "U";
+    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }, [u?.name, u?.email]);
+
+  async function signOut() {
+    setBusy("signout");
+    try {
+      await fetch("/api/auth/signout", { method: "POST" }); // server vymaže cookies
+      setOpen(false);
+      router.replace("/signin");
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handlePasswordReset() {
+    if (!u?.email) {
+      alert("Neviem tvoju e-mailovú adresu.");
+      return;
+    }
+    setBusy("reset");
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: u.email }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok !== true) throw new Error(json?.error || "Reset zlyhal");
+
+      setOpen(false);
+      router.replace("/signin?checkEmail=1");
+    } catch (e: any) {
+      alert(e?.message ?? "Nepodarilo sa odoslať reset e-mail.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button
+        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10"
+        onClick={() => setOpen(v => !v)}
+      >
+        {u?.avatarUrl ? (
+          <Image src={u.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">
+            {initials}
+          </div>
+        )}
+        <span className="text-sm hidden sm:block">{u?.email}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 rounded-md border bg-background shadow-lg z-50">
+          <div className="px-3 py-2 text-sm border-b">
+            <div className="font-medium">{u?.name || "User"}</div>
+            <div className="opacity-70 truncate">{u?.email}</div>
+          </div>
+          <nav className="py-1">
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+              onClick={handlePasswordReset}
+              disabled={busy === "reset"}
+            >
+              {busy === "reset" ? "Odosielam…" : "Zmeniť heslo (e-mailom)"}
+            </button>
+
+            <a
+              className="block px-3 py-2 text-sm hover:bg-white/10"
+              href="/profile"
+              onClick={() => setOpen(false)}
+            >
+              Change email
+            </a>
+
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+              onClick={signOut}
+              disabled={busy === "signout"}
+            >
+              {busy === "signout" ? "Signing out…" : "Sign out"}
+            </button>
+          </nav>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/*
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -150,3 +283,5 @@ async function handlePasswordReset() {
     </div>
   );
 }
+
+*/ 
