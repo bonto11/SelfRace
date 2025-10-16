@@ -1,40 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
 
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
-import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
-import { isoDate, rollingMean, bandsAround, wrapToLines} from "@/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines} from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
+
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
 
 ensureChartJSRegistered();
 
-type Row = { date: string; RHR_bpm: number | null; comments?: string | null };
-
-
 export default function DetailRHR() {
-  const { userId } = useUserId();
-  const [weeks, setWeeks] = useState<number>(2);// 2/4/8/12
-  const [rows, setRows] = useState<Row[]>([]);
+  const { rows: all } = useRecoveryData();
+  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      const res = await fetch(`${API_URL}/recovery/${userId}?days=${weeks * 7}`);
-      const json = await res.json().catch(() => ({}));
-      const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
-      const norm = arr
-        .map(r => ({ date: isoDate(r.date), RHR_bpm: r?.RHR_bpm ?? null, comments: r?.comments ?? null }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-      setRows(norm);
-    })();
-  }, [userId, weeks]);
+  // vždy orež na posledných N dní z provideru
+  const days = weeks * 7;
+  const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
   const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
   const rhr = useMemo(() => rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : NaN)), [rows]);

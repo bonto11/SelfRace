@@ -1,4 +1,4 @@
-// src/features/recovery/components/RecoveryInputsCard.tsx
+// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
@@ -110,7 +110,6 @@ export default function InputsCard() {
               placeholder="bpm"
               className="flex-1 w-full px-2 py-2 rounded bg-gray-700"
             />
-            <span className="text-sm opacity-70">bpm</span>
           </div>
         </div>
 

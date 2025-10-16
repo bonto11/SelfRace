@@ -1,41 +1,41 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import WidgetRHR from "@/features/widgets/WidgetRHR";
-import WidgetHRV from "@/features/widgets/WidgetHRV";
-import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
-import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
-import InputsCard from "@/features/recovery/components/InputsCard";
-import {
-  RecoveryDataProvider,
-  useRecoveryData,
-} from "@/features/recovery/data/RecoveryDataContext";
+import { useRouter } from 'next/navigation';
+import { useRecoveryData, RecoveryDataProvider } from '@/features/recovery/data/RecoveryDataContext';
+
+// ak chceš, nechaj aj widgety – inak ich pokojne vymaž z gridu
+import WidgetRHR from '@/features/widgets/WidgetRHR';
+import WidgetHRV from '@/features/widgets/WidgetHRV';
+import WidgetSleepDuration from '@/features/widgets/WidgetSleepDuration';
+import WidgetSleepStart from '@/features/widgets/WidgetSleepStart';
+import InputsCard from '@/features/recovery/components/InputsCard';
 
 function RefreshButton() {
-  const { refresh } = useRecoveryData();
+  const { refresh, loading } = useRecoveryData();
   const onClick = async () => {
-    await refresh();
+    await refresh(true);
   };
+
+  // jednoduchá SVG ikonka ↻ (bez balíkov)
   return (
     <button
       onClick={onClick}
-      aria-label="Refresh"
-      title="Refresh"
-      className="inline-flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 px-2 py-1"
+      disabled={loading}
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm disabled:opacity-60"
+      title="Refresh data"
     >
-      {/* ikona „refresh“ */}
       <svg
+        className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
         viewBox="0 0 24 24"
-        className="h-5 w-5"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
       >
-        <path d="M21 12a9 9 0 1 1-3-6.7" />
-        <path d="M21 3v6h-6" />
+        <path d="M4 4v6h6" />
+        <path d="M20 20v-6h-6" />
+        <path d="M5 15a7 7 0 0 0 12 2M19 9a7 7 0 0 0-12-2" />
       </svg>
+      Refresh
     </button>
   );
 }
@@ -44,19 +44,20 @@ export default function RecoveryPage() {
   const router = useRouter();
 
   return (
-    <RecoveryDataProvider days={35}>
+    <RecoveryDataProvider days={90}>
       <div className="flex items-center justify-end mb-3">
         <RefreshButton />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
-        <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-        <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
-        <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
-        <div className="lg:col-span-2">
-          <InputsCard />
-        </div>
+        <WidgetRHR onOpenDetail={() => router.push('/recovery/rhr')} />
+        <WidgetHRV onOpenDetail={() => router.push('/recovery/hrv')} />
+        <WidgetSleepDuration onOpenDetail={() => router.push('/recovery/sleepDuration')} />
+        <WidgetSleepStart onOpenDetail={() => router.push('/recovery/sleepStart')} />
+      </div>
+
+      <div className="mt-6">
+        <InputsCard />
       </div>
     </RecoveryDataProvider>
   );

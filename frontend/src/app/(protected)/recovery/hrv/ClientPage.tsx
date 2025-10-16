@@ -1,15 +1,22 @@
-// aby Next našiel komponent nižšie:
-import dynamic from "next/dynamic";
+'use client';
+
+import dynamic from 'next/dynamic';
+import { RecoveryDataProvider } from '@/features/recovery/data/RecoveryDataContext';
+
+// dynamický import komponentu s grafom
 const HRVDetailClient = dynamic(
-  () => import("@/features/recovery/components/DetailHRV"),
+  () => import('@/features/recovery/components/DetailHRV'),
   { ssr: false }
 );
 
 export default function Page() {
   return (
-    <div className="p-4">
-      <HRVDetailClient />
-    </div>
+    <RecoveryDataProvider days={90}>
+      <div className="p-4">
+        <HRVDetailClient />
+      </div>
+    </RecoveryDataProvider>
   );
 }
+
 
