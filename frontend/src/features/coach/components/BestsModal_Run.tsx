@@ -14,7 +14,7 @@ import {
 import { maskHHMMSS, hhmmssToSec, secToHHMMSS } from "@/shared/utils/time";
 
 type Props = {
-  userId: number;
+  userId: string;
   initial: UserBest[];
   onClose: () => void;
   onSaved?: (b: UserBest) => void;
