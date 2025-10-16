@@ -1,5 +1,4 @@
 // src/shared/hooks/useOrientation.ts
-// src/shared/hooks/useOrientation.ts
 'use client';
 import { useEffect, useState } from 'react';
 
