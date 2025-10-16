@@ -1,38 +1,27 @@
-// src/middleware.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+// src/shared/utils/supabaseServer.ts
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export async function middleware(req: NextRequest) {
-  // odpoveď, do ktorej môže Supabase zapisovať cookies
-  const res = NextResponse.next();
-
+export function getSupabaseServer(): SupabaseClient {
+  // POZOR: tieto logy sa objavia často (pri každom server renderi).
   try {
-    // jednoduchý log, nech vidíš že middleware beží
-    console.log("[SB][mw] start", { path: req.nextUrl.pathname });
-
-    // klient naviazaný na req/res → umožní refreshnúť session a uložiť cookies
-    const supabase = createMiddlewareClient({ req, res });
-
-    // toto ticho spraví refresh, ak treba
-    const { data, error } = await supabase.auth.getSession();
-
-    console.log("[SB][mw] getSession", {
-      hasSession: !!data?.session,
-      userId: data?.session?.user?.id ?? null,
-      error: error?.message ?? null,
-    });
-  } catch (e: any) {
-    console.error("[SB][mw] ERROR", e?.message ?? e);
+    const cks = cookies();
+    const ckNames = cks.getAll().map(c => c.name);
+    console.log('[SB][server] create client, cookies present:', ckNames);
+  } catch {
+    // no-op (mimo request kontextu)
   }
 
-  return res;
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => cookies().get(name)?.value,
+        set: () => {},     // zápis robí middleware
+        remove: () => {},  // zápis robí middleware
+      },
+    }
+  );
 }
-
-// ignoruj statické assety atď.
-export const config = {
-  matcher: [
-    // všetko okrem _next/static, _next/image, favicon a obrázkov
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
-};
