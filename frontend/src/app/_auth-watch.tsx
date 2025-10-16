@@ -1,29 +1,19 @@
-// src/app/_auth-watch.tsx
 'use client';
-
 import { useEffect } from 'react';
-import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseBrowser } from '@/shared/utils/supabaseBrowser';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export default function AuthWatch() {
   useEffect(() => {
-    const supabase: SupabaseClient = getSupabaseBrowser();
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(
+    const supabase = getSupabaseBrowser();
+    const { data: sub } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, _session: Session | null) => {
-        // tu vieš spraviť UX reakciu
-        // napr. ak sa access token neobnovil a user odpadol:
-        if (event === 'SIGNED_OUT') {
-          // TODO: toast('Boli ste odhlásený'); prípadne router.push('/signin')
-          // (nechávam na teba)
-        }
+        // optional: toast on token refresh or sign-out
+        if (event === 'TOKEN_REFRESHED') console.log('[Auth] token refreshed');
+        if (event === 'SIGNED_OUT') console.log('[Auth] signed out');
       }
     );
-
-    return () => {
-      subscription.subscription.unsubscribe();
-    };
+    return () => sub.subscription.unsubscribe();
   }, []);
-
   return null;
 }

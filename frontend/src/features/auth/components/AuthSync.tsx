@@ -37,7 +37,6 @@ export default function AuthSync() {
 
     // 1) úvodný sync (ak máme session v LS)
     sb.auth.getSession().then(({ data }) => {
-      console.log('[AuthSync] initial session?', !!data.session);
       if (data.session?.access_token && data.session?.refresh_token) {
         // po SSR prerenderi to berme ako INITIAL_SESSION
         pushSession('INITIAL_SESSION');
