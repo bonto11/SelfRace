@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import type { Session } from "@supabase/supabase-js";
 
+//ggg
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
