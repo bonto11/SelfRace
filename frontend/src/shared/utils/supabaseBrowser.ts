@@ -1,5 +1,5 @@
 // src/shared/utils/supabaseBrowser.ts
-/*
+
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
@@ -41,4 +41,3 @@ export async function getCurrentUser() {
   const { data } = await sb.auth.getUser();
   return data.user ?? null;
 }
-*/
