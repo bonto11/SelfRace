@@ -1,62 +1,81 @@
 // src/app/api/auth/set-session/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextRequest, NextResponse, type CookieOptions } from "next/server";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import type { Session } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function serverClient(req: NextRequest, res: NextResponse) {
-  const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  return createServerClient(URL, ANON, {
-    cookies: {
-      get(name: string) {
-        return req.cookies.get(name)?.value;
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        res.cookies.set(name, value, options as any);
-      },
-      remove(name: string) {
-        res.cookies.delete(name);
-      },
-    },
-  });
-}
-
-type Body = { event?: "SIGNED_IN" | "SIGNED_OUT"; session?: Session };
+const COOKIE_NAME = "sr_uidn";
+const cookieOpts: CookieOptions = {
+  httpOnly: true,
+  sameSite: "lax",
+  path: "/",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 60 * 60 * 24 * 30, // 30 dní
+};
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as Body;
-  const { event, session } = body ?? {};
+  const res = NextResponse.json({ ok: true });
 
-  const res = NextResponse.json({ ok: true }); // budeme doň zapisovať cookies
-  const supabase = serverClient(req, res);
+  // klient pre route (vie zapisovať cookies do `res`)
+  const supabase = createRouteHandlerClient({ cookies: () => req.cookies });
+
+  const body = await req.json().catch(() => ({}));
+  const event: string = body?.event ?? "";
+  const session: Session | null = body?.session ?? null;
+
+  // helper na zápis/mazanie nášho cookie
+  const setSrUid = (val: string | null) => {
+    if (!val && req.cookies.get(COOKIE_NAME)) {
+      res.cookies.delete(COOKIE_NAME);
+      return;
+    }
+    if (val) {
+      res.cookies.set(COOKIE_NAME, val, cookieOpts);
+    }
+  };
 
   try {
     if (event === "SIGNED_OUT") {
-      console.log("[SB][set-session] signOut -> clearing cookies");
+      // vymaž auth cookies aj náš sr_uidn
       await supabase.auth.signOut();
+      setSrUid(null);
       return res;
     }
 
     if (event === "SIGNED_IN" && session?.access_token && session?.refresh_token) {
-      const { error } = await supabase.auth.setSession({
+      // zapíš auth session do HttpOnly cookies (helpers to urobia cez getSession/setSession)
+      await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-      console.log("[SB][set-session] setSession", { ok: !error, err: error?.message ?? null });
+
+      // 1× z DB vytiahni interné ID a ulož do nášho cookie `sr_uidn`
+      const authUid = session.user.id;
+      const { data, error } = await supabase
+        .from("users")               // 👈 názov tabuľky
+        .select("id")
+        .eq("uid", authUid)          // 👈 stĺpec s supabase UUID
+        .maybeSingle();
+
       if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        console.error("[set-session] users fetch error:", error.message);
+        setSrUid(null);
+      } else {
+        const num = typeof data?.id === "number" ? data!.id : Number(data?.id);
+        if (Number.isFinite(num)) setSrUid(String(num));
+        else setSrUid(null);
       }
-      return res; // obsahuje Set-Cookie
+
+      return res;
     }
 
-    console.log("[SB][set-session] invalid payload", { hasSession: !!session });
-    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+    // fallback (napr. refresh)
+    await supabase.auth.getSession();
+    return res;
   } catch (e: any) {
-    console.error("[SB][set-session] ERROR", e?.message ?? e);
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    console.error("[set-session] ERROR:", e?.message ?? e);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
