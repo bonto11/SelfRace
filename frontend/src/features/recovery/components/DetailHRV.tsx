@@ -4,10 +4,9 @@ import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
-
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines} from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
 
@@ -30,6 +29,7 @@ export default function DetailHRV() {
     [rows]
   );
 
+  // baseline (rolling mean z predchádzajúcich dní) + pásma ±5 %
   const baselineArr = useMemo(
     () =>
       rollingMean(
@@ -45,12 +45,14 @@ export default function DetailHRV() {
     [baselineArr]
   );
 
+  // komentáre
   const comments = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rows) if (r.comments) m.set(r.date, r.comments);
     return m;
   }, [rows]);
 
+  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) =>
       xs.map((v) => (typeof v === "number" ? v : NaN));
@@ -109,6 +111,7 @@ export default function DetailHRV() {
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
+  // options
   const options = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -161,9 +164,7 @@ export default function DetailHRV() {
             <option value={12}>12 týždňov</option>
           </select>
           <Link
-            href="/recovery"
-            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
-          >
+            href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
             Späť
           </Link>
         </div>

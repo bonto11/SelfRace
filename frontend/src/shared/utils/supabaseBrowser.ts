@@ -1,16 +1,18 @@
 // src/shared/utils/supabaseBrowser.ts
 'use client';
-import { createBrowserClient } from '@supabase/ssr';
 
-let _sb:
-  | ReturnType<typeof createBrowserClient<any>>
-  | null = null;
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+let _sb: SupabaseClient | null = null;
 
 /**
- * Singleton browser client s perzistentnou session
- * a auto-refreshom. Vytvorí sa len raz.
+ * Singleton Supabase browser client:
+ * - session sa drží v sessionStorage (prežije refresh, zanikne po zavretí karty)
+ * - autoRefreshToken zapnutý
+ * - detectSessionInUrl zapnuté (po OAuth callbacku)
  */
-export function getSupabaseBrowser() {
+export function getSupabaseBrowser(): SupabaseClient {
   if (_sb) return _sb;
 
   _sb = createBrowserClient(
@@ -21,17 +23,25 @@ export function getSupabaseBrowser() {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        // lokálne úložisko prehliadača
-        storage:
-          typeof window !== 'undefined'
-            ? window.localStorage
-            : undefined,
+        // per-tab storage – de facto „stay signed in until you close the tab“
+        storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
       },
     }
   );
 
+  // istota: spusti auto-refresh (no-op, ak už beží)
+  if (typeof window !== 'undefined') {
+    try {
+      (_sb as any).auth.startAutoRefresh?.();
+    } catch {}
+  }
+
   return _sb;
 }
 
-// ak niekde importuješ aliasom
-export const supabaseBrowser = getSupabaseBrowser;
+/** Pomocník – bezpečne načíta aktuálneho usera na cliente. */
+export async function getCurrentUser() {
+  const sb = getSupabaseBrowser();
+  const { data } = await sb.auth.getUser();
+  return data.user ?? null;
+}

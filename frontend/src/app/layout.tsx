@@ -3,8 +3,8 @@ import "./globals.css";
 import { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Trainalyze",
-  description: "AI-powered training insights",
+  title: "SelfRace",
+  description: "Training and recovery insights with help of AI",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

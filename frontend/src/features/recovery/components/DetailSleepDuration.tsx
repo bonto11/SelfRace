@@ -4,13 +4,10 @@ import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
-
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-
 import { minutesToHHMM, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-
 import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
 
 ensureChartJSRegistered();
@@ -23,6 +20,7 @@ export default function DetailSleepDuration() {
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
+  // osi + hodnoty
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const sleepMin = useMemo(
     () =>
@@ -43,6 +41,7 @@ export default function DetailSleepDuration() {
     return m;
   }, [rows]);
 
+  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const bandLower = {
       type: "line" as const,
@@ -83,6 +82,7 @@ export default function DetailSleepDuration() {
     return { labels: labelsISO, datasets: [bandLower, bandUpper, sleepLine] };
   }, [labelsISO, lowerBand, upperBand, sleepMin]);
 
+  // options – spoločné (x: len pondelky, 55°; y: HH:MM)
   const options = useMemo(
     () =>
       buildRecoveryLineOptions({

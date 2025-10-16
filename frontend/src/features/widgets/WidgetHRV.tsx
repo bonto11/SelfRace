@@ -3,7 +3,7 @@
 
 import { useMemo } from "react";
 import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
-import { makeRollingBaseline, compareLatestToBaseline, checkRecoveryFreshness } from "@/shared/utils/recovery";
+import { compareLatestToBaseline, makeRollingBaseline, checkRecoveryFreshness } from "@/shared/utils/recovery";
 import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
 
 export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
@@ -23,7 +23,8 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
     if (values.length < 2) return null;
     const window = values.slice(0, -1);
     const { baseline } = makeRollingBaseline(window, 14, 0.05);
-    return typeof baseline.at(-1) === "number" ? (baseline.at(-1) as number) : null;
+    const last = baseline.at(-1);
+    return typeof last === "number" ? last : null;
   }, [values]);
 
   const cmp = compareLatestToBaseline(yesterday, baselinePoint, "higher-better", 0.05);
