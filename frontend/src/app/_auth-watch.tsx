@@ -1,3 +1,4 @@
+/*
 'use client';
 import { useEffect } from 'react';
 import { getSupabaseBrowser } from '@/shared/utils/supabaseBrowser';
@@ -22,3 +23,4 @@ export default function AuthWatch() {
   }, []);
   return null;
 }
+*/

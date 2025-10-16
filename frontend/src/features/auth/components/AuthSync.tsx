@@ -1,4 +1,5 @@
 // src/features/auth/components/AuthSync.tsx
+/*
 'use client';
 import { useEffect, useRef } from 'react';
 import { getSupabaseBrowser } from '@/shared/utils/supabaseBrowser';
@@ -77,3 +78,4 @@ export default function AuthSync() {
 
   return null;
 }
+*/

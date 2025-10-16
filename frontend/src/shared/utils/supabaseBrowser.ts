@@ -1,4 +1,5 @@
 // src/shared/utils/supabaseBrowser.ts
+/*
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
@@ -6,12 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 let _sb: SupabaseClient | null = null;
 
-/**
- * Singleton Supabase browser client:
- * - session sa drží v sessionStorage (prežije refresh, zanikne po zavretí karty)
- * - autoRefreshToken zapnutý
- * - detectSessionInUrl zapnuté (po OAuth callbacku)
- */
+
 export function getSupabaseBrowser(): SupabaseClient {
   if (_sb) return _sb;
 
@@ -39,9 +35,10 @@ export function getSupabaseBrowser(): SupabaseClient {
   return _sb;
 }
 
-/** Pomocník – bezpečne načíta aktuálneho usera na cliente. */
+// Pomocník – bezpečne načíta aktuálneho usera na cliente. 
 export async function getCurrentUser() {
   const sb = getSupabaseBrowser();
   const { data } = await sb.auth.getUser();
   return data.user ?? null;
 }
+*/

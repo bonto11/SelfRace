@@ -1,30 +1,36 @@
 // src/middleware.ts
-
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const sb = createServerClient(
+  // Next chce immutable headers, preto vytvárame response zvlášť
+  const res = NextResponse.next({ request: { headers: req.headers } });
+
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => req.cookies.getAll().map(c => ({ name: c.name, value: c.value })),
-        setAll: (cookies) => cookies.forEach(({name, value, options}) =>
-          res.cookies.set(name, value, options as CookieOptions)
-        ),
+        get: (name) => req.cookies.get(name)?.value,
+        set: (name, value, options) => {
+          res.cookies.set({ name, value, ...options });
+        },
+        remove: (name, options) => {
+          res.cookies.set({ name, value: "", ...options, expires: new Date(0) });
+        },
       },
     }
   );
 
-  // voliteľné: len ak už sú tokeny, osviež usera
-  if (req.cookies.has("sb-access-token") || req.cookies.has("sb-refresh-token")) {
-    try { await sb.auth.getUser(); } catch {}
-  }
+  // Zavolanie getSession() zabezpečí refresh a zápis cookies do `res`, ak treba
+  try { await supabase.auth.getSession(); } catch {}
+
   return res;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // spúšťaj všade okrem statiky/obrázkov
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
