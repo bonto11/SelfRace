@@ -1,8 +1,8 @@
 // src/shared/hooks/useUserId.ts
 "use client";
-import { useAuth } from "@/features/auth/components/AuthProvider";
+import { useAppUserId } from "@/features/auth/components/UserIdProvider";
 
 export function useUserId() {
-  const { user } = useAuth();
-  return { userId: user?.id ?? null, user };
+  const { appUserId, loading, error } = useAppUser();
+  return { userId: appUserId, loading, error };
 }
