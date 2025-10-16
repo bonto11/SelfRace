@@ -24,7 +24,7 @@ export function getSupabaseBrowser(): SupabaseClient {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         // per-tab storage – de facto „stay signed in until you close the tab“
-        storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+        storage: typeof window !== 'undefined' ? window.localStorage   : undefined,
       },
     }
   );

@@ -6,6 +6,11 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 export default function AuthWatch() {
   useEffect(() => {
     const supabase = getSupabaseBrowser();
+
+    supabase.auth.getSession().then(({ data }) => {
+        console.log('[AuthWatch] session?', !!data.session, data.session?.user?.id);
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, _session: Session | null) => {
         // optional: toast on token refresh or sign-out
