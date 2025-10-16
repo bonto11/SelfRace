@@ -1,14 +1,22 @@
-// aby Next našiel komponent nižšie:
-import dynamic from "next/dynamic";
+'use client';
+
+import dynamic from 'next/dynamic';
+import { RecoveryDataProvider } from '@/features/recovery/data/RecoveryDataContext';
+
+// dynamický import komponentu s grafom
 const SleepDurationDetailClient = dynamic(
-  () => import("@/features/recovery/components/DetailSleepDuration"),
+  () => import('@/features/recovery/components/DetailSleepDuration'),
   { ssr: false }
 );
 
 export default function Page() {
   return (
-    <div className="p-4">
-      <SleepDurationDetailClient />
-    </div>
+    <RecoveryDataProvider days={90}>
+      <div className="p-4">
+        <SleepDurationDetailClient />
+      </div>
+    </RecoveryDataProvider>
   );
 }
+
+
