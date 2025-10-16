@@ -30,11 +30,9 @@ export async function POST(req: NextRequest) {
       cookies: {
         get: (name: string) => req.cookies.get(name)?.value,
         set: (name: string, value: string, options: any) => {
-          // @ts-expect-error – Next types sú prísne, ale toto je ok
           res.cookies.set(name, value, options);
         },
         remove: (name: string, options: any) => {
-          // @ts-expect-error – viď vyššie
           res.cookies.set(name, "", { ...options, maxAge: 0 });
         },
       },
