@@ -1,5 +1,4 @@
 // src/features/activity/components/ActivityTable.tsx
-//opravene
 "use client";
 
 import { useEffect, useState } from "react";
