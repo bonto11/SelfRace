@@ -14,8 +14,8 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   const { data, error } = await sb.auth.getUser();
   const user = data?.user;
 
-  console.log(await sb.auth.getUser());
-  
+  console.log("layout await sb.auth.getUser() " + await sb.auth.getUser());
+
   if (!user) redirect("/signin");
 
   const userInfo = {
