@@ -9,10 +9,13 @@ import { SidebarProvider } from "@/features/Toolbars/hooks/useSidebar";
 import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+  
   const sb = getSupabaseServer();
   const { data, error } = await sb.auth.getUser();
   const user = data?.user;
 
+  console.log(await sb.auth.getUser());
+  
   if (!user) redirect("/signin");
 
   const userInfo = {

@@ -1,22 +1,31 @@
 // src/shared/utils/supabaseBrowser.ts
-'use client';
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { SupabaseClient } from '@supabase/supabase-js';
+let sb: SupabaseClient | null = null;
 
-let _sb: SupabaseClient | null = null;
-
-/** Singleton – klient, ktorý synchronizuje session do httpOnly cookies cez middleware. */
 export function getSupabaseBrowser(): SupabaseClient {
-  if (_sb) {
-    if (typeof window !== 'undefined') {
-      console.log('[SB][browser] reuse existing client');
+  if (sb) {
+    console.log("[SB][browser] reuse existing client");
+    return sb;
+  }
+
+  console.log("[SB][browser] created client (helpers nextjs)");
+
+  sb = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        // ⚠️ Browser nesmie čítať cookie s tokenmi
+        get() {
+          return null;
+        },
+        set() {},
+        remove() {},
+      },
     }
-    return _sb;
-  }
-  _sb = createClientComponentClient();
-  if (typeof window !== 'undefined') {
-    console.log('[SB][browser] created client (helpers nextjs)');
-  }
-  return _sb;
+  );
+
+  return sb;
 }
