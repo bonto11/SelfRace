@@ -4,9 +4,10 @@ import { getSupabaseServer } from "@/shared/utils/supabaseServer";
 
 export async function POST() {
   const sb = getSupabaseServer();
-  await sb.auth.signOut(); // zneplatní httpOnly cookies
+  await sb.auth.signOut();      // zneplatní httpOnly cookies
   return NextResponse.json({ ok: true });
 }
+
 
 /*
 import { NextResponse, type NextRequest } from "next/server";
