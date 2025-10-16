@@ -33,6 +33,6 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // všetko okrem _next/static, _next/image, favicon a obrázkov
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
