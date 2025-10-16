@@ -11,10 +11,12 @@ import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   
   const sb = getSupabaseServer();
+
+  const { data: userData, error: userErr } = await sb.auth.getUser();
+  console.log("[SSR] getUser()", { user: userData?.user?.email, err: userErr?.message });
+
   const { data, error } = await sb.auth.getUser();
   const user = data?.user;
-
-  console.log("layout await sb.auth.getUser() " + await sb.auth.getUser());
 
   if (!user) redirect("/signin");
 
