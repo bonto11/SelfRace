@@ -1,44 +1,76 @@
-// src/(auth)/api/auth/set-session/route.ts
-
-import { NextResponse } from "next/server";
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
-export async function GET() {
-  return NextResponse.json({ ok: true });
-}
-
-/*
+// src/app/api/auth/set-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerWritable } from "@/shared/utils/supabaseServer";
+import { createServerClient } from "@supabase/ssr";
+import type { Session } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type Body = { event?: "SIGNED_IN" | "SIGNED_OUT"; session?: Session | null };
 
 export async function POST(req: NextRequest) {
-  const sb = getSupabaseServerWritable();
+  const body = (await req.json().catch(() => ({}))) as Body;
+  const { event, session } = body;
 
-  const body = await req.json().catch(() => ({} as any));
-  const event = body?.event as string | undefined;
-  const session = body?.session;
+  console.log("[set-session] incoming", {
+    event,
+    hasSession: !!session,
+    atLen: session?.access_token?.length ?? 0,
+    rtLen: session?.refresh_token?.length ?? 0,
+  });
 
-  if (event === "SIGNED_OUT") {
-    await sb.auth.signOut(); // vyčistí cookies
-    return NextResponse.json({ ok: true });
-  }
+  // pripravíme response, do ktorého budeme zapisovať cookies
+  const res = NextResponse.json({ ok: true });
 
-  if (event === "SIGNED_IN") {
-    if (!session?.access_token || !session?.refresh_token) {
-      return new NextResponse(null, { status: 204 });
+  // Supabase client s cookie adaptérmi: get z requestu, set/remove do response
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => req.cookies.get(name)?.value,
+        set: (name: string, value: string, options: any) => {
+          // @ts-expect-error – Next types sú prísne, ale toto je ok
+          res.cookies.set(name, value, options);
+        },
+        remove: (name: string, options: any) => {
+          // @ts-expect-error – viď vyššie
+          res.cookies.set(name, "", { ...options, maxAge: 0 });
+        },
+      },
     }
-    const { error } = await sb.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
-  }
+  );
 
-  return NextResponse.json({ ok: false, error: "bad_payload" }, { status: 400 });
+  try {
+    if (event === "SIGNED_OUT") {
+      console.log("[set-session] supabase.auth.signOut()");
+      await supabase.auth.signOut();
+      return res;
+    }
+
+    if (event === "SIGNED_IN" && session?.access_token && session?.refresh_token) {
+      console.log("[set-session] supabase.auth.setSession()");
+      const { error } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      if (error) {
+        console.error("[set-session] setSession error", error.message);
+        return NextResponse.json(
+          { ok: false, error: error.message },
+          { status: 400 }
+        );
+      }
+      return res;
+    }
+
+    console.warn("[set-session] bad request payload", body);
+    return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+  } catch (e: any) {
+    console.error("[set-session] exception", e?.message || e);
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? "server_error" },
+      { status: 500 }
+    );
+  }
 }
-*/
