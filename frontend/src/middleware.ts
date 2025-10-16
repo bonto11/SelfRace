@@ -27,6 +27,6 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // ignoruje _next statické veci a obrázky
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
