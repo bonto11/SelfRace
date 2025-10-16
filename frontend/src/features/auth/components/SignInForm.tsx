@@ -54,18 +54,18 @@ export default function SignInForm() {
       return;
     }
 
-    // nastav serverové cookies
-    if (data?.session) {
-      const res = await fetch("/api/auth/set-session", {
+    if (data?.session?.access_token && data?.session?.refresh_token) {
+      const r = await fetch("/api/auth/set-session", {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
       });
-      console.log("[SignIn] set-session response", res.status);
+      console.log("[SignIn] set-session response", r.status);
     }
 
-    router.replace("/dashboard");
+    // miesto router.replace odporúčam na istotu:
+    window.location.href = "/dashboard";
   }
 
   return (
