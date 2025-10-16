@@ -2,7 +2,7 @@
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/shared/utils/supabaseServer";
-import { AuthProvider } from "@/features/auth/components/AuthProvider";
+import { UserIdProvider } from "@/features/auth/components/UserIdProvider";
 import Sidebar from "@/features/Toolbars/components/Sidebar";
 import UserMenu from "@/features/auth/components/UserMenu";
 import InfoMessageHost from "@/shared/components/InfoMessageHost";
@@ -26,9 +26,9 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   };
 
   return (
-    <AuthProvider initialUser={user}>
       <InfoMessageHost>
         <SidebarProvider>
+          <UserIdProvider>
           <div className="min-h-dvh grid lg:grid-cols-[280px_1fr] bg-neutral-950 text-neutral-100">
             <Sidebar />
             <div className="min-h-dvh flex flex-col">
@@ -42,8 +42,9 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
               <main className="flex-1 p-3 lg:p-4">{children}</main>
             </div>
           </div>
+          </UserIdProvider>
         </SidebarProvider>
       </InfoMessageHost>
-    </AuthProvider>
+    
   );
 }
