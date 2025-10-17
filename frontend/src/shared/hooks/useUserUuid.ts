@@ -1,8 +1,8 @@
 // src/shared/hooks/useUserUuid.ts
 "use client";
+import { useUserId } from "./useUserId";
 
 export function useUserUuid() {
-  const match = document.cookie.match(/(?:^|;\s*)sr_uuid=([^;]+)/);
-  const uuid = match ? decodeURIComponent(match[1]) : null;
+  const { uuid } = useUserId();
   return { uuid };
 }
