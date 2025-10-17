@@ -1,106 +1,116 @@
 // src/app/api/auth/set-session/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function serverClient(req: NextRequest, res: NextResponse) {
-  const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  return createServerClient(URL, ANON, {
-    cookies: {
-      get(name: string) {
-        return req.cookies.get(name)?.value;
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => req.cookies.get(name)?.value,
+        set: (name: string, value: string, options: any) => {
+          res.cookies.set(name, value, options);
+        },
+        remove: (name: string) => {
+          res.cookies.delete(name);
+        },
       },
-      set(name: string, value: string, options: CookieOptions) {
-        res.cookies.set(name, value, options as any);
-      },
-      remove(name: string) {
-        res.cookies.delete(name);
-      },
-    },
-  });
+    }
+  );
 }
 
-// univerzálne options pre naše "app" cookies
-const appCookieOpts: CookieOptions = {
-  httpOnly: false,                      // nech to vie čítať aj klient
-  sameSite: "lax",
+type Body = { event?: "SIGNED_IN" | "SIGNED_OUT"; session?: Session | null };
+
+const SR_UUID = "sr_uuid"; // string (supabase user.id)
+const SR_ID   = "sr_id";   // number  (náš interný users.id)
+
+const cookieOpts = {
+  httpOnly: true,
+  sameSite: "lax" as const,
   secure: process.env.NODE_ENV === "production",
   path: "/",
-  maxAge: 60 * 60 * 24 * 30,           // 30 dní
+  maxAge: 60 * 60 * 24 * 30, // 30 dní
 };
 
-type Body = { event?: "SIGNED_IN" | "SIGNED_OUT"; session?: Session };
-
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as Body;
-  const { event, session } = body ?? {};
-
-  // do tejto odpovede sa budú zapisovať cookies
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true, step: "init" });
   const supabase = serverClient(req, res);
 
+  let debug: Record<string, any> = { step: "start" };
+
   try {
+    const body = (await req.json().catch(() => ({}))) as Body;
+    const event = body?.event ?? "";
+    const session = body?.session ?? null;
+
+    debug.event = event;
+    debug.hasSessionInBody = !!session;
+
+    // SIGN OUT: vyčistenie cookies cez supabase clienta
     if (event === "SIGNED_OUT") {
-      console.log("[SB][set-session] signOut -> clearing cookies");
-      // zmaž supabase cookies
       await supabase.auth.signOut();
-      // zmaž aj naše app cookies
-      res.cookies.delete("sr_uuid");
-      res.cookies.delete("sr_id");
+      res.headers.set("x-sr-debug", JSON.stringify({ ...debug, signout: true }));
       return res;
     }
 
-    if (event === "SIGNED_IN" && session?.access_token && session?.refresh_token) {
-      console.log("[SB][set-session] → SIGNED_IN handler");
+    // SIGN IN: uloženie supabase session do httpOnly cookies
+    if (
+      event === "SIGNED_IN" &&
+      session?.access_token &&
+      session?.refresh_token
+    ) {
       const { error: setErr } = await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-
+      debug.setSessionOk = !setErr;
       if (setErr) {
-        console.error("[SB][set-session] setSession ERROR", setErr.message);
-        return NextResponse.json({ ok: false, error: setErr.message }, { status: 500 });
+        debug.setSessionError = setErr.message;
+        return NextResponse.json({ ok: false, debug }, { status: 500 });
       }
 
+      // 1) zapíš sr_uuid
       const uuid = session.user?.id ?? null;
-      console.log("[SB][set-session] session.user.id =", uuid);
-
       if (uuid) {
-        res.cookies.set("sr_uuid", uuid, appCookieOpts);
+        res.cookies.set(SR_UUID, uuid, cookieOpts);
+      }
+      debug.uuid = !!uuid;
 
+      // 2) dotiahni náš numerický user.id a zapíš sr_id
+      //    POZOR: stĺpec je u teba 'user_uid'
+      if (uuid) {
         const { data: userRow, error: qErr } = await supabase
           .from("users")
           .select("id")
           .eq("user_uid", uuid)
           .single();
 
-        console.log("[SB][set-session] users query result", { userRow, qErr });
-
+        debug.selectOk = !qErr;
         if (qErr) {
-          console.warn("[SB][set-session] users lookup ERROR:", qErr.message);
+          debug.selectError = qErr.message;
         } else if (userRow?.id != null) {
-          res.cookies.set("sr_id", String(userRow.id), appCookieOpts);
-          console.log("[SB][set-session] ✅ sr_id set =", userRow.id);
+          res.cookies.set(SR_ID, String(userRow.id), cookieOpts);
+          debug.wroteSrId = true;
+          debug.srId = userRow.id;
         } else {
-          console.warn("[SB][set-session] userRow empty, no sr_id cookie set");
+          debug.wroteSrId = false;
         }
-      } else {
-        console.warn("[SB][set-session] ⚠️ session.user.id is missing");
       }
 
-      return res;
+      res.headers.set("x-sr-debug", JSON.stringify(debug));
+      return res; // obsahuje Set-Cookie
     }
 
-    console.log("[SB][set-session] invalid payload", { hasSession: !!session });
-    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+    debug.invalidPayload = true;
+    return NextResponse.json({ ok: false, debug }, { status: 400 });
   } catch (e: any) {
-    console.error("[SB][set-session] ERROR", e?.message ?? e);
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    debug.catch = e?.message ?? String(e);
+    return NextResponse.json({ ok: false, debug }, { status: 500 });
   }
 }
