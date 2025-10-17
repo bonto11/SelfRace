@@ -81,7 +81,7 @@ function sortBySportOrder(sport: Sport) {
 }
 
 /** Načítanie PB (filtrované podľa športu). */
-export async function getBests(userId: string, sport: Sport = "run"): Promise<UserBest[]> {
+export async function getBests(userId: number, sport: Sport = "run"): Promise<UserBest[]> {
   const r = await fetch(`${API_URL}/users/${userId}/bests?sport=${sport}`, { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `bests load failed: ${r.status}`);
@@ -92,7 +92,7 @@ export async function getBests(userId: string, sport: Sport = "run"): Promise<Us
 }
 
 /** Uloženie/UPSERT PB z riadku. */
-export async function saveBest(userId: string, best: UserBest): Promise<void> {
+export async function saveBest(userId: number, best: UserBest): Promise<void> {
   const sport = best.sport ?? "run";
   const payload = { ...best, sport };
 
@@ -112,7 +112,7 @@ export async function saveBest(userId: string, best: UserBest): Promise<void> {
 }
 
 /** Vymazanie PB konkrétnej vzdialenosti v športe. */
-export async function deleteBest(userId: string, distance_m: number, sport: Sport = "run"): Promise<void> {
+export async function deleteBest(userId: number, distance_m: number, sport: Sport = "run"): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/bests/${sport}/${distance_m}`, { method: "DELETE" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `delete failed: ${r.status}`);

@@ -28,7 +28,7 @@ export async function analyzeCoach(userId: number, payload: AnalyzePayload) {
   return json;
 }
 
-export async function sendCoachFeedback(userId: string, body: any) {
+export async function sendCoachFeedback(userId: number, body: any) {
   const res = await fetch(`${API_URL}/coach/feedback/${userId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { sendCoachFeedback } from "@/features/coach/api/coach";
 
 type Props = {
-  userId: string | null | undefined;
+  userId: number | null | undefined;
   weeks: number;
   goal: string;
   result: any;
