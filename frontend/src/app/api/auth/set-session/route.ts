@@ -1,5 +1,5 @@
 // src/app/api/auth/set-session/route.ts
-// src/app/api/auth/set-session/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
@@ -79,6 +79,9 @@ export async function POST(req: NextRequest) {
           .select("id")
           .eq("user_uid", uuid)
           .single();
+
+        console.log("uuid " + uuid)
+        console.log("SB data, error " + userRow, qErr)
 
         if (qErr) {
           console.warn("[SB][set-session] users lookup error:", qErr.message);
