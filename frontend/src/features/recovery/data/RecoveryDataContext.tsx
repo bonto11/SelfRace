@@ -105,6 +105,7 @@ export function RecoveryDataProvider({
   days?: number;
 }) {
   const { userId } = useUserId();
+  console.log("RecoveryDataProvider userId: " + userId)
   // userId v projekte býva number => bezpečne ho zreťazím na string pre kľúče/cache/fetch
   const userIdStr = useMemo(() => (userId == null ? "" : String(userId)), [userId]);
 

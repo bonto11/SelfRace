@@ -42,20 +42,14 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true, step: "init" });
   const supabase = serverClient(req, res);
 
-  let debug: Record<string, any> = { step: "start" };
-
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
     const event = body?.event ?? "";
     const session = body?.session ?? null;
 
-    debug.event = event;
-    debug.hasSessionInBody = !!session;
-
     // SIGN OUT: vyčistenie cookies cez supabase clienta
     if (event === "SIGNED_OUT") {
       await supabase.auth.signOut();
-      res.headers.set("x-sr-debug", JSON.stringify({ ...debug, signout: true }));
       return res;
     }
 
@@ -69,18 +63,12 @@ export async function POST(req: NextRequest) {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-      debug.setSessionOk = !setErr;
-      if (setErr) {
-        debug.setSessionError = setErr.message;
-        return NextResponse.json({ ok: false, debug }, { status: 500 });
-      }
 
       // 1) zapíš sr_uuid
       const uuid = session.user?.id ?? null;
       if (uuid) {
         res.cookies.set(SR_UUID, uuid, cookieOpts);
       }
-      debug.uuid = !!uuid;
 
       // 2) dotiahni náš numerický user.id a zapíš sr_id
       //    POZOR: stĺpec je u teba 'user_uid'
@@ -91,26 +79,16 @@ export async function POST(req: NextRequest) {
           .eq("user_uid", uuid)
           .single();
 
-        debug.selectOk = !qErr;
-        if (qErr) {
-          debug.selectError = qErr.message;
-        } else if (userRow?.id != null) {
+        if (userRow?.id != null) {
           res.cookies.set(SR_ID, String(userRow.id), cookieOpts);
-          debug.wroteSrId = true;
-          debug.srId = userRow.id;
-        } else {
-          debug.wroteSrId = false;
         }
       }
 
-      res.headers.set("x-sr-debug", JSON.stringify(debug));
       return res; // obsahuje Set-Cookie
     }
 
-    debug.invalidPayload = true;
-    return NextResponse.json({ ok: false, debug }, { status: 400 });
+    return NextResponse.json({ ok: false }, { status: 400 });
   } catch (e: any) {
-    debug.catch = e?.message ?? String(e);
-    return NextResponse.json({ ok: false, debug }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
