@@ -1,61 +1,21 @@
 // src/features/activity/components/ActivityTable.tsx
+// src/features/activity/components/ActivityTable.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useUserId } from "@/shared/hooks/useUserId";
-import { API_URL } from "@/shared/config";
+import { useEffect, useMemo, useState } from "react";
 import { SUBCARD, CARD } from "@/shared/ui/classes";
-import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 import { THEME } from "@/shared/theme/tokens";
+import { useActivityData } from "@/features/activity/data/ActivityDataContext";
+import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "./ActivityDetail";
-
-interface ActivityRow {
-  activity_id: number;
-  name: string;
-  sport_type?: string | null;
-  sport_type_fe?: string | null;
-  sport_type_ovrd?: string | null;
-  distance_m: number | null;
-  moving_time_s: number | null;
-  average_heartrate_bpm: number | null;
-  max_heartrate_bpm: number | null;
-  date: string; // ISO
-}
-
-/* --------------------- sessionStorage cache --------------------- */
-
-const hasSS = () => typeof window !== "undefined" && !!window.sessionStorage;
-const keyFor = (uid: number, start: string, end: string) => `ACT:RANGE:${uid}:${start}:${end}`;
-
-function saveCache(uid: number, start: string, end: string, rows: ActivityRow[]) {
-  if (!hasSS()) return;
-  try {
-    sessionStorage.setItem(
-      keyFor(uid, start, end),
-      JSON.stringify({ at: Date.now(), rows })
-    );
-  } catch (_) {}
-}
-function loadCache(uid: number, start: string, end: string): ActivityRow[] | null {
-  if (!hasSS()) return null;
-  try {
-    const raw = sessionStorage.getItem(keyFor(uid, start, end));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed?.rows)) return parsed.rows as ActivityRow[];
-  } catch (_) {}
-  return null;
-}
-
-/* ----------------------------- UI ------------------------------ */
+import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport"; // tvoje existujúce mapovanie labelu
 
 export default function ActivityTable({ start, end }: { start?: string; end?: string; }) {
-  const { userId } = useUserId();
+  const { selectByRange, rows: allRows } = useActivityData();
 
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [syncing, setSyncing] = useState(false);
 
   // “bezpečný” titulok
   const headerTitle = useMemo(
@@ -63,83 +23,23 @@ export default function ActivityTable({ start, end }: { start?: string; end?: st
     [start, end]
   );
 
-  const fetchRange = useCallback(async () => {
-    if (!userId || !start || !end) {
-      setRows([]);
-      setSelectedId(null);
-      return;
-    }
-    setLoading(true);
-    try {
-      // 1) cache okamžite
-      const cached = loadCache(userId, start, end);
-      if (cached) {
-        console.log("[ACT][range] cache hit:", cached.length);
-        setRows(cached);
-        setLoading(false);
-      }
-      // 2) vždy sprav čerstvý fetch (aby sa data aktualizovali)
-      const url = `${API_URL}/activities/range/${userId}?start=${start}&end=${end}`;
-      console.log("[ACT][range] fetch:", url);
-      const res = await fetch(url, { cache: "no-store" });
-      const json = await res.json().catch(() => ({}));
-      const fresh: ActivityRow[] = json?.success ? (json.data ?? []) : [];
-      console.log("[ACT][range] fresh count:", fresh.length);
-      setRows(fresh);
-      saveCache(userId, start, end, fresh);
-      if (fresh.length === 0) setSelectedId(null);
-    } catch (e) {
-      console.error("[ACT][range] fetch error:", e);
-      if (!rows.length) setRows([]); // fallback na prázdno
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, start, end]);
-
   useEffect(() => {
     setSelectedId(null);
-    if (userId && start && end) fetchRange();
-  }, [userId, start, end, fetchRange]);
-
-  async function handleSync() {
-    if (!userId) return;
-    setSyncing(true);
-    try {
-      const res = await fetch(`${API_URL}/activities/sync/${userId}`, { method: "POST" });
-      const json = await res.json().catch(() => ({}));
-      if (json?.success) {
-        alert(`✅ Sync OK.\nimported: ${json.imported ?? "?"}\nupdated: ${json.updated ?? "?"}`);
-        await fetchRange();
-      } else {
-        alert("❌ Sync error: " + (json?.detail || "unknown"));
-      }
-    } catch (err) {
-      console.error("[ACT][sync] error:", err);
-      alert("❌ Sync request error (pozri konzolu).");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  if (!userId) return <div>❌ User not found.</div>;
+    if (!start || !end) { setRows([]); return; }
+    setLoading(true);
+    const r = selectByRange(start, end);
+    setRows(r);
+    setLoading(false);
+    console.debug("[ACT][table] selectByRange", { start, end, count: r.length, all: allRows.length });
+  }, [start, end, selectByRange, allRows.length]);
 
   return (
     <div className={`${CARD} space-y-4`}>
       {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          {syncing && (
-            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-          )}
-          {syncing ? "Synchronizujem…" : "Sync Strava"}
-        </button>
       </div>
-
+ 
       {/* MOBILE – karty */}
       <div className="sm:hidden space-y-2">
         {loading && <div className="opacity-70 py-4">Načítavam…</div>}
