@@ -1,8 +1,8 @@
 // src/shared/hooks/useUserId.ts
 "use client";
-import { useAppUser } from "@/features/auth/components/UserIdProvider";
 
 export function useUserId() {
-  const { appUserId, loading, error } = useAppUser();
-  return { userId: appUserId, loading, error };
+  const match = document.cookie.match(/(?:^|;\s*)sr_id=([^;]+)/);
+  const userId = match ? Number(decodeURIComponent(match[1])) : null;
+  return { userId };
 }
