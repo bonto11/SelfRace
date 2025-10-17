@@ -11,9 +11,8 @@ interface UserProfile {
 }
 
 export function useUserProfile() {
-  const { userId, loading: userLoading } = useUserId();
+  const { userId } = useUserId();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -25,10 +24,9 @@ export function useUserProfile() {
       } catch (err) {
         console.error("❌ useUserProfile error:", err);
       }
-      setLoading(false);
     }
     if (userId) load();
   }, [userId]);
 
-  return { profile, loading: userLoading || loading };
+  return { profile };
 }
