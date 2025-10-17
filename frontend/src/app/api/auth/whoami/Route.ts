@@ -6,9 +6,29 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const c = cookies();
-  const idRaw = c.get("sr_id")?.value ?? null;
-  const uuid = c.get("sr_uuid")?.value ?? null;
-  const id = idRaw && !Number.isNaN(Number(idRaw)) ? Number(idRaw) : null;
-  return NextResponse.json({ id, uuid });
+  try {
+    const c = cookies();
+    const idRaw = c.get("sr_id")?.value ?? null;
+    const uuid  = c.get("sr_uuid")?.value ?? null;
+
+    const idNum = Number.isFinite(Number(idRaw)) ? Number(idRaw) : null;
+
+    console.log("[WHOAMI][srv] cookies ->", {
+      sr_id_present: idRaw != null,
+      sr_id: idNum,
+      sr_uuid_present: uuid != null,
+      sr_uuid_preview: uuid ? uuid.slice(0, 8) + "…" : null,
+    });
+
+    const payload = { id: idNum, uuid };
+    console.log("[WHOAMI][srv] respond ->", payload);
+
+    return NextResponse.json(payload, {
+      status: 200,
+      headers: { "cache-control": "no-store" },
+    });
+  } catch (e: any) {
+    console.error("[WHOAMI][srv] ERROR:", e?.message ?? e);
+    return NextResponse.json({ id: null, uuid: null, error: e?.message ?? "err" }, { status: 200 });
+  }
 }
