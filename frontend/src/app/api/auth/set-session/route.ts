@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
         const { data: userRow, error: qErr } = await supabase
           .from("users")
           .select("id")
-          .eq("uid", uuid)
+          .eq("user_uid", uuid)
           .single();
 
         if (qErr) {
