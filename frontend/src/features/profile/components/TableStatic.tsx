@@ -11,7 +11,7 @@ interface StaticProfile {
 }
 
 export default function TableStatic() {
-  const { userId, loading } = useUserId();
+  const { userId } = useUserId();
   const [staticData, setStaticData] = useState<StaticProfile>({
     sex: null,
     birth_date: null,
@@ -39,8 +39,6 @@ export default function TableStatic() {
     if (json.success) alert("✅ Static profile uložený");
     else alert("❌ Chyba: " + json.detail);
   }
-
-  if (loading) return <div>Načítavam...</div>;
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow mb-6">

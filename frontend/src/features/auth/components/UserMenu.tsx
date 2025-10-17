@@ -1,47 +1,34 @@
+// src/features/auth/components/UserMenu.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 type LocalUser = { email: string; name: string; avatarUrl: string | null };
-type Props = { user?: LocalUser };              // ⬅️ user je voliteľný
 
-export default function UserMenu({ user }: Props) {   // ⬅️ zmena TU
+export default function UserMenu() {
   const router = useRouter();
-  const sb = getSupabaseBrowser();
   const [open, setOpen] = useState(false);
-  const [u, setU] = useState<LocalUser | null>(user ?? null);
   const [busy, setBusy] = useState<"reset" | "signout" | null>(null);
+  const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // INIT + auth listener
+  // načítaj profil zo servera (z Supabase cookies)
   useEffect(() => {
-    sb.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
-      if (!data.user) return;
-      const meta = (data.user.user_metadata as Record<string, any>) || {};
-      setU({
-        email: data.user.email ?? "",
-        name: meta.full_name ?? meta.name ?? "",
-        avatarUrl: meta.avatar_url ?? meta.picture ?? null,
-      });
-    });
-    const sub = sb.auth.onAuthStateChange(
-      (_ev: AuthChangeEvent, session: Session | null) => {
-        const sUser = session?.user;
-        if (!sUser) return;
-        const meta = (sUser.user_metadata as Record<string, any>) || {};
-        setU({
-          email: sUser.email ?? "",
-          name: meta.full_name ?? meta.name ?? "",
-          avatarUrl: meta.avatar_url ?? meta.picture ?? null,
-        });
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const j = await r.json();
+        if (!alive) return;
+        if (j?.ok) setMe(j.user as LocalUser);
+      } catch {
+        /* ignore */
       }
-    );
-    return () => sub.data.subscription.unsubscribe();
-  }, [sb]);
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // close on outside/Esc
   useEffect(() => {
@@ -59,84 +46,56 @@ export default function UserMenu({ user }: Props) {   // ⬅️ zmena TU
   }, []);
 
   const initials = useMemo(() => {
-    const n = (u?.name || u?.email || "").trim();
+    const n = (me?.name || me?.email || "").trim();
     const parts = n.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "U";
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [u?.name, u?.email]);
+  }, [me?.name, me?.email]);
 
   async function signOut() {
     setBusy("signout");
     try {
-      await sb.auth.signOut(); // client (vyčistí local storage)
       await fetch("/api/auth/set-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ event: "SIGNED_OUT" }),
       });
       setOpen(false);
       router.replace("/signin");
-
     } finally {
       setBusy(null);
     }
   }
 
-  // === RESET PASSWORD via EMAIL ===
-async function handlePasswordReset() {
-    try {
-      const { data, error: meErr } = await sb.auth.getUser();
-      if (meErr || !data?.user?.email) throw new Error("not_signed_in");
-
-      await sb.auth.resetPasswordForEmail(data.user.email, {
-        redirectTo: `${window.location.origin}/update-password`,
-      });
-
-      await sb.auth.signOut();
-      setOpen(false);
-      router.replace("/signin?checkEmail=1");
-    } catch (e: any) {
-      alert(e?.message ?? "Nepodarilo sa odoslať reset e-mail.");
-    }
-  }
-
   return (
     <div ref={boxRef} className="relative">
-      <button
-        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10"
-        onClick={() => setOpen((v) => !v)}
-      >
-        {u?.avatarUrl ? (
-          <Image src={u.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
+      <button className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10"
+              onClick={() => setOpen(v => !v)}>
+        {me?.avatarUrl ? (
+          <Image src={me.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
         ) : (
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">
             {initials}
           </div>
         )}
-        <span className="text-sm hidden sm:block">{u?.email}</span>
+        <span className="text-sm hidden sm:block">{me?.email ?? ""}</span>
       </button>
 
       {open && (
         <div className="absolute right-0 mt-2 w-56 rounded-md border bg-background shadow-lg z-50">
           <div className="px-3 py-2 text-sm border-b">
-            <div className="font-medium">{u?.name || "User"}</div>
-            <div className="opacity-70 truncate">{u?.email}</div>
+            <div className="font-medium">{me?.name || "User"}</div>
+            <div className="opacity-70 truncate">{me?.email}</div>
           </div>
           <nav className="py-1">
-            <button className="w-full text-left px-3 py-2 text-sm hover:bg-white/10"
-                    onClick={handlePasswordReset}>
+            <a className="block px-3 py-2 text-sm hover:bg-white/10" href="/forgot-password">
               Zmeniť heslo (e-mailom)
-            </button>
-
-            <a
-              className="block px-3 py-2 text-sm hover:bg-white/10"
-              href="/profile"
-              onClick={() => setOpen(false)}
-            >
+            </a>
+            <a className="block px-3 py-2 text-sm hover:bg-white/10" href="/profile">
               Change email
             </a>
-
             <button
               className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
               onClick={signOut}

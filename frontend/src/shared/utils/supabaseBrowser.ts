@@ -1,37 +1,24 @@
 // src/shared/utils/supabaseBrowser.ts
-'use client';
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-let _sb:
-  | ReturnType<typeof createBrowserClient<any>>
-  | null = null;
+let sb: SupabaseClient | null = null;
 
-/**
- * Singleton browser client s perzistentnou session
- * a auto-refreshom. Vytvorí sa len raz.
- */
-export function getSupabaseBrowser() {
-  if (_sb) return _sb;
+export function getSupabaseBrowser(): SupabaseClient {
+  if (sb) return sb;
 
-  _sb = createBrowserClient(
+  console.log("[SB][browser] create client (helpers nextjs)");
+  sb = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        // lokálne úložisko prehliadača
-        storage:
-          typeof window !== 'undefined'
-            ? window.localStorage
-            : undefined,
+      cookies: {
+        get() { return null; },
+        set() {},
+        remove() {},
       },
     }
   );
 
-  return _sb;
+  return sb;
 }
-
-// ak niekde importuješ aliasom
-export const supabaseBrowser = getSupabaseBrowser;

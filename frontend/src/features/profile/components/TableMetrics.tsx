@@ -13,7 +13,7 @@ interface Metrics {
 }
 
 export default function TableMetrics() {
-  const { userId, loading } = useUserId();
+  const { userId } = useUserId();
   const [metrics, setMetrics] = useState<Metrics>({
     weight_kg: null,
     body_fat_pct: null,
@@ -33,8 +33,6 @@ export default function TableMetrics() {
     if (json.success) alert("✅ Metrics uložené");
     else alert("❌ Chyba: " + json.detail);
   }
-
-  if (loading) return <div>Načítavam...</div>;
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">

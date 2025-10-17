@@ -1,22 +1,25 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useRecoveryData, RecoveryDataProvider } from '@/features/recovery/data/RecoveryDataContext';
+import { useRouter } from "next/navigation";
+import {
+  useRecoveryData,
+  RecoveryDataProvider,
+} from "@/features/recovery/data/RecoveryDataProvider";
 
-// ak chceš, nechaj aj widgety – inak ich pokojne vymaž z gridu
-import WidgetRHR from '@/features/widgets/WidgetRHR';
-import WidgetHRV from '@/features/widgets/WidgetHRV';
-import WidgetSleepDuration from '@/features/widgets/WidgetSleepDuration';
-import WidgetSleepStart from '@/features/widgets/WidgetSleepStart';
-import InputsCard from '@/features/recovery/components/InputsCard';
+import WidgetRHR from "@/features/widgets/WidgetRHR";
+import WidgetHRV from "@/features/widgets/WidgetHRV";
+import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
+import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
+import InputsCard from "@/features/recovery/components/InputsCard";
 
 function RefreshButton() {
   const { refresh, loading } = useRecoveryData();
+
   const onClick = async () => {
+    console.debug("[REC][UI] manual refresh click");
     await refresh(true);
   };
 
-  // jednoduchá SVG ikonka ↻ (bez balíkov)
   return (
     <button
       onClick={onClick}
@@ -25,7 +28,7 @@ function RefreshButton() {
       title="Refresh data"
     >
       <svg
-        className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+        className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -35,13 +38,14 @@ function RefreshButton() {
         <path d="M20 20v-6h-6" />
         <path d="M5 15a7 7 0 0 0 12 2M19 9a7 7 0 0 0-12-2" />
       </svg>
-      Refresh
+      {loading ? "Refreshing…" : "Refresh"}
     </button>
   );
 }
 
 export default function RecoveryPage() {
   const router = useRouter();
+  console.debug("[REC][UI] RecoveryPage mount");
 
   return (
     <RecoveryDataProvider days={90}>
@@ -50,10 +54,10 @@ export default function RecoveryPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <WidgetRHR onOpenDetail={() => router.push('/recovery/rhr')} />
-        <WidgetHRV onOpenDetail={() => router.push('/recovery/hrv')} />
-        <WidgetSleepDuration onOpenDetail={() => router.push('/recovery/sleepDuration')} />
-        <WidgetSleepStart onOpenDetail={() => router.push('/recovery/sleepStart')} />
+        <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
+        <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
+        <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
+        <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
       </div>
 
       <div className="mt-6">

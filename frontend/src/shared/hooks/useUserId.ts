@@ -1,82 +1,99 @@
-// src/lib/useUserId.ts
-/*
+// src/shared/hooks/useUserId.ts
 "use client";
 
-import { useEffect, useState } from "react";
-import { useUser } from "./useUser";
-import { getUserId } from "./getUserId";
+import * as React from "react";
 
-export function useUserId() {
-  const { user, loading: userLoading } = useUser();
-  const [userId, setUserId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+const DEBUG = true;
 
-  useEffect(() => {
-    async function fetchUserId() {
-      //console.log("➡️ useUserId: user =", user);
+type WhoAmI = { id: number | null; uuid: string | null };
 
-      if (user?.id) {
-        const dbId = await getUserId(user.id); // auth_uid → int id
-        //console.log("➡️ useUserId: dbId =", dbId);
-        setUserId(dbId);
-      } else {
-        console.warn("❌ useUserId: žiadny user");
-        setUserId(null);
-      }
-      setLoading(false);
-    }
-    fetchUserId();
-  }, [user]);
+// modulová cache (jedno volanie / session)
+let cached: WhoAmI | null = null;
+let inflight: Promise<WhoAmI> | null = null;
 
-  return { userId, loading: userLoading || loading };
+async function fetchWhoAmI(): Promise<WhoAmI> {
+  DEBUG && console.log("[WHOAMI][cli] fetch start -> /api/auth/whoami");
+  const res = await fetch("/api/auth/whoami", {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  DEBUG && console.log("[WHOAMI][cli] response", res.status, res.ok);
+
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch (e) {
+    DEBUG && console.warn("[WHOAMI][cli] failed to parse json", e);
+  }
+
+  DEBUG && console.log("[WHOAMI][cli] raw json ->", json);
+
+  const parsed: WhoAmI = {
+    id: Number.isFinite(json?.id) ? Number(json.id) : null,
+    uuid: typeof json?.uuid === "string" ? json.uuid : null,
+  };
+
+  DEBUG && console.log("[WHOAMI][cli] parsed ->", parsed);
+  return parsed;
 }
-*/
 
-
-// src/shared/hooks/useUserId.ts  (prepíš)
-"use client";
-import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import { API_URL } from "@/shared/config";
-
-/** Vracia interné DB user_id (number). */
 export function useUserId() {
-  const [userId, setUserId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  // initial (z cache ak je)
+  const [state, setState] = React.useState<WhoAmI>(() => {
+    DEBUG && console.log("[WHOAMI][cli] hook mount, cached =", cached);
+    return cached ?? { id: null, uuid: null };
+  });
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      try {
-        // 1) získaj UUID zo Supabase
-        const sb = getSupabaseBrowser();
-        const { data } = await sb.auth.getUser();
-        const uuid = data.user?.id;
-        if (!uuid) {
-          setUserId(null);
-          return;
-        }
-
-        // 2) zmapuj UUID -> interné numeric id cez BE
-        const res = await fetch(`${API_URL}/users/resolve`, {
-          method: "POST", // alebo GET ?uid=... ak to tak máš
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ supabase_uid: uuid }),
-          credentials: "include", // ak BE používa cookie auth
+  React.useEffect(() => {
+    if (cached) {
+      DEBUG && console.log("[WHOAMI][cli] useEffect: using cached =", cached);
+      return;
+    }
+    if (!inflight) {
+      inflight = fetchWhoAmI()
+        .then((v) => {
+          cached = v;
+          return v;
+        })
+        .finally(() => {
+          inflight = null;
         });
+    } else {
+      DEBUG && console.log("[WHOAMI][cli] useEffect: join inflight");
+    }
 
-        const json = await res.json().catch(() => ({}));
-        const id = Number(json?.user_id ?? json?.id);
-        setUserId(Number.isFinite(id) ? id : null);
-      } catch {
-        setUserId(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    run();
+    inflight
+      .then((v) => {
+        DEBUG && console.log("[WHOAMI][cli] inflight resolved ->", v);
+        setState(v);
+      })
+      .catch((e) => {
+        DEBUG && console.warn("[WHOAMI][cli] inflight error", e);
+        setState({ id: null, uuid: null });
+      });
   }, []);
 
-  return { userId, loading };
+  const refresh = React.useCallback(async () => {
+    DEBUG && console.log("[WHOAMI][cli] refresh()");
+    cached = null;
+    setState({ id: null, uuid: null });
+    try {
+      const v = await fetchWhoAmI();
+      cached = v;
+      setState(v);
+      DEBUG && console.log("[WHOAMI][cli] refresh done ->", v);
+    } catch (e) {
+      DEBUG && console.warn("[WHOAMI][cli] refresh error", e);
+      setState({ id: null, uuid: null });
+    }
+  }, []);
+
+  const value = React.useMemo(
+    () => ({ userId: state.id, userUuid: state.uuid, refresh }),
+    [state.id, state.uuid, refresh]
+  );
+
+  DEBUG && console.log("[WHOAMI][cli] return value ->", value);
+  return value;
 }
-export default useUserId;

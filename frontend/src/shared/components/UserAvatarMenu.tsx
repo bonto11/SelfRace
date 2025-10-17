@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/shared/hooks/supabaseClient";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 import ChangeEmailModal from "@/features/auth/components/ChangeEmailModal";
 import { API_URL } from "@/shared/config";
+// voliteľné: len ak potrebuješ token pre /account/request-delete
+import { supabase } from "@/shared/hooks/supabaseClient";
 
 export default function UserAvatarMenu({
   userId,
@@ -31,19 +32,38 @@ export default function UserAvatarMenu({
   }, [email]);
 
   async function onLogout() {
-    await supabase.auth.signOut();
-    window.location.href = "/"; // alebo router.refresh()
+    try {
+      // server vymaže SB cookies + tvoje sr_uuid/sr_id
+      await fetch("/api/auth/signout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+      });
+    } catch {
+      // no-op
+    } finally {
+      // tvrdý redirect (vyčistí client-state)
+      window.location.href = "/signin";
+    }
   }
 
   async function onRequestDelete() {
     if (!userId || !uid) return;
-    if (!confirm("Naozaj chceš zrušiť účet? Účet bude pozastavený a po 30 dňoch bez prihlásenia trvalo odstránený.")) return;
+    if (
+      !confirm(
+        "Naozaj chceš zrušiť účet? Účet bude pozastavený a po 30 dňoch bez prihlásenia trvalo odstránený."
+      )
+    )
+      return;
 
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
       const res = await fetch(`${API_URL}/account/request-delete`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ user_id: userId, user_uid: uid }),
       });
       const j = await res.json().catch(() => ({}));
@@ -56,24 +76,51 @@ export default function UserAvatarMenu({
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(v => !v)} className="w-9 h-9 rounded-full bg-blue-600 text-white font-semibold" title={email || undefined}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-9 h-9 rounded-full bg-blue-600 text-white font-semibold"
+        title={email || undefined}
+      >
         {initials}
       </button>
 
       {open && (
         <div className="absolute right-0 mt-2 bg-gray-800 border border-gray-700 rounded shadow p-2 w-52 z-30">
           <div className="px-2 py-1 text-xs opacity-70 truncate">{email || "—"}</div>
-          <button className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded" onClick={() => { setOpen(false); setPwdOpen(true); }}>
+
+          <button
+            className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded"
+            onClick={() => {
+              setOpen(false);
+              setPwdOpen(true);
+            }}
+          >
             Zmeniť heslo
           </button>
-          <button className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded" onClick={() => { setOpen(false); setEmailOpen(true); }}>
+
+          <button
+            className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded"
+            onClick={() => {
+              setOpen(false);
+              setEmailOpen(true);
+            }}
+          >
             Zmeniť e-mail
           </button>
-          <button className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded" onClick={onLogout}>
+
+          <button
+            className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded"
+            onClick={onLogout}
+          >
             Odhlásiť
           </button>
+
           <div className="border-t border-gray-700 my-1" />
-          <button className="w-full text-left px-2 py-1 hover:bg-red-900/40 rounded text-red-300" onClick={onRequestDelete}>
+
+          <button
+            className="w-full text-left px-2 py-1 hover:bg-red-900/40 rounded text-red-300"
+            onClick={onRequestDelete}
+          >
             Zrušiť účet (hold 30d)
           </button>
         </div>

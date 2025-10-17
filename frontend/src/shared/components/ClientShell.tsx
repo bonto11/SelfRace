@@ -1,13 +1,11 @@
-'use client';
+"use client";
 
-import { ReactNode } from 'react';
-import Sidebar from '@/features/Toolbars/components/Sidebar';
-import UserMenu from '@/features/auth/components/UserMenu';
-import { SidebarProvider, useSidebar } from '@/features/Toolbars/hooks/useSidebar';
+import { ReactNode } from "react";
+import Sidebar from "@/features/Toolbars/components/Sidebar";
+import UserMenu from "@/features/auth/components/UserMenu";
+import { SidebarProvider, useSidebar } from "@/features/Toolbars/hooks/useSidebar";
 
-type UserInfo = { email: string; name: string; avatarUrl: string | null };
-
-function ShellBody({ children, user }: { children: ReactNode; user: UserInfo }) {
+function ShellBody({ children }: { children: ReactNode }) {
   const { open, toggle, setOpen } = useSidebar();
 
   return (
@@ -23,7 +21,8 @@ function ShellBody({ children, user }: { children: ReactNode; user: UserInfo }) 
         </button>
         <div className="font-semibold">Trainalyze</div>
         <div className="ml-auto">
-          <UserMenu user={user} />
+          {/* už bez props */}
+          <UserMenu />
         </div>
       </div>
 
@@ -37,8 +36,9 @@ function ShellBody({ children, user }: { children: ReactNode; user: UserInfo }) 
         <section className="min-h-dvh flex flex-col">
           {/* TOPBAR (desktop) */}
           <header className="hidden lg:flex h-14 items-center justify-between px-4 border-b border-neutral-800 bg-neutral-950">
-            <div className="font-semibold">Trainalyze</div>
-            <UserMenu user={user} />
+            <div className="font-semibold">SelfRace</div>
+            {/* už bez props */}
+            <UserMenu />
           </header>
 
           <main className="flex-1">{children}</main>
@@ -51,20 +51,19 @@ function ShellBody({ children, user }: { children: ReactNode; user: UserInfo }) 
       {/* Off-canvas sidebar (mobile) */}
       <div
         className={`lg:hidden fixed inset-y-0 left-0 z-50 w-[280px] bg-neutral-900 border-r border-neutral-800 shadow-xl transition-transform duration-200 ${
-          open ? 'translate-x-0' : '-translate-x-full'
+          open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <Sidebar />
       </div>
-
     </div>
   );
 }
 
-export default function ClientShell({ children, user }: { children: ReactNode; user: UserInfo }) {
+export default function ClientShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <ShellBody user={user}>{children}</ShellBody>
+      <ShellBody>{children}</ShellBody>
     </SidebarProvider>
   );
 }

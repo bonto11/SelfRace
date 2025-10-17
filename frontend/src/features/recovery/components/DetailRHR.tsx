@@ -4,14 +4,11 @@ import { useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
-
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-
-import { rollingMean, bandsAround, wrapToLines} from "@/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
 
 ensureChartJSRegistered();
 
@@ -23,15 +20,25 @@ export default function DetailRHR() {
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
-  const rhr = useMemo(() => rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : NaN)), [rows]);
+  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
+  const rhr = useMemo(
+    () => rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : NaN)),
+    [rows]
+  );
 
   // baseline (rolling mean z predchádzajúcich dní) + pásma ±5 %
   const baselineArr = useMemo(
-    () => rollingMean(rows.map(r => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)), 14),
+    () =>
+      rollingMean(
+        rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)),
+        14
+      ),
     [rows]
   );
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr]
+  );
 
   // komentáre
   const comments = useMemo(() => {
@@ -42,7 +49,8 @@ export default function DetailRHR() {
 
   // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map(v => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) =>
+      xs.map((v) => (typeof v === "number" ? v : NaN));
 
     const bandLower = {
       type: "line" as const,
@@ -92,7 +100,10 @@ export default function DetailRHR() {
       order: 3,
     };
 
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, rhrLine] };
+    return {
+      labels: labelsISO,
+      datasets: [bandLower, bandUpper, baselineLine, rhrLine],
+    };
   }, [labelsISO, lower, upper, baselineArr, rhr]);
 
   // options
@@ -111,19 +122,23 @@ export default function DetailRHR() {
 
           if (ctx.datasetIndex === 3) {
             const v = rhr[idx];
-            if (Number.isFinite(v)) lines.push(`RHR: ${Math.round(v as number)} bpm`);
+            if (Number.isFinite(v))
+              lines.push(`RHR: ${Math.round(v as number)} bpm`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
           if (ctx.datasetIndex === 2) {
             const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} bpm`);
+            if (Number.isFinite(b as number))
+              lines.push(`Baseline: ${Math.round(b as number)} bpm`);
           }
 
-          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length)
+            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines; // ⬅️ dôležité: pole, nie string
         },
-        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+        tooltipFilter: (item) =>
+          item.datasetIndex === 2 || item.datasetIndex === 3,
       }),
     [labelsISO, rhr, baselineArr, comments]
   );
@@ -143,7 +158,10 @@ export default function DetailRHR() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+          <Link
+            href="/recovery"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
             Späť
           </Link>
         </div>

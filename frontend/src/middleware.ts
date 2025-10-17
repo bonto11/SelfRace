@@ -1,30 +1,43 @@
 // src/middleware.ts
-
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const sb = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => req.cookies.getAll().map(c => ({ name: c.name, value: c.value })),
-        setAll: (cookies) => cookies.forEach(({name, value, options}) =>
-          res.cookies.set(name, value, options as CookieOptions)
-        ),
-      },
-    }
-  );
+  const { pathname } = req.nextUrl;
 
-  // voliteľné: len ak už sú tokeny, osviež usera
-  if (req.cookies.has("sb-access-token") || req.cookies.has("sb-refresh-token")) {
-    try { await sb.auth.getUser(); } catch {}
+  // 1) Lokálne ignoruj statické veci a API – matcher potom môže byť len '/:path*'
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname === "/favicon.ico" ||
+    /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname)
+  ) {
+    return NextResponse.next();
   }
+
+  const res = NextResponse.next();
+
+  try {
+    // 2) Supabase klient naviazaný na req/res — tu si vie zapisovať/refreshnúť cookies
+    const supabase = createMiddlewareClient({ req, res });
+
+    // 3) Tichý refresh / bootstrap cookies (nič nepresmerúvame)
+    const { data, error } = await supabase.auth.getSession();
+
+    console.log("[SB][mw]", {
+      path: pathname,
+      hasSession: !!data?.session,
+      userId: data?.session?.user?.id ?? null,
+      err: error?.message ?? null,
+    });
+  } catch (e: any) {
+    console.error("[SB][mw] ERROR", e?.message ?? e);
+  }
+
   return res;
 }
 
+// Žiadne komplikované regexy – aplikuj na všetky cesty, ignorovanie riešime vyššie.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/:path*"],
 };

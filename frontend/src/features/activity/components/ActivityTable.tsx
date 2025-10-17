@@ -33,7 +33,7 @@ export default function ActivityTable({
   start?: string;
   end?: string;
 }) {
-  const { userId, loading: userLoading } = useUserId();
+  const { userId } = useUserId();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<ActivityDetail | null>(null);
@@ -115,7 +115,6 @@ export default function ActivityTable({
     }
   }
 
-  if (userLoading) return <div>Načítavam…</div>;
   if (!userId) return <div>❌ User not found.</div>;
 
   const headerTitle =
@@ -139,7 +138,7 @@ export default function ActivityTable({
           {syncing ? "Synchronizujem..." : "Sync Strava"}
         </button>
       </div>
-
+ 
       {/* MOBILE: karty */}
       <div className="sm:hidden space-y-2">
         {loading && <div className="opacity-70 py-4">Načítavam…</div>}

@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { RecoveryDataProvider } from '@/features/recovery/data/RecoveryDataContext';
+import dynamic from "next/dynamic";
+import { RecoveryDataProvider } from "@/features/recovery/data/RecoveryDataProvider";
 
 // dynamický import komponentu s grafom
 const HRVDetailClient = dynamic(
-  () => import('@/features/recovery/components/DetailHRV'),
+  () => import("@/features/recovery/components/DetailHRV"),
   { ssr: false }
 );
 
@@ -18,5 +18,3 @@ export default function Page() {
     </RecoveryDataProvider>
   );
 }
-
-

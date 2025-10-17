@@ -25,6 +25,7 @@ export default function SignInForm() {
     setErr(null);
     setLoading(true);
 
+    console.log("[SignIn] creating browser client");
     const { data, error } = await sb.auth.signInWithPassword({
       email,
       password: pwd,
@@ -32,29 +33,35 @@ export default function SignInForm() {
 
     setLoading(false);
 
+    console.log("[SignIn] signIn result", {
+      ok: !error,
+      hasSession: !!data?.session,
+      accesstoken: data?.session?.access_token?.slice(0, 8),
+      refreshtoken: data?.session?.refresh_token?.slice(0, 8),
+      error: error?.message,
+    });
+
     if (error) {
       setErr(error.message || "Prihlásenie zlyhalo.");
       return;
     }
 
-    // 🔑 DOPLNENÉ: nastav serverové cookies ešte na /signin
-    if (data?.session?.access_token && data?.session?.refresh_token) {
+    if (data?.session) {
       try {
-        await fetch("/api/auth/set-session", {
+        const r = await fetch("/api/auth/set-session", {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
         });
-      } catch {
-        /* no-op, fallback spraví AuthSync po načítaní dashboardu */
+        console.log("[SignIn] set-session response", r.status);
+      } catch (e) {
+        console.warn("[SignIn] set-session fetch failed", e);
       }
     }
 
-    // až teraz presmeruj
     router.replace("/dashboard");
   }
-
 
   return (
     <div className="max-w-sm mx-auto mt-16">

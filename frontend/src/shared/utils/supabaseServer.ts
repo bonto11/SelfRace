@@ -1,43 +1,22 @@
 // src/shared/utils/supabaseServer.ts
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Používaj v RSC a všade, kde nepotrebuješ zapisovať cookies. */
-export function getSupabaseServer() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        // v RSC len ČÍTAME; zápis robí middleware
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  )
-}
-
-/** Používaj iba v Route Handleroch / Server Actions – umožní ZÁPIS cookies. */
-export function getSupabaseServerWritable() {
+export function getSupabaseServer(): SupabaseClient {
   const cookieStore = cookies();
-  return createServerClient(
+
+  const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll().map((c) => ({ name: c.name, value: c.value }));
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
+        get: (name: string) => cookieStore.get(name)?.value,
+        set: () => {},     // zápis robíme v route/middleware
+        remove: () => {},
       },
     }
   );
+
+  return client;
 }
