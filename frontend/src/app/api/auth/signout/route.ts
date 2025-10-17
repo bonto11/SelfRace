@@ -28,15 +28,16 @@ export async function POST(req: NextRequest) {
   const supabase = serverClient(req, res);
 
   try {
-    // zmaž Supabase httpOnly cookies (auth)
+
+    // zmaž aj tvoje identifikátory
+    res.cookies.delete("sr_uuid");
+    res.cookies.delete("sr_id");
+
+    // zmaž Supabase httpOnly cookies (auth) 
     await supabase.auth.signOut();
   } catch {
     // ignore
   }
-
-  // zmaž aj tvoje identifikátory
-  res.cookies.delete("sr_uuid");
-  res.cookies.delete("sr_id");
 
   return res;
 }

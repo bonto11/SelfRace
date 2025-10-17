@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import {
-  RecoveryDataProvider,
   useRecoveryData,
+  RecoveryDataProvider,
 } from "@/features/recovery/data/RecoveryDataProvider";
 
 import WidgetRHR from "@/features/widgets/WidgetRHR";
@@ -14,9 +14,15 @@ import InputsCard from "@/features/recovery/components/InputsCard";
 
 function RefreshButton() {
   const { refresh, loading } = useRecoveryData();
+
+  const onClick = async () => {
+    console.debug("[REC][UI] manual refresh click");
+    await refresh(true);
+  };
+
   return (
     <button
-      onClick={() => refresh(true)}
+      onClick={onClick}
       disabled={loading}
       className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm disabled:opacity-60"
       title="Refresh data"
@@ -32,13 +38,14 @@ function RefreshButton() {
         <path d="M20 20v-6h-6" />
         <path d="M5 15a7 7 0 0 0 12 2M19 9a7 7 0 0 0-12-2" />
       </svg>
-      Refresh
+      {loading ? "Refreshing…" : "Refresh"}
     </button>
   );
 }
 
 export default function RecoveryPage() {
   const router = useRouter();
+  console.debug("[REC][UI] RecoveryPage mount");
 
   return (
     <RecoveryDataProvider days={90}>
