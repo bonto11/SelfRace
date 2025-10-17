@@ -3,14 +3,22 @@
 
 import { useMemo } from "react";
 import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
-import { compareLatestToBaseline, makeRollingBaseline, checkRecoveryFreshness } from "@/shared/utils/recovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
+import {
+  compareLatestToBaseline,
+  makeRollingBaseline,
+  checkRecoveryFreshness,
+} from "@/shared/utils/recovery";
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
 
-export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetHRV({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows } = useRecoveryData();
 
   const values = useMemo<(number | null)[]>(
-    () => rows.map(r => (r?.HRV_avg_ms ?? null)),
+    () => rows.map((r) => r?.HRV_avg_ms ?? null),
     [rows]
   );
 
@@ -27,14 +35,23 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
     return typeof last === "number" ? last : null;
   }, [values]);
 
-  const cmp = compareLatestToBaseline(yesterday, baselinePoint, "higher-better", 0.05);
+  const cmp = compareLatestToBaseline(
+    yesterday,
+    baselinePoint,
+    "higher-better",
+    0.05
+  );
 
-  const freshness = checkRecoveryFreshness(rows, r => r.date);
+  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA ? "—" : Number.isFinite(yesterday) ? String(Math.round(yesterday as number)) : "—";
-  const note     = showNA ? freshness.message : cmp.note;
-  const accent   = showNA ? "bg-slate-700" : cmp.accent;
+  const valueText = showNA
+    ? "—"
+    : Number.isFinite(yesterday)
+    ? String(Math.round(yesterday as number))
+    : "—";
+  const note = showNA ? freshness.message : cmp.note;
+  const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
     <RecoveryStatCard

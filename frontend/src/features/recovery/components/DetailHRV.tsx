@@ -6,9 +6,9 @@ import type { ChartData } from "chart.js";
 import Link from "next/link";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { rollingMean, bandsAround, wrapToLines} from "@/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
 
 ensureChartJSRegistered();
 
@@ -164,7 +164,9 @@ export default function DetailHRV() {
             <option value={12}>12 týždňov</option>
           </select>
           <Link
-            href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+            href="/recovery"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
             Späť
           </Link>
         </div>

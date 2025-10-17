@@ -6,9 +6,13 @@ import type { ChartData } from "chart.js";
 import Link from "next/link";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { minutesToHHMM, wrapToLines, HHMMToMinutes} from "@/shared/utils/recovery";
+import {
+  minutesToHHMM,
+  wrapToLines,
+  HHMMToMinutes,
+} from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
 
 ensureChartJSRegistered();
 

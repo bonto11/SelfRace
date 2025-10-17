@@ -1,13 +1,40 @@
 // src/app/api/auth/signout/route.ts
-import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/shared/utils/supabaseServer";
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  const sb = getSupabaseServer();
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  await sb.auth.signOut();
+function serverClient(req: NextRequest, res: NextResponse) {
+  const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createServerClient(URL, ANON, {
+    cookies: {
+      get(name: string) {
+        return req.cookies.get(name)?.value;
+      },
+      set(name: string, value: string, options: CookieOptions) {
+        res.cookies.set(name, value, options as any);
+      },
+      remove(name: string) {
+        res.cookies.delete(name);
+      },
+    },
+  });
+}
 
+export async function POST(req: NextRequest) {
+  const res = NextResponse.json({ ok: true }); // budeme doň zapisovať cookies
+  const supabase = serverClient(req, res);
+
+  try {
+    // zmaž Supabase httpOnly cookies (auth)
+    await supabase.auth.signOut();
+  } catch {
+    // ignore
+  }
+
+  // zmaž aj tvoje identifikátory
   res.cookies.delete("sr_uuid");
   res.cookies.delete("sr_id");
 

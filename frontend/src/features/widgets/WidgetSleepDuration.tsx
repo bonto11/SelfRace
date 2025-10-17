@@ -3,14 +3,26 @@
 
 import { useMemo } from "react";
 import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
-import { checkRecoveryFreshness, minutesToHHMM, makeBaselinePoint, compareLatestToBaseline } from "@/shared/utils/recovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataContext";
+import {
+  checkRecoveryFreshness,
+  minutesToHHMM,
+  makeBaselinePoint,
+  compareLatestToBaseline,
+} from "@/shared/utils/recovery";
+import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
 
-export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetSleepDuration({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows } = useRecoveryData();
 
   const values = useMemo<(number | null)[]>(
-    () => rows.map(r => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null)),
+    () =>
+      rows.map((r) =>
+        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null
+      ),
     [rows]
   );
 
@@ -19,15 +31,27 @@ export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: (
     return typeof v === "number" ? v : null;
   }, [values]);
 
-  const baselinePoint = useMemo(() => makeBaselinePoint(values, 14, true), [values]);
-  const cmp = compareLatestToBaseline(latest, baselinePoint, "higher-better", 0.05);
+  const baselinePoint = useMemo(
+    () => makeBaselinePoint(values, 14, true),
+    [values]
+  );
+  const cmp = compareLatestToBaseline(
+    latest,
+    baselinePoint,
+    "higher-better",
+    0.05
+  );
 
-  const freshness = checkRecoveryFreshness(rows, r => r.date);
+  const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA ? "—" : Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—";
-  const note     = showNA ? freshness.message : cmp.note;
-  const accent   = showNA ? "bg-slate-700" : cmp.accent;
+  const valueText = showNA
+    ? "—"
+    : Number.isFinite(latest as number)
+    ? minutesToHHMM(latest as number)
+    : "—";
+  const note = showNA ? freshness.message : cmp.note;
+  const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
     <RecoveryStatCard
