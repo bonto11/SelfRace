@@ -57,43 +57,43 @@ export async function POST(req: NextRequest) {
     }
 
     if (event === "SIGNED_IN" && session?.access_token && session?.refresh_token) {
-      // 1) nastav supabase session (zapíše httpOnly supabase cookies do `res`)
+      console.log("[SB][set-session] → SIGNED_IN handler");
       const { error: setErr } = await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-      console.log("[SB][set-session] setSession", { ok: !setErr, err: setErr?.message ?? null });
+
       if (setErr) {
+        console.error("[SB][set-session] setSession ERROR", setErr.message);
         return NextResponse.json({ ok: false, error: setErr.message }, { status: 500 });
       }
 
-      // 2) ulož si UUID do nášho cookie
       const uuid = session.user?.id ?? null;
+      console.log("[SB][set-session] session.user.id =", uuid);
+
       if (uuid) {
         res.cookies.set("sr_uuid", uuid, appCookieOpts);
 
-        // 3) dotiahni interné ID z tabuľky users a ulož ho do cookie `sr_id`
-        //    POZN: názvy stĺpcov prispôsob svojej tabuľke (uid/id).
         const { data: userRow, error: qErr } = await supabase
           .from("users")
           .select("id")
           .eq("user_uid", uuid)
           .single();
 
-        console.log("uuid " + uuid)
-        console.log("SB data, error " + userRow, qErr)
+        console.log("[SB][set-session] users query result", { userRow, qErr });
 
         if (qErr) {
-          console.warn("[SB][set-session] users lookup error:", qErr.message);
-          // ak lookup zlyhá, cookie sr_id nerobíme
+          console.warn("[SB][set-session] users lookup ERROR:", qErr.message);
         } else if (userRow?.id != null) {
           res.cookies.set("sr_id", String(userRow.id), appCookieOpts);
+          console.log("[SB][set-session] ✅ sr_id set =", userRow.id);
+        } else {
+          console.warn("[SB][set-session] userRow empty, no sr_id cookie set");
         }
       } else {
-        console.warn("[SB][set-session] no session.user.id (uuid) present");
+        console.warn("[SB][set-session] ⚠️ session.user.id is missing");
       }
 
-      // hotovo – `res` už obsahuje aj supabase aj naše cookies
       return res;
     }
 
