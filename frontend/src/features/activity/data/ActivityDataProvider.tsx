@@ -1,17 +1,40 @@
-// src/features/activity/data/ActivityDataContext.tsx
+// src/features/activity/data/ActivityDataProvider.tsx
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { addDays, todayISO, normalizeActivityRow, ActivityRow, ActivityDetailExtra, aggregateWeeks, WeekRow } from "@/features/activity/utils/activity";
+import {
+  addDays,
+  todayISO,
+  normalizeActivityRow,
+  type ActivityRow,
+  type ActivityDetailExtra,
+  aggregateWeeks,
+  type WeekRow,
+} from "@/features/activity/utils/activity";
 
 /* -------------------- Cache helpers (sessionStorage) -------------------- */
-const hasSS = () => typeof window !== "undefined" && !!window.sessionStorage;
+
+function hasSS() {
+  try {
+    return typeof window !== "undefined" && !!window.sessionStorage;
+  } catch {
+    return false;
+  }
+}
 
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
 }
+
 function detailKey(activityId: number) {
   return `ACT:DETAIL:${activityId}`;
 }
@@ -26,6 +49,7 @@ function saveRange(userId: number, start: string, end: string, rows: ActivityRow
     console.warn("[ACT][cache] saveRange error:", e);
   }
 }
+
 function loadRange(userId: number, start: string, end: string): ActivityRow[] | null {
   if (!hasSS()) return null;
   try {
@@ -36,7 +60,7 @@ function loadRange(userId: number, start: string, end: string): ActivityRow[] | 
       return null;
     }
     const parsed = JSON.parse(raw);
-    const rows = Array.isArray(parsed?.rows) ? parsed.rows as ActivityRow[] : [];
+    const rows = Array.isArray(parsed?.rows) ? (parsed.rows as ActivityRow[]) : [];
     console.debug("[ACT][cache] loadRange hit", { key, count: rows.length });
     return rows;
   } catch (e) {
@@ -50,11 +74,16 @@ function saveDetail(activityId: number, extra: ActivityDetailExtra) {
   try {
     const key = detailKey(activityId);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), ...extra }));
-    console.debug("[ACT][cache] saveDetail", { key, laps: extra.laps?.length ?? 0, splits: extra.splits?.length ?? 0 });
+    console.debug("[ACT][cache] saveDetail", {
+      key,
+      laps: extra.laps?.length ?? 0,
+      splits: extra.splits?.length ?? 0,
+    });
   } catch (e) {
     console.warn("[ACT][cache] saveDetail error:", e);
   }
 }
+
 function loadDetail(activityId: number): ActivityDetailExtra | null {
   if (!hasSS()) return null;
   try {
@@ -72,6 +101,7 @@ function loadDetail(activityId: number): ActivityDetailExtra | null {
 }
 
 /* ------------------------------ Context ------------------------------ */
+
 type Ctx = {
   rangeStart: string;
   rangeEnd: string;
@@ -96,14 +126,15 @@ export function useActivityData() {
 }
 
 /* ------------------------------ Provider ------------------------------ */
+
 export function ActivityDataProvider({
   children,
-  days = 90,             // koľko dní dopredu načítame (pre /activity celé obdobie)
+  days = 90, // koľko dní dopredu načítame (pre /activity celé obdobie)
 }: {
   children: React.ReactNode;
   days?: number;
 }) {
-  const { userId } = useUserId();
+  const { userId } = useUserId(); // number | null
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -111,58 +142,85 @@ export function ActivityDataProvider({
   const rangeEnd = todayISO();
   const rangeStart = addDays(rangeEnd, -(days - 1));
 
-  const fetchRange = useCallback(async (force = false) => {
-    if (!userId) {
-      console.warn("[ACT][provider] no userId");
-      return;
-    }
-    const t0 = performance.now();
-    console.debug("[ACT][provider] fetchRange", { force, userId, rangeStart, rangeEnd });
-
-    setLoading(true);
-    try {
-      if (!force) {
-        const cached = loadRange(userId, rangeStart, rangeEnd);
-        if (cached) {
-          setRows(cached);
-          setLoading(false);
-        }
-        // tichý refresh
-        void doFetch();
+  const fetchRange = useCallback(
+    async (force = false): Promise<void> => {
+      if (userId == null) {
+        console.warn("[ACT][provider] no userId -> skip fetchRange");
+        setRows([]);
         return;
       }
-      await doFetch();
-    } finally {
-      setLoading(false);
-      console.debug("[ACT][provider] fetchRange end", { tookMs: Math.round(performance.now() - t0) });
-    }
 
-    async function doFetch() {
-      const url = `${API_URL}/activities/range/${userId}?start=${rangeStart}&end=${rangeEnd}`;
-      console.debug("[ACT][fetch] ->", url);
+      const t0 = performance.now();
+      console.debug("[ACT][provider] fetchRange", { force, userId, rangeStart, rangeEnd });
+
+      setLoading(true);
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        const text = await res.text();
-        let json: any = {};
-        try { json = JSON.parse(text); } catch (e) {
-          console.warn("[ACT][fetch] JSON parse error, raw:", text.slice(0, 400));
-          throw e;
+        if (!force) {
+          const cached = loadRange(userId, rangeStart, rangeEnd);
+          if (cached) {
+            setRows(cached);
+            setLoading(false);
+          }
+          // tichý refresh
+          await doFetch(userId, rangeStart, rangeEnd);
+          return;
         }
-        const list: any[] = Array.isArray(json?.data) ? json.data : Array.isArray(json?.rows) ? json.rows : [];
-        const norm = list.map(normalizeActivityRow).filter(Boolean) as ActivityRow[];
-        norm.sort((a,b)=> a.date.localeCompare(b.date));
-        console.debug("[ACT][fetch] normalized", { count: norm.length, first: norm[0], last: norm[norm.length-1] });
-        setRows(norm);
-        saveRange(userId, rangeStart, rangeEnd, norm);
-      } catch (e) {
-        console.error("[ACT][fetch] ERROR", e);
+        // force fetch
+        await doFetch(userId, rangeStart, rangeEnd);
+      } finally {
+        setLoading(false);
+        console.debug("[ACT][provider] fetchRange end", {
+          tookMs: Math.round(performance.now() - t0),
+        });
       }
-    }
-  }, [userId, rangeStart, rangeEnd]);
+    },
+    [userId, rangeStart, rangeEnd]
+  );
 
+  // samostatná funkcia, nech má userId ako "number" (po guarde)
+  async function doFetch(uid: number, start: string, end: string): Promise<void> {
+    const url = `${API_URL}/activities/range/${uid}?start=${start}&end=${end}`;
+    console.debug("[ACT][fetch] ->", url);
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      const text = await res.text();
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        console.warn("[ACT][fetch] JSON parse error, raw:", text.slice(0, 400));
+        throw e;
+      }
+      const list: any[] = Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json?.rows)
+        ? json.rows
+        : [];
+
+      const norm = (list as any[])
+        .map(normalizeActivityRow)
+        .filter(Boolean) as ActivityRow[];
+
+      norm.sort((a, b) => a.date.localeCompare(b.date));
+      console.debug("[ACT][fetch] normalized", {
+        count: norm.length,
+        first: norm[0],
+        last: norm[norm.length - 1],
+      });
+
+      setRows(norm);
+      saveRange(uid, start, end, norm);
+    } catch (e) {
+      console.error("[ACT][fetch] ERROR", e);
+    }
+  }
+
+  // init: cache + tichý refresh
   useEffect(() => {
-    if (!userId) return;
-    // init: cache + tichý refresh
+    if (userId == null) {
+      setRows([]);
+      return;
+    }
     const cached = loadRange(userId, rangeStart, rangeEnd);
     if (cached) setRows(cached);
     void fetchRange(true);
@@ -174,14 +232,18 @@ export function ActivityDataProvider({
     return w;
   }, [rows]);
 
-  const selectByRange = useCallback((start: string, end: string) => {
-    if (!rows.length) return [];
-    return rows.filter(r => r.date >= start && r.date <= end);
-  }, [rows]);
+  const selectByRange = useCallback(
+    (start: string, end: string) => {
+      if (!rows.length) return [];
+      return rows.filter((r) => r.date >= start && r.date <= end);
+    },
+    [rows]
+  );
 
-  const getSummary = useCallback((activityId: number) => {
-    return rows.find(r => r.activity_id === activityId) ?? null;
-  }, [rows]);
+  const getSummary = useCallback(
+    (activityId: number) => rows.find((r) => r.activity_id === activityId) ?? null,
+    [rows]
+  );
 
   const getDetail = useCallback(async (activityId: number): Promise<ActivityDetailExtra> => {
     const cached = loadDetail(activityId);
@@ -206,18 +268,20 @@ export function ActivityDataProvider({
     }
   }, []);
 
-  const value: Ctx = useMemo(() => ({
-    rangeStart, rangeEnd,
-    rows, weeks, loading,
-    refresh: fetchRange,
-    selectByRange,
-    getSummary,
-    getDetail,
-  }), [rangeStart, rangeEnd, rows, weeks, loading, fetchRange, selectByRange, getSummary, getDetail]);
-
-  return (
-    <ActivityDataContext.Provider value={value}>
-      {children}
-    </ActivityDataContext.Provider>
+  const value: Ctx = useMemo(
+    () => ({
+      rangeStart,
+      rangeEnd,
+      rows,
+      weeks,
+      loading,
+      refresh: fetchRange,
+      selectByRange,
+      getSummary,
+      getDetail,
+    }),
+    [rangeStart, rangeEnd, rows, weeks, loading, fetchRange, selectByRange, getSummary, getDetail]
   );
+
+  return <ActivityDataContext.Provider value={value}>{children}</ActivityDataContext.Provider>;
 }

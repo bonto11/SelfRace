@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
-import { useActivityData } from "@/features/activity/data/ActivityDataContext";
+import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 
 interface Props {
   activityId: number;
@@ -29,12 +29,18 @@ export default function ActivityDetail({ activityId }: Props) {
       setSplits(extra.splits || []);
       setLoading(false);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [activityId, getDetail]);
 
   if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
-  const distKm = summary.distance_m != null ? (summary.distance_m / 1000).toFixed(2) : "—";
-  const moveMin = summary.moving_time_s != null ? Math.floor(summary.moving_time_s / 60) : null;
+  const distKm =
+    summary.distance_m != null ? (summary.distance_m / 1000).toFixed(2) : "—";
+  const moveMin =
+    summary.moving_time_s != null
+      ? Math.floor(summary.moving_time_s / 60)
+      : null;
 
   return (
     <div className={`${CARD} space-y-2`}>
@@ -43,15 +49,26 @@ export default function ActivityDetail({ activityId }: Props) {
       <p>
         <strong>Date:</strong>{" "}
         {new Date(summary.date).toLocaleString(THEME.i18n.dateLocale, {
-          day: "2-digit", month: "2-digit", year: "numeric",
-          hour: "2-digit", minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
         })}
       </p>
 
-      <p><strong>Distance:</strong> {distKm} km</p>
-      <p><strong>Time:</strong> {moveMin != null ? `${moveMin} min` : "—"}</p>
-      <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
-      <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
+      <p>
+        <strong>Distance:</strong> {distKm} km
+      </p>
+      <p>
+        <strong>Time:</strong> {moveMin != null ? `${moveMin} min` : "—"}
+      </p>
+      <p>
+        <strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}
+      </p>
+      <p>
+        <strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}
+      </p>
 
       {loading && <div>Načítavam detail (laps/splits)…</div>}
 
@@ -61,7 +78,8 @@ export default function ActivityDetail({ activityId }: Props) {
           <ul className="list-disc pl-5">
             {laps.map((lap, idx) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {lap.distance_m} m, {lap.moving_time_s} s
+                Lap {lap.lap_index ?? idx}: {lap.distance_m} m,{" "}
+                {lap.moving_time_s} s
               </li>
             ))}
           </ul>
@@ -74,7 +92,8 @@ export default function ActivityDetail({ activityId }: Props) {
           <ul className="list-disc pl-5">
             {splits.map((split, idx) => (
               <li key={split.split_index ?? idx}>
-                Split {split.split_index ?? idx}: {split.distance_m} m, {split.moving_time_s} s
+                Split {split.split_index ?? idx}: {split.distance_m} m,{" "}
+                {split.moving_time_s} s
               </li>
             ))}
           </ul>

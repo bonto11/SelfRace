@@ -1,16 +1,21 @@
 // src/features/activity/components/ActivityTable.tsx
-// src/features/activity/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { SUBCARD, CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
-import { useActivityData } from "@/features/activity/data/ActivityDataContext";
+import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "./ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport"; // tvoje existujúce mapovanie labelu
 
-export default function ActivityTable({ start, end }: { start?: string; end?: string; }) {
+export default function ActivityTable({
+  start,
+  end,
+}: {
+  start?: string;
+  end?: string;
+}) {
   const { selectByRange, rows: allRows } = useActivityData();
 
   const [rows, setRows] = useState<ActivityRow[]>([]);
@@ -19,18 +24,29 @@ export default function ActivityTable({ start, end }: { start?: string; end?: st
 
   // “bezpečný” titulok
   const headerTitle = useMemo(
-    () => (start && end ? `Týždeň ${start} → ${end}` : "História (vyber týždeň v grafe)"),
+    () =>
+      start && end
+        ? `Týždeň ${start} → ${end}`
+        : "História (vyber týždeň v grafe)",
     [start, end]
   );
 
   useEffect(() => {
     setSelectedId(null);
-    if (!start || !end) { setRows([]); return; }
+    if (!start || !end) {
+      setRows([]);
+      return;
+    }
     setLoading(true);
     const r = selectByRange(start, end);
     setRows(r);
     setLoading(false);
-    console.debug("[ACT][table] selectByRange", { start, end, count: r.length, all: allRows.length });
+    console.debug("[ACT][table] selectByRange", {
+      start,
+      end,
+      count: r.length,
+      all: allRows.length,
+    });
   }, [start, end, selectByRange, allRows.length]);
 
   return (
@@ -39,7 +55,7 @@ export default function ActivityTable({ start, end }: { start?: string; end?: st
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
       </div>
- 
+
       {/* MOBILE – karty */}
       <div className="sm:hidden space-y-2">
         {loading && <div className="opacity-70 py-4">Načítavam…</div>}
@@ -63,8 +79,16 @@ export default function ActivityTable({ start, end }: { start?: string; end?: st
                 </div>
                 <div className="truncate opacity-90">{r.name}</div>
                 <div className="mt-1 text-xs opacity-75 flex gap-3">
-                  <span>{r.moving_time_s != null ? `${Math.floor((r.moving_time_s || 0) / 60)} min` : "—"}</span>
-                  <span>{r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(1)} km` : "—"}</span>
+                  <span>
+                    {r.moving_time_s != null
+                      ? `${Math.floor((r.moving_time_s || 0) / 60)} min`
+                      : "—"}
+                  </span>
+                  <span>
+                    {r.distance_m != null
+                      ? `${((r.distance_m || 0) / 1000).toFixed(1)} km`
+                      : "—"}
+                  </span>
                   <span>HR: {r.average_heartrate_bpm ?? "—"}</span>
                 </div>
               </button>
@@ -93,7 +117,9 @@ export default function ActivityTable({ start, end }: { start?: string; end?: st
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="py-6 opacity-70">Načítavam…</td>
+                  <td colSpan={7} className="py-6 opacity-70">
+                    Načítavam…
+                  </td>
                 </tr>
               )}
               {!loading &&
@@ -109,10 +135,18 @@ export default function ActivityTable({ start, end }: { start?: string; end?: st
                       <td>{new Date(r.date).toLocaleDateString("sk-SK")}</td>
                       <td>{sportUiLabel(eff)}</td>
                       <td className="truncate max-w-[260px]">{r.name}</td>
-                      <td>{r.moving_time_s != null ? `${Math.floor((r.moving_time_s || 0) / 60)} min` : "—"}</td>
+                      <td>
+                        {r.moving_time_s != null
+                          ? `${Math.floor((r.moving_time_s || 0) / 60)} min`
+                          : "—"}
+                      </td>
                       <td>{r.average_heartrate_bpm ?? "—"}</td>
                       <td>{r.max_heartrate_bpm ?? "—"}</td>
-                      <td>{r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : "—"}</td>
+                      <td>
+                        {r.distance_m != null
+                          ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
+                          : "—"}
+                      </td>
                     </tr>
                   );
                 })}
