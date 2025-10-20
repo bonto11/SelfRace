@@ -4,7 +4,7 @@ import React from "react";
 type Props = {
   title: string;
   note?: string;
-  accent?: string;             // spodná lišta ako v RecoveryStatCard
+  accent?: string;
   onOpenDetail?: () => void;   // ak je, celá karta je klikateľná
   children?: React.ReactNode;  // sem idú grafy/obsah
 };
