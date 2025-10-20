@@ -21,6 +21,7 @@ const C = {
 };
 
 // --- lokálny mini-chart komponent (bol pôvodne v WeeklyLoadMini.tsx) ---
+
 function MiniChart({
   data,
   options,
