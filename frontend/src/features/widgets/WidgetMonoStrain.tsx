@@ -1,43 +1,36 @@
 // src/features/widgets/MonoStrainWidget.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
 import { THEME } from "@/shared/theme/tokens";
-import { useUserId } from "@/shared/hooks/useUserId";
+import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import ClickableCard from "@/shared/components/ClickableCard";
 
 ensureChartJSRegistered();
 
-type Row = { label: string; mono: number | null; strain: number | null };
+export default function MonoStrainWidget({
+  title = "Indexy záťaže",
+  onOpenDetail,
+}: {
+  title?: string;
+  onOpenDetail?: () => void;
+}) {
+  const { weeks, loading } = useActivityData();
 
-export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title?: string }) {
-  const { userId } = useUserId();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(false);
+  const rows = useMemo(() => weeks.slice(-4), [weeks]);
+  const labels = useMemo(() => rows.map(r => r.label || r.week), [rows]);
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=4`);
-        const json = await res.json().catch(() => ({}));
-        const src: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-        setRows(src.map((w) => ({
-          label: w.label ?? w.week ?? w.iso_week ?? "",
-          mono:   w?.monotony?.time != null && Number.isFinite(+w.monotony.time) ? +w.monotony.time : null,
-          strain: w?.strain?.time    != null && Number.isFinite(+w.strain.time)    ? +w.strain.time    : null,
-        })));
-      } finally { setLoading(false); }
-    })();
-  }, [userId]);
-
-  const labels = useMemo(() => rows.map(r => r.label), [rows]);
-  const mono   = useMemo<number[]>(() => rows.map(r => r.mono   == null ? NaN : r.mono),   [rows]);
-  const strn   = useMemo<number[]>(() => rows.map(r => r.strain == null ? NaN : r.strain), [rows]);
+  const mono = useMemo<number[]>(
+    () => rows.map(r => (r.monotony?.time != null ? +r.monotony.time : NaN)),
+    [rows]
+  );
+  const strn = useMemo<number[]>(
+    () => rows.map(r => (r.strain?.time != null ? +r.strain.time : NaN)),
+    [rows]
+  );
 
   const strainMax = useMemo(() => {
     const nums = strn.filter((v) => Number.isFinite(v)) as number[];
@@ -77,10 +70,7 @@ export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-base font-semibold">{title}</h3>
-      </div>
+    <ClickableCard title={title} accent="bg-amber-500" onOpenDetail={onOpenDetail}>
       {loading ? (
         <div className="opacity-70 text-sm">Načítavam…</div>
       ) : (
@@ -88,6 +78,6 @@ export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title
           <MixedChart type="line" data={data} options={options} />
         </div>
       )}
-    </div>
+    </ClickableCard>
   );
 }
