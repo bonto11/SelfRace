@@ -9,7 +9,7 @@ type Props = {
   children?: React.ReactNode;  // sem idú grafy/obsah
 };
 
-export default function ClickableCard({
+export default function OpenerWidget({
   title,
   note,
   accent = "bg-slate-700",

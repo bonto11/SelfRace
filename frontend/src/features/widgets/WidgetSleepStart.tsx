@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
 import {
   checkRecoveryFreshness,
   HHMMToMinutes,
@@ -35,7 +35,6 @@ export default function WidgetSleepStart({
   }, [values]);
 
   const cmp = compareTimeToBaselineMinutes(latest, FIX_BASELINE_MIN, TOL_MIN);
-
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -48,12 +47,17 @@ export default function WidgetSleepStart({
   const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
-    <RecoveryStatCard
+    <OpenerWidget
       title="Sleep start"
-      value={valueText}
-      note={note}
       accent={accent}
       onOpenDetail={onOpenDetail}
-    />
+    >
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-5xl font-extrabold leading-none">
+          {valueText}
+        </span>
+      </div>
+      {note && <p className="opacity-80">{note}</p>}
+    </OpenerWidget>
   );
 }

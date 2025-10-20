@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
 import {
   compareLatestToBaseline,
   makeRollingBaseline,
@@ -18,7 +18,7 @@ export default function WidgetRHR({
   const { rows } = useRecoveryData();
 
   const values = useMemo<(number | null)[]>(
-    () => rows.map((r) => r?.RHR_bpm ?? null),
+    () => rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)),
     [rows]
   );
 
@@ -41,7 +41,6 @@ export default function WidgetRHR({
     "lower-better",
     0.05
   );
-
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -54,13 +53,18 @@ export default function WidgetRHR({
   const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
-    <RecoveryStatCard
+    <OpenerWidget
       title="Resting HR"
-      value={valueText}
-      unit="bpm"
-      note={note}
       accent={accent}
       onOpenDetail={onOpenDetail}
-    />
+    >
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-5xl font-extrabold leading-none">
+          {valueText}
+        </span>
+        <span className="text-xl opacity-80">bpm</span>
+      </div>
+      {note && <p className="opacity-80">{note}</p>}
+    </OpenerWidget>
   );
 }

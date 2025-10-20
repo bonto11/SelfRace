@@ -7,7 +7,7 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
-import ClickableCard from "@/shared/components/ClickableCard";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
 
 ensureChartJSRegistered();
 
@@ -21,14 +21,14 @@ export default function MonoStrainWidget({
   const { weeks, loading } = useActivityData();
 
   const rows = useMemo(() => weeks.slice(-4), [weeks]);
-  const labels = useMemo(() => rows.map(r => r.label || r.week), [rows]);
+  const labels = useMemo(() => rows.map((r) => r.label || r.week), [rows]);
 
   const mono = useMemo<number[]>(
-    () => rows.map(r => (r.monotony?.time != null ? +r.monotony.time : NaN)),
+    () => rows.map((r) => (r.monotony?.time != null ? +r.monotony.time : NaN)),
     [rows]
   );
   const strn = useMemo<number[]>(
-    () => rows.map(r => (r.strain?.time != null ? +r.strain.time : NaN)),
+    () => rows.map((r) => (r.strain?.time != null ? +r.strain.time : NaN)),
     [rows]
   );
 
@@ -40,12 +40,33 @@ export default function MonoStrainWidget({
   const data: ChartData<"line", number[], string> = {
     labels,
     datasets: [
-      { type: "line", label: "Monotony", data: mono, yAxisID: "y1",
-        borderColor: THEME.chart.monotony, backgroundColor: THEME.chart.monotony,
-        tension: 0.3, spanGaps: true, pointRadius: 2, borderWidth: 2, order: 2 },
-      { type: "line", label: "Strain", data: strn, yAxisID: "y2",
-        borderColor: THEME.chart.strain, backgroundColor: THEME.chart.strain,
-        tension: 0.3, spanGaps: true, borderDash: [4,4], pointRadius: 2, borderWidth: 2, order: 3 },
+      {
+        type: "line",
+        label: "Monotony",
+        data: mono,
+        yAxisID: "y1",
+        borderColor: THEME.chart.monotony,
+        backgroundColor: THEME.chart.monotony,
+        tension: 0.3,
+        spanGaps: true,
+        pointRadius: 2,
+        borderWidth: 2,
+        order: 2,
+      },
+      {
+        type: "line",
+        label: "Strain",
+        data: strn,
+        yAxisID: "y2",
+        borderColor: THEME.chart.strain,
+        backgroundColor: THEME.chart.strain,
+        tension: 0.3,
+        spanGaps: true,
+        borderDash: [4, 4],
+        pointRadius: 2,
+        borderWidth: 2,
+        order: 3,
+      },
     ],
   };
 
@@ -58,19 +79,41 @@ export default function MonoStrainWidget({
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 10,
+        },
       },
     },
     layout: { padding: { left: 8, right: 16 } },
     scales: {
-      y1: { position: "left",  min: 0, max: 3, grid: { color: THEME.chart.grid }, title: { display: true, text: "Monotony" } },
-      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false }, title: { display: true, text: "Strain" } },
-      x:  { grid: { color: THEME.chart.gridSoft } },
+      y1: {
+        position: "left",
+        min: 0,
+        max: 3,
+        grid: { color: THEME.chart.grid },
+        title: { display: true, text: "Monotony" },
+      },
+      y2: {
+        position: "right",
+        min: 0,
+        max: strainMax,
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: "Strain" },
+      },
+      x: { grid: { color: THEME.chart.gridSoft } },
     },
   };
 
   return (
-    <ClickableCard title={title} accent="bg-amber-500" onOpenDetail={onOpenDetail}>
+    <OpenerWidget
+      title={title}
+      accent="bg-amber-500"
+      onOpenDetail={onOpenDetail}
+    >
       {loading ? (
         <div className="opacity-70 text-sm">Načítavam…</div>
       ) : (
@@ -78,6 +121,6 @@ export default function MonoStrainWidget({
           <MixedChart type="line" data={data} options={options} />
         </div>
       )}
-    </ClickableCard>
+    </OpenerWidget>
   );
 }
