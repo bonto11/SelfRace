@@ -22,10 +22,9 @@ type WidgetResp = {
   data?: {
     easy_min: number;
     hard_min: number;
-    total_min: number;
-    easy_pct: number; // 0..100
-    hard_pct: number; // 0..100
-    days: number;
+    total_min?: number;
+    easy_pct?: number; // BE môže/ nemusí poslať
+    hard_pct?: number;
   };
   detail?: string;
 };
@@ -39,34 +38,40 @@ export default function WidgetPareto8020({
   const { userId } = useUserId();
   const [payload, setPayload] = useState<WidgetResp | null>(null);
 
-  // --- fetch ---
   useEffect(() => {
     if (!userId) return;
     const q = new URLSearchParams({ days: String(7 * weeks) });
     if (sport) q.set("sport", sport);
-    fetch(`${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((j) => setPayload(j))
+    fetch(`${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`, { cache: "no-store" })
+      .then(r => r.json())
+      .then(setPayload)
       .catch(() => setPayload(null));
   }, [userId, weeks, sport]);
 
-  // normalizované čísla (žiadne NaN)
-  const P = payload?.data ?? {
-    easy_min: 0,
-    hard_min: 0,
-    total_min: 0,
-    easy_pct: 0,
-    hard_pct: 0,
-    days: 7 * weeks,
-  };
-  const EASY = Math.max(0, Math.round(Number(P.easy_min || 0)));
-  const HARD = Math.max(0, Math.round(Number(P.hard_min || 0)));
-  const EASY_P = Math.max(0, Math.round(Number(P.easy_pct || 0)));
-  const HARD_P = Math.max(0, Math.round(Number(P.hard_pct || 0)));
+  // normalizuj dáta
+  const easyMin = Math.max(0, Math.round(Number(payload?.data?.easy_min ?? 0)));
+  const hardMin = Math.max(0, Math.round(Number(payload?.data?.hard_min ?? 0)));
+  const total   = Math.max(1, easyMin + hardMin);
+  // fallback: ak BE nedá percentá, spočítaj ich z minút
+  const easyPct = Math.max(
+    0,
+    Math.round(
+      Number.isFinite(payload?.data?.easy_pct as number)
+        ? (payload!.data!.easy_pct as number)
+        : (easyMin / total) * 100
+    )
+  );
+  const hardPct = Math.max(
+    0,
+    Math.round(
+      Number.isFinite(payload?.data?.hard_pct as number)
+        ? (payload!.data!.hard_pct as number)
+        : 100 - easyPct
+    )
+  );
+  const totalMinShown = Math.max(0, Math.round(Number(payload?.data?.total_min ?? easyMin + hardMin)));
 
-  // center text plugin – škáluje font podľa veľkosti plátna
+  // center text plugin
   const centerText: Plugin<"doughnut"> = useMemo(
     () => ({
       id: "centerText",
@@ -75,33 +80,31 @@ export default function WidgetPareto8020({
         if (!chartArea) return;
         const midX = (chartArea.left + chartArea.right) / 2;
         const midY = (chartArea.top + chartArea.bottom) / 2;
-        const size = Math.min(chart.width, chart.height);
-        const fontPx = Math.max(12, Math.floor(size * 0.10)); // ~10 % priemeru
+        const fontPx = Math.max(12, Math.floor(Math.min(chart.width, chart.height) * 0.10));
         ctx.save();
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto`;
         ctx.fillStyle = "#fff";
-        ctx.fillText(`${EASY_P}% / ${HARD_P}%`, midX, midY);
+        ctx.fillText(`${easyPct}% / ${hardPct}%`, midX, midY);
         ctx.restore();
       },
     }),
-    [EASY_P, HARD_P]
+    [easyPct, hardPct]
   );
 
-  // chart data/options
   const data: ChartData<"doughnut", number[], string> = useMemo(
     () => ({
       labels: ["Easy", "Hard"],
       datasets: [
         {
-          data: [EASY, HARD],
+          data: [easyMin, hardMin],
           backgroundColor: [THEME.chart.easy80, THEME.chart.hard20],
           borderWidth: 0,
         },
       ],
     }),
-    [EASY, HARD]
+    [easyMin, hardMin]
   );
 
   const options: ChartOptions<"doughnut"> = useMemo(
@@ -110,12 +113,15 @@ export default function WidgetPareto8020({
       maintainAspectRatio: false,
       cutout: "70%",
       plugins: {
-        legend: { display: true, position: THEME.chart.legendPosition },
+        legend: {
+          display: true,
+          position: "right",                   // legenda vpravo
+          labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, boxHeight: 8, padding: 10 },
+        },
         tooltip: {
           callbacks: {
             label: (ctx) => {
               const v = Number(ctx.parsed) || 0;
-              const total = Math.max(1, EASY + HARD);
               const pct = Math.round((v / total) * 100);
               return `${ctx.label}: ${v} min (${pct}%)`;
             },
@@ -123,10 +129,9 @@ export default function WidgetPareto8020({
         },
       },
     }),
-    [EASY, HARD]
+    [total]
   );
 
-  // jednotný vzhľad karty + menší graf
   return (
     <div
       className={`bg-white dark:bg-gray-800 p-3 rounded shadow cursor-pointer select-none ${className}`}
@@ -135,21 +140,16 @@ export default function WidgetPareto8020({
       aria-label="Open 80/20 trend"
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold opacity-80">
-          Posledné {weeks} týždne – 80/20
-        </h3>
-        <span className="text-xs opacity-60">
-          {P.total_min ? `${Math.round(P.total_min)} min` : ""}
-        </span>
+        <h3 className="text-sm font-semibold opacity-80">Posledné {weeks} týždne – 80/20</h3>
+        <span className="text-xs opacity-60">{totalMinShown ? `${totalMinShown} min` : ""}</span>
       </div>
 
-      {/* menší, konzistentný rozmer s ostatnými widgetmi */}
       <div className="mx-auto w-[140px] h-[140px] md:w-[160px] md:h-[160px]">
         <Doughnut data={data} options={options} plugins={[centerText]} />
       </div>
 
       <div className="mt-2 text-xs opacity-70">
-        Easy: {EASY} min • Hard: {HARD} min
+        Easy: {easyMin} min • Hard: {hardMin} min
       </div>
     </div>
   );
