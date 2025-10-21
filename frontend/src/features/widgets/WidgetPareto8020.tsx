@@ -14,17 +14,17 @@ type Props = {
   onOpenTrend?: () => void;
   weeks?: 2 | 4 | 8 | 12;
   sport?: string | null;
-  className?: string;
 };
 
 type WidgetResp = {
   success: boolean;
   data?: {
-    easy_min: number;
-    hard_min: number;
-    total_min?: number;
-    easy_pct?: number; // BE môže/ nemusí poslať
+    easy_min: number | string;
+    hard_min: number | string;
+    total_min?: number | string;
+    easy_pct?: number;
     hard_pct?: number;
+    days?: number;
   };
   detail?: string;
 };
@@ -33,43 +33,34 @@ export default function WidgetPareto8020({
   onOpenTrend,
   weeks = 2,
   sport = null,
-  className = "",
 }: Props) {
   const { userId } = useUserId();
   const [payload, setPayload] = useState<WidgetResp | null>(null);
 
+  // fetch
   useEffect(() => {
     if (!userId) return;
     const q = new URLSearchParams({ days: String(7 * weeks) });
     if (sport) q.set("sport", sport);
-    fetch(`${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`, { cache: "no-store" })
-      .then(r => r.json())
+    fetch(`${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
       .then(setPayload)
       .catch(() => setPayload(null));
   }, [userId, weeks, sport]);
 
-  // normalizuj dáta
-  const easyMin = Math.max(0, Math.round(Number(payload?.data?.easy_min ?? 0)));
-  const hardMin = Math.max(0, Math.round(Number(payload?.data?.hard_min ?? 0)));
-  const total   = Math.max(1, easyMin + hardMin);
-  // fallback: ak BE nedá percentá, spočítaj ich z minút
-  const easyPct = Math.max(
-    0,
-    Math.round(
-      Number.isFinite(payload?.data?.easy_pct as number)
-        ? (payload!.data!.easy_pct as number)
-        : (easyMin / total) * 100
-    )
-  );
-  const hardPct = Math.max(
-    0,
-    Math.round(
-      Number.isFinite(payload?.data?.hard_pct as number)
-        ? (payload!.data!.hard_pct as number)
-        : 100 - easyPct
-    )
-  );
-  const totalMinShown = Math.max(0, Math.round(Number(payload?.data?.total_min ?? easyMin + hardMin)));
+  // robustné čísla + percentá z minút
+  const raw = payload?.data ?? {};
+  const easyMin = Number(raw.easy_min) || 0;
+  const hardMin = Number(raw.hard_min) || 0;
+  const totalMin = Number(raw.total_min) || easyMin + hardMin;
+  const easyPct = totalMin > 0 ? Math.round((easyMin / totalMin) * 100) : 0;
+  const hardPct = Math.max(0, 100 - easyPct);
+
+  // fallback farby (ak by THEME nebol dostupný)
+  const easyColor = THEME?.chart?.easy80 ?? "#4ADE80";
+  const hardColor = THEME?.chart?.hard20 ?? "#F87171";
 
   // center text plugin
   const centerText: Plugin<"doughnut"> = useMemo(
@@ -77,14 +68,12 @@ export default function WidgetPareto8020({
       id: "centerText",
       afterDraw(chart) {
         const { ctx, chartArea } = chart;
-        if (!chartArea) return;
         const midX = (chartArea.left + chartArea.right) / 2;
         const midY = (chartArea.top + chartArea.bottom) / 2;
-        const fontPx = Math.max(12, Math.floor(Math.min(chart.width, chart.height) * 0.10));
         ctx.save();
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto`;
+        ctx.font = "bold 14px system-ui, -apple-system, Segoe UI, Roboto";
         ctx.fillStyle = "#fff";
         ctx.fillText(`${easyPct}% / ${hardPct}%`, midX, midY);
         ctx.restore();
@@ -93,35 +82,34 @@ export default function WidgetPareto8020({
     [easyPct, hardPct]
   );
 
+  // dataset
   const data: ChartData<"doughnut", number[], string> = useMemo(
     () => ({
       labels: ["Easy", "Hard"],
       datasets: [
         {
           data: [easyMin, hardMin],
-          backgroundColor: [THEME.chart.easy80, THEME.chart.hard20],
+          backgroundColor: [easyColor, hardColor],
           borderWidth: 0,
         },
       ],
     }),
-    [easyMin, hardMin]
+    [easyMin, hardMin, easyColor, hardColor]
   );
 
+  // options (bez legendy – urobíme vlastnú s bodkami)
   const options: ChartOptions<"doughnut"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       cutout: "70%",
       plugins: {
-        legend: {
-          display: true,
-          position: "right",                   // legenda vpravo
-          labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, boxHeight: 8, padding: 10 },
-        },
+        legend: { display: false },
         tooltip: {
           callbacks: {
             label: (ctx) => {
-              const v = Number(ctx.parsed) || 0;
+              const v = ctx.parsed as number;
+              const total = Math.max(1, easyMin + hardMin);
               const pct = Math.round((v / total) * 100);
               return `${ctx.label}: ${v} min (${pct}%)`;
             },
@@ -129,27 +117,69 @@ export default function WidgetPareto8020({
         },
       },
     }),
-    [total]
+    [easyMin, hardMin]
   );
+
+  // veľkosť grafu tak, aby sedel s ostatnými widgetmi
+  const donutSize = 160; // px
 
   return (
     <div
-      className={`bg-white dark:bg-gray-800 p-3 rounded shadow cursor-pointer select-none ${className}`}
-      onClick={onOpenTrend}
+      className="bg-white dark:bg-gray-800 p-4 rounded shadow select-none"
       role="button"
       aria-label="Open 80/20 trend"
+      onClick={onOpenTrend}
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold opacity-80">Posledné {weeks} týždne – 80/20</h3>
-        <span className="text-xs opacity-60">{totalMinShown ? `${totalMinShown} min` : ""}</span>
+        <h3 className="text-sm font-semibold opacity-80">
+          Posledné {weeks} týždne – 80/20
+        </h3>
+        <span className="text-xs opacity-60">
+          {totalMin ? `${Math.round(totalMin)} min` : ""}
+        </span>
       </div>
 
-      <div className="mx-auto w-[140px] h-[140px] md:w-[160px] md:h-[160px]">
-        <Doughnut data={data} options={options} plugins={[centerText]} />
+      <div className="flex items-center gap-4">
+        {/* Donut */}
+        <div
+          className="mx-auto"
+          style={{ width: donutSize, height: donutSize }}
+          aria-hidden
+        >
+          <Doughnut data={data} options={options} plugins={[centerText]} />
+        </div>
+
+        {/* Vlastná legenda s bodkami */}
+        <div className="flex flex-col gap-2 text-xs opacity-80">
+          <div className="flex items-center gap-2">
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                backgroundColor: easyColor,
+                display: "inline-block",
+              }}
+            />
+            <span>Easy</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                backgroundColor: hardColor,
+                display: "inline-block",
+              }}
+            />
+            <span>Hard</span>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-2 text-xs opacity-70">
-        Easy: {easyMin} min • Hard: {hardMin} min
+      <div className="mt-3 text-xs opacity-70">
+        Easy: {Math.round(easyMin)} min • Hard: {Math.round(hardMin)} min
       </div>
     </div>
   );
