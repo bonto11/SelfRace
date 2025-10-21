@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Chart as LineChart } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
@@ -14,8 +14,8 @@ type Row = { label: string; easy_pct: number; hard_pct: number; easy_min: number
 
 export default function TrendPareto8020() {
   const { userId } = useUserId();
-  const [weeks, setWeeks] = useState<number>(8);       // 2 / 4 / 8 / 12
-  const [sport, setSport] = useState<string>("all");    // voliteľný filter
+  const [weeks, setWeeks] = useState<number>(8);    // 2 / 4 / 8 / 12
+  const [sport, setSport] = useState<string>("all");
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
@@ -26,34 +26,33 @@ export default function TrendPareto8020() {
         const json = await res.json();
         const arr: Row[] = Array.isArray(json?.data) ? json.data : [];
         setRows(arr);
-      } catch (e) {
+      } catch {
         setRows([]);
       }
     })();
   }, [userId, weeks, sport]);
 
   const labels = useMemo(() => rows.map(r => r.label), [rows]);
+
   const data: ChartData<"line", number[], string> = useMemo(() => ({
     labels,
     datasets: [
       {
-        type: "line",
         label: "Easy %",
-        data: rows.map(r => r.easy_pct ?? 0),
-        borderColor: THEME.chart.mixed,       // zelenkavá, už v theme
+        data: rows.map(r => Number.isFinite(r.easy_pct) ? r.easy_pct : 0),
+        borderColor: THEME.chart.mixed,
         backgroundColor: THEME.chart.mixed,
         tension: 0.25,
         pointRadius: 2,
       },
       {
-        type: "line",
         label: "Hard %",
-        data: rows.map(r => r.hard_pct ?? 0),
-        borderColor: THEME.chart.strength,    // oranžová zo theme
+        data: rows.map(r => Number.isFinite(r.hard_pct) ? r.hard_pct : 0),
+        borderColor: THEME.chart.strength,
         backgroundColor: THEME.chart.strength,
         tension: 0.25,
         pointRadius: 2,
-        borderDash: [4,4],
+        borderDash: [4, 4],
       },
     ],
   }), [rows, labels]);
@@ -69,15 +68,12 @@ export default function TrendPareto8020() {
       },
       tooltip: {
         callbacks: {
-          label: (ctx) => {
-            const v = ctx.parsed.y ?? 0;
-            return `${ctx.dataset.label}: ${v.toFixed(1)}%`;
-          }
+          label: (ctx) => `${ctx.dataset.label}: ${(ctx.parsed.y ?? 0).toFixed(1)}%`,
         }
       }
     },
     scales: {
-      y: { beginAtZero: true, max: 100, title: { display: true, text: "%" }, grid: { color: THEME.chart.grid }},
+      y: { beginAtZero: true, max: 100, title: { display: true, text: "%" }, grid: { color: THEME.chart.grid } },
       x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
     }
   };
@@ -88,7 +84,6 @@ export default function TrendPareto8020() {
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
-
         <div className="flex items-center gap-2 text-xs">
           <select className="px-2 py-1 rounded bg-gray-700 text-white" value={weeks} onChange={e => setWeeks(Number(e.target.value))}>
             <option value={2}>2 týždne</option>
@@ -110,7 +105,7 @@ export default function TrendPareto8020() {
       <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
         <div style={{ height: 220 }}>
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <LineChart type="line" data={data} options={options} />
+            <Line data={data} options={options} />
           </div>
         </div>
       </div>
