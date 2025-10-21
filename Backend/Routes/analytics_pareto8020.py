@@ -1,6 +1,7 @@
 # backend/Routes/analytics_pareto8020.py
 from __future__ import annotations
 from fastapi import APIRouter, HTTPException
+from datetime import datetime, timedelta, timezone
 from typing import List, Any, Dict
 from Modules.SQL.db_handler import get_client
 from Modules.config import (
@@ -17,39 +18,35 @@ sb = get_client()
 
 @router.get("/widget/{user_id}")
 def pareto_widget(user_id: int, days: int = 14, sport: str = "all"):
-    """
-    Widget agregácia 80/20 za posledných X dní:
-    - zoberie activity_id z activities_summary
-    - ak chýbajú enrichment dáta, dopočíta (fetch_if_missing=True)
-    - spočíta easy (z1+z2) a hard (z3+z5)
-    """
     try:
-        # 1) activity_ids za posledných X dní
+        # 1️⃣ Spočítaj začiatok obdobia
+        since = datetime.now(timezone.utc) - timedelta(days=int(days))
+        since_iso = since.strftime("%Y-%m-%dT%H:%M:%S%z")  # ISO formát, ktorý Supabase akceptuje
+
+        # 2️⃣ activity_ids z posledného obdobia
         q = (
             sb.table(TABLE_ACTIVITIES_SUMMARY)
             .select("activity_id")
             .eq("user_id", user_id)
-            .gte("date", f"now() - interval '{int(days)} days'")
+            .gte("date", since_iso)
         )
-        # sport filter len ak != all
+
         if sport and sport != "all":
             q = q.eq("sport_type_fe", sport)
 
         ids_rows = q.order("date", desc=True).execute()
-        ids: List[int] = [int(r["activity_id"]) for r in (ids_rows.data or []) if r.get("activity_id")]
+        ids = [int(r["activity_id"]) for r in (ids_rows.data or []) if r.get("activity_id")]
 
-        print(f"[pareto8020] user={user_id} days={days} sport={sport} found_ids={len(ids)}")
+        print(f"[pareto8020] user={user_id} days={days} found_ids={len(ids)}")
 
         if not ids:
             return {"success": True, "data": {"easy_min": 0, "hard_min": 0, "total_min": 0, "easy_pct": 0, "hard_pct": 0}}
 
-        # 2) uisti sa, že enrichment existuje (fetch_if_missing=True)
+        # enrichment výpočet
         prev = preview_zones_for_activities(user_id, ids, fetch_if_missing=True)
-        print(f"[pareto8020] preview ok={prev.get('ok')} items={len(prev.get('items') or [])}")
         if prev.get("ok"):
             upsert_enrichment_minutes(user_id, prev.get("items") or [])
 
-        # 3) agregácia z enrichment
         q2 = (
             sb.table(TABLE_ACTIVITIES_ENRICHMENT)
             .select("z1_min,z2_min,z3_min,z4_min,z5_min")
@@ -57,6 +54,7 @@ def pareto_widget(user_id: int, days: int = 14, sport: str = "all"):
             .in_("activity_id", ids)
         )
         agg = q2.execute()
+
         z1=z2=z3=z4=z5=0
         for r in (agg.data or []):
             z1 += int(r.get("z1_min") or 0)
@@ -83,5 +81,6 @@ def pareto_widget(user_id: int, days: int = 14, sport: str = "all"):
                 "hard_pct": int(hard_pct),
             },
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
