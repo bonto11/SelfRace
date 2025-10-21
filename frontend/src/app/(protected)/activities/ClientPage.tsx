@@ -8,6 +8,7 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
 import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
+import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
@@ -45,7 +46,8 @@ export default function ActivitiesPage() {
     }
   }
 
-  const openDetail = () => router.push("/activities/detail");
+  const openDetailDetail = () => router.push("/activities/detail");
+  const openDetail8020 = () => router.push("/activities/pareto");
 
   return (
     <ActivityDataProvider days={90}>
@@ -64,8 +66,9 @@ export default function ActivitiesPage() {
 
       {/* widgety – 1 stĺpec → 2 stĺpce na md+ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <WeeklyLoadWidget onOpenDetail={openDetail} />
-        <MonoStrainWidget  onOpenDetail={openDetail} />
+        <WeeklyLoadWidget onOpenDetail={openDetailDetail} />
+        <MonoStrainWidget onOpenDetail={openDetailDetail} />
+        <WidgetPareto8020 onOpenTrend={openDetail8020} weeks = {2} />
       </div>
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}

@@ -20,6 +20,10 @@ export const THEME = {
     monotony: '#84CC16',
     strain: '#FDE047',
 
+    easy80: '4ADE80',
+    hard20: 'F87171',
+    accent: '60A5FA',
+
     grid: 'rgba(255,255,255,0.07)',
     gridSoft: 'rgba(255,255,255,0.05)',
     legendPosition: 'top' as const,
