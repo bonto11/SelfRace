@@ -186,9 +186,9 @@ def pareto_widget(user_id: int, days: int = 14, sport: str = "all") -> Dict[str,
         z4 = sum(int(r.get("z4_min") or 0) for r in (agg.data or []))
         z5 = sum(int(r.get("z5_min") or 0) for r in (agg.data or []))
 
-        easy = z1 + z2                  # tvoja definícia 80
-        hard = z4 + z5                  # tvoja definícia 20 (z3 = neutrál)
-        total = easy + z3 + hard
+        easy = z1 + z2 + z3                 # tvoja definícia 80
+        hard = z4 + z5                  # tvoja definícia 20
+        total = easy + hard
 
         return {
             "success": True,

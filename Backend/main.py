@@ -12,6 +12,7 @@ from Routes import (
     account,
     streams,
     activity_zones,
+    analytics_pareto8020
 )
 from Routes.context import router as context_router
 from Routes.user_bests import router as bests_router
@@ -58,6 +59,7 @@ app.include_router(analytics.router)
 app.include_router(account.router)
 app.include_router(streams.router)
 app.include_router(activity_zones.router)
+app.include_router(analytics_pareto8020.router)
 app.include_router(context_router)
 app.include_router(bests_router)
 app.include_router(prefs_router)
