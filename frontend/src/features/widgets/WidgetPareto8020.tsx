@@ -1,3 +1,4 @@
+// src/features/widgets/WidgetPareto8020.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,17 +17,24 @@ type Props = {
   sport?: string | null;
 };
 
+type WidgetData = {
+  easy_min: number | string;
+  hard_min: number | string;
+  total_min?: number | string;
+  easy_pct?: number;
+  hard_pct?: number;
+  days?: number;
+};
+
 type WidgetResp = {
   success: boolean;
-  data?: {
-    easy_min: number | string;
-    hard_min: number | string;
-    total_min?: number | string;
-    easy_pct?: number;
-    hard_pct?: number;
-    days?: number;
-  };
+  data?: WidgetData;
   detail?: string;
+};
+
+const num = (v: unknown, def = 0): number => {
+  const n = typeof v === "string" || typeof v === "number" ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : def;
 };
 
 export default function WidgetPareto8020({
@@ -46,19 +54,19 @@ export default function WidgetPareto8020({
       cache: "no-store",
     })
       .then((r) => r.json())
-      .then(setPayload)
+      .then((j: WidgetResp) => setPayload(j))
       .catch(() => setPayload(null));
   }, [userId, weeks, sport]);
 
-  // robustné čísla + percentá z minút
-  const raw = payload?.data ?? {};
-  const easyMin = Number(raw.easy_min) || 0;
-  const hardMin = Number(raw.hard_min) || 0;
-  const totalMin = Number(raw.total_min) || easyMin + hardMin;
+  // bezpečné číselné hodnoty + percentá z minút
+  const d: WidgetData | undefined = payload?.data;
+  const easyMin = num(d?.easy_min, 0);
+  const hardMin = num(d?.hard_min, 0);
+  const totalMin = num(d?.total_min, easyMin + hardMin);
   const easyPct = totalMin > 0 ? Math.round((easyMin / totalMin) * 100) : 0;
   const hardPct = Math.max(0, 100 - easyPct);
 
-  // fallback farby (ak by THEME nebol dostupný)
+  // fallback farby (pre prípad, že THEME nie je k dispozícii)
   const easyColor = THEME?.chart?.easy80 ?? "#4ADE80";
   const hardColor = THEME?.chart?.hard20 ?? "#F87171";
 
@@ -97,7 +105,7 @@ export default function WidgetPareto8020({
     [easyMin, hardMin, easyColor, hardColor]
   );
 
-  // options (bez legendy – urobíme vlastnú s bodkami)
+  // options (bez natívnej legendy – robíme vlastnú s bodkami)
   const options: ChartOptions<"doughnut"> = useMemo(
     () => ({
       responsive: true,
@@ -108,7 +116,7 @@ export default function WidgetPareto8020({
         tooltip: {
           callbacks: {
             label: (ctx) => {
-              const v = ctx.parsed as number;
+              const v = (ctx.parsed as number) ?? 0;
               const total = Math.max(1, easyMin + hardMin);
               const pct = Math.round((v / total) * 100);
               return `${ctx.label}: ${v} min (${pct}%)`;
@@ -120,7 +128,7 @@ export default function WidgetPareto8020({
     [easyMin, hardMin]
   );
 
-  // veľkosť grafu tak, aby sedel s ostatnými widgetmi
+  // konzistentná veľkosť s ostatnými widgetmi
   const donutSize = 160; // px
 
   return (
