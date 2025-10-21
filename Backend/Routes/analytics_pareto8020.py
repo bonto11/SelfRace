@@ -1,4 +1,5 @@
 # Routes/analytics_pareto8020.py
+from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -7,6 +8,8 @@ from Modules.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_ENRICHMENT,
 )
+
+from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
 
 router = APIRouter(prefix="/analytics/pareto8020", tags=["analytics"])
 sb = get_client()
@@ -44,6 +47,11 @@ def _nint(x: Any) -> int:
         return int(round(float(x)))
     except Exception:
         return 0
+    
+def _iso_midnight_utc_minus_days(days: int) -> str:
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=max(1, days))).replace(hour=0, minute=0, second=0, microsecond=0)
+    return start.strftime("%Y-%m-%d")
 
 # ---------- GET /analytics/pareto8020/{user_id}?weeks=8&sport=all ----------
 @router.get("/{user_id}")
@@ -135,23 +143,62 @@ def pareto_weeks(user_id: int, weeks: int = 8, sport: str = "all"):
 
 # ---------- GET /analytics/pareto8020/widget/{user_id}?weeks=2&sport=all ----------
 @router.get("/widget/{user_id}")
-def pareto_widget(user_id: int, weeks: int = 2, sport: str = "all"):
+def pareto_widget(user_id: int, days: int = 14, sport: str = "all") -> Dict[str, Any]:
     """
-    Kompaktný sumár pre donut – súčet za posledné N týždňov (2/4/8/12).
+    Widget 80/20 za posledných `days` dní (default 14).
+    - najprv zabezpečí enrichment (streamy + výpočet) pre aktivity v rozsahu,
+    - potom agreguje a vráti easy/hard/total.
     """
-    base = pareto_weeks(user_id=user_id, weeks=weeks, sport=sport)
-    if not base.get("success"):
-        raise HTTPException(status_code=500, detail="aggregation failed")
+    try:
+        start_iso = _iso_midnight_utc_minus_days(days)
+        # 1) activity_ids v rozsahu (podľa date v summary)
+        q = (
+            sb.table(TABLE_ACTIVITIES_SUMMARY)
+              .select("activity_id,sport_type_fe,date")
+              .eq("user_id", user_id)
+              .gte("date", start_iso)
+              .order("date", desc=True)
+        )
+        if sport and sport != "all":
+            q = q.eq("sport_type_fe", sport)
+        res = q.execute()
+        ids = [int(r["activity_id"]) for r in (res.data or []) if r.get("activity_id")]
 
-    easy = sum(r["easy_min"] for r in base["data"])
-    hard = sum(r["hard_min"] for r in base["data"])
-    total = max(1, easy + hard)
-    return {
-        "success": True,
-        "weeks": weeks,
-        "sport": sport,
-        "easy_min": easy,
-        "hard_min": hard,
-        "easy_pct": round(100.0 * easy / total, 1),
-        "hard_pct": round(100.0 * hard / total, 1),
-    }
+        if ids:
+            # 2) self-heal: spočítaj chýbajúce enrichment
+            prev = preview_zones_for_activities(user_id, ids, fetch_if_missing=True)
+            if prev.get("ok"):
+                upsert_enrichment_minutes(user_id, prev.get("items") or [])
+
+        # 3) agregácia z enrichment (po self-heal-e)
+        q2 = (
+            sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+              .select("z1_min,z2_min,z3_min,z4_min,z5_min,activity_id")
+              .eq("user_id", user_id)
+        )
+        if ids:
+            q2 = q2.in_("activity_id", ids)  # filtrujeme len aktuálne obdobie
+        agg = q2.execute()
+
+        z1 = sum(int(r.get("z1_min") or 0) for r in (agg.data or []))
+        z2 = sum(int(r.get("z2_min") or 0) for r in (agg.data or []))
+        z3 = sum(int(r.get("z3_min") or 0) for r in (agg.data or []))
+        z4 = sum(int(r.get("z4_min") or 0) for r in (agg.data or []))
+        z5 = sum(int(r.get("z5_min") or 0) for r in (agg.data or []))
+
+        easy = z1 + z2                  # tvoja definícia 80
+        hard = z4 + z5                  # tvoja definícia 20 (z3 = neutrál)
+        total = easy + z3 + hard
+
+        return {
+            "success": True,
+            "data": {
+                "easy_min": easy,
+                "hard_min": hard,
+                "total_min": total,
+                "days": int(days),
+                "count": len(ids),
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
