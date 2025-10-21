@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional
-from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
+from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes,backfill_enrichment_for_period
 
 router = APIRouter(prefix="/streams", tags=["streams"])
 
@@ -68,3 +68,21 @@ def zones_preview(
     except Exception as e:
         print("[zones] error:", e)
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/zones/backfill/{user_id}")
+def backfill_zones_route(
+    user_id: int,
+    months: int = 3,
+    fetch: int = 1,     # 1 = dotiahni chýbajúce streamy zo Stravy
+    save: int = 1,      # 1 = ulož do activities_enrichment
+    batch: int = 25,
+):
+    res = backfill_enrichment_for_period(
+        user_id=user_id,
+        months=months,
+        fetch_if_missing=bool(fetch),
+        save=bool(save),
+        batch=batch,
+    )
+    return res

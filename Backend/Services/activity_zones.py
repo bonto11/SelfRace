@@ -1,34 +1,82 @@
 # Modules/Services/compute_zones.py
 from __future__ import annotations
 from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime, timedelta, timezone
 from Modules.SQL.db_handler import get_client
 from Modules.config import (
     TABLE_USERS_ZONES,
     TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_ENRICHMENT,
     TABLE_USERS,
+    TABLE_ACTIVITIES_SUMMARY
 )
 
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch
 
 sb = get_client()
 
+# Services/activity_zones.py
+from typing import Any, Dict, List, Optional, cast
+from datetime import datetime, timedelta, timezone
 
-# ---------- zones loader (robustný na chýbajúce stĺpce) ----------
+from Modules.SQL.db_handler import get_client
+from Modules.config import (
+    TABLE_ACTIVITIES_SUMMARY,
+    TABLE_ACTIVITIES_ENRICHMENT,
+    TABLE_USERS,          # ← máme v DB
+)
+
+sb = get_client()
+
+def _to_int(v: Any) -> Optional[int]:
+    try:
+        if v is None: 
+            return None
+        return int(v)
+    except Exception:
+        try:
+            return int(round(float(v)))
+        except Exception:
+            return None
+
+def _rows(resp) -> List[Dict[str, Any]]:
+    """Bezpečne pretypuje resp.data na list[dict]."""
+    return cast(List[Dict[str, Any]], resp.data or [])
+
+def _iso_utc_months_ago(months: int) -> str:
+    now = datetime.now(timezone.utc)
+    dt = now - timedelta(days=30 * max(1, months))
+    return dt.strftime("%Y-%m-%d")
+
+def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
+    out: List[int] = []
+    res = (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+          .select("activity_id,date")
+          .eq("user_id", user_id)
+          .gte("date", since_iso_date)
+          .order("date", desc=True)
+          .execute()
+    )
+    for r in _rows(res):
+        aid = _to_int(r.get("activity_id"))
+        if aid is not None:
+            out.append(aid)
+    return out
 
 def _get_user_uid(user_id: int) -> str:
     """Vráti auth_uid (uuid) z public.users pre user_id."""
     r = (
         sb.table(TABLE_USERS)
-        .select("auth_uid")
-        .eq("id", int(user_id))
-        .limit(1)
-        .execute()
+          .select("auth_uid")
+          .eq("id", user_id)
+          .limit(1)
+          .execute()
     )
-    row = (r.data or [None])[0]
+    row = (_rows(r) or [None])[0]
     if not row or not row.get("auth_uid"):
         raise RuntimeError(f"user_id={user_id} nemá auth_uid")
-    return row["auth_uid"]
+    return str(row["auth_uid"])
 
 def _to_int_min(x) -> int:
     try:
@@ -235,7 +283,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
             {
                 "activity_id": int(aid),
                 "user_id": int(user_id),
-                "user_uid": user_uid,  # <<< dôležité
+                "user_uid": user_uid,
                 "z1_min": _to_int_min(mins.get("z1_min")),
                 "z2_min": _to_int_min(mins.get("z2_min")),
                 "z3_min": _to_int_min(mins.get("z3_min")),
@@ -258,3 +306,52 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
         saved += len(chunk)
 
     return {"saved": saved}
+
+def backfill_enrichment_for_period(
+    user_id: int,
+    months: int = 3,
+    fetch_if_missing: bool = True,
+    save: bool = True,
+    batch: int = 25,
+) -> dict:
+    """
+    Prejde aktivity za posledných `months` mesiacov:
+      - načíta activity_id zo summary
+      - pre každú dávku:
+          - doplní/cachne streamy (ak fetch_if_missing)
+          - spočíta minúty v zónach
+          - ak save=True → upsert do activities_enrichment
+    """
+    since_iso = _iso_utc_months_ago(months)
+    ids = _load_activity_ids_since(user_id, since_iso)
+
+    total = len(ids)
+    saved = 0
+    preview_count = 0
+    logs: list[str] = [f"[backfill] user={user_id} since={since_iso} ids={total}"]
+
+    for i in range(0, total, max(1, batch)):
+        chunk = ids[i:i+batch]
+        logs.append(f"[backfill] chunk {i//batch+1}: {len(chunk)} ids")
+
+        # spočítaj (a prípadne dotiahni streamy)
+        res = preview_zones_for_activities(user_id, chunk, fetch_if_missing=fetch_if_missing)
+        items = res.get("items") or []
+        preview_count += len(items)
+
+        if save and items:
+            u = upsert_enrichment_minutes(user_id, items)
+            saved += int(u.get("saved") or 0)
+
+    return {
+        "ok": True,
+        "user_id": user_id,
+        "since": since_iso,
+        "found_ids": total,
+        "previewed": preview_count,
+        "saved": saved if save else 0,
+        "saved_enabled": bool(save),
+        "fetch_if_missing": bool(fetch_if_missing),
+        "batch": batch,
+        "logs": logs,
+    }
