@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
-import type { ChartData, ChartOptions, Plugin } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
@@ -32,9 +32,9 @@ type WidgetResp = {
   detail?: string;
 };
 
-const num = (v: unknown, def = 0): number => {
+const num = (v: unknown, fallback = 0): number => {
   const n = typeof v === "string" || typeof v === "number" ? Number(v) : NaN;
-  return Number.isFinite(n) ? n : def;
+  return Number.isFinite(n) ? n : fallback;
 };
 
 export default function WidgetPareto8020({
@@ -45,20 +45,26 @@ export default function WidgetPareto8020({
   const { userId } = useUserId();
   const [payload, setPayload] = useState<WidgetResp | null>(null);
 
-  // fetch
   useEffect(() => {
     if (!userId) return;
     const q = new URLSearchParams({ days: String(7 * weeks) });
     if (sport) q.set("sport", sport);
-    fetch(`${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`, {
-      cache: "no-store",
-    })
+    const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
+
+    console.debug("[8020] fetch →", url);
+    fetch(url, { cache: "no-store" })
       .then((r) => r.json())
-      .then((j: WidgetResp) => setPayload(j))
-      .catch(() => setPayload(null));
+      .then((j: WidgetResp) => {
+        console.debug("[8020] payload:", j);
+        setPayload(j);
+      })
+      .catch((e) => {
+        console.debug("[8020] fetch error:", e);
+        setPayload(null);
+      });
   }, [userId, weeks, sport]);
 
-  // bezpečné číselné hodnoty + percentá z minút
+  // bezpečné číselné hodnoty
   const d: WidgetData | undefined = payload?.data;
   const easyMin = num(d?.easy_min, 0);
   const hardMin = num(d?.hard_min, 0);
@@ -66,31 +72,12 @@ export default function WidgetPareto8020({
   const easyPct = totalMin > 0 ? Math.round((easyMin / totalMin) * 100) : 0;
   const hardPct = Math.max(0, 100 - easyPct);
 
-  // fallback farby (pre prípad, že THEME nie je k dispozícii)
+  // farby (fallbacky keby THEME chýbal)
   const easyColor = THEME?.chart?.easy80 ?? "#4ADE80";
   const hardColor = THEME?.chart?.hard20 ?? "#F87171";
 
-  // center text plugin
-  const centerText: Plugin<"doughnut"> = useMemo(
-    () => ({
-      id: "centerText",
-      afterDraw(chart) {
-        const { ctx, chartArea } = chart;
-        const midX = (chartArea.left + chartArea.right) / 2;
-        const midY = (chartArea.top + chartArea.bottom) / 2;
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = "bold 14px system-ui, -apple-system, Segoe UI, Roboto";
-        ctx.fillStyle = "#fff";
-        ctx.fillText(`${easyPct}% / ${hardPct}%`, midX, midY);
-        ctx.restore();
-      },
-    }),
-    [easyPct, hardPct]
-  );
+  console.debug("[8020] numbers:", { easyMin, hardMin, totalMin, easyPct, hardPct, easyColor, hardColor });
 
-  // dataset
   const data: ChartData<"doughnut", number[], string> = useMemo(
     () => ({
       labels: ["Easy", "Hard"],
@@ -105,14 +92,13 @@ export default function WidgetPareto8020({
     [easyMin, hardMin, easyColor, hardColor]
   );
 
-  // options (bez natívnej legendy – robíme vlastnú s bodkami)
   const options: ChartOptions<"doughnut"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       cutout: "70%",
       plugins: {
-        legend: { display: false },
+        legend: { display: false }, // vlastná legenda vpravo
         tooltip: {
           callbacks: {
             label: (ctx) => {
@@ -128,8 +114,7 @@ export default function WidgetPareto8020({
     [easyMin, hardMin]
   );
 
-  // konzistentná veľkosť s ostatnými widgetmi
-  const donutSize = 160; // px
+  const donutSize = 160; // udrž rovnaké rozmery ako ostatné widgety
 
   return (
     <div
@@ -148,16 +133,23 @@ export default function WidgetPareto8020({
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Donut */}
+        {/* Donut + overlay text */}
         <div
-          className="mx-auto"
+          className="relative mx-auto"
           style={{ width: donutSize, height: donutSize }}
           aria-hidden
         >
-          <Doughnut data={data} options={options} plugins={[centerText]} />
+          <Doughnut data={data} options={options} />
+          {/* overlay – ISTO vždy aktuálne percentá */}
+          <div
+            className="absolute inset-0 flex items-center justify-center text-white font-bold"
+            style={{ pointerEvents: "none" }}
+          >
+            {easyPct}% / {hardPct}%
+          </div>
         </div>
 
-        {/* Vlastná legenda s bodkami */}
+        {/* legenda s bodkami (nie štvorce) */}
         <div className="flex flex-col gap-2 text-xs opacity-80">
           <div className="flex items-center gap-2">
             <span
