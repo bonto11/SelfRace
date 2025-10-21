@@ -7,7 +7,6 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { THEME } from "@/shared/theme/tokens";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -15,96 +14,97 @@ type Props = {
   onOpenTrend?: () => void;
   weeks?: 2 | 4 | 8 | 12;
   sport?: string | null;
-  debug?: boolean;           // 👈 dočasne zapnuté farby/logy
-};
-
-type WidgetData = {
-  easy_min: number | string;
-  hard_min: number | string;
-  total_min?: number | string;
+  debug?: boolean;
 };
 
 type WidgetResp = {
   success: boolean;
-  data?: WidgetData;
+  data?: {
+    easy_min: number | string;
+    hard_min: number | string;
+    total_min?: number | string;
+  };
   detail?: string;
 };
 
-const num = (v: unknown, fallback = 0): number => {
-  const n = typeof v === "string" || typeof v === "number" ? Number(v) : NaN;
-  return Number.isFinite(n) ? n : fallback;
-};
+const toNum = (v: unknown, d = 0) =>
+  Number.isFinite(Number(v)) ? Number(v) : d;
+
+// ⚠️ fixné, výrazné farby (bez THEME)
+const EASY_COLOR = "#00E676"; // zelená
+const HARD_COLOR = "#FF5252"; // červená
 
 export default function WidgetPareto8020({
   onOpenTrend,
   weeks = 2,
   sport = null,
-  debug = true,
+  debug = false,
 }: Props) {
   const { userId } = useUserId();
   const [payload, setPayload] = useState<WidgetResp | null>(null);
 
   useEffect(() => {
     if (!userId) return;
-    const q = new URLSearchParams({ days: String(7 * weeks) });
-    if (sport) q.set("sport", sport);
-    const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
+    const qs = new URLSearchParams({ days: String(7 * weeks) });
+    if (sport) qs.set("sport", sport);
+    const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${qs.toString()}`;
+    if (debug) console.log("[8020][widget] GET", url);
 
-    console.debug("[8020] fetch →", url);
     fetch(url, { cache: "no-store" })
       .then(r => r.json())
-      .then((j: WidgetResp) => {
-        console.debug("[8020] payload:", j);
+      .then(j => {
+        if (debug) console.log("[8020][widget] payload", j);
         setPayload(j);
       })
       .catch(e => {
-        console.debug("[8020] fetch error:", e);
+        console.warn("[8020][widget] error", e);
         setPayload(null);
       });
-  }, [userId, weeks, sport]);
+  }, [userId, weeks, sport, debug]);
 
   const d = payload?.data;
-  const easyMin = num(d?.easy_min, 0);
-  const hardMin = num(d?.hard_min, 0);
-  const totalMin = num(d?.total_min, easyMin + hardMin);
-  const easyPct = totalMin > 0 ? Math.round((easyMin / totalMin) * 100) : 0;
+  const easy = toNum(d?.easy_min, 0);
+  const hard = toNum(d?.hard_min, 0);
+  const total = toNum(d?.total_min, easy + hard);
+
+  const easyPct = total > 0 ? Math.round((easy / total) * 100) : 0;
   const hardPct = Math.max(0, 100 - easyPct);
 
-  const easyColor = THEME?.chart?.easy80 ?? "#4ADE80";
-  const hardColor = THEME?.chart?.hard20 ?? "#F87171";
+  const data: ChartData<"doughnut", number[], string> = useMemo(
+    () => ({
+      labels: ["Easy", "Hard"],
+      datasets: [
+        {
+          data: [easy, hard],
+          backgroundColor: [EASY_COLOR, HARD_COLOR],
+          borderWidth: 0,
+          hoverOffset: 2,
+        },
+      ],
+    }),
+    [easy, hard]
+  );
 
-  if (debug) {
-    console.debug("[8020] computed:", { easyMin, hardMin, totalMin, easyPct, hardPct, easyColor, hardColor });
-  }
-
-  const data: ChartData<"doughnut", number[], string> = useMemo(() => ({
-    labels: ["Easy", "Hard"],
-    datasets: [{
-      data: [easyMin, hardMin],
-      backgroundColor: [easyColor, hardColor],   // ⬅️ jasne nastavené farby
-      borderWidth: 0,
-      hoverOffset: 2,
-    }],
-  }), [easyMin, hardMin, easyColor, hardColor]);
-
-  const options: ChartOptions<"doughnut"> = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: "70%",
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => {
-            const v = (ctx.parsed as number) ?? 0;
-            const total = Math.max(1, easyMin + hardMin);
-            const pct = Math.round((v / total) * 100);
-            return `${ctx.label}: ${v} min (${pct}%)`;
-          }
-        }
-      }
-    }
-  }), [easyMin, hardMin]);
+  const options: ChartOptions<"doughnut"> = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "70%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = (ctx.parsed as number) ?? 0;
+              const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+              return `${ctx.label}: ${v} min (${pct}%)`;
+            },
+          },
+        },
+      },
+    }),
+    [total]
+  );
 
   const donutSize = 160;
 
@@ -116,12 +116,16 @@ export default function WidgetPareto8020({
       aria-label="Open 80/20 trend"
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold opacity-80">Posledné {weeks} týždne – 80/20</h3>
-        <span className="text-xs opacity-60">{totalMin ? `${Math.round(totalMin)} min` : ""}</span>
+        <h3 className="text-sm font-semibold opacity-80">
+          Posledné {weeks} týždne – 80/20
+        </h3>
+        <span className="text-xs opacity-60">
+          {total ? `${Math.round(total)} min` : ""}
+        </span>
       </div>
 
       <div className="flex items-center gap-4">
-        {/* wrapper neutralizuje prípadné globálne filtre/opacitu */}
+        {/* neutralizujeme vplyv globálnych filtrov/opacít na <canvas> */}
         <div
           className="relative mx-auto"
           style={{
@@ -130,40 +134,55 @@ export default function WidgetPareto8020({
             filter: "none",
             mixBlendMode: "normal",
             isolation: "isolate",
+            opacity: 1,
           }}
         >
           <Doughnut data={data} options={options} />
-          {/* overlay so stredovým textom */}
           <div
-            className="absolute inset-0 flex items-center justify-center text-white font-bold"
-            style={{ pointerEvents: "none" }}
+            className="absolute inset-0 flex items-center justify-center font-bold"
+            style={{ color: "#fff", pointerEvents: "none" }}
           >
             {easyPct}% / {hardPct}%
           </div>
         </div>
 
-        {/* vlastná legenda s bodkami */}
-        <div className="flex flex-col gap-2 text-xs opacity-80" aria-hidden>
+        {/* vlastná legenda s bodkami (čistý inline štýl) */}
+        <div className="flex flex-col gap-2 text-xs" aria-hidden>
           <div className="flex items-center gap-2">
-            <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: easyColor, display: "inline-block" }} />
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: EASY_COLOR,
+                display: "inline-block",
+              }}
+            />
             <span>Easy</span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: hardColor, display: "inline-block" }} />
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: HARD_COLOR,
+                display: "inline-block",
+              }}
+            />
             <span>Hard</span>
           </div>
         </div>
       </div>
 
       <div className="mt-3 text-xs opacity-70">
-        Easy: {Math.round(easyMin)} min • Hard: {Math.round(hardMin)} min
+        Easy: {Math.round(easy)} min • Hard: {Math.round(hard)} min
       </div>
 
-      {/* DEBUG sekcia – môžeš vymazať keď to bude ok */}
       {debug && (
         <div className="mt-2 text-[10px] opacity-60">
-          colors: <code>{easyColor}</code> / <code>{hardColor}</code> •
-          data: <code>[{easyMin}, {hardMin}]</code>
+          colors: <code>{EASY_COLOR}</code> / <code>{HARD_COLOR}</code> • data:{" "}
+          <code>[{easy}, {hard}]</code>
         </div>
       )}
     </div>
