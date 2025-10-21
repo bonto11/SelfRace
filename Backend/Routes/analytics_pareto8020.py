@@ -15,7 +15,7 @@ from Services.activity_zones import (
 
 router = APIRouter(prefix="/analytics/pareto8020", tags=["analytics"])
 sb = get_client()
-
+ 
 @router.get("/widget/{user_id}")
 def pareto_widget(user_id: int, days: int = 14, sport: str = "all"):
     try:
