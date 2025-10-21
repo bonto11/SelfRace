@@ -8,10 +8,10 @@ from Modules.config import (
     TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_ENRICHMENT,
     TABLE_USERS,
-    TABLE_ACTIVITIES_SUMMARY
+    TABLE_ACTIVITIES_SUMMARY,
 )
 
-from Modules.API.Strava.streams import fetch_and_optionally_store_batch
+from Modules.API.Strava.streams import fetch_and_optionally_store_batch, cache_streams_for_activities
 
 sb = get_client()
 
@@ -23,14 +23,15 @@ from Modules.SQL.db_handler import get_client
 from Modules.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_ENRICHMENT,
-    TABLE_USERS,          # ← máme v DB
+    TABLE_USERS,  # ← máme v DB
 )
 
 sb = get_client()
 
+
 def _to_int(v: Any) -> Optional[int]:
     try:
-        if v is None: 
+        if v is None:
             return None
         return int(v)
     except Exception:
@@ -39,24 +40,27 @@ def _to_int(v: Any) -> Optional[int]:
         except Exception:
             return None
 
+
 def _rows(resp) -> List[Dict[str, Any]]:
     """Bezpečne pretypuje resp.data na list[dict]."""
     return cast(List[Dict[str, Any]], resp.data or [])
+
 
 def _iso_utc_months_ago(months: int) -> str:
     now = datetime.now(timezone.utc)
     dt = now - timedelta(days=30 * max(1, months))
     return dt.strftime("%Y-%m-%d")
 
+
 def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
     out: List[int] = []
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
-          .select("activity_id,date")
-          .eq("user_id", user_id)
-          .gte("date", since_iso_date)
-          .order("date", desc=True)
-          .execute()
+        .select("activity_id,date")
+        .eq("user_id", user_id)
+        .gte("date", since_iso_date)
+        .order("date", desc=True)
+        .execute()
     )
     for r in _rows(res):
         aid = _to_int(r.get("activity_id"))
@@ -64,19 +68,15 @@ def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
             out.append(aid)
     return out
 
+
 def _get_user_uid(user_id: int) -> str:
     """Vráti auth_uid (uuid) z public.users pre user_id."""
-    r = (
-        sb.table(TABLE_USERS)
-          .select("auth_uid")
-          .eq("id", user_id)
-          .limit(1)
-          .execute()
-    )
+    r = sb.table(TABLE_USERS).select("auth_uid").eq("id", user_id).limit(1).execute()
     row = (_rows(r) or [None])[0]
     if not row or not row.get("auth_uid"):
         raise RuntimeError(f"user_id={user_id} nemá auth_uid")
     return str(row["auth_uid"])
+
 
 def _to_int_min(x) -> int:
     try:
@@ -307,6 +307,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
 
     return {"saved": saved}
 
+
 def backfill_enrichment_for_period(
     user_id: int,
     months: int = 3,
@@ -331,11 +332,13 @@ def backfill_enrichment_for_period(
     logs: list[str] = [f"[backfill] user={user_id} since={since_iso} ids={total}"]
 
     for i in range(0, total, max(1, batch)):
-        chunk = ids[i:i+batch]
+        chunk = ids[i : i + batch]
         logs.append(f"[backfill] chunk {i//batch+1}: {len(chunk)} ids")
 
         # spočítaj (a prípadne dotiahni streamy)
-        res = preview_zones_for_activities(user_id, chunk, fetch_if_missing=fetch_if_missing)
+        res = preview_zones_for_activities(
+            user_id, chunk, fetch_if_missing=fetch_if_missing
+        )
         items = res.get("items") or []
         preview_count += len(items)
 
@@ -355,3 +358,43 @@ def backfill_enrichment_for_period(
         "batch": batch,
         "logs": logs,
     }
+
+
+def compute_and_save_enrichment_for_ids(user_id: int, ids: list[int]) -> dict:
+    """
+    Pre dané activity_id:
+      - ak chýbajú streams v DB, stiahne a uloží (arrays)
+      - spočíta minúty v zónach
+      - upsertne do activities_enrichment
+    """
+    ids = [int(x) for x in ids if x]
+    if not ids:
+        return {"saved": 0, "items": []}
+
+    # 1) uisti sa, že streams v DB sú – ak nie, dotiahni
+    missing: list[int] = []
+    try:
+        # zistíme, ktoré activity_id NEMAJÚ záznam v streams
+        res = (
+            sb.table(TABLE_ACTIVITIES_STREAMS)
+            .select("activity_id")
+            .in_("activity_id", ids)
+            .execute()
+        )
+        have = {int(r["activity_id"]) for r in (res.data or [])}
+        missing = [aid for aid in ids if aid not in have]
+    except Exception:
+        # ak čokoľvek zlyhá, skúsiť všetky
+        missing = ids[:]
+
+    if missing:
+        cache_streams_for_activities(user_id, missing)
+
+    # 2) preview (počíta minúty) nad DB streams
+    prev = preview_zones_for_activities(user_id, ids, fetch_if_missing=False)
+    items = prev.get("items") or []
+
+    # 3) ulož enrichment
+    saved = upsert_enrichment_minutes(user_id, items).get("saved", 0)
+
+    return {"saved": int(saved), "count": len(ids)}

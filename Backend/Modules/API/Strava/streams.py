@@ -36,19 +36,6 @@ def _get_sport_fe_or_default(user_id: int, activity_id: int) -> str:
     v = (r.data or [{}])[0].get("sport_type_fe") or "other"
     return str(v).lower()
 
-# ------- fetch (bez ukladania) -------
-def fetch_streams_for_activity(sess: requests.Session, activity_id: int) -> Dict[str, Any]:
-    url = f"{STRAVA_BASE}/activities/{activity_id}/streams"
-    params = {
-        "keys": "time,heartrate,distance,altitude,velocity_smooth,cadence,watts,latlng",
-        "key_by_type": "true",
-    }
-    r = sess.get(url, params=params, timeout=30)
-    if r.status_code in (403, 404):
-        return {"ok": False, "activity_id": activity_id, "status": r.status_code, "error": r.text}
-    r.raise_for_status()
-    return {"ok": True, "activity_id": activity_id, "json": r.json() or {}}
-
 # ------- ukladanie do activities_streams (ARRAY stĺpce) -------
 def store_streams(user_id: int, activity_id: int, streams_json: Dict[str, Any]) -> Tuple[bool, str]:
     try:
@@ -80,7 +67,8 @@ def fetch_and_optionally_store_batch(user_id: int, activity_ids: List[int], stor
     out = {"ok": True, "count": len(activity_ids), "stored": 0, "items": []}
     for i, aid in enumerate(activity_ids, start=1):
         try:
-            res = fetch_streams_for_activity(sess, aid)
+            # ⬇️ FIX: volaj internú verziu so session
+            res = _fetch_streams_with_session(sess, int(aid))
             if not res.get("ok"):
                 out["items"].append({"activity_id": aid, "ok": False, "error": res.get("error"), "status": res.get("status")})
                 continue
@@ -98,7 +86,7 @@ def fetch_and_optionally_store_batch(user_id: int, activity_ids: List[int], stor
             item = {"activity_id": aid, "ok": True, "sizes": sizes}
 
             if store:
-                ok, err = store_streams(user_id, aid, j)
+                ok, err = store_streams(user_id, int(aid), j)
                 item["stored"] = ok
                 if not ok:
                     item["error"] = err
@@ -110,3 +98,54 @@ def fetch_and_optionally_store_batch(user_id: int, activity_ids: List[int], stor
         except Exception as e:
             out["items"].append({"activity_id": aid, "ok": False, "error": str(e)})
     return out
+
+def fetch_streams_for_activity(activity_id: int) -> Dict[str, Any]:
+    s = _session()
+    return _fetch_streams_with_session(s, activity_id)
+
+def _fetch_streams_with_session(s: requests.Session, activity_id: int) -> Dict[str, Any]:
+    # time, hr, distance, altitude, velocity_smooth, cadence, watts, latlng
+    r = s.get(
+        f"{STRAVA_BASE}/activities/{activity_id}/streams",
+        params={"keys": "time,heartrate,distance,altitude,velocity_smooth,cadence,watts,latlng",
+                "key_by_type": "true"},
+        timeout=30,
+    )
+    if r.status_code in (403, 404):
+        return {"ok": False, "status": r.status_code, "activity_id": activity_id}
+    r.raise_for_status()
+    j = r.json() or {}
+    return {"ok": True, "activity_id": activity_id, "json": j}
+
+def _store_stream_arrays(user_id: int, activity_id: int, j: Dict[str, Any]) -> None:
+    # upsert do activities_streams (arrays)
+    row = {
+        "activity_id": int(activity_id),
+        "user_id": int(user_id),
+        # user_uid necháme NULL – RLS pre streams to nepotrebuje
+        "user_uid": None,
+        "sport_type_fe": "other",
+        "time_s":         _arr(j, "time"),
+        "heartrate_bpm":  _arr(j, "heartrate") or None,
+        "cadence_rpm":    _arr(j, "cadence") or None,
+        "power_w":        _arr(j, "watts") or None,
+        "distance_m":     _arr(j, "distance") or None,
+    }
+    sb.table(TABLE_ACTIVITIES_STREAMS).upsert(row, on_conflict="activity_id").execute()
+
+def cache_streams_for_activities(user_id: int, activity_ids: List[int]) -> dict:
+    s = _session()
+    saved = 0
+    failed = 0
+    for aid in activity_ids:
+        try:
+            res = _fetch_streams_with_session(s, int(aid))
+            if not res.get("ok"):
+                failed += 1
+                continue
+            _store_stream_arrays(user_id, int(aid), res["json"])
+            saved += 1
+        except Exception as e:
+            print(f"[streams] save failed id={aid}: {e}")
+            failed += 1
+    return {"saved": saved, "failed": failed, "total": len(activity_ids)}
