@@ -6,6 +6,8 @@ import requests
 import statistics
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Iterable
+from Modules.API.Strava.streams import fetch_and_optionally_store_batch
+from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
 
 from Modules.SQL.db_handler import get_client
 from Modules.API.Strava.auth import get_access_token
@@ -541,7 +543,7 @@ def sync_activities(
                 print(f"[SYNC] details failed id={aid}: {e}")
 
             time.sleep(0.1)
-            
+
 # -------- streams + enrichment zón --------
     try:
         ids_rows = (
@@ -550,13 +552,23 @@ def sync_activities(
             .eq("user_id", user_id)
             .gte("date", since_iso_for_scan)
             .order("date", desc=True)
-            .limit(MAX_FULL_DETAILS_PER_RUN)
+            .limit(500)
             .execute()
         )
-        zone_ids = [int(r["activity_id"]) for r in ids_rows.data or []]
-        from Services.activity_zones import compute_and_save_enrichment_for_ids
-        zres = compute_and_save_enrichment_for_ids(user_id, zone_ids)
-        print(f"[SYNC] zones enrichment saved={zres.get('saved')} for ids={len(zone_ids)}")
+        ids_recent = [int(r["activity_id"]) for r in (ids_rows.data or [])]
+
+        print(f"[SYNC] streams: fetching & storing for {len(ids_recent)} ids …")
+        streams_res = fetch_and_optionally_store_batch(user_id, ids_recent, store=True)
+        print(f"[SYNC] streams: stored={streams_res.get('stored')} / total={streams_res.get('count')}")
+
+        # teraz výpočet minút v zónach (NECH fetch_if_missing=False, lebo streamy už máme v DB)
+        print("[SYNC] zones: computing minutes from cached streams …")
+        prev = preview_zones_for_activities(user_id, ids_recent, fetch_if_missing=False)
+
+        # odfiltruj iba tie, ktoré skutočne majú 'minutes'
+        to_save = [it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")]
+        saved = upsert_enrichment_minutes(user_id, to_save)
+        print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
     except Exception as e:
         print(f"[SYNC] zones enrichment failed: {e}")
 

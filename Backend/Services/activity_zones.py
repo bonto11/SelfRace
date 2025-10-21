@@ -197,38 +197,44 @@ def _fetch_and_store_if_missing(user_id: int, activity_ids: List[int]) -> None:
 
 
 # ---------- výpočet minút v zónach z jedného záznamu ----------
-def _compute_minutes_for_streams(
-    stream_row: Dict[str, Any], Z: Dict[str, int]
-) -> Dict[str, float]:
-    time_s = stream_row.get("time_s") or []  # pole int sekúnd od štartu
-    hr = (
-        stream_row.get("heartrate_bpm") or []
-    )  # pole int HR (rovnakej dĺžky alebo kratšie)
-    n = len(time_s)
-    if n == 0:
-        return {"z1_min": 0, "z2_min": 0, "z3_min": 0, "z4_min": 0, "z5_min": 0}
+def _compute_minutes_for_streams(stream_row: Dict[str, Any], Z: Dict[str, int]) -> dict | None:
+    """
+    Prepočíta minúty v zónach z cached streamov (arrays).
+    Ak chýba HR alebo time, vráti None -> volajúci to vyhodnotí ako skip.
+    """
+    time_s = stream_row.get("time_s") or []
+    hr     = stream_row.get("heartrate_bpm") or []
 
-    # ak by time_s nebol po sekundách, berieme delta medzi susednými bodmi
+    if not time_s:
+        print(f"[ZONES] compute skip: no time_s (activity_id={stream_row.get('activity_id')})")
+        return None
+    if not hr:
+        print(f"[ZONES] compute skip: no heartrate (activity_id={stream_row.get('activity_id')})")
+        return None
+
+    n = len(time_s)
     buckets = {"z1": 0.0, "z2": 0.0, "z3": 0.0, "z4": 0.0, "z5": 0.0}
+
     for i in range(n):
         t0 = int(time_s[i] or 0)
-        t1 = (
-            int(time_s[i + 1] or (t0 + 1)) if i + 1 < n else (t0 + 1)
-        )  # posledný bod = +1s
+        t1 = int(time_s[i + 1]) if i + 1 < n and time_s[i + 1] is not None else (t0 + 1)
         dur = max(0, t1 - t0)
+
         h = int(hr[i]) if i < len(hr) and hr[i] is not None else None
-        b = _zone_of(h, Z)
+        if h is None:
+            # HR sample chýba -> nepočítame do žiadnej zóny
+            continue
+
+        b = _zone_of(h, Z)  # "z1".."z5"
         buckets[b] += float(dur)
 
-    out = {
+    return {
         "z1_min": round(buckets["z1"] / 60.0, 2),
         "z2_min": round(buckets["z2"] / 60.0, 2),
         "z3_min": round(buckets["z3"] / 60.0, 2),
         "z4_min": round(buckets["z4"] / 60.0, 2),
         "z5_min": round(buckets["z5"] / 60.0, 2),
     }
-    return out
-
 
 # ---------- Public API: pre viac aktivít vracia len PREVIEW ----------
 def preview_zones_for_activities(
@@ -238,7 +244,7 @@ def preview_zones_for_activities(
     if not Z:
         return {"ok": False, "error": "No zones for user", "items": []}
 
-    # zisti, ktoré aktivity nemajú uložené streamy
+    # zisti, ktoré aktivity ešte nemajú streamy
     missing: List[int] = []
     for aid in activity_ids:
         row = _load_streams_row(user_id, int(aid))
@@ -246,68 +252,75 @@ def preview_zones_for_activities(
             missing.append(int(aid))
 
     if missing and fetch_if_missing:
+        print(f"[ZONES] fetching streams for missing: {len(missing)} ids")
         _fetch_and_store_if_missing(user_id, missing)
 
     # finálny výpočet
     items = []
+    have = 0
     for aid in activity_ids:
         row = _load_streams_row(user_id, int(aid))
         if not row or not (row.get("time_s") or []):
             items.append({"activity_id": int(aid), "ok": False, "reason": "no_streams"})
             continue
-        mins = _compute_minutes_for_streams(row, Z)
-        items.append({"activity_id": int(aid), "ok": True, "minutes": mins})
 
+        mins = _compute_minutes_for_streams(row, Z)
+        if mins is None:
+            items.append({"activity_id": int(aid), "ok": False, "reason": "no_hr"})
+            continue
+
+        items.append({"activity_id": int(aid), "ok": True, "minutes": mins})
+        have += 1
+
+    print(f"[ZONES] preview: computed={have}/{len(activity_ids)}")
     return {"ok": True, "user_id": user_id, "zones": Z, "items": items}
 
 
 def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     """
-    items: [{ activity_id, ok, minutes: {z1_min..z5_min} }, ...]
-    Upsertuje do TABLE_ACTIVITIES_ENRICHMENT.
-    Doplní user_uid
+    Ukladá len tie položky, ktoré majú reálne 'minutes'.
+    Doplní user_uid. Žiadne ukladanie nulových minút z chýbajúcich streamov.
     """
     if not items:
-        return {"saved": 0}
+        return {"saved": 0, "skipped": 0}
 
     user_uid = _get_user_uid(user_id)
 
     rows = []
+    skipped = 0
     for it in items:
         aid = it.get("activity_id")
-        mins = (it.get("minutes") or {}) if it.get("ok") else {}
-        if not aid:
+        mins = (it.get("minutes") or {}) if it.get("ok") else None
+        if not aid or not mins:
+            skipped += 1
+            print(f"[enrich] skip aid={aid} reason={'no_minutes' if not mins else 'no_aid'}")
             continue
 
-        rows.append(
-            {
-                "activity_id": int(aid),
-                "user_id": int(user_id),
-                "user_uid": user_uid,
-                "z1_min": _to_int_min(mins.get("z1_min")),
-                "z2_min": _to_int_min(mins.get("z2_min")),
-                "z3_min": _to_int_min(mins.get("z3_min")),
-                "z4_min": _to_int_min(mins.get("z4_min")),
-                "z5_min": _to_int_min(mins.get("z5_min")),
-            }
-        )
+        rows.append({
+            "activity_id": int(aid),
+            "user_id": int(user_id),
+            "user_uid": user_uid,
+            "z1_min": _to_int_min(mins.get("z1_min")),
+            "z2_min": _to_int_min(mins.get("z2_min")),
+            "z3_min": _to_int_min(mins.get("z3_min")),
+            "z4_min": _to_int_min(mins.get("z4_min")),
+            "z5_min": _to_int_min(mins.get("z5_min")),
+        })
 
     if not rows:
-        return {"saved": 0}
+        return {"saved": 0, "skipped": skipped}
 
     saved = 0
     BATCH = 200
     for i in range(0, len(rows), BATCH):
-        chunk = rows[i : i + BATCH]
+        chunk = rows[i:i+BATCH]
         print(f"[enrich] upsert {len(chunk)} → {TABLE_ACTIVITIES_ENRICHMENT}")
-        sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
-            chunk, on_conflict="activity_id"
-        ).execute()
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)\
+          .upsert(chunk, on_conflict="activity_id")\
+          .execute()
         saved += len(chunk)
 
-    return {"saved": saved}
-
-
+    return {"saved": saved, "skipped": skipped}
 def backfill_enrichment_for_period(
     user_id: int,
     months: int = 3,
