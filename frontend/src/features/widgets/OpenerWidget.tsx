@@ -1,12 +1,14 @@
+//src/features/widgets/OpenerWidget.tsx
 "use client";
 import React from "react";
 
 type Props = {
   title: string;
   note?: string;
-  accent?: string;
+  accent?: string;             // farba lišty dole (Tailwind)
   onOpenDetail?: () => void;   // ak je, celá karta je klikateľná
-  children?: React.ReactNode;  // sem idú grafy/obsah
+  children?: React.ReactNode;  // vnútorný obsah (čísla/graf)
+  className?: string;
 };
 
 export default function OpenerWidget({
@@ -15,29 +17,38 @@ export default function OpenerWidget({
   accent = "bg-slate-700",
   onOpenDetail,
   children,
+  className = "",
 }: Props) {
   const Wrapper: React.ElementType = onOpenDetail ? "button" : "div";
 
   return (
     <Wrapper
       onClick={onOpenDetail}
-      className={`w-full text-left bg-white dark:bg-gray-800 rounded shadow px-4 py-4 focus:outline-none ${
-        onOpenDetail ? "hover:bg-gray-700/40 transition-colors cursor-pointer" : ""
-      }`}
+      className={[
+        "w-full text-left bg-white dark:bg-gray-800 rounded shadow p-4",
+        "focus:outline-none",
+        onOpenDetail ? "hover:bg-gray-700/40 transition-colors cursor-pointer" : "",
+        // konzistentná výška a rozloženie
+        "flex flex-col min-h-[160px]",
+        className,
+      ].join(" ")}
     >
+      {/* header */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-base sm:text-lg font-semibold">{title}</h3>
+        <h3 className="text-sm md:text-base font-semibold tracking-tight">{title}</h3>
         {onOpenDetail && (
-          <span className="text-xs opacity-75">otvoriť detail ⟶</span>
+          <span className="text-xs opacity-75 whitespace-nowrap">otvoriť detail ⟶</span>
         )}
       </div>
 
-      {note && <p className="opacity-80 mb-2">{note}</p>}
+      {/* obsah */}
+      <div className="flex-1">
+        {children}
+        {note && <p className="opacity-80 text-sm mt-2">{note}</p>}
+      </div>
 
-      {/* obsah (graf) */}
-      <div>{children}</div>
-
-      <div className={`h-2 rounded mt-3 ${accent}`} />
+      {/* spodná lišta */}
+      <div className={`h-1.5 rounded mt-3 ${accent}`} />
     </Wrapper>
   );
 }

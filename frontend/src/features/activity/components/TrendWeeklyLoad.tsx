@@ -40,7 +40,7 @@ function rangeLabel(start?: string, end?: string) {
 
 export default function TrendWeeklyLoad({
   onPickWeek,
-  showLookback = false,
+  showLookback = true,
 }: {
   onPickWeek?: (w: WeekPick) => void;
   /** zobrazí select 4/8/12 týždňov (na detaile áno, na dashboarde môžeš vypnúť) */
