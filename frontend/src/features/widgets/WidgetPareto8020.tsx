@@ -5,14 +5,15 @@ import { useEffect, useState } from "react";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
+import { THEME } from "@/shared/theme/tokens";
 
 type Props = { onOpenTrend?: () => void; weeks?: 2 | 4 | 8 | 12; sport?: string | null };
 type WidgetResp = { success: boolean; data?: { easy_min: number; hard_min: number; total_min: number; days: number } };
 
-const GREEN = "#00E676";
-const RED   = "#FF5252";
-const TRACK = "rgba(255,255,255,0.08)";
-const TICK  = "rgba(255,255,255,0.95)";
+const colEasy80 = THEME.chart.easy80;
+const colHard20   = THEME.chart.hard20;
+const colTrack = THEME.chart.track;
+const colTick  = THEME.chart.tick;
 
 export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null }: Props) {
   const { userId } = useUserId();
@@ -51,9 +52,9 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
   // ------ 80/20 tick (na PRAVEJ strane) ------
   // marker = 20 % od 12:00 COUNTER-CLOCKWISE -> uhol od +x osi (SVG) je:
   const theta = -Math.PI / 2 + 2 * Math.PI * 0.20; // 12:00 + 20 % kruhu = pravá strana
-  const outerR = r + stroke / 2;   // bod na vonkajšom okraji prstenca
+  const outerR = r + stroke / 6;   // bod na vonkajšom okraji prstenca
   const innerR = r - stroke / 2 -12;   // a na vnútornom (dlhší, jasný tick)
-  const tickW = 4;
+  const widthTick = 4;
   const x1 = cx + outerR * Math.cos(theta);
   const y1 = cy + outerR * Math.sin(theta);
   const x2 = cx + innerR * Math.cos(theta);
@@ -74,12 +75,12 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
       <div className="w-full flex items-center justify-center">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           {/* track */}
-          <circle cx={cx} cy={cy} r={r} stroke={TRACK} strokeWidth={stroke} fill="none" transform={startAtTop} />
+          <circle cx={cx} cy={cy} r={r} stroke={colTrack} strokeWidth={stroke} fill="none" transform={startAtTop} />
 
           {/* HARD (červený) – zvyšok, držíme na 12:00 v smere hodiniek */}
           <circle
             cx={cx} cy={cy} r={r} fill="none"
-            stroke={RED} strokeWidth={stroke}
+            stroke={colHard20} strokeWidth={stroke}
             strokeDasharray={`${hardLen} ${C - hardLen}`}
             strokeDashoffset={0}
             transform={startAtTop}
@@ -88,7 +89,7 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
           {/* EASY (zelený) – ide PROTI smeru (dashoffset = vlastná dĺžka) */}
           <circle
             cx={cx} cy={cy} r={r} fill="none"
-            stroke={GREEN} strokeWidth={stroke}
+            stroke={colEasy80} strokeWidth={stroke}
             strokeDasharray={`${easyLen} ${C - easyLen}`}
             strokeDashoffset={easyLen}
             transform={startAtTop}
@@ -96,7 +97,7 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
 
           {/* 80/20 hranica – RADIALNY tick na PRAVEJ strane */}
           <line x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={TICK} strokeWidth={tickW} strokeLinecap="round" />
+                stroke={colTick} strokeWidth={widthTick} strokeLinecap="round" />
 
           {/* stredový text */}
           <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"

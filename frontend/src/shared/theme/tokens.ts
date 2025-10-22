@@ -20,9 +20,10 @@ export const THEME = {
     monotony: '#84CC16',
     strain: '#FDE047',
 
-    easy80: '#00E676',
-    hard20: '#FF5252',
-    accent: '60A5FA',
+    easy80: "#00E676",
+    hard20: "#FF5252",
+    track: "rgba(255,255,255,0.08)",
+    tick:  "rgba(255,255,255,0.95)",
 
     grid: 'rgba(255,255,255,0.07)',
     gridSoft: 'rgba(255,255,255,0.05)',
