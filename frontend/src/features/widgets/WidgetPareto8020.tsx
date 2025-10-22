@@ -10,21 +10,8 @@ import { useUserId } from "@/shared/hooks/useUserId";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-type Props = {
-  onOpenTrend?: () => void;
-  weeks?: 2 | 4 | 8 | 12;
-  sport?: string | null;
-};
-
-type WidgetResp = {
-  success: boolean;
-  data?: {
-    easy_min: number;
-    hard_min: number;
-    total_min: number;
-    days: number;
-  };
-};
+type Props = { onOpenTrend?: () => void; weeks?: 2 | 4 | 8 | 12; sport?: string | null; };
+type WidgetResp = { success: boolean; data?: { easy_min: number; hard_min: number; total_min: number; days: number; }; };
 
 const GREEN = "#00E676";
 const RED   = "#FF5252";
@@ -38,16 +25,14 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
     const q = new URLSearchParams({ days: String(7 * weeks) });
     if (sport) q.set("sport", sport);
     fetch(`${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`, { cache: "no-store" })
-      .then(r => r.json())
-      .then(setPayload)
-      .catch(() => setPayload(null));
+      .then(r => r.json()).then(setPayload).catch(() => setPayload(null));
   }, [userId, weeks, sport]);
 
   const E = Number(payload?.data?.easy_min ?? 0);
   const H = Number(payload?.data?.hard_min ?? 0);
   const T = Math.max(0, E + H);
 
-  // donut data
+  // ---------- DATA ----------
   const data: ChartData<"doughnut", number[], string> = useMemo(() => ({
     labels: ["Easy", "Hard"],
     datasets: [{
@@ -58,15 +43,15 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
     }]
   }), [E, H]);
 
-  // stredový text – vždy si prečíta aktuálne dáta z chartu
+  // ---------- CENTER TEXT ----------
   const centerText: Plugin<"doughnut"> = {
     id: "centerText",
     afterDraw(chart) {
       const ds = chart.data.datasets?.[0]?.data as number[] | undefined;
       const a = Number(ds?.[0] ?? 0);
       const b = Number(ds?.[1] ?? 0);
-      const total = Math.max(0, a + b);
-      const easyPct = total ? Math.round((a / total) * 100) : 0;
+      const tot = Math.max(0, a + b);
+      const easyPct = tot ? Math.round((a / tot) * 100) : 0;
       const hardPct = Math.max(0, 100 - easyPct);
 
       const { ctx, chartArea } = chart;
@@ -82,11 +67,12 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
     }
   };
 
-  // rotácia zľava, štvorcový pomer strán
+  // ---------- OPTIONS ----------
   const options: ChartOptions<"doughnut"> = useMemo(() => ({
     responsive: true,
-    maintainAspectRatio: false,     // ⬅️ dôležité
-    rotation: Math.PI,              // štart na ľavej strane
+    maintainAspectRatio: true,
+    aspectRatio: 1,               // ⬅️ drž 1:1
+    rotation: Math.PI,            // štart zľava
     circumference: 2 * Math.PI,
     cutout: "70%",
     plugins: {
@@ -108,46 +94,47 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
     }
   }), [T]);
 
-  // dorovnanie na 80/20 pri rovnakom celkovom čase
-  const deltaEasy = Math.round(0.8 * T - E);
-  const deltaEasyFixH = Math.round(4 * H - E);
+  // ---------- „Koľko chýba“ vysvetlenie ----------
+  // (A) Presun v rámci rovnakého TOTAL: nájdi m, ktoré treba presunúť z Hard do Easy.
+  //     E' = E + m, H' = H - m, E'/T = 0.8 => m = 0.8T - E
+  const moveFromHardToEasy = Math.round(0.8 * T - E);
+
+  // (B) Pevné HARD, iba pridávaš Easy: E'/ (E'+H) = 0.8 => E' = 4H => Δ = 4H - E
+  const addEasyWithHardFixed = Math.round(4 * H - E);
 
   return (
     <div
       className="bg-white dark:bg-gray-800 p-4 rounded shadow cursor-pointer select-none"
-      onClick={onOpenTrend}
-      role="button"
-      aria-label="Open 80/20 trend"
+      onClick={onOpenTrend} role="button" aria-label="Open 80/20 trend"
     >
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold opacity-80">Posledné {weeks} týždne – 80/20</h3>
         <span className="text-xs opacity-60">{T ? `${Math.round(T)} min` : ""}</span>
       </div>
 
-      {/* štvorcový kontajner = žiadny „šikmý“ donut */}
-      <div className="mx-auto" style={{ width: 220, height: 220 }}>
-        <Doughnut key={`${E}-${H}`} data={data} options={options} plugins={[centerText]} />
+      {/* Žiadne CSS výšky na wrapperi – dáme pevnú veľkosť priamo canvasu */}
+      <div className="mx-auto flex items-center justify-center">
+        <Doughnut key={`${E}-${H}`} data={data} options={options} plugins={[centerText]} width={220} height={220} />
       </div>
 
       <div className="mt-3 text-xs opacity-80">
         Easy: {Math.round(E)} min • Hard: {Math.round(H)} min
       </div>
 
-      <div className="mt-1 text-xs opacity-70">
-        {T > 0 ? (
-          <>
-            {deltaEasy > 0
-              ? <>Chýba <b>+{deltaEasy} min</b> Easy (na presných 80/20).</>
-              : deltaEasy < 0
-                ? <>Máš o <b>{Math.abs(deltaEasy)} min</b> Easy viac než 80/20.</>
-                : <>Si presne na 80/20 ✔</>
-            }
-            <div className="opacity-60">
-              (Alternatíva s pevnými Hard: {deltaEasyFixH >= 0 ? `pridaj +${deltaEasyFixH}` : `uber ${Math.abs(deltaEasyFixH)}`} min Easy)
-            </div>
-          </>
-        ) : null}
-      </div>
+      {T > 0 && (
+        <div className="mt-1 text-xs opacity-70 space-y-1">
+          {/* A) Presun v rámci rovnakého total */}
+          {moveFromHardToEasy > 0
+            ? <>Presuň <b>{moveFromHardToEasy} min</b> z Hard do Easy, aby to bolo presne 80/20.</>
+            : moveFromHardToEasy < 0
+              ? <>Máš o <b>{Math.abs(moveFromHardToEasy)} min</b> Easy naviac oproti 80/20.</>
+              : <>Si presne na 80/20 ✔</>}
+          {/* B) Alternatíva s pevným Hard */}
+          <div className="opacity-60">
+            (Ak nechceš znižovať Hard a len pridávať Easy: pridaj {addEasyWithHardFixed >= 0 ? `+${addEasyWithHardFixed}` : `${addEasyWithHardFixed}`} min Easy)
+          </div>
+        </div>
+      )}
     </div>
   );
 }
