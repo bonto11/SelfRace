@@ -20,8 +20,8 @@ export const THEME = {
     monotony: '#84CC16',
     strain: '#FDE047',
 
-    easy80: '4ADE80',
-    hard20: 'F87171',
+    easy80: '#00E676',
+    hard20: '#FF5252',
     accent: '60A5FA',
 
     grid: 'rgba(255,255,255,0.07)',

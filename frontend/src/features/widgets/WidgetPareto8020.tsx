@@ -7,6 +7,8 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
+import { THEME } from "@/shared/theme/tokens";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -31,8 +33,8 @@ const toNum = (v: unknown, d = 0) =>
   Number.isFinite(Number(v)) ? Number(v) : d;
 
 // ⚠️ fixné, výrazné farby (bez THEME)
-const EASY_COLOR = "#00E676"; // zelená
-const HARD_COLOR = "#FF5252"; // červená
+const EASY_COLOR = THEME.chart.easy80
+const HARD_COLOR = THEME.chart.hard20
 
 export default function WidgetPareto8020({
   onOpenTrend,
@@ -178,13 +180,6 @@ export default function WidgetPareto8020({
       <div className="mt-3 text-xs opacity-70">
         Easy: {Math.round(easy)} min • Hard: {Math.round(hard)} min
       </div>
-
-      {debug && (
-        <div className="mt-2 text-[10px] opacity-60">
-          colors: <code>{EASY_COLOR}</code> / <code>{HARD_COLOR}</code> • data:{" "}
-          <code>[{easy}, {hard}]</code>
-        </div>
-      )}
     </div>
   );
 }
