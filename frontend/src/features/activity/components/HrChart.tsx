@@ -17,7 +17,7 @@ function zoneColor(hr: number) {
 }
 
 export default function HrChart({
-  xs, ys, height = 240, compact = false, legend = "inline",
+  xs, ys, height = 240, compact = false, legend = "inline", topPad
 }: {
   xs: number[]; ys: (number|null)[];
   height?: number;
