@@ -4,15 +4,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { THEME } from "@/shared/theme/tokens";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -28,15 +22,12 @@ type WidgetResp = {
     easy_min: number;
     hard_min: number;
     total_min: number;
-    easy_pct?: number;
-    hard_pct?: number;
     days: number;
   };
-  detail?: string;
 };
 
-const GREEN = THEME.chart.easy80;
-const RED   = THEME.chart.hard20;
+const GREEN = "#00E676";
+const RED   = "#FF5252";
 
 export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null }: Props) {
   const { userId } = useUserId();
@@ -56,19 +47,28 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
   const H = Number(payload?.data?.hard_min ?? 0);
   const T = Math.max(0, E + H);
 
-  // percentá robustne (aj ak BE nepošle)
-  const easyPct = T ? Math.round((E / T) * 100) : 0;
-  const hardPct = Math.max(0, 100 - easyPct);
+  // donut data
+  const data: ChartData<"doughnut", number[], string> = useMemo(() => ({
+    labels: ["Easy", "Hard"],
+    datasets: [{
+      data: [E, H],
+      backgroundColor: [GREEN, RED],
+      borderWidth: 0,
+      hoverOffset: 0,
+    }]
+  }), [E, H]);
 
-  // Δ easy pri rovnakom celkovom čase (presun z/tam kde treba)
-  const deltaEasy = Math.round(0.8 * T - E);   // + => chýba Easy, - => príliš veľa Easy
-  // Alternatíva pri fixnom Hard (iba info)
-  const deltaEasyFixH = Math.round(4 * H - E); // cieľ E' = 4*H
-
-  // stredový text s percentami
+  // stredový text – vždy si prečíta aktuálne dáta z chartu
   const centerText: Plugin<"doughnut"> = {
     id: "centerText",
     afterDraw(chart) {
+      const ds = chart.data.datasets?.[0]?.data as number[] | undefined;
+      const a = Number(ds?.[0] ?? 0);
+      const b = Number(ds?.[1] ?? 0);
+      const total = Math.max(0, a + b);
+      const easyPct = total ? Math.round((a / total) * 100) : 0;
+      const hardPct = Math.max(0, 100 - easyPct);
+
       const { ctx, chartArea } = chart;
       const midX = (chartArea.left + chartArea.right) / 2;
       const midY = (chartArea.top + chartArea.bottom) / 2;
@@ -79,37 +79,38 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
       ctx.fillStyle = "#fff";
       ctx.fillText(`${easyPct}% / ${hardPct}%`, midX, midY);
       ctx.restore();
-    },
+    }
   };
 
-  const data: ChartData<"doughnut", number[], string> = useMemo(() => ({
-    labels: ["Easy", "Hard"],
-    datasets: [{
-      data: [E, H],
-      backgroundColor: [GREEN, RED],
-      borderWidth: 0,
-    }]
-  }), [E, H]);
-
+  // rotácia zľava, štvorcový pomer strán
   const options: ChartOptions<"doughnut"> = useMemo(() => ({
     responsive: true,
-    // ⬇️ zelená začne z ĽAVA a pôjde doprava
-    rotation: Math.PI,          // štart na ľavej strane (180°)
-    circumference: 2 * Math.PI, // celý kruh
+    maintainAspectRatio: false,     // ⬅️ dôležité
+    rotation: Math.PI,              // štart na ľavej strane
+    circumference: 2 * Math.PI,
     cutout: "70%",
     plugins: {
-      legend: { display: true, position: "right", labels: { usePointStyle: true, pointStyle: "circle" } },
+      legend: {
+        display: true,
+        position: "right",
+        labels: { usePointStyle: true, pointStyle: "circle" }
+      },
       tooltip: {
         callbacks: {
           label: (ctx) => {
-            const v = ctx.parsed as number;
-            const pct = T ? Math.round((v / T) * 100) : 0;
+            const v = Number(ctx.parsed) || 0;
+            const tot = T || 1;
+            const pct = Math.round((v / tot) * 100);
             return `${ctx.label}: ${Math.round(v)} min (${pct}%)`;
           }
         }
       }
     }
   }), [T]);
+
+  // dorovnanie na 80/20 pri rovnakom celkovom čase
+  const deltaEasy = Math.round(0.8 * T - E);
+  const deltaEasyFixH = Math.round(4 * H - E);
 
   return (
     <div
@@ -123,22 +124,22 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
         <span className="text-xs opacity-60">{T ? `${Math.round(T)} min` : ""}</span>
       </div>
 
+      {/* štvorcový kontajner = žiadny „šikmý“ donut */}
       <div className="mx-auto" style={{ width: 220, height: 220 }}>
-        <Doughnut data={data} options={options} plugins={[centerText]} />
+        <Doughnut key={`${E}-${H}`} data={data} options={options} plugins={[centerText]} />
       </div>
 
       <div className="mt-3 text-xs opacity-80">
         Easy: {Math.round(E)} min • Hard: {Math.round(H)} min
       </div>
 
-      {/* odporúčanie na dorovnanie 80/20 */}
       <div className="mt-1 text-xs opacity-70">
         {T > 0 ? (
           <>
             {deltaEasy > 0
               ? <>Chýba <b>+{deltaEasy} min</b> Easy (na presných 80/20).</>
               : deltaEasy < 0
-                ? <>Máš o <b>{Math.abs(deltaEasy)} min</b> Easy viac než 80/20 (pri rovnakom čase).</>
+                ? <>Máš o <b>{Math.abs(deltaEasy)} min</b> Easy viac než 80/20.</>
                 : <>Si presne na 80/20 ✔</>
             }
             <div className="opacity-60">
