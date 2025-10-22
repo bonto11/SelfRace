@@ -51,8 +51,9 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
   // ------ 80/20 tick (na PRAVEJ strane) ------
   // marker = 20 % od 12:00 COUNTER-CLOCKWISE -> uhol od +x osi (SVG) je:
   const theta = -Math.PI / 2 + 2 * Math.PI * 0.20; // 12:00 + 20 % kruhu = pravá strana
-  const outerR = r + stroke / 2 - 1;   // bod na vonkajšom okraji prstenca
-  const innerR = r - stroke / 2 + 8;   // a na vnútornom (dlhší, jasný tick)
+  const outerR = r + stroke / 2;   // bod na vonkajšom okraji prstenca
+  const innerR = r - stroke / 2 -12;   // a na vnútornom (dlhší, jasný tick)
+  const tickW = 4;
   const x1 = cx + outerR * Math.cos(theta);
   const y1 = cy + outerR * Math.sin(theta);
   const x2 = cx + innerR * Math.cos(theta);
@@ -95,7 +96,7 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
 
           {/* 80/20 hranica – RADIALNY tick na PRAVEJ strane */}
           <line x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={TICK} strokeWidth={3} strokeLinecap="round" />
+                stroke={TICK} strokeWidth={tickW} strokeLinecap="round" />
 
           {/* stredový text */}
           <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
