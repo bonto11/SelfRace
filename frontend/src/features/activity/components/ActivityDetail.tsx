@@ -8,41 +8,28 @@ import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 
 interface Props { activityId: number; }
-
 type StreamsData = { time_s: number[]; hr: (number | null)[]; duration_s: number };
 
-const Z = {
-  z1: THEME.chart?.z1 ?? "#93C5FD",
-  z2: THEME.chart?.z2 ?? "#34D399",
-  z3: THEME.chart?.z3 ?? "#FBBF24",
-  z4: THEME.chart?.z4 ?? "#F97316",
-  z5: THEME.chart?.z5 ?? "#EF4444",
-  grid: THEME.chart?.grid ?? "rgba(255,255,255,.15)",
-  line: THEME.chart?.run ?? "#22D3EE",
+// --- FIXED COLORS (no theme lookups) ---
+const COL = {
+  z1: "#60A5FA",   // blue
+  z2: "#34D399",   // green
+  z3: "#FBBF24",   // yellow
+  z4: "#F97316",   // orange
+  z5: "#EF4444",   // red
+  grid: "rgba(255,255,255,.15)",
 };
 
-function computeZoneCuts(hrMax?: number | null, minY?: number, maxY?: number) {
-  if (hrMax && hrMax > 100) {
-    // 50/60/70/80/90 % HRmax
-    const c1 = 0.60 * hrMax;
-    const c2 = 0.70 * hrMax;
-    const c3 = 0.80 * hrMax;
-    const c4 = 0.90 * hrMax;
-    return [c1, c2, c3, c4];
-  }
-  // fallback – rozrež aktuálny rozsah na 5 rovnakých pásiem
-  const lo = Number.isFinite(minY) ? (minY as number) : 120;
-  const hi = Number.isFinite(maxY) ? (maxY as number) : 200;
-  const step = (hi - lo) / 5;
-  return [lo + step, lo + 2 * step, lo + 3 * step, lo + 4 * step];
-}
+// --- FIXED HR ZONES (no theme / no user profile yet) ---
+const HR_MAX = 207;
+const CUTS: [number, number, number, number] = [154, 173, 183, 193]; // Z1..Z4 max
 
-function pickZoneColor(hr: number, cuts: number[]) {
-  if (hr < cuts[0]) return Z.z1;
-  if (hr < cuts[1]) return Z.z2;
-  if (hr < cuts[2]) return Z.z3;
-  if (hr < cuts[3]) return Z.z4;
-  return Z.z5;
+function zoneColor(hr: number) {
+  if (hr <= CUTS[0]) return COL.z1;
+  if (hr <= CUTS[1]) return COL.z2;
+  if (hr <= CUTS[2]) return COL.z3;
+  if (hr <= CUTS[3]) return COL.z4;
+  return COL.z5;
 }
 
 export default function ActivityDetail({ activityId }: Props) {
@@ -94,12 +81,10 @@ export default function ActivityDetail({ activityId }: Props) {
     }
     if (!ys.length) return () => <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>;
 
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
+    const minY = Math.min(...ys, 120);
+    const maxY = Math.max(...ys, HR_MAX);
     const minX = xs[0];
     const maxX = xs[xs.length - 1];
-
-    const cuts = computeZoneCuts(summary.max_heartrate_bpm as number | undefined, minY, maxY);
 
     const sx = (t: number) => {
       const w = W - padL - padR;
@@ -117,53 +102,44 @@ export default function ActivityDetail({ activityId }: Props) {
     const xTicks = 4;
     const xVals = new Array(xTicks + 1).fill(0).map((_, i) => minX + (i * (maxX - minX)) / xTicks);
 
-    // zone bands (Z1..Z5)
-    const bands = (() => {
-      const [c1, c2, c3, c4] = cuts;
-      const levels = [minY, c1, c2, c3, c4, maxY];
-      const colors = [Z.z1, Z.z2, Z.z3, Z.z4, Z.z5];
-      const nodes: JSX.Element[] = [];
-      for (let i = 0; i < 5; i++) {
-        const yTop = sy(levels[i + 1]);
-        const yBot = sy(levels[i]);
-        nodes.push(
-          <rect
-            key={`band-${i}`}
-            x={padL}
-            width={W - padL - padR}
-            y={yTop}
-            height={yBot - yTop}
-            fill={colors[i]}
-            opacity={0.08}
-          />
-        );
-      }
-      return nodes;
-    })();
+    // zone bands (Z1..Z5) based on fixed CUTS
+    const levels = [minY, CUTS[0], CUTS[1], CUTS[2], CUTS[3], maxY];
+    const colors = [COL.z1, COL.z2, COL.z3, COL.z4, COL.z5];
+    const bands: JSX.Element[] = [];
+    for (let i = 0; i < 5; i++) {
+      const yTop = sy(levels[i + 1]);
+      const yBot = sy(levels[i]);
+      bands.push(
+        <rect key={`band-${i}`}
+          x={padL}
+          width={W - padL - padR}
+          y={yTop}
+          height={Math.max(0, yBot - yTop)}
+          fill={colors[i]}
+          opacity={0.08}
+        />
+      );
+    }
 
-    // polyline segmented by zone (small line segments)
+    // polyline segmented by zone
     const segs: JSX.Element[] = [];
     for (let i = 1; i < ys.length; i++) {
       const x1 = sx(xs[i - 1]);
       const y1 = sy(ys[i - 1]);
       const x2 = sx(xs[i]);
       const y2 = sy(ys[i]);
-      const col = pickZoneColor((ys[i - 1] + ys[i]) / 2, cuts);
+      const col = zoneColor((ys[i - 1] + ys[i]) / 2);
       segs.push(
-        <line
-          key={`seg-${i}`}
-          x1={x1} y1={y1} x2={x2} y2={y2}
-          stroke={col} strokeWidth={showLarge ? 3 : 2} strokeLinecap="round"
-        />
+        <line key={`seg-${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
+          stroke={col} strokeWidth={showLarge ? 3 : 2} strokeLinecap="round" />
       );
     }
 
     const Axis = () => (
       <>
-        {/* grid + tick labels */}
         {yVals.map((v, i) => (
           <g key={`gy-${i}`}>
-            <line x1={padL} x2={W - padR} y1={sy(v)} y2={sy(v)} stroke={Z.grid} strokeDasharray="4 4" />
+            <line x1={padL} x2={W - padR} y1={sy(v)} y2={sy(v)} stroke={COL.grid} strokeDasharray="4 4" />
             <text x={padL - 8} y={sy(v)} textAnchor="end" dominantBaseline="central" fontSize={showLarge ? 12 : 10} fill="#cbd5e1">
               {Math.round(v)}
             </text>
@@ -171,14 +147,13 @@ export default function ActivityDetail({ activityId }: Props) {
         ))}
         {xVals.map((t, i) => (
           <g key={`gx-${i}`}>
-            <line x1={sx(t)} x2={sx(t)} y1={padT} y2={H - padB} stroke={Z.grid} strokeDasharray="4 4" />
+            <line x1={sx(t)} x2={sx(t)} y1={padT} y2={H - padB} stroke={COL.grid} strokeDasharray="4 4" />
             <text x={sx(t)} y={H - padB + 14} textAnchor="middle" fontSize={showLarge ? 12 : 10} fill="#cbd5e1">
               {fmtSecondsHMS(Math.round(t))}
             </text>
           </g>
         ))}
-
-        {/* axis labels – posunuté tak, aby sa neprekrývali */}
+        {/* axis labels – posunuté, aby sa neprekrývali */}
         <text
           x={padL - 28}
           y={(padT + (H - padB)) / 2}
@@ -201,15 +176,14 @@ export default function ActivityDetail({ activityId }: Props) {
       </>
     );
 
-    // legenda zón
     const Legend = () => (
       <g transform={`translate(${W - padR - 160}, ${padT})`}>
         {[
-          ["Z1", Z.z1],
-          ["Z2", Z.z2],
-          ["Z3", Z.z3],
-          ["Z4", Z.z4],
-          ["Z5", Z.z5],
+          ["Z1", COL.z1],
+          ["Z2", COL.z2],
+          ["Z3", COL.z3],
+          ["Z4", COL.z4],
+          ["Z5", COL.z5],
         ].map(([label, col], i) => (
           <g key={label} transform={`translate(0, ${i * 16})`}>
             <rect x={0} y={-8} width={10} height={10} fill={col as string} opacity={0.9} />
@@ -221,11 +195,8 @@ export default function ActivityDetail({ activityId }: Props) {
 
     return () => (
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="HR priebeh">
-        {/* zone bands */}
         {bands}
-        {/* axes + grid */}
         <Axis />
-        {/* clipped drawing area */}
         <defs>
           <clipPath id="hrClip">
             <rect x={padL} y={padT} width={W - padL - padR} height={H - padT - padB} />
@@ -235,7 +206,7 @@ export default function ActivityDetail({ activityId }: Props) {
         {showLarge && <Legend />}
       </svg>
     );
-  }, [streams, summary?.max_heartrate_bpm, showLarge]);
+  }, [streams, showLarge]);
 
   return (
     <div className={`${CARD} space-y-2`}>
@@ -255,7 +226,6 @@ export default function ActivityDetail({ activityId }: Props) {
 
       {loading && <div>Načítavam detail (laps/splits)…</div>}
 
-      {/* HR priebeh */}
       <div className="mt-3">
         <div className="flex items-center justify-between">
           <h4 className="font-bold">HR priebeh</h4>
