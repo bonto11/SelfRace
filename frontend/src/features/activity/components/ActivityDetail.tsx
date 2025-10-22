@@ -1,9 +1,7 @@
-// src/features/activity/components/ActivityDetail.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-// ⬇️ DROP: CARD – nechceme vnútornú kartu
-// import { CARD } from "@/shared/ui/classes";
+import { useEffect, useState } from "react";
+// ⚠️ nechávame bez CARD, nech nie je „karta v karte“
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
@@ -43,7 +41,6 @@ export default function ActivityDetail({ activityId }: Props) {
   const timeTxt = summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
 
   return (
-    // ⬇️ len „holý“ kontajner, žiadna druhá karta
     <div className="space-y-3">
       <h3 className="text-lg font-bold">{summary.name}</h3>
 
@@ -59,7 +56,7 @@ export default function ActivityDetail({ activityId }: Props) {
       <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
       <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
 
-      {/* HR mini graf – ~2× vyšší */}
+      {/* HR mini graf – vyšší + LEGENDA V STREDE */}
       <div className="mt-3">
         <div className="flex items-center justify-between">
           <h4 className="font-bold">HR priebeh</h4>
@@ -75,26 +72,39 @@ export default function ActivityDetail({ activityId }: Props) {
 
         {streams.time_s.length ? (
           <div className="w-full">
-            {/* kedysi 120 – teraz 220 kvôli čitateľnosti */}
-            <HrChart xs={streams.time_s} ys={streams.hr} height={220} compact legend="inline" />
+            {/* bolo 120; teraz vyššie pre čitateľnosť + legend="center" */}
+            <HrChart xs={streams.time_s} ys={streams.hr} height={220} compact legend="center" />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
         )}
       </div>
 
-      {/* fullscreen overlay – scroll vnútri modalu a zamknuté pozadie */}
-      {showFull && (
-        <FullHrOverlay
-          xs={streams.time_s}
-          ys={streams.hr}
-          onClose={() => setShowFull(false)}
-        />
-      )}
+      {/* fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
+      {showFull && <FullHrOverlay
+        xs={streams.time_s}
+        ys={streams.hr}
+        onClose={() => setShowFull(false)}
+      />}
 
       {loading && <div>Načítavam detail (laps/splits)…</div>}
 
+      {/* ✅ LAPS späť */}
       {!!laps.length && (
+        <>
+          <h4 className="font-bold mt-3">Laps</h4>
+          <ul className="list-disc pl-5">
+            {laps.map((lap: any, idx: number) => (
+              <li key={lap.lap_index ?? idx}>
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/* ✅ SPLITS osobitne */}
+      {!!splits.length && (
         <>
           <h4 className="font-bold mt-3">Splits</h4>
           <ul className="list-disc pl-5">
@@ -114,7 +124,7 @@ export default function ActivityDetail({ activityId }: Props) {
 function FullHrOverlay({ xs, ys, onClose }:{
   xs: number[]; ys: (number|null)[]; onClose: ()=>void;
 }) {
-  // zamkneme scroll body
+  // zamkneme scroll body, overlay má vlastný scroll
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -135,7 +145,6 @@ function FullHrOverlay({ xs, ys, onClose }:{
           </div>
 
           <div className="px-3 pb-4 grow">
-            {/* na mobile vysoký graf (60vh), legenda vycentrovaná */}
             <div className="w-full" style={{ height: isMobile ? '60vh' : 460 }}>
               <HrChart
                 xs={xs}
