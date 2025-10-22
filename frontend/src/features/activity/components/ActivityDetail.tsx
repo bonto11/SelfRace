@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { fmtHMS, fmtFromMinutes } from "@/shared/utils/duration";
 
 interface Props {
   activityId: number;
@@ -79,7 +80,7 @@ export default function ActivityDetail({ activityId }: Props) {
             {laps.map((lap, idx) => (
               <li key={lap.lap_index ?? idx}>
                 Lap {lap.lap_index ?? idx}: {lap.distance_m} m,{" "}
-                {lap.moving_time_s} s
+                {fmtHMS(lap.moving_time_s)} s
               </li>
             ))}
           </ul>
@@ -93,7 +94,7 @@ export default function ActivityDetail({ activityId }: Props) {
             {splits.map((split, idx) => (
               <li key={split.split_index ?? idx}>
                 Split {split.split_index ?? idx}: {split.distance_m} m,{" "}
-                {split.moving_time_s} s
+                {fmtHMS(split.moving_time_s)} s
               </li>
             ))}
           </ul>

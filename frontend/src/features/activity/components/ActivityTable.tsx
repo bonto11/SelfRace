@@ -10,7 +10,6 @@ import ActivityDetail from "./ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport"; // tvoje existujúce mapovanie labelu
 import { fmtHMS, fmtFromMinutes } from "@/shared/utils/duration";
 
-
 export default function ActivityTable({
   start,
   end,
