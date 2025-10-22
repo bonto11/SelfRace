@@ -112,6 +112,7 @@ function loadDetail(activityId: number): ActivityDetailExtra | null {
 function streamsKey(activityId: number) {
   return `ACT:STREAMS:${activityId}`;
 }
+type StreamsData = { time_s: number[]; hr: (number | null)[]; duration_s: number };
 function saveStreams(activityId: number, data: StreamsData) {
   if (!hasSS()) return;
   try {
@@ -128,9 +129,71 @@ function loadStreams(activityId: number): StreamsData | null {
   }
 }
 
-/* ------------------------------ Context ------------------------------ */
+/* -------------------- Rolling 7 helpers (monotony/strain) -------------------- */
 
-type StreamsData = { time_s: number[]; hr: (number | null)[]; duration_s: number };
+function groupByDay<T extends "time" | "trimp">(rows: ActivityRow[], metric: T) {
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.date; // ISO "YYYY-MM-DD"
+    const inc =
+      metric === "time"
+        ? (r.time_run_min ?? 0) + (r.time_ride_min ?? 0) + (r.time_strength_min ?? 0) +
+          (r.time_mixed_min ?? 0) + (r.time_skate_min ?? 0) + (r.time_other_min ?? 0)
+        : (r.trimp_run ?? 0) + (r.trimp_ride ?? 0) + (r.trimp_strength ?? 0) +
+          (r.trimp_mixed ?? 0) + (r.trimp_skate ?? 0) + (r.trimp_other ?? 0);
+
+    map.set(key, (map.get(key) ?? 0) + inc);
+  }
+  return map;
+}
+function daysRange(endISO: string, days: number) {
+  const out: string[] = [];
+  const end = new Date(endISO);
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+function mean(arr: number[]) {
+  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+}
+function stddev(arr: number[]) {
+  if (arr.length < 2) return 0;
+  const m = mean(arr);
+  const v = mean(arr.map((x) => (x - m) ** 2));
+  return Math.sqrt(v);
+}
+function computeRolling7(
+  rows: ActivityRow[],
+  rangeEnd: string,
+  metric: "time" | "trimp" = "time"
+) {
+  const perDay = groupByDay(rows, metric);
+  const last7Days = daysRange(rangeEnd, 7);
+  const prev7Days = daysRange(rangeEnd, 14).slice(0, 7);
+
+  const last7 = last7Days.map((d) => perDay.get(d) ?? 0);
+  const prev7 = prev7Days.map((d) => perDay.get(d) ?? 0);
+
+  const sum7 = last7.reduce((a, b) => a + b, 0);
+  const sumPrev = prev7.reduce((a, b) => a + b, 0);
+
+  const avg = mean(last7);
+  const sd = stddev(last7);
+  const monotony = sd < 1e-6 ? 1 : avg / sd; // clamp pre 1–2 dni
+  const strain = sum7 * monotony;
+
+  const toRange = (list: string[]) => ({ start: list[0], end: list[list.length - 1] });
+
+  return {
+    last: { sum: sum7, mono: monotony, strain, range: toRange(last7Days) },
+    prev: { sum: sumPrev, range: toRange(prev7Days) },
+  };
+}
+
+/* ------------------------------ Context ------------------------------ */
 
 type Ctx = {
   rangeStart: string;
@@ -143,6 +206,12 @@ type Ctx = {
   getSummary: (activityId: number) => ActivityRow | null;
   getDetail: (activityId: number) => Promise<ActivityDetailExtra>;
   getStreams: (activityId: number) => Promise<StreamsData>;
+
+  // Rolling 7 dní (pre widgety a indexy záťaže)
+  rolling7: (metric?: "time" | "trimp") => {
+    last: { sum: number; mono: number; strain: number; range: { start: string; end: string } };
+    prev: { sum: number; range: { start: string; end: string } };
+  };
 
   // 80/20
   getParetoWidget: (
@@ -349,9 +418,9 @@ export function ActivityDataProvider({
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
-            if (parsed && Number.isFinite(parsed.easy_min)) return parsed as {
-              easy_min: number; hard_min: number; total_min: number; days: number;
-            };
+            if (parsed && Number.isFinite(parsed.easy_min)) {
+              return parsed as { easy_min: number; hard_min: number; total_min: number; days: number };
+            }
           } catch {}
         }
       }
@@ -393,6 +462,12 @@ export function ActivityDataProvider({
     [userId]
   );
 
+  /* ---------------- expose rolling7 ---------------- */
+  const rolling7 = useCallback(
+    (metric: "time" | "trimp" = "time") => computeRolling7(rows, rangeEnd, metric),
+    [rows, rangeEnd]
+  );
+
   const value: Ctx = useMemo(
     () => ({
       rangeStart,
@@ -405,6 +480,7 @@ export function ActivityDataProvider({
       getSummary,
       getDetail,
       getStreams,
+      rolling7,
       getParetoWidget,
       getParetoTrend,
     }),
@@ -419,6 +495,7 @@ export function ActivityDataProvider({
       getSummary,
       getDetail,
       getStreams,
+      rolling7,
       getParetoWidget,
       getParetoTrend,
     ]
