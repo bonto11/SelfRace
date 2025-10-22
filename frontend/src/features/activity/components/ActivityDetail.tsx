@@ -6,6 +6,7 @@ import { CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
+import MiniHrSpark from "./MiniHrSpark";
 
 interface Props {
   activityId: number;
@@ -63,6 +64,11 @@ export default function ActivityDetail({ activityId }: Props) {
       <p>
         <strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}
       </p>
+
+      <div className="mt-2">
+        <h4 className="font-bold mb-1">HR priebeh</h4>
+        <MiniHrSpark activityId={activityId} height={72} />
+      </div>
 
       {loading && <div>Načítavam detail (laps/splits)…</div>}
 

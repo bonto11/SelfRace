@@ -108,6 +108,24 @@ function loadDetail(activityId: number): ActivityDetailExtra | null {
   }
 }
 
+// --- do sekcie cache helpers ---
+function streamsKey(activityId: number) {
+  return `ACT:STREAMS:${activityId}`;
+}
+function saveStreams(activityId: number, data: any) {
+  if (!hasSS()) return;
+  try {
+    sessionStorage.setItem(streamsKey(activityId), JSON.stringify(data));
+  } catch {}
+}
+function loadStreams(activityId: number) {
+  if (!hasSS()) return null;
+  try {
+    const raw = sessionStorage.getItem(streamsKey(activityId));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 /* ------------------------------ Context ------------------------------ */
 
 type Ctx = {
@@ -120,6 +138,7 @@ type Ctx = {
   selectByRange: (start: string, end: string) => ActivityRow[];
   getSummary: (activityId: number) => ActivityRow | null;
   getDetail: (activityId: number) => Promise<ActivityDetailExtra>;
+  getStreams: (activityId: number) => Promise<{time_s:number[], hr:(number|null)[], duration_s:number}>;
 
   // ✅ nové metódy pre 80/20
   getParetoWidget: (days: number, sport?: string | null) => Promise<{
@@ -280,6 +299,26 @@ export function ActivityDataProvider({
     }
   }, []);
 
+  const getStreams = useCallback(async (activityId: number) => {
+  const cached = loadStreams(activityId);
+  if (cached && Array.isArray(cached.time_s)) return cached;
+
+  const url = `${API_URL}/activities/streams/${activityId}?max=400`;
+  try {
+      const res = await fetch(url, { cache: "no-store" });
+      const json = await res.json().catch(()=> ({}));
+      const data = {
+        time_s: Array.isArray(json?.time_s) ? json.time_s : [],
+        hr: Array.isArray(json?.hr) ? json.hr : [],
+        duration_s: Number(json?.duration_s) || 0,
+      };
+      saveStreams(activityId, data);
+      return data;
+    } catch {
+      return { time_s: [], hr: [], duration_s: 0 };
+    }
+  }, []);
+
   /* --------- 80/20 fetchery s vlastnou cache --------- */
 
   const getParetoWidget = useCallback(async (daysParam: number, sport: string | null = null) => {
@@ -336,8 +375,9 @@ export function ActivityDataProvider({
       selectByRange,
       getSummary,
       getDetail,
-      getParetoWidget,   // 👈 nové
-      getParetoTrend,    // 👈 nové
+      getParetoWidget,
+      getParetoTrend,
+      getStreams,
     }),
     [rangeStart, rangeEnd, rows, weeks, loading, fetchRange, selectByRange, getSummary, getDetail, getParetoWidget, getParetoTrend]
   );
