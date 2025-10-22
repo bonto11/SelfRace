@@ -36,11 +36,6 @@ export default function ActivityDetail({ activityId }: Props) {
 
   if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
 
-  const distStr =
-    summary.distance_m != null ? fmtDistance(summary.distance_m) : "—";
-  const timeStr =
-    summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
-
   return (
     <div className={`${CARD} space-y-2`}>
       <h3 className="text-lg font-bold">{summary.name}</h3>
@@ -57,10 +52,10 @@ export default function ActivityDetail({ activityId }: Props) {
       </p>
 
       <p>
-        <strong>Distance:</strong> {distStr}
+        <strong>Distance:</strong> {fmtDistance(summary.distance_m)}
       </p>
       <p>
-        <strong>Time:</strong> {timeStr}
+        <strong>Time:</strong> {fmtSecondsHMS(summary.moving_time_s)}
       </p>
       <p>
         <strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}
