@@ -1,93 +1,87 @@
 // src/features/widgets/MonoStrainWidget.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Chart as MixedChart } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
-import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
-import { THEME } from "@/shared/theme/tokens";
-import { useUserId } from "@/shared/hooks/useUserId";
+import { useMemo } from "react";
+import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
 
-ensureChartJSRegistered();
+function classifyMonotony(v?: number | null) {
+  if (v == null) return { label: "—", accent: "bg-slate-700" };
+  if (v < 0.8)  return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
+  if (v <= 1.5) return { label: "vyvážené (OK)",          accent: "bg-emerald-600" };
+  if (v <= 2.0) return { label: "vyššia monotónnosť",      accent: "bg-amber-500" };
+  return           { label: "riziko preťaženia",           accent: "bg-red-600" };
+}
 
-type Row = { label: string; mono: number | null; strain: number | null };
+function classifyStrain(v?: number | null) {
+  if (v == null) return { label: "—", accent: "bg-slate-700" };
+  if (v < 600)   return { label: "ľahší týždeň",  accent: "bg-blue-700" };
+  if (v < 1200)  return { label: "stredný load", accent: "bg-emerald-600" };
+  if (v < 1800)  return { label: "vyšší load",   accent: "bg-amber-500" };
+  return             { label: "veľmi vysoký",    accent: "bg-red-600" };
+}
 
-export default function MonoStrainWidget({ title = "Indexy záťaže" }: { title?: string }) {
-  const { userId } = useUserId();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function MonoStrainWidget({
+  title = "Indexy záťaže",
+  onOpenDetail,
+}: {
+  title?: string;
+  onOpenDetail?: () => void;
+}) {
+  const { weeks, loading } = useActivityData();
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=4`);
-        const json = await res.json().catch(() => ({}));
-        const src: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-        setRows(src.map((w) => ({
-          label: w.label ?? w.week ?? w.iso_week ?? "",
-          mono:   w?.monotony?.time != null && Number.isFinite(+w.monotony.time) ? +w.monotony.time : null,
-          strain: w?.strain?.time    != null && Number.isFinite(+w.strain.time)    ? +w.strain.time    : null,
-        })));
-      } finally { setLoading(false); }
-    })();
-  }, [userId]);
+  const last = weeks.at(-1);
+  const mono = useMemo(
+    () => (last?.monotony?.time != null ? Number(last.monotony.time) : null),
+    [last]
+  );
+  const strain = useMemo(
+    () => (last?.strain?.time != null ? Number(last.strain.time) : null),
+    [last]
+  );
 
-  const labels = useMemo(() => rows.map(r => r.label), [rows]);
-  const mono   = useMemo<number[]>(() => rows.map(r => r.mono   == null ? NaN : r.mono),   [rows]);
-  const strn   = useMemo<number[]>(() => rows.map(r => r.strain == null ? NaN : r.strain), [rows]);
+  const mC = classifyMonotony(mono);
+  const sC = classifyStrain(strain);
 
-  const strainMax = useMemo(() => {
-    const nums = strn.filter((v) => Number.isFinite(v)) as number[];
-    return nums.length ? Math.ceil(Math.max(...nums) * 1.1) : 10;
-  }, [strn]);
-
-  const data: ChartData<"line", number[], string> = {
-    labels,
-    datasets: [
-      { type: "line", label: "Monotony", data: mono, yAxisID: "y1",
-        borderColor: THEME.chart.monotony, backgroundColor: THEME.chart.monotony,
-        tension: 0.3, spanGaps: true, pointRadius: 2, borderWidth: 2, order: 2 },
-      { type: "line", label: "Strain", data: strn, yAxisID: "y2",
-        borderColor: THEME.chart.strain, backgroundColor: THEME.chart.strain,
-        tension: 0.3, spanGaps: true, borderDash: [4,4], pointRadius: 2, borderWidth: 2, order: 3 },
-    ],
-  };
-
-  const options: ChartOptions<"line"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: false,
-    interaction: { mode: "index", intersect: false },
-    elements: { point: { radius: 2, hitRadius: 8 } },
-    plugins: {
-      legend: {
-        position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
-      },
-    },
-    layout: { padding: { left: 8, right: 16 } },
-    scales: {
-      y1: { position: "left",  min: 0, max: 3, grid: { color: THEME.chart.grid }, title: { display: true, text: "Monotony" } },
-      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false }, title: { display: true, text: "Strain" } },
-      x:  { grid: { color: THEME.chart.gridSoft } },
-    },
-  };
+  // vyber horší signál ako akcent karty
+  const accent =
+    (mC.accent === "bg-red-600" || sC.accent === "bg-red-600") ? "bg-red-600" :
+    (mC.accent === "bg-amber-500" || sC.accent === "bg-amber-500") ? "bg-amber-500" :
+    (mC.accent === "bg-emerald-600" || sC.accent === "bg-emerald-600") ? "bg-emerald-600" :
+    "bg-slate-700";
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-base font-semibold">{title}</h3>
-      </div>
-      {loading ? (
+    <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
+      {loading || !last ? (
         <div className="opacity-70 text-sm">Načítavam…</div>
       ) : (
-        <div style={{ height: THEME.chart.weeklyHeightCompact }}>
-          <MixedChart type="line" data={data} options={options} />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Monotony */}
+            <div>
+              <div className="text-xs opacity-80 mb-1">Monotony</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-extrabold leading-none tabular-nums">
+                  {mono == null ? "—" : mono.toFixed(2)}
+                </span>
+              </div>
+              <div className="opacity-80 text-xs mt-1">{mC.label}</div>
+            </div>
+            {/* Strain */}
+            <div>
+              <div className="text-xs opacity-80 mb-1">Strain</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-extrabold leading-none tabular-nums">
+                  {strain == null ? "—" : Math.round(strain)}
+                </span>
+              </div>
+              <div className="opacity-80 text-xs mt-1">{sC.label}</div>
+            </div>
+          </div>
+
+          <div className="opacity-80 text-sm mt-2">{last.label || last.week}</div>
+        </>
       )}
-    </div>
+    </OpenerWidget>
   );
 }

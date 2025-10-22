@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional, Set, List, Dict, Any
 from Modules.SQL.db_handler import get_client
+
 from ..config import (
     TABLE_ACTIVITIES_SUMMARY,
-    TABLE_ACTIVITY_DETAILS,
+    TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_SPLITS,
     TABLE_ACTIVITIES_LAPS,
-    TABLE_ACTIVITIES_RAW
 )
 
 supabase = get_client()
@@ -38,6 +38,10 @@ def _compute_pace_seconds_per_km(
         return None
     seconds = float(moving_time_s) / (float(distance_m) / 1000.0)
     return int(round(seconds))
+
+
+def _arr(streams: Dict[str, Any], key: str) -> List[Any]:
+    return (streams.get(key) or {}).get("data") or []
 
 
 # =============================
@@ -177,94 +181,58 @@ def upsert_activity_summary_from_full(user_id: int, full: Dict[str, Any]) -> boo
 # =============================
 # STREAMS (activity_details)
 # =============================
-def insert_activity_details(
-    activity_id: int, streams: dict, user_id: int, activity_date: str | None = None
+# Modules/Streams/store.py (môže byť aj v tvojom existujúcom súbore)
+
+
+def insert_activity_streams(
+    user_id: int, activity_id: int, streams: Dict[str, Any]
 ) -> bool:
     """
-    Ukladá time-series z /streams. Očakáva key_by_type=True štruktúru.
+    Očakáva Strava /streams s `key_by_type=true`.
+    Uloží len (time_s, heartrate_bpm, distance_m). created_at doplní DB.
     """
-    rows: List[Dict[str, Any]] = []
+    times = _arr(streams, "time")
+    hr = _arr(streams, "heartrate")
+    dist = _arr(streams, "distance")
 
-    times = streams.get("time", {}).get("data", []) or []
-    latlng = streams.get("latlng", {}).get("data", []) or []
-    altitude = streams.get("altitude", {}).get("data", []) or []
-    heartrate = streams.get("heartrate", {}).get("data", []) or []
-    cadence = streams.get("cadence", {}).get("data", []) or []
-    velocity = streams.get("velocity_smooth", {}).get("data", []) or []
-
-    # voliteľné
-    watts = streams.get("watts", {}).get("data", []) or []
-    temp = streams.get("temp", {}).get("data", []) or []
-    grade = streams.get("grade_smooth", {}).get("data", []) or []
-    distance_stream = streams.get("distance", {}).get("data", []) or []
-    moving_flag = streams.get("moving", {}).get("data", []) or []
-
-    n = len(times)
-    for i in range(n):
-        lat, lng = latlng[i] if i < len(latlng) else (None, None)
-        row = {
-            "activity_id": activity_id,
-            "user_id": user_id,
-            "activity_date": activity_date,
-            "time": times[i] if i < len(times) else None,  # sekunda od štartu
-            "lat": lat,
-            "lng": lng,
-            "altitude_m": altitude[i] if i < len(altitude) else None,
-            "heartrate_bpm": heartrate[i] if i < len(heartrate) else None,
-            "cadence_rpm": cadence[i] if i < len(cadence) else None,
-            "speed_m_s": velocity[i] if i < len(velocity) else None,
-            # voliteľné:
-            "watts": watts[i] if i < len(watts) else None,
-            "temp_c": temp[i] if i < len(temp) else None,
-            "grade_smooth_pct": grade[i] if i < len(grade) else None,
-            "distance_stream_m": (
-                distance_stream[i] if i < len(distance_stream) else None
-            ),
-            "moving_flag": moving_flag[i] if i < len(moving_flag) else None,
-        }
-        rows.append(row)
-
-    if not rows:
+    n = max(len(times), len(hr), len(dist))
+    if n == 0:
         return True
 
-    BATCH = 1000
-    for start in range(0, len(rows), BATCH):
-        chunk = rows[start : start + BATCH]
-        supabase.table(TABLE_ACTIVITY_DETAILS).upsert(chunk).execute()
+    rows = []
+    for i in range(n):
+        t = times[i] if i < len(times) else None
+        hb = hr[i] if i < len(hr) else None
+        dm = dist[i] if i < len(dist) else None
 
+        # ignoruj prázdne body bez času
+        if t is None:
+            continue
+
+        rows.append(
+            {
+                "user_id": user_id,
+                "activity_id": activity_id,
+                "time_s": int(t),  # seconds from start
+                "heartrate_bpm": int(hb) if hb is not None else None,
+                "distance_m": float(dm) if dm is not None else None,
+            }
+        )
+
+    # dávkuj
+    BATCH = 2000
+    for i in range(0, len(rows), BATCH):
+        supabase.table(TABLE_ACTIVITIES_STREAMS).upsert(rows[i : i + BATCH]).execute()
     return True
 
 
-def delete_activity_details_for_activity(user_id: int, activity_id: int) -> int:
-    res = (
-        supabase.table(TABLE_ACTIVITY_DETAILS)
-        .delete()
-        .eq("user_id", int(user_id))
-        .eq("activity_id", int(activity_id))
-        .execute()
-    )
-    return len(res.data or [])
-
-
-def replace_activity_details(
-    user_id: int, activity_id: int, streams: dict, activity_date: str | None = None
+def replace_activity_streams(
+    user_id: int, activity_id: int, streams: Dict[str, Any]
 ) -> bool:
-    """
-    Vymaže staré detailné dáta len pre danú aktivitu a vloží nové.
-    """
-    try:
-        delete_activity_details_for_activity(user_id, activity_id)
-        ok = insert_activity_details(
-            activity_id=activity_id,
-            streams=streams,
-            user_id=user_id,
-            activity_date=activity_date,
-        )
-        return bool(ok)
-    except Exception as e:
-        print("❌ replace_activity_details error:", e)
-        return False
-
+    supabase.table(TABLE_ACTIVITIES_STREAMS).delete().eq("user_id", user_id).eq(
+        "activity_id", activity_id
+    ).execute()
+    return insert_activity_streams(user_id, activity_id, streams)
 
 # =============================
 # SPLITS (auto km/mile Strava)
@@ -408,6 +376,7 @@ def delete_activity_laps(user_id: int, activity_id: int) -> int:
     return len(res.data or [])
 
 
+'''
 # =============================
 # RAW ARCHÍV (voliteľné)
 # =============================
@@ -469,3 +438,4 @@ def get_activity_summary(user_id: int, activity_id: int) -> dict | None:
     except Exception as e:
         print(f"❌ get_activity_summary error: {e}")
         return None
+'''

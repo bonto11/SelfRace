@@ -1,11 +1,14 @@
+// src/app/(protected)/activities/page.tsx
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
+import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
 import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
+import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
@@ -16,8 +19,9 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   );
 }
 
-export default function ClientPage() {
+export default function ActivitiesPage() {
   const { userId } = useUserId();
+  const router = useRouter();
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -35,45 +39,39 @@ export default function ClientPage() {
       } else {
         setToast(`❌ Sync error: ${json.detail || "unknown"}`);
       }
-    } catch (e:any) {
+    } catch (e: any) {
       setToast(`❌ Sync request failed: ${e?.message || e}`);
     } finally {
       setSyncing(false);
     }
   }
 
+  const openDetailLoad = () => router.push("/activities/detail");
+  const openDetail8020 = () => router.push("/activities/pareto");
+
   return (
-    <div>
-      {/*  header */}
+    <ActivityDataProvider days={90}>
+      {/* header */}
       <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg font-semibold">Aktivity</h2>
         <button
           onClick={handleSync}
           disabled={syncing}
           className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-          title="Stiahnuť nové aktivity zo Stravy"
         >
           {syncing && <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />}
           {syncing ? "Synchronizujem…" : "Sync Strava"}
         </button>
       </div>
 
-      {/* widgety */}
-      <div className="grid gap-4">
-        <WeeklyLoadWidget />
-
-        {/* 👇 TOTO JE TO TLAČIDLO MEDZI WIDGETAMI */}
-        <Link
-          href="/activities/detail"
-          className="inline-flex w-full justify-center items-center rounded bg-blue-600 hover:bg-blue-700 text-white text-sm py-2"
-        >
-          Otvoriť detailný trend
-        </Link>
-
-        <MonoStrainWidget />
+      {/* widgety – 1 stĺpec → 2 stĺpce na md+ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
+        <MonoStrainWidget onOpenDetail={openDetailLoad} />
+        <WidgetPareto8020 onOpenTrend={openDetail8020} weeks = {2} />
       </div>
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
-    </div>
+    </ActivityDataProvider>
   );
 }

@@ -30,6 +30,7 @@ const C = {
 
 export type WeekPick = { week: string; start: string; end: string };
 
+/** krátky popis rozsahu týždňa: 1–8.10. alebo 28.9.–5.10. */
 function rangeLabel(start?: string, end?: string) {
   if (!start || !end) return "";
   const s = new Date(start);
@@ -44,7 +45,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
   const { userId } = useUserId();
 
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(8);
+  const [lookback, setLookback] = useState<number>(8); // 4/8/12
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
@@ -141,39 +142,53 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
     plugins: {
       legend: { position: THEME.chart.legendPosition,
         labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.dataset.label || "";
+            const v = (ctx.parsed.y ?? 0) as number;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            if (metric === "km")   return `${label}: ${v.toFixed(1)} km`;
+            if (metric === "time") return `${label}: ${Math.round(v)} min`;
+            return `${label}: ${Math.round(v)} TRIMP`;
+          },
+        },
+      },
     },
     onClick: (_evt, els) => {
       const idx = els?.[0]?.index; if (idx == null) return;
       const w = weeks[idx]; if (!w) return;
-      const key = w.week || w.label || w.start || "";
-      const pick = { week: key, start: w.start, end: w.end };
+      const pick = { week:w.week, start:w.start, end:w.end };
       setPicked(pick);
-      console.log("[WEEK] picked ->", pick);
       onPickWeek?.(pick);
     },
     scales: {
       y:  { beginAtZero: true, position: "left",  grid: { color: THEME.chart.grid },
             title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" } },
-      y1: { position: "right", min: 0,
-            grid: { drawOnChartArea: false },
+      y1: { position: "right", min: 0, max: monoMax, grid: { drawOnChartArea: false },
             border: { color: C.monotony }, ticks: { color: C.monotony },
             title: { display: true, text: "Monotony", color: C.monotony } },
-      y2: { position: "right", min: 0,
-            grid: { drawOnChartArea: false },
+      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
             border: { color: C.strain }, ticks: { color: C.strain },
             title: { display: true, text: "Strain", color: C.strain } },
       x:  {
         grid: { color: THEME.chart.gridSoft },
-        ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } },
+        ticks: {
+          autoSkip: true,
+          minRotation: 55,
+          maxRotation: 55,
+          padding: 6,
+          font: { size: 10 },
+        },
       },
     },
-  }), [metric, weeks, onPickWeek]);
+  }), [metric, weeks, monoMax, strainMax, onPickWeek]);
 
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
-      {/* ovládanie */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
@@ -182,6 +197,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
           <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
         </div>
         <div className="text-xs">
+          {/* len 4 / 8 / 12 */}
           <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
@@ -190,8 +206,10 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
         </div>
       </div>
 
-      {/* graf */}
-      <div className="overflow-x-auto overflow-y-hidden rounded-md min-w-0" style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+      <div
+        className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
         <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
             <MixedChart type="bar" data={data} options={options} />
@@ -199,13 +217,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
         </div>
       </div>
 
-      {picked && (
-        <WeeklySummary
-          weeks={weeks as any}
-          metric={metric}
-          selectedWeek={picked.week}
-        />
-      )}
+      {picked && <WeeklySummary weeks={weeks as any} metric={metric} selectedWeek={picked.week} />}
     </div>
   );
 }

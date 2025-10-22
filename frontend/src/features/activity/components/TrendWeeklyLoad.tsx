@@ -13,6 +13,8 @@ import { THEME } from "@/shared/theme/tokens";
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
+export type WeekPick = { week: string; start: string; end: string };
+
 type WeekRow = {
   week: string; label: string; start: string; end: string;
   km_run: number; km_ride: number; km_mixed: number; km_skate: number;
@@ -28,21 +30,23 @@ const C = {
   monotony:"#84CC16", strain:"#FDE047",
 };
 
-export type WeekPick = { week: string; start: string; end: string };
-
 function rangeLabel(start?: string, end?: string) {
   if (!start || !end) return "";
-  const s = new Date(start);
-  const e = new Date(end);
+  const s = new Date(start), e = new Date(end);
   const sd = s.getDate(), sm = s.getMonth() + 1;
   const ed = e.getDate(), em = e.getMonth() + 1;
-  if (sm === em) return `${sd}–${ed}.${em}.`;
-  return `${sd}.${sm}.–${ed}.${em}.`;
+  return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
 
-export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekPick) => void; }) {
+export default function TrendWeeklyLoad({
+  onPickWeek,
+  showLookback = true,
+}: {
+  onPickWeek?: (w: WeekPick) => void;
+  /** zobrazí select 4/8/12 týždňov (na detaile áno, na dashboarde môžeš vypnúť) */
+  showLookback?: boolean;
+}) {
   const { userId } = useUserId();
-
   const [metric, setMetric] = useState<Metric>("km");
   const [lookback, setLookback] = useState<number>(8);
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
@@ -51,30 +55,32 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
   useEffect(() => {
     if (!userId) return;
     (async () => {
-      const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=${lookback}`);
+      const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=${lookback}`, { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
       const num = (v:any)=> (Number.isFinite(+v) ? +v : 0);
-      setWeeks(raw.map((w)=>({
-        week: w.week ?? w.iso_week ?? w.label ?? "",
-        label: rangeLabel(w.start, w.end) || w.label || w.week || "",
-        start: w.start ?? "", end: w.end ?? "",
-        km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
-        km_mixed: num(w.km_mixed),         km_skate: num(w.km_skate),
-        time_run_min: num(w.time_run_min ?? w.run_min),
-        time_ride_min: num(w.time_ride_min ?? w.ride_min),
-        time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
-        time_mixed_min: num(w.time_mixed_min),
-        time_skate_min: num(w.time_skate_min),
-        time_other_min: num(w.time_other_min ?? w.other_min),
-        trimp_run: num(w.trimp_run ?? w.run_trimp),
-        trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
-        trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
-        trimp_mixed: num(w.trimp_mixed),
-        trimp_skate: num(w.trimp_skate),
-        trimp_other: num(w.trimp_other ?? w.other_trimp),
-        monotony: w.monotony ?? {}, strain: w.strain ?? {},
-      })));
+      setWeeks(
+        raw.map((w)=>({
+          week: w.week ?? w.iso_week ?? w.label ?? "",
+          label: rangeLabel(w.start, w.end) || w.label || w.week || "",
+          start: w.start ?? "", end: w.end ?? "",
+          km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
+          km_mixed: num(w.km_mixed),         km_skate: num(w.km_skate),
+          time_run_min: num(w.time_run_min ?? w.run_min),
+          time_ride_min: num(w.time_ride_min ?? w.ride_min),
+          time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
+          time_mixed_min: num(w.time_mixed_min),
+          time_skate_min: num(w.time_skate_min),
+          time_other_min: num(w.time_other_min ?? w.other_min),
+          trimp_run: num(w.trimp_run ?? w.run_trimp),
+          trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
+          trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
+          trimp_mixed: num(w.trimp_mixed),
+          trimp_skate: num(w.trimp_skate),
+          trimp_other: num(w.trimp_other ?? w.other_trimp),
+          monotony: w.monotony ?? {}, strain: w.strain ?? {},
+        }))
+      );
     })();
   }, [userId, lookback]);
 
@@ -90,7 +96,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
 
   const strainMax = useMemo(() => {
     const vals = strn.filter((v): v is number => Number.isFinite(v as number));
-    const m = vals.length ? Math.max(...vals) : 100;
+    const m = vals.length ? Math.max(...vals) : 80;
     return Math.ceil(m * 1.1);
   }, [strn]);
 
@@ -113,6 +119,7 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       pushBar("Skate",    W.map(w=>w.time_skate_min),    C.skate);
       pushBar("Other",    W.map(w=>w.time_other_min),    C.other);
     } else {
+      // TRIMP – bary pre všetky športy
       pushBar("TRIMP (run)",      W.map(w=>w.trimp_run),      C.run);
       pushBar("TRIMP (bike)",     W.map(w=>w.trimp_ride),     C.bike);
       pushBar("TRIMP (strength)", W.map(w=>w.trimp_strength), C.strength);
@@ -139,8 +146,23 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
     datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
     layout: { padding: { bottom: 12 } },
     plugins: {
-      legend: { position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 } },
+      legend: {
+        position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.dataset.label || "";
+            const v = (ctx.parsed.y ?? 0) as number;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            if (metric === "km")   return `${label}: ${v.toFixed(1)} km`;
+            if (metric === "time") return `${label}: ${Math.round(v)} min`;
+            return `${label}: ${Math.round(v)} TRIMP`;
+          },
+        },
+      },
     },
     onClick: (_evt, els) => {
       const idx = els?.[0]?.index; if (idx == null) return;
@@ -148,32 +170,26 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
       const key = w.week || w.label || w.start || "";
       const pick = { week: key, start: w.start, end: w.end };
       setPicked(pick);
-      console.log("[WEEK] picked ->", pick);
       onPickWeek?.(pick);
     },
     scales: {
       y:  { beginAtZero: true, position: "left",  grid: { color: THEME.chart.grid },
             title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" } },
-      y1: { position: "right", min: 0,
-            grid: { drawOnChartArea: false },
+      y1: { position: "right", min: 0, max: monoMax, grid: { drawOnChartArea: false },
             border: { color: C.monotony }, ticks: { color: C.monotony },
             title: { display: true, text: "Monotony", color: C.monotony } },
-      y2: { position: "right", min: 0,
-            grid: { drawOnChartArea: false },
+      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
             border: { color: C.strain }, ticks: { color: C.strain },
             title: { display: true, text: "Strain", color: C.strain } },
-      x:  {
-        grid: { color: THEME.chart.gridSoft },
-        ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } },
-      },
+      x:  { grid: { color: THEME.chart.gridSoft },
+            ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } } },
     },
-  }), [metric, weeks, onPickWeek]);
+  }), [metric, weeks, monoMax, strainMax, onPickWeek]);
 
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
-      {/* ovládanie */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
@@ -181,16 +197,22 @@ export default function TrendWeeklyLoad({ onPickWeek }: { onPickWeek?: (w: WeekP
           <button onClick={()=>setMetric("time")}  className={`px-2 py-1 rounded ${metric==="time"?"bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
           <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
         </div>
-        <div className="text-xs">
-          <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
-        </div>
+
+        {showLookback && (
+          <div className="text-xs">
+            <select
+              value={lookback}
+              onChange={(e)=>setLookback(Number(e.target.value))}
+              className="px-2 py-1 rounded bg-gray-700"
+            >
+              <option value={4}>4 týždne</option>
+              <option value={8}>8 týždňov</option>
+              <option value={12}>12 týždňov</option>
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* graf */}
       <div className="overflow-x-auto overflow-y-hidden rounded-md min-w-0" style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>

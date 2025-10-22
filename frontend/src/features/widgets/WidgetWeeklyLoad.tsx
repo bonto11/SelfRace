@@ -1,108 +1,87 @@
+// src/features/widgets/WidgetWeeklyLoad.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { ChartData, ChartOptions } from "chart.js";
-import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
-import { THEME } from "@/shared/theme/tokens";
-import { useUserId } from "@/shared/hooks/useUserId";
-import WeeklyLoadMini from "@/features/widgets/WeeklyLoadMini";
+import { useMemo } from "react";
+import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
 
-ensureChartJSRegistered();
-
-export type WeekPick = { week: string; start: string; end: string };
-type Metric = "time";
-
-type WeekRow = {
-  week: string; label: string; start: string; end: string;
-  time_run_min: number; time_ride_min: number; time_strength_min: number;
-  time_mixed_min: number; time_skate_min: number; time_other_min: number;
-};
-
-const C = {
-  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B", mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
-};
-
-function rangeLabel(start?: string, end?: string) {
-  if (!start || !end) return "";
-  const s = new Date(start), e = new Date(end);
-  const fmt = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.`;
-  return `${fmt(s)}–${fmt(e)}`;
+function minToHM(totalMin: number) {
+  const h = Math.floor(totalMin / 60);
+  const m = Math.round(totalMin % 60);
+  return { h, m };
 }
 
-export default function WeeklyLoadWidget({ title = "Týždenná záťaž (čas)" }: { title?: string }) {
-  const { userId } = useUserId();
-  const metric: Metric = "time";
-  const [weeks, setWeeks] = useState<WeekRow[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function WeeklyLoadWidget({
+  title = "Týždenná záťaž (čas)",
+  onOpenDetail,
+}: {
+  title?: string;
+  onOpenDetail?: () => void;
+}) {
+  const { weeks, loading } = useActivityData();
 
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/analytics/weekly/${userId}?weeks=2&metric=${metric}`);
-        const json = await res.json().catch(() => ({}));
-        const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-        const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
-        setWeeks(raw.map((w) => ({
-          week: w.week ?? w.iso_week ?? w.label ?? "",
-          label: rangeLabel(w.start, w.end) || (w.label ?? w.week ?? ""),
-          start: w.start ?? "", end: w.end ?? "",
-          time_run_min: num(w.time_run_min ?? w.run_min),
-          time_ride_min: num(w.time_ride_min ?? w.ride_min),
-          time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
-          time_mixed_min: num(w.time_mixed_min),
-          time_skate_min: num(w.time_skate_min),
-          time_other_min: num(w.time_other_min ?? w.other_min),
-        })));
-      } finally { setLoading(false); }
-    })();
-  }, [userId]);
+  const last = weeks.at(-1);
+  const prev = weeks.at(-2);
 
-  const labels = useMemo(() => weeks.map((w) => w.label), [weeks]);
+  const totalLast = useMemo(() => {
+    if (!last) return 0;
+    return (
+      (last.time_run_min ?? 0) +
+      (last.time_ride_min ?? 0) +
+      (last.time_strength_min ?? 0) +
+      (last.time_mixed_min ?? 0) +
+      (last.time_skate_min ?? 0) +
+      (last.time_other_min ?? 0)
+    );
+  }, [last]);
 
-  const datasets = useMemo(() => {
-    const W = weeks;
-    const ds: any[] = [];
-    const push = (label: string, data: number[], color: string) =>
-      ds.push({ type: "bar" as const, label, data, backgroundColor: color, borderColor: color, borderWidth: 1, yAxisID: "y" });
+  const totalPrev = useMemo(() => {
+    if (!prev) return 0;
+    return (
+      (prev.time_run_min ?? 0) +
+      (prev.time_ride_min ?? 0) +
+      (prev.time_strength_min ?? 0) +
+      (prev.time_mixed_min ?? 0) +
+      (prev.time_skate_min ?? 0) +
+      (prev.time_other_min ?? 0)
+    );
+  }, [prev]);
 
-    push("Run", W.map((w) => w.time_run_min), C.run);
-    if (W.some(w => w.time_ride_min > 0))      push("Bike",     W.map(w => w.time_ride_min),     C.bike);
-    if (W.some(w => w.time_strength_min > 0))  push("Strength", W.map(w => w.time_strength_min), C.strength);
-    if (W.some(w => w.time_mixed_min > 0))     push("Mixed",    W.map(w => w.time_mixed_min),    C.mixed);
-    if (W.some(w => w.time_skate_min > 0))     push("Skate",    W.map(w => w.time_skate_min),    C.skate);
-    if (W.some(w => w.time_other_min > 0))     push("Other",    W.map(w => w.time_other_min),    C.other);
+  const { h, m } = minToHM(totalLast);
+  const diffPct = totalPrev ? ((totalLast - totalPrev) / totalPrev) * 100 : 0;
 
-    return ds;
-  }, [weeks]);
-
-  const data: ChartData<"bar" | "line", (number | null)[], string> = { labels, datasets };
-
-  const options: ChartOptions<"bar" | "line"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
-    elements: { point: { radius: 2, hitRadius: 8 } },
-    plugins: {
-      legend: { position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 } },
-      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${Math.round((ctx.parsed.y ?? 0) as number)} min` } },
-    },
-    scales: {
-      y: { beginAtZero: true, title: { display: true, text: "min" }, grid: { color: THEME.chart.grid } },
-      x: { grid: { color: THEME.chart.gridSoft } },
-    },
-  };
+  // slovné hodnotenie + farba lišty (jemné prahy)
+  let note = "—";
+  let accent = "bg-slate-700";
+  if (!loading && last) {
+    if (diffPct > 20)       { note = "↑ výrazne viac než minulý týždeň"; accent = "bg-amber-500"; }
+    else if (diffPct < -20) { note = "↓ výrazne menej než minulý týždeň";  accent = "bg-blue-700"; }
+    else                    { note = "≈ podobne ako minulý týždeň";        accent = "bg-emerald-600"; }
+    if (!prev) note = last.label || last.week || note;
+  }
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-base font-semibold">{title}</h3>
-      </div>
-      {loading ? <div className="opacity-70 text-sm">Načítavam…</div> : <WeeklyLoadMini data={data} options={options} />}
-    </div>
+    <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
+      {loading || !last ? (
+        <div className="opacity-70 text-sm">Načítavam…</div>
+      ) : (
+        <>
+          {/* veľká hodnota – zarovnanie baseline konzistentné */}
+          <div className="flex items-baseline gap-3">
+            <span className="text-5xl font-extrabold leading-none tabular-nums">{h}</span>
+            <span className="text-xl opacity-80">h</span>
+            <span className="text-5xl font-extrabold leading-none tabular-nums">
+              {m.toString().padStart(2, "0")}
+            </span>
+            <span className="text-xl opacity-80">m</span>
+          </div>
+
+          {/* radšej menší popis na ďalšom riadku, aby sa nezrážal s nadpisom */}
+          <div className="opacity-80 text-sm mt-1">
+            {note} • {last.label || last.week}
+          </div>
+        </>
+      )}
+    </OpenerWidget>
   );
 }

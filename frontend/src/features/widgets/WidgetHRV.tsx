@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import RecoveryStatCard from "@/features/widgets/RecoveryStatCard";
+import OpenerWidget from "@/features/widgets/OpenerWidget";
 import {
   compareLatestToBaseline,
   makeRollingBaseline,
@@ -18,7 +18,8 @@ export default function WidgetHRV({
   const { rows } = useRecoveryData();
 
   const values = useMemo<(number | null)[]>(
-    () => rows.map((r) => r?.HRV_avg_ms ?? null),
+    () =>
+      rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
     [rows]
   );
 
@@ -41,7 +42,6 @@ export default function WidgetHRV({
     "higher-better",
     0.05
   );
-
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -54,13 +54,18 @@ export default function WidgetHRV({
   const accent = showNA ? "bg-slate-700" : cmp.accent;
 
   return (
-    <RecoveryStatCard
+    <OpenerWidget
       title="HRV (RMSSD)"
-      value={valueText}
-      unit="ms"
-      note={note}
       accent={accent}
       onOpenDetail={onOpenDetail}
-    />
+    >
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-5xl font-extrabold leading-none">
+          {valueText}
+        </span>
+        <span className="text-xl opacity-80">ms</span>
+      </div>
+      {note && <p className="opacity-80">{note}</p>}
+    </OpenerWidget>
   );
 }

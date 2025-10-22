@@ -75,7 +75,6 @@ def compute_trimp(avg_hr: Optional[float],
     except Exception:
         return 0.0
 
-
 def monotony_and_strain(day_dict: dict[str, float],
                         week_start: date,
                         week_total: float) -> tuple[float, float]:

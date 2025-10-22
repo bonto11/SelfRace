@@ -14,7 +14,8 @@ def env_optional(key: str, default: str | None = None) -> str | None:
 
 
 TABLE_ACTIVITIES_SUMMARY = "activities_summary"
-TABLE_ACTIVITY_DETAILS   = "activity_details"
+TABLE_ACTIVITIES_ENRICHMENT = "activities_enrichment"
+TABLE_ACTIVITIES_STREAMS = "activities_streams"
 TABLE_ACTIVITIES_SPLITS  = "activities_splits"
 TABLE_ACTIVITIES_LAPS    = "activities_laps"
 TABLE_ACTIVITIES_RAW     = "activities_raw"
@@ -29,6 +30,7 @@ TABLE_USERS_RECOVERY = "users_recovery"
 TABLE_USERS_NOTES = "users_notes"
 TABLE_COACH_FEEDBACK = "coach_feedback"
 TABLE_COACH_PREFERENCES = "coach_preferences"
+
 
 SUPABASE_URL : str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE : str = env_required("SUPABASE_SERVICE_ROLE")

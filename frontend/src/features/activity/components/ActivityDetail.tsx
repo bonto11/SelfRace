@@ -2,64 +2,47 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_URL } from "@/shared/config";
 import { CARD } from "@/shared/ui/classes";
-import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 import { THEME } from "@/shared/theme/tokens";
+import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 
 interface Props {
   activityId: number;
 }
 
-interface ActivityDetailData {
-  id: number;
-  name: string;
-  sport_type?: string | null;      // pôvodný string zo Stravy
-  sport_type_fe?: string | null;   // náš auto FE canonical
-  sport_type_ovrd?: string | null; // manuálny override
-  distance_m: number;
-  moving_time_s: number;
-  average_heartrate_bpm: number | null;
-  max_heartrate_bpm: number | null;
-  total_elevation_gain_m: number | null;
-  date: string; // ISO
-}
-
-
 export default function ActivityDetail({ activityId }: Props) {
-  const [data, setData] = useState<ActivityDetailData | null>(null);
+  const { getSummary, getDetail } = useActivityData();
   const [loading, setLoading] = useState(true);
+  const [laps, setLaps] = useState<any[]>([]);
+  const [splits, setSplits] = useState<any[]>([]);
+
+  const summary = getSummary(activityId);
 
   useEffect(() => {
-    if (!activityId) return;
+    let alive = true;
     (async () => {
       setLoading(true);
-      const res = await fetch(`${API_URL}/activities/detail/${activityId}`);
-      const json = await res.json().catch(() => ({}));
-      if (json?.success) setData(json.data ?? json.summary ?? null);
-      else setData(null);
+      const extra = await getDetail(activityId);
+      if (!alive) return;
+      setLaps(extra.laps || []);
+      setSplits(extra.splits || []);
       setLoading(false);
     })();
-  }, [activityId]);
+    return () => {
+      alive = false;
+    };
+  }, [activityId, getDetail]);
 
-  if (loading) return <div>Načítavam detail...</div>;
-  if (!data) return <div>❌ Nepodarilo sa načítať detail.</div>;
-
-  const eff = toEffSport(data);
-  const dist = Number(data.distance_m ?? 0);
-  const move = Number(data.moving_time_s ?? 0);
+  if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
 
   return (
     <div className={`${CARD} space-y-2`}>
-      <h3 className="text-lg font-bold">{data.name}</h3>
-
-      <p>
-        <strong>Sport:</strong> {sportUiLabel(eff)}
-      </p>
+      <h3 className="text-lg font-bold">{summary.name}</h3>
 
       <p>
         <strong>Date:</strong>{" "}
-          {new Date(data.date).toLocaleString(THEME.i18n.dateLocale, {
+        {new Date(summary.date).toLocaleString(THEME.i18n.dateLocale, {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
@@ -69,24 +52,47 @@ export default function ActivityDetail({ activityId }: Props) {
       </p>
 
       <p>
-        <strong>Distance:</strong> {(dist / 1000).toFixed(2)} km
+        <strong>Distance:</strong> {fmtDistance(summary.distance_m)}
+      </p>
+      <p>
+        <strong>Time:</strong> {fmtSecondsHMS(summary.moving_time_s)}
+      </p>
+      <p>
+        <strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}
+      </p>
+      <p>
+        <strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}
       </p>
 
-      <p>
-        <strong>Time:</strong> {Math.floor(move / 60)} min
-      </p>
+      {loading && <div>Načítavam detail (laps/splits)…</div>}
 
-      <p>
-        <strong>Avg HR:</strong> {data.average_heartrate_bpm ?? "—"}
-      </p>
+      {!loading && !!laps.length && (
+        <>
+          <h4 className="font-bold mt-3">Laps</h4>
+          <ul className="list-disc pl-5">
+            {laps.map((lap, idx) => (
+              <li key={lap.lap_index ?? idx}>
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
+                {fmtSecondsHMS(lap.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-      <p>
-        <strong>Max HR:</strong> {data.max_heartrate_bpm ?? "—"}
-      </p>
-
-      <p>
-        <strong>Elevation gain:</strong> {data.total_elevation_gain_m ?? "—"} m
-      </p>
+      {!loading && !!splits.length && (
+        <>
+          <h4 className="font-bold mt-3">Splits</h4>
+          <ul className="list-disc pl-5">
+            {splits.map((split, idx) => (
+              <li key={split.split_index ?? idx}>
+                Split {split.split_index ?? idx}: {fmtDistance(split.distance_m)},{" "}
+                {fmtSecondsHMS(split.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

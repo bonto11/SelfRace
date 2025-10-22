@@ -6,6 +6,8 @@ import requests
 import statistics
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Iterable
+from Modules.API.Strava.streams import fetch_and_optionally_store_batch
+from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
 
 from Modules.SQL.db_handler import get_client
 from Modules.API.Strava.auth import get_access_token
@@ -542,6 +544,34 @@ def sync_activities(
 
             time.sleep(0.1)
 
+# -------- streams + enrichment zón --------
+    try:
+        ids_rows = (
+            supabase.table(TABLE_ACTIVITIES_SUMMARY)
+            .select("activity_id")
+            .eq("user_id", user_id)
+            .gte("date", since_iso_for_scan)
+            .order("date", desc=True)
+            .limit(500)
+            .execute()
+        )
+        ids_recent = [int(r["activity_id"]) for r in (ids_rows.data or [])]
+
+        print(f"[SYNC] streams: fetching & storing for {len(ids_recent)} ids …")
+        streams_res = fetch_and_optionally_store_batch(user_id, ids_recent, store=True)
+        print(f"[SYNC] streams: stored={streams_res.get('stored')} / total={streams_res.get('count')}")
+
+        # teraz výpočet minút v zónach (NECH fetch_if_missing=False, lebo streamy už máme v DB)
+        print("[SYNC] zones: computing minutes from cached streams …")
+        prev = preview_zones_for_activities(user_id, ids_recent, fetch_if_missing=False)
+
+        # odfiltruj iba tie, ktoré skutočne majú 'minutes'
+        to_save = [it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")]
+        saved = upsert_enrichment_minutes(user_id, to_save)
+        print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
+    except Exception as e:
+        print(f"[SYNC] zones enrichment failed: {e}")
+
     print(f"[SYNC] done: imported={imported} updated={updated} skipped={skipped} fetched={fetched}")
     return {
         "imported": int(imported),
@@ -549,213 +579,3 @@ def sync_activities(
         "skipped": int(skipped),
         "fetched": int(fetched),
     }
-
-
-# -----------------------------------------------------------------------------
-# LEGACY / STARŠIE FUNKCIE (NEPOUŽÍVAJÚ SA) – ponechané pre prípadnú migráciu.
-# Na želanie sú komplet zachované, ale KOMENTOVANÉ, aby nerušili.
-# -----------------------------------------------------------------------------
-r"""
-# --- (LEGACY) z pôvodného súboru --------------------------------------------
-
-import Modules.API.Strava as api_strava
-import Modules.SQL.data_manager as sql_dm
-
-# ochrana pred 429 (detaily si vieme dávkovať)
-MAX_FULL_DETAILS_PER_RUN = 150
-
-def _get_last_saved_utc(user_id: int) -> datetime | None:
-    res = (
-        supabase.table(TABLE_ACTIVITIES_SUMMARY)
-        .select("date")
-        .eq("user_id", user_id)
-        .order("date", desc=True)
-        .limit(1)
-        .execute()
-    )
-    row = res.data[0] if res.data else None
-    if not row:
-        return None
-    s = (row.get("date") or "")[:19]
-    if "T" not in s:
-        s = s + "T00:00:00"
-    return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
-
-def _get_strava_session(user_id: int) -> requests.Session:
-    token = _load_access_token_for_user(user_id)  # TODO: implementuj podľa seba
-    sess = requests.Session()
-    sess.headers.update({"Authorization": f"Bearer {token}"})
-    return sess
-
-def _save_summary_rows(user_id: int, items: Iterable[dict[str, Any]]) -> tuple[int, int, int]:
-    imported = updated = skipped = 0
-    for it in items:
-        activity_id = it.get("id")
-        if not activity_id:
-            skipped += 1
-            continue
-        row = {
-            "user_id": user_id,
-            "activity_id": activity_id,
-            "name": it.get("name"),
-            "sport_type": it.get("sport_type"),
-            "distance_m": it.get("distance"),
-            "moving_time_s": it.get("moving_time"),
-            "average_heartrate_bpm": it.get("average_heartrate"),
-            "max_heartrate_bpm": it.get("max_heartrate"),
-            "date": it.get("start_date"),
-        }
-        existing = (
-            supabase.table(TABLE_ACTIVITIES_SUMMARY)
-            .select("activity_id")
-            .eq("activity_id", activity_id)
-            .limit(1)
-            .execute()
-        ).data
-        if existing:
-            supabase.table(TABLE_ACTIVITIES_SUMMARY).update(row).eq("activity_id", activity_id).execute()
-            updated += 1
-        else:
-            supabase.table(TABLE_ACTIVITIES_SUMMARY).insert(row).execute()
-            imported += 1
-    return imported, updated, skipped
-
-def _get_full_with_retry(activity_id: int, include_all_efforts=True, max_retries=3):
-    tries = 0
-    while True:
-        try:
-            return api_strava.get_activity_full(
-                activity_id, include_all_efforts=include_all_efforts
-            )
-        except requests.HTTPError as e:
-            if (
-                e.response is not None
-                and e.response.status_code == 429
-                and tries < max_retries
-            ):
-                wait = (15 * 60 if tries == max_retries - 1 else 60 * (2**tries))
-                print(f"⏳ 429 Too Many Requests. Čakám {wait}s a skúšam znova ...")
-                time.sleep(wait)
-                tries += 1
-                continue
-            raise
-
-def is_429(err: Exception) -> bool:
-    if isinstance(err, requests.exceptions.HTTPError) and err.response is not None:
-        return err.response.status_code == 429
-    msg = str(err).lower()
-    return "429" in msg and "too many" in msg
-
-def _to_epoch_utc(dt: datetime | str | None) -> int:
-    if not dt:
-        return 0
-    if isinstance(dt, str):
-        s = dt.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    else:
-        dt = dt.astimezone(timezone.utc)
-    return int(max(0, dt.timestamp()))
-
-def _iso_date(s: str | None) -> str:
-    if not s:
-        return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    try:
-        s2 = s.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s2)
-    except Exception:
-        return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    return dt.strftime("%Y-%m-%dT%H:%M:%S")
-
-def _load_access_token_for_user(user_id: int) -> str:
-    raise NotImplementedError("Doplň získanie Strava access tokenu pre usera.")
-
-# ===============================
-# Sync pre okno (mesiac)
-# ===============================
-def sync_activities_for_window(
-    user_id: int, after_dt: datetime, before_dt: datetime, archive_raw: bool = False
-) -> int:
-    after_epoch = int(after_dt.timestamp())
-    all_headers = api_strava.get_activities(after_timestamp=after_epoch)
-
-    def iso_to_dt(iso: str) -> datetime:
-        if iso.endswith("Z"):
-            iso = iso.replace("Z", "+00:00")
-        return datetime.fromisoformat(iso).astimezone(timezone.utc)
-
-    headers = [
-        a for a in all_headers
-        if "start_date_local" in a and iso_to_dt(a["start_date_local"]) < before_dt
-    ]
-
-    saved = 0
-    existing_ids = sql_dm.get_existing_activities_ids_from_db(user_id)
-
-    for act in reversed(headers):
-        activity_id = int(act["id"])
-        full = api_strava.get_activity_full(activity_id, include_all_efforts=True)
-        ok_summary = sql_dm.upsert_activity_summary_from_full(user_id, full)
-        sport = (full.get("sport_type") or full.get("type") or "").lower()
-
-        if sport != "run":
-            if ok_summary:
-                saved += 1
-                print(f"💾 {saved:03d}  Uložené: {full.get('name')} [...]")
-            continue
-
-        decision = api_strava.decide_laps_or_splits(activity_id)
-        mode = decision.get("mode")
-
-        if mode == "laps" and decision.get("laps"):
-            sql_dm.replace_activity_laps(user_id, activity_id, decision["laps"])
-            rows_flag = True
-        else:
-            sql_dm.replace_activity_splits(user_id, activity_id, decision.get("splits") or [])
-            rows_flag = True
-
-        if archive_raw:
-            sql_dm.archive_activity_raw(user_id, activity_id, full)
-
-        if ok_summary:
-            saved += 1
-        else:
-            print(f"⚠️ Preskočené (summary zlyhalo): id={activity_id} {full.get('name')}")
-
-    return saved
-
-# ===============================
-# Checkpointy pre históriu
-# ===============================
-def _load_history_checkpoint(path: str = "data/history_checkpoint.json") -> dict:
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-    except Exception:
-        return {}
-
-def _save_history_checkpoint(payload: dict, path: str = "data/history_checkpoint.json") -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-
-def sync_history(
-    user_id: int,
-    from_date: datetime,
-    to_date: datetime,
-    window_months: int = 1,
-    archive_raw: bool = False,
-    use_checkpoint: bool = True,
-    wait_minutes_on_429: int = 16,
-    pause_between_months_s: int = 0,
-) -> int:
-    return 0
-
-def cache_streams_for_activity(
-    user_id: int, activity_id: int, activity_date: str | None = None
-) -> bool:
-    return False
-"""
