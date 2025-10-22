@@ -57,28 +57,35 @@ export default function ActivityDetail({ activityId }: Props) {
       <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
 
       {/* HR mini graf – vyšší + LEGENDA V STREDE */}
-      <div className="mt-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-bold">HR priebeh</h4>
-          {streams.time_s.length > 10 && (
-            <button
-              className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
-              onClick={() => setShowFull(true)}
-            >
-              Zväčšiť
-            </button>
-          )}
-        </div>
+<div className="mt-2">  {/* bolo mt-3 -> menšia medzera k nadpisu */}
+  <div className="flex items-center justify-between">
+    <h4 className="font-bold">HR priebeh</h4>
+    {streams.time_s.length > 10 && (
+      <button
+        className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
+        onClick={() => setShowFull(true)}
+      >
+        Zväčšiť
+      </button>
+    )}
+  </div>
 
-        {streams.time_s.length ? (
-          <div className="w-full">
-            {/* bolo 120; teraz vyššie pre čitateľnosť + legend="center" */}
-            <HrChart xs={streams.time_s} ys={streams.hr} height={220} compact legend="center" />
-          </div>
-        ) : (
-          <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
-        )}
-      </div>
+  {streams.time_s.length ? (
+    <div className="w-full mt-1"> {/* jemný posun k nadpisu */}
+      {/* bolo 120/220 -> teraz 240 = ~2× vyššie než pôvodne */}
+      <HrChart
+        xs={streams.time_s}
+        ys={streams.hr}
+        height={240}
+        compact
+        legend="center"
+        topPad={6}   // menšia vnútorná medzera hore, aby to „sedelo“ k nadpisu
+      />
+    </div>
+  ) : (
+    <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
+  )}
+</div>
 
       {/* fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
       {showFull && <FullHrOverlay
