@@ -23,6 +23,7 @@ export default function HrChart({
   height?: number;
   compact?: boolean;
   legend?: "inline" | "center";
+  topPad?: number;
 }) {
   const Svg = useMemo(() => {
     const pts: {t:number; hr:number}[] = [];
@@ -34,7 +35,7 @@ export default function HrChart({
 
     const W = 1100;              // virtuálna šírka (reaguje cez viewBox)
     const H = height ?? 240;
-    const padL = 48, padR = 16, padT = 20, padB = 34;
+    const padL = 48, padR = 16, padT = topPad ?? (compact ? 10 : 16), padB = 34;
 
     const minY = Math.min(120, ...pts.map(p=>p.hr));
     const maxY = Math.max(HR_MAX, ...pts.map(p=>p.hr));
