@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
+import { fmtFromMinutes } from "@/shared/utils/duration";
 
 type Props = { onOpenTrend?: () => void; weeks?: 2 | 4 | 8 | 12; sport?: string | null };
 
@@ -12,6 +13,7 @@ const colEasy80 = THEME.chart.easy80;
 const colHard20 = THEME.chart.hard20;
 const colTrack  = THEME.chart.track;
 const colTick   = THEME.chart.tick;
+const Dot = () => <span className="mx-1">•</span>;
 
 export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null }: Props) {
   const { getParetoWidget } = useActivityData();
@@ -77,7 +79,8 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
       </div>
 
       <div className="mt-3 text-xs opacity-85">
-        Easy: {Math.round(E)} min • Hard: {Math.round(H)} min {T ? `• ${Math.round(T)} min spolu` : ""}
+        Easy: {fmtFromMinutes(E)} <Dot /> Hard: {fmtFromMinutes(H)}{' '}
+        {T > 0 && <> <Dot /> {fmtFromMinutes(T)} spolu</>}
       </div>
       {note && <div className="mt-1 text-xs opacity-70">{note}</div>}
     </OpenerWidget>

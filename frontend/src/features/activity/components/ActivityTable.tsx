@@ -8,6 +8,8 @@ import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "./ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport"; // tvoje existujúce mapovanie labelu
+import { fmtHMS, fmtFromMinutes } from "@/shared/utils/duration";
+
 
 export default function ActivityTable({
   start,
@@ -137,7 +139,7 @@ export default function ActivityTable({
                       <td className="truncate max-w-[260px]">{r.name}</td>
                       <td>
                         {r.moving_time_s != null
-                          ? `${Math.floor((r.moving_time_s || 0) / 60)} min`
+                          ? `${fmtHMS(r.moving_time_s)}`
                           : "—"}
                       </td>
                       <td>{r.average_heartrate_bpm ?? "—"}</td>

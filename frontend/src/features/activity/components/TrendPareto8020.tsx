@@ -7,6 +7,7 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { fmtFromMinutes } from "@/shared/utils/duration";
 
 ensureChartJSRegistered();
 
@@ -16,7 +17,6 @@ type Row = {
   hard_min: number;
   easy_pct: number;
   hard_pct: number;
-  // start/end môžu chýbať, fallbackujeme cez provider.weeks
   start?: string;
   end?: string;
 };
@@ -30,23 +30,21 @@ export default function TrendPareto8020({
   const [lookback, setLookback] = useState<2 | 4 | 8 | 12>(12);
   const [sport, setSport] = useState<string>("all");
   const [rows, setRows] = useState<Row[]>([]);
+  const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
-  // načítaj trend
   useEffect(() => {
     (async () => {
       const data = await getParetoTrend(lookback, sport);
       setRows(Array.isArray(data) ? (data as Row[]) : []);
+      setPickedIdx(null);
     })();
   }, [getParetoTrend, lookback, sport]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
-
-  // priprav mapping index -> {start,end}
-  const weekMap = useMemo(() => {
-    // vezmeme posledných N týždňov z providera (vzostupne), aby indexy sedeli s grafom
-    const w = providerWeeks.slice(-lookback);
-    return w.map((wk) => ({ start: wk.start, end: wk.end }));
-  }, [providerWeeks, lookback]);
+  const weekMap = useMemo(
+    () => providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
+    [providerWeeks, lookback]
+  );
 
   const data: ChartData<"line", number[], string> = useMemo(
     () => ({
@@ -84,13 +82,7 @@ export default function TrendPareto8020({
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            padding: 8,
-            boxWidth: 6,
-            boxHeight: 6,
-          },
+          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6 },
         },
         tooltip: {
           callbacks: {
@@ -99,61 +91,49 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${Math.round(r.easy_min)} min • Hard ${Math.round(r.hard_min)} min`;
+              return `Easy ${fmtFromMinutes(r.easy_min)} • Hard ${fmtFromMinutes(r.hard_min)}`;
             },
           },
         },
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: "%" },
-          grid: { color: THEME.chart.grid },
-        },
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "%" }, grid: { color: THEME.chart.grid } },
         x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
       },
       onClick: (_evt, elements) => {
         const idx = elements?.[0]?.index;
         if (idx == null) return;
-
-        // 1) preferuj start/end z backendu, ak sú
+        setPickedIdx(idx);
         const r = rows[idx];
-        if (r?.start || r?.end) {
-          onPickWeek?.({ start: r.start, end: r.end });
-          return;
+        if (r?.start || r?.end) onPickWeek?.({ start: r.start, end: r.end });
+        else {
+          const m = weekMap[idx];
+          if (m) onPickWeek?.(m);
         }
-        // 2) fallback: vezmi z providera podľa aktuálneho lookbacku
-        const m = weekMap[idx];
-        if (m) onPickWeek?.(m);
       },
     }),
     [rows, weekMap, onPickWeek]
   );
 
   const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const picked = pickedIdx != null ? rows[pickedIdx] : null;
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+      {/* header */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
 
         <div className="flex items-center gap-2 text-xs">
-          <select
-            className="px-2 py-1 rounded bg-gray-700 text-white"
-            value={lookback}
-            onChange={(e) => setLookback(Number(e.target.value) as 2 | 4 | 8 | 12)}
-          >
+          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={lookback}
+                  onChange={(e) => setLookback(Number(e.target.value) as 2 | 4 | 8 | 12)}>
             <option value={2}>2 týždne</option>
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <select
-            className="px-2 py-1 rounded bg-gray-700 text-white"
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-          >
+          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={sport}
+                  onChange={(e) => setSport(e.target.value)}>
             <option value="all">Všetko</option>
             <option value="run">Run</option>
             <option value="bike">Bike</option>
@@ -164,12 +144,25 @@ export default function TrendPareto8020({
         </div>
       </div>
 
+      {/* graf */}
       <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
         <div style={{ height: 240 }}>
-          <div style={{ minWidth, height: "100%", maxWidth: "none", cursor: "pointer" }}>
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
             <LineChart type="line" data={data} options={options} />
           </div>
         </div>
+      </div>
+
+      {/* panel pre vybraný týždeň */}
+      <div className="mt-2 text-xs opacity-80">
+        {picked ? (
+          <>
+            <div className="font-semibold">{picked.label}</div>
+            <div>Easy: {fmtFromMinutes(picked.easy_min)} • Hard: {fmtFromMinutes(picked.hard_min)}</div>
+          </>
+        ) : (
+          <div>Klikni na bod v grafe pre zobrazenie detailu týždňa.</div>
+        )}
       </div>
     </div>
   );
