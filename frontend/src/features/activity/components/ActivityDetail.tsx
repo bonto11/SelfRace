@@ -1,12 +1,11 @@
 // src/features/activity/components/ActivityDetail.tsx
-// src/features/activity/components/ActivityDetail.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
-import { fmtSecondsHMS, fmtMinutes, fmtMinutesWhole, fmtDistance } from "@/shared/utils/format";
+import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 
 interface Props {
   activityId: number;
@@ -36,12 +35,11 @@ export default function ActivityDetail({ activityId }: Props) {
   }, [activityId, getDetail]);
 
   if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
-  const distKm =
-    summary.distance_m != null ? (summary.distance_m / 1000).toFixed(2) : "—";
-  const moveMin =
-    summary.moving_time_s != null
-      ? Math.floor(summary.moving_time_s / 60)
-      : null;
+
+  const distStr =
+    summary.distance_m != null ? fmtDistance(summary.distance_m) : "—";
+  const timeStr =
+    summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
 
   return (
     <div className={`${CARD} space-y-2`}>
@@ -59,10 +57,10 @@ export default function ActivityDetail({ activityId }: Props) {
       </p>
 
       <p>
-        <strong>Distance:</strong> {distKm} km
+        <strong>Distance:</strong> {distStr}
       </p>
       <p>
-        <strong>Time:</strong> {moveMin != null ? `${moveMin} min` : "—"}
+        <strong>Time:</strong> {timeStr}
       </p>
       <p>
         <strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}
