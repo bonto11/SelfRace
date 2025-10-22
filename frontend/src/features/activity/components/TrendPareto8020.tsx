@@ -7,7 +7,7 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
-import { fmtFromMinutes } from "@/shared/utils/duration";
+import { fmtSecondsHMS, fmtMinutes, fmtMinutesWhole, fmtDistance } from "@/shared/utils/format";
 
 ensureChartJSRegistered();
 
@@ -27,7 +27,7 @@ export default function TrendPareto8020({
   onPickWeek?: (w: { start?: string; end?: string }) => void;
 }) {
   const { getParetoTrend, weeks: providerWeeks } = useActivityData();
-  const [lookback, setLookback] = useState<2 | 4 | 8 | 12>(12);
+  const [lookback, setLookback] = useState< 4 | 8 | 12>(4);
   const [sport, setSport] = useState<string>("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
@@ -42,9 +42,15 @@ export default function TrendPareto8020({
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
   const weekMap = useMemo(
-    () => providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
+    () =>
+      providerWeeks
+        .slice(-lookback)
+        .map((w) => ({ start: w.start, end: w.end })),
     [providerWeeks, lookback]
   );
+
+  const ref80 = new Array(labels.length).fill(80);
+  const ref20 = new Array(labels.length).fill(20);
 
   const data: ChartData<"line", number[], string> = useMemo(
     () => ({
@@ -69,6 +75,30 @@ export default function TrendPareto8020({
           pointRadius: 2,
           borderDash: [4, 4],
         },
+        {
+          type: "line" as const,
+          label: "80% ref",
+          data: ref80,
+          borderColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
+          backgroundColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
+          borderWidth: 1,
+          pointRadius: 0,
+          borderDash: [6, 6],
+          yAxisID: "y",
+          order: 1
+        },
+        {
+          type: "line" as const,
+          label: "20% ref",
+          data: ref20,
+          borderColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
+          backgroundColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
+          borderWidth: 1,
+          pointRadius: 0,
+          borderDash: [6, 6],
+          yAxisID: "y",
+          order: 1
+        }
       ],
     }),
     [rows, labels]
@@ -82,22 +112,36 @@ export default function TrendPareto8020({
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
-          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6 },
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            padding: 8,
+            boxWidth: 6,
+            boxHeight: 6,
+          },
         },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
+            label: (ctx) =>
+              `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
             footer: (items) => {
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtFromMinutes(r.easy_min)} • Hard ${fmtFromMinutes(r.hard_min)}`;
+              return `Easy ${fmtSecondsHMS(
+                r.easy_min
+              )} • Hard ${fmtSecondsHMS(r.hard_min)}`;
             },
           },
         },
       },
       scales: {
-        y: { beginAtZero: true, max: 100, title: { display: true, text: "%" }, grid: { color: THEME.chart.grid } },
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "%" },
+          grid: { color: THEME.chart.grid },
+        },
         x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
       },
       onClick: (_evt, elements) => {
@@ -115,7 +159,10 @@ export default function TrendPareto8020({
     [rows, weekMap, onPickWeek]
   );
 
-  const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const minWidth = Math.max(
+    360,
+    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+  );
   const picked = pickedIdx != null ? rows[pickedIdx] : null;
 
   return (
@@ -125,15 +172,22 @@ export default function TrendPareto8020({
         <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
 
         <div className="flex items-center gap-2 text-xs">
-          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={lookback}
-                  onChange={(e) => setLookback(Number(e.target.value) as 2 | 4 | 8 | 12)}>
-            <option value={2}>2 týždne</option>
+          <select
+            className="px-2 py-1 rounded bg-gray-700 text-white"
+            value={lookback}
+            onChange={(e) =>
+              setLookback(Number(e.target.value) as 4 | 8 | 12)
+            }
+          >
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={sport}
-                  onChange={(e) => setSport(e.target.value)}>
+          <select
+            className="px-2 py-1 rounded bg-gray-700 text-white"
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+          >
             <option value="all">Všetko</option>
             <option value="run">Run</option>
             <option value="bike">Bike</option>
@@ -145,7 +199,10 @@ export default function TrendPareto8020({
       </div>
 
       {/* graf */}
-      <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div
+        className="overflow-x-auto rounded-md"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         <div style={{ height: 240 }}>
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
             <LineChart type="line" data={data} options={options} />
@@ -158,7 +215,10 @@ export default function TrendPareto8020({
         {picked ? (
           <>
             <div className="font-semibold">{picked.label}</div>
-            <div>Easy: {fmtFromMinutes(picked.easy_min)} • Hard: {fmtFromMinutes(picked.hard_min)}</div>
+            <div>
+              Easy: {fmtSecondsHMS(picked.easy_min)} • Hard:{" "}
+              {fmtSecondsHMS(picked.hard_min)}
+            </div>
           </>
         ) : (
           <div>Klikni na bod v grafe pre zobrazenie detailu týždňa.</div>

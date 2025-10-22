@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
-import { fmtHMS, fmtFromMinutes } from "@/shared/utils/duration";
+import { fmtSecondsHMS, fmtMinutes, fmtMinutesWhole, fmtDistance } from "@/shared/utils/format";
 
 interface Props {
   activityId: number;
@@ -79,8 +79,8 @@ export default function ActivityDetail({ activityId }: Props) {
           <ul className="list-disc pl-5">
             {laps.map((lap, idx) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {lap.distance_m} m,{" "}
-                {fmtHMS(lap.moving_time_s)} s
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
+                {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}
           </ul>
@@ -93,8 +93,8 @@ export default function ActivityDetail({ activityId }: Props) {
           <ul className="list-disc pl-5">
             {splits.map((split, idx) => (
               <li key={split.split_index ?? idx}>
-                Split {split.split_index ?? idx}: {split.distance_m} m,{" "}
-                {fmtHMS(split.moving_time_s)} s
+                Split {split.split_index ?? idx}: {fmtDistance(split.distance_m)},{" "}
+                {fmtSecondsHMS(split.moving_time_s)}
               </li>
             ))}
           </ul>

@@ -24,6 +24,8 @@ export const THEME = {
     hard20: "#FF5252",
     track: "rgba(255,255,255,0.08)",
     tick:  "rgba(255,255,255,0.95)",
+    ref80: "rgba(74, 222, 128, 0.35)",   // bledá zelená
+    ref20: "rgba(248, 113, 113, 0.35)",  // bledá červená
 
     grid: 'rgba(255,255,255,0.07)',
     gridSoft: 'rgba(255,255,255,0.05)',
