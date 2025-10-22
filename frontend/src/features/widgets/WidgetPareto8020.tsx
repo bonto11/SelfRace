@@ -36,7 +36,7 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
   const deltaEasy = Math.round(0.8 * T - E);
 
   // --- SVG ring parametre ---
-  const size = 190;            // plátno
+  const size = 150;            // plátno
   const stroke = 22;           // hrúbka prstenca
   const r = (size - stroke) / 2;
   const cx = size / 2, cy = size / 2;
@@ -52,8 +52,8 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
   // ------ 80/20 tick (na PRAVEJ strane) ------
   // marker = 20 % od 12:00 COUNTER-CLOCKWISE -> uhol od +x osi (SVG) je:
   const theta = -Math.PI / 2 + 2 * Math.PI * 0.20; // 12:00 + 20 % kruhu = pravá strana
-  const outerR = r + stroke / 2 + 10;   // bod na vonkajšom okraji prstenca
-  const innerR = r - stroke / 2 -10;   // a na vnútornom (dlhší, jasný tick)
+  const outerR = r + stroke / 2 + 5;   // bod na vonkajšom okraji prstenca
+  const innerR = r - stroke / 2 -5;   // a na vnútornom (dlhší, jasný tick)
   const widthTick = 4;
   const x1 = cx + outerR * Math.cos(theta);
   const y1 = cy + outerR * Math.sin(theta);
