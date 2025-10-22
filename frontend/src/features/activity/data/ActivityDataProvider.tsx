@@ -108,25 +108,29 @@ function loadDetail(activityId: number): ActivityDetailExtra | null {
   }
 }
 
-// --- do sekcie cache helpers ---
+// --- streams cache (HR) ---
 function streamsKey(activityId: number) {
   return `ACT:STREAMS:${activityId}`;
 }
-function saveStreams(activityId: number, data: any) {
+function saveStreams(activityId: number, data: StreamsData) {
   if (!hasSS()) return;
   try {
     sessionStorage.setItem(streamsKey(activityId), JSON.stringify(data));
   } catch {}
 }
-function loadStreams(activityId: number) {
+function loadStreams(activityId: number): StreamsData | null {
   if (!hasSS()) return null;
   try {
     const raw = sessionStorage.getItem(streamsKey(activityId));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+    return raw ? (JSON.parse(raw) as StreamsData) : null;
+  } catch {
+    return null;
+  }
 }
 
 /* ------------------------------ Context ------------------------------ */
+
+type StreamsData = { time_s: number[]; hr: (number | null)[]; duration_s: number };
 
 type Ctx = {
   rangeStart: string;
@@ -138,15 +142,27 @@ type Ctx = {
   selectByRange: (start: string, end: string) => ActivityRow[];
   getSummary: (activityId: number) => ActivityRow | null;
   getDetail: (activityId: number) => Promise<ActivityDetailExtra>;
-  getStreams: (activityId: number) => Promise<{time_s:number[], hr:(number|null)[], duration_s:number}>;
+  getStreams: (activityId: number) => Promise<StreamsData>;
 
-  // ✅ nové metódy pre 80/20
-  getParetoWidget: (days: number, sport?: string | null) => Promise<{
-    easy_min: number; hard_min: number; total_min: number; days: number;
-  } | null>;
-  getParetoTrend: (weeks: number, sport?: string | null) => Promise<Array<{
-    label: string; easy_min: number; hard_min: number; easy_pct: number; hard_pct: number; start?: string; end?: string;
-  }>>;
+  // 80/20
+  getParetoWidget: (
+    days: number,
+    sport?: string | null
+  ) => Promise<{ easy_min: number; hard_min: number; total_min: number; days: number } | null>;
+  getParetoTrend: (
+    weeks: number,
+    sport?: string | null
+  ) => Promise<
+    Array<{
+      label: string;
+      easy_min: number;
+      hard_min: number;
+      easy_pct: number;
+      hard_pct: number;
+      start?: string;
+      end?: string;
+    }>
+  >;
 };
 
 const ActivityDataContext = createContext<Ctx | null>(null);
@@ -299,15 +315,17 @@ export function ActivityDataProvider({
     }
   }, []);
 
-  const getStreams = useCallback(async (activityId: number) => {
-  const cached = loadStreams(activityId);
-  if (cached && Array.isArray(cached.time_s)) return cached;
+  const getStreams = useCallback(async (activityId: number): Promise<StreamsData> => {
+    const cached = loadStreams(activityId);
+    if (cached && Array.isArray(cached.time_s)) {
+      return cached;
+    }
 
-  const url = `${API_URL}/activities/streams/${activityId}?max=400`;
-  try {
+    const url = `${API_URL}/activities/streams/${activityId}?fetch=true&max=400`;
+    try {
       const res = await fetch(url, { cache: "no-store" });
-      const json = await res.json().catch(()=> ({}));
-      const data = {
+      const json = await res.json().catch(() => ({}));
+      const data: StreamsData = {
         time_s: Array.isArray(json?.time_s) ? json.time_s : [],
         hr: Array.isArray(json?.hr) ? json.hr : [],
         duration_s: Number(json?.duration_s) || 0,
@@ -321,48 +339,59 @@ export function ActivityDataProvider({
 
   /* --------- 80/20 fetchery s vlastnou cache --------- */
 
-  const getParetoWidget = useCallback(async (daysParam: number, sport: string | null = null) => {
-    if (userId == null) return null;
+  const getParetoWidget = useCallback(
+    async (daysParam: number, sport: string | null = null) => {
+      if (userId == null) return null;
 
-    const key = paretoWidgetKey(userId, daysParam, sport);
-    if (hasSS()) {
-      const raw = sessionStorage.getItem(key);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && Number.isFinite(parsed.easy_min)) return parsed as any;
-        } catch {}
+      const key = paretoWidgetKey(userId, daysParam, sport);
+      if (hasSS()) {
+        const raw = sessionStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && Number.isFinite(parsed.easy_min)) return parsed as {
+              easy_min: number; hard_min: number; total_min: number; days: number;
+            };
+          } catch {}
+        }
       }
-    }
 
-    const q = new URLSearchParams({ days: String(daysParam) });
-    if (sport) q.set("sport", sport);
-    const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
-    const res = await fetch(url, { cache: "no-store" });
-    const js = await res.json().catch(() => ({}));
-    const data = js?.data ?? null;
-    if (data && hasSS()) sessionStorage.setItem(key, JSON.stringify(data));
-    return data;
-  }, [userId]);
+      const q = new URLSearchParams({ days: String(daysParam) });
+      if (sport) q.set("sport", sport);
+      const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      const js = await res.json().catch(() => ({}));
+      const data = js?.data ?? null;
+      if (data && hasSS()) sessionStorage.setItem(key, JSON.stringify(data));
+      return data;
+    },
+    [userId]
+  );
 
-  const getParetoTrend = useCallback(async (weeksParam: number, sport: string | null = null) => {
-    if (userId == null) return [];
-    const key = paretoTrendKey(userId, weeksParam, sport);
-    if (hasSS()) {
-      const raw = sessionStorage.getItem(key);
-      if (raw) {
-        try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed; } catch {}
+  const getParetoTrend = useCallback(
+    async (weeksParam: number, sport: string | null = null) => {
+      if (userId == null) return [];
+      const key = paretoTrendKey(userId, weeksParam, sport);
+      if (hasSS()) {
+        const raw = sessionStorage.getItem(key);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed as any[];
+          } catch {}
+        }
       }
-    }
-    const q = new URLSearchParams({ weeks: String(weeksParam) });
-    if (sport) q.set("sport", sport);
-    const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
-    const res = await fetch(url, { cache: "no-store" });
-    const js = await res.json().catch(() => ({}));
-    const rows = Array.isArray(js?.data) ? js.data : [];
-    if (hasSS()) sessionStorage.setItem(key, JSON.stringify(rows));
-    return rows;
-  }, [userId]);
+      const q = new URLSearchParams({ weeks: String(weeksParam) });
+      if (sport) q.set("sport", sport);
+      const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      const js = await res.json().catch(() => ({}));
+      const rows = Array.isArray(js?.data) ? js.data : [];
+      if (hasSS()) sessionStorage.setItem(key, JSON.stringify(rows));
+      return rows;
+    },
+    [userId]
+  );
 
   const value: Ctx = useMemo(
     () => ({
@@ -375,11 +404,24 @@ export function ActivityDataProvider({
       selectByRange,
       getSummary,
       getDetail,
+      getStreams,
       getParetoWidget,
       getParetoTrend,
-      getStreams,
     }),
-    [rangeStart, rangeEnd, rows, weeks, loading, fetchRange, selectByRange, getSummary, getDetail, getParetoWidget, getParetoTrend]
+    [
+      rangeStart,
+      rangeEnd,
+      rows,
+      weeks,
+      loading,
+      fetchRange,
+      selectByRange,
+      getSummary,
+      getDetail,
+      getStreams,
+      getParetoWidget,
+      getParetoTrend,
+    ]
   );
 
   return <ActivityDataContext.Provider value={value}>{children}</ActivityDataContext.Provider>;
