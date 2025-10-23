@@ -56,36 +56,37 @@ export default function ActivityDetail({ activityId }: Props) {
       <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
       <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
 
-      {/* HR mini graf – vyšší + LEGENDA V STREDE */}
-<div className="mt-2">  {/* bolo mt-3 -> menšia medzera k nadpisu */}
-  <div className="flex items-center justify-between">
-    <h4 className="font-bold">HR priebeh</h4>
-    {streams.time_s.length > 10 && (
-      <button
-        className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
-        onClick={() => setShowFull(true)}
-      >
-        Zväčšiť
-      </button>
-    )}
-  </div>
-
-  {streams.time_s.length ? (
-    <div className="w-full mt-1"> {/* jemný posun k nadpisu */}
-      {/* bolo 120/220 -> teraz 240 = ~2× vyššie než pôvodne */}
-      <HrChart
-        xs={streams.time_s}
-        ys={streams.hr}
-        height={240}
-        compact
-        legend="center"
-        topPad={6}   // menšia vnútorná medzera hore, aby to „sedelo“ k nadpisu
-      />
-    </div>
-  ) : (
-    <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
-  )}
-</div>
+      {/* HR mini graf – bližšie k nadpisu, od kraja po kraj karty, menšie okraje vo vnútri */}
+      <div className="mt-1"> {/* bolo mt-3/mt-2 -> menšia medzera k nadpisu */}
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold">HR priebeh</h4>
+          {streams.time_s.length > 10 && (
+            <button
+              className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
+              onClick={() => setShowFull(true)}
+            >
+              Zväčšiť
+            </button>
+          )}
+        </div>
+      
+        {streams.time_s.length ? (
+          // full-bleed na mobiloch: vytiahneme graf cez horizontálny padding karty
+          <div className="-mx-4 sm:mx-0 mt-1 mb-1">
+            <HrChart
+              xs={streams.time_s}
+              ys={streams.hr}
+              height={240}      // vyšší mini graf
+              compact
+              legend="center"   // legenda v strede
+              topPad={4}        // úplne malá horná medzera
+              tight             // 🔹 menšie vnútorné okraje (ľavo/​pravo/​dole)
+            />
+          </div>
+        ) : (
+          <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
+        )}
+      </div>
 
       {/* fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
       {showFull && <FullHrOverlay
