@@ -17,13 +17,14 @@ function zoneColor(hr: number) {
 }
 
 export default function HrChart({
-  xs, ys, height = 240, compact = false, legend = "inline", topPad
+  xs, ys, height = 240, compact = false, legend = "inline", topPad, tight = false
 }: {
   xs: number[]; ys: (number|null)[];
   height?: number;
   compact?: boolean;
   legend?: "inline" | "center";
   topPad?: number;
+  tight?: boolean;
 }) {
   const Svg = useMemo(() => {
     const pts: {t:number; hr:number}[] = [];
@@ -35,7 +36,10 @@ export default function HrChart({
 
     const W = 1100;              // virtuálna šírka (reaguje cez viewBox)
     const H = height ?? 240;
-    const padL = 48, padR = 16, padT = topPad ?? (compact ? 10 : 16), padB = 34;
+    const padL = tight ? 32 : 46;
+    const padR = tight ? 8  : 14;
+    const padT = topPad ?? (tight ? 6 : (compact ? 10 : 16));
+    const padB = tight ? 18 : 28;
 
     const minY = Math.min(120, ...pts.map(p=>p.hr));
     const maxY = Math.max(HR_MAX, ...pts.map(p=>p.hr));
