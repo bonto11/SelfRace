@@ -56,9 +56,11 @@ export default function ActivityDetail({ activityId }: Props) {
       <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
       <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
 
+      // v ActivityDetail.tsx nahraď HR sekciu týmto blokom
+
       {/* HR priebeh */}
-      <div className="mt-2">
-        <div className="flex items-center justify-between">
+      <div className="mt-1"> {/* bolo mt-2 */}
+        <div className="flex items-center justify-between mb-1"> {/* pridané mb-1 */}
           <h4 className="font-bold">HR priebeh</h4>
           {!!streams.time_s.length && (
             <button
@@ -69,11 +71,16 @@ export default function ActivityDetail({ activityId }: Props) {
             </button>
           )}
         </div>
-
-        {/* tesnejšie k okrajom kontajnera, vyšší mini-graf */}
+      
         {streams.time_s.length ? (
-          <div className="mt-1 -mx-1">
-            <HrChart xs={streams.time_s} ys={streams.hr} height={160} compact />
+          // tesnejšie okraje a menšia spodná medzera
+          <div className="-mx-3 -mt-1 mb-2"> {/* bolo mt-1 -mx-1 (bez mb) */}
+            <HrChart
+              xs={streams.time_s}
+              ys={streams.hr}
+              height={148}    // o kúsok nižšie (menej vertikálnej prázdnoty)
+              compact         // vnútri grafu menšie paddingy
+            />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
