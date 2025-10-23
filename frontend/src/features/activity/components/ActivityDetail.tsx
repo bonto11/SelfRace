@@ -56,18 +56,23 @@ export default function ActivityDetail({ activityId }: Props) {
       <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
       <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
 
-      {/* HR mini graf – bližšie k nadpisu, od kraja po kraj karty, menšie okraje vo vnútri */}
-      <div className="mt-1"> {/* bolo mt-3/mt-2 -> menšia medzera k nadpisu */}
+      {/* HR priebeh */}
+      <div className="mt-2">
         <div className="flex items-center justify-between">
           <h4 className="font-bold">HR priebeh</h4>
-          {streams.time_s.length > 10 && (
+          {!!streams.time_s.length && (
             <button
               className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
               onClick={() => setShowFull(true)}
             >
               Zväčšiť
             </button>
-          )}
+              )}
+            </div>
+
+          <div className="mt-1 -mx-1">   {/* tesnejšie k okrajom karty */}
+            <HrChart xs={streams.time_s} ys={streams.hr} height={160} compact />
+          </div>
         </div>
       
         {streams.time_s.length ? (
@@ -89,11 +94,26 @@ export default function ActivityDetail({ activityId }: Props) {
       </div>
 
       {/* fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
-      {showFull && <FullHrOverlay
-        xs={streams.time_s}
-        ys={streams.hr}
-        onClose={() => setShowFull(false)}
-      />}
+      {showFull && (
+      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-hidden">
+        <div className="absolute inset-0 p-3 md:p-6">
+          <div className="bg-gray-800 rounded-lg w-full h-full shadow-lg flex flex-col">
+            <div className="flex items-center justify-between p-3">
+              <h3 className="text-base md:text-lg font-semibold">HR priebeh (detail)</h3>
+              <button onClick={() => setShowFull(false)} className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">
+                Zavrieť
+              </button>
+            </div>
+            {/* scroll len tu vo vnútri */}
+            <div className="px-3 pb-4 grow overflow-auto">
+              <div className="w-full" style={{ minHeight: 360 }}>
+                <HrChart xs={streams.time_s} ys={streams.hr} height={480} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
       {loading && <div>Načítavam detail (laps/splits)…</div>}
 
