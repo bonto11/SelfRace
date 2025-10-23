@@ -1,7 +1,7 @@
+// src/features/activity/components/ActivityDetail.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-// ⚠️ nechávame bez CARD, nech nie je „karta v karte“
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
@@ -67,57 +67,20 @@ export default function ActivityDetail({ activityId }: Props) {
             >
               Zväčšiť
             </button>
-              )}
-            </div>
-
-          <div className="mt-1 -mx-1">   {/* tesnejšie k okrajom karty */}
-            <HrChart xs={streams.time_s} ys={streams.hr} height={160} compact />
-          </div>
+          )}
         </div>
-      
+
+        {/* tesnejšie k okrajom kontajnera, vyšší mini-graf */}
         {streams.time_s.length ? (
-          // full-bleed na mobiloch: vytiahneme graf cez horizontálny padding karty
-          <div className="-mx-4 sm:mx-0 mt-1 mb-1">
-            <HrChart
-              xs={streams.time_s}
-              ys={streams.hr}
-              height={240}      // vyšší mini graf
-              compact
-              legend="center"   // legenda v strede
-              topPad={4}        // úplne malá horná medzera
-              tight             // 🔹 menšie vnútorné okraje (ľavo/​pravo/​dole)
-            />
+          <div className="mt-1 -mx-1">
+            <HrChart xs={streams.time_s} ys={streams.hr} height={160} compact />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
         )}
       </div>
 
-      {/* fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
-      {showFull && (
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-hidden">
-        <div className="absolute inset-0 p-3 md:p-6">
-          <div className="bg-gray-800 rounded-lg w-full h-full shadow-lg flex flex-col">
-            <div className="flex items-center justify-between p-3">
-              <h3 className="text-base md:text-lg font-semibold">HR priebeh (detail)</h3>
-              <button onClick={() => setShowFull(false)} className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">
-                Zavrieť
-              </button>
-            </div>
-            {/* scroll len tu vo vnútri */}
-            <div className="px-3 pb-4 grow overflow-auto">
-              <div className="w-full" style={{ minHeight: 360 }}>
-                <HrChart xs={streams.time_s} ys={streams.hr} height={480} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-      {loading && <div>Načítavam detail (laps/splits)…</div>}
-
-      {/* ✅ LAPS späť */}
+      {/* LAPS */}
       {!!laps.length && (
         <>
           <h4 className="font-bold mt-3">Laps</h4>
@@ -131,7 +94,7 @@ export default function ActivityDetail({ activityId }: Props) {
         </>
       )}
 
-      {/* ✅ SPLITS osobitne */}
+      {/* SPLITS */}
       {!!splits.length && (
         <>
           <h4 className="font-bold mt-3">Splits</h4>
@@ -144,15 +107,24 @@ export default function ActivityDetail({ activityId }: Props) {
           </ul>
         </>
       )}
+
+      {/* Fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
+      {showFull && (
+        <FullHrOverlay
+          xs={streams.time_s}
+          ys={streams.hr}
+          onClose={() => setShowFull(false)}
+        />
+      )}
     </div>
   );
 }
 
-/* ---------------- overlay ako samostatný komponent ---------------- */
-function FullHrOverlay({ xs, ys, onClose }:{
-  xs: number[]; ys: (number|null)[]; onClose: ()=>void;
-}) {
-  // zamkneme scroll body, overlay má vlastný scroll
+/* --------------- Fullscreen overlay komponent --------------- */
+function FullHrOverlay({
+  xs, ys, onClose,
+}: { xs: number[]; ys: (number|null)[]; onClose: () => void }) {
+  // zamknúť scroll body
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -162,8 +134,8 @@ function FullHrOverlay({ xs, ys, onClose }:{
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm">
-      <div className="absolute inset-0 p-3 md:p-6 overflow-auto">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-hidden">
+      <div className="absolute inset-0 p-3 md:p-6">
         <div className="bg-gray-800 rounded-lg w-full h-full shadow-lg flex flex-col">
           <div className="flex items-center justify-between p-3">
             <h3 className="text-base md:text-lg font-semibold">HR priebeh (detail)</h3>
@@ -171,15 +143,10 @@ function FullHrOverlay({ xs, ys, onClose }:{
               Zavrieť
             </button>
           </div>
-
-          <div className="px-3 pb-4 grow">
-            <div className="w-full" style={{ height: isMobile ? '60vh' : 460 }}>
-              <HrChart
-                xs={xs}
-                ys={ys}
-                height={isMobile ? undefined as any : 460}
-                legend="center"
-              />
+          {/* scroll len tu vo vnútri */}
+          <div className="px-3 pb-4 grow overflow-auto">
+            <div className="w-full" style={{ height: isMobile ? "60vh" : 480 }}>
+              <HrChart xs={xs} ys={ys} height={isMobile ? undefined as any : 480} />
             </div>
           </div>
         </div>
