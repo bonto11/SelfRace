@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional, Set, List, Dict, Any
 from Modules.SQL.db_handler import get_client
+from Services.sport_type import infer_sport_type_fe
 
 from ..config import (
     TABLE_ACTIVITIES_SUMMARY,
@@ -133,10 +134,14 @@ def upsert_activity_summary_from_full(user_id: int, full: Dict[str, Any]) -> boo
         moving_time_s = _to_int(full.get("moving_time") or 0)
         elapsed_time_s = _to_int(full.get("elapsed_time") or 0)
 
+        sport_type = full.get("sport_type") or full.get("type")
+        name = full.get("name")
+        sport_type_fe = infer_sport_type_fe(sport_type, name)
+
         payload = {
             "activity_id": activity_id,
             "user_id": user_id,
-            "name": full.get("name"),
+            "name": name,
             "date": full.get("start_date_local"),
             "timezone": full.get("timezone"),
             "utc_offset_s": _to_int(full.get("utc_offset")),
@@ -161,10 +166,12 @@ def upsert_activity_summary_from_full(user_id: int, full: Dict[str, Any]) -> boo
             "achievement_count": _to_int(full.get("achievement_count")),
             "pr_count": _to_int(full.get("pr_count")),
             "calories_kcal": _to_int(full.get("calories")),
-            "sport_type": full.get("sport_type") or full.get("type"),
+            "sport_type": sport_type,
+            "sport_type_fe" : sport_type_fe,
             "description": full.get("description"),
             "gear_id": (full.get("gear") or {}).get("id"),
-            "gear_name": (full.get("gear") or {}).get("name"),
+            #"gear_name": (full.get("gear") or {}).get("name"),
+            "gear_name": "data mng",
             "pace_seconds_per_km": _compute_pace_seconds_per_km(
                 distance_m, moving_time_s
             ),
