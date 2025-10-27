@@ -120,11 +120,11 @@ export function rangeLabel(startISO?: string, endISO?: string) {
 }
 
 /* --------------------- kategorizácia športu --------------------- */
-export type EffSport = "run" | "bike" | "strength" | "mixed" | "skate" | "other";
+export type EffSport = "run" | "ride" | "strength" | "mixed" | "skate" | "other";
 export function toEffSportKey(row: Pick<ActivityRow,"sport_type"|"sport_type_fe"|"sport_type_ovrd">): EffSport {
   const s = (row.sport_type_ovrd ?? row.sport_type_fe ?? row.sport_type ?? "").toLowerCase();
   if (/run/.test(s)) return "run";
-  if (/ride|bike|cycling/.test(s)) return "bike";
+  if (/ride|bike|cycling/.test(s)) return "ride";
   if (/strength|gym|weights/.test(s)) return "strength";
   if (/skate/.test(s)) return "skate";
   if (/hike|walk|row|swim|yoga/.test(s)) return "other";
@@ -143,7 +143,7 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
     if (!daily.has(iso)) {
       daily.set(iso, {
         km: 0, time: 0, trimp: 0,
-        bySport: { run: {km:0,min:0,trimp:0}, bike:{km:0,min:0,trimp:0},
+        bySport: { run: {km:0,min:0,trimp:0}, ride:{km:0,min:0,trimp:0},
                    strength:{km:0,min:0,trimp:0}, mixed:{km:0,min:0,trimp:0},
                    skate:{km:0,min:0,trimp:0}, other:{km:0,min:0,trimp:0} }
       });
@@ -184,9 +184,9 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
         start: info.start,
         end: info.end,
         label: info.label,
-        bySportKm: { run:0,bike:0,strength:0,mixed:0,skate:0,other:0 },
-        bySportMin:{ run:0,bike:0,strength:0,mixed:0,skate:0,other:0 },
-        bySportTrimp:{ run:0,bike:0,strength:0,mixed:0,skate:0,other:0 },
+        bySportKm: { run:0,ride:0,strength:0,mixed:0,skate:0,other:0 },
+        bySportMin:{ run:0,ride:0,strength:0,mixed:0,skate:0,other:0 },
+        bySportTrimp:{ run:0,ride:0,strength:0,mixed:0,skate:0,other:0 },
       });
     }
     const wk = weeks.get(info.weekKey)!;
@@ -219,10 +219,10 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
       label: wk.label,
       start: wk.start,
       end: wk.end,
-      km_run: wk.bySportKm.run, km_ride: wk.bySportKm.bike, km_mixed: wk.bySportKm.mixed, km_skate: wk.bySportKm.skate,
-      time_run_min: wk.bySportMin.run, time_ride_min: wk.bySportMin.bike, time_strength_min: wk.bySportMin.strength,
+      km_run: wk.bySportKm.run, km_ride: wk.bySportKm.ride, km_mixed: wk.bySportKm.mixed, km_skate: wk.bySportKm.skate,
+      time_run_min: wk.bySportMin.run, time_ride_min: wk.bySportMin.ride, time_strength_min: wk.bySportMin.strength,
       time_mixed_min: wk.bySportMin.mixed, time_skate_min: wk.bySportMin.skate, time_other_min: wk.bySportMin.other,
-      trimp_run: wk.bySportTrimp.run, trimp_ride: wk.bySportTrimp.bike, trimp_strength: wk.bySportTrimp.strength,
+      trimp_run: wk.bySportTrimp.run, trimp_ride: wk.bySportTrimp.ride, trimp_strength: wk.bySportTrimp.strength,
       trimp_mixed: wk.bySportTrimp.mixed, trimp_skate: wk.bySportTrimp.skate, trimp_other: wk.bySportTrimp.other,
       monotony: { km: mono.km, time: mono.time, trimp: mono.trimp },
       strain: {
