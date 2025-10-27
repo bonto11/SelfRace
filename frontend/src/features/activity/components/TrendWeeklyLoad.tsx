@@ -25,7 +25,7 @@ type WeekRow = {
 };
 
 const C = {
-  run:"#22D3EE", bike:"#A78BFA", strength:"#F59E0B", mixed:"#34D399", skate:"#60A5FA", other:"#9CA3AF",
+  run:"#22D3EE", ride:"#A78BFA", strength:"#F59E0B", mixed:"#34D399", skate:"#60A5FA", other:"#9CA3AF",
   monotony:"#84CC16", strain:"#FDE047",
 };
 
@@ -74,7 +74,7 @@ export default function TrendWeeklyLoad({
           week: w.week ?? w.iso_week ?? w.label ?? "",
           label: rangeLabel(w.start, w.end) || w.label || w.week || "",
           start: w.start ?? "", end: w.end ?? "",
-          km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
+          km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km),
           km_mixed: num(w.km_mixed),         km_skate: num(w.km_skate),
           time_run_min: num(w.time_run_min ?? w.run_min),
           time_ride_min: num(w.time_ride_min ?? w.ride_min),
@@ -83,7 +83,7 @@ export default function TrendWeeklyLoad({
           time_skate_min: num(w.time_skate_min),
           time_other_min: num(w.time_other_min ?? w.other_min),
           trimp_run: num(w.trimp_run ?? w.run_trimp),
-          trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
+          trimp_ride: num(w.trimp_ride ?? w.ride_trimp),
           trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
           trimp_mixed: num(w.trimp_mixed),
           trimp_skate: num(w.trimp_skate),
@@ -114,7 +114,7 @@ export default function TrendWeeklyLoad({
   const datasets = useMemo(() => {
     const W = weeks;
     const ds:any[] = [];
-    const pushBar = (key:"run"|"bike"|"strength"|"mixed"|"skate"|"other", label:string, data:number[]) => {
+    const pushBar = (key:"run"|"ride"|"strength"|"mixed"|"skate"|"other", label:string, data:number[]) => {
       // ak je vybraný konkrétny sport, necháme len jeho dataset
       if (sport !== "all" && sport !== key) return;
       const color = (C as any)[key];
@@ -123,19 +123,19 @@ export default function TrendWeeklyLoad({
 
     if (metric === "km") {
       pushBar("run","Km (run)",   W.map(w=>w.km_run));
-      pushBar("bike","Km (bike)", W.map(w=>w.km_ride));
+      pushBar("ride","Km (ride)", W.map(w=>w.km_ride));
       pushBar("mixed","Km (mixed)",W.map(w=>w.km_mixed));
       pushBar("skate","Km (skate)",W.map(w=>w.km_skate));
     } else if (metric === "time") {
       pushBar("run","Run",      W.map(w=>w.time_run_min));
-      pushBar("bike","Bike",     W.map(w=>w.time_ride_min));
+      pushBar("ride","Ride",     W.map(w=>w.time_ride_min));
       pushBar("strength","Strength", W.map(w=>w.time_strength_min));
       pushBar("mixed","Mixed",    W.map(w=>w.time_mixed_min));
       pushBar("skate","Skate",    W.map(w=>w.time_skate_min));
       pushBar("other","Other",    W.map(w=>w.time_other_min));
     } else {
       pushBar("run","TRIMP (run)",      W.map(w=>w.trimp_run));
-      pushBar("bike","TRIMP (bike)",     W.map(w=>w.trimp_ride));
+      pushBar("ride","TRIMP (ride)",     W.map(w=>w.trimp_ride));
       pushBar("strength","TRIMP (strength)", W.map(w=>w.trimp_strength));
       pushBar("mixed","TRIMP (mixed)",    W.map(w=>w.trimp_mixed));
       pushBar("skate","TRIMP (skate)",    W.map(w=>w.trimp_skate));
@@ -203,7 +203,7 @@ export default function TrendWeeklyLoad({
           <select value={sport} onChange={(e)=>setSport(e.target.value)} className="px-2 py-1 rounded bg-gray-700">
             <option value="all">Všetko</option>
             <option value="run">Run</option>
-            <option value="ride">Bike</option>
+            <option value="ride">Ride</option>
             <option value="strength">Strength</option>
             <option value="mixed">Mixed</option>
             <option value="skate">Skate</option>
