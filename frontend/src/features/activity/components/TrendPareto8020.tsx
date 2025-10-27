@@ -1,3 +1,4 @@
+// src/features/pareto/components/TrendPareto8020.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -20,22 +21,24 @@ type Row = {
   end?: string;
 };
 
+export type ParetoWeekPick = {
+  start?: string;
+  end?: string;
+  sport: string; // ← dôležité
+};
+
 export default function TrendPareto8020({
   onPickWeek,
 }: {
-  onPickWeek?: (w: { start?: string; end?: string; sport: string }) => void;
+  onPickWeek?: (w: ParetoWeekPick) => void;
 }) {
   const { getParetoTrend, weeks: providerWeeks } = useActivityData();
 
-  // UI stav
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
   const [sport, setSport] = useState<string>("all");
-
-  // dáta pre graf
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
-  // fetch – pri zmene lookback/sport
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -51,13 +54,13 @@ export default function TrendPareto8020({
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
 
-  // fallback intervaly, ak BE neposiela start/end
+  // fallback mapa týždňov (ak BE neposiela start/end)
   const weekMap = useMemo(
     () => providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
     [providerWeeks, lookback]
   );
 
-  // ref čiary 80/20
+  // ref čiary
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
   const ref20 = useMemo(() => Array(labels.length).fill(20), [labels.length]);
 
@@ -86,7 +89,7 @@ export default function TrendPareto8020({
           borderDash: [4, 4],
           order: 2,
         },
-        // referenčné čiary (bledšie, pod krivkami)
+        // referenčné čiary
         {
           type: "line" as const,
           label: "80% ref",
@@ -148,28 +151,24 @@ export default function TrendPareto8020({
         },
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: "%" },
-          grid: { color: THEME.chart.grid },
-        },
-        x: {
-          ticks: { maxRotation: 0 },
-          grid: { color: THEME.chart.gridSoft },
-        },
+        y: { beginAtZero: true, max: 100, title: { display: true, text: "%" }, grid: { color: THEME.chart.grid } },
+        x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
       },
       onClick: (_evt, elements) => {
         const idx = elements?.[0]?.index;
         if (idx == null) return;
         setPickedIdx(idx);
+
         const r = rows[idx];
-        if (r?.start || r?.end) {
-          onPickWeek?.({ start: r.start, end: r.end, sport });
-        } else {
-          const m = weekMap[idx];
-          if (m) onPickWeek?.({ ...m, sport });
-        }
+        const fallback = weekMap[idx];
+        const payload: ParetoWeekPick = {
+          start: r?.start ?? fallback?.start,
+          end:   r?.end   ?? fallback?.end,
+          sport, // ← posielame aktuálny výber športu
+        };
+
+        console.debug("[PARETO][trend] pick", payload);
+        onPickWeek?.(payload);
       },
     }),
     [rows, weekMap, onPickWeek, sport]
@@ -194,7 +193,6 @@ export default function TrendPareto8020({
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-
           <select
             className="px-2 py-1 rounded bg-gray-700 text-white"
             value={sport}
@@ -205,6 +203,7 @@ export default function TrendPareto8020({
             <option value="bike">Bike</option>
             <option value="strength">Strength</option>
             <option value="mixed">Mixed</option>
+            <option value="skate">Skate</option>
             <option value="other">Other</option>
           </select>
         </div>
@@ -219,7 +218,7 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* detail vybraného týždňa */}
+      {/* detail vybraného týždňa – textik */}
       <div className="mt-2 text-xs opacity-80">
         {picked ? (
           <>
