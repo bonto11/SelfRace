@@ -43,7 +43,7 @@ def infer_sport_type_fe(
     speed_mps = (dist / tsec) if tsec > 0 else 0.0
 
     # prahy – môžeš ľubovoľne doladiť:
-    MIX_DIST_M = 1000.0      # 1 km stačí na "bolo tam behu/chôdze dosť"
+    MIX_DIST_M = 500.0      # 1 km stačí na "bolo tam behu/chôdze dosť"
     MIX_SPEED_MPS = 1.0      # ~3.6 km/h (chôdza/klus)
 
     # 1) priame mapovanie Strava sport_type
