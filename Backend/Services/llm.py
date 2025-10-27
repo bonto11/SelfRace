@@ -85,7 +85,7 @@ def try_llm_call(payload_json: dict, model: str) -> dict:
         thursday?: Session|Session[], friday?: Session|Session[], saturday?: Session|Session[], sunday?: Session|Session[],
         rest_days?: string[],
         run?: { weekly_km_target?: number|null, sessions?: Session[] },
-        bike?: { weekly_time_target_min?: number|null, sessions?: Session[] },
+        ride?: { weekly_time_target_min?: number|null, sessions?: Session[] },
         strength?: { sessions?: Session[] }
       }
     where Session = {
