@@ -9,7 +9,7 @@ from typing import Optional
 
 def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
     """
-    Koše: run, bike, strength, skate, mixed, other
+    Koše: run, ride, strength, skate, mixed, other
     - 'trail_run' / 'trailrun' -> run
     - 'inline' / 'inlineskate' / 'roller' -> skate
     - 'workout' / 'mixed' / 'brick' / 'duathlon' / 'triathlon' -> mixed (ak je vzdialenosť > 0)
@@ -25,7 +25,7 @@ def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
 
     # bicykel
     if any(k in s for k in ("ride", "bike", "cycle", "cycling", "virtual_ride", "ebike")):
-        return "bike"
+        return "ride"
 
     # sila
     if any(k in s for k in ("strength", "weight", "weighttraining", "gym", "crossfit")):
