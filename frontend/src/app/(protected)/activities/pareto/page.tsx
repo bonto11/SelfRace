@@ -1,4 +1,3 @@
-// src/app/(app)/activities/pareto/page.tsx
 "use client";
 
 import { useState, useCallback } from "react";
@@ -20,12 +19,7 @@ export default function ParetoPage() {
     <ActivityDataProvider days={90}>
       <div className="space-y-4">
         <TrendPareto8020 onPickWeek={handlePick} />
-
-        <ActivityTable
-          start={range?.start}
-          end={range?.end}
-          sport={sport}
-        />
+        <ActivityTable start={range?.start} end={range?.end} sport={sport} />
       </div>
     </ActivityDataProvider>
   );
