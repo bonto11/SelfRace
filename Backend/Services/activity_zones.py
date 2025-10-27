@@ -15,6 +15,19 @@ from Modules.API.Strava.streams import fetch_and_optionally_store_batch, cache_s
 
 sb = get_client()
 
+def _get_user_uid(user_id: int) -> str:
+    r = (
+        sb.table(TABLE_USERS)
+        .select("auth_uid")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    row = (r.data or [None])[0]
+    if not row or not row.get("auth_uid"):
+        raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
+    return str(row["auth_uid"])
+
 def _to_int(v: Any) -> Optional[int]:
     try:
         if v is None:
@@ -295,6 +308,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     s_map = _load_summary_map(user_id, ids)
     now_ts = datetime.now(timezone.utc).isoformat()
 
+    user_uid = _get_user_uid(user_id)
     rows: List[dict] = []
     skipped = 0
     for it in items:
@@ -312,6 +326,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
         extras = s_map.get(aid_i, {})
         rows.append({
             "user_id": int(user_id),
+            "user_uid": user_uid,
             "activity_id": aid_i,
             "z1_min": _to_int_min(mins.get("z1_min")),
             "z2_min": _to_int_min(mins.get("z2_min")),
