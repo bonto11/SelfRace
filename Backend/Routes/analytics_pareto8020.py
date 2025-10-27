@@ -14,7 +14,6 @@ sb = get_client()
 SPORT_ALIAS = {
     "all": None,
     "run": "run",
-    "bike": "ride",
     "ride": "ride",
     "strength": "strength",
     "mixed": "mixed",
