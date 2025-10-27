@@ -203,7 +203,7 @@ export default function TrendWeeklyLoad({
           <select value={sport} onChange={(e)=>setSport(e.target.value)} className="px-2 py-1 rounded bg-gray-700">
             <option value="all">Všetko</option>
             <option value="run">Run</option>
-            <option value="bike">Bike</option>
+            <option value="ride">Bike</option>
             <option value="strength">Strength</option>
             <option value="mixed">Mixed</option>
             <option value="skate">Skate</option>
