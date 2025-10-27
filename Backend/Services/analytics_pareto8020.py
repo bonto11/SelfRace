@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple, Iterable, DefaultDict
+from typing import Any, Dict, List, Tuple, Iterable, DefaultDict, Optional, cast
 from collections import defaultdict
 
 from Modules.SQL.db_handler import get_client
@@ -13,7 +13,27 @@ sb = get_client()
 
 
 # ---------------------------- helpers ----------------------------
+def _as_int(x: Any) -> Optional[int]:
+    try:
+        if x is None or x == "":
+            return None
+        return int(round(float(x)))
+    except Exception:
+        return None
 
+def _as_str(x: Any) -> Optional[str]:
+    if x is None:
+        return None
+    s = str(x)
+    return s
+
+def _as_float(x: Any) -> Optional[float]:
+    try:
+        if x is None or x == "":
+            return None
+        return float(x)
+    except Exception:
+        return None
 def _to_num(x: Any) -> float:
     try:
         return float(x)
@@ -47,6 +67,26 @@ def _sum_enrichment_rows(rows: List[Dict[str, Any]]) -> Tuple[float, float]:
         z5 = _to_num(r.get("z5_min"))
         easy += (z1 + z2)
         hard += (z3 + z4 + z5)
+    return easy, hard
+
+def _row_easy_hard(row: Dict[str, Any], count_no_hr_as_easy: bool = True) -> Tuple[float, float]:
+    """
+    Vráti (easy_min, hard_min) podľa zón. Ak nie sú žiadne minúty v Z1..Z5 a je povolený
+    fallback, prirátame easy = moving_time_s / 60 (tj. aktivita bez HR ide do easy).
+    """
+    z1 = _to_num(row.get("z1_min"))
+    z2 = _to_num(row.get("z2_min"))
+    z3 = _to_num(row.get("z3_min"))
+    z4 = _to_num(row.get("z4_min"))
+    z5 = _to_num(row.get("z5_min"))
+
+    easy = z1 + z2
+    hard = z3 + z4 + z5
+
+    if (easy + hard) == 0 and count_no_hr_as_easy:
+        mt_min = _to_num(row.get("moving_time_s")) / 60.0
+        if mt_min > 0:
+            easy = mt_min
     return easy, hard
 
 
@@ -84,7 +124,8 @@ def _load_enrichment_for_ids(user_id: int, ids: List[int]) -> List[Dict[str, Any
     for chunk in _chunked(ids, 1000):
         r = (
             sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-            .select("activity_id,z1_min,z2_min,z3_min,z4_min,z5_min")
+            .select("activity_id,z1_min,z2_min,z3_min,z4_min,z5_min,"
+                    "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m")
             .eq("user_id", user_id)
             .in_("activity_id", chunk)
             .execute()
@@ -95,89 +136,85 @@ def _load_enrichment_for_ids(user_id: int, ids: List[int]) -> List[Dict[str, Any
 
 # -------------------------- public API ---------------------------
 
-def get_pareto_widget(user_id: int, days: int = 14) -> Dict[str, Any]:
+def get_pareto_source(
+    user_id: int,
+    months: int = 3,
+    count_no_hr_as_easy: bool = True
+) -> Dict[str, Any]:
     """
-    Agregácia za posledných `days` dní → easy/hard minúty.
-    """
-    now = datetime.now(timezone.utc)
-    start = (now - timedelta(days=max(1, int(days)))).strftime("%Y-%m-%d")
-    end   = now.strftime("%Y-%m-%d")
-
-    id_rows = _activity_ids_in_range(user_id, start, end)
-    ids = [aid for (aid, _) in id_rows]
-    if not ids:
-        return {"success": True, "data": {"easy_min": 0, "hard_min": 0, "total_min": 0, "days": days}}
-
-    enr = _load_enrichment_for_ids(user_id, ids)
-    easy, hard = _sum_enrichment_rows(enr)
-    total = easy + hard
-    return {
-        "success": True,
-        "data": {
-            "easy_min": round(easy),
-            "hard_min": round(hard),
-            "total_min": round(total),
-            "days": days,
-        },
-    }
-
-def get_pareto_trend(user_id: int, months: int = 6) -> Dict[str, Any]:
-    """
-    Mesačný trend za `months` mesiacov dozadu (vrátane bežiaceho mesiaca).
-    Výstup: [{label:'YYYY-MM', easy_min, hard_min}, ...] vzostupne podľa mesiaca.
+    Vráti kompletný zoznam aktivít za posledné `months` mesiacov s dátami z enrichmentu
+    + dopočítané easy/hard/total. FE si to uloží do SESSION a filtruje lokálne.
     """
     months = max(1, int(months))
-    # začiatok = dnes - months*30 (hrubý odhad), aby sme mali buffer cez hranice mesiacov
     start_dt = datetime.now(timezone.utc) - timedelta(days=months * 31)
     start_iso = start_dt.strftime("%Y-%m-%d")
     end_iso   = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # 1) ids + date (zo summary)
     id_rows = _activity_ids_in_range(user_id, start_iso, end_iso)
     if not id_rows:
-        return {"success": True, "data": []}
+        return {"success": True, "data": [], "months": months}
 
-    # map: activity_id -> month label
-    aid_to_month: Dict[int, str] = {}
-    months_set: set[str] = set()
-    for aid, d in id_rows:
-        lab = _ym(d)
-        aid_to_month[int(aid)] = lab
-        months_set.add(lab)
+    # bezpečne poskladať mapu id->date
+    aid_to_date: Dict[int, str] = {}
+    for aid_raw, date_raw in id_rows:
+        aid = _as_int(aid_raw)
+        ds  = _as_str(date_raw)
+        if aid is not None and ds:
+            aid_to_date[aid] = ds
 
-    enr = _load_enrichment_for_ids(user_id, list(aid_to_month.keys()))
+    ids: List[int] = list(aid_to_date.keys())
+    if not ids:
+        return {"success": True, "data": [], "months": months}
 
-    # agregácia do mesiacov
-    agg: DefaultDict[str, Dict[str, float]] = defaultdict(lambda: {"easy": 0.0, "hard": 0.0})
+    # 2) enrichment pre všetky id
+    enr = _load_enrichment_for_ids(user_id, ids)
+
+    # 3) poskladaj výstup
+    out: List[Dict[str, Any]] = []
+    seen_ids: set[int] = set()
+
     for r in enr:
-        aid_val = r.get("activity_id")
-        if aid_val is None:
+        aid = _as_int(r.get("activity_id"))
+        if aid is None:
             continue
-        try:
-            aid = int(aid_val)
-        except Exception:
-            continue
-        lab = aid_to_month.get(aid)
-        if not lab:
-            continue
-        z1 = _to_num(r.get("z1_min"))
-        z2 = _to_num(r.get("z2_min"))
-        z3 = _to_num(r.get("z3_min"))
-        z4 = _to_num(r.get("z4_min"))
-        z5 = _to_num(r.get("z5_min"))
-        agg[lab]["easy"] += (z1 + z2)
-        agg[lab]["hard"] += (z3 + z4 + z5)
+        seen_ids.add(aid)
+        date_s = aid_to_date.get(aid)
 
-    # zoradenie kľúčov mesiacov
-    labels_sorted = sorted(list(months_set))
-    # zober posledných `months` položiek (ak by buffer vyprodukoval viac)
-    labels_sorted = labels_sorted[-months:]
+        easy, hard = _row_easy_hard(r, count_no_hr_as_easy)
+        out.append({
+            "activity_id": aid,
+            "date": date_s,
+            "sport_type_fe": r.get("sport_type_fe"),
+            "moving_time_s": _as_int(r.get("moving_time_s")),
+            "avg_hr_bpm": _as_int(r.get("avg_hr_bpm")),
+            "distance_m": _as_float(r.get("distance_m")),
+            "z1_min": _as_float(r.get("z1_min")),
+            "z2_min": _as_float(r.get("z2_min")),
+            "z3_min": _as_float(r.get("z3_min")),
+            "z4_min": _as_float(r.get("z4_min")),
+            "z5_min": _as_float(r.get("z5_min")),
+            "easy_min": float(easy),
+            "hard_min": float(hard),
+            "total_min": float(easy + hard),
+        })
 
-    data = [
-        {
-            "label": lab,
-            "easy_min": round(agg[lab]["easy"]),
-            "hard_min": round(agg[lab]["hard"]),
-        }
-        for lab in labels_sorted
-    ]
-    return {"success": True, "data": data}
+    # doplň aktivity, ktoré nemajú enrichment
+    for aid_raw, date_raw in id_rows:
+        aid = _as_int(aid_raw)
+        if aid is None or aid in seen_ids:
+            continue
+        out.append({
+            "activity_id": aid,
+            "date": _as_str(date_raw),
+            "sport_type_fe": None,
+            "moving_time_s": None,
+            "avg_hr_bpm": None,
+            "distance_m": None,
+            "z1_min": None, "z2_min": None, "z3_min": None, "z4_min": None, "z5_min": None,
+            "easy_min": 0.0, "hard_min": 0.0, "total_min": 0.0,
+        })
+
+    # zoradené zostupne podľa dátumu
+    out.sort(key=lambda x: str(x.get("date") or ""), reverse=True)
+    return {"success": True, "data": out, "months": months}
