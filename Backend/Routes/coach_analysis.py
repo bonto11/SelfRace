@@ -19,20 +19,20 @@ def _build_min_plan_from_context(ctx_in: Dict[str, Any]) -> Dict[str, Any]:
         {"title":"Tempo 20–25 min @ LT","duration_min":55,"intensity":"med-high","notes":"RPE 7"},
         {"title":"Long run easy","duration_min":80,"intensity":"easy","notes":"RPE 4"},
     ]
-    bike_s = [{"title":"Endurance Z2","duration_min":45},{"title":"Endurance Z2","duration_min":45}]
+    ride_s = [{"title":"Endurance Z2","duration_min":45},{"title":"Endurance Z2","duration_min":45}]
     str_s  = [{"title":"Full-body","duration_min":45},{"title":"Core+Mobility","duration_min":25}]
     plan: Dict[str, Any] = {
         "focus":"build",
         "monday":{"title":"Rest","duration_min":0,"notes":"Hydration, sleep"},
-        "tuesday":   run_s[0] if "run" in sports else (bike_s[0] if "bike" in sports else str_s[0]),
+        "tuesday":   run_s[0] if "run" in sports else (ride_s[0] if "ride" in sports else str_s[0]),
         "wednesday": str_s[0] if "strength" in sports else {"title":"Easy cross","duration_min":30},
-        "thursday":  run_s[1] if "run" in sports else (bike_s[1] if "bike" in sports else str_s[-1]),
+        "thursday":  run_s[1] if "run" in sports else (ride_s[1] if "ride" in sports else str_s[-1]),
         "friday":{"title":"Rest","duration_min":0,"notes":"Light mobility"},
-        "saturday":  run_s[2] if "run" in sports else (bike_s[0] if "bike" in sports else {"title":"Hike","duration_min":60}),
-        "sunday":    (bike_s[1] if "bike" in sports else str_s[-1]) if "run" not in sports else {"title":"Easy jog","duration_min":40},
+        "saturday":  run_s[2] if "run" in sports else (ride_s[0] if "ride" in sports else {"title":"Hike","duration_min":60}),
+        "sunday":    (ride_s[1] if "ride" in sports else str_s[-1]) if "run" not in sports else {"title":"Easy jog","duration_min":40},
         "rest_days":["Mon","Fri"],
         "run":{"weekly_km_target":30,"sessions":run_s},
-        "bike":{"weekly_time_target_min":90,"sessions":bike_s},
+        "ride":{"weekly_time_target_min":90,"sessions":ride_s},
         "strength":{"sessions":str_s},
     }
     return plan
@@ -42,7 +42,7 @@ def coach_analyze(user_id: int, payload: dict = Body(...)):
     try:
         weeks = int(payload.get("weeks", 6))
         goal = payload.get("goal", "")
-        primary_sports = payload.get("primary_sports", ["run","bike","strength"])
+        primary_sports = payload.get("primary_sports", ["run","ride","strength"])
         goal_structured = payload.get("goal_structured")
 
         ctx = coach_context(user_id, weeks=weeks)
