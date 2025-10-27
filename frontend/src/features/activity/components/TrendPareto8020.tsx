@@ -1,4 +1,3 @@
-// src/features/pareto/components/TrendPareto8020.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -24,15 +23,19 @@ type Row = {
 export default function TrendPareto8020({
   onPickWeek,
 }: {
-  onPickWeek?: (w: { start?: string; end?: string }) => void;
+  onPickWeek?: (w: { start?: string; end?: string; sport: string }) => void;
 }) {
   const { getParetoTrend, weeks: providerWeeks } = useActivityData();
+
+  // UI stav
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
   const [sport, setSport] = useState<string>("all");
+
+  // dáta pre graf
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
-  // fetch z PROVIDERA (žiadny priamy fetch na BE)
+  // fetch – pri zmene lookback/sport
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -48,13 +51,13 @@ export default function TrendPareto8020({
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
 
-  // mapovanie start/end ak by server neposlal (fallback z providerWeeks)
+  // fallback intervaly, ak BE neposiela start/end
   const weekMap = useMemo(
     () => providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
     [providerWeeks, lookback]
   );
 
-  // referenčné čiary 80/20
+  // ref čiary 80/20
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
   const ref20 = useMemo(() => Array(labels.length).fill(20), [labels.length]);
 
@@ -161,14 +164,15 @@ export default function TrendPareto8020({
         if (idx == null) return;
         setPickedIdx(idx);
         const r = rows[idx];
-        if (r?.start || r?.end) onPickWeek?.({ start: r.start, end: r.end });
-        else {
+        if (r?.start || r?.end) {
+          onPickWeek?.({ start: r.start, end: r.end, sport });
+        } else {
           const m = weekMap[idx];
-          if (m) onPickWeek?.(m);
+          if (m) onPickWeek?.({ ...m, sport });
         }
       },
     }),
-    [rows, weekMap, onPickWeek]
+    [rows, weekMap, onPickWeek, sport]
   );
 
   const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
@@ -190,6 +194,7 @@ export default function TrendPareto8020({
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
+
           <select
             className="px-2 py-1 rounded bg-gray-700 text-white"
             value={sport}
