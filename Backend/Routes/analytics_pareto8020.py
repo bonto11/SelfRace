@@ -100,7 +100,7 @@ def pareto_widget(user_id: int, days: int = 14, sport: str = "all") -> Dict[str,
             .gte("date", since_iso)
         )
         if sport_db:
-            q = q.eq("sport_type_fe", sport_db)
+            q = q.ilike("sport_type_fe", sport_db)
         ids_rows = q.order("date", desc=True).execute()
         ids = [int(r["activity_id"]) for r in (ids_rows.data or [])]
 
@@ -155,7 +155,7 @@ def pareto_trend(user_id: int, weeks: int = 8, sport: str = "all") -> Dict[str, 
             .gte("date", since_iso)
         )
         if sport_db:
-            q = q.eq("sport_type_fe", sport_db)
+            q = q.ilike("sport_type_fe", sport_db)
         rows = q.order("date", desc=False).execute().data or []
         if not rows:
             return {"success": True, "data": []}
