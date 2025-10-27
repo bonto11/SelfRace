@@ -56,8 +56,6 @@ export default function ActivityDetail({ activityId }: Props) {
       <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
       <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
 
-      // v ActivityDetail.tsx nahraď HR sekciu týmto blokom
-
       {/* HR priebeh */}
       <div className="mt-1"> {/* bolo mt-2 */}
         <div className="flex items-center justify-between mb-1"> {/* pridané mb-1 */}

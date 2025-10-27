@@ -13,7 +13,7 @@ import { fmtSecondsHMS } from "@/shared/utils/format";
 export default function ActivityTable({
   start,
   end,
-  sport = "all", // ← pridané: filter z trendu ("all" | "run" | "bike" | "strength" | "mixed" | "other" | ...)
+  sport = "all", // filter z trendu
 }: {
   start?: string;
   end?: string;
@@ -34,33 +34,45 @@ export default function ActivityTable({
     [start, end]
   );
 
+  // basic prop-change debug
+  useEffect(() => {
+    console.debug("[ACT][table] props changed", { start, end, sport });
+  }, [start, end, sport]);
+
   useEffect(() => {
     setSelectedId(null);
     if (!start || !end) {
       setRows([]);
+      console.debug("[ACT][table] no range -> empty rows");
       return;
     }
     setLoading(true);
 
-    // 1) vezmi všetky aktivity v rozsahu
+    // 1) všetky v rozsahu
     const inRange = selectByRange(start, end);
 
-    // 2) aplikuj športový filter z trendu (len to, čo vidíš v grafe)
+    // 2) športový filter (rovnaký ako v grafe)
     const filtered =
       sport && sport !== "all"
-        ? inRange.filter((r) => toEffSport(r) === sport)
+        ? inRange.filter((r) => toEffSportSafe(r) === sport)
         : inRange;
 
     setRows(filtered);
     setLoading(false);
 
-    console.debug("[ACT][table] selectByRange", {
+    // debug sumar
+    const firstIds = filtered.slice(0, 10).map((r) => r.activity_id);
+    const sportCounts = countBySport(inRange);
+
+    console.debug("[ACT][table] after filter", {
       start,
       end,
       sport,
-      count: filtered.length,
-      totalInRange: inRange.length,
-      all: allRows.length,
+      totalAllRows: allRows.length,
+      inRangeCount: inRange.length,
+      sportBreakdownInRange: sportCounts,
+      filteredCount: filtered.length,
+      sampleIds: firstIds,
     });
   }, [start, end, sport, selectByRange, allRows.length]);
 
@@ -69,6 +81,9 @@ export default function ActivityTable({
       {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
+        <div className="text-xs opacity-70">
+          {sport !== "all" ? `Filter: ${sport.toUpperCase()}` : "Filter: všetko"}
+        </div>
       </div>
 
       {/* MOBILE – karty */}
@@ -76,11 +91,18 @@ export default function ActivityTable({
         {loading && <div className="opacity-70 py-4">Načítavam…</div>}
         {!loading &&
           rows.map((r) => {
-            const eff = toEffSport(r);
+            const eff = toEffSportSafe(r);
             return (
               <button
                 key={r.activity_id}
-                onClick={() => setSelectedId(r.activity_id)}
+                onClick={() => {
+                  setSelectedId(r.activity_id);
+                  console.debug("[ACT][table] row clicked", {
+                    activity_id: r.activity_id,
+                    effSport: eff,
+                    name: r.name,
+                  });
+                }}
                 className="w-full text-left rounded border border-gray-700 p-3 bg-gray-900"
                 title={r.name}
               >
@@ -139,12 +161,19 @@ export default function ActivityTable({
               )}
               {!loading &&
                 rows.map((r) => {
-                  const eff = toEffSport(r);
+                  const eff = toEffSportSafe(r);
                   return (
                     <tr
                       key={r.activity_id}
                       className="cursor-pointer border-t border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => setSelectedId(r.activity_id)}
+                      onClick={() => {
+                        setSelectedId(r.activity_id);
+                        console.debug("[ACT][table] row clicked", {
+                          activity_id: r.activity_id,
+                          effSport: eff,
+                          name: r.name,
+                        });
+                      }}
                       title={r.name}
                     >
                       <td>{new Date(r.date).toLocaleDateString("sk-SK")}</td>
@@ -187,4 +216,23 @@ export default function ActivityTable({
       )}
     </div>
   );
+}
+
+/** Bezpečné mapovanie – ak by toEffSport zlyhal, vráť "other" */
+function toEffSportSafe(r: ActivityRow): string {
+  try {
+    return toEffSport(r) || "other";
+  } catch {
+    return "other";
+  }
+}
+
+/** Pomocný debug count – koľko aktivít je v rozsahu podľa efektívneho športu */
+function countBySport(rows: ActivityRow[]): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const r of rows) {
+    const s = toEffSportSafe(r);
+    m[s] = (m[s] ?? 0) + 1;
+  }
+  return m;
 }
