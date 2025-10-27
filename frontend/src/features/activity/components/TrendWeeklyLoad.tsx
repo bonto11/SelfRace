@@ -26,14 +26,8 @@ type WeekRow = {
 };
 
 const C = {
-  run: "#22D3EE",
-  bike: "#A78BFA",
-  strength: "#F59E0B",
-  mixed: "#34D399",
-  skate: "#60A5FA",
-  other: "#9CA3AF",
-  monotony: "#84CC16",
-  strain: "#FDE047",
+  run: "#22D3EE", bike: "#A78BFA", strength: "#F59E0B", mixed: "#34D399", skate: "#60A5FA", other: "#9CA3AF",
+  monotony: "#84CC16", strain: "#FDE047",
 };
 
 function rangeLabel(start?: string, end?: string) {
@@ -54,17 +48,16 @@ export default function TrendWeeklyLoad({
   const { userId } = useUserId();
   const [metric, setMetric] = useState<Metric>("km");
   const [lookback, setLookback] = useState<number>(8);
-  const [sport, setSport] = useState<string>("all"); // ← pridané
+  const [sport, setSport] = useState<string>("all");
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [picked, setPicked] = useState<WeekPick | null>(null);
 
   useEffect(() => {
     if (!userId) return;
+    const url = `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}&sport=${sport}`;
+    console.debug("[WEEKLY][fetch]", { url, userId, lookback, sport });
     (async () => {
-      const res = await fetch(
-        `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}&sport=${sport}`,
-        { cache: "no-store" }
-      );
+      const res = await fetch(url, { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       const raw: any[] = Array.isArray(json?.weeks)
         ? json.weeks
@@ -72,34 +65,34 @@ export default function TrendWeeklyLoad({
         ? json.data
         : [];
       const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
-      setWeeks(
-        raw.map((w) => ({
-          week: w.week ?? w.iso_week ?? w.label ?? "",
-          label: rangeLabel(w.start, w.end) || w.label || w.week || "",
-          start: w.start ?? "",
-          end: w.end ?? "",
-          km_run: num(w.km_run ?? w.run_km),
-          km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
-          km_mixed: num(w.km_mixed),
-          km_skate: num(w.km_skate),
-          time_run_min: num(w.time_run_min ?? w.run_min),
-          time_ride_min: num(w.time_ride_min ?? w.ride_min),
-          time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
-          time_mixed_min: num(w.time_mixed_min),
-          time_skate_min: num(w.time_skate_min),
-          time_other_min: num(w.time_other_min ?? w.other_min),
-          trimp_run: num(w.trimp_run ?? w.run_trimp),
-          trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
-          trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
-          trimp_mixed: num(w.trimp_mixed),
-          trimp_skate: num(w.trimp_skate),
-          trimp_other: num(w.trimp_other ?? w.other_trimp),
-          monotony: w.monotony ?? {},
-          strain: w.strain ?? {},
-        }))
-      );
+      const mapped = raw.map((w) => ({
+        week: w.week ?? w.iso_week ?? w.label ?? "",
+        label: rangeLabel(w.start, w.end) || w.label || w.week || "",
+        start: w.start ?? "",
+        end: w.end ?? "",
+        km_run: num(w.km_run ?? w.run_km),
+        km_ride: num(w.km_ride ?? w.ride_km ?? w.km_bike),
+        km_mixed: num(w.km_mixed),
+        km_skate: num(w.km_skate),
+        time_run_min: num(w.time_run_min ?? w.run_min),
+        time_ride_min: num(w.time_ride_min ?? w.ride_min),
+        time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
+        time_mixed_min: num(w.time_mixed_min),
+        time_skate_min: num(w.time_skate_min),
+        time_other_min: num(w.time_other_min ?? w.other_min),
+        trimp_run: num(w.trimp_run ?? w.run_trimp),
+        trimp_ride: num(w.trimp_ride ?? w.bike_trimp),
+        trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
+        trimp_mixed: num(w.trimp_mixed),
+        trimp_skate: num(w.trimp_skate),
+        trimp_other: num(w.trimp_other ?? w.other_trimp),
+        monotony: w.monotony ?? {},
+        strain: w.strain ?? {},
+      }));
+      console.debug("[WEEKLY][mapped]", { count: mapped.length });
+      setWeeks(mapped);
     })();
-  }, [userId, lookback, sport]); // ← pridané sport
+  }, [userId, lookback, sport]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
   const mono = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
@@ -121,15 +114,7 @@ export default function TrendWeeklyLoad({
     const W = weeks;
     const ds: any[] = [];
     const pushBar = (label: string, data: number[], color: string) =>
-      ds.push({
-        type: "bar" as const,
-        label,
-        data,
-        backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1,
-        yAxisID: "y",
-      });
+      ds.push({ type: "bar" as const, label, data, backgroundColor: color, borderColor: color, borderWidth: 1, yAxisID: "y" });
 
     if (metric === "km") {
       pushBar("Run", W.map((w) => w.km_run), C.run);
@@ -152,147 +137,79 @@ export default function TrendWeeklyLoad({
       pushBar("Other", W.map((w) => w.trimp_other), C.other);
     }
 
-    ds.push({
-      type: "line" as const,
-      label: "Monotony",
-      data: mono,
-      yAxisID: "y1",
-      borderColor: C.monotony,
-      backgroundColor: C.monotony,
-      tension: 0.3,
-      pointRadius: 2,
-      borderWidth: 2,
-      spanGaps: true,
-      order: 99,
-    });
-    ds.push({
-      type: "line" as const,
-      label: "Strain",
-      data: strn,
-      yAxisID: "y2",
-      borderColor: C.strain,
-      backgroundColor: C.strain,
-      tension: 0.3,
-      pointRadius: 2,
-      borderWidth: 2,
-      borderDash: [4, 4],
-      spanGaps: true,
-      order: 99,
-    });
+    ds.push({ type: "line" as const, label: "Monotony", data: mono, yAxisID: "y1",
+      borderColor: C.monotony, backgroundColor: C.monotony, tension: 0.3, pointRadius: 2, borderWidth: 2, spanGaps: true, order: 99 });
+    ds.push({ type: "line" as const, label: "Strain", data: strn, yAxisID: "y2",
+      borderColor: C.strain, backgroundColor: C.strain, tension: 0.3, pointRadius: 2, borderWidth: 2, borderDash: [4, 4], spanGaps: true, order: 99 });
 
     return ds;
   }, [weeks, metric, mono, strn]);
 
   const data: ChartData<"bar" | "line", (number | null)[], string> = { labels, datasets };
 
-  const options: ChartOptions<"bar" | "line"> = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      elements: { point: { radius: 2, hitRadius: 8 } },
-      datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
-      layout: { padding: { bottom: 12 } },
-      plugins: {
-        legend: {
-          position: THEME.chart.legendPosition,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            boxWidth: 6,
-            boxHeight: 6,
-            padding: 10,
-          },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const label = ctx.dataset.label || "";
-              const v = (ctx.parsed.y ?? 0) as number;
-              if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
-              if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
-              if (metric === "km") return `${label}: ${v.toFixed(1)} km`;
-              if (metric === "time") return `${label}: ${Math.round(v)} min`;
-              return `${label}: ${Math.round(v)} TRIMP`;
-            },
+  const options: ChartOptions<"bar" | "line"> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    elements: { point: { radius: 2, hitRadius: 8 } },
+    datasets: { bar: { maxBarThickness: 12, categoryPercentage: 0.6, barPercentage: 0.7 } },
+    layout: { padding: { bottom: 12 } },
+    plugins: {
+      legend: {
+        position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const label = ctx.dataset.label || "";
+            const v = (ctx.parsed.y ?? 0) as number;
+            if (ctx.dataset.yAxisID === "y1") return `${label}: ${v.toFixed(2)}`;
+            if (ctx.dataset.yAxisID === "y2") return `${label}: ${Math.round(v)}`;
+            if (metric === "km") return `${label}: ${v.toFixed(1)} km`;
+            if (metric === "time") return `${label}: ${Math.round(v)} min`;
+            return `${label}: ${Math.round(v)} TRIMP`;
           },
         },
       },
-      onClick: (_evt, els) => {
-        const idx = els?.[0]?.index;
-        if (idx == null) return;
-        const w = weeks[idx];
-        if (!w) return;
-        const key = w.week || w.label || w.start || "";
-        const pick = { week: key, start: w.start, end: w.end, sport };
-        setPicked(pick);
-        onPickWeek?.(pick);
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          position: "left",
-          grid: { color: THEME.chart.grid },
-          title: {
-            display: true,
-            text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
-          },
-        },
-        y1: {
-          position: "right",
-          min: 0,
-          max: monoMax,
-          grid: { drawOnChartArea: false },
-          border: { color: C.monotony },
-          ticks: { color: C.monotony },
-          title: { display: true, text: "Monotony", color: C.monotony },
-        },
-        y2: {
-          position: "right",
-          min: 0,
-          max: strainMax,
-          grid: { drawOnChartArea: false },
-          border: { color: C.strain },
-          ticks: { color: C.strain },
-          title: { display: true, text: "Strain", color: C.strain },
-        },
-        x: {
-          grid: { color: THEME.chart.gridSoft },
-          ticks: {
-            autoSkip: true,
-            minRotation: 55,
-            maxRotation: 55,
-            padding: 6,
-            font: { size: 10 },
-          },
-        },
-      },
-    }),
-    [metric, weeks, monoMax, strainMax, onPickWeek, sport]
-  );
+    },
+    onClick: (_evt, els) => {
+      const idx = els?.[0]?.index; if (idx == null) return;
+      const w = weeks[idx]; if (!w) return;
+      const key = w.week || w.label || w.start || "";
+      const pick: WeekPick = { week: key, start: w.start, end: w.end, sport };
+      setPicked(pick);
+      console.debug("[WEEKLY][click -> pick]", pick);
+      onPickWeek?.(pick);
+    },
+    scales: {
+      y:  { beginAtZero: true, position: "left", grid: { color: THEME.chart.grid },
+            title: { display: true, text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP" } },
+      y1: { position: "right", min: 0, max: monoMax, grid: { drawOnChartArea: false },
+            border: { color: C.monotony }, ticks: { color: C.monotony },
+            title: { display: true, text: "Monotony", color: C.monotony } },
+      y2: { position: "right", min: 0, max: strainMax, grid: { drawOnChartArea: false },
+            border: { color: C.strain }, ticks: { color: C.strain },
+            title: { display: true, text: "Strain", color: C.strain } },
+      x:  { grid: { color: THEME.chart.gridSoft },
+            ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } } },
+    },
+  }), [metric, weeks, monoMax, strainMax, onPickWeek, sport]);
 
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        {/* metric prepínače */}
         <div className="flex items-center gap-2 text-xs">
           <span className="opacity-70">Zobraziť:</span>
-          <button onClick={() => setMetric("km")} className={`px-2 py-1 rounded ${metric === "km" ? "bg-blue-600 text-white" : "bg-gray-700"}`}>
-            Km
-          </button>
-          <button onClick={() => setMetric("time")} className={`px-2 py-1 rounded ${metric === "time" ? "bg-blue-600 text-white" : "bg-gray-700"}`}>
-            Čas
-          </button>
-          <button onClick={() => setMetric("trimp")} className={`px-2 py-1 rounded ${metric === "trimp" ? "bg-blue-600 text-white" : "bg-gray-700"}`}>
-            TRIMP
-          </button>
+          <button onClick={()=>setMetric("km")}    className={`px-2 py-1 rounded ${metric==="km"?"bg-blue-600 text-white":"bg-gray-700"}`}>Km</button>
+          <button onClick={()=>setMetric("time")}  className={`px-2 py-1 rounded ${metric==="time"?"bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
+          <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
         </div>
 
-        {/* sport + lookback */}
         <div className="flex items-center gap-2 text-xs">
-          <select value={sport} onChange={(e) => setSport(e.target.value)} className="px-2 py-1 rounded bg-gray-700">
+          <select value={sport} onChange={(e)=>setSport(e.target.value)} className="px-2 py-1 rounded bg-gray-700">
             <option value="all">Všetko</option>
             <option value="run">Run</option>
             <option value="bike">Bike</option>
@@ -303,11 +220,7 @@ export default function TrendWeeklyLoad({
           </select>
 
           {showLookback && (
-            <select
-              value={lookback}
-              onChange={(e) => setLookback(Number(e.target.value))}
-              className="px-2 py-1 rounded bg-gray-700"
-            >
+            <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
               <option value={4}>4 týždne</option>
               <option value={8}>8 týždňov</option>
               <option value={12}>12 týždňov</option>
@@ -316,10 +229,7 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      <div
-        className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
+      <div className="overflow-x-auto overflow-y-hidden rounded-md min-w-0" style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
             <MixedChart type="bar" data={data} options={options} />

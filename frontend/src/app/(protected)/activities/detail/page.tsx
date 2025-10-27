@@ -2,15 +2,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
-import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
+import TrendWeeklyLoad, { WeekPick } from "@/features/activity/components/TrendWeeklyLoad";
 import ActivityTable from "@/features/activity/components/ActivityTable";
 
 type Range = { start?: string; end?: string };
 
 export default function ActivitiesDetailPage() {
   const [range, setRange] = useState<Range>({});
+  const [sport, setSport] = useState<string>("all");
+
+  const handlePick = useCallback((w: WeekPick) => {
+    console.debug("[PAGE][onPickWeek]", w);
+    setRange({ start: w.start, end: w.end });
+    setSport(w.sport || "all");
+  }, []);
 
   return (
     <ActivityDataProvider days={90}>
@@ -21,9 +28,10 @@ export default function ActivitiesDetailPage() {
         </Link>
       </div>
 
-      <TrendWeeklyLoad onPickWeek={(w) => setRange({ start: w.start, end: w.end })} />
+      <TrendWeeklyLoad onPickWeek={handlePick} />
+
       <div className="mt-3">
-        <ActivityTable start={range.start} end={range.end} />
+        <ActivityTable start={range.start} end={range.end} sport={sport} />
       </div>
     </ActivityDataProvider>
   );
