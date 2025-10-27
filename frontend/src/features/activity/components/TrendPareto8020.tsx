@@ -200,7 +200,7 @@ export default function TrendPareto8020({
           >
             <option value="all">Všetko</option>
             <option value="run">Run</option>
-            <option value="bike">Bike</option>
+            <option value="ride">Bike</option>
             <option value="strength">Strength</option>
             <option value="mixed">Mixed</option>
             <option value="skate">Skate</option>
