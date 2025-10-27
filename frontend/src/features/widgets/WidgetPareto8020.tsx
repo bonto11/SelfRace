@@ -10,7 +10,6 @@ import { fmtMinutes } from "@/shared/utils/format";
 type Props = {
   onOpenTrend?: () => void;
   weeks?: 2 | 4 | 8 | 12;
-  sport?: string | null;
 };
 
 const colEasy80 = THEME.chart.easy80;
@@ -21,7 +20,6 @@ const colTick = THEME.chart.tick;
 export default function WidgetPareto8020({
   onOpenTrend,
   weeks = 2,
-  sport = null,
 }: Props) {
   const { getParetoWidget } = useActivityData();
   const [data, setData] = useState<{
@@ -33,10 +31,11 @@ export default function WidgetPareto8020({
 
   useEffect(() => {
     (async () => {
-      const d = await getParetoWidget(7 * weeks, sport);
+      // BE si aplikuje politiku (žiadny sport filter z FE)
+      const d = await getParetoWidget(7 * weeks);
       setData(d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks });
     })();
-  }, [getParetoWidget, weeks, sport]);
+  }, [getParetoWidget, weeks]);
 
   const E = Number(data?.easy_min ?? 0);
   const H = Number(data?.hard_min ?? 0);
@@ -47,11 +46,9 @@ export default function WidgetPareto8020({
   const deltaEasy = Math.round(0.8 * T - E);
 
   // --- SVG prstenec ---
-  const size = 150,
-    stroke = 22;
+  const size = 150, stroke = 22;
   const r = (size - stroke) / 2;
-  const cx = size / 2,
-    cy = size / 2;
+  const cx = size / 2, cy = size / 2;
   const C = 2 * Math.PI * r;
   const easyLen = (easyPct / 100) * C;
   const hardLen = C - easyLen;

@@ -50,8 +50,7 @@ export default function TrendPareto8020({
 
   // mapovanie start/end ak by server neposlal (fallback z providerWeeks)
   const weekMap = useMemo(
-    () =>
-      providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
+    () => providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
     [providerWeeks, lookback]
   );
 
@@ -138,7 +137,6 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              // minúty pekne (h/m/s)
               const easy = fmtSecondsHMS(r.easy_min || 0);
               const hard = fmtSecondsHMS(r.hard_min || 0);
               return `Easy ${easy} • Hard ${hard}`;
