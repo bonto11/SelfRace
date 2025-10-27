@@ -72,16 +72,16 @@ export default function Result({ result }: { result: any }) {
                 </div>
               )}
 
-              {/* Bike */}
-              {plan.bike && (
+              {/* Ride */}
+              {plan.ride && (
                 <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
-                  <h4 className="font-semibold mb-1">Bike</h4>
+                  <h4 className="font-semibold mb-1">Ride</h4>
                   <p className="text-sm opacity-80">
                     weekly_time_target:{" "}
-                    {plan.bike.weekly_time_target_min ?? "—"} min
+                    {plan.ride.weekly_time_target_min ?? "—"} min
                   </p>
                   <ul className="list-disc pl-5 space-y-1">
-                    {(plan.bike.sessions ?? []).map((s: any, i: number) => (
+                    {(plan.ride.sessions ?? []).map((s: any, i: number) => (
                       <DayItem key={i} it={s} />
                     ))}
                   </ul>
