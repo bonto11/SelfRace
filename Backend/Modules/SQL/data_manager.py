@@ -136,7 +136,7 @@ def upsert_activity_summary_from_full(user_id: int, full: Dict[str, Any]) -> boo
 
         sport_type = full.get("sport_type") or full.get("type")
         name = full.get("name")
-        sport_type_fe = infer_sport_type_fe(sport_type, name)
+        sport_type_fe = infer_sport_type_fe(sport_type, name, distance_m, moving_time_s)
 
         payload = {
             "activity_id": activity_id,

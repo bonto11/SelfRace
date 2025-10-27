@@ -272,7 +272,7 @@ def _normalize_summary(user_id: int, a: dict) -> dict:
 
     sport_type = to_str(a.get("sport_type") or a.get("type"))
     name = to_str(a.get("name"))
-    sport_type_fe = infer_sport_type_fe(sport_type, name)
+    sport_type_fe = infer_sport_type_fe(sport_type, name, distance_m, moving_s)
 
     return {
         "user_id":                 user_id,
