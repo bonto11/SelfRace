@@ -1,4 +1,3 @@
-// src/app/(protected)/activities/detail/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -14,7 +13,7 @@ export default function ActivitiesDetailPage() {
   const [sport, setSport] = useState<string>("all");
 
   const handlePick = useCallback((w: WeekPick) => {
-    console.debug("[PAGE][onPickWeek]", w);
+    console.debug("[DETAIL][onPickWeek]", w);
     setRange({ start: w.start, end: w.end });
     setSport(w.sport || "all");
   }, []);
@@ -28,7 +27,10 @@ export default function ActivitiesDetailPage() {
         </Link>
       </div>
 
-      <TrendWeeklyLoad onPickWeek={handlePick} />
+      <TrendWeeklyLoad
+        onPickWeek={handlePick}
+        onSportChange={(s) => { console.debug("[DETAIL][sport change]", s); setSport(s); }}
+      />
 
       <div className="mt-3">
         <ActivityTable start={range.start} end={range.end} sport={sport} />
