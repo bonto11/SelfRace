@@ -7,7 +7,7 @@ import statistics
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Iterable
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch
-from backend.Services.compute_zones import preview_zones_for_activities, upsert_enrichment_minutes
+from backend.Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
 from Services.sport_type import infer_sport_type_fe
 
 from Modules.SQL.db_handler import get_client

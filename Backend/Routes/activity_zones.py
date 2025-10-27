@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional
-from backend.Services.compute_zones import preview_zones_for_activities, upsert_enrichment_minutes,backfill_enrichment_for_period
+from backend.Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes,backfill_enrichment_for_period
 
 router = APIRouter(prefix="/streams", tags=["streams"])
 

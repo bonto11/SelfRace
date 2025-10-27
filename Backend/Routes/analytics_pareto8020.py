@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Any, Dict, List
 from Modules.SQL.db_handler import get_client
 from Modules.config import TABLE_ACTIVITIES_SUMMARY, TABLE_ACTIVITIES_ENRICHMENT
-from backend.Services.compute_zones import (
+from backend.Services.activity_zones import (
     preview_zones_for_activities,
     upsert_enrichment_minutes,
 )
