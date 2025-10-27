@@ -2,19 +2,28 @@
 from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional
-from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes,backfill_enrichment_for_period
+from typing import Dict, Any, List, Optional, Tuple
+from Services.activity_zones import (
+    preview_zones_for_activities,
+    upsert_enrichment_minutes,
+    backfill_enrichment_for_period,
+)
 
 router = APIRouter(prefix="/streams", tags=["streams"])
+
 
 # POST { "ids":[...], "fetch": true }
 class ZonesReq(BaseModel):
     ids: List[int]
     fetch: Optional[bool] = True
 
+
 @router.post("/zones/{user_id}")
 def zones_preview_post(user_id: int, body: ZonesReq):
-    return preview_zones_for_activities(user_id, body.ids or [], fetch_if_missing=bool(body.fetch))
+    return preview_zones_for_activities(
+        user_id, body.ids or [], fetch_if_missing=bool(body.fetch)
+    )
+
 
 @router.get("/streams/zones/{user_id}")
 def streams_zones_preview(user_id: int, ids: str, fetch: int = 0, save: int = 0):
@@ -26,15 +35,15 @@ def streams_zones_preview(user_id: int, ids: str, fetch: int = 0, save: int = 0)
     activity_ids = [int(x) for x in ids.split(",") if x.strip().isdigit()]
 
     res = preview_zones_for_activities(
-        user_id=user_id,
-        activity_ids=activity_ids,
-        fetch_if_missing=bool(fetch)
+        user_id=user_id, activity_ids=activity_ids, fetch_if_missing=bool(fetch)
     )
     # res: {"ok":True,"user_id":...,"zones":{...},"items":[{activity_id, ok, minutes,...}, ...]}
 
     if save and res.get("ok") and res.get("items"):
         # zober len tie, ktoré majú minutes
-        items_with_minutes = [it for it in res["items"] if it.get("ok") and it.get("minutes")]
+        items_with_minutes = [
+            it for it in res["items"] if it.get("ok") and it.get("minutes")
+        ]
         save_info = upsert_enrichment_minutes(user_id, items_with_minutes)
         res["save"] = save_info  # napr. {"saved": N}
 
@@ -45,8 +54,8 @@ def streams_zones_preview(user_id: int, ids: str, fetch: int = 0, save: int = 0)
 def zones_preview(
     user_id: int,
     ids: str = Query(..., description="CSV activity_id (napr. 161...,101...)"),
-    fetch: int = 0,   # 1 = dotiahni chýbajúce streams zo Stravy a ulož do activities_streams
-    save: int = 0     # 1 = zapíš minúty do activities_enrichment
+    fetch: int = 0,  # 1 = dotiahni chýbajúce streams zo Stravy a ulož do activities_streams
+    save: int = 0,  # 1 = zapíš minúty do activities_enrichment
 ):
     try:
         activity_ids = [int(x) for x in ids.split(",") if x.strip()]
@@ -68,14 +77,14 @@ def zones_preview(
     except Exception as e:
         print("[zones] error:", e)
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @router.get("/zones/backfill/{user_id}")
 def backfill_zones_route(
     user_id: int,
     months: int = 3,
-    fetch: int = 1,     # 1 = dotiahni chýbajúce streamy zo Stravy
-    save: int = 1,      # 1 = ulož do activities_enrichment
+    fetch: int = 1,  # 1 = dotiahni chýbajúce streamy zo Stravy
+    save: int = 1,  # 1 = ulož do activities_enrichment
     batch: int = 25,
 ):
     res = backfill_enrichment_for_period(
