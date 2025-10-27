@@ -38,25 +38,26 @@ def _get_sport_fe_or_default(user_id: int, activity_id: int) -> str:
 
 # ------- ukladanie do activities_streams (ARRAY stĺpce) -------
 def store_streams(user_id: int, activity_id: int, streams_json: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Uloží streamy cez SQL RPC tak, aby sa user_uid a sport_type_fe dotiahli zo summary.
+    """
     try:
-        user_uid = _get_user_uid(user_id)
         times = _arr(streams_json, "time")
         hr    = _arr(streams_json, "heartrate")
         cad   = _arr(streams_json, "cadence")
         poww  = _arr(streams_json, "watts")
         dist  = _arr(streams_json, "distance")
 
-        payload = {
-            "user_id": user_id,
-            "user_uid": user_uid,
-            "activity_id": activity_id,
-            "time_s":        [int(x)   for x in times],
-            "heartrate_bpm": ([int(x) for x in hr]   or None),
-            "cadence_rpm":   ([int(x) for x in cad]  or None),
-            "power_w":       ([int(x) for x in poww] or None),
-            "distance_m":    ([float(x) for x in dist] or None),
+        params = {
+            "p_user_id": int(user_id),
+            "p_activity_id": int(activity_id),
+            "p_time_s": [int(x) for x in times],
+            "p_heartrate": [int(x) for x in hr] if hr else [],
+            "p_cadence": [int(x) for x in cad] if cad else [],
+            "p_power": [int(x) for x in poww] if poww else [],
+            "p_distance": [float(x) for x in dist] if dist else [],
         }
-        sb.table(TABLE_ACTIVITIES_STREAMS).upsert(payload, on_conflict="activity_id").execute()
+        sb.rpc("upsert_streams_with_sport", params).execute()
         return True, ""
     except Exception as e:
         return False, str(e)

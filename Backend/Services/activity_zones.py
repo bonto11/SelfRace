@@ -68,22 +68,11 @@ def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
             out.append(aid)
     return out
 
-
-def _get_user_uid(user_id: int) -> str:
-    """Vráti auth_uid (uuid) z public.users pre user_id."""
-    r = sb.table(TABLE_USERS).select("auth_uid").eq("id", user_id).limit(1).execute()
-    row = (_rows(r) or [None])[0]
-    if not row or not row.get("auth_uid"):
-        raise RuntimeError(f"user_id={user_id} nemá auth_uid")
-    return str(row["auth_uid"])
-
-
 def _to_int_min(x) -> int:
     try:
         return int(round(float(x)))
     except Exception:
         return 0
-
 
 def _load_user_zones(user_id: int) -> Optional[Dict[str, int]]:
     """
@@ -275,52 +264,40 @@ def preview_zones_for_activities(
     print(f"[ZONES] preview: computed={have}/{len(activity_ids)}")
     return {"ok": True, "user_id": user_id, "zones": Z, "items": items}
 
-
 def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     """
-    Ukladá len tie položky, ktoré majú reálne 'minutes'.
-    Doplní user_uid. Žiadne ukladanie nulových minút z chýbajúcich streamov.
+    Ukladá len položky s reálnymi 'minutes' a zapisuje computed_at.
+    Používa RPC s dotiahnutím sport_type_fe a user_uid zo summary.
     """
     if not items:
         return {"saved": 0, "skipped": 0}
 
-    user_uid = _get_user_uid(user_id)
-
-    rows = []
+    saved = 0
     skipped = 0
+    now_ts = datetime.now(timezone.utc).isoformat()
+
     for it in items:
         aid = it.get("activity_id")
         mins = (it.get("minutes") or {}) if it.get("ok") else None
         if not aid or not mins:
             skipped += 1
-            print(f"[enrich] skip aid={aid} reason={'no_minutes' if not mins else 'no_aid'}")
             continue
 
-        rows.append({
-            "activity_id": int(aid),
-            "user_id": int(user_id),
-            "user_uid": user_uid,
-            "z1_min": _to_int_min(mins.get("z1_min")),
-            "z2_min": _to_int_min(mins.get("z2_min")),
-            "z3_min": _to_int_min(mins.get("z3_min")),
-            "z4_min": _to_int_min(mins.get("z4_min")),
-            "z5_min": _to_int_min(mins.get("z5_min")),
-        })
-
-    if not rows:
-        return {"saved": 0, "skipped": skipped}
-
-    saved = 0
-    BATCH = 200
-    for i in range(0, len(rows), BATCH):
-        chunk = rows[i:i+BATCH]
-        print(f"[enrich] upsert {len(chunk)} → {TABLE_ACTIVITIES_ENRICHMENT}")
-        sb.table(TABLE_ACTIVITIES_ENRICHMENT)\
-          .upsert(chunk, on_conflict="activity_id")\
-          .execute()
-        saved += len(chunk)
+        params = {
+            "p_user_id": int(user_id),
+            "p_activity_id": int(aid),
+            "p_z1": _to_int_min(mins.get("z1_min")),
+            "p_z2": _to_int_min(mins.get("z2_min")),
+            "p_z3": _to_int_min(mins.get("z3_min")),
+            "p_z4": _to_int_min(mins.get("z4_min")),
+            "p_z5": _to_int_min(mins.get("z5_min")),
+            "p_computed_at": now_ts,
+        }
+        sb.rpc("upsert_enrichment_with_sport", params).execute()
+        saved += 1
 
     return {"saved": saved, "skipped": skipped}
+
 def backfill_enrichment_for_period(
     user_id: int,
     months: int = 3,
@@ -411,3 +388,4 @@ def compute_and_save_enrichment_for_ids(user_id: int, ids: list[int]) -> dict:
     saved = upsert_enrichment_minutes(user_id, items).get("saved", 0)
 
     return {"saved": int(saved), "count": len(ids)}
+
