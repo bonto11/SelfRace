@@ -54,7 +54,7 @@ def enforce_minimum_plan(parsed: dict, llm_input: dict, build_min_plan_fn) -> di
     if not isinstance(parsed, dict): raise ValueError("LLM output not a dict")
     plan = parsed.get("next_week_plan"); has_any = False
     if isinstance(plan, dict):
-        for k in ("run","bike","strength"):
+        for k in ("run","ride","strength"):
             s = plan.get(k)
             if s and isinstance(s, dict) and isinstance(s.get("sessions"), list) and s["sessions"]:
                 has_any = True; break
