@@ -7,15 +7,17 @@ import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "./ActivityDetail";
-import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport"; // tvoje existujúce mapovanie labelu
-import { fmtSecondsHMS, fmtMinutes, fmtMinutesWhole, fmtDistance } from "@/shared/utils/format";
+import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
+import { fmtSecondsHMS } from "@/shared/utils/format";
 
 export default function ActivityTable({
   start,
   end,
+  sport = "all", // ← pridané: filter z trendu ("all" | "run" | "bike" | "strength" | "mixed" | "other" | ...)
 }: {
   start?: string;
   end?: string;
+  sport?: string;
 }) {
   const { selectByRange, rows: allRows } = useActivityData();
 
@@ -23,7 +25,7 @@ export default function ActivityTable({
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  // “bezpečný” titulok
+  // titulok
   const headerTitle = useMemo(
     () =>
       start && end
@@ -39,16 +41,28 @@ export default function ActivityTable({
       return;
     }
     setLoading(true);
-    const r = selectByRange(start, end);
-    setRows(r);
+
+    // 1) vezmi všetky aktivity v rozsahu
+    const inRange = selectByRange(start, end);
+
+    // 2) aplikuj športový filter z trendu (len to, čo vidíš v grafe)
+    const filtered =
+      sport && sport !== "all"
+        ? inRange.filter((r) => toEffSport(r) === sport)
+        : inRange;
+
+    setRows(filtered);
     setLoading(false);
+
     console.debug("[ACT][table] selectByRange", {
       start,
       end,
-      count: r.length,
+      sport,
+      count: filtered.length,
+      totalInRange: inRange.length,
       all: allRows.length,
     });
-  }, [start, end, selectByRange, allRows.length]);
+  }, [start, end, sport, selectByRange, allRows.length]);
 
   return (
     <div className={`${CARD} space-y-4`}>
@@ -138,7 +152,7 @@ export default function ActivityTable({
                       <td className="truncate max-w-[260px]">{r.name}</td>
                       <td>
                         {r.moving_time_s != null
-                          ? `${fmtSecondsHMS(r.moving_time_s)}`
+                          ? fmtSecondsHMS(r.moving_time_s)
                           : "—"}
                       </td>
                       <td>{r.average_heartrate_bpm ?? "—"}</td>
@@ -155,7 +169,7 @@ export default function ActivityTable({
                 <tr>
                   <td colSpan={7} className="py-6 opacity-70">
                     {start && end
-                      ? "Žiadne aktivity v tomto období."
+                      ? "Žiadne aktivity zvoleného športu v tomto období."
                       : "Klikni na týždeň v grafe, aby sa zobrazili aktivity."}
                   </td>
                 </tr>
