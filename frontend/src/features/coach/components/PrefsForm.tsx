@@ -75,7 +75,7 @@ export default function PrefsForm({
       {/* Sports */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm opacity-80">Sports</span>
-        {(["run", "bike", "strength"] as SportKind[]).map((s) => (
+        {(["run", "ride", "strength"] as SportKind[]).map((s) => (
           <button
             key={s}
             type="button"
