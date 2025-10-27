@@ -305,7 +305,7 @@ def _normalize_summary(user_id: int, a: dict) -> dict:
         "sport_type":              sport_type,
         "sport_type_fe":           sport_type_fe,
         "gear_id":                 to_str(a.get("gear_id")),
-        "gear_name":               "sync_hdl",            # ak chceš, vieš si dotiahnuť cez /gear a uložiť
+        "gear_name":              to_str(a.get("gear_name")),            # ak chceš, vieš si dotiahnuť cez /gear a uložiť
         # popisy / PR
         "description":             a.get("description"),
         "comment":                 None,
