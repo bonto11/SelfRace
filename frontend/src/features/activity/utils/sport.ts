@@ -11,7 +11,7 @@ export function toEffSport(row: {
 
   if (!s) return "other";
   if (s.includes("run")) return "run";
-  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "bike";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "ride";
   if (s.includes("strength") || s.includes("weight") || s.includes("gym")) return "strength";
   if (s.includes("skate")) return "skate";
   if (s.includes("mix")) return "mixed";
