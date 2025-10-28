@@ -5,8 +5,8 @@ from fastapi import APIRouter, HTTPException
 from typing import Any, Dict, List, Optional, Set
 
 from Modules.SQL.db_handler import get_client
-from backend.Configs.config import TABLE_ACTIVITIES_SUMMARY, TABLE_ACTIVITIES_ENRICHMENT
-from backend.Configs.config_sport import (
+from Configs.config import TABLE_ACTIVITIES_SUMMARY, TABLE_ACTIVITIES_ENRICHMENT
+from Configs.config_sport import (
     DEBUG_PARETO,
     normalize_sport,
     normalize_sport_list,

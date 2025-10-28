@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone, time, date
 from Services.time import iso_date
 from Modules.SQL.db_handler import get_client
 from Modules.Sync import sync_handler
-from backend.Configs.config import (
+from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_SPLITS,
     TABLE_ACTIVITIES_LAPS,

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone
 from Modules.SQL.db_handler import get_client
-from backend.Configs.config import TABLE_USERS_STATIC, TABLE_USERS_METRICS
+from Configs.config import TABLE_USERS_STATIC, TABLE_USERS_METRICS
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 supabase = get_client()

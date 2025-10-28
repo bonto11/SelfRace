@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
 from Modules.SQL.db_handler import get_client
-from backend.Configs.config import (
+from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_ENRICHMENT,
 )
-from ..Configs.config_sport import DEBUG_PARETO
+from Configs.config_sport import DEBUG_PARETO
 
 sb = get_client()
 

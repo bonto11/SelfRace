@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, Any, List, Optional, Tuple, cast
 from datetime import datetime, timedelta, timezone
 from Modules.SQL.db_handler import get_client
-from backend.Configs.config import (
+from Configs.config import (
     TABLE_USERS_ZONES,
     TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_ENRICHMENT,
