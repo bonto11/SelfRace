@@ -4,8 +4,8 @@ import { useState, useCallback } from "react";
 import TrendPareto8020, { ParetoWeekPick } from "@/features/activity/components/TrendPareto8020";
 import ActivityTable from "@/features/activity/components/ActivityTable";
 import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
-// ak používaš whitelist pre tabuľku, nechaj si aj toto:
-// import { PARETO_SPORTS_DEFAULT } from "@/features/pareto/config";
+
+import { PARETO_SPORTS_DEFAULT } from "@/features/activity/utils/paretoConfig";
 
 export default function ParetoPage() {
   const [range, setRange] = useState<{ start?: string; end?: string } | null>(null);
@@ -26,7 +26,7 @@ export default function ParetoPage() {
           start={range?.start}
           end={range?.end}
           sport={sport}
-          // allowedSports={sport === "all" ? [...PARETO_SPORTS_DEFAULT] : [sport]}
+          allowedSports={sport === "all" ? [...PARETO_SPORTS_DEFAULT] : [sport]}
         />
       </div>
     </ActivityDataProvider>
