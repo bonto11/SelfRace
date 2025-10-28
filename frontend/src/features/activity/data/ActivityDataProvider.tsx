@@ -21,15 +21,27 @@ function hasSS() {
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
 }
-function detailKey(activityId: number) {
-  return `ACT:DETAIL:${activityId}`;
+function detailKey(activityId: number) { return `ACT:DETAIL:${activityId}`; }
+
+// --- convert FE input (string | string[] | null) -> CSV string | null
+function toCsvSportParam(s: string | string[] | null | undefined): string | null {
+  if (s == null) return null;                   // necháme BE použiť default whitelist
+  if (Array.isArray(s)) {
+    const list = s.map(x => String(x).trim()).filter(Boolean);
+    return list.length ? list.join(",") : "all";
+  }
+  const raw = String(s).trim();
+  if (!raw || raw.toLowerCase() === "all") return "all";
+  const list = raw.split(",").map(x => x.trim()).filter(Boolean);
+  return list.length ? list.join(",") : "all";
 }
-// ---- 80/20 cache keys ----
-function paretoWidgetKey(userId: number, days: number, sport: string | null) {
-  return `PARETO:W:${userId}:${days}:${sport ?? "all"}`;
+
+// ---- 80/20 cache keys na CSV (nie pole!) ----
+function paretoWidgetKey(userId: number, days: number, sportCsv: string | null) {
+  return `PARETO:W:${userId}:${days}:${sportCsv ?? "all"}`;
 }
-function paretoTrendKey(userId: number, weeks: number, sport: string | null) {
-  return `PARETO:T:${userId}:${weeks}:${sport ?? "all"}`;
+function paretoTrendKey(userId: number, weeks: number, sportCsv: string | null) {
+  return `PARETO:T:${userId}:${weeks}:${sportCsv ?? "all"}`;
 }
 
 function saveRange(userId: number, start: string, end: string, rows: ActivityRow[]) {
@@ -95,6 +107,7 @@ type Rolling7 = {
   last: { sum: number; mono: number | null; strain: number | null; daily: number[]; range: { start: string; end: string } };
   prev: { sum: number; mono: number | null; strain: number | null; daily: number[]; range: { start: string; end: string } };
 };
+
 type Ctx = {
   rangeStart: string;
   rangeEnd: string;
@@ -106,15 +119,14 @@ type Ctx = {
   getSummary: (activityId: number) => ActivityRow | null;
   getDetail: (activityId: number) => Promise<ActivityDetailExtra>;
   getStreams: (activityId: number) => Promise<StreamsData>;
-  // rolling posledných 7 dní
   rolling7: (metric: RollingMetric) => Rolling7;
 
   // 80/20
   getParetoWidget: (
-    days: number, sport?: string | null
+    days: number, sport?: string | string[] | null
   ) => Promise<{ easy_min: number; hard_min: number; total_min: number; days: number } | null>;
   getParetoTrend: (
-    weeks: number, sport?: string | null
+    weeks: number, sport?: string | string[] | null
   ) => Promise<Array<{ label: string; easy_min: number; hard_min: number; easy_pct: number; hard_pct: number; start?: string; end?: string }>>;
 };
 
@@ -235,9 +247,8 @@ export function ActivityDataProvider({ children, days = 90 }: { children: React.
   /* --------- Rolling 7 dní (z ActivityRow, nie z WeekRow!) --------- */
 
   const rolling7 = useCallback((metric: RollingMetric): Rolling7 => {
-    // poskladaj 14 denných bucketov (prev7 + last7)
-    const endLast = todayISO();                         // dnes
-    const startPrev = addDays(endLast, -13);            // 14 dní dozadu (vrátane)
+    const endLast = todayISO();
+    const startPrev = addDays(endLast, -13);
     const dayKeys: string[] = [];
     for (let i = 0; i < 14; i++) dayKeys.push(addDays(startPrev, i));
 
@@ -272,7 +283,7 @@ export function ActivityDataProvider({ children, days = 90 }: { children: React.
     };
     const mono = (arr: number[]) => {
       const s = std(arr);
-      if (s === 0) return arr.every(v => v === 0) ? null : (mean(arr) / 1); // ak všetko rovnaké, ale nie nuly -> mono = mean/1
+      if (s === 0) return arr.every(v => v === 0) ? null : (mean(arr) / 1);
       return mean(arr) / s;
     };
     const strain = (arr: number[]) => {
@@ -282,52 +293,57 @@ export function ActivityDataProvider({ children, days = 90 }: { children: React.
     };
 
     return {
-      last: {
-        sum: sum(lastDaily),
-        mono: mono(lastDaily),
-        strain: strain(lastDaily),
-        daily: lastDaily,
-        range: { start: dayKeys[7], end: dayKeys[13] },
-      },
-      prev: {
-        sum: sum(prevDaily),
-        mono: mono(prevDaily),
-        strain: strain(prevDaily),
-        daily: prevDaily,
-        range: { start: dayKeys[0], end: dayKeys[6] },
-      },
+      last: { sum: sum(lastDaily), mono: mono(lastDaily), strain: strain(lastDaily), daily: lastDaily,
+              range: { start: dayKeys[7], end: dayKeys[13] } },
+      prev: { sum: sum(prevDaily), mono: mono(prevDaily), strain: strain(prevDaily), daily: prevDaily,
+              range: { start: dayKeys[0], end: dayKeys[6] } },
     };
   }, [rows]);
 
-  /* --------- 80/20 fetchery s vlastnou cache --------- */
+  /* --------- 80/20 fetchery s vlastnou cache (CSV) --------- */
 
-  const getParetoWidget = useCallback(async (daysParam: number, sport: string | null = null) => {
+  const getParetoWidget = useCallback(async (daysParam: number, sportSel: string | string[] | null = null) => {
     if (userId == null) return null;
-    const key = paretoWidgetKey(userId, daysParam, sport);
+
+    const sportCsv = toCsvSportParam(sportSel);
+    const key = paretoWidgetKey(userId, daysParam, sportCsv);
+
     if (hasSS()) {
       const raw = sessionStorage.getItem(key);
       if (raw) { try { const parsed = JSON.parse(raw); if (parsed && Number.isFinite(parsed.easy_min)) return parsed; } catch {} }
     }
+
     const q = new URLSearchParams({ days: String(daysParam) });
-    if (sport) q.set("sport", sport);
+    if (sportCsv) q.set("sport", sportCsv);
+
     const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
+    console.debug("[PARETO][provider][widget] ->", { url });
+
     const res = await fetch(url, { cache: "no-store" });
     const js = await res.json().catch(() => ({}));
     const data = js?.data ?? null;
+
     if (data && hasSS()) sessionStorage.setItem(key, JSON.stringify(data));
     return data;
   }, [userId]);
 
-  const getParetoTrend = useCallback(async (weeksParam: number, sport: string | null = null) => {
+  const getParetoTrend = useCallback(async (weeksParam: number, sportSel: string | string[] | null = null) => {
     if (userId == null) return [];
-    const key = paretoTrendKey(userId, weeksParam, sport);
+
+    const sportCsv = toCsvSportParam(sportSel);
+    const key = paretoTrendKey(userId, weeksParam, sportCsv);
+
     if (hasSS()) {
       const raw = sessionStorage.getItem(key);
       if (raw) { try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed; } catch {} }
     }
+
     const q = new URLSearchParams({ weeks: String(weeksParam) });
-    if (sport) q.set("sport", sport);
+    if (sportCsv) q.set("sport", sportCsv);
+
     const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
+    console.debug("[PARETO][provider][trend] ->", { url });
+
     const res = await fetch(url, { cache: "no-store" });
     const js = await res.json().catch(() => ({}));
     const rws = Array.isArray(js?.data) ? js.data : [];

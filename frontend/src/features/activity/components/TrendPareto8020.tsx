@@ -9,10 +9,18 @@ import { THEME } from "@/shared/theme/tokens";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
+import {
+  SPORT_OPTIONS,
+  PARETO_DEFAULT_SET,
+  normalizeSport,
+  normalizeSportList,
+  sportsToCSV,
+  isInParetoDefault,
+} from "@/configs/config_sports";
 
 ensureChartJSRegistered();
 
-export type ParetoWeekPick = { start?: string; end?: string; sport: string };
+export type ParetoWeekPick = { start?: string; end?: string; sport: string }; // sport = CSV alebo "all"
 
 type Row = {
   label: string;
@@ -30,29 +38,51 @@ export default function TrendPareto8020({
   onPickWeek?: (w: ParetoWeekPick) => void;
 }) {
   const { userId } = useUserId();
+
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
-  const [sport, setSport] = useState<string>("all");
+
+  // multi-select športov; default = BE default whitelist
+  const [selectedSports, setSelectedSports] = useState<string[]>(
+    Array.from(PARETO_DEFAULT_SET)
+  );
+
+  // odvodený param pre BE
+  const sportParam = useMemo(() => sportsToCSV(selectedSports), [selectedSports]);
+
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
-  // fetch priamo z BE (žiadny Provider/SESSION)
+  // fetch priamo z BE (bez Provider/SESSION)
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+    const q = new URLSearchParams({ weeks: String(lookback) });
+    if (sportParam && sportParam !== "all") q.set("sport", sportParam);
+    else q.set("sport", "all");
+
+    const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
+    console.debug("[PARETO][fetch] ->", { url, lookback, selectedSports, sportParam });
+
     (async () => {
-      const url = `${API_URL}/analytics/pareto8020/${userId}?weeks=${lookback}&sport=${sport}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const json = await res.json().catch(() => ({}));
-      const data: Row[] = Array.isArray(json?.data) ? json.data : [];
-      if (!alive) return;
-      setRows(data);
-      setPickedIdx(null);
-      console.debug("[PARETO][fetch]", { lookback, sport, count: data.length });
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        const data: Row[] = Array.isArray(json?.data) ? json.data : [];
+        if (!alive) return;
+        setRows(data);
+        setPickedIdx(null);
+        console.debug("[PARETO][fetch][ok]", { count: data.length, sample: data[0] });
+      } catch (e) {
+        console.error("[PARETO][fetch][err]", e);
+        if (!alive) return;
+        setRows([]);
+      }
     })();
+
     return () => {
       alive = false;
     };
-  }, [userId, lookback, sport]);
+  }, [userId, lookback, sportParam, selectedSports]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
 
@@ -146,14 +176,41 @@ export default function TrendPareto8020({
         if (idx == null) return;
         setPickedIdx(idx);
         const r = rows[idx];
-        if (r) onPickWeek?.({ start: r.start, end: r.end, sport });
+        if (r) {
+          const csv = sportsToCSV(selectedSports);
+          onPickWeek?.({ start: r.start, end: r.end, sport: csv });
+          console.debug("[PARETO][pick]", { idx, csv, row: r });
+        }
       },
     }),
-    [rows, sport, onPickWeek]
+    [rows, selectedSports, onPickWeek]
   );
 
   const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
   const picked = pickedIdx != null ? rows[pickedIdx] : null;
+
+  // --- UI: jednoduchý multi-select (checkboxy) ---
+  const toggleSport = (s: string) => {
+    const n = normalizeSport(s);
+    if (!n || n === "all") return;
+    setPickedIdx(null);
+    setSelectedSports((prev) => {
+      const set = new Set(prev.map(normalizeSport).filter(Boolean) as string[]);
+      if (set.has(n)) set.delete(n);
+      else set.add(n);
+      const next = Array.from(set);
+      console.debug("[PARETO][sports][toggle]", { click: s, norm: n, next });
+      return next;
+    });
+  };
+
+  // predvyplniť default whitelisted športy, keď by si user vyprázdnil výber
+  useEffect(() => {
+    if (selectedSports.length === 0) {
+      setSelectedSports(Array.from(PARETO_DEFAULT_SET));
+      console.debug("[PARETO][sports][reset->default]", Array.from(PARETO_DEFAULT_SET));
+    }
+  }, [selectedSports.length]);
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
@@ -162,23 +219,38 @@ export default function TrendPareto8020({
         <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
 
         <div className="flex items-center gap-2 text-xs">
-          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={lookback}
-                  onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}>
+          <select
+            className="px-2 py-1 rounded bg-gray-700 text-white"
+            value={lookback}
+            onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
+            title="Lookback"
+          >
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={sport}
-                  onChange={(e) => setSport(e.target.value)}>
-            <option value="all">Všetko</option>
-            <option value="run">Run</option>
-            <option value="ride">Ride</option>
-            <option value="strength">Strength</option>
-            <option value="mixed">Mixed</option>
-            <option value="skate">Skate</option>
-            <option value="other">Other</option>
-          </select>
         </div>
+      </div>
+
+      {/* multi-select športov */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {SPORT_OPTIONS.map((opt) => {
+          const val = normalizeSport(opt.value) ?? "";
+          const active = selectedSports.map(normalizeSport).includes(val);
+          const isDefault = isInParetoDefault(val);
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => toggleSport(opt.value)}
+            className={`px-2 py-1 rounded text-xs border ${
+              active ? "bg-blue-600 text-white border-blue-600" : "bg-gray-700 text-white/90 border-gray-600"
+            }`}
+            title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
+          >
+            {opt.label}{isDefault ? "" : " *"}
+          </button>
+        );})}
       </div>
 
       {/* graf */}
@@ -201,7 +273,7 @@ export default function TrendPareto8020({
             </div>
           </>
         ) : (
-          <div>Klikni na bod v grafe pre zobrazenie detailu týždňa.</div>
+          <div>Klikni na bod v grafe pre detail týždňa.</div>
         )}
       </div>
     </div>

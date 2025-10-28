@@ -1,4 +1,5 @@
 // src/features/activity/components/ActivityTable.tsx
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -10,12 +11,28 @@ import ActivityDetail from "./ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 
+/* ---------------- helpers ---------------- */
+
+function normSportsList(sel: string | string[] | null | undefined): string[] | null {
+  if (sel == null) return null; // žiadny filter -> všetko
+  if (Array.isArray(sel)) {
+    const arr = sel.map(s => String(s).trim().toLowerCase()).filter(Boolean);
+    if (arr.length === 0) return null;
+    if (arr.length === 1 && arr[0] === "all") return null;
+    return Array.from(new Set(arr));
+  }
+  const raw = String(sel).trim().toLowerCase();
+  if (!raw || raw === "all") return null;
+  const arr = raw.split(",").map(s => s.trim()).filter(Boolean);
+  return arr.length ? Array.from(new Set(arr)) : null;
+}
+
 type Props = {
   start?: string;
   end?: string;
-  /** jednorázový filter z grafu (ak máš konkrétny šport vybraný) */
-  sport?: string; // "all" | "run" | "ride" | ...
-  /** whitelist športov – ak je daný, zobraz iba tieto (napr. pre 80/20 chceme vylúčiť "walk") */
+  /** môže byť "all" | "run" | "ride" | "run,ride" | ["run","ride"] | null */
+  sport?: string | string[] | null;
+  /** whitelist športov – ak je daný, zobraz iba tieto */
   allowedSports?: string[] | null;
 };
 
@@ -35,6 +52,12 @@ export default function ActivityTable({
     [start, end]
   );
 
+  const sportList = useMemo(() => normSportsList(sport), [sport]);
+  const filterLabel = useMemo(() => {
+    if (!sportList) return "všetko";
+    return sportList.map((s) => sportUiLabel(s)).join(" + ");
+  }, [sportList]);
+
   useEffect(() => {
     setSelectedId(null);
     if (!start || !end) {
@@ -46,15 +69,16 @@ export default function ActivityTable({
     // 1) všetky v rozsahu
     const inRange = selectByRange(start, end);
 
-    // 2) šport z grafu (ak je zadaný)
-    const bySport =
-      sport && sport !== "all" ? inRange.filter((r) => toEffSport(r) === sport) : inRange;
-
-    // 3) whitelist (napr. pre 80/20 vyhodiť walk)
-    const finalRows =
+    // 2) whitelist (napr. pre 80/20 vyhodiť walk)
+    const afterWhitelist =
       Array.isArray(allowedSports) && allowedSports.length
-        ? bySport.filter((r) => allowedSports.includes(toEffSport(r)))
-        : bySport;
+        ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
+        : inRange;
+
+    // 3) multi-sport filter z grafu (ak je daný)
+    const finalRows = sportList
+      ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r)))
+      : afterWhitelist;
 
     setRows(finalRows);
     setLoading(false);
@@ -63,20 +87,21 @@ export default function ActivityTable({
       start,
       end,
       sport,
+      sportList,
       allowedSports,
       allRows: allRows.length,
       inRange: inRange.length,
-      afterSport: bySport.length,
+      afterWhitelist: afterWhitelist.length,
       final: finalRows.length,
       sample: finalRows.slice(0, 3).map((r) => ({ id: r.activity_id, s: toEffSport(r) })),
     });
-  }, [start, end, sport, allowedSports, selectByRange, allRows.length]);
+  }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
     <div className={`${CARD} space-y-4`}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
-        {sport && <div className="text-xs opacity-60">Filter: {sport}</div>}
+        <div className="text-xs opacity-60">Filter: {filterLabel}</div>
       </div>
 
       {/* MOBILE */}

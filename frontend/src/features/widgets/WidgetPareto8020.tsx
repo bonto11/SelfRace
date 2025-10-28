@@ -1,15 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import { fmtMinutes } from "@/shared/utils/format";
+import { sportsToCSV, normalizeSportList } from "@/configs/config_sports";
 
 type Props = {
   onOpenTrend?: () => void;
   weeks?: 2 | 4 | 8 | 12;
-  sport?: string | null; // ak pošleš, BE si to môže ignorovať – widget ide zo SESSION
+  /** 
+   * Môžeš poslať:
+   *  - undefined/null => použije sa BE default whitelist
+   *  - "all"          => BE default whitelist
+   *  - "run" alebo CSV "run,ride" => presný výber športov
+   */
+  sport?: string | string[] | null;
 };
 
 const colEasy80 = THEME.chart.easy80;
@@ -24,25 +31,30 @@ export default function WidgetPareto8020({
 }: Props) {
   const { getParetoWidget } = useActivityData();
 
-  const [data, setData] = useState<{
-    easy_min: number;
-    hard_min: number;
-    total_min: number;
-    days: number;
-  } | null>(null);
+  // urobíme BE-param z "sport" props
+  const sportParam = useMemo(() => {
+    if (sport == null) return null;       // necháme BE použiť default
+    if (Array.isArray(sport)) return sportsToCSV(sport);
+    const s = String(sport).trim();
+    if (!s || s.toLowerCase() === "all") return "all";
+    // ak by prišlo CSV stringom
+    const list = s.split(",").map(x => x.trim()).filter(Boolean);
+    return sportsToCSV(normalizeSportList(list));
+  }, [sport]);
 
-  // ber zo SESSION (provider vracia cacheované dáta za požadovaný rozsah)
+  const [data, setData] = useState<{ easy_min: number; hard_min: number; total_min: number; days: number; } | null>(null);
+
+  // ber zo SESSION cez provider (ten má vlastnú cache pre widget)
   useEffect(() => {
     let alive = true;
     (async () => {
-      const d = await getParetoWidget(7 * weeks, sport);
+      const d = await getParetoWidget(7 * weeks, sportParam);
       if (!alive) return;
       setData(d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks });
+      console.debug("[PARETO][widget]", { weeks, sportParam, data: d });
     })();
-    return () => {
-      alive = false;
-    };
-  }, [getParetoWidget, weeks, sport]);
+    return () => { alive = false; };
+  }, [getParetoWidget, weeks, sportParam]);
 
   const E = Number(data?.easy_min ?? 0);
   const H = Number(data?.hard_min ?? 0);
@@ -76,9 +88,9 @@ export default function WidgetPareto8020({
     T === 0
       ? ""
       : deltaEasy > 0
-      ? `Chýba ti ${deltaEasy} min Easy do vyrovnanosti (80/20).`
+      ? `Chýba ti ${deltaEasy} min Easy do 80/20.`
       : deltaEasy < 0
-      ? `Máš +${Math.abs(deltaEasy)} min Easy oproti vyrovnanosti (80/20).`
+      ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
       : "Si presne na 80/20 ✔";
 
   return (
@@ -89,55 +101,13 @@ export default function WidgetPareto8020({
     >
       <div className="w-full flex items-center justify-center">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          <circle
-            cx={cx}
-            cy={cy}
-            r={r}
-            stroke={colTrack}
-            strokeWidth={stroke}
-            fill="none"
-            transform={startAtTop}
-          />
-          <circle
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke={colHard20}
-            strokeWidth={stroke}
-            strokeDasharray={`${hardLen} ${C - hardLen}`}
-            strokeDashoffset={0}
-            transform={startAtTop}
-          />
-          <circle
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke={colEasy80}
-            strokeWidth={stroke}
-            strokeDasharray={`${easyLen} ${C - easyLen}`}
-            strokeDashoffset={easyLen}
-            transform={startAtTop}
-          />
-          <line
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke={colTick}
-            strokeWidth={6}
-            strokeLinecap="round"
-          />
-          <text
-            x={cx}
-            y={cy}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill="#fff"
-            fontSize="18"
-            fontWeight={800}
-          >
+          <circle cx={cx} cy={cy} r={r} stroke={colTrack} strokeWidth={stroke} fill="none" transform={startAtTop} />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={colHard20} strokeWidth={stroke}
+                  strokeDasharray={`${hardLen} ${C - hardLen}`} strokeDashoffset={0} transform={startAtTop} />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={colEasy80} strokeWidth={stroke}
+                  strokeDasharray={`${easyLen} ${C - easyLen}`} strokeDashoffset={easyLen} transform={startAtTop} />
+          <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={colTick} strokeWidth={6} strokeLinecap="round" />
+          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="18" fontWeight={800}>
             {T ? `${easyPct}% / ${hardPct}%` : "0% / 0%"}
           </text>
         </svg>
