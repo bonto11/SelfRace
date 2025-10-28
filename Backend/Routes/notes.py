@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from Modules.SQL.db_handler import get_client
-from Modules.config import TABLE_USERS_NOTES
+from backend.Configs.config import TABLE_USERS_NOTES
 from datetime import datetime
 
 router = APIRouter(prefix="/notes", tags=["Notes"])

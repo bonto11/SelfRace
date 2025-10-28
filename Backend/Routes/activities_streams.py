@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from datetime import timezone
 from typing import List, Dict, Any
 from Modules.SQL.db_handler import get_client
-from Modules.config import TABLE_ACTIVITIES_STREAMS, TABLE_ACTIVITIES_SUMMARY
+from backend.Configs.config import TABLE_ACTIVITIES_STREAMS, TABLE_ACTIVITIES_SUMMARY
 from Modules.API.Strava.streams import cache_streams_for_activities
 
 router = APIRouter(prefix="/activities", tags=["activities"])

@@ -1,6 +1,6 @@
 # services/db.py
 import os
-import Modules.config as CFG
+import backend.Configs.config as CFG
 from Modules.SQL.db_handler import get_client
 
 # Tabuľky

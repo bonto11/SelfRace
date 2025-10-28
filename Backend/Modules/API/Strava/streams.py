@@ -5,7 +5,7 @@ import requests
 from typing import Dict, Any, List, Tuple
 from Modules.API.Strava.auth import get_access_token
 from Modules.SQL.db_handler import get_client
-from Modules.config import STRAVA_BASE, TABLE_ACTIVITIES_STREAMS, TABLE_USERS, TABLE_ACTIVITIES_SUMMARY
+from backend.Configs.config import STRAVA_BASE, TABLE_ACTIVITIES_STREAMS, TABLE_USERS, TABLE_ACTIVITIES_SUMMARY
 
 sb = get_client()
 

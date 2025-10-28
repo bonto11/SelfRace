@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 from Modules.SQL.db_handler import get_client
-from Modules.config import (
+from backend.Configs.config import (
     TABLE_USERS,
     TABLE_USERS_RECOVERY,
 )

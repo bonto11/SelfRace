@@ -7,7 +7,7 @@ import math, statistics
 import json
 
 from Modules.SQL.db_handler import get_client
-from Modules.config import (
+from backend.Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_SPLITS,
     TABLE_ACTIVITIES_LAPS,

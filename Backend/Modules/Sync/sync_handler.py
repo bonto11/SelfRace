@@ -12,7 +12,7 @@ from Services.sport_type import infer_sport_type_fe
 
 from Modules.SQL.db_handler import get_client
 from Modules.API.Strava.auth import get_access_token
-from Modules.config import (
+from backend.Configs.config import (
     STRAVA_BASE,
     TABLE_ACTIVITIES_SUMMARY,   # "activities_summary"
     TABLE_ACTIVITIES_LAPS,      # "activities_laps"
