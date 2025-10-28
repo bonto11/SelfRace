@@ -4,7 +4,7 @@ import json, re
 from typing import Any, Dict, List, cast
 from fastapi import HTTPException
 from openai import OpenAI
-from .db import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Services.db import OPENAI_API_KEY, LLM_TIMEOUT_S
 
 def extract_json_block(text: str) -> dict:
     t = (text or "").strip()

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import requests
 from typing import Optional
 
-from backend.Configs.config import (
+from Configs.config import (
     CLIENT_ID,
     CLIENT_SECRET,
     REDIRECT_URI,
