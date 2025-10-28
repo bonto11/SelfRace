@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional, Set, List, Dict, Any
 from Modules.SQL.db_handler import get_client
 from Services.sport_type import infer_sport_type_fe
-
-from ...Configs.config import (
+from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_SPLITS,

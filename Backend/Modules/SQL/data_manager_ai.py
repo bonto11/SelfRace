@@ -4,10 +4,8 @@ from datetime import datetime, timedelta, timezone, date
 from typing import List, Dict, Any
 from collections import defaultdict
 import math, statistics
-import json
-
 from Modules.SQL.db_handler import get_client
-from backend.Configs.config import (
+from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_SPLITS,
     TABLE_ACTIVITIES_LAPS,
