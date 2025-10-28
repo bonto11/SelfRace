@@ -6,10 +6,13 @@ import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { fmtSecondsHMS } from "@/shared/utils/format";
+import { API_URL } from "@/shared/config";
+import { useUserId } from "@/shared/hooks/useUserId";
 
 ensureChartJSRegistered();
+
+export type ParetoWeekPick = { start?: string; end?: string; sport: string };
 
 type Row = {
   label: string;
@@ -21,46 +24,39 @@ type Row = {
   end?: string;
 };
 
-export type ParetoWeekPick = {
-  start?: string;
-  end?: string;
-  sport: string; // ← dôležité
-};
-
 export default function TrendPareto8020({
   onPickWeek,
 }: {
   onPickWeek?: (w: ParetoWeekPick) => void;
 }) {
-  const { getParetoTrend, weeks: providerWeeks } = useActivityData();
-
+  const { userId } = useUserId();
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
   const [sport, setSport] = useState<string>("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
+  // fetch priamo z BE (žiadny Provider/SESSION)
   useEffect(() => {
+    if (!userId) return;
     let alive = true;
     (async () => {
-      const data = await getParetoTrend(lookback, sport);
+      const url = `${API_URL}/analytics/pareto8020/${userId}?weeks=${lookback}&sport=${sport}`;
+      const res = await fetch(url, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      const data: Row[] = Array.isArray(json?.data) ? json.data : [];
       if (!alive) return;
-      setRows(Array.isArray(data) ? (data as Row[]) : []);
+      setRows(data);
       setPickedIdx(null);
+      console.debug("[PARETO][fetch]", { lookback, sport, count: data.length });
     })();
     return () => {
       alive = false;
     };
-  }, [getParetoTrend, lookback, sport]);
+  }, [userId, lookback, sport]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
 
-  // fallback mapa týždňov (ak BE neposiela start/end)
-  const weekMap = useMemo(
-    () => providerWeeks.slice(-lookback).map((w) => ({ start: w.start, end: w.end })),
-    [providerWeeks, lookback]
-  );
-
-  // ref čiary
+  // referenčné čiary 80/20
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
   const ref20 = useMemo(() => Array(labels.length).fill(20), [labels.length]);
 
@@ -127,25 +123,16 @@ export default function TrendPareto8020({
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            padding: 8,
-            boxWidth: 6,
-            boxHeight: 6,
-          },
+          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6 },
         },
         tooltip: {
           callbacks: {
-            label: (ctx) =>
-              `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
+            label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
             footer: (items) => {
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              const easy = fmtSecondsHMS(r.easy_min || 0);
-              const hard = fmtSecondsHMS(r.hard_min || 0);
-              return `Easy ${easy} • Hard ${hard}`;
+              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
         },
@@ -158,20 +145,11 @@ export default function TrendPareto8020({
         const idx = elements?.[0]?.index;
         if (idx == null) return;
         setPickedIdx(idx);
-
         const r = rows[idx];
-        const fallback = weekMap[idx];
-        const payload: ParetoWeekPick = {
-          start: r?.start ?? fallback?.start,
-          end:   r?.end   ?? fallback?.end,
-          sport, // ← posielame aktuálny výber športu
-        };
-
-        console.debug("[PARETO][trend] pick", payload);
-        onPickWeek?.(payload);
+        if (r) onPickWeek?.({ start: r.start, end: r.end, sport });
       },
     }),
-    [rows, weekMap, onPickWeek, sport]
+    [rows, sport, onPickWeek]
   );
 
   const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
@@ -184,20 +162,14 @@ export default function TrendPareto8020({
         <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
 
         <div className="flex items-center gap-2 text-xs">
-          <select
-            className="px-2 py-1 rounded bg-gray-700 text-white"
-            value={lookback}
-            onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
-          >
+          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={lookback}
+                  onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}>
             <option value={4}>4 týždne</option>
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <select
-            className="px-2 py-1 rounded bg-gray-700 text-white"
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-          >
+          <select className="px-2 py-1 rounded bg-gray-700 text-white" value={sport}
+                  onChange={(e) => setSport(e.target.value)}>
             <option value="all">Všetko</option>
             <option value="run">Run</option>
             <option value="ride">Ride</option>
@@ -218,14 +190,13 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* detail vybraného týždňa – textik */}
+      {/* detail vybraného týždňa */}
       <div className="mt-2 text-xs opacity-80">
         {picked ? (
           <>
             <div className="font-semibold">{picked.label}</div>
             <div>
-              Easy: {fmtSecondsHMS(picked.easy_min || 0)} ({Math.round(picked.easy_pct)}%)
-              {" • "}
+              Easy: {fmtSecondsHMS(picked.easy_min || 0)} ({Math.round(picked.easy_pct)}%) {" • "}
               Hard: {fmtSecondsHMS(picked.hard_min || 0)} ({Math.round(picked.hard_pct)}%)
             </div>
           </>
