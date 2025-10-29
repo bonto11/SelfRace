@@ -2,6 +2,7 @@
 // Stránka AI Coach: skladá komponenty (PrefsForm, PersonalBestsPanel, GoalPicker, Calendar),
 // volá backend /coach/analyze a používá globálny InfoMessage host (success/error).
 
+/*
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
@@ -138,3 +139,4 @@ export default function ClientPage() {
     </div>
   );
 }
+  */
