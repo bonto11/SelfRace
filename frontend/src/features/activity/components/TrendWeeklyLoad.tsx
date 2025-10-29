@@ -246,7 +246,7 @@ export default function TrendWeeklyLoad({
       <div className="relative" style={{ height: 240 }}>
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-            <LoadingSpinner variant="trend" />
+            <LoadingSpinner size="trend" />
           </div>
         )}
 
