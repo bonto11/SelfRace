@@ -4,6 +4,7 @@
 import { useMemo } from "react";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 function minToHM(totalMin: number) {
   const h = Math.floor(totalMin / 60);
@@ -12,9 +13,9 @@ function minToHM(totalMin: number) {
 }
 function fmtRange(s: string, e: string) {
   const sd = new Date(s), ed = new Date(e);
-  const sdD = sd.getDate(), sdM = sd.getMonth()+1;
-  const edD = ed.getDate(), edM = ed.getMonth()+1;
-  return sdM === edM ? `${sdD}–${edD}.${edM}.` : `${sdD}.${sdM}.–${edD}.${edM}.`;
+  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
+  const edD = ed.getDate(), edM = ed.getMonth() + 1;
+  return sdM === edM ? `${sdD}–${edD}.${edM}.` : `${sdD}.${sdM}.–${edD}.${em}.`.replace(".undefined",""); // guard
 }
 
 export default function WeeklyLoadWidget({
@@ -28,8 +29,8 @@ export default function WeeklyLoadWidget({
 
   // rolling 7 dní (čas v minútach)
   const r7 = rolling7("time");
-  const totalLast = r7.last.sum;
-  const totalPrev = r7.prev.sum;
+  const totalLast = r7.last.sum || 0;
+  const totalPrev = r7.prev.sum || 0;
 
   const { h, m } = useMemo(() => minToHM(totalLast), [totalLast]);
   const diffPct = useMemo(
@@ -45,10 +46,17 @@ export default function WeeklyLoadWidget({
     else                    { note = "≈ podobne ako predchádzajúcich 7 dní"; accent = "bg-emerald-600"; }
   }
 
+  const rangeTxt =
+    r7?.last?.range?.start && r7?.last?.range?.end
+      ? fmtRange(r7.last.range.start, r7.last.range.end)
+      : "";
+
   return (
     <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
       {loading ? (
-        <div className="opacity-70 text-sm">Načítavam…</div>
+        <div className="w-full flex items-center justify-center py-4" aria-live="polite">
+          <LoadingSpinner size="widget" /> {/* NEW */}
+        </div>
       ) : (
         <>
           <div className="flex items-baseline gap-3">
@@ -61,7 +69,7 @@ export default function WeeklyLoadWidget({
           </div>
 
           <div className="opacity-80 text-sm mt-1">
-            {note} • {fmtRange(r7.last.range.start, r7.last.range.end)}
+            {note}{rangeTxt ? ` • ${rangeTxt}` : ""}
           </div>
         </>
       )}
