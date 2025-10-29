@@ -11,9 +11,16 @@ import {
 import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 
-export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetRHR({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   // Provider nemusí mať loading – držíme to voliteľné
-  const { rows, loading: loadingRaw } = useRecoveryData() as { rows: any[]; loading?: boolean };
+  const { rows, loading: loadingRaw } = useRecoveryData() as {
+    rows: any[];
+    loading?: boolean;
+  };
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
@@ -34,7 +41,12 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
     return typeof last === "number" ? last : null;
   }, [values]);
 
-  const cmp = compareLatestToBaseline(yesterday, baselinePoint, "lower-better", 0.05);
+  const cmp = compareLatestToBaseline(
+    yesterday,
+    baselinePoint,
+    "lower-better",
+    0.05
+  );
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -46,10 +58,18 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
   const note = showNA ? freshness.message : cmp.note;
 
   // Pri loaded = false: používame cmp.accent; pri loading/NA sivé pozadie
-  const accent = loading ? "bg-slate-700" : showNA ? "bg-slate-700" : cmp.accent;
+  const accent = loading
+    ? "bg-slate-700"
+    : showNA
+    ? "bg-slate-700"
+    : cmp.accent;
 
   return (
-    <OpenerWidget title="Resting HR" accent={accent} onOpenDetail={onOpenDetail}>
+    <OpenerWidget
+      title="Resting HR"
+      accent={accent}
+      onOpenDetail={onOpenDetail}
+    >
       {loading ? (
         <div className="grid place-items-center py-6">
           <LoadingSpinner size="widget" />
@@ -57,7 +77,9 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
       ) : (
         <>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl font-extrabold leading-none">{valueText}</span>
+            <span className="text-5xl font-extrabold leading-none">
+              {valueText}
+            </span>
             <span className="text-xl opacity-80">bpm</span>
           </div>
           {note && <p className="opacity-80">{note}</p>}

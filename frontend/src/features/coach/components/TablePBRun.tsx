@@ -9,7 +9,9 @@ const MOCK: PBRun[] = [
   { distanceKm: 21.1, best: "02:22:07" },
 ];
 
-function fmtDist(k:number) { return k===21.1 ? "Half marathon" : k===42.2 ? "Marathon" : `${k} km`; }
+function fmtDist(k: number) {
+  return k === 21.1 ? "Half marathon" : k === 42.2 ? "Marathon" : `${k} km`;
+}
 
 export default function PBRunTable() {
   return (
@@ -24,8 +26,11 @@ export default function PBRunTable() {
           </tr>
         </thead>
         <tbody>
-          {MOCK.map((r)=>(
-            <tr key={r.distanceKm} className="border-t border-gray-300 dark:border-gray-700">
+          {MOCK.map((r) => (
+            <tr
+              key={r.distanceKm}
+              className="border-t border-gray-300 dark:border-gray-700"
+            >
               <td className="px-2 py-1">{fmtDist(r.distanceKm)}</td>
               <td className="px-2 py-1 tabular-nums">{r.best}</td>
               <td className="px-2 py-1">{r.date ?? "—"}</td>

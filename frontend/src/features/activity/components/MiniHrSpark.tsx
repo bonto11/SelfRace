@@ -10,7 +10,7 @@ type Props = { activityId: number; height?: number };
 export default function MiniHrSpark({ activityId, height = 64 }: Props) {
   const { getStreams } = useActivityData();
   const [xs, setXs] = useState<number[]>([]);
-  const [ys, setYs] = useState<(number|null)[]>([]);
+  const [ys, setYs] = useState<(number | null)[]>([]);
   const [dur, setDur] = useState<number>(0);
 
   useEffect(() => {
@@ -22,13 +22,16 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
       setYs(s.hr || []);
       setDur(s.duration_s || 0);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [activityId, getStreams]);
 
   const [minHR, maxHR] = useMemo(() => {
     const vals = ys.filter((v): v is number => Number.isFinite(v as number));
     if (!vals.length) return [0, 0];
-    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const lo = Math.min(...vals),
+      hi = Math.max(...vals);
     return [lo, hi];
   }, [ys]);
 
@@ -37,7 +40,9 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
     const w = 300; // kreslíme do šírky 300, potom natiahneme viewBox
     const h = height;
     const n = Math.min(xs.length, ys.length);
-    const x0 = xs[0], x1 = xs[n-1], span = Math.max(1, x1 - x0);
+    const x0 = xs[0],
+      x1 = xs[n - 1],
+      span = Math.max(1, x1 - x0);
     const sx = (t: number) => ((t - x0) / span) * w;
     const sy = (hr: number) => {
       const p = (hr - minHR) / (maxHR - minHR);
@@ -56,12 +61,19 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
   }, [xs, ys, minHR, maxHR, height]);
 
   if (!xs.length || !ys.length) {
-    return <div className="text-xs opacity-70">HR stream nie je k dispozícii.</div>;
+    return (
+      <div className="text-xs opacity-70">HR stream nie je k dispozícii.</div>
+    );
   }
 
   return (
     <div className="flex items-center gap-3">
-      <svg width="100%" height={height} viewBox={`0 0 300 ${height}`} preserveAspectRatio="none">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 300 ${height}`}
+        preserveAspectRatio="none"
+      >
         <defs>
           <linearGradient id="hrLine" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#22c55e" />
@@ -69,12 +81,26 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
           </linearGradient>
         </defs>
         {/* baseline */}
-        <rect x="0" y={height-1} width="300" height="1" fill="rgba(255,255,255,0.1)" />
+        <rect
+          x="0"
+          y={height - 1}
+          width="300"
+          height="1"
+          fill="rgba(255,255,255,0.1)"
+        />
         {/* HR path */}
-        <path d={path} fill="none" stroke="url(#hrLine)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <path
+          d={path}
+          fill="none"
+          stroke="url(#hrLine)"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
       <div className="text-xs opacity-75 whitespace-nowrap">
-        <div>HR: {minHR}–{maxHR} bpm</div>
+        <div>
+          HR: {minHR}–{maxHR} bpm
+        </div>
         <div>Čas: {fmtSecondsHMS(dur)}</div>
       </div>
     </div>

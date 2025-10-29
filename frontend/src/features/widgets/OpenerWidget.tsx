@@ -5,9 +5,9 @@ import React from "react";
 type Props = {
   title: string;
   note?: string;
-  accent?: string;             // farba lišty dole (Tailwind)
-  onOpenDetail?: () => void;   // ak je, celá karta je klikateľná
-  children?: React.ReactNode;  // vnútorný obsah (čísla/graf)
+  accent?: string; // farba lišty dole (Tailwind)
+  onOpenDetail?: () => void; // ak je, celá karta je klikateľná
+  children?: React.ReactNode; // vnútorný obsah (čísla/graf)
   className?: string;
 };
 
@@ -27,7 +27,9 @@ export default function OpenerWidget({
       className={[
         "w-full text-left bg-white dark:bg-gray-800 rounded shadow p-4",
         "focus:outline-none",
-        onOpenDetail ? "hover:bg-gray-700/40 transition-colors cursor-pointer" : "",
+        onOpenDetail
+          ? "hover:bg-gray-700/40 transition-colors cursor-pointer"
+          : "",
         // konzistentná výška a rozloženie
         "flex flex-col min-h-[160px]",
         className,
@@ -35,9 +37,13 @@ export default function OpenerWidget({
     >
       {/* header */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-sm md:text-base font-semibold tracking-tight">{title}</h3>
+        <h3 className="text-sm md:text-base font-semibold tracking-tight">
+          {title}
+        </h3>
         {onOpenDetail && (
-          <span className="text-xs opacity-75 whitespace-nowrap">otvoriť detail ⟶</span>
+          <span className="text-xs opacity-75 whitespace-nowrap">
+            otvoriť detail ⟶
+          </span>
         )}
       </div>
 
