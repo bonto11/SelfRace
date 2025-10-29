@@ -1,15 +1,15 @@
 "use client";
-
-import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
-import WidgetPBRun from "@/features/widgets/WidgetPBRun";
 import { useRouter } from "next/navigation";
+import WidgetPBRun from "@/features/widgets/WidgetPBRun";
+import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
 
-export default function ClientPage() {
-  const r = useRouter();
+export default function CoachPage() {
+  const router = useRouter();
+
   return (
-    <div className="space-y-4">
-      <WidgetCoachPrefs onOpenDetail={()=>r.push("/coach/prefs")} />
-      <WidgetPBRun onOpenDetail={()=>r.push("/coach/pb-run")} />
+    <div className="grid gap-4">
+      <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
+      <WidgetPBRun onOpenDetail={() => router.push("/coach/bests")} />
     </div>
   );
 }
