@@ -4,27 +4,28 @@
 import { useMemo } from "react";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 function classifyMonotony(v?: number | null) {
   if (v == null) return { label: "—", accent: "bg-slate-700" };
-  if (v < 0.8)  return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
-  if (v <= 1.5) return { label: "vyvážené (OK)",          accent: "bg-emerald-600" };
-  if (v <= 2.0) return { label: "vyššia monotónnosť",      accent: "bg-amber-500" };
-  return           { label: "riziko preťaženia",           accent: "bg-red-600" };
+  if (v < 0.8) return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
+  if (v <= 1.5) return { label: "vyvážené (OK)", accent: "bg-emerald-600" };
+  if (v <= 2.0) return { label: "vyššia monotónnosť", accent: "bg-amber-500" };
+  return { label: "riziko preťaženia", accent: "bg-red-600" };
 }
 
 function classifyStrain(v?: number | null) {
   if (v == null) return { label: "—", accent: "bg-slate-700" };
-  if (v < 600)   return { label: "ľahší týždeň",  accent: "bg-blue-700" };
-  if (v < 1200)  return { label: "stredný load", accent: "bg-emerald-600" };
-  if (v < 1800)  return { label: "vyšší load",   accent: "bg-amber-500" };
-  return             { label: "veľmi vysoký",    accent: "bg-red-600" };
+  if (v < 600) return { label: "ľahší týždeň", accent: "bg-blue-700" };
+  if (v < 1200) return { label: "stredný load", accent: "bg-emerald-600" };
+  if (v < 1800) return { label: "vyšší load", accent: "bg-amber-500" };
+  return { label: "veľmi vysoký", accent: "bg-red-600" };
 }
 
 function fmtRange(s: string, e: string) {
   const sd = new Date(s), ed = new Date(e);
-  const sdD = sd.getDate(), sdM = sd.getMonth()+1;
-  const edD = ed.getDate(), edM = ed.getMonth()+1;
+  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
+  const edD = ed.getDate(), edM = ed.getMonth() + 1;
   return sdM === edM ? `${sdD}–${edD}.${edM}.` : `${sdD}.${sdM}.–${edD}.${edM}.`;
 }
 
@@ -46,15 +47,17 @@ export default function MonoStrainWidget({
   const sC = classifyStrain(strain);
 
   const accent =
-    (mC.accent === "bg-red-600" || sC.accent === "bg-red-600") ? "bg-red-600" :
-    (mC.accent === "bg-amber-500" || sC.accent === "bg-amber-500") ? "bg-amber-500" :
-    (mC.accent === "bg-emerald-600" || sC.accent === "bg-emerald-600") ? "bg-emerald-600" :
+    mC.accent === "bg-red-600" || sC.accent === "bg-red-600" ? "bg-red-600" :
+    mC.accent === "bg-amber-500" || sC.accent === "bg-amber-500" ? "bg-amber-500" :
+    mC.accent === "bg-emerald-600" || sC.accent === "bg-emerald-600" ? "bg-emerald-600" :
     "bg-slate-700";
 
   return (
     <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
       {loading ? (
-        <div className="opacity-70 text-sm">Načítavam…</div>
+        <div className="grid place-items-center py-6">
+          <LoadingSpinner size="widget" /> {/* NEW */}
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-6">
