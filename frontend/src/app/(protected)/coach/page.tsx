@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ClientPage from "./ClientPage";
+import ClientPage from "./ClientPageOld";
 
 export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
 
