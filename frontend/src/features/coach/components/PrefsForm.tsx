@@ -1,8 +1,8 @@
 // src/features/coach/components/PrefsForm.tsx
 "use client";
 
-import { CoachPrefs, SportKind, DayAbbrev, Preferences } from "@/features/coach/types/prefsTypes";
-
+import { CoachPrefs, SportKind, Preferences } from "@/features/coach/types/prefsTypes";
+import type { DayAbbrev } from "@/features/coach/types/day";
 const LS_KEY = "coach:prefs";
 
 // Default pre vnorené preferences – aby nikdy neboli undefined

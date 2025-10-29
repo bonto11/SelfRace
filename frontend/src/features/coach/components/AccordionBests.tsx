@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import PBRun from "./PBRun";
+import PBRun from "@/features/coach/components/PBRun";
 
 export default function AccordionBests() {
   const [open, setOpen] = useState({ run: true, ride: false, strength: false });

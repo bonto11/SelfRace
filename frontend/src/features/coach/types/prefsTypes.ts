@@ -7,7 +7,7 @@ export type GoalKind =
   | "maintain";
 
 // TOP: používaj deň z centralizovaného súboru
-import type { DayAbbrev } from "./day";
+import type { DayAbbrev } from "@/features/coach/types/day";
 
 // rozšír športy, aby pokryl aj tvoje UI (run/ride/strength/mixed/skate)
 export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
@@ -95,3 +95,10 @@ export const DEFAULT_PREFS: CoachPrefs = {
     wu_cd_detail: true,
   },
 };
+
+export type PBRun = {
+  distanceKm: number;
+  best: string;
+  activityId?: number | null;
+  date?: string | null;
+}
