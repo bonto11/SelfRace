@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
 
 from Modules.SQL.db_handler import get_client
-from Modules.config import (
+from Configs.config import (
     TABLE_USERS_STATIC,
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_LAPS,

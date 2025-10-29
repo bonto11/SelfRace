@@ -44,7 +44,7 @@ export default function Controls(props: Props) {
 
       <div className="flex gap-3 items-center">
         <span className="text-sm opacity-80">Sports:</span>
-        {["run", "bike", "strength"].map((s) => (
+        {["run", "ride", "strength"].map((s) => (
           <label key={s} className="flex items-center gap-1 text-sm">
             <input
               type="checkbox"

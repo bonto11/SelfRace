@@ -1,4 +1,4 @@
-// src/features/widgets/ChartScroller.tsx
+// src/shared/components/ChartScroller.tsx
 "use client";
 import { PropsWithChildren } from "react";
 

@@ -3,17 +3,17 @@
 import { useState } from "react";
 import BestsPanel_Run from "./BestsPanel_Run";
 // placeholders na neskôr
-// import BikeBestsPanel from "./BikeBestsPanel";
+// import RideBestsPanel from "./RideBestsPanel";
 // import StrengthBestsPanel from "./StrengthBestsPanel";
 
 export default function SportsBestsAccordion() {
   const [open, setOpen] = useState<{
     run: boolean;
-    bike: boolean;
+    ride: boolean;
     strength: boolean;
   }>({
     run: true,
-    bike: false,
+    ride: false,
     strength: false,
   });
 

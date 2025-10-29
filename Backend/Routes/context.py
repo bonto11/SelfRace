@@ -17,7 +17,7 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 def sport_bucket(s: str) -> str:
     s = (s or "").lower()
     if "run" in s: return "run"
-    if "ride" in s or "bike" in s or "cycle" in s: return "bike"
+    if "ride" in s or "bike" in s or "cycle" in s: return "ride"
     if any(k in s for k in ["strength","weight","gym"]): return "strength"
     return "other"
 
@@ -42,9 +42,9 @@ def fetch_weekly(user_id: int, weeks: int = 12):
         rows = []
 
     week_agg: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
-        "trimp":0.0,"trimp_run":0.0,"trimp_bike":0.0,"trimp_strength":0.0,"trimp_other":0.0,
-        "time_min":0.0,"time_run_min":0.0,"time_bike_min":0.0,"time_strength_min":0.0,"time_other_min":0.0,
-        "km_total":0.0,"km_run":0.0,"km_bike":0.0,
+        "trimp":0.0,"trimp_run":0.0,"trimp_ride":0.0,"trimp_strength":0.0,"trimp_other":0.0,
+        "time_min":0.0,"time_run_min":0.0,"time_ride_min":0.0,"time_strength_min":0.0,"time_other_min":0.0,
+        "km_total":0.0,"km_run":0.0,"km_ride":0.0,
         "day_trimp":defaultdict(float),"day_time":defaultdict(float),"day_km":defaultdict(float),
         "examples":[]
     })
@@ -65,8 +65,8 @@ def fetch_weekly(user_id: int, weeks: int = 12):
         wa["day_trimp"][d.isoformat()] += tr; wa["day_time"][d.isoformat()] += time_min; wa["day_km"][d.isoformat()] += dist_km
         if bucket=="run":
             wa["trimp_run"] += tr; wa["time_run_min"] += time_min; wa["km_run"] += dist_km
-        elif bucket=="bike":
-            wa["trimp_bike"] += tr; wa["time_bike_min"] += time_min; wa["km_bike"] += dist_km
+        elif bucket=="ride":
+            wa["trimp_ride"] += tr; wa["time_ride_min"] += time_min; wa["km_ride"] += dist_km
         elif bucket=="strength":
             wa["trimp_strength"] += tr; wa["time_strength_min"] += time_min
         else:
@@ -83,10 +83,10 @@ def fetch_weekly(user_id: int, weeks: int = 12):
         mono_tr, strain_tr = monotony_and_strain(wa["day_trimp"], start, wa["trimp"])
         out_weeks.append({
             "week": wk, "start": start.isoformat(), "end": end.isoformat(),
-            "km_total": wa["km_total"], "km_run": wa["km_run"], "km_bike": wa["km_bike"],
-            "time_min": wa["time_min"], "time_run_min": wa["time_run_min"], "time_bike_min": wa["time_bike_min"],
+            "km_total": wa["km_total"], "km_run": wa["km_run"], "km_ride": wa["km_ride"],
+            "time_min": wa["time_min"], "time_run_min": wa["time_run_min"], "time_ride_min": wa["time_ride_min"],
             "time_strength_min": wa["time_strength_min"], "time_other_min": wa["time_other_min"],
-            "trimp": wa["trimp"], "trimp_run": wa["trimp_run"], "trimp_bike": wa["trimp_bike"], "trimp_strength": wa["trimp_strength"], "trimp_other": wa["trimp_other"],
+            "trimp": wa["trimp"], "trimp_run": wa["trimp_run"], "trimp_ride": wa["trimp_ride"], "trimp_strength": wa["trimp_strength"], "trimp_other": wa["trimp_other"],
             "monotony": {"km": mono_km, "time": mono_tm, "trimp": mono_tr},
             "strain": {"km": strain_km, "time": strain_tm, "trimp": strain_tr},
             "examples": wa["examples"],

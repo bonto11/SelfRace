@@ -1,9 +1,9 @@
 # Modules/Services/compute_zones.py
 from __future__ import annotations
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, cast
 from datetime import datetime, timedelta, timezone
 from Modules.SQL.db_handler import get_client
-from Modules.config import (
+from Configs.config import (
     TABLE_USERS_ZONES,
     TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_ENRICHMENT,
@@ -15,19 +15,18 @@ from Modules.API.Strava.streams import fetch_and_optionally_store_batch, cache_s
 
 sb = get_client()
 
-# Services/activity_zones.py
-from typing import Any, Dict, List, Optional, cast
-from datetime import datetime, timedelta, timezone
-
-from Modules.SQL.db_handler import get_client
-from Modules.config import (
-    TABLE_ACTIVITIES_SUMMARY,
-    TABLE_ACTIVITIES_ENRICHMENT,
-    TABLE_USERS,  # ← máme v DB
-)
-
-sb = get_client()
-
+def _get_user_uid(user_id: int) -> str:
+    r = (
+        sb.table(TABLE_USERS)
+        .select("auth_uid")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    row = (r.data or [None])[0]
+    if not row or not row.get("auth_uid"):
+        raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
+    return str(row["auth_uid"])
 
 def _to_int(v: Any) -> Optional[int]:
     try:
@@ -68,22 +67,11 @@ def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
             out.append(aid)
     return out
 
-
-def _get_user_uid(user_id: int) -> str:
-    """Vráti auth_uid (uuid) z public.users pre user_id."""
-    r = sb.table(TABLE_USERS).select("auth_uid").eq("id", user_id).limit(1).execute()
-    row = (_rows(r) or [None])[0]
-    if not row or not row.get("auth_uid"):
-        raise RuntimeError(f"user_id={user_id} nemá auth_uid")
-    return str(row["auth_uid"])
-
-
 def _to_int_min(x) -> int:
     try:
         return int(round(float(x)))
     except Exception:
         return 0
-
 
 def _load_user_zones(user_id: int) -> Optional[Dict[str, int]]:
     """
@@ -159,6 +147,29 @@ def _load_user_zones(user_id: int) -> Optional[Dict[str, int]]:
         ),
     }
 
+def _load_summary_map(user_id: int, ids: List[int]) -> dict[int, dict]:
+    if not ids:
+        return {}
+    res = (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+        .select("activity_id, average_heartrate_bpm, moving_time_s, distance_m, sport_type_fe")
+        .eq("user_id", user_id)
+        .in_("activity_id", ids)
+        .execute()
+    )
+    mp: dict[int, dict] = {}
+    for r in (res.data or []):
+        try:
+            aid = int(r["activity_id"])
+        except Exception:
+            continue
+        mp[aid] = {
+            "avg_hr_bpm": r.get("average_heartrate_bpm"),
+            "moving_time_s": r.get("moving_time_s"),
+            "distance_m": r.get("distance_m"),
+            "sport_type_fe": (r.get("sport_type_fe") or "other"),
+        }
+    return mp
 
 # ---------- loader streamov (z DB) ----------
 def _load_streams_row(user_id: int, activity_id: int) -> Optional[Dict[str, Any]]:
@@ -275,52 +286,76 @@ def preview_zones_for_activities(
     print(f"[ZONES] preview: computed={have}/{len(activity_ids)}")
     return {"ok": True, "user_id": user_id, "zones": Z, "items": items}
 
-
 def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     """
-    Ukladá len tie položky, ktoré majú reálne 'minutes'.
-    Doplní user_uid. Žiadne ukladanie nulových minút z chýbajúcich streamov.
+    Uloží len položky s reálnymi 'minutes'.
+    Ukladá aj computed_at, avg_hr_bpm, moving_time_s, distance_m, sport_type_fe.
+    Nepoužíva RPC – spolieha sa na DB triggery (ak ich máš), ale sport_type_fe
+    sem rovno dopĺňame zo summary, aby to bolo samostatné.
     """
     if not items:
         return {"saved": 0, "skipped": 0}
 
-    user_uid = _get_user_uid(user_id)
+    # zozbieraj activity_id, pre ktoré máme minutes
+    ids: List[int] = []
+    for it in items:
+        if it.get("ok") and it.get("minutes") and it.get("activity_id"):
+            try:
+                ids.append(int(it["activity_id"]))
+            except Exception:
+                pass
 
-    rows = []
+    s_map = _load_summary_map(user_id, ids)
+    now_ts = datetime.now(timezone.utc).isoformat()
+
+    user_uid = _get_user_uid(user_id)
+    rows: List[dict] = []
     skipped = 0
     for it in items:
         aid = it.get("activity_id")
         mins = (it.get("minutes") or {}) if it.get("ok") else None
         if not aid or not mins:
             skipped += 1
-            print(f"[enrich] skip aid={aid} reason={'no_minutes' if not mins else 'no_aid'}")
+            continue
+        try:
+            aid_i = int(aid)
+        except Exception:
+            skipped += 1
             continue
 
+        extras = s_map.get(aid_i, {})
         rows.append({
-            "activity_id": int(aid),
             "user_id": int(user_id),
             "user_uid": user_uid,
+            "activity_id": aid_i,
             "z1_min": _to_int_min(mins.get("z1_min")),
             "z2_min": _to_int_min(mins.get("z2_min")),
             "z3_min": _to_int_min(mins.get("z3_min")),
             "z4_min": _to_int_min(mins.get("z4_min")),
             "z5_min": _to_int_min(mins.get("z5_min")),
+            "computed_at": now_ts,
+            # pomocné polia pre 80/20 bez joinu
+            "avg_hr_bpm": extras.get("avg_hr_bpm"),
+            "moving_time_s": extras.get("moving_time_s"),
+            "distance_m": extras.get("distance_m"),
+            "sport_type_fe": extras.get("sport_type_fe") or "other",
         })
 
     if not rows:
         return {"saved": 0, "skipped": skipped}
 
+    # hromadný upsert (po dávkach)
     saved = 0
     BATCH = 200
     for i in range(0, len(rows), BATCH):
         chunk = rows[i:i+BATCH]
-        print(f"[enrich] upsert {len(chunk)} → {TABLE_ACTIVITIES_ENRICHMENT}")
-        sb.table(TABLE_ACTIVITIES_ENRICHMENT)\
-          .upsert(chunk, on_conflict="activity_id")\
-          .execute()
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
+            chunk, on_conflict="activity_id"
+        ).execute()
         saved += len(chunk)
 
     return {"saved": saved, "skipped": skipped}
+
 def backfill_enrichment_for_period(
     user_id: int,
     months: int = 3,
@@ -411,3 +446,4 @@ def compute_and_save_enrichment_for_ids(user_id: int, ids: list[int]) -> dict:
     saved = upsert_enrichment_minutes(user_id, items).get("saved", 0)
 
     return {"saved": int(saved), "count": len(ids)}
+

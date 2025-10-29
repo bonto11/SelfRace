@@ -8,10 +8,11 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Iterable
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch
 from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
+from Services.sport_type import infer_sport_type_fe
 
 from Modules.SQL.db_handler import get_client
 from Modules.API.Strava.auth import get_access_token
-from Modules.config import (
+from Configs.config import (
     STRAVA_BASE,
     TABLE_ACTIVITIES_SUMMARY,   # "activities_summary"
     TABLE_ACTIVITIES_LAPS,      # "activities_laps"
@@ -269,10 +270,14 @@ def _normalize_summary(user_id: int, a: dict) -> dict:
         if kj is not None:
             calories_kcal = int(round(kj * 0.239006))  # 1 kJ ≈ 0.239 kcal
 
+    sport_type = to_str(a.get("sport_type") or a.get("type"))
+    name = to_str(a.get("name"))
+    sport_type_fe = infer_sport_type_fe(sport_type, name, distance_m, moving_s)
+
     return {
         "user_id":                 user_id,
         "activity_id":             to_int(a.get("id")),
-        "name":                    to_str(a.get("name")),
+        "name":                    name,
         "date":                    date_for_db,  # "YYYY-MM-DD HH:MM:SS+00" (UTC)
         # meta
         "timezone":                tz_label,
@@ -297,9 +302,10 @@ def _normalize_summary(user_id: int, a: dict) -> dict:
         "average_temp_c":          avg_temp,
         "average_cadence_rpm":     avg_cad_rpm,
         # šport a vybavenie
-        "sport_type":              to_str(a.get("sport_type") or a.get("type")),
+        "sport_type":              sport_type,
+        "sport_type_fe":           sport_type_fe,
         "gear_id":                 to_str(a.get("gear_id")),
-        "gear_name":               None,            # ak chceš, vieš si dotiahnuť cez /gear a uložiť
+        "gear_name":              to_str(a.get("gear_name")),            # ak chceš, vieš si dotiahnuť cez /gear a uložiť
         # popisy / PR
         "description":             a.get("description"),
         "comment":                 None,

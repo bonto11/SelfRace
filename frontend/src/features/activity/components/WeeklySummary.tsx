@@ -57,7 +57,7 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
         totalLabel: fmtKm(total),
         breakdown: [
           ["Run",    fmtKm(w.km_run)],
-          ["Bike",   fmtKm(w.km_ride)],
+          ["Ride",   fmtKm(w.km_ride)],
           ["Mixed",  fmtKm(w.km_mixed)],
           ["Skate",  fmtKm(w.km_skate)],
         ],
@@ -74,7 +74,7 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
         totalLabel: fmtMin(total),
         breakdown: [
           ["Run",      fmtMin(w.time_run_min)],
-          ["Bike",     fmtMin(w.time_ride_min)],
+          ["Ride",     fmtMin(w.time_ride_min)],
           ["Strength", fmtMin(w.time_strength_min)],
           ["Mixed",    fmtMin(w.time_mixed_min)],
           ["Skate",    fmtMin(w.time_skate_min)],
@@ -93,7 +93,7 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
       totalLabel: fmtTrimp(total),
       breakdown: [
         ["Run",      fmtTrimp(w.trimp_run)],
-        ["Bike",     fmtTrimp(w.trimp_ride)],
+        ["Ride",     fmtTrimp(w.trimp_ride)],
         ["Strength", fmtTrimp(w.trimp_strength)],
         ["Mixed",    fmtTrimp(w.trimp_mixed)],
         ["Skate",    fmtTrimp(w.trimp_skate)],

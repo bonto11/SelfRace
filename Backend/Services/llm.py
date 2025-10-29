@@ -4,7 +4,7 @@ import json, re
 from typing import Any, Dict, List, cast
 from fastapi import HTTPException
 from openai import OpenAI
-from .db import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Services.db import OPENAI_API_KEY, LLM_TIMEOUT_S
 
 def extract_json_block(text: str) -> dict:
     t = (text or "").strip()
@@ -54,7 +54,7 @@ def enforce_minimum_plan(parsed: dict, llm_input: dict, build_min_plan_fn) -> di
     if not isinstance(parsed, dict): raise ValueError("LLM output not a dict")
     plan = parsed.get("next_week_plan"); has_any = False
     if isinstance(plan, dict):
-        for k in ("run","bike","strength"):
+        for k in ("run","ride","strength"):
             s = plan.get(k)
             if s and isinstance(s, dict) and isinstance(s.get("sessions"), list) and s["sessions"]:
                 has_any = True; break
@@ -85,7 +85,7 @@ def try_llm_call(payload_json: dict, model: str) -> dict:
         thursday?: Session|Session[], friday?: Session|Session[], saturday?: Session|Session[], sunday?: Session|Session[],
         rest_days?: string[],
         run?: { weekly_km_target?: number|null, sessions?: Session[] },
-        bike?: { weekly_time_target_min?: number|null, sessions?: Session[] },
+        ride?: { weekly_time_target_min?: number|null, sessions?: Session[] },
         strength?: { sessions?: Session[] }
       }
     where Session = {

@@ -1,6 +1,6 @@
 # Modules/SQL/db_handler.py
 from supabase import create_client
-from ..config import SUPABASE_URL, SUPABASE_SERVICE_ROLE, SUPABASE_ANON_KEY
+from Configs.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE, SUPABASE_ANON_KEY
 
 
 def get_service_client():

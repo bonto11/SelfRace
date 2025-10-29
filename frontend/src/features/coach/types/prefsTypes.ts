@@ -6,7 +6,7 @@ export type GoalKind =
   | "improve_overall"
   | "maintain";
 
-export type SportKind = "run" | "bike" | "strength";
+export type SportKind = "run" | "ride" | "strength";
 
 export type DayAbbrev = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 
@@ -53,7 +53,7 @@ export type CoachPrefs = {
   // štruktúrované ciele
   targets?: {
     run: RunTargets;
-    bike: BikeTargets;
+    ride: BikeTargets;
     strength: StrengthTargets;
   };
 
@@ -72,7 +72,7 @@ export type CoachPrefs = {
 // --- Default hodnota, sedí s CoachPrefs ---
 export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
-  primary_sports: ["run", "bike", "strength"],
+  primary_sports: ["run", "ride", "strength"],
   targets: {
     run: {
       race_goal: null,
@@ -80,7 +80,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
       target_time: null,
       longest_recent_distance_km: null,
     },
-    bike: { focus: "endurance", weekly_time_target_min: null },
+    ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
   },
   preferences: {

@@ -7,7 +7,7 @@ from collections import defaultdict
 from Services.time import week_key, week_bounds
 from Services.analytics import sport_bucket, compute_trimp, monotony_and_strain
 from Modules.SQL.db_handler import get_client
-from Modules.config import (
+from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_USERS_STATIC,
     TABLE_USERS_METRICS,

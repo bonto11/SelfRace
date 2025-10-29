@@ -1,6 +1,6 @@
 from typing import Optional
 from Modules.SQL.db_handler import get_service_client
-from backend.Modules.config import (
+from Configs.config import (
     TABLE_USERS,
     TABLE_USERS_PROFILE,
     TABLE_USERS_ZONES,

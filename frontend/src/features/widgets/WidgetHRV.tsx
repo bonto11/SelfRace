@@ -9,17 +9,15 @@ import {
   checkRecoveryFreshness,
 } from "@/shared/utils/recovery";
 import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 
-export default function WidgetHRV({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
-  const { rows } = useRecoveryData();
+export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  // loading je voliteľný – ak ho provider nemá, ostane false
+  const { rows, loading: loadingRaw } = useRecoveryData() as { rows: any[]; loading?: boolean };
+  const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
-    () =>
-      rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
+    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
     [rows]
   );
 
@@ -36,12 +34,7 @@ export default function WidgetHRV({
     return typeof last === "number" ? last : null;
   }, [values]);
 
-  const cmp = compareLatestToBaseline(
-    yesterday,
-    baselinePoint,
-    "higher-better",
-    0.05
-  );
+  const cmp = compareLatestToBaseline(yesterday, baselinePoint, "higher-better", 0.05);
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -51,21 +44,23 @@ export default function WidgetHRV({
     ? String(Math.round(yesterday as number))
     : "—";
   const note = showNA ? freshness.message : cmp.note;
-  const accent = showNA ? "bg-slate-700" : cmp.accent;
+  const accent = loading ? "bg-slate-700" : showNA ? "bg-slate-700" : cmp.accent;
 
   return (
-    <OpenerWidget
-      title="HRV (RMSSD)"
-      accent={accent}
-      onOpenDetail={onOpenDetail}
-    >
-      <div className="flex items-baseline gap-2 mb-2">
-        <span className="text-5xl font-extrabold leading-none">
-          {valueText}
-        </span>
-        <span className="text-xl opacity-80">ms</span>
-      </div>
-      {note && <p className="opacity-80">{note}</p>}
+    <OpenerWidget title="HRV (RMSSD)" accent={accent} onOpenDetail={onOpenDetail}>
+      {loading ? (
+        <div className="grid place-items-center py-6">
+          <LoadingSpinner size="widget" />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-5xl font-extrabold leading-none">{valueText}</span>
+            <span className="text-xl opacity-80">ms</span>
+          </div>
+          {note && <p className="opacity-80">{note}</p>}
+        </>
+      )}
     </OpenerWidget>
   );
 }
