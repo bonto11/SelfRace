@@ -1,39 +1,24 @@
 "use client";
 
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import { useCoachData } from "@/features/coach/data/CoachDataProvider";
-import type { Best } from "@/features/coach/types/coach";
 
-function mToKm(m: number) {
-  return Math.round((m / 1000) * 10) / 10;
-}
+type Props = {
+  onOpenTrend?: () => void;
+  onOpenDetail?: () => void;
+};
 
-function rowFromBest(b: Best) {
-  return {
-    distanceKm: mToKm(b.distance_m),
-    best: b.time_str ?? "—",
-    date: b.date ?? null,
-    event: b.event_name ?? null,
-  };
-}
-
-export default function WidgetPBRun({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const { pbRun } = useCoachData();
-  const top: Best[] = pbRun.slice(0, 4);
-
+export default function WidgetPBRun({ onOpenDetail }: Props) {
   return (
-    <OpenerWidget title="PB — Running" accent="bg-indigo-600" onOpenDetail={onOpenDetail}>
-      <div className="space-y-1 text-sm">
-        {top.length === 0 && <div className="opacity-70">No personal bests yet.</div>}
-        {top.map((b, i) => {
-          const r = rowFromBest(b);
-          return (
-            <div key={i} className="flex items-center justify-between border-b border-gray-700/50 py-1 last:border-b-0">
-              <div className="opacity-80">{r.distanceKm} km</div>
-              <div className="font-semibold tabular-nums">{r.best}</div>
-            </div>
-          );
-        })}
+    <OpenerWidget
+      title="Personal Bests – Running"
+      accent="bg-emerald-600"
+      onOpenDetail={onOpenDetail}
+    >
+      <div className="text-sm space-y-1">
+        <div>5 km — 00:23:18 (Aug 2025)</div>
+        <div>10 km — 00:48:50</div>
+        <div>21.1 km — 01:48:00</div>
+        <p className="opacity-70 text-xs mt-1">Tap to view all results →</p>
       </div>
     </OpenerWidget>
   );
