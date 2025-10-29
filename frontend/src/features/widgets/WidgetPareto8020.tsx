@@ -6,6 +6,7 @@ import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import { fmtMinutes } from "@/shared/utils/format";
 import { sportsToCSV, normalizeSportList } from "@/configs/config_sports";
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 
 type Props = {
   onOpenTrend?: () => void;
