@@ -15,7 +15,9 @@ function fmtRange(s: string, e: string) {
   const sd = new Date(s), ed = new Date(e);
   const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
   const edD = ed.getDate(), edM = ed.getMonth() + 1;
-  return sdM === edM ? `${sdD}–${edD}.${edM}.` : `${sdD}.${sdM}.–${edD}.${em}.`.replace(".undefined",""); // guard
+  return sdM === edM
+    ? `${sdD}–${edD}.${edM}.`
+    : `${sdD}.${sdM}.–${edD}.${edM}.`;
 }
 
 export default function WeeklyLoadWidget({
