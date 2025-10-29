@@ -18,6 +18,8 @@ import {
   isInParetoDefault,
 } from "@/configs/config_sports";
 
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+
 ensureChartJSRegistered();
 
 export type ParetoWeekPick = { start?: string; end?: string; sport: string }; // sport = CSV alebo "all"
@@ -38,8 +40,8 @@ export default function TrendPareto8020({
   onPickWeek?: (w: ParetoWeekPick) => void;
 }) {
   const { userId } = useUserId();
-
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
+  const [loading, setLoading] = useState(false);
 
   // multi-select športov; default = BE default whitelist
   const [selectedSports, setSelectedSports] = useState<string[]>(
@@ -56,6 +58,8 @@ export default function TrendPareto8020({
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+
+    setLoading(true);
     const q = new URLSearchParams({ weeks: String(lookback) });
     if (sportParam && sportParam !== "all") q.set("sport", sportParam);
     else q.set("sport", "all");
@@ -71,8 +75,10 @@ export default function TrendPareto8020({
         if (!alive) return;
         setRows(data);
         setPickedIdx(null);
+        setLoading(false);
         console.debug("[PARETO][fetch][ok]", { count: data.length, sample: data[0] });
       } catch (e) {
+        setLoading(false);
         console.error("[PARETO][fetch][err]", e);
         if (!alive) return;
         setRows([]);
@@ -255,10 +261,14 @@ export default function TrendPareto8020({
 
       {/* graf */}
       <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
-        <div style={{ height: 240 }}>
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <LineChart type="line" data={data} options={options} />
-          </div>
+        <div style={{ height: 240 }} className="flex items-center justify-center">
+          {loading ? (
+            <LoadingSpinner size={48} color="#10b981" />
+          ) : (
+            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+              <LineChart type="line" data={data} options={options} />
+            </div>
+          )}
         </div>
       </div>
 
