@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback } from "react";
 import TrendPareto8020, { ParetoWeekPick } from "@/features/activity/components/TrendPareto8020";
 import ActivityTable from "@/features/activity/components/ActivityTable";
@@ -15,36 +16,32 @@ export default function ParetoPage() {
     setSport(w.sport || "all");
   }, []);
 
-  const handleBack = useCallback(() => {
-    setRange(null);
-    setSport("all");
-  }, []);
-
-  const hasRange = !!range?.start && !!range?.end;
-
   return (
     <div className="space-y-4">
-      {!hasRange && <TrendPareto8020 onPickWeek={handlePick} />}
+      {/* horný panel s tlačidlom späť */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Trend 80/20</h1>
+        <Link
+          href="/activities"
+          className="px-3 py-1.5 text-sm rounded bg-gray-700 hover:bg-gray-600 text-white"
+        >
+          ← Späť na aktivity
+        </Link>
+      </div>
 
+      {/* trend je vždy zobrazený */}
+      <TrendPareto8020 onPickWeek={handlePick} />
+
+      {/* tabuľka je pod trendom; keď nie je vybraný týždeň, zobrazí prázdny stav */}
       <ActivityDataProvider days={90}>
-        {hasRange ? (
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold opacity-85">Vybraný týždeň</h2>
-              <button
-                onClick={handleBack}
-                className="px-3 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600 text-white"
-              >
-                ← Späť
-              </button>
-            </div>
-
-            <ActivityTable start={range?.start} end={range?.end} sport={sport} />
-          </div>
-        ) : (
-          <div className="opacity-75 text-sm">
-            <p>Klikni na bod v grafe pre zobrazenie detailov aktivít daného týždňa.</p>
-          </div>
+        <ActivityTable
+          start={range?.start}
+          end={range?.end}
+          sport={sport}
+          // allowedSports môžeš pridať ak chceš whitelistiť pre pareto (napr. ["run","ride","mixed","skate"])
+        />
+        {!range?.start && (
+          <div className="text-xs opacity-70 mt-1">Tip: klikni na bod v grafe, zobrazí sa detail týždňa nižšie.</div>
         )}
       </ActivityDataProvider>
     </div>
