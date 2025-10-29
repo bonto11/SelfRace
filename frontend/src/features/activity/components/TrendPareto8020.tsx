@@ -260,10 +260,12 @@ export default function TrendPareto8020({
       </div>
 
       {/* graf */}
-      <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
-        <div style={{ height: 240 }} className="flex items-center justify-center">
+     <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div style={{ height: 240 }}>
           {loading ? (
-            <LoadingSpinner size="md" className="mx-auto my-4" />
+            <div className="w-full h-full flex items-center justify-center">
+              <LoadingSpinner size="trend" />
+            </div>
           ) : (
             <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
               <LineChart type="line" data={data} options={options} />
