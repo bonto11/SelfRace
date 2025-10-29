@@ -1,6 +1,7 @@
+// src/features/recovery/components/DetailSleepDuration.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
 import Link from "next/link";
@@ -9,24 +10,32 @@ import { THEME } from "@/shared/theme/tokens";
 import { minutesToHHMM, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 ensureChartJSRegistered();
 
 export default function DetailSleepDuration() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
+  const [weeks, setWeeks] = useState<number>(2);          // 2/4/8/12
+  const [loading, setLoading] = useState<boolean>(false); // NEW
+
+  // zapni spinner pri zmene lookbacku
+  useEffect(() => { setLoading(true); }, [weeks]);
 
   // vždy orež na posledných N dní z provideru
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
+  // vypni spinner po prepočte dát (na najbližší frame)
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(t);
+  }, [rows]);
+
   // osi + hodnoty
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const sleepMin = useMemo(
-    () =>
-      rows.map((r) =>
-        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : NaN
-      ),
+    () => rows.map((r) => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : NaN)),
     [rows]
   );
 
@@ -96,20 +105,16 @@ export default function DetailSleepDuration() {
         tooltipLabelForItem: (ctx): string => {
           const idx = ctx.dataIndex ?? 0;
           const lines: string[] = [];
-
           if (ctx.datasetIndex === 2) {
             const v = sleepMin[idx];
-            if (Number.isFinite(v))
-              lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v)) lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
-          // fallback – ak by klikol mimo hlavného datasetu
-          if (!lines.length)
-            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines.join("\n");
         },
-        tooltipFilter: (item) => item.datasetIndex === 2, // zobraz len hlavnú krivku
+        tooltipFilter: (item) => item.datasetIndex === 2, // len hlavná krivka
       }),
     [labelsISO, sleepMin, comments]
   );
@@ -129,16 +134,18 @@ export default function DetailSleepDuration() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link
-            href="/recovery"
-            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
-          >
+          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
             Späť
           </Link>
         </div>
       </div>
 
-      <div style={{ height: THEME.chart.weeklyHeight }}>
+      <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+            <LoadingSpinner size="trend" />
+          </div>
+        )}
         <Line data={data} options={options} />
       </div>
     </div>
