@@ -1,47 +1,40 @@
 "use client";
 
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import type { PBRun } from "@/features/coach/types";
+import { useCoachData } from "@/features/coach/data/CoachDataProvider";
+import type { Best } from "@/features/coach/types/coach";
 
-const PB_MOCK: PBRun[] = [
-  { distanceKm: 1, best: "00:03:52" },
-  { distanceKm: 5, best: "00:23:13" },
-  { distanceKm: 10, best: "00:50:17" },
-  { distanceKm: 21.1, best: "02:22:07" },
-];
-
-function Row({ d }: { d: PBRun }) {
-  const label =
-    d.distanceKm === 21.1
-      ? "Half"
-      : d.distanceKm === 42.2
-      ? "Marathon"
-      : `${d.distanceKm} km`;
-  return (
-    <div className="flex justify-between text-sm">
-      <span className="opacity-80">{label}</span>
-      <span className="tabular-nums font-medium">{d.best}</span>
-    </div>
-  );
+function mToKm(m: number) {
+  return Math.round((m / 1000) * 10) / 10;
 }
 
-export default function WidgetPBRun({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
+function rowFromBest(b: Best) {
+  return {
+    distanceKm: mToKm(b.distance_m),
+    best: b.time_str ?? "—",
+    date: b.date ?? null,
+    event: b.event_name ?? null,
+  };
+}
+
+export default function WidgetPBRun({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  const { pbRun } = useCoachData();
+  const top: Best[] = pbRun.slice(0, 4);
+
   return (
-    <OpenerWidget
-      title="Coach AI — PB (Running)"
-      accent="bg-indigo-600"
-      onOpenDetail={onOpenDetail}
-    >
-      <div className="space-y-1">
-        {PB_MOCK.map((pb) => (
-          <Row key={pb.distanceKm} d={pb} />
-        ))}
+    <OpenerWidget title="PB — Running" accent="bg-indigo-600" onOpenDetail={onOpenDetail}>
+      <div className="space-y-1 text-sm">
+        {top.length === 0 && <div className="opacity-70">No personal bests yet.</div>}
+        {top.map((b, i) => {
+          const r = rowFromBest(b);
+          return (
+            <div key={i} className="flex items-center justify-between border-b border-gray-700/50 py-1 last:border-b-0">
+              <div className="opacity-80">{r.distanceKm} km</div>
+              <div className="font-semibold tabular-nums">{r.best}</div>
+            </div>
+          );
+        })}
       </div>
-      <div className="text-xs opacity-70 mt-2">Tap to edit/add PBs</div>
     </OpenerWidget>
   );
 }

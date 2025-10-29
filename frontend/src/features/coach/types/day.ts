@@ -1,6 +1,9 @@
 // src/features/coach/types/day.ts
-export type DayKey = "Mon"|"Tue"|"Wed"|"Thu"|"Fri"|"Sat"|"Sun";
-export const DAY_ORDER: DayKey[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+export type DayAbbrev = "Mon"|"Tue"|"Wed"|"Thu"|"Fri"|"Sat"|"Sun";
+export const DAY_ORDER: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+// spätná kompatibilita, ak to niekde používaš
+export type DayKey = DayAbbrev;
 
 export type DailyItem = {
   title?: string;
@@ -14,4 +17,4 @@ export type DailyItem = {
   comment?: string;
 };
 
-export type DailyPlan = { day: DayKey; items: DailyItem[] };
+export type DailyPlan = { day: DayAbbrev; items: DailyItem[] };

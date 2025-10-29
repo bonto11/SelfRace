@@ -6,10 +6,23 @@ export type GoalKind =
   | "improve_overall"
   | "maintain";
 
-export type SportKind = "run" | "ride" | "strength";
+// TOP: používaj deň z centralizovaného súboru
+import type { DayAbbrev } from "./day";
 
-export type DayAbbrev = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+// rozšír športy, aby pokryl aj tvoje UI (run/ride/strength/mixed/skate)
+export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
 
+// Preferencie – pridaj voliteľnú voľbu na "strides", keďže ju máš v tom short type
+export interface Preferences {
+  days_off: DayAbbrev[];
+  long_run_days?: DayAbbrev[];
+  avoid_back_to_back_hard: boolean;
+  use_zones: boolean;
+  wu_cd_detail: boolean;
+  include_strides?: boolean;   // NEW (mapa k pôv. includeStrides)
+}
+
+// zvyšok nechaj ako máš (GoalKind, RunTargets/BikeTargets/StrengthTargets, CoachPrefs, DEFAULT_PREFS)
 // --- Targets (ciele pre jednotlivé športy) ---
 export interface RunTargets {
   race_goal: "5k" | "10k" | "half" | "marathon" | null;
@@ -26,15 +39,6 @@ export interface BikeTargets {
 export interface StrengthTargets {
   focus: "general" | "hypertrophy" | "max_strength";
   sessions_per_week: number;
-}
-
-// --- Preferencie plánovania ---
-export interface Preferences {
-  days_off: DayAbbrev[];
-  long_run_days?: DayAbbrev[];
-  avoid_back_to_back_hard: boolean;
-  use_zones: boolean;
-  wu_cd_detail: boolean;
 }
 
 // --- Hlavný tvar preferencií od používateľa ---

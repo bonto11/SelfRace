@@ -1,81 +1,55 @@
 "use client";
 
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import { THEME } from "@/shared/theme/tokens";
-import type { CoachPrefs } from "@/features/coach/types";
+import { useCoachData } from "@/features/coach/data/CoachDataProvider";
+import type { DayAbbrev } from "@/features/coach/types/day";
 
-function Chip({ label }: { label: string }) {
+function Chip({ text }: { text: string }) {
+  return <span className="px-2 py-0.5 rounded bg-gray-700 text-xs">{text}</span>;
+}
+
+function DayRow({ label, days }: { label: string; days?: DayAbbrev[] }) {
+  if (!days || !days.length) return null;
   return (
-    <span className="px-2 py-0.5 rounded bg-gray-700 text-xs">{label}</span>
+    <div className="flex items-center gap-2 text-xs">
+      <span className="opacity-70">{label}:</span>
+      <div className="flex flex-wrap gap-1">
+        {days.map((d) => <Chip key={d} text={d} />)}
+      </div>
+    </div>
   );
 }
 
-const MOCK: CoachPrefs = {
-  weeks: 8,
-  sports: ["run", "ride", "strength"],
-  daysOff: ["Mon", "Fri"],
-  longRunDays: ["Sat", "Sun"],
-  avoidTwoHardInRow: true,
-  useZones: true,
-  includeStrides: false,
-};
+export default function WidgetCoachPrefs({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  const { prefs } = useCoachData();
 
-export default function WidgetCoachPrefs({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
-  const s = MOCK;
+  // stručné zhrnutie
+  const goal =
+    prefs.goal_text_override ??
+    (prefs.goal_kind ? String(prefs.goal_kind).replaceAll("_", " ") : "—");
+
+  const sports = (prefs.primary_sports ?? prefs.sports ?? []).join(", ") || "—";
+  const weeks  = prefs.weeks ?? "—";
+  const pref   = prefs.preferences;
+
+  const accent =
+    pref?.avoid_back_to_back_hard ? "bg-emerald-600" : "bg-slate-700";
 
   return (
-    <OpenerWidget
-      title="Coach AI — Preferences"
-      accent="bg-emerald-600"
-      onOpenDetail={onOpenDetail}
-    >
+    <OpenerWidget title="Coach – Preferences" accent={accent} onOpenDetail={onOpenDetail}>
       <div className="space-y-2 text-sm">
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="opacity-70">Block:</span>
-          <Chip label={`${s.weeks} weeks`} />
+        <div><span className="opacity-70">Goal:</span> <strong className="ml-1 capitalize">{goal}</strong></div>
+        <div><span className="opacity-70">Weeks:</span> <strong className="ml-1">{weeks}</strong></div>
+        <div><span className="opacity-70">Sports:</span> <strong className="ml-1">{sports}</strong></div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <div className="text-xs opacity-80">Use zones: <strong>{pref?.use_zones ? "Yes" : "No"}</strong></div>
+          <div className="text-xs opacity-80">WU/CD detail: <strong>{pref?.wu_cd_detail ? "Yes" : "No"}</strong></div>
+          <div className="text-xs opacity-80">Avoid back-to-back hard: <strong>{pref?.avoid_back_to_back_hard ? "Yes" : "No"}</strong></div>
         </div>
 
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="opacity-70">Sports:</span>
-          {s.sports.map((sp) => (
-            <Chip key={sp} label={sp} />
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="opacity-70">Days off:</span>
-          {s.daysOff.length ? (
-            s.daysOff.map((d) => <Chip key={d} label={d} />)
-          ) : (
-            <span>—</span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="opacity-70">Long-run:</span>
-          {s.longRunDays.map((d) => (
-            <Chip key={d} label={d} />
-          ))}
-        </div>
-
-        <ul className="mt-2 text-xs list-disc pl-4 opacity-80">
-          <li>
-            {s.avoidTwoHardInRow
-              ? "Avoid two hard days in a row"
-              : "Two hard days allowed"}
-          </li>
-          <li>{s.useZones ? "Use HR/Pace zones in planning" : "Zones off"}</li>
-          <li>{s.includeStrides ? "Include strides" : "No strides"}</li>
-        </ul>
-
-        <div className="h-1 rounded bg-gray-700 mt-2">
-          {/* drobný “progress” placeholder – weekly height token použijeme ako štýl */}
-          <div className="h-1 rounded bg-blue-600" style={{ width: "65%" }} />
-        </div>
+        <DayRow label="Days off" days={pref?.days_off} />
+        {!!pref?.long_run_days?.length && <DayRow label="Long-run days" days={pref?.long_run_days} />}
       </div>
     </OpenerWidget>
   );

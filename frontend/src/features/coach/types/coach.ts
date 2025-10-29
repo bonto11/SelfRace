@@ -7,7 +7,7 @@ export type Best = {
   date?: string | null;      // "YYYY-MM-DD"
 };
 
-export type CoachPrefs = {
+export type CoachPrefsLegacyLoose = {
   goal_kind?: string;
   goal_distance_km?: number | null;
   current_pace?: string | null;

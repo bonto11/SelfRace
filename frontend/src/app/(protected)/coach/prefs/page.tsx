@@ -1,16 +1,19 @@
 "use client";
 
-import PrefsDetailForm from "@/features/coach/components/DetailFormPrefs";
-import Link from "next/link";
+import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
+import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
+import WidgetPBRun from "@/features/widgets/WidgetPBRun";
+import { useRouter } from "next/navigation";
 
-export default function CoachPrefsPage() {
+export default function CoachOverviewPage() {
+  const router = useRouter();
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Coach AI — Preferences</h2>
-        <Link href="/coach" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">Späť</Link>
+    <CoachDataProvider>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
+        <WidgetPBRun     onOpenDetail={() => router.push("/coach/pb-run")} />
       </div>
-      <PrefsDetailForm />
-    </div>
+    </CoachDataProvider>
   );
 }
