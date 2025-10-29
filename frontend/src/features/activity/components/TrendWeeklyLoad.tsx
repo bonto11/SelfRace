@@ -8,7 +8,7 @@ import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { THEME } from "@/shared/theme/tokens";
-
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
@@ -52,7 +52,8 @@ export default function TrendWeeklyLoad({
   const [sport, setSport]     = useState<string>("all");
   const [weeks, setWeeks]     = useState<WeekRow[]>([]);
   const [picked, setPicked]   = useState<WeekPick | null>(null);
-
+  const [loading, setLoading] = useState(false);
+  
   // notify parent on sport switch (kvôli tabuľke)
   useEffect(() => {
     console.debug("[WEEK][sport change] ->", sport);
@@ -61,21 +62,32 @@ export default function TrendWeeklyLoad({
 
   // fetch (zohľadňuje sport)
   useEffect(() => {
-    if (!userId) return;
-    (async () => {
+  if (!userId) return;
+  let alive = true;
+  (async () => {
+    setLoading(true); // NEW
+    try {
       const url = `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}&sport=${sport}`;
       console.debug("[WEEK][fetch]", url);
       const res = await fetch(url, { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
-      const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-      const num = (v:any)=> (Number.isFinite(+v) ? +v : 0);
+      const raw: any[] = Array.isArray(json?.weeks)
+        ? json.weeks
+        : Array.isArray(json?.data)
+        ? json.data
+        : [];
+      const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
+      if (!alive) return;
       setWeeks(
-        raw.map((w)=>({
+        raw.map((w) => ({
           week: w.week ?? w.iso_week ?? w.label ?? "",
           label: rangeLabel(w.start, w.end) || w.label || w.week || "",
-          start: w.start ?? "", end: w.end ?? "",
-          km_run: num(w.km_run ?? w.run_km),  km_ride: num(w.km_ride ?? w.ride_km),
-          km_mixed: num(w.km_mixed),         km_skate: num(w.km_skate),
+          start: w.start ?? "",
+          end: w.end ?? "",
+          km_run: num(w.km_run ?? w.run_km),
+          km_ride: num(w.km_ride ?? w.ride_km),
+          km_mixed: num(w.km_mixed),
+          km_skate: num(w.km_skate),
           time_run_min: num(w.time_run_min ?? w.run_min),
           time_ride_min: num(w.time_ride_min ?? w.ride_min),
           time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
@@ -88,11 +100,18 @@ export default function TrendWeeklyLoad({
           trimp_mixed: num(w.trimp_mixed),
           trimp_skate: num(w.trimp_skate),
           trimp_other: num(w.trimp_other ?? w.other_trimp),
-          monotony: w.monotony ?? {}, strain: w.strain ?? {},
+          monotony: w.monotony ?? {},
+          strain: w.strain ?? {},
         }))
       );
-    })();
-  }, [userId, lookback, sport]);
+    } finally {
+      if (alive) setLoading(false); // NEW
+    }
+  })();
+  return () => {
+    alive = false;
+  };
+}, [userId, lookback, sport]);
 
   const labels = useMemo(()=>weeks.map(w=>w.label || w.week), [weeks]);
   const mono   = useMemo(()=>weeks.map(w=>w.monotony?.[metric] ?? null), [weeks, metric]);
@@ -190,50 +209,67 @@ export default function TrendWeeklyLoad({
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="opacity-70">Zobraziť:</span>
-          <button onClick={()=>setMetric("km")}    className={`px-2 py-1 rounded ${metric==="km"?"bg-blue-600 text-white":"bg-gray-700"}`}>Km</button>
-          <button onClick={()=>setMetric("time")}  className={`px-2 py-1 rounded ${metric==="time"?"bg-blue-600 text-white":"bg-gray-700"}`}>Čas</button>
-          <button onClick={()=>setMetric("trimp")} className={`px-2 py-1 rounded ${metric==="trimp"?"bg-blue-600 text-white":"bg-gray-700"}`}>TRIMP</button>
-        </div>
+  <div className="bg-white dark:bg-gray-800 p-4 rounded shadow relative max-w-full min-w-0">
+    {/* header */}
+    <div className="flex items-center justify-between gap-2 mb-2">
+      <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
 
-        <div className="flex items-center gap-2 text-xs">
-          <select value={sport} onChange={(e)=>setSport(e.target.value)} className="px-2 py-1 rounded bg-gray-700">
-            <option value="all">Všetko</option>
-            <option value="run">Run</option>
-            <option value="ride">Ride</option>
-            <option value="strength">Strength</option>
-            <option value="mixed">Mixed</option>
-            <option value="skate">Skate</option>
-            <option value="other">Other</option>
-          </select>
-          {showLookback && (
-            <select value={lookback} onChange={(e)=>setLookback(Number(e.target.value))} className="px-2 py-1 rounded bg-gray-700">
-              <option value={4}>4 týždne</option>
-              <option value={8}>8 týždňov</option>
-              <option value={12}>12 týždňov</option>
-            </select>
-          )}
-        </div>
+      <div className="flex items-center gap-2 text-xs">
+        <select
+          className="px-2 py-1 rounded bg-gray-700 text-white"
+          value={lookback}
+          onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
+        >
+          <option value={4}>4 týždne</option>
+          <option value={8}>8 týždňov</option>
+          <option value={12}>12 týždňov</option>
+        </select>
+
+        <select
+          className="px-2 py-1 rounded bg-gray-700 text-white"
+          value={sport}
+          onChange={(e) => setSport(e.target.value)}
+        >
+          <option value="all">Všetko</option>
+          <option value="run">Run</option>
+          <option value="ride">Ride</option>
+          <option value="strength">Strength</option>
+          <option value="mixed">Mixed</option>
+          <option value="skate">Skate</option>
+          <option value="other">Other</option>
+        </select>
       </div>
+    </div>
 
-      <div className="overflow-x-auto overflow-y-hidden rounded-md min-w-0" style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-        <div className="chart-fixed-h" style={{ height: THEME.chart.weeklyHeight }}>
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <MixedChart type="bar" data={data} options={options} />
+    {/* graf + overlay spinner */}
+    <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className="relative" style={{ height: 240 }}>
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+            <LoadingSpinner variant="trend" />
           </div>
+        )}
+
+        <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+          <LineChart type="line" data={data} options={options} />
         </div>
       </div>
+    </div>
 
-      {picked && (
-        <WeeklySummary
-          weeks={weeks as any}
-          metric={metric}
-          selectedWeek={picked.week}
-        />
+    {/* detail vybraného týždňa */}
+    <div className="mt-2 text-xs opacity-80">
+      {picked ? (
+        <>
+          <div className="font-semibold">{picked.label}</div>
+          <div>
+            Easy: {fmtSecondsHMS(picked.easy_min || 0)} ({Math.round(picked.easy_pct)}%) {" • "}
+            Hard: {fmtSecondsHMS(picked.hard_min || 0)} ({Math.round(picked.hard_pct)}%)
+          </div>
+        </>
+      ) : (
+        <div>Klikni na bod v grafe pre zobrazenie detailu týždňa.</div>
       )}
     </div>
-  );
+  </div>
+);
 }
