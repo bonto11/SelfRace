@@ -20,9 +20,9 @@ import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
 /* ----------------------- Form state ----------------------- */
 export type PBRunFormState = {
   distance_m: string;
-  time_str: string;          // hh:mm:ss
-  achieved_at: string;       // YYYY-MM-DD
-  activity_id: string;       // "" alebo číslo v texte
+  time_str: string; // hh:mm:ss
+  achieved_at: string; // YYYY-MM-DD
+  activity_id: string; // "" alebo číslo v texte
   activity_name?: string;
 };
 
@@ -38,7 +38,7 @@ const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
 const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 /* ----------------------- Swipe consts --------------------- */
-const ACTION_W = 160;      // 2 tlačidlá po 80 px
+const ACTION_W = 160; // 2 tlačidlá po 80 px
 const SNAP_OPEN = -ACTION_W;
 const SNAP_CLOSED = 0;
 
@@ -67,7 +67,9 @@ export default function PBRun() {
       setLoading(false);
     }
   };
-  useEffect(() => { if (userId) refresh(); /* eslint-disable-next-line */ }, [userId]);
+  useEffect(() => {
+    if (userId) refresh(); /* eslint-disable-next-line */
+  }, [userId]);
 
   /* ---------- guards ---------- */
   const canSave = useMemo(() => {
@@ -86,11 +88,12 @@ export default function PBRun() {
       await saveBest(userId, {
         sport: "run",
         distance_m: m,
-        time_str: Number.isFinite(sec ?? NaN) ? undefined : form.time_str.trim(),
-        ...(Number.isFinite(sec ?? NaN) ? { time_sec: sec! } : {}),
-        activity_id: form.activity_id.trim() ? Number(form.activity_id) : undefined,
+        ...(Number.isFinite(sec)
+          ? { time_sec: sec }
+          : { time_str: form.time_str.trim() }),
+        activity_id: form.activity_id ? Number(form.activity_id) : undefined,
         activity_name: form.activity_name?.trim() || undefined,
-        achieved_at: form.achieved_at || undefined,
+        achieved_at: form.achieved_at?.replace(/\./g, "-") || undefined,
       } as any);
 
       success("Personal best saved");
@@ -128,11 +131,15 @@ export default function PBRun() {
         <select
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           value={form.distance_m}
-          onChange={(e) => setForm(f => ({ ...f, distance_m: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, distance_m: e.target.value }))
+          }
         >
           <option value="">— choose distance —</option>
-          {distanceOptions("run").map(o => (
-            <option key={o.m} value={o.m}>{o.label}</option>
+          {distanceOptions("run").map((o) => (
+            <option key={o.m} value={o.m}>
+              {o.label}
+            </option>
           ))}
         </select>
 
@@ -140,7 +147,9 @@ export default function PBRun() {
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           placeholder="hh:mm:ss"
           value={form.time_str}
-          onChange={(e) => setForm(f => ({ ...f, time_str: maskHHMMSS(e.target.value) }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, time_str: maskHHMMSS(e.target.value) }))
+          }
           inputMode="numeric"
         />
 
@@ -153,7 +162,9 @@ export default function PBRun() {
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
             value={form.achieved_at}
-            onChange={(e) => setForm(f => ({ ...f, achieved_at: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, achieved_at: e.target.value }))
+            }
             aria-label="Pick date"
           />
         </div>
@@ -165,9 +176,11 @@ export default function PBRun() {
             dateIso={form.achieved_at}
             sports={["run", "mixed"]}
             value={form.activity_id ? Number(form.activity_id) : ""}
-            onChange={(v) => setForm(f => ({ ...f, activity_id: v === "" ? "" : String(v) }))}
+            onChange={(v) =>
+              setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
+            }
             onPicked={(a: MiniActivity | null) =>
-              setForm(f => ({ ...f, activity_name: a?.name ?? undefined }))
+              setForm((f) => ({ ...f, activity_name: a?.name ?? undefined }))
             }
           />
         </div>
@@ -198,59 +211,76 @@ export default function PBRun() {
 
       {/* LIST (karty) + 2-polohový swipe */}
       <ul className="space-y-2">
-        {rows.slice().sort((a,b)=>a.distance_m-b.distance_m).map(b => (
-          <SwipeRow
-            key={b.distance_m}
-            onEdit={() => {
-              setForm({
-                distance_m: String(b.distance_m),
-                time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                achieved_at: isoDateOnly(b.achieved_at),   // YYYY-MM-DD
-                activity_id: b.activity_id != null ? String(b.activity_id) : "",
-                activity_name: (b as any).activity_name ?? undefined,
-              });
-            }}
-            onDelete={() => setPendingDelete(b.distance_m)}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <button
-                    aria-label="Set as favorite"
-                    onClick={() => setFavM(b.distance_m)}
-                    className={`text-lg leading-none shrink-0 ${
-                      favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-500 hover:text-gray-300"
-                    }`}
-                  >★</button>
-                  <div className="text-sm font-medium truncate">
-                    {distanceLabel(b.distance_m, "run")}
+        {rows
+          .slice()
+          .sort((a, b) => a.distance_m - b.distance_m)
+          .map((b) => (
+            <SwipeRow
+              key={b.distance_m}
+              onEdit={() => {
+                setForm({
+                  distance_m: String(b.distance_m),
+                  time_str:
+                    b.time_str ??
+                    (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                  achieved_at: isoDateOnly(b.achieved_at), // YYYY-MM-DD
+                  activity_id:
+                    b.activity_id != null ? String(b.activity_id) : "",
+                  activity_name: (b as any).activity_name ?? undefined,
+                });
+              }}
+              onDelete={() => setPendingDelete(b.distance_m)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <button
+                      aria-label="Set as favorite"
+                      onClick={() => setFavM(b.distance_m)}
+                      className={`text-lg leading-none shrink-0 ${
+                        favoriteM === b.distance_m
+                          ? "text-yellow-400"
+                          : "text-gray-500 hover:text-gray-300"
+                      }`}
+                    >
+                      ★
+                    </button>
+                    <div className="text-sm font-medium truncate">
+                      {distanceLabel(b.distance_m, "run")}
+                    </div>
+                  </div>
+
+                  <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
+                    {b.best_time_s != null
+                      ? secToHHMMSS(b.best_time_s)
+                      : b.time_str ?? "—"}
+                  </div>
+
+                  <div className="mt-1 text-xs opacity-75">
+                    {isoDateOnly(b.achieved_at)}
+                    {(b as any).activity_name ? (
+                      <>
+                        {" · "}
+                        <button
+                          className="underline hover:opacity-100 opacity-90"
+                          onClick={() => {
+                            if (b.activity_id != null)
+                              setDetailId(Number(b.activity_id));
+                          }}
+                          disabled={b.activity_id == null}
+                        >
+                          {(b as any).activity_name}
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
-
-                <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
-                  {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
-                </div>
-
-                <div className="mt-1 text-xs opacity-75">
-                  {isoDateOnly(b.achieved_at)}
-                  {(b as any).activity_name ? (
-                    <>
-                      {" · "}
-                      <button
-                        className="underline hover:opacity-100 opacity-90"
-                        onClick={() => { if (b.activity_id != null) setDetailId(Number(b.activity_id)); }}
-                        disabled={b.activity_id == null}
-                      >
-                        {(b as any).activity_name}
-                      </button>
-                    </>
-                  ) : null}
-                </div>
               </div>
-            </div>
-          </SwipeRow>
-        ))}
-        {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
+            </SwipeRow>
+          ))}
+        {rows.length === 0 && (
+          <li className="text-sm opacity-70">No records yet.</li>
+        )}
       </ul>
 
       {/* Delete confirm */}
@@ -258,17 +288,33 @@ export default function PBRun() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3 w-[92%] max-w-sm">
             <div className="font-semibold">Delete this record?</div>
-            <div className="text-sm opacity-80">This action cannot be undone.</div>
+            <div className="text-sm opacity-80">
+              This action cannot be undone.
+            </div>
             <div className="flex gap-2 justify-end">
-              <button className="px-3 py-1.5 rounded bg-gray-700" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="px-3 py-1.5 rounded bg-red-600" onClick={() => confirmDelete(pendingDelete!)}>Delete</button>
+              <button
+                className="px-3 py-1.5 rounded bg-gray-700"
+                onClick={() => setPendingDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1.5 rounded bg-red-600"
+                onClick={() => confirmDelete(pendingDelete!)}
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {detailId != null && (
-        <ActivityDetailOverlay activityId={detailId} open={true} onClose={() => setDetailId(null)} />
+        <ActivityDetailOverlay
+          activityId={detailId}
+          open={true}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </div>
   );
@@ -288,7 +334,8 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (x: number) =>
+    setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   return (
     <li
@@ -313,7 +360,10 @@ function SwipeRow({
       <div className="absolute inset-y-0 right-0 flex w-[160px] z-0">
         <button
           className="w-1/2 h-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
-          onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}
+          onClick={() => {
+            setTx(SNAP_CLOSED);
+            onEdit();
+          }}
         >
           Edit
         </button>
@@ -328,7 +378,10 @@ function SwipeRow({
       {/* obsah nad akciami */}
       <div
         className="relative z-10 bg-gray-800 px-3 py-2"
-        style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
+        style={{
+          transform: `translateX(${tx}px)`,
+          transition: "transform 160ms ease-out",
+        }}
       >
         {children}
       </div>
