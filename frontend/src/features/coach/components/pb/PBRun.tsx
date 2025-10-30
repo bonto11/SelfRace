@@ -133,7 +133,7 @@ export default function PBRun() {
 
         <input
           type="date"
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[160px]"
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[120px]"
           value={form.achieved_at}
           onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
         />
