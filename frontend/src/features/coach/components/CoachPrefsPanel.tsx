@@ -136,12 +136,6 @@ export default function CoachPrefsPanel() {
         </Row>
       </section>
 
-      {/* ---- LEGACY / TEXTOVÉ POZNÁMKY ---- */}
-      <section className="space-y-2">
-        <h3 className="font-semibold">Notes</h3>
-        <div className="text-sm">{prefs.notes ?? "—"}</div>
-      </section>
-
       {/* hint na budúci editor */}
       <p className="text-xs opacity-70">
         (Neskôr sem pôjde editačný formulár + ukladanie cez <code>savePrefs()</code>.)
