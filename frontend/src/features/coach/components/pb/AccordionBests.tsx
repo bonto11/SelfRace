@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import PBRun from "./PBRun";
 
@@ -13,7 +14,7 @@ export default function AccordionBests() {
           onClick={() => setOpenRun((v) => !v)}
         >
           <h3 className="font-semibold">Personal Bests — Running</h3>
-          <span>{openRun ? "▾" : "▸"}</span>
+          <span aria-hidden>{openRun ? "▾" : "▸"}</span>
         </header>
         {openRun && (
           <div className="px-3 pb-3">
@@ -32,7 +33,7 @@ export default function AccordionBests() {
 
       <section className="bg-gray-800 rounded opacity-70">
         <header className="px-3 py-2 flex items-center justify-between">
-          <h3 className="font-semibold">Personal Bests — Swimming</h3>
+          <h3 className="font-semibold">Personal Bests — Strength</h3>
           <span>soon</span>
         </header>
       </section>
