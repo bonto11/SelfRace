@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
-import AccordionBests from "@/features/coach/components/AccordionBests";
+import AccordionBests from "@/features/coach/components/pb/AccordionBests";
 
 export default function ClientPage() {
   return (
