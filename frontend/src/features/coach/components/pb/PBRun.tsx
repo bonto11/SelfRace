@@ -13,15 +13,15 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import { useFavoritePBRun } from "@/features/coach/hooks/useFavoritePBRun";
-import type { MiniActivity } from "@/shared/types/activities";
-import ActivitySelector from "@/shared/components/ActivitySelector";
+import ActivitySelector, { type ActivityChoice } from "@/shared/components/ActivitySelector";
 
-// --- Presný názov stavu formulára (ak chceš globálne, presuň do @/shared/types/pb.ts)
+// Presný názov stavu formulára (môžeš presunúť do shared/types/pb.ts)
 export type PBRunFormState = {
-  distance_m: string; // "1000" | "5000" | ...
-  time_str: string; // "hh:mm:ss"
-  achieved_at: string; // "YYYY-MM-DD"
-  activity_id: string; // "" alebo číslo v texte
+  distance_m: string;     // "1000" | "5000" | ...
+  time_str: string;       // "hh:mm:ss"
+  achieved_at: string;    // "YYYY-MM-DD"
+  activity_id: string;    // "" alebo číslo v texte
+  activity_name: string;  // label vybranej aktivity (môže byť "")
 };
 
 const EMPTY: PBRunFormState = {
@@ -29,60 +29,14 @@ const EMPTY: PBRunFormState = {
   time_str: "",
   achieved_at: "",
   activity_id: "",
+  activity_name: "",
 };
 
-// pekný text pre zobrazenie dátumu
-function fmtDateValue(d: string) {
+const isoDateOnly = (d?: string | null) => (d ? d.slice(0, 10) : "");
+
+/** zobrazí pekne YYYY.MM.DD (len vizuálne v “fake” inpute) */
+function prettyDate(d: string) {
   return d ? d.replaceAll("-", ".") : "YYYY-MM-DD";
-}
-
-// --- Select, ktorý podľa dátumu natiahne aktivity (±1 deň) a nastaví activity_id
-function ActivityDropdown({
-  dateIso,
-  value,
-  onChange,
-}: {
-  dateIso: string | "";
-  value: number | "";
-  onChange: (id: number | "") => void;
-}) {
-  const { userId } = useUserId();
-  const [opened, setOpened] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<MiniActivity[]>([]);
-
-  return (
-    <div>
-      <select
-        className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full"
-        value={value === "" ? "" : String(value)}
-        onFocus={() => setOpened(true)}
-        onChange={(e) => {
-          const v = e.target.value.trim();
-          onChange(v ? Number(v) : "");
-        }}
-        disabled={!dateIso}
-      >
-        <option value="">
-          {dateIso
-            ? loading
-              ? "Loading…"
-              : "— choose activity —"
-            : "pick date first"}
-        </option>
-        {!loading &&
-          items.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.start_date?.slice(0, 10)} — {a.name}
-              {a.distance_km ? ` (${a.distance_km} km)` : ""}
-            </option>
-          ))}
-      </select>
-      <div className="mt-1 text-xs opacity-70">
-        Zoznam sa načíta podľa zvoleného dátumu (±1 deň).
-      </div>
-    </div>
-  );
 }
 
 export default function PBRun() {
@@ -93,6 +47,7 @@ export default function PBRun() {
 
   const [rows, setRows] = useState<UserBest[]>([]);
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
+  const [picked, setPicked] = useState<ActivityChoice>({ id: "", name: "" });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
@@ -130,18 +85,16 @@ export default function PBRun() {
       await saveBest(userId, {
         sport: "run",
         distance_m: m,
-        time_str: Number.isFinite(sec ?? NaN)
-          ? undefined
-          : form.time_str.trim(),
+        time_str: Number.isFinite(sec ?? NaN) ? undefined : form.time_str.trim(),
         ...(Number.isFinite(sec ?? NaN) ? { time_sec: sec! } : {}),
-        activity_id: form.activity_id.trim()
-          ? Number(form.activity_id)
-          : undefined,
         achieved_at: form.achieved_at || undefined,
+        activity_id: form.activity_id ? Number(form.activity_id) : undefined,
+        activity_name: form.activity_name || undefined, // voliteľné, ak BE podporí
       } as any);
 
       success("Personal best saved");
       setForm(EMPTY);
+      setPicked({ id: "", name: "" });
       await refresh();
     } catch (e: any) {
       error(String(e?.message ?? e));
@@ -163,8 +116,6 @@ export default function PBRun() {
     }
   };
 
-  const fmtDateCell = (d?: string | null) => d?.split("T")[0] ?? "—";
-
   return (
     <div className="space-y-4">
       {/* info o obľúbenej vzdialenosti */}
@@ -172,21 +123,17 @@ export default function PBRun() {
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
-      {/* FORM – responzívny, bez overflow */}
+      {/* FORM – 2 riadky, bez overflow */}
       <div className="grid gap-2 sm:grid-cols-12 items-start">
         {/* distance */}
         <select
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           value={form.distance_m}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, distance_m: e.target.value }))
-          }
+          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
-            <option key={o.m} value={o.m}>
-              {o.label}
-            </option>
+            <option key={o.m} value={o.m}>{o.label}</option>
           ))}
         </select>
 
@@ -195,16 +142,14 @@ export default function PBRun() {
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           placeholder="hh:mm:ss"
           value={form.time_str}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, time_str: maskHHMMSS(e.target.value) }))
-          }
+          onChange={(e) => setForm((f) => ({ ...f, time_str: maskHHMMSS(e.target.value) }))}
           inputMode="numeric"
         />
 
-        {/* DATE – “pekný” natívny picker s overlayom, aby nikdy nepretečie */}
+        {/* date – nepretečie; overlay nad natívnym inputom */}
         <div className="relative sm:col-span-2 w-full max-w-[180px]">
           <div className="bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-center select-none truncate">
-            {fmtDateValue(form.achieved_at)}
+            {prettyDate(form.achieved_at)}
           </div>
           <input
             type="date"
@@ -217,16 +162,21 @@ export default function PBRun() {
           />
         </div>
 
-        {/* ActivityDropdown (načítava po fokuse, podľa dátumu ±1 deň) */}
+        {/* ActivitySelector */}
         <div className="sm:col-span-4">
           <ActivitySelector
             userId={userId ?? null}
             dateIso={form.achieved_at}
             sports={["run", "mixed"]}
-            value={form.activity_id ? Number(form.activity_id) : ""}
-            onChange={(v) =>
-              setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
-            }
+            value={picked}
+            onChange={(v) => {
+              setPicked(v);
+              setForm((f) => ({
+                ...f,
+                activity_id: v.id === "" ? "" : String(v.id),
+                activity_name: v.name ?? "",
+              }));
+            }}
           />
         </div>
 
@@ -240,7 +190,7 @@ export default function PBRun() {
             {saving ? "Saving…" : "Save"}
           </button>
           <button
-            onClick={() => setForm(EMPTY)}
+            onClick={() => { setForm(EMPTY); setPicked({ id: "", name: "" }); }}
             className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm"
           >
             Clear
@@ -255,33 +205,24 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – karty (ako Activities), nič nepretečie */}
+      {/* LIST – karty (ako Activities) */}
       <ul className="space-y-2">
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
           .map((b) => {
-            const time =
-              b.best_time_s != null
-                ? secToHHMMSS(b.best_time_s)
-                : b.time_str ?? "—";
+            const time = b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—";
+            const date = isoDateOnly(b.achieved_at);
+            const actName = (b as any).activity_name as string | undefined; // ak BE pridá pole
             return (
-              <li
-                key={b.distance_m}
-                className="bg-gray-800 rounded px-3 py-2 border border-gray-700/60"
-              >
+              <li key={b.distance_m} className="bg-gray-800 rounded px-3 py-2 border border-gray-700/60">
                 <div className="flex items-start justify-between gap-3">
-                  {/* ľavá strana */}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <button
                         aria-label="Set as favorite"
                         onClick={() => setFavM(b.distance_m)}
-                        className={`text-lg leading-none shrink-0 ${
-                          favoriteM === b.distance_m
-                            ? "text-yellow-400"
-                            : "text-gray-500 hover:text-gray-300"
-                        }`}
+                        className={`text-lg leading-none shrink-0 ${favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
                       >
                         ★
                       </button>
@@ -292,12 +233,12 @@ export default function PBRun() {
                     <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
                       {time}
                     </div>
-                    <div className="mt-1 text-xs opacity-75">
-                      {fmtDateCell(b.achieved_at)}
+                    <div className="mt-1 text-xs opacity-75 truncate">
+                      {date || "—"}
+                      {actName ? <> · <span className="underline decoration-dotted">{actName}</span></> : null}
                     </div>
                   </div>
 
-                  {/* pravá strana – akcie */}
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     {pendingDelete === b.distance_m ? (
                       <div className="flex gap-2">
@@ -318,21 +259,20 @@ export default function PBRun() {
                       <>
                         <button
                           className="text-xs underline opacity-90 hover:opacity-100"
-                          onClick={() =>
+                          onClick={() => {
                             setForm({
                               distance_m: String(b.distance_m),
-                              time_str:
-                                b.time_str ??
-                                (b.best_time_s
-                                  ? secToHHMMSS(b.best_time_s)
-                                  : ""),
-                              activity_id:
-                                b.activity_id != null
-                                  ? String(b.activity_id)
-                                  : "",
-                              achieved_at: b.achieved_at ?? "",
-                            })
-                          }
+                              time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                              achieved_at: isoDateOnly(b.achieved_at),   // vždy YYYY-MM-DD
+                              activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                              activity_name: (b as any).activity_name || "",
+                            });
+                            setPicked(
+                              b.activity_id != null
+                                ? { id: b.activity_id, name: (b as any).activity_name || "" }
+                                : { id: "", name: "" }
+                            );
+                          }}
                         >
                           Edit
                         </button>
@@ -349,9 +289,7 @@ export default function PBRun() {
               </li>
             );
           })}
-        {rows.length === 0 && (
-          <li className="text-sm opacity-70">No records yet.</li>
-        )}
+        {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
       </ul>
     </div>
   );
