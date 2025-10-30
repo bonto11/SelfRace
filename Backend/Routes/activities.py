@@ -1,5 +1,5 @@
 # backend/Routes/activities.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta, timezone, time, date
 from Services.time import iso_date
 from Modules.SQL.db_handler import get_client
@@ -9,6 +9,16 @@ from Configs.config import (
     TABLE_ACTIVITIES_SPLITS,
     TABLE_ACTIVITIES_LAPS,
 )
+
+router = APIRouter(prefix="/activities", tags=["activities"])
+supabase = get_client()
+
+def _parse_date_ymd(s: str) -> date:
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD")
+
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 supabase = get_client()
@@ -141,4 +151,60 @@ def activities_in_range(user_id: int, start: str, end: str):
 
     except Exception as e:
         print("[BE] /activities/range error:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/select/{user_id}")
+def select_activities(
+    user_id: int,
+    date: str = Query(..., description="YYYY-MM-DD"),
+    delta_days: int = Query(1, ge=0, le=7),
+    sports: str = Query("run,mixed", description="comma-separated sport_type_fe"),
+):
+    """
+    Vráti aktivity v okne ±delta_days od dátumu (vrátane),
+    filtrované podľa sport_type_fe (CSV). Minimal payload pre picker.
+    """
+    try:
+        center = _parse_date_ymd(date)
+        date_from = (center - timedelta(days=delta_days)).isoformat()
+        date_to   = (center + timedelta(days=delta_days)).isoformat()
+        sport_list = [s.strip() for s in sports.split(",") if s.strip()]
+
+        q = (
+            supabase
+            .table(TABLE_ACTIVITIES_SUMMARY)
+            .select(
+                "activity_id,name,"
+                "sport_type_fe,"
+                "date,"                      # ISO date/time
+                "distance_m,moving_time_s"
+            )
+            .eq("user_id", user_id)
+            .gte("date", date_from)
+            .lte("date", date_to)
+            .order("date", desc=False)
+        )
+        if sport_list:
+            q = q.in_("sport_type_fe", sport_list)
+
+        rec = q.execute()
+        rows = rec.data or []
+
+        items = []
+        for r in rows:
+            items.append({
+                "id": r.get("activity_id"),
+                "name": r.get("name") or "",
+                "start_date": r.get("date"),
+                "sport": r.get("sport_type_fe"),
+                "distance_km": (r.get("distance_m") or 0) / 1000 if r.get("distance_m") is not None else None,
+                "duration_min": (r.get("moving_time_s") or 0) / 60 if r.get("moving_time_s") is not None else None,
+            })
+
+        return {"success": True, "count": len(items), "items": items}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("❌ select_activities error:", e)
         raise HTTPException(status_code=500, detail=str(e))

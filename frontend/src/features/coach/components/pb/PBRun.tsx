@@ -31,17 +31,6 @@ const EMPTY: PBRunFormState = {
   activity_id: "",
 };
 
-// maska na YYYY-MM-DD (mobil numeric keypad)
-function maskYYYYMMDD(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  const y = digits.slice(0, 4);
-  const m = digits.slice(4, 6);
-  const d = digits.slice(6, 8);
-  if (digits.length <= 4) return y;
-  if (digits.length <= 6) return `${y}-${m}`;
-  return `${y}-${m}-${d}`;
-}
-
 // pekný text pre zobrazenie dátumu
 function fmtDateValue(d: string) {
   return d ? d.replaceAll("-", ".") : "YYYY-MM-DD";
@@ -231,14 +220,13 @@ export default function PBRun() {
         {/* ActivityDropdown (načítava po fokuse, podľa dátumu ±1 deň) */}
         <div className="sm:col-span-4">
           <ActivitySelector
+            userId={userId ?? null}
             dateIso={form.achieved_at}
+            sports={["run", "mixed"]}
             value={form.activity_id ? Number(form.activity_id) : ""}
             onChange={(v) =>
               setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
             }
-            sports={["run", "mixed"]}
-            windowDays={1}
-            className="sm:col-span-4"
           />
         </div>
 
