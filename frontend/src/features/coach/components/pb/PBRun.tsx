@@ -20,7 +20,12 @@ type Form = {
   activity_id: string;
   achieved_at: string;
 };
-const EMPTY: Form = { distance_m: "", time_str: "", activity_id: "", achieved_at: "" };
+const EMPTY: Form = {
+  distance_m: "",
+  time_str: "",
+  activity_id: "",
+  achieved_at: "",
+};
 
 export default function PBRun() {
   const { userId } = useUserId();
@@ -47,7 +52,9 @@ export default function PBRun() {
     }
   };
 
-  useEffect(() => { if (userId) refresh(); /* eslint-disable-next-line */ }, [userId]);
+  useEffect(() => {
+    if (userId) refresh(); /* eslint-disable-next-line */
+  }, [userId]);
 
   const canSave = useMemo(() => {
     const m = Number(form.distance_m);
@@ -64,9 +71,13 @@ export default function PBRun() {
       await saveBest(userId, {
         sport: "run",
         distance_m: m,
-        time_str: Number.isFinite(sec ?? NaN) ? undefined : form.time_str.trim(),
+        time_str: Number.isFinite(sec ?? NaN)
+          ? undefined
+          : form.time_str.trim(),
         ...(Number.isFinite(sec ?? NaN) ? { time_sec: sec! } : {}),
-        activity_id: form.activity_id.trim() ? Number(form.activity_id) : undefined,
+        activity_id: form.activity_id.trim()
+          ? Number(form.activity_id)
+          : undefined,
         achieved_at: form.achieved_at || undefined,
       } as any);
 
@@ -93,7 +104,7 @@ export default function PBRun() {
     }
   };
 
-  const fmtDate = (d?: string | null) => (d?.split("T")[0] ?? "—");
+  const fmtDate = (d?: string | null) => d?.split("T")[0] ?? "—";
 
   return (
     <div className="space-y-4">
@@ -102,43 +113,55 @@ export default function PBRun() {
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
-      {/* FORM – stack na mobile, kompaktný na ≥sm; bez pevných šírok */}
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
+      {/* FORM – responsive 2-row grid (no overflow) */}
+      <div className="grid gap-2 sm:grid-cols-12 items-start">
+        {/* 1. riadok (sm a vyššie): distance · time · date · (voľno) · (voľno) */}
         <select
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm w-full"
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           value={form.distance_m}
-          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, distance_m: e.target.value }))
+          }
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
-            <option key={o.m} value={o.m}>{o.label}</option>
+            <option key={o.m} value={o.m}>
+              {o.label}
+            </option>
           ))}
         </select>
 
         <input
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm w-full"
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           placeholder="hh:mm:ss"
           value={form.time_str}
-          onChange={(e) => setForm((f) => ({ ...f, time_str: maskHHMMSS(e.target.value) }))}
-          inputMode="numeric"
-        />
-
-        <input
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm w-full"
-          placeholder="Activity ID (optional)"
-          value={form.activity_id}
-          onChange={(e) => setForm((f) => ({ ...f, activity_id: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, time_str: maskHHMMSS(e.target.value) }))
+          }
           inputMode="numeric"
         />
 
         <input
           type="date"
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[120px]"
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-2 sm:max-w-[140px]"
           value={form.achieved_at}
-          onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, achieved_at: e.target.value }))
+          }
         />
 
-        <div className="flex flex-wrap gap-2">
+        {/* 2. riadok: activityId + buttons (wrap na úzkych displejoch) */}
+        <input
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-4"
+          placeholder="Activity ID (optional)"
+          value={form.activity_id}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, activity_id: e.target.value }))
+          }
+          inputMode="numeric"
+        />
+
+        <div className="flex flex-wrap gap-2 sm:justify-end sm:col-span-8">
           <button
             onClick={handleSave}
             disabled={!canSave}
@@ -168,9 +191,15 @@ export default function PBRun() {
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
           .map((b) => {
-            const time = b.best_time_s != null ? secToHHMMSS(b.best_time_s) : (b.time_str ?? "—");
+            const time =
+              b.best_time_s != null
+                ? secToHHMMSS(b.best_time_s)
+                : b.time_str ?? "—";
             return (
-              <li key={b.distance_m} className="bg-gray-800 rounded px-3 py-2 border border-gray-700/60">
+              <li
+                key={b.distance_m}
+                className="bg-gray-800 rounded px-3 py-2 border border-gray-700/60"
+              >
                 <div className="flex items-start justify-between gap-3">
                   {/* left info */}
                   <div className="min-w-0">
@@ -178,14 +207,24 @@ export default function PBRun() {
                       <button
                         aria-label="Set as favorite"
                         onClick={() => setFavM(b.distance_m)}
-                        className={`text-lg leading-none shrink-0 ${favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
+                        className={`text-lg leading-none shrink-0 ${
+                          favoriteM === b.distance_m
+                            ? "text-yellow-400"
+                            : "text-gray-500 hover:text-gray-300"
+                        }`}
                       >
                         ★
                       </button>
-                      <div className="text-sm font-medium truncate">{distanceLabel(b.distance_m, "run")}</div>
+                      <div className="text-sm font-medium truncate">
+                        {distanceLabel(b.distance_m, "run")}
+                      </div>
                     </div>
-                    <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">{time}</div>
-                    <div className="mt-1 text-xs opacity-75">{fmtDate(b.achieved_at)}</div>
+                    <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
+                      {time}
+                    </div>
+                    <div className="mt-1 text-xs opacity-75">
+                      {fmtDate(b.achieved_at)}
+                    </div>
                   </div>
 
                   {/* right actions */}
@@ -212,8 +251,15 @@ export default function PBRun() {
                           onClick={() =>
                             setForm({
                               distance_m: String(b.distance_m),
-                              time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                              activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                              time_str:
+                                b.time_str ??
+                                (b.best_time_s
+                                  ? secToHHMMSS(b.best_time_s)
+                                  : ""),
+                              activity_id:
+                                b.activity_id != null
+                                  ? String(b.activity_id)
+                                  : "",
                               achieved_at: b.achieved_at ?? "",
                             })
                           }
