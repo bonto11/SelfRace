@@ -1,21 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useCoachData } from "@/features/coach/data/CoachDataProvider";
-import type {
-  CoachPrefs,
-  GoalKind,
-  SportKind,
-} from "@/features/coach/types/prefsTypes";
+import type { CoachPrefs, GoalKind, SportKind } from "@/features/coach/types/prefsTypes";
+import type { DayAbbrev } from "@/features/coach/types/day";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
-import type {
-  DayAbbrev,
-} from "@/features/coach/types/day";
+
 const ALL_DAYS: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const ALL_SPORTS: SportKind[] = ["run","ride","strength"];
-const ALL_GOALS: GoalKind[] = [
-  "race_time", "improve_speed", "improve_endurance", "improve_overall", "maintain",
-];
+const ALL_GOALS: GoalKind[] = ["race_time","improve_speed","improve_endurance","improve_overall","maintain"];
 
 export default function PrefsForm() {
   const { prefs, savePrefs, refresh } = useCoachData();
@@ -24,8 +17,11 @@ export default function PrefsForm() {
   // lokálna editačná kópia
   const [local, setLocal] = useState<CoachPrefs>(prefs);
 
-  // keep in sync, keď sa zmenia prefs zvonka (napr. po refresh z iného zariadenia)
-  useMemo(() => setLocal(prefs), [prefs]); // intentionally using useMemo as a tiny "effect"
+  // sync pri zmene prefs zvonka
+  useEffect(() => { setLocal(prefs); }, [prefs]);
+
+  const prevPrefs = (p: CoachPrefs) =>
+    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, wu_cd_detail: true };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] => {
     const base = arr ?? [];
@@ -47,8 +43,21 @@ export default function PrefsForm() {
     setLocal(next);
   };
 
-  const prevPrefs = (p: CoachPrefs) =>
-    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, wu_cd_detail: true };
+  const upsertRunTargets = (patch: Partial<NonNullable<CoachPrefs["targets"]>["run"]>) =>
+    setLocal(prev => ({
+      ...prev,
+      targets: {
+        run: {
+          race_goal: prev.targets?.run?.race_goal ?? null,
+          current_best_time: prev.targets?.run?.current_best_time ?? null,
+          target_time: prev.targets?.run?.target_time ?? null,
+          longest_recent_distance_km: prev.targets?.run?.longest_recent_distance_km ?? null,
+          ...patch,
+        },
+        ride: prev.targets?.ride ?? { focus: "endurance", weekly_time_target_min: null },
+        strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
+      },
+    }));
 
   const onSave = async () => {
     try {
@@ -83,9 +92,8 @@ export default function PrefsForm() {
               onClick={() => setPref("goal_kind", g)}
               className={[
                 "px-3 py-1.5 rounded text-sm border",
-                local.goal_kind === g
-                  ? "bg-emerald-600 border-emerald-600"
-                  : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                local.goal_kind === g ? "bg-emerald-600 border-emerald-600"
+                                      : "bg-gray-900 border-gray-700 hover:bg-gray-800",
               ].join(" ")}
             >
               {g}
@@ -105,37 +113,13 @@ export default function PrefsForm() {
             className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
             placeholder="current best (hh:mm:ss)"
             value={local.targets?.run.current_best_time ?? ""}
-            onChange={(e) =>
-              setLocal(prev => ({
-                ...prev,
-                targets: {
-                  ...prev.targets!,
-                  run: { ...(prev.targets?.run ?? { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null }),
-                    current_best_time: e.target.value || null
-                  },
-                  ride: prev.targets?.ride ?? { focus: "endurance", weekly_time_target_min: null },
-                  strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
-                }
-              }))
-            }
+            onChange={(e) => upsertRunTargets({ current_best_time: e.target.value || null })}
           />
           <input
             className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
             placeholder="target time (hh:mm:ss)"
             value={local.targets?.run.target_time ?? ""}
-            onChange={(e) =>
-              setLocal(prev => ({
-                ...prev,
-                targets: {
-                  ...prev.targets!,
-                  run: { ...(prev.targets?.run ?? { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null }),
-                    target_time: e.target.value || null
-                  },
-                  ride: prev.targets?.ride ?? { focus: "endurance", weekly_time_target_min: null },
-                  strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
-                }
-              }))
-            }
+            onChange={(e) => upsertRunTargets({ target_time: e.target.value || null })}
           />
         </div>
       </div>
@@ -220,10 +204,7 @@ export default function PrefsForm() {
             type="checkbox"
             checked={!!pref.avoid_back_to_back_hard}
             onChange={(e) =>
-              setLocal(prev => ({
-                ...prev,
-                preferences: { ...prevPrefs(prev), avoid_back_to_back_hard: e.target.checked },
-              }))
+              setLocal(prev => ({ ...prev, preferences: { ...prevPrefs(prev), avoid_back_to_back_hard: e.target.checked } }))
             }
           />
           Avoid two hard days in a row
@@ -234,10 +215,7 @@ export default function PrefsForm() {
             type="checkbox"
             checked={!!pref.use_zones}
             onChange={(e) =>
-              setLocal(prev => ({
-                ...prev,
-                preferences: { ...prevPrefs(prev), use_zones: e.target.checked },
-              }))
+              setLocal(prev => ({ ...prev, preferences: { ...prevPrefs(prev), use_zones: e.target.checked } }))
             }
           />
           Use zones
@@ -248,10 +226,7 @@ export default function PrefsForm() {
             type="checkbox"
             checked={!!pref.wu_cd_detail}
             onChange={(e) =>
-              setLocal(prev => ({
-                ...prev,
-                preferences: { ...prevPrefs(prev), wu_cd_detail: e.target.checked },
-              }))
+              setLocal(prev => ({ ...prev, preferences: { ...prevPrefs(prev), wu_cd_detail: e.target.checked } }))
             }
           />
           Include WU/CD details
@@ -260,16 +235,10 @@ export default function PrefsForm() {
 
       {/* actions */}
       <div className="flex gap-2 pt-2">
-        <button
-          onClick={onSave}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm"
-        >
+        <button onClick={onSave} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm">
           Save
         </button>
-        <button
-          onClick={onRefresh}
-          className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm"
-        >
+        <button onClick={onRefresh} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm">
           Refresh
         </button>
       </div>
