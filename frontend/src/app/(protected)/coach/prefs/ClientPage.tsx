@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
-import CoachPrefsPanel from "@/features/coach/components/CoachPrefsPanel";
+import PrefsForm from "@/features/coach/components/PrefsForm";
 
 export default function CoachPrefsClient() {
   return (
@@ -17,7 +17,8 @@ export default function CoachPrefsClient() {
             Späť
           </Link>
         </div>
-        <CoachPrefsPanel />
+
+        <PrefsForm />
       </div>
     </CoachDataProvider>
   );

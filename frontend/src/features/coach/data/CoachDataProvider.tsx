@@ -1,13 +1,30 @@
+// src/features/coach/data/CoachDataProvider.tsx
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
-import { DEFAULT_PREFS, type CoachPrefs } from "@/features/coach/types/prefsTypes";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import { useUserId } from "@/shared/hooks/useUserId";
+import { getPrefs } from "@/features/coach/api/prefs";
+import { getBests, type UserBest } from "@/shared/api/bests";
+import { secToHHMMSS } from "@/shared/utils/time";
+
+import {
+  DEFAULT_PREFS,
+  type CoachPrefs,
+} from "@/features/coach/types/prefsTypes";
 import type { Best } from "@/features/coach/types/coach";
 
-// TODO: neskôr sem doplníš reálny load zo Supabase/BE + normalizáciu
 type CoachCtx = {
   prefs: CoachPrefs;
-  pbRun: Best[];                 // PB pre beh
+  pbRun: Best[];
+  refresh: () => Promise<void>;
 };
 
 const CoachDataContext = createContext<CoachCtx | null>(null);
@@ -18,17 +35,60 @@ export function useCoachData() {
   return ctx;
 }
 
+// helper: mapovanie UserBest -> Best (FE tvar)
+function toBestRow(b: UserBest): Best {
+  return {
+    distance_m: b.distance_m,
+    time_str:
+      b.time_str ??
+      (Number.isFinite(b.best_time_s as number)
+        ? secToHHMMSS(b.best_time_s as number) ?? null
+        : null),
+    best_time_s: b.best_time_s ?? undefined,
+    date: (b.achieved_at as string) ?? null,
+    event_name: (b as any).event_name ?? null, // ak neskôr pridáš na BE
+  };
+}
+
 export function CoachDataProvider({ children }: { children: React.ReactNode }) {
-  // --- Dummy dáta (safe defaults) ---
-  const prefs: CoachPrefs = DEFAULT_PREFS;
+  const { userId } = useUserId();
 
-  const pbRun: Best[] = [
-    { distance_m: 1000,  time_str: "00:03:52", date: "2024-06-01", event_name: "City Mile" },
-    { distance_m: 5000,  time_str: "00:23:13", date: "2024-09-14", event_name: "ParkRun" },
-    { distance_m: 10000, time_str: "00:50:17", date: "2023-11-05", event_name: "Autumn 10k" },
-  ];
+  const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
+  const [pbRun, setPbRun] = useState<Best[]>([]);
 
-  const value = useMemo<CoachCtx>(() => ({ prefs, pbRun }), [prefs, pbRun]);
+  const refresh = useCallback(async () => {
+    if (!userId) return;
 
-  return <CoachDataContext.Provider value={value}>{children}</CoachDataContext.Provider>;
+    // prefs
+    try {
+      const p = (await getPrefs(userId)) ?? DEFAULT_PREFS;
+      setPrefs(p);
+    } catch {
+      setPrefs(DEFAULT_PREFS);
+    }
+
+    // PB – RUN
+    try {
+      const rows = await getBests(userId, "run");
+      setPbRun(rows.map(toBestRow));
+    } catch {
+      // nechaj prázdne, UI to zvládne
+      setPbRun([]);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const value = useMemo<CoachCtx>(
+    () => ({ prefs, pbRun, refresh }),
+    [prefs, pbRun, refresh]
+  );
+
+  return (
+    <CoachDataContext.Provider value={value}>
+      {children}
+    </CoachDataContext.Provider>
+  );
 }
