@@ -14,7 +14,7 @@ import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import { useFavoritePBRun } from "@/features/coach/hooks/useFavoritePBRun";
 import type { MiniActivity } from "@/shared/types/activities";
-import ActivitySelector from "@/shared/components/activitiesSelector";
+import ActivitySelector from "@/shared/components/ActivitySelector";
 
 // --- Presný názov stavu formulára (ak chceš globálne, presuň do @/shared/types/pb.ts)
 export type PBRunFormState = {
