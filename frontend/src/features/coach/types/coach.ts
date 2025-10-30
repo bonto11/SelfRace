@@ -1,5 +1,5 @@
 // src/features/coach/types/coach.ts
-export type Best = {
+export type typePB = {
   distance_m: number;        // 400 | 1000 | 5000 | 21097 | 42195
   best_time_s?: number | null;
   time_str?: string | null;  // "hh:mm:ss" (len pre FE)

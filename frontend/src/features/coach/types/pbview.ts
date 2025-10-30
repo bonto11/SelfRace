@@ -1,15 +1,15 @@
 // src/features/coach/types/pbView.ts
-import type { Best } from "./coach";
+import type { typePB } from "./coach";
 export type PBRow = { distanceKm: number; best: string; activityId?: number|null; date?: string|null };
 
-export const bestToPBRow = (b: Best): PBRow => ({
+export const bestToPBRow = (b: typePB): PBRow => ({
   distanceKm: Math.round((b.distance_m/1000)*10)/10,
   best: b.time_str ?? (typeof b.best_time_s === "number" ? secondsToHMS(b.best_time_s) : "—"),
   activityId: undefined,
   date: b.date ?? null,
 });
 
-export const pbRowToBest = (row: PBRow): Best => ({
+export const pbRowToBest = (row: PBRow): typePB => ({
   distance_m: Math.round(row.distanceKm * 1000),
   best_time_s: hmsToSeconds(row.best) ?? undefined,
   time_str: row.best,
@@ -29,15 +29,6 @@ const hmsToSeconds = (hms:string): number | null => {
   return h*3600 + m*60 + s;
 };
 
-// typ aktivity pre výber
-export type MiniActivity = {
-  id: number;
-  name: string;
-  start_date: string; // ISO
-  sport: string;
-  distance_km?: number | null;
-  duration_min?: number | null;
-};
 
 export type Form = {
   distance_m: string;

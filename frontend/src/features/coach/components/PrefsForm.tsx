@@ -2,13 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { useCoachData } from "@/features/coach/data/CoachDataProvider";
-import type { CoachPrefs, GoalKind, SportKind } from "@/features/coach/types/prefsTypes";
-import type { DayAbbrev } from "@/features/coach/types/day";
+import type {
+  CoachPrefs,
+  GoalKind,
+  SportKind,
+} from "@/features/coach/types/prefsTypes";
+import type { DayAbbrev } from "@/shared/types/day";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 
-const ALL_DAYS: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const ALL_SPORTS: SportKind[] = ["run","ride","strength"];
-const ALL_GOALS: GoalKind[] = ["race_time","improve_speed","improve_endurance","improve_overall","maintain"];
+const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
+const ALL_GOALS: GoalKind[] = [
+  "race_time",
+  "improve_speed",
+  "improve_endurance",
+  "improve_overall",
+  "maintain",
+];
 
 export default function PrefsForm() {
   const { prefs, savePrefs, refresh } = useCoachData();
@@ -18,44 +28,69 @@ export default function PrefsForm() {
   const [local, setLocal] = useState<CoachPrefs>(prefs);
 
   // sync pri zmene prefs zvonka
-  useEffect(() => { setLocal(prefs); }, [prefs]);
+  useEffect(() => {
+    setLocal(prefs);
+  }, [prefs]);
 
   const prevPrefs = (p: CoachPrefs) =>
-    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, wu_cd_detail: true };
+    p.preferences ?? {
+      days_off: [],
+      long_run_days: [],
+      avoid_back_to_back_hard: true,
+      use_zones: true,
+      wu_cd_detail: true,
+    };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] => {
     const base = arr ?? [];
-    return base.includes(v) ? base.filter(x => x !== v) : [...base, v];
+    return base.includes(v) ? base.filter((x) => x !== v) : [...base, v];
   };
 
   const setPref = <K extends keyof CoachPrefs>(key: K, val: CoachPrefs[K]) =>
-    setLocal(prev => ({ ...prev, [key]: val }));
+    setLocal((prev) => ({ ...prev, [key]: val }));
 
-  const setPrefNested = (path: "preferences.days_off" | "preferences.long_run_days" | "primary_sports", v: any) => {
+  const setPrefNested = (
+    path:
+      | "preferences.days_off"
+      | "preferences.long_run_days"
+      | "primary_sports",
+    v: any
+  ) => {
     if (path === "primary_sports") {
-      setLocal(prev => ({ ...prev, primary_sports: v }));
+      setLocal((prev) => ({ ...prev, primary_sports: v }));
       return;
     }
     const p = prevPrefs(local);
     const next = { ...local, preferences: p };
-    if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
-    if (path.endsWith("long_run_days")) next.preferences!.long_run_days = v as DayAbbrev[];
+    if (path.endsWith("days_off"))
+      next.preferences!.days_off = v as DayAbbrev[];
+    if (path.endsWith("long_run_days"))
+      next.preferences!.long_run_days = v as DayAbbrev[];
     setLocal(next);
   };
 
-  const upsertRunTargets = (patch: Partial<NonNullable<CoachPrefs["targets"]>["run"]>) =>
-    setLocal(prev => ({
+  const upsertRunTargets = (
+    patch: Partial<NonNullable<CoachPrefs["targets"]>["run"]>
+  ) =>
+    setLocal((prev) => ({
       ...prev,
       targets: {
         run: {
           race_goal: prev.targets?.run?.race_goal ?? null,
           current_best_time: prev.targets?.run?.current_best_time ?? null,
           target_time: prev.targets?.run?.target_time ?? null,
-          longest_recent_distance_km: prev.targets?.run?.longest_recent_distance_km ?? null,
+          longest_recent_distance_km:
+            prev.targets?.run?.longest_recent_distance_km ?? null,
           ...patch,
         },
-        ride: prev.targets?.ride ?? { focus: "endurance", weekly_time_target_min: null },
-        strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
+        ride: prev.targets?.ride ?? {
+          focus: "endurance",
+          weekly_time_target_min: null,
+        },
+        strength: prev.targets?.strength ?? {
+          focus: "general",
+          sessions_per_week: 2,
+        },
       },
     }));
 
@@ -86,14 +121,15 @@ export default function PrefsForm() {
       <div className="space-y-2">
         <div className="text-sm font-medium opacity-90">Goal</div>
         <div className="flex flex-wrap gap-2">
-          {ALL_GOALS.map(g => (
+          {ALL_GOALS.map((g) => (
             <button
               key={g}
               onClick={() => setPref("goal_kind", g)}
               className={[
                 "px-3 py-1.5 rounded text-sm border",
-                local.goal_kind === g ? "bg-emerald-600 border-emerald-600"
-                                      : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                local.goal_kind === g
+                  ? "bg-emerald-600 border-emerald-600"
+                  : "bg-gray-900 border-gray-700 hover:bg-gray-800",
               ].join(" ")}
             >
               {g}
@@ -107,19 +143,28 @@ export default function PrefsForm() {
             placeholder="weeks (e.g. 8, 10, 12)"
             inputMode="numeric"
             value={local.weeks ?? ""}
-            onChange={(e) => setPref("weeks", e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) =>
+              setPref(
+                "weeks",
+                e.target.value ? Number(e.target.value) : undefined
+              )
+            }
           />
           <input
             className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
             placeholder="current best (hh:mm:ss)"
             value={local.targets?.run.current_best_time ?? ""}
-            onChange={(e) => upsertRunTargets({ current_best_time: e.target.value || null })}
+            onChange={(e) =>
+              upsertRunTargets({ current_best_time: e.target.value || null })
+            }
           />
           <input
             className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
             placeholder="target time (hh:mm:ss)"
             value={local.targets?.run.target_time ?? ""}
-            onChange={(e) => upsertRunTargets({ target_time: e.target.value || null })}
+            onChange={(e) =>
+              upsertRunTargets({ target_time: e.target.value || null })
+            }
           />
         </div>
       </div>
@@ -128,7 +173,7 @@ export default function PrefsForm() {
       <div className="space-y-2">
         <div className="text-sm font-medium opacity-90">Sports</div>
         <div className="flex flex-wrap gap-2">
-          {ALL_SPORTS.map(s => {
+          {ALL_SPORTS.map((s) => {
             const cur = local.primary_sports ?? local.sports ?? [];
             const next = toggleInArray(cur, s);
             const active = cur.includes(s);
@@ -138,8 +183,9 @@ export default function PrefsForm() {
                 onClick={() => setPrefNested("primary_sports", next)}
                 className={[
                   "px-3 py-1.5 rounded text-sm border",
-                  active ? "bg-emerald-600 border-emerald-600"
-                         : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  active
+                    ? "bg-emerald-600 border-emerald-600"
+                    : "bg-gray-900 border-gray-700 hover:bg-gray-800",
                 ].join(" ")}
               >
                 {s}
@@ -153,7 +199,7 @@ export default function PrefsForm() {
       <div className="space-y-2">
         <div className="text-sm font-medium opacity-90">Days off</div>
         <div className="flex flex-wrap gap-2">
-          {ALL_DAYS.map(d => {
+          {ALL_DAYS.map((d) => {
             const next = toggleInArray(pref.days_off, d);
             const active = pref.days_off?.includes(d);
             return (
@@ -162,8 +208,9 @@ export default function PrefsForm() {
                 onClick={() => setPrefNested("preferences.days_off", next)}
                 className={[
                   "px-3 py-1.5 rounded text-sm border",
-                  active ? "bg-emerald-600 border-emerald-600"
-                         : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  active
+                    ? "bg-emerald-600 border-emerald-600"
+                    : "bg-gray-900 border-gray-700 hover:bg-gray-800",
                 ].join(" ")}
               >
                 {d}
@@ -175,9 +222,11 @@ export default function PrefsForm() {
 
       {/* Long run days */}
       <div className="space-y-2">
-        <div className="text-sm font-medium opacity-90">Preferred long-run days</div>
+        <div className="text-sm font-medium opacity-90">
+          Preferred long-run days
+        </div>
         <div className="flex flex-wrap gap-2">
-          {ALL_DAYS.map(d => {
+          {ALL_DAYS.map((d) => {
             const next = toggleInArray(pref.long_run_days ?? [], d);
             const active = pref.long_run_days?.includes(d);
             return (
@@ -186,8 +235,9 @@ export default function PrefsForm() {
                 onClick={() => setPrefNested("preferences.long_run_days", next)}
                 className={[
                   "px-3 py-1.5 rounded text-sm border",
-                  active ? "bg-emerald-600 border-emerald-600"
-                         : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  active
+                    ? "bg-emerald-600 border-emerald-600"
+                    : "bg-gray-900 border-gray-700 hover:bg-gray-800",
                 ].join(" ")}
               >
                 {d}
@@ -204,7 +254,13 @@ export default function PrefsForm() {
             type="checkbox"
             checked={!!pref.avoid_back_to_back_hard}
             onChange={(e) =>
-              setLocal(prev => ({ ...prev, preferences: { ...prevPrefs(prev), avoid_back_to_back_hard: e.target.checked } }))
+              setLocal((prev) => ({
+                ...prev,
+                preferences: {
+                  ...prevPrefs(prev),
+                  avoid_back_to_back_hard: e.target.checked,
+                },
+              }))
             }
           />
           Avoid two hard days in a row
@@ -215,7 +271,13 @@ export default function PrefsForm() {
             type="checkbox"
             checked={!!pref.use_zones}
             onChange={(e) =>
-              setLocal(prev => ({ ...prev, preferences: { ...prevPrefs(prev), use_zones: e.target.checked } }))
+              setLocal((prev) => ({
+                ...prev,
+                preferences: {
+                  ...prevPrefs(prev),
+                  use_zones: e.target.checked,
+                },
+              }))
             }
           />
           Use zones
@@ -226,7 +288,13 @@ export default function PrefsForm() {
             type="checkbox"
             checked={!!pref.wu_cd_detail}
             onChange={(e) =>
-              setLocal(prev => ({ ...prev, preferences: { ...prevPrefs(prev), wu_cd_detail: e.target.checked } }))
+              setLocal((prev) => ({
+                ...prev,
+                preferences: {
+                  ...prevPrefs(prev),
+                  wu_cd_detail: e.target.checked,
+                },
+              }))
             }
           />
           Include WU/CD details
@@ -235,10 +303,16 @@ export default function PrefsForm() {
 
       {/* actions */}
       <div className="flex gap-2 pt-2">
-        <button onClick={onSave} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm">
+        <button
+          onClick={onSave}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm"
+        >
           Save
         </button>
-        <button onClick={onRefresh} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm">
+        <button
+          onClick={onRefresh}
+          className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm"
+        >
           Refresh
         </button>
       </div>

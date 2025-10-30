@@ -1,12 +1,19 @@
 // src/features/coach/utils/plan.ts
-import { DAY_ORDER, DayKey, DailyItem, DailyPlan } from "@/features/coach/types/day";
+import { DAY_ORDER, DayKey, DailyItem, DailyPlan } from "@/shared/types/day";
 
 export function extractDailyPlan(plan: any): DailyPlan[] | null {
   if (!plan || typeof plan !== "object") return null;
 
-  const lower = Object.keys(plan).map(k => k.toLowerCase());
-  const hasDaily = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
-    .some(k => lower.includes(k));
+  const lower = Object.keys(plan).map((k) => k.toLowerCase());
+  const hasDaily = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ].some((k) => lower.includes(k));
   if (!hasDaily) return null;
 
   const get = (k: string) => plan[k] ?? plan[k.toLowerCase()];
@@ -18,11 +25,11 @@ export function extractDailyPlan(plan: any): DailyPlan[] | null {
     { label: "Fri", key: "friday" },
     { label: "Sat", key: "saturday" },
     { label: "Sun", key: "sunday" },
-  ] as {label: DayKey, key: string}[];
+  ] as { label: DayKey; key: string }[];
 
-  return map.map(d => {
+  return map.map((d) => {
     const v = get(d.key);
-    const items: DailyItem[] = Array.isArray(v) ? v : (v ? [v] : []);
+    const items: DailyItem[] = Array.isArray(v) ? v : v ? [v] : [];
     return { day: d.label, items };
   });
 }

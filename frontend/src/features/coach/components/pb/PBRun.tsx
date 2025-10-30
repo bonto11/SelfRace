@@ -13,17 +13,25 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import { useFavoritePBRun } from "@/features/coach/hooks/useFavoritePBRun";
-import fetchActivitiesAround from "@/features/coach/api/fetchActivities";
-import type { MiniActivity, Form } from "@/features/coach/types/pbview";
+import type { MiniActivity } from "@/shared/types/activities";
+import ActivitySelector from "@/shared/components/activitiesSelector";
 
-const EMPTY: Form = {
-  distance_m: "",
-  time_str: "",
-  activity_id: "",
-  achieved_at: "",
+// --- Presný názov stavu formulára (ak chceš globálne, presuň do @/shared/types/pb.ts)
+export type PBRunFormState = {
+  distance_m: string; // "1000" | "5000" | ...
+  time_str: string; // "hh:mm:ss"
+  achieved_at: string; // "YYYY-MM-DD"
+  activity_id: string; // "" alebo číslo v texte
 };
 
-// malá maska na YYYY-MM-DD
+const EMPTY: PBRunFormState = {
+  distance_m: "",
+  time_str: "",
+  achieved_at: "",
+  activity_id: "",
+};
+
+// maska na YYYY-MM-DD (mobil numeric keypad)
 function maskYYYYMMDD(raw: string) {
   const digits = raw.replace(/\D/g, "").slice(0, 8);
   const y = digits.slice(0, 4);
@@ -34,6 +42,60 @@ function maskYYYYMMDD(raw: string) {
   return `${y}-${m}-${d}`;
 }
 
+// pekný text pre zobrazenie dátumu
+function fmtDateValue(d: string) {
+  return d ? d.replaceAll("-", ".") : "YYYY-MM-DD";
+}
+
+// --- Select, ktorý podľa dátumu natiahne aktivity (±1 deň) a nastaví activity_id
+function ActivityDropdown({
+  dateIso,
+  value,
+  onChange,
+}: {
+  dateIso: string | "";
+  value: number | "";
+  onChange: (id: number | "") => void;
+}) {
+  const { userId } = useUserId();
+  const [opened, setOpened] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<MiniActivity[]>([]);
+
+  return (
+    <div>
+      <select
+        className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full"
+        value={value === "" ? "" : String(value)}
+        onFocus={() => setOpened(true)}
+        onChange={(e) => {
+          const v = e.target.value.trim();
+          onChange(v ? Number(v) : "");
+        }}
+        disabled={!dateIso}
+      >
+        <option value="">
+          {dateIso
+            ? loading
+              ? "Loading…"
+              : "— choose activity —"
+            : "pick date first"}
+        </option>
+        {!loading &&
+          items.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.start_date?.slice(0, 10)} — {a.name}
+              {a.distance_km ? ` (${a.distance_km} km)` : ""}
+            </option>
+          ))}
+      </select>
+      <div className="mt-1 text-xs opacity-70">
+        Zoznam sa načíta podľa zvoleného dátumu (±1 deň).
+      </div>
+    </div>
+  );
+}
+
 export default function PBRun() {
   const { userId } = useUserId();
   const { favM, setFavM } = useFavoritePBRun();
@@ -41,7 +103,7 @@ export default function PBRun() {
   const { success, error } = useInfoMessage();
 
   const [rows, setRows] = useState<UserBest[]>([]);
-  const [form, setForm] = useState<Form>(EMPTY);
+  const [form, setForm] = useState<PBRunFormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
@@ -60,7 +122,8 @@ export default function PBRun() {
   };
 
   useEffect(() => {
-    if (userId) refresh(); /* eslint-disable-next-line */
+    if (userId) refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const canSave = useMemo(() => {
@@ -111,82 +174,18 @@ export default function PBRun() {
     }
   };
 
-  const fmtDate = (d?: string | null) => d?.split("T")[0] ?? "—";
-
-  function ActivityPicker({
-    dateIso,
-    value,
-    onChange,
-  }: {
-    dateIso: string | "";
-    value: number | ""; // activity_id
-    onChange: (id: number | "") => void;
-  }) {
-    const { userId } = useUserId();
-    const [open, setOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [items, setItems] = useState<MiniActivity[]>([]);
-
-    useEffect(() => {
-      if (!open || !userId || !dateIso) return;
-      let mounted = true;
-      setLoading(true);
-      fetchActivitiesAround(userId, dateIso)
-        .then((arr) => mounted && setItems(arr))
-        .catch(() => mounted && setItems([]))
-        .finally(() => mounted && setLoading(false));
-      return () => {
-        mounted = false;
-      };
-    }, [open, userId, dateIso]);
-
-    return (
-      <div className="relative">
-        <select
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full"
-          value={value === "" ? "" : String(value)}
-          onFocus={() => setOpen(true)}
-          onChange={(e) => {
-            const v = e.target.value.trim();
-            onChange(v ? Number(v) : "");
-          }}
-          disabled={!dateIso}
-        >
-          <option value="">
-            {dateIso
-              ? loading
-                ? "Loading…"
-                : "— choose activity —"
-              : "pick date first"}
-          </option>
-          {!loading &&
-            items.map((a) => (
-              <option key={a.id} value={a.id}>
-                {/* 2025-10-30 — Evening Run (6.0 km) */}
-                {a.start_date?.slice(0, 10)} — {a.name}
-                {a.distance_km ? ` (${a.distance_km} km)` : ""}
-              </option>
-            ))}
-        </select>
-
-        {/* malá poznámka */}
-        <div className="mt-1 text-xs opacity-70">
-          Zoznam sa načíta podľa zvoleného dátumu (±1 deň).
-        </div>
-      </div>
-    );
-  }
+  const fmtDateCell = (d?: string | null) => d?.split("T")[0] ?? "—";
 
   return (
     <div className="space-y-4">
-      {/* hviezdička – obľúbená vzdialenosť */}
+      {/* info o obľúbenej vzdialenosti */}
       <div className="text-xs opacity-80">
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
-      {/* FORM – 2 riadky, bez overflow, mobil text-mask, desktop natívny dátum */}
+      {/* FORM – responzívny, bez overflow */}
       <div className="grid gap-2 sm:grid-cols-12 items-start">
-        {/* 1. riadok */}
+        {/* distance */}
         <select
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           value={form.distance_m}
@@ -202,6 +201,7 @@ export default function PBRun() {
           ))}
         </select>
 
+        {/* time */}
         <input
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           placeholder="hh:mm:ss"
@@ -212,42 +212,38 @@ export default function PBRun() {
           inputMode="numeric"
         />
 
-        {/* mobile: text s maskou */}
-        <input
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:hidden"
-          placeholder="YYYY-MM-DD"
-          value={form.achieved_at}
-          onChange={(e) =>
-            setForm((f) => ({
-              ...f,
-              achieved_at: maskYYYYMMDD(e.target.value),
-            }))
-          }
-          inputMode="numeric"
-          aria-label="Date"
-        />
-        {/* desktop: natívny date */}
-        <input
-          type="date"
-          className="hidden sm:block bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-2 sm:max-w-[160px]"
-          value={form.achieved_at}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, achieved_at: e.target.value }))
-          }
-        />
+        {/* DATE – “pekný” natívny picker s overlayom, aby nikdy nepretečie */}
+        <div className="relative sm:col-span-2 w-full max-w-[180px]">
+          <div className="bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-center select-none truncate">
+            {fmtDateValue(form.achieved_at)}
+          </div>
+          <input
+            type="date"
+            className="absolute inset-0 opacity-0 w-full h-full"
+            value={form.achieved_at}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, achieved_at: e.target.value }))
+            }
+            aria-label="Pick date"
+          />
+        </div>
 
-        {/* 2. riadok – ActivityPicker + tlačidlá */}
+        {/* ActivityDropdown (načítava po fokuse, podľa dátumu ±1 deň) */}
         <div className="sm:col-span-4">
-          <ActivityPicker
+          <ActivitySelector
             dateIso={form.achieved_at}
             value={form.activity_id ? Number(form.activity_id) : ""}
             onChange={(v) =>
               setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
             }
+            sports={["run", "mixed"]}
+            windowDays={1}
+            className="sm:col-span-4"
           />
         </div>
 
-        <div className="flex flex-wrap gap-2 sm:justify-end sm:col-span-8">
+        {/* actions */}
+        <div className="flex flex-wrap gap-2 sm:justify-end sm:col-span-12">
           <button
             onClick={handleSave}
             disabled={!canSave}
@@ -271,7 +267,7 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – karty ako Activity, nič nepretečie */}
+      {/* LIST – karty (ako Activities), nič nepretečie */}
       <ul className="space-y-2">
         {rows
           .slice()
@@ -287,7 +283,7 @@ export default function PBRun() {
                 className="bg-gray-800 rounded px-3 py-2 border border-gray-700/60"
               >
                 <div className="flex items-start justify-between gap-3">
-                  {/* left info */}
+                  {/* ľavá strana */}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <button
@@ -309,11 +305,11 @@ export default function PBRun() {
                       {time}
                     </div>
                     <div className="mt-1 text-xs opacity-75">
-                      {fmtDate(b.achieved_at)}
+                      {fmtDateCell(b.achieved_at)}
                     </div>
                   </div>
 
-                  {/* right actions */}
+                  {/* pravá strana – akcie */}
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     {pendingDelete === b.distance_m ? (
                       <div className="flex gap-2">

@@ -7,7 +7,7 @@ export type GoalKind =
   | "maintain";
 
 // TOP: používaj deň z centralizovaného súboru
-import type { DayAbbrev } from "@/features/coach/types/day";
+import type { DayAbbrev } from "@/shared/types/day";
 
 // rozšír športy, aby pokryl aj tvoje UI (run/ride/strength/mixed/skate)
 export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
@@ -19,15 +19,15 @@ export interface Preferences {
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
   wu_cd_detail: boolean;
-  include_strides?: boolean;   // NEW (mapa k pôv. includeStrides)
+  include_strides?: boolean; // NEW (mapa k pôv. includeStrides)
 }
 
 // zvyšok nechaj ako máš (GoalKind, RunTargets/BikeTargets/StrengthTargets, CoachPrefs, DEFAULT_PREFS)
 // --- Targets (ciele pre jednotlivé športy) ---
 export interface RunTargets {
   race_goal: "5k" | "10k" | "half" | "marathon" | null;
-  current_best_time: string | null;        // "00:45:30"
-  target_time: string | null;              // "00:44:00"
+  current_best_time: string | null; // "00:45:30"
+  target_time: string | null; // "00:44:00"
   longest_recent_distance_km: number | null;
 }
 
@@ -45,13 +45,13 @@ export interface StrengthTargets {
 export type CoachPrefs = {
   // cieľ (voľné pole aj štruktúra)
   goal_kind?: GoalKind;
-  distance?: string;         // "5k" | "10k" | ...
-  current_pace?: string;     // "5:10"
-  target_pace?: string;      // "4:30"
+  distance?: string; // "5k" | "10k" | ...
+  current_pace?: string; // "5:10"
+  target_pace?: string; // "4:30"
 
   // plánovanie
-  weeks?: number;            // 8, 10, 12...
-  sports?: SportKind[];      // legacy
+  weeks?: number; // 8, 10, 12...
+  sports?: SportKind[]; // legacy
   primary_sports?: SportKind[];
 
   // štruktúrované ciele
@@ -101,4 +101,4 @@ export type PBRun = {
   best: string;
   activityId?: number | null;
   date?: string | null;
-}
+};

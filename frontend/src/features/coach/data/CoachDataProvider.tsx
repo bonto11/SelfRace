@@ -11,7 +11,7 @@ import React, {
 } from "react";
 
 import { DEFAULT_PREFS, type CoachPrefs } from "@/features/coach/types/prefsTypes";
-import type { Best } from "@/features/coach/types/coach";
+import type { typePB } from "@/features/coach/types/coach";
 import { useUserId } from "@/shared/hooks/useUserId";
 
 // API – prefs
@@ -29,7 +29,7 @@ import {
 import { secToHHMMSS } from "@/shared/utils/time";
 
 // ---------- mapovanie: UserBest (BE) -> Best (pre coach UI) ----------
-function mapRunBest(b: UserBest): Best {
+function mapRunBest(b: UserBest): typePB {
   return {
     distance_m: b.distance_m,
     best_time_s: b.best_time_s ?? undefined,
@@ -45,7 +45,7 @@ function mapRunBest(b: UserBest): Best {
 // ---------- typ kontextu ----------
 type CoachCtx = {
   prefs: CoachPrefs;
-  pbRun: Best[];
+  pbRun: typePB[];
   refresh: () => Promise<void>;
   savePrefs: (next: CoachPrefs) => Promise<void>;
 };
@@ -63,7 +63,7 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
   const { userId } = useUserId();
 
   const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
-  const [pbRun, setPbRun] = useState<Best[]>([]);
+  const [pbRun, setPbRun] = useState<typePB[]>([]);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
