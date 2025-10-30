@@ -211,3 +211,33 @@ def select_activities(
     except Exception as e:
         print("❌ select_activities error:", e)
         raise HTTPException(status_code=500, detail=str(e))
+        
+        
+@router.get("/summary/one/{activity_id}")
+def get_summary_one(activity_id: int):
+    rec = (supabase.table(TABLE_ACTIVITIES_SUMMARY)
+           .select("activity_id,name,date,distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,sport_type_fe")
+           .eq("activity_id", activity_id).limit(1).execute())
+    row = (rec.data or [None])[0]
+    if not row:
+        raise HTTPException(status_code=404, detail="activity not found")
+    return {"success": True, "summary": row}
+
+@router.get("/streams/one/{activity_id}")
+def get_streams_one(activity_id: int):
+    rec = (supabase.table(TABLE_ACTIVITIES_SPLITS)  # uprav ak máš iný zdroj HR streamu
+           .select("time_s,hr").eq("activity_id", activity_id).order("time_s").execute())
+    rows = rec.data or []
+    xs = [r.get("time_s") for r in rows if r.get("time_s") is not None]
+    ys = [r.get("hr") for r in rows]
+    return {"success": True, "streams": {"time_s": xs, "hr": ys, "duration_s": (xs[-1] if xs else 0)}}
+
+@router.get("/detail/one/{activity_id}")
+def get_detail_one(activity_id: int):
+    laps = (supabase.table(TABLE_ACTIVITIES_LAPS)
+            .select("lap_index,distance_m,moving_time_s")
+            .eq("activity_id", activity_id).order("lap_index").execute()).data or []
+    splits = (supabase.table(TABLE_ACTIVITIES_SPLITS)
+              .select("split_index,distance_m,moving_time_s")
+              .eq("activity_id", activity_id).order("split_index").execute()).data or []
+    return {"success": True, "laps": laps, "splits": splits}
