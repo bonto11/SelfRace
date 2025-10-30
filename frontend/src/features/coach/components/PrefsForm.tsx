@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import { useCoachData } from "@/features/coach/data/CoachDataProvider";
 import type {
   CoachPrefs,
-  DayAbbrev,
   GoalKind,
   SportKind,
 } from "@/features/coach/types/prefsTypes";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
-
+import type {
+  DayAbbrev,
+} from "@/features/coach/types/day";
 const ALL_DAYS: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const ALL_SPORTS: SportKind[] = ["run","ride","strength"];
 const ALL_GOALS: GoalKind[] = [
