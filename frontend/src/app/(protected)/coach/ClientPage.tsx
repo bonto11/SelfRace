@@ -1,15 +1,22 @@
+// src/app/(protected)/coach/ClientPage.tsx
 "use client";
-import { useRouter } from "next/navigation";
-import WidgetPBRun from "@/features/widgets/WidgetPBRun";
+
+import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
 import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
+import WidgetPBRun from "@/features/widgets/WidgetPBRun";
 
-export default function CoachPage() {
-  const router = useRouter();
-
+export default function ClientPage() {
   return (
-    <div className="grid gap-4">
-      <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-      <WidgetPBRun onOpenDetail={() => router.push("/coach/bests")} />
-    </div>
+    <CoachDataProvider>
+      <div className="p-4 md:p-6 space-y-6">
+        <h1 className="text-xl font-semibold">Coach</h1>
+
+        {/* 2 jednoduché widgety vedľa seba (na mobile pod sebou) */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <WidgetCoachPrefs />
+          <WidgetPBRun />
+        </div>
+      </div>
+    </CoachDataProvider>
   );
 }
