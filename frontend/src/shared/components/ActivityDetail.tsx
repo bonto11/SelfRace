@@ -1,130 +1,122 @@
-// src/features/activity/components/ActivityDetail.tsx
+// src/shared/components/ActivityDetail.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
-import HrChart from "@/features/activity/components/HrChart";
+import HrChart from "@/shared/components/HrChart";
 import { API_URL } from "@/shared/config";
 
 interface Props { activityId: number; }
-type StreamsData = { time_s: number[]; hr: (number | null)[]; duration_s: number; };
 
-// --- malý BE fetch helper
-async function fetchJSON<T>(url: string): Promise<T> {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-  return r.json() as Promise<T>;
-}
+type StreamsData = {
+  time_s: number[];
+  hr: (number | null)[];
+  duration_s: number;
+};
 
 export default function ActivityDetail({ activityId }: Props) {
   const { getSummary, getStreams, getDetail } = useActivityData();
+  const summary = getSummary(activityId) as any | null;
 
-  // cache z provideru (90d)
-  const cachedSummary = getSummary(activityId);
-
-  // lokálne stavy + fallbacky
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<any | null>(cachedSummary ?? null);
   const [streams, setStreams] = useState<StreamsData>({ time_s: [], hr: [], duration_s: 0 });
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
   const [showFull, setShowFull] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
 
-  // načítanie (cache -> fallback One)
   useEffect(() => {
     let alive = true;
-    setErr(null);
-
     (async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-
-        // SUMMARY
-        let s = getSummary(activityId) ?? null;
-        if (!s) {
-          const js = await fetchJSON<any>(`${API_URL}/activities/summaryOne/${activityId}`);
-          s = js?.summary ?? js ?? null;
+        const s = await getStreams(activityId);
+        const extra = await getDetail(activityId);
+        if (!alive) return;
+        if (s) setStreams(s as any);
+        if (extra) {
+          setLaps((extra as any).laps || []);
+          setSplits((extra as any).splits || []);
         }
-
-        if (!alive) return;
-        setSummary(s);
-
-        // STREAMS
-        let st = await getStreams(activityId).catch(() => null as any);
-        if (!st || !Array.isArray(st.time_s)) {
-          const js = await fetchJSON<any>(`${API_URL}/activities/streamsOne/${activityId}`);
-          st = {
-            time_s: js?.time_s ?? [],
-            hr: js?.hr ?? [],
-            duration_s: js?.duration_s ?? (Array.isArray(js?.time_s) ? (js.time_s.at(-1) ?? 0) : 0),
-          };
-        }
-        if (!alive) return;
-        setStreams(st);
-
-        // DETAIL (laps, splits)
-        let extra = await getDetail(activityId).catch(() => ({}));
-        if (!extra || (!extra.laps && !extra.splits)) {
-          const js = await fetchJSON<any>(`${API_URL}/activities/detailOne/${activityId}`);
-          extra = { laps: js?.laps ?? [], splits: js?.splits ?? [] };
-        }
-        if (!alive) return;
-        setLaps(extra.laps || []);
-        setSplits(extra.splits || []);
-
-        setLoading(false);
-      } catch (e: any) {
-        if (!alive) return;
-        setErr(String(e?.message ?? e));
-        setLoading(false);
+      } finally {
+        if (alive) setLoading(false);
       }
     })();
-
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId]);
+  }, [activityId, getStreams, getDetail]);
 
-  // render guards
-  const distTxt = useMemo(
-    () => fmtDistance(summary?.distance_m ?? null),
-    [summary?.distance_m]
-  );
-  const timeTxt = useMemo(
-    () => (summary?.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—"),
-    [summary?.moving_time_s]
-  );
+  if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
 
-  if (loading && !summary) {
-    return <div className="opacity-80 text-sm">Načítavam aktivitu…</div>;
+  const distTxt = fmtDistance(summary.distance_m ?? null);
+  const timeTxt = summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
+
+  const dateText = useMemo(() => {
+    try {
+      return new Date(summary.date).toLocaleString(THEME.i18n.dateLocale, {
+        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return summary.date; }
+  }, [summary.date]);
+
+  // ---------------- DEBUG: DB fallback fetch (bez zásahu do stavu) ----------------
+  async function debugFetchDB() {
+    try {
+      const [sumR, strR, detR] = await Promise.all([
+        fetch(`${API_URL}/activities/one/summary/${activityId}`, { cache: "no-store" }),
+        fetch(`${API_URL}/activities/one/streams/${activityId}?kinds=hr`, { cache: "no-store" }),
+        fetch(`${API_URL}/activities/one/detail/${activityId}`, { cache: "no-store" }),
+      ]);
+      const sumJ: any = await sumR.json().catch(() => ({}));
+      const strJ: any = await strR.json().catch(() => ({}));
+      const detJ: any = await detR.json().catch(() => ({}));
+
+      const sum = sumJ?.data ?? sumJ;
+      const streams = strJ?.data ?? strJ;
+      const detail = detJ?.data ?? detJ;
+
+      // konzola – celé payloady
+      // eslint-disable-next-line no-console
+      console.log("[PB/DEBUG] DB summary:", sum);
+      // eslint-disable-next-line no-console
+      console.log("[PB/DEBUG] DB streams:", streams);
+      // eslint-disable-next-line no-console
+      console.log("[PB/DEBUG] DB detail:", detail);
+
+      const countHr = Array.isArray(streams?.time_s) ? streams.time_s.length : 0;
+      const lapsN = Array.isArray(detail?.laps) ? detail.laps.length : 0;
+      const splitsN = Array.isArray(detail?.splits) ? detail.splits.length : 0;
+
+      alert(
+        [
+          `DB summary: ${sum && sum.id ? "OK" : "N/A"}`,
+          `DB HR points: ${countHr}`,
+          `DB laps: ${lapsN}, splits: ${splitsN}`,
+        ].join("\n")
+      );
+    } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.error("[PB/DEBUG] DB fetch error:", e);
+      alert(`DB fetch error: ${e?.message ?? e}`);
+    }
   }
-  if (!summary) {
-    return (
-      <div className="text-sm">
-        ❌ Aktivita sa nenašla. {err ? <span className="opacity-70">({err})</span> : null}
-      </div>
-    );
-  }
+  // -----------------------------------------------------------------------------
 
   return (
     <div className="space-y-3">
-      <h3 className="text-lg font-bold">{summary.name ?? "Activity"}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold">{summary.name}</h3>
+        {/* Malé debug tlačidlo – môžeš zmazať, keď doladíme BE */}
+        <button
+          onClick={debugFetchDB}
+          className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
+          title="Debug fetch z DB (One endpoints)"
+        >
+          DB
+        </button>
+      </div>
 
-      <p>
-        <strong>Date:</strong>{" "}
-        {summary.date
-          ? new Date(summary.date).toLocaleString(THEME.i18n.dateLocale, {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "—"}
-      </p>
-
+      <p><strong>Date:</strong> {dateText}</p>
       <p><strong>Distance:</strong> {distTxt}</p>
       <p><strong>Time:</strong> {timeTxt}</p>
       <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
@@ -143,22 +135,15 @@ export default function ActivityDetail({ activityId }: Props) {
             </button>
           )}
         </div>
-
         {streams.time_s.length ? (
           <div className="-mx-3 -mt-1 mb-2">
-            <HrChart
-              xs={streams.time_s}
-              ys={streams.hr}
-              height={148}
-              compact
-            />
+            <HrChart xs={streams.time_s} ys={streams.hr} height={148} compact />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
         )}
       </div>
 
-      {/* LAPS */}
       {!!laps.length && (
         <>
           <h4 className="font-bold mt-3">Laps</h4>
@@ -172,21 +157,19 @@ export default function ActivityDetail({ activityId }: Props) {
         </>
       )}
 
-      {/* SPLITS */}
       {!!splits.length && (
         <>
           <h4 className="font-bold mt-3">Splits</h4>
           <ul className="list-disc pl-5">
-            {splits.map((sp: any, idx: number) => (
-              <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)}, {fmtSecondsHMS(sp.moving_time_s)}
+            {splits.map((split: any, idx: number) => (
+              <li key={split.split_index ?? idx}>
+                Split {split.split_index ?? idx}: {fmtDistance(split.distance_m)}, {fmtSecondsHMS(split.moving_time_s)}
               </li>
             ))}
           </ul>
         </>
       )}
 
-      {/* Fullscreen overlay – scroll lock na pozadí, scroll vnútri */}
       {showFull && (
         <FullHrOverlay
           xs={streams.time_s}
@@ -201,7 +184,7 @@ export default function ActivityDetail({ activityId }: Props) {
 /* --------------- Fullscreen overlay komponent --------------- */
 function FullHrOverlay({
   xs, ys, onClose,
-}: { xs: number[]; ys: (number | null)[]; onClose: () => void; }) {
+}: { xs: number[]; ys: (number | null)[]; onClose: () => void }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
