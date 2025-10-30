@@ -10,6 +10,9 @@ from Configs.config import (
     TABLE_ACTIVITIES_LAPS,
 )
 
+from Services.time import is_time  # ak nemáš, validáciu urobíme lokálne nižšie
+
+
 router = APIRouter(prefix="/activities", tags=["activities"])
 supabase = get_client()
 
