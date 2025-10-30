@@ -20,7 +20,7 @@ def fetch_user_bests(user_id: int, sport: str = "run") -> List[Dict[str, Any]]:
     try:
         res = (
             supabase.table(TABLE_USERS_BESTS)
-            .select("sport,distance_m,best_time_s,activity_id,achieved_at,updated_at")
+            .select("sport,distance_m,best_time_s,activity_id, activity_name,achieved_at,updated_at")
             .eq("user_id", user_id)
             .eq("sport", sport)
             .order("distance_m", desc=False)
@@ -68,6 +68,14 @@ def upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         except Exception:
             activity_id = None
 
+    activity_name: Optional[str] = None
+    act_n = payload.get("activity_name")
+    if act_n not in (None, "", "null"):
+        try:
+            activity_name = act_n
+        except Exception:
+            activity_name = None
+
     achieved_at = payload.get("achieved_at")
     if not (isinstance(achieved_at, str) and achieved_at.strip()):
         achieved_at = None
@@ -78,6 +86,7 @@ def upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         "distance_m": distance_m,
         "best_time_s": int(time_sec),
         "activity_id": activity_id,
+        "activity_name": activity_name,
         "achieved_at": achieved_at,
         "updated_at": datetime.utcnow().isoformat(),
     }

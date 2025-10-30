@@ -51,8 +51,11 @@ export default function ActivitySelector({
           const v = e.target.value.trim();
           const id = v ? Number(v) : "";
           onChange(id);
+
+          // nájdi vybranú activitu a pošli ju hore
           if (onPicked) {
-            onPicked(v ? (items.find(i => i.id === Number(v)) ?? null) : null);
+            const picked = v ? items.find(a => String(a.id) === v) ?? null : null;
+            onPicked(picked);
           }
         }}
         disabled={disabled}
@@ -60,10 +63,11 @@ export default function ActivitySelector({
         <option value="">
           {disabled ? "pick date first" : loading ? "Loading…" : "— choose activity —"}
         </option>
+
+        {/* iba ‘Názov (X km)’ — bez dátumu/času */}
         {!loading && items.map(a => (
           <option key={a.id} value={a.id}>
-            {(a.start_date ?? "").slice(0,10)} — {a.name ?? "—"}
-            {a.distance_km ? ` (${a.distance_km} km)` : ""}
+            {a.name}{a.distance_km ? ` (${a.distance_km} km)` : ""}
           </option>
         ))}
       </select>
