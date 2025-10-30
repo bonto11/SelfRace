@@ -57,7 +57,7 @@ function normalizeRow(r: any): UserBest {
     best_time_s: r?.best_time_s ?? null,
     time_str: r?.time_str ?? null,
     activity_id: r?.activity_id ?? null,
-    activity_name: r?.activity_name ?? null, // ← PRIDANÉ
+    activity_name: r?.activity_name ?? null, // ← PRIDAŤ
     achieved_at: r?.achieved_at ?? null,
   };
 }
