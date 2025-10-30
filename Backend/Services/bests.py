@@ -77,9 +77,11 @@ def upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
             activity_name = None
 
     achieved_at = payload.get("achieved_at")
-    if not (isinstance(achieved_at, str) and achieved_at.strip()):
+    if isinstance(achieved_at, str) and achieved_at.strip():
+        achieved_at = achieved_at.replace(".", "-")[:10]  # YYYY-MM-DD
+    else:
         achieved_at = None
-
+        
     rec = {
         "user_id": user_id,
         "sport": sport,
