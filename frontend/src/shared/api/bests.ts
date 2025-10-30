@@ -82,15 +82,21 @@ export async function getBests(userId: number, sport: Sport = "run"): Promise<Us
 /** PUT /users/{userId}/bests  (upsert) */
 export async function saveBest(userId: number, best: UserBest): Promise<void> {
   const sport = best.sport ?? "run";
-  const payload = {
+
+  const payload: any = {
     sport,
     distance_m: best.distance_m,
-    // BE berie time_sec ALEBO time_str – preferuj time_sec, ak ho máš
-    time_sec: typeof best.best_time_s === "number" ? best.best_time_s : undefined,
-    time_str: typeof best.best_time_s === "number" ? undefined : best.time_str ?? undefined,
+    // DÔLEŽITÉ: ak prišlo time_sec z PBRun, pošli ho ďalej
+    time_sec: (best as any).time_sec ?? best.best_time_s ?? undefined,
+    // time_str pošli len vtedy, ak nemáme sekundy
+    time_str:
+      (best as any).time_sec != null || typeof best.best_time_s === "number"
+        ? undefined
+        : (best.time_str ?? undefined),
+
     activity_id: best.activity_id ?? undefined,
-    activity_name: best.activity_name ?? undefined, // ← PRIDANÉ
-    achieved_at: best.achieved_at ?? undefined,     // "YYYY-MM-DD"
+    activity_name: best.activity_name ?? undefined,
+    achieved_at: best.achieved_at ?? undefined,
   };
 
   if (!isAllowedDistance(payload.distance_m, sport)) {
