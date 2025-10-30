@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
-import WidgetPBRun from "@/features/widgets/WidgetPBRun";
+import WidgetPB from "@/features/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
 
 export default function ClientPage() {
@@ -11,9 +11,11 @@ export default function ClientPage() {
   return (
     <CoachDataProvider>
       <div className="p-4 grid gap-4 md:grid-cols-2">
-        <WidgetPBRun onOpenDetail={() => router.push("/coach/pb")} />
+        <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
         <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
       </div>
     </CoachDataProvider>
   );
 }
+
+
