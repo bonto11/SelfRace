@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SUBCARD, CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";

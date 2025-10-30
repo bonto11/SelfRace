@@ -9,7 +9,7 @@ import {
   minutesToHHMM,
   compareTimeToBaselineMinutes,
 } from "@/shared/utils/recovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useCoachData } from "@/features/coach/data/CoachDataProvider";
+import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import type {
   CoachPrefs,
   GoalKind,

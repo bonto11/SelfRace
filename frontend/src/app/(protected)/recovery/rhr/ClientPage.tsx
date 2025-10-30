@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { RecoveryDataProvider } from "@/features/recovery/data/RecoveryDataProvider";
+import { RecoveryDataProvider } from "@/shared/components/dataProviders/RecoveryDataProvider";
 
 // dynamický import komponentu s grafom
 const RHRDetailClient = dynamic(

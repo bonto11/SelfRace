@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { THEME } from "@/shared/theme/tokens";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 import HrChart from "@/features/activity/components/HrChart";
 

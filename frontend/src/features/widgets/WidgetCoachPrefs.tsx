@@ -1,7 +1,7 @@
 "use client";
 
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import { useCoachData } from "@/features/coach/data/CoachDataProvider";
+import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 
 type Props = {
   onOpenDetail?: () => void;

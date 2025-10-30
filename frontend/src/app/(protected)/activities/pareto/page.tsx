@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useState, useCallback } from "react";
-import TrendPareto8020, { ParetoWeekPick } from "@/features/activity/components/TrendPareto8020";
+import TrendPareto8020, {
+  ParetoWeekPick,
+} from "@/features/activity/components/TrendPareto8020";
 import ActivityTable from "@/shared/components/ActivityTable";
-import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
+import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
 
 export default function ParetoPage() {
-  const [range, setRange] = useState<{ start?: string; end?: string } | null>(null);
+  const [range, setRange] = useState<{ start?: string; end?: string } | null>(
+    null
+  );
   const [sport, setSport] = useState<string>("all");
 
   const handlePick = useCallback((w: ParetoWeekPick) => {
@@ -41,7 +45,9 @@ export default function ParetoPage() {
           // allowedSports môžeš pridať ak chceš whitelistiť pre pareto (napr. ["run","ride","mixed","skate"])
         />
         {!range?.start && (
-          <div className="text-xs opacity-70 mt-1">Tip: klikni na bod v grafe, zobrazí sa detail týždňa nižšie.</div>
+          <div className="text-xs opacity-70 mt-1">
+            Tip: klikni na bod v grafe, zobrazí sa detail týždňa nižšie.
+          </div>
         )}
       </ActivityDataProvider>
     </div>

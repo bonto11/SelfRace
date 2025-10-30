@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 

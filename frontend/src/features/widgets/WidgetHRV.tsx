@@ -8,7 +8,7 @@ import {
   makeRollingBaseline,
   checkRecoveryFreshness,
 } from "@/shared/utils/recovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 
 export default function WidgetHRV({

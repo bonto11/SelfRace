@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 
 type Props = { activityId: number; height?: number };

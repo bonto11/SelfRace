@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import { fmtMinutes } from "@/shared/utils/format";
 import { sportsToCSV, normalizeSportList } from "@/configs/config_sports";

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import PrefsForm from "@/features/coach/components/PrefsForm";
-import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
+import { CoachDataProvider } from "@/shared/components/dataProviders/CoachDataProvider";
 
 export default function ClientPage() {
   return (

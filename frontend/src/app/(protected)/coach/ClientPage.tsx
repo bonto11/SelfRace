@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
+import { CoachDataProvider } from "@/shared/components/dataProviders/CoachDataProvider";
 import WidgetPB from "@/features/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
 
@@ -17,5 +17,3 @@ export default function ClientPage() {
     </CoachDataProvider>
   );
 }
-
-

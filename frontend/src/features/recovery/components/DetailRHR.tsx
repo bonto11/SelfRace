@@ -9,15 +9,15 @@ import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 ensureChartJSRegistered();
 
 export default function DetailRHR() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(2);           // 2/4/8/12
-  const [loading, setLoading] = useState<boolean>(false);  // NEW
+  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
+  const [loading, setLoading] = useState<boolean>(false); // NEW
 
   // zapni spinner pri zmene lookbacku
   useEffect(() => {
@@ -42,10 +42,17 @@ export default function DetailRHR() {
 
   // baseline (rolling mean z predchádzajúcich dní) + pásma ±5 %
   const baselineArr = useMemo(
-    () => rollingMean(rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)), 14),
+    () =>
+      rollingMean(
+        rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)),
+        14
+      ),
     [rows]
   );
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr]
+  );
 
   // komentáre
   const comments = useMemo(() => {
@@ -56,7 +63,8 @@ export default function DetailRHR() {
 
   // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) =>
+      xs.map((v) => (typeof v === "number" ? v : NaN));
 
     const bandLower = {
       type: "line" as const,
@@ -106,7 +114,10 @@ export default function DetailRHR() {
       order: 3,
     };
 
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, rhrLine] };
+    return {
+      labels: labelsISO,
+      datasets: [bandLower, bandUpper, baselineLine, rhrLine],
+    };
   }, [labelsISO, lower, upper, baselineArr, rhr]);
 
   // options
@@ -125,19 +136,23 @@ export default function DetailRHR() {
 
           if (ctx.datasetIndex === 3) {
             const v = rhr[idx];
-            if (Number.isFinite(v)) lines.push(`RHR: ${Math.round(v as number)} bpm`);
+            if (Number.isFinite(v))
+              lines.push(`RHR: ${Math.round(v as number)} bpm`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
           if (ctx.datasetIndex === 2) {
             const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} bpm`);
+            if (Number.isFinite(b as number))
+              lines.push(`Baseline: ${Math.round(b as number)} bpm`);
           }
 
-          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length)
+            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines; // multi-line tooltip
         },
-        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+        tooltipFilter: (item) =>
+          item.datasetIndex === 2 || item.datasetIndex === 3,
       }),
     [labelsISO, rhr, baselineArr, comments]
   );
@@ -157,7 +172,10 @@ export default function DetailRHR() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+          <Link
+            href="/recovery"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
             Späť
           </Link>
         </div>
