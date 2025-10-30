@@ -7,7 +7,7 @@ import { SUBCARD, CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
-import ActivityDetail from "./ActivityDetail";
+import ActivityDetail from "@/shared/components/ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 

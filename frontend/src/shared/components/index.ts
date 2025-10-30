@@ -1,7 +1,10 @@
 // src/shared/components/index.ts
 
-export { default as TrendWithBands } from "./TrendWithBands";
+export { default as TrendWithBands } from "./trends/TrendWithBands";
 
-export { default as InfoMessageProvider, default as useInfoMessage } from "./InfoMessageProvider";
+export {
+  default as InfoMessageProvider,
+  default as useInfoMessage,
+} from "./InfoMessageProvider";
 export { default as InfoMessage } from "./InfoMessage";
 export { default as InfoMessageHost } from "./InfoMessageHost";

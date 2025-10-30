@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
 import TrendWeeklyLoad, { WeekPick } from "@/features/activity/components/TrendWeeklyLoad";
-import ActivityTable from "@/features/activity/components/ActivityTable";
+import ActivityTable from "@/shared/components/ActivityTable";
 
 type Range = { start?: string; end?: string };
 

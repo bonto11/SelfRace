@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import TrendPareto8020, { ParetoWeekPick } from "@/features/activity/components/TrendPareto8020";
-import ActivityTable from "@/features/activity/components/ActivityTable";
+import ActivityTable from "@/shared/components/ActivityTable";
 import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
 
 export default function ParetoPage() {

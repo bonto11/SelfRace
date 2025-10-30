@@ -6,12 +6,12 @@ import type { MiniActivity, SportFE } from "@/shared/types/activities";
 
 type Props = {
   userId: number | null;
-  dateIso: string | "";            // ak prázdne -> disabled
-  sports?: SportFE[];              // default ["run","mixed"]
-  deltaDays?: number;              // default 1
-  value?: number | "";             // predvyplnené activity_id
-  onChange?: (id: number | "") => void;              // spätná kompatibilita
-  onPickActivity?: (a: MiniActivity | null) => void; // preferované
+  dateIso: string | "";
+  sports?: SportFE[];
+  deltaDays?: number;
+  value: number | "";                 // selected activity_id
+  onChange: (id: number | "") => void;
+  onPicked?: (a: MiniActivity | null) => void; // ⬅️ NEW
   className?: string;
 };
 
@@ -20,9 +20,9 @@ export default function ActivitySelector({
   dateIso,
   sports,
   deltaDays,
-  value = "",
+  value,
   onChange,
-  onPickActivity,
+  onPicked,
   className = "",
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -49,9 +49,11 @@ export default function ActivitySelector({
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           const v = e.target.value.trim();
-          const picked = v ? items.find(it => String(it.id) === v) ?? null : null;
-          onPickActivity?.(picked);
-          onChange?.(v ? Number(v) : "");
+          const id = v ? Number(v) : "";
+          onChange(id);
+          if (onPicked) {
+            onPicked(v ? (items.find(i => i.id === Number(v)) ?? null) : null);
+          }
         }}
         disabled={disabled}
       >
@@ -60,11 +62,12 @@ export default function ActivitySelector({
         </option>
         {!loading && items.map(a => (
           <option key={a.id} value={a.id}>
-            {/* iba názov + km (bez dátumu, ten máš vedľa) */}
-            {a.name}{a.distance_km ? ` (${a.distance_km} km)` : ""}
+            {(a.start_date ?? "").slice(0,10)} — {a.name ?? "—"}
+            {a.distance_km ? ` (${a.distance_km} km)` : ""}
           </option>
         ))}
       </select>
+
       {!disabled && (
         <div className="mt-1 text-xs opacity-70">
           Načítané podľa dátumu (±{deltaDays ?? 1} dňa) a športu {sports?.join(", ") ?? "run,mixed"}.
