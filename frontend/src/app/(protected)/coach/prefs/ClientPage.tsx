@@ -1,23 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
 import PrefsForm from "@/features/coach/components/PrefsForm";
+import { CoachDataProvider } from "@/features/coach/data/CoachDataProvider";
 
-export default function CoachPrefsClient() {
+export default function ClientPage() {
   return (
     <CoachDataProvider>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Preferences</h1>
-          <Link
-            href="/coach"
-            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
-          >
-            Späť
-          </Link>
-        </div>
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-lg font-semibold">Coach — Preferences</h1>
+        <Link
+          href="/coach"
+          className="text-sm px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600"
+        >
+          ← Späť na Coach
+        </Link>
+      </div>
 
+      <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
         <PrefsForm />
       </div>
     </CoachDataProvider>
