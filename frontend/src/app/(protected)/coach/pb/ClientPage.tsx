@@ -12,11 +12,7 @@ export default function ClientPage() {
           href="/coach"
           className="text-sm px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600"
         >
-<<<<<<< HEAD
           ← Späť
-=======
-          ← Späť na Coach
->>>>>>> a3543a59040f3f0578c89f8455636271903f03d5
         </Link>
       </div>
 
