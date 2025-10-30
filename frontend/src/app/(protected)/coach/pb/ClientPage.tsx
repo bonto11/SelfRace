@@ -6,7 +6,7 @@ import AccordionBests from "@/features/coach/components/pb/AccordionBests";
 export default function ClientPage() {
   return (
     <CoachDataProvider>
-      <div className="flex items-center justify-between mb-3">
+      <div className="max-w-screen-lg mx-auto px-3 overflow-x-hidden">
         <h1 className="text-lg font-semibold">Personal Bests</h1>
         <Link
           href="/coach"
