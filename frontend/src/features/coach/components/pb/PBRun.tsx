@@ -13,19 +13,26 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import { useFavoritePBRun } from "@/features/coach/hooks/useFavoritePBRun";
+import fetchActivitiesAround from "@/features/coach/api/fetchActivities";
+import type { MiniActivity, Form } from "@/features/coach/types/pbview";
 
-type Form = {
-  distance_m: string;
-  time_str: string;
-  activity_id: string;
-  achieved_at: string;
-};
 const EMPTY: Form = {
   distance_m: "",
   time_str: "",
   activity_id: "",
   achieved_at: "",
 };
+
+// malá maska na YYYY-MM-DD
+function maskYYYYMMDD(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const y = digits.slice(0, 4);
+  const m = digits.slice(4, 6);
+  const d = digits.slice(6, 8);
+  if (digits.length <= 4) return y;
+  if (digits.length <= 6) return `${y}-${m}`;
+  return `${y}-${m}-${d}`;
+}
 
 export default function PBRun() {
   const { userId } = useUserId();
@@ -106,6 +113,70 @@ export default function PBRun() {
 
   const fmtDate = (d?: string | null) => d?.split("T")[0] ?? "—";
 
+  function ActivityPicker({
+    dateIso,
+    value,
+    onChange,
+  }: {
+    dateIso: string | "";
+    value: number | ""; // activity_id
+    onChange: (id: number | "") => void;
+  }) {
+    const { userId } = useUserId();
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [items, setItems] = useState<MiniActivity[]>([]);
+
+    useEffect(() => {
+      if (!open || !userId || !dateIso) return;
+      let mounted = true;
+      setLoading(true);
+      fetchActivitiesAround(userId, dateIso)
+        .then((arr) => mounted && setItems(arr))
+        .catch(() => mounted && setItems([]))
+        .finally(() => mounted && setLoading(false));
+      return () => {
+        mounted = false;
+      };
+    }, [open, userId, dateIso]);
+
+    return (
+      <div className="relative">
+        <select
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full"
+          value={value === "" ? "" : String(value)}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            onChange(v ? Number(v) : "");
+          }}
+          disabled={!dateIso}
+        >
+          <option value="">
+            {dateIso
+              ? loading
+                ? "Loading…"
+                : "— choose activity —"
+              : "pick date first"}
+          </option>
+          {!loading &&
+            items.map((a) => (
+              <option key={a.id} value={a.id}>
+                {/* 2025-10-30 — Evening Run (6.0 km) */}
+                {a.start_date?.slice(0, 10)} — {a.name}
+                {a.distance_km ? ` (${a.distance_km} km)` : ""}
+              </option>
+            ))}
+        </select>
+
+        {/* malá poznámka */}
+        <div className="mt-1 text-xs opacity-70">
+          Zoznam sa načíta podľa zvoleného dátumu (±1 deň).
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* hviezdička – obľúbená vzdialenosť */}
@@ -113,9 +184,9 @@ export default function PBRun() {
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
-      {/* FORM – responsive 2-row grid (no overflow) */}
+      {/* FORM – 2 riadky, bez overflow, mobil text-mask, desktop natívny dátum */}
       <div className="grid gap-2 sm:grid-cols-12 items-start">
-        {/* 1. riadok (sm a vyššie): distance · time · date · (voľno) · (voľno) */}
+        {/* 1. riadok */}
         <select
           className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
           value={form.distance_m}
@@ -141,25 +212,40 @@ export default function PBRun() {
           inputMode="numeric"
         />
 
+        {/* mobile: text s maskou */}
+        <input
+          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:hidden"
+          placeholder="YYYY-MM-DD"
+          value={form.achieved_at}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              achieved_at: maskYYYYMMDD(e.target.value),
+            }))
+          }
+          inputMode="numeric"
+          aria-label="Date"
+        />
+        {/* desktop: natívny date */}
         <input
           type="date"
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-2 sm:max-w-[40px]"
+          className="hidden sm:block bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-2 sm:max-w-[160px]"
           value={form.achieved_at}
           onChange={(e) =>
             setForm((f) => ({ ...f, achieved_at: e.target.value }))
           }
         />
 
-        {/* 2. riadok: activityId + buttons (wrap na úzkych displejoch) */}
-        <input
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-4"
-          placeholder="Activity ID (optional)"
-          value={form.activity_id}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, activity_id: e.target.value }))
-          }
-          inputMode="numeric"
-        />
+        {/* 2. riadok – ActivityPicker + tlačidlá */}
+        <div className="sm:col-span-4">
+          <ActivityPicker
+            dateIso={form.achieved_at}
+            value={form.activity_id ? Number(form.activity_id) : ""}
+            onChange={(v) =>
+              setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
+            }
+          />
+        </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end sm:col-span-8">
           <button

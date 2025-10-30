@@ -28,3 +28,20 @@ const hmsToSeconds = (hms:string): number | null => {
   let [h,m,s] = p.length===2 ? [0,p[0],p[1]] : p;
   return h*3600 + m*60 + s;
 };
+
+// typ aktivity pre výber
+export type MiniActivity = {
+  id: number;
+  name: string;
+  start_date: string; // ISO
+  sport: string;
+  distance_km?: number | null;
+  duration_min?: number | null;
+};
+
+export type Form = {
+  distance_m: string;
+  time_str: string;
+  activity_id: string;
+  achieved_at: string;
+};
