@@ -1,12 +1,14 @@
+// src/shared/components/ui/Toast.tsx
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/shared/ui";
 
 type ToastType = "success" | "error" | "info";
-type ToastItem = { id: number; type: ToastType; text: string; ttl: number };
+type Phase = "in" | "hold" | "out";
+type ToastItem = { id: number; type: ToastType; text: string; ttl: number; phase: Phase };
 
-// ---- public hook ------------------------------------------------------------
+// ---- public hook (optional) -------------------------------------------------
 const Ctx = React.createContext<{ show: (t: ToastType, text: string, ttl?: number) => void } | null>(null);
 export function useToast() {
   const ctx = React.useContext(Ctx);
@@ -14,67 +16,44 @@ export function useToast() {
   return ctx.show;
 }
 
-// ---- global singleton (event-bus) ------------------------------------------
+// ---- global singleton (event bus) -------------------------------------------
 const BUS = "up:toast";
 type BusDetail = { type: ToastType; text: string; ttl?: number };
 type BusEvent = CustomEvent<BusDetail>;
-
 function emit(detail: BusDetail) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent<BusDetail>(BUS, { detail }));
 }
-/** pohodlné volanie bez hooku */
 export const toast = {
   success(text: string, ttl?: number) { emit({ type: "success", text, ttl }); },
   error(text: string, ttl?: number)   { emit({ type: "error", text, ttl }); },
   info(text: string, ttl?: number)    { emit({ type: "info", text, ttl }); },
 };
 
-// ---- jeden vizuálny toast s animáciou --------------------------------------
-function ToastItemView({
-  item, onDone,
-}: { item: ToastItem; onDone: (id: number) => void }) {
-  const [state, setState] = React.useState<"enter" | "show" | "leave">("enter");
-  const ANIM_MS = 450; // ⬅️ pomalšie, príjemnejšie
-
-  React.useEffect(() => {
-    const t1 = setTimeout(() => setState("show"), 10);
-    const t2 = setTimeout(() => setState("leave"), item.ttl);
-    // počkaj kým dobehne aj leave animácia
-    const t3 = setTimeout(() => onDone(item.id), item.ttl + ANIM_MS + 30);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [item.id, item.ttl, onDone]);
-
-  return (
-    <div
-      className={cx(
-        "pointer-events-auto select-none rounded-full border shadow-lg",
-        "px-4 py-3 text-sm leading-5",
-        "w-[360px] max-w-[90vw]",
-        item.type === "success" && "bg-emerald-600 text-white border-emerald-700",
-        item.type === "error"   && "bg-red-600 text-white border-red-700",
-        item.type === "info"    && "bg-gray-800 text-white border-gray-700",
-        // ⬇️ pomalšie + plynulejšie
-        "transition-transform transition-opacity duration-[450ms] ease-[cubic-bezier(.22,1,.36,1)]",
-        "will-change-transform opacity-0 translate-x-16",
-        state === "show"  && "opacity-100 translate-x-0",
-        state === "leave" && "opacity-0 translate-x-16"
-      )}
-      role="status"
-      aria-live="polite"
-    >
-      {item.text}
-    </div>
-  );
-}
-
 // ---- host (renderer) --------------------------------------------------------
 export default function ToastHost() {
   const [items, setItems] = React.useState<ToastItem[]>([]);
 
-  const show = (type: ToastType, text: string, ttl = 2500) => {
+  const show = (type: ToastType, text: string, ttl = 2800) => {
     const id = Date.now() + Math.random();
-    setItems(arr => [...arr, { id, type, text, ttl }]);
+    // 1) mount v stave "in"
+    setItems(arr => [...arr, { id, type, text, ttl, phase: "in" }]);
+
+    // 2) po vstupe smoothe prepneme do "hold"
+    window.setTimeout(() => {
+      setItems(arr => arr.map(x => x.id === id ? { ...x, phase: "hold" } : x));
+    }, 20);
+
+    // 3) ~300ms pred koncom spustíme "out"
+    const outAt = Math.max(600, ttl - 360);
+    window.setTimeout(() => {
+      setItems(arr => arr.map(x => x.id === id ? { ...x, phase: "out" } : x));
+    }, outAt);
+
+    // 4) po dobe TTL odmount
+    window.setTimeout(() => {
+      setItems(arr => arr.filter(x => x.id !== id));
+    }, ttl);
   };
 
   // počúvaj globálny bus
@@ -87,14 +66,40 @@ export default function ToastHost() {
     return () => window.removeEventListener(BUS, onBus as EventListener);
   }, []);
 
-  const remove = (id: number) => setItems(arr => arr.filter(x => x.id !== id));
-
   const node = (
-    // pozícia: hore pod headerom (cca 72–96px), center
-    <div className="pointer-events-none fixed inset-x-0 top-20 md:top-24 z-[60] flex justify-center">
-      <div className="flex flex-col gap-2">
+    <div
+      className={cx(
+        // celá overlay vrstva
+        "pointer-events-none fixed inset-0 z-[60]",
+        // kontajner pri vrchu: ~pod headerom, centrovaný
+        "flex justify-center pt-[12vh]" // cca výška 8/10 zhora ako si chcel
+      )}
+    >
+      <div className="w-full flex flex-col items-center gap-2">
         {items.map(t => (
-          <ToastItemView key={t.id} item={t} onDone={remove} />
+          <div
+            key={t.id}
+            className={cx(
+              "pointer-events-auto select-none",
+              // šírka: mobil ~full - 24px; desktop fixná kapsula
+              "w-[calc(100vw-24px)] sm:w-[520px]",
+              // vizuál „iOS pill“
+              "rounded-[22px] sm:rounded-[22px] px-4 py-3",
+              "backdrop-blur-md shadow-lg border",
+              // farby podľa typu
+              t.type === "success" && "bg-emerald-600/95 text-white border-emerald-500/50",
+              t.type === "error" && "bg-red-600/95 text-white border-red-500/50",
+              t.type === "info" && "bg-neutral-800/95 text-white border-neutral-700/60",
+              // typografia
+              "text-[15px] leading-snug font-medium",
+              // animácia: sprava -> stred -> doprava
+              t.phase === "in"   && "toast-enter",
+              t.phase === "hold" && "toast-hold",
+              t.phase === "out"  && "toast-exit"
+            )}
+          >
+            {t.text}
+          </div>
         ))}
       </div>
     </div>
@@ -106,3 +111,29 @@ export default function ToastHost() {
     </Ctx.Provider>
   );
 }
+
+/**
+ * Potrebné globálne CSS (pridaj raz do globals.css).
+ * Mierne spomalené pre plynulý „slide“ (300ms).
+ */
+/*
+.toast-enter {
+  transform: translateX(28vw);
+  opacity: 0.0;
+  transition: transform 320ms cubic-bezier(.22,.61,.36,1), opacity 320ms ease;
+}
+.toast-hold {
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 220ms ease-out, opacity 220ms ease-out;
+}
+.toast-exit {
+  transform: translateX(28vw);
+  opacity: 0;
+  transition: transform 340ms cubic-bezier(.4,.0,.2,1), opacity 260ms ease;
+}
+@media (min-width: 640px) { /* desktop – kratšia dráha */
+  .toast-enter { transform: translateX(340px); }
+  .toast-exit  { transform: translateX(340px); }
+}
+*/
