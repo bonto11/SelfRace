@@ -4,7 +4,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { signOut } from "@/shared/utils/auth"
+import { signOut } from "@/shared/utils/signOut"
 
 type LocalUser = { email: string; name: string; avatarUrl: string | null };
 

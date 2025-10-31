@@ -1,27 +1,19 @@
-// src/shared/utils/auth.ts
-import { redirect } from "next/navigation";
-import { getSupabaseServer } from "./supabaseServer";
+"use client";
 
-/** Získa prihláseného usera (alebo null). Server-only. */
-export async function getAuthUser() {
-  const supabase = getSupabaseServer();
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
-}
-
-/** Vyžaduje prihlásenie – inak presmeruje. Použi v (protected)/layout.tsx */
-export async function requireAuth(redirectTo: string = "/signin") {
-  const user = await getAuthUser();
-  if (!user) redirect(redirectTo);
-  return user;
-}
-
-export async function signOut(redirectTo = "/signin") {
+/**
+ * Odhlásenie z FE:
+ * 1) požiada server o zrušenie httpOnly cookies (/api/auth/set-session)
+ * 2) vyčistí local/sessionStorage, non-httpOnly cookies, Cache Storage
+ * 3) pošle broadcast do iných tabov
+ * 4) presmeruje
+ */
+export async function signOut(redirectTo: string = "/signin") {
   try {
     await fetch("/api/auth/set-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
+      cache: "no-store",
       body: JSON.stringify({ event: "SIGNED_OUT" }),
     });
   } catch {}
@@ -31,7 +23,7 @@ export async function signOut(redirectTo = "/signin") {
   try { sessionStorage.clear(); } catch {}
 
   try {
-    document.cookie.split(";").forEach(c => {
+    document.cookie.split(";").forEach((c) => {
       const [name] = c.split("="); if (!name) return;
       document.cookie = `${name.trim()}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
     });
@@ -40,7 +32,7 @@ export async function signOut(redirectTo = "/signin") {
   try {
     if ("caches" in self) {
       const names = await caches.keys();
-      await Promise.all(names.map(n => caches.delete(n)));
+      await Promise.all(names.map((n) => caches.delete(n)));
     }
   } catch {}
 
