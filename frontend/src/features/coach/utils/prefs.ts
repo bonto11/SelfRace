@@ -1,39 +1,70 @@
 // src/features/coach/utils/prefs.ts
-// Utilities okolo preferencií – sem ide "logika" textu cieľa a pod.
+"use client";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
+import { fetchUserPref, upsertUserPref } from "@/shared/api/userPrefs";
 
-const distLabel = (d?: string) => {
-  switch ((d ?? "").toLowerCase()) {
-    case "5k": return "5 km";
-    case "10k": return "10 km";
-    case "half": return "polmaratón";
-    case "marathon": return "maratón";
-    default: return d ?? "?";
-  }
+const KEY = "coach.prefs";
+const LS_KEY = "up:coach.prefs";
+
+const DEFAULT_PREFS: CoachPrefs = {
+  goal_kind: "improve_overall",
+  weeks: undefined,
+  primary_sports: ["run"],
+  preferences: {
+    days_off: [],
+    long_run_days: [],
+    avoid_back_to_back_hard: true,
+    use_zones: true,
+    wu_cd_detail: true,
+  },
+  targets: {
+    run: {
+      race_goal: null,
+      current_best_time: null,
+      target_time: null,
+      longest_recent_distance_km: null,
+    },
+    ride: { focus: "endurance", weekly_time_target_min: null },
+    strength: { focus: "general", sessions_per_week: 2 },
+  },
 };
 
-/** Postaví user-friendly text cieľa podľa CoachPrefs. */
-export function buildGoalText(prefs: CoachPrefs): string {
-  if (!prefs) return "Udržať kondíciu";
-  if (prefs.goal_text_override?.trim()) return prefs.goal_text_override.trim();
-
-  const kind = prefs.goal_kind ?? "maintain";
-  if (kind === "race_time") {
-    const dist = distLabel(prefs.distance);
-    const cur = prefs.current_pace || "?";
-    const tgt = prefs.target_pace || "?";
-    return `Zlepšiť čas na ${dist} (aktuálne ${cur}/km → cieľ ${tgt}/km)`;
+// --- localStorage ---
+function lsGet(): CoachPrefs | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
   }
-  if (kind === "improve_speed") return "Zlepšiť rýchlosť";
-  if (kind === "improve_endurance") return "Zlepšiť vytrvalosť";
-  if (kind === "improve_overall") return "Zlepšiť celkovo";
-  return "Udržať kondíciu";
+}
+function lsSet(p: CoachPrefs) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(p)); } catch {}
+}
+function lsClear() {
+  try { localStorage.removeItem(LS_KEY); } catch {}
 }
 
-/** Jednoduchá validácia, či máme minimum pre spustenie analýzy. */
-export function hasAnalyzeMinimum(prefs: CoachPrefs | null): boolean {
-  if (!prefs) return false;
-  const sports = prefs.primary_sports ?? prefs.sports ?? [];
-  return !!prefs.weeks && sports.length > 0;
+// --- verejné funkcie ---
+export function readCoachPrefsFromStorage(): CoachPrefs {
+  return lsGet() ?? DEFAULT_PREFS;
+}
+
+export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPrefs> {
+  const value = await fetchUserPref(userId, KEY);
+  if (value) {
+    lsSet(value);
+    return value;
+  }
+  return DEFAULT_PREFS;
+}
+
+export async function saveCoachPrefs(userId: number, prefs: CoachPrefs): Promise<void> {
+  await upsertUserPref(userId, KEY, prefs);
+  lsSet(prefs);
+}
+
+export function clearCoachPrefsCache() {
+  lsClear();
 }

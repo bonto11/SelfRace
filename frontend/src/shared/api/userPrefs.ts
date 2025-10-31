@@ -1,34 +1,28 @@
+//src/shared/api/userPrefs
 import { API_URL } from "@/shared/config";
 
-export type PrefKey =
-  | "ui.favorite_pb_run_m"
-  | "coach.goal_kind"
-  | "coach.weeks"
-  | "coach.days_off"
-  | "coach.long_run_days"
-  | "coach.avoid_back_to_back_hard"
-  | "coach.use_zones"
-  | "coach.wu_cd_detail"
-  | "coach.primary_sports"
-  | (string & {}); // pre budúce kľúče
+export type UserPrefRow = { key: string; value: any };
 
-export type UserPrefRow = { key: string; value: any; updated_at: string };
-
-export async function fetchAllPrefs(userId: number): Promise<UserPrefRow[]> {
-  const r = await fetch(`${API_URL}/users/${userId}/prefs`, { cache: "no-store" });
+export async function fetchUserPrefs(userId: number, prefix?: string): Promise<Record<string, any>> {
+  const url = new URL(`${API_URL}/users/${userId}/prefs`);
+  if (prefix) url.searchParams.set("prefix", prefix);
+  const r = await fetch(url.toString(), { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `prefs load failed: ${r.status}`);
-  return j?.prefs ?? [];
+  const rows: UserPrefRow[] = j?.prefs ?? [];
+  const out: Record<string, any> = {};
+  for (const row of rows) out[row.key] = row.value;
+  return out;
 }
 
-export async function fetchPref(userId: number, key: PrefKey): Promise<UserPrefRow | null> {
+export async function fetchUserPref(userId: number, key: string): Promise<any | null> {
   const r = await fetch(`${API_URL}/users/${userId}/prefs/${encodeURIComponent(key)}`, { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `pref load failed: ${r.status}`);
-  return j?.pref ?? null;
+  return j?.pref?.value ?? null;
 }
 
-export async function setPref(userId: number, key: PrefKey, value: any): Promise<void> {
+export async function upsertUserPref(userId: number, key: string, value: any): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/prefs/${encodeURIComponent(key)}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
@@ -38,18 +32,12 @@ export async function setPref(userId: number, key: PrefKey, value: any): Promise
   if (!r.ok) throw new Error(j?.detail ?? `pref save failed: ${r.status}`);
 }
 
-export async function setManyPrefs(userId: number, kv: Record<PrefKey, any>): Promise<void> {
+export async function upsertUserPrefs(userId: number, rows: UserPrefRow[]): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/prefs`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(kv),
+    body: JSON.stringify({ prefs: rows }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `prefs save failed: ${r.status}`);
-}
-
-export async function deletePref(userId: number, key: PrefKey): Promise<void> {
-  const r = await fetch(`${API_URL}/users/${userId}/prefs/${encodeURIComponent(key)}`, { method: "DELETE" });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j?.detail ?? `pref delete failed: ${r.status}`);
 }
