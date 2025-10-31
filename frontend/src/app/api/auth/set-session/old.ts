@@ -1,9 +1,10 @@
+/*
+
 // src/app/api/auth/set-session/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
-import { signOut } from "@/shared/utils/signOut";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,6 @@ export async function POST(req: NextRequest) {
 
     // SIGN OUT: vyčistenie cookies cez supabase clienta
     if (event === "SIGNED_OUT") {
-      signOut("/signin");
       await supabase.auth.signOut();
       return res;
     }
@@ -94,3 +94,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
+*/
