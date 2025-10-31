@@ -1,9 +1,10 @@
+// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
-import Button from "@/shared/components/ui/Button";       // ⬅️ tvoje primárne tlačidlo
-import TextField from "@/shared/components/ui/TextField"; // ⬅️ tvoj text input (podporuje type/placeholder/disabled/...)
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
@@ -71,41 +72,24 @@ export default function InputsCard() {
   }
 
   return (
-    <WidgetCard
-      title="Recovery Inputs"
-      accent="bg-slate-700"       // neutrálny spodný akcent, môžeš prepnúť na stavový
-      minH={0}                    // formulár nech nerieši min height
-      // bez onOpen – toto nie je „opener“, je to editačná karta
-    >
+    <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
       {/* HEADER actions */}
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex-1" />
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => shiftDate(-1)}
-            disabled={saving}
-            aria-label="Predošlý deň"
-          >
+          <Button size="sm" variant="ghost" onClick={() => shiftDate(-1)} disabled={saving}>
             −1d
           </Button>
 
           <TextField
             type="date"
             value={date}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
+            onChange={(e) => setDate(e.target.value)}
             disabled={saving}
             className="w-[140px] text-center"
           />
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => shiftDate(+1)}
-            disabled={saving}
-            aria-label="Ďalší deň"
-          >
+          <Button size="sm" variant="ghost" onClick={() => shiftDate(+1)} disabled={saving}>
             +1d
           </Button>
         </div>
@@ -119,7 +103,7 @@ export default function InputsCard() {
           <TextField
             type="number"
             value={rhr}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRhr(e.target.value)}
+            onChange={(e) => setRhr(e.target.value)}
             placeholder="bpm"
             disabled={saving}
           />
@@ -132,14 +116,14 @@ export default function InputsCard() {
             <TextField
               type="number"
               value={hrvAvg}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHrvAvg(e.target.value)}
+              onChange={(e) => setHrvAvg(e.target.value)}
               placeholder="avg ms"
               disabled={saving}
             />
             <TextField
               type="number"
               value={hrvMax}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHrvMax(e.target.value)}
+              onChange={(e) => setHrvMax(e.target.value)}
               placeholder="max ms"
               disabled={saving}
             />
@@ -154,7 +138,7 @@ export default function InputsCard() {
               type="text"
               placeholder="HH:MM duration"
               value={sleepDuration}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTimeInput(e, setSleepDuration)}
+              onChange={(e) => handleTimeInput(e, setSleepDuration)}
               inputMode="numeric"
               disabled={saving}
             />
@@ -162,7 +146,7 @@ export default function InputsCard() {
               type="text"
               placeholder="HH:MM start"
               value={sleepStart}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTimeInput(e, setSleepStart)}
+              onChange={(e) => handleTimeInput(e, setSleepStart)}
               inputMode="numeric"
               disabled={saving}
             />
@@ -201,30 +185,31 @@ export default function InputsCard() {
             <TextField
               type="number"
               value={alcoholVolume}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAlcoholVolume(e.target.value)}
+              onChange={(e) => setAlcoholVolume(e.target.value)}
               placeholder="ml"
               disabled={saving}
             />
             <TextField
               type="number"
               value={alcoholType}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAlcoholType(e.target.value)}
+              onChange={(e) => setAlcoholType(e.target.value)}
               placeholder="%"
               disabled={saving}
             />
           </div>
         </section>
 
-        {/* Comment */}
+        {/* Comment – POZOR: natívny <textarea>, nie TextField */}
         <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
           <div className="text-sm opacity-75 mb-1">Comment</div>
-          <TextField
-            as="textarea"
+          <textarea
             rows={3}
             value={comments}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setComments(e.target.value)}
+            onChange={(e) => setComments(e.target.value)}
             placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
             disabled={saving}
+            className="w-full rounded-md bg-white/70 dark:bg-gray-800/60 border border-white/10 px-3 py-2
+                       focus:outline-none focus:ring-2 focus:ring-white/20 resize-y"
           />
         </section>
       </div>
