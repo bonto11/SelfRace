@@ -1,6 +1,6 @@
 // src/shared/components/index.ts
 
-export { default as TrendWithBands } from "./trends/TrendWithBands";
+export { default as TrendWithBands } from "./trend/TrendWithBands";
 
 export {
   default as InfoMessageProvider,
