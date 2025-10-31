@@ -16,6 +16,8 @@ import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
 import type { MiniActivity } from "@/shared/types/activities";
 import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
+import { toast } from "@/shared/components/ui/Toast";
+
 
 /* ----------------------- Form state ----------------------- */
 export type PBRunFormState = {
@@ -46,7 +48,6 @@ export default function PBRun() {
   const { userId } = useUserId();
   const { favM, setFavM } = useFavoritePBRun();
   const favoriteM = favM ?? 5000;
-  const { success, error } = useInfoMessage();
 
   const [rows, setRows] = useState<UserBest[]>([]);
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
@@ -62,7 +63,7 @@ export default function PBRun() {
     try {
       setRows(await getBests(userId, "run"));
     } catch (e: any) {
-      error(String(e?.message ?? e));
+      toast.error(String(e?.message ?? e));  
     } finally {
       setLoading(false);
     }
@@ -109,11 +110,11 @@ export default function PBRun() {
       }
 
       await saveBest(userId, payload);
-      success("Personal best saved");
+      toast.success("Personal best saved");
       setForm(EMPTY);
       await refresh();
     } catch (e: any) {
-      error(String(e?.message ?? e));
+      toast.error(String(e?.message ?? e));
     } finally {
       setSaving(false);
     }
@@ -122,10 +123,10 @@ export default function PBRun() {
     if (!userId) return;
     try {
       await deleteBest(userId, m, "run");
-      success("Record deleted");
+      toast.success("Record deleted");
       await refresh();
     } catch (e: any) {
-      error(String(e?.message ?? e));
+      toast.error(String(e?.message ?? e));
     } finally {
       setPendingDelete(null);
     }

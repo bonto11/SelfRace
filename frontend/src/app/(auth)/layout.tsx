@@ -1,12 +1,14 @@
 // src/app/(auth)/layout.tsx
 import type { ReactNode } from "react";
-import InfoMessageHost from "@/shared/components/InfoMessageHost";
+import ToastHost from "@/shared/components/ui/Toast";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="sk">
       <body>
-        <InfoMessageHost>{children}</InfoMessageHost>
+        {children}
+        {/* Globálny toast pre auth sekciu */}
+        <ToastHost />
       </body>
     </html>
   );

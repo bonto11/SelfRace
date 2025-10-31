@@ -4,21 +4,22 @@ import { cookies } from "next/headers";
 
 import Sidebar from "@/features/Toolbars/components/Sidebar";
 import UserMenu from "@/features/auth/components/UserMenu";
-import InfoMessageHost from "@/shared/components/InfoMessageHost";
 import { SidebarProvider } from "@/features/Toolbars/hooks/useSidebar";
 import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
 import UserPrefsBootstrapper from "@/shared/bootstrap/userPrefsBootstrap";
+import ToastHost from "@/shared/components/ui/Toast";
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
+  // SSR kontrola prihlásenia – stačí sr_uuid
   const srUuid = cookies().get("sr_uuid")?.value ?? null;
   if (!srUuid) redirect("/signin");
 
   return (
-    <InfoMessageHost>
-      <SidebarProvider>
-        {/* ⬇️ bootstrap preferencií po prihlásení */}
-        <UserPrefsBootstrapper />
+    <>
+      {/* bootstrap preferencií po prihlásení */}
+      <UserPrefsBootstrapper />
 
+      <SidebarProvider>
         <div className="min-h-dvh grid lg:grid-cols-[280px_1fr] bg-neutral-950 text-neutral-100">
           <Sidebar />
           <div className="min-h-dvh flex flex-col">
@@ -29,10 +30,14 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
               </div>
               <UserMenu />
             </header>
+
             <main className="flex-1 p-3 lg:p-4">{children}</main>
           </div>
         </div>
       </SidebarProvider>
-    </InfoMessageHost>
+
+      {/* Globálny toast pre protected sekciu */}
+      <ToastHost />
+    </>
   );
 }

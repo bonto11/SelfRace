@@ -4,6 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
+import Button from "@/shared/components/ui/Button";
 
 export default function ClientPage() {
   const sb = getSupabaseBrowser();
@@ -55,12 +56,9 @@ export default function ClientPage() {
           value={pwd}
           onChange={(e) => setPwd(e.target.value)}
         />
-        <button
-          disabled={busy}
-          className="w-full rounded-md bg-white/10 px-3 py-2 hover:bg-white/20 disabled:opacity-50"
-        >
+        <Button type="submit" variant="primary" block disabled={busy}>
           {busy ? "Vytváram…" : "Registrovať"}
-        </button>
+        </Button>
       </form>
 
       <div className="text-sm text-white/60">

@@ -1,7 +1,7 @@
 // src/shared/components/ui/BackButton.tsx
 "use client";
 import { useRouter } from "next/navigation";
-import Button from "./Button";
+import Button from "./ui/Button";
 
 type Props = {
   href?: string;       // ak zadáš, použije push na konkrétnu URL
