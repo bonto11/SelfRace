@@ -35,31 +35,30 @@ function ToastItemView({
   item, onDone,
 }: { item: ToastItem; onDone: (id: number) => void }) {
   const [state, setState] = React.useState<"enter" | "show" | "leave">("enter");
+  const ANIM_MS = 450; // ⬅️ pomalšie, príjemnejšie
 
-  // enter -> show
   React.useEffect(() => {
     const t1 = setTimeout(() => setState("show"), 10);
-    // leave po TTL
     const t2 = setTimeout(() => setState("leave"), item.ttl);
-    // remove po animácii leave
-    const t3 = setTimeout(() => onDone(item.id), item.ttl + 250);
+    // počkaj kým dobehne aj leave animácia
+    const t3 = setTimeout(() => onDone(item.id), item.ttl + ANIM_MS + 30);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [item.id, item.ttl, onDone]);
 
   return (
     <div
       className={cx(
-        "pointer-events-auto select-none rounded-xl border shadow-lg",
+        "pointer-events-auto select-none rounded-full border shadow-lg",
         "px-4 py-3 text-sm leading-5",
-        "w-[360px] max-w-[90vw]",     // fixná šírka (text sa zalomí, výška rastie)
-        // farby podľa typu
+        "w-[360px] max-w-[90vw]",
         item.type === "success" && "bg-emerald-600 text-white border-emerald-700",
         item.type === "error"   && "bg-red-600 text-white border-red-700",
         item.type === "info"    && "bg-gray-800 text-white border-gray-700",
-        // animácia: sprava -> stred -> doprava
-        "transition-all duration-200 ease-out will-change-transform opacity-0 translate-x-8",
+        // ⬇️ pomalšie + plynulejšie
+        "transition-transform transition-opacity duration-[450ms] ease-[cubic-bezier(.22,1,.36,1)]",
+        "will-change-transform opacity-0 translate-x-16",
         state === "show"  && "opacity-100 translate-x-0",
-        state === "leave" && "opacity-0 translate-x-8"
+        state === "leave" && "opacity-0 translate-x-16"
       )}
       role="status"
       aria-live="polite"
