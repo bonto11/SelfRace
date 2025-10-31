@@ -1,7 +1,7 @@
 import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
 import bodyFatRef from "@/data/BodyFat_Ref_ACE.json";
 import rhrRef from "@/data/RHR_Ref_VerywellFit.json";
-import type { Band } from "@/shared/components/TrendWithBands";
+import type { Band } from "@/shared/components/trend/TrendWithBands";
 
 export function calcAge(birthISO?: string | null) {
   if (!birthISO) return null;

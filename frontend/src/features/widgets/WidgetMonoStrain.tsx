@@ -2,13 +2,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 function classifyMonotony(v?: number | null) {
   if (v == null) return { label: "—", accent: "bg-slate-700" };
-  if (v < 0.8) return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
+  if (v < 0.8)
+    return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
   if (v <= 1.5) return { label: "vyvážené (OK)", accent: "bg-emerald-600" };
   if (v <= 2.0) return { label: "vyššia monotónnosť", accent: "bg-amber-500" };
   return { label: "riziko preťaženia", accent: "bg-red-600" };
@@ -23,10 +24,15 @@ function classifyStrain(v?: number | null) {
 }
 
 function fmtRange(s: string, e: string) {
-  const sd = new Date(s), ed = new Date(e);
-  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
-  const edD = ed.getDate(), edM = ed.getMonth() + 1;
-  return sdM === edM ? `${sdD}–${edD}.${edM}.` : `${sdD}.${sdM}.–${edD}.${edM}.`;
+  const sd = new Date(s),
+    ed = new Date(e);
+  const sdD = sd.getDate(),
+    sdM = sd.getMonth() + 1;
+  const edD = ed.getDate(),
+    edM = ed.getMonth() + 1;
+  return sdM === edM
+    ? `${sdD}–${edD}.${edM}.`
+    : `${sdD}.${sdM}.–${edD}.${edM}.`;
 }
 
 export default function MonoStrainWidget({
@@ -47,10 +53,13 @@ export default function MonoStrainWidget({
   const sC = classifyStrain(strain);
 
   const accent =
-    mC.accent === "bg-red-600" || sC.accent === "bg-red-600" ? "bg-red-600" :
-    mC.accent === "bg-amber-500" || sC.accent === "bg-amber-500" ? "bg-amber-500" :
-    mC.accent === "bg-emerald-600" || sC.accent === "bg-emerald-600" ? "bg-emerald-600" :
-    "bg-slate-700";
+    mC.accent === "bg-red-600" || sC.accent === "bg-red-600"
+      ? "bg-red-600"
+      : mC.accent === "bg-amber-500" || sC.accent === "bg-amber-500"
+      ? "bg-amber-500"
+      : mC.accent === "bg-emerald-600" || sC.accent === "bg-emerald-600"
+      ? "bg-emerald-600"
+      : "bg-slate-700";
 
   return (
     <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
@@ -82,7 +91,8 @@ export default function MonoStrainWidget({
           </div>
 
           <div className="opacity-80 text-sm mt-2">
-            Posledných 7 dní • {fmtRange(r7.last.range.start, r7.last.range.end)}
+            Posledných 7 dní •{" "}
+            {fmtRange(r7.last.range.start, r7.last.range.end)}
           </div>
         </>
       )}

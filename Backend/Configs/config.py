@@ -30,7 +30,7 @@ TABLE_USERS_RECOVERY = "users_recovery"
 TABLE_USERS_NOTES = "users_notes"
 TABLE_COACH_FEEDBACK = "coach_feedback"
 TABLE_COACH_PREFERENCES = "coach_preferences"
-
+TABLE_USER_PREFERENCES = "user_preferences"
 
 SUPABASE_URL : str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE : str = env_required("SUPABASE_SERVICE_ROLE")

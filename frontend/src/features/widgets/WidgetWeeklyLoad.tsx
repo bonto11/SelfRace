@@ -2,9 +2,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
+import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
 
 function minToHM(totalMin: number) {
   const h = Math.floor(totalMin / 60);
@@ -12,9 +12,12 @@ function minToHM(totalMin: number) {
   return { h, m };
 }
 function fmtRange(s: string, e: string) {
-  const sd = new Date(s), ed = new Date(e);
-  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
-  const edD = ed.getDate(), edM = ed.getMonth() + 1;
+  const sd = new Date(s),
+    ed = new Date(e);
+  const sdD = sd.getDate(),
+    sdM = sd.getMonth() + 1;
+  const edD = ed.getDate(),
+    edM = ed.getMonth() + 1;
   return sdM === edM
     ? `${sdD}–${edD}.${edM}.`
     : `${sdD}.${sdM}.–${edD}.${edM}.`;
@@ -43,9 +46,16 @@ export default function WeeklyLoadWidget({
   let note = "—";
   let accent = "bg-slate-700";
   if (!loading) {
-    if (diffPct > 20)       { note = "↑ oproti predošlým 7 dňom výrazne viac"; accent = "bg-amber-500"; }
-    else if (diffPct < -20) { note = "↓ výrazne menej než predchádzajúcich 7 dní"; accent = "bg-blue-700"; }
-    else                    { note = "≈ podobne ako predchádzajúcich 7 dní"; accent = "bg-emerald-600"; }
+    if (diffPct > 20) {
+      note = "↑ oproti predošlým 7 dňom výrazne viac";
+      accent = "bg-amber-500";
+    } else if (diffPct < -20) {
+      note = "↓ výrazne menej než predchádzajúcich 7 dní";
+      accent = "bg-blue-700";
+    } else {
+      note = "≈ podobne ako predchádzajúcich 7 dní";
+      accent = "bg-emerald-600";
+    }
   }
 
   const rangeTxt =
@@ -56,13 +66,18 @@ export default function WeeklyLoadWidget({
   return (
     <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
       {loading ? (
-        <div className="w-full flex items-center justify-center py-4" aria-live="polite">
+        <div
+          className="w-full flex items-center justify-center py-4"
+          aria-live="polite"
+        >
           <LoadingSpinner size="widget" /> {/* NEW */}
         </div>
       ) : (
         <>
           <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-extrabold leading-none tabular-nums">{h}</span>
+            <span className="text-5xl font-extrabold leading-none tabular-nums">
+              {h}
+            </span>
             <span className="text-xl opacity-80">h</span>
             <span className="text-5xl font-extrabold leading-none tabular-nums">
               {m.toString().padStart(2, "0")}
@@ -71,7 +86,8 @@ export default function WeeklyLoadWidget({
           </div>
 
           <div className="opacity-80 text-sm mt-1">
-            {note}{rangeTxt ? ` • ${rangeTxt}` : ""}
+            {note}
+            {rangeTxt ? ` • ${rangeTxt}` : ""}
           </div>
         </>
       )}

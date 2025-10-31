@@ -5,25 +5,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { SUBCARD, CARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
-import { useActivityData } from "@/features/activity/data/ActivityDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
-import ActivityDetail from "./ActivityDetail";
+import ActivityDetail from "@/shared/components/ActivityDetail";
 import { toEffSport, sportUiLabel } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 
 /* ---------------- helpers ---------------- */
 
-function normSportsList(sel: string | string[] | null | undefined): string[] | null {
+function normSportsList(
+  sel: string | string[] | null | undefined
+): string[] | null {
   if (sel == null) return null; // žiadny filter -> všetko
   if (Array.isArray(sel)) {
-    const arr = sel.map(s => String(s).trim().toLowerCase()).filter(Boolean);
+    const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
     if (arr.length === 0) return null;
     if (arr.length === 1 && arr[0] === "all") return null;
     return Array.from(new Set(arr));
   }
   const raw = String(sel).trim().toLowerCase();
   if (!raw || raw === "all") return null;
-  const arr = raw.split(",").map(s => s.trim()).filter(Boolean);
+  const arr = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return arr.length ? Array.from(new Set(arr)) : null;
 }
 
@@ -48,7 +53,10 @@ export default function ActivityTable({
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const headerTitle = useMemo(
-    () => (start && end ? `Týždeň ${start} → ${end}` : "História (vyber týždeň v grafe)"),
+    () =>
+      start && end
+        ? `Týždeň ${start} → ${end}`
+        : "História (vyber týždeň v grafe)",
     [start, end]
   );
 
@@ -93,7 +101,9 @@ export default function ActivityTable({
       inRange: inRange.length,
       afterWhitelist: afterWhitelist.length,
       final: finalRows.length,
-      sample: finalRows.slice(0, 3).map((r) => ({ id: r.activity_id, s: toEffSport(r) })),
+      sample: finalRows
+        .slice(0, 3)
+        .map((r) => ({ id: r.activity_id, s: toEffSport(r) })),
     });
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
@@ -121,15 +131,21 @@ export default function ActivityTable({
                   <div className="font-medium">
                     {new Date(r.date).toLocaleDateString("sk-SK")}
                   </div>
-                  <div className="text-xs px-2 py-0.5 rounded bg-gray-700">{sportUiLabel(eff)}</div>
+                  <div className="text-xs px-2 py-0.5 rounded bg-gray-700">
+                    {sportUiLabel(eff)}
+                  </div>
                 </div>
                 <div className="truncate opacity-90">{r.name}</div>
                 <div className="mt-1 text-xs opacity-75 flex gap-3">
                   <span>
-                    {r.moving_time_s != null ? `${Math.floor((r.moving_time_s || 0) / 60)} min` : "—"}
+                    {r.moving_time_s != null
+                      ? `${Math.floor((r.moving_time_s || 0) / 60)} min`
+                      : "—"}
                   </span>
                   <span>
-                    {r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(1)} km` : "—"}
+                    {r.distance_m != null
+                      ? `${((r.distance_m || 0) / 1000).toFixed(1)} km`
+                      : "—"}
                   </span>
                   <span>HR: {r.average_heartrate_bpm ?? "—"}</span>
                 </div>
@@ -177,11 +193,17 @@ export default function ActivityTable({
                       <td>{new Date(r.date).toLocaleDateString("sk-SK")}</td>
                       <td>{sportUiLabel(eff)}</td>
                       <td className="truncate max-w-[260px]">{r.name}</td>
-                      <td>{r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : "—"}</td>
+                      <td>
+                        {r.moving_time_s != null
+                          ? fmtSecondsHMS(r.moving_time_s)
+                          : "—"}
+                      </td>
                       <td>{r.average_heartrate_bpm ?? "—"}</td>
                       <td>{r.max_heartrate_bpm ?? "—"}</td>
                       <td>
-                        {r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : "—"}
+                        {r.distance_m != null
+                          ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
+                          : "—"}
                       </td>
                     </tr>
                   );

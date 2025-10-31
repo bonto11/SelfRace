@@ -20,7 +20,7 @@ def fetch_user_bests(user_id: int, sport: str = "run") -> List[Dict[str, Any]]:
     try:
         res = (
             supabase.table(TABLE_USERS_BESTS)
-            .select("sport,distance_m,best_time_s,activity_id,achieved_at,updated_at")
+            .select("sport,distance_m,best_time_s,activity_id, activity_name,achieved_at,updated_at")
             .eq("user_id", user_id)
             .eq("sport", sport)
             .order("distance_m", desc=False)
@@ -33,9 +33,12 @@ def fetch_user_bests(user_id: int, sport: str = "run") -> List[Dict[str, Any]]:
     except Exception:
         return []
 
+# Services/bests.py (výrez z upsert_user_best)
+
 def upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     sport = str(payload.get("sport") or "run").lower()
 
+    # --- distance ---
     raw_dist = payload.get("distance_m")
     if raw_dist is None or (isinstance(raw_dist, str) and not raw_dist.strip()):
         raise ValueError("Missing distance_m")
@@ -47,46 +50,50 @@ def upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     if allowed_distances(sport) and distance_m not in allowed_distances(sport):
         raise ValueError("Unsupported distance for sport")
 
-    time_sec: Optional[int] = None
+    # --- time ---
+    time_sec = None
     if payload.get("time_sec") is not None:
         try:
-            time_sec = int(str(payload.get("time_sec")))
+            time_sec = int(str(payload["time_sec"]))
         except Exception:
             raise ValueError("time_sec must be an integer")
     else:
-        raw_ts = payload.get("time_str")
-        time_sec = hhmmss_to_seconds(raw_ts if isinstance(raw_ts, str) and raw_ts.strip() else None)
-
+        time_sec = hhmmss_to_seconds(
+            payload.get("time_str") if isinstance(payload.get("time_str"), str) else None
+        )
     if not time_sec:
         raise ValueError("Missing/invalid time (time_sec/time_str)")
 
-    activity_id: Optional[int] = None
-    act = payload.get("activity_id")
-    if act not in (None, "", "null"):
-        try:
-            activity_id = int(str(act))
-        except Exception:
-            activity_id = None
-
-    achieved_at = payload.get("achieved_at")
-    if not (isinstance(achieved_at, str) and achieved_at.strip()):
-        achieved_at = None
-
-    rec = {
+    # --- základ, ktoré vždy posielame ---
+    rec: Dict[str, Any] = {
         "user_id": user_id,
         "sport": sport,
         "distance_m": distance_m,
         "best_time_s": int(time_sec),
-        "activity_id": activity_id,
-        "achieved_at": achieved_at,
         "updated_at": datetime.utcnow().isoformat(),
     }
 
-    (
-        supabase.table(TABLE_USERS_BESTS)
-        .upsert(rec, on_conflict="user_id,sport,distance_m")
-        .execute()
-    )
+    # --- voliteľné polia: pridaj IBA ak prišli (neprepisuj na NULL) ---
+    act = payload.get("activity_id", "__MISSING__")
+    if act != "__MISSING__":
+        try:
+            rec["activity_id"] = int(str(act)) if str(act).strip() else None
+        except Exception:
+            rec["activity_id"] = None
+
+    act_name = payload.get("activity_name", "__MISSING__")
+    if act_name != "__MISSING__":
+        v = (act_name or "").strip()
+        rec["activity_name"] = v if v else None
+
+    ach = payload.get("achieved_at", "__MISSING__")
+    if ach != "__MISSING__":
+        rec["achieved_at"] = ach if (isinstance(ach, str) and ach.strip()) else None
+
+    # upsert – stĺpce, ktoré v `rec` chýbajú, zostanú v DB bez zmeny
+    supabase.table(TABLE_USERS_BESTS).upsert(
+        rec, on_conflict="user_id,sport,distance_m"
+    ).execute()
 
     return {**rec, "time_str": seconds_to_hhmmss(rec["best_time_s"])}
 
@@ -101,3 +108,5 @@ def delete_user_best(user_id: int, sport: str, distance_m: int) -> int:
         .execute()
     )
     return len(res.data or [])
+
+

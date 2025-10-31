@@ -9,15 +9,15 @@ import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 ensureChartJSRegistered();
 
 export default function DetailHRV() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(2);           // 2/4/8/12
-  const [loading, setLoading] = useState<boolean>(false);  // NEW
+  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
+  const [loading, setLoading] = useState<boolean>(false); // NEW
 
   // zapni spinner pri zmene lookbacku
   useEffect(() => {
@@ -37,16 +37,28 @@ export default function DetailHRV() {
 
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const hrv = useMemo(
-    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
+    () =>
+      rows.map((r) =>
+        typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN
+      ),
     [rows]
   );
 
   // baseline (rolling mean z predchádzajúcich dní) + pásma ±5 %
   const baselineArr = useMemo(
-    () => rollingMean(rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)), 14),
+    () =>
+      rollingMean(
+        rows.map((r) =>
+          typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null
+        ),
+        14
+      ),
     [rows]
   );
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr]
+  );
 
   // komentáre
   const comments = useMemo(() => {
@@ -57,7 +69,8 @@ export default function DetailHRV() {
 
   // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) =>
+      xs.map((v) => (typeof v === "number" ? v : NaN));
 
     const bandLower = {
       type: "line" as const,
@@ -107,7 +120,10 @@ export default function DetailHRV() {
       order: 3,
     };
 
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, hrvLine] };
+    return {
+      labels: labelsISO,
+      datasets: [bandLower, bandUpper, baselineLine, hrvLine],
+    };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
   // options
@@ -126,19 +142,23 @@ export default function DetailHRV() {
 
           if (ctx.datasetIndex === 3) {
             const v = hrv[idx];
-            if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
+            if (Number.isFinite(v))
+              lines.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
           if (ctx.datasetIndex === 2) {
             const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
+            if (Number.isFinite(b as number))
+              lines.push(`Baseline: ${Math.round(b as number)} ms`);
           }
 
-          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length)
+            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines;
         },
-        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+        tooltipFilter: (item) =>
+          item.datasetIndex === 2 || item.datasetIndex === 3,
       }),
     [labelsISO, hrv, baselineArr, comments]
   );
@@ -158,7 +178,10 @@ export default function DetailHRV() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link href="/recovery" className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+          <Link
+            href="/recovery"
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          >
             Späť
           </Link>
         </div>

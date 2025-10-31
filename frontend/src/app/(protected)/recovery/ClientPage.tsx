@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   useRecoveryData,
   RecoveryDataProvider,
-} from "@/features/recovery/data/RecoveryDataProvider";
+} from "@/shared/components/dataProviders/RecoveryDataProvider";
 
 import WidgetRHR from "@/features/widgets/WidgetRHR";
 import WidgetHRV from "@/features/widgets/WidgetHRV";
@@ -56,8 +56,12 @@ export default function RecoveryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
         <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-        <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
-        <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
+        <WidgetSleepDuration
+          onOpenDetail={() => router.push("/recovery/sleepDuration")}
+        />
+        <WidgetSleepStart
+          onOpenDetail={() => router.push("/recovery/sleepStart")}
+        />
       </div>
 
       <div className="mt-6">

@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { ActivityDataProvider } from "@/features/activity/data/ActivityDataProvider";
-import TrendWeeklyLoad, { WeekPick } from "@/features/activity/components/TrendWeeklyLoad";
-import ActivityTable from "@/features/activity/components/ActivityTable";
+import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
+import TrendWeeklyLoad, {
+  WeekPick,
+} from "@/features/activity/components/TrendWeeklyLoad";
+import ActivityTable from "@/shared/components/ActivityTable";
 
 type Range = { start?: string; end?: string };
 
@@ -22,14 +24,20 @@ export default function ActivitiesDetailPage() {
     <ActivityDataProvider days={90}>
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-semibold">Detailný trend</h2>
-        <Link href="/activities" className="text-sm px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600">
+        <Link
+          href="/activities"
+          className="text-sm px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600"
+        >
           ← Späť
         </Link>
       </div>
 
       <TrendWeeklyLoad
         onPickWeek={handlePick}
-        onSportChange={(s) => { console.debug("[DETAIL][sport change]", s); setSport(s); }}
+        onSportChange={(s) => {
+          console.debug("[DETAIL][sport change]", s);
+          setSport(s);
+        }}
       />
 
       <div className="mt-3">

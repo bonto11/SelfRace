@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import TrendWithBands, { Point } from "@/shared/components/TrendWithBands";
+import TrendWithBands, {
+  Point,
+} from "@/shared/components/trend/TrendWithBands";
 import { getBodyFatBands } from "@/shared/utils/bands";
 
 type StaticProfile = { sex: "M" | "F" };

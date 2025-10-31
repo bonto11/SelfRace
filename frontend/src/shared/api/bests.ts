@@ -1,14 +1,9 @@
 // src/shared/api/bests.ts
-// FE API + pomocné utility pre osobné rekordy (PB).
-// - Jediný zdroj pravdy pre povolené vzdialenosti a ich labely (per sport)
-// - Fetch/save/delete volania na BE
-// - Normalizácia a stabilné radenie podľa poradia z mapy
-
 import { API_URL } from "@/shared/config";
 
-export type Sport = "run" | "bike" | "strength" | "skate";
+// držme rovnaké názvy športov ako na BE
+export type Sport = "run" | "ride" | "strength" | "skate";
 
-/** Vzdialenosti a labely podľa športu (zatiaľ je “run” kompletný). */
 export const DISTANCE_OPTIONS_BY_SPORT = {
   run: [
     { m: 400, label: "400 m" },
@@ -21,44 +16,37 @@ export const DISTANCE_OPTIONS_BY_SPORT = {
     { m: 42195, label: "Marathon" },
     { m: 50000, label: "50 km" },
   ],
-  // nechávam prázdne / TODO – doplníme, keď bude BE pripravený
-  bike: [] as { m: number; label: string }[],
+  ride: [] as { m: number; label: string }[],
   strength: [] as { m: number; label: string }[],
   skate: [] as { m: number; label: string }[],
 } as const;
 
-/** Alias kvôli existujúcemu kódu pre RUN. */
 export const RUN_DISTANCE_OPTIONS = DISTANCE_OPTIONS_BY_SPORT.run;
-/** Čisto čísla v metroch (run). */
 export const RUN_DISTANCES_M = RUN_DISTANCE_OPTIONS.map(d => d.m) as readonly number[];
 
-/** Univerzálny prístup k možnostiam pre šport. */
 export function distanceOptions(sport: Sport = "run") {
   return DISTANCE_OPTIONS_BY_SPORT[sport] ?? [];
 }
-
-/** Len čísla (metre) pre daný šport. */
 export function distancesFor(sport: Sport = "run"): number[] {
   return distanceOptions(sport).map(o => o.m);
 }
-
-/** Overí, či daná vzdialenosť je povolená pre šport. */
 export function isAllowedDistance(m: number, sport: Sport = "run"): boolean {
   return distanceOptions(sport).some(o => o.m === m);
 }
-
-/** Vráti ľudský label pre vzdialenosť v danom športe. */
 export function distanceLabel(m: number, sport: Sport = "run"): string {
   const f = distanceOptions(sport).find(x => x.m === m);
-  return f ? f.label : `${(m / 1000).toFixed(3)} km`;
+  if (f) return f.label;
+  const km = m / 1000;
+  return Number.isInteger(km) ? `${km} km` : `${km.toFixed(1)} km`;
 }
 
 export type UserBest = {
   sport?: Sport;               // default 'run'
   distance_m: number;
-  best_time_s?: number | null;
-  time_str?: string | null;
+  best_time_s?: number | null; // z BE môže prísť
+  time_str?: string | null;    // alternatíva ak nie sú sekundy
   activity_id?: number | null;
+  activity_name?: string | null; // ← dôležité
   achieved_at?: string | null; // YYYY-MM-DD alebo ISO
 };
 
@@ -69,36 +57,49 @@ function normalizeRow(r: any): UserBest {
     best_time_s: r?.best_time_s ?? null,
     time_str: r?.time_str ?? null,
     activity_id: r?.activity_id ?? null,
+    activity_name: r?.activity_name ?? null, // ← PRIDAŤ
     achieved_at: r?.achieved_at ?? null,
   };
 }
 
-/** Stabilné radenie podľa poradia v mape pre daný šport. */
 function sortBySportOrder(sport: Sport) {
   const order = new Map<number, number>(distanceOptions(sport).map((o, i) => [o.m, i]));
   return (a: UserBest, b: UserBest) =>
     (order.get(a.distance_m) ?? 999) - (order.get(b.distance_m) ?? 999);
 }
 
-/** Načítanie PB (filtrované podľa športu). */
+// ---------- API volania: /users/{id}/bests ----------
+
+/** GET /users/{userId}/bests?sport=run  ->  { success, bests: [...] } */
 export async function getBests(userId: number, sport: Sport = "run"): Promise<UserBest[]> {
   const r = await fetch(`${API_URL}/users/${userId}/bests?sport=${sport}`, { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `bests load failed: ${r.status}`);
-
   const arr = (j?.bests ?? []).map(normalizeRow);
-  // zoradíme podľa našej mapy; keď mapa pre daný šport zatiaľ nie je, poradie necháme “as-is”
   return distanceOptions(sport).length ? arr.sort(sortBySportOrder(sport)) : arr;
 }
 
-/** Uloženie/UPSERT PB z riadku. */
+/** PUT /users/{userId}/bests  (upsert) */
 export async function saveBest(userId: number, best: UserBest): Promise<void> {
   const sport = best.sport ?? "run";
-  const payload = { ...best, sport };
 
-  // Nezablokujeme FE, iba varovanie keď vzdialenosť nie je v zozname.
+  const payload: any = {
+    sport,
+    distance_m: best.distance_m,
+    // DÔLEŽITÉ: ak prišlo time_sec z PBRun, pošli ho ďalej
+    time_sec: (best as any).time_sec ?? best.best_time_s ?? undefined,
+    // time_str pošli len vtedy, ak nemáme sekundy
+    time_str:
+      (best as any).time_sec != null || typeof best.best_time_s === "number"
+        ? undefined
+        : (best.time_str ?? undefined),
+
+    activity_id: best.activity_id ?? undefined,
+    activity_name: best.activity_name ?? undefined,
+    achieved_at: best.achieved_at ?? undefined,
+  };
+
   if (!isAllowedDistance(payload.distance_m, sport)) {
-    // eslint-disable-next-line no-console
     console.warn(`[bests.save] distance ${payload.distance_m} not in map for sport=${sport}`);
   }
 
@@ -111,7 +112,7 @@ export async function saveBest(userId: number, best: UserBest): Promise<void> {
   if (!r.ok) throw new Error(j?.detail ?? `save best failed: ${r.status}`);
 }
 
-/** Vymazanie PB konkrétnej vzdialenosti v športe. */
+/** DELETE /users/{userId}/bests/{sport}/{distance_m} */
 export async function deleteBest(userId: number, distance_m: number, sport: Sport = "run"): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/bests/${sport}/${distance_m}`, { method: "DELETE" });
   const j = await r.json().catch(() => ({}));

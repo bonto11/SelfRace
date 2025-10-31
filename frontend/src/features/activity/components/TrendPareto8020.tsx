@@ -49,7 +49,10 @@ export default function TrendPareto8020({
   );
 
   // odvodený param pre BE
-  const sportParam = useMemo(() => sportsToCSV(selectedSports), [selectedSports]);
+  const sportParam = useMemo(
+    () => sportsToCSV(selectedSports),
+    [selectedSports]
+  );
 
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
@@ -65,7 +68,12 @@ export default function TrendPareto8020({
     else q.set("sport", "all");
 
     const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
-    console.debug("[PARETO][fetch] ->", { url, lookback, selectedSports, sportParam });
+    console.debug("[PARETO][fetch] ->", {
+      url,
+      lookback,
+      selectedSports,
+      sportParam,
+    });
 
     (async () => {
       try {
@@ -76,7 +84,10 @@ export default function TrendPareto8020({
         setRows(data);
         setPickedIdx(null);
         setLoading(false);
-        console.debug("[PARETO][fetch][ok]", { count: data.length, sample: data[0] });
+        console.debug("[PARETO][fetch][ok]", {
+          count: data.length,
+          sample: data[0],
+        });
       } catch (e) {
         setLoading(false);
         console.error("[PARETO][fetch][err]", e);
@@ -159,22 +170,36 @@ export default function TrendPareto8020({
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
-          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6 },
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            padding: 8,
+            boxWidth: 6,
+            boxHeight: 6,
+          },
         },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
+            label: (ctx) =>
+              `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
             footer: (items) => {
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+              return `Easy ${fmtSecondsHMS(
+                r.easy_min || 0
+              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
         },
       },
       scales: {
-        y: { beginAtZero: true, max: 100, title: { display: true, text: "%" }, grid: { color: THEME.chart.grid } },
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "%" },
+          grid: { color: THEME.chart.grid },
+        },
         x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
       },
       onClick: (_evt, elements) => {
@@ -192,7 +217,10 @@ export default function TrendPareto8020({
     [rows, selectedSports, onPickWeek]
   );
 
-  const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const minWidth = Math.max(
+    360,
+    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+  );
   const picked = pickedIdx != null ? rows[pickedIdx] : null;
 
   // --- UI: jednoduchý multi-select (checkboxy) ---
@@ -214,7 +242,10 @@ export default function TrendPareto8020({
   useEffect(() => {
     if (selectedSports.length === 0) {
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
-      console.debug("[PARETO][sports][reset->default]", Array.from(PARETO_DEFAULT_SET));
+      console.debug(
+        "[PARETO][sports][reset->default]",
+        Array.from(PARETO_DEFAULT_SET)
+      );
     }
   }, [selectedSports.length]);
 
@@ -244,23 +275,30 @@ export default function TrendPareto8020({
           const val = normalizeSport(opt.value) ?? "";
           const active = selectedSports.map(normalizeSport).includes(val);
           const isDefault = isInParetoDefault(val);
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => toggleSport(opt.value)}
-            className={`px-2 py-1 rounded text-xs border ${
-              active ? "bg-blue-600 text-white border-blue-600" : "bg-gray-700 text-white/90 border-gray-600"
-            }`}
-            title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
-          >
-            {opt.label}{isDefault ? "" : " *"}
-          </button>
-        );})}
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggleSport(opt.value)}
+              className={`px-2 py-1 rounded text-xs border ${
+                active
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-gray-700 text-white/90 border-gray-600"
+              }`}
+              title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
+            >
+              {opt.label}
+              {isDefault ? "" : " *"}
+            </button>
+          );
+        })}
       </div>
 
       {/* graf */}
-     <div className="overflow-x-auto rounded-md" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div
+        className="overflow-x-auto rounded-md"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         <div style={{ height: 240 }}>
           {loading ? (
             <div className="w-full h-full flex items-center justify-center">
@@ -280,8 +318,10 @@ export default function TrendPareto8020({
           <>
             <div className="font-semibold">{picked.label}</div>
             <div>
-              Easy: {fmtSecondsHMS(picked.easy_min || 0)} ({Math.round(picked.easy_pct)}%) {" • "}
-              Hard: {fmtSecondsHMS(picked.hard_min || 0)} ({Math.round(picked.hard_pct)}%)
+              Easy: {fmtSecondsHMS(picked.easy_min || 0)} (
+              {Math.round(picked.easy_pct)}%) {" • "}
+              Hard: {fmtSecondsHMS(picked.hard_min || 0)} (
+              {Math.round(picked.hard_pct)}%)
             </div>
           </>
         ) : (

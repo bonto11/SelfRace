@@ -7,9 +7,13 @@ import type { ChartData } from "chart.js";
 import Link from "next/link";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { minutesToHHMM, wrapToLines, HHMMToMinutes } from "@/shared/utils/recovery";
+import {
+  minutesToHHMM,
+  wrapToLines,
+  HHMMToMinutes,
+} from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
-import { useRecoveryData } from "@/features/recovery/data/RecoveryDataProvider";
+import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
 
 ensureChartJSRegistered();
@@ -20,7 +24,9 @@ export default function DetailSleepStart() {
   const [loading, setLoading] = useState<boolean>(false); // NEW
 
   // zapni spinner pri zmene lookbacku
-  useEffect(() => { setLoading(true); }, [weeks]);
+  useEffect(() => {
+    setLoading(true);
+  }, [weeks]);
 
   // vždy orež na posledných N dní z provideru
   const days = weeks * 7;
@@ -112,7 +118,8 @@ export default function DetailSleepStart() {
 
           if (ctx.datasetIndex === 2) {
             const v = startMin[idx];
-            if (Number.isFinite(v)) lines.push(`Zaspal: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v))
+              lines.push(`Zaspal: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }

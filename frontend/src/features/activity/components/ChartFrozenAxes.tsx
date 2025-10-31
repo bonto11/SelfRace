@@ -19,7 +19,7 @@ type Props = {
   /** text ľavej osi – "km" | "min" | "TRIMP" */
   leftAxisLabel: string;
   /** maxima pre pravé osi */
-  rightMonoMax: number;   // napr. Math.max(3, ceil(monoMax+0.5))
+  rightMonoMax: number; // napr. Math.max(3, ceil(monoMax+0.5))
   rightStrainMax: number; // napr. ceil(strainMax*1.1)
 };
 
@@ -36,7 +36,7 @@ export default function ChartFrozenAxes({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // šírky fixných osí
-  const leftAxisW = 44;  // hlavná metrika (väčšie, nech sa zmestí titulok)
+  const leftAxisW = 44; // hlavná metrika (väčšie, nech sa zmestí titulok)
   const rightAxisW = 56; // dve pravé osi vedľa seba
 
   const contentWidth = useMemo(
@@ -59,7 +59,13 @@ export default function ChartFrozenAxes({
       legend: {
         ...(options?.plugins?.legend || {}),
         position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 10,
+        },
       },
       tooltip: options?.plugins?.tooltip, // necháme tvoje tooltipy
     },
@@ -138,7 +144,12 @@ export default function ChartFrozenAxes({
     scales: {
       x: {
         grid: { color: THEME.chart.gridSoft },
-        ticks: { color: "#cfd3dc", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+        ticks: {
+          color: "#cfd3dc",
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 8,
+        },
         border: { color: "#cfd3dc" },
       },
       y: { display: false, grid: { display: false } },
@@ -160,12 +171,18 @@ export default function ChartFrozenAxes({
   return (
     <div className="relative" style={{ width: "100%" }}>
       {/* ľavá fixná metrická os */}
-      <div className="absolute left-0 top-0" style={{ width: leftAxisW, height }}>
+      <div
+        className="absolute left-0 top-0"
+        style={{ width: leftAxisW, height }}
+      >
         <MixedChart type="line" data={yLeftData} options={yLeftOpts} />
       </div>
 
       {/* pravé fixné osi: y1=Monotony (zelená), y2=Strain (žltá) */}
-      <div className="absolute right-0 top-0" style={{ width: rightAxisW, height }}>
+      <div
+        className="absolute right-0 top-0"
+        style={{ width: rightAxisW, height }}
+      >
         <MixedChart type="line" data={yRightData} options={yRightOpts} />
       </div>
 
@@ -183,7 +200,12 @@ export default function ChartFrozenAxes({
       {/* spodná fixná X os */}
       <div
         className="relative mt-1"
-        style={{ height: 36, overflow: "hidden", paddingLeft: leftAxisW, paddingRight: rightAxisW }}
+        style={{
+          height: 36,
+          overflow: "hidden",
+          paddingLeft: leftAxisW,
+          paddingRight: rightAxisW,
+        }}
       >
         <div style={{ transform: `translateX(${-xShift}px)` }}>
           <div style={{ width: contentWidth }}>

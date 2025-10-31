@@ -43,3 +43,54 @@ def week_bounds(iso_key: str) -> tuple[date, date]:
     start = date.fromisocalendar(y, w, 1)
     end = start + timedelta(days=6)
     return start, end
+
+import re
+from typing import Optional, Tuple
+
+# mm:ss (napr. 5:32, 12:09)
+_TIME_MMSS = re.compile(r"^(?P<m>\d{1,2}):(?P<s>[0-5]\d)$")
+
+# hh:mm:ss (napr. 01:05:32, 2:03:07)
+_TIME_HHMMSS = re.compile(r"^(?P<h>\d{1,2}):(?P<m>[0-5]\d):(?P<s>[0-5]\d)$")
+
+def is_time(
+    s: str,
+    *,
+    allow_mmss: bool = True,
+    allow_hhmmss: bool = True,
+    max_hours: int = 23
+) -> bool:
+    """
+    Overí, či string `s` predstavuje čas vo formáte mm:ss alebo hh:mm:ss.
+
+    - `allow_mmss`    : povoliť formát mm:ss (napr. 5:32)
+    - `allow_hhmmss`  : povoliť formát hh:mm:ss (napr. 01:05:32)
+    - `max_hours`     : horný limit hodín (vrátane) pre hh:mm:ss
+
+    Príklady:
+      is_time("5:32")            -> True
+      is_time("00:59")           -> True
+      is_time("1:02:03")         -> True
+      is_time("25:00:00")        -> False (ak max_hours=23)
+      is_time("7:70")            -> False
+    """
+    if not isinstance(s, str) or not s:
+        return False
+
+    if allow_mmss:
+        m = _TIME_MMSS.match(s)
+        if m:
+            # minúty môžu byť aj >59 (bežecké časy – napr. 75:30)
+            minutes = int(m.group("m"))
+            seconds = int(m.group("s"))
+            return 0 <= seconds <= 59 and minutes >= 0
+
+    if allow_hhmmss:
+        m = _TIME_HHMMSS.match(s)
+        if m:
+            hours = int(m.group("h"))
+            minutes = int(m.group("m"))
+            seconds = int(m.group("s"))
+            return (0 <= hours <= max_hours) and (0 <= minutes <= 59) and (0 <= seconds <= 59)
+
+    return False

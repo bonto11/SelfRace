@@ -28,21 +28,32 @@ export interface ActivityDetailExtra {
 /** Týždenná agregácia pre grafy a summary */
 export type Metric = "km" | "time" | "trimp";
 export interface WeekRow {
-  week: string;              // "YYYY-Www"
-  label: string;             // napr. "1.–7.10."
-  start: string;             // ISO
-  end: string;               // ISO
+  week: string; // "YYYY-Www"
+  label: string; // napr. "1.–7.10."
+  start: string; // ISO
+  end: string; // ISO
   // km
-  km_run: number; km_ride: number; km_mixed: number; km_skate: number;
+  km_run: number;
+  km_ride: number;
+  km_mixed: number;
+  km_skate: number;
   // time (min)
-  time_run_min: number; time_ride_min: number; time_strength_min: number;
-  time_mixed_min: number; time_skate_min: number; time_other_min: number;
+  time_run_min: number;
+  time_ride_min: number;
+  time_strength_min: number;
+  time_mixed_min: number;
+  time_skate_min: number;
+  time_other_min: number;
   // trimp (ak nemáme, bude 0)
-  trimp_run: number; trimp_ride: number; trimp_strength: number;
-  trimp_mixed: number; trimp_skate: number; trimp_other: number;
+  trimp_run: number;
+  trimp_ride: number;
+  trimp_strength: number;
+  trimp_mixed: number;
+  trimp_skate: number;
+  trimp_other: number;
   // monotony/strain pre každý metric
   monotony: { km?: number; time?: number; trimp?: number };
-  strain:   { km?: number; time?: number; trimp?: number };
+  strain: { km?: number; time?: number; trimp?: number };
 }
 
 /* --------------------- normalizácia range payloadu --------------------- */
@@ -73,11 +84,11 @@ function numOrNull(v: any): number | null {
 export function addDays(iso: string, d: number): string {
   const dt = new Date(iso + "T00:00:00");
   dt.setUTCDate(dt.getUTCDate() + d);
-  return dt.toISOString().slice(0,10);
+  return dt.toISOString().slice(0, 10);
 }
 
 export function todayISO(): string {
-  return new Date().toISOString().slice(0,10);
+  return new Date().toISOString().slice(0, 10);
 }
 
 /** ISO týždeň (Po–Ne) vo formáte YYYY-Www + start/end tohto týždňa. */
@@ -90,39 +101,59 @@ export function isoWeekInfo(iso: string) {
   const sun = new Date(mon);
   sun.setUTCDate(mon.getUTCDate() + 6);
 
-  const start = mon.toISOString().slice(0,10);
-  const end   = sun.toISOString().slice(0,10);
+  const start = mon.toISOString().slice(0, 10);
+  const end = sun.toISOString().slice(0, 10);
 
   // číslo týždňa
   const year = mon.getUTCFullYear();
   const week = isoWeekNumber(mon);
-  const weekKey = `${year}-W${String(week).padStart(2,"0")}`;
+  const weekKey = `${year}-W${String(week).padStart(2, "0")}`;
 
   const label = rangeLabel(start, end);
   return { weekKey, start, end, label };
 }
 
 function isoWeekNumber(d: Date): number {
-  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const date = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  );
   // Thursday in current week decides the year.
-  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-  const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(
+    ((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+  );
   return weekNo;
 }
 
 export function rangeLabel(startISO?: string, endISO?: string) {
   if (!startISO || !endISO) return "";
-  const s = new Date(startISO); const e = new Date(endISO);
-  const sd = s.getUTCDate(), sm = s.getUTCMonth() + 1;
-  const ed = e.getUTCDate(), em = e.getUTCMonth() + 1;
+  const s = new Date(startISO);
+  const e = new Date(endISO);
+  const sd = s.getUTCDate(),
+    sm = s.getUTCMonth() + 1;
+  const ed = e.getUTCDate(),
+    em = e.getUTCMonth() + 1;
   return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
 
 /* --------------------- kategorizácia športu --------------------- */
-export type EffSport = "run" | "ride" | "strength" | "mixed" | "skate" | "other";
-export function toEffSportKey(row: Pick<ActivityRow,"sport_type"|"sport_type_fe"|"sport_type_ovrd">): EffSport {
-  const s = (row.sport_type_ovrd ?? row.sport_type_fe ?? row.sport_type ?? "").toLowerCase();
+export type EffSport =
+  | "run"
+  | "ride"
+  | "strength"
+  | "mixed"
+  | "skate"
+  | "other";
+export function toEffSportKey(
+  row: Pick<ActivityRow, "sport_type" | "sport_type_fe" | "sport_type_ovrd">
+): EffSport {
+  const s = (
+    row.sport_type_ovrd ??
+    row.sport_type_fe ??
+    row.sport_type ??
+    ""
+  ).toLowerCase();
   if (/run/.test(s)) return "run";
   if (/ride|bike|cycling/.test(s)) return "ride";
   if (/strength|gym|weights/.test(s)) return "strength";
@@ -135,17 +166,29 @@ export function toEffSportKey(row: Pick<ActivityRow,"sport_type"|"sport_type_fe"
 /* --------------------- týždenné agregácie --------------------- */
 export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
   // denné koše pre km/time/trimp
-  const daily = new Map<string, {
-    km: number; time: number; trimp: number;
-    bySport: Record<EffSport, { km:number; min:number; trimp:number }>;
-  }>();
+  const daily = new Map<
+    string,
+    {
+      km: number;
+      time: number;
+      trimp: number;
+      bySport: Record<EffSport, { km: number; min: number; trimp: number }>;
+    }
+  >();
   const ensure = (iso: string) => {
     if (!daily.has(iso)) {
       daily.set(iso, {
-        km: 0, time: 0, trimp: 0,
-        bySport: { run: {km:0,min:0,trimp:0}, ride:{km:0,min:0,trimp:0},
-                   strength:{km:0,min:0,trimp:0}, mixed:{km:0,min:0,trimp:0},
-                   skate:{km:0,min:0,trimp:0}, other:{km:0,min:0,trimp:0} }
+        km: 0,
+        time: 0,
+        trimp: 0,
+        bySport: {
+          run: { km: 0, min: 0, trimp: 0 },
+          ride: { km: 0, min: 0, trimp: 0 },
+          strength: { km: 0, min: 0, trimp: 0 },
+          mixed: { km: 0, min: 0, trimp: 0 },
+          skate: { km: 0, min: 0, trimp: 0 },
+          other: { km: 0, min: 0, trimp: 0 },
+        },
       });
     }
     return daily.get(iso)!;
@@ -168,13 +211,19 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
   }
 
   // skupiny podľa ISO týždňa
-  const weeks = new Map<string, {
-    days: string[]; start: string; end: string; label: string;
-    // súčty
-    bySportKm: Record<EffSport, number>;
-    bySportMin: Record<EffSport, number>;
-    bySportTrimp: Record<EffSport, number>;
-  }>();
+  const weeks = new Map<
+    string,
+    {
+      days: string[];
+      start: string;
+      end: string;
+      label: string;
+      // súčty
+      bySportKm: Record<EffSport, number>;
+      bySportMin: Record<EffSport, number>;
+      bySportTrimp: Record<EffSport, number>;
+    }
+  >();
 
   [...daily.keys()].sort().forEach((iso) => {
     const info = isoWeekInfo(iso);
@@ -184,9 +233,30 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
         start: info.start,
         end: info.end,
         label: info.label,
-        bySportKm: { run:0,ride:0,strength:0,mixed:0,skate:0,other:0 },
-        bySportMin:{ run:0,ride:0,strength:0,mixed:0,skate:0,other:0 },
-        bySportTrimp:{ run:0,ride:0,strength:0,mixed:0,skate:0,other:0 },
+        bySportKm: {
+          run: 0,
+          ride: 0,
+          strength: 0,
+          mixed: 0,
+          skate: 0,
+          other: 0,
+        },
+        bySportMin: {
+          run: 0,
+          ride: 0,
+          strength: 0,
+          mixed: 0,
+          skate: 0,
+          other: 0,
+        },
+        bySportTrimp: {
+          run: 0,
+          ride: 0,
+          strength: 0,
+          mixed: 0,
+          skate: 0,
+          other: 0,
+        },
       });
     }
     const wk = weeks.get(info.weekKey)!;
@@ -194,47 +264,61 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
 
     const d = daily.get(iso)!;
     (Object.keys(wk.bySportKm) as EffSport[]).forEach((sp) => {
-      wk.bySportKm[sp]   += d.bySport[sp].km;
-      wk.bySportMin[sp]  += d.bySport[sp].min;
-      wk.bySportTrimp[sp]+= d.bySport[sp].trimp;
+      wk.bySportKm[sp] += d.bySport[sp].km;
+      wk.bySportMin[sp] += d.bySport[sp].min;
+      wk.bySportTrimp[sp] += d.bySport[sp].trimp;
     });
   });
 
   // Monotony/Strain: pre každú metriku zober 7 denné hodnoty v týždni
   const out: WeekRow[] = [];
   for (const [weekKey, wk] of weeks) {
-    const kmDaily   = wk.days.map((d) => daily.get(d)!.km);
+    const kmDaily = wk.days.map((d) => daily.get(d)!.km);
     const timeDaily = wk.days.map((d) => daily.get(d)!.time);
-    const trDaily   = wk.days.map((d) => daily.get(d)!.trimp);
+    const trDaily = wk.days.map((d) => daily.get(d)!.trimp);
 
-    const mono: Record<Metric, number|undefined> = {
-      km:   monotony(kmDaily),
+    const mono: Record<Metric, number | undefined> = {
+      km: monotony(kmDaily),
       time: monotony(timeDaily),
-      trimp: trDaily.every(v=>v===0) ? undefined : monotony(trDaily),
+      trimp: trDaily.every((v) => v === 0) ? undefined : monotony(trDaily),
     };
-    const strainVal = (vals:number[], m?:number) => (m && sum(vals)>0) ? (sum(vals) * m) : undefined;
+    const strainVal = (vals: number[], m?: number) =>
+      m && sum(vals) > 0 ? sum(vals) * m : undefined;
 
     out.push({
       week: weekKey,
       label: wk.label,
       start: wk.start,
       end: wk.end,
-      km_run: wk.bySportKm.run, km_ride: wk.bySportKm.ride, km_mixed: wk.bySportKm.mixed, km_skate: wk.bySportKm.skate,
-      time_run_min: wk.bySportMin.run, time_ride_min: wk.bySportMin.ride, time_strength_min: wk.bySportMin.strength,
-      time_mixed_min: wk.bySportMin.mixed, time_skate_min: wk.bySportMin.skate, time_other_min: wk.bySportMin.other,
-      trimp_run: wk.bySportTrimp.run, trimp_ride: wk.bySportTrimp.ride, trimp_strength: wk.bySportTrimp.strength,
-      trimp_mixed: wk.bySportTrimp.mixed, trimp_skate: wk.bySportTrimp.skate, trimp_other: wk.bySportTrimp.other,
+      km_run: wk.bySportKm.run,
+      km_ride: wk.bySportKm.ride,
+      km_mixed: wk.bySportKm.mixed,
+      km_skate: wk.bySportKm.skate,
+      time_run_min: wk.bySportMin.run,
+      time_ride_min: wk.bySportMin.ride,
+      time_strength_min: wk.bySportMin.strength,
+      time_mixed_min: wk.bySportMin.mixed,
+      time_skate_min: wk.bySportMin.skate,
+      time_other_min: wk.bySportMin.other,
+      trimp_run: wk.bySportTrimp.run,
+      trimp_ride: wk.bySportTrimp.ride,
+      trimp_strength: wk.bySportTrimp.strength,
+      trimp_mixed: wk.bySportTrimp.mixed,
+      trimp_skate: wk.bySportTrimp.skate,
+      trimp_other: wk.bySportTrimp.other,
       monotony: { km: mono.km, time: mono.time, trimp: mono.trimp },
       strain: {
         km: strainVal(kmDaily, mono.km),
         time: strainVal(timeDaily, mono.time),
-        trimp: trDaily.every(v=>v===0) ? undefined : strainVal(trDaily, mono.trimp),
+        trimp: trDaily.every((v) => v === 0)
+          ? undefined
+          : strainVal(trDaily, mono.trimp),
       },
     });
   }
 
   // zoradiť podľa začiatku týždňa
-  out.sort((a,b)=> a.start.localeCompare(b.start));
+  out.sort((a, b) => a.start.localeCompare(b.start));
   return out;
 }
 
@@ -246,10 +330,10 @@ function monotony(vals: number[]): number | undefined {
   return round2(m / s);
 }
 
-const mean = (a:number[]) => a.reduce((s,x)=>s+x,0)/a.length;
-const sum  = (a:number[]) => a.reduce((s,x)=>s+x,0);
-function stddev(a:number[], m:number) {
-  const v = a.reduce((s,x)=> s + Math.pow(x-m,2), 0) / a.length;
+const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
+const sum = (a: number[]) => a.reduce((s, x) => s + x, 0);
+function stddev(a: number[], m: number) {
+  const v = a.reduce((s, x) => s + Math.pow(x - m, 2), 0) / a.length;
   return Math.sqrt(v);
 }
-const round2 = (x:number)=> Math.round(x*100)/100;
+const round2 = (x: number) => Math.round(x * 100) / 100;
