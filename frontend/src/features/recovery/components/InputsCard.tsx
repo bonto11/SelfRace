@@ -74,22 +74,33 @@ export default function InputsCard() {
   return (
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
       {/* HEADER actions */}
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => shiftDate(-1)} disabled={saving}>
+      <div className="mb-3">
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => shiftDate(-1)}
+            disabled={saving}
+            aria-label="Predošlý deň"
+          >
             −1d
           </Button>
-
+      
           <TextField
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             disabled={saving}
-            className="w-[140px] text-center"
+            className="w-[150px] text-center"
           />
-
-          <Button size="sm" variant="ghost" onClick={() => shiftDate(+1)} disabled={saving}>
+      
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => shiftDate(+1)}
+            disabled={saving}
+            aria-label="Ďalší deň"
+          >
             +1d
           </Button>
         </div>
