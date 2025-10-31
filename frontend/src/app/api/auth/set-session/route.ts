@@ -46,29 +46,16 @@ export async function POST(req: NextRequest) {
     const event = body?.event ?? "";
     const session = body?.session ?? null;
 
-    // 🔴 SIGN OUT
+    // SIGN OUT – vyčisti httpOnly cookies + naše ID cookies
     if (event === "SIGNED_OUT") {
-      // 1) Supabase logout
-      await supabase.auth.signOut();
-
-      // 2) Vymaž vlastné cookies
-      const exp = new Date(0);
-      res.cookies.set({ name: SR_UUID, value: "", expires: exp, path: "/" });
-      res.cookies.set({ name: SR_ID, value: "", expires: exp, path: "/" });
-
-      // 3) Povedz browseru nech zmaže cache, cookies a storage
-      res.headers.set("Clear-Site-Data", '"cache", "cookies", "storage"');
-      res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-
+      await supabase.auth.signOut().catch(() => {});
+      res.cookies.delete(SR_UUID);
+      res.cookies.delete(SR_ID);
       return res;
     }
 
-    // 🟢 SIGN IN
-    if (
-      event === "SIGNED_IN" &&
-      session?.access_token &&
-      session?.refresh_token
-    ) {
+    // SIGN IN – zapíš session a naše ID cookies
+    if (event === "SIGNED_IN" && session?.access_token && session?.refresh_token) {
       await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
@@ -84,17 +71,14 @@ export async function POST(req: NextRequest) {
           .eq("user_uid", uuid)
           .single();
 
-        if (userRow?.id != null) {
-          res.cookies.set(SR_ID, String(userRow.id), cookieOpts);
-        }
+        if (userRow?.id != null) res.cookies.set(SR_ID, String(userRow.id), cookieOpts);
       }
 
       return res;
     }
 
     return NextResponse.json({ ok: false }, { status: 400 });
-  } catch (e: any) {
-    console.error("set-session error:", e);
+  } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

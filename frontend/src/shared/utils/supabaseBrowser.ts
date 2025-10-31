@@ -1,20 +1,14 @@
 // src/shared/utils/supabaseBrowser.ts
-import "server-only";                         // 👈 chráni pred klientskym importom
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+
+"use client";
+
+import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export function getSupabaseServer(): SupabaseClient {
-  const cookieStore = cookies();
-  return createServerClient(
+export function getSupabaseBrowser(): SupabaseClient {
+  // žiadne next/headers, žiadny server-only
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: () => {},      // zápis robíme v route/middleware
-        remove: () => {},
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }

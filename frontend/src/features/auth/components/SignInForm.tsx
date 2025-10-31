@@ -4,11 +4,11 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabaseClient } from "@/shared/utils/supabaseClient";
+import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
 
 export default function SignInForm() {
   const router = useRouter();
-  const sb = supabaseClient;
+  const sb = getSupabaseBrowser();
 
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
