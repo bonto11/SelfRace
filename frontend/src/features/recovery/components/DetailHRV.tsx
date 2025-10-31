@@ -178,12 +178,6 @@ export default function DetailHRV() {
             <option value={8}>8 týždňov</option>
             <option value={12}>12 týždňov</option>
           </select>
-          <Link
-            href="/recovery"
-            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm"
-          >
-            Späť
-          </Link>
         </div>
       </div>
 
