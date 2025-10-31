@@ -1,16 +1,15 @@
-// src/shared/components/ui/BackButton.tsx
 "use client";
 import { useRouter } from "next/navigation";
 import Button from "./Button";
 
 type Props = {
-  href?: string;       // ak zadáš, použije push na konkrétnu URL
-  label?: string;
+  href?: string;
+  label?: string;   // ak dáš napr. "←", bude kruh; ak "Späť", ovál
   size?: import("@/shared/ui").ButtonSize;
   className?: string;
 };
 
-export default function ButtonBack({ href, label = "Späť", size="sm", className }: Props) {
+export default function ButtonBack({ href, label = "←", size = "sm", className }: Props) {
   const router = useRouter();
   return (
     <Button
