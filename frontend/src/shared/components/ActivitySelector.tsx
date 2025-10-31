@@ -19,7 +19,7 @@ export default function ActivitySelector({
   userId,
   dateIso,
   sports,
-  deltaDays,
+  deltaDays = 1,
   value,
   onChange,
   onPicked,
@@ -31,7 +31,24 @@ export default function ActivitySelector({
   const disabled = !userId || !dateIso;
   const preloadDoneRef = useRef(false);
 
-  // --- preload, keď je už vybraná aktivita (napr. po Edit) ---
+  async function loadActivities() {
+    if (!userId || !dateIso) return [] as MiniActivity[];
+    return await fetchActivitiesAround(userId, { date: dateIso, deltaDays, sports });
+  }
+
+  // fetch po otvorení selectu
+  useEffect(() => {
+    if (!open || disabled) return;
+    let alive = true;
+    setLoading(true);
+    loadActivities()
+      .then(arr => { if (alive) setItems(arr); })
+      .catch(() => { if (alive) setItems([]); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [open, disabled, userId, dateIso, deltaDays, JSON.stringify(sports)]);
+
+  // AUTO-DOPLNENIE názvu pri edite (bez zmeny výberu)
   useEffect(() => {
     if (!userId || !dateIso || !value || preloadDoneRef.current) return;
     preloadDoneRef.current = true;
@@ -39,17 +56,38 @@ export default function ActivitySelector({
 
     (async () => {
       try {
-        const arr = await fetchActivitiesAround(userId, {
-          date: dateIso,
-          deltaDays,
-          sports,
-        });
+        const arr = await loadActivities();
         if (!alive) return;
         setItems(arr);
-        const match = arr.find(a => String(a.id) === String(value));
-        if (match && typeof onPicked === "function") onPicked(match);
+        const hit = arr.find(a => String(a.id) === String(value));
+        if (onPicked) {
+          if (hit) {
+            onPicked(hit);
+          } else {
+            // ⚠️ fallback objekt, typovo korektný podľa tvojho MiniActivity
+            const phantom: MiniActivity = {
+              id: Number(value),
+              name: "(Unknown activity)",
+              sport: (sports?.[0] ?? "run") as SportFE,
+              start_date: `${dateIso}T00:00:00Z`,
+              distance_km: null,
+              // pridaj sem ďalšie voliteľné polia, ak ich tvoj typ má
+              // duration_min: null,
+            };
+            onPicked(phantom);
+          }
+        }
       } catch {
-        if (alive) setItems([]);
+        if (onPicked) {
+          const phantom: MiniActivity = {
+            id: Number(value),
+            name: "(Unknown activity)",
+            sport: (sports?.[0] ?? "run") as SportFE,
+            start_date: `${dateIso}T00:00:00Z`,
+            distance_km: null,
+          };
+          onPicked(phantom);
+        }
       }
     })();
 
@@ -57,19 +95,6 @@ export default function ActivitySelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, dateIso, value]);
 
-  // --- fetch pri otvorení (klasické okno ±1 deň) ---
-  useEffect(() => {
-    if (!open || disabled) return;
-    let alive = true;
-    setLoading(true);
-    fetchActivitiesAround(userId!, { date: dateIso, deltaDays, sports })
-      .then(arr => { if (alive) setItems(arr); })
-      .catch(() => { if (alive) setItems([]); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [open, disabled, userId, dateIso, deltaDays, JSON.stringify(sports)]);
-
-  // --- render ---
   return (
     <div className={className}>
       <select
@@ -81,8 +106,7 @@ export default function ActivitySelector({
           const id = v ? Number(v) : "";
           onChange(id);
 
-          // pošli aj celý objekt, nech sa uloží názov
-          if (typeof onPicked === "function") {
+          if (onPicked) {
             const picked = v ? items.find(x => String(x.id) === v) ?? null : null;
             onPicked(picked);
           }
@@ -93,6 +117,7 @@ export default function ActivitySelector({
           {disabled ? "pick date first" : loading ? "Loading…" : "— choose activity —"}
         </option>
 
+        {/* len “Názov (X km)” */}
         {!loading && items.map(a => (
           <option key={a.id} value={a.id}>
             {a.name}{a.distance_km ? ` (${a.distance_km} km)` : ""}
@@ -102,8 +127,7 @@ export default function ActivitySelector({
 
       {!disabled && (
         <div className="mt-1 text-xs opacity-70">
-          Načítané podľa dátumu (±{deltaDays ?? 1} dňa) a športu{" "}
-          {sports?.join(", ") ?? "run,mixed"}.
+          Načítané podľa dátumu (±{deltaDays} dňa) a športu {sports?.join(", ") ?? "run,mixed"}.
         </div>
       )}
     </div>
