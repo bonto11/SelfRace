@@ -39,7 +39,7 @@ export default function WidgetPB({
       ? secToHHMMSS(fav.best_time_s)
       : fav?.time_str ?? "—";
 
-  const sub = `Distance: ${distanceLabel(favM, "run")}`;
+  const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
   return (
     <OpenerWidget
