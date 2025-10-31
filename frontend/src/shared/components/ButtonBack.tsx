@@ -10,7 +10,7 @@ type Props = {
   className?: string;
 };
 
-export default function BackButton({ href, label = "Späť", size="sm", className }: Props) {
+export default function ButtonBack({ href, label = "Späť", size="sm", className }: Props) {
   const router = useRouter();
   return (
     <Button
