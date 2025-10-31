@@ -13,10 +13,13 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
-import type { MiniActivity } from "@/shared/types/activities";
 import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
+import type { MiniActivity } from "@/shared/types/activities";
 import { toast } from "@/shared/components/ui/Toast";
-
+import { confirm } from "@/shared/components/ui/Confirm";
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
+import { inputClass } from "@/shared/ui";
 
 /* ----------------------- Form state ----------------------- */
 export type PBRunFormState = {
@@ -52,7 +55,6 @@ export default function PBRun() {
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
 
   /* ---------- load ---------- */
@@ -62,7 +64,7 @@ export default function PBRun() {
     try {
       setRows(await getBests(userId, "run"));
     } catch (e: any) {
-      toast.error(String(e?.message ?? e));  
+      toast.error(String(e?.message ?? e));
     } finally {
       setLoading(false);
     }
@@ -93,20 +95,9 @@ export default function PBRun() {
           : { time_str: form.time_str.trim() }),
       };
 
-      // posielaj activity_id vždy, keď nie je prázdny string
-      if (form.activity_id !== "") {
-        payload.activity_id = Number(form.activity_id);
-      }
-
-      // POSIELAJ AJ activity_name, ak je definované (môže byť aj prázdny string = vymaž)
-      if (form.activity_name !== undefined) {
-        payload.activity_name = form.activity_name.trim();
-      }
-
-      // dátum normalizuj na YYYY-MM-DD
-      if (form.achieved_at) {
-        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
-      }
+      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await saveBest(userId, payload);
       toast.success("Personal best saved");
@@ -118,16 +109,22 @@ export default function PBRun() {
       setSaving(false);
     }
   };
-  const confirmDelete = async (m: number) => {
-    if (!userId) return;
+
+  const handleDelete = async (m: number) => {
+    const ok = await confirm({
+      title: "Vymazať rekord?",
+      message: `Túto akciu nemožno vrátiť.\n(${distanceLabel(m, "run")})`,
+      okText: "Vymazať",
+      cancelText: "Zrušiť",
+      tone: "danger",
+    });
+    if (!ok || !userId) return;
     try {
       await deleteBest(userId, m, "run");
       toast.success("Record deleted");
       await refresh();
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
-    } finally {
-      setPendingDelete(null);
     }
   };
 
@@ -141,11 +138,9 @@ export default function PBRun() {
       {/* FORM */}
       <div className="grid gap-2 sm:grid-cols-12 items-start">
         <select
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
+          className={inputClass + " sm:col-span-3"}
           value={form.distance_m}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, distance_m: e.target.value }))
-          }
+          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
@@ -155,69 +150,68 @@ export default function PBRun() {
           ))}
         </select>
 
-        <input
-          className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full sm:col-span-3"
+        <TextField
+          label=""
           placeholder="hh:mm:ss"
           value={form.time_str}
           onChange={(e) =>
-            setForm((f) => ({ ...f, time_str: maskHHMMSS(e.target.value) }))
+            setForm((f) => ({ ...f, time_str: maskHHMMSS((e.target as HTMLInputElement).value) }))
           }
           inputMode="numeric"
+          containerClassName="sm:col-span-3"
         />
 
-        {/* Date s overlayom – nikdy nepretečie */}
+        {/* Date s overlayom – ostáva tvoj UX, len look */}
         <div className="relative sm:col-span-2 w-full max-w-[180px]">
-          <div className="bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-center select-none truncate">
+          <div className={inputClass + " text-center select-none truncate"}>
             {prettyDate(form.achieved_at)}
           </div>
           <input
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
             value={form.achieved_at}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, achieved_at: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
             aria-label="Pick date"
           />
         </div>
 
-        {/* Activity selector (očakáva len názov + dĺžku v labeli) */}
+        {/* Activity selector */}
         <div className="sm:col-span-4">
           <ActivitySelector
             userId={userId ?? null}
             dateIso={form.achieved_at}
             sports={["run", "mixed"]}
             value={form.activity_id ? Number(form.activity_id) : ""}
-            onChange={(v) =>
-              setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
-            }
-            onPicked={(a) =>
+            onChange={(v) => setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))}
+            onPicked={(a: MiniActivity | null) =>
               setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
             }
           />
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end sm:col-span-12">
-          <button
+          <Button
             onClick={handleSave}
             disabled={!canSave}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded disabled:opacity-50 text-sm"
+            variant="success"
           >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
+            {saving ? "Ukladám…" : "Uložiť"}
+          </Button>
+
+          <Button
+            variant="secondary"
             onClick={() => setForm(EMPTY)}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm"
           >
             Clear
-          </button>
-          <button
+          </Button>
+
+          <Button
+            variant="ghost"
             onClick={refresh}
             disabled={loading}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm"
           >
-            {loading ? "Loading…" : "Refresh"}
-          </button>
+            {loading ? "Načítavam…" : "Refresh"}
+          </Button>
         </div>
       </div>
 
@@ -232,40 +226,36 @@ export default function PBRun() {
               onEdit={() => {
                 setForm({
                   distance_m: String(b.distance_m),
-                  time_str:
-                    b.time_str ??
-                    (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                  achieved_at: isoDateOnly(b.achieved_at), // YYYY-MM-DD
-                  activity_id:
-                    b.activity_id != null ? String(b.activity_id) : "",
+                  time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                  achieved_at: isoDateOnly(b.achieved_at),
+                  activity_id: b.activity_id != null ? String(b.activity_id) : "",
                   activity_name: (b as any).activity_name ?? "",
                 });
               }}
-              onDelete={() => setPendingDelete(b.distance_m)}
+              onDelete={() => handleDelete(b.distance_m)}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
                       aria-label="Set as favorite"
+                      variant="ghost"
+                      size="sm"
+                      circle
                       onClick={() => setFavM(b.distance_m)}
-                      className={`text-lg leading-none shrink-0 ${
-                        favoriteM === b.distance_m
-                          ? "text-yellow-400"
-                          : "text-gray-500 hover:text-gray-300"
-                      }`}
+                      className={
+                        favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"
+                      }
                     >
                       ★
-                    </button>
+                    </Button>
                     <div className="text-sm font-medium truncate">
                       {distanceLabel(b.distance_m, "run")}
                     </div>
                   </div>
 
                   <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
-                    {b.best_time_s != null
-                      ? secToHHMMSS(b.best_time_s)
-                      : b.time_str ?? "—"}
+                    {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
                   </div>
 
                   <div className="mt-1 text-xs opacity-75">
@@ -276,8 +266,7 @@ export default function PBRun() {
                         <button
                           className="underline hover:opacity-100 opacity-90"
                           onClick={() => {
-                            if (b.activity_id != null)
-                              setDetailId(Number(b.activity_id));
+                            if (b.activity_id != null) setDetailId(Number(b.activity_id));
                           }}
                           disabled={b.activity_id == null}
                         >
@@ -290,36 +279,8 @@ export default function PBRun() {
               </div>
             </SwipeRow>
           ))}
-        {rows.length === 0 && (
-          <li className="text-sm opacity-70">No records yet.</li>
-        )}
+        {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
       </ul>
-
-      {/* Delete confirm */}
-      {pendingDelete !== null && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-800 border border-gray-700 rounded p-4 space-y-3 w-[92%] max-w-sm">
-            <div className="font-semibold">Delete this record?</div>
-            <div className="text-sm opacity-80">
-              This action cannot be undone.
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                className="px-3 py-1.5 rounded bg-gray-700"
-                onClick={() => setPendingDelete(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1.5 rounded bg-red-600"
-                onClick={() => confirmDelete(pendingDelete!)}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {detailId != null && (
         <ActivityDetailOverlay
@@ -359,7 +320,6 @@ function SwipeRow({
       onTouchMove={(e) => {
         if (startX.current == null) return;
         const dx = e.touches[0].clientX - startX.current;
-        // posúvame iba doľava; ak je otvorené, umožníme ťahom doprava zavrieť
         const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
         setTx(next);
       }}
@@ -390,10 +350,7 @@ function SwipeRow({
       {/* obsah nad akciami */}
       <div
         className="relative z-10 bg-gray-800 px-3 py-2"
-        style={{
-          transform: `translateX(${tx}px)`,
-          transition: "transform 160ms ease-out",
-        }}
+        style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
       >
         {children}
       </div>
