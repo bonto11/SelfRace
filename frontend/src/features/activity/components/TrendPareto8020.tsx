@@ -18,7 +18,7 @@ import {
   isInParetoDefault,
 } from "@/configs/config_sports";
 
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 ensureChartJSRegistered();
 

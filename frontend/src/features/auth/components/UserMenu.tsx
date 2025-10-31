@@ -54,23 +54,6 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.email]);
 
-  /* async function signOut() {
-    setBusy("signout");
-    try {
-      await fetch("/api/auth/set-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ event: "SIGNED_OUT" }),
-      });
-      setOpen(false);
-      router.replace("/signin");
-    } finally {
-      setBusy(null);
-    }
-  }
-     */
-
   async function handleSignOut() {
     setBusy("signout");
     try {

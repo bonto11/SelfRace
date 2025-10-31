@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 function minToHM(totalMin: number) {
   const h = Math.floor(totalMin / 60);

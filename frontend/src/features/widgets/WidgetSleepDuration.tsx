@@ -10,7 +10,7 @@ import {
   compareLatestToBaseline,
 } from "@/shared/utils/recovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 export default function WidgetSleepDuration({
   onOpenDetail,

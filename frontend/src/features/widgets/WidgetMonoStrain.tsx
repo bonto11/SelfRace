@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import OpenerWidget from "@/features/widgets/OpenerWidget";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner"; // NEW
 
 function classifyMonotony(v?: number | null) {
   if (v == null) return { label: "—", accent: "bg-slate-700" };

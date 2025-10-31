@@ -14,7 +14,7 @@ import {
 } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner"; // NEW
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner"; // NEW
 
 ensureChartJSRegistered();
 
