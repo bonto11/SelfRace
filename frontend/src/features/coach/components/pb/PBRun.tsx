@@ -85,17 +85,30 @@ export default function PBRun() {
       const m = Number(form.distance_m);
       const sec = hhmmssToSec(form.time_str.trim());
 
-      await saveBest(userId, {
+      const payload: any = {
         sport: "run",
         distance_m: m,
         ...(Number.isFinite(sec)
           ? { time_sec: sec }
           : { time_str: form.time_str.trim() }),
-        activity_id: form.activity_id ? Number(form.activity_id) : undefined,
-        activity_name: form.activity_name?.trim() || undefined,
-        achieved_at: form.achieved_at?.replace(/\./g, "-") || undefined,
-      } as any);
+      };
 
+      // posielaj activity_id vždy, keď nie je prázdny string
+      if (form.activity_id !== "") {
+        payload.activity_id = Number(form.activity_id);
+      }
+
+      // POSIELAJ AJ activity_name, ak je definované (môže byť aj prázdny string = vymaž)
+      if (form.activity_name !== undefined) {
+        payload.activity_name = form.activity_name.trim();
+      }
+
+      // dátum normalizuj na YYYY-MM-DD
+      if (form.achieved_at) {
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      }
+
+      await saveBest(userId, payload);
       success("Personal best saved");
       setForm(EMPTY);
       await refresh();
