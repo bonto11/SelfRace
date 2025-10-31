@@ -12,7 +12,7 @@ import {
 } from "@/shared/api/bests";
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import useInfoMessage from "@/shared/hooks/useInfoMessage";
-import { useFavoritePBRun } from "@/features/coach/hooks/useFavoritePBRun";
+import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
 import type { MiniActivity } from "@/shared/types/activities";
 import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
