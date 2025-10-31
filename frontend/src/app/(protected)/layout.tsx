@@ -8,6 +8,7 @@ import UserMenu from "@/features/auth/components/UserMenu";
 import InfoMessageHost from "@/shared/components/InfoMessageHost";
 import { SidebarProvider } from "@/features/Toolbars/hooks/useSidebar";
 import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
+import UsePrefsBootstrapper from "@/shared/bootstrap/usePrefs"
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   // SSR kontrola prihlásenia – stačí sr_uuid
@@ -17,6 +18,7 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
     <InfoMessageHost>
       <SidebarProvider>
+        <UsePrefsBootstrapper />
         <div className="min-h-dvh grid lg:grid-cols-[280px_1fr] bg-neutral-950 text-neutral-100">
           <Sidebar />
           <div className="min-h-dvh flex flex-col">

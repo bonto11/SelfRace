@@ -13,12 +13,12 @@ from Routes import (
     streams,
     activity_zones,
     analytics_pareto8020,
-    activities_streams
+    activities_streams,
+    user_prefs,
+    user_bests,
+    context,
+    coach_analysis
 )
-from Routes.context import router as context_router
-from Routes.user_bests import router as bests_router
-from Routes.coach_prefs import router as prefs_router
-from Routes.coach_analysis import router as analysis_router
 
 app = FastAPI()
 
@@ -62,7 +62,7 @@ app.include_router(streams.router)
 app.include_router(activity_zones.router)
 app.include_router(analytics_pareto8020.router)
 app.include_router(activities_streams.router)
-app.include_router(context_router)
-app.include_router(bests_router)
-app.include_router(prefs_router)
-app.include_router(analysis_router)
+app.include_router(user_prefs.router)
+app.include_router(user_bests.router)
+app.include_router(context.router)
+app.include_router(coach_analysis.router)
