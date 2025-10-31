@@ -1,5 +1,4 @@
 // src/shared/utils/auth.ts
-import "server-only";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "./supabaseServer";
 
