@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { signOut } from "@/shared/utils/auth"
 
 type LocalUser = { email: string; name: string; avatarUrl: string | null };
 
@@ -53,7 +54,7 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.email]);
 
-  async function signOut() {
+  /* async function signOut() {
     setBusy("signout");
     try {
       await fetch("/api/auth/set-session", {
@@ -64,6 +65,16 @@ export default function UserMenu() {
       });
       setOpen(false);
       router.replace("/signin");
+    } finally {
+      setBusy(null);
+    }
+  }
+     */
+
+  async function handleSignOut() {
+    setBusy("signout");
+    try {
+      await signOut("/signin");
     } finally {
       setBusy(null);
     }
@@ -98,7 +109,7 @@ export default function UserMenu() {
             </a>
             <button
               className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-              onClick={signOut}
+              onClick={handleSignOut}
               disabled={busy === "signout"}
             >
               {busy === "signout" ? "Signing out…" : "Sign out"}
