@@ -1,6 +1,7 @@
+// src/features/widgets/WidgetCoachPrefs.tsx
 "use client";
 
-import OpenerWidget from "@/features/widgets/OpenerWidget";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 
 type Props = {
@@ -12,11 +13,13 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
   const sports = prefs.primary_sports ?? prefs.sports ?? [];
 
   return (
-    <OpenerWidget
+    <WidgetCard
       title="Coach — Preferences"
-      accent="bg-blue-600"
-      onOpenDetail={onOpenDetail}
       note="Tapni pre detail nastavení."
+      accent="bg-blue-600"
+      onOpen={onOpenDetail}
+      interactive={!!onOpenDetail}
+      minH={160}
     >
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="opacity-75">Goal</div>
@@ -28,6 +31,6 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
         <div className="opacity-75">Sports</div>
         <div className="font-semibold">{sports.join(", ") || "—"}</div>
       </div>
-    </OpenerWidget>
+    </WidgetCard>
   );
 }
