@@ -111,29 +111,3 @@ export default function ToastHost() {
     </Ctx.Provider>
   );
 }
-
-/**
- * Potrebné globálne CSS (pridaj raz do globals.css).
- * Mierne spomalené pre plynulý „slide“ (300ms).
- */
-/*
-.toast-enter {
-  transform: translateX(28vw);
-  opacity: 0.0;
-  transition: transform 320ms cubic-bezier(.22,.61,.36,1), opacity 320ms ease;
-}
-.toast-hold {
-  transform: translateX(0);
-  opacity: 1;
-  transition: transform 220ms ease-out, opacity 220ms ease-out;
-}
-.toast-exit {
-  transform: translateX(28vw);
-  opacity: 0;
-  transition: transform 340ms cubic-bezier(.4,.0,.2,1), opacity 260ms ease;
-}
-@media (min-width: 640px) { /* desktop – kratšia dráha */
-  .toast-enter { transform: translateX(340px); }
-  .toast-exit  { transform: translateX(340px); }
-}
-*/
