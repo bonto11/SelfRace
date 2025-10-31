@@ -19,6 +19,7 @@ import {
 } from "@/configs/config_sports";
 
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 ensureChartJSRegistered();
 
@@ -252,22 +253,24 @@ export default function TrendPareto8020({
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
       {/* header */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
-
-        <div className="flex items-center gap-2 text-xs">
-          <select
-            className="px-2 py-1 rounded bg-gray-700 text-white"
-            value={lookback}
-            onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
-            title="Lookback"
-          >
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
-        </div>
+    <div className="flex items-center gap-2 mb-2">
+      <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
+    
+      <div className="ml-auto flex items-center gap-2">
+        <select
+          className="px-2 py-1 rounded bg-gray-700 text-white text-xs"
+          value={lookback}
+          onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
+          title="Lookback"
+        >
+          <option value={4}>4 týždne</option>
+          <option value={8}>8 týždňov</option>
+          <option value={12}>12 týždňov</option>
+        </select>
+    
+        <ButtonBack href="/coach" label="Späť" />
       </div>
+    </div>
 
       {/* multi-select športov */}
       <div className="flex flex-wrap gap-2 mb-3">
