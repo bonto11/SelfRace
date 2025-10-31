@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
+import { toast } from "@/shared/components/ui/Toast";
 import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
@@ -25,7 +26,6 @@ export default function ActivitiesPage() {
   const { userId } = useUserId();
   const router = useRouter();
   const [syncing, setSyncing] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   async function handleSync() {
     if (!userId) return;
@@ -39,14 +39,14 @@ export default function ActivitiesPage() {
         const imp = Number.isFinite(json.imported) ? json.imported : 0;
         const upd = Number.isFinite(json.updated) ? json.updated : 0;
         const skp = Number.isFinite(json.skipped) ? json.skipped : 0;
-        setToast(
+        toast.success(
           `✅ Sync OK • imported: ${imp} • updated: ${upd} • skipped: ${skp}`
         );
       } else {
-        setToast(`❌ Sync error: ${json.detail || "unknown"}`);
+        toast.error(`❌ Sync error: ${json.detail || "unknown"}`);
       }
     } catch (e: any) {
-      setToast(`❌ Sync request failed: ${e?.message || e}`);
+      toast.error(`❌ Sync request failed: ${e?.message || e}`);
     } finally {
       setSyncing(false);
     }
@@ -78,8 +78,7 @@ export default function ActivitiesPage() {
         <MonoStrainWidget onOpenDetail={openDetailLoad} />
         <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
       </div>
-
-      {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
+      
     </ActivityDataProvider>
   );
 }

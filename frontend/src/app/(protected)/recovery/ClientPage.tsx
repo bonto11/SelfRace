@@ -11,12 +11,12 @@ import WidgetHRV from "@/features/widgets/WidgetHRV";
 import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
 import InputsCard from "@/features/recovery/components/InputsCard";
+import { toast } from "@/shared/components/ui/Toast";
 
 function RefreshButton() {
   const { refresh, loading } = useRecoveryData();
 
   const onClick = async () => {
-    console.debug("[REC][UI] manual refresh click");
     await refresh(true);
   };
 
