@@ -1,69 +1,72 @@
 // src/shared/ui.ts
-/** Jednoduchý merge util (vyhne sa duplicitám). */
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-/** Základné prvky */
+/** Varianty tlačidiel */
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "success"
+  | "danger"
+  | "ghost"
+  | "back";
+
+/** Veľkosti */
+export type ButtonSize = "xs" | "sm" | "md" | "lg";
+
+/** iOS-like kapsuly (plné zaoblenie) + varianty */
+export function buttonClass(
+  variant: ButtonVariant = "primary",
+  size: ButtonSize = "md",
+  { circle = false }: { circle?: boolean } = {}
+) {
+  const base =
+    "inline-flex items-center justify-center gap-2 " +
+    "font-medium select-none " +
+    "transition-colors duration-200 " +
+    "focus:outline-none focus-visible:ring-2 ring-offset-0 ring-primary/70 " +
+    (circle ? "rounded-full aspect-square " : "rounded-full ");
+
+  const sz =
+    size === "xs"
+      ? circle
+        ? "h-7 w-7 text-xs"
+        : "px-3 py-1.5 text-xs"
+      : size === "sm"
+      ? circle
+        ? "h-8 w-8 text-sm"
+        : "px-3.5 py-2 text-sm"
+      : size === "lg"
+      ? circle
+        ? "h-11 w-11 text-base"
+        : "px-5 py-3 text-base"
+      : // md
+        circle
+        ? "h-9 w-9 text-sm"
+        : "px-4 py-2.5 text-sm";
+
+  const v =
+    variant === "primary"
+      ? "bg-primary text-[color:var(--on-primary)] hover:brightness-110"
+      : variant === "secondary"
+      ? "bg-white/10 text-white hover:bg-white/16 border border-white/15"
+      : variant === "success"
+      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+      : variant === "danger"
+      ? "bg-red-600 text-white hover:bg-red-500"
+      : variant === "back"
+      ? "bg-white/8 text-white hover:bg-white/14 border border-white/10"
+      : // ghost
+        "bg-transparent text-white/90 hover:bg-white/8 border border-white/10";
+
+  return cx(base, sz, v);
+}
+
+/* Text inputs */
 export const inputClass =
-  "w-full rounded-md border border-border bg-surface text-text placeholder:!text-muted px-3 py-2 " +
+  "w-full rounded-lg border border-border bg-surface text-text placeholder:text-muted px-3 py-2 " +
   "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/60";
 
 export const labelClass = "text-sm text-text/90";
 export const hintClass = "text-xs text-muted";
-
-/** Button – generátor štýlov cez variant + size */
-export type ButtonVariant =
-  | "primary"   // hlavná akcia (zelená/primárna)
-  | "secondary" // neutrálna
-  | "danger"    // zmazanie
-  | "warning"   // pozor
-  | "ghost"     // bez pozadia
-  | "outline"   // orámovaný
-  | "back"      // štandard “Späť”
-  | "clear"     // šedé "Clear"
-  | "refresh"   // neutrálne "Refresh"
-  | "sync";     // akcie typu Sync
-
-export type ButtonSize = "xs" | "sm" | "md" | "lg";
-
-const BTN_BASE =
-  "inline-flex items-center justify-center select-none whitespace-nowrap rounded-md " +
-  "font-medium transition-colors focus:outline-none focus:ring-2 " +
-  "disabled:opacity-60 disabled:cursor-not-allowed";
-
-const BTN_SIZES: Record<ButtonSize, string> = {
-  xs: "text-xs px-2 py-1",
-  sm: "text-sm px-2.5 py-1.5",
-  md: "text-sm px-3 py-2",
-  lg: "text-base px-4 py-2.5",
-};
-
-const BTN_VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    "bg-primary text-[color:var(--on-primary)] hover:brightness-110 focus:ring-primary",
-  secondary:
-    "bg-muted/20 text-text hover:bg-muted/30 border border-border focus:ring-border",
-  danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-600",
-  warning: "bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-600",
-  ghost:
-    "bg-transparent text-text hover:bg-white/5 focus:ring-border border border-transparent",
-  outline:
-    "bg-transparent text-text border border-border hover:bg-white/5 focus:ring-border",
-  back:
-    "bg-transparent text-text border border-border hover:bg-white/5 focus:ring-border",
-  clear:
-    "bg-gray-700 text-white hover:bg-gray-600 focus:ring-gray-600 border border-gray-700",
-  refresh:
-    "bg-gray-700 text-white hover:bg-gray-600 focus:ring-gray-600 border border-gray-700",
-  sync:
-    "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-600",
-};
-
-export function buttonClass(
-  variant: ButtonVariant = "primary",
-  size: ButtonSize = "md",
-  extra?: string
-) {
-  return cx(BTN_BASE, BTN_SIZES[size], BTN_VARIANTS[variant], extra);
-}
