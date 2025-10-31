@@ -8,6 +8,7 @@ import { SidebarProvider } from "@/features/Toolbars/hooks/useSidebar";
 import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
 import UserPrefsBootstrapper from "@/shared/bootstrap/userPrefsBootstrap";
 import ToastHost from "@/shared/components/ui/Toast";
+import ConfirmHost from "@/shared/components/ui/Confirm";
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   // SSR kontrola prihlásenia – stačí sr_uuid
@@ -38,6 +39,7 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
 
       {/* Globálny toast pre protected sekciu */}
       <ToastHost />
+      <ConfirmHost />
     </>
   );
 }
