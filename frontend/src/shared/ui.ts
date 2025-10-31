@@ -1,4 +1,4 @@
-
+//shared/ui.ts
 export const inputClass =
   "w-full rounded-md border border-border bg-surface text-text placeholder:!text-muted px-3 py-2 " +
   "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/60";
