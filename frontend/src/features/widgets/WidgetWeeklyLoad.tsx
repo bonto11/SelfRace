@@ -3,8 +3,8 @@
 
 import { useMemo } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import OpenerWidget from "@/features/widgets/OpenerWidget";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
 
 function minToHM(totalMin: number) {
   const h = Math.floor(totalMin / 60);
@@ -12,12 +12,9 @@ function minToHM(totalMin: number) {
   return { h, m };
 }
 function fmtRange(s: string, e: string) {
-  const sd = new Date(s),
-    ed = new Date(e);
-  const sdD = sd.getDate(),
-    sdM = sd.getMonth() + 1;
-  const edD = ed.getDate(),
-    edM = ed.getMonth() + 1;
+  const sd = new Date(s), ed = new Date(e);
+  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
+  const edD = ed.getDate(), edM = ed.getMonth() + 1;
   return sdM === edM
     ? `${sdD}–${edD}.${edM}.`
     : `${sdD}.${sdM}.–${edD}.${edM}.`;
@@ -32,8 +29,7 @@ export default function WeeklyLoadWidget({
 }) {
   const { rolling7, loading } = useActivityData();
 
-  // rolling 7 dní (čas v minútach)
-  const r7 = rolling7("time");
+  const r7 = rolling7("time"); // čas v minútach
   const totalLast = r7.last.sum || 0;
   const totalPrev = r7.prev.sum || 0;
 
@@ -64,20 +60,21 @@ export default function WeeklyLoadWidget({
       : "";
 
   return (
-    <OpenerWidget title={title} accent={accent} onOpenDetail={onOpenDetail}>
+    <WidgetCard
+      title={title}
+      accent={accent}
+      onOpen={onOpenDetail}
+      interactive={!!onOpenDetail}
+      minH={160}
+    >
       {loading ? (
-        <div
-          className="w-full flex items-center justify-center py-4"
-          aria-live="polite"
-        >
-          <LoadingSpinner size="widget" /> {/* NEW */}
+        <div className="w-full flex items-center justify-center py-4" aria-live="polite">
+          <LoadingSpinner size="widget" />
         </div>
       ) : (
         <>
           <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-extrabold leading-none tabular-nums">
-              {h}
-            </span>
+            <span className="text-5xl font-extrabold leading-none tabular-nums">{h}</span>
             <span className="text-xl opacity-80">h</span>
             <span className="text-5xl font-extrabold leading-none tabular-nums">
               {m.toString().padStart(2, "0")}
@@ -91,6 +88,6 @@ export default function WeeklyLoadWidget({
           </div>
         </>
       )}
-    </OpenerWidget>
+    </WidgetCard>
   );
 }
