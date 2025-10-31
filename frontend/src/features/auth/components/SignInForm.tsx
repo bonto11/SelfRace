@@ -1,13 +1,14 @@
 // src/features/auth/components/SignInForm.tsx
+
 "use client";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
+import { supabaseClient } from "@/shared/utils/supabaseClient";
 
 export default function SignInForm() {
   const router = useRouter();
-  const sb = getSupabaseBrowser();
+  const sb = supabaseClient;
 
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
@@ -25,7 +26,6 @@ export default function SignInForm() {
     setErr(null);
     setLoading(true);
 
-    console.log("[SignIn] creating browser client");
     const { data, error } = await sb.auth.signInWithPassword({
       email,
       password: pwd,
@@ -33,30 +33,22 @@ export default function SignInForm() {
 
     setLoading(false);
 
-    console.log("[SignIn] signIn result", {
-      ok: !error,
-      hasSession: !!data?.session,
-      accesstoken: data?.session?.access_token?.slice(0, 8),
-      refreshtoken: data?.session?.refresh_token?.slice(0, 8),
-      error: error?.message,
-    });
-
     if (error) {
       setErr(error.message || "Prihlásenie zlyhalo.");
       return;
     }
 
+    // zapíš httpOnly session + naše sr_* cookies
     if (data?.session) {
       try {
-        const r = await fetch("/api/auth/set-session", {
+        await fetch("/api/auth/set-session", {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
         });
-        console.log("[SignIn] set-session response", r.status);
-      } catch (e) {
-        console.warn("[SignIn] set-session fetch failed", e);
+      } catch {
+        // ticho – UI nezablokujeme
       }
     }
 
