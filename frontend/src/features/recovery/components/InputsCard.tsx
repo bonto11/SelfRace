@@ -1,7 +1,9 @@
-// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
+import Button from "@/shared/components/ui/Button";       // ⬅️ tvoje primárne tlačidlo
+import TextField from "@/shared/components/ui/TextField"; // ⬅️ tvoj text input (podporuje type/placeholder/disabled/...)
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
@@ -69,161 +71,170 @@ export default function InputsCard() {
   }
 
   return (
-    <div className="w-full max-w-none bg-white dark:bg-gray-800 p-4 rounded shadow">
-      {/* HEADER */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-semibold">Recovery Inputs</h2>
+    <WidgetCard
+      title="Recovery Inputs"
+      accent="bg-slate-700"       // neutrálny spodný akcent, môžeš prepnúť na stavový
+      minH={0}                    // formulár nech nerieši min height
+      // bez onOpen – toto nie je „opener“, je to editačná karta
+    >
+      {/* HEADER actions */}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex-1" />
         <div className="flex items-center gap-2">
-          <button
-            className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => shiftDate(-1)}
-            title="Predošlý deň"
+            disabled={saving}
+            aria-label="Predošlý deň"
           >
             −1d
-          </button>
-          <input
+          </Button>
+
+          <TextField
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="px-2 py-1 rounded bg-gray-700 text-sm"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
+            disabled={saving}
+            className="w-[140px] text-center"
           />
-          <button
-            className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => shiftDate(+1)}
-            title="Ďalší deň"
+            disabled={saving}
+            aria-label="Ďalší deň"
           >
             +1d
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* BODY – 1 stĺpec na mobile, 2 stĺpce od md */}
+      {/* BODY */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* RHR */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Resting HR</div>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={rhr}
-              onChange={(e) => setRhr(e.target.value)}
-              placeholder="bpm"
-              className="flex-1 w-full px-2 py-2 rounded bg-gray-700"
-            />
-          </div>
-        </div>
+        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+          <div className="text-sm opacity-75 mb-1">Resting HR</div>
+          <TextField
+            type="number"
+            value={rhr}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRhr(e.target.value)}
+            placeholder="bpm"
+            disabled={saving}
+          />
+        </section>
 
-        {/* HRV avg / max – stacked na mobile, vedľa seba od sm */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">HRV (RMSSD)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
-            <input
+        {/* HRV avg / max */}
+        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+          <div className="text-sm opacity-75 mb-1">HRV (RMSSD)</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <TextField
               type="number"
               value={hrvAvg}
-              onChange={(e) => setHrvAvg(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHrvAvg(e.target.value)}
               placeholder="avg ms"
-              className="w-full px-2 py-2 rounded bg-gray-700"
+              disabled={saving}
             />
-            <input
+            <TextField
               type="number"
               value={hrvMax}
-              onChange={(e) => setHrvMax(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHrvMax(e.target.value)}
               placeholder="max ms"
-              className="w-full px-2 py-2 rounded bg-gray-700"
+              disabled={saving}
             />
           </div>
-        </div>
+        </section>
 
-        {/* Sleep (duration | start) – stacked na mobile, vedľa seba od sm; naprieč na md */}
-        <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Sleep</div>
+        {/* Sleep */}
+        <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+          <div className="text-sm opacity-75 mb-1">Sleep</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input
+            <TextField
               type="text"
               placeholder="HH:MM duration"
               value={sleepDuration}
-              onChange={(e) => handleTimeInput(e, setSleepDuration)}
-              className="w-full px-2 py-2 rounded bg-gray-700"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTimeInput(e, setSleepDuration)}
               inputMode="numeric"
+              disabled={saving}
             />
-            <input
+            <TextField
               type="text"
               placeholder="HH:MM start"
               value={sleepStart}
-              onChange={(e) => handleTimeInput(e, setSleepStart)}
-              className="w-full px-2 py-2 rounded bg-gray-700"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTimeInput(e, setSleepStart)}
               inputMode="numeric"
+              disabled={saving}
             />
           </div>
-        </div>
+        </section>
 
         {/* Evening factors */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-2">Evening factors</div>
+        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+          <div className="text-sm opacity-75 mb-2">Evening factors</div>
+
           <label className="flex items-center gap-2 mb-2">
             <input
               type="checkbox"
               checked={lateFood}
               onChange={(e) => setLateFood(e.target.checked)}
+              disabled={saving}
             />
             <span>Food ≤ 2h before bed</span>
           </label>
+
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={lateCaffeine}
               onChange={(e) => setLateCaffeine(e.target.checked)}
+              disabled={saving}
             />
             <span>Caffeine ≤ 8h before bed</span>
           </label>
-        </div>
+        </section>
 
-        {/* Alcohol – stacked na mobile, vedľa seba od sm */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Alcohol</div>
+        {/* Alcohol */}
+        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+          <div className="text-sm opacity-75 mb-1">Alcohol</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input
+            <TextField
               type="number"
               value={alcoholVolume}
-              onChange={(e) => setAlcoholVolume(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAlcoholVolume(e.target.value)}
               placeholder="ml"
-              className="w-full px-2 py-2 rounded bg-gray-700"
+              disabled={saving}
             />
-            <input
+            <TextField
               type="number"
               value={alcoholType}
-              onChange={(e) => setAlcoholType(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAlcoholType(e.target.value)}
               placeholder="%"
-              className="w-full px-2 py-2 rounded bg-gray-700"
+              disabled={saving}
             />
           </div>
-        </div>
+        </section>
 
         {/* Comment */}
-        <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Comment</div>
-          <textarea
-            value={comments}
-            onChange={(e) => setComments(e.target.value)}
+        <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+          <div className="text-sm opacity-75 mb-1">Comment</div>
+          <TextField
+            as="textarea"
             rows={3}
+            value={comments}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setComments(e.target.value)}
             placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
-            className="w-full px-2 py-2 rounded bg-gray-700 resize-y"
+            disabled={saving}
           />
-        </div>
+        </section>
       </div>
 
       {/* FOOTER */}
       <div className="flex items-center justify-end mt-4">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`px-4 py-2 rounded text-white ${
-            saving ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? "Ukladám…" : "Save"}
-        </button>
+        </Button>
       </div>
-    </div>
+    </WidgetCard>
   );
 }
