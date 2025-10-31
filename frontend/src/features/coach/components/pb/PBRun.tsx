@@ -118,7 +118,6 @@ export default function PBRun() {
       setSaving(false);
     }
   };
-
   const confirmDelete = async (m: number) => {
     if (!userId) return;
     try {
@@ -192,8 +191,8 @@ export default function PBRun() {
             onChange={(v) =>
               setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
             }
-            onPicked={(a: MiniActivity | null) =>
-              setForm((f) => ({ ...f, activity_name: a?.name ?? undefined }))
+            onPicked={(a) =>
+              setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
             }
           />
         </div>
@@ -239,7 +238,7 @@ export default function PBRun() {
                   achieved_at: isoDateOnly(b.achieved_at), // YYYY-MM-DD
                   activity_id:
                     b.activity_id != null ? String(b.activity_id) : "",
-                  activity_name: (b as any).activity_name ?? undefined,
+                  activity_name: (b as any).activity_name ?? "",
                 });
               }}
               onDelete={() => setPendingDelete(b.distance_m)}

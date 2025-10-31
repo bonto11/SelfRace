@@ -53,8 +53,8 @@ export default function ActivitySelector({
           onChange(id);
 
           // nájdi vybranú activitu a pošli ju hore
-          if (onPicked) {
-            const picked = v ? items.find(a => String(a.id) === v) ?? null : null;
+          if (typeof onPicked === "function") {
+            const picked = v ? items.find(x => String(x.id) === v) ?? null : null;
             onPicked(picked);
           }
         }}
