@@ -12,13 +12,6 @@ import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
 import ActivitiesCalendarCard from "@/shared/componentsActivitiesCalendar";
 
-export default function ActivitiesCalendarPage() {
-  return (
-    <div className="max-w-screen-lg mx-auto px-3 py-3">
-      <ActivitiesCalendarCard />
-    </div>
-  );
-}
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
     <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white text-sm px-4 py-3 rounded shadow-lg">
