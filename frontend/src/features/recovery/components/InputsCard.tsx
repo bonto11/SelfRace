@@ -75,12 +75,13 @@ export default function InputsCard() {
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
       {/* HEADER actions */}
       <div className="mb-3">
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-3">
           <Button
             size="sm"
             variant="ghost"
             onClick={() => shiftDate(-1)}
             disabled={saving}
+            className="shrink-0"
             aria-label="Predošlý deň"
           >
             −1d
@@ -91,7 +92,11 @@ export default function InputsCard() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
             disabled={saving}
-            className="w-[150px] text-center"
+            className="
+              w-[150px] text-center shrink-0
+              focus:ring-2 focus:ring-white/25 focus:ring-offset-2
+              focus:ring-offset-[--widget-bg,_#0b0f1a]   /* fallback ak nemáš CSS var */
+            "
           />
       
           <Button
@@ -99,6 +104,7 @@ export default function InputsCard() {
             variant="ghost"
             onClick={() => shiftDate(+1)}
             disabled={saving}
+            className="shrink-0"
             aria-label="Ďalší deň"
           >
             +1d
