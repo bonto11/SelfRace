@@ -1,20 +1,26 @@
 "use client";
 
 import React from "react";
-import CalendarMonth, { CalActivity } from "@/shared/components/CalendarMonth";
-import {
-  ActivityDataProvider,
-  useActivityData,
-} from "@/shared/components/dataProviders/ActivityDataProvider";
-import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
+import { ActivityDataProvider, useActivityData } from "./dataProviders/ActivityDataProvider";
+import CalendarMonth, { CalActivity } from "./CalendarMonth";
+import ActivityDetailOverlay from "./ActivityDetailOverlay";
 
-/* --- helpers --- */
+/* utils */
 function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
-function ymd(d: Date) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
-function monthBounds(year: number, month1to12: number) {
-  const from = new Date(year, month1to12 - 1, 1);
-  const to = new Date(year, month1to12, 0);
+function ymd(d: Date) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function monthBounds(year: number, m1: number) {
+  const from = new Date(year, m1 - 1, 1);
+  const to = new Date(year, m1, 0);
   return { startIso: ymd(from), endIso: ymd(to) };
+}
+function pickSport(row: any): string {
+  return (
+    row?.sport ??
+    row?.sport_kind ??
+    row?.activity_type ??
+    row?.type ??
+    "other"
+  );
 }
 
 /** Vyrob mapu aktivít pre daný mesiac z provider.rows */
@@ -23,8 +29,8 @@ function useMonthMap(year: number, month: number) {
   return React.useMemo(() => {
     const { startIso, endIso } = monthBounds(year, month);
     const map: Record<string, CalActivity[]> = {};
+
     for (const r of rows) {
-      // ActivityRow má .date (YYYY-MM-DD), .activity_id, .name
       const d = r.date?.slice(0, 10);
       if (!d || d < startIso || d > endIso) continue;
       const id = Number((r as any).activity_id ?? (r as any).id);
@@ -33,18 +39,21 @@ function useMonthMap(year: number, month: number) {
         (r as any).title ??
         (r as any).activity_name ??
         "Activity";
-      (map[d] ||= []).push({ id, name: String(name), date: d });
+      const sport = pickSport(r);
+      (map[d] ||= []).push({ id, name: String(name), date: d, sport });
     }
+    // voliteľne: zoradiť položky v dni (napr. behy prvé)
+    for (const k of Object.keys(map)) map[k].sort((a, b) => a.name.localeCompare(b.name));
     return map;
   }, [rows, year, month]);
 }
 
-/* Public wrapper – dá vlastný provider s väčším rozsahom (napr. 400 dní) */
-export default function ActivitiesCalendarCard() {
-  const today = new Date();
+/** Verejný wrapper – dá vlastný provider s väčším rozsahom (pokryje kalendár). */
+export default function ActivitiesCalendar() {
+  const now = new Date();
   return (
     <ActivityDataProvider days={400}>
-      <Inner y0={today.getFullYear()} m0={today.getMonth() + 1} />
+      <Inner y0={now.getFullYear()} m0={now.getMonth() + 1} />
     </ActivityDataProvider>
   );
 }
