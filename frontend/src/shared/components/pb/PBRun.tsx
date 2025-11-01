@@ -287,7 +287,7 @@ export default function PBRun() {
 }
 
 /* -------------------- SwipeRow -------------------- */
-/* -------------------- SwipeRow (solid card + subtle actions) -------------------- */
+/* -------------------- SwipeRow (clean actions behind card) -------------------- */
 function SwipeRow({
   children,
   onEdit,
@@ -303,7 +303,7 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  // šírka akčného panelu (2×84 = 168px)
+  // ~2 tlačidlá, každé cca 84 px
   const ACTION_W = 168;
   const SNAP_OPEN = -ACTION_W;
   const SNAP_CLOSED = 0;
@@ -328,79 +328,34 @@ function SwipeRow({
   };
 
   return (
-    <li
-      className="relative overflow-hidden"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
-      {/* podklad pod kartou, nech „kreslí“ obrys aj pri vysunutí */}
-      <div className="absolute inset-0 rounded-2xl border border-white/10 bg-white dark:bg-[#0b0f1a]" />
-
-      {/* akčný panel vpravo (subtle farby, zaoblené aby lícovali s kartou) */}
-      <div className="absolute inset-y-1 right-1 z-0 flex w-[168px] gap-2">
+    <li className="relative overflow-hidden" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      {/* Akcie ZA kartou – žiadne pozadie panelu, len tlačidlá; 100% výška rodiča */}
+      <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
-          className={[
-            "flex-1 rounded-2xl",
-            "bg-amber-600/70 hover:bg-amber-600 text-white",
-            "font-semibold text-sm"
-          ].join(" ")}
+          className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
+                     bg-amber-500/60 hover:bg-amber-500/80 text-white
+                     border border-white/10 transition-colors"
           onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}
         >
           Edit
         </button>
         <button
-          className={[
-            "flex-1 rounded-2xl",
-            "bg-rose-600/75 hover:bg-rose-600 text-white",
-            "font-semibold text-sm"
-          ].join(" ")}
+          className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
+                     bg-rose-500/65 hover:bg-rose-500/80 text-white
+                     border border-white/10 transition-colors"
           onClick={onDelete}
         >
           Delete
         </button>
       </div>
 
-      {/* POSÚVANÁ VRSTVA – celá karta (solid, bez priehľadnosti) */}
+      {/* POSÚVANÁ KARTA – SOLID, bez spodnej lišty/akcentu */}
       <div
-        className={[
-          "relative z-10 px-3 py-2",
-          "rounded-2xl shadow-lg border border-white/10",
-          "bg-white dark:bg-[#0b0f1a]",           // SOLID card
-          "flex items-start justify-between gap-3",
-        ].join(" ")}
-        style={
-          enableSwipe
-            ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }
-            : undefined
-        }
+        className="relative z-10 px-3 py-2 rounded-2xl shadow-lg border border-white/10 bg-white dark:bg-[#0b0f1a]"
+        style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
       >
-        {/* obsah */}
-        <div className="min-w-0">{children}</div>
-
-        {/* desktop (no-touch): jemné kruhové akcie vpravo, menej výrazné */}
-        {!enableSwipe && (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={onEdit}
-              title="Edit"
-              className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/80"
-            >
-              ✎
-            </button>
-            <button
-              onClick={onDelete}
-              title="Delete"
-              className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/80"
-            >
-              🗑
-            </button>
-          </div>
-        )}
+        {children}
       </div>
-
-      {/* spodná lišta (accent) */}
-      <div className="h-1.5 rounded-b-2xl bg-emerald-600" />
     </li>
   );
 }
