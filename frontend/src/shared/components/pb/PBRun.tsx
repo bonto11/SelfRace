@@ -24,9 +24,9 @@ import { inputClass } from "@/shared/ui";
 /* ----------------------- Form state ----------------------- */
 export type PBRunFormState = {
   distance_m: string;
-  time_str: string; // hh:mm:ss
-  achieved_at: string; // YYYY-MM-DD
-  activity_id: string; // "" alebo číslo v texte
+  time_str: string;       // hh:mm:ss
+  achieved_at: string;    // YYYY-MM-DD
+  activity_id: string;    // "" alebo číslo v texte
   activity_name?: string;
 };
 
@@ -70,7 +70,7 @@ export default function PBRun() {
     }
   };
   useEffect(() => {
-    if (userId) refresh(); /* eslint-disable-next-line */
+    if (userId) refresh(); /* eslint-disable-line react-hooks/exhaustive-deps */
   }, [userId]);
 
   /* ---------- guards ---------- */
@@ -90,9 +90,7 @@ export default function PBRun() {
       const payload: any = {
         sport: "run",
         distance_m: m,
-        ...(Number.isFinite(sec)
-          ? { time_sec: sec }
-          : { time_str: form.time_str.trim() }),
+        ...(Number.isFinite(sec) ? { time_sec: sec } : { time_str: form.time_str.trim() }),
       };
 
       if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
@@ -135,10 +133,10 @@ export default function PBRun() {
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
-      {/* FORM */}
-      <div className="grid gap-2 sm:grid-cols-12 items-start">
+      {/* FORM – popup look prvky */}
+      <div className="grid gap-3 sm:grid-cols-12 items-start">
         <select
-          className={inputClass + " sm:col-span-3"}
+          className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
           onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
         >
@@ -151,7 +149,6 @@ export default function PBRun() {
         </select>
 
         <TextField
-          label=""
           placeholder="hh:mm:ss"
           value={form.time_str}
           onChange={(e) =>
@@ -161,7 +158,7 @@ export default function PBRun() {
           containerClassName="sm:col-span-3"
         />
 
-        {/* Date s overlayom – ostáva tvoj UX, len look */}
+        {/* Date overlay – input vizuál zachovaný */}
         <div className="relative sm:col-span-2 w-full max-w-[180px]">
           <div className={inputClass + " text-center select-none truncate"}>
             {prettyDate(form.achieved_at)}
@@ -175,7 +172,6 @@ export default function PBRun() {
           />
         </div>
 
-        {/* Activity selector */}
         <div className="sm:col-span-4">
           <ActivitySelector
             userId={userId ?? null}
@@ -190,32 +186,19 @@ export default function PBRun() {
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end sm:col-span-12">
-          <Button
-            onClick={handleSave}
-            disabled={!canSave}
-            variant="success"
-          >
+          <Button onClick={handleSave} disabled={!canSave} variant="success">
             {saving ? "Ukladám…" : "Uložiť"}
           </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setForm(EMPTY)}
-          >
+          <Button variant="secondary" onClick={() => setForm(EMPTY)}>
             Clear
           </Button>
-
-          <Button
-            variant="ghost"
-            onClick={refresh}
-            disabled={loading}
-          >
+          <Button variant="ghost" onClick={refresh} disabled={loading}>
             {loading ? "Načítavam…" : "Refresh"}
           </Button>
         </div>
       </div>
 
-      {/* LIST (karty) + 2-polohový swipe */}
+      {/* LIST – rad s popup look pozadím + swipe */}
       <ul className="space-y-2">
         {rows
           .slice()
@@ -243,9 +226,7 @@ export default function PBRun() {
                       size="sm"
                       circle
                       onClick={() => setFavM(b.distance_m)}
-                      className={
-                        favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"
-                      }
+                      className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
                     >
                       ★
                     </Button>
@@ -283,11 +264,7 @@ export default function PBRun() {
       </ul>
 
       {detailId != null && (
-        <ActivityDetailOverlay
-          activityId={detailId}
-          open={true}
-          onClose={() => setDetailId(null)}
-        />
+        <ActivityDetailOverlay activityId={detailId} open={true} onClose={() => setDetailId(null)} />
       )}
     </div>
   );
@@ -307,12 +284,15 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  const snap = (x: number) =>
-    setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   return (
     <li
-      className="relative rounded border border-gray-700/60 overflow-hidden"
+      className={[
+        "relative overflow-hidden",
+        "rounded-2xl shadow-lg border border-white/10",
+        "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
+      ].join(" ")}
       onTouchStart={(e) => {
         startX.current = e.touches[0].clientX;
         startTx.current = tx;
@@ -349,11 +329,14 @@ function SwipeRow({
 
       {/* obsah nad akciami */}
       <div
-        className="relative z-10 bg-gray-800 px-3 py-2"
+        className="relative z-10 px-3 py-2"
         style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
       >
         {children}
       </div>
+
+      {/* spodná lišta */}
+      <div className="h-1.5 rounded-b-2xl bg-emerald-600" />
     </li>
   );
 }
