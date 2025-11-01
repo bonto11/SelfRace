@@ -13,7 +13,7 @@ export default function InputsCard() {
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false); // ⬅️ toggle pre rozbalenie
-
+  const [openDate, setOpenDate] = useState(false);
   const [date, setDate] = useState<string>(todayIso);
   const [rhr, setRhr] = useState("");
   const [hrvAvg, setHrvAvg] = useState("");
@@ -73,63 +73,63 @@ export default function InputsCard() {
 
   return (
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
-      {/* HEADER: 3-stĺpcová mriežka -> stred fixne centrovaný */}
-{/* HEADER: segmented group v strede + toggle vpravo, s rozbalením datepickeru */}
-<div className="mb-3">
-  {/* horný riadok */}
-  <div className="flex items-center">
-    <div className="flex-1" />
-
-    {/* stredná skupina – vycentrovaná, symetrické medzery */}
-    <div className="inline-flex items-center justify-center gap-3 select-none">
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => shiftDate(-1)}
-        disabled={saving}
-        className="shrink-0"
-        aria-label="Predošlý deň"
-      >
-        −1d
-      </Button>
-
-      {/* dátum ako „pill“ – NESTLÁČA susedné prvky, žiadny native ring */}
-      <button
-        type="button"
-        onClick={() => setOpenDate((v) => !v)}
-        className="shrink-0 px-4 py-2 rounded-xl border border-white/15 bg-white/5 dark:bg-gray-900/40
-                   hover:bg-white/10 transition-colors
-                   text-sm font-medium"
-        title="Zmeniť dátum"
-      >
-        {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
-      </button>
-
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => shiftDate(+1)}
-        disabled={saving}
-        className="shrink-0"
-        aria-label="Ďalší deň"
-      >
-        +1d
-      </Button>
-    </div>
-
-    <div className="flex-1 flex justify-end">
-      <Button
-        circle
-        size="sm"
-        variant="secondary"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Zbaliť formulár" : "Rozbaliť formulár"}
-        title={open ? "Zbaliť" : "Rozbaliť"}
-      >
-        {open ? "−" : "+"}
-      </Button>
-    </div>
-  </div>
+    
+    {/* HEADER: segmented group v strede + toggle vpravo, s rozbalením datepickeru */}
+    <div className="mb-3">
+      {/* horný riadok */}
+      <div className="flex items-center">
+        <div className="flex-1" />
+    
+        {/* stredná skupina – vycentrovaná, symetrické medzery */}
+        <div className="inline-flex items-center justify-center gap-3 select-none">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => shiftDate(-1)}
+            disabled={saving}
+            className="shrink-0"
+            aria-label="Predošlý deň"
+          >
+            −1d
+          </Button>
+    
+          {/* dátum ako „pill“ – NESTLÁČA susedné prvky, žiadny native ring */}
+          <button
+            type="button"
+            onClick={() => setOpenDate((v) => !v)}
+            className="shrink-0 px-4 py-2 rounded-xl border border-white/15 bg-white/5 dark:bg-gray-900/40
+                       hover:bg-white/10 transition-colors
+                       text-sm font-medium"
+            title="Zmeniť dátum"
+          >
+            {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
+          </button>
+    
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => shiftDate(+1)}
+            disabled={saving}
+            className="shrink-0"
+            aria-label="Ďalší deň"
+          >
+            +1d
+          </Button>
+        </div>
+    
+        <div className="flex-1 flex justify-end">
+          <Button
+            circle
+            size="sm"
+            variant="secondary"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Zbaliť formulár" : "Rozbaliť formulár"}
+            title={open ? "Zbaliť" : "Rozbaliť"}
+          >
+            {open ? "−" : "+"}
+          </Button>
+        </div>
+      </div>
 
   {/* rozbalený „plný“ datepicker priamo pod skupinou (centrálne) */}
   {openDate && (
