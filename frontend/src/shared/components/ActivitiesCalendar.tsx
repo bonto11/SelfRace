@@ -2,106 +2,76 @@
 
 import React from "react";
 import CalendarMonth, { CalActivity } from "@/shared/components/CalendarMonth";
-import { useActivityData, ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
+import {
+  ActivityDataProvider,
+  useActivityData,
+} from "@/shared/components/dataProviders/ActivityDataProvider";
 import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
 
-/** Pomocná utilita: Y-M prvý / posledný deň v ISO */
+/* --- helpers --- */
+function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
+function ymd(d: Date) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 function monthBounds(year: number, month1to12: number) {
   const from = new Date(year, month1to12 - 1, 1);
   const to = new Date(year, month1to12, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { startIso: iso(from), endIso: iso(to) };
+  return { startIso: ymd(from), endIso: ymd(to) };
 }
 
-/** Bezpečné vyčítanie dátumu z aktivity (podľa toho, čo máš v provideri) */
-function pickDateIso(a: any): string | null {
-  // preferuj "start_time" (ISO) -> YYYY-MM-DD
-  if (typeof a?.start_time === "string" && a.start_time.length >= 10) return a.start_time.slice(0, 10);
-  // fallbacky (ak by boli inde)
-  if (typeof a?.date === "string" && a.date.length >= 10) return a.date.slice(0, 10);
-  if (typeof a?.start_date === "string" && a.start_date.length >= 10) return a.start_date.slice(0, 10);
-  return null;
+/** Vyrob mapu aktivít pre daný mesiac z provider.rows */
+function useMonthMap(year: number, month: number) {
+  const { rows } = useActivityData();
+  return React.useMemo(() => {
+    const { startIso, endIso } = monthBounds(year, month);
+    const map: Record<string, CalActivity[]> = {};
+    for (const r of rows) {
+      // ActivityRow má .date (YYYY-MM-DD), .activity_id, .name
+      const d = r.date?.slice(0, 10);
+      if (!d || d < startIso || d > endIso) continue;
+      const id = Number((r as any).activity_id ?? (r as any).id);
+      const name =
+        (r as any).name ??
+        (r as any).title ??
+        (r as any).activity_name ??
+        "Activity";
+      (map[d] ||= []).push({ id, name: String(name), date: d });
+    }
+    return map;
+  }, [rows, year, month]);
 }
 
-function useMonthActivities(year: number, month: number) {
-  const { listBetween } = useActivityData();
-  const [map, setMap] = React.useState<Record<string, CalActivity[]>>({});
-  const [loading, setLoading] = React.useState(false);
-
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const { startIso, endIso } = monthBounds(year, month);
-        // očakávame, že provider má listBetween(start,end)
-        // ak nie, zober si všetky a prefiltrovať tu
-        const rows: any[] = await listBetween?.(startIso, endIso) ?? [];
-        const next: Record<string, CalActivity[]> = {};
-        for (const r of rows) {
-          const d = pickDateIso(r);
-          if (!d) continue;
-          const id = Number((r as any).id ?? (r as any).activity_id);
-          const name = String((r as any).name ?? (r as any).activity_name ?? "Activity");
-          const item: CalActivity = { id, name, date: d };
-          (next[d] ||= []).push(item);
-        }
-        if (alive) setMap(next);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [year, month, listBetween]);
-
-  return { itemsByDay: map, loading };
-}
-
-/** Public: vlož do stránky – má aj svoj ActivityDataProvider */
+/* Public wrapper – dá vlastný provider s väčším rozsahom (napr. 400 dní) */
 export default function ActivitiesCalendarCard() {
   const today = new Date();
-  const [y, setY] = React.useState(today.getFullYear());
-  const [m, setM] = React.useState(today.getMonth() + 1); // 1-12
-  const [openId, setOpenId] = React.useState<number | null>(null);
-
   return (
-    <ActivityDataProvider days={120}>
-      <InnerCalendar
-        year={y}
-        month={m}
-        setYear={setY}
-        setMonth={setM}
-        openId={openId}
-        setOpenId={setOpenId}
-      />
+    <ActivityDataProvider days={400}>
+      <Inner y0={today.getFullYear()} m0={today.getMonth() + 1} />
     </ActivityDataProvider>
   );
 }
 
-function InnerCalendar({
-  year, month, setYear, setMonth,
-  openId, setOpenId,
-}: {
-  year: number; month: number;
-  setYear: (n: number) => void; setMonth: (n: number) => void;
-  openId: number | null; setOpenId: (n: number | null) => void;
-}) {
-  const { itemsByDay } = useMonthActivities(year, month);
+function Inner({ y0, m0 }: { y0: number; m0: number }) {
+  const [y, setY] = React.useState(y0);
+  const [m, setM] = React.useState(m0); // 1..12
+  const [openId, setOpenId] = React.useState<number | null>(null);
+
+  const itemsByDay = useMonthMap(y, m);
 
   const prev = () => {
-    const d = new Date(year, month - 2, 1);
-    setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+    const d = new Date(y, m - 2, 1);
+    setY(d.getFullYear());
+    setM(d.getMonth() + 1);
   };
   const next = () => {
-    const d = new Date(year, month, 1);
-    setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+    const d = new Date(y, m, 1);
+    setY(d.getFullYear());
+    setM(d.getMonth() + 1);
   };
 
   return (
     <>
       <CalendarMonth
-        year={year}
-        month={month}
+        year={y}
+        month={m}
         itemsByDay={itemsByDay}
         onPrevMonth={prev}
         onNextMonth={next}
