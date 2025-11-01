@@ -21,6 +21,20 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 
+/* ----------------------- Helper: touch detekcia ----------------------- */
+function useIsTouch() {
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const touch =
+      window.matchMedia?.("(pointer: coarse)")?.matches ||
+      navigator.maxTouchPoints > 0 ||
+      ("ontouchstart" in window);
+    setIsTouch(!!touch);
+  }, []);
+  return isTouch;
+}
+
 /* ----------------------- Form state ----------------------- */
 export type PBRunFormState = {
   distance_m: string;
@@ -50,6 +64,7 @@ export default function PBRun() {
   const { userId } = useUserId();
   const { favM, setFavM } = useFavoritePBRun();
   const favoriteM = favM ?? 5000;
+  const isTouch = useIsTouch();
 
   const [rows, setRows] = useState<UserBest[]>([]);
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
@@ -198,7 +213,7 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – rad s popup look pozadím + swipe */}
+      {/* LIST – swipe len na touch; desktop má jemné kruhové akcie vpravo */}
       <ul className="space-y-2">
         {rows
           .slice()
@@ -206,6 +221,7 @@ export default function PBRun() {
           .map((b) => (
             <SwipeRow
               key={b.distance_m}
+              enableSwipe={isTouch}
               onEdit={() => {
                 setForm({
                   distance_m: String(b.distance_m),
@@ -217,7 +233,7 @@ export default function PBRun() {
               }}
               onDelete={() => handleDelete(b.distance_m)}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Button
@@ -270,15 +286,17 @@ export default function PBRun() {
   );
 }
 
-/* -------------------- SwipeRow (2-polohové) -------------------- */
+/* -------------------- SwipeRow -------------------- */
 function SwipeRow({
   children,
   onEdit,
   onDelete,
+  enableSwipe = true,
 }: {
   children: React.ReactNode;
   onEdit: () => void;
   onDelete: () => void;
+  enableSwipe?: boolean;
 }) {
   const [tx, setTx] = useState(0);
   const startX = useRef<number | null>(null);
@@ -286,53 +304,85 @@ function SwipeRow({
 
   const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!enableSwipe) return;
+    startX.current = e.touches[0].clientX;
+    startTx.current = tx;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!enableSwipe || startX.current == null) return;
+    const dx = e.touches[0].clientX - startX.current;
+    const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
+    setTx(next);
+  };
+  const onTouchEnd = () => {
+    if (!enableSwipe) return;
+    snap(tx);
+    startX.current = null;
+  };
+
   return (
-    <li
-      className={[
-        "relative overflow-hidden",
-        "rounded-2xl shadow-lg border border-white/10",
-        "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-      ].join(" ")}
-      onTouchStart={(e) => {
-        startX.current = e.touches[0].clientX;
-        startTx.current = tx;
-      }}
-      onTouchMove={(e) => {
-        if (startX.current == null) return;
-        const dx = e.touches[0].clientX - startX.current;
-        const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
-        setTx(next);
-      }}
-      onTouchEnd={() => {
-        snap(tx);
-        startX.current = null;
-      }}
-    >
+    <li className="relative overflow-hidden" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       {/* action panel pod obsahom */}
       <div className="absolute inset-y-0 right-0 flex w-[160px] z-0">
         <button
           className="w-1/2 h-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
-          onClick={() => {
-            setTx(SNAP_CLOSED);
-            onEdit();
-          }}
+          onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}
         >
           Edit
         </button>
         <button
           className="w-1/2 h-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold"
-          onClick={() => onDelete()}
+          onClick={onDelete}
         >
           Delete
         </button>
       </div>
 
-      {/* obsah nad akciami */}
+      {/* POSÚVANÁ VRSTVA – má celý „popup look“ => nič nepresvitá */}
       <div
-        className="relative z-10 px-3 py-2"
-        style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
+        className={[
+          "relative z-10 px-3 py-2",
+          "rounded-2xl shadow-lg border border-white/10",
+          "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
+          "flex items-start justify-between gap-3",
+        ].join(" ")}
+        style={
+          enableSwipe
+            ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }
+            : undefined
+        }
       >
-        {children}
+        {/* ľavá strana = obsah */}
+        <div className="min-w-0">{children}</div>
+
+        {/* DESKTOP akcie – jemné kruhové ghost tlačidlá */}
+        {!enableSwipe && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              circle
+              variant="ghost"
+              aria-label="Edit"
+              title="Edit"
+              onClick={onEdit}
+              className="opacity-80"
+            >
+              ✎
+            </Button>
+            <Button
+              size="sm"
+              circle
+              variant="ghost"
+              aria-label="Delete"
+              title="Delete"
+              onClick={onDelete}
+              className="opacity-80"
+            >
+              🗑
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* spodná lišta */}
