@@ -1,4 +1,3 @@
-// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
@@ -13,6 +12,7 @@ export default function InputsCard() {
   const { userId } = useUserId();
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false); // ⬅️ toggle pre rozbalenie
 
   const [date, setDate] = useState<string>(todayIso);
   const [rhr, setRhr] = useState("");
@@ -73,9 +73,13 @@ export default function InputsCard() {
 
   return (
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
-      {/* HEADER actions */}
-      <div className="mb-3">
-        <div className="flex items-center justify-center gap-3">
+      {/* HEADER: 3-stĺpcová mriežka -> stred fixne centrovaný */}
+      <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center">
+        {/* Left: title už je v WidgetCard nad tým, tu ponechám prázdne pre vyváženie */}
+        <div />
+
+        {/* Center: date controls (už žiadne prekrývanie) */}
+        <div className="flex items-center justify-center gap-4">
           <Button
             size="sm"
             variant="ghost"
@@ -86,19 +90,18 @@ export default function InputsCard() {
           >
             −1d
           </Button>
-      
+
           <TextField
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             disabled={saving}
             className="
-              w-[150px] text-center shrink-0
-              focus:ring-2 focus:ring-white/25 focus:ring-offset-2
-              focus:ring-offset-[--widget-bg,_#0b0f1a]   /* fallback ak nemáš CSS var */
+              w-[160px] text-center shrink-0
+              focus:ring-2 focus:ring-white/20 focus:ring-offset-2
             "
           />
-      
+
           <Button
             size="sm"
             variant="ghost"
@@ -110,133 +113,149 @@ export default function InputsCard() {
             +1d
           </Button>
         </div>
+
+        {/* Right: toggle + / − (guľatý) */}
+        <div className="flex justify-end">
+          <Button
+            circle
+            size="sm"
+            variant="secondary"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Zbaliť formulár" : "Rozbaliť formulár"}
+            title={open ? "Zbaliť" : "Rozbaliť"}
+          >
+            {open ? "−" : "+"}
+          </Button>
+        </div>
       </div>
 
-      {/* BODY */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* RHR */}
-        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
-          <div className="text-sm opacity-75 mb-1">Resting HR</div>
-          <TextField
-            type="number"
-            value={rhr}
-            onChange={(e) => setRhr(e.target.value)}
-            placeholder="bpm"
-            disabled={saving}
-          />
-        </section>
+      {/* BODY – rendruj len ak je otvorené */}
+      {open && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* RHR */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Resting HR</div>
+              <TextField
+                type="number"
+                value={rhr}
+                onChange={(e) => setRhr(e.target.value)}
+                placeholder="bpm"
+                disabled={saving}
+              />
+            </section>
 
-        {/* HRV avg / max */}
-        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
-          <div className="text-sm opacity-75 mb-1">HRV (RMSSD)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <TextField
-              type="number"
-              value={hrvAvg}
-              onChange={(e) => setHrvAvg(e.target.value)}
-              placeholder="avg ms"
-              disabled={saving}
-            />
-            <TextField
-              type="number"
-              value={hrvMax}
-              onChange={(e) => setHrvMax(e.target.value)}
-              placeholder="max ms"
-              disabled={saving}
-            />
+            {/* HRV avg / max */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">HRV (RMSSD)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TextField
+                  type="number"
+                  value={hrvAvg}
+                  onChange={(e) => setHrvAvg(e.target.value)}
+                  placeholder="avg ms"
+                  disabled={saving}
+                />
+                <TextField
+                  type="number"
+                  value={hrvMax}
+                  onChange={(e) => setHrvMax(e.target.value)}
+                  placeholder="max ms"
+                  disabled={saving}
+                />
+              </div>
+            </section>
+
+            {/* Sleep */}
+            <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Sleep</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TextField
+                  type="text"
+                  placeholder="HH:MM duration"
+                  value={sleepDuration}
+                  onChange={(e) => handleTimeInput(e, setSleepDuration)}
+                  inputMode="numeric"
+                  disabled={saving}
+                />
+                <TextField
+                  type="text"
+                  placeholder="HH:MM start"
+                  value={sleepStart}
+                  onChange={(e) => handleTimeInput(e, setSleepStart)}
+                  inputMode="numeric"
+                  disabled={saving}
+                />
+              </div>
+            </section>
+
+            {/* Evening factors */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-2">Evening factors</div>
+              <label className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  checked={lateFood}
+                  onChange={(e) => setLateFood(e.target.checked)}
+                  disabled={saving}
+                />
+                <span>Food ≤ 2h before bed</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={lateCaffeine}
+                  onChange={(e) => setLateCaffeine(e.target.checked)}
+                  disabled={saving}
+                />
+                <span>Caffeine ≤ 8h before bed</span>
+              </label>
+            </section>
+
+            {/* Alcohol */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Alcohol</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TextField
+                  type="number"
+                  value={alcoholVolume}
+                  onChange={(e) => setAlcoholVolume(e.target.value)}
+                  placeholder="ml"
+                  disabled={saving}
+                />
+                <TextField
+                  type="number"
+                  value={alcoholType}
+                  onChange={(e) => setAlcoholType(e.target.value)}
+                  placeholder="%"
+                  disabled={saving}
+                />
+              </div>
+            </section>
+
+            {/* Comment – natívny textarea, lebo tvoj TextField je input */}
+            <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Comment</div>
+              <textarea
+                rows={3}
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
+                disabled={saving}
+                className="w-full rounded-md bg-white/70 dark:bg-gray-800/60 border border-white/10 px-3 py-2
+                           focus:outline-none focus:ring-2 focus:ring-white/20 resize-y"
+              />
+            </section>
           </div>
-        </section>
 
-        {/* Sleep */}
-        <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
-          <div className="text-sm opacity-75 mb-1">Sleep</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <TextField
-              type="text"
-              placeholder="HH:MM duration"
-              value={sleepDuration}
-              onChange={(e) => handleTimeInput(e, setSleepDuration)}
-              inputMode="numeric"
-              disabled={saving}
-            />
-            <TextField
-              type="text"
-              placeholder="HH:MM start"
-              value={sleepStart}
-              onChange={(e) => handleTimeInput(e, setSleepStart)}
-              inputMode="numeric"
-              disabled={saving}
-            />
+          {/* FOOTER */}
+          <div className="flex items-center justify-end mt-4">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Ukladám…" : "Save"}
+            </Button>
           </div>
-        </section>
-
-        {/* Evening factors */}
-        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
-          <div className="text-sm opacity-75 mb-2">Evening factors</div>
-
-          <label className="flex items-center gap-2 mb-2">
-            <input
-              type="checkbox"
-              checked={lateFood}
-              onChange={(e) => setLateFood(e.target.checked)}
-              disabled={saving}
-            />
-            <span>Food ≤ 2h before bed</span>
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={lateCaffeine}
-              onChange={(e) => setLateCaffeine(e.target.checked)}
-              disabled={saving}
-            />
-            <span>Caffeine ≤ 8h before bed</span>
-          </label>
-        </section>
-
-        {/* Alcohol */}
-        <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
-          <div className="text-sm opacity-75 mb-1">Alcohol</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <TextField
-              type="number"
-              value={alcoholVolume}
-              onChange={(e) => setAlcoholVolume(e.target.value)}
-              placeholder="ml"
-              disabled={saving}
-            />
-            <TextField
-              type="number"
-              value={alcoholType}
-              onChange={(e) => setAlcoholType(e.target.value)}
-              placeholder="%"
-              disabled={saving}
-            />
-          </div>
-        </section>
-
-        {/* Comment – POZOR: natívny <textarea>, nie TextField */}
-        <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
-          <div className="text-sm opacity-75 mb-1">Comment</div>
-          <textarea
-            rows={3}
-            value={comments}
-            onChange={(e) => setComments(e.target.value)}
-            placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
-            disabled={saving}
-            className="w-full rounded-md bg-white/70 dark:bg-gray-800/60 border border-white/10 px-3 py-2
-                       focus:outline-none focus:ring-2 focus:ring-white/20 resize-y"
-          />
-        </section>
-      </div>
-
-      {/* FOOTER */}
-      <div className="flex items-center justify-end mt-4">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Ukladám…" : "Save"}
-        </Button>
-      </div>
+        </>
+      )}
     </WidgetCard>
   );
 }
