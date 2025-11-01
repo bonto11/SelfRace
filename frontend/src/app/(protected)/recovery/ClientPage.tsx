@@ -49,10 +49,14 @@ export default function RecoveryPage() {
 
   return (
     <RecoveryDataProvider days={90}>
+      <div className="mt-6">
+        <InputsCard />
+      </div>
+
       <div className="flex items-center justify-end mb-3">
         <RefreshButton />
       </div>
-
+     
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
         <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
@@ -62,10 +66,6 @@ export default function RecoveryPage() {
         <WidgetSleepStart
           onOpenDetail={() => router.push("/recovery/sleepStart")}
         />
-      </div>
-
-      <div className="mt-6">
-        <InputsCard />
       </div>
     </RecoveryDataProvider>
   );
