@@ -11,7 +11,7 @@ import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
 import InputsCard from "@/features/recovery/components/InputsCard";
 import Button from "@/shared/components/ui/Button";
-import IconRefresh from "@/components/local/IconRefresh"; // cesta podľa teba
+import IconRefresh from "@/shared/svg/Refresh";
 
 function RefreshIconBtn() {
   const { refresh, loading } = useRecoveryData();
