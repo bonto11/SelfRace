@@ -1,33 +1,36 @@
+// src/features/activity/components/WeeklySummary.tsx
 "use client";
 
 import { useMemo } from "react";
+import { SUBCARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 
-/**
- * Vstupné dáta – rovnaké polia, aké posiela TrendWeeklyLoad.
- * Ak by si mal navyše polia, nevadí.
- */
+/** Rovnaký tvar, aký posiela TrendWeeklyLoad */
 export type WeekRow = {
   week: string;
   label: string;
   start: string;
   end: string;
+
   km_run: number;
   km_ride: number;
   km_mixed: number;
   km_skate: number;
+
   time_run_min: number;
   time_ride_min: number;
   time_strength_min: number;
   time_mixed_min: number;
   time_skate_min: number;
   time_other_min: number;
+
   trimp_run: number;
   trimp_ride: number;
   trimp_strength: number;
   trimp_mixed: number;
   trimp_skate: number;
   trimp_other: number;
+
   monotony?: { km?: number; time?: number; trimp?: number };
   strain?: { km?: number; time?: number; trimp?: number };
 };
@@ -42,18 +45,19 @@ type Props = {
 };
 
 function fmtKm(v: number) {
-  return `${(v || 0).toFixed(1)} km`;
+  return `${(Number(v) || 0).toFixed(1)} km`;
 }
 function fmtMin(v: number) {
-  return `${Math.round(v || 0)} min`;
+  return `${Math.round(Number(v) || 0)} min`;
 }
 function fmtTrimp(v: number) {
-  return `${Math.round(v || 0)} TRIMP`;
+  return `${Math.round(Number(v) || 0)} TRIMP`;
 }
 
 export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
-  // nájdi týždeň podľa viacerých kľúčov (robustné)
+  // nájdi týždeň robustne podľa viacerých kľúčov
   const w = useMemo(() => {
+    if (!Array.isArray(weeks) || !weeks.length) return null;
     const i = weeks.findIndex(
       (x) =>
         x.week === selectedWeek ||
@@ -65,7 +69,7 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
 
   if (!w) {
     return (
-      <div className="mt-3 text-sm opacity-70">
+      <div className={`${SUBCARD} mt-3 p-3 text-sm opacity-70`}>
         Nenašiel sa týždeň <code>{selectedWeek}</code>.
       </div>
     );
@@ -74,7 +78,7 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
   // Výpočty podľa zvolenej metriky
   const rows = useMemo(() => {
     if (metric === "km") {
-      const total = w.km_run + w.km_ride + w.km_mixed + w.km_skate;
+      const total = (w.km_run || 0) + (w.km_ride || 0) + (w.km_mixed || 0) + (w.km_skate || 0);
       return {
         title: "Kilometre (súčet)",
         totalLabel: fmtKm(total),
@@ -83,19 +87,19 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
           ["Ride", fmtKm(w.km_ride)],
           ["Mixed", fmtKm(w.km_mixed)],
           ["Skate", fmtKm(w.km_skate)],
-        ],
+        ] as const,
         mono: w.monotony?.km ?? null,
         strain: w.strain?.km ?? null,
       };
     }
     if (metric === "time") {
       const total =
-        w.time_run_min +
-        w.time_ride_min +
-        w.time_strength_min +
-        w.time_mixed_min +
-        w.time_skate_min +
-        w.time_other_min;
+        (w.time_run_min || 0) +
+        (w.time_ride_min || 0) +
+        (w.time_strength_min || 0) +
+        (w.time_mixed_min || 0) +
+        (w.time_skate_min || 0) +
+        (w.time_other_min || 0);
       return {
         title: "Čas (súčet)",
         totalLabel: fmtMin(total),
@@ -106,19 +110,19 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
           ["Mixed", fmtMin(w.time_mixed_min)],
           ["Skate", fmtMin(w.time_skate_min)],
           ["Other", fmtMin(w.time_other_min)],
-        ],
+        ] as const,
         mono: w.monotony?.time ?? null,
         strain: w.strain?.time ?? null,
       };
     }
-    // trimp
+    // TRIMP
     const total =
-      w.trimp_run +
-      w.trimp_ride +
-      w.trimp_strength +
-      w.trimp_mixed +
-      w.trimp_skate +
-      w.trimp_other;
+      (w.trimp_run || 0) +
+      (w.trimp_ride || 0) +
+      (w.trimp_strength || 0) +
+      (w.trimp_mixed || 0) +
+      (w.trimp_skate || 0) +
+      (w.trimp_other || 0);
     return {
       title: "TRIMP (súčet)",
       totalLabel: fmtTrimp(total),
@@ -129,14 +133,14 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
         ["Mixed", fmtTrimp(w.trimp_mixed)],
         ["Skate", fmtTrimp(w.trimp_skate)],
         ["Other", fmtTrimp(w.trimp_other)],
-      ],
+      ] as const,
       mono: w.monotony?.trimp ?? null,
       strain: w.strain?.trimp ?? null,
     };
   }, [metric, w]);
 
   return (
-    <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm">
+    <div className={`${SUBCARD} mt-3 p-3 text-sm`}>
       <div className="flex items-center justify-between gap-3">
         <div className="font-semibold">
           Týždeň: {w.label || w.week}{" "}
@@ -164,11 +168,11 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
       <div className="mt-2 flex items-center gap-4 opacity-90">
         <div style={{ color: THEME.chart.monotony }}>
           Monotony:{" "}
-          <strong>{rows.mono == null ? "—" : rows.mono.toFixed(2)}</strong>
+          <strong>{rows.mono == null ? "—" : Number(rows.mono).toFixed(2)}</strong>
         </div>
         <div style={{ color: THEME.chart.strain }}>
           Strain:{" "}
-          <strong>{rows.strain == null ? "—" : Math.round(rows.strain)}</strong>
+          <strong>{rows.strain == null ? "—" : Math.round(Number(rows.strain))}</strong>
         </div>
       </div>
     </div>

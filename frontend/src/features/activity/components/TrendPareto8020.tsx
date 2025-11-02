@@ -13,17 +13,18 @@ import {
   SPORT_OPTIONS,
   PARETO_DEFAULT_SET,
   normalizeSport,
-  normalizeSportList,
   sportsToCSV,
   isInParetoDefault,
 } from "@/configs/config_sports";
 
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
-import ButtonBack from "@/shared/components/ui/ButtonBack";
+import Button from "@/shared/components/ui/Button";
+import { CARD } from "@/shared/ui/classes";
+import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
-export type ParetoWeekPick = { start?: string; end?: string; sport: string }; // sport = CSV alebo "all"
+export type ParetoWeekPick = { start?: string; end?: string; sport: string };
 
 type Row = {
   label: string;
@@ -49,32 +50,18 @@ export default function TrendPareto8020({
     Array.from(PARETO_DEFAULT_SET)
   );
 
-  // odvodený param pre BE
-  const sportParam = useMemo(
-    () => sportsToCSV(selectedSports),
-    [selectedSports]
-  );
-
+  const sportParam = useMemo(() => sportsToCSV(selectedSports), [selectedSports]);
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
-  // fetch priamo z BE (bez Provider/SESSION)
   useEffect(() => {
     if (!userId) return;
     let alive = true;
 
     setLoading(true);
     const q = new URLSearchParams({ weeks: String(lookback) });
-    if (sportParam && sportParam !== "all") q.set("sport", sportParam);
-    else q.set("sport", "all");
-
+    q.set("sport", sportParam && sportParam !== "all" ? sportParam : "all");
     const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
-    console.debug("[PARETO][fetch] ->", {
-      url,
-      lookback,
-      selectedSports,
-      sportParam,
-    });
 
     (async () => {
       try {
@@ -84,27 +71,20 @@ export default function TrendPareto8020({
         if (!alive) return;
         setRows(data);
         setPickedIdx(null);
-        setLoading(false);
-        console.debug("[PARETO][fetch][ok]", {
-          count: data.length,
-          sample: data[0],
-        });
-      } catch (e) {
-        setLoading(false);
-        console.error("[PARETO][fetch][err]", e);
+      } catch {
         if (!alive) return;
         setRows([]);
+      } finally {
+        if (alive) setLoading(false);
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [userId, lookback, sportParam, selectedSports]);
+  }, [userId, lookback, sportParam]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
-
-  // referenčné čiary 80/20
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
   const ref20 = useMemo(() => Array(labels.length).fill(20), [labels.length]);
 
@@ -133,9 +113,9 @@ export default function TrendPareto8020({
           borderDash: [4, 4],
           order: 2,
         },
-        // referenčné čiary
+        // referencie
         {
-          type: "line" as const,
+          type: "line",
           label: "80% ref",
           data: ref80,
           borderColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
@@ -147,7 +127,7 @@ export default function TrendPareto8020({
           order: 1,
         },
         {
-          type: "line" as const,
+          type: "line",
           label: "20% ref",
           data: ref20,
           borderColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
@@ -208,91 +188,73 @@ export default function TrendPareto8020({
         if (idx == null) return;
         setPickedIdx(idx);
         const r = rows[idx];
-        if (r) {
-          const csv = sportsToCSV(selectedSports);
-          onPickWeek?.({ start: r.start, end: r.end, sport: csv });
-          console.debug("[PARETO][pick]", { idx, csv, row: r });
-        }
+        if (!r) return;
+        const csv = sportsToCSV(selectedSports);
+        onPickWeek?.({ start: r.start, end: r.end, sport: csv });
       },
     }),
     [rows, selectedSports, onPickWeek]
   );
 
-  const minWidth = Math.max(
-    360,
-    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
-  );
+  const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
   const picked = pickedIdx != null ? rows[pickedIdx] : null;
 
-  // --- UI: jednoduchý multi-select (checkboxy) ---
+  // športové toggle-y → použijeme tvoj Button (menej krikľavé farby)
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
     if (!n || n === "all") return;
     setPickedIdx(null);
     setSelectedSports((prev) => {
       const set = new Set(prev.map(normalizeSport).filter(Boolean) as string[]);
-      if (set.has(n)) set.delete(n);
-      else set.add(n);
-      const next = Array.from(set);
-      console.debug("[PARETO][sports][toggle]", { click: s, norm: n, next });
-      return next;
+      set.has(n) ? set.delete(n) : set.add(n);
+      return Array.from(set);
     });
   };
 
-  // predvyplniť default whitelisted športy, keď by si user vyprázdnil výber
+  // reset na default, ak by si vyprázdnil výber
   useEffect(() => {
     if (selectedSports.length === 0) {
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
-      console.debug(
-        "[PARETO][sports][reset->default]",
-        Array.from(PARETO_DEFAULT_SET)
-      );
     }
   }, [selectedSports.length]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+    <div className={`${CARD} relative`}>
       {/* header */}
-    <div className="flex items-center gap-2 mb-2">
-      <h2 className="text-sm font-semibold opacity-80">Trend 80/20</h2>
-    
-      <div className="ml-auto flex items-center gap-2">
-        <select
-          className="px-2 py-1 rounded bg-gray-700 text-white text-xs"
-          value={lookback}
-          onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
-          title="Lookback"
-        >
-          <option value={4}>4 týždne</option>
-          <option value={8}>8 týždňov</option>
-          <option value={12}>12 týždňov</option>
-        </select>
-    
-        <ButtonBack href="/coach" label="Späť" />
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-lg font-bold">Trend 80/20</h2>
+        <div className="ml-auto flex items-center gap-2">
+          <select
+            className={`${inputClass} h-8 text-xs w-[130px]`}
+            value={lookback}
+            onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
+            title="Lookback"
+          >
+            <option value={4}>4 týždne</option>
+            <option value={8}>8 týždňov</option>
+            <option value={12}>12 týždňov</option>
+          </select>
+        </div>
       </div>
-    </div>
 
-      {/* multi-select športov */}
+      {/* športový multi-select */}
       <div className="flex flex-wrap gap-2 mb-3">
         {SPORT_OPTIONS.map((opt) => {
-          const val = normalizeSport(opt.value) ?? "";
-          const active = selectedSports.map(normalizeSport).includes(val);
-          const isDefault = isInParetoDefault(val);
+          const norm = normalizeSport(opt.value) ?? "";
+          const active = selectedSports.map(normalizeSport).includes(norm);
+          const isDefault = isInParetoDefault(norm);
+
           return (
-            <button
+            <Button
               key={opt.value}
-              type="button"
+              size="xs"
+              variant={active ? "secondary" : "ghost"}
               onClick={() => toggleSport(opt.value)}
-              className={`px-2 py-1 rounded text-xs border ${
-                active
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-gray-700 text-white/90 border-gray-600"
-              }`}
               title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
             >
               {opt.label}
               {isDefault ? "" : " *"}
-            </button>
+            </Button>
           );
         })}
       </div>

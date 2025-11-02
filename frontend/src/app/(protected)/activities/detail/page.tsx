@@ -1,8 +1,10 @@
+// src/app/(protected)/activities/detail/page.tsx
 "use client";
 
 import { useCallback, useState } from "react";
-import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
-import TrendWeeklyLoad, { WeekPick } from "@/features/activity/components/TrendWeeklyLoad";
+import TrendWeeklyLoad, {
+  WeekPick,
+} from "@/features/activity/components/TrendWeeklyLoad";
 import ActivityTable from "@/shared/components/ActivityTable";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
 
@@ -13,32 +15,28 @@ export default function ActivitiesDetailPage() {
   const [sport, setSport] = useState<string>("all");
 
   const handlePick = useCallback((w: WeekPick) => {
-    console.debug("[DETAIL][onPickWeek]", w);
     setRange({ start: w.start, end: w.end });
     setSport(w.sport || "all");
   }, []);
 
   return (
-    <ActivityDataProvider days={90}>
-      <ButtonBack
-        title="Detailný trend"
-        href="/activities"
-        label="Späť"
-        className="mx-0 px-0"
-        container={false}
-      />
+    <>
+      {/* Sticky header s Back */}
+      <ButtonBack title="Detailný trend" />
 
-      <TrendWeeklyLoad
-        onPickWeek={handlePick}
-        onSportChange={(s) => {
-          console.debug("[DETAIL][sport change]", s);
-          setSport(s);
-        }}
-      />
+      {/* obsah */}
+      <div className="max-w-screen-lg mx-auto px-3">
+        <div className="mt-3">
+          <TrendWeeklyLoad
+            onPickWeek={handlePick}
+            onSportChange={(s) => setSport(s)}
+          />
+        </div>
 
-      <div className="mt-3">
-        <ActivityTable start={range.start} end={range.end} sport={sport} />
+        <div className="mt-3">
+          <ActivityTable start={range.start} end={range.end} sport={sport} />
+        </div>
       </div>
-    </ActivityDataProvider>
+    </>
   );
 }
