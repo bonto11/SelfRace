@@ -32,6 +32,8 @@ export const THEME = {
     ref80: "rgba(74, 222, 128, 0.35)",   // bledá zelená
     ref20: "rgba(248, 113, 113, 0.35)",  // bledá červená
 
+    linePrimary: "#22c55e",        // emerald-500
+
     grid: 'rgba(255,255,255,0.07)',
     gridSoft: 'rgba(255,255,255,0.05)',
     legendPosition: 'top' as const,

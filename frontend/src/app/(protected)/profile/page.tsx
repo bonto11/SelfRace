@@ -1,28 +1,35 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import TableMetrics from "@/features/profile/components/TableMetrics";
 import TableHistory from "@/features/profile/components/TableHistory";
-import TrendVO2Max from "@/features/profile/components/TrendVO2Max";
-import TrendBodyFat from "@/features/profile/components/TrendBodyFat";
-// prípadne Static ak ho chceš vidieť
+import WidgetBodyFat from "@/features/widgets/WidgetBodyFat";
+import WidgetVO2Max from "@/features/widgets/WidgetVO2Max";
 import TableStatic from "@/features/profile/components/TableStatic";
 
 export default function Page() {
-  return (
-    <div>
-      <h1 className="text-xl font-bold mb-4">User profile</h1>
+  const router = useRouter();
 
-      <div className="flex gap-4 mt-6">
-        <div className="w-1/2">
-          <TrendVO2Max />
-        </div>
-        <div className="w-1/2">
-          <TrendBodyFat />
-        </div>
+  return (
+    <div className="max-w-screen-lg mx-auto px-3">
+      {/* Header */}
+      <div className="sticky top-[max(env(safe-area-inset-top),0px)] z-20 -mx-3 px-3 pt-2 pb-2
+                      bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40">
+        <h1 className="text-lg font-semibold">User profile</h1>
       </div>
-      <TableStatic />
-      <TableMetrics />
-      <TableHistory />
+
+      {/* Widgety */}
+      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <WidgetVO2Max onOpen={() => router.push("/trends/vo2max")} />
+        <WidgetBodyFat onOpen={() => router.push("/trends/bodyfat")} />
+      </div>
+
+      {/* Tabuľky */}
+      <div className="space-y-6 mt-6">
+        <TableStatic />
+        <TableMetrics />
+        <TableHistory />
+      </div>
     </div>
   );
 }

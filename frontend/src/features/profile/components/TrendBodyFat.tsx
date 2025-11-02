@@ -1,54 +1,68 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import * as React from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import TrendWithBands, {
-  Point,
-} from "@/shared/components/trend/TrendWithBands";
+import TrendWithBands, { Point } from "@/shared/components/trend/TrendWithBands";
 import { getBodyFatBands } from "@/shared/utils/bands";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { CARD } from "@/shared/ui/classes";
 
 type StaticProfile = { sex: "M" | "F" };
 type MetricsRow = { updated_at: string; body_fat_pct: number | null };
 
 export default function TrendBodyFat() {
   const { userId } = useUserId();
-  const [stat, setStat] = useState<StaticProfile | null>(null);
-  const [rows, setRows] = useState<MetricsRow[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [stat, setStat] = React.useState<StaticProfile | null>(null);
+  const [rows, setRows] = React.useState<MetricsRow[]>([]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!userId) return;
+    let alive = true;
     (async () => {
-      const s = await fetch(`${API_URL}/profile/static/${userId}`).then((r) =>
-        r.json()
-      );
-      if (s.success) setStat(s.data);
-
-      const m = await fetch(
-        `${API_URL}/profile/metrics/history/${userId}`
-      ).then((r) => r.json());
-      if (m.success) setRows(m.data);
+      setLoading(true);
+      try {
+        const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then((r) => r.json());
+        if (s?.success) setStat(s.data);
+        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}`, { cache: "no-store" }).then((r) => r.json());
+        if (m?.success) setRows(m.data ?? []);
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
+    return () => { alive = false; };
   }, [userId]);
 
-  const points: Point[] = useMemo(
-    () => rows.map((r) => ({ date: r.updated_at, value: r.body_fat_pct })),
-    [rows]
-  );
+  if (loading) {
+    return (
+      <div className={`${CARD} grid place-items-center`} style={{ minHeight: 260 }}>
+        <LoadingSpinner size="trend" />
+      </div>
+    );
+  }
 
-  const bands = useMemo(() => (stat ? getBodyFatBands(stat.sex) : []), [stat]);
+  const points: Point[] = rows.map((r) => ({ date: r.updated_at, value: r.body_fat_pct }));
+  if (!points.length) return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
 
-  if (!points.length) return <div>Načítavam Body Fat %…</div>;
+  const bands = stat ? getBodyFatBands(stat.sex) : [];
 
   return (
-    <TrendWithBands
-      title="Trend Body Fat %"
-      points={points}
-      bands={bands}
-      unit="%"
-      lineColor="orange"
-      ySuggestedMin={0}
-      ySuggestedMax={35}
-    />
+    <div className={CARD}>
+      <div className="flex items-center justify-between p-3 border-b border-neutral-800">
+        <h2 className="text-base md:text-lg font-semibold">Trend Body Fat %</h2>
+      </div>
+      <div className="p-3">
+        <TrendWithBands
+          title=""          // nadpis riešime v headeri karty
+          points={points}
+          bands={bands}
+          unit="%"
+          lineColor="orange"
+          ySuggestedMin={0}
+          ySuggestedMax={35}
+        />
+      </div>
+    </div>
   );
 }
