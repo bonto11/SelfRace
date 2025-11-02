@@ -10,7 +10,7 @@ import { toast } from "@/shared/components/ui/Toast";
 import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
-import ActivitiesCalendarCard from "@/shared/components/calendar/ActivitiesCalendar";
+import WidgetActivitiesCalendar from "@/features/widgets/WidgetActivitiesCalendar";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
@@ -78,7 +78,7 @@ export default function ActivitiesPage() {
         <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
         <MonoStrainWidget onOpenDetail={openDetailLoad} />
         <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
-        <ActivitiesCalendarCard />
+        <WidgetActivitiesCalendar />
       </div>
       
     </ActivityDataProvider>

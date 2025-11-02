@@ -1,4 +1,5 @@
 // src/shared/components/ActivitiesCalendar.tsx
+/*
 "use client";
 
 import * as React from "react";
@@ -153,3 +154,4 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
     </div>
   );
 }
+  */

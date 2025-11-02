@@ -11,12 +11,17 @@ export const THEME = {
 
   chart: {
     // série
-    run: '#22D3EE',
-    bike: '#A78BFA',
-    strength: '#F59E0B',
-    mixed: '#34D399',
-    skate: '#60A5FA',
-    other: '#9CA3AF',
+    run: "#22c55e",        // emerald-500
+    ride: "#38bdf8",       // sky-400
+    bike: "#38bdf8",       // sky-400
+    swim: "#60a5fa",       // blue-400
+    strength: "#f59e0b",   // amber-500
+    mixed: "#a78bfa",      // violet-400
+    skate: "#f472b6",      // pink-400
+    hike: "#34d399",       // green-400
+    walk: "#9ca3af",       // gray-400
+    other: "#94a3b8",      // slate-400
+
     monotony: '#84CC16',
     strain: '#FDE047',
 
