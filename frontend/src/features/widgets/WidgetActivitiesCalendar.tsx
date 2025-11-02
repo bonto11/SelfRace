@@ -1,10 +1,10 @@
-// src/features/widgets/WidgetActivitiesCalendar.tsx
+// src/features/widgets/WidgetWeekActivities.tsx
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import ActivityTable from "@/shared/components/ActivityTable";
 import { THEME } from "@/shared/theme/tokens";
 
 const SPORT_COLORS: Record<string, string> = {
@@ -18,163 +18,155 @@ const SPORT_COLORS: Record<string, string> = {
   other:    (THEME as any)?.sport?.other ?? THEME.chart.other,
 };
 
-/* ---------------- date helpers ---------------- */
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
-const iso  = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
-const dim  = (y: number, m0: number) => new Date(y, m0 + 1, 0).getDate();
-// Po=0..Ne=6 (Apple-like)
-const startDow = (y: number, m0: number) => (new Date(y, m0, 1).getDay() + 6) % 7;
+const iso = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
 
-type DayCell = {
-  iso: string;
-  inMonth: boolean;
-  num: number | null;
-  items: { id: number; sport: string; name: string }[];
+/** pondelok aktuálneho týždňa (lokálne) */
+function startOfWeek(date = new Date()) {
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7; // Po=0..Ne=6
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+type Props = {
+  /** volá sa po kliknutí na widget → detail */
+  onOpenDetail?: () => void;
+  /** max počet zobrazených aktivít na deň (zvyšok sa skráti '+N') */
+  perDayLimit?: number;
 };
 
-export default function WidgetActivitiesCalendar() {
-  const { rows } = useActivityData();
+export default function WidgetWeekActivities({ onOpenDetail, perDayLimit = 3 }: Props) {
+  const router = useRouter();
+  const { selectByRange } = useActivityData();
 
-  const today = new Date();
-  const [year, setYear] = React.useState(today.getFullYear());
-  const [month0, setMonth0] = React.useState(today.getMonth());
-  const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
+  // týždeň Po–Ne
+  const monday = startOfWeek();
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
 
-  const monthLabel = new Date(year, month0, 1).toLocaleDateString("sk-SK", {
-    month: "long",
-    year: "numeric",
-  });
+  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const endIso   = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
-  const cells: DayCell[] = React.useMemo(() => {
-    const total = 42;
-    const offset = startDow(year, month0);
-    const firstCell = new Date(year, month0, 1 - offset);
-
-    const arr: DayCell[] = [];
-    for (let i = 0; i < total; i++) {
-      const d = new Date(firstCell);
-      d.setDate(firstCell.getDate() + i);
-      const inMonth = d.getMonth() === month0;
-      arr.push({
-        iso: iso(d.getFullYear(), d.getMonth(), d.getDate()),
-        inMonth,
-        num: inMonth ? d.getDate() : null,
-        items: [],
-      });
+  // načítaj aktivity v rozsahu a rozdeľ po dňoch
+  const byDay = React.useMemo(() => {
+    const map = new Map<string, { id: number; sport: string; name: string }[]>();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
+      map.set(k, []);
     }
-
-    const firstIso = iso(year, month0, 1);
-    const lastIso  = iso(year, month0, dim(year, month0));
-    const map = new Map(arr.map(c => [c.iso, c]));
-
+    const rows = selectByRange(startIso, endIso);
     for (const r of rows) {
-      const dIso = r.date.slice(0, 10);
-      if (dIso < firstIso || dIso > lastIso) continue;
-      const c = map.get(dIso);
-      if (!c) continue;
-      c.items.push({
+      const k = r.date.slice(0, 10);
+      if (!map.has(k)) continue;
+      (map.get(k) as any[]).push({
         id: r.activity_id,
         sport: (r as any).sport || "other",
         name: r.name || "",
       });
     }
-    return arr;
-  }, [rows, year, month0]);
+    return map;
+  }, [selectByRange, startIso, endIso]);
 
-  const go = (delta: number) => {
-    const d = new Date(year, month0, 1);
-    d.setMonth(d.getMonth() + delta);
-    setYear(d.getFullYear());
-    setMonth0(d.getMonth());
-    setSelectedIso(null);
+  const weekLabel = `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
+
+  const handleOpen = () => {
+    if (onOpenDetail) onOpenDetail();
+    else router.push("/calendar");
   };
 
   return (
     <WidgetCard
-      title={monthLabel}
-      // žiadny onOpen – toto je “statický” widget
-      interactive={false}
+      title={`Týždenná agenda • ${weekLabel}`}
+      onOpen={handleOpen}
+      interactive
       accent="bg-slate-700"
-      minH={220}
+      minH={180}
     >
-      {/* Navigácia mesiaca */}
-      <div className="flex items-center justify-center gap-3 mb-2">
-        <button
-          onClick={() => go(-1)}
-          className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-          aria-label="Predchádzajúci mesiac"
-        >
-          ←
-        </button>
-        <div className="text-sm opacity-75">{monthLabel}</div>
-        <button
-          onClick={() => go(+1)}
-          className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-          aria-label="Ďalší mesiac"
-        >
-          →
-        </button>
-      </div>
-
-      {/* Headery dní */}
-      <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-1">
-        {["p","u","s","š","p","s","n"].map((d) => (
+      {/* hlavička dní */}
+      <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
+        {["Po","Ut","St","Št","Pi","So","Ne"].map((d) => (
           <div key={d} className="text-center">{d}</div>
         ))}
       </div>
 
-      {/* Grid */}
+      {/* 7 stĺpcov s aktivitami */}
       <div className="grid grid-cols-7 gap-2">
-        {cells.map((c) => {
-          const selected = selectedIso === c.iso;
-          return (
-            <div
-              key={c.iso}
-              className={[
-                "p-2 rounded-2xl border border-white/10",
-                "bg-white/5 dark:bg-black/20",
-                c.inMonth ? "" : "opacity-40",
-                selected ? "ring-2 ring-emerald-500/60" : "",
-              ].join(" ")}
-            >
-              <div className="flex items-center justify-between">
-                <button
-                  className={[
-                    "h-7 w-7 rounded-full grid place-items-center",
-                    "bg-white/10 hover:bg-white/20",
-                    selected ? "ring-2 ring-white/30" : "",
-                    "text-sm font-semibold",
-                  ].join(" ")}
-                  onClick={() => setSelectedIso((s) => (s === c.iso ? null : c.iso))}
-                  aria-label={c.iso}
-                >
-                  {c.num ?? ""}
-                </button>
+        {Array.from({ length: 7 }).map((_, i) => {
+          const d = new Date(monday);
+          d.setDate(monday.getDate() + i);
+          const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
+          const items = byDay.get(key) ?? [];
+          const shown = items.slice(0, perDayLimit);
+          const extra = items.length - shown.length;
 
+          const isToday = new Date().toDateString() === d.toDateString();
+
+          return (
+            <button
+              key={key}
+              onClick={handleOpen}
+              className={[
+                "group text-left rounded-2xl p-2 border border-white/10",
+                "bg-white/5 dark:bg-black/20 hover:bg-white/10 transition-colors",
+                isToday ? "ring-2 ring-emerald-500/60" : "",
+              ].join(" ")}
+              aria-label={key}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span
+                  className={[
+                    "h-7 w-7 rounded-full grid place-items-center text-sm font-semibold",
+                    "bg-white/10 group-hover:bg-white/20",
+                  ].join(" ")}
+                >
+                  {d.getDate()}
+                </span>
+                {/* malé bodky = počty športov v daný deň */}
                 <div className="flex items-center gap-1">
-                  {c.items.slice(0, 5).map((it) => (
+                  {shown.map((it) => (
                     <span
                       key={it.id}
                       className="inline-block w-2 h-2 rounded-full"
                       style={{ backgroundColor: SPORT_COLORS[it.sport] ?? SPORT_COLORS.other }}
                     />
                   ))}
-                  {c.items.length > 5 && (
-                    <span className="text-[10px] opacity-70">+{c.items.length - 5}</span>
+                  {extra > 0 && (
+                    <span className="text-[10px] opacity-70">+{extra}</span>
                   )}
                 </div>
               </div>
-            </div>
+
+              {/* názvy (orezané) */}
+              <ul className="space-y-1">
+                {shown.map((it) => (
+                  <li
+                    key={`${it.id}-name`}
+                    className="flex items-center gap-2 text-xs opacity-85 truncate"
+                    title={it.name}
+                  >
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full mt-0.5"
+                      style={{ backgroundColor: SPORT_COLORS[it.sport] ?? SPORT_COLORS.other }}
+                    />
+                    <span className="truncate">{it.name || "—"}</span>
+                  </li>
+                ))}
+                {extra > 0 && (
+                  <li className="text-[11px] opacity-60">+{extra} ďalších…</li>
+                )}
+              </ul>
+            </button>
           );
         })}
       </div>
 
-      {/* Tabuľka pod widgetom po výbere dňa */}
-      {selectedIso && (
-        <div className="mt-4">
-          <ActivityTable start={selectedIso} end={selectedIso} />
-        </div>
-      )}
+      <div className="mt-3 text-[11px] opacity-60">
+        Tip: Klikni na widget pre mesačný kalendár a detailnejšiu prácu.
+      </div>
     </WidgetCard>
   );
 }

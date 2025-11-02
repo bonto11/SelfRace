@@ -1,26 +1,26 @@
 // src/shared/components/ActivitiesCalendar.tsx
-/*
 "use client";
 
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
+import { THEME } from "@/shared/theme/tokens";
+import Button from "@/shared/components/ui/Button";  // ← tvoje tlačidlo
 
-// lazy, klientsky-only overlay (eliminuje #310 z SSR)
 const ActivityDetailOverlay = dynamic(
   () => import("@/shared/components/ActivityDetailOverlay"),
   { ssr: false }
 );
 
-// dočasné farby športov (prepojíme neskôr na THEME / prefs)
 const SPORT_COLORS: Record<string, string> = {
-  run: "#22c55e",
-  ride: "#38bdf8",
-  swim: "#60a5fa",
-  strength: "#f59e0b",
-  mixed: "#a78bfa",
-  skate: "#f472b6",
-  other: "#9ca3af",
+  run:      (THEME as any)?.sport?.run ?? THEME.chart.run,
+  ride:     (THEME as any)?.sport?.ride ?? THEME.chart.ride,
+  swim:     (THEME as any)?.sport?.swim ?? THEME.chart.swim,
+  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
+  mixed:    (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
+  skate:    (THEME as any)?.sport?.skate ?? THEME.chart.skate,
+  walk:     (THEME as any)?.sport?.walk ?? THEME.chart.walk,
+  other:    (THEME as any)?.sport?.other ?? THEME.chart.other,
 };
 
 type DayCellData = {
@@ -128,14 +128,18 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
   const prev = () => { const d = new Date(year, month0, 1); d.setMonth(d.getMonth() - 1); setYear(d.getFullYear()); setMonth0(d.getMonth()); };
   const next = () => { const d = new Date(year, month0, 1); d.setMonth(d.getMonth() + 1); setYear(d.getFullYear()); setMonth0(d.getMonth()); };
 
-  const label = new Date(year, month0, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", { month: "long", year: "numeric" });
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <button onClick={prev} className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20" aria-label="Previous month">←</button>
+        <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={prev}>
+          ‹
+        </Button>
         <div className="ml-1 mr-1 text-lg font-semibold">{label}</div>
-        <button onClick={next} className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20" aria-label="Next month">→</button>
+        <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={next}>
+          ›
+        </Button>
       </div>
 
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
@@ -154,4 +158,3 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
     </div>
   );
 }
-  */

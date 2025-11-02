@@ -78,7 +78,7 @@ export default function ActivitiesPage() {
         <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
         <MonoStrainWidget onOpenDetail={openDetailLoad} />
         <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
-        <WidgetActivitiesCalendar />
+        <WidgetActivitiesCalendar/>
       </div>
       
     </ActivityDataProvider>
