@@ -20,8 +20,8 @@ export default function Page() {
 
       {/* Widgety */}
       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <WidgetVO2Max onOpen={() => router.push("/trends/vo2max")} />
-        <WidgetBodyFat onOpen={() => router.push("/trends/bodyfat")} />
+        <WidgetVO2Max onOpen={() => router.push("/profile/vo2max")} />
+        <WidgetBodyFat onOpen={() => router.push("/profile/bodyfat")} />
       </div>
 
       {/* Tabuľky */}
