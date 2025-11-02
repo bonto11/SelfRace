@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Button from "./ui/Button";
+import Button from "@/shared/components/ui/Button";
 
 /* -------- Farby športov (dočasne natvrdo) --------
    Neskôr nahradíš za THEME / user-prefs. */
