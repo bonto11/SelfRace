@@ -10,7 +10,7 @@ import { toast } from "@/shared/components/ui/Toast";
 import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
-import ActivitiesCalendarCard from "@/shared/components/ActivitiesCalendar";
+import ActivitiesCalendarCard from "@/shared/components/calendar/ActivitiesCalendar";
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   return (
