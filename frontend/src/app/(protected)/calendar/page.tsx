@@ -1,4 +1,3 @@
-// src/app/calendar/page.tsx
 "use client";
 
 import ActivitiesCalendar from "@/shared/components/calendar/ActivitiesCalendar";
@@ -9,8 +8,7 @@ export default function CalendarPage() {
   return (
     <div className="max-w-screen-xl mx-auto px-3">
       <div className="flex items-center justify-between mb-3">
-        <h1 className="text-lg font-semibold">Kalendár aktivít</h1>
-        <ButtonBack href="/dashboard"/>
+        <ButtonBack fallbackHref="/dashboard" title="Kalendár aktivít" />
       </div>
 
       <ActivityDataProvider days={120}>

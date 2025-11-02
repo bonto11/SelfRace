@@ -8,7 +8,7 @@ export default function Page() {
   return (
     <CoachDataProvider>
       <div className="max-w-screen-lg mx-auto px-3">
-        <ButtonBack title="Coach — Preferences" href="/coach" label="Späť na Coach" />
+        <ButtonBack title="Coach — Preferences" />
 
         <div className="pt-3 bg-white/5 dark:bg-gray-800 p-4 rounded shadow">
           <PrefsForm />
