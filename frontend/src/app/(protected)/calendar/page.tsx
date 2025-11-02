@@ -1,7 +1,6 @@
 "use client";
 
 import ActivitiesCalendar from "@/shared/components/calendar/ActivitiesCalendar";
-import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 export default function CalendarPage() {
@@ -10,10 +9,7 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-3">
         <ButtonBack fallbackHref="/dashboard" title="Kalendár aktivít" />
       </div>
-
-      <ActivityDataProvider days={120}>
-        <ActivitiesCalendar />
-      </ActivityDataProvider>
+      <ActivitiesCalendar />
     </div>
   );
 }
