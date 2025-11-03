@@ -1,8 +1,9 @@
-# src/routes/profile.py
-from fastapi import APIRouter, HTTPException, Query
+# src/Services/profile.py
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal, Dict, Any
-from datetime import datetime, timezone
+from typing import List, Optional, Literal, Dict, Any, Union
+from datetime import datetime, date, timezone
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_PROFILE_STATIC,
@@ -32,25 +33,28 @@ class BatchMetricsPayload(BaseModel):
 
 class StaticPayload(BaseModel):
     sex: Optional[Literal["M", "F"]] = None
-    birth_date: Optional[datetime] = None  # prijímame ISO dátum/string; FE zvykne posielať "YYYY-MM-DD"
+    # prijímame string YYYY-MM-DD, date alebo datetime
+    birth_date: Optional[Union[str, date, datetime]] = None
     height_cm: Optional[float] = None
 
 # ====== INIT ======
 supabase = get_client()
 
-
 # ====== POMOCNÉ ======
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-def _to_iso_date_str(d: Optional[datetime]) -> Optional[str]:
-    if not d:
+def _birth_to_iso_date(val: Optional[Union[str, date, datetime]]) -> Optional[str]:
+    if val is None:
         return None
-    # ak príde iba date bez tz, necháme to ako ISO8601
-    try:
-        return d.isoformat()
-    except Exception:
-        return None
+    if isinstance(val, str):
+        # očakávame "YYYY-MM-DD"
+        return val
+    if isinstance(val, date) and not isinstance(val, datetime):
+        return val.isoformat()
+    if isinstance(val, datetime):
+        return val.date().isoformat()
+    return None
 
 def _fetch_static(user_id: int) -> Dict[str, Any]:
     res = supabase.table(TABLE_PROFILE_STATIC).select("*").eq("user_id", user_id).limit(1).execute()
