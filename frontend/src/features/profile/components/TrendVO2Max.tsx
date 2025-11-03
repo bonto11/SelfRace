@@ -1,4 +1,3 @@
-// src/features/trends/TrendVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -14,13 +13,13 @@ import { CARD } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
-type StaticRow = { sex?: "M" | "F" | null; birth_date?: string | null };
-type RowBE = { measured_at?: string; value_num?: number | null };
+type StaticRow = { sex: "M" | "F"; birth_date?: string | null } | null;
+type RowBE = { measured_at: string; value_num: number | null };
 type Range = { label: string; min: number | null; max: number | null };
 type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
 function hexA(hex: string, a: number) {
-  const h = (hex || "#000").replace("#", "");
+  const h = (hex || "#000000").replace("#", "");
   const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
     .toString(16)
     .padStart(2, "0")
@@ -41,9 +40,7 @@ export default function TrendVO2Max() {
   const { userId } = useUserId();
   const [loading, setLoading] = React.useState(false);
 
-  const [sex, setSex] = React.useState<"M" | "F">("M");
-  const [birthDate, setBirthDate] = React.useState<string>("");
-
+  const [stat, setStat] = React.useState<StaticRow>(null);
   const [estHist, setEstHist] = React.useState<RowBE[]>([]);
   const [measHist, setMeasHist] = React.useState<RowBE[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
@@ -51,111 +48,81 @@ export default function TrendVO2Max() {
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
-    console.debug("[VO2] mount userId=", userId);
-
     (async () => {
       setLoading(true);
       try {
-        // ---- STATIC
-        try {
-          const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
-          const js = await s.json().catch(() => ({}));
-          console.debug("[VO2] static:", js);
-          const st: StaticRow = js?.data || {};
-          if (alive) {
-            setSex(st?.sex === "F" ? "F" : "M");
-            setBirthDate(st?.birth_date || "");
-          }
-        } catch (e) {
-          console.error("[VO2] static fetch error:", e);
-        }
+        // static (sex, birth_date)
+        const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+        if (alive && s?.success) setStat(s.data as StaticRow);
+        console.debug("[VO2] static ->", s);
 
-        // ---- ESTIMATED
-        try {
-          const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" });
-          const js = await r.json().catch(() => ({}));
-          const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
-          console.debug("[VO2] estimated len=", data.length, "sample=", data[0]);
-          if (alive) setEstHist(data);
-        } catch (e) {
-          console.error("[VO2] est fetch error:", e);
-        }
+        // estimated history
+        const e = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+        const eRows: RowBE[] = e?.success && Array.isArray(e?.data) ? e.data : [];
+        if (alive) setEstHist(eRows);
+        console.debug("[VO2] estimated len=", eRows.length, "sample=", eRows[0]);
 
-        // ---- MEASURED
-        try {
-          const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" });
-          const js = await r.json().catch(() => ({}));
-          const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
-          console.debug("[VO2] measured len=", data.length, "sample=", data[0]);
-          if (alive) setMeasHist(data);
-        } catch (e) {
-          console.error("[VO2] meas fetch error:", e);
-        }
+        // measured history
+        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+        const mRows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
+        if (alive) setMeasHist(mRows);
+        console.debug("[VO2] measured len=", mRows.length, "sample=", mRows[0]);
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
     return () => { alive = false; };
   }, [userId]);
 
-  // Únia dní
+  // ---- spoločná os dní + single-point fix ----
+  const daysLimit = weeks * 7;
+
   const allDays = React.useMemo(() => {
-    const s = new Set<string>();
-    for (const r of estHist)  if (r?.measured_at) s.add(r.measured_at.slice(0, 10));
-    for (const r of measHist) if (r?.measured_at) s.add(r.measured_at.slice(0, 10));
-    const arr = Array.from(s).sort();
-    console.debug("[VO2] union days cnt=", arr.length, "first/last=", arr[0], arr[arr.length - 1]);
+    const set = new Set<string>();
+    for (const r of estHist) if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
+    for (const r of measHist) if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
+    let arr = Array.from(set).sort();
+    // single-series single-point fix: ak spolu vychádza len jeden deň, pridaj +1 deň
+    if (arr.length === 1) {
+      const d0 = new Date(arr[0]);
+      const d1 = new Date(d0.getTime() + 24 * 3600 * 1000);
+      arr = [arr[0], d1.toISOString().slice(0, 10)];
+    }
     return arr;
   }, [estHist, measHist]);
 
-  const daysLimit = weeks * 7;
   const labelsIso = React.useMemo(
     () => (daysLimit > 0 ? allDays.slice(-daysLimit) : allDays),
     [allDays, daysLimit]
   );
+
   if (!labelsIso.length) {
     console.debug("[VO2] no labels -> empty view");
     return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
   }
 
-  // mapy dátum -> hodnota
-  const toMap = (rows: RowBE[]) => {
+  const estMap = React.useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of rows) {
-      const d = (r?.measured_at || "").slice(0, 10);
-      if (d && typeof r?.value_num === "number") m.set(d, r.value_num);
-    }
+    for (const r of estHist) if (typeof r?.value_num === "number" && r?.measured_at) m.set(r.measured_at.slice(0, 10), r.value_num);
     return m;
-  };
-  const estMap  = React.useMemo(() => toMap(estHist),  [estHist]);
-  const measMap = React.useMemo(() => toMap(measHist), [measHist]);
+  }, [estHist]);
+  const measMap = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of measHist) if (typeof r?.value_num === "number" && r?.measured_at) m.set(r.measured_at.slice(0, 10), r.value_num);
+    return m;
+  }, [measHist]);
 
   const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
-  let seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
-  let seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
+  const seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
+  const seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
 
-  // single-point → flat line
-  const flat = (arr: number[]) => {
-    const vals = arr.filter(Number.isFinite) as number[];
-    return vals.length === 1 && arr.length >= 2 ? arr.map(() => vals[0]!) : arr;
-  };
-  const singleEst  = (seriesEst.filter(Number.isFinite) as number[]).length === 1 && seriesEst.length >= 2;
-  const singleMeas = (seriesMeas.filter(Number.isFinite) as number[]).length === 1 && seriesMeas.length >= 2;
-  seriesEst  = flat(seriesEst);
-  seriesMeas = flat(seriesMeas);
-
-  console.debug("[VO2] labels cnt=", labels.length, "est finite=", (seriesEst.filter(Number.isFinite) as number[]).length, "meas finite=", (seriesMeas.filter(Number.isFinite) as number[]).length, "singleEst=", singleEst, "singleMeas=", singleMeas);
-
-  // pásma
-  const age = React.useMemo(() => {
-    if (!birthDate) return 0;
-    return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000));
-  }, [birthDate]);
-
+  // pásma podľa veku/pohlavia (ak stat chýba, pásma vynecháme)
+  const sex = stat?.sex === "F" ? "F" : "M";
+  const birthDate = stat?.birth_date || "";
+  const age = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)) : 0;
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
   const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
-  console.debug("[VO2] ranges cnt=", ranges.length, "sex=", sex, "age=", age, "group=", group);
+  console.debug("[VO2] union days cnt:", labelsIso.length, "first/last:", labelsIso[0], labelsIso[labelsIso.length - 1]);
 
   const maxVal = Math.max(
     0,
@@ -165,6 +132,7 @@ export default function TrendVO2Max() {
   const suggestedTop = Math.max(60, Math.ceil(maxVal + 1));
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
+    // vyfarbené pásma
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
@@ -176,24 +144,26 @@ export default function TrendVO2Max() {
       fill: i === 0 ? "origin" : "-1",
       order: 1,
     })),
+    // Primary: estimated
     {
       type: "line" as const,
       label: "VO₂Max (estimated)",
       data: seriesEst,
-      borderColor: THEME.chart.linePrimary,
-      backgroundColor: THEME.chart.linePrimary,
+      borderColor: THEME.chart.linePrimary || "#FFFFFF",
+      backgroundColor: THEME.chart.linePrimary || "#FFFFFF",
       pointRadius: 2,
       borderWidth: 2,
       tension: 0.25,
       spanGaps: true,
       order: 2,
     },
+    // Secondary: measured (prerušovaná)
     {
       type: "line" as const,
       label: "VO₂Max (measured)",
       data: seriesMeas,
-      borderColor: THEME.chart.lineSecondary,
-      backgroundColor: THEME.chart.lineSecondary,
+      borderColor: THEME.chart.lineSecondary || "#A0AEC0",
+      backgroundColor: THEME.chart.lineSecondary || "#A0AEC0",
       pointRadius: 2,
       borderDash: [6, 4],
       borderWidth: 2,
@@ -202,7 +172,6 @@ export default function TrendVO2Max() {
       order: 2,
     },
   ];
-  console.debug("[VO2] dataset lens -> ranges:", ranges.length, "est:", seriesEst.length, "meas:", seriesMeas.length);
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
 

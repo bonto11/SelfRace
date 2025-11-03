@@ -1,4 +1,3 @@
-// src/features/trends/TrendBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -14,11 +13,11 @@ import { CARD } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
-type StaticProfile = { sex?: "M" | "F" | null };
-type RowBE = { measured_at?: string; value_num?: number | null };
+type StaticProfile = { sex: "M" | "F" } | null;
+type RowBE = { measured_at: string; value_num: number | null };
 
 function hexA(hex: string, a: number) {
-  const h = (hex || "#000").replace("#", "");
+  const h = (hex || "#000000").replace("#", "");
   const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
     .toString(16)
     .padStart(2, "0")
@@ -39,83 +38,67 @@ function colorForBandLabel(labelRaw: string) {
 export default function TrendBodyFat() {
   const { userId } = useUserId();
   const [loading, setLoading] = React.useState(false);
-  const [sex, setSex] = React.useState<"M" | "F">("M");
-  const [rows, setRows] = React.useState<{ d: string; v: number | null }[]>([]);
+  const [stat, setStat] = React.useState<StaticProfile>(null);
+  const [hist, setHist] = React.useState<RowBE[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
 
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
-    console.debug("[BF] mount userId=", userId);
-
     (async () => {
       setLoading(true);
       try {
-        // ---- STATIC
-        try {
-          const sResp = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
-          const sJs = await sResp.json().catch(() => ({}));
-          console.debug("[BF] static resp:", sJs);
-          const sx = (sJs?.data?.sex === "F" ? "F" : "M") as "M" | "F";
-          if (alive) setSex(sx);
-        } catch (e) {
-          console.error("[BF] static fetch error:", e);
-        }
+        // static
+        const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+        if (alive && s?.success) setStat(s.data as StaticProfile);
+        console.debug("[BF] static ->", s);
 
-        // ---- HISTORY
-        try {
-          const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" });
-          const js = await r.json().catch(() => ({}));
-          const raw: RowBE[] = Array.isArray(js?.data) ? js.data : [];
-          console.debug("[BF] history raw len=", raw.length, "sample=", raw[0]);
-          const mapped = raw
-            .map(x => ({
-              d: (x?.measured_at || "").slice(0, 10),
-              v: typeof x?.value_num === "number" ? x.value_num : null,
-            }))
-            .filter(x => x.d);
-          console.debug("[BF] mapped len=", mapped.length, "sample=", mapped.slice(0, 3));
-          if (alive) setRows(mapped);
-        } catch (e) {
-          console.error("[BF] history fetch error:", e);
-        }
+        // history (nový kontrakt)
+        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+        const rows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
+        if (alive) setHist(rows);
+        console.debug("[BF] history raw len=", rows.length, "sample=", rows[0]);
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
     return () => { alive = false; };
   }, [userId]);
 
-  if (!rows.length) {
-    console.debug("[BF] no rows -> empty view");
+  // ---- mapovanie + single-point fix ----
+  const days = weeks * 7;
+  const normalized = React.useMemo(() => {
+    const mapped = hist.map(r => ({
+      dISO: (r.measured_at || "").slice(0, 10),
+      v: typeof r.value_num === "number" ? r.value_num : NaN,
+    })).filter(x => !!x.dISO);
+    const lastNDays = days > 0 ? mapped.slice(-days) : mapped;
+    // ak máme len 1 bod -> pridaj +1 deň s rovnakou hodnotou
+    if (lastNDays.length === 1) {
+      const d0 = new Date(lastNDays[0].dISO);
+      const d1 = new Date(d0.getTime() + 24 * 3600 * 1000);
+      lastNDays.push({ dISO: d1.toISOString().slice(0, 10), v: lastNDays[0].v });
+    }
+    return lastNDays;
+  }, [hist, days]);
+
+  if (!normalized.length) {
     return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
   }
 
-  // posledných N týždňov (po dňoch)
-  const days = weeks * 7;
-  const last = rows.slice(-days);
-  const labelsIso = last.map(r => r.d);
-  const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
-  const values = last.map(r => (typeof r.v === "number" ? r.v : NaN));
+  const labels = normalized.map(x => new Date(x.dISO).toLocaleDateString("sk-SK"));
+  const values = normalized.map(x => (Number.isFinite(x.v) ? Number(x.v) : NaN));
+  const seriesMax = Math.max(0, ...(values.filter(Number.isFinite) as number[]));
 
-  // single-point → flat line
-  const finiteVals = values.filter(n => Number.isFinite(n)) as number[];
-  const singlePoint = finiteVals.length === 1 && values.length >= 2;
-  const lineValues = singlePoint ? values.map(() => finiteVals[0]!) : values;
-
-  console.debug("[BF] labels cnt=", labels.length, "finite cnt=", finiteVals.length, "singlePoint=", singlePoint);
-
-  const seriesMax = Math.max(0, ...(lineValues.filter(Number.isFinite) as number[]));
-  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
-
-  const bands = getBodyFatBands(sex);
-  console.debug("[BF] bands sex=", sex, "bands cnt=", bands.length, bands);
+  // pásma podľa pohlavia (ak ešte nemáme stat, pásma prázdne – no data aj tak ukáže bielu čiaru)
+  const bands = stat ? getBodyFatBands(stat.sex) : [];
+  console.debug("[BF] bands sex=", stat?.sex, "bands cnt=", bands.length);
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
+    // vyfarbené pásma
     ...bands.map((b, i) => {
       const color = colorForBandLabel(b.label || "");
-      const yMax = typeof b.max === "number" ? b.max : suggestedTop;
+      const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
       return {
         type: "line" as const,
         label: b.label,
@@ -128,12 +111,13 @@ export default function TrendBodyFat() {
         order: 1,
       };
     }),
+    // línia BF
     {
       type: "line" as const,
       label: "Body Fat %",
-      data: lineValues,
-      borderColor: THEME.chart.linePrimary,
-      backgroundColor: THEME.chart.linePrimary,
+      data: values,
+      borderColor: THEME.chart.linePrimary || "#FFFFFF",
+      backgroundColor: THEME.chart.linePrimary || "#FFFFFF",
       pointRadius: 2,
       borderWidth: 2,
       tension: 0.25,
@@ -141,9 +125,9 @@ export default function TrendBodyFat() {
       order: 2,
     },
   ];
-  console.debug("[BF] dataset lens -> bands:", bands.length, "line:", lineValues.length);
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
+  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const options: ChartOptions<"line"> = {
     responsive: true,
