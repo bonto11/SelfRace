@@ -14,7 +14,10 @@ import { CARD } from "@/shared/ui/classes";
 ensureChartJSRegistered();
 
 type StaticProfile = { sex: "M" | "F" };
-type MetricsRow = { updated_at: string; body_fat_pct: number | null };
+// BE vracia: { metric, value_num, unit, measured_at, ... }
+type MetricRowBE = { measured_at: string; value_num: number | null };
+
+type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 
 // #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
@@ -28,26 +31,22 @@ function hexA(hex: string, a: number) {
 
 function tooltipColorForBfLabel(label?: string) {
   const l = (label || "").toLowerCase();
-  if (l.includes("athlete") || l.includes("excellent"))
-    return THEME.chart.excellent;
-  if (l.includes("fitness") || l.includes("superior"))
-    return THEME.chart.superior;
-  if (l.includes("good") || l.includes("average")) return THEME.chart.good; // ak používaš "average" ako zelenšiu, pokojne nechaj good na zeleno
+  if (l.includes("athlete") || l.includes("excellent")) return THEME.chart.excellent;
+  if (l.includes("fitness") || l.includes("superior")) return THEME.chart.fitness;
+  if (l.includes("good") || l.includes("average")) return THEME.chart.average;
   if (l.includes("fair")) return THEME.chart.fair;
-  if (l.includes("poor") || l.includes("obese") || l.includes("essential"))
-    return THEME.chart.poor;
+  if (l.includes("poor") || l.includes("obese") || l.includes("essential")) return THEME.chart.poor;
   if (l.includes("body fat")) return THEME.chart.linePrimary; // línia BF
   return THEME.chart.neutral;
 }
 
-// mapovanie textových labelov → THEME.chart.* (tvoje nové kľúče)
 function colorForBandLabel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete")) return THEME.chart.athletes;
-  if (l.includes("fitness")) return THEME.chart.fitness;
-  if (l.includes("average")) return THEME.chart.average;
+  if (l.includes("athlete"))   return THEME.chart.athletes;
+  if (l.includes("fitness"))   return THEME.chart.fitness;
+  if (l.includes("average"))   return THEME.chart.average;
   if (l.includes("essential")) return THEME.chart.essential;
-  if (l.includes("obese")) return THEME.chart.obese;
+  if (l.includes("obese"))     return THEME.chart.obese;
   return THEME.chart.neutral;
 }
 
@@ -55,7 +54,7 @@ export default function TrendBodyFat() {
   const { userId } = useUserId();
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
-  const [rows, setRows] = React.useState<MetricsRow[]>([]);
+  const [rows, setRows] = React.useState<MetricsRowFE[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
 
   React.useEffect(() => {
@@ -64,52 +63,42 @@ export default function TrendBodyFat() {
     (async () => {
       setLoading(true);
       try {
-        const s = await fetch(`${API_URL}/profile/static/${userId}`, {
-          cache: "no-store",
-        }).then((r) => r.json());
+        // static
+        const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json());
         if (alive && s?.success) setStat(s.data);
-        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}`, {
-          cache: "no-store",
-        }).then((r) => r.json());
-        if (alive && m?.success) setRows(Array.isArray(m.data) ? m.data : []);
+
+        // history – NOVÝ kontrakt: ?metric=body_fat_pct
+        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" }).then(r => r.json());
+        if (alive && m?.success) {
+          const mapped: MetricsRowFE[] = (Array.isArray(m.data) ? m.data : []).map((r: MetricRowBE) => ({
+            updated_at: r.measured_at,
+            body_fat_pct: typeof r.value_num === "number" ? r.value_num : null,
+          }));
+          setRows(mapped);
+        } else if (alive) {
+          setRows([]);
+        }
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId]);
 
   const days = weeks * 7;
-  const dataRows = React.useMemo(
-    () => (days > 0 ? rows.slice(-days) : rows),
-    [rows, days]
-  );
-  if (!dataRows.length)
-    return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
+  const dataRows = React.useMemo(() => (days > 0 ? rows.slice(-days) : rows), [rows, days]);
+  if (!dataRows.length) return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
 
-  const labels = dataRows.map((r) =>
-    new Date(r.updated_at).toLocaleDateString("sk-SK")
-  );
-  const values = dataRows.map((r) =>
-    typeof r.body_fat_pct === "number" ? r.body_fat_pct : NaN
-  );
-  const seriesMax = Math.max(
-    0,
-    ...(values.filter((n) => Number.isFinite(n)) as number[])
-  );
+  const labels = dataRows.map(r => new Date(r.updated_at).toLocaleDateString("sk-SK"));
+  const values = dataRows.map(r => (typeof r.body_fat_pct === "number" ? r.body_fat_pct : NaN));
+  const seriesMax = Math.max(0, ...(values.filter((n) => Number.isFinite(n)) as number[]));
 
   const bands = stat ? getBodyFatBands(stat.sex) : [];
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pásma (vyplnené pozadia)
     ...bands.map((b, i) => {
       const color = colorForBandLabel(b.label || "");
-      const yMax =
-        typeof b.max === "number"
-          ? b.max
-          : Math.max(35, Math.ceil(seriesMax + 1));
+      const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
       return {
         type: "line" as const,
         label: b.label,
@@ -122,8 +111,6 @@ export default function TrendBodyFat() {
         order: 1,
       };
     }),
-
-    // línia BF
     {
       type: "line" as const,
       label: "Body Fat %",
@@ -149,13 +136,7 @@ export default function TrendBodyFat() {
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          boxWidth: 6,
-          boxHeight: 6,
-          padding: 8,
-        },
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
       },
       tooltip: {
         enabled: true,
@@ -195,9 +176,7 @@ export default function TrendBodyFat() {
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between p-3 border-b border-neutral-800">
-        <h2 className="text-base md:text-lg font-semibold">
-          Detail – Body Fat %
-        </h2>
+        <h2 className="text-base md:text-lg font-semibold">Detail – Body Fat %</h2>
         <div className="flex items-center gap-2 text-xs">
           <select
             value={weeks}

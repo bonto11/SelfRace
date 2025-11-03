@@ -1,4 +1,3 @@
-// src/features/widgets/WidgetBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -10,8 +9,12 @@ import { getBodyFatBands } from "@/shared/utils/bands";
 import { THEME } from "@/shared/theme/tokens";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
-type MetricsRow = { updated_at: string; body_fat_pct: number | null };
 type StaticProfile = { sex: "M" | "F" };
+
+// BE row
+type MetricRowBE = { measured_at: string; value_num: number | null };
+// FE local shape (aby si nemusel meniť zvyšok)
+type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 
 function fmtDate(d?: string | null) {
   return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
@@ -37,10 +40,8 @@ function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
 
 function Pill({ label, color }: { label: string; color: string }) {
   return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-      style={{ background: `${color}1A`, border: `1px solid ${color}66`, color }}
-    >
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+          style={{ background: `${color}1A`, border: `1px solid ${color}66`, color }}>
       {label}
     </span>
   );
@@ -52,7 +53,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
   const [loading, setLoading] = React.useState(true);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
-  const [latest, setLatest] = React.useState<MetricsRow | null>(null);
+  const [latest, setLatest] = React.useState<MetricsRowFE | null>(null);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -61,18 +62,22 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
       try {
         setLoading(true);
 
-        // pohlavie (kvôli pásmam)
+        // static
         try {
           const r0 = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
           const js0 = await r0.json().catch(() => ({}));
           if (alive && js0?.success) setStat(js0.data as StaticProfile);
         } catch {}
 
-        // posledná známa BF hodnota
-        const r1 = await fetch(`${API_URL}/profile/metrics/history/${userId}`, { cache: "no-store" });
+        // posledná hodnota BF – vezmeme history a zoberieme koniec
+        const r1 = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" });
         const js1 = await r1.json().catch(() => ({}));
-        const rows: MetricsRow[] = Array.isArray(js1?.data) ? js1.data : [];
-        const last = rows.filter(r => r.body_fat_pct != null).slice(-1)[0] ?? null;
+        const rowsBE: MetricRowBE[] = Array.isArray(js1?.data) ? js1.data : [];
+        const lastBE = rowsBE.slice(-1)[0];
+        const last: MetricsRowFE | null = lastBE
+          ? { updated_at: lastBE.measured_at, body_fat_pct: (typeof lastBE.value_num === "number" ? lastBE.value_num : null) }
+          : null;
+
         if (alive) setLatest(last);
       } finally {
         if (alive) setLoading(false);
@@ -86,13 +91,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const accentHex = level?.color ?? THEME.chart.neutral;
 
   return (
-    <WidgetCard
-      title="Body Fat %"
-      onOpen={handleOpen}
-      interactive={!!handleOpen}
-      accent={accentHex}
-      minH={168}
-    >
+    <WidgetCard title="Body Fat %" onOpen={handleOpen} interactive={!!handleOpen} accent={accentHex} minH={168}>
       {loading ? (
         <div className="grid place-items-center py-6">
           <LoadingSpinner size="widget" />
