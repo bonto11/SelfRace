@@ -7,6 +7,7 @@ import TextField from "@/shared/components/ui/TextField";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
+import { toast } from "@/shared/components/ui/Toast";
 
 export default function InputsCard() {
   const { userId } = useUserId();
@@ -63,9 +64,9 @@ export default function InputsCard() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Unknown error");
-      alert("✅ Recovery uložené");
+      toast.success("✅ Recovery uložené");
     } catch (e: any) {
-      alert("❌ Chyba: " + (e?.message ?? e));
+      toast.error("❌ Chyba: " + (e?.message ?? e));
     } finally {
       setSaving(false);
     }

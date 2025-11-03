@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import TableMetrics from "@/features/profile/components/TableMetrics";
-import TableHistory from "@/features/profile/components/TableHistory";
 import WidgetBodyFat from "@/features/widgets/WidgetBodyFat";
 import WidgetVO2Max from "@/features/widgets/WidgetVO2Max";
 import TableStatic from "@/features/profile/components/TableStatic";
@@ -28,7 +27,6 @@ export default function Page() {
       <div className="space-y-6 mt-6">
         <TableStatic />
         <TableMetrics />
-        <TableHistory />
       </div>
     </div>
   );
