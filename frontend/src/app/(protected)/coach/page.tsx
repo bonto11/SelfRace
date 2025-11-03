@@ -7,10 +7,10 @@ import WidgetPB from "@/features/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
 import WidgetActivitiesCalendar from "@/features/widgets/WidgetActivitiesCalendar";
 
-import { CoachDataProvider, useCoachData } from "@/features/coach/data/CoachDataProvider";
+import { CoachDataProvider, useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
 
-import Result from "@/features/coach/components/Result";
+import CoachResult from "@/features/coach/components/CoachResult";
 import Narrative from "@/features/coach/components/Narrative";
 import { THEME } from "@/shared/theme/tokens";
 import { useUserId } from "@/shared/hooks/useUserId";
