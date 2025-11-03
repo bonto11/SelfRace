@@ -14,8 +14,18 @@ import { CARD } from "@/shared/ui/classes";
 ensureChartJSRegistered();
 
 type HistoryRow = { VO2Max: number | null; updated_at: string };
-type Range = { label: string; min: number | null; max: number | null; color?: string };
-type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
+type Range = {
+  label: string;
+  min: number | null;
+  max: number | null;
+  color?: string;
+};
+type Group = {
+  sex: "M" | "F";
+  age_min: number;
+  age_max: number;
+  ranges: Range[];
+};
 
 // #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
@@ -27,13 +37,25 @@ function hexA(hex: string, a: number) {
   return `#${h}${aa}`;
 }
 
+function tooltipColorForLabel(label?: string) {
+  const l = (label || "").toLowerCase();
+  if (l.includes("excellent")) return THEME.chart.excellent;
+  if (l.includes("superior")) return THEME.chart.superior;
+  if (l.includes("good")) return THEME.chart.good;
+  if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
+  if (l.includes("poor")) return THEME.chart.poor;
+  if (l.includes("vo")) return THEME.chart.linePrimary; // VO₂Max línia (biela)
+  return THEME.chart.neutral;
+}
+
 function levelColor(label: string) {
   const l = label.toLowerCase();
-  if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent;
+  if (l.includes("excellent") || l.includes("elite"))
+    return THEME.chart.excellent;
   if (l.includes("superior")) return THEME.chart.superior;
-  if (l.includes("good"))     return THEME.chart.good;
+  if (l.includes("good")) return THEME.chart.good;
   if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
-  if (l.includes("poor"))     return THEME.chart.poor;
+  if (l.includes("poor")) return THEME.chart.poor;
   return THEME.chart.neutral;
 }
 
@@ -51,7 +73,9 @@ export default function TrendVO2Max() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
+        const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, {
+          cache: "no-store",
+        });
         const js = await res.json().catch(() => ({}));
         if (!alive) return;
         if (js?.success) {
@@ -65,25 +89,42 @@ export default function TrendVO2Max() {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
   // orež na posledných N dní
   const days = weeks * 7;
-  const rows = useMemo(() => (days > 0 ? history.slice(-days) : history), [history, days]);
-  if (!rows.length) return <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>;
+  const rows = useMemo(
+    () => (days > 0 ? history.slice(-days) : history),
+    [history, days]
+  );
+  if (!rows.length)
+    return <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>;
 
   // vek + pásma
-  const age = Math.floor((Date.now() - (birthDate ? new Date(birthDate).getTime() : Date.now())) / (365.25 * 86400 * 1000));
-  const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
-  const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
+  const age = Math.floor(
+    (Date.now() - (birthDate ? new Date(birthDate).getTime() : Date.now())) /
+      (365.25 * 86400 * 1000)
+  );
+  const group = (vo2Ref as Group[]).find(
+    (g) => g.sex === sex && age >= g.age_min && age <= g.age_max
+  );
+  const ranges = (group?.ranges ?? []).map((r) => ({
+    ...r,
+    color: levelColor(r.label),
+  }));
 
   // posledná hodnota → zvýraznenie v legende
   const latestVO2 = rows.at(-1)?.VO2Max ?? null;
   let currentLabel: string | null = null;
   if (latestVO2 != null && ranges.length) {
     for (const r of ranges) {
-      if ((r.min == null || latestVO2 >= r.min) && (r.max == null || latestVO2 <= r.max)) {
+      if (
+        (r.min == null || latestVO2 >= r.min) &&
+        (r.max == null || latestVO2 <= r.max)
+      ) {
         currentLabel = r.label.trim();
         break;
       }
@@ -91,13 +132,23 @@ export default function TrendVO2Max() {
   }
 
   // dáta
-  const labels = rows.map(h => new Date(h.updated_at).toLocaleDateString("sk-SK"));
-  const series = rows.map(h => (typeof h.VO2Max === "number" ? h.VO2Max : NaN));
-  const seriesMax = Math.max(0, ...series.filter(n => Number.isFinite(n)) as number[]);
+  const labels = rows.map((h) =>
+    new Date(h.updated_at).toLocaleDateString("sk-SK")
+  );
+  const series = rows.map((h) =>
+    typeof h.VO2Max === "number" ? h.VO2Max : NaN
+  );
+  const seriesMax = Math.max(
+    0,
+    ...(series.filter((n) => Number.isFinite(n)) as number[])
+  );
 
   // ⚙️ horný limit pásiem/grafu – max(r.max) alebo fallback 105 (tvoj strop)
-  const bandMax = Math.max(0, ...ranges.map(r => (typeof r.max === "number" ? r.max : 0)));
-  const topMax  = Math.max(105, bandMax, Math.ceil(seriesMax + 1));
+  const bandMax = Math.max(
+    0,
+    ...ranges.map((r) => (typeof r.max === "number" ? r.max : 0))
+  );
+  const topMax = Math.max(105, bandMax, Math.ceil(seriesMax + 1));
 
   const data: ChartData<"line", number[], string> = {
     labels,
@@ -132,17 +183,44 @@ export default function TrendVO2Max() {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
+    elements: { point: { radius: 2, hoverRadius: 5 } },
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 8,
+        },
       },
-      tooltip: { enabled: true },
+      tooltip: {
+        enabled: true,
+        backgroundColor: "#0B1220F2", // tmavé polopriesvitné
+        borderColor: "#FFFFFF33",
+        borderWidth: 1,
+        titleColor: "#FFFFFF",
+        bodyColor: "#FFFFFF",
+        padding: 10,
+        usePointStyle: true,
+        boxPadding: 4,
+        displayColors: true,
+        caretSize: 6,
+        cornerRadius: 8,
+        callbacks: {
+          labelColor: (ctx) => {
+            const c = tooltipColorForLabel(ctx.dataset?.label);
+            return { borderColor: c, backgroundColor: c };
+          },
+          labelTextColor: () => "#FFFFFF",
+        },
+      },
     },
     scales: {
       y: {
         beginAtZero: true,
-        suggestedMax: topMax,
+        suggestedMax: 70,
         grid: { color: THEME.chart.grid },
         ticks: { color: THEME.color.text },
       },
@@ -177,8 +255,6 @@ export default function TrendVO2Max() {
           )}
           <Line data={data} options={options} />
         </div>
-
-        
       </div>
     </div>
   );
