@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import TableMetrics from "@/features/profile/components/TableMetrics";
 import TableHistory from "@/features/profile/components/TableHistory";
 import WidgetBodyFat from "@/features/widgets/WidgetBodyFat";
@@ -7,6 +8,7 @@ import WidgetVO2Max from "@/features/widgets/WidgetVO2Max";
 import TableStatic from "@/features/profile/components/TableStatic";
 
 export default function Page() {
+  const router = useRouter();
 
   return (
     <div className="max-w-screen-lg mx-auto px-3">
@@ -18,8 +20,8 @@ export default function Page() {
 
       {/* Widgety */}
       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <WidgetVO2Max />
-        <WidgetBodyFat />
+        <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
+        <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
       </div>
 
       {/* Tabuľky */}
