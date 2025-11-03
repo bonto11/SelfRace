@@ -14,23 +14,21 @@ import { CARD } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
-type StaticRow = { sex: "M" | "F"; birth_date?: string | null };
-type RowBE = { measured_at: string; value_num: number | null };
+type StaticRow = { sex?: "M" | "F" | null; birth_date?: string | null };
+type RowBE = { measured_at?: string; value_num?: number | null };
 type Range = { label: string; min: number | null; max: number | null };
 type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
-// #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
-  const h = hex.replace("#", "");
+  const h = (hex || "#000").replace("#", "");
   const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
     .toString(16)
     .padStart(2, "0")
     .toUpperCase();
   return `#${h}${aa}`;
 }
-
 function levelColor(label: string) {
-  const l = label.toLowerCase();
+  const l = (label || "").toLowerCase();
   if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent;
   if (l.includes("superior")) return THEME.chart.superior;
   if (l.includes("good")) return THEME.chart.good;
@@ -56,25 +54,32 @@ export default function TrendVO2Max() {
     (async () => {
       setLoading(true);
       try {
-        // static (sex, birth_date)
+        // static
         try {
-          const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json());
-          if (alive && s?.success) {
-            const st: StaticRow = s.data;
+          const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
+          const js = await s.json().catch(() => ({}));
+          const st: StaticRow = js?.data || {};
+          if (alive) {
             setSex(st?.sex === "F" ? "F" : "M");
             setBirthDate(st?.birth_date || "");
           }
         } catch {}
 
         // estimated history
-        const e = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" }).then(r => r.json());
-        if (alive && e?.success) setEstHist(Array.isArray(e.data) ? e.data : []);
-        else if (alive) setEstHist([]);
+        try {
+          const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" });
+          const js = await r.json().catch(() => ({}));
+          const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
+          if (alive) setEstHist(data);
+        } catch {}
 
         // measured history
-        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" }).then(r => r.json());
-        if (alive && m?.success) setMeasHist(Array.isArray(m.data) ? m.data : []);
-        else if (alive) setMeasHist([]);
+        try {
+          const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" });
+          const js = await r.json().catch(() => ({}));
+          const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
+          if (alive) setMeasHist(data);
+        } catch {}
       } finally {
         if (alive) setLoading(false);
       }
@@ -82,15 +87,14 @@ export default function TrendVO2Max() {
     return () => { alive = false; };
   }, [userId]);
 
-  // zjednotenie po dňoch (ISO yyyy-mm-dd)
+  // Únia dní
   const allDays = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const r of estHist)  if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
-    for (const r of measHist) if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
-    return Array.from(set).sort();
+    const s = new Set<string>();
+    for (const r of estHist)  if (r?.measured_at) s.add(r.measured_at.slice(0, 10));
+    for (const r of measHist) if (r?.measured_at) s.add(r.measured_at.slice(0, 10));
+    return Array.from(s).sort();
   }, [estHist, measHist]);
 
-  // orež na posledných N týždňov
   const daysLimit = weeks * 7;
   const labelsIso = React.useMemo(
     () => (daysLimit > 0 ? allDays.slice(-daysLimit) : allDays),
@@ -98,30 +102,32 @@ export default function TrendVO2Max() {
   );
   if (!labelsIso.length) return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
 
-  // mapy dátumu -> hodnota
+  // mapy dátum→hodnota
   const toMap = (rows: RowBE[]) => {
     const m = new Map<string, number>();
-    for (const r of rows) if (typeof r.value_num === "number" && r.measured_at) m.set(r.measured_at.slice(0, 10), r.value_num);
+    for (const r of rows) {
+      const d = (r?.measured_at || "").slice(0, 10);
+      if (d && typeof r?.value_num === "number") m.set(d, r.value_num);
+    }
     return m;
   };
   const estMap  = React.useMemo(() => toMap(estHist),  [estHist]);
   const measMap = React.useMemo(() => toMap(measHist), [measHist]);
 
-  // hodnoty v poradí labelov
   const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
   let seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
   let seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
 
-  // single-point vyhladenie: ak je iba 1 hodnota, natiahni “flat line”
-  const fixFlat = (arr: number[]) => {
-    const vals = arr.filter(n => Number.isFinite(n));
-    if (vals.length === 1 && arr.length >= 2) return arr.map(() => vals[0] as number);
+  // single-point → flat line
+  const flat = (arr: number[]) => {
+    const vals = arr.filter(Number.isFinite) as number[];
+    if (vals.length === 1 && arr.length >= 2) return arr.map(() => vals[0]!);
     return arr;
   };
-  seriesEst  = fixFlat(seriesEst);
-  seriesMeas = fixFlat(seriesMeas);
+  seriesEst  = flat(seriesEst);
+  seriesMeas = flat(seriesMeas);
 
-  // pásma podľa veku/pohlavia
+  // pásma
   const age = React.useMemo(() => {
     if (!birthDate) return 0;
     return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000));
@@ -130,16 +136,15 @@ export default function TrendVO2Max() {
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
   const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
 
-  // y-maximum
   const maxVal = Math.max(
     0,
-    ...[...seriesEst, ...seriesMeas].filter(n => Number.isFinite(n)) as number[],
+    ...[...seriesEst, ...seriesMeas].filter(Number.isFinite) as number[],
     ...ranges.map(r => (typeof r.max === "number" ? r.max : 0))
   );
   const suggestedTop = Math.max(60, Math.ceil(maxVal + 1));
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pásma (pozadie)
+    // pozadia
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
@@ -151,8 +156,7 @@ export default function TrendVO2Max() {
       fill: i === 0 ? "origin" : "-1",
       order: 1,
     })),
-
-    // primary – estimated (biela)
+    // primary – estimated
     {
       type: "line" as const,
       label: "VO₂Max (estimated)",
@@ -165,8 +169,7 @@ export default function TrendVO2Max() {
       spanGaps: true,
       order: 2,
     },
-
-    // secondary – measured (prerušovaná)
+    // secondary – measured (dashed)
     {
       type: "line" as const,
       label: "VO₂Max (measured)",
