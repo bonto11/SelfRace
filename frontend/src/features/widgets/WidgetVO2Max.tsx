@@ -1,3 +1,4 @@
+// src/features/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -6,25 +7,67 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
+import { THEME } from "@/shared/theme/tokens";
 
-type Props = {
-  /** preferované – otvoriť detail trendu */
-  onOpen?: () => void;
-  /** spätná kompatibilita s tvojím volaním */
-  onOpenDetail?: () => void;
-};
+type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
 type HistoryRow = { VO2Max: number | null; updated_at: string };
+type EstRow = { value?: number | null; updated_at?: string | null; success?: boolean };
 type Range = { label: string; min: number | null; max: number | null; color: string };
 type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
+
+const HEX = {
+  // Fallbacky, ak by niečo chýbalo v THEME.chart
+  Excellent: THEME.chart?.excellent ?? "#10B981",
+  Superior:  THEME.chart?.superior  ?? "#14B8A6",
+  Good:      THEME.chart?.good      ?? "#22D3EE",
+  Fair:      THEME.chart?.fair      ?? "#F59E0B",
+  Poor:      THEME.chart?.poor      ?? "#F43F5E",
+  Neutral:   THEME.chart?.neutral   ?? "#64748B",
+};
+
+function levelFrom(ranges: Range[] | undefined, v?: number | null) {
+  if (!ranges || v == null || !Number.isFinite(v)) return null;
+  const hit = ranges.find(rr =>
+    (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max)
+  );
+  if (!hit) return null;
+  const label = hit.label.trim();
+  // farbu berieme z THEME.chart podľa labelu; ak JSON má vlastné farby, ignorujeme ich kvôli konzistencii
+  const color =
+    HEX[label as keyof typeof HEX] ??
+    HEX.Good; // default ak by prišiel netradičný label
+  return { label, color };
+}
+
+function fmtDate(d?: string | null) {
+  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
+}
+
+function Pill({ label, color }: { label: string; color: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+      style={{
+        background: `${color}1A`, // ~10% (1A) overlay
+        border: `1px solid ${color}66`,
+        color,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const { userId } = useUserId();
+
   const [loading, setLoading] = React.useState(true);
   const [history, setHistory] = React.useState<HistoryRow[]>([]);
   const [sex, setSex] = React.useState<"M" | "F">("M");
   const [birthDate, setBirthDate] = React.useState<string>("");
+  const [est, setEst] = React.useState<EstRow | null>(null);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -32,16 +75,21 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
-        const js = await res.json().catch(() => ({}));
-        if (!alive) return;
-        if (js?.success) {
-          setHistory(Array.isArray(js.history) ? js.history : []);
-          setSex(js.sex === "F" ? "F" : "M");
-          setBirthDate(js.birth_date || "");
-        } else {
+
+        const r1 = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
+        const js1 = await r1.json().catch(() => ({}));
+        if (alive && js1?.success) {
+          setHistory(Array.isArray(js1.history) ? js1.history : []);
+          setSex(js1.sex === "F" ? "F" : "M");
+          setBirthDate(js1.birth_date || "");
+        } else if (alive) {
           setHistory([]);
         }
+
+        // odhad
+        const r2 = await fetch(`${API_URL}/profile/vo2-estimate/${userId}`, { cache: "no-store" });
+        const js2: EstRow = await r2.json().catch(() => ({} as EstRow));
+        if (alive) setEst(js2 ?? null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -49,64 +97,57 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     return () => { alive = false; };
   }, [userId]);
 
-  const latest = history.length ? history[history.length - 1] : null;
-  const latestVO2 = latest?.VO2Max ?? null;
+  const measured = history.length ? history[history.length - 1] : null;
+  const mVO2 = measured?.VO2Max ?? null;
 
-  // vyhodnotenie úrovne podľa veku/pohlavia
-  let level: { label: string; color: string } | null = null;
+  // vyber pásiem podľa veku/pohlavia
+  let ranges: Range[] | undefined;
   try {
-    if (birthDate && latestVO2 != null) {
-      const age = Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000));
-      const g = (vo2Ref as Group[]).find(
-        (x) => x.sex === sex && age >= x.age_min && age <= x.age_max
-      );
-      const r = g?.ranges?.find(
-        (rr) =>
-          (rr.min == null || latestVO2 >= rr.min) &&
-          (rr.max == null || latestVO2 <= rr.max)
-      );
-      if (r) level = { label: r.label.trim(), color: r.color };
-    }
-  } catch {}
+    const age = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000)) : 0;
+    const g = (vo2Ref as Group[]).find(x => x.sex === sex && age >= x.age_min && age <= x.age_max);
+    ranges = g?.ranges;
+  } catch { ranges = undefined; }
+
+  const levelMeasured  = levelFrom(ranges, mVO2);
+  const levelEstimated = levelFrom(ranges, Number.isFinite(est?.value as number) ? Number(est?.value) : null);
+
+  // accent (preferuj merané; ak niet, skús odhad)
+  const accentHex = (levelMeasured?.color ?? levelEstimated?.color ?? HEX.Neutral);
 
   return (
     <WidgetCard
       title="VO₂Max"
       onOpen={handleOpen}
       interactive={!!handleOpen}
-      accent="bg-cyan-400"
-      minH={160}
+      accent={accentHex}     // <- čistý HEX
+      minH={168}
     >
       {loading ? (
         <div className="grid place-items-center py-6">
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="flex items-center justify-between">
+        <div className="grid grid-cols-2 gap-3 items-start">
+          {/* Merané */}
           <div>
-            <div className="text-4xl font-extrabold tabular-nums">
-              {latestVO2 != null ? latestVO2.toFixed(1) : "—"}
-            </div>
-            <div className="text-xs opacity-70">
-              {latest?.updated_at
-                ? new Date(latest.updated_at).toLocaleDateString("sk-SK")
-                : "bez dátumu"}
+            <div className="text-[11px] uppercase opacity-70">merané: {fmtDate(measured?.updated_at)}</div>
+            <div className="mt-1 flex items-end gap-2">
+              <div className="text-4xl font-extrabold tabular-nums">
+                {mVO2 != null ? mVO2.toFixed(1) : "—"}
+              </div>
+              {levelMeasured ? <Pill label={levelMeasured.label} color={levelMeasured.color} /> : <span className="text-xs opacity-60">—</span>}
             </div>
           </div>
 
+          {/* Odhad */}
           <div className="text-right">
-            <div
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold"
-              style={{
-                backgroundColor: level ? `${level.color}22` : "rgba(255,255,255,0.08)",
-                border: level ? `1px solid ${level.color}66` : "1px solid rgba(255,255,255,0.12)",
-                color: level ? level.color : "inherit",
-              }}
-              title={level?.label ?? "bez kategórie"}
-            >
-              {level?.label ?? "—"}
+            <div className="text-[11px] uppercase opacity-70">odhad: {fmtDate(est?.updated_at ?? null)}</div>
+            <div className="mt-1 flex items-end gap-2 justify-end">
+              <div className="text-4xl font-extrabold tabular-nums">
+                {Number.isFinite(est?.value as number) ? Number(est?.value).toFixed(1) : "—"}
+              </div>
+              {levelEstimated ? <Pill label={levelEstimated.label} color={levelEstimated.color} /> : <span className="text-xs opacity-60">—</span>}
             </div>
-            <div className="mt-1 text-[11px] opacity-60">naposledy merané</div>
           </div>
         </div>
       )}

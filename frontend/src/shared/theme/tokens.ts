@@ -1,26 +1,26 @@
 export const THEME = {
   color: {
-    bgApp: '#0a0a0a',
+    bgApp: '#0A0A0A',
     bgTopbar: 'rgba(10,10,10,0.9)',
-    border: '#27272a',
-    text: '#e5e7eb',
+    border: '#27272A',
+    text: '#E5E7EB',
     card: '#111827',
     sidebar: '#111111',
-    panel: '#1f2937',
+    panel: '#1F2937',
   },
 
   chart: {
     // série
-    run: "#22c55e",        // emerald-500
-    ride: "#38bdf8",       // sky-400
-    bike: "#38bdf8",       // sky-400
-    swim: "#60a5fa",       // blue-400
-    strength: "#f59e0b",   // amber-500
-    mixed: "#a78bfa",      // violet-400
-    skate: "#f472b6",      // pink-400
-    hike: "#34d399",       // green-400
-    walk: "#9ca3af",       // gray-400
-    other: "#94a3b8",      // slate-400
+    run: "#22C55E",
+    ride: "#38BDF8",
+    bike: "#38VBF8",
+    swim: "#60A5FA",
+    strength: "#F59E0B",
+    mixed: "#A78BFA",
+    skate: "#F472B6",
+    hike: "#34D399",
+    walk: "#9CA3AF",
+    other: "#94A3B8",
 
     monotony: '#84CC16',
     strain: '#FDE047',
@@ -32,7 +32,14 @@ export const THEME = {
     ref80: "rgba(74, 222, 128, 0.35)",   // bledá zelená
     ref20: "rgba(248, 113, 113, 0.35)",  // bledá červená
 
-    linePrimary: "#22c55e",        // emerald-500
+    excellent : "#10B981",
+    superior  : "#14B8A6",
+    good      : "#22D3EE",
+    fair      : "#F59E0B",
+    poor      : "#F43F5E",
+    neutral   : "#64748B",
+
+    linePrimary: "#22C55E",        // emerald-500
 
     grid: 'rgba(255,255,255,0.07)',
     gridSoft: 'rgba(255,255,255,0.05)',
