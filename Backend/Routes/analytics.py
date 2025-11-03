@@ -1,20 +1,26 @@
-# backend/Routes/analytics.py
+# Routes/analytics.py
 # Weekly agregácie – používa sport_type_fe, koše: run, ride, strength, skate, mixed, other
+
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from datetime import date, datetime, timedelta
 from collections import defaultdict
+from typing import Dict, Optional
+
 from Services.time import week_key, week_bounds
 from Services.analytics import sport_bucket, compute_trimp, monotony_and_strain
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
-    TABLE_USERS_STATIC,
-    TABLE_USERS_METRICS,
+    TABLE_PROFILE_STATIC,          # NEW
+    TABLE_PROFILE_METRIC_VALUE,    # NEW
+    TABLE_USERS_RECOVERY,          # <- recovery denník (RHR_bpm)
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 supabase = get_client()
+
 
 @router.get("/weekly/{user_id}")
 def weekly(user_id: int, weeks: int = 12):
@@ -22,21 +28,79 @@ def weekly(user_id: int, weeks: int = 12):
     Týždenná agregácia za posledných N týždňov.
     - km/time/TRIMP rozdelené podľa: run, ride, strength, skate, mixed, other
     - Monotony/Strain k rovnakej metrike
+    - HR parametre:
+        sex                   -> profile_static.sex
+        HR_max (posledná)     -> profile_metric_value(metric='HR_max')
+        RHR (denné, ak máme)  -> users_recovery.RHR_bpm (mapa date -> rhr)
+          * ak na daný deň chýba, skúsime 1-2 dni dozadu, inak fallback Edwards TRIMP
     """
     try:
-        # HR parametre
-        sex = None; hr_max = None; rhr = None
-        st = supabase.table(TABLE_USERS_STATIC).select("sex").eq("user_id", user_id).limit(1).execute()
-        if st.data: sex = st.data[0].get("sex")
-        mt = (supabase.table(TABLE_USERS_METRICS)
-              .select("HR_max,RHR,updated_at").eq("user_id", user_id)
-              .order("updated_at", desc=True).limit(1).execute())
-        if mt.data:
-            hr_max = mt.data[0].get("HR_max"); rhr = mt.data[0].get("RHR")
+        # --- HR parametre (sex, HR_max) ---
+        sex: Optional[str] = None
+        hr_max: Optional[float] = None
 
-        # dáta za obdobie
+        st = supabase.table(TABLE_PROFILE_STATIC).select("sex").eq("user_id", user_id).limit(1).execute()
+        if st.data:
+            sex = st.data[0].get("sex")
+
+        hrmax_row = (
+            supabase.table(TABLE_PROFILE_METRIC_VALUE)
+            .select("value_num")
+            .eq("user_id", user_id)
+            .eq("metric", "HR_max")
+            .order("measured_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if hrmax_row.data:
+            try:
+                hr_max = float(hrmax_row.data[0].get("value_num") or 0)
+                if hr_max <= 0:
+                    hr_max = None
+            except Exception:
+                hr_max = None
+
+        # --- časové okno ---
         since = (datetime.utcnow() - timedelta(weeks=weeks + 1)).date().isoformat()
-        res = (
+
+        # --- Recovery RHR pre okno (date -> RHR_bpm) ---
+        rhr_by_date: Dict[str, float] = {}
+        rec = (
+            supabase.table(TABLE_USERS_RECOVERY)
+            .select("date, RHR_bpm")
+            .eq("user_id", user_id)
+            .gte("date", since)
+            .order("date", desc=False)
+            .execute()
+        )
+        for rr in (rec.data or []):
+            d = (rr.get("date") or "")[:10]
+            try:
+                v = float(rr.get("RHR_bpm") or 0)
+            except Exception:
+                v = 0.0
+            if v <= 0:
+                continue
+            # ak je viac záznamov v deň, nechaj nižší (konzervatívne)
+            if d not in rhr_by_date or v < rhr_by_date[d]:
+                rhr_by_date[d] = v
+
+        def rhr_for(iso_date: str) -> Optional[float]:
+            """Vráť denný RHR; ak chýba, skús 1–2 dni dozadu."""
+            if iso_date in rhr_by_date:
+                return rhr_by_date[iso_date]
+            try:
+                d0 = date.fromisoformat(iso_date)
+            except Exception:
+                return None
+            for back in (1, 2):
+                d_prev = (d0 - timedelta(days=back)).isoformat()
+                if d_prev in rhr_by_date:
+                    return rhr_by_date[d_prev]
+            return None  # -> fallback Edwards v compute_trimp
+
+        # --- Aktivity za okno ---
+        acts = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select(
                 "date, sport_type, sport_type_fe, sport_type_ovrd, "
@@ -46,7 +110,7 @@ def weekly(user_id: int, weeks: int = 12):
             .gte("date", since)
             .execute()
         )
-        rows = res.data or []
+        rows = acts.data or []
 
         def new_week():
             return {
@@ -68,19 +132,16 @@ def weekly(user_id: int, weeks: int = 12):
                 continue
 
             wk = week_key(d)
-            # vezmi najprv override, potom FE kanoniku, potom pôvodný typ
-            raw_type = (r.get("sport_type_ovrd")
-                        or r.get("sport_type_fe")
-                        or r.get("sport_type")
-                        or "")
+            raw_type = (r.get("sport_type_ovrd") or r.get("sport_type_fe") or r.get("sport_type") or "")
             dist_km = float(r.get("distance_m") or 0.0) / 1000.0
             bucket = sport_bucket(raw_type, dist_km) or "other"
-
             if bucket == "other" and dist_km > 0:
                 bucket = "mixed"
 
             time_min = float(r.get("moving_time_s") or 0.0) / 60.0
             avg_hr = r.get("average_heartrate_bpm")
+
+            rhr = rhr_for(d_str)  # môže byť None -> fallback Edwards
             tr = compute_trimp(avg_hr, time_min, hr_max, rhr, sex)
 
             wa = week_agg[wk]
@@ -93,7 +154,6 @@ def weekly(user_id: int, weeks: int = 12):
             wa["day_time"][iso] += time_min
             wa["day_km"][iso] += dist_km
 
-            # split do suffixov
             if bucket == "run":
                 wa["trimp_run"] += tr; wa["time_run_min"] += time_min; wa["km_run"] += dist_km
             elif bucket == "ride":
@@ -107,13 +167,13 @@ def weekly(user_id: int, weeks: int = 12):
             else:
                 wa["trimp_other"] += tr; wa["time_other_min"] += time_min
 
-        # výstup + indexy
+        # --- výstup ---
         out_weeks = []
         for wk, wa in sorted(week_agg.items()):
             start, end = week_bounds(wk)
-            mono_km,  strain_km  = monotony_and_strain(wa["day_km"],   start, wa["km_total"])
-            mono_tm,  strain_tm  = monotony_and_strain(wa["day_time"], start, wa["time_min"])
-            mono_tr,  strain_tr  = monotony_and_strain(wa["day_trimp"],start, wa["trimp"])
+            mono_km, strain_km = monotony_and_strain(wa["day_km"], start, wa["km_total"])
+            mono_tm, strain_tm = monotony_and_strain(wa["day_time"], start, wa["time_min"])
+            mono_tr, strain_tr = monotony_and_strain(wa["day_trimp"], start, wa["trimp"])
 
             out_weeks.append({
                 "week": wk, "start": start.isoformat(), "end": end.isoformat(),
@@ -141,7 +201,7 @@ def weekly(user_id: int, weeks: int = 12):
                 }
                 for w in out_weeks
             ],
-            "hr_used": {"sex": sex, "hr_max": hr_max, "rhr": rhr},
+            "hr_used": {"sex": sex, "hr_max": hr_max},
         }
 
     except Exception as e:

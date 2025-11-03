@@ -1,12 +1,21 @@
-import { Suspense } from "react";
-import ClientPage from "./ClientPage";
+"use client";
 
-export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
+import dynamic from "next/dynamic";
+import ButtonBack from "@/shared/components/ui/ButtonBack";
+
+// dynamický import komponentu s grafom
+const HRVDetailClient = dynamic(
+  () => import("@/features/recovery/components/TrendHRV"),
+  { ssr: false }
+);
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
-      <ClientPage />
-    </Suspense>
+      <div className="max-w-screen-lg mx-auto px-3">
+        <ButtonBack title="Detail - Hearth Rate Variability - HRV" />
+        <div className="pt-3">
+          <HRVDetailClient />
+        </div>
+      </div>
   );
 }

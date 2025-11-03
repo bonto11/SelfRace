@@ -14,6 +14,8 @@ TABLE_USERS_THRESHOLDS   = getattr(CFG, "TABLE_USERS_THRESHOLDS", "users_thresho
 TABLE_USERS_ZONES        = getattr(CFG, "TABLE_USERS_ZONES", "users_zones")
 TABLE_COACH_FEEDBACK     = getattr(CFG, "TABLE_COACH_FEEDBACK", "coach_feedback")
 TABLE_COACH_PREFS        = getattr(CFG, "TABLE_COACH_PREFERENCES", "coach_preferences")
+TABLE_PROFILE_STATIC        = getattr(CFG, "TABLE_PROFILE_STATIC", "profile_static")
+TABLE_PROFILE_METRIC_VALUE        = getattr(CFG, "TABLE_PROFILE_METRIC_VALUE", "profile_metric_value")
 
 OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY")
 DEFAULT_MODEL   = os.getenv("OPENAI_MODEL", "gpt-4o-mini")

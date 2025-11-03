@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
+import { toast } from "@/shared/components/ui/Toast";
 
 export default function SignInForm() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function SignInForm() {
 
     if (error) {
       setErr(error.message || "Prihlásenie zlyhalo.");
+      toast.error(error.message)
       return;
     }
 

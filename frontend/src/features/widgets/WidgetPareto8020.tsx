@@ -2,12 +2,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import OpenerWidget from "@/features/widgets/OpenerWidget";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import { fmtMinutes } from "@/shared/utils/format";
 import { sportsToCSV, normalizeSportList } from "@/configs/config_sports";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 type Props = {
   onOpenTrend?: () => void;
@@ -113,10 +113,12 @@ export default function WidgetPareto8020({
       : "Si presne na 80/20 ✔";
 
   return (
-    <OpenerWidget
+    <WidgetCard
       title={`Posledné ${weeks} týždne – 80/20`}
-      onOpenDetail={onOpenTrend}
+      onOpen={onOpenTrend}
+      interactive={!!onOpenTrend}
       accent="bg-emerald-600"
+      minH={200}
     >
       {loading ? (
         <div className="grid place-items-center py-6">
@@ -181,18 +183,12 @@ export default function WidgetPareto8020({
           </div>
 
           <div className="mt-3 text-xs opacity-85">
-            Easy: {fmtMinutes(E)} ({easyPct}%) {"\u00B7"} Hard: {fmtMinutes(H)}{" "}
-            ({hardPct}%)
-            {T ? (
-              <>
-                {" "}
-                {"\u00B7"} {fmtMinutes(T)} spolu
-              </>
-            ) : null}
+            Easy: {fmtMinutes(E)} ({easyPct}%) {"\u00B7"} Hard: {fmtMinutes(H)} ({hardPct}%)
+            {T ? <> {" \u00B7 "} {fmtMinutes(T)} spolu</> : null}
           </div>
           {note && <div className="mt-1 text-xs opacity-70">{note}</div>}
         </>
       )}
-    </OpenerWidget>
+    </WidgetCard>
   );
 }

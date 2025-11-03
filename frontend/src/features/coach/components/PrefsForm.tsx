@@ -4,9 +4,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CoachPrefs, GoalKind, SportKind } from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";
-import useInfoMessage from "@/shared/hooks/useInfoMessage";
 import { useUserId } from "@/shared/hooks/useUserId";
-
+import { toast } from "@/shared/components/ui/Toast";
 import {
   readCoachPrefsFromStorage,
   refreshCoachPrefsFromDB,
@@ -19,7 +18,6 @@ const ALL_GOALS: GoalKind[] = ["race_time","improve_speed","improve_endurance","
 
 export default function PrefsForm() {
   const { userId } = useUserId();
-  const { success, error } = useInfoMessage();
 
   // 1) init z localStorage (okamžité UI)
   const [local, setLocal] = useState<CoachPrefs>(() => readCoachPrefsFromStorage());
@@ -69,9 +67,9 @@ export default function PrefsForm() {
     if (!userId) return;
     try {
       await saveCoachPrefs(userId, local);   // uloží do DB a do LS
-      success("Preferences saved");
+      toast.success("Preferences saved");
     } catch (e: any) {
-      error(String(e?.message ?? e));
+      toast.error(String(e?.message ?? e));
     }
   };
 
@@ -80,9 +78,9 @@ export default function PrefsForm() {
     try {
       const fresh = await refreshCoachPrefsFromDB(userId);
       setLocal(fresh);
-      success("Refreshed");
+      toast.success("Refreshed");
     } catch (e: any) {
-      error(String(e?.message ?? e));
+      toast.error(String(e?.message ?? e));
     }
   };
 

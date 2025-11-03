@@ -1,16 +1,20 @@
-// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
+import { toast } from "@/shared/components/ui/Toast";
 
 export default function InputsCard() {
   const { userId } = useUserId();
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
-
+  const [open, setOpen] = useState(false); // ⬅️ toggle pre rozbalenie
+  const [openDate, setOpenDate] = useState(false);
   const [date, setDate] = useState<string>(todayIso);
   const [rhr, setRhr] = useState("");
   const [hrvAvg, setHrvAvg] = useState("");
@@ -60,170 +64,215 @@ export default function InputsCard() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Unknown error");
-      alert("✅ Recovery uložené");
+      toast.success("✅ Recovery uložené");
     } catch (e: any) {
-      alert("❌ Chyba: " + (e?.message ?? e));
+      toast.error("❌ Chyba: " + (e?.message ?? e));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="w-full max-w-none bg-white dark:bg-gray-800 p-4 rounded shadow">
-      {/* HEADER */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-semibold">Recovery Inputs</h2>
-        <div className="flex items-center gap-2">
-          <button
-            className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+    <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
+    
+    {/* HEADER: segmented group v strede + toggle vpravo, s rozbalením datepickeru */}
+    <div className="mb-3">
+      {/* horný riadok */}
+      <div className="flex items-center">
+        <div className="flex-1" />
+    
+        {/* stredná skupina – vycentrovaná, symetrické medzery */}
+        <div className="inline-flex items-center justify-center gap-3 select-none">
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => shiftDate(-1)}
-            title="Predošlý deň"
+            disabled={saving}
+            className="shrink-0"
+            aria-label="Predošlý deň"
           >
             −1d
-          </button>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="px-2 py-1 rounded bg-gray-700 text-sm"
-          />
+          </Button>
+    
+          {/* dátum ako „pill“ – NESTLÁČA susedné prvky, žiadny native ring */}
           <button
-            className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+            type="button"
+            onClick={() => setOpenDate((v) => !v)}
+            className="shrink-0 px-4 py-2 rounded-xl border border-white/15 bg-white/5 dark:bg-gray-900/40
+                       hover:bg-white/10 transition-colors
+                       text-sm font-medium"
+            title="Zmeniť dátum"
+          >
+            {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
+          </button>
+    
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => shiftDate(+1)}
-            title="Ďalší deň"
+            disabled={saving}
+            className="shrink-0"
+            aria-label="Ďalší deň"
           >
             +1d
-          </button>
+          </Button>
+        </div>
+    
+        <div className="flex-1 flex justify-end">
+          <Button
+            circle
+            size="sm"
+            variant="secondary"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Zbaliť formulár" : "Rozbaliť formulár"}
+            title={open ? "Zbaliť" : "Rozbaliť"}
+          >
+            {open ? "−" : "+"}
+          </Button>
         </div>
       </div>
 
-      {/* BODY – 1 stĺpec na mobile, 2 stĺpce od md */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* RHR */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Resting HR</div>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={rhr}
-              onChange={(e) => setRhr(e.target.value)}
-              placeholder="bpm"
-              className="flex-1 w-full px-2 py-2 rounded bg-gray-700"
-            />
-          </div>
-        </div>
-
-        {/* HRV avg / max – stacked na mobile, vedľa seba od sm */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">HRV (RMSSD)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
-            <input
-              type="number"
-              value={hrvAvg}
-              onChange={(e) => setHrvAvg(e.target.value)}
-              placeholder="avg ms"
-              className="w-full px-2 py-2 rounded bg-gray-700"
-            />
-            <input
-              type="number"
-              value={hrvMax}
-              onChange={(e) => setHrvMax(e.target.value)}
-              placeholder="max ms"
-              className="w-full px-2 py-2 rounded bg-gray-700"
-            />
-          </div>
-        </div>
-
-        {/* Sleep (duration | start) – stacked na mobile, vedľa seba od sm; naprieč na md */}
-        <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Sleep</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input
-              type="text"
-              placeholder="HH:MM duration"
-              value={sleepDuration}
-              onChange={(e) => handleTimeInput(e, setSleepDuration)}
-              className="w-full px-2 py-2 rounded bg-gray-700"
-              inputMode="numeric"
-            />
-            <input
-              type="text"
-              placeholder="HH:MM start"
-              value={sleepStart}
-              onChange={(e) => handleTimeInput(e, setSleepStart)}
-              className="w-full px-2 py-2 rounded bg-gray-700"
-              inputMode="numeric"
-            />
-          </div>
-        </div>
-
-        {/* Evening factors */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-2">Evening factors</div>
-          <label className="flex items-center gap-2 mb-2">
-            <input
-              type="checkbox"
-              checked={lateFood}
-              onChange={(e) => setLateFood(e.target.checked)}
-            />
-            <span>Food ≤ 2h before bed</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={lateCaffeine}
-              onChange={(e) => setLateCaffeine(e.target.checked)}
-            />
-            <span>Caffeine ≤ 8h before bed</span>
-          </label>
-        </div>
-
-        {/* Alcohol – stacked na mobile, vedľa seba od sm */}
-        <div className="p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Alcohol</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input
-              type="number"
-              value={alcoholVolume}
-              onChange={(e) => setAlcoholVolume(e.target.value)}
-              placeholder="ml"
-              className="w-full px-2 py-2 rounded bg-gray-700"
-            />
-            <input
-              type="number"
-              value={alcoholType}
-              onChange={(e) => setAlcoholType(e.target.value)}
-              placeholder="%"
-              className="w-full px-2 py-2 rounded bg-gray-700"
-            />
-          </div>
-        </div>
-
-        {/* Comment */}
-        <div className="md:col-span-2 p-3 rounded bg-gray-900/30">
-          <div className="text-sm text-gray-400 mb-1">Comment</div>
-          <textarea
-            value={comments}
-            onChange={(e) => setComments(e.target.value)}
-            rows={3}
-            placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
-            className="w-full px-2 py-2 rounded bg-gray-700 resize-y"
-          />
-        </div>
-      </div>
-
-      {/* FOOTER */}
-      <div className="flex items-center justify-end mt-4">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`px-4 py-2 rounded text-white ${
-            saving ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          {saving ? "Ukladám…" : "Save"}
-        </button>
-      </div>
+  {/* rozbalený „plný“ datepicker priamo pod skupinou (centrálne) */}
+  {openDate && (
+    <div className="mt-2 flex justify-center">
+      <TextField
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        disabled={saving}
+        className="w-[min(320px,80%)] text-center"
+      />
     </div>
+  )}
+</div>
+
+      {/* BODY – rendruj len ak je otvorené */}
+      {open && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* RHR */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Resting HR</div>
+              <TextField
+                type="number"
+                value={rhr}
+                onChange={(e) => setRhr(e.target.value)}
+                placeholder="bpm"
+                disabled={saving}
+              />
+            </section>
+
+            {/* HRV avg / max */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">HRV (RMSSD)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TextField
+                  type="number"
+                  value={hrvAvg}
+                  onChange={(e) => setHrvAvg(e.target.value)}
+                  placeholder="avg ms"
+                  disabled={saving}
+                />
+                <TextField
+                  type="number"
+                  value={hrvMax}
+                  onChange={(e) => setHrvMax(e.target.value)}
+                  placeholder="max ms"
+                  disabled={saving}
+                />
+              </div>
+            </section>
+
+            {/* Sleep */}
+            <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Sleep</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TextField
+                  type="text"
+                  placeholder="HH:MM duration"
+                  value={sleepDuration}
+                  onChange={(e) => handleTimeInput(e, setSleepDuration)}
+                  inputMode="numeric"
+                  disabled={saving}
+                />
+                <TextField
+                  type="text"
+                  placeholder="HH:MM start"
+                  value={sleepStart}
+                  onChange={(e) => handleTimeInput(e, setSleepStart)}
+                  inputMode="numeric"
+                  disabled={saving}
+                />
+              </div>
+            </section>
+
+            {/* Evening factors */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-2">Evening factors</div>
+              <label className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  checked={lateFood}
+                  onChange={(e) => setLateFood(e.target.checked)}
+                  disabled={saving}
+                />
+                <span>Food ≤ 2h before bed</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={lateCaffeine}
+                  onChange={(e) => setLateCaffeine(e.target.checked)}
+                  disabled={saving}
+                />
+                <span>Caffeine ≤ 8h before bed</span>
+              </label>
+            </section>
+
+            {/* Alcohol */}
+            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Alcohol</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TextField
+                  type="number"
+                  value={alcoholVolume}
+                  onChange={(e) => setAlcoholVolume(e.target.value)}
+                  placeholder="ml"
+                  disabled={saving}
+                />
+                <TextField
+                  type="number"
+                  value={alcoholType}
+                  onChange={(e) => setAlcoholType(e.target.value)}
+                  placeholder="%"
+                  disabled={saving}
+                />
+              </div>
+            </section>
+
+            {/* Comment – natívny textarea, lebo tvoj TextField je input */}
+            <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+              <div className="text-sm opacity-75 mb-1">Comment</div>
+              <textarea
+                rows={3}
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
+                disabled={saving}
+                className="w-full rounded-md bg-white/70 dark:bg-gray-800/60 border border-white/10 px-3 py-2
+                           focus:outline-none focus:ring-2 focus:ring-white/20 resize-y"
+              />
+            </section>
+          </div>
+
+          {/* FOOTER */}
+          <div className="flex items-center justify-end mt-4">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Ukladám…" : "Save"}
+            </Button>
+          </div>
+        </>
+      )}
+    </WidgetCard>
   );
 }

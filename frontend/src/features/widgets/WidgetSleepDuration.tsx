@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import OpenerWidget from "@/features/widgets/OpenerWidget";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
 import {
   checkRecoveryFreshness,
   minutesToHHMM,
@@ -10,14 +10,13 @@ import {
   compareLatestToBaseline,
 } from "@/shared/utils/recovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 export default function WidgetSleepDuration({
   onOpenDetail,
 }: {
   onOpenDetail?: () => void;
 }) {
-  // Provider môže/ nemusí mať loading → držíme voliteľne
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -42,12 +41,7 @@ export default function WidgetSleepDuration({
     [values]
   );
 
-  const cmp = compareLatestToBaseline(
-    latest,
-    baselinePoint,
-    "higher-better",
-    0.05
-  );
+  const cmp = compareLatestToBaseline(latest, baselinePoint, "higher-better", 0.05);
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -58,18 +52,15 @@ export default function WidgetSleepDuration({
     : "—";
   const note = showNA ? freshness.message : cmp.note;
 
-  // počas loading/NA sivé pozadie, inak podľa porovnania
-  const accent = loading
-    ? "bg-slate-700"
-    : showNA
-    ? "bg-slate-700"
-    : cmp.accent;
+  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
 
   return (
-    <OpenerWidget
+    <WidgetCard
       title="Sleep duration"
       accent={accent}
-      onOpenDetail={onOpenDetail}
+      onOpen={onOpenDetail}
+      interactive={!!onOpenDetail}
+      minH={160}
     >
       {loading ? (
         <div className="grid place-items-center py-6">
@@ -78,13 +69,11 @@ export default function WidgetSleepDuration({
       ) : (
         <>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl font-extrabold leading-none">
-              {valueText}
-            </span>
+            <span className="text-5xl font-extrabold leading-none">{valueText}</span>
           </div>
           {note && <p className="opacity-80">{note}</p>}
         </>
       )}
-    </OpenerWidget>
+    </WidgetCard>
   );
 }

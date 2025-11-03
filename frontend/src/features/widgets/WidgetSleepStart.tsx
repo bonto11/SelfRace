@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import OpenerWidget from "@/features/widgets/OpenerWidget";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
 import {
   checkRecoveryFreshness,
   HHMMToMinutes,
@@ -10,7 +10,7 @@ import {
   compareTimeToBaselineMinutes,
 } from "@/shared/utils/recovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/shared/components/icons/LoadingSpinner";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
 const TOL_MIN = 30;
@@ -51,17 +51,15 @@ export default function WidgetSleepStart({
     : "—";
   const note = showNA ? freshness.message : cmp.note;
 
-  const accent = loading
-    ? "bg-slate-700"
-    : showNA
-    ? "bg-slate-700"
-    : cmp.accent;
+  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
 
   return (
-    <OpenerWidget
+    <WidgetCard
       title="Sleep start"
       accent={accent}
-      onOpenDetail={onOpenDetail}
+      onOpen={onOpenDetail}
+      interactive={!!onOpenDetail}
+      minH={160}
     >
       {loading ? (
         <div className="grid place-items-center py-6">
@@ -70,13 +68,11 @@ export default function WidgetSleepStart({
       ) : (
         <>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl font-extrabold leading-none">
-              {valueText}
-            </span>
+            <span className="text-5xl font-extrabold leading-none">{valueText}</span>
           </div>
           {note && <p className="opacity-80">{note}</p>}
         </>
       )}
-    </OpenerWidget>
+    </WidgetCard>
   );
 }

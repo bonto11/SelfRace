@@ -1,54 +1,220 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import * as React from "react";
+import { Line } from "react-chartjs-2";
+import type { ChartData, ChartOptions } from "chart.js";
+import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import TrendWithBands, {
-  Point,
-} from "@/shared/components/trend/TrendWithBands";
 import { getBodyFatBands } from "@/shared/utils/bands";
+import { THEME } from "@/shared/theme/tokens";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { CARD } from "@/shared/ui/classes";
 
-type StaticProfile = { sex: "M" | "F" };
-type MetricsRow = { updated_at: string; body_fat_pct: number | null };
+ensureChartJSRegistered();
+
+type StaticProfile = { sex: "M" | "F" } | null;
+type RowBE = { measured_at: string; value_num: number | null };
+
+function hexA(hex: string, a: number) {
+  const h = (hex || "#FFFFFF").replace("#", "");
+  const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `#${h}${aa}`;
+}
+
+function colorForBandLabel(labelRaw: string) {
+  const l = (labelRaw || "").toLowerCase();
+  if (l.includes("athlete"))   return THEME.chart.athletes;
+  if (l.includes("fitness"))   return THEME.chart.fitness;
+  if (l.includes("average"))   return THEME.chart.average;
+  if (l.includes("essential")) return THEME.chart.essential;
+  if (l.includes("obese"))     return THEME.chart.obese;
+  return THEME.chart.neutral;
+}
 
 export default function TrendBodyFat() {
   const { userId } = useUserId();
-  const [stat, setStat] = useState<StaticProfile | null>(null);
-  const [rows, setRows] = useState<MetricsRow[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [stat, setStat] = React.useState<StaticProfile>(null);
+  const [hist, setHist] = React.useState<RowBE[]>([]);
+  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!userId) return;
+    let alive = true;
     (async () => {
-      const s = await fetch(`${API_URL}/profile/static/${userId}`).then((r) =>
-        r.json()
-      );
-      if (s.success) setStat(s.data);
+      setLoading(true);
+      try {
+        const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" })
+          .then(r => r.json()).catch(() => null);
+        if (alive && s?.success) setStat(s.data as StaticProfile);
 
-      const m = await fetch(
-        `${API_URL}/profile/metrics/history/${userId}`
-      ).then((r) => r.json());
-      if (m.success) setRows(m.data);
+        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" })
+          .then(r => r.json()).catch(() => null);
+        const rows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
+        if (alive) setHist(rows);
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
+    return () => { alive = false; };
   }, [userId]);
 
-  const points: Point[] = useMemo(
-    () => rows.map((r) => ({ date: r.updated_at, value: r.body_fat_pct })),
-    [rows]
-  );
+  // --- transformácia: používame len dátumy meraní (žiadne denné bodky) ---
+  const lookbackDays = weeks * 7;
+  const cutoffISO = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
 
-  const bands = useMemo(() => (stat ? getBodyFatBands(stat.sex) : []), [stat]);
+  const samples = (hist || [])
+    .map(r => ({
+      dISO: (r.measured_at || "").slice(0, 10),
+      v: (typeof r.value_num === "number" ? r.value_num : NaN),
+    }))
+    .filter(x => !!x.dISO && Number.isFinite(x.v))
+    .sort((a, b) => (a.dISO < b.dISO ? -1 : a.dISO > b.dISO ? 1 : 0))
+    // orežeme na posledné N týždňov, ale vždy necháme aspoň 1 meranie
+    .filter(x => x.dISO >= cutoffISO || true);
 
-  if (!points.length) return <div>Načítavam Body Fat %…</div>;
+  if (samples.length === 0) {
+    return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
+  }
+
+  // --- ak je len 1 meranie: doplníme VIRTUÁLNY PRAVÝ BOD (dnes) s rovnakou hodnotou ---
+  let points: { dISO: string; v: number }[] = [...samples];
+  if (samples.length === 1) {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    if (todayISO !== samples[0].dISO) {
+      points = [samples[0], { dISO: todayISO, v: samples[0].v }];
+    }
+  }
+
+  // labels len pre existujúce body (resp. 2 body pri single-point)
+  const labels = points.map(p => new Date(p.dISO).toLocaleDateString("sk-SK"));
+  const values = points.map(p => p.v);
+  const seriesMax = Math.max(0, ...(values.filter(Number.isFinite) as number[]));
+
+  const bands = stat ? getBodyFatBands(stat.sex) : [];
+
+  // === DATASETS ===
+  const datasets: ChartData<"line", number[], string>["datasets"] = [
+    // pásma (vyplnené pozadia – používajú rovnaký počet x-labelov)
+    ...bands.map((b, i) => {
+      const color = colorForBandLabel(b.label || "");
+      const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
+      return {
+        type: "line" as const,
+        label: b.label,
+        data: labels.map(() => yMax),
+        borderColor: hexA(color, 0),
+        backgroundColor: hexA(color, 0.18),
+        pointRadius: 0,
+        borderWidth: 0,
+        fill: i === 0 ? "origin" : "-1",
+        order: 1,
+      };
+    }),
+
+    // reálne (a prípadne 1 virtuálny pravý bod) – bez denného zahusťovania
+    {
+      type: "line" as const,
+      label: "Body Fat %",
+      data: values,
+      borderColor: THEME.chart.linePrimary,
+      backgroundColor: THEME.chart.linePrimary,
+      pointRadius: 2,
+      borderWidth: 2,
+      showLine: true,        // pri 2 bodoch vznikne pekná horizontálna/šikmá čiara
+      tension: 0,            // rovná čiara
+      spanGaps: true,
+      order: 2,
+    },
+  ];
+
+  const data: ChartData<"line", number[], string> = { labels, datasets };
+  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
+
+  // === TOOLTIP – jasné farby bulletiek ===
+  const options: ChartOptions<"line"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    elements: { point: { radius: 2, hoverRadius: 6 } },
+    plugins: {
+      legend: {
+        position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
+      },
+      tooltip: {
+        enabled: true,
+        backgroundColor: "#0B1220F2",
+        borderColor: "#FFFFFF66",
+        borderWidth: 1,
+        titleColor: "#FFFFFF",
+        bodyColor: "#FFFFFF",
+        padding: 10,
+        usePointStyle: true,
+        boxPadding: 4,
+        displayColors: true,
+        caretSize: 6,
+        cornerRadius: 8,
+        callbacks: {
+          labelColor: (ctx) => {
+            const lbl = (ctx.dataset?.label || "").toLowerCase();
+            if (lbl.includes("essential")) return { borderColor: THEME.chart.essential, backgroundColor: THEME.chart.essential };
+            if (lbl.includes("athlete"))   return { borderColor: THEME.chart.athletes,  backgroundColor: THEME.chart.athletes  };
+            if (lbl.includes("fitness"))   return { borderColor: THEME.chart.fitness,   backgroundColor: THEME.chart.fitness   };
+            if (lbl.includes("average"))   return { borderColor: THEME.chart.average,   backgroundColor: THEME.chart.average   };
+            if (lbl.includes("obese"))     return { borderColor: THEME.chart.obese,     backgroundColor: THEME.chart.obese     };
+            if (lbl.startsWith("body fat"))return { borderColor: THEME.chart.linePrimary, backgroundColor: THEME.chart.linePrimary };
+            return { borderColor: THEME.chart.neutral, backgroundColor: THEME.chart.neutral };
+          },
+          labelTextColor: () => "#FFFFFF",
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        suggestedMin: 0,
+        suggestedMax: suggestedTop,
+        grid: { color: THEME.chart.grid },
+        ticks: { color: THEME.color.text },
+        title: { display: true, text: "%" },
+      },
+      x: { grid: { color: THEME.chart.gridSoft } },
+    },
+  };
 
   return (
-    <TrendWithBands
-      title="Trend Body Fat %"
-      points={points}
-      bands={bands}
-      unit="%"
-      lineColor="orange"
-      ySuggestedMin={0}
-      ySuggestedMax={35}
-    />
+    <div className={CARD}>
+      <div className="flex items-center justify-between p-3 border-b border-neutral-800">
+        <h2 className="text-base md:text-lg font-semibold">Detail – Body Fat %</h2>
+        <div className="flex items-center gap-2 text-xs">
+          <select
+            value={weeks}
+            onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
+            className="px-2 py-1 rounded bg-gray-700 text-white"
+            aria-label="Lookback"
+          >
+            <option value={4}>4 týždne</option>
+            <option value={8}>8 týždňov</option>
+            <option value={12}>12 týždňov</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="p-3">
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
+            </div>
+          )}
+          <Line data={data} options={options} />
+        </div>
+      </div>
+    </div>
   );
 }

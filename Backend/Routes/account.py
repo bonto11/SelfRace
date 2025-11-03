@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
-    TABLE_USERS_STATIC,
+    TABLE_PROFILE_STATIC,          # <= pôvodne TABLE_USERS_STATIC
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_LAPS,
     TABLE_ACTIVITIES_SPLITS,
@@ -31,13 +31,13 @@ class ReqCancel(BaseModel):
 @router.post("/request-delete")
 def request_delete(req: ReqDelete):
     """
-    Označí účet na zmazanie (hold) – uloží timestamp do users_static.deletion_requested_at.
+    Označí účet na zmazanie (hold) – uloží timestamp do profile_static.deletion_requested_at.
     Pri ďalšom prihlásení to môžeš zrušiť volaním /cancel-delete.
     """
     try:
         # over, že user existuje a sedí UID
         u = (
-            svc.table(TABLE_USERS_STATIC)
+            svc.table(TABLE_PROFILE_STATIC)
             .select("user_id,user_uid")
             .eq("user_id", req.user_id)
             .limit(1)
@@ -49,13 +49,12 @@ def request_delete(req: ReqDelete):
             raise HTTPException(status_code=403, detail="User mismatch")
 
         # označ na zmazanie
-        svc.table(TABLE_USERS_STATIC).update(
+        svc.table(TABLE_PROFILE_STATIC).update(
             {"deletion_requested_at": datetime.now(timezone.utc).isoformat()}
         ).eq("user_id", req.user_id).execute()
 
         # voliteľne nastav flag v Auth meta (ak zlyhá, nijak to nevadí)
         try:
-            # supabase-py môže mať signatúry rôzne podľa verzie – skúsime obidva tvary
             try:
                 svc.auth.admin.update_user_by_id(
                     req.user_uid, {"user_metadata": {"deletion_hold": True}}
@@ -80,7 +79,7 @@ def cancel_delete(req: ReqCancel):
     Zruší hold (napr. po úspešnom prihlásení).
     """
     try:
-        svc.table(TABLE_USERS_STATIC).update(
+        svc.table(TABLE_PROFILE_STATIC).update(
             {"deletion_requested_at": None}
         ).eq("user_id", req.user_id).execute()
         return {"success": True}
@@ -98,7 +97,7 @@ def purge_due(days: int = 30):
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         cand = (
-            svc.table(TABLE_USERS_STATIC)
+            svc.table(TABLE_PROFILE_STATIC)
             .select("user_id,user_uid,deletion_requested_at")
             .lt("deletion_requested_at", cutoff)
             .not_.is_("deletion_requested_at", "null")
@@ -110,7 +109,7 @@ def purge_due(days: int = 30):
             uid_str = row.get("user_uid")
             uid_int = row.get("user_id")
 
-            # mazanie dát – ak nemáš FK s ON DELETE CASCADE, zachovaj poradie
+            # mazanie dát – zachovaj poradie ak nemáš FK CASCADE
             try:
                 svc.table(TABLE_ACTIVITIES_LAPS).delete().eq("user_id", uid_int).execute()
                 svc.table(TABLE_ACTIVITIES_SPLITS).delete().eq("user_id", uid_int).execute()
@@ -122,7 +121,7 @@ def purge_due(days: int = 30):
 
             # vymaž profilový riadok
             try:
-                svc.table(TABLE_USERS_STATIC).delete().eq("user_id", uid_int).execute()
+                svc.table(TABLE_PROFILE_STATIC).delete().eq("user_id", uid_int).execute()
             except Exception as e:
                 print("purge profile err:", e)
 

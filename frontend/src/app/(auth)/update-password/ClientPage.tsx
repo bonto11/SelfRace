@@ -4,7 +4,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import { inputClass, labelClass, hintClass, buttonClass } from "@/shared/ui";
+import { inputClass, labelClass, hintClass } from "@/shared/ui";
+import Button from "@/shared/components/ui/Button";
 
 type Phase = "boot" | "ready" | "saving" | "done";
 
@@ -155,9 +156,15 @@ export default function ClientPage() {
         )}
         {err && <p className="text-sm text-danger">{err}</p>}
 
-        <button type="submit" disabled={!canSubmit || phase === "saving"} className={buttonClass}>
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          block
+          disabled={!canSubmit || phase === "saving"}
+        >
           {phase === "saving" ? "Ukladám…" : "Uložiť"}
-        </button>
+        </Button>
 
         <p className={hintClass + " mt-2"}>Po uložení ťa automaticky prihlásime.</p>
       </form>
@@ -165,6 +172,7 @@ export default function ClientPage() {
   );
 }
 
+/* -------- zvyšok súboru ponechaný bez zmeny (PasswordStrengthMeter, RequirementsList, scorePassword) -------- */
 /* -------- Pomocné komponenty a heuristika -------- */
 
 function PasswordStrengthMeter({ strength }: { strength: ReturnType<typeof scorePassword>; }) {
