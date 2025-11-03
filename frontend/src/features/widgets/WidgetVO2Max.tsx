@@ -1,95 +1,67 @@
 // src/features/widgets/WidgetVO2Max.tsx
 "use client";
 
-import * as React from "react";
-import WidgetCard from "@/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { useEffect, useMemo, useState } from "react";
+import { Line } from "react-chartjs-2";
+import type { ChartData, ChartOptions } from "chart.js";
+import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/shared/theme/tokens";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { CARD } from "@/shared/ui/classes";
 
-type Props = { onOpen?: () => void; onOpenDetail?: () => void };
+ensureChartJSRegistered();
 
 type HistoryRow = { VO2Max: number | null; updated_at: string };
-type EstRow = { value?: number | null; updated_at?: string | null; success?: boolean };
-type Range = { label: string; min: number | null; max: number | null; color: string };
+type Range = { label: string; min: number | null; max: number | null; color?: string };
 type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
-const HEX = {
-  // Fallbacky, ak by niečo chýbalo v THEME.chart
-  Excellent: THEME.chart?.excellent ?? "#10B981",
-  Superior:  THEME.chart?.superior  ?? "#14B8A6",
-  Good:      THEME.chart?.good      ?? "#22D3EE",
-  Fair:      THEME.chart?.fair      ?? "#F59E0B",
-  Poor:      THEME.chart?.poor      ?? "#F43F5E",
-  Neutral:   THEME.chart?.neutral   ?? "#64748B",
-};
-
-function levelFrom(ranges: Range[] | undefined, v?: number | null) {
-  if (!ranges || v == null || !Number.isFinite(v)) return null;
-  const hit = ranges.find(rr =>
-    (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max)
-  );
-  if (!hit) return null;
-  const label = hit.label.trim();
-  // farbu berieme z THEME.chart podľa labelu; ak JSON má vlastné farby, ignorujeme ich kvôli konzistencii
-  const color =
-    HEX[label as keyof typeof HEX] ??
-    HEX.Good; // default ak by prišiel netradičný label
-  return { label, color };
+function hexA(hex: string, a: number) {
+  // hex #RRGGBB -> #RRGGBBAA
+  const h = hex.replace("#", "");
+  const alpha = Math.round(Math.min(Math.max(a, 0), 1) * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `#${h}${alpha}`;
 }
 
-function fmtDate(d?: string | null) {
-  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
+function levelColor(label: string) {
+  const l = label.toLowerCase();
+  if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent;
+  if (l.includes("superior")) return THEME.chart.superior;
+  if (l.includes("good")) return THEME.chart.good;
+  if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
+  if (l.includes("poor")) return THEME.chart.poor;
+  return THEME.chart.neutral;
 }
 
-function Pill({ label, color }: { label: string; color: string }) {
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-      style={{
-        background: `${color}1A`, // ~10% (1A) overlay
-        border: `1px solid ${color}66`,
-        color,
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
-export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
-  const handleOpen = onOpen ?? onOpenDetail;
+export default function TrendVO2Max() {
   const { userId } = useUserId();
+  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [sex, setSex] = useState<"M" | "F">("M");
+  const [birthDate, setBirthDate] = useState<string>("");
+  const [weeks, setWeeks] = useState<4 | 8 | 12>(8);
+  const [loading, setLoading] = useState(false);
 
-  const [loading, setLoading] = React.useState(true);
-  const [history, setHistory] = React.useState<HistoryRow[]>([]);
-  const [sex, setSex] = React.useState<"M" | "F">("M");
-  const [birthDate, setBirthDate] = React.useState<string>("");
-  const [est, setEst] = React.useState<EstRow | null>(null);
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-
-        const r1 = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
-        const js1 = await r1.json().catch(() => ({}));
-        if (alive && js1?.success) {
-          setHistory(Array.isArray(js1.history) ? js1.history : []);
-          setSex(js1.sex === "F" ? "F" : "M");
-          setBirthDate(js1.birth_date || "");
-        } else if (alive) {
+        const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
+        const js = await res.json();
+        if (!alive) return;
+        if (js?.success) {
+          setHistory(Array.isArray(js.history) ? js.history : []);
+          setSex(js.sex === "F" ? "F" : "M");
+          setBirthDate(js.birth_date || "");
+        } else {
           setHistory([]);
         }
-
-        // odhad
-        const r2 = await fetch(`${API_URL}/profile/vo2-estimate/${userId}`, { cache: "no-store" });
-        const js2: EstRow = await r2.json().catch(() => ({} as EstRow));
-        if (alive) setEst(js2 ?? null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -97,60 +69,135 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     return () => { alive = false; };
   }, [userId]);
 
-  const measured = history.length ? history[history.length - 1] : null;
-  const mVO2 = measured?.VO2Max ?? null;
+  // orež na posledných N dní
+  const days = weeks * 7;
+  const rows = useMemo(() => (days > 0 ? history.slice(-days) : history), [history, days]);
 
-  // vyber pásiem podľa veku/pohlavia
-  let ranges: Range[] | undefined;
-  try {
-    const age = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000)) : 0;
-    const g = (vo2Ref as Group[]).find(x => x.sex === sex && age >= x.age_min && age <= x.age_max);
-    ranges = g?.ranges;
-  } catch { ranges = undefined; }
+  if (!rows.length) {
+    return (
+      <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>
+    );
+  }
 
-  const levelMeasured  = levelFrom(ranges, mVO2);
-  const levelEstimated = levelFrom(ranges, Number.isFinite(est?.value as number) ? Number(est?.value) : null);
+  // vek a skupina z JSONu
+  const age = Math.floor((Date.now() - (birthDate ? new Date(birthDate).getTime() : Date.now())) / (365.25 * 86400 * 1000));
+  const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
+  const ranges = (group?.ranges ?? []).map(r => ({
+    ...r,
+    color: levelColor(r.label),
+  }));
 
-  // accent (preferuj merané; ak niet, skús odhad)
-  const accentHex = (levelMeasured?.color ?? levelEstimated?.color ?? HEX.Neutral);
+  // posledná hodnota → zvýraznenie levelu v legende
+  const latestVO2 = rows[rows.length - 1]?.VO2Max ?? null;
+  let currentLabel: string | null = null;
+  if (latestVO2 != null && ranges.length) {
+    for (const r of ranges) {
+      if ((r.min == null || latestVO2 >= r.min) && (r.max == null || latestVO2 <= r.max)) {
+        currentLabel = r.label.trim();
+        break;
+      }
+    }
+  }
+
+  // dáta
+  const labels = rows.map(h => new Date(h.updated_at).toLocaleDateString("sk-SK"));
+  const data: ChartData<"line", number[], string> = {
+    labels,
+    datasets: [
+      {
+        label: "VO₂Max",
+        data: rows.map(h => (typeof h.VO2Max === "number" ? h.VO2Max : NaN)),
+        borderColor: THEME.chart.linePrimary,
+        backgroundColor: THEME.chart.linePrimary,
+        tension: 0.25,
+        pointRadius: 2,
+        borderWidth: 2,
+        order: 2,
+      },
+      // pásma ako vyplnené pozadie (odspodu skladané)
+      ...ranges.map((r, i) => ({
+        type: "line" as const,
+        label: r.label,
+        data: labels.map(() => (r.max ?? 1000)), // horná hranica
+        borderColor: hexA(r.color!, 0),          // bez čiary
+        backgroundColor: hexA(r.color!, 0.18),   // polopriesvitné
+        pointRadius: 0,
+        borderWidth: 0,
+        fill: i === 0 ? "origin" : "-1",        // skladanie boxov
+        order: 1,
+      })),
+    ],
+  };
+
+  const options: ChartOptions<"line"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: {
+        position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
+      },
+      tooltip: { enabled: true },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        suggestedMax: 70,
+        grid: { color: THEME.chart.grid },
+        ticks: { color: THEME.color.text },
+      },
+      x: { grid: { color: THEME.chart.gridSoft } },
+    },
+  };
 
   return (
-    <WidgetCard
-      title="VO₂Max"
-      onOpen={handleOpen}
-      interactive={!!handleOpen}
-      accent={accentHex}     // <- čistý HEX
-      minH={168}
-    >
-      {loading ? (
-        <div className="grid place-items-center py-6">
-          <LoadingSpinner size="widget" />
+    <div className={CARD}>
+      <div className="flex items-center justify-between p-3 border-b border-neutral-800">
+        <h2 className="text-base md:text-lg font-semibold">Trend VO₂Max</h2>
+        <div className="flex items-center gap-2 text-xs">
+          <select
+            value={weeks}
+            onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
+            className="px-2 py-1 rounded bg-gray-700 text-white"
+            aria-label="Lookback"
+          >
+            <option value={4}>4 týždne</option>
+            <option value={8}>8 týždňov</option>
+            <option value={12}>12 týždňov</option>
+          </select>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 items-start">
-          {/* Merané */}
-          <div>
-            <div className="text-[11px] uppercase opacity-70">merané: {fmtDate(measured?.updated_at)}</div>
-            <div className="mt-1 flex items-end gap-2">
-              <div className="text-4xl font-extrabold tabular-nums">
-                {mVO2 != null ? mVO2.toFixed(1) : "—"}
-              </div>
-              {levelMeasured ? <Pill label={levelMeasured.label} color={levelMeasured.color} /> : <span className="text-xs opacity-60">—</span>}
-            </div>
-          </div>
+      </div>
 
-          {/* Odhad */}
-          <div className="text-right">
-            <div className="text-[11px] uppercase opacity-70">odhad: {fmtDate(est?.updated_at ?? null)}</div>
-            <div className="mt-1 flex items-end gap-2 justify-end">
-              <div className="text-4xl font-extrabold tabular-nums">
-                {Number.isFinite(est?.value as number) ? Number(est?.value).toFixed(1) : "—"}
-              </div>
-              {levelEstimated ? <Pill label={levelEstimated.label} color={levelEstimated.color} /> : <span className="text-xs opacity-60">—</span>}
+      <div className="p-3">
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
             </div>
-          </div>
+          )}
+          <Line data={data} options={options} />
         </div>
-      )}
-    </WidgetCard>
+
+        {/* pravá „legenda“ úrovní */}
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-sm">
+          {ranges
+            .slice()
+            .reverse()
+            .map((r, idx) => {
+              const isCurrent = currentLabel === r.label.trim();
+              return (
+                <div key={idx} className="flex items-center gap-2">
+                  <span
+                    className="inline-block w-3.5 h-3.5 rounded ring-1 ring-white/15"
+                    style={{ backgroundColor: r.color }}
+                  />
+                  <span className={isCurrent ? "font-semibold" : ""}>{r.label}</span>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+    </div>
   );
 }

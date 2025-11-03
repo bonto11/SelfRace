@@ -5,7 +5,7 @@ import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 // dynamický import komponentu s grafom
 const RHRDetailClient = dynamic(
-  () => import("@/features/recovery/components/DetailRHR"),
+  () => import("@/features/recovery/components/TrendRHR"),
   { ssr: false }
 );
 

@@ -5,7 +5,7 @@ import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 // dynamický import komponentu s grafom
 const SleepDurationDetailClient = dynamic(
-  () => import("@/features/recovery/components/DetailSleepDuration"),
+  () => import("@/features/recovery/components/TrendSleepDuration"),
   { ssr: false }
 );
 
