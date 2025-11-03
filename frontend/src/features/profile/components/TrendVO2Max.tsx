@@ -51,39 +51,51 @@ export default function TrendVO2Max() {
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
+    console.debug("[VO2] mount userId=", userId);
+
     (async () => {
       setLoading(true);
       try {
-        // static
+        // ---- STATIC
         try {
           const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
           const js = await s.json().catch(() => ({}));
+          console.debug("[VO2] static:", js);
           const st: StaticRow = js?.data || {};
           if (alive) {
             setSex(st?.sex === "F" ? "F" : "M");
             setBirthDate(st?.birth_date || "");
           }
-        } catch {}
+        } catch (e) {
+          console.error("[VO2] static fetch error:", e);
+        }
 
-        // estimated history
+        // ---- ESTIMATED
         try {
           const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" });
           const js = await r.json().catch(() => ({}));
           const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
+          console.debug("[VO2] estimated len=", data.length, "sample=", data[0]);
           if (alive) setEstHist(data);
-        } catch {}
+        } catch (e) {
+          console.error("[VO2] est fetch error:", e);
+        }
 
-        // measured history
+        // ---- MEASURED
         try {
           const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" });
           const js = await r.json().catch(() => ({}));
           const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
+          console.debug("[VO2] measured len=", data.length, "sample=", data[0]);
           if (alive) setMeasHist(data);
-        } catch {}
+        } catch (e) {
+          console.error("[VO2] meas fetch error:", e);
+        }
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => { alive = false; };
   }, [userId]);
 
@@ -92,7 +104,9 @@ export default function TrendVO2Max() {
     const s = new Set<string>();
     for (const r of estHist)  if (r?.measured_at) s.add(r.measured_at.slice(0, 10));
     for (const r of measHist) if (r?.measured_at) s.add(r.measured_at.slice(0, 10));
-    return Array.from(s).sort();
+    const arr = Array.from(s).sort();
+    console.debug("[VO2] union days cnt=", arr.length, "first/last=", arr[0], arr[arr.length - 1]);
+    return arr;
   }, [estHist, measHist]);
 
   const daysLimit = weeks * 7;
@@ -100,9 +114,12 @@ export default function TrendVO2Max() {
     () => (daysLimit > 0 ? allDays.slice(-daysLimit) : allDays),
     [allDays, daysLimit]
   );
-  if (!labelsIso.length) return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
+  if (!labelsIso.length) {
+    console.debug("[VO2] no labels -> empty view");
+    return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
+  }
 
-  // mapy dátum→hodnota
+  // mapy dátum -> hodnota
   const toMap = (rows: RowBE[]) => {
     const m = new Map<string, number>();
     for (const r of rows) {
@@ -121,11 +138,14 @@ export default function TrendVO2Max() {
   // single-point → flat line
   const flat = (arr: number[]) => {
     const vals = arr.filter(Number.isFinite) as number[];
-    if (vals.length === 1 && arr.length >= 2) return arr.map(() => vals[0]!);
-    return arr;
+    return vals.length === 1 && arr.length >= 2 ? arr.map(() => vals[0]!) : arr;
   };
+  const singleEst  = (seriesEst.filter(Number.isFinite) as number[]).length === 1 && seriesEst.length >= 2;
+  const singleMeas = (seriesMeas.filter(Number.isFinite) as number[]).length === 1 && seriesMeas.length >= 2;
   seriesEst  = flat(seriesEst);
   seriesMeas = flat(seriesMeas);
+
+  console.debug("[VO2] labels cnt=", labels.length, "est finite=", (seriesEst.filter(Number.isFinite) as number[]).length, "meas finite=", (seriesMeas.filter(Number.isFinite) as number[]).length, "singleEst=", singleEst, "singleMeas=", singleMeas);
 
   // pásma
   const age = React.useMemo(() => {
@@ -135,6 +155,7 @@ export default function TrendVO2Max() {
 
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
   const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
+  console.debug("[VO2] ranges cnt=", ranges.length, "sex=", sex, "age=", age, "group=", group);
 
   const maxVal = Math.max(
     0,
@@ -144,7 +165,6 @@ export default function TrendVO2Max() {
   const suggestedTop = Math.max(60, Math.ceil(maxVal + 1));
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pozadia
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
@@ -156,7 +176,6 @@ export default function TrendVO2Max() {
       fill: i === 0 ? "origin" : "-1",
       order: 1,
     })),
-    // primary – estimated
     {
       type: "line" as const,
       label: "VO₂Max (estimated)",
@@ -169,7 +188,6 @@ export default function TrendVO2Max() {
       spanGaps: true,
       order: 2,
     },
-    // secondary – measured (dashed)
     {
       type: "line" as const,
       label: "VO₂Max (measured)",
@@ -184,6 +202,7 @@ export default function TrendVO2Max() {
       order: 2,
     },
   ];
+  console.debug("[VO2] dataset lens -> ranges:", ranges.length, "est:", seriesEst.length, "meas:", seriesMeas.length);
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
 

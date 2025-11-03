@@ -15,8 +15,6 @@ import { CARD } from "@/shared/ui/classes";
 ensureChartJSRegistered();
 
 type StaticProfile = { sex?: "M" | "F" | null };
-
-// /profile/metrics/history/{id}?metric=body_fat_pct
 type RowBE = { measured_at?: string; value_num?: number | null };
 
 function hexA(hex: string, a: number) {
@@ -48,38 +46,51 @@ export default function TrendBodyFat() {
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
+    console.debug("[BF] mount userId=", userId);
+
     (async () => {
       setLoading(true);
       try {
-        // static (kvôli pásmam)
+        // ---- STATIC
         try {
-          const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
-          const js = await s.json().catch(() => ({}));
-          const sx = (js?.data?.sex === "F" ? "F" : "M") as "M" | "F";
+          const sResp = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
+          const sJs = await sResp.json().catch(() => ({}));
+          console.debug("[BF] static resp:", sJs);
+          const sx = (sJs?.data?.sex === "F" ? "F" : "M") as "M" | "F";
           if (alive) setSex(sx);
-        } catch {}
+        } catch (e) {
+          console.error("[BF] static fetch error:", e);
+        }
 
-        // history
+        // ---- HISTORY
         try {
           const r = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" });
           const js = await r.json().catch(() => ({}));
-          const data: RowBE[] = Array.isArray(js?.data) ? js.data : [];
-          const mapped = data
+          const raw: RowBE[] = Array.isArray(js?.data) ? js.data : [];
+          console.debug("[BF] history raw len=", raw.length, "sample=", raw[0]);
+          const mapped = raw
             .map(x => ({
               d: (x?.measured_at || "").slice(0, 10),
               v: typeof x?.value_num === "number" ? x.value_num : null,
             }))
             .filter(x => x.d);
+          console.debug("[BF] mapped len=", mapped.length, "sample=", mapped.slice(0, 3));
           if (alive) setRows(mapped);
-        } catch {}
+        } catch (e) {
+          console.error("[BF] history fetch error:", e);
+        }
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => { alive = false; };
   }, [userId]);
 
-  if (!rows.length) return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
+  if (!rows.length) {
+    console.debug("[BF] no rows -> empty view");
+    return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
+  }
 
   // posledných N týždňov (po dňoch)
   const days = weeks * 7;
@@ -88,21 +99,20 @@ export default function TrendBodyFat() {
   const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
   const values = last.map(r => (typeof r.v === "number" ? r.v : NaN));
 
-  // ak len 1 hodnota → flat line cez celé obdobie
-  let lineValues = values;
+  // single-point → flat line
   const finiteVals = values.filter(n => Number.isFinite(n)) as number[];
-  if (finiteVals.length === 1 && values.length >= 2) {
-    const v = finiteVals[0]!;
-    lineValues = values.map(() => v);
-  }
+  const singlePoint = finiteVals.length === 1 && values.length >= 2;
+  const lineValues = singlePoint ? values.map(() => finiteVals[0]!) : values;
+
+  console.debug("[BF] labels cnt=", labels.length, "finite cnt=", finiteVals.length, "singlePoint=", singlePoint);
 
   const seriesMax = Math.max(0, ...(lineValues.filter(Number.isFinite) as number[]));
   const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const bands = getBodyFatBands(sex);
+  console.debug("[BF] bands sex=", sex, "bands cnt=", bands.length, bands);
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pozadia – pásma
     ...bands.map((b, i) => {
       const color = colorForBandLabel(b.label || "");
       const yMax = typeof b.max === "number" ? b.max : suggestedTop;
@@ -118,7 +128,6 @@ export default function TrendBodyFat() {
         order: 1,
       };
     }),
-    // línia BF
     {
       type: "line" as const,
       label: "Body Fat %",
@@ -132,6 +141,7 @@ export default function TrendBodyFat() {
       order: 2,
     },
   ];
+  console.debug("[BF] dataset lens -> bands:", bands.length, "line:", lineValues.length);
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
 
