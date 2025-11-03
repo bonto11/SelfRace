@@ -7,6 +7,9 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
 // (voliteľné – ak máš súbor existujúci; ak nie, netreba import)
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
+import WidgetCoachPrefs from "@/features/widgets/WidgetCoachPrefs";
+import WidgetPB from "@/features/widgets/WidgetPB";
+import WidgetActivitiesCalendar from "@/features/widgets/WidgetActivitiesCalendar";
 
 type PrefsFromDB = CoachPrefs | null;
 
@@ -34,23 +37,32 @@ export default function Page() {
 
         // pokus 1: nový návrh
         try {
-          const r = await fetch(`${API_URL}/coach/prefs/${userId}`, { cache: "no-store" });
+          const r = await fetch(`${API_URL}/coach/prefs/${userId}`, {
+            cache: "no-store",
+          });
           js = await r.json().catch(() => ({}));
           if (js?.prefs) {
             if (alive) setPrefs(js.prefs as CoachPrefs);
             return;
           }
-        } catch { /* prepadni na ďalší pokus */ }
+        } catch {
+          /* prepadni na ďalší pokus */
+        }
 
         // pokus 2: starší generický endpoint (upravený podľa tvojho BE)
         try {
-          const r = await fetch(`${API_URL}/userprefs/${userId}?key=coach.prefs`, { cache: "no-store" });
+          const r = await fetch(
+            `${API_URL}/userprefs/${userId}?key=coach.prefs`,
+            { cache: "no-store" }
+          );
           js = await r.json().catch(() => ({}));
           if (js?.value) {
             if (alive) setPrefs(js.value as CoachPrefs);
             return;
           }
-        } catch { /* nič */ }
+        } catch {
+          /* nič */
+        }
 
         // fallback – nech máme aspoň niečo použiteľné
         if (alive) {
@@ -66,7 +78,12 @@ export default function Page() {
               long_run_days: [],
             },
             targets: {
-              run: { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null },
+              run: {
+                race_goal: null,
+                current_best_time: null,
+                target_time: null,
+                longest_recent_distance_km: null,
+              },
               ride: { focus: "endurance", weekly_time_target_min: null },
               strength: { focus: "general", sessions_per_week: 2 },
             },
@@ -77,10 +94,15 @@ export default function Page() {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
-  const canAnalyze = useMemo(() => Boolean(userId && !loading), [userId, loading]);
+  const canAnalyze = useMemo(
+    () => Boolean(userId && !loading),
+    [userId, loading]
+  );
 
   async function handleAnalyze() {
     if (!userId || !canAnalyze) return;
@@ -108,22 +130,11 @@ export default function Page() {
 
   return (
     <div className="p-4 grid gap-4 md:grid-cols-2">
-      {/* Tvoje pôvodné widgety ponechávam */}
-      <button
-        onClick={() => router.push("/coach/pb")}
-        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded p-4 text-left"
-      >
-        Personal Bests
-        <div className="text-xs opacity-70 mt-1">Open detail</div>
-      </button>
-
-      <button
-        onClick={() => router.push("/coach/prefs")}
-        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded p-4 text-left"
-      >
-        Coach Preferences
-        <div className="text-xs opacity-70 mt-1">Open detail</div>
-      </button>
+      <div className="p-4 grid gap-4 md:grid-cols-2">
+        <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
+        <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
+        <WidgetActivitiesCalendar />
+      </div>
 
       {/* Quick Analyze blok */}
       <div className="md:col-span-2 bg-gray-900/40 border border-gray-700 rounded p-4 space-y-3">
@@ -143,11 +154,13 @@ export default function Page() {
 
         {/* krátky prehľad, čo ide do analýzy */}
         <div className="text-xs opacity-80">
-          <div><b>Prefs:</b> {prefs ? "OK" : "fallback"}</div>
+          <div>
+            <b>Prefs:</b> {prefs ? "OK" : "fallback"}
+          </div>
           <div>
             <b>Weeks:</b> {prefs?.weeks ?? 8} · <b>Sports:</b>{" "}
-            {(prefs?.primary_sports ?? ["run", "ride", "strength"]).join(", ")} ·{" "}
-            <b>Goal:</b> {prefs?.goal_kind ?? "improve_overall"}
+            {(prefs?.primary_sports ?? ["run", "ride", "strength"]).join(", ")}{" "}
+            · <b>Goal:</b> {prefs?.goal_kind ?? "improve_overall"}
           </div>
         </div>
 
@@ -167,9 +180,6 @@ export default function Page() {
           </details>
         )}
       </div>
-
-      {/* Tvoj kalendár aktivít si nechávame mimo – ostáva tak, ako máš */}
-      {/* <WidgetActivitiesCalendar /> */}
     </div>
   );
 }
