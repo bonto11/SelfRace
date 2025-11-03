@@ -26,6 +26,17 @@ function hexA(hex: string, a: number) {
   return `#${h}${aa}`;
 }
 
+// mapovanie textových labelov → THEME.chart.* (tvoje nové kľúče)
+function colorForBandLabel(labelRaw: string) {
+  const l = (labelRaw || "").toLowerCase();
+  if (l.includes("athlete"))  return THEME.chart.athletes;
+  if (l.includes("fitness"))  return THEME.chart.fitness;
+  if (l.includes("average"))  return THEME.chart.average;
+  if (l.includes("essential"))return THEME.chart.essential;
+  if (l.includes("obese"))    return THEME.chart.obese;
+  return THEME.chart.neutral;
+}
+
 export default function TrendBodyFat() {
   const { userId } = useUserId();
   const [loading, setLoading] = React.useState(false);
@@ -63,14 +74,7 @@ export default function TrendBodyFat() {
   const datasets: ChartData<"line", number[], string>["datasets"] = [
     // pásma (vyplnené pozadia)
     ...bands.map((b, i) => {
-      const lbl = (b.label || "").toLowerCase();
-      const color =
-        lbl.includes("excellent") || lbl.includes("athlete") ? THEME.chart.excellent :
-        lbl.includes("superior")                          ? THEME.chart.superior  :
-        lbl.includes("good")                               ? THEME.chart.good      :
-        (lbl.includes("fair") || lbl.includes("average"))  ? THEME.chart.fair      :
-                                                             THEME.chart.poor;
-
+      const color = colorForBandLabel(b.label || "");
       const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
       return {
         type: "line" as const,
@@ -90,7 +94,7 @@ export default function TrendBodyFat() {
       type: "line" as const,
       label: "Body Fat %",
       data: values,
-      borderColor: THEME.chart.fair,
+      borderColor: THEME.chart.fair,    // tvoja “bežná modrá”
       backgroundColor: THEME.chart.fair,
       pointRadius: 2,
       borderWidth: 2,
@@ -101,7 +105,6 @@ export default function TrendBodyFat() {
   ];
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
-
   const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const options: ChartOptions<"line"> = {
@@ -122,7 +125,7 @@ export default function TrendBodyFat() {
         suggestedMax: suggestedTop,
         grid: { color: THEME.chart.grid },
         ticks: { color: THEME.color.text },
-        title: { display: true, text: "%"},
+        title: { display: true, text: "%" },
       },
       x: { grid: { color: THEME.chart.gridSoft } },
     },

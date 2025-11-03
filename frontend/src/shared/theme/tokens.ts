@@ -36,9 +36,15 @@ export const THEME = {
     excellent : '#16A34A', // green-600 (naj "zelenejšia")
     superior  : '#14B8A6', // teal-500 (ostal tyrkys)
     good      : '#22C55E', // emerald-500
-    fair      : '#38BDF8', // sky-400 (naša bežná modrá)
-    poor      : '#F59E0B', // amber-500 (oranžová)
+    fair      : '#F59E0B', // sky-400 (naša bežná modrá)
+    poor      : '#EF4444', // amber-500 (oranžová)
     neutral   : '#64748B', // sivá, beží ďalej
+
+    athletes : '#16A34A', // green-600 (naj "zelenejšia")
+    fitness  : '#14B8A6', // teal-500 (ostal tyrkys)
+    average      : '#22C55E', // emerald-500
+    essential      : '#EF4444', // cervena
+    obese      : '#EF4444', // cervena
 
     linePrimary: '#22C55E',
 
