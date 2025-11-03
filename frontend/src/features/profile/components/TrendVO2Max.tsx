@@ -1,6 +1,7 @@
+// src/features/trends/TrendVO2Max.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import * as React from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
@@ -40,17 +41,16 @@ function levelColor(label: string) {
 
 export default function TrendVO2Max() {
   const { userId } = useUserId();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = React.useState(false);
 
-  const [sex, setSex] = useState<"M" | "F">("M");
-  const [birthDate, setBirthDate] = useState<string>("");
+  const [sex, setSex] = React.useState<"M" | "F">("M");
+  const [birthDate, setBirthDate] = React.useState<string>("");
 
-  const [estHist, setEstHist] = useState<RowBE[]>([]);
-  const [measHist, setMeasHist] = useState<RowBE[]>([]);
+  const [estHist, setEstHist] = React.useState<RowBE[]>([]);
+  const [measHist, setMeasHist] = React.useState<RowBE[]>([]);
+  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
 
-  const [weeks, setWeeks] = useState<4 | 8 | 12>(8);
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
@@ -82,48 +82,55 @@ export default function TrendVO2Max() {
     return () => { alive = false; };
   }, [userId]);
 
-  // Zjednotíme osi podľa ÚNIE dátumov (ISO dňa)
-  const allDays = useMemo(() => {
+  // zjednotenie po dňoch (ISO yyyy-mm-dd)
+  const allDays = React.useMemo(() => {
     const set = new Set<string>();
-    for (const r of estHist) set.add((r.measured_at || "").slice(0, 10));
-    for (const r of measHist) set.add((r.measured_at || "").slice(0, 10));
-    return Array.from(set).sort(); // vzostupne
+    for (const r of estHist)  if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
+    for (const r of measHist) if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
+    return Array.from(set).sort();
   }, [estHist, measHist]);
 
   // orež na posledných N týždňov
   const daysLimit = weeks * 7;
-  const labelsIso = useMemo(
+  const labelsIso = React.useMemo(
     () => (daysLimit > 0 ? allDays.slice(-daysLimit) : allDays),
     [allDays, daysLimit]
   );
   if (!labelsIso.length) return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
 
-  // mapy (ISO -> value)
-  const estMap = useMemo(() => {
+  // mapy dátumu -> hodnota
+  const toMap = (rows: RowBE[]) => {
     const m = new Map<string, number>();
-    for (const r of estHist) if (typeof r.value_num === "number") m.set(r.measured_at.slice(0, 10), r.value_num);
+    for (const r of rows) if (typeof r.value_num === "number" && r.measured_at) m.set(r.measured_at.slice(0, 10), r.value_num);
     return m;
-  }, [estHist]);
-  const measMap = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of measHist) if (typeof r.value_num === "number") m.set(r.measured_at.slice(0, 10), r.value_num);
-    return m;
-  }, [measHist]);
+  };
+  const estMap  = React.useMemo(() => toMap(estHist),  [estHist]);
+  const measMap = React.useMemo(() => toMap(measHist), [measHist]);
 
+  // hodnoty v poradí labelov
   const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
-  const seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
-  const seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
+  let seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
+  let seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
 
-  // Pásma podľa veku/pohlavia
-  const age = useMemo(() => {
+  // single-point vyhladenie: ak je iba 1 hodnota, natiahni “flat line”
+  const fixFlat = (arr: number[]) => {
+    const vals = arr.filter(n => Number.isFinite(n));
+    if (vals.length === 1 && arr.length >= 2) return arr.map(() => vals[0] as number);
+    return arr;
+  };
+  seriesEst  = fixFlat(seriesEst);
+  seriesMeas = fixFlat(seriesMeas);
+
+  // pásma podľa veku/pohlavia
+  const age = React.useMemo(() => {
     if (!birthDate) return 0;
-    return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000));
+    return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000));
   }, [birthDate]);
 
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
   const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
 
-  // y-limit
+  // y-maximum
   const maxVal = Math.max(
     0,
     ...[...seriesEst, ...seriesMeas].filter(n => Number.isFinite(n)) as number[],
@@ -131,9 +138,8 @@ export default function TrendVO2Max() {
   );
   const suggestedTop = Math.max(60, Math.ceil(maxVal + 1));
 
-  // datasets
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pásma
+    // pásma (pozadie)
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
@@ -146,7 +152,7 @@ export default function TrendVO2Max() {
       order: 1,
     })),
 
-    // Primary: estimated
+    // primary – estimated (biela)
     {
       type: "line" as const,
       label: "VO₂Max (estimated)",
@@ -160,7 +166,7 @@ export default function TrendVO2Max() {
       order: 2,
     },
 
-    // Secondary: measured (prerušovaná)
+    // secondary – measured (prerušovaná)
     {
       type: "line" as const,
       label: "VO₂Max (measured)",

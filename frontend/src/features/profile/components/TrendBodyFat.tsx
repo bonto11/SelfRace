@@ -1,3 +1,4 @@
+// src/features/trends/TrendBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -14,10 +15,12 @@ import { CARD } from "@/shared/ui/classes";
 ensureChartJSRegistered();
 
 type StaticProfile = { sex: "M" | "F" };
-// BE vracia: { metric, value_num, unit, measured_at, ... }
-type MetricRowBE = { measured_at: string; value_num: number | null };
 
-type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
+// BE (nový kontrakt /metrics/history?metric=body_fat_pct)
+type RowBE = { measured_at: string; value_num: number | null };
+
+// FE normalizácia pre interné použitie
+type RowFE = { updated_at: string; body_fat_pct: number | null };
 
 // #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
@@ -27,17 +30,6 @@ function hexA(hex: string, a: number) {
     .padStart(2, "0")
     .toUpperCase();
   return `#${h}${aa}`;
-}
-
-function tooltipColorForBfLabel(label?: string) {
-  const l = (label || "").toLowerCase();
-  if (l.includes("athletes")) return THEME.chart.athletes;
-  if (l.includes("fitness")) return THEME.chart.fitness;
-  if (l.includes("average")) return THEME.chart.average;
-  if (l.includes("fair")) return THEME.chart.fair;
-  if (l.includes("obese")) return THEME.chart.obese;
-  if (l.includes("body fat")) return THEME.chart.linePrimary; // línia BF
-  return THEME.chart.neutral;
 }
 
 function colorForBandLabel(labelRaw: string) {
@@ -54,7 +46,7 @@ export default function TrendBodyFat() {
   const { userId } = useUserId();
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
-  const [rows, setRows] = React.useState<MetricsRowFE[]>([]);
+  const [rows, setRows] = React.useState<RowFE[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
 
   React.useEffect(() => {
@@ -63,14 +55,14 @@ export default function TrendBodyFat() {
     (async () => {
       setLoading(true);
       try {
-        // static
+        // static (sex)
         const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json());
         if (alive && s?.success) setStat(s.data);
 
-        // history – NOVÝ kontrakt: ?metric=body_fat_pct
+        // history – explicitne metrika body_fat_pct
         const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" }).then(r => r.json());
         if (alive && m?.success) {
-          const mapped: MetricsRowFE[] = (Array.isArray(m.data) ? m.data : []).map((r: MetricRowBE) => ({
+          const mapped: RowFE[] = (Array.isArray(m.data) ? m.data : []).map((r: RowBE) => ({
             updated_at: r.measured_at,
             body_fat_pct: typeof r.value_num === "number" ? r.value_num : null,
           }));
@@ -85,20 +77,32 @@ export default function TrendBodyFat() {
     return () => { alive = false; };
   }, [userId]);
 
+  // vyber posledné N týždňov (po dňoch)
   const days = weeks * 7;
   const dataRows = React.useMemo(() => (days > 0 ? rows.slice(-days) : rows), [rows, days]);
   if (!dataRows.length) return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
 
+  // labels + values
   const labels = dataRows.map(r => new Date(r.updated_at).toLocaleDateString("sk-SK"));
   const values = dataRows.map(r => (typeof r.body_fat_pct === "number" ? r.body_fat_pct : NaN));
-  const seriesMax = Math.max(0, ...(values.filter((n) => Number.isFinite(n)) as number[]));
+
+  // ak je len 1 dátový bod, natiahneme “flat line” cez celé obdobie
+  let valuesForChart = values;
+  if (values.filter(v => Number.isFinite(v)).length === 1 && labels.length >= 2) {
+    const v = values.find(n => Number.isFinite(n)) as number;
+    valuesForChart = labels.map(() => v);
+  }
+
+  const seriesMax = Math.max(0, ...(valuesForChart.filter((n) => Number.isFinite(n)) as number[]));
+  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const bands = stat ? getBodyFatBands(stat.sex) : [];
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
+    // pásma ako vyplnené pozadia
     ...bands.map((b, i) => {
       const color = colorForBandLabel(b.label || "");
-      const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
+      const yMax = typeof b.max === "number" ? b.max : suggestedTop;
       return {
         type: "line" as const,
         label: b.label,
@@ -111,10 +115,12 @@ export default function TrendBodyFat() {
         order: 1,
       };
     }),
+
+    // línia BF
     {
       type: "line" as const,
       label: "Body Fat %",
-      data: values,
+      data: valuesForChart,
       borderColor: THEME.chart.linePrimary,
       backgroundColor: THEME.chart.linePrimary,
       pointRadius: 2,
@@ -126,7 +132,6 @@ export default function TrendBodyFat() {
   ];
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
-  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const options: ChartOptions<"line"> = {
     responsive: true,
@@ -151,13 +156,6 @@ export default function TrendBodyFat() {
         displayColors: true,
         caretSize: 6,
         cornerRadius: 8,
-        callbacks: {
-          labelColor: (ctx) => {
-            const c = tooltipColorForBfLabel(ctx.dataset?.label);
-            return { borderColor: c, backgroundColor: c };
-          },
-          labelTextColor: () => "#FFFFFF",
-        },
       },
     },
     scales: {
