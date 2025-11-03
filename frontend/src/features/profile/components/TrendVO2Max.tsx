@@ -1,49 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
-import annotationPlugin from "chartjs-plugin-annotation";
-
+import type { ChartData, ChartOptions } from "chart.js";
+import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
+import { THEME } from "@/shared/theme/tokens";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { CARD } from "@/shared/ui/classes";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  annotationPlugin
-);
+ensureChartJSRegistered();
 
-interface HistoryRow {
-  VO2Max: number | null;
-  updated_at: string;
+type HistoryRow = { VO2Max: number | null; updated_at: string };
+type Range = { label: string; min: number | null; max: number | null; color?: string };
+type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
+
+function hexA(hex: string, a: number) {
+  // hex #RRGGBB -> #RRGGBBAA
+  const h = hex.replace("#", "");
+  const alpha = Math.round(Math.min(Math.max(a, 0), 1) * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `#${h}${alpha}`;
 }
-interface Range {
-  label: string;
-  min: number | null;
-  max: number | null;
-  color: string;
-}
-interface Group {
-  sex: "M" | "F";
-  age_min: number;
-  age_max: number;
-  ranges: Range[];
+
+function levelColor(label: string) {
+  const l = label.toLowerCase();
+  if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent;
+  if (l.includes("superior")) return THEME.chart.superior;
+  if (l.includes("good")) return THEME.chart.good;
+  if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
+  if (l.includes("poor")) return THEME.chart.poor;
+  return THEME.chart.neutral;
 }
 
 export default function TrendVO2Max() {
@@ -51,129 +42,156 @@ export default function TrendVO2Max() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [sex, setSex] = useState<"M" | "F">("M");
   const [birthDate, setBirthDate] = useState<string>("");
+  const [weeks, setWeeks] = useState<4 | 8 | 12>(8);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
-    async function load() {
-      const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`);
-      const json = await res.json();
-      if (json.success) {
-        setHistory(json.history);
-        setSex(json.sex);
-        setBirthDate(json.birth_date);
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
+        const js = await res.json();
+        if (!alive) return;
+        if (js?.success) {
+          setHistory(Array.isArray(js.history) ? js.history : []);
+          setSex(js.sex === "F" ? "F" : "M");
+          setBirthDate(js.birth_date || "");
+        } else {
+          setHistory([]);
+        }
+      } finally {
+        if (alive) setLoading(false);
       }
-    }
-    load();
+    })();
+    return () => { alive = false; };
   }, [userId]);
 
-  if (!history.length) return <div>Načítavam VO₂Max...</div>;
+  // orež na posledných N dní
+  const days = weeks * 7;
+  const rows = useMemo(() => (days > 0 ? history.slice(-days) : history), [history, days]);
+
+  if (!rows.length) {
+    return (
+      <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>
+    );
+  }
 
   // vek a skupina z JSONu
-  const age = Math.floor(
-    (Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000)
-  );
-  const group = (vo2Ref as Group[]).find(
-    (g) => g.sex === sex && age >= g.age_min && age <= g.age_max
-  );
-  const ranges: Range[] = group?.ranges ?? [];
+  const age = Math.floor((Date.now() - (birthDate ? new Date(birthDate).getTime() : Date.now())) / (365.25 * 86400 * 1000));
+  const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
+  const ranges = (group?.ranges ?? []).map(r => ({
+    ...r,
+    color: levelColor(r.label),
+  }));
 
-  // posledná hodnota a jej úroveň
-  const latestVO2 = history[history.length - 1]?.VO2Max ?? null;
+  // posledná hodnota → zvýraznenie levelu v legende
+  const latestVO2 = rows[rows.length - 1]?.VO2Max ?? null;
   let currentLabel: string | null = null;
   if (latestVO2 != null && ranges.length) {
     for (const r of ranges) {
-      if (
-        (r.min == null || latestVO2 >= r.min) &&
-        (r.max == null || latestVO2 <= r.max)
-      ) {
+      if ((r.min == null || latestVO2 >= r.min) && (r.max == null || latestVO2 <= r.max)) {
         currentLabel = r.label.trim();
         break;
       }
     }
   }
 
-  // dáta do grafu
-  const data = {
-    labels: history.map((h) =>
-      new Date(h.updated_at).toLocaleDateString("sk-SK")
-    ),
+  // dáta
+  const labels = rows.map(h => new Date(h.updated_at).toLocaleDateString("sk-SK"));
+  const data: ChartData<"line", number[], string> = {
+    labels,
     datasets: [
       {
         label: "VO₂Max",
-        data: history.map((h) => h.VO2Max),
-        borderColor: "cyan",
-        backgroundColor: "cyan",
-        tension: 0.2,
+        data: rows.map(h => (typeof h.VO2Max === "number" ? h.VO2Max : NaN)),
+        borderColor: THEME.chart.linePrimary,
+        backgroundColor: THEME.chart.linePrimary,
+        tension: 0.25,
+        pointRadius: 2,
+        borderWidth: 2,
+        order: 2,
       },
+      // pásma ako vyplnené pozadie (odspodu skladané)
+      ...ranges.map((r, i) => ({
+        type: "line" as const,
+        label: r.label,
+        data: labels.map(() => (r.max ?? 1000)), // horná hranica
+        borderColor: hexA(r.color!, 0),          // bez čiary
+        backgroundColor: hexA(r.color!, 0.18),   // polopriesvitné
+        pointRadius: 0,
+        borderWidth: 0,
+        fill: i === 0 ? "origin" : "-1",        // skladanie boxov
+        order: 1,
+      })),
     ],
   };
 
-  // pásma + tooltip priamo na boxe
-  const annotations = ranges.reduce((acc: any, r: Range, idx: number) => {
-    acc["range" + idx] = {
-      type: "box",
-      yMin: r.min ?? -Infinity,
-      yMax: r.max ?? Infinity,
-      backgroundColor: r.color + "33",
-      borderWidth: 0,
-      tooltip: {
-        enabled: true,
-        callbacks: {
-          label: () => {
-            const min = r.min ?? "≥";
-            const max = r.max ?? "≤";
-            return `${r.label}: ${min}–${max}`;
-          },
-        },
-      },
-    };
-    return acc;
-  }, {});
-
-  const options = {
+  const options: ChartOptions<"line"> = {
     responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
     plugins: {
-      legend: { display: false }, // dataset legendu skrývame
-      annotation: { annotations },
+      legend: {
+        position: THEME.chart.legendPosition,
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
+      },
       tooltip: { enabled: true },
     },
     scales: {
-      y: { beginAtZero: true, suggestedMax: 70 },
+      y: {
+        beginAtZero: true,
+        suggestedMax: 70,
+        grid: { color: THEME.chart.grid },
+        ticks: { color: THEME.color.text },
+      },
+      x: { grid: { color: THEME.chart.gridSoft } },
     },
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow mt-4">
-      <h2 className="text-lg font-bold mb-2">Trend VO₂Max</h2>
-      <div className="flex">
-        {/* graf */}
-        <div className="w-3/4">
+    <div className={CARD}>
+      <div className="flex items-center justify-between p-3 border-b border-neutral-800">
+        <h2 className="text-base md:text-lg font-semibold">Trend VO₂Max</h2>
+        <div className="flex items-center gap-2 text-xs">
+          <select
+            value={weeks}
+            onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
+            className="px-2 py-1 rounded bg-gray-700 text-white"
+            aria-label="Lookback"
+          >
+            <option value={4}>4 týždne</option>
+            <option value={8}>8 týždňov</option>
+            <option value={12}>12 týždňov</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="p-3">
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
+            </div>
+          )}
           <Line data={data} options={options} />
         </div>
 
-        {/* “Legenda” vpravo – len názvy; rozsah je v title tooltipe */}
-        <div className="w-1/4 pl-4 flex flex-col justify-center text-sm">
+        {/* pravá „legenda“ úrovní */}
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-sm">
           {ranges
             .slice()
-            .reverse() // nech je „Excellent“ hore
+            .reverse()
             .map((r, idx) => {
-              const title = `${r.min ?? "≥"}–${r.max ?? "≤"}`;
               const isCurrent = currentLabel === r.label.trim();
               return (
-                <div
-                  key={idx}
-                  className={`flex items-center mb-1 ${
-                    isCurrent ? "font-bold text-blue-500" : ""
-                  }`}
-                  title={title}
-                >
+                <div key={idx} className="flex items-center gap-2">
                   <span
-                    className={`inline-block w-4 h-4 mr-2 rounded ${
-                      isCurrent ? "ring-2 ring-black dark:ring-white" : ""
-                    }`}
+                    className="inline-block w-3.5 h-3.5 rounded ring-1 ring-white/15"
                     style={{ backgroundColor: r.color }}
                   />
-                  {r.label}
+                  <span className={isCurrent ? "font-semibold" : ""}>{r.label}</span>
                 </div>
               );
             })}
