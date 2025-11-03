@@ -178,21 +178,7 @@ export default function TrendVO2Max() {
           <Line data={data} options={options} />
         </div>
 
-        {/* legenda úrovní */}
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-sm">
-          {ranges.slice().reverse().map((r, idx) => {
-            const isCurrent = currentLabel === r.label.trim();
-            return (
-              <div key={idx} className="flex items-center gap-2">
-                <span
-                  className="inline-block w-3.5 h-3.5 rounded ring-1 ring-white/15"
-                  style={{ backgroundColor: r.color }}
-                />
-                <span className={isCurrent ? "font-semibold" : ""}>{r.label}</span>
-              </div>
-            );
-          })}
-        </div>
+        
       </div>
     </div>
   );
