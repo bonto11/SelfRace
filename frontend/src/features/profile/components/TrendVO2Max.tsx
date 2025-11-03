@@ -21,9 +21,7 @@ type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[]
 function hexA(hex: string, a: number) {
   const h = (hex || "#000000").replace("#", "");
   const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
-    .toString(16)
-    .padStart(2, "0")
-    .toUpperCase();
+    .toString(16).padStart(2, "0").toUpperCase();
   return `#${h}${aa}`;
 }
 function levelColor(label: string) {
@@ -38,12 +36,14 @@ function levelColor(label: string) {
 
 export default function TrendVO2Max() {
   const { userId } = useUserId();
+
+  // --- HOOKS (stála kostra; nič podmienkové) ---
   const [loading, setLoading] = React.useState(false);
+  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
 
   const [stat, setStat] = React.useState<StaticRow>(null);
   const [estHist, setEstHist] = React.useState<RowBE[]>([]);
   const [measHist, setMeasHist] = React.useState<RowBE[]>([]);
-  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -51,18 +51,15 @@ export default function TrendVO2Max() {
     (async () => {
       setLoading(true);
       try {
-        // static (sex, birth_date)
         const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
         if (alive && s?.success) setStat(s.data as StaticRow);
         console.debug("[VO2] static ->", s);
 
-        // estimated history
         const e = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
         const eRows: RowBE[] = e?.success && Array.isArray(e?.data) ? e.data : [];
         if (alive) setEstHist(eRows);
         console.debug("[VO2] estimated len=", eRows.length, "sample=", eRows[0]);
 
-        // measured history
         const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
         const mRows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
         if (alive) setMeasHist(mRows);
@@ -74,65 +71,46 @@ export default function TrendVO2Max() {
     return () => { alive = false; };
   }, [userId]);
 
-  // ---- spoločná os dní + single-point fix ----
+  // --- DÁTA (bez useMemo – len bežné premené) ---
   const daysLimit = weeks * 7;
 
-  const allDays = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const r of estHist) if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
-    for (const r of measHist) if (r?.measured_at) set.add(r.measured_at.slice(0, 10));
-    let arr = Array.from(set).sort();
-    // single-series single-point fix: ak spolu vychádza len jeden deň, pridaj +1 deň
-    if (arr.length === 1) {
-      const d0 = new Date(arr[0]);
-      const d1 = new Date(d0.getTime() + 24 * 3600 * 1000);
-      arr = [arr[0], d1.toISOString().slice(0, 10)];
-    }
-    return arr;
-  }, [estHist, measHist]);
+  const estDays = new Set<string>();
+  for (const r of estHist) if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
+  const measDays = new Set<string>();
+  for (const r of measHist) if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
 
-  const labelsIso = React.useMemo(
-    () => (daysLimit > 0 ? allDays.slice(-daysLimit) : allDays),
-    [allDays, daysLimit]
-  );
-
-  if (!labelsIso.length) {
-    console.debug("[VO2] no labels -> empty view");
-    return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
+  let allDays = Array.from(new Set<string>([...estDays, ...measDays])).sort();
+  // single-point fix: ak vyjde 1 deň, pridaj +1 deň (aby bola čiara)
+  if (allDays.length === 1) {
+    const d0 = new Date(allDays[0]);
+    const d1 = new Date(d0.getTime() + 24 * 3600 * 1000);
+    allDays = [allDays[0], d1.toISOString().slice(0, 10)];
   }
+  const labelsIso = daysLimit > 0 ? allDays.slice(-daysLimit) : allDays;
+  console.debug("[VO2] union days cnt:", labelsIso.length, "first/last:", labelsIso[0], labelsIso[labelsIso.length - 1]);
 
-  const estMap = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of estHist) if (typeof r?.value_num === "number" && r?.measured_at) m.set(r.measured_at.slice(0, 10), r.value_num);
-    return m;
-  }, [estHist]);
-  const measMap = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of measHist) if (typeof r?.value_num === "number" && r?.measured_at) m.set(r.measured_at.slice(0, 10), r.value_num);
-    return m;
-  }, [measHist]);
+  const estMap = new Map<string, number>();
+  for (const r of estHist) if (typeof r?.value_num === "number" && r?.measured_at) estMap.set(r.measured_at.slice(0, 10), r.value_num);
+  const measMap = new Map<string, number>();
+  for (const r of measHist) if (typeof r?.value_num === "number" && r?.measured_at) measMap.set(r.measured_at.slice(0, 10), r.value_num);
 
   const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
   const seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
   const seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
 
-  // pásma podľa veku/pohlavia (ak stat chýba, pásma vynecháme)
+  // pásma (ak nemáme stat, pásma vypneme – graf aj tak pôjde)
   const sex = stat?.sex === "F" ? "F" : "M";
   const birthDate = stat?.birth_date || "";
   const age = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)) : 0;
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
   const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
-  console.debug("[VO2] union days cnt:", labelsIso.length, "first/last:", labelsIso[0], labelsIso[labelsIso.length - 1]);
 
-  const maxVal = Math.max(
-    0,
-    ...[...seriesEst, ...seriesMeas].filter(Number.isFinite) as number[],
-    ...ranges.map(r => (typeof r.max === "number" ? r.max : 0))
-  );
-  const suggestedTop = Math.max(60, Math.ceil(maxVal + 1));
+  const finiteVals = [...seriesEst, ...seriesMeas].filter((n) => Number.isFinite(n)) as number[];
+  const rangeMaxes = ranges.map(r => (typeof r.max === "number" ? r.max : 0));
+  const suggestedTop = Math.max(60, Math.ceil(Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1));
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // vyfarbené pásma
+    // zafarbené pásma
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
@@ -201,15 +179,13 @@ export default function TrendVO2Max() {
       },
     },
     scales: {
-      y: {
-        beginAtZero: true,
-        suggestedMax: suggestedTop,
-        grid: { color: THEME.chart.grid },
-        ticks: { color: THEME.color.text },
-      },
+      y: { beginAtZero: true, suggestedMax: suggestedTop, grid: { color: THEME.chart.grid }, ticks: { color: THEME.color.text } },
       x: { grid: { color: THEME.chart.gridSoft } },
     },
   };
+
+  // NEROBÍME žiadny „early return“ – vždy rovnaký počet hookov v každom rendri
+  const hasLabels = labels.length > 0;
 
   return (
     <div className={CARD}>
@@ -236,7 +212,13 @@ export default function TrendVO2Max() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          <Line data={data} options={options} />
+          {hasLabels ? (
+            <Line data={data} options={options} />
+          ) : (
+            <div className="grid place-items-center h-full text-sm opacity-70">
+              Žiadne dáta VO₂Max.
+            </div>
+          )}
         </div>
       </div>
     </div>
