@@ -1,4 +1,3 @@
-# src/Services/profile.py
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -10,7 +9,7 @@ from Configs.config import (
     TABLE_PROFILE_METRIC_VALUE,
 )
 
-# Povolené metriky (drž to sync s FE)
+# Povolené metriky (drž v sync s FE)
 MetricKey = Literal[
     "weight_kg",
     "body_fat_pct",
@@ -30,12 +29,15 @@ class MetricEntry(BaseModel):
 
 class BatchMetricsPayload(BaseModel):
     entries: List[MetricEntry] = Field(default_factory=list)
+    # voliteľne – ak príde, uloží sa spolu s každým riadkom
+    user_uid: Optional[str] = None
 
 class StaticPayload(BaseModel):
     sex: Optional[Literal["M", "F"]] = None
-    # prijímame string YYYY-MM-DD, date alebo datetime
     birth_date: Optional[Union[str, date, datetime]] = None
     height_cm: Optional[float] = None
+    # voliteľne – keď pošleš, upsert pôjde cez user_uid
+    user_uid: Optional[str] = None
 
 # ====== INIT ======
 supabase = get_client()
@@ -48,26 +50,39 @@ def _birth_to_iso_date(val: Optional[Union[str, date, datetime]]) -> Optional[st
     if val is None:
         return None
     if isinstance(val, str):
-        # očakávame "YYYY-MM-DD"
-        return val
+        return val  # očakávame "YYYY-MM-DD"
     if isinstance(val, date) and not isinstance(val, datetime):
         return val.isoformat()
     if isinstance(val, datetime):
         return val.date().isoformat()
     return None
 
-def _fetch_static(user_id: int) -> Dict[str, Any]:
-    res = supabase.table(TABLE_PROFILE_STATIC).select("*").eq("user_id", user_id).limit(1).execute()
+def _apply_user_filter(q, user_id: Optional[int] = None, user_uid: Optional[str] = None):
+    """
+    Preferuj user_uid, fallback na user_id.
+    """
+    if user_uid:
+        return q.eq("user_uid", user_uid)
+    return q.eq("user_id", user_id)
+
+def _fetch_static(user_id: Optional[int] = None, user_uid: Optional[str] = None) -> Dict[str, Any]:
+    q = supabase.table(TABLE_PROFILE_STATIC).select("*").limit(1)
+    q = _apply_user_filter(q, user_id, user_uid)
+    res = q.execute()
     return res.data[0] if res.data else {}
 
-def _fetch_latest_by_metric(user_id: int, metric: str) -> Optional[Dict[str, Any]]:
-    res = (
+def _fetch_latest_by_metric(
+    user_id: Optional[int],
+    metric: str,
+    user_uid: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    q = (
         supabase.table(TABLE_PROFILE_METRIC_VALUE)
         .select("*")
-        .eq("user_id", user_id)
         .eq("metric", metric)
         .order("measured_at", desc=True)
         .limit(1)
-        .execute()
     )
+    q = _apply_user_filter(q, user_id, user_uid)
+    res = q.execute()
     return res.data[0] if res.data else None
