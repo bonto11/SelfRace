@@ -14,15 +14,16 @@ import { CARD } from "@/shared/ui/classes";
 ensureChartJSRegistered();
 
 type StaticProfile = { sex: "M" | "F" };
-type MetricsRow = { updated_at: string; body_fat_pct: number | null };
+type MetricsRow  = { updated_at: string; body_fat_pct: number | null };
 
+// #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
   const h = hex.replace("#", "");
-  const alpha = Math.round(Math.min(Math.max(a, 0), 1) * 255)
+  const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
     .toString(16)
     .padStart(2, "0")
     .toUpperCase();
-  return `#${h}${alpha}`;
+  return `#${h}${aa}`;
 }
 
 export default function TrendBodyFat() {
@@ -51,34 +52,26 @@ export default function TrendBodyFat() {
 
   const days = weeks * 7;
   const dataRows = React.useMemo(() => (days > 0 ? rows.slice(-days) : rows), [rows, days]);
-
-  if (!dataRows.length) {
-    return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
-  }
+  if (!dataRows.length) return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
 
   const labels = dataRows.map(r => new Date(r.updated_at).toLocaleDateString("sk-SK"));
   const values = dataRows.map(r => (typeof r.body_fat_pct === "number" ? r.body_fat_pct : NaN));
+  const seriesMax = Math.max(0, ...values.filter(n => Number.isFinite(n)) as number[]);
 
   const bands = stat ? getBodyFatBands(stat.sex) : [];
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
     // pásma (vyplnené pozadia)
     ...bands.map((b, i) => {
-      // mapovanie textu pásma na THEME farbu
-      const label = (b.label || "").toLowerCase();
+      const lbl = (b.label || "").toLowerCase();
       const color =
-        label.includes("excellent") || label.includes("athlete")
-          ? THEME.chart.excellent
-          : label.includes("superior")
-          ? THEME.chart.superior
-          : label.includes("good")
-          ? THEME.chart.good
-          : label.includes("fair") || label.includes("average")
-          ? THEME.chart.fair
-          : THEME.chart.poor;
+        lbl.includes("excellent") || lbl.includes("athlete") ? THEME.chart.excellent :
+        lbl.includes("superior")                          ? THEME.chart.superior  :
+        lbl.includes("good")                               ? THEME.chart.good      :
+        (lbl.includes("fair") || lbl.includes("average"))  ? THEME.chart.fair      :
+                                                             THEME.chart.poor;
 
-      // pre box potrebujeme hornú hranu; ak pásma má min/max, vykreslíme
-      const yMax = b.max ?? (b.min ?? 100);
+      const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
       return {
         type: "line" as const,
         label: b.label,
@@ -97,7 +90,7 @@ export default function TrendBodyFat() {
       type: "line" as const,
       label: "Body Fat %",
       data: values,
-      borderColor: THEME.chart.fair,       // oranžová linka
+      borderColor: THEME.chart.fair,
       backgroundColor: THEME.chart.fair,
       pointRadius: 2,
       borderWidth: 2,
@@ -108,6 +101,8 @@ export default function TrendBodyFat() {
   ];
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
+
+  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const options: ChartOptions<"line"> = {
     responsive: true,
@@ -124,7 +119,7 @@ export default function TrendBodyFat() {
       y: {
         beginAtZero: true,
         suggestedMin: 0,
-        suggestedMax: 35,
+        suggestedMax: suggestedTop,
         grid: { color: THEME.chart.grid },
         ticks: { color: THEME.color.text },
         title: { display: true, text: "%"},
@@ -136,7 +131,7 @@ export default function TrendBodyFat() {
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between p-3 border-b border-neutral-800">
-        <h2 className="text-base md:text-lg font-semibold">Trend Body Fat %</h2>
+        <h2 className="text-base md:text-lg font-semibold">Detail – Body Fat %</h2>
         <div className="flex items-center gap-2 text-xs">
           <select
             value={weeks}

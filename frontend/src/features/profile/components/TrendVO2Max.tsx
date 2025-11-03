@@ -17,23 +17,23 @@ type HistoryRow = { VO2Max: number | null; updated_at: string };
 type Range = { label: string; min: number | null; max: number | null; color?: string };
 type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
+// #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
-  // hex #RRGGBB -> #RRGGBBAA
   const h = hex.replace("#", "");
-  const alpha = Math.round(Math.min(Math.max(a, 0), 1) * 255)
+  const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
     .toString(16)
     .padStart(2, "0")
     .toUpperCase();
-  return `#${h}${alpha}`;
+  return `#${h}${aa}`;
 }
 
 function levelColor(label: string) {
   const l = label.toLowerCase();
   if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent;
   if (l.includes("superior")) return THEME.chart.superior;
-  if (l.includes("good")) return THEME.chart.good;
+  if (l.includes("good"))     return THEME.chart.good;
   if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
-  if (l.includes("poor")) return THEME.chart.poor;
+  if (l.includes("poor"))     return THEME.chart.poor;
   return THEME.chart.neutral;
 }
 
@@ -52,7 +52,7 @@ export default function TrendVO2Max() {
       setLoading(true);
       try {
         const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, { cache: "no-store" });
-        const js = await res.json();
+        const js = await res.json().catch(() => ({}));
         if (!alive) return;
         if (js?.success) {
           setHistory(Array.isArray(js.history) ? js.history : []);
@@ -71,23 +71,15 @@ export default function TrendVO2Max() {
   // orež na posledných N dní
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? history.slice(-days) : history), [history, days]);
+  if (!rows.length) return <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>;
 
-  if (!rows.length) {
-    return (
-      <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>
-    );
-  }
-
-  // vek a skupina z JSONu
+  // vek + pásma
   const age = Math.floor((Date.now() - (birthDate ? new Date(birthDate).getTime() : Date.now())) / (365.25 * 86400 * 1000));
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
-  const ranges = (group?.ranges ?? []).map(r => ({
-    ...r,
-    color: levelColor(r.label),
-  }));
+  const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
 
-  // posledná hodnota → zvýraznenie levelu v legende
-  const latestVO2 = rows[rows.length - 1]?.VO2Max ?? null;
+  // posledná hodnota → zvýraznenie v legende
+  const latestVO2 = rows.at(-1)?.VO2Max ?? null;
   let currentLabel: string | null = null;
   if (latestVO2 != null && ranges.length) {
     for (const r of ranges) {
@@ -100,12 +92,32 @@ export default function TrendVO2Max() {
 
   // dáta
   const labels = rows.map(h => new Date(h.updated_at).toLocaleDateString("sk-SK"));
+  const series = rows.map(h => (typeof h.VO2Max === "number" ? h.VO2Max : NaN));
+  const seriesMax = Math.max(0, ...series.filter(n => Number.isFinite(n)) as number[]);
+
+  // ⚙️ horný limit pásiem/grafu – max(r.max) alebo fallback 105 (tvoj strop)
+  const bandMax = Math.max(0, ...ranges.map(r => (typeof r.max === "number" ? r.max : 0)));
+  const topMax  = Math.max(105, bandMax, Math.ceil(seriesMax + 1));
+
   const data: ChartData<"line", number[], string> = {
     labels,
     datasets: [
+      // pásma ako vyplnené pozadie
+      ...ranges.map((r, i) => ({
+        type: "line" as const,
+        label: r.label,
+        data: labels.map(() => (typeof r.max === "number" ? r.max : topMax)),
+        borderColor: hexA(r.color!, 0),
+        backgroundColor: hexA(r.color!, 0.18),
+        pointRadius: 0,
+        borderWidth: 0,
+        fill: i === 0 ? "origin" : "-1",
+        order: 1,
+      })),
+      // línia VO₂
       {
         label: "VO₂Max",
-        data: rows.map(h => (typeof h.VO2Max === "number" ? h.VO2Max : NaN)),
+        data: series,
         borderColor: THEME.chart.linePrimary,
         backgroundColor: THEME.chart.linePrimary,
         tension: 0.25,
@@ -113,18 +125,6 @@ export default function TrendVO2Max() {
         borderWidth: 2,
         order: 2,
       },
-      // pásma ako vyplnené pozadie (odspodu skladané)
-      ...ranges.map((r, i) => ({
-        type: "line" as const,
-        label: r.label,
-        data: labels.map(() => (r.max ?? 1000)), // horná hranica
-        borderColor: hexA(r.color!, 0),          // bez čiary
-        backgroundColor: hexA(r.color!, 0.18),   // polopriesvitné
-        pointRadius: 0,
-        borderWidth: 0,
-        fill: i === 0 ? "origin" : "-1",        // skladanie boxov
-        order: 1,
-      })),
     ],
   };
 
@@ -142,7 +142,7 @@ export default function TrendVO2Max() {
     scales: {
       y: {
         beginAtZero: true,
-        suggestedMax: 70,
+        suggestedMax: topMax,
         grid: { color: THEME.chart.grid },
         ticks: { color: THEME.color.text },
       },
@@ -153,7 +153,7 @@ export default function TrendVO2Max() {
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between p-3 border-b border-neutral-800">
-        <h2 className="text-base md:text-lg font-semibold">Trend VO₂Max</h2>
+        <h2 className="text-base md:text-lg font-semibold">Detail – VO₂Max</h2>
         <div className="flex items-center gap-2 text-xs">
           <select
             value={weeks}
@@ -178,23 +178,20 @@ export default function TrendVO2Max() {
           <Line data={data} options={options} />
         </div>
 
-        {/* pravá „legenda“ úrovní */}
+        {/* legenda úrovní */}
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-sm">
-          {ranges
-            .slice()
-            .reverse()
-            .map((r, idx) => {
-              const isCurrent = currentLabel === r.label.trim();
-              return (
-                <div key={idx} className="flex items-center gap-2">
-                  <span
-                    className="inline-block w-3.5 h-3.5 rounded ring-1 ring-white/15"
-                    style={{ backgroundColor: r.color }}
-                  />
-                  <span className={isCurrent ? "font-semibold" : ""}>{r.label}</span>
-                </div>
-              );
-            })}
+          {ranges.slice().reverse().map((r, idx) => {
+            const isCurrent = currentLabel === r.label.trim();
+            return (
+              <div key={idx} className="flex items-center gap-2">
+                <span
+                  className="inline-block w-3.5 h-3.5 rounded ring-1 ring-white/15"
+                  style={{ backgroundColor: r.color }}
+                />
+                <span className={isCurrent ? "font-semibold" : ""}>{r.label}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
