@@ -46,10 +46,9 @@ export const THEME = {
     essential : '#EF4444', // červená
     obese     : '#EF4444', // červená
 
-    linePrimary: '#22C55E',
-
-    grid:        '#FFFFFF12', // rgba(255,255,255,0.07)
-    gridSoft:    '#FFFFFF0D', // rgba(255,255,255,0.05)
+    linePrimary: '#FFFFFF', //biela
+    grid:        '#FFFFFF12',
+    gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,
 
     /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */

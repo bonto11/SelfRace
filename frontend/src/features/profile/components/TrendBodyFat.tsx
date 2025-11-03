@@ -94,8 +94,8 @@ export default function TrendBodyFat() {
       type: "line" as const,
       label: "Body Fat %",
       data: values,
-      borderColor: THEME.chart.fair,    // tvoja “bežná modrá”
-      backgroundColor: THEME.chart.fair,
+      borderColor: THEME.chart.linePrimary,
+      backgroundColor: THEME.chart.linePrimary,
       pointRadius: 2,
       borderWidth: 2,
       tension: 0.25,
