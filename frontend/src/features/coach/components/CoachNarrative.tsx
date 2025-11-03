@@ -1,7 +1,7 @@
-// src/features/coach/components/Narrative.tsx
+// src/features/coach/components/CoachNarrative.tsx
 "use client";
 
-export default function Narrative({ narrative }: { narrative: any }) {
+export default function CoachNarrative({ narrative }: { narrative: any }) {
   if (!narrative) return null;
   const { period_summary, last_week_summary } = narrative;
   if (!period_summary && !last_week_summary) return null;

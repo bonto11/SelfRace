@@ -1,10 +1,10 @@
 // src/features/coach/types/coach.ts
 export type typePB = {
-  distance_m: number;        // 400 | 1000 | 5000 | 21097 | 42195
+  distance_m: number;
   best_time_s?: number | null;
-  time_str?: string | null;  // "hh:mm:ss" (len pre FE)
+  time_str?: string | null;
   event_name?: string | null;
-  date?: string | null;      // "YYYY-MM-DD"
+  date?: string | null;
 };
 
 export type CoachPrefsLegacyLoose = {
@@ -16,5 +16,4 @@ export type CoachPrefsLegacyLoose = {
   sports?: string[];
   notes?: string | null;
   other?: Record<string, unknown>;
-  // doplníš, ak bude treba
 };

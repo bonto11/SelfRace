@@ -1,19 +1,12 @@
 // src/features/coach/utils/plan.ts
-import { DAY_ORDER, DayKey, DailyItem, DailyPlan } from "@/shared/types/day";
+import { DAY_ORDER, type DayKey, type DailyItem, type DailyPlan } from "@/shared/types/day";
 
 export function extractDailyPlan(plan: any): DailyPlan[] | null {
   if (!plan || typeof plan !== "object") return null;
 
   const lower = Object.keys(plan).map((k) => k.toLowerCase());
-  const hasDaily = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ].some((k) => lower.includes(k));
+  const hasDaily = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+    .some((k) => lower.includes(k));
   if (!hasDaily) return null;
 
   const get = (k: string) => plan[k] ?? plan[k.toLowerCase()];
@@ -36,8 +29,8 @@ export function extractDailyPlan(plan: any): DailyPlan[] | null {
 
 export function getItemLabel(it: DailyItem) {
   const title = it.title || it.activity || it.name || "Session";
-  const dur = it.duration_min ?? it.duration;
-  const intensity = it.intensity || it.zone;
-  const notes = it.notes || it.comment;
+  const dur = it.duration_min ?? it.duration ?? null;
+  const intensity = it.intensity || it.zone || null;
+  const notes = it.notes || it.comment || null;
   return { title, dur, intensity, notes };
 }

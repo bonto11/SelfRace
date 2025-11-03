@@ -1,5 +1,6 @@
 // src/features/coach/types/pbView.ts
 import type { typePB } from "./coach";
+
 export type PBRow = { distanceKm: number; best: string; activityId?: number|null; date?: string|null };
 
 export const bestToPBRow = (b: typePB): PBRow => ({
@@ -17,7 +18,6 @@ export const pbRowToBest = (row: PBRow): typePB => ({
   event_name: null,
 });
 
-// helpers
 const secondsToHMS = (sec:number) => {
   const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
   return [h,m,s].map(v=>String(v).padStart(2,"0")).join(":");
@@ -27,12 +27,4 @@ const hmsToSeconds = (hms:string): number | null => {
   if (p.some(Number.isNaN)) return null;
   let [h,m,s] = p.length===2 ? [0,p[0],p[1]] : p;
   return h*3600 + m*60 + s;
-};
-
-
-export type Form = {
-  distance_m: string;
-  time_str: string;
-  activity_id: string;
-  achieved_at: string;
 };
