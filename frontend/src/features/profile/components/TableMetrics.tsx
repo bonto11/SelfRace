@@ -33,7 +33,8 @@ type MetricState = {
   VO2Max_estimated: number | null;
 };
 
-const NUM_INPUT = "w-full px-3 py-2 rounded border border-neutral-800 bg-[#111827] text-[#E5E7EB] text-center";
+const NUM_INPUT =
+  "w-full px-3 py-2 rounded border border-neutral-800 bg-[#111827] text-[#E5E7EB] text-center";
 
 function fmtDate(d?: string | null) {
   return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
@@ -51,7 +52,7 @@ function SummaryRow({ k, v, extra }: { k: string; v: string; extra?: string }) {
 }
 
 export default function TableMetrics() {
-  const { userId } = useUserId();
+  const { userId, userUid } = useUserId() as { userId: number | null; userUid?: string | null };
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -64,6 +65,8 @@ export default function TableMetrics() {
     VO2Max_estimated: null,
   });
 
+  const uidQS = userUid ? `?user_uid=${encodeURIComponent(userUid)}` : "";
+
   // načítaj posledné hodnoty + predvyplň
   useEffect(() => {
     if (!userId) return;
@@ -71,7 +74,7 @@ export default function TableMetrics() {
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`${API_URL}/profile/metrics/latest/${userId}`, { cache: "no-store" });
+        const r = await fetch(`${API_URL}/profile/metrics/latest/${userId}${uidQS}`, { cache: "no-store" });
         const js: LatestResp = await r.json().catch(() => ({ success: false, data: {} as any }));
         if (!alive) return;
         if (js?.success) {
@@ -91,7 +94,7 @@ export default function TableMetrics() {
       }
     })();
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, uidQS]);
 
   const bmiText = useMemo(() => {
     const bmi = latest?.BMI?.value;
@@ -110,6 +113,7 @@ export default function TableMetrics() {
       ] as const;
 
       const payload = {
+        user_uid: userUid ?? undefined, // BE uloží do každej položky
         entries: entries
           .filter(([, val]) => Number.isFinite(val as number))
           .map(([metric, value, unit]) => ({
@@ -136,7 +140,7 @@ export default function TableMetrics() {
       if (js?.success) {
         toast.success(`✅ Uložené (${js.inserted})`);
         // refresh latest
-        const r2 = await fetch(`${API_URL}/profile/metrics/latest/${userId}`, { cache: "no-store" });
+        const r2 = await fetch(`${API_URL}/profile/metrics/latest/${userId}${uidQS}`, { cache: "no-store" });
         const l2: LatestResp = await r2.json();
         if (l2?.success) setLatest(l2.data);
         setOpen(false);

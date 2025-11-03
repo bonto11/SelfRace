@@ -25,7 +25,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function TableStatic() {
-  const { userId } = useUserId();
+  const { userId, userUid } = useUserId() as { userId: number | null; userUid?: string | null };
   const [open, setOpen] = useState(false);
   const [staticData, setStaticData] = useState<StaticProfile>({
     sex: null,
@@ -34,13 +34,15 @@ export default function TableStatic() {
   });
   const [loading, setLoading] = useState(false);
 
+  const uidQS = userUid ? `?user_uid=${encodeURIComponent(userUid)}` : "";
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" });
+        const r = await fetch(`${API_URL}/profile/static/${userId}${uidQS}`, { cache: "no-store" });
         const js = await r.json().catch(() => ({}));
         if (alive && js?.success) setStaticData(js.data);
       } finally {
@@ -48,7 +50,7 @@ export default function TableStatic() {
       }
     })();
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, uidQS]);
 
   async function handleSave() {
     if (!userId) return;
@@ -56,7 +58,11 @@ export default function TableStatic() {
       const res = await fetch(`${API_URL}/profile/static/${userId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, ...staticData }),
+        body: JSON.stringify({
+          // BE preferuje user_uid ak je
+          user_uid: userUid ?? undefined,
+          ...staticData,
+        }),
       });
       const js = await res.json();
       if (js?.success) {
