@@ -127,35 +127,3 @@ def get_bodyfat_history(user_id: int):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# --- Resting HR history ---
-@router.get("/rhr-history/{user_id}")
-def get_rhr_history(user_id: int):
-    try:
-        res = (
-            supabase.table(TABLE_USERS_METRICS)
-            .select("RHR, updated_at, user_id")
-            .eq("user_id", user_id)
-            .order("updated_at", desc=False)
-            .execute()
-        )
-        if not res.data:
-            raise HTTPException(status_code=404, detail="No RHR data")
-
-        static = (
-            supabase.table(TABLE_USERS_STATIC)
-            .select("birth_date, sex")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "history": res.data,
-            "sex": static.data[0]["sex"] if static.data else None,
-            "birth_date": static.data[0]["birth_date"] if static.data else None,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
