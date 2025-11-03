@@ -13,19 +13,10 @@ import { CARD } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
-type HistoryRow = { VO2Max: number | null; updated_at: string };
-type Range = {
-  label: string;
-  min: number | null;
-  max: number | null;
-  color?: string;
-};
-type Group = {
-  sex: "M" | "F";
-  age_min: number;
-  age_max: number;
-  ranges: Range[];
-};
+type StaticRow = { sex: "M" | "F"; birth_date?: string | null };
+type RowBE = { measured_at: string; value_num: number | null };
+type Range = { label: string; min: number | null; max: number | null };
+type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
 // #RRGGBB -> #RRGGBBAA
 function hexA(hex: string, a: number) {
@@ -37,21 +28,9 @@ function hexA(hex: string, a: number) {
   return `#${h}${aa}`;
 }
 
-function tooltipColorForLabel(label?: string) {
-  const l = (label || "").toLowerCase();
-  if (l.includes("excellent")) return THEME.chart.excellent;
-  if (l.includes("superior")) return THEME.chart.superior;
-  if (l.includes("good")) return THEME.chart.good;
-  if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
-  if (l.includes("poor")) return THEME.chart.poor;
-  if (l.includes("vo")) return THEME.chart.linePrimary; // VO₂Max línia (biela)
-  return THEME.chart.neutral;
-}
-
 function levelColor(label: string) {
   const l = label.toLowerCase();
-  if (l.includes("excellent") || l.includes("elite"))
-    return THEME.chart.excellent;
+  if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent;
   if (l.includes("superior")) return THEME.chart.superior;
   if (l.includes("good")) return THEME.chart.good;
   if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
@@ -61,11 +40,15 @@ function levelColor(label: string) {
 
 export default function TrendVO2Max() {
   const { userId } = useUserId();
-  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const [sex, setSex] = useState<"M" | "F">("M");
   const [birthDate, setBirthDate] = useState<string>("");
+
+  const [estHist, setEstHist] = useState<RowBE[]>([]);
+  const [measHist, setMeasHist] = useState<RowBE[]>([]);
+
   const [weeks, setWeeks] = useState<4 | 8 | 12>(8);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -73,111 +56,127 @@ export default function TrendVO2Max() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/profile/vo2-history/${userId}`, {
-          cache: "no-store",
-        });
-        const js = await res.json().catch(() => ({}));
-        if (!alive) return;
-        if (js?.success) {
-          setHistory(Array.isArray(js.history) ? js.history : []);
-          setSex(js.sex === "F" ? "F" : "M");
-          setBirthDate(js.birth_date || "");
-        } else {
-          setHistory([]);
-        }
+        // static (sex, birth_date)
+        try {
+          const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json());
+          if (alive && s?.success) {
+            const st: StaticRow = s.data;
+            setSex(st?.sex === "F" ? "F" : "M");
+            setBirthDate(st?.birth_date || "");
+          }
+        } catch {}
+
+        // estimated history
+        const e = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" }).then(r => r.json());
+        if (alive && e?.success) setEstHist(Array.isArray(e.data) ? e.data : []);
+        else if (alive) setEstHist([]);
+
+        // measured history
+        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" }).then(r => r.json());
+        if (alive && m?.success) setMeasHist(Array.isArray(m.data) ? m.data : []);
+        else if (alive) setMeasHist([]);
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId]);
 
-  // orež na posledných N dní
-  const days = weeks * 7;
-  const rows = useMemo(
-    () => (days > 0 ? history.slice(-days) : history),
-    [history, days]
-  );
-  if (!rows.length)
-    return <div className={`${CARD} p-4`}>Načítavam VO₂Max…</div>;
+  // Zjednotíme osi podľa ÚNIE dátumov (ISO dňa)
+  const allDays = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of estHist) set.add((r.measured_at || "").slice(0, 10));
+    for (const r of measHist) set.add((r.measured_at || "").slice(0, 10));
+    return Array.from(set).sort(); // vzostupne
+  }, [estHist, measHist]);
 
-  // vek + pásma
-  const age = Math.floor(
-    (Date.now() - (birthDate ? new Date(birthDate).getTime() : Date.now())) /
-      (365.25 * 86400 * 1000)
+  // orež na posledných N týždňov
+  const daysLimit = weeks * 7;
+  const labelsIso = useMemo(
+    () => (daysLimit > 0 ? allDays.slice(-daysLimit) : allDays),
+    [allDays, daysLimit]
   );
-  const group = (vo2Ref as Group[]).find(
-    (g) => g.sex === sex && age >= g.age_min && age <= g.age_max
-  );
-  const ranges = (group?.ranges ?? []).map((r) => ({
-    ...r,
-    color: levelColor(r.label),
-  }));
+  if (!labelsIso.length) return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
 
-  // posledná hodnota → zvýraznenie v legende
-  const latestVO2 = rows.at(-1)?.VO2Max ?? null;
-  let currentLabel: string | null = null;
-  if (latestVO2 != null && ranges.length) {
-    for (const r of ranges) {
-      if (
-        (r.min == null || latestVO2 >= r.min) &&
-        (r.max == null || latestVO2 <= r.max)
-      ) {
-        currentLabel = r.label.trim();
-        break;
-      }
-    }
-  }
+  // mapy (ISO -> value)
+  const estMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of estHist) if (typeof r.value_num === "number") m.set(r.measured_at.slice(0, 10), r.value_num);
+    return m;
+  }, [estHist]);
+  const measMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of measHist) if (typeof r.value_num === "number") m.set(r.measured_at.slice(0, 10), r.value_num);
+    return m;
+  }, [measHist]);
 
-  // dáta
-  const labels = rows.map((h) =>
-    new Date(h.updated_at).toLocaleDateString("sk-SK")
-  );
-  const series = rows.map((h) =>
-    typeof h.VO2Max === "number" ? h.VO2Max : NaN
-  );
-  const seriesMax = Math.max(
+  const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
+  const seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
+  const seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
+
+  // Pásma podľa veku/pohlavia
+  const age = useMemo(() => {
+    if (!birthDate) return 0;
+    return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000));
+  }, [birthDate]);
+
+  const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
+  const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
+
+  // y-limit
+  const maxVal = Math.max(
     0,
-    ...(series.filter((n) => Number.isFinite(n)) as number[])
+    ...[...seriesEst, ...seriesMeas].filter(n => Number.isFinite(n)) as number[],
+    ...ranges.map(r => (typeof r.max === "number" ? r.max : 0))
   );
+  const suggestedTop = Math.max(60, Math.ceil(maxVal + 1));
 
-  // ⚙️ horný limit pásiem/grafu – max(r.max) alebo fallback 105 (tvoj strop)
-  const bandMax = Math.max(
-    0,
-    ...ranges.map((r) => (typeof r.max === "number" ? r.max : 0))
-  );
-  const topMax = Math.max(105, bandMax, Math.ceil(seriesMax + 1));
+  // datasets
+  const datasets: ChartData<"line", number[], string>["datasets"] = [
+    // pásma
+    ...ranges.map((r, i) => ({
+      type: "line" as const,
+      label: r.label,
+      data: labels.map(() => (typeof r.max === "number" ? r.max : suggestedTop)),
+      borderColor: hexA(r.color!, 0),
+      backgroundColor: hexA(r.color!, 0.18),
+      pointRadius: 0,
+      borderWidth: 0,
+      fill: i === 0 ? "origin" : "-1",
+      order: 1,
+    })),
 
-  const data: ChartData<"line", number[], string> = {
-    labels,
-    datasets: [
-      // pásma ako vyplnené pozadie
-      ...ranges.map((r, i) => ({
-        type: "line" as const,
-        label: r.label,
-        data: labels.map(() => (typeof r.max === "number" ? r.max : topMax)),
-        borderColor: hexA(r.color!, 0),
-        backgroundColor: hexA(r.color!, 0.18),
-        pointRadius: 0,
-        borderWidth: 0,
-        fill: i === 0 ? "origin" : "-1",
-        order: 1,
-      })),
-      // línia VO₂
-      {
-        label: "VO₂Max",
-        data: series,
-        borderColor: THEME.chart.linePrimary,
-        backgroundColor: THEME.chart.linePrimary,
-        tension: 0.25,
-        pointRadius: 2,
-        borderWidth: 2,
-        order: 2,
-      },
-    ],
-  };
+    // Primary: estimated
+    {
+      type: "line" as const,
+      label: "VO₂Max (estimated)",
+      data: seriesEst,
+      borderColor: THEME.chart.linePrimary,
+      backgroundColor: THEME.chart.linePrimary,
+      pointRadius: 2,
+      borderWidth: 2,
+      tension: 0.25,
+      spanGaps: true,
+      order: 2,
+    },
+
+    // Secondary: measured (prerušovaná)
+    {
+      type: "line" as const,
+      label: "VO₂Max (measured)",
+      data: seriesMeas,
+      borderColor: THEME.chart.lineSecondary,
+      backgroundColor: THEME.chart.lineSecondary,
+      pointRadius: 2,
+      borderDash: [6, 4],
+      borderWidth: 2,
+      tension: 0.25,
+      spanGaps: true,
+      order: 2,
+    },
+  ];
+
+  const data: ChartData<"line", number[], string> = { labels, datasets };
 
   const options: ChartOptions<"line"> = {
     responsive: true,
@@ -187,17 +186,11 @@ export default function TrendVO2Max() {
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          boxWidth: 6,
-          boxHeight: 6,
-          padding: 8,
-        },
+        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
       },
       tooltip: {
         enabled: true,
-        backgroundColor: "#0B1220F2", // tmavé polopriesvitné
+        backgroundColor: "#0B1220F2",
         borderColor: "#FFFFFF33",
         borderWidth: 1,
         titleColor: "#FFFFFF",
@@ -208,19 +201,12 @@ export default function TrendVO2Max() {
         displayColors: true,
         caretSize: 6,
         cornerRadius: 8,
-        callbacks: {
-          labelColor: (ctx) => {
-            const c = tooltipColorForLabel(ctx.dataset?.label);
-            return { borderColor: c, backgroundColor: c };
-          },
-          labelTextColor: () => "#FFFFFF",
-        },
       },
     },
     scales: {
       y: {
         beginAtZero: true,
-        suggestedMax: 70,
+        suggestedMax: suggestedTop,
         grid: { color: THEME.chart.grid },
         ticks: { color: THEME.color.text },
       },

@@ -31,11 +31,11 @@ function hexA(hex: string, a: number) {
 
 function tooltipColorForBfLabel(label?: string) {
   const l = (label || "").toLowerCase();
-  if (l.includes("athlete") || l.includes("excellent")) return THEME.chart.excellent;
-  if (l.includes("fitness") || l.includes("superior")) return THEME.chart.fitness;
-  if (l.includes("good") || l.includes("average")) return THEME.chart.average;
+  if (l.includes("athletes")) return THEME.chart.athletes;
+  if (l.includes("fitness")) return THEME.chart.fitness;
+  if (l.includes("average")) return THEME.chart.average;
   if (l.includes("fair")) return THEME.chart.fair;
-  if (l.includes("poor") || l.includes("obese") || l.includes("essential")) return THEME.chart.poor;
+  if (l.includes("obese")) return THEME.chart.obese;
   if (l.includes("body fat")) return THEME.chart.linePrimary; // línia BF
   return THEME.chart.neutral;
 }

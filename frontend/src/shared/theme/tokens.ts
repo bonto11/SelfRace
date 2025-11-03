@@ -47,6 +47,7 @@ export const THEME = {
     obese     : '#EF4444', // červená
 
     linePrimary: '#FFFFFF', //biela
+    lineSecondary: '#FDE047', //ZLTA?
     grid:        '#FFFFFF12',
     gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,
