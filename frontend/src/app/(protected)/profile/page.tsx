@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import TableMetrics from "@/features/profile/components/TableMetrics";
+import TableMetrics from "@/features/profile/components/FormMetrics";
 import WidgetBodyFat from "@/features/widgets/WidgetBodyFat";
 import WidgetVO2Max from "@/features/widgets/WidgetVO2Max";
-import TableStatic from "@/features/profile/components/TableStatic";
+import TableStatic from "@/features/profile/components/FormStatic";
 
 export default function Page() {
   const router = useRouter();

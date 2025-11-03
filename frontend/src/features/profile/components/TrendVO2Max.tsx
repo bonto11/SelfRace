@@ -18,8 +18,10 @@ type RowBE = { measured_at: string; value_num: number | null };
 type Range = { label: string; min: number | null; max: number | null };
 type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
+const DAY = 24 * 3600 * 1000;
+
 function hexA(hex: string, a: number) {
-  const h = (hex || "#000000").replace("#", "");
+  const h = (hex || "#FFFFFF").replace("#", "");
   const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
     .toString(16).padStart(2, "0").toUpperCase();
   return `#${h}${aa}`;
@@ -37,10 +39,9 @@ function levelColor(label: string) {
 export default function TrendVO2Max() {
   const { userId } = useUserId();
 
-  // --- HOOKS (stála kostra; nič podmienkové) ---
+  // stabilná kostra hookov
   const [loading, setLoading] = React.useState(false);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
-
   const [stat, setStat] = React.useState<StaticRow>(null);
   const [estHist, setEstHist] = React.useState<RowBE[]>([]);
   const [measHist, setMeasHist] = React.useState<RowBE[]>([]);
@@ -53,17 +54,14 @@ export default function TrendVO2Max() {
       try {
         const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
         if (alive && s?.success) setStat(s.data as StaticRow);
-        console.debug("[VO2] static ->", s);
 
         const e = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_estimated`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
         const eRows: RowBE[] = e?.success && Array.isArray(e?.data) ? e.data : [];
         if (alive) setEstHist(eRows);
-        console.debug("[VO2] estimated len=", eRows.length, "sample=", eRows[0]);
 
         const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=VO2Max_measured`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
         const mRows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
         if (alive) setMeasHist(mRows);
-        console.debug("[VO2] measured len=", mRows.length, "sample=", mRows[0]);
       } finally {
         if (alive) setLoading(false);
       }
@@ -71,8 +69,8 @@ export default function TrendVO2Max() {
     return () => { alive = false; };
   }, [userId]);
 
-  // --- DÁTA (bez useMemo – len bežné premené) ---
-  const daysLimit = weeks * 7;
+  // --- zjednotená os X + single-point "plná čiara" ---
+  const lookbackDays = weeks * 7;
 
   const estDays = new Set<string>();
   for (const r of estHist) if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
@@ -80,43 +78,64 @@ export default function TrendVO2Max() {
   for (const r of measHist) if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
 
   let allDays = Array.from(new Set<string>([...estDays, ...measDays])).sort();
-  // single-point fix: ak vyjde 1 deň, pridaj +1 deň (aby bola čiara)
+
+  // ak máme len 1 deň v celom grafe -> vygeneruj celé okno lookbacku (konštantná čiara pre tú metriku, druhá ostane NaN)
   if (allDays.length === 1) {
-    const d0 = new Date(allDays[0]);
-    const d1 = new Date(d0.getTime() + 24 * 3600 * 1000);
-    allDays = [allDays[0], d1.toISOString().slice(0, 10)];
+    const last = new Date(allDays[0]);
+    const first = new Date(last.getTime() - (lookbackDays - 1) * DAY);
+    allDays = Array.from({ length: lookbackDays }, (_, i) => {
+      const d = new Date(first.getTime() + i * DAY);
+      return d.toISOString().slice(0, 10);
+    });
+  } else if (allDays.length > lookbackDays) {
+    allDays = allDays.slice(-lookbackDays);
   }
-  const labelsIso = daysLimit > 0 ? allDays.slice(-daysLimit) : allDays;
-  console.debug("[VO2] union days cnt:", labelsIso.length, "first/last:", labelsIso[0], labelsIso[labelsIso.length - 1]);
+
+  if (!allDays.length) {
+    return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
+  }
 
   const estMap = new Map<string, number>();
   for (const r of estHist) if (typeof r?.value_num === "number" && r?.measured_at) estMap.set(r.measured_at.slice(0, 10), r.value_num);
   const measMap = new Map<string, number>();
   for (const r of measHist) if (typeof r?.value_num === "number" && r?.measured_at) measMap.set(r.measured_at.slice(0, 10), r.value_num);
 
-  const labels = labelsIso.map(d => new Date(d).toLocaleDateString("sk-SK"));
-  const seriesEst  = labelsIso.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
-  const seriesMeas = labelsIso.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
+  // ak bol len jeden estimated bod a vygenerovali sme okno, rozkopíruj hodnotu cez celé okno
+  if (estMap.size === 1 && allDays.length > 1) {
+    const onlyVal = Array.from(estMap.values())[0];
+    estMap.clear();
+    for (const d of allDays) estMap.set(d, onlyVal);
+  }
+  // ak bol len jeden measured bod a vygenerovali sme okno, rozkopíruj hodnotu cez celé okno
+  if (measMap.size === 1 && allDays.length > 1) {
+    const onlyVal = Array.from(measMap.values())[0];
+    measMap.clear();
+    for (const d of allDays) measMap.set(d, onlyVal);
+  }
 
-  // pásma (ak nemáme stat, pásma vypneme – graf aj tak pôjde)
+  const labels = allDays.map(d => new Date(d).toLocaleDateString("sk-SK"));
+  const seriesEst  = allDays.map(d => estMap.has(d)  ? Number(estMap.get(d))  : NaN);
+  const seriesMeas = allDays.map(d => measMap.has(d) ? Number(measMap.get(d)) : NaN);
+
+  // pásma
   const sex = stat?.sex === "F" ? "F" : "M";
   const birthDate = stat?.birth_date || "";
   const age = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)) : 0;
   const group = (vo2Ref as Group[]).find(g => g.sex === sex && age >= g.age_min && age <= g.age_max);
   const ranges = (group?.ranges ?? []).map(r => ({ ...r, color: levelColor(r.label) }));
 
-  const finiteVals = [...seriesEst, ...seriesMeas].filter((n) => Number.isFinite(n)) as number[];
+  const finiteVals = [...seriesEst, ...seriesMeas].filter(Number.isFinite) as number[];
   const rangeMaxes = ranges.map(r => (typeof r.max === "number" ? r.max : 0));
   const suggestedTop = Math.max(60, Math.ceil(Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1));
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // zafarbené pásma
+    // podfarbené pásma
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
       data: labels.map(() => (typeof r.max === "number" ? r.max : suggestedTop)),
       borderColor: hexA(r.color!, 0),
-      backgroundColor: hexA(r.color!, 0.18),
+      backgroundColor: hexA(r.color!, 0.22),
       pointRadius: 0,
       borderWidth: 0,
       fill: i === 0 ? "origin" : "-1",
@@ -157,7 +176,7 @@ export default function TrendVO2Max() {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
-    elements: { point: { radius: 2, hoverRadius: 5 } },
+    elements: { point: { radius: 2, hoverRadius: 6 } },
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
@@ -165,17 +184,24 @@ export default function TrendVO2Max() {
       },
       tooltip: {
         enabled: true,
-        backgroundColor: "#0B1220F2",
-        borderColor: "#FFFFFF33",
-        borderWidth: 1,
+        backgroundColor: "#0B1220FA",
+        borderColor: "#FFFFFF66",
+        borderWidth: 2,
         titleColor: "#FFFFFF",
         bodyColor: "#FFFFFF",
         padding: 10,
         usePointStyle: true,
         boxPadding: 4,
         displayColors: true,
-        caretSize: 6,
+        caretSize: 7,
         cornerRadius: 8,
+        callbacks: {
+          labelColor: (ctx) => {
+            const c = (ctx.dataset?.borderColor as string) || "#FFFFFF";
+            return { borderColor: c, backgroundColor: c };
+          },
+          labelTextColor: () => "#FFFFFF",
+        },
       },
     },
     scales: {
@@ -183,9 +209,6 @@ export default function TrendVO2Max() {
       x: { grid: { color: THEME.chart.gridSoft } },
     },
   };
-
-  // NEROBÍME žiadny „early return“ – vždy rovnaký počet hookov v každom rendri
-  const hasLabels = labels.length > 0;
 
   return (
     <div className={CARD}>
@@ -212,13 +235,7 @@ export default function TrendVO2Max() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          {hasLabels ? (
-            <Line data={data} options={options} />
-          ) : (
-            <div className="grid place-items-center h-full text-sm opacity-70">
-              Žiadne dáta VO₂Max.
-            </div>
-          )}
+          <Line data={data} options={options} />
         </div>
       </div>
     </div>
