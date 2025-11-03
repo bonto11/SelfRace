@@ -10,7 +10,7 @@ import WidgetActivitiesCalendar from "@/features/widgets/WidgetActivitiesCalenda
 import { CoachDataProvider, useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
 
-import CoachResult from "@/features/coach/components/CoachResult";
+import PlanResult from "@/features/coach/components/PlanResult";
 import Narrative from "@/features/coach/components/Narrative";
 import { THEME } from "@/shared/theme/tokens";
 import { useUserId } from "@/shared/hooks/useUserId";
@@ -83,7 +83,7 @@ function AnalyzePanel() {
       )}
 
       {/* Narrative (period + last week) */}
-      {result?.narrative && <Narrative narrative={result.narrative} />}
+      {result?.narrative && <CoachNarrative narrative={result.narrative} />}
 
       {/* Výsledok (summary + calendar plan) */}
       {result && (
@@ -96,7 +96,7 @@ function AnalyzePanel() {
               </span>
             )}
           </p>
-          <Result result={result} />
+          <PlanResult result={result} />
         </div>
       )}
     </div>
