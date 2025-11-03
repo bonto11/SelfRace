@@ -32,12 +32,13 @@ export const THEME = {
     ref80:    '#4ADE8059', // rgba(74,222,128,0.35)
     ref20:    '#F8717159', // rgba(248,113,113,0.35)
 
-    excellent : '#10B981',
-    superior  : '#14B8A6',
-    good      : '#22D3EE',
-    fair      : '#F59E0B',
-    poor      : '#F43F5E',
-    neutral   : '#64748B',
+    // lepšie oddelené pásma (čisto HEX)
+    excellent : '#16A34A', // green-600 (naj "zelenejšia")
+    superior  : '#14B8A6', // teal-500 (ostal tyrkys)
+    good      : '#22C55E', // emerald-500
+    fair      : '#38BDF8', // sky-400 (naša bežná modrá)
+    poor      : '#F59E0B', // amber-500 (oranžová)
+    neutral   : '#64748B', // sivá, beží ďalej
 
     linePrimary: '#22C55E',
 
