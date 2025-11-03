@@ -33,18 +33,18 @@ export const THEME = {
     ref20:    '#F8717159', // rgba(248,113,113,0.35)
 
     // lepšie oddelené pásma (čisto HEX)
-    excellent : '#16A34A', // green-600 (naj "zelenejšia")
-    superior  : '#14B8A6', // teal-500 (ostal tyrkys)
-    good      : '#22C55E', // emerald-500
-    average      : '#F59E0B', // emerald-500
-    fair      : '#F59E0B', // sky-400 (naša bežná modrá)
-    poor      : '#EF4444', // amber-500 (oranžová)
-    neutral   : '#64748B', // sivá, beží ďalej
+    excellent : '#00E676', // neon green (jasne TOP)
+    superior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)
+    good      : '#14B8A6', // teal (prechod k modrej)
+    fair      : '#60A5FA', // sky-400 (naša bežná modrá)
+    poor      : '#EF4444', // red (jasné varovanie)
+    neutral   : '#64748B', // sivá
 
-    athletes : '#16A34A', // green-600 (naj "zelenejšia")
-    fitness  : '#14B8A6', // teal-500 (ostal tyrkys)
-    essential      : '#EF4444', // cervena
-    obese      : '#EF4444', // cervena
+    athletes  : '#00E676', // TOP = rovnaké ako excellent
+    fitness   : '#16A34A', // 2. zelené
+    average   : '#22C55E', // emerald-500 (stále “ok”, ale nie teal)
+    essential : '#EF4444', // červená
+    obese     : '#EF4444', // červená
 
     linePrimary: '#22C55E',
 
