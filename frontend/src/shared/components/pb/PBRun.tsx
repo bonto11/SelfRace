@@ -20,8 +20,7 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 import ActivityDetail from "@/shared/components/ActivityDetail";
-import { FLUSH_DETAIL_PB } from "@/shared/ui/classes";
-import OverflowHunter from "@/shared/utils/OverflowHunter";
+import { FLUSH_DETAIL_PB, NO_X_OVERFLOW, FLEX_SHRINK_FIX } from "@/shared/ui/classes";
 
 /* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
@@ -58,7 +57,7 @@ const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
 const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 /* ----------------------- Swipe consts --------------------- */
-const ACTION_W = 160; // 2 tlačidlá po 80 px
+const ACTION_W = 168; // 2 tlačidlá ~84px
 const SNAP_OPEN = -ACTION_W;
 const SNAP_CLOSED = 0;
 
@@ -73,7 +72,7 @@ export default function PBRun() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // ktorý záznam má rozbalený detail (podľa activity_id)
+  // otvorený inline detail (podľa activity_id)
   const [openDetailForActId, setOpenDetailForActId] = useState<number | null>(null);
 
   /* ---------- load ---------- */
@@ -88,9 +87,7 @@ export default function PBRun() {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    if (userId) refresh(); /* eslint-disable-line react-hooks/exhaustive-deps */
-  }, [userId]);
+  useEffect(() => { if (userId) refresh(); /* eslint-disable-line */ }, [userId]);
 
   /* ---------- guards ---------- */
   const canSave = useMemo(() => {
@@ -111,7 +108,6 @@ export default function PBRun() {
         distance_m: m,
         ...(Number.isFinite(sec) ? { time_sec: sec } : { time_str: form.time_str.trim() }),
       };
-
       if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
       if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
       if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
@@ -147,13 +143,13 @@ export default function PBRun() {
 
   /* ----------------------- UI ------------------------------ */
   return (
-    <div className="space-y-4 overflow-x-hidden w-full max-w-full">
+    <div className={["space-y-4", NO_X_OVERFLOW].join(" ")}>
       <div className="text-xs opacity-80">
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
       {/* FORM */}
-      <div className="grid gap-3 sm:grid-cols-12 items-start w-full max-w-full">
+      <div className={["grid gap-3 sm:grid-cols-12 items-start", NO_X_OVERFLOW].join(" ")}>
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
@@ -168,17 +164,13 @@ export default function PBRun() {
         <TextField
           placeholder="hh:mm:ss"
           value={form.time_str}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, time_str: maskHHMMSS((e.target as HTMLInputElement).value) }))
-          }
+          onChange={(e) => setForm((f) => ({ ...f, time_str: maskHHMMSS((e.target as HTMLInputElement).value) }))}
           inputMode="numeric"
           containerClassName="sm:col-span-3"
         />
 
         <div className="relative sm:col-span-2 w-full max-w-[180px]">
-          <div className={inputClass + " text-center select-none truncate"}>
-            {prettyDate(form.achieved_at)}
-          </div>
+          <div className={inputClass + " text-center select-none truncate"}>{prettyDate(form.achieved_at)}</div>
           <input
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
@@ -195,9 +187,7 @@ export default function PBRun() {
             sports={["run", "mixed"]}
             value={form.activity_id ? Number(form.activity_id) : ""}
             onChange={(v) => setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))}
-            onPicked={(a: MiniActivity | null) =>
-              setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
-            }
+            onPicked={(a: MiniActivity | null) => setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))}
           />
         </div>
 
@@ -213,7 +203,7 @@ export default function PBRun() {
       </div>
 
       {/* LIST – swipe + inline detail toggle */}
-      <ul className="space-y-2 pl-0 overflow-x-hidden w-full max-w-full">
+      <ul className={["space-y-2", NO_X_OVERFLOW].join(" ")}>
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
@@ -237,23 +227,19 @@ export default function PBRun() {
                 onDelete={() => handleDelete(b.distance_m)}
               >
                 {/* KARTA */}
-                <div className="flex items-start gap-3 w-full max-w-full">
-                  <div className="min-w-0 flex-1">
+                <div className={["flex items-start gap-3 w-full", FLEX_SHRINK_FIX, NO_X_OVERFLOW].join(" ")}>
+                  <div className={["min-w-0 flex-1", NO_X_OVERFLOW].join(" ")}>
                     {/* horný riadok */}
-                    <div className="flex items-center gap-2">
+                    <div className={["flex items-center gap-2", FLEX_SHRINK_FIX].join(" ")}>
                       <Button
                         aria-label="Set as favorite"
-                        variant="ghost"
-                        size="sm"
-                        circle
+                        variant="ghost" size="sm" circle
                         onClick={() => setFavM(b.distance_m)}
                         className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
                       >
                         ★
                       </Button>
-                      <div className="text-sm font-medium truncate">
-                        {distanceLabel(b.distance_m, "run")}
-                      </div>
+                      <div className="text-sm font-medium truncate">{distanceLabel(b.distance_m, "run")}</div>
                     </div>
 
                     {/* čas */}
@@ -261,9 +247,9 @@ export default function PBRun() {
                       {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
                     </div>
 
-                    {/* dátum + názov aktivity (staticky) + toggle */}
+                    {/* dátum + názov aktivity + toggle */}
                     <div className="mt-1 text-xs opacity-75 flex items-center justify-between gap-3">
-                      <div className="truncate">
+                      <div className={["truncate", FLEX_SHRINK_FIX].join(" ")}>
                         {isoDateOnly(b.achieved_at)}
                         {(b as any).activity_name ? <> · {(b as any).activity_name}</> : null}
                       </div>
@@ -281,10 +267,12 @@ export default function PBRun() {
                       )}
                     </div>
 
-                    {/* inline DETAIL */}
+                    {/* inline DETAIL – flush bez -mx, no X-scroll zakázaný */}
                     {isOpen && actId != null && (
-                      <div className={FLUSH_DETAIL_PB}>
-                        <ActivityDetail activityId={actId} inline compact showHeader={false} />
+                      <div className={[FLUSH_DETAIL_PB, NO_X_OVERFLOW].join(" ")}>
+                        <div className="w-full overflow-hidden">
+                          <ActivityDetail activityId={actId} inline compact showHeader={false} />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -294,9 +282,6 @@ export default function PBRun() {
           })}
         {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
       </ul>
-
-{/* DEBUG (dočasne) */}
-      <OverflowHunter rootSelector="#__next" paint log />
     </div>
   );
 }
@@ -317,10 +302,6 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  const ACTION_W = 168;
-  const SNAP_OPEN = -ACTION_W;
-  const SNAP_CLOSED = 0;
-
   const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   const onTouchStart = (e: React.TouchEvent) => { if (!enableSwipe) return; startX.current = e.touches[0].clientX; startTx.current = tx; };
@@ -333,37 +314,28 @@ function SwipeRow({
   const onTouchEnd   = () => { if (!enableSwipe) return; snap(tx); startX.current = null; };
 
   return (
-    <li
-      className="relative overflow-hidden w-full max-w-full"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
-      {/* Akcie ZA kartou – držia sa vpravo; neovplyvňujú layout */}
-      <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2 max-w-full">
+    <li className={["relative w-full overflow-hidden", NO_X_OVERFLOW].join(" ")}
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      {/* Akcie za kartou */}
+      <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
                      bg-amber-500/60 hover:bg-amber-500/80 text-white
                      border border-white/10 transition-colors"
           onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}
-        >
-          Edit
-        </button>
+        >Edit</button>
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
                      bg-rose-500/65 hover:bg-rose-500/80 text-white
                      border border-white/10 transition-colors"
           onClick={onDelete}
-        >
-          Delete
-        </button>
+        >Delete</button>
       </div>
 
-      {/* POSÚVANÁ KARTA – nikdy širšia ako rodič */}
+      {/* POSÚVANÁ KARTA – nikdy širšia než rodič */}
       <div
-        className="relative z-10 w-full max-w-full box-border px-3 py-2 rounded-2xl
-                   shadow-lg border border-white/10 bg-white dark:bg-[#0b0f1a]
-                   overflow-hidden will-change-transform"
+        className="relative z-10 w-full box-border px-3 py-2 rounded-2xl shadow-lg border border-white/10
+                   bg-white dark:bg-[#0b0f1a] overflow-hidden"
         style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
       >
         {children}
