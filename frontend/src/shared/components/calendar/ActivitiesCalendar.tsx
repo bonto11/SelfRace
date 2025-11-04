@@ -7,6 +7,7 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
 
+// ActivityTable je u teba vo features:
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
   { ssr: false }
@@ -17,17 +18,19 @@ const ActivityDetailOverlay = dynamic(
   { ssr: false }
 );
 
+/* ------------------- farby športov ------------------- */
 const SPORT_COLORS: Record<string, string> = {
-  run:      THEME.chart.run,
-  ride:     THEME.chart.ride,
-  swim:     THEME.chart.swim,
-  strength: THEME.chart.strength,
-  mixed:    THEME.chart.mixed,
-  skate:    THEME.chart.skate,
-  walk:     THEME.chart.walk,
-  other:    THEME.chart.other,
+  run:      (THEME as any)?.sport?.run ?? THEME.chart.run,
+  ride:     (THEME as any)?.sport?.ride ?? THEME.chart.ride,
+  swim:     (THEME as any)?.sport?.swim ?? THEME.chart.swim,
+  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
+  mixed:    (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
+  skate:    (THEME as any)?.sport?.skate ?? THEME.chart.skate,
+  walk:     (THEME as any)?.sport?.walk ?? THEME.chart.walk,
+  other:    (THEME as any)?.sport?.other ?? THEME.chart.other,
 };
 
+/* ------------------- typy & helpers ------------------- */
 type DayCellData = {
   iso: string;
   inMonth: boolean;
@@ -76,21 +79,13 @@ function useMonthActivities(year: number, month0: number) {
   return map;
 }
 
-function SportDot({
-  color,
-  title,
-  onClick,
-}: {
-  color: string;
-  title: string;
-  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; // FIX: handler prijíma event
-}) {
+/* ------------------- UI prvky ------------------- */
+// Už nie je klikateľný (iba vizuál)
+function SportDot({ color, title }: { color: string; title: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <span
       title={title}
-      className="inline-block w-1.5 h-1.5 rounded-full focus:outline-none"
+      className="inline-block w-1.5 h-1.5 rounded-full"
       style={{ backgroundColor: color }}
       aria-label={title}
     />
@@ -99,17 +94,15 @@ function SportDot({
 
 function DayCell({
   cell,
-  onOpen,
   onSelect,
   isSelected,
 }: {
   cell: DayCellData;
-  onOpen: (id: number) => void;
   onSelect: (iso: string) => void;
   isSelected: boolean;
 }) {
-  // len rámik; číslo bez kruhu; bodky pod číslom
-  const base = "rounded-xl border border-white/10 bg-transparent overflow-hidden";
+  // Zaoblený rámik, transparentné vnútro, žiadne badge za číslom
+  const base = "rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20 overflow-hidden";
   const muted = cell.inMonth ? "" : "opacity-40";
 
   return (
@@ -117,33 +110,28 @@ function DayCell({
       type="button"
       onClick={() => onSelect(cell.iso)}
       className={[
-        "px-2 py-1 text-left w-full focus:outline-none",
+        "px-2 py-2 text-left w-full focus:outline-none select-none",
         base,
         muted,
         "min-h-[56px]",
         isSelected ? "ring-2 ring-emerald-500/60" : "",
-        "hover:bg-white/5 dark:hover:bg-white/5",
+        "hover:bg-white/10 dark:hover:bg-white/10 transition-colors",
       ].join(" ")}
       aria-pressed={isSelected}
     >
       <div className="flex flex-col">
-        <span
-          className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none"
-          style={{ background: "transparent", borderRadius: 0, boxShadow: "none" }}
-        >
+        {/* číslo dňa – bez kruhu, viac doľava */}
+        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5">
           {cell.day ?? ""}
         </span>
 
+        {/* športové bodky POD číslom */}
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
           {cell.items.slice(0, 8).map((it) => (
             <SportDot
               key={it.id}
               color={SPORT_COLORS[it.sport] ?? SPORT_COLORS.other}
               title={it.name || it.sport}
-              onClick={(e) => {
-                e.stopPropagation();         // nech neprepne výber dňa
-                onOpen(it.id);
-              }}
             />
           ))}
           {cell.items.length > 8 && (
@@ -157,6 +145,7 @@ function DayCell({
   );
 }
 
+/* ------------------- root komponent ------------------- */
 export default function ActivitiesCalendar({
   year: yy,
   month: mm,
@@ -220,6 +209,7 @@ export default function ActivitiesCalendar({
 
   return (
     <div className="space-y-3">
+      {/* hlavička s navigačnými gombíkmi v tvojom UI */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={prev}>
           ‹
@@ -241,26 +231,26 @@ export default function ActivitiesCalendar({
           <DayCell
             key={c.iso}
             cell={c}
-            onOpen={(id) => setDetailId(id)}
             onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
             isSelected={selectedIso === c.iso}
           />
         ))}
       </div>
 
+      {/* Panel so zoznamom aktivít pre vybraný deň – rovnaký look ako ostatné widgety */}
       {selectedIso && (
-        <div className="rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+        <section className="rounded-2xl border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur p-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold">Aktivity — {niceDate(selectedIso)}</h3>
             <Button size="sm" variant="ghost" onClick={() => setSelectedIso(null)}>
               Zavrieť
             </Button>
           </div>
-          {/* ActivityTable – presne tvoj komponent; obmedzíme na jeden deň */}
-          <ActivityTable start={selectedIso} end={selectedIso} />
-        </div>
+          <ActivityTable start={selectedIso} end={selectedIso} titleOverride="" />
+        </section>
       )}
 
+      {/* Detail aktivity – zachovávam, ale bodky ho už neotvárajú */}
       {detailId != null && (
         <ActivityDetailOverlay
           activityId={detailId}
