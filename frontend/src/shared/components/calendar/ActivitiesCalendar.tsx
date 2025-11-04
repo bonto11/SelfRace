@@ -5,11 +5,10 @@ import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
+import { CARD } from "@/shared/ui/classes";
 
-const ActivityTable = dynamic(
-  () => import("@/shared/components/ActivityTable"),
-  { ssr: false }
-);
+const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
+const ActivityDetailOverlay = dynamic(() => import("@/shared/components/ActivityDetailOverlay"), { ssr: false });
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -31,7 +30,7 @@ type DayCellData = {
 
 function daysInMonth(y: number, m0: number) { return new Date(y, m0 + 1, 0).getDate(); }
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
-const iso  = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+const iso = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
 const startWeekday = (y: number, m0: number) => (new Date(y, m0, 1).getDay() + 6) % 7; // Po=0
 
 function useMonthActivities(year: number, month0: number) {
@@ -52,7 +51,7 @@ function useMonthActivities(year: number, month0: number) {
     }
 
     const firstIso = iso(year, month0, 1);
-    const lastIso  = iso(year, month0, daysInMonth(year, month0));
+    const lastIso = iso(year, month0, daysInMonth(year, month0));
     for (const r of rows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
@@ -79,19 +78,21 @@ function DayCell({
   onSelect: (iso: string) => void;
   isSelected: boolean;
 }) {
+  const base = "rounded-xl border border-white/10 overflow-hidden";
   const muted = cell.inMonth ? "" : "opacity-40";
+
   return (
     <button
       type="button"
       onClick={() => onSelect(cell.iso)}
       className={[
         "px-2 py-1.5 text-left w-full focus:outline-none",
-        "rounded-xl border border-white/10 overflow-hidden",
+        base,
+        muted,
         "bg-white/5 dark:bg-black/20",
         "min-h-[56px]",
         isSelected ? "ring-2 ring-emerald-500/60" : "",
         "hover:bg-white/10",
-        muted,
       ].join(" ")}
       aria-pressed={isSelected}
     >
@@ -127,6 +128,7 @@ export default function ActivitiesCalendar({
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
+  const [detailId, setDetailId] = React.useState<number | null>(null);
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -169,42 +171,57 @@ export default function ActivitiesCalendar({
     year: "numeric",
   });
 
+  const niceDate = (s: string) =>
+    new Date(s).toLocaleDateString("sk-SK", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    });
+
   return (
-    <div className="space-y-3">
-      {/* HLAVIČKA */}
-      <div className="p-3 rounded-2xl shadow-lg border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
-          <div className="flex items-center gap-2 translate-y-[2px]">
-            <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>‹</Button>
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
-            <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>›</Button>
-          </div>
-        </div>
-
-        <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
-          {["p","u","s","š","p","s","n"].map((d) => (
-            <div key={d} className="text-center">{d}</div>
-          ))}
-        </div>
-
-        <div className="mt-2 grid grid-cols-7 gap-2">
-          {cells.map((c) => (
-            <DayCell
-              key={c.iso}
-              cell={c}
-              isSelected={selectedIso === c.iso}
-              onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
-            />
-          ))}
+    <div className="space-y-4">
+      {/* Hlavička sekcie */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Kalendár aktivít</h2>
+        <div className="flex items-center gap-2 translate-y-[2px]">
+          <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>‹</Button>
+          <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
+          <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>›</Button>
         </div>
       </div>
 
-      {/* DETAIL – odsadený od vrchu aj zľava, žiadne extra vnútorné panely */}
+      {/* Hlavičky dní + mriežka */}
+      <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
+        {["p","u","s","š","p","s","n"].map((d) => (
+          <div key={d} className="text-center">{d}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-2">
+        {cells.map((c) => (
+          <DayCell
+            key={c.iso}
+            cell={c}
+            isSelected={selectedIso === c.iso}
+            onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
+          />
+        ))}
+      </div>
+
+      {/* DETAIL – rovnaká karta ako ActivityTable */}
       {selectedIso && (
-        <div className="mt-3 ml-1">
+        <section className={[CARD, "mt-2"].join(" ")}>
+          <h3 className="text-lg font-semibold mb-3">Aktivity — {niceDate(selectedIso)}</h3>
           <ActivityTable start={selectedIso} end={selectedIso} />
-        </div>
+        </section>
+      )}
+
+      {detailId != null && (
+        <ActivityDetailOverlay
+          activityId={detailId}
+          open={true}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </div>
   );

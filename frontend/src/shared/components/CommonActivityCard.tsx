@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-/** Jednoduchý badge pre šport – rovnaký look ako v PlanCards */
 function SportBadge({ kind }: { kind: string }) {
   const label =
     kind === "run" ? "Run" :
@@ -27,10 +26,8 @@ export type SessionCardProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   defaultOpen?: boolean;
-
   disableToggleIfNoChildren?: boolean;
 
-  /** NOVÉ: skryť tieto bloky po otvorení */
   hideSubtitleWhenOpen?: boolean;
   hideMetaWhenOpen?: boolean;
 };
@@ -71,7 +68,7 @@ export default function CommonActivityCard({
       className={[
         "rounded-2xl shadow-lg border border-white/10",
         "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-        "px-4 py-3",
+        "px-5 py-4",                      // väčšie vnútorné odsadenie
       ].join(" ")}
     >
       {/* Header */}
@@ -88,19 +85,10 @@ export default function CommonActivityCard({
             title={opened ? "Skryť detail" : "Otvoriť detail"}
             className={[
               "h-8 w-8 grid place-items-center rounded-full border border-white/10",
-              canToggle
-                ? "bg-white/10 hover:bg-white/20 transition-colors"
-                : "opacity-40 cursor-not-allowed",
+              canToggle ? "bg-white/10 hover:bg-white/20 transition-colors" : "opacity-40 cursor-not-allowed",
             ].join(" ")}
           >
-            <span
-              className={[
-                "text-base leading-none select-none transition-transform",
-                opened ? "rotate-180" : "rotate-0",
-              ].join(" ")}
-            >
-              ▾
-            </span>
+            <span className={["text-base leading-none select-none transition-transform", opened ? "rotate-180" : "rotate-0"].join(" ")}>▾</span>
           </button>
         </div>
       </div>
@@ -123,7 +111,7 @@ export default function CommonActivityCard({
       )}
 
       {/* Detail */}
-      {opened && children ? <div className="mt-3">{children}</div> : null}
+      {opened && children ? <div className="mt-4">{children}</div> : null}
     </section>
   );
 }

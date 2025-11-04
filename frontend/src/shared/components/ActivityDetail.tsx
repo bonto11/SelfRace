@@ -69,23 +69,21 @@ export default function ActivityDetail({
   }, [summary.date]);
 
   return (
-    <div className="space-y-3">
-      {/* Header – v inline/compact väčšinou nechceme duplicitu titulku */}
+    <div className="space-y-4">
       {showHeader && (
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">{summary.name}</h3>
         </div>
       )}
 
-      {/* KPI tiles – iba v compact móde (namiesto malých riadkov) */}
+      {/* KPI tiles (compact mód) */}
       {compact ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <KpiTile label="TIME" value={timeTxt} />
           <KpiTile label="DISTANCE" value={distTxt} />
           <KpiTile label="AVG HR" value={summary.average_heartrate_bpm ?? "—"} />
         </div>
       ) : (
-        // Štandardné texty (keď nie je compact)
         <>
           <p><strong>Date:</strong> {dateText}</p>
           <p><strong>Distance:</strong> {distTxt}</p>
@@ -97,7 +95,7 @@ export default function ActivityDetail({
 
       {/* HR priebeh */}
       <div className="mt-1">
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-2">
           <h4 className="font-bold">HR priebeh</h4>
           {!!streams.time_s.length && (
             <button
@@ -109,7 +107,7 @@ export default function ActivityDetail({
           )}
         </div>
         {streams.time_s.length ? (
-          <div className="-mx-1 md:mx-0 -mt-1 mb-2">
+          <div className="mb-1">
             <HrChart xs={streams.time_s} ys={streams.hr} height={compact ? 148 : 220} compact={compact} />
           </div>
         ) : (
@@ -119,7 +117,7 @@ export default function ActivityDetail({
 
       {!!splits.length && (
         <>
-          <h4 className="font-bold mt-3">Splits</h4>
+          <h4 className="font-bold">Splits</h4>
           <ul className="list-disc pl-5">
             {splits.map((split: any, idx: number) => (
               <li key={split.split_index ?? idx}>
@@ -132,7 +130,7 @@ export default function ActivityDetail({
 
       {!!laps.length && (
         <>
-          <h4 className="font-bold mt-3">Laps</h4>
+          <h4 className="font-bold">Laps</h4>
           <ul className="list-disc pl-5">
             {laps.map((lap: any, idx: number) => (
               <li key={lap.lap_index ?? idx}>
@@ -144,11 +142,7 @@ export default function ActivityDetail({
       )}
 
       {showFull && (
-        <FullHrOverlay
-          xs={streams.time_s}
-          ys={streams.hr}
-          onClose={() => setShowFull(false)}
-        />
+        <FullHrOverlay xs={streams.time_s} ys={streams.hr} onClose={() => setShowFull(false)} />
       )}
     </div>
   );
@@ -163,7 +157,7 @@ function KpiTile({ label, value }: { label: string; value: any }) {
   );
 }
 
-/* --------------- Fullscreen overlay komponent --------------- */
+/* ---------- Fullscreen overlay ---------- */
 function FullHrOverlay({
   xs, ys, onClose,
 }: { xs: number[]; ys: (number | null)[]; onClose: () => void }) {

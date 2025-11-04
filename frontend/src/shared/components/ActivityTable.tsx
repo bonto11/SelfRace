@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CARD, SUBCARD } from "@/shared/ui/classes";
-import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
@@ -30,11 +29,7 @@ function normSportsList(
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
@@ -61,9 +56,7 @@ export default function ActivityTable({
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
     if (start && end) {
-      return start === end
-        ? `Aktivity — ${prettySkDate(start)}`
-        : `Týždeň ${start} → ${end}`;
+      return start === end ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
     }
     return "História (vyber rozsah)";
   }, [start, end, titleOverride]);
@@ -83,20 +76,14 @@ export default function ActivityTable({
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
         : inRange;
 
-    const finalRows = sportList
-      ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r)))
-      : afterWhitelist;
+    const finalRows = sportList ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r))) : afterWhitelist;
 
     setRows(finalRows);
     setLoading(false);
-
-    console.debug("[ACT][table->cards] filter", {
-      start, end, sport, allRows: allRows.length, final: finalRows.length,
-    });
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={[CARD, "space-y-4"].join(" ")}>
+    <div className={[CARD, "space-y-5"].join(" ")}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
       </div>
@@ -104,9 +91,7 @@ export default function ActivityTable({
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">
-          Žiadne aktivity v zadanom období.
-        </div>
+        <div className="opacity-70 py-4 text-sm">Žiadne aktivity v zadanom období.</div>
       )}
 
       {!loading && rows.length > 0 && (
@@ -138,7 +123,6 @@ export default function ActivityTable({
                   hideSubtitleWhenOpen
                   hideMetaWhenOpen
                 >
-                  {/* FULL-WIDTH inline detail – žiadne duplicity */}
                   <div className={[SUBCARD, "mt-1"].join(" ")}>
                     <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
                   </div>
