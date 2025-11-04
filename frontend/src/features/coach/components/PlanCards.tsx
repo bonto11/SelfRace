@@ -10,6 +10,7 @@ import {
 } from "@/features/coach/utils/plan";
 import PlanCardDetail from "@/features/coach/components/PlanCardDetail";
 import CommonActivityCard from "@/shared/components/CommonActivityCard";
+import { SUBCARD } from "@/shared/ui/classes";
 
 type Row = {
   id: string;
@@ -86,15 +87,19 @@ export default function PlanCards({
             headerLeft={r.dateStr ? `${r.day} · ${r.dateStr}` : r.day}
             sportKind={r.sport}
             title={r.title}
-            subtitle={r.focus || null}          // ak nie je, nerenderuje sa (žiadna pomlčka)
+            subtitle={r.focus || null}
             meta={meta}
             defaultOpen={false}
             hideSubtitleWhenOpen
             hideMetaWhenOpen
-            flushDetail                          // detail zarovnaný s hranami karty
+            flushDetail
             disableToggleIfNoChildren={!r.structure}
           >
-            {r.structure ? <PlanCardDetail s={r.structure} /> : null}
+            {r.structure ? (
+              <div className={[SUBCARD, "mt-1 px-3 md:px-4 pb-3"].join(" ")}>
+                <PlanCardDetail s={r.structure} />
+              </div>
+            ) : null}
           </CommonActivityCard>
         );
       })}
