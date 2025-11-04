@@ -31,6 +31,16 @@ export const CALENDAR_CONTAINER  = SURFACE_CARD + " p-3";
 export const FLUSH_DETAIL =
   "mt-2 -mx-5 px-5 pb-4 pt-2 border-t border-white/10 md:-mx-5"; // páruje sa s px-5 rodiča
 
-/** PB špecifická verzia – rodičovská karta má px-3 */
+/* ====== GLOBAL SAFETY (limit horizontálneho tečenia) ====== */
+export const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
+export const FLEX_SHRINK_FIX = "min-w-0"; // použi na flex-containery s textom
+
+/* ===== FLUSH detail – PB (bez negatívnych marginov) ===== */
 export const FLUSH_DETAIL_PB =
-  "mt-2 -mx-3 px-3 pb-3 pt-2 border-t border-white/10";
+  [
+    // vizuálne „zarovno s hranou“ bez -mx: spraví to vnútorný box s vlastným pozadím
+    "mt-2",
+    "overflow-hidden rounded-xl border border-white/10",
+    "bg-white/5 dark:bg-black/20",
+    "px-3 md:px-4 pb-3",
+  ].join(" ");
