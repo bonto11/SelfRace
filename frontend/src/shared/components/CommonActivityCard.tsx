@@ -1,6 +1,6 @@
 "use client";
-
 import { useState } from "react";
+import { SURFACE_CARD, SURFACE_INSET } from "@/shared/ui/classes";
 
 /** Jednoduchý badge pre šport – rovnaký look ako v PlanCards */
 function SportBadge({ kind }: { kind: string }) {
@@ -8,36 +8,20 @@ function SportBadge({ kind }: { kind: string }) {
     kind === "run" ? "Run" :
     kind === "ride" ? "Ride" :
     kind === "strength" ? "Strength" : "Mixed";
-  return (
-    <span className="text-xs px-2 py-0.5 rounded bg-gray-700">
-      {label}
-    </span>
-  );
+  return <span className="text-xs px-2 py-0.5 rounded bg-gray-700">{label}</span>;
 }
 
 export type SessionCardProps = {
   id?: string;
-  /** Ľavá časť headeru – typicky „Mon · 04.11.2025“ alebo názov dňa */
   headerLeft: React.ReactNode;
-  /** run | ride | strength | mixed | other – renderuje sa ako badge vpravo */
   sportKind?: "run" | "ride" | "strength" | "mixed" | "other" | string;
-  /** Hlavný titul (napr. názov aktivity alebo tréningu) */
   title: React.ReactNode;
-  /** Sekundárny text pod titulom (napr. focus/účel) – ak je prázdny, ukáže „—“ slabou farbou */
   subtitle?: string | null;
-  /** Meta riadok – pole stringov, zobrazí sa „ · “ join (napr. Time 45:00 · Distance 10.0 km · HR 150) */
   meta?: (string | null | undefined)[];
-  /** Obsah, ktorý sa rozbalí pod kartou (detail aktivity / detail tréningu) */
   children?: React.ReactNode;
-
-  /** Ovládaný mód: otvorenosť zvonka */
   open?: boolean;
-  /** Callback pri zmene – ak dáš `open`, budeš v controlled móde */
   onOpenChange?: (open: boolean) => void;
-  /** Počiatočný stav pre neovládaný mód */
   defaultOpen?: boolean;
-
-  /** Disable expand When no children (napr. prázdny deň) */
   disableToggleIfNoChildren?: boolean;
 };
 
@@ -59,7 +43,6 @@ export default function CommonActivityCard({
   const opened = isControlled ? (open as boolean) : internal;
 
   const canToggle = !disableToggleIfNoChildren || !!children;
-
   const toggle = () => {
     if (!canToggle) return;
     const next = !opened;
@@ -70,14 +53,7 @@ export default function CommonActivityCard({
   const metaLine = (meta ?? []).filter(Boolean).join(" · ");
 
   return (
-    <section
-      id={id}
-      className={[
-        "rounded-2xl shadow-lg border border-white/10",
-        "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-        "px-4 py-3",
-      ].join(" ")}
-    >
+    <section id={id} className={[SURFACE_CARD, "px-4 py-3"].join(" ")}>
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
@@ -120,16 +96,10 @@ export default function CommonActivityCard({
       </div>
 
       {/* Meta */}
-      {metaLine && (
-        <div className="text-xs mt-1 opacity-80">{metaLine}</div>
-      )}
+      {metaLine && <div className="text-xs mt-1 opacity-80">{metaLine}</div>}
 
       {/* Detail */}
-      {opened && children ? (
-        <div className="mt-2">
-          {children}
-        </div>
-      ) : null}
+      {opened && children ? <div className="mt-2">{children}</div> : null}
     </section>
   );
 }

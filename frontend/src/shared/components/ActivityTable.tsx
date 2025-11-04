@@ -1,3 +1,4 @@
+// src/features/activity/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -41,13 +42,22 @@ function prettySkDate(iso: string) {
   return `${wk} · ${day}`;
 }
 
+/* ---------------- types ---------------- */
+
 type Props = {
+  /** Začiatok intervalu (vrátane), ISO YYYY-MM-DD */
   start?: string;
+  /** Koniec intervalu (vrátane), ISO YYYY-MM-DD */
   end?: string;
+  /** "all" | "run" | "ride" | "run,ride" | ["run","ride"] | null */
   sport?: string | string[] | null;
+  /** Whitelist športov – ak je daný, zobraz iba tieto */
   allowedSports?: string[] | null;
+  /** Prepíše nadpis tabuľky (inak sa skladá zo start/end) */
   titleOverride?: string;
 };
+
+/* ---------------- component ---------------- */
 
 export default function ActivityTable({
   start,
@@ -79,12 +89,16 @@ export default function ActivityTable({
     }
     setLoading(true);
 
+    // 1) všetky v rozsahu
     const inRange = selectByRange(start, end);
+
+    // 2) whitelist (napr. pre 80/20 vyhodiť walk)
     const afterWhitelist =
       Array.isArray(allowedSports) && allowedSports.length
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
         : inRange;
 
+    // 3) multi-sport filter z grafu (ak je daný)
     const finalRows = sportList
       ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r)))
       : afterWhitelist;
@@ -104,7 +118,7 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={`${CARD} space-y-4`}>
+    <div className={[CARD, "space-y-4"].join(" ")}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
       </div>
@@ -150,7 +164,7 @@ export default function ActivityTable({
                   ]}
                   defaultOpen={false}
                 >
-                  {/* Detail sa montuje až po otvorení */}
+                  {/* Detail sa pripojí len keď je karta otvorená */}
                   <div className={SUBCARD}>
                     <ActivityDetail activityId={r.activity_id} />
                   </div>

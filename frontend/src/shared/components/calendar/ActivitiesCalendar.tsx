@@ -5,10 +5,13 @@ import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
-import { BG1, BG2, BG3 } from "@/shared/ui/classes";
+import {
+  CALENDAR_CONTAINER,
+  CALENDAR_DAY_CELL,
+  SUBCARD,
+} from "@/shared/ui/classes";
 
 const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
-const ActivityDetailOverlay = dynamic(() => import("@/shared/components/ActivityDetailOverlay"), { ssr: false });
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run, ride: THEME.chart.ride, swim: THEME.chart.swim,
@@ -45,7 +48,11 @@ function useMonthActivities(year:number, month0:number){
       const dIso=r.date.slice(0,10);
       if(dIso<firstIso || dIso>lastIso) continue;
       const cell=grid[dIso]; if(!cell) continue;
-      cell.items.push({ id:r.activity_id, sport:(r as any).sport || (r as any).sport_type_fe || "other", name:r.name||"" });
+      cell.items.push({
+        id:r.activity_id,
+        sport:(r as any).sport || (r as any).sport_type_fe || "other",
+        name:r.name||""
+      });
     }
     setMap(grid);
   },[rows,year,month0]);
@@ -57,27 +64,26 @@ function DayCell({
 }:{
   cell:DayCellData; onSelect:(iso:string)=>void; isSelected:boolean;
 }){
-  const base = "rounded-xl border border-white/10 overflow-hidden";
   const muted = cell.inMonth ? "" : "opacity-40";
   return (
     <button
       type="button"
       onClick={()=>onSelect(cell.iso)}
       className={[
-        "px-2 py-1.5 text-left w-full focus:outline-none",
-        base, muted,
-        "bg-white/5 dark:bg-black/20",
-        "min-h-[56px]",
-        isSelected ? "ring-2 ring-emerald-500/60" : "",
-        "hover:bg-white/10"
+        "px-2 py-1.5 text-left w-full focus:outline-none select-none",
+        CALENDAR_DAY_CELL,
+        "min-h-[64px]",
+        muted,
+        isSelected ? "ring-2 ring-emerald-500/60" : "hover:bg-white/10 dark:hover:bg-white/10",
       ].join(" ")}
       aria-pressed={isSelected}
     >
       <div className="flex flex-col">
-        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
+        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5">
           {cell.day ?? ""}
         </span>
-        <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
+
+        <div className="mt-2 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
           {cell.items.slice(0, 8).map((it)=>(
             <span
               key={it.id}
@@ -99,18 +105,9 @@ export default function ActivitiesCalendar({ year:yy, month:mm }:{ year?:number;
   const today=new Date();
   const [year,setYear]=React.useState(yy ?? today.getFullYear());
   const [month0,setMonth0]=React.useState(mm ?? today.getMonth());
-  const [detailId,setDetailId]=React.useState<number | null>(null);
   const [selectedIso,setSelectedIso]=React.useState<string | null>(null);
 
-  // ESC zavrie výber dňa
-  React.useEffect(()=>{
-    const onKey=(e:KeyboardEvent)=>{ if(e.key==="Escape") setSelectedIso(null); };
-    window.addEventListener("keydown", onKey);
-    return ()=> window.removeEventListener("keydown", onKey);
-  },[]);
-
   const map=useMonthActivities(year,month0);
-
   const cells=React.useMemo(()=>{
     const out:DayCellData[]=[];
     const offset=startWeekday(year,month0);
@@ -133,8 +130,8 @@ export default function ActivitiesCalendar({ year:yy, month:mm }:{ year?:number;
 
   return (
     <div className="space-y-3">
-      {/* HLAVIČKA – tlačidlá vpravo a trochu nižšie */}
-      <div className={[BG1, "p-3"].join(" ")}>
+      {/* JEDEN kontajner – rovnaký povrch ako ActivityTable */}
+      <section className={CALENDAR_CONTAINER}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
           <div className="flex items-center gap-2 translate-y-[2px]">
@@ -144,7 +141,6 @@ export default function ActivitiesCalendar({ year:yy, month:mm }:{ year?:number;
           </div>
         </div>
 
-        {/* Týždňové hlavičky + mriežka */}
         <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
           {["p","u","s","š","p","s","n"].map((d)=><div key={d} className="text-center">{d}</div>)}
         </div>
@@ -159,23 +155,14 @@ export default function ActivitiesCalendar({ year:yy, month:mm }:{ year?:number;
             />
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* DETAIL – bez duplicitného vrchného panelu; jemnejší odtieň */}
+      {/* DETAIL – žiadne ďalšie vrstvy, len jemnejší subpanel */}
       {selectedIso && (
-        <section className={[BG3, "p-3"].join(" ")}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Aktivity — {niceDate(selectedIso)}</h3>
-            {/* žiadne „Zavrieť“ tlačidlo netreba; nechávam pre pohodlie ešte ikonku */}
-            <Button size="sm" variant="ghost" onClick={()=>setSelectedIso(null)}>Zavrieť</Button>
-          </div>
+        <section className={[SUBCARD, "p-3"].join(" ")}>
+          <div className="mb-2 font-semibold">Aktivity — {niceDate(selectedIso)}</div>
           <ActivityTable start={selectedIso} end={selectedIso} />
         </section>
-      )}
-
-      {/* zachovávam overlay na activity-detail, ak ho niekde voláš priamo */}
-      {detailId!=null && (
-        <ActivityDetailOverlay activityId={detailId} open={true} onClose={()=>setDetailId(null)} />
       )}
     </div>
   );
