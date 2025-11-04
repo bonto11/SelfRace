@@ -14,10 +14,11 @@ export default function PlanResult({ result }: { result: any }) {
 
   return (
     <div className="space-y-3">
-      <CoachViewPanel narrative={result?.narrative} />
+      {/* Coach view v tvojom looku (ak používaš) */}
+      {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
 
       {result?.analysis?.summary && (
-        <div className="rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+        <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
           <h3 className="font-semibold mb-1">Summary</h3>
           <p>{result.analysis.summary}</p>
         </div>
@@ -26,7 +27,7 @@ export default function PlanResult({ result }: { result: any }) {
       {daily ? (
         <PlanCards daily={daily} weekStart={weekStart} />
       ) : plan ? (
-        <div className="rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+        <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
           <h3 className="font-semibold mb-1">Next week</h3>
           <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
             {JSON.stringify(plan, null, 2)}

@@ -6,6 +6,7 @@ import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvide
 import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
 import CoachNarrative from "@/features/coach/components/CoachNarrative";
 import PlanResult from "@/features/coach/components/PlanResult";
+import { PANEL } from "@/shared/ui/classes";
 
 import {
   makeCacheKey,
@@ -58,7 +59,11 @@ export default function WidgetCoachAnalyze() {
 
       // 2) Zavolaj AI
       const base = toAnalyzePayloadBE(prefs);
-      const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
+      const payload = {
+        ...base,
+        goal_structured: prefs,
+        bests: { run: pbRun },
+      };
       const json = await analyzeCoach(userId, payload);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
@@ -80,7 +85,11 @@ export default function WidgetCoachAnalyze() {
 
     try {
       const base = toAnalyzePayloadBE(prefs);
-      const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
+      const payload = {
+        ...base,
+        goal_structured: prefs,
+        bests: { run: pbRun },
+      };
       const json = await analyzeCoach(userId, payload);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
@@ -173,22 +182,31 @@ export default function WidgetCoachAnalyze() {
 
       {/* Výstup */}
       {result && (
-        <div className="bg-gray-800 p-4 rounded">
-          <p className="opacity-70 text-sm mb-2">
-            model: <b>{model}</b>
-            {source === "cache" && (
-              <span className="ml-2 inline-block text-xs bg-blue-600/30 border border-blue-600 text-blue-200 px-2 py-0.5 rounded">
-                from cache
-              </span>
-            )}
-            {result?.analysis?._meta?.plan_source === "fallback_min" && (
-              <span className="ml-2 inline-block text-xs bg-amber-600/30 border border-amber-600 text-amber-200 px-2 py-0.5 rounded">
-                fallback plan
-              </span>
-            )}
-          </p>
-          <PlanResult result={result} />
-        </div>
+        <section className={PANEL}>
+          <header className="px-4 py-3 flex items-center justify-between">
+            <div className="font-semibold">AI Coach — plán a zhrnutie</div>
+            <div className="text-xs opacity-75">
+              model: <b>{model}</b>
+              {source === "cache" && (
+                <span className="ml-2 inline-block text-xs bg-blue-600/30 border border-blue-600 text-blue-200 px-2 py-0.5 rounded">
+                  from cache
+                </span>
+              )}
+              {result?.analysis?._meta?.plan_source === "fallback_min" && (
+                <span className="ml-2 inline-block text-xs bg-amber-600/30 border border-amber-600 text-amber-200 px-2 py-0.5 rounded">
+                  fallback plan
+                </span>
+              )}
+            </div>
+          </header>
+
+          <div className="px-4 pb-4">
+            <PlanResult result={result} />
+          </div>
+
+          {/* spodná lišta ako v PB */}
+          <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+        </section>
       )}
     </div>
   );
