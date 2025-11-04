@@ -66,6 +66,7 @@ function useMonthActivities(year: number, month0: number) {
 
   return map;
 }
+
 function SportDot({
   color,
   title,
@@ -80,8 +81,7 @@ function SportDot({
       type="button"
       onClick={onClick}
       title={title}
-      // menšie bodky + žiadny “vystrelený” ring
-      className="inline-block w-1.5 h-1.5 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:ring-inset"
+      className="inline-block w-1.5 h-1.5 rounded-full focus:outline-none"
       style={{ backgroundColor: color }}
       aria-label={title}
     />
@@ -95,20 +95,26 @@ function DayCell({
   cell: DayCellData;
   onOpen: (id: number) => void;
 }) {
-  // karta dňa: zaoblená, ale nič z nej nepretŕča
+  // IBA RÁMIK (žiadne bg)
   const base =
-    "rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20 overflow-hidden";
+    "rounded-xl border border-white/10 bg-transparent"; // <- transparent
   const muted = cell.inMonth ? "" : "opacity-40";
 
   return (
-    <div className={`p-2 ${base} ${muted}`}>
+    <div className={`px-2 py-1.5 ${base} ${muted}`}>
       <div className="flex items-center justify-between">
-        {/* číslo dňa: čistý text, bez badge, jemne posunutý doľava */}
-        <div className="text-sm font-semibold tracking-tight pl-0.5">
+        {/* Číslo dňa: čistý text, posunutý doľava, bez badge */}
+        <div
+          className="text-sm font-semibold tracking-tight ml-0.5"
+          style={{
+            background: "transparent",     // hard override ak by niekde inde prišiel bg
+            borderRadius: 0,               // zruší prípadné globálne rounded labely
+          }}
+        >
           {cell.day ?? ""}
         </div>
 
-        {/* bodky: menšie, lepšie zarovnanie na mobile */}
+        {/* Bodky športov napravo */}
         <div className="flex items-center gap-1.5 pr-0.5">
           {cell.items.slice(0, 5).map((it) => (
             <SportDot
@@ -119,7 +125,9 @@ function DayCell({
             />
           ))}
           {cell.items.length > 5 && (
-            <span className="text-[10px] opacity-70">+{cell.items.length - 5}</span>
+            <span className="text-[10px] opacity-70">
+              +{cell.items.length - 5}
+            </span>
           )}
         </div>
       </div>
