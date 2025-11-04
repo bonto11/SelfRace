@@ -20,7 +20,6 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 import ActivityDetail from "@/shared/components/ActivityDetail";
-/** ak máš definované; inak fallback nižšie */
 import { FLUSH_DETAIL_PB as FLUSH_DETAIL_PB_IMPORTED } from "@/shared/ui/classes";
 
 /* ----------------------- Helper: touch detekcia ----------------------- */
@@ -58,7 +57,7 @@ const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
 const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 /* ----------------------- Swipe consts --------------------- */
-const ACTION_W = 160; // 2 tlačidlá po 80 px
+const ACTION_W = 160; // 2 tlačidlá po ~80 px
 const SNAP_OPEN = -ACTION_W;
 const SNAP_CLOSED = 0;
 
@@ -152,13 +151,13 @@ export default function PBRun() {
 
   /* ----------------------- UI ------------------------------ */
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       <div className="text-xs opacity-80">
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
-      {/* FORM – popup look prvky */}
-      <div className="grid gap-3 sm:grid-cols-12 items-start">
+      {/* FORM */}
+      <div className="grid gap-3 sm:grid-cols-12 items-start max-w-full overflow-x-hidden">
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
@@ -182,7 +181,6 @@ export default function PBRun() {
           containerClassName="sm:col-span-3"
         />
 
-        {/* Date overlay – input vizuál zachovaný */}
         <div className="relative sm:col-span-2 w-full max-w-[180px]">
           <div className={inputClass + " text-center select-none truncate"}>
             {prettyDate(form.achieved_at)}
@@ -196,7 +194,7 @@ export default function PBRun() {
           />
         </div>
 
-        <div className="sm:col-span-4">
+        <div className="sm:col-span-4 min-w-0">
           <ActivitySelector
             userId={userId ?? null}
             dateIso={form.achieved_at}
@@ -222,8 +220,8 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – swipe + inline detail toggle */}
-      <ul className="space-y-2">
+      {/* LIST – swipe + inline detail toggle (IBA klik na názov, žiadne pravé tlačidlo) */}
+      <ul className="space-y-2 max-w-full overflow-x-hidden">
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
@@ -247,10 +245,10 @@ export default function PBRun() {
                 onDelete={() => handleDelete(b.distance_m)}
               >
                 {/* KARTA */}
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-3 w-full min-w-0">
+                  <div className="min-w-0 flex-1 max-w-full">
                     {/* horný riadok */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Button
                         aria-label="Set as favorite"
                         variant="ghost"
@@ -271,51 +269,28 @@ export default function PBRun() {
                       {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
                     </div>
 
-                    {/* dátum + názov aktivity (kliknutím toggluje inline detail) */}
-                    <div className="mt-1 text-xs opacity-75 flex items-center justify-between gap-3">
-                      <div className="truncate">
-                        {isoDateOnly(b.achieved_at)}
-                        {(b as any).activity_name ? (
-                          <>
-                            {" · "}
-                            {actId != null ? (
-                              <button
-                                className="underline hover:opacity-100 opacity-90"
-                                onClick={() =>
-                                  setOpenDetailForActId(isOpen ? null : actId)
-                                }
-                                aria-expanded={isOpen}
-                              >
-                                {(b as any).activity_name}
-                              </button>
-                            ) : (
-                              <span className="opacity-70">{(b as any).activity_name}</span>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-
-                      {actId != null && (
-                        <button
-                          type="button"
-                          onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
-                          className="px-2 py-1 text-xs rounded border border-white/10 bg-white/10 hover:bg-white/20"
-                          aria-expanded={isOpen}
-                        >
-                          <span
-                            className={[
-                              "inline-block transition-transform",
-                              isOpen ? "rotate-180" : "",
-                            ].join(" ")}
-                          >
-                            ▾
-                          </span>{" "}
-                          Detail
-                        </button>
-                      )}
+                    {/* dátum + názov aktivity (klik toggluje inline detail) */}
+                    <div className="mt-1 text-xs opacity-75 min-w-0">
+                      <span className="truncate">{isoDateOnly(b.achieved_at)}</span>
+                      {(b as any).activity_name ? (
+                        <>
+                          {" · "}
+                          {actId != null ? (
+                            <button
+                              className="underline hover:opacity-100 opacity-90 truncate"
+                              onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
+                              aria-expanded={isOpen}
+                            >
+                              {(b as any).activity_name}
+                            </button>
+                          ) : (
+                            <span className="opacity-70 truncate">{(b as any).activity_name}</span>
+                          )}
+                        </>
+                      ) : null}
                     </div>
 
-                    {/* INLINE DETAIL – licuje s hranami karty (flush) */}
+                    {/* INLINE DETAIL – flush s hranami karty */}
                     {isOpen && actId != null && (
                       <div className={FLUSH_DETAIL_PB}>
                         <ActivityDetail
@@ -353,33 +328,25 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  // ~2 tlačidlá, každé cca 84 px
-  const ACTION_W = 168;
-  const SNAP_OPEN = -ACTION_W;
-  const SNAP_CLOSED = 0;
-
   const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (!enableSwipe) return;
-    startX.current = e.touches[0].clientX;
-    startTx.current = tx;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onTouchStart = (e: React.TouchEvent) => { if (!enableSwipe) return; startX.current = e.touches[0].clientX; startTx.current = tx; };
+  const onTouchMove  = (e: React.TouchEvent) => {
     if (!enableSwipe || startX.current == null) return;
     const dx = e.touches[0].clientX - startX.current;
     const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
     setTx(next);
   };
-  const onTouchEnd = () => {
-    if (!enableSwipe) return;
-    snap(tx);
-    startX.current = null;
-  };
+  const onTouchEnd   = () => { if (!enableSwipe) return; snap(tx); startX.current = null; };
 
   return (
-    <li className="relative overflow-hidden" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      {/* Akcie ZA kartou – žiadne pozadie panelu, len tlačidlá; 100% výška rodiča */}
+    <li
+      className="relative w-full overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Akcie ZA kartou */}
       <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
@@ -399,9 +366,10 @@ function SwipeRow({
         </button>
       </div>
 
-      {/* POSÚVANÁ KARTA – SOLID, bez spodnej lišty/akcentu */}
+      {/* POSÚVANÁ KARTA */}
       <div
-        className="relative z-10 px-3 py-2 rounded-2xl shadow-lg border border-white/10 bg-white dark:bg-[#0b0f1a]"
+        className="relative z-10 w-full box-border px-3 py-2 rounded-2xl shadow-lg border border-white/10
+                   bg-white dark:bg-[#0b0f1a] overflow-hidden max-w-full"
         style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
       >
         {children}
