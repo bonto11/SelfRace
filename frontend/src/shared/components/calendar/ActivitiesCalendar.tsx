@@ -88,33 +88,20 @@ function SportDot({
   );
 }
 
-function DayCell({
-  cell,
-  onOpen,
-}: {
-  cell: DayCellData;
-  onOpen: (id: number) => void;
-}) {
-  // IBA RÁMIK (žiadne bg)
-  const base =
-    "rounded-xl border border-white/10 bg-transparent"; // <- transparent
+function DayCell({ cell, onOpen }: { cell: DayCellData; onOpen: (id: number) => void }) {
+  // iba rámik bunky; vnútro transparent
+  const base = "relative overflow-hidden rounded-xl border border-white/10 bg-transparent";
   const muted = cell.inMonth ? "" : "opacity-40";
 
   return (
     <div className={`px-2 py-1.5 ${base} ${muted}`}>
       <div className="flex items-center justify-between">
-        {/* Číslo dňa: čistý text, posunutý doľava, bez badge */}
-        <div
-          className="text-sm font-semibold tracking-tight ml-0.5"
-          style={{
-            background: "transparent",     // hard override ak by niekde inde prišiel bg
-            borderRadius: 0,               // zruší prípadné globálne rounded labely
-          }}
-        >
+        {/* číslo bez badge, viac doľava */}
+        <span className="day-number text-sm font-semibold tracking-tight ml-0.5">
           {cell.day ?? ""}
-        </div>
+        </span>
 
-        {/* Bodky športov napravo */}
+        {/* športové bodky napravo */}
         <div className="flex items-center gap-1.5 pr-0.5">
           {cell.items.slice(0, 5).map((it) => (
             <SportDot
@@ -125,9 +112,7 @@ function DayCell({
             />
           ))}
           {cell.items.length > 5 && (
-            <span className="text-[10px] opacity-70">
-              +{cell.items.length - 5}
-            </span>
+            <span className="text-[10px] opacity-70">+{cell.items.length - 5}</span>
           )}
         </div>
       </div>
