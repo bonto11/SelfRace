@@ -11,9 +11,7 @@ import CommonActivityCard from "@/shared/components/CommonActivityCard";
 
 /* ---------------- helpers ---------------- */
 
-function normSportsList(
-  sel: string | string[] | null | undefined
-): string[] | null {
+function normSportsList(sel: string | string[] | null | undefined): string[] | null {
   if (sel == null) return null;
   if (Array.isArray(sel)) {
     const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
@@ -53,6 +51,8 @@ export default function ActivityTable({
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const singleDay = !!start && !!end && start === end;
+
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
     if (start && end) {
@@ -83,7 +83,7 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={[CARD, "space-y-5 px-4 py-3 sm:px-5 sm:py-4"].join(" ")}>
+    <div className={[CARD, "space-y-5"].join(" ")}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
       </div>
@@ -103,12 +103,15 @@ export default function ActivityTable({
             const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
             const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
-            const metaCollapsed = [
-              dur ? `Time ${dur}` : null,
-              dist ? `Distance ${dist}` : null,
-              r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
-              r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
-            ];
+            // meta riadok chceme len v multi-day pohľade (v single-day už tieto info často duplikujú)
+            const metaCollapsed = singleDay
+              ? []
+              : [
+                  dur ? `Time ${dur}` : null,
+                  dist ? `Distance ${dist}` : null,
+                  r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
+                  r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
+                ];
 
             return (
               <li key={r.activity_id}>
@@ -117,15 +120,22 @@ export default function ActivityTable({
                   headerLeft={dateStr}
                   sportKind={eff}
                   title={r.name || "Activity"}
-                  subtitle={null} 
+                  subtitle={null}
                   meta={metaCollapsed}
                   defaultOpen={false}
                   hideSubtitleWhenOpen
                   hideMetaWhenOpen
-                  flushDetail
+                  flushDetail             // detail lícuje s hranami karty
                 >
-                  {/* Detail bez ďalšieho panelu – licuje s okrajmi karty */}
-                  <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
+                  {/* vnútro detailu má padding z bokov + spodku, KPI vypneme pri single-day */}
+                  <ActivityDetail
+                    activityId={r.activity_id}
+                    inline
+                    compact={false}
+                    showHeader={false}
+                    showKpis={!singleDay}
+                    padInner
+                  />
                 </CommonActivityCard>
               </li>
             );

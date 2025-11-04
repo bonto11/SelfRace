@@ -17,7 +17,7 @@ type Row = {
   dateStr: string | null;
   sport: "run" | "ride" | "strength" | "other";
   title: string;
-  focus?: string;
+  focus?: string | null;
   dur: string;
   intensity: string;
   target: string;
@@ -42,7 +42,7 @@ export default function PlanCards({
           dateStr: dateFromWeekStart(weekStart, day),
           sport: "other",
           title: "—",
-          focus: "",
+          focus: null,
           dur: "",
           intensity: "",
           target: "",
@@ -52,19 +52,19 @@ export default function PlanCards({
         return;
       }
       items.forEach((it, idx) => {
-        const { title, dur, intensity, target, notes } = getItemLabel(it);
+        const { title, dur, intensity, target, notes } = getItemLabel(it as any);
         out.push({
           id: `${day}-${idx}`,
           day,
           dateStr: dateFromWeekStart(weekStart, day),
-          sport: detectSport(it),
+          sport: detectSport(it) as Row["sport"],
           title,
-          focus: (it as any).focus ?? "",
+          focus: (it as any).focus ?? null,
           dur: dur != null ? `${dur} min` : "",
           intensity: intensity ?? "",
           target: target ?? "",
           notes: notes ?? "",
-          structure: it.structure ?? null,
+          structure: (it as any).structure ?? null,
         });
       });
     });
@@ -86,9 +86,12 @@ export default function PlanCards({
             headerLeft={r.dateStr ? `${r.day} · ${r.dateStr}` : r.day}
             sportKind={r.sport}
             title={r.title}
-            subtitle={r.focus || null}
+            subtitle={r.focus || null}          // ak nie je, nerenderuje sa (žiadna pomlčka)
             meta={meta}
             defaultOpen={false}
+            hideSubtitleWhenOpen
+            hideMetaWhenOpen
+            flushDetail                          // detail zarovnaný s hranami karty
             disableToggleIfNoChildren={!r.structure}
           >
             {r.structure ? <PlanCardDetail s={r.structure} /> : null}

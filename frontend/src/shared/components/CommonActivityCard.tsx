@@ -32,7 +32,7 @@ export type SessionCardProps = {
   hideSubtitleWhenOpen?: boolean;
   hideMetaWhenOpen?: boolean;
 
-  /** Po otvorení zarovná detail s hranami karty (bez bočných a spodných odsadení) */
+  /** zarovná detail k okrajom karty (bez druhého panelu) */
   flushDetail?: boolean;
 };
 
@@ -50,7 +50,7 @@ export default function CommonActivityCard({
   disableToggleIfNoChildren = false,
   hideSubtitleWhenOpen = true,
   hideMetaWhenOpen = true,
-  flushDetail = true,
+  flushDetail = false,
 }: SessionCardProps) {
   const isControlled = typeof open === "boolean";
   const [internal, setInternal] = useState<boolean>(defaultOpen);
@@ -110,23 +110,28 @@ export default function CommonActivityCard({
         {title}
       </div>
 
-      {/* Subtitle – ak nie je, nerenderujeme vôbec (žiadna pomlčka) */}
-      {subtitle ? (
-        (!opened || !hideSubtitleWhenOpen) && (
-          <div className="text-xs opacity-80">{subtitle}</div>
-        )
-      ) : null}
+      {/* Subtitle */}
+      {(!opened || !hideSubtitleWhenOpen) && (
+        <div className={subtitle ? "text-xs opacity-80" : "text-xs opacity-40"}>
+          {subtitle || null}
+        </div>
+      )}
 
       {/* Meta */}
       {metaLine && (!opened || !hideMetaWhenOpen) && (
         <div className="text-xs mt-1 opacity-80">{metaLine}</div>
       )}
 
-      {/* Detail – flush bočné/spodné okraje, hore len malá medzera */}
+      {/* Detail */}
       {opened && children ? (
-        <div className={flushDetail ? "mt-3 -mx-5 -mb-4" : "mt-3"}>
-          {children}
-        </div>
+        flushDetail ? (
+          // zarovnaj k okrajom karty + pridaj vnútorný padding pre obsah
+          <div className="-mx-5 -mb-4">
+            <div className="px-4 pb-4">{children}</div>
+          </div>
+        ) : (
+          <div className="mt-4">{children}</div>
+        )
       ) : null}
     </section>
   );

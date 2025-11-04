@@ -10,7 +10,12 @@ type Props = {
   activityId: number;
   inline?: boolean;
   compact?: boolean;
+  /** zobrazí názov aktivity v detaile */
   showHeader?: boolean;
+  /** zobrazí KPI (Time/Distance/Avg HR). V single-day view ich často nechceš duplikovať. */
+  showKpis?: boolean;
+  /** pridá extra vnútorný padding v detaile (ak chceš ešte mäkšie okraje) */
+  padInner?: boolean;
 };
 
 type StreamsData = {
@@ -24,6 +29,8 @@ export default function ActivityDetail({
   inline = false,
   compact = false,
   showHeader = true,
+  showKpis = true,
+  padInner = false,
 }: Props) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const summary = getSummary(activityId) as any | null;
@@ -68,28 +75,30 @@ export default function ActivityDetail({
   }, [summary.date]);
 
   return (
-    <div className="space-y-4">
+    <div className={padInner ? "px-2 pb-2" : ""}>
       {showHeader && (
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">{summary.name}</h3>
         </div>
       )}
 
-      {/* KPI tiles (compact mód) */}
-      {compact ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <KpiTile label="TIME" value={timeTxt} />
-          <KpiTile label="DISTANCE" value={distTxt} />
-          <KpiTile label="AVG HR" value={summary.average_heartrate_bpm ?? "—"} />
-        </div>
-      ) : (
-        <>
-          <p><strong>Date:</strong> {dateText}</p>
-          <p><strong>Distance:</strong> {distTxt}</p>
-          <p><strong>Time:</strong> {timeTxt}</p>
-          <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
-          <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
-        </>
+      {/* KPI tiles (compact mód má vlastný layout) */}
+      {showKpis && (
+        compact ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <KpiTile label="TIME" value={timeTxt} />
+            <KpiTile label="DISTANCE" value={distTxt} />
+            <KpiTile label="AVG HR" value={summary.average_heartrate_bpm ?? "—"} />
+          </div>
+        ) : (
+          <>
+            <p><strong>Date:</strong> {dateText}</p>
+            <p><strong>Distance:</strong> {distTxt}</p>
+            <p><strong>Time:</strong> {timeTxt}</p>
+            <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
+            <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
+          </>
+        )
       )}
 
       {/* HR priebeh */}
