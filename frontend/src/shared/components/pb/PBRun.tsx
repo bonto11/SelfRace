@@ -21,7 +21,7 @@ import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 import ActivityDetail from "@/shared/components/ActivityDetail";
 import { CARD, SUBCARD } from "@/shared/ui/classes";
-
+import {FLUSH_DETAIL_PB} from "@/shared/ui/classes"
 /* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
   const [isTouch, setIsTouch] = useState(false);
@@ -322,14 +322,7 @@ export default function PBRun() {
 
                     {/* inline DETAIL */}
                     {isOpen && actId != null && (
-                      <div
-                        className={[
-                          // licovanie s hranami nadradenej karty (CARD má px-4 py-3)
-                          "mt-2 -mx-4 -mb-1 px-4 pb-3",
-                          // jemná deliaca čiara navrchu, nech je zrejmé rozbalenie
-                          "pt-2 border-t border-white/10",
-                        ].join(" ")}
-                      >
+                      <div className = {FLUSH_DETAIL_PB}>
                         <ActivityDetail
                           activityId={actId}
                           inline

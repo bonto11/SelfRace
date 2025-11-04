@@ -33,3 +33,6 @@ export const ACT_CARD = SURFACE_CARD + " p-4 md:p-5";
 
 /** Vnorený panel s detailom aktivity vo vnútri ActivityTable */
 export const ACT_SUBCARD = SURFACE_SUBCARD + " p-3 md:p-4";
+
+export const FLUSH_DETAIL = "mt-2 -mx-5 px-5 pb-3 pt-2 border-t border-white/10";
+export const FLUSH_DETAIL_PB = "mt-2 -mx-3 px-3 pb-3 pt-2 border-t border-white/10";

@@ -74,6 +74,7 @@ export default function CommonActivityCard({
         "rounded-2xl shadow-lg border border-white/10",
         "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
         "px-5 py-4",
+        "overflow-hidden" //new
       ].join(" ")}
     >
       {/* Header */}

@@ -8,7 +8,7 @@ import ActivityDetail from "@/shared/components/ActivityDetail";
 import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 import CommonActivityCard from "@/shared/components/CommonActivityCard";
-
+import {FLUSH_DETAIL} from "@/shared/ui/classes"
 /* ---------------- helpers ---------------- */
 
 function normSportsList(
@@ -105,9 +105,6 @@ export default function ActivityTable({
     "flex justify-between items-center",
     variant === "calendar" ? "mb-1" : "mb-2",
   ].join(" ");
-
-  // jednotný „flush“ wrapper pre rozbalený detail (lícovanie s hranami karty)
-  const FLUSH_DETAIL = "mt-2 -mx-4 -mb-1 px-4 pb-3 pt-2 border-t border-white/10 md:-mx-5 md:px-5";
 
   return (
     <div className={wrapperCls}>
