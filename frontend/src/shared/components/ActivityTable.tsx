@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD, SUBCARD } from "@/shared/ui/classes";
+import { CARD } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
@@ -44,14 +44,10 @@ function prettySkDate(iso: string) {
 type Props = {
   start?: string;
   end?: string;
-  /** "all" | "run" | "ride" | "run,ride" | ["run","ride"] | null */
   sport?: string | string[] | null;
-  /** whitelist športov – ak je daný, zobraz iba tieto */
   allowedSports?: string[] | null;
-  /** prepíše text hlavičky */
   titleOverride?: string;
-  /** či zobraziť hlavičku (title) – default true */
-  withHeader?: boolean;
+  withHeader?: boolean; // default true
 };
 
 export default function ActivityTable({
@@ -99,21 +95,17 @@ export default function ActivityTable({
     setLoading(false);
 
     console.debug("[ACT][table->cards] filter", {
-      start,
-      end,
-      sport,
-      sportList,
-      allowedSports,
-      allRows: allRows.length,
+      start, end, sport, sportList,
+      allowedSports, allRows: allRows.length,
       final: finalRows.length,
     });
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={`${CARD} space-y-4`}>
+    <div className={`${CARD} space-y-4 px-3 pt-3`}>
       {withHeader && (
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-bold">{headerTitle}</h2>
+          <h2 className="text-lg font-bold"> {headerTitle} </h2>
         </div>
       )}
 
@@ -126,7 +118,7 @@ export default function ActivityTable({
       )}
 
       {!loading && rows.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="mt-1 space-y-3">
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
@@ -158,8 +150,10 @@ export default function ActivityTable({
                   ]}
                   defaultOpen={false}
                 >
-                  <div className={SUBCARD}>
-                    <ActivityDetail activityId={r.activity_id} />
+                  {/* FULL-WIDTH detail bez duplicitného headeru */}
+                  <div className="mt-2">
+                    {/* Ak ActivityDetail podporí „inline/compact“, použijeme; inak sa iba ignoruje */}
+                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
                   </div>
                 </CommonActivityCard>
               </li>

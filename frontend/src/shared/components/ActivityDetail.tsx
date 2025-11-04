@@ -8,7 +8,15 @@ import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 import HrChart from "@/shared/components/trend/HrChart";
 import { API_URL } from "@/shared/config";
 
-interface Props { activityId: number; }
+type Props = {
+  activityId: number;
+  /** „vložené“ renderovanie v karte – bez duplicitných nadpisov a kľúčových faktov */
+  inline?: boolean;
+  /** ešte úspornejšie (napr. iba graf + laps/splits), skrýva aj tlačidlo „Zväčšiť“ */
+  compact?: boolean;
+  /** zobrazovať horný <h3> titul (ignoruje sa pri inline=true) */
+  showHeader?: boolean;
+};
 
 type StreamsData = {
   time_s: number[];
@@ -16,7 +24,12 @@ type StreamsData = {
   duration_s: number;
 };
 
-export default function ActivityDetail({ activityId }: Props) {
+export default function ActivityDetail({
+  activityId,
+  inline = false,
+  compact = false,
+  showHeader = true,
+}: Props) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const summary = getSummary(activityId) as any | null;
 
@@ -43,7 +56,9 @@ export default function ActivityDetail({ activityId }: Props) {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [activityId, getStreams, getDetail]);
 
   if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
@@ -54,12 +69,23 @@ export default function ActivityDetail({ activityId }: Props) {
   const dateText = useMemo(() => {
     try {
       return new Date(summary.date).toLocaleString(THEME.i18n.dateLocale, {
-        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
-    } catch { return summary.date; }
+    } catch {
+      return summary.date;
+    }
   }, [summary.date]);
 
-  // ---------------- DEBUG: DB fallback fetch (bez zásahu do stavu) ----------------
+  // Flagy pre render – pri inline/compact neukazujeme duplicitné fakty, nech ich nerenderujeme 2× (karta + detail)
+  const showTopHeader = showHeader && !inline;        // názov aktivity hore
+  const showKeyFacts = !inline && !compact;           // dátum, time, distance, HRs
+  const showEnlargeBtn = !compact && !!streams.time_s.length;
+
+  /* ---------------- DEBUG helper (nezasahuje do stavu) ---------------- */
   async function debugFetchDB() {
     try {
       const [sumR, strR, detR] = await Promise.all([
@@ -75,12 +101,8 @@ export default function ActivityDetail({ activityId }: Props) {
       const streams = strJ?.data ?? strJ;
       const detail = detJ?.data ?? detJ;
 
-      // konzola – celé payloady
-      // eslint-disable-next-line no-console
       console.log("[PB/DEBUG] DB summary:", sum);
-      // eslint-disable-next-line no-console
       console.log("[PB/DEBUG] DB streams:", streams);
-      // eslint-disable-next-line no-console
       console.log("[PB/DEBUG] DB detail:", detail);
 
       const countHr = Array.isArray(streams?.time_s) ? streams.time_s.length : 0;
@@ -95,38 +117,47 @@ export default function ActivityDetail({ activityId }: Props) {
         ].join("\n")
       );
     } catch (e: any) {
-      // eslint-disable-next-line no-console
       console.error("[PB/DEBUG] DB fetch error:", e);
       alert(`DB fetch error: ${e?.message ?? e}`);
     }
   }
-  // -----------------------------------------------------------------------------
+  /* -------------------------------------------------------------------- */
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">{summary.name}</h3>
-        {/* Malé debug tlačidlo – môžeš zmazať, keď doladíme BE */}
-        <button
-          onClick={debugFetchDB}
-          className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
-          title="Debug fetch z DB (One endpoints)"
-        >
-          DB
-        </button>
-      </div>
+    <div className={inline || compact ? "space-y-2" : "space-y-3"}>
+      {/* Header – skryjeme v inline/compact, aby sa netriasli s titulom karty */}
+      {showTopHeader && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold">{summary.name}</h3>
+        </div>
+      )}
 
-      <p><strong>Date:</strong> {dateText}</p>
-      <p><strong>Distance:</strong> {distTxt}</p>
-      <p><strong>Time:</strong> {timeTxt}</p>
-      <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
-      <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
+      {/* Kľúčové fakty – len v plnom režime (nie inline/compact) */}
+      {showKeyFacts && (
+        <>
+          <p>
+            <strong>Date:</strong> {dateText}
+          </p>
+          <p>
+            <strong>Distance:</strong> {distTxt}
+          </p>
+          <p>
+            <strong>Time:</strong> {timeTxt}
+          </p>
+          <p>
+            <strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}
+          </p>
+          <p>
+            <strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}
+          </p>
+        </>
+      )}
 
-      {/* HR priebeh */}
-      <div className="mt-1">
+      {/* HR priebeh – tlačidlo „Zväčšiť“ skryté v compact, marginy jemnejšie v inline */}
+      <div className={inline || compact ? "mt-0" : "mt-1"}>
         <div className="flex items-center justify-between mb-1">
           <h4 className="font-bold">HR priebeh</h4>
-          {!!streams.time_s.length && (
+          {showEnlargeBtn && (
             <button
               className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
               onClick={() => setShowFull(true)}
@@ -135,9 +166,15 @@ export default function ActivityDetail({ activityId }: Props) {
             </button>
           )}
         </div>
+
         {streams.time_s.length ? (
-          <div className="-mx-3 -mt-1 mb-2">
-            <HrChart xs={streams.time_s} ys={streams.hr} height={148} compact />
+          <div className={inline || compact ? "mb-2" : "-mx-3 -mt-1 mb-2"}>
+            <HrChart
+              xs={streams.time_s}
+              ys={streams.hr}
+              height={compact ? 120 : 148}
+              compact
+            />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
@@ -183,15 +220,24 @@ export default function ActivityDetail({ activityId }: Props) {
 
 /* --------------- Fullscreen overlay komponent --------------- */
 function FullHrOverlay({
-  xs, ys, onClose,
-}: { xs: number[]; ys: (number | null)[]; onClose: () => void }) {
+  xs,
+  ys,
+  onClose,
+}: {
+  xs: number[];
+  ys: (number | null)[];
+  onClose: () => void;
+}) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-hidden">
@@ -199,7 +245,10 @@ function FullHrOverlay({
         <div className="bg-gray-800 rounded-lg w-full h-full shadow-lg flex flex-col">
           <div className="flex items-center justify-between p-3">
             <h3 className="text-base md:text-lg font-semibold">HR priebeh (detail)</h3>
-            <button onClick={onClose} className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">
+            <button
+              onClick={onClose}
+              className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600"
+            >
               Zavrieť
             </button>
           </div>

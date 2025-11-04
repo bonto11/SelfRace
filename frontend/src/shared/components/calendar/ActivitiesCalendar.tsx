@@ -6,21 +6,20 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
 
-// lazy load tabuľky (karty aktivít)
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
   { ssr: false }
 );
 
 const SPORT_COLORS: Record<string, string> = {
-  run:      THEME.chart.run,
-  ride:     THEME.chart.ride,
-  swim:     THEME.chart.swim,
+  run: THEME.chart.run,
+  ride: THEME.chart.ride,
+  swim: THEME.chart.swim,
   strength: THEME.chart.strength,
-  mixed:    THEME.chart.mixed,
-  skate:    THEME.chart.skate,
-  walk:     THEME.chart.walk,
-  other:    THEME.chart.other,
+  mixed: THEME.chart.mixed,
+  skate: THEME.chart.skate,
+  walk: THEME.chart.walk,
+  other: THEME.chart.other,
 };
 
 type DayCellData = {
@@ -97,12 +96,9 @@ function DayCell({
       aria-pressed={isSelected}
     >
       <div className="flex flex-col">
-        {/* číslo dňa bez kruhového pozadia */}
         <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
           {cell.day ?? ""}
         </span>
-
-        {/* športové bodky POD číslom */}
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
           {cell.items.slice(0, 8).map((it) => (
             <span
@@ -186,14 +182,12 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        {/* dni v týždni */}
         <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
           {["p","u","s","š","p","s","n"].map((d) => (
             <div key={d} className="text-center">{d}</div>
           ))}
         </div>
 
-        {/* mriežka */}
         <div className="mt-2 grid grid-cols-7 gap-2">
           {cells.map((c) => (
             <DayCell
@@ -206,9 +200,9 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
-      {/* DETAIL — žiadne extra panely naviac; len ActivityTable */}
+      {/* DETAIL – odsadený od vrchu aj zľava, žiadne extra vnútorné panely */}
       {selectedIso && (
-        <div className="mt-2">
+        <div className="mt-3 ml-1">
           <ActivityTable start={selectedIso} end={selectedIso} />
         </div>
       )}
