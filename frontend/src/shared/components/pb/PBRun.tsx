@@ -360,71 +360,53 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  const ACTION_W_LOCAL = ACTION_W;
-  const SNAP_OPEN_LOCAL = -ACTION_W_LOCAL;
-  const SNAP_CLOSED_LOCAL = 0;
+  const ACTION_W = 168;
+  const SNAP_OPEN = -ACTION_W;
+  const SNAP_CLOSED = 0;
 
-  const snap = (x: number) =>
-    setTx(
-      Math.abs(x) > ACTION_W_LOCAL / 2 ? SNAP_OPEN_LOCAL : SNAP_CLOSED_LOCAL
-    );
+  const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (!enableSwipe) return;
-    startX.current = e.touches[0].clientX;
-    startTx.current = tx;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onTouchStart = (e: React.TouchEvent) => { if (!enableSwipe) return; startX.current = e.touches[0].clientX; startTx.current = tx; };
+  const onTouchMove  = (e: React.TouchEvent) => {
     if (!enableSwipe || startX.current == null) return;
     const dx = e.touches[0].clientX - startX.current;
-    const next = Math.max(SNAP_OPEN_LOCAL, Math.min(0, startTx.current + dx));
+    const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
     setTx(next);
   };
-  const onTouchEnd = () => {
-    if (!enableSwipe) return;
-    snap(tx);
-    startX.current = null;
-  };
+  const onTouchEnd   = () => { if (!enableSwipe) return; snap(tx); startX.current = null; };
 
   return (
     <li
-      className="relative overflow-hidden"
+      className="relative overflow-hidden"               // ⬅️ klipuje celé LI (vrátane actions)
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      {/* Akcie za kartou */}
+      {/* Akcie ZA kartou – drž sa vpravo, žiadne negatívne okraje */}
       <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
-          className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold border border-white/10
-                     bg-amber-500/60 hover:bg-amber-500/80 text-white transition-colors"
-          onClick={() => {
-            setTx(SNAP_CLOSED_LOCAL);
-            onEdit();
-          }}
+          className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
+                     bg-amber-500/60 hover:bg-amber-500/80 text-white
+                     border border-white/10 transition-colors"
+          onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}
         >
           Edit
         </button>
         <button
-          className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold border border-white/10
-                     bg-rose-500/65 hover:bg-rose-500/80 text-white transition-colors"
+          className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
+                     bg-rose-500/65 hover:bg-rose-500/80 text-white
+                     border border-white/10 transition-colors"
           onClick={onDelete}
         >
           Delete
         </button>
       </div>
 
-      {/* Karta (posúvaná) */}
+      {/* POSÚVANÁ KARTA */}
       <div
-        className={[CARD, "relative z-10 px-4 py-3"].join(" ")}
-        style={
-          enableSwipe
-            ? {
-                transform: `translateX(${tx}px)`,
-                transition: "transform 160ms ease-out",
-              }
-            : undefined
-        }
+        className="relative z-10 px-3 py-2 rounded-2xl shadow-lg border border-white/10
+                   bg-white dark:bg-[#0b0f1a] overflow-hidden"    // ⬅️ DÔLEŽITÉ: aj karta klipuje svoj obsah
+        style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
       >
         {children}
       </div>
