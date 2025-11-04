@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD } from "@/shared/ui/classes";
+import { CARD, SUBCARD } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
@@ -11,7 +11,9 @@ import CommonActivityCard from "@/shared/components/CommonActivityCard";
 
 /* ---------------- helpers ---------------- */
 
-function normSportsList(sel: string | string[] | null | undefined): string[] | null {
+function normSportsList(
+  sel: string | string[] | null | undefined
+): string[] | null {
   if (sel == null) return null;
   if (Array.isArray(sel)) {
     const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
@@ -32,12 +34,20 @@ function prettySkDate(iso: string) {
   return `${wk} · ${day}`;
 }
 
+/* ---------------- props ---------------- */
+
 type Props = {
   start?: string;
   end?: string;
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
+
+  /** Layout režim: "page" = bežný zoznam; "calendar" = pod kalendárom (tesnejší) */
+  variant?: "page" | "calendar";
+
+  /** Skryť hlavičku dátumu v každej karte, keď zobrazujeme 1 deň (duplicitné s titulkom nad tab.) */
+  suppressItemHeaderIfSingleDay?: boolean;
 };
 
 export default function ActivityTable({
@@ -46,20 +56,22 @@ export default function ActivityTable({
   sport = "all",
   allowedSports = null,
   titleOverride,
+  variant = "page",
+  suppressItemHeaderIfSingleDay = false,
 }: Props) {
   const { selectByRange, rows: allRows } = useActivityData();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const singleDay = !!start && !!end && start === end;
+  const singleDay = start && end && start === end;
 
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
     if (start && end) {
-      return start === end ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
+      return singleDay ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
     }
     return "História (vyber rozsah)";
-  }, [start, end, titleOverride]);
+  }, [start, end, titleOverride, singleDay]);
 
   const sportList = useMemo(() => normSportsList(sport), [sport]);
 
@@ -82,9 +94,21 @@ export default function ActivityTable({
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
+  // layout triedy – jemne iné odsadenia pre kalendár
+  const wrapperCls = [
+    CARD,
+    "space-y-4",
+    variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5",
+  ].join(" ");
+
+  const headerCls = [
+    "flex justify-between items-center",
+    variant === "calendar" ? "mb-1" : "mb-2",
+  ].join(" ");
+
   return (
-    <div className={[CARD, "space-y-5"].join(" ")}>
-      <div className="flex justify-between items-center">
+    <div className={wrapperCls}>
+      <div className={headerCls}>
         <h2 className="text-lg font-bold">{headerTitle}</h2>
       </div>
 
@@ -95,29 +119,33 @@ export default function ActivityTable({
       )}
 
       {!loading && rows.length > 0 && (
-        <ul className="space-y-3">
+        <ul className="space-y-3 pb-1">
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
             const dateStr = prettySkDate(iso);
             const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
-            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
+            const dist =
+              r.distance_m != null
+                ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
+                : null;
 
-            // meta riadok chceme len v multi-day pohľade (v single-day už tieto info často duplikujú)
-            const metaCollapsed = singleDay
-              ? []
-              : [
-                  dur ? `Time ${dur}` : null,
-                  dist ? `Distance ${dist}` : null,
-                  r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
-                  r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
-                ];
+            // meta späť (Time, Distance, HR…)
+            const metaCollapsed = [
+              dur ? `Time ${dur}` : null,
+              dist ? `Distance ${dist}` : null,
+              r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
+              r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
+            ];
+
+            // Ak sme pod kalendárom a je to 1 deň, skryj „headerLeft“ (duplicitný dátum v každej karte)
+            const headerLeft = suppressItemHeaderIfSingleDay && singleDay ? " " : dateStr;
 
             return (
-              <li key={r.activity_id}>
+              <li key={r.activity_id} className="px-0">
                 <CommonActivityCard
                   id={`act-${r.activity_id}`}
-                  headerLeft={dateStr}
+                  headerLeft={headerLeft}
                   sportKind={eff}
                   title={r.name || "Activity"}
                   subtitle={null}
@@ -125,17 +153,11 @@ export default function ActivityTable({
                   defaultOpen={false}
                   hideSubtitleWhenOpen
                   hideMetaWhenOpen
-                  flushDetail             // detail lícuje s hranami karty
                 >
-                  {/* vnútro detailu má padding z bokov + spodku, KPI vypneme pri single-day */}
-                  <ActivityDetail
-                    activityId={r.activity_id}
-                    inline
-                    compact={false}
-                    showHeader={false}
-                    showKpis={!singleDay}
-                    padInner
-                  />
+                  {/* detail NEMENÍM – iba jemné odsadenie bok/spodok v rámci panelu */}
+                  <div className={[SUBCARD, "mt-1 px-3 md:px-4 pb-3"].join(" ")}>
+                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
+                  </div>
                 </CommonActivityCard>
               </li>
             );

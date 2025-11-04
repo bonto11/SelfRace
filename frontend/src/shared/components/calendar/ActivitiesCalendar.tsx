@@ -200,10 +200,15 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
-      {/* DETAIL – ActivityTable si nesie padding sám */}
+      {/* DETAIL pod kalendárom – nechá titulok pekne odsadený a karty od strán */}
       {selectedIso && (
-        <div className="mt-3">
-          <ActivityTable start={selectedIso} end={selectedIso} />
+        <div className="mt-3 ml-1">
+          <ActivityTable
+            start={selectedIso}
+            end={selectedIso}
+            variant="calendar"            // ➜ layout & odsadenia pre kalendár
+            suppressItemHeaderIfSingleDay // ➜ neskryje meta, ale skryje duplicitný dátum v každej karte
+          />
         </div>
       )}
     </div>
