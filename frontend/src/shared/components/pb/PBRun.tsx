@@ -21,6 +21,7 @@ import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 import ActivityDetail from "@/shared/components/ActivityDetail";
 import { FLUSH_DETAIL_PB } from "@/shared/ui/classes";
+import OverflowHunter from "@/shared/utils/OverflowHunter";
 
 /* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
@@ -293,6 +294,9 @@ export default function PBRun() {
           })}
         {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
       </ul>
+
+{/* DEBUG (dočasne) */}
+      <OverflowHunter rootSelector="#__next" paint log />
     </div>
   );
 }
