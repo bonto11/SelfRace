@@ -115,3 +115,5 @@ input::placeholder {
   .toast-enter { transform: translateX(340px); }
   .toast-exit  { transform: translateX(340px); }
 }
+
+html, body { overflow-x:hidden;}
