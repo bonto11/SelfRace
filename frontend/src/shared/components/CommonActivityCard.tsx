@@ -6,7 +6,8 @@ function SportBadge({ kind }: { kind: string }) {
   const label =
     kind === "run" ? "Run" :
     kind === "ride" ? "Ride" :
-    kind === "strength" ? "Strength" : "Mixed";
+    kind === "strength" ? "Strength" :
+    kind === "mixed" ? "Mixed" : "Other";
   return (
     <span className="text-xs px-2 py-0.5 rounded bg-gray-700">
       {label}
@@ -30,6 +31,9 @@ export type SessionCardProps = {
 
   hideSubtitleWhenOpen?: boolean;
   hideMetaWhenOpen?: boolean;
+
+  /** Po otvorení zarovná detail s hranami karty (bez bočných a spodných odsadení) */
+  flushDetail?: boolean;
 };
 
 export default function CommonActivityCard({
@@ -46,6 +50,7 @@ export default function CommonActivityCard({
   disableToggleIfNoChildren = false,
   hideSubtitleWhenOpen = true,
   hideMetaWhenOpen = true,
+  flushDetail = true,
 }: SessionCardProps) {
   const isControlled = typeof open === "boolean";
   const [internal, setInternal] = useState<boolean>(defaultOpen);
@@ -68,7 +73,6 @@ export default function CommonActivityCard({
       className={[
         "rounded-2xl shadow-lg border border-white/10",
         "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-        // väčšie jednotné vnútorné odsadenie pre text – nelepí sa hore/na okraj
         "px-5 py-4",
       ].join(" ")}
     >
@@ -89,7 +93,14 @@ export default function CommonActivityCard({
               canToggle ? "bg-white/10 hover:bg-white/20 transition-colors" : "opacity-40 cursor-not-allowed",
             ].join(" ")}
           >
-            <span className={["text-base leading-none select-none transition-transform", opened ? "rotate-180" : "rotate-0"].join(" ")}>▾</span>
+            <span
+              className={[
+                "text-base leading-none select-none transition-transform",
+                opened ? "rotate-180" : "rotate-0",
+              ].join(" ")}
+            >
+              ▾
+            </span>
           </button>
         </div>
       </div>
@@ -99,20 +110,24 @@ export default function CommonActivityCard({
         {title}
       </div>
 
-      {/* Subtitle */}
-      {(!opened || !hideSubtitleWhenOpen) && (
-        <div className={subtitle ? "text-xs opacity-80" : "text-xs opacity-40"}>
-          {subtitle || "—"}
-        </div>
-      )}
+      {/* Subtitle – ak nie je, nerenderujeme vôbec (žiadna pomlčka) */}
+      {subtitle ? (
+        (!opened || !hideSubtitleWhenOpen) && (
+          <div className="text-xs opacity-80">{subtitle}</div>
+        )
+      ) : null}
 
       {/* Meta */}
       {metaLine && (!opened || !hideMetaWhenOpen) && (
         <div className="text-xs mt-1 opacity-80">{metaLine}</div>
       )}
 
-      {/* Detail */}
-      {opened && children ? <div className="mt-4">{children}</div> : null}
+      {/* Detail – flush bočné/spodné okraje, hore len malá medzera */}
+      {opened && children ? (
+        <div className={flushDetail ? "mt-3 -mx-5 -mb-4" : "mt-3"}>
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }
