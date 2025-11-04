@@ -19,8 +19,10 @@ import { confirm } from "@/shared/components/ui/Confirm";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
-import ActivityDetail from "@/shared/components/ActivityDetail";
-import { FLUSH_DETAIL_PB, NO_X_OVERFLOW, FLEX_SHRINK_FIX } from "@/shared/ui/classes";
+
+/** Anti-overflow utily (nech to nepretečie na mobile) */
+const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
+const FLEX_SHRINK_FIX = "min-w-0";
 
 /* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
@@ -71,9 +73,6 @@ export default function PBRun() {
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // otvorený inline detail (podľa activity_id)
-  const [openDetailForActId, setOpenDetailForActId] = useState<number | null>(null);
 
   /* ---------- load ---------- */
   const refresh = async () => {
@@ -202,84 +201,61 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – swipe + inline detail toggle */}
+      {/* LIST – swipe, bez inline detailu */}
       <ul className={["space-y-2", NO_X_OVERFLOW].join(" ")}>
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
-          .map((b) => {
-            const actId = b.activity_id != null ? Number(b.activity_id) : null;
-            const isOpen = actId != null && openDetailForActId === actId;
-
-            return (
-              <SwipeRow
-                key={b.distance_m}
-                enableSwipe={isTouch}
-                onEdit={() => {
-                  setForm({
-                    distance_m: String(b.distance_m),
-                    time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                    achieved_at: isoDateOnly(b.achieved_at),
-                    activity_id: b.activity_id != null ? String(b.activity_id) : "",
-                    activity_name: (b as any).activity_name ?? "",
-                  });
-                }}
-                onDelete={() => handleDelete(b.distance_m)}
-              >
-                {/* KARTA */}
-                <div className={["flex items-start gap-3 w-full", FLEX_SHRINK_FIX, NO_X_OVERFLOW].join(" ")}>
-                  <div className={["min-w-0 flex-1", NO_X_OVERFLOW].join(" ")}>
-                    {/* horný riadok */}
-                    <div className={["flex items-center gap-2", FLEX_SHRINK_FIX].join(" ")}>
-                      <Button
-                        aria-label="Set as favorite"
-                        variant="ghost" size="sm" circle
-                        onClick={() => setFavM(b.distance_m)}
-                        className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
-                      >
-                        ★
-                      </Button>
-                      <div className="text-sm font-medium truncate">{distanceLabel(b.distance_m, "run")}</div>
-                    </div>
-
-                    {/* čas */}
-                    <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
-                      {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
-                    </div>
-
-                    {/* dátum + názov aktivity + toggle */}
-                    <div className="mt-1 text-xs opacity-75 flex items-center justify-between gap-3">
-                      <div className={["truncate", FLEX_SHRINK_FIX].join(" ")}>
-                        {isoDateOnly(b.achieved_at)}
-                        {(b as any).activity_name ? <> · {(b as any).activity_name}</> : null}
-                      </div>
-
-                      {actId != null && (
-                        <button
-                          type="button"
-                          onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
-                          className="px-2 py-1 text-xs rounded border border-white/10 bg-white/10 hover:bg-white/20"
-                          aria-expanded={isOpen}
-                        >
-                          <span className={["inline-block transition-transform", isOpen ? "rotate-180" : ""].join(" ")}>▾</span>{" "}
-                          Detail
-                        </button>
-                      )}
-                    </div>
-
-                    {/* inline DETAIL – flush bez -mx, no X-scroll zakázaný */}
-                    {isOpen && actId != null && (
-                      <div className={[FLUSH_DETAIL_PB, NO_X_OVERFLOW].join(" ")}>
-                        <div className="w-full overflow-hidden">
-                          <ActivityDetail activityId={actId} inline compact showHeader={false} />
-                        </div>
-                      </div>
-                    )}
+          .map((b) => (
+            <SwipeRow
+              key={b.distance_m}
+              enableSwipe={isTouch}
+              onEdit={() => {
+                setForm({
+                  distance_m: String(b.distance_m),
+                  time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                  achieved_at: isoDateOnly(b.achieved_at),
+                  activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                  activity_name: (b as any).activity_name ?? "",
+                });
+              }}
+              onDelete={() => handleDelete(b.distance_m)}
+            >
+              {/* KARTA */}
+              <div className={["flex items-start gap-3 w-full", FLEX_SHRINK_FIX, NO_X_OVERFLOW].join(" ")}>
+                <div className={["min-w-0 flex-1", NO_X_OVERFLOW].join(" ")}>
+                  {/* horný riadok */}
+                  <div className={["flex items-center gap-2", FLEX_SHRINK_FIX].join(" ")}>
+                    <Button
+                      aria-label="Set as favorite"
+                      variant="ghost" size="sm" circle
+                      onClick={() => setFavM(b.distance_m)}
+                      className={favM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
+                    >
+                      ★
+                    </Button>
+                    <div className="text-sm font-medium truncate">{distanceLabel(b.distance_m, "run")}</div>
                   </div>
+
+                  {/* čas */}
+                  <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
+                    {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
+                  </div>
+
+                  {/* dátum + názov aktivity (staticky) */}
+                  <div className="mt-1 text-xs opacity-75 truncate">
+                    {isoDateOnly(b.achieved_at)}
+                    {(b as any).activity_name ? <> · {(b as any).activity_name}</> : null}
+                  </div>
+
+                  {/* Inline DETAIL – odstránený/zakom. */}
+                  {/*
+                  <div className="mt-2"> … </div>
+                  */}
                 </div>
-              </SwipeRow>
-            );
-          })}
+              </div>
+            </SwipeRow>
+          ))}
         {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
       </ul>
     </div>
