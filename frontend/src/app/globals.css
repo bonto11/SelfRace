@@ -115,14 +115,3 @@ input::placeholder {
   .toast-enter { transform: translateX(340px); }
   .toast-exit  { transform: translateX(340px); }
 }
-
-/* kill badge/pozadie na čísle dňa – aj keď príde z iného UI pluginu */
-.activities-calendar .day-number,
-.activities-calendar .day-number::before,
-.activities-calendar .day-number::after {
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  outline: none !important;
-  -webkit-tap-highlight-color: transparent;
-}

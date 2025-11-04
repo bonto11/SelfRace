@@ -88,31 +88,35 @@ function SportDot({
   );
 }
 
-function DayCell({ cell, onOpen }: { cell: DayCellData; onOpen: (id: number) => void }) {
-  // iba rámik, vnútro transparent
+function DayCell({
+  cell,
+  onOpen,
+}: {
+  cell: DayCellData;
+  onOpen: (id: number) => void;
+}) {
+  // IBA RÁMIK (žiadne bg)
   const base =
-    "rounded-xl border border-white/10 bg-transparent overflow-hidden";
+    "rounded-xl border border-white/10 bg-transparent"; // <- transparent
   const muted = cell.inMonth ? "" : "opacity-40";
 
   return (
-    <div className={`px-2 py-1 ${base} ${muted} min-h-[56px]`}>
-      {/* stĺpcové usporiadanie: číslo hore, bodky pod ním */}
-      <div className="flex flex-col">
-        {/* ČÍSLO DŇA – čistý text, bez chipu, bez bg, vľavo hore */}
-        <span
-          className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none"
+    <div className={`px-2 py-1.5 ${base} ${muted}`}>
+      <div className="flex items-center justify-between">
+        {/* Číslo dňa: čistý text, posunutý doľava, bez badge */}
+        <div
+          className="text-sm font-semibold tracking-tight ml-0.5"
           style={{
-            background: "transparent",
-            borderRadius: 0,
-            boxShadow: "none",
+            background: "transparent",     // hard override ak by niekde inde prišiel bg
+            borderRadius: 0,               // zruší prípadné globálne rounded labely
           }}
         >
           {cell.day ?? ""}
-        </span>
+        </div>
 
-        {/* DOTS – pod číslom; wrapne sa keď je ich viac */}
-        <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-          {cell.items.slice(0, 8).map((it) => (
+        {/* Bodky športov napravo */}
+        <div className="flex items-center gap-1.5 pr-0.5">
+          {cell.items.slice(0, 5).map((it) => (
             <SportDot
               key={it.id}
               color={SPORT_COLORS[it.sport] ?? SPORT_COLORS.other}
@@ -120,9 +124,9 @@ function DayCell({ cell, onOpen }: { cell: DayCellData; onOpen: (id: number) => 
               onClick={() => onOpen(it.id)}
             />
           ))}
-          {cell.items.length > 8 && (
+          {cell.items.length > 5 && (
             <span className="text-[10px] opacity-70">
-              +{cell.items.length - 8}
+              +{cell.items.length - 5}
             </span>
           )}
         </div>
@@ -157,7 +161,7 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
   const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", { month: "long", year: "numeric" });
 
   return (
-    <div className="space-y-3 activities-calendar">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={prev}>
           ‹

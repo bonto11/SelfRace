@@ -18,8 +18,7 @@ const SPORT_COLORS: Record<string, string> = {
 };
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
-const iso = (y: number, m0: number, d: number) =>
-  `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+const iso = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
 
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
@@ -30,14 +29,11 @@ function startOfWeek(date = new Date()) {
 }
 
 type Props = {
-  openHref?: string; // default /calendar
+  openHref?: string;   // default /calendar
   perDayLimit?: number;
 };
 
-export default function WidgetWeekActivities({
-  openHref = "/calendar",
-  perDayLimit = 4,
-}: Props) {
+export default function WidgetWeekActivities({ openHref = "/calendar", perDayLimit = 6 }: Props) {
   const router = useRouter();
   const { selectByRange } = useActivityData();
 
@@ -45,12 +41,8 @@ export default function WidgetWeekActivities({
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(
-    monday.getFullYear(),
-    monday.getMonth(),
-    monday.getDate()
-  );
-  const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
+  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const endIso   = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const byDay = React.useMemo(() => {
     const map = new Map<string, { id: number; sport: string }[]>();
@@ -72,10 +64,7 @@ export default function WidgetWeekActivities({
   }, [selectByRange, startIso, endIso]);
 
   const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", {
-      month: "short",
-      day: "2-digit",
-    })} – ` +
+    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
     `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
 
   const handleOpen = () => router.push(openHref);
@@ -90,13 +79,11 @@ export default function WidgetWeekActivities({
     >
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
         {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
-          <div key={d} className="text-center">
-            {d}
-          </div>
+          <div key={d} className="text-center">{d}</div>
         ))}
       </div>
 
-      {/* 7 stĺpcov – bez per-cell hoveru; klik sa rieši len na celom widgete */}
+      {/* 7 stĺpcov – klik otvára kalendár */}
       <div
         className="grid grid-cols-7 gap-2 cursor-pointer"
         onClick={handleOpen}
@@ -105,7 +92,8 @@ export default function WidgetWeekActivities({
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(monday);
           d.setDate(monday.getDate() + i);
-          const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
+
+          const key   = iso(d.getFullYear(), d.getMonth(), d.getDate());
           const items = byDay.get(key) ?? [];
           const shown = items.slice(0, perDayLimit);
 
@@ -116,41 +104,31 @@ export default function WidgetWeekActivities({
               key={key}
               className={[
                 "rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20",
-                "px-2 py-2 select-none",
+                "px-2 py-1.5 select-none min-h-[64px]", // vyššie: miesto na číslo + doty
                 isToday ? "ring-2 ring-emerald-500/60" : "",
               ].join(" ")}
             >
-              {/* riadok: číslo dňa vľavo (väčšie), bodky vpravo */}
-              <div className="flex items-center">
+              {/* NOVÝ LAYOUT: stĺpec – číslo hore vľavo, doty pod ním */}
+              <div className="flex flex-col">
+                {/* Číslo dňa bez akéhokoľvek pozadia / chipu */}
                 <span
-                  className={[
-                    // väčšie číslo na mobile, mierne menšie na md+
-                    "shrink-0 grid place-items-center rounded-full",
-                    "h-8 w-8 text-base font-semibold",
-                    "md:h-7 md:w-7 md:text-sm",
-                    "bg-white/10",
-                  ].join(" ")}
+                  className="day-num text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5"
+                  style={{ background: "transparent", borderRadius: 0, boxShadow: "none" }}
                 >
                   {d.getDate()}
                 </span>
 
-                {/* miesto na bodky vpravo; keď nie sú, ostane prázdne */}
-                <div className="ml-auto flex items-center gap-1 pr-0.5 min-h-[8px]">
+                {/* Sport doty pod číslom; wrap keď je ich viac */}
+                <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
                   {shown.map((it) => (
                     <span
                       key={it.id}
-                      className="inline-block w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
-                      }}
+                      className="inline-block w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: SPORT_COLORS[it.sport] ?? SPORT_COLORS.other }}
                     />
                   ))}
-                  {/* ak chceš aj “+N” pri viacerých, pridaj: */}
                   {items.length > shown.length && (
-                    <span className="text-[10px] opacity-70">
-                      +{items.length - shown.length}
-                    </span>
+                    <span className="text-[10px] opacity-70">+{items.length - shown.length}</span>
                   )}
                 </div>
               </div>
