@@ -13,13 +13,15 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
-import ActivityDetailOverlay from "@/shared/components/ActivityDetailOverlay";
 import type { MiniActivity } from "@/shared/types/activities";
 import { toast } from "@/shared/components/ui/Toast";
 import { confirm } from "@/shared/components/ui/Confirm";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
+import ActivityDetail from "@/shared/components/ActivityDetail";
+/** ak máš definované; inak fallback nižšie */
+import { FLUSH_DETAIL_PB as FLUSH_DETAIL_PB_IMPORTED } from "@/shared/ui/classes";
 
 /* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
@@ -60,6 +62,11 @@ const ACTION_W = 160; // 2 tlačidlá po 80 px
 const SNAP_OPEN = -ACTION_W;
 const SNAP_CLOSED = 0;
 
+/** fallback pre flush detail ak by nebol importovaný */
+const FLUSH_DETAIL_PB =
+  FLUSH_DETAIL_PB_IMPORTED ??
+  "mt-2 -mx-3 rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 md:px-4 pb-3";
+
 export default function PBRun() {
   const { userId } = useUserId();
   const { favM, setFavM } = useFavoritePBRun();
@@ -70,7 +77,9 @@ export default function PBRun() {
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [detailId, setDetailId] = useState<number | null>(null);
+
+  /** ktorý záznam má rozbalený detail (podľa activity_id) */
+  const [openDetailForActId, setOpenDetailForActId] = useState<number | null>(null);
 
   /* ---------- load ---------- */
   const refresh = async () => {
@@ -213,80 +222,121 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – swipe len na touch; desktop má jemné kruhové akcie vpravo */}
+      {/* LIST – swipe + inline detail toggle */}
       <ul className="space-y-2">
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
-          .map((b) => (
-            <SwipeRow
-              key={b.distance_m}
-              enableSwipe={isTouch}
-              onEdit={() => {
-                setForm({
-                  distance_m: String(b.distance_m),
-                  time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                  achieved_at: isoDateOnly(b.achieved_at),
-                  activity_id: b.activity_id != null ? String(b.activity_id) : "",
-                  activity_name: (b as any).activity_name ?? "",
-                });
-              }}
-              onDelete={() => handleDelete(b.distance_m)}
-            >
-              <div className="flex items-start gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      aria-label="Set as favorite"
-                      variant="ghost"
-                      size="sm"
-                      circle
-                      onClick={() => setFavM(b.distance_m)}
-                      className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
-                    >
-                      ★
-                    </Button>
-                    <div className="text-sm font-medium truncate">
-                      {distanceLabel(b.distance_m, "run")}
+          .map((b) => {
+            const actId = b.activity_id != null ? Number(b.activity_id) : null;
+            const isOpen = actId != null && openDetailForActId === actId;
+
+            return (
+              <SwipeRow
+                key={b.distance_m}
+                enableSwipe={isTouch}
+                onEdit={() => {
+                  setForm({
+                    distance_m: String(b.distance_m),
+                    time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                    achieved_at: isoDateOnly(b.achieved_at),
+                    activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                    activity_name: (b as any).activity_name ?? "",
+                  });
+                }}
+                onDelete={() => handleDelete(b.distance_m)}
+              >
+                {/* KARTA */}
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    {/* horný riadok */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        aria-label="Set as favorite"
+                        variant="ghost"
+                        size="sm"
+                        circle
+                        onClick={() => setFavM(b.distance_m)}
+                        className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
+                      >
+                        ★
+                      </Button>
+                      <div className="text-sm font-medium truncate">
+                        {distanceLabel(b.distance_m, "run")}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
-                    {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
-                  </div>
+                    {/* čas */}
+                    <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
+                      {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
+                    </div>
 
-                  <div className="mt-1 text-xs opacity-75">
-                    {isoDateOnly(b.achieved_at)}
-                    {(b as any).activity_name ? (
-                      <>
-                        {" · "}
+                    {/* dátum + názov aktivity (kliknutím toggluje inline detail) */}
+                    <div className="mt-1 text-xs opacity-75 flex items-center justify-between gap-3">
+                      <div className="truncate">
+                        {isoDateOnly(b.achieved_at)}
+                        {(b as any).activity_name ? (
+                          <>
+                            {" · "}
+                            {actId != null ? (
+                              <button
+                                className="underline hover:opacity-100 opacity-90"
+                                onClick={() =>
+                                  setOpenDetailForActId(isOpen ? null : actId)
+                                }
+                                aria-expanded={isOpen}
+                              >
+                                {(b as any).activity_name}
+                              </button>
+                            ) : (
+                              <span className="opacity-70">{(b as any).activity_name}</span>
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+
+                      {actId != null && (
                         <button
-                          className="underline hover:opacity-100 opacity-90"
-                          onClick={() => {
-                            if (b.activity_id != null) setDetailId(Number(b.activity_id));
-                          }}
-                          disabled={b.activity_id == null}
+                          type="button"
+                          onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
+                          className="px-2 py-1 text-xs rounded border border-white/10 bg-white/10 hover:bg-white/20"
+                          aria-expanded={isOpen}
                         >
-                          {(b as any).activity_name}
+                          <span
+                            className={[
+                              "inline-block transition-transform",
+                              isOpen ? "rotate-180" : "",
+                            ].join(" ")}
+                          >
+                            ▾
+                          </span>{" "}
+                          Detail
                         </button>
-                      </>
-                    ) : null}
+                      )}
+                    </div>
+
+                    {/* INLINE DETAIL – licuje s hranami karty (flush) */}
+                    {isOpen && actId != null && (
+                      <div className={FLUSH_DETAIL_PB}>
+                        <ActivityDetail
+                          activityId={actId}
+                          inline
+                          compact
+                          showHeader={false}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            </SwipeRow>
-          ))}
+              </SwipeRow>
+            );
+          })}
         {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
       </ul>
-
-      {detailId != null && (
-        <ActivityDetailOverlay activityId={detailId} open={true} onClose={() => setDetailId(null)} />
-      )}
     </div>
   );
 }
 
-/* -------------------- SwipeRow -------------------- */
 /* -------------------- SwipeRow (clean actions behind card) -------------------- */
 function SwipeRow({
   children,
