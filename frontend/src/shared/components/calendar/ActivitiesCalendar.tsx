@@ -6,31 +6,21 @@ import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
+import { PANEL, PANEL_HEADER, SOFT_CELL } from "@/shared/ui/classes";
 
-// ActivityTable je u teba vo features:
-const ActivityTable = dynamic(
-  () => import("@/shared/components/ActivityTable"),
-  { ssr: false }
-);
+const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
 
-const ActivityDetailOverlay = dynamic(
-  () => import("@/shared/components/ActivityDetailOverlay"),
-  { ssr: false }
-);
-
-/* ------------------- farby športov ------------------- */
 const SPORT_COLORS: Record<string, string> = {
-  run:      (THEME as any)?.sport?.run ?? THEME.chart.run,
-  ride:     (THEME as any)?.sport?.ride ?? THEME.chart.ride,
-  swim:     (THEME as any)?.sport?.swim ?? THEME.chart.swim,
-  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
-  mixed:    (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
-  skate:    (THEME as any)?.sport?.skate ?? THEME.chart.skate,
-  walk:     (THEME as any)?.sport?.walk ?? THEME.chart.walk,
-  other:    (THEME as any)?.sport?.other ?? THEME.chart.other,
+  run:      THEME.chart.run,
+  ride:     THEME.chart.ride,
+  swim:     THEME.chart.swim,
+  strength: THEME.chart.strength,
+  mixed:    THEME.chart.mixed,
+  skate:    THEME.chart.skate,
+  walk:     THEME.chart.walk,
+  other:    THEME.chart.other,
 };
 
-/* ------------------- typy & helpers ------------------- */
 type DayCellData = {
   iso: string;
   inMonth: boolean;
@@ -48,12 +38,12 @@ function useMonthActivities(year: number, month0: number) {
   const [map, setMap] = React.useState<Record<string, DayCellData>>({});
 
   React.useEffect(() => {
-    const totalCells = 42;
+    const total = 42;
     const offset = startWeekday(year, month0);
     const firstCell = new Date(year, month0, 1 - offset);
     const grid: Record<string, DayCellData> = {};
 
-    for (let i = 0; i < totalCells; i++) {
+    for (let i = 0; i < total; i++) {
       const d = new Date(firstCell); d.setDate(firstCell.getDate() + i);
       const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
       const inMonth = d.getMonth() === month0;
@@ -79,14 +69,12 @@ function useMonthActivities(year: number, month0: number) {
   return map;
 }
 
-/* ------------------- UI prvky ------------------- */
-// Už nie je klikateľný (iba vizuál)
 function SportDot({ color, title }: { color: string; title: string }) {
   return (
     <span
-      title={title}
       className="inline-block w-1.5 h-1.5 rounded-full"
       style={{ backgroundColor: color }}
+      title={title}
       aria-label={title}
     />
   );
@@ -101,8 +89,6 @@ function DayCell({
   onSelect: (iso: string) => void;
   isSelected: boolean;
 }) {
-  // Zaoblený rámik, transparentné vnútro, žiadne badge za číslom
-  const base = "rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20 overflow-hidden";
   const muted = cell.inMonth ? "" : "opacity-40";
 
   return (
@@ -110,23 +96,22 @@ function DayCell({
       type="button"
       onClick={() => onSelect(cell.iso)}
       className={[
-        "px-2 py-2 text-left w-full focus:outline-none select-none",
-        base,
+        "w-full text-left px-2 py-1.5 select-none focus:outline-none",
+        SOFT_CELL,
         muted,
-        "min-h-[56px]",
-        isSelected ? "ring-2 ring-emerald-500/60" : "",
-        "hover:bg-white/10 dark:hover:bg-white/10 transition-colors",
+        "min-h-[60px]",
+        isSelected ? "ring-2 ring-emerald-500/60" : "hover:bg-white/50 dark:hover:bg-black/30",
       ].join(" ")}
       aria-pressed={isSelected}
     >
       <div className="flex flex-col">
-        {/* číslo dňa – bez kruhu, viac doľava */}
-        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5">
+        {/* číslo dňa – bez badge pozadia, viac doľava */}
+        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5">
           {cell.day ?? ""}
         </span>
 
-        {/* športové bodky POD číslom */}
-        <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
+        {/* bodky POD číslom */}
+        <div className="mt-2 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
           {cell.items.slice(0, 8).map((it) => (
             <SportDot
               key={it.id}
@@ -135,9 +120,7 @@ function DayCell({
             />
           ))}
           {cell.items.length > 8 && (
-            <span className="text-[10px] opacity-70">
-              +{cell.items.length - 8}
-            </span>
+            <span className="text-[10px] opacity-70">+{cell.items.length - 8}</span>
           )}
         </div>
       </div>
@@ -145,18 +128,10 @@ function DayCell({
   );
 }
 
-/* ------------------- root komponent ------------------- */
-export default function ActivitiesCalendar({
-  year: yy,
-  month: mm,
-}: {
-  year?: number;
-  month?: number;
-}) {
+export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: number; month?: number }) {
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
-  const [detailId, setDetailId] = React.useState<number | null>(null);
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
   const map = useMonthActivities(year, month0);
@@ -180,16 +155,9 @@ export default function ActivitiesCalendar({
     return out;
   }, [map, year, month0]);
 
-  const prev = () => {
+  const goto = (delta: number) => {
     const d = new Date(year, month0, 1);
-    d.setMonth(d.getMonth() - 1);
-    setYear(d.getFullYear());
-    setMonth0(d.getMonth());
-    setSelectedIso(null);
-  };
-  const next = () => {
-    const d = new Date(year, month0, 1);
-    d.setMonth(d.getMonth() + 1);
+    d.setMonth(d.getMonth() + delta);
     setYear(d.getFullYear());
     setMonth0(d.getMonth());
     setSelectedIso(null);
@@ -199,65 +167,58 @@ export default function ActivitiesCalendar({
     month: "long",
     year: "numeric",
   });
-
   const niceDate = (s: string) =>
-    new Date(s).toLocaleDateString("sk-SK", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-    });
+    new Date(s).toLocaleDateString("sk-SK", { weekday: "short", day: "2-digit", month: "short" });
 
   return (
-    <div className="space-y-3">
-      {/* hlavička s navigačnými gombíkmi v tvojom UI */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={prev}>
-          ‹
-        </Button>
-        <div className="ml-1 mr-1 text-lg font-semibold">{label}</div>
-        <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={next}>
-          ›
-        </Button>
-      </div>
+    <section className={PANEL}>
+      {/* Header – mesiac vľavo, navigácia VPRAVO a mierne nižšie */}
+      <header className={[PANEL_HEADER, "pt-4"].join(" ")}>
+        <h3 className="text-base font-semibold">Kalendár aktivít</h3>
+        <div className="flex items-center gap-2 mt-2">
+          <div className="text-sm font-medium mr-2">{label}</div>
+          <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => goto(-1)}>
+            ‹
+          </Button>
+          <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => goto(+1)}>
+            ›
+          </Button>
+        </div>
+      </header>
 
-      <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
-        {["p","u","s","š","p","s","n"].map((d) => (
-          <div key={d} className="text-center">{d}</div>
-        ))}
-      </div>
+      <div className="px-4 pb-4">
+        {/* skratky dní */}
+        <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
+          {["p","u","s","š","p","s","n"].map((d) => (
+            <div key={d} className="text-center">{d}</div>
+          ))}
+        </div>
 
-      <div className="grid grid-cols-7 gap-2">
-        {cells.map((c) => (
-          <DayCell
-            key={c.iso}
-            cell={c}
-            onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
-            isSelected={selectedIso === c.iso}
-          />
-        ))}
-      </div>
+        {/* mriežka dní */}
+        <div className="grid grid-cols-7 gap-2">
+          {cells.map((c) => (
+            <DayCell
+              key={c.iso}
+              cell={c}
+              onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
+              isSelected={selectedIso === c.iso}
+            />
+          ))}
+        </div>
 
-      {/* Panel so zoznamom aktivít pre vybraný deň – rovnaký look ako ostatné widgety */}
-      {selectedIso && (
-        <section className="rounded-2xl border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Aktivity — {niceDate(selectedIso)}</h3>
-            <Button size="sm" variant="ghost" onClick={() => setSelectedIso(null)}>
-              Zavrieť
-            </Button>
+        {/* detail dňa = tvoja ActivityTable */}
+        {selectedIso && (
+          <div className="mt-4 rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold">Aktivity — {niceDate(selectedIso)}</h4>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIso(null)}>
+                Zavrieť
+              </Button>
+            </div>
+            <ActivityTable start={selectedIso} end={selectedIso} />
           </div>
-          <ActivityTable start={selectedIso} end={selectedIso} titleOverride="" />
-        </section>
-      )}
-
-      {/* Detail aktivity – zachovávam, ale bodky ho už neotvárajú */}
-      {detailId != null && (
-        <ActivityDetailOverlay
-          activityId={detailId}
-          open={true}
-          onClose={() => setDetailId(null)}
-        />
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 }
