@@ -10,6 +10,7 @@ export default function PlanResult({ result }: { result: any }) {
 
   const plan = result?.analysis?.next_week_plan;
   const daily = extractDailyPlan(plan);
+  const weekStart = result?.analysis?._meta?.week_start as string | undefined;
 
   return (
     <div className="space-y-3">
@@ -26,7 +27,7 @@ export default function PlanResult({ result }: { result: any }) {
 
       {/* Hlavná tabuľka plánu */}
       {daily ? (
-        <PlanTable daily={daily} />
+        <PlanTable daily={daily} weekStart={weekStart}/>
       ) : plan ? (
         // fallback bloky (ak príde štruktúrované inak)
         <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
