@@ -30,7 +30,7 @@ function useIsTouch() {
     const touch =
       window.matchMedia?.("(pointer: coarse)")?.matches ||
       navigator.maxTouchPoints > 0 ||
-      ("ontouchstart" in window);
+      "ontouchstart" in window;
     setIsTouch(!!touch);
   }, []);
   return isTouch;
@@ -39,9 +39,9 @@ function useIsTouch() {
 /* ----------------------- Form state ----------------------- */
 export type PBRunFormState = {
   distance_m: string;
-  time_str: string;       // hh:mm:ss
-  achieved_at: string;    // YYYY-MM-DD
-  activity_id: string;    // "" alebo číslo v texte
+  time_str: string; // hh:mm:ss
+  achieved_at: string; // YYYY-MM-DD
+  activity_id: string; // "" alebo číslo v texte
   activity_name?: string;
 };
 
@@ -73,7 +73,9 @@ export default function PBRun() {
   const [saving, setSaving] = useState(false);
 
   // ktorý záznam má rozbalený detail (podľa activity_id)
-  const [openDetailForActId, setOpenDetailForActId] = useState<number | null>(null);
+  const [openDetailForActId, setOpenDetailForActId] = useState<number | null>(
+    null
+  );
 
   /* ---------- load ---------- */
   const refresh = async () => {
@@ -108,12 +110,17 @@ export default function PBRun() {
       const payload: any = {
         sport: "run",
         distance_m: m,
-        ...(Number.isFinite(sec) ? { time_sec: sec } : { time_str: form.time_str.trim() }),
+        ...(Number.isFinite(sec)
+          ? { time_sec: sec }
+          : { time_str: form.time_str.trim() }),
       };
 
-      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "")
+        payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined)
+        payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at)
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await saveBest(userId, payload);
       toast.success("Personal best saved");
@@ -156,7 +163,9 @@ export default function PBRun() {
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
-          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, distance_m: e.target.value }))
+          }
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
@@ -170,7 +179,10 @@ export default function PBRun() {
           placeholder="hh:mm:ss"
           value={form.time_str}
           onChange={(e) =>
-            setForm((f) => ({ ...f, time_str: maskHHMMSS((e.target as HTMLInputElement).value) }))
+            setForm((f) => ({
+              ...f,
+              time_str: maskHHMMSS((e.target as HTMLInputElement).value),
+            }))
           }
           inputMode="numeric"
           containerClassName="sm:col-span-3"
@@ -184,7 +196,9 @@ export default function PBRun() {
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
             value={form.achieved_at}
-            onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, achieved_at: e.target.value }))
+            }
             aria-label="Pick date"
           />
         </div>
@@ -195,7 +209,9 @@ export default function PBRun() {
             dateIso={form.achieved_at}
             sports={["run", "mixed"]}
             value={form.activity_id ? Number(form.activity_id) : ""}
-            onChange={(v) => setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))}
+            onChange={(v) =>
+              setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
+            }
             onPicked={(a: MiniActivity | null) =>
               setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
             }
@@ -231,9 +247,12 @@ export default function PBRun() {
                 onEdit={() => {
                   setForm({
                     distance_m: String(b.distance_m),
-                    time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                    time_str:
+                      b.time_str ??
+                      (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
                     achieved_at: isoDateOnly(b.achieved_at),
-                    activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                    activity_id:
+                      b.activity_id != null ? String(b.activity_id) : "",
                     activity_name: (b as any).activity_name ?? "",
                   });
                 }}
@@ -250,7 +269,11 @@ export default function PBRun() {
                         size="sm"
                         circle
                         onClick={() => setFavM(b.distance_m)}
-                        className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
+                        className={
+                          favoriteM === b.distance_m
+                            ? "text-yellow-400"
+                            : "text-gray-400"
+                        }
                       >
                         ★
                       </Button>
@@ -261,24 +284,37 @@ export default function PBRun() {
 
                     {/* čas */}
                     <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
-                      {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
+                      {b.best_time_s != null
+                        ? secToHHMMSS(b.best_time_s)
+                        : b.time_str ?? "—"}
                     </div>
 
                     {/* dátum + názov aktivity (staticky) + toggle */}
                     <div className="mt-1 text-xs opacity-75 flex items-center justify-between gap-3">
                       <div className="truncate">
                         {isoDateOnly(b.achieved_at)}
-                        {(b as any).activity_name ? <> · {(b as any).activity_name}</> : null}
+                        {(b as any).activity_name ? (
+                          <> · {(b as any).activity_name}</>
+                        ) : null}
                       </div>
 
                       {actId != null && (
                         <button
                           type="button"
-                          onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
+                          onClick={() =>
+                            setOpenDetailForActId(isOpen ? null : actId)
+                          }
                           className="px-2 py-1 text-xs rounded border border-white/10 bg-white/10 hover:bg-white/20"
                           aria-expanded={isOpen}
                         >
-                          <span className={["inline-block transition-transform", isOpen ? "rotate-180" : ""].join(" ")}>▾</span>{" "}
+                          <span
+                            className={[
+                              "inline-block transition-transform",
+                              isOpen ? "rotate-180" : "",
+                            ].join(" ")}
+                          >
+                            ▾
+                          </span>{" "}
                           Detail
                         </button>
                       )}
@@ -286,8 +322,20 @@ export default function PBRun() {
 
                     {/* inline DETAIL */}
                     {isOpen && actId != null && (
-                      <div className={[SUBCARD, "mt-2 px-3 md:px-4 pb-3"].join(" ")}>
-                        <ActivityDetail activityId={actId} inline compact showHeader={false} />
+                      <div
+                        className={[
+                          // licovanie s hranami nadradenej karty (CARD má px-4 py-3)
+                          "mt-2 -mx-4 -mb-1 px-4 pb-3",
+                          // jemná deliaca čiara navrchu, nech je zrejmé rozbalenie
+                          "pt-2 border-t border-white/10",
+                        ].join(" ")}
+                      >
+                        <ActivityDetail
+                          activityId={actId}
+                          inline
+                          compact
+                          showHeader={false}
+                        />
                       </div>
                     )}
                   </div>
@@ -295,7 +343,9 @@ export default function PBRun() {
               </SwipeRow>
             );
           })}
-        {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
+        {rows.length === 0 && (
+          <li className="text-sm opacity-70">No records yet.</li>
+        )}
       </ul>
     </div>
   );
@@ -322,7 +372,9 @@ function SwipeRow({
   const SNAP_CLOSED_LOCAL = 0;
 
   const snap = (x: number) =>
-    setTx(Math.abs(x) > ACTION_W_LOCAL / 2 ? SNAP_OPEN_LOCAL : SNAP_CLOSED_LOCAL);
+    setTx(
+      Math.abs(x) > ACTION_W_LOCAL / 2 ? SNAP_OPEN_LOCAL : SNAP_CLOSED_LOCAL
+    );
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (!enableSwipe) return;
@@ -374,7 +426,10 @@ function SwipeRow({
         className={[CARD, "relative z-10 px-4 py-3"].join(" ")}
         style={
           enableSwipe
-            ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }
+            ? {
+                transform: `translateX(${tx}px)`,
+                transition: "transform 160ms ease-out",
+              }
             : undefined
         }
       >
