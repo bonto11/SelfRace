@@ -116,4 +116,31 @@ input::placeholder {
   .toast-exit  { transform: translateX(340px); }
 }
 
-html, body { overflow-x:hidden;}
+
+/* === Anti-horizontal overflow hardening === */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;          /* istota */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* médiá nikdy nech nejdú mimo šírku rodiča */
+img, canvas, svg, video { max-width: 100%; height: auto; }
+
+/* bezpečný kontajner – používaj na page wrappre */
+.safe-page {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;            /* lepšie než hidden (Safari ok) */
+}
+
+/* pomoc pre flex kontajnery – dieťa sa smie zmenšiť */
+.flex-min-0 > * { min-width: 0; }
+
+/* iOS – nedovoľ horizontálny pan na swipe prvkoch mimo karty */
+.touch-pan-y {
+  touch-action: pan-y;
+}
