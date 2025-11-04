@@ -1,10 +1,10 @@
+// src/features/coach/widgets/WidgetCoachAnalyze.tsx
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
-import CoachNarrative from "@/features/coach/components/CoachNarrative";
 import PlanResult from "@/features/coach/components/PlanResult";
 import { PANEL } from "@/shared/ui/classes";
 
@@ -30,7 +30,7 @@ export default function WidgetCoachAnalyze() {
     [userId, prefs]
   );
 
-  // Auto-load z cache po mount-e
+  // auto-load z cache po mount-e
   useEffect(() => {
     if (!cacheKey || result) return;
     const cached = loadCachedResult(cacheKey);
@@ -40,30 +40,23 @@ export default function WidgetCoachAnalyze() {
     }
   }, [cacheKey, result]);
 
-  // Jedno tlačidlo: "Analyze / Load"
+  // jedno tlačidlo: najprv cache → inak AI
   const handleAnalyzeOrLoad = useCallback(async () => {
     if (!canRun || !userId || !prefs) return;
 
     setLoading(true);
     setErr(null);
-
     try {
-      // 1) Skús cache
       const ck = makeCacheKey(String(userId), prefs);
       const cached = loadCachedResult(ck);
       if (cached?.result) {
         setResult(cached.result);
         setSource("cache");
-        return; // hotovo bez AI
+        return;
       }
 
-      // 2) Zavolaj AI
       const base = toAnalyzePayloadBE(prefs);
-      const payload = {
-        ...base,
-        goal_structured: prefs,
-        bests: { run: pbRun },
-      };
+      const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
       const json = await analyzeCoach(userId, payload);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
@@ -77,19 +70,14 @@ export default function WidgetCoachAnalyze() {
     }
   }, [canRun, userId, prefs, pbRun]);
 
-  // Force re-run (ignoruje cache)
+  // ignoruj cache
   const handleForceRerun = useCallback(async () => {
     if (!canRun || !userId || !prefs) return;
     setLoading(true);
     setErr(null);
-
     try {
       const base = toAnalyzePayloadBE(prefs);
-      const payload = {
-        ...base,
-        goal_structured: prefs,
-        bests: { run: pbRun },
-      };
+      const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
       const json = await analyzeCoach(userId, payload);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
@@ -103,7 +91,6 @@ export default function WidgetCoachAnalyze() {
     }
   }, [canRun, userId, prefs, pbRun, cacheKey]);
 
-  // Clear cache
   const handleClear = useCallback(() => {
     if (cacheKey) clearCachedByKey(cacheKey);
     setResult(null);
@@ -123,64 +110,84 @@ export default function WidgetCoachAnalyze() {
 
   return (
     <div className="col-span-full space-y-3">
-      <div className="bg-gray-800 p-4 rounded flex items-center justify-between">
-        <div>
-          <div className="font-semibold">AI Analyze</div>
-          <div className="text-sm opacity-75">
-            Jedno tlačidlo: najprv skúsi cache, ak chýba → zavolá AI a uloží.
+      {/* --- PANEL: AI Analyze ovládanie --- */}
+      <section className={PANEL}>
+        <header className="px-4 py-3 flex items-center justify-between">
+          <div>
+            <div className="text-base font-semibold">AI Analyze</div>
+            <div className="text-xs opacity-75">
+              Najprv skúsi cache; ak chýba → zavolá AI a uloží.
+            </div>
           </div>
-        </div>
-        <button
-          onClick={handleAnalyzeOrLoad}
-          disabled={!canRun}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded disabled:opacity-50 flex items-center gap-2"
-        >
-          {loading && (
-            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+
+          <button
+            onClick={handleAnalyzeOrLoad}
+            disabled={!canRun}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5
+                       bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white"
+          >
+            {loading && (
+              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+            )}
+            {loading ? "Načítavam…" : "Analyze / Load"}
+          </button>
+        </header>
+
+        <div className="px-4 pb-4 space-y-2">
+          {/* toolbar chips */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-2 py-1 rounded-full bg-gray-700/60">
+              source: {source ?? "—"}
+            </span>
+            <button
+              onClick={handleForceRerun}
+              disabled={!canRun || loading}
+              className="px-2 py-1 rounded-full border border-white/10 hover:bg-gray-700/40"
+            >
+              Force re-run
+            </button>
+            <button
+              onClick={handleClear}
+              disabled={loading}
+              className="px-2 py-1 rounded-full border border-rose-400/30 text-rose-200 hover:bg-rose-600/20"
+            >
+              Clear cache
+            </button>
+
+            {diag && (
+              <div className="ml-auto flex flex-wrap gap-2">
+                <span className="px-2 py-1 rounded-full bg-gray-700/60">
+                  success: {String(diag.success)}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-gray-700/60">
+                  model: {diag.model ?? "—"}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-gray-700/60">
+                  summary: {String(diag.hasSummary)}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-gray-700/60">
+                  narrative: {String(diag.hasNarrative)}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-gray-700/60">
+                  plan: {String(diag.hasPlan)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {err && (
+            <div className="rounded-xl border border-red-600 bg-red-900/30 text-red-100 p-3">
+              <div className="font-semibold mb-0.5">AI error</div>
+              <p className="text-sm opacity-90">{err}</p>
+            </div>
           )}
-          {loading ? "Načítavam…" : "Analyze / Load"}
-        </button>
-      </div>
-
-      <div className="flex items-center gap-3 text-xs opacity-80">
-        <span>source: {source ?? "—"}</span>
-        <button
-          onClick={handleForceRerun}
-          disabled={!canRun || loading}
-          className="underline"
-        >
-          Force re-run
-        </button>
-        <button
-          onClick={handleClear}
-          disabled={loading}
-          className="underline text-red-300"
-        >
-          Clear cache
-        </button>
-      </div>
-
-      {err && (
-        <div className="bg-red-900/30 border border-red-600 text-red-200 p-3 rounded">
-          <div className="font-semibold mb-0.5">AI error</div>
-          <p className="text-sm opacity-90">{err}</p>
         </div>
-      )}
 
-      {/* Diagnostika */}
-      {diag && (
-        <div className="bg-gray-900/40 border border-gray-700 rounded p-2 text-xs opacity-80">
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <span>success: {String(diag.success)}</span>
-            <span>model: {diag.model ?? "—"}</span>
-            <span>summary: {String(diag.hasSummary)}</span>
-            <span>narrative: {String(diag.hasNarrative)}</span>
-            <span>plan: {String(diag.hasPlan)}</span>
-          </div>
-        </div>
-      )}
+        {/* spodná lišta ako v PB */}
+        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+      </section>
 
-      {/* Výstup */}
+      {/* --- PANEL: výsledok (zachovaný tvoj PB look) --- */}
       {result && (
         <section className={PANEL}>
           <header className="px-4 py-3 flex items-center justify-between">
@@ -203,6 +210,8 @@ export default function WidgetCoachAnalyze() {
           <div className="px-4 pb-4">
             <PlanResult result={result} />
           </div>
+
+          <div className="h-1.5 rounded-b-2xl bg-slate-700" />
         </section>
       )}
     </div>
