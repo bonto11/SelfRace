@@ -1,20 +1,9 @@
 // src/features/coach/components/PlanResult.tsx
 "use client";
 
-import Calendar from "./Calendar";
-import { extractDailyPlan, getItemLabel } from "@/features/coach/utils/plan";
-
-function DayItem({ it }: { it: any }) {
-  const { title, dur, intensity, notes } = getItemLabel(it);
-  return (
-    <li className="text-sm">
-      <b>{title}</b>
-      {dur ? <> — {dur} min</> : null}
-      {intensity ? <> ({intensity})</> : null}
-      {notes ? <> — <span className="opacity-80">{notes}</span></> : null}
-    </li>
-  );
-}
+import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
+import PlanTable from "@/features/coach/components/PlanTable";
+import { extractDailyPlan } from "@/features/coach/utils/plan";
 
 export default function PlanResult({ result }: { result: any }) {
   if (!result) return null;
@@ -23,85 +12,30 @@ export default function PlanResult({ result }: { result: any }) {
   const daily = extractDailyPlan(plan);
 
   return (
-    <div className="mt-4 bg-gray-800 p-4 rounded space-y-4">
-      <p className="opacity-80 text-sm">
-        model: {result?.model}
-        {result?.analysis?._meta?.plan_source === "fallback_min" && (
-          <span className="ml-2 inline-block text-xs bg-amber-600/30 border border-amber-600 text-amber-200 px-2 py-0.5 rounded">
-            fallback plan
-          </span>
-        )}
-        {result?.analysis?._meta?.coerced && (
-          <span className="ml-2 inline-block text-xs bg-blue-600/30 border border-blue-600 text-blue-200 px-2 py-0.5 rounded">
-            coerced
-          </span>
-        )}
-      </p>
+    <div className="space-y-3">
+      {/* Coach view v tvojom UI */}
+      <CoachViewPanel narrative={result?.narrative} />
 
+      {/* Summary box (ponechaný ako doteraz, ale môžeš ho tiež obaliť do CARD ak chceš) */}
       {result?.analysis?.summary && (
-        <>
-          <h3 className="font-semibold">Summary</h3>
+        <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
+          <h3 className="font-semibold mb-1">Summary</h3>
           <p>{result.analysis.summary}</p>
-        </>
+        </div>
       )}
 
+      {/* Hlavná tabuľka plánu */}
       {daily ? (
-        <Calendar daily={daily} />
+        <PlanTable daily={daily} />
       ) : plan ? (
-        <>
-          <h3 className="font-semibold">Next week</h3>
-          <div className="grid md:grid-cols-2 gap-3">
-            {/* Run */}
-            {plan.run && (
-              <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
-                <h4 className="font-semibold mb-1">Run</h4>
-                <p className="text-sm opacity-80">
-                  weekly_km_target: {plan.run.weekly_km_target ?? "—"}
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {(plan.run.sessions ?? []).map((s: any, i: number) => (
-                    <DayItem key={i} it={s} />
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Ride */}
-            {plan.ride && (
-              <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
-                <h4 className="font-semibold mb-1">Ride</h4>
-                <p className="text-sm opacity-80">
-                  weekly_time_target: {plan.ride.weekly_time_target_min ?? "—"} min
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {(plan.ride.sessions ?? []).map((s: any, i: number) => (
-                    <DayItem key={i} it={s} />
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Strength */}
-            {plan.strength && (
-              <div className="bg-gray-900/40 border border-gray-700 rounded p-3 md:col-span-2">
-                <h4 className="font-semibold mb-1">Strength</h4>
-                <ul className="list-disc pl-5 space-y-1">
-                  {(plan.strength.sessions ?? []).map((s: any, i: number) => (
-                    <DayItem key={i} it={s} />
-                  ))}
-                </ul>
-                {Array.isArray(plan.rest_days) && (
-                  <p className="mt-2 text-sm opacity-80">
-                    <b>Rest days:</b> {plan.rest_days.join(", ")}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      ) : null}
-
-      {!daily && !plan && (
+        // fallback bloky (ak príde štruktúrované inak)
+        <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
+          <h3 className="font-semibold mb-1">Next week</h3>
+          <pre className="text-xs bg-black/40 p-2 rounded overflow-auto">
+            {JSON.stringify(plan, null, 2)}
+          </pre>
+        </div>
+      ) : (
         <details>
           <summary className="cursor-pointer">Raw output</summary>
           <pre className="text-xs bg-black/40 p-2 rounded overflow-auto">
