@@ -24,7 +24,6 @@ import { inputClass } from "@/shared/ui";
 const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
 const FLEX_SHRINK_FIX = "min-w-0";
 
-/* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
@@ -142,7 +141,7 @@ export default function PBRun() {
 
   /* ----------------------- UI ------------------------------ */
   return (
-    <div className={["space-y-4", NO_X_OVERFLOW].join(" ")}>
+    <div className={["safe-page space-y-4", NO_X_OVERFLOW].join(" ")}>
       <div className="text-xs opacity-80">
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
@@ -202,7 +201,7 @@ export default function PBRun() {
       </div>
 
       {/* LIST – swipe, bez inline detailu */}
-      <ul className={["space-y-2", NO_X_OVERFLOW].join(" ")}>
+      <ul className={["safe-page space-y-2", NO_X_OVERFLOW].join(" ")}>
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
@@ -230,7 +229,7 @@ export default function PBRun() {
                       aria-label="Set as favorite"
                       variant="ghost" size="sm" circle
                       onClick={() => setFavM(b.distance_m)}
-                      className={favM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
+                      className={favoriteM === b.distance_m ? "text-yellow-400" : "text-gray-400"}
                     >
                       ★
                     </Button>
@@ -247,11 +246,6 @@ export default function PBRun() {
                     {isoDateOnly(b.achieved_at)}
                     {(b as any).activity_name ? <> · {(b as any).activity_name}</> : null}
                   </div>
-
-                  {/* Inline DETAIL – odstránený/zakom. */}
-                  {/*
-                  <div className="mt-2"> … </div>
-                  */}
                 </div>
               </div>
             </SwipeRow>
@@ -290,10 +284,12 @@ function SwipeRow({
   const onTouchEnd   = () => { if (!enableSwipe) return; snap(tx); startX.current = null; };
 
   return (
-    <li className={["relative w-full overflow-hidden", NO_X_OVERFLOW].join(" ")}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      {/* Akcie za kartou */}
-      <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
+    <li
+      className={["relative w-full overflow-hidden safe-page touch-pan-y", NO_X_OVERFLOW].join(" ")}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+    >
+      {/* Akcie ZA kartou – pevná šírka, nech Safari nepočítava ghost px */}
+      <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2 w-[168px] justify-end">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
                      bg-amber-500/60 hover:bg-amber-500/80 text-white
@@ -310,7 +306,8 @@ function SwipeRow({
 
       {/* POSÚVANÁ KARTA – nikdy širšia než rodič */}
       <div
-        className="relative z-10 w-full box-border px-3 py-2 rounded-2xl shadow-lg border border-white/10
+        className="relative z-10 w-full max-w-full box-border
+                   px-3 py-2 rounded-2xl shadow-lg border border-white/10
                    bg-white dark:bg-[#0b0f1a] overflow-hidden"
         style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
       >
