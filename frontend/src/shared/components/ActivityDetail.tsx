@@ -1,4 +1,3 @@
-// src/shared/components/ActivityDetail.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -10,11 +9,11 @@ import { API_URL } from "@/shared/config";
 
 type Props = {
   activityId: number;
-  /** „vložené“ renderovanie v karte – bez duplicitných nadpisov a kľúčových faktov */
+  /** vložené v karte – bez duplicitných nadpisov; zobrazíme vlastný „big facts“ rad */
   inline?: boolean;
-  /** ešte úspornejšie (napr. iba graf + laps/splits), skrýva aj tlačidlo „Zväčšiť“ */
+  /** kompaktnejšie: menší graf, bez tlačidla Zväčšiť */
   compact?: boolean;
-  /** zobrazovať horný <h3> titul (ignoruje sa pri inline=true) */
+  /** horný <h3> názov (ignoruje sa pri inline=true) */
   showHeader?: boolean;
 };
 
@@ -56,9 +55,7 @@ export default function ActivityDetail({
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [activityId, getStreams, getDetail]);
 
   if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
@@ -69,92 +66,48 @@ export default function ActivityDetail({
   const dateText = useMemo(() => {
     try {
       return new Date(summary.date).toLocaleString(THEME.i18n.dateLocale, {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
       });
-    } catch {
-      return summary.date;
-    }
+    } catch { return summary.date; }
   }, [summary.date]);
 
-  // Flagy pre render – pri inline/compact neukazujeme duplicitné fakty, nech ich nerenderujeme 2× (karta + detail)
-  const showTopHeader = showHeader && !inline;        // názov aktivity hore
-  const showKeyFacts = !inline && !compact;           // dátum, time, distance, HRs
+  // Render flagy
+  const showTopHeader = showHeader && !inline;
+  const showKeyFactsBlock = !inline && !compact;     // klasické odrážky len v plnom móde
   const showEnlargeBtn = !compact && !!streams.time_s.length;
 
-  /* ---------------- DEBUG helper (nezasahuje do stavu) ---------------- */
-  async function debugFetchDB() {
-    try {
-      const [sumR, strR, detR] = await Promise.all([
-        fetch(`${API_URL}/activities/one/summary/${activityId}`, { cache: "no-store" }),
-        fetch(`${API_URL}/activities/one/streams/${activityId}?kinds=hr`, { cache: "no-store" }),
-        fetch(`${API_URL}/activities/one/detail/${activityId}`, { cache: "no-store" }),
-      ]);
-      const sumJ: any = await sumR.json().catch(() => ({}));
-      const strJ: any = await strR.json().catch(() => ({}));
-      const detJ: any = await detR.json().catch(() => ({}));
-
-      const sum = sumJ?.data ?? sumJ;
-      const streams = strJ?.data ?? strJ;
-      const detail = detJ?.data ?? detJ;
-
-      console.log("[PB/DEBUG] DB summary:", sum);
-      console.log("[PB/DEBUG] DB streams:", streams);
-      console.log("[PB/DEBUG] DB detail:", detail);
-
-      const countHr = Array.isArray(streams?.time_s) ? streams.time_s.length : 0;
-      const lapsN = Array.isArray(detail?.laps) ? detail.laps.length : 0;
-      const splitsN = Array.isArray(detail?.splits) ? detail.splits.length : 0;
-
-      alert(
-        [
-          `DB summary: ${sum && sum.id ? "OK" : "N/A"}`,
-          `DB HR points: ${countHr}`,
-          `DB laps: ${lapsN}, splits: ${splitsN}`,
-        ].join("\n")
-      );
-    } catch (e: any) {
-      console.error("[PB/DEBUG] DB fetch error:", e);
-      alert(`DB fetch error: ${e?.message ?? e}`);
-    }
-  }
-  /* -------------------------------------------------------------------- */
-
   return (
-    <div className={inline || compact ? "space-y-2" : "space-y-3"}>
-      {/* Header – skryjeme v inline/compact, aby sa netriasli s titulom karty */}
+    <div className={inline || compact ? "space-y-3 pt-1" : "space-y-4"}>
+      {/* Header – iba mimo inline */}
       {showTopHeader && (
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">{summary.name}</h3>
         </div>
       )}
 
-      {/* Kľúčové fakty – len v plnom režime (nie inline/compact) */}
-      {showKeyFacts && (
-        <>
-          <p>
-            <strong>Date:</strong> {dateText}
-          </p>
-          <p>
-            <strong>Distance:</strong> {distTxt}
-          </p>
-          <p>
-            <strong>Time:</strong> {timeTxt}
-          </p>
-          <p>
-            <strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}
-          </p>
-          <p>
-            <strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}
-          </p>
-        </>
+      {/* BIG FACTS – len v inline (veľšie hodnoty, bez duplicitných textov) */}
+      {inline && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <FactBox label="Time" value={timeTxt} />
+          <FactBox label="Distance" value={distTxt} />
+          <FactBox label="Avg HR" value={summary.average_heartrate_bpm ?? "—"} />
+          <FactBox label="Max HR" value={summary.max_heartrate_bpm ?? "—"} />
+        </div>
       )}
 
-      {/* HR priebeh – tlačidlo „Zväčšiť“ skryté v compact, marginy jemnejšie v inline */}
-      <div className={inline || compact ? "mt-0" : "mt-1"}>
+      {/* Klasické fakty – len mimo inline/compact */}
+      {showKeyFactsBlock && (
+        <div className="space-y-1">
+          <p><strong>Date:</strong> {dateText}</p>
+          <p><strong>Distance:</strong> {distTxt}</p>
+          <p><strong>Time:</strong> {timeTxt}</p>
+          <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
+          <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
+        </div>
+      )}
+
+      {/* HR priebeh */}
+      <div>
         <div className="flex items-center justify-between mb-1">
           <h4 className="font-bold">HR priebeh</h4>
           {showEnlargeBtn && (
@@ -166,9 +119,8 @@ export default function ActivityDetail({
             </button>
           )}
         </div>
-
         {streams.time_s.length ? (
-          <div className={inline || compact ? "mb-2" : "-mx-3 -mt-1 mb-2"}>
+          <div className="mb-2">
             <HrChart
               xs={streams.time_s}
               ys={streams.hr}
@@ -218,26 +170,27 @@ export default function ActivityDetail({
   );
 }
 
+/* --- pomocné komponenty --- */
+function FactBox({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
+      <div className="text-[11px] uppercase tracking-wide opacity-70">{label}</div>
+      <div className="text-lg font-semibold leading-tight">{String(value)}</div>
+    </div>
+  );
+}
+
 /* --------------- Fullscreen overlay komponent --------------- */
 function FullHrOverlay({
-  xs,
-  ys,
-  onClose,
-}: {
-  xs: number[];
-  ys: (number | null)[];
-  onClose: () => void;
-}) {
+  xs, ys, onClose,
+}: { xs: number[]; ys: (number | null)[]; onClose: () => void }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, []);
 
-  const isMobile =
-    typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-hidden">
@@ -245,10 +198,7 @@ function FullHrOverlay({
         <div className="bg-gray-800 rounded-lg w-full h-full shadow-lg flex flex-col">
           <div className="flex items-center justify-between p-3">
             <h3 className="text-base md:text-lg font-semibold">HR priebeh (detail)</h3>
-            <button
-              onClick={onClose}
-              className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600"
-            >
+            <button onClick={onClose} className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">
               Zavrieť
             </button>
           </div>

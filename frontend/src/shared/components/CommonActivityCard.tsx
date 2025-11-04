@@ -1,6 +1,6 @@
 "use client";
+
 import { useState } from "react";
-import { SURFACE_CARD, SURFACE_INSET } from "@/shared/ui/classes";
 
 /** Jednoduchý badge pre šport – rovnaký look ako v PlanCards */
 function SportBadge({ kind }: { kind: string }) {
@@ -16,9 +16,11 @@ export type SessionCardProps = {
   headerLeft: React.ReactNode;
   sportKind?: "run" | "ride" | "strength" | "mixed" | "other" | string;
   title: React.ReactNode;
+  /** Ak je `undefined` → ukáž „—“. Ak je **null** → neukazuj vôbec nič. */
   subtitle?: string | null;
   meta?: (string | null | undefined)[];
   children?: React.ReactNode;
+
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   defaultOpen?: boolean;
@@ -43,6 +45,7 @@ export default function CommonActivityCard({
   const opened = isControlled ? (open as boolean) : internal;
 
   const canToggle = !disableToggleIfNoChildren || !!children;
+
   const toggle = () => {
     if (!canToggle) return;
     const next = !opened;
@@ -53,7 +56,14 @@ export default function CommonActivityCard({
   const metaLine = (meta ?? []).filter(Boolean).join(" · ");
 
   return (
-    <section id={id} className={[SURFACE_CARD, "px-4 py-3"].join(" ")}>
+    <section
+      id={id}
+      className={[
+        "rounded-2xl shadow-lg border border-white/10",
+        "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
+        "px-4 py-3",
+      ].join(" ")}
+    >
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
@@ -68,32 +78,23 @@ export default function CommonActivityCard({
             title={opened ? "Skryť detail" : "Otvoriť detail"}
             className={[
               "h-8 w-8 grid place-items-center rounded-full border border-white/10",
-              canToggle
-                ? "bg-white/10 hover:bg-white/20 transition-colors"
-                : "opacity-40 cursor-not-allowed",
+              canToggle ? "bg-white/10 hover:bg-white/20 transition-colors" : "opacity-40 cursor-not-allowed",
             ].join(" ")}
           >
-            <span
-              className={[
-                "text-base leading-none select-none transition-transform",
-                opened ? "rotate-180" : "rotate-0",
-              ].join(" ")}
-            >
-              ▾
-            </span>
+            <span className={["text-base leading-none select-none transition-transform", opened ? "rotate-180" : "rotate-0"].join(" ")}>▾</span>
           </button>
         </div>
       </div>
 
       {/* Title */}
-      <div className="mt-0.5 text-base font-semibold tracking-tight truncate">
-        {title}
-      </div>
+      <div className="mt-0.5 text-base font-semibold tracking-tight truncate">{title}</div>
 
-      {/* Subtitle */}
-      <div className={subtitle ? "text-xs opacity-80" : "text-xs opacity-40"}>
-        {subtitle || "—"}
-      </div>
+      {/* Subtitle – null = vôbec nerenederuj (žiadne „—“), undefined = placeholder */}
+      {subtitle === null ? null : (
+        <div className={subtitle ? "text-xs opacity-80" : "text-xs opacity-40"}>
+          {subtitle || "—"}
+        </div>
+      )}
 
       {/* Meta */}
       {metaLine && <div className="text-xs mt-1 opacity-80">{metaLine}</div>}

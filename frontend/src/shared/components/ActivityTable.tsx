@@ -23,20 +23,13 @@ function normSportsList(
   }
   const raw = String(sel).trim().toLowerCase();
   if (!raw || raw === "all") return null;
-  const arr = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
   return arr.length ? Array.from(new Set(arr)) : null;
 }
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
@@ -47,7 +40,6 @@ type Props = {
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-  withHeader?: boolean; // default true
 };
 
 export default function ActivityTable({
@@ -56,7 +48,6 @@ export default function ActivityTable({
   sport = "all",
   allowedSports = null,
   titleOverride,
-  withHeader = true,
 }: Props) {
   const { selectByRange, rows: allRows } = useActivityData();
   const [rows, setRows] = useState<ActivityRow[]>([]);
@@ -65,9 +56,7 @@ export default function ActivityTable({
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
     if (start && end) {
-      return start === end
-        ? `Aktivity — ${prettySkDate(start)}`
-        : `Týždeň ${start} → ${end}`;
+      return start === end ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
     }
     return "História (vyber rozsah)";
   }, [start, end, titleOverride]);
@@ -95,65 +84,50 @@ export default function ActivityTable({
     setLoading(false);
 
     console.debug("[ACT][table->cards] filter", {
-      start, end, sport, sportList,
-      allowedSports, allRows: allRows.length,
-      final: finalRows.length,
+      start, end, sport, allRows: allRows.length, final: finalRows.length,
     });
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={`${CARD} space-y-4 px-3 pt-3`}>
-      {withHeader && (
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-bold"> {headerTitle} </h2>
-        </div>
-      )}
+    <div className={`${CARD} space-y-4`}>
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold">{headerTitle}</h2>
+      </div>
 
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">
-          Žiadne aktivity v zadanom období.
-        </div>
+        <div className="opacity-70 py-4 text-sm">Žiadne aktivity v zadanom období.</div>
       )}
 
       {!loading && rows.length > 0 && (
-        <ul className="mt-1 space-y-3">
+        <ul className="space-y-3">
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
             const dateStr = prettySkDate(iso);
-            const dur =
-              r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
-            const dist =
-              r.distance_m != null
-                ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
-                : null;
+            const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
+            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
             return (
-              <li key={r.activity_id}>
+              <li key={r.activity_id} className="px-0">
                 <CommonActivityCard
                   id={`act-${r.activity_id}`}
                   headerLeft={dateStr}
                   sportKind={eff}
                   title={r.name || "Activity"}
-                  subtitle={null}
+                  subtitle={null}                 // null = vôbec nič nerenderuj (žiadna „—“)
                   meta={[
                     dur ? `Time ${dur}` : null,
                     dist ? `Distance ${dist}` : null,
-                    r.average_heartrate_bpm != null
-                      ? `Avg HR ${r.average_heartrate_bpm}`
-                      : null,
-                    r.max_heartrate_bpm != null
-                      ? `Max HR ${r.max_heartrate_bpm}`
-                      : null,
+                    r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
+                    r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
                   ]}
                   defaultOpen={false}
                 >
-                  {/* FULL-WIDTH detail bez duplicitného headeru */}
+                  {/* Detail bez extra card vrstvy, nech je zarovnaný so šírkou karty */}
                   <div className="mt-2">
-                    {/* Ak ActivityDetail podporí „inline/compact“, použijeme; inak sa iba ignoruje */}
-                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
+                    <ActivityDetail activityId={r.activity_id} inline compact={false} showHeader={false} />
                   </div>
                 </CommonActivityCard>
               </li>
