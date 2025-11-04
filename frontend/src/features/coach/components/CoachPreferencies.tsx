@@ -1,4 +1,4 @@
-//src/features/coach/components/PrefsForm
+//src/features/coach/components/CoachPreferencies
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
