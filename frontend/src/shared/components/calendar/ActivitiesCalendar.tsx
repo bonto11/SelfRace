@@ -5,7 +5,12 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
-import Button from "@/shared/components/ui/Button";  // ← tvoje tlačidlo
+import Button from "@/shared/components/ui/Button";
+
+const ActivityTable = dynamic(
+  () => import("@/shared/components/ActivityTable"),
+  { ssr: false }
+);
 
 const ActivityDetailOverlay = dynamic(
   () => import("@/shared/components/ActivityDetailOverlay"),
@@ -13,14 +18,14 @@ const ActivityDetailOverlay = dynamic(
 );
 
 const SPORT_COLORS: Record<string, string> = {
-  run:      (THEME as any)?.sport?.run ?? THEME.chart.run,
-  ride:     (THEME as any)?.sport?.ride ?? THEME.chart.ride,
-  swim:     (THEME as any)?.sport?.swim ?? THEME.chart.swim,
-  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
-  mixed:    (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
-  skate:    (THEME as any)?.sport?.skate ?? THEME.chart.skate,
-  walk:     (THEME as any)?.sport?.walk ?? THEME.chart.walk,
-  other:    (THEME as any)?.sport?.other ?? THEME.chart.other,
+  run:      THEME.chart.run,
+  ride:     THEME.chart.ride,
+  swim:     THEME.chart.swim,
+  strength: THEME.chart.strength,
+  mixed:    THEME.chart.mixed,
+  skate:    THEME.chart.skate,
+  walk:     THEME.chart.walk,
+  other:    THEME.chart.other,
 };
 
 type DayCellData = {
@@ -53,13 +58,17 @@ function useMonthActivities(year: number, month0: number) {
     }
 
     const firstIso = iso(year, month0, 1);
-    const lastIso = iso(year, month0, daysInMonth(year, month0));
+    const lastIso  = iso(year, month0, daysInMonth(year, month0));
     for (const r of rows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.items.push({ id: r.activity_id, sport: r.sport_type_fe || "other", name: r.name || "" });
+      cell.items.push({
+        id: r.activity_id,
+        sport: (r as any).sport || (r as any).sport_type_fe || "other",
+        name: r.name || "",
+      });
     }
     setMap(grid);
   }, [rows, year, month0]);
@@ -74,7 +83,7 @@ function SportDot({
 }: {
   color: string;
   title: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; // FIX: handler prijíma event
 }) {
   return (
     <button
@@ -91,55 +100,75 @@ function SportDot({
 function DayCell({
   cell,
   onOpen,
+  onSelect,
+  isSelected,
 }: {
   cell: DayCellData;
   onOpen: (id: number) => void;
+  onSelect: (iso: string) => void;
+  isSelected: boolean;
 }) {
-  // IBA RÁMIK (žiadne bg)
-  const base =
-    "rounded-xl border border-white/10 bg-transparent"; // <- transparent
+  // len rámik; číslo bez kruhu; bodky pod číslom
+  const base = "rounded-xl border border-white/10 bg-transparent overflow-hidden";
   const muted = cell.inMonth ? "" : "opacity-40";
 
   return (
-    <div className={`px-2 py-1.5 ${base} ${muted}`}>
-      <div className="flex items-center justify-between">
-        {/* Číslo dňa: čistý text, posunutý doľava, bez badge */}
-        <div
-          className="text-sm font-semibold tracking-tight ml-0.5"
-          style={{
-            background: "transparent",     // hard override ak by niekde inde prišiel bg
-            borderRadius: 0,               // zruší prípadné globálne rounded labely
-          }}
+    <button
+      type="button"
+      onClick={() => onSelect(cell.iso)}
+      className={[
+        "px-2 py-1 text-left w-full focus:outline-none",
+        base,
+        muted,
+        "min-h-[56px]",
+        isSelected ? "ring-2 ring-emerald-500/60" : "",
+        "hover:bg-white/5 dark:hover:bg-white/5",
+      ].join(" ")}
+      aria-pressed={isSelected}
+    >
+      <div className="flex flex-col">
+        <span
+          className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none"
+          style={{ background: "transparent", borderRadius: 0, boxShadow: "none" }}
         >
           {cell.day ?? ""}
-        </div>
+        </span>
 
-        {/* Bodky športov napravo */}
-        <div className="flex items-center gap-1.5 pr-0.5">
-          {cell.items.slice(0, 5).map((it) => (
+        <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
+          {cell.items.slice(0, 8).map((it) => (
             <SportDot
               key={it.id}
               color={SPORT_COLORS[it.sport] ?? SPORT_COLORS.other}
               title={it.name || it.sport}
-              onClick={() => onOpen(it.id)}
+              onClick={(e) => {
+                e.stopPropagation();         // nech neprepne výber dňa
+                onOpen(it.id);
+              }}
             />
           ))}
-          {cell.items.length > 5 && (
+          {cell.items.length > 8 && (
             <span className="text-[10px] opacity-70">
-              +{cell.items.length - 5}
+              +{cell.items.length - 8}
             </span>
           )}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
-export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: number; month?: number }) {
+export default function ActivitiesCalendar({
+  year: yy,
+  month: mm,
+}: {
+  year?: number;
+  month?: number;
+}) {
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [detailId, setDetailId] = React.useState<number | null>(null);
+  const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
   const map = useMonthActivities(year, month0);
 
@@ -150,15 +179,44 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
     for (let i = 0; i < 42; i++) {
       const d = new Date(firstCell); d.setDate(firstCell.getDate() + i);
       const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
-      out.push(map[k] ?? { iso: k, inMonth: d.getMonth() === month0, day: d.getMonth() === month0 ? d.getDate() : null, items: [] });
+      out.push(
+        map[k] ?? {
+          iso: k,
+          inMonth: d.getMonth() === month0,
+          day: d.getMonth() === month0 ? d.getDate() : null,
+          items: [],
+        }
+      );
     }
     return out;
   }, [map, year, month0]);
 
-  const prev = () => { const d = new Date(year, month0, 1); d.setMonth(d.getMonth() - 1); setYear(d.getFullYear()); setMonth0(d.getMonth()); };
-  const next = () => { const d = new Date(year, month0, 1); d.setMonth(d.getMonth() + 1); setYear(d.getFullYear()); setMonth0(d.getMonth()); };
+  const prev = () => {
+    const d = new Date(year, month0, 1);
+    d.setMonth(d.getMonth() - 1);
+    setYear(d.getFullYear());
+    setMonth0(d.getMonth());
+    setSelectedIso(null);
+  };
+  const next = () => {
+    const d = new Date(year, month0, 1);
+    d.setMonth(d.getMonth() + 1);
+    setYear(d.getFullYear());
+    setMonth0(d.getMonth());
+    setSelectedIso(null);
+  };
 
-  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", { month: "long", year: "numeric" });
+  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const niceDate = (s: string) =>
+    new Date(s).toLocaleDateString("sk-SK", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    });
 
   return (
     <div className="space-y-3">
@@ -173,17 +231,42 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
       </div>
 
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
-        {["p","u","s","š","p","s","n"].map((d) => <div key={d} className="text-center">{d}</div>)}
+        {["p","u","s","š","p","s","n"].map((d) => (
+          <div key={d} className="text-center">{d}</div>
+        ))}
       </div>
 
       <div className="grid grid-cols-7 gap-2">
         {cells.map((c) => (
-          <DayCell key={c.iso} cell={c} onOpen={(id) => setDetailId(id)} />
+          <DayCell
+            key={c.iso}
+            cell={c}
+            onOpen={(id) => setDetailId(id)}
+            onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
+            isSelected={selectedIso === c.iso}
+          />
         ))}
       </div>
 
+      {selectedIso && (
+        <div className="rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold">Aktivity — {niceDate(selectedIso)}</h3>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIso(null)}>
+              Zavrieť
+            </Button>
+          </div>
+          {/* ActivityTable – presne tvoj komponent; obmedzíme na jeden deň */}
+          <ActivityTable start={selectedIso} end={selectedIso} />
+        </div>
+      )}
+
       {detailId != null && (
-        <ActivityDetailOverlay activityId={detailId} open={true} onClose={() => setDetailId(null)} />
+        <ActivityDetailOverlay
+          activityId={detailId}
+          open={true}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </div>
   );
