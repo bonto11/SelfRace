@@ -1,10 +1,15 @@
-// src/features/coach/components/PlanTable.tsx
+// src/features/coach/components/PlanCards.tsx
 "use client";
 
-import { useState, useMemo } from "react";
-import { CARD } from "@/shared/ui/classes";
-import { DailyPlan, getItemLabel, detectSport, dateFromWeekStart } from "@/features/coach/utils/plan";
-import PlanTableDetail from "@/features/coach/components/PlanCardDetail";
+import { useMemo, useState } from "react";
+import {
+  DAY_ORDER,
+  type DailyPlan,
+  detectSport,
+  dateFromWeekStart,
+  getItemLabel,
+} from "@/features/coach/utils/plan";
+import PlanCardDetail from "@/features/coach/components/PlanCardDetail";
 
 function SportBadge({ kind }: { kind: string }) {
   const label =
@@ -19,11 +24,12 @@ function SportBadge({ kind }: { kind: string }) {
 }
 
 type Row = {
-  id: string;                // unique
-  day: string;               // Mon ...
-  dateStr: string | null;    // 21. 09. 2025
-  sport: "run"|"ride"|"strength"|"other";
+  id: string;
+  day: typeof DAY_ORDER[number];
+  dateStr: string | null;
+  sport: "run" | "ride" | "strength" | "other";
   title: string;
+  focus?: string; // placeholder – zatiaľ prázdne
   dur: string;
   intensity: string;
   target: string;
@@ -31,7 +37,13 @@ type Row = {
   structure: any;
 };
 
-export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; weekStart?: string }) {
+export default function PlanCards({
+  daily,
+  weekStart,
+}: {
+  daily: DailyPlan[];
+  weekStart?: string;
+}) {
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     daily.forEach(({ day, items }) => {
@@ -42,6 +54,7 @@ export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; we
           dateStr: dateFromWeekStart(weekStart, day),
           sport: "other",
           title: "—",
+          focus: "",
           dur: "",
           intensity: "",
           target: "",
@@ -58,6 +71,7 @@ export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; we
           dateStr: dateFromWeekStart(weekStart, day),
           sport: detectSport(it),
           title,
+          focus: it.focus ?? "", // neskôr doplní AI
           dur: dur != null ? `${dur} min` : "",
           intensity: intensity ?? "",
           target: target ?? "",
@@ -73,15 +87,18 @@ export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; we
 
   return (
     <div className="space-y-2">
-      <div className={`${CARD}`}>
-        <h3 className="text-lg font-bold">Next week</h3>
-      </div>
-
       {rows.map((r) => {
-        const opened = openId === r.id;
+        const opened = r.structure && openId === r.id;
         return (
-          <div key={r.id} className={`${CARD} p-3`}>
-            {/* Header row */}
+          <section
+            key={r.id}
+            className={[
+              "rounded-2xl shadow-lg border border-white/10",
+              "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
+              "px-4 py-3",
+            ].join(" ")}
+          >
+            {/* Header */}
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">
                 {r.dateStr ? `${r.day} · ${r.dateStr}` : r.day}
@@ -90,9 +107,18 @@ export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; we
             </div>
 
             {/* Title */}
-            <div className="mt-0.5 text-base">{r.title}</div>
+            <div className="mt-0.5 text-base font-semibold tracking-tight">
+              {r.title}
+            </div>
 
-            {/* Meta line */}
+            {/* Focus/účel tréningu – zatiaľ prázdny placeholder */}
+            {r.focus ? (
+              <div className="text-xs opacity-80">{r.focus}</div>
+            ) : (
+              <div className="text-xs opacity-40">—</div>
+            )}
+
+            {/* Meta riadok */}
             <div className="text-xs mt-1 opacity-80">
               {r.dur && <span>{r.dur}</span>}
               {r.intensity && <span>{r.dur ? " · " : ""}{r.intensity}</span>}
@@ -100,7 +126,7 @@ export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; we
             </div>
 
             {/* Notes */}
-            {r.notes && <div className="text-xs mt-1 opacity-70">{r.notes}</div>}
+            {r.notes && <div className="text-xs mt-1 opacity-75">{r.notes}</div>}
 
             {/* Toggle detail */}
             {r.structure && (
@@ -108,20 +134,16 @@ export default function PlanTable({ daily, weekStart }: { daily: DailyPlan[]; we
                 <button
                   type="button"
                   onClick={() => setOpenId(opened ? null : r.id)}
-                  className="text-xs px-2 py-1 rounded border border-gray-600 hover:bg-gray-700"
+                  className="text-xs px-2 py-1 rounded-full border border-white/10 hover:bg-gray-700/40"
                 >
-                  {opened ? "Hide detail" : "Detail"}
+                  {opened ? "Skryť detail" : "Detail"}
                 </button>
               </div>
             )}
 
             {/* Detail */}
-            {opened && r.structure && (
-              <div className="mt-2">
-                <PlanTableDetail s={r.structure} />
-              </div>
-            )}
-          </div>
+            {opened && <PlanCardDetail s={r.structure} />}
+          </section>
         );
       })}
     </div>

@@ -2,7 +2,7 @@
 "use client";
 
 import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
-import PlanTable from "@/features/coach/components/PlanTable";
+import PlanCards from "@/features/coach/components/PlanCards";
 import { extractDailyPlan } from "@/features/coach/utils/plan";
 
 export default function PlanResult({ result }: { result: any }) {
@@ -14,36 +14,25 @@ export default function PlanResult({ result }: { result: any }) {
 
   return (
     <div className="space-y-3">
-      {/* Coach view v tvojom UI */}
       <CoachViewPanel narrative={result?.narrative} />
 
-      {/* Summary box (ponechaný ako doteraz, ale môžeš ho tiež obaliť do CARD ak chceš) */}
       {result?.analysis?.summary && (
-        <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
+        <div className="rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
           <h3 className="font-semibold mb-1">Summary</h3>
           <p>{result.analysis.summary}</p>
         </div>
       )}
 
-      {/* Hlavná tabuľka plánu */}
       {daily ? (
-        <PlanTable daily={daily} weekStart={weekStart}/>
+        <PlanCards daily={daily} weekStart={weekStart} />
       ) : plan ? (
-        // fallback bloky (ak príde štruktúrované inak)
-        <div className="bg-gray-900/40 border border-gray-700 rounded p-3">
+        <div className="rounded-2xl border border-white/10 p-3 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
           <h3 className="font-semibold mb-1">Next week</h3>
-          <pre className="text-xs bg-black/40 p-2 rounded overflow-auto">
+          <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
             {JSON.stringify(plan, null, 2)}
           </pre>
         </div>
-      ) : (
-        <details>
-          <summary className="cursor-pointer">Raw output</summary>
-          <pre className="text-xs bg-black/40 p-2 rounded overflow-auto">
-            {JSON.stringify(result, null, 2)}
-          </pre>
-        </details>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,7 @@ export type DailyItem = {
   target_hr_bpm_range?: [number, number] | null;
   target_power_watts?: number | null;
   structure?: any;
+  focus? : string;
 };
 
 export type DailyPlan = { day: DayKey; items: DailyItem[] };
