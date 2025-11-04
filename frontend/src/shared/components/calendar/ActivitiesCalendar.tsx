@@ -1,26 +1,25 @@
-// src/shared/components/ActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
-import Button from "@/shared/components/ui/Button";  // ← tvoje tlačidlo
+import Button from "@/shared/components/ui/Button";
 
-const ActivityDetailOverlay = dynamic(
-  () => import("@/shared/components/ActivityDetailOverlay"),
+const ActivityTable = dynamic(
+  () => import("@/shared/components/ActivityTable"),
   { ssr: false }
 );
 
 const SPORT_COLORS: Record<string, string> = {
-  run:      (THEME as any)?.sport?.run ?? THEME.chart.run,
-  ride:     (THEME as any)?.sport?.ride ?? THEME.chart.ride,
-  swim:     (THEME as any)?.sport?.swim ?? THEME.chart.swim,
-  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
-  mixed:    (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
-  skate:    (THEME as any)?.sport?.skate ?? THEME.chart.skate,
-  walk:     (THEME as any)?.sport?.walk ?? THEME.chart.walk,
-  other:    (THEME as any)?.sport?.other ?? THEME.chart.other,
+  run: THEME.chart.run,
+  ride: THEME.chart.ride,
+  swim: THEME.chart.swim,
+  strength: THEME.chart.strength,
+  mixed: THEME.chart.mixed,
+  skate: THEME.chart.skate,
+  walk: THEME.chart.walk,
+  other: THEME.chart.other,
 };
 
 type DayCellData = {
@@ -31,9 +30,9 @@ type DayCellData = {
 };
 
 function daysInMonth(y: number, m0: number) { return new Date(y, m0 + 1, 0).getDate(); }
-function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
-function iso(y: number, m0: number, d: number) { return `${y}-${pad2(m0 + 1)}-${pad2(d)}`; }
-function startWeekday(y: number, m0: number) { return (new Date(y, m0, 1).getDay() + 6) % 7; } // Po=0
+const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
+const iso  = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+const startWeekday = (y: number, m0: number) => (new Date(y, m0, 1).getDay() + 6) % 7; // Po=0
 
 function useMonthActivities(year: number, month0: number) {
   const { rows } = useActivityData();
@@ -53,13 +52,17 @@ function useMonthActivities(year: number, month0: number) {
     }
 
     const firstIso = iso(year, month0, 1);
-    const lastIso = iso(year, month0, daysInMonth(year, month0));
+    const lastIso  = iso(year, month0, daysInMonth(year, month0));
     for (const r of rows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.items.push({ id: r.activity_id, sport: r.sport_type_fe || "other", name: r.name || "" });
+      cell.items.push({
+        id: r.activity_id,
+        sport: (r as any).sport || (r as any).sport_type_fe || "other",
+        name: r.name || "",
+      });
     }
     setMap(grid);
   }, [rows, year, month0]);
@@ -67,49 +70,70 @@ function useMonthActivities(year: number, month0: number) {
   return map;
 }
 
-function SportDot({ color, title, onClick }: { color: string; title: string; onClick: () => void }) {
+function DayCell({
+  cell,
+  onSelect,
+  isSelected,
+}: {
+  cell: DayCellData;
+  onSelect: (iso: string) => void;
+  isSelected: boolean;
+}) {
+  const muted = cell.inMonth ? "" : "opacity-40";
   return (
     <button
       type="button"
-      onClick={onClick}
-      title={title}
-      className="inline-block w-2 h-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/30"
-      style={{ backgroundColor: color }}
-      aria-label={title}
-    />
-  );
-}
-
-function DayCell({ cell, onOpen }: { cell: DayCellData; onOpen: (id: number) => void }) {
-  const base = "rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20";
-  const muted = cell.inMonth ? "" : "opacity-40";
-  return (
-    <div className={`p-2 ${base} ${muted}`}>
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold">{cell.day ?? ""}</div>
-        <div className="flex items-center gap-1">
-          {cell.items.slice(0, 5).map((it) => (
-            <SportDot
+      onClick={() => onSelect(cell.iso)}
+      className={[
+        "px-2 py-1.5 text-left w-full focus:outline-none",
+        "rounded-xl border border-white/10 overflow-hidden",
+        "bg-white/5 dark:bg-black/20",
+        "min-h-[56px]",
+        isSelected ? "ring-2 ring-emerald-500/60" : "",
+        "hover:bg-white/10",
+        muted,
+      ].join(" ")}
+      aria-pressed={isSelected}
+    >
+      <div className="flex flex-col">
+        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
+          {cell.day ?? ""}
+        </span>
+        <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
+          {cell.items.slice(0, 8).map((it) => (
+            <span
               key={it.id}
-              color={SPORT_COLORS[it.sport] ?? SPORT_COLORS.other}
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: SPORT_COLORS[it.sport] ?? SPORT_COLORS.other }}
               title={it.name || it.sport}
-              onClick={() => onOpen(it.id)}
             />
           ))}
-          {cell.items.length > 5 && (
-            <span className="text-[10px] opacity-70">+{cell.items.length - 5}</span>
+          {cell.items.length > 8 && (
+            <span className="text-[10px] opacity-70">+{cell.items.length - 8}</span>
           )}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
-export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: number; month?: number }) {
+export default function ActivitiesCalendar({
+  year: yy,
+  month: mm,
+}: {
+  year?: number;
+  month?: number;
+}) {
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
-  const [detailId, setDetailId] = React.useState<number | null>(null);
+  const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedIso(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const map = useMonthActivities(year, month0);
 
@@ -120,40 +144,72 @@ export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: num
     for (let i = 0; i < 42; i++) {
       const d = new Date(firstCell); d.setDate(firstCell.getDate() + i);
       const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
-      out.push(map[k] ?? { iso: k, inMonth: d.getMonth() === month0, day: d.getMonth() === month0 ? d.getDate() : null, items: [] });
+      out.push(
+        map[k] ?? {
+          iso: k,
+          inMonth: d.getMonth() === month0,
+          day: d.getMonth() === month0 ? d.getDate() : null,
+          items: [],
+        }
+      );
     }
     return out;
   }, [map, year, month0]);
 
-  const prev = () => { const d = new Date(year, month0, 1); d.setMonth(d.getMonth() - 1); setYear(d.getFullYear()); setMonth0(d.getMonth()); };
-  const next = () => { const d = new Date(year, month0, 1); d.setMonth(d.getMonth() + 1); setYear(d.getFullYear()); setMonth0(d.getMonth()); };
+  const jump = (dir: -1 | 1) => {
+    const d = new Date(year, month0, 1);
+    d.setMonth(d.getMonth() + dir);
+    setYear(d.getFullYear());
+    setMonth0(d.getMonth());
+    setSelectedIso(null);
+  };
 
-  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", { month: "long", year: "numeric" });
+  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={prev}>
-          ‹
-        </Button>
-        <div className="ml-1 mr-1 text-lg font-semibold">{label}</div>
-        <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={next}>
-          ›
-        </Button>
+      {/* HLAVIČKA */}
+      <div className="p-3 rounded-2xl shadow-lg border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
+          <div className="flex items-center gap-2 translate-y-[2px]">
+            <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>‹</Button>
+            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
+            <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>›</Button>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
+          {["p","u","s","š","p","s","n"].map((d) => (
+            <div key={d} className="text-center">{d}</div>
+          ))}
+        </div>
+
+        <div className="mt-2 grid grid-cols-7 gap-2">
+          {cells.map((c) => (
+            <DayCell
+              key={c.iso}
+              cell={c}
+              isSelected={selectedIso === c.iso}
+              onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
-        {["p","u","s","š","p","s","n"].map((d) => <div key={d} className="text-center">{d}</div>)}
-      </div>
-
-      <div className="grid grid-cols-7 gap-2">
-        {cells.map((c) => (
-          <DayCell key={c.iso} cell={c} onOpen={(id) => setDetailId(id)} />
-        ))}
-      </div>
-
-      {detailId != null && (
-        <ActivityDetailOverlay activityId={detailId} open={true} onClose={() => setDetailId(null)} />
+      {/* DETAIL pod kalendárom – nechá titulok pekne odsadený a karty od strán */}
+      {selectedIso && (
+        <div className="mt-3 ml-1">
+          <ActivityTable
+            start={selectedIso}
+            end={selectedIso}
+            variant="calendar"            // ➜ layout & odsadenia pre kalendár
+            suppressItemHeaderIfSingleDay // ➜ neskryje meta, ale skryje duplicitný dátum v každej karte
+          />
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,6 @@
 // src/features/coach/types/prefsTypes.ts
+import type { DayAbbrev } from "@/shared/types/day";
+
 export type GoalKind =
   | "race_time"
   | "improve_speed"
@@ -6,28 +8,21 @@ export type GoalKind =
   | "improve_overall"
   | "maintain";
 
-// TOP: používaj deň z centralizovaného súboru
-import type { DayAbbrev } from "@/shared/types/day";
-
-// rozšír športy, aby pokryl aj tvoje UI (run/ride/strength/mixed/skate)
 export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
 
-// Preferencie – pridaj voliteľnú voľbu na "strides", keďže ju máš v tom short type
 export interface Preferences {
   days_off: DayAbbrev[];
   long_run_days?: DayAbbrev[];
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
   wu_cd_detail: boolean;
-  include_strides?: boolean; // NEW (mapa k pôv. includeStrides)
+  include_strides?: boolean;
 }
 
-// zvyšok nechaj ako máš (GoalKind, RunTargets/BikeTargets/StrengthTargets, CoachPrefs, DEFAULT_PREFS)
-// --- Targets (ciele pre jednotlivé športy) ---
 export interface RunTargets {
   race_goal: "5k" | "10k" | "half" | "marathon" | null;
-  current_best_time: string | null; // "00:45:30"
-  target_time: string | null; // "00:44:00"
+  current_best_time: string | null;
+  target_time: string | null;
   longest_recent_distance_km: number | null;
 }
 
@@ -41,49 +36,37 @@ export interface StrengthTargets {
   sessions_per_week: number;
 }
 
-// --- Hlavný tvar preferencií od používateľa ---
 export type CoachPrefs = {
-  // cieľ (voľné pole aj štruktúra)
   goal_kind?: GoalKind;
-  distance?: string; // "5k" | "10k" | ...
-  current_pace?: string; // "5:10"
-  target_pace?: string; // "4:30"
+  distance?: string;
+  current_pace?: string;
+  target_pace?: string;
 
-  // plánovanie
-  weeks?: number; // 8, 10, 12...
-  sports?: SportKind[]; // legacy
+  weeks?: number;
+  sports?: SportKind[];           // legacy
   primary_sports?: SportKind[];
 
-  // štruktúrované ciele
   targets?: {
     run: RunTargets;
     ride: BikeTargets;
     strength: StrengthTargets;
   };
 
-  // preferencie
   preferences?: Preferences;
 
-  // legacy aliasy (kvôli spätnému súladu)
+  // legacy aliasy
   prefer_two_hard_days_apart?: boolean;
   include_wu_cd_details?: boolean;
   preferred_long_run_days?: DayAbbrev[];
 
-  // voľný override textu cieľa
   goal_text_override?: string;
 };
 
-// --- Default hodnota, sedí s CoachPrefs ---
 export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
   primary_sports: ["run", "ride", "strength"],
   targets: {
-    run: {
-      race_goal: null,
-      current_best_time: null,
-      target_time: null,
-      longest_recent_distance_km: null,
-    },
+    run: { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null },
     ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
   },
@@ -94,11 +77,4 @@ export const DEFAULT_PREFS: CoachPrefs = {
     use_zones: true,
     wu_cd_detail: true,
   },
-};
-
-export type PBRun = {
-  distanceKm: number;
-  best: string;
-  activityId?: number | null;
-  date?: string | null;
 };

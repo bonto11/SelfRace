@@ -1,6 +1,6 @@
 "use client";
 
-import PrefsForm from "@/features/coach/components/PrefsForm";
+import PrefsForm from "@/features/coach/components/CoachPreferencies";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 export default function Page() {

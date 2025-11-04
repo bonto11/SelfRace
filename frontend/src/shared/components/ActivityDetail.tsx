@@ -1,4 +1,3 @@
-// src/shared/components/ActivityDetail.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,9 +5,18 @@ import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 import HrChart from "@/shared/components/trend/HrChart";
-import { API_URL } from "@/shared/config";
 
-interface Props { activityId: number; }
+type Props = {
+  activityId: number;
+  inline?: boolean;
+  compact?: boolean;
+  /** zobrazí názov aktivity v detaile */
+  showHeader?: boolean;
+  /** zobrazí KPI (Time/Distance/Avg HR). V single-day view ich často nechceš duplikovať. */
+  showKpis?: boolean;
+  /** pridá extra vnútorný padding v detaile (ak chceš ešte mäkšie okraje) */
+  padInner?: boolean;
+};
 
 type StreamsData = {
   time_s: number[];
@@ -16,7 +24,14 @@ type StreamsData = {
   duration_s: number;
 };
 
-export default function ActivityDetail({ activityId }: Props) {
+export default function ActivityDetail({
+  activityId,
+  inline = false,
+  compact = false,
+  showHeader = true,
+  showKpis = true,
+  padInner = false,
+}: Props) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const summary = getSummary(activityId) as any | null;
 
@@ -46,7 +61,7 @@ export default function ActivityDetail({ activityId }: Props) {
     return () => { alive = false; };
   }, [activityId, getStreams, getDetail]);
 
-  if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
+  if (!summary) return <div>❌ Aktivita sa nenašla v 90-d cache.</div>;
 
   const distTxt = fmtDistance(summary.distance_m ?? null);
   const timeTxt = summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
@@ -59,72 +74,36 @@ export default function ActivityDetail({ activityId }: Props) {
     } catch { return summary.date; }
   }, [summary.date]);
 
-  // ---------------- DEBUG: DB fallback fetch (bez zásahu do stavu) ----------------
-  async function debugFetchDB() {
-    try {
-      const [sumR, strR, detR] = await Promise.all([
-        fetch(`${API_URL}/activities/one/summary/${activityId}`, { cache: "no-store" }),
-        fetch(`${API_URL}/activities/one/streams/${activityId}?kinds=hr`, { cache: "no-store" }),
-        fetch(`${API_URL}/activities/one/detail/${activityId}`, { cache: "no-store" }),
-      ]);
-      const sumJ: any = await sumR.json().catch(() => ({}));
-      const strJ: any = await strR.json().catch(() => ({}));
-      const detJ: any = await detR.json().catch(() => ({}));
-
-      const sum = sumJ?.data ?? sumJ;
-      const streams = strJ?.data ?? strJ;
-      const detail = detJ?.data ?? detJ;
-
-      // konzola – celé payloady
-      // eslint-disable-next-line no-console
-      console.log("[PB/DEBUG] DB summary:", sum);
-      // eslint-disable-next-line no-console
-      console.log("[PB/DEBUG] DB streams:", streams);
-      // eslint-disable-next-line no-console
-      console.log("[PB/DEBUG] DB detail:", detail);
-
-      const countHr = Array.isArray(streams?.time_s) ? streams.time_s.length : 0;
-      const lapsN = Array.isArray(detail?.laps) ? detail.laps.length : 0;
-      const splitsN = Array.isArray(detail?.splits) ? detail.splits.length : 0;
-
-      alert(
-        [
-          `DB summary: ${sum && sum.id ? "OK" : "N/A"}`,
-          `DB HR points: ${countHr}`,
-          `DB laps: ${lapsN}, splits: ${splitsN}`,
-        ].join("\n")
-      );
-    } catch (e: any) {
-      // eslint-disable-next-line no-console
-      console.error("[PB/DEBUG] DB fetch error:", e);
-      alert(`DB fetch error: ${e?.message ?? e}`);
-    }
-  }
-  // -----------------------------------------------------------------------------
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">{summary.name}</h3>
-        {/* Malé debug tlačidlo – môžeš zmazať, keď doladíme BE */}
-        <button
-          onClick={debugFetchDB}
-          className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
-          title="Debug fetch z DB (One endpoints)"
-        >
-          DB
-        </button>
-      </div>
+    <div className={padInner ? "px-2 pb-2" : ""}>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold">{summary.name}</h3>
+        </div>
+      )}
 
-      <p><strong>Date:</strong> {dateText}</p>
-      <p><strong>Distance:</strong> {distTxt}</p>
-      <p><strong>Time:</strong> {timeTxt}</p>
-      <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
-      <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
+      {/* KPI tiles (compact mód má vlastný layout) */}
+      {showKpis && (
+        compact ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <KpiTile label="TIME" value={timeTxt} />
+            <KpiTile label="DISTANCE" value={distTxt} />
+            <KpiTile label="AVG HR" value={summary.average_heartrate_bpm ?? "—"} />
+          </div>
+        ) : (
+          <>
+            <p><strong>Date:</strong> {dateText}</p>
+            <p><strong>Distance:</strong> {distTxt}</p>
+            <p><strong>Time:</strong> {timeTxt}</p>
+            <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
+            <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
+          </>
+        )
+      )}
 
       {/* HR priebeh */}
       <div className="mt-1">
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-2">
           <h4 className="font-bold">HR priebeh</h4>
           {!!streams.time_s.length && (
             <button
@@ -136,30 +115,17 @@ export default function ActivityDetail({ activityId }: Props) {
           )}
         </div>
         {streams.time_s.length ? (
-          <div className="-mx-3 -mt-1 mb-2">
-            <HrChart xs={streams.time_s} ys={streams.hr} height={148} compact />
+          <div className="mb-1">
+            <HrChart xs={streams.time_s} ys={streams.hr} height={compact ? 148 : 220} compact={compact} />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
         )}
       </div>
 
-      {!!laps.length && (
-        <>
-          <h4 className="font-bold mt-3">Laps</h4>
-          <ul className="list-disc pl-5">
-            {laps.map((lap: any, idx: number) => (
-              <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
       {!!splits.length && (
         <>
-          <h4 className="font-bold mt-3">Splits</h4>
+          <h4 className="font-bold">Splits</h4>
           <ul className="list-disc pl-5">
             {splits.map((split: any, idx: number) => (
               <li key={split.split_index ?? idx}>
@@ -170,18 +136,36 @@ export default function ActivityDetail({ activityId }: Props) {
         </>
       )}
 
+      {!!laps.length && (
+        <>
+          <h4 className="font-bold">Laps</h4>
+          <ul className="list-disc pl-5">
+            {laps.map((lap: any, idx: number) => (
+              <li key={lap.lap_index ?? idx}>
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       {showFull && (
-        <FullHrOverlay
-          xs={streams.time_s}
-          ys={streams.hr}
-          onClose={() => setShowFull(false)}
-        />
+        <FullHrOverlay xs={streams.time_s} ys={streams.hr} onClose={() => setShowFull(false)} />
       )}
     </div>
   );
 }
 
-/* --------------- Fullscreen overlay komponent --------------- */
+function KpiTile({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
+      <div className="text-[10px] opacity-70">{label}</div>
+      <div className="text-xl font-semibold tabular-nums">{String(value)}</div>
+    </div>
+  );
+}
+
+/* ---------- Fullscreen overlay ---------- */
 function FullHrOverlay({
   xs, ys, onClose,
 }: { xs: number[]; ys: (number | null)[]; onClose: () => void }) {
