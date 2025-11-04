@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
-import { CARD } from "@/shared/ui/classes";
 
 const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
 const ActivityDetailOverlay = dynamic(() => import("@/shared/components/ActivityDetailOverlay"), { ssr: false });
@@ -180,7 +179,7 @@ export default function ActivitiesCalendar({
 
   return (
     <div className="space-y-4">
-      {/* Hlavička sekcie */}
+      {/* Hlavička kalendára */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Kalendár aktivít</h2>
         <div className="flex items-center gap-2 translate-y-[2px]">
@@ -208,12 +207,15 @@ export default function ActivitiesCalendar({
         ))}
       </div>
 
-      {/* DETAIL – rovnaká karta ako ActivityTable */}
+      {/* DETAIL: už žiadny obal ani nadpis navyše – len ActivityTable */}
       {selectedIso && (
-        <section className={[CARD, "mt-2"].join(" ")}>
-          <h3 className="text-lg font-semibold mb-3">Aktivity — {niceDate(selectedIso)}</h3>
-          <ActivityTable start={selectedIso} end={selectedIso} />
-        </section>
+        <div className="mt-4">
+          <ActivityTable
+            start={selectedIso}
+            end={selectedIso}
+            titleOverride={`Aktivity — ${niceDate(selectedIso)}`}
+          />
+        </div>
       )}
 
       {detailId != null && (
