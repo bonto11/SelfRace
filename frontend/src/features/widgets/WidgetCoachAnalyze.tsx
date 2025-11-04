@@ -203,9 +203,6 @@ export default function WidgetCoachAnalyze() {
           <div className="px-4 pb-4">
             <PlanResult result={result} />
           </div>
-
-          {/* spodná lišta ako v PB */}
-          <div className="h-1.5 rounded-b-2xl bg-slate-700" />
         </section>
       )}
     </div>
