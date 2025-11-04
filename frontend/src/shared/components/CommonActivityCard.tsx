@@ -68,7 +68,8 @@ export default function CommonActivityCard({
       className={[
         "rounded-2xl shadow-lg border border-white/10",
         "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-        "px-5 py-4",                      // väčšie vnútorné odsadenie
+        // väčšie jednotné vnútorné odsadenie pre text – nelepí sa hore/na okraj
+        "px-5 py-4",
       ].join(" ")}
     >
       {/* Header */}

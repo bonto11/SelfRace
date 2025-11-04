@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD, SUBCARD } from "@/shared/ui/classes";
+import { ACT_CARD, ACT_SUBCARD } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
@@ -83,9 +83,10 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={[CARD, "space-y-5"].join(" ")}>
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold">{headerTitle}</h2>
+    <div className={[ACT_CARD, "space-y-4"].join(" ")}>
+      {/* header má vlastný vnútorný offset, aby text nebol nalepený hore/na okrajoch */}
+      <div className="flex justify-between items-center pt-1">
+        <h2 className="text-lg font-bold leading-tight">{headerTitle}</h2>
       </div>
 
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
@@ -95,13 +96,15 @@ export default function ActivityTable({
       )}
 
       {!loading && rows.length > 0 && (
+        // vnútorné odsadenie je riešené ACT_CARD; list len vertikálne medzery
         <ul className="space-y-3">
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
             const dateStr = prettySkDate(iso);
             const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
-            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
+            const dist =
+              r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
             const metaCollapsed = [
               dur ? `Time ${dur}` : null,
@@ -123,8 +126,13 @@ export default function ActivityTable({
                   hideSubtitleWhenOpen
                   hideMetaWhenOpen
                 >
-                  <div className={[SUBCARD, "mt-1"].join(" ")}>
-                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
+                  <div className={[ACT_SUBCARD, "mt-2"].join(" ")}>
+                    <ActivityDetail
+                      activityId={r.activity_id}
+                      inline
+                      compact
+                      showHeader={false}
+                    />
                   </div>
                 </CommonActivityCard>
               </li>

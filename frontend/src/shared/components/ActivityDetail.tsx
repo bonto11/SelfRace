@@ -5,7 +5,6 @@ import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS, fmtDistance } from "@/shared/utils/format";
 import HrChart from "@/shared/components/trend/HrChart";
-import { API_URL } from "@/shared/config";
 
 type Props = {
   activityId: number;

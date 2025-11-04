@@ -200,9 +200,9 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
-      {/* DETAIL – odsadený od vrchu aj zľava, žiadne extra vnútorné panely */}
+      {/* DETAIL – ActivityTable si nesie padding sám */}
       {selectedIso && (
-        <div className="mt-3 ml-1">
+        <div className="mt-3">
           <ActivityTable start={selectedIso} end={selectedIso} />
         </div>
       )}

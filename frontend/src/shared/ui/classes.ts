@@ -15,18 +15,21 @@ export const SURFACE_INSET =
 export const SURFACE_INLINE =
   "rounded-2xl border border-white/10 bg-white/60 dark:bg-gray-700/50 backdrop-blur";
 
-/* ===== KOMPAT ALIASY (aby si nemusel prepisovať inde hneď) ============ */
-export const CARD   = SURFACE_CARD;
+/* ===== KOMPAT ALIASY =================================================== */
+export const CARD    = SURFACE_CARD;
 export const SUBCARD = SURFACE_SUBCARD;
-export const PANEL = SURFACE_INSET;
+export const PANEL   = SURFACE_INSET;
 
 /* ===== KALENDÁR ŠPECIFICKÉ ============================================ */
-/** Jedna bunka dňa v kalendári – len decentný podklad a rámik */
 export const CALENDAR_DAY_CELL =
   "rounded-xl border border-white/10 bg-white/5 dark:bg-black/20";
 
-/** Header kalendára (riadok s názvom mesiaca a šípkami) */
 export const CALENDAR_HEADER_BAR = SURFACE_CARD + " p-3";
+export const CALENDAR_CONTAINER  = SURFACE_CARD + " p-3";
 
-/** Kontajner kalendára – presne to isté čo ActivityTable (jedna vrstva) */
-export const CALENDAR_CONTAINER = SURFACE_CARD + " p-3";
+/* ===== ACTIVITY ŠPECIFICKÉ (NOVÉ) ===================================== */
+/** Karta ActivityTable – má vždy vnútorný padding z bokov aj dole */
+export const ACT_CARD = SURFACE_CARD + " p-4 md:p-5";
+
+/** Vnorený panel s detailom aktivity vo vnútri ActivityTable */
+export const ACT_SUBCARD = SURFACE_SUBCARD + " p-3 md:p-4";
