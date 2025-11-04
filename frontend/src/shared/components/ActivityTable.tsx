@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD, SUBCARD } from "@/shared/ui/classes";
+import { CARD } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
@@ -130,7 +130,6 @@ export default function ActivityTable({
                 ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
                 : null;
 
-            // meta späť (Time, Distance, HR…)
             const metaCollapsed = [
               dur ? `Time ${dur}` : null,
               dist ? `Distance ${dist}` : null,
@@ -138,7 +137,6 @@ export default function ActivityTable({
               r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
             ];
 
-            // Ak sme pod kalendárom a je to 1 deň, skryj „headerLeft“ (duplicitný dátum v každej karte)
             const headerLeft = suppressItemHeaderIfSingleDay && singleDay ? " " : dateStr;
 
             return (
@@ -154,9 +152,14 @@ export default function ActivityTable({
                   hideSubtitleWhenOpen
                   hideMetaWhenOpen
                 >
-                  {/* detail NEMENÍM – iba jemné odsadenie bok/spodok v rámci panelu */}
-                  <div className={[SUBCARD, "mt-1 px-3 md:px-4 pb-3"].join(" ")}>
-                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
+                  {/* ⬇️ DETAIL BEZ VNÚTORNEJ „KARTY“ – lícuje s bokmi aj spodkom, len mierne odsadenie zhora */}
+                  <div className="mt-2">
+                    <ActivityDetail
+                      activityId={r.activity_id}
+                      inline
+                      compact
+                      showHeader={false}
+                    />
                   </div>
                 </CommonActivityCard>
               </li>
