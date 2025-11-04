@@ -10,7 +10,6 @@ import {
 } from "@/features/coach/utils/plan";
 import PlanCardDetail from "@/features/coach/components/PlanCardDetail";
 import CommonActivityCard from "@/shared/components/CommonActivityCard";
-import { SUBCARD } from "@/shared/ui/classes";
 
 type Row = {
   id: string;
@@ -72,6 +71,9 @@ export default function PlanCards({
     return out;
   }, [daily, weekStart]);
 
+  // rovnaký flush wrapper ako pri aktivitách
+  const FLUSH_DETAIL = "mt-2 -mx-4 -mb-1 px-4 pb-3 pt-2 border-t border-white/10 md:-mx-5 md:px-5";
+
   return (
     <div className="space-y-2">
       {rows.map((r) => {
@@ -92,11 +94,10 @@ export default function PlanCards({
             defaultOpen={false}
             hideSubtitleWhenOpen
             hideMetaWhenOpen
-            flushDetail
             disableToggleIfNoChildren={!r.structure}
           >
             {r.structure ? (
-              <div className={[SUBCARD, "mt-1 px-3 md:px-4 pb-3"].join(" ")}>
+              <div className={FLUSH_DETAIL}>
                 <PlanCardDetail s={r.structure} />
               </div>
             ) : null}

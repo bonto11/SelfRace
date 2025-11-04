@@ -106,6 +106,9 @@ export default function ActivityTable({
     variant === "calendar" ? "mb-1" : "mb-2",
   ].join(" ");
 
+  // jednotný „flush“ wrapper pre rozbalený detail (lícovanie s hranami karty)
+  const FLUSH_DETAIL = "mt-2 -mx-4 -mb-1 px-4 pb-3 pt-2 border-t border-white/10 md:-mx-5 md:px-5";
+
   return (
     <div className={wrapperCls}>
       <div className={headerCls}>
@@ -152,14 +155,9 @@ export default function ActivityTable({
                   hideSubtitleWhenOpen
                   hideMetaWhenOpen
                 >
-                  {/* ⬇️ DETAIL BEZ VNÚTORNEJ „KARTY“ – lícuje s bokmi aj spodkom, len mierne odsadenie zhora */}
-                  <div className="mt-2">
-                    <ActivityDetail
-                      activityId={r.activity_id}
-                      inline
-                      compact
-                      showHeader={false}
-                    />
+                  {/* FLUSH DETAIL – žiadna druhá karta */}
+                  <div className={FLUSH_DETAIL}>
+                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
                   </div>
                 </CommonActivityCard>
               </li>
