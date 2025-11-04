@@ -9,11 +9,8 @@ import { API_URL } from "@/shared/config";
 
 type Props = {
   activityId: number;
-  /** vložené v karte – bez duplicitných nadpisov; zobrazíme vlastný „big facts“ rad */
   inline?: boolean;
-  /** kompaktnejšie: menší graf, bez tlačidla Zväčšiť */
   compact?: boolean;
-  /** horný <h3> názov (ignoruje sa pri inline=true) */
   showHeader?: boolean;
 };
 
@@ -58,7 +55,7 @@ export default function ActivityDetail({
     return () => { alive = false; };
   }, [activityId, getStreams, getDetail]);
 
-  if (!summary) return <div>❌ Aktivita sa nenašla v 90-d range cache.</div>;
+  if (!summary) return <div>❌ Aktivita sa nenašla v 90-d cache.</div>;
 
   const distTxt = fmtDistance(summary.distance_m ?? null);
   const timeTxt = summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
@@ -71,46 +68,38 @@ export default function ActivityDetail({
     } catch { return summary.date; }
   }, [summary.date]);
 
-  // Render flagy
-  const showTopHeader = showHeader && !inline;
-  const showKeyFactsBlock = !inline && !compact;     // klasické odrážky len v plnom móde
-  const showEnlargeBtn = !compact && !!streams.time_s.length;
-
   return (
-    <div className={inline || compact ? "space-y-3 pt-1" : "space-y-4"}>
-      {/* Header – iba mimo inline */}
-      {showTopHeader && (
+    <div className="space-y-3">
+      {/* Header – v inline/compact väčšinou nechceme duplicitu titulku */}
+      {showHeader && (
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">{summary.name}</h3>
         </div>
       )}
 
-      {/* BIG FACTS – len v inline (veľšie hodnoty, bez duplicitných textov) */}
-      {inline && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <FactBox label="Time" value={timeTxt} />
-          <FactBox label="Distance" value={distTxt} />
-          <FactBox label="Avg HR" value={summary.average_heartrate_bpm ?? "—"} />
-          <FactBox label="Max HR" value={summary.max_heartrate_bpm ?? "—"} />
+      {/* KPI tiles – iba v compact móde (namiesto malých riadkov) */}
+      {compact ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <KpiTile label="TIME" value={timeTxt} />
+          <KpiTile label="DISTANCE" value={distTxt} />
+          <KpiTile label="AVG HR" value={summary.average_heartrate_bpm ?? "—"} />
         </div>
-      )}
-
-      {/* Klasické fakty – len mimo inline/compact */}
-      {showKeyFactsBlock && (
-        <div className="space-y-1">
+      ) : (
+        // Štandardné texty (keď nie je compact)
+        <>
           <p><strong>Date:</strong> {dateText}</p>
           <p><strong>Distance:</strong> {distTxt}</p>
           <p><strong>Time:</strong> {timeTxt}</p>
           <p><strong>Avg HR:</strong> {summary.average_heartrate_bpm ?? "—"}</p>
           <p><strong>Max HR:</strong> {summary.max_heartrate_bpm ?? "—"}</p>
-        </div>
+        </>
       )}
 
       {/* HR priebeh */}
-      <div>
+      <div className="mt-1">
         <div className="flex items-center justify-between mb-1">
           <h4 className="font-bold">HR priebeh</h4>
-          {showEnlargeBtn && (
+          {!!streams.time_s.length && (
             <button
               className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
               onClick={() => setShowFull(true)}
@@ -120,31 +109,13 @@ export default function ActivityDetail({
           )}
         </div>
         {streams.time_s.length ? (
-          <div className="mb-2">
-            <HrChart
-              xs={streams.time_s}
-              ys={streams.hr}
-              height={compact ? 120 : 148}
-              compact
-            />
+          <div className="-mx-1 md:mx-0 -mt-1 mb-2">
+            <HrChart xs={streams.time_s} ys={streams.hr} height={compact ? 148 : 220} compact={compact} />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
         )}
       </div>
-
-      {!!laps.length && (
-        <>
-          <h4 className="font-bold mt-3">Laps</h4>
-          <ul className="list-disc pl-5">
-            {laps.map((lap: any, idx: number) => (
-              <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
 
       {!!splits.length && (
         <>
@@ -153,6 +124,19 @@ export default function ActivityDetail({
             {splits.map((split: any, idx: number) => (
               <li key={split.split_index ?? idx}>
                 Split {split.split_index ?? idx}: {fmtDistance(split.distance_m)}, {fmtSecondsHMS(split.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {!!laps.length && (
+        <>
+          <h4 className="font-bold mt-3">Laps</h4>
+          <ul className="list-disc pl-5">
+            {laps.map((lap: any, idx: number) => (
+              <li key={lap.lap_index ?? idx}>
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}
           </ul>
@@ -170,12 +154,11 @@ export default function ActivityDetail({
   );
 }
 
-/* --- pomocné komponenty --- */
-function FactBox({ label, value }: { label: string; value: string | number }) {
+function KpiTile({ label, value }: { label: string; value: any }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
-      <div className="text-[11px] uppercase tracking-wide opacity-70">{label}</div>
-      <div className="text-lg font-semibold leading-tight">{String(value)}</div>
+    <div className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
+      <div className="text-[10px] opacity-70">{label}</div>
+      <div className="text-xl font-semibold tabular-nums">{String(value)}</div>
     </div>
   );
 }

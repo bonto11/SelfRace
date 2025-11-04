@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD } from "@/shared/ui/classes";
+import { CARD, SUBCARD } from "@/shared/ui/classes";
+import { THEME } from "@/shared/theme/tokens";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
 import ActivityDetail from "@/shared/components/ActivityDetail";
@@ -29,7 +30,11 @@ function normSportsList(
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
@@ -56,7 +61,9 @@ export default function ActivityTable({
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
     if (start && end) {
-      return start === end ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
+      return start === end
+        ? `Aktivity — ${prettySkDate(start)}`
+        : `Týždeň ${start} → ${end}`;
     }
     return "História (vyber rozsah)";
   }, [start, end, titleOverride]);
@@ -89,7 +96,7 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={`${CARD} space-y-4`}>
+    <div className={[CARD, "space-y-4"].join(" ")}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{headerTitle}</h2>
       </div>
@@ -97,7 +104,9 @@ export default function ActivityTable({
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">Žiadne aktivity v zadanom období.</div>
+        <div className="opacity-70 py-4 text-sm">
+          Žiadne aktivity v zadanom období.
+        </div>
       )}
 
       {!loading && rows.length > 0 && (
@@ -109,25 +118,29 @@ export default function ActivityTable({
             const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
             const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
+            const metaCollapsed = [
+              dur ? `Time ${dur}` : null,
+              dist ? `Distance ${dist}` : null,
+              r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
+              r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
+            ];
+
             return (
-              <li key={r.activity_id} className="px-0">
+              <li key={r.activity_id}>
                 <CommonActivityCard
                   id={`act-${r.activity_id}`}
                   headerLeft={dateStr}
                   sportKind={eff}
                   title={r.name || "Activity"}
-                  subtitle={null}                 // null = vôbec nič nerenderuj (žiadna „—“)
-                  meta={[
-                    dur ? `Time ${dur}` : null,
-                    dist ? `Distance ${dist}` : null,
-                    r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
-                    r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
-                  ]}
+                  subtitle={null}
+                  meta={metaCollapsed}
                   defaultOpen={false}
+                  hideSubtitleWhenOpen
+                  hideMetaWhenOpen
                 >
-                  {/* Detail bez extra card vrstvy, nech je zarovnaný so šírkou karty */}
-                  <div className="mt-2">
-                    <ActivityDetail activityId={r.activity_id} inline compact={false} showHeader={false} />
+                  {/* FULL-WIDTH inline detail – žiadne duplicity */}
+                  <div className={[SUBCARD, "mt-1"].join(" ")}>
+                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
                   </div>
                 </CommonActivityCard>
               </li>

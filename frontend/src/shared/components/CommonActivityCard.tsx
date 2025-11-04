@@ -8,7 +8,11 @@ function SportBadge({ kind }: { kind: string }) {
     kind === "run" ? "Run" :
     kind === "ride" ? "Ride" :
     kind === "strength" ? "Strength" : "Mixed";
-  return <span className="text-xs px-2 py-0.5 rounded bg-gray-700">{label}</span>;
+  return (
+    <span className="text-xs px-2 py-0.5 rounded bg-gray-700">
+      {label}
+    </span>
+  );
 }
 
 export type SessionCardProps = {
@@ -16,7 +20,6 @@ export type SessionCardProps = {
   headerLeft: React.ReactNode;
   sportKind?: "run" | "ride" | "strength" | "mixed" | "other" | string;
   title: React.ReactNode;
-  /** Ak je `undefined` → ukáž „—“. Ak je **null** → neukazuj vôbec nič. */
   subtitle?: string | null;
   meta?: (string | null | undefined)[];
   children?: React.ReactNode;
@@ -24,7 +27,12 @@ export type SessionCardProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   defaultOpen?: boolean;
+
   disableToggleIfNoChildren?: boolean;
+
+  /** NOVÉ: skryť tieto bloky po otvorení */
+  hideSubtitleWhenOpen?: boolean;
+  hideMetaWhenOpen?: boolean;
 };
 
 export default function CommonActivityCard({
@@ -39,6 +47,8 @@ export default function CommonActivityCard({
   onOpenChange,
   defaultOpen = false,
   disableToggleIfNoChildren = false,
+  hideSubtitleWhenOpen = true,
+  hideMetaWhenOpen = true,
 }: SessionCardProps) {
   const isControlled = typeof open === "boolean";
   const [internal, setInternal] = useState<boolean>(defaultOpen);
@@ -78,29 +88,42 @@ export default function CommonActivityCard({
             title={opened ? "Skryť detail" : "Otvoriť detail"}
             className={[
               "h-8 w-8 grid place-items-center rounded-full border border-white/10",
-              canToggle ? "bg-white/10 hover:bg-white/20 transition-colors" : "opacity-40 cursor-not-allowed",
+              canToggle
+                ? "bg-white/10 hover:bg-white/20 transition-colors"
+                : "opacity-40 cursor-not-allowed",
             ].join(" ")}
           >
-            <span className={["text-base leading-none select-none transition-transform", opened ? "rotate-180" : "rotate-0"].join(" ")}>▾</span>
+            <span
+              className={[
+                "text-base leading-none select-none transition-transform",
+                opened ? "rotate-180" : "rotate-0",
+              ].join(" ")}
+            >
+              ▾
+            </span>
           </button>
         </div>
       </div>
 
       {/* Title */}
-      <div className="mt-0.5 text-base font-semibold tracking-tight truncate">{title}</div>
+      <div className="mt-1 text-base font-semibold tracking-tight truncate">
+        {title}
+      </div>
 
-      {/* Subtitle – null = vôbec nerenederuj (žiadne „—“), undefined = placeholder */}
-      {subtitle === null ? null : (
+      {/* Subtitle */}
+      {(!opened || !hideSubtitleWhenOpen) && (
         <div className={subtitle ? "text-xs opacity-80" : "text-xs opacity-40"}>
           {subtitle || "—"}
         </div>
       )}
 
       {/* Meta */}
-      {metaLine && <div className="text-xs mt-1 opacity-80">{metaLine}</div>}
+      {metaLine && (!opened || !hideMetaWhenOpen) && (
+        <div className="text-xs mt-1 opacity-80">{metaLine}</div>
+      )}
 
       {/* Detail */}
-      {opened && children ? <div className="mt-2">{children}</div> : null}
+      {opened && children ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }
