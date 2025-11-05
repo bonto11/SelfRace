@@ -339,4 +339,4 @@ function stddev(a: number[], m: number) {
 }
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
-export type ComponentVariant = "activity" | "calendar" | "pb";
+export type ComponentVariant = "activity" | "calendar" | "pb" | "plan";

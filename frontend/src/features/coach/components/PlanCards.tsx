@@ -5,18 +5,53 @@ import {
   DAY_ORDER,
   type DailyPlan,
   detectSport,
-  dateFromWeekStart,
+  dateFromWeekStart, // môžeš ho nechať pre iné miesta; tu si rátame ISO
   getItemLabel,
 } from "@/features/coach/utils/plan";
-import PlanCardDetail from "@/features/coach/components/PlanCardDetail";
-import CommonActivityCard from "@/shared/components/CommonActivityCard";
-import {FLUSH_DETAIL} from "@/shared/ui/classes"
+import ActivitySingle from "@/shared/components/ActivitySingle";
 
+/* ===== helpers ===== */
+
+/** Mapovanie dňa na offset (Po=0 ... Ne=6) podľa tvojho DAY_ORDER */
+const DAY_OFFSET: Record<(typeof DAY_ORDER)[number], number> = {
+  Po: 0, Ut: 1, St: 2, Št: 3, Pi: 4, So: 5, Ne: 6,
+};
+
+/** yyyy-mm-dd -> Date (bez časovej zóny riešime jednoducho) */
+function parseIsoDate(iso?: string | null): Date | null {
+  if (!iso) return null;
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]) - 1, d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo, d, 12, 0, 0)); // „poludnie“ minimalizuje TZ hrany
+  return dt;
+}
+
+/** Date -> yyyy-mm-dd */
+function toIso(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Spočíta ISO dátum pre daný plan day (Po..Ne) z weekStart ISO (Po) */
+function isoFromWeekStart(weekStartIso: string | undefined, day: (typeof DAY_ORDER)[number]): string | null {
+  if (!weekStartIso) return null;
+  const base = parseIsoDate(weekStartIso);
+  if (!base) return null;
+  const off = DAY_OFFSET[day] ?? 0;
+  const d = new Date(base);
+  d.setUTCDate(base.getUTCDate() + off);
+  return toIso(d);
+}
+
+/* ===== typ pre interný row ===== */
 type Row = {
   id: string;
   day: (typeof DAY_ORDER)[number];
-  dateStr: string | null;
-  sport: "run" | "ride" | "strength" | "other";
+  dateIso: string | null;
+  sport: "run" | "ride" | "strength" | "other" | "mixed";
   title: string;
   focus?: string | null;
   dur: string;
@@ -36,11 +71,12 @@ export default function PlanCards({
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     daily.forEach(({ day, items }) => {
+      // aj prázdny deň zobrazíme (—)
       if (!items?.length) {
         out.push({
           id: `${day}-empty`,
           day,
-          dateStr: dateFromWeekStart(weekStart, day),
+          dateIso: isoFromWeekStart(weekStart, day),
           sport: "other",
           title: "—",
           focus: null,
@@ -57,7 +93,7 @@ export default function PlanCards({
         out.push({
           id: `${day}-${idx}`,
           day,
-          dateStr: dateFromWeekStart(weekStart, day),
+          dateIso: isoFromWeekStart(weekStart, day),
           sport: detectSport(it) as Row["sport"],
           title,
           focus: (it as any).focus ?? null,
@@ -75,31 +111,38 @@ export default function PlanCards({
   return (
     <div className="space-y-2">
       {rows.map((r) => {
-        const meta: string[] = [];
-        if (r.dur) meta.push(r.dur);
-        if (r.intensity) meta.push(r.intensity);
-        if (r.target) meta.push(r.target);
-
-        return (
-          <CommonActivityCard
-            key={r.id}
-            id={`plan-${r.id}`}
-            headerLeft={r.dateStr ? `${r.day} · ${r.dateStr}` : r.day}
-            sportKind={r.sport}
-            title={r.title}
-            subtitle={r.focus || null}
-            meta={meta}
-            defaultOpen={false}
-            hideSubtitleWhenOpen
-            hideMetaWhenOpen
-            disableToggleIfNoChildren={!r.structure}
-          >
-            {r.structure ? (
-              <div className={FLUSH_DETAIL}>
+        // sekundárna meta pre „plan“ rieši priamo ActivitySingle (variant "plan")
+        const renderDetail = r.structure
+          ? () => (
+              <div>
+                {/* Poznámka od coacha (ak je) */}
+                {r.notes ? (
+                  <div className="mb-2 text-sm opacity-80">{r.notes}</div>
+                ) : null}
                 <PlanCardDetail s={r.structure} />
               </div>
-            ) : null}
-          </CommonActivityCard>
+            )
+          : undefined;
+
+        return (
+          <ActivitySingle
+            key={r.id}
+            variant="plan"
+            data={{
+              id: r.id,
+              name: r.title,               // hlavný text (rovnako ako „activity“)
+              dateIso: r.dateIso ?? undefined, // v headri vľavo (deň + dátum si ActivitySingle predžuje z dateIso)
+              sport: r.sport,
+              // sekundárny riadok sa skladá vo vnútri ActivitySingle(variant plan) z planDur/intensity/target
+              planDur: r.dur || null,
+              planIntensity: r.intensity || null,
+              planTarget: r.target || null,
+              // voliteľne posielame aj poznámku (zobrazí sa v detaile)
+              planNotes: r.notes || null,
+            }}
+            defaultOpen={false}
+            renderDetail={renderDetail}
+          />
         );
       })}
     </div>
