@@ -41,11 +41,13 @@ type PlanData = {
   structure?: any;
 };
 
-type DataByVariant<V extends Variant> =
-  V extends "record"   ? RecordData   :
-  V extends "plan"     ? PlanData     :
-  V extends "calendar" ? ActivityData :
-  ActivityData;
+type DataByVariant<V extends Variant> = V extends "record"
+  ? RecordData
+  : V extends "plan"
+  ? PlanData
+  : V extends "calendar"
+  ? ActivityData
+  : ActivityData;
 
 type Props<V extends Variant = Variant> = {
   variant: V;
@@ -56,16 +58,25 @@ type Props<V extends Variant = Variant> = {
 const prettySkDate = (iso?: string | null) => {
   if (!iso) return null;
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const wk  = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 };
 
 const badge = (k: string) =>
-  k === "run" ? "Run" :
-  k === "ride" ? "Ride" :
-  k === "strength" ? "Strength" :
-  k === "mixed" ? "Mixed" : "Other";
+  k === "run"
+    ? "Run"
+    : k === "ride"
+    ? "Ride"
+    : k === "strength"
+    ? "Strength"
+    : k === "mixed"
+    ? "Mixed"
+    : "Other";
 
 /* KPI tile */
 function KpiTile({ label, value }: { label: string; value: string | number }) {
@@ -83,7 +94,11 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
   const summary = getSummary(activityId) as any | null;
 
   const [loading, setLoading] = useState(true);
-  const [streams, setStreams] = useState<{ time_s: number[]; hr: (number | null)[]; duration_s: number; }>({ time_s: [], hr: [], duration_s: 0 });
+  const [streams, setStreams] = useState<{
+    time_s: number[];
+    hr: (number | null)[];
+    duration_s: number;
+  }>({ time_s: [], hr: [], duration_s: 0 });
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
@@ -104,16 +119,20 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [activityId, getStreams, getDetail]);
 
   const distTxt = fmtDistance(summary?.distance_m ?? null);
-  const timeTxt = summary?.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
+  const timeTxt =
+    summary?.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
 
   return (
-    <div className="px-5 pb-4">{/* licuje s kartou */}
+    <div className="pb-4">
+      {/* zrušené px-5 kvôli lepšiemu zarovnaniu */}
       {/* HR priebeh */}
-      <div className="mt-3">
+      <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="font-bold">HR priebeh</h4>
         </div>
@@ -122,7 +141,9 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
             <HrChart xs={streams.time_s} ys={streams.hr} height={180} compact />
           </div>
         ) : (
-          <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
+          <div className="opacity-70 text-sm">
+            HR stream nie je k dispozícii.
+          </div>
         )}
       </div>
 
@@ -132,7 +153,8 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
           <ul className="list-disc pl-5">
             {splits.map((sp: any, idx: number) => (
               <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)}, {fmtSecondsHMS(sp.moving_time_s)}
+                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)},{" "}
+                {fmtSecondsHMS(sp.moving_time_s)}
               </li>
             ))}
           </ul>
@@ -145,17 +167,19 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
           <ul className="list-disc pl-5">
             {laps.map((lap: any, idx: number) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
+                {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}
           </ul>
         </>
       )}
 
-      {/* drobný strip (voliteľne) */}
       {summary && (
         <div className="mt-3 text-xs opacity-70">
-          Distance: {distTxt} · Time: {timeTxt} · Avg HR: {summary.average_heartrate_bpm ?? "—"} · Max HR: {summary.max_heartrate_bpm ?? "—"}
+          Distance: {distTxt} · Time: {timeTxt} · Avg HR:{" "}
+          {summary.average_heartrate_bpm ?? "—"} · Max HR:{" "}
+          {summary.max_heartrate_bpm ?? "—"}
         </div>
       )}
     </div>
@@ -184,13 +208,16 @@ export default function ActivitySingle<V extends Variant>({
     subtitle = d.activityName || null;
     metaLine = d.distanceLabel ? [d.distanceLabel] : [];
     canToggle = !!d.activityId;
-    if (open && d.activityId) detailNode = <ActivityInlineDetail activityId={d.activityId} />;
+    if (open && d.activityId)
+      detailNode = <ActivityInlineDetail activityId={d.activityId} />;
   }
 
   if (variant === "activity" || variant === "calendar") {
     const d = data as ActivityData;
     headerLeft =
-      d.singleDayContext && variant === "calendar" ? " " : (prettySkDate(d.dateIso) ?? "—");
+      d.singleDayContext && variant === "calendar"
+        ? " "
+        : prettySkDate(d.dateIso) ?? "—";
     sportKind = d.sport || "other";
     title = d.name || "Activity";
     metaLine = [
@@ -210,14 +237,11 @@ export default function ActivitySingle<V extends Variant>({
       ];
       detailNode = (
         <div className="px-5 pb-4">
-          {/* KPI – veľké a s odsadením */}
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
-            {kpis.map(k => (
+            {kpis.map((k) => (
               <KpiTile key={k.label} label={k.label} value={k.value as any} />
             ))}
           </div>
-
-          {/* graf + zvyšok */}
           <ActivityInlineDetail activityId={d.activityId} />
         </div>
       );
@@ -258,19 +282,30 @@ export default function ActivitySingle<V extends Variant>({
         <div className="text-sm font-medium truncate">{headerLeft}</div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-700">{badge(sportKind)}</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-700">
+            {badge(sportKind)}
+          </span>
           <button
             type="button"
             aria-expanded={open}
-            onClick={() => canToggle && setOpen(v => !v)}
+            onClick={() => canToggle && setOpen((v) => !v)}
             disabled={!canToggle}
             className={[
               "h-8 w-8 grid place-items-center rounded-full border border-white/10",
-              canToggle ? "bg-white/10 hover:bg-white/20 transition-colors" : "opacity-40 cursor-not-allowed",
+              canToggle
+                ? "bg-white/10 hover:bg-white/20 transition-colors"
+                : "opacity-40 cursor-not-allowed",
             ].join(" ")}
             title={open ? "Skryť detail" : "Otvoriť detail"}
           >
-            <span className={["text-base leading-none select-none transition-transform", open ? "rotate-180" : "rotate-0"].join(" ")}>▾</span>
+            <span
+              className={[
+                "text-base leading-none select-none transition-transform",
+                open ? "rotate-180" : "rotate-0",
+              ].join(" ")}
+            >
+              ▾
+            </span>
           </button>
         </div>
       </div>
@@ -281,11 +316,12 @@ export default function ActivitySingle<V extends Variant>({
       </div>
 
       {/* subtitle len keď je zavreté */}
-      {!open && (subtitle ? (
-        <div className="text-xs opacity-80">{subtitle}</div>
-      ) : (
-        <div className="text-xs opacity-40">{null}</div>
-      ))}
+      {!open &&
+        (subtitle ? (
+          <div className="text-xs opacity-80">{subtitle}</div>
+        ) : (
+          <div className="text-xs opacity-40">{null}</div>
+        ))}
 
       {/* META RIADOK – teraz LEN v ZABALENOM stave */}
       {!open && metaLine.length > 0 && (
@@ -294,9 +330,7 @@ export default function ActivitySingle<V extends Variant>({
 
       {/* DETAIL – flush k okrajom, vnútro px-5 aby všetko lícovalo */}
       {open && detailNode ? (
-        <div className="-mx-5 -mb-4">
-          {detailNode}
-        </div>
+        <div className="-mx-5 -mb-4">{detailNode}</div>
       ) : null}
     </section>
   );
