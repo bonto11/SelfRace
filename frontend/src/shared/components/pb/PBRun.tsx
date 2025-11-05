@@ -13,40 +13,16 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
-import type { MiniActivity } from "@/shared/types/activities";
+import ActivitySingle from "@/shared/components/ActivitySingle";
 import { toast } from "@/shared/components/ui/Toast";
 import { confirm } from "@/shared/components/ui/Confirm";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
-import ActivitySingle from "@/shared/components/ActivitySingle";
-
-/* --- anti-overflow --- */
-const NO_X = "max-w-full overflow-x-hidden";
-const FLEX_FIX = "min-w-0";
-
-/* --- touch detekcia --- */
-function useIsTouch() {
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const touch =
-      window.matchMedia?.("(pointer: coarse)")?.matches ||
-      navigator.maxTouchPoints > 0 ||
-      ("ontouchstart" in window);
-    setIsTouch(!!touch);
-  }, []);
-  return isTouch;
-}
-
-/* --- form state --- */
-export type PBRunFormState = {
-  distance_m: string;
-  time_str: string;       // hh:mm:ss
-  achieved_at: string;    // YYYY-MM-DD
-  activity_id: string;    // "" alebo číslo v texte
-  activity_name?: string;
-};
+import { NO_X } from "@/shared/ui/classes";
+import { useIsTouch } from "@/shared/utils/detection";
+import type { PBRunFormState } from "@/shared/types/pb";
+import type { MiniActivity } from "@/shared/types/activities";
 
 const EMPTY: PBRunFormState = {
   distance_m: "",
@@ -82,7 +58,9 @@ export default function PBRun() {
       setLoading(false);
     }
   };
-  useEffect(() => { if (userId) refresh(); /* eslint-disable-line */ }, [userId]);
+  useEffect(() => {
+    if (userId) refresh(); /* eslint-disable-line */
+  }, [userId]);
 
   /* guards */
   const canSave = useMemo(() => {
@@ -100,11 +78,16 @@ export default function PBRun() {
       const payload: any = {
         sport: "run",
         distance_m: m,
-        ...(Number.isFinite(sec) ? { time_sec: sec } : { time_str: form.time_str.trim() }),
+        ...(Number.isFinite(sec)
+          ? { time_sec: sec }
+          : { time_str: form.time_str.trim() }),
       };
-      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "")
+        payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined)
+        payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at)
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await saveBest(userId, payload);
       toast.success("Personal best saved");
@@ -143,22 +126,33 @@ export default function PBRun() {
       </div>
 
       {/* FORM */}
-      <div className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}>
+      <div
+        className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}
+      >
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
-          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, distance_m: e.target.value }))
+          }
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
-            <option key={o.m} value={o.m}>{o.label}</option>
+            <option key={o.m} value={o.m}>
+              {o.label}
+            </option>
           ))}
         </select>
 
         <TextField
           placeholder="hh:mm:ss"
           value={form.time_str}
-          onChange={(e) => setForm((f) => ({ ...f, time_str: maskHHMMSS((e.target as HTMLInputElement).value) }))}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              time_str: maskHHMMSS((e.target as HTMLInputElement).value),
+            }))
+          }
           inputMode="numeric"
           containerClassName="sm:col-span-3"
         />
@@ -171,7 +165,9 @@ export default function PBRun() {
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
             value={form.achieved_at}
-            onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, achieved_at: e.target.value }))
+            }
             aria-label="Pick date"
           />
         </div>
@@ -182,7 +178,9 @@ export default function PBRun() {
             dateIso={form.achieved_at}
             sports={["run", "mixed"]}
             value={form.activity_id ? Number(form.activity_id) : ""}
-            onChange={(v) => setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))}
+            onChange={(v) =>
+              setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
+            }
             onPicked={(a: MiniActivity | null) =>
               setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
             }
@@ -193,7 +191,9 @@ export default function PBRun() {
           <Button onClick={handleSave} disabled={!canSave} variant="success">
             {saving ? "Ukladám…" : "Uložiť"}
           </Button>
-          <Button variant="secondary" onClick={() => setForm(EMPTY)}>Clear</Button>
+          <Button variant="secondary" onClick={() => setForm(EMPTY)}>
+            Clear
+          </Button>
           <Button variant="ghost" onClick={refresh} disabled={loading}>
             {loading ? "Načítavam…" : "Refresh"}
           </Button>
@@ -207,43 +207,75 @@ export default function PBRun() {
           .sort((a, b) => a.distance_m - b.distance_m)
           .map((b) => {
             const actId = b.activity_id != null ? Number(b.activity_id) : null;
+            const timeDB =
+              b.best_time_s != null
+                ? secToHHMMSS(b.best_time_s)
+                : b.time_str ?? "—";
+            const dist = distanceLabel(b.distance_m, "run");
 
-            return (
-              <SwipeRow
-                key={b.distance_m}
-                enableSwipe={isTouch}
-                onEdit={() => {
-                  setForm({
-                    distance_m: String(b.distance_m),
-                    time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                    achieved_at: isoDateOnly(b.achieved_at),
-                    activity_id: b.activity_id != null ? String(b.activity_id) : "",
-                    activity_name: (b as any).activity_name ?? "",
-                  });
-                }}
-                onDelete={() => handleDelete(b.distance_m)}
-              >
-                <div className={[FLEX_FIX, NO_X].join(" ")}>
+            // handlers, ktoré už používaš
+            const doEdit = () => {
+              setForm({
+                distance_m: String(b.distance_m),
+                time_str:
+                  b.time_str ??
+                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                achieved_at: isoDateOnly(b.achieved_at),
+                activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                activity_name: (b as any).activity_name ?? "",
+              });
+            };
+            const doDelete = () => handleDelete(b.distance_m);
+
+            // === TOUCH (SwipeRow) verzia ===
+            if (isTouch) {
+              return (
+                <SwipeRow
+                  key={b.distance_m}
+                  enableSwipe
+                  onEdit={doEdit}
+                  onDelete={doDelete}
+                >
                   <ActivitySingle
                     variant="pb"
                     data={{
-                      id: b.distance_m,                         // identifikátor PB
-                      name: distanceLabel(b.distance_m, "run"), // titulok karty
-                      dateIso: isoDateOnly(b.achieved_at),      // malý dátum
+                      id: b.distance_m,
+                      name: dist,
+                      dateIso: isoDateOnly(b.achieved_at),
                       sport: "run",
-                      timeStr: b.best_time_s != null ? secToHHMMSS(b.best_time_s) : (b.time_str ?? "—"),
-                      distanceStr: distanceLabel(b.distance_m, "run"),
-                      avgHr: null,
-                      maxHr: null,
-                      activityId: actId,                        // ak existuje, detail čerpá z aktivity
-                      singleDayContext: true,                   // v PB nepotrebujeme header-dátum v hlavičke
+                      timeStr: timeDB, // veľký čas z DB
+                      distanceStr: dist.replace("— ", ""), // nech je “Distance 5 km”
+                      activityId: actId ?? undefined,
                     }}
+                    defaultOpen={false}
                   />
-                </div>
-              </SwipeRow>
+                </SwipeRow>
+              );
+            }
+
+            // === DESKTOP verzia s hornými tlačidlami ===
+            return (
+              <ActivitySingle
+                key={b.distance_m}
+                variant="pb"
+                data={{
+                  id: b.distance_m,
+                  name: dist,
+                  dateIso: isoDateOnly(b.achieved_at),
+                  sport: "run",
+                  timeStr: timeDB,
+                  distanceStr: dist.replace("— ", ""),
+                  activityId: actId ?? undefined,
+                }}
+                defaultOpen={false}
+                onEdit={doEdit}
+                onDelete={doDelete}
+              />
             );
           })}
-        {rows.length === 0 && <li className="text-sm opacity-70">No records yet.</li>}
+        {rows.length === 0 && (
+          <li className="text-sm opacity-70">No records yet.</li>
+        )}
       </ul>
     </div>
   );
@@ -269,38 +301,65 @@ function SwipeRow({
   const SNAP_OPEN = -ACTION_W;
   const SNAP_CLOSED = 0;
 
-  const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (x: number) =>
+    setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
-  const onTouchStart = (e: React.TouchEvent) => { if (!enableSwipe) return; startX.current = e.touches[0].clientX; startTx.current = tx; };
-  const onTouchMove  = (e: React.TouchEvent) => {
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!enableSwipe) return;
+    startX.current = e.touches[0].clientX;
+    startTx.current = tx;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
     if (!enableSwipe || startX.current == null) return;
     const dx = e.touches[0].clientX - startX.current;
     const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
     setTx(next);
   };
-  const onTouchEnd   = () => { if (!enableSwipe) return; snap(tx); startX.current = null; };
+  const onTouchEnd = () => {
+    if (!enableSwipe) return;
+    snap(tx);
+    startX.current = null;
+  };
 
   return (
-    <li className={["relative w-full overflow-hidden", NO_X].join(" ")}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <li
+      className={["relative w-full overflow-hidden", NO_X].join(" ")}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
                      bg-amber-500/60 hover:bg-amber-500/80 text-white
                      border border-white/10 transition-colors"
-          onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}
-        >Edit</button>
+          onClick={() => {
+            setTx(SNAP_CLOSED);
+            onEdit();
+          }}
+        >
+          Edit
+        </button>
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
                      bg-rose-500/65 hover:bg-rose-500/80 text-white
                      border border-white/10 transition-colors"
           onClick={onDelete}
-        >Delete</button>
+        >
+          Delete
+        </button>
       </div>
 
       <div
         className="relative z-10 w-full box-border"
-        style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
+        style={
+          enableSwipe
+            ? {
+                transform: `translateX(${tx}px)`,
+                transition: "transform 160ms ease-out",
+              }
+            : undefined
+        }
       >
         {children}
       </div>

@@ -44,3 +44,5 @@ export const FLUSH_DETAIL_PB =
     "bg-white/5 dark:bg-black/20",
     "px-3 md:px-4 pb-3",
   ].join(" ");
+
+ export const NO_X = "max-w-full overflow-x-hidden";
