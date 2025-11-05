@@ -20,7 +20,7 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 import ActivityDetail from "@/shared/components/ActivityDetail";
-import { FLUSH_DETAIL_PB } from "@/shared/ui/classes";
+import { FLUSH_DETAIL_PB as FLUSH_DETAIL_PB_IMPORTED } from "@/shared/ui/classes";
 
 /* ----------------------- Helper: touch detekcia ----------------------- */
 function useIsTouch() {
@@ -57,9 +57,14 @@ const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
 const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 /* ----------------------- Swipe consts --------------------- */
-const ACTION_W = 160; // 2 tlačidlá po 80 px
+const ACTION_W = 160; // 2 tlačidlá po ~80 px
 const SNAP_OPEN = -ACTION_W;
 const SNAP_CLOSED = 0;
+
+/** fallback pre flush detail ak by nebol importovaný */
+const FLUSH_DETAIL_PB =
+  FLUSH_DETAIL_PB_IMPORTED ??
+  "mt-2 -mx-3 rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 md:px-4 pb-3";
 
 export default function PBRun() {
   const { userId } = useUserId();
@@ -72,7 +77,7 @@ export default function PBRun() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // ktorý záznam má rozbalený detail (podľa activity_id)
+  /** ktorý záznam má rozbalený detail (podľa activity_id) */
   const [openDetailForActId, setOpenDetailForActId] = useState<number | null>(null);
 
   /* ---------- load ---------- */
@@ -146,13 +151,13 @@ export default function PBRun() {
 
   /* ----------------------- UI ------------------------------ */
   return (
-    <div className="space-y-4 overflow-x-hidden">
+    <div className="space-y-4 max-w-full overflow-x-hidden">
       <div className="text-xs opacity-80">
         Favorite distance: <strong>{distanceLabel(favoriteM, "run")}</strong>
       </div>
 
       {/* FORM */}
-      <div className="grid gap-3 sm:grid-cols-12 items-start">
+      <div className="grid gap-3 sm:grid-cols-12 items-start max-w-full overflow-x-hidden">
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
@@ -160,7 +165,9 @@ export default function PBRun() {
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
-            <option key={o.m} value={o.m}>{o.label}</option>
+            <option key={o.m} value={o.m}>
+              {o.label}
+            </option>
           ))}
         </select>
 
@@ -187,7 +194,7 @@ export default function PBRun() {
           />
         </div>
 
-        <div className="sm:col-span-4">
+        <div className="sm:col-span-4 min-w-0">
           <ActivitySelector
             userId={userId ?? null}
             dateIso={form.achieved_at}
@@ -204,15 +211,17 @@ export default function PBRun() {
           <Button onClick={handleSave} disabled={!canSave} variant="success">
             {saving ? "Ukladám…" : "Uložiť"}
           </Button>
-          <Button variant="secondary" onClick={() => setForm(EMPTY)}>Clear</Button>
+          <Button variant="secondary" onClick={() => setForm(EMPTY)}>
+            Clear
+          </Button>
           <Button variant="ghost" onClick={refresh} disabled={loading}>
             {loading ? "Načítavam…" : "Refresh"}
           </Button>
         </div>
       </div>
 
-      {/* LIST – swipe + inline detail toggle */}
-      <ul className="space-y-2 pl-0">
+      {/* LIST – swipe + inline detail toggle (IBA klik na názov, žiadne pravé tlačidlo) */}
+      <ul className="space-y-2 max-w-full overflow-x-hidden">
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
@@ -236,10 +245,10 @@ export default function PBRun() {
                 onDelete={() => handleDelete(b.distance_m)}
               >
                 {/* KARTA */}
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-3 w-full min-w-0">
+                  <div className="min-w-0 flex-1 max-w-full">
                     {/* horný riadok */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Button
                         aria-label="Set as favorite"
                         variant="ghost"
@@ -260,30 +269,36 @@ export default function PBRun() {
                       {b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—"}
                     </div>
 
-                    {/* dátum + názov aktivity (staticky) + toggle */}
-                    <div className="mt-1 text-xs opacity-75 flex items-center justify-between gap-3">
-                      <div className="truncate">
-                        {isoDateOnly(b.achieved_at)}
-                        {(b as any).activity_name ? <> · {(b as any).activity_name}</> : null}
-                      </div>
-
-                      {actId != null && (
-                        <button
-                          type="button"
-                          onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
-                          className="px-2 py-1 text-xs rounded border border-white/10 bg-white/10 hover:bg-white/20"
-                          aria-expanded={isOpen}
-                        >
-                          <span className={["inline-block transition-transform", isOpen ? "rotate-180" : ""].join(" ")}>▾</span>{" "}
-                          Detail
-                        </button>
-                      )}
+                    {/* dátum + názov aktivity (klik toggluje inline detail) */}
+                    <div className="mt-1 text-xs opacity-75 min-w-0">
+                      <span className="truncate">{isoDateOnly(b.achieved_at)}</span>
+                      {(b as any).activity_name ? (
+                        <>
+                          {" · "}
+                          {actId != null ? (
+                            <button
+                              className="underline hover:opacity-100 opacity-90 truncate"
+                              onClick={() => setOpenDetailForActId(isOpen ? null : actId)}
+                              aria-expanded={isOpen}
+                            >
+                              {(b as any).activity_name}
+                            </button>
+                          ) : (
+                            <span className="opacity-70 truncate">{(b as any).activity_name}</span>
+                          )}
+                        </>
+                      ) : null}
                     </div>
 
-                    {/* inline DETAIL */}
+                    {/* INLINE DETAIL – flush s hranami karty */}
                     {isOpen && actId != null && (
                       <div className={FLUSH_DETAIL_PB}>
-                        <ActivityDetail activityId={actId} inline compact showHeader={false} />
+                        <ActivityDetail
+                          activityId={actId}
+                          inline
+                          compact
+                          showHeader={false}
+                        />
                       </div>
                     )}
                   </div>
@@ -297,7 +312,7 @@ export default function PBRun() {
   );
 }
 
-/* -------------------- SwipeRow (CARD + akcie) -------------------- */
+/* -------------------- SwipeRow (clean actions behind card) -------------------- */
 function SwipeRow({
   children,
   onEdit,
@@ -313,10 +328,6 @@ function SwipeRow({
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
 
-  const ACTION_W = 168;
-  const SNAP_OPEN = -ACTION_W;
-  const SNAP_CLOSED = 0;
-
   const snap = (x: number) => setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   const onTouchStart = (e: React.TouchEvent) => { if (!enableSwipe) return; startX.current = e.touches[0].clientX; startTx.current = tx; };
@@ -330,7 +341,7 @@ function SwipeRow({
 
   return (
     <li
-      className="relative overflow-hidden w-full"
+      className="relative w-full overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -357,9 +368,8 @@ function SwipeRow({
 
       {/* POSÚVANÁ KARTA */}
       <div
-        className="relative z-10 w-full box-border px-3 py-2 rounded-2xl
-                   shadow-lg border border-white/10 bg-white dark:bg-[#0b0f1a]
-                   overflow-hidden"
+        className="relative z-10 w-full box-border px-3 py-2 rounded-2xl shadow-lg border border-white/10
+                   bg-white dark:bg-[#0b0f1a] overflow-hidden max-w-full"
         style={enableSwipe ? { transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" } : undefined}
       >
         {children}
