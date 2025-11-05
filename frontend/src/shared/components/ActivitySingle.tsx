@@ -87,12 +87,8 @@ function useIsTouch(): boolean {
       const viaOn = typeof window !== "undefined" && ("ontouchstart" in window);
       const isTouch = !!(viaMQ || viaPts || viaOn);
       setTouch(isTouch);
-      // DEBUG
-      // eslint-disable-next-line no-console
-      console.debug("[ActivitySingle] touch detection:", { viaMQ, viaPts, viaOn, decided: isTouch });
     } catch (e) {
       setTouch(false);
-      console.debug("[ActivitySingle] touch detection error, fallback desktop:", e);
     }
   }, []);
   return touch;
@@ -112,17 +108,6 @@ export default function ActivitySingle({
   const isPlan = variant === "plan";
   const isTouch = useIsTouch();
   const showDesktopActions = !isTouch && (!!onEdit || !!onDelete);
-
-  // DEBUG branch info
-  useEffect(() => {
-    console.debug("[ActivitySingle] render branch:", {
-      variant,
-      isTouch,
-      showDesktopActions,
-      hasEdit: !!onEdit,
-      hasDelete: !!onDelete,
-    });
-  }, [variant, isTouch, showDesktopActions, onEdit, onDelete]);
 
   // Header: vľavo dátum – skry v kalendári, inak zobraz
   const headerLeft = variant === "calendar" ? "" : prettySkDate(data.dateIso ?? null);
@@ -164,10 +149,6 @@ export default function ActivitySingle({
         <div className="flex items-center gap-2">
           {showDesktopActions && (
             <>
-              {/* DEBUG badge */}
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-700/40 border border-emerald-600/40 select-none">
-                desktop-actions
-              </span>
               {onEdit && (
                 <button
                   onClick={onEdit}
