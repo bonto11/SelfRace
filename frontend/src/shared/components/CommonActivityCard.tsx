@@ -1,3 +1,4 @@
+// src/shared/components/CommonActivityCard.tsx
 "use client";
 
 import { useState } from "react";

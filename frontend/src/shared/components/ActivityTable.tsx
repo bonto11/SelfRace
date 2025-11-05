@@ -4,13 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { CARD } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow } from "@/features/activity/utils/activity";
-import ActivityDetail from "@/shared/components/ActivityDetail";
 import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
-import CommonActivityCard from "@/shared/components/CommonActivityCard";
-import {FLUSH_DETAIL} from "@/shared/ui/classes"
-/* ---------------- helpers ---------------- */
+import ActivitySingle from "@/shared/components/ActivitySingle";
 
+/* ---------------- helpers ---------------- */
 function normSportsList(
   sel: string | string[] | null | undefined
 ): string[] | null {
@@ -35,17 +33,14 @@ function prettySkDate(iso: string) {
 }
 
 /* ---------------- props ---------------- */
-
 type Props = {
   start?: string;
   end?: string;
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-
   /** Layout režim: "page" = bežný zoznam; "calendar" = pod kalendárom (tesnejší) */
   variant?: "page" | "calendar";
-
   /** Skryť hlavičku dátumu v každej karte, keď zobrazujeme 1 deň (duplicitné s titulkom nad tab.) */
   suppressItemHeaderIfSingleDay?: boolean;
 };
@@ -125,38 +120,25 @@ export default function ActivityTable({
             const iso = r.date.slice(0, 10);
             const dateStr = prettySkDate(iso);
             const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
-            const dist =
-              r.distance_m != null
-                ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
-                : null;
-
-            const metaCollapsed = [
-              dur ? `Time ${dur}` : null,
-              dist ? `Distance ${dist}` : null,
-              r.average_heartrate_bpm != null ? `Avg HR ${r.average_heartrate_bpm}` : null,
-              r.max_heartrate_bpm != null ? `Max HR ${r.max_heartrate_bpm}` : null,
-            ];
-
-            const headerLeft = suppressItemHeaderIfSingleDay && singleDay ? " " : dateStr;
+            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
             return (
               <li key={r.activity_id} className="px-0">
-                <CommonActivityCard
-                  id={`act-${r.activity_id}`}
-                  headerLeft={headerLeft}
-                  sportKind={eff}
-                  title={r.name || "Activity"}
-                  subtitle={null}
-                  meta={metaCollapsed}
-                  defaultOpen={false}
-                  hideSubtitleWhenOpen
-                  hideMetaWhenOpen
-                >
-                  {/* FLUSH DETAIL – žiadna druhá karta */}
-                  <div className={FLUSH_DETAIL}>
-                    <ActivityDetail activityId={r.activity_id} inline compact showHeader={false} />
-                  </div>
-                </CommonActivityCard>
+                <ActivitySingle
+                  variant={variant === "calendar" ? "calendar" : "activity"}
+                  data={{
+                    id: r.activity_id,
+                    name: r.name || "Activity",
+                    dateIso: iso,
+                    sport: eff,
+                    timeStr: dur,
+                    distanceStr: dist,
+                    avgHr: r.average_heartrate_bpm ?? null,
+                    maxHr: r.max_heartrate_bpm ?? null,
+                    activityId: r.activity_id,
+                    singleDayContext: suppressItemHeaderIfSingleDay && singleDay ? true : false,
+                  }}
+                />
               </li>
             );
           })}
