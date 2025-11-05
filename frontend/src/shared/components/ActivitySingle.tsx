@@ -87,16 +87,25 @@ function SportBadge({ kind }: { kind: string }) {
 export default function ActivitySingle({ variant = "activity", data, defaultOpen = false }: ActivitySingleProps) {
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(defaultOpen);
+  const isPB = variant === "pb";
 
   const headerLeft =
     (!cfg.headerLeftVisible || data.singleDayContext) ? " " : prettySkDate(data.dateIso ?? null);
 
-  const collapsedMeta = [
-    data.timeStr ? `Time ${data.timeStr}` : null,
-    data.distanceStr ? `Distance ${data.distanceStr}` : null,
-    data.avgHr != null ? `Avg HR ${data.avgHr}` : null,
-    data.maxHr != null ? `Max HR ${data.maxHr}` : null,
-  ].filter(Boolean) as string[];
+  // Malá (collapsed) meta – pre PB zámerne NEzobrazujeme "Time …", aby sa neduplikovalo s veľkým časom
+  const collapsedMetaItems = isPB
+    ? [
+        data.distanceStr ? `Distance ${data.distanceStr}` : null,
+        data.avgHr != null ? `Avg HR ${data.avgHr}` : null,
+        data.maxHr != null ? `Max HR ${data.maxHr}` : null,
+      ]
+    : [
+        data.timeStr ? `Time ${data.timeStr}` : null,
+        data.distanceStr ? `Distance ${data.distanceStr}` : null,
+        data.avgHr != null ? `Avg HR ${data.avgHr}` : null,
+        data.maxHr != null ? `Max HR ${data.maxHr}` : null,
+      ];
+  const collapsedMeta = (collapsedMetaItems.filter(Boolean) as string[]);
 
   return (
     <section
@@ -127,6 +136,13 @@ export default function ActivitySingle({ variant = "activity", data, defaultOpen
       {/* Title */}
       <div className="mt-1 text-base font-semibold tracking-tight truncate">{data.name}</div>
 
+      {/* PB: veľký čas priamo z DB (best_time_s/time_str) */}
+      {isPB && (
+        <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
+          {data.timeStr ?? "—"}
+        </div>
+      )}
+
       {/* Malá meta len v zavretom stave */}
       {cfg.showSmallMetaWhenClosed && !opened && collapsedMeta.length > 0 && (
         <div className="text-xs mt-1 opacity-80">{collapsedMeta.join(" · ")}</div>
@@ -156,12 +172,12 @@ function DetailBody({
   cfg,
 }: {
   data: DataIn;
-  cfg: (typeof PRESET)[ComponentVariant];
+  cfg: (typeof PRESET)[keyof typeof PRESET];
 }) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const s = data.activityId != null ? (getSummary(data.activityId) as any | null) : null;
 
-  // KPI (veľké) – zobraz len ak to preset chce
+  // KPI (veľké) – TIME uprednostní summary; fallback je PB čas z DB (data.timeStr)
   const distTxt = s ? fmtDistance(s.distance_m ?? null) : (data.distanceStr ?? "—");
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (data.timeStr ?? "—");
   const avgTxt  = s ? (s.average_heartrate_bpm ?? "—") : (data.avgHr ?? "—");
