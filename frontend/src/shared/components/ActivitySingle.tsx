@@ -6,62 +6,38 @@ import HrChart from "@/shared/components/trend/HrChart";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
 import { ComponentVariant } from "@/features/activity/utils/activity";
 
-/* ====== Typy ====== */
+/* ===== Typy vstupu ===== */
 type DataIn = {
   id: string | number;
   name: string;
   dateIso?: string | null;
   sport: "run" | "ride" | "strength" | "mixed" | "other" | string;
-  timeStr?: string | null;       // PB/summary čas (pre header chip / veľký čas v PB)
-  distanceStr?: string | null;
+  timeStr?: string | null;        // PB čas alebo duration
+  distanceStr?: string | null;    // napr. "6.08 km" alebo "0.00 km"
   avgHr?: number | null;
   maxHr?: number | null;
-  activityId?: number | null;    // pre načítanie streamov/detailu
-  singleDayContext?: boolean;    // v tabuľke jedného dňa skryj headerLeft
+  activityId?: number | null;     // pre načítanie streamov/detailu
+  singleDayContext?: boolean;
 };
 
 export type ActivitySingleProps = {
-  variant?: ComponentVariant;    // "activity" | "calendar" | "pb"
+  variant?: ComponentVariant;     // "activity" | "calendar" | "pb"
   data: DataIn;
   defaultOpen?: boolean;
 };
 
-/* ====== Presety podľa variantu ====== */
+/* ===== Presety ===== */
 const PRESET: Record<ComponentVariant, {
   outerPadding: string;
   detailFlush: boolean;
   compactChart: boolean;
-  headerLeftVisible: boolean;
-  showHeaderTimeChip: boolean;   // malý čip s časom v headeri
-  titleIsTime: boolean;          // veľký riadok je čas (PB), inak názov
 }> = {
-  activity: {
-    outerPadding: "px-5 py-4",
-    detailFlush: true,
-    compactChart: false,
-    headerLeftVisible: true,
-    showHeaderTimeChip: true,
-    titleIsTime: false,
-  },
-  calendar: {
-    outerPadding: "px-5 py-4",
-    detailFlush: true,
-    compactChart: true,
-    headerLeftVisible: false, // duplicita s titulkom tabuľky
-    showHeaderTimeChip: true,
-    titleIsTime: false,
-  },
-  pb: {
-    outerPadding: "px-5 py-4",
-    detailFlush: true,
-    compactChart: true,
-    headerLeftVisible: false, // v PB nechceme vľavo dátum
-    showHeaderTimeChip: false, // čas je veľký nižšie
-    titleIsTime: true,
-  },
+  activity: { outerPadding: "px-5 py-4", detailFlush: true, compactChart: false },
+  calendar: { outerPadding: "px-5 py-4", detailFlush: true, compactChart: true },
+  pb:       { outerPadding: "px-5 py-4", detailFlush: true, compactChart: true },
 };
 
-/* ====== Pomocníci ====== */
+/* ===== Helpers ===== */
 function prettySkDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -79,29 +55,34 @@ function SportBadge({ kind }: { kind: string }) {
   return <span className="text-xs px-2 py-0.5 rounded bg-gray-700">{label}</span>;
 }
 
-function TimeChip({ value }: { value?: string | null }) {
-  if (!value) return null;
-  return (
-    <span
-      className="text-[11px] tabular-nums px-2 py-0.5 rounded
-                 border border-white/10 bg-white/10"
-      title="Time"
-    >
-      {value}
-    </span>
-  );
+/** vyparsuje km zo stringu typu "6.08 km" (alebo vráti null) */
+function parseKm(s?: string | null): number | null {
+  if (!s) return null;
+  const m = s.match(/(-?\d+(?:[.,]\d+)?)\s*km/i);
+  if (!m) return null;
+  return Number(String(m[1]).replace(",", "."));
 }
 
-/* ====== Hlavný komponent ====== */
+/* ===== Hlavný komponent ===== */
 export default function ActivitySingle({ variant = "activity", data, defaultOpen = false }: ActivitySingleProps) {
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(defaultOpen);
+  const isPB = variant === "pb";
 
-  const headerLeft =
-    (!cfg.headerLeftVisible || data.singleDayContext) ? " " : prettySkDate(data.dateIso ?? null);
+  // Header: vľavo dátum, vpravo šport + toggle
+  const headerLeft = prettySkDate(data.dateIso ?? null);
 
-  // Distance – chceme ju mať vždy pod hlavným riadkom (pre všetky varianty)
-  const distanceLine = data.distanceStr ? `Distance ${data.distanceStr}` : "";
+  // Sekundárna línia pod hlavným textom:
+  // - PB: vždy Distance (ak je), nikdy time (ten je už veľký)
+  // - Activity/Calendar: ak distance > 0 → Distance; inak, ak je time, tak Time
+  const distKm = parseKm(data.distanceStr);
+  let secondaryLine: string | null = null;
+  if (isPB) {
+    secondaryLine = data.distanceStr ? `Distance ${data.distanceStr}` : null;
+  } else {
+    if (distKm != null && distKm > 0) secondaryLine = `Distance ${data.distanceStr}`;
+    else if (data.timeStr) secondaryLine = `Time ${data.timeStr}`;
+  }
 
   return (
     <section
@@ -116,7 +97,6 @@ export default function ActivitySingle({ variant = "activity", data, defaultOpen
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
         <div className="flex items-center gap-2">
-          {cfg.showHeaderTimeChip && <TimeChip value={data.timeStr ?? undefined} />}
           <SportBadge kind={data.sport} />
           <button
             type="button"
@@ -130,35 +110,37 @@ export default function ActivitySingle({ variant = "activity", data, defaultOpen
         </div>
       </div>
 
-      {/* Hlavný riadok */}
-      {cfg.titleIsTime ? (
-        // PB – veľký čas z DB
+      {/* Hlavný text podľa variantu */}
+      {isPB ? (
+        // PB: veľký čas z DB
         <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
           {data.timeStr ?? "—"}
         </div>
       ) : (
-        // Activity/Calendar – veľký názov aktivity
+        // Activity/Calendar: veľký názov aktivity
         <div className="mt-1 text-base font-semibold tracking-tight truncate">
           {data.name}
         </div>
       )}
 
-      {/* Vzdialenosť – vždy, a len ona v zavretom stave (HR/Time rieši detail) */}
-      {!!distanceLine && (
-        <div className="text-xs mt-1 opacity-80">{distanceLine}</div>
+      {/* Sekundárny riadok (Distance alebo Time) – jediná „malá meta“ v zbalenom stave */}
+      {secondaryLine && (
+        <div className="text-sm mt-1 opacity-80">
+          {secondaryLine}
+        </div>
       )}
 
-      {/* Detail (flush podľa presetov) */}
+      {/* Detail (flush) */}
       {opened && (
         cfg.detailFlush ? (
           <div className="-mx-5 -mb-4 mt-3">
             <div className="px-4 pb-4">
-              <DetailBody data={data} cfg={cfg} />
+              <DetailBody data={data} compactChart={cfg.compactChart} />
             </div>
           </div>
         ) : (
           <div className="mt-3">
-            <DetailBody data={data} cfg={cfg} />
+            <DetailBody data={data} compactChart={cfg.compactChart} />
           </div>
         )
       )}
@@ -166,18 +148,18 @@ export default function ActivitySingle({ variant = "activity", data, defaultOpen
   );
 }
 
-/* ====== Telo detailu (KPI + graf + splits/laps) ====== */
+/* ===== Detail (KPI + HR graf + splits/laps) ===== */
 function DetailBody({
   data,
-  cfg,
+  compactChart,
 }: {
   data: DataIn;
-  cfg: (typeof PRESET)[keyof typeof PRESET];
+  compactChart: boolean;
 }) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const s = data.activityId != null ? (getSummary(data.activityId) as any | null) : null;
 
-  // KPI (veľké) – TIME uprednostní summary; fallback je PB čas z DB (data.timeStr)
+  // KPI – TIME z summary; fallback PB čas z data.timeStr
   const distTxt = s ? fmtDistance(s.distance_m ?? null) : (data.distanceStr ?? "—");
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (data.timeStr ?? "—");
   const avgTxt  = s ? (s.average_heartrate_bpm ?? "—") : (data.avgHr ?? "—");
@@ -200,16 +182,14 @@ function DetailBody({
           setLaps((dt as any).laps || []);
           setSplits((dt as any).splits || []);
         }
-      } finally {
-        // no-op
-      }
+      } finally { /* no-op */ }
     })();
     return () => { alive = false; };
   }, [data.activityId, getStreams, getDetail]);
 
   return (
     <div>
-      {/* Veľké KPI – tu sú Time/Distance/Avg/Max HR */}
+      {/* Veľké KPI */}
       <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
         {[
           { label: "TIME", value: timeTxt },
@@ -234,8 +214,8 @@ function DetailBody({
             <HrChart
               xs={streams.time_s}
               ys={streams.hr}
-              height={cfg.compactChart ? 148 : 220}
-              compact={cfg.compactChart}
+              height={compactChart ? 148 : 220}
+              compact={compactChart}
             />
           </div>
         ) : (
