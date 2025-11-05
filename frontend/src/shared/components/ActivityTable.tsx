@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CARD } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { ActivityRow } from "@/features/activity/utils/activity";
+import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
 import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 import ActivitySingle from "@/shared/components/ActivitySingle";
@@ -25,7 +25,7 @@ function normSportsList(sel: string | string[] | null | undefined): string[] | n
 function prettySkDate(iso: string) {
   const d = new Date(iso);
   const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const wk  = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
 
@@ -36,7 +36,7 @@ type Props = {
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-  variant?: "page" | "calendar";
+  variant?: ComponentVariant; // "activity" | "calendar" | "pb" (tu používame len activity|calendar)
   suppressItemHeaderIfSingleDay?: boolean;
 };
 
@@ -46,20 +46,18 @@ export default function ActivityTable({
   sport = "all",
   allowedSports = null,
   titleOverride,
-  variant = "page",
+  variant = "activity",
   suppressItemHeaderIfSingleDay = false,
 }: Props) {
   const { selectByRange, rows: allRows } = useActivityData();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const singleDay = start && end && start === end;
+  const singleDay = !!start && !!end && start === end;
 
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
-    if (start && end) {
-      return singleDay ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
-    }
+    if (start && end) return singleDay ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
     return "História (vyber rozsah)";
   }, [start, end, titleOverride, singleDay]);
 
@@ -76,13 +74,14 @@ export default function ActivityTable({
       Array.isArray(allowedSports) && allowedSports.length
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
         : inRange;
+
     const finalRows = sportList ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r))) : afterWhitelist;
     setRows(finalRows);
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   const wrapperCls = [CARD, "space-y-4", variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5"].join(" ");
-  const headerCls = ["flex justify-between items-center", variant === "calendar" ? "mb-1" : "mb-2"].join(" ");
+  const headerCls  = ["flex justify-between items-center", variant === "calendar" ? "mb-1" : "mb-2"].join(" ");
 
   return (
     <div className={wrapperCls}>
@@ -101,9 +100,8 @@ export default function ActivityTable({
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
-            const dateStr = iso;
 
-            const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
+            const dur  = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
             const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
             return (
@@ -113,14 +111,14 @@ export default function ActivityTable({
                   data={{
                     id: r.activity_id,
                     name: r.name || "Activity",
-                    dateIso: dateStr,
+                    dateIso: iso,
                     sport: eff,
                     timeStr: dur,
                     distanceStr: dist,
                     avgHr: r.average_heartrate_bpm ?? null,
                     maxHr: r.max_heartrate_bpm ?? null,
                     activityId: r.activity_id,
-                    singleDayContext: suppressItemHeaderIfSingleDay && (start === end),
+                    singleDayContext: suppressItemHeaderIfSingleDay && singleDay,
                   }}
                 />
               </li>
