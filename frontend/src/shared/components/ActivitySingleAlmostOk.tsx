@@ -24,10 +24,6 @@ export type ActivitySingleProps = {
   variant?: ComponentVariant;     // "activity" | "calendar" | "pb"
   data: DataIn;
   defaultOpen?: boolean;
-
-  /** voliteľné akcie – použijú sa iba na DESKTOPE (náhrada za swipe) */
-  onEdit?: () => void;
-  onDelete?: () => void;
 };
 
 /* ===== Presety ===== */
@@ -67,55 +63,14 @@ function parseKm(s?: string | null): number | null {
   return Number(String(m[1]).replace(",", "."));
 }
 
-/** robustná detekcia touch zariadenia */
-function useIsTouch(): boolean {
-  const [touch, setTouch] = useState(false);
-  useEffect(() => {
-    try {
-      const viaMQ = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches;
-      const viaPts = typeof navigator !== "undefined" && (navigator as any).maxTouchPoints > 0;
-      const viaOn = typeof window !== "undefined" && ("ontouchstart" in window);
-      const isTouch = !!(viaMQ || viaPts || viaOn);
-      setTouch(isTouch);
-      // DEBUG
-      // eslint-disable-next-line no-console
-      console.debug("[ActivitySingle] touch detection:", { viaMQ, viaPts, viaOn, decided: isTouch });
-    } catch (e) {
-      setTouch(false);
-      console.debug("[ActivitySingle] touch detection error, fallback desktop:", e);
-    }
-  }, []);
-  return touch;
-}
-
 /* ===== Hlavný komponent ===== */
-export default function ActivitySingle({
-  variant = "activity",
-  data,
-  defaultOpen = false,
-  onEdit,
-  onDelete,
-}: ActivitySingleProps) {
+export default function ActivitySingle({ variant = "activity", data, defaultOpen = false }: ActivitySingleProps) {
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(defaultOpen);
   const isPB = variant === "pb";
-  const isTouch = useIsTouch();
-  const showDesktopActions = !isTouch && (!!onEdit || !!onDelete);
 
-  // DEBUG branch info
-  useEffect(() => {
-    console.debug("[ActivitySingle] render branch:", {
-      variant,
-      isTouch,
-      showDesktopActions,
-      hasEdit: !!onEdit,
-      hasDelete: !!onDelete,
-    });
-  }, [variant, isTouch, showDesktopActions, onEdit, onDelete]);
-
-  // Header: vľavo dátum (okrem kalendára), vpravo šport + toggle (+ desktop akcie)
-  const headerLeft =
-    variant === "calendar" ? "" : prettySkDate(data.dateIso ?? null);
+  // Header: vľavo dátum, vpravo šport + toggle
+  const headerLeft = prettySkDate(data.dateIso ?? null);
 
   // Sekundárna línia pod hlavným textom:
   // - PB: vždy Distance (ak je), nikdy time (ten je už veľký)
@@ -141,35 +96,8 @@ export default function ActivitySingle({
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
-
         <div className="flex items-center gap-2">
-          {showDesktopActions && (
-            <>
-              {/* DEBUG badge */}
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-700/40 border border-emerald-600/40 select-none">
-                desktop-actions
-              </span>
-              {onEdit && (
-                <button
-                  onClick={onEdit}
-                  className="h-8 px-3 rounded-full text-sm font-semibold bg-amber-500/60 hover:bg-amber-500/80 text-white border border-white/10 transition-colors"
-                >
-                  Edit
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  onClick={onDelete}
-                  className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/65 hover:bg-rose-500/80 text-white border border-white/10 transition-colors"
-                >
-                  Delete
-                </button>
-              )}
-            </>
-          )}
-
           <SportBadge kind={data.sport} />
-
           <button
             type="button"
             aria-expanded={opened}
@@ -231,7 +159,7 @@ function DetailBody({
   const { getSummary, getStreams, getDetail } = useActivityData();
   const s = data.activityId != null ? (getSummary(data.activityId) as any | null) : null;
 
-  // KPI – TIME zo summary; fallback PB/secondary čas z data.timeStr
+  // KPI – TIME z summary; fallback PB čas z data.timeStr
   const distTxt = s ? fmtDistance(s.distance_m ?? null) : (data.distanceStr ?? "—");
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (data.timeStr ?? "—");
   const avgTxt  = s ? (s.average_heartrate_bpm ?? "—") : (data.avgHr ?? "—");
