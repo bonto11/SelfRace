@@ -1,3 +1,4 @@
+// src/shared/components/ActivitySingle.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,16 +6,14 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import HrChart from "@/shared/components/trend/HrChart";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
 
-/** Varianty použitia – minimalizujeme props */
 type Variant = "activity" | "calendar" | "record" | "plan";
 
-/** ====== Typy dát pre varianty ====== */
 type RecordData = {
   id: string | number;
-  distanceLabel: string;         // "5 km"
-  timeStr: string;               // "00:18:45"
+  distanceLabel: string;
+  timeStr: string;
   dateIso?: string | null;
-  activityId?: number | null;    // ak existuje, dá sa rozbaliť detail
+  activityId?: number | null;
   activityName?: string | null;
 };
 
@@ -28,55 +27,70 @@ type ActivityData = {
   avgHr?: number | null;
   maxHr?: number | null;
   activityId: number;
-  singleDayContext?: boolean;    // pod kalendárom 1 deň => skryť minihlavicku
+  singleDayContext?: boolean;
 };
 
 type PlanData = {
   id: string;
-  dateLabel?: string | null;     // "Mon · 2025-11-03"
+  dateLabel?: string | null;
   title: string;
   focus?: string | null;
   durationMin?: number | null;
   intensity?: string | null;
   target?: string | null;
-  structure?: any;               // surový objekt (vyrenderujeme jednoduché JSON, alebo sem doplníš vlastný rendering)
+  structure?: any;
 };
 
 type DataByVariant<V extends Variant> =
   V extends "record"   ? RecordData   :
   V extends "plan"     ? PlanData     :
   V extends "calendar" ? ActivityData :
-  /* "activity" */       ActivityData;
+  ActivityData;
 
 type Props<V extends Variant = Variant> = {
   variant: V;
   data: DataByVariant<V>;
-  /** default false – ak true, karta pri mount-e už otvorená */
   defaultOpen?: boolean;
 };
 
-/** ====== Pomocné ====== */
 const prettySkDate = (iso?: string | null) => {
   if (!iso) return null;
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const wk  = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 };
 
-const badge = (kind: string) =>
-  kind === "run" ? "Run" :
-  kind === "ride" ? "Ride" :
-  kind === "strength" ? "Strength" :
-  kind === "mixed" ? "Mixed" : "Other";
+const badge = (k: string) =>
+  k === "run" ? "Run" :
+  k === "ride" ? "Ride" :
+  k === "strength" ? "Strength" :
+  k === "mixed" ? "Mixed" : "Other";
 
-/** ====== Vnútorný “detail” blok pre aktivity ====== */
-function ActivityInlineDetail({
-  activityId,
-  compact = true,
-}: { activityId: number; compact?: boolean }) {
+/* --------- veľké KPI dlaždice (rozbalený stav) --------- */
+function KpiTile({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-4 py-3">
+      <div className="text-[10px] opacity-70">{label}</div>
+      <div className="text-xl font-semibold tabular-nums">{String(value)}</div>
+    </div>
+  );
+}
+
+function KpiRow({ items }: { items: { label: string; value?: string | number | null }[] }) {
+  const visible = items.filter(i => i.value != null && i.value !== "");
+  if (!visible.length) return null;
+  return (
+    <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {visible.map((i) => (
+        <KpiTile key={i.label} label={i.label} value={i.value as any} />
+      ))}
+    </div>
+  );
+}
+
+/* --------- detail aktivity (inline) --------- */
+function ActivityInlineDetail({ activityId }: { activityId: number }) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const summary = getSummary(activityId) as any | null;
 
@@ -107,21 +121,19 @@ function ActivityInlineDetail({
     return () => { alive = false; };
   }, [activityId, getStreams, getDetail]);
 
-  if (!summary) return <div className="text-sm opacity-80">❌ Aktivita sa nenašla v 90-d cache.</div>;
-
-  const distTxt = fmtDistance(summary.distance_m ?? null);
-  const timeTxt = summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
+  const distTxt = fmtDistance(summary?.distance_m ?? null);
+  const timeTxt = summary?.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
 
   return (
-    <div className="px-2 pb-2">
-      {/* KPI – v detaile pod kartou typicky nechceme duplikovať to, čo je v meta rade; necháme iba graf a splits/laps */}
-      <div className="mt-1">
+    <div className="px-5 pb-4">{/* px-5 aby licovalo s kartou */}
+      {/* HR priebeh */}
+      <div className="mt-2">
         <div className="flex items-center justify-between mb-2">
           <h4 className="font-bold">HR priebeh</h4>
         </div>
         {streams.time_s.length ? (
           <div className="mb-1">
-            <HrChart xs={streams.time_s} ys={streams.hr} height={compact ? 148 : 220} compact={compact} />
+            <HrChart xs={streams.time_s} ys={streams.hr} height={180} compact />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
@@ -154,15 +166,17 @@ function ActivityInlineDetail({
         </>
       )}
 
-      {/* drobný info strip, ak chceš */}
-      <div className="mt-3 text-xs opacity-70">
-        Distance: {distTxt} · Time: {timeTxt} · Avg HR: {summary.average_heartrate_bpm ?? "—"} · Max HR: {summary.max_heartrate_bpm ?? "—"}
-      </div>
+      {/* malý info strip (ak chceš ho ponechať) */}
+      {summary && (
+        <div className="mt-3 text-xs opacity-70">
+          Distance: {distTxt} · Time: {timeTxt} · Avg HR: {summary.average_heartrate_bpm ?? "—"} · Max HR: {summary.max_heartrate_bpm ?? "—"}
+        </div>
+      )}
     </div>
   );
 }
 
-/** ====== Hlavná karta (obsah + rozbalenie) ====== */
+/* --------- hlavná karta --------- */
 export default function ActivitySingle<V extends Variant>({
   variant,
   data,
@@ -170,29 +184,23 @@ export default function ActivitySingle<V extends Variant>({
 }: Props<V>) {
   const [open, setOpen] = useState(defaultOpen);
 
-  // hranové nastavenia (flush detail = licovanie s kartou)
-  const flushDetail = variant !== "record";  // record obvykle bez inline detailu (ale vieš zapnúť nižšie ak activityId existuje)
-
-  // hlavička vľavo + titulok + meta podľa variantu
-  let headerLeft: string | React.ReactNode = "—";
-  let sportKind: string = "other";
+  let headerLeft: React.ReactNode = "—";
+  let sportKind = "other";
   let title: React.ReactNode = "";
   let subtitle: string | null = null;
-  let meta: string[] = [];
-  let canToggle = false;  // povolenie rozbalenia
+  let metaLine: string[] = [];
+  let canToggle = false;
   let detailNode: React.ReactNode = null;
 
+  /* ------- mapping variantov ------- */
   if (variant === "record") {
     const d = data as RecordData;
     headerLeft = prettySkDate(d.dateIso) ?? "—";
-    sportKind = "other";
     title = d.timeStr;
     subtitle = d.activityName || null;
-    meta = d.distanceLabel ? [d.distanceLabel] : [];
+    metaLine = d.distanceLabel ? [d.distanceLabel] : [];
     canToggle = !!d.activityId;
-    if (open && d.activityId) {
-      detailNode = <ActivityInlineDetail activityId={d.activityId} compact />;
-    }
+    if (open && d.activityId) detailNode = <ActivityInlineDetail activityId={d.activityId} />;
   }
 
   if (variant === "activity" || variant === "calendar") {
@@ -201,34 +209,46 @@ export default function ActivitySingle<V extends Variant>({
       d.singleDayContext && variant === "calendar" ? " " : (prettySkDate(d.dateIso) ?? "—");
     sportKind = d.sport || "other";
     title = d.name || "Activity";
-    subtitle = null;
-    meta = [
+    metaLine = [
       d.timeStr ? `Time ${d.timeStr}` : null,
       d.distanceStr ? `Distance ${d.distanceStr}` : null,
       d.avgHr != null ? `Avg HR ${d.avgHr}` : null,
       d.maxHr != null ? `Max HR ${d.maxHr}` : null,
     ].filter(Boolean) as string[];
     canToggle = true;
+
+    // veľké KPI v rozbalenom stave
+    const kpis = [
+      { label: "TIME", value: d.timeStr || "—" },
+      { label: "DISTANCE", value: d.distanceStr || "—" },
+      { label: "AVG HR", value: d.avgHr ?? "—" },
+      { label: "MAX HR", value: d.maxHr ?? "—" },
+    ];
+
     if (open) {
-      detailNode = <ActivityInlineDetail activityId={d.activityId} compact />;
+      detailNode = (
+        <>
+          <KpiRow items={kpis} />
+          <div className="mt-2" />
+          <ActivityInlineDetail activityId={d.activityId} />
+        </>
+      );
     }
   }
 
   if (variant === "plan") {
     const d = data as PlanData;
     headerLeft = d.dateLabel ?? "—";
-    sportKind = "other";
     title = d.title;
     subtitle = d.focus || null;
-    meta = [];
-    if (d.durationMin != null) meta.push(`${d.durationMin} min`);
-    if (d.intensity) meta.push(d.intensity);
-    if (d.target) meta.push(d.target);
+    metaLine = [];
+    if (d.durationMin != null) metaLine.push(`${d.durationMin} min`);
+    if (d.intensity) metaLine.push(d.intensity);
+    if (d.target) metaLine.push(d.target);
     canToggle = !!d.structure;
     if (open && d.structure) {
-      // sem si neskôr dosadíš svoj render (PlanCardDetail). Dočasne textové JSON.
       detailNode = (
-        <div className="px-2 pb-2">
+        <div className="px-5 pb-4">
           <pre className="text-xs opacity-80 whitespace-pre-wrap">
             {JSON.stringify(d.structure, null, 2)}
           </pre>
@@ -237,17 +257,16 @@ export default function ActivitySingle<V extends Variant>({
     }
   }
 
-  // karta
   return (
     <section
       className={[
         "rounded-2xl shadow-lg border border-white/10",
         "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
         "px-5 py-4",
-        "overflow-hidden",                 // dôležité kvôli flush detailu
+        "overflow-hidden",
       ].join(" ")}
     >
-      {/* Header row */}
+      {/* header */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
 
@@ -258,43 +277,40 @@ export default function ActivitySingle<V extends Variant>({
             aria-expanded={open}
             onClick={() => canToggle && setOpen(v => !v)}
             disabled={!canToggle}
-            title={open ? "Skryť detail" : "Otvoriť detail"}
             className={[
               "h-8 w-8 grid place-items-center rounded-full border border-white/10",
               canToggle ? "bg-white/10 hover:bg-white/20 transition-colors" : "opacity-40 cursor-not-allowed",
             ].join(" ")}
+            title={open ? "Skryť detail" : "Otvoriť detail"}
           >
             <span className={["text-base leading-none select-none transition-transform", open ? "rotate-180" : "rotate-0"].join(" ")}>▾</span>
           </button>
         </div>
       </div>
 
-      {/* Title */}
+      {/* title */}
       <div className="mt-1 text-base font-semibold tracking-tight truncate">
         {title}
       </div>
 
-      {/* Subtitle (skrývame pri open, nech je čistejšie) */}
+      {/* subtitle – iba keď je zatvorené */}
       {!open && (subtitle ? (
         <div className="text-xs opacity-80">{subtitle}</div>
       ) : (
         <div className="text-xs opacity-40">{null}</div>
       ))}
 
-      {/* Meta – ostáva viditeľná AJ pri open */}
-      {!!meta.length && (
-        <div className="text-xs mt-1 opacity-80">{meta.join(" · ")}</div>
+      {/* meta: v jednej rovine; keď je otvorené, nechávame meta LINIU aj tak (kvôli konzistencii),
+         ale hlavné „veľké“ KPI sú nižšie nad grafom */}
+      {!!metaLine.length && (
+        <div className="text-xs mt-1 opacity-80">{metaLine.join(" · ")}</div>
       )}
 
-      {/* Detail – flush k okrajom: žiadny ďalší “panel” vnútri */}
+      {/* detail – flush s hranami karty, ale vnútro má px-5, takže všetko lícuje */}
       {open && detailNode ? (
-        flushDetail ? (
-          <div className="-mx-5 -mb-4">
-            {detailNode}
-          </div>
-        ) : (
-          <div className="mt-4">{detailNode}</div>
-        )
+        <div className="-mx-5 -mb-4">
+          {detailNode}
+        </div>
       ) : null}
     </section>
   );
