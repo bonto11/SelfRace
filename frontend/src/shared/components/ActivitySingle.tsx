@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import HrChart from "@/shared/components/trend/HrChart";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
@@ -12,16 +12,16 @@ type DataIn = {
   name: string;
   dateIso?: string | null;
   sport: "run" | "ride" | "strength" | "mixed" | "other" | string;
-  timeStr?: string | null;
+  timeStr?: string | null;       // PB/summary čas (pre header chip / veľký čas v PB)
   distanceStr?: string | null;
   avgHr?: number | null;
   maxHr?: number | null;
-  activityId?: number | null;           // pre načítanie streamov/detailu
-  singleDayContext?: boolean;           // ak je tabuľka jedného dňa → môžeme skryť headerLeft
+  activityId?: number | null;    // pre načítanie streamov/detailu
+  singleDayContext?: boolean;    // v tabuľke jedného dňa skryj headerLeft
 };
 
 export type ActivitySingleProps = {
-  variant?: ComponentVariant;           // "activity" | "calendar" | "pb"
+  variant?: ComponentVariant;    // "activity" | "calendar" | "pb"
   data: DataIn;
   defaultOpen?: boolean;
 };
@@ -31,37 +31,33 @@ const PRESET: Record<ComponentVariant, {
   outerPadding: string;
   detailFlush: boolean;
   compactChart: boolean;
-  showSmallMetaWhenClosed: boolean;
-  hideSmallMetaWhenOpen: boolean;
-  showBigMetaWhenOpen: boolean;
   headerLeftVisible: boolean;
+  showHeaderTimeChip: boolean;   // malý čip s časom v headeri
+  titleIsTime: boolean;          // veľký riadok je čas (PB), inak názov
 }> = {
   activity: {
     outerPadding: "px-5 py-4",
     detailFlush: true,
     compactChart: false,
-    showSmallMetaWhenClosed: true,
-    hideSmallMetaWhenOpen: true,
-    showBigMetaWhenOpen: true,
     headerLeftVisible: true,
+    showHeaderTimeChip: true,
+    titleIsTime: false,
   },
   calendar: {
     outerPadding: "px-5 py-4",
     detailFlush: true,
     compactChart: true,
-    showSmallMetaWhenClosed: true,
-    hideSmallMetaWhenOpen: true,
-    showBigMetaWhenOpen: true,
-    headerLeftVisible: false, // duplicitné s titulkom v tabuľke
+    headerLeftVisible: false, // duplicita s titulkom tabuľky
+    showHeaderTimeChip: true,
+    titleIsTime: false,
   },
   pb: {
     outerPadding: "px-5 py-4",
     detailFlush: true,
     compactChart: true,
-    showSmallMetaWhenClosed: true,
-    hideSmallMetaWhenOpen: true,
-    showBigMetaWhenOpen: true,
     headerLeftVisible: false, // v PB nechceme vľavo dátum
+    showHeaderTimeChip: false, // čas je veľký nižšie
+    titleIsTime: true,
   },
 };
 
@@ -83,29 +79,29 @@ function SportBadge({ kind }: { kind: string }) {
   return <span className="text-xs px-2 py-0.5 rounded bg-gray-700">{label}</span>;
 }
 
+function TimeChip({ value }: { value?: string | null }) {
+  if (!value) return null;
+  return (
+    <span
+      className="text-[11px] tabular-nums px-2 py-0.5 rounded
+                 border border-white/10 bg-white/10"
+      title="Time"
+    >
+      {value}
+    </span>
+  );
+}
+
 /* ====== Hlavný komponent ====== */
 export default function ActivitySingle({ variant = "activity", data, defaultOpen = false }: ActivitySingleProps) {
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(defaultOpen);
-  const isPB = variant === "pb";
 
   const headerLeft =
     (!cfg.headerLeftVisible || data.singleDayContext) ? " " : prettySkDate(data.dateIso ?? null);
 
-  // Malá (collapsed) meta – pre PB zámerne NEzobrazujeme "Time …", aby sa neduplikovalo s veľkým časom
-  const collapsedMetaItems = isPB
-    ? [
-        data.distanceStr ? `Distance ${data.distanceStr}` : null,
-        data.avgHr != null ? `Avg HR ${data.avgHr}` : null,
-        data.maxHr != null ? `Max HR ${data.maxHr}` : null,
-      ]
-    : [
-        data.timeStr ? `Time ${data.timeStr}` : null,
-        data.distanceStr ? `Distance ${data.distanceStr}` : null,
-        data.avgHr != null ? `Avg HR ${data.avgHr}` : null,
-        data.maxHr != null ? `Max HR ${data.maxHr}` : null,
-      ];
-  const collapsedMeta = (collapsedMetaItems.filter(Boolean) as string[]);
+  // Distance – chceme ju mať vždy pod hlavným riadkom (pre všetky varianty)
+  const distanceLine = data.distanceStr ? `Distance ${data.distanceStr}` : "";
 
   return (
     <section
@@ -120,6 +116,7 @@ export default function ActivitySingle({ variant = "activity", data, defaultOpen
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
         <div className="flex items-center gap-2">
+          {cfg.showHeaderTimeChip && <TimeChip value={data.timeStr ?? undefined} />}
           <SportBadge kind={data.sport} />
           <button
             type="button"
@@ -133,19 +130,22 @@ export default function ActivitySingle({ variant = "activity", data, defaultOpen
         </div>
       </div>
 
-      {/* Title */}
-      <div className="mt-1 text-base font-semibold tracking-tight truncate">{data.name}</div>
-
-      {/* PB: veľký čas priamo z DB (best_time_s/time_str) */}
-      {isPB && (
+      {/* Hlavný riadok */}
+      {cfg.titleIsTime ? (
+        // PB – veľký čas z DB
         <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
           {data.timeStr ?? "—"}
         </div>
+      ) : (
+        // Activity/Calendar – veľký názov aktivity
+        <div className="mt-1 text-base font-semibold tracking-tight truncate">
+          {data.name}
+        </div>
       )}
 
-      {/* Malá meta len v zavretom stave */}
-      {cfg.showSmallMetaWhenClosed && !opened && collapsedMeta.length > 0 && (
-        <div className="text-xs mt-1 opacity-80">{collapsedMeta.join(" · ")}</div>
+      {/* Vzdialenosť – vždy, a len ona v zavretom stave (HR/Time rieši detail) */}
+      {!!distanceLine && (
+        <div className="text-xs mt-1 opacity-80">{distanceLine}</div>
       )}
 
       {/* Detail (flush podľa presetov) */}
@@ -209,21 +209,20 @@ function DetailBody({
 
   return (
     <div>
-      {cfg.showBigMetaWhenOpen && (
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
-          {[
-            { label: "TIME", value: timeTxt },
-            { label: "DISTANCE", value: distTxt },
-            { label: "AVG HR", value: avgTxt },
-            { label: "MAX HR", value: maxTxt },
-          ].map(t => (
-            <div key={t.label} className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
-              <div className="text-[10px] opacity-70">{t.label}</div>
-              <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Veľké KPI – tu sú Time/Distance/Avg/Max HR */}
+      <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {[
+          { label: "TIME", value: timeTxt },
+          { label: "DISTANCE", value: distTxt },
+          { label: "AVG HR", value: avgTxt },
+          { label: "MAX HR", value: maxTxt },
+        ].map(t => (
+          <div key={t.label} className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
+            <div className="text-[10px] opacity-70">{t.label}</div>
+            <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
+          </div>
+        ))}
+      </div>
 
       {/* HR priebeh */}
       <div className="mt-3">
