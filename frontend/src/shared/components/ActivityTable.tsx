@@ -8,10 +8,8 @@ import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 import ActivitySingle from "@/shared/components/ActivitySingle";
 
-/* ---------------- helpers ---------------- */
-function normSportsList(
-  sel: string | string[] | null | undefined
-): string[] | null {
+/* helpers */
+function normSportsList(sel: string | string[] | null | undefined): string[] | null {
   if (sel == null) return null;
   if (Array.isArray(sel)) {
     const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
@@ -24,7 +22,6 @@ function normSportsList(
   const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
   return arr.length ? Array.from(new Set(arr)) : null;
 }
-
 function prettySkDate(iso: string) {
   const d = new Date(iso);
   const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -32,16 +29,14 @@ function prettySkDate(iso: string) {
   return `${wk} · ${day}`;
 }
 
-/* ---------------- props ---------------- */
+/* props */
 type Props = {
   start?: string;
   end?: string;
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-  /** Layout režim: "page" = bežný zoznam; "calendar" = pod kalendárom (tesnejší) */
   variant?: "page" | "calendar";
-  /** Skryť hlavičku dátumu v každej karte, keď zobrazujeme 1 deň (duplicitné s titulkom nad tab.) */
   suppressItemHeaderIfSingleDay?: boolean;
 };
 
@@ -76,30 +71,18 @@ export default function ActivityTable({
       return;
     }
     setLoading(true);
-
     const inRange = selectByRange(start, end);
     const afterWhitelist =
       Array.isArray(allowedSports) && allowedSports.length
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
         : inRange;
-
     const finalRows = sportList ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r))) : afterWhitelist;
-
     setRows(finalRows);
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
-  // layout triedy – jemne iné odsadenia pre kalendár
-  const wrapperCls = [
-    CARD,
-    "space-y-4",
-    variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5",
-  ].join(" ");
-
-  const headerCls = [
-    "flex justify-between items-center",
-    variant === "calendar" ? "mb-1" : "mb-2",
-  ].join(" ");
+  const wrapperCls = [CARD, "space-y-4", variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5"].join(" ");
+  const headerCls = ["flex justify-between items-center", variant === "calendar" ? "mb-1" : "mb-2"].join(" ");
 
   return (
     <div className={wrapperCls}>
@@ -118,7 +101,8 @@ export default function ActivityTable({
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
-            const dateStr = prettySkDate(iso);
+            const dateStr = iso;
+
             const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
             const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
@@ -129,14 +113,14 @@ export default function ActivityTable({
                   data={{
                     id: r.activity_id,
                     name: r.name || "Activity",
-                    dateIso: iso,
+                    dateIso: dateStr,
                     sport: eff,
                     timeStr: dur,
                     distanceStr: dist,
                     avgHr: r.average_heartrate_bpm ?? null,
                     maxHr: r.max_heartrate_bpm ?? null,
                     activityId: r.activity_id,
-                    singleDayContext: suppressItemHeaderIfSingleDay && singleDay ? true : false,
+                    singleDayContext: suppressItemHeaderIfSingleDay && (start === end),
                   }}
                 />
               </li>
