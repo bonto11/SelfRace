@@ -1,7 +1,7 @@
 // src/shared/components/ActivitySingle.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import HrChart from "@/shared/components/trend/HrChart";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
@@ -67,7 +67,7 @@ const badge = (k: string) =>
   k === "strength" ? "Strength" :
   k === "mixed" ? "Mixed" : "Other";
 
-/* --------- veľké KPI dlaždice (rozbalený stav) --------- */
+/* KPI tile */
 function KpiTile({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-4 py-3">
@@ -77,27 +77,13 @@ function KpiTile({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function KpiRow({ items }: { items: { label: string; value?: string | number | null }[] }) {
-  const visible = items.filter(i => i.value != null && i.value !== "");
-  if (!visible.length) return null;
-  return (
-    <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
-      {visible.map((i) => (
-        <KpiTile key={i.label} label={i.label} value={i.value as any} />
-      ))}
-    </div>
-  );
-}
-
-/* --------- detail aktivity (inline) --------- */
+/* Inline detail s grafom */
 function ActivityInlineDetail({ activityId }: { activityId: number }) {
   const { getSummary, getStreams, getDetail } = useActivityData();
   const summary = getSummary(activityId) as any | null;
 
   const [loading, setLoading] = useState(true);
-  const [streams, setStreams] = useState<{ time_s: number[]; hr: (number | null)[]; duration_s: number; }>({
-    time_s: [], hr: [], duration_s: 0
-  });
+  const [streams, setStreams] = useState<{ time_s: number[]; hr: (number | null)[]; duration_s: number; }>({ time_s: [], hr: [], duration_s: 0 });
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
@@ -125,9 +111,9 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
   const timeTxt = summary?.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : "—";
 
   return (
-    <div className="px-5 pb-4">{/* px-5 aby licovalo s kartou */}
+    <div className="px-5 pb-4">{/* licuje s kartou */}
       {/* HR priebeh */}
-      <div className="mt-2">
+      <div className="mt-3">
         <div className="flex items-center justify-between mb-2">
           <h4 className="font-bold">HR priebeh</h4>
         </div>
@@ -166,7 +152,7 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
         </>
       )}
 
-      {/* malý info strip (ak chceš ho ponechať) */}
+      {/* drobný strip (voliteľne) */}
       {summary && (
         <div className="mt-3 text-xs opacity-70">
           Distance: {distTxt} · Time: {timeTxt} · Avg HR: {summary.average_heartrate_bpm ?? "—"} · Max HR: {summary.max_heartrate_bpm ?? "—"}
@@ -176,7 +162,6 @@ function ActivityInlineDetail({ activityId }: { activityId: number }) {
   );
 }
 
-/* --------- hlavná karta --------- */
 export default function ActivitySingle<V extends Variant>({
   variant,
   data,
@@ -192,7 +177,6 @@ export default function ActivitySingle<V extends Variant>({
   let canToggle = false;
   let detailNode: React.ReactNode = null;
 
-  /* ------- mapping variantov ------- */
   if (variant === "record") {
     const d = data as RecordData;
     headerLeft = prettySkDate(d.dateIso) ?? "—";
@@ -217,21 +201,25 @@ export default function ActivitySingle<V extends Variant>({
     ].filter(Boolean) as string[];
     canToggle = true;
 
-    // veľké KPI v rozbalenom stave
-    const kpis = [
-      { label: "TIME", value: d.timeStr || "—" },
-      { label: "DISTANCE", value: d.distanceStr || "—" },
-      { label: "AVG HR", value: d.avgHr ?? "—" },
-      { label: "MAX HR", value: d.maxHr ?? "—" },
-    ];
-
     if (open) {
+      const kpis = [
+        { label: "TIME", value: d.timeStr || "—" },
+        { label: "DISTANCE", value: d.distanceStr || "—" },
+        { label: "AVG HR", value: d.avgHr ?? "—" },
+        { label: "MAX HR", value: d.maxHr ?? "—" },
+      ];
       detailNode = (
-        <>
-          <KpiRow items={kpis} />
-          <div className="mt-2" />
+        <div className="px-5 pb-4">
+          {/* KPI – veľké a s odsadením */}
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+            {kpis.map(k => (
+              <KpiTile key={k.label} label={k.label} value={k.value as any} />
+            ))}
+          </div>
+
+          {/* graf + zvyšok */}
           <ActivityInlineDetail activityId={d.activityId} />
-        </>
+        </div>
       );
     }
   }
@@ -241,7 +229,6 @@ export default function ActivitySingle<V extends Variant>({
     headerLeft = d.dateLabel ?? "—";
     title = d.title;
     subtitle = d.focus || null;
-    metaLine = [];
     if (d.durationMin != null) metaLine.push(`${d.durationMin} min`);
     if (d.intensity) metaLine.push(d.intensity);
     if (d.target) metaLine.push(d.target);
@@ -293,20 +280,19 @@ export default function ActivitySingle<V extends Variant>({
         {title}
       </div>
 
-      {/* subtitle – iba keď je zatvorené */}
+      {/* subtitle len keď je zavreté */}
       {!open && (subtitle ? (
         <div className="text-xs opacity-80">{subtitle}</div>
       ) : (
         <div className="text-xs opacity-40">{null}</div>
       ))}
 
-      {/* meta: v jednej rovine; keď je otvorené, nechávame meta LINIU aj tak (kvôli konzistencii),
-         ale hlavné „veľké“ KPI sú nižšie nad grafom */}
-      {!!metaLine.length && (
+      {/* META RIADOK – teraz LEN v ZABALENOM stave */}
+      {!open && metaLine.length > 0 && (
         <div className="text-xs mt-1 opacity-80">{metaLine.join(" · ")}</div>
       )}
 
-      {/* detail – flush s hranami karty, ale vnútro má px-5, takže všetko lícuje */}
+      {/* DETAIL – flush k okrajom, vnútro px-5 aby všetko lícovalo */}
       {open && detailNode ? (
         <div className="-mx-5 -mb-4">
           {detailNode}
