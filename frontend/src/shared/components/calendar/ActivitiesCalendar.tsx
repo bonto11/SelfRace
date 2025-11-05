@@ -6,10 +6,7 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
 
-const ActivityTable = dynamic(
-  () => import("@/shared/components/ActivityTable"),
-  { ssr: false }
-);
+const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -22,12 +19,7 @@ const SPORT_COLORS: Record<string, string> = {
   other: THEME.chart.other,
 };
 
-type DayCellData = {
-  iso: string;
-  inMonth: boolean;
-  day: number | null;
-  items: { id: number; sport: string; name: string }[];
-};
+type DayCellData = { iso: string; inMonth: boolean; day: number | null; items: { id: number; sport: string; name: string }[]; };
 
 function daysInMonth(y: number, m0: number) { return new Date(y, m0 + 1, 0).getDate(); }
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -70,15 +62,7 @@ function useMonthActivities(year: number, month0: number) {
   return map;
 }
 
-function DayCell({
-  cell,
-  onSelect,
-  isSelected,
-}: {
-  cell: DayCellData;
-  onSelect: (iso: string) => void;
-  isSelected: boolean;
-}) {
+function DayCell({ cell, onSelect, isSelected }: { cell: DayCellData; onSelect: (iso: string) => void; isSelected: boolean; }) {
   const muted = cell.inMonth ? "" : "opacity-40";
   return (
     <button
@@ -117,13 +101,7 @@ function DayCell({
   );
 }
 
-export default function ActivitiesCalendar({
-  year: yy,
-  month: mm,
-}: {
-  year?: number;
-  month?: number;
-}) {
+export default function ActivitiesCalendar({ year: yy, month: mm }: { year?: number; month?: number; }) {
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
@@ -164,10 +142,7 @@ export default function ActivitiesCalendar({
     setSelectedIso(null);
   };
 
-  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", {
-    month: "long",
-    year: "numeric",
-  });
+  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", { month: "long", year: "numeric" });
 
   return (
     <div className="space-y-3">
@@ -183,9 +158,7 @@ export default function ActivitiesCalendar({
         </div>
 
         <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
-          {["p","u","s","š","p","s","n"].map((d) => (
-            <div key={d} className="text-center">{d}</div>
-          ))}
+          {["p","u","s","š","p","s","n"].map((d) => (<div key={d} className="text-center">{d}</div>))}
         </div>
 
         <div className="mt-2 grid grid-cols-7 gap-2">
@@ -200,14 +173,14 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
-      {/* DETAIL pod kalendárom – nechá titulok pekne odsadený a karty od strán */}
+      {/* DETAIL pod kalendárom */}
       {selectedIso && (
         <div className="mt-3 ml-1">
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
-            variant="calendar"            // ➜ layout & odsadenia pre kalendár
-            suppressItemHeaderIfSingleDay // ➜ neskryje meta, ale skryje duplicitný dátum v každej karte
+            variant="calendar"
+            suppressItemHeaderIfSingleDay
           />
         </div>
       )}
