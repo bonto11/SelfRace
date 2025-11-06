@@ -126,9 +126,9 @@ export default function TrendHRV() {
 
   return (
     <div
-      className={`${CARD} relative w-full max-w-full overflow-hidden box-border`} // ← bráni pretečeniu karty
-      style={{ contain: "layout" }}
-    >
+  className={`${CARD} relative mx-auto w-full max-w-[calc(100vw-24px)] overflow-hidden box-border`}
+  style={{ contain: "layout" }}
+>
       {/* HEADER */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -149,13 +149,13 @@ export default function TrendHRV() {
 
       {/* BODY – flush + horizontálny scroll (s 1px gutterom kvôli Safari) */}
       <div
-        className={`${SCROLL_X} min-w-0 -mx-[1px] px-[1px]`} // ← kompenzácia sub-pixel overflow na iOS
-        style={{
-          WebkitOverflowScrolling: "touch",
-          contain: "inline-size",
-          scrollbarGutter: "stable both-edges",
-        }}
-      >
+  className={`${SCROLL_X} min-w-0 px-[2px]`}  // žiadne negatívne marginy
+  style={{
+    WebkitOverflowScrolling: "touch",
+    contain: "inline-size",
+    scrollbarGutter: "stable both-edges",
+  }}
+>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
