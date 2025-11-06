@@ -45,4 +45,21 @@ export const FLUSH_DETAIL_PB =
     "px-3 md:px-4 pb-3",
   ].join(" ");
 
- export const NO_X = "max-w-full overflow-x-hidden";
+export const NO_X = "max-w-full overflow-x-hidden";
+
+/* ===== FORM ELEMENTS (nové) =========================================== */
+/** Základný select/input vzhľad – konzistentný s povrchmi */
+export const FIELD_BASE =
+  "w-full rounded-md border border-white/10 bg-white/90 dark:bg-gray-900/70 " +
+  "px-2.5 py-2 text-sm outline-none " +
+  "focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/40 " +
+  "transition-colors";
+
+/** Disabled modifier */
+export const FIELD_DISABLED = "opacity-60 cursor-not-allowed";
+
+/** Pomocný text pod poľom */
+export const FIELD_HELP = "text-[11px] opacity-70 mt-1";
+
+/** Tichý text / caption */
+export const MUTED_TEXT = "text-xs opacity-70";
