@@ -231,3 +231,21 @@ export const CHART_HR = {
   /** textový štýl pre “empty state” */
   emptyTextClass: "opacity-70 text-sm",
 };
+
+/* ===== CHART – MINI SPARK (HR) ========================================= */
+export const CHART_SPARK = {
+  width: 300,                  // virtuálna viewBox šírka
+  lineWidth: 2,
+  gradientTop: "#22C55E",      // emerald-500
+  gradientBottom: "#EF4444",   // red-500
+  baseline: "rgba(255,255,255,0.10)",
+  infoTextClass: "text-xs opacity-75 whitespace-nowrap",
+  emptyTextClass: "text-xs opacity-70",
+};
+
+/* ===== CHART – TREND S PÁSMAMI (Chart.js) ============================== */
+export const CHART_TREND = {
+  lineColor: "cyan",           // default, dá sa prebiť cez prop
+  bandAlphaHex: "33",          // ~20% (pridá sa za hex farbu pásma)
+  containerClass: "mt-4",      // doplnok na spacing
+};
