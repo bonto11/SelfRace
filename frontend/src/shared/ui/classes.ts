@@ -33,6 +33,8 @@ export const FLUSH_DETAIL =
 
 /* ====== GLOBAL SAFETY (limit horizontálneho tečenia) =================== */
 export const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
+/** Kompat alias (nech nie je dvojaká definícia) */
+export const NO_X = NO_X_OVERFLOW;
 export const FLEX_SHRINK_FIX = "min-w-0"; // použi na flex-containery s textom
 
 /* ===== FLUSH detail – PB (bez negatívnych marginov) ==================== */
@@ -42,9 +44,6 @@ export const FLUSH_DETAIL_PB = [
   "bg-white/5 dark:bg-black/20",
   "px-3 md:px-4 pb-3",
 ].join(" ");
-
-/** alias, ak by si ho už používal inde */
-export const NO_X = "max-w-full overflow-x-hidden";
 
 /* ===== FORM ELEMENTS =================================================== */
 export const FIELD_BASE =
@@ -104,7 +103,7 @@ export const DROPDOWN_DIVIDER = "my-1 border-t border-white/10";
 export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded hover:bg-white/10";
 export const DROPDOWN_ITEM_DANGER = DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
 
-// WidgetCard – konzistentné povrchy a typografia
+/* ===== WidgetCard – konzistentné povrchy a typografia ================== */
 export const WIDGET_CARD = SURFACE_CARD + " p-4 text-left";
 export const WIDGET_CARD_INTERACTIVE =
   "transition-colors hover:bg-white dark:hover:bg-gray-900/80 cursor-pointer focus:outline-none";
@@ -114,6 +113,29 @@ export const WIDGET_HINT = "text-xs opacity-75 whitespace-nowrap";
 export const WIDGET_NOTE = "opacity-80 text-sm mt-2";
 export const WIDGET_FOOTER = "mt-3";
 export const WIDGET_ACCENT_BAR = "h-1.5 rounded-b-xl mt-3";
+
+/* ===== WIDGET HEADER aliasy (centrálne) =================================*/
+export const WIDGET_HEADER_ROW = "flex items-center";
+export const WIDGET_HEADER_SIDE = "flex-1";
+export const WIDGET_HEADER_CENTER = "inline-flex items-center justify-center gap-3 select-none";
+export const WIDGET_HEADER_BELOW = "mb-3"; // margin pod headerom, ak treba
+
+/* ===== Sekcie a form gridy ============================================ */
+export const SECTION = SURFACE_INSET + " p-3";
+export const SECTION_WIDE = SURFACE_INSET + " p-3 md:p-4";
+export const FORM_GRID_TWO = "grid grid-cols-1 md:grid-cols-2 gap-3";
+export const FORM_GRID_SPLIT = "grid grid-cols-1 sm:grid-cols-2 gap-2";
+
+/* ===== Mikro komponenty (pill/textarea) =============================== */
+export const PILL_BUTTON =
+  "shrink-0 px-4 py-2 rounded-xl border border-white/15 " +
+  "bg-white/5 dark:bg-gray-900/40 hover:bg-white/10 transition-colors " +
+  "text-sm font-medium";
+
+export const TEXTAREA_BASE =
+  "w-full rounded-md bg-white/70 dark:bg-gray-800/60 border border-white/10 " +
+  "px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 " +
+  "resize-y";
 
 /* ===== TOAST (globálne toast notifikácie) =============================== */
 export const TOAST_LAYER =
@@ -142,7 +164,6 @@ export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> =
 };
 
 /* ===== BUTTONS (centrálny systém) ======================================= */
-
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
 export type ButtonSize = "sm" | "md" | "lg";
 
@@ -176,7 +197,6 @@ export function buttonClass(
 ) {
   const base = [BTN_BASE, BTN_VARIANT[variant], BTN_SIZE[size]];
   if (opts?.circle) {
-    // kruh – výška/šírka podľa size, bez horizontálnych paddingov
     const dims =
       size === "sm" ? "w-8 h-8" :
       size === "md" ? "w-9 h-9" :
@@ -187,7 +207,6 @@ export function buttonClass(
 }
 
 /* ===== FORM INPUTS (pre TextField a ko.) ================================ */
-
 export const labelClass =
   "text-xs font-medium tracking-wide opacity-80 select-none";
 
@@ -205,39 +224,30 @@ export const inputClass =
   ].join(" ");
 
 /* ===== CHART TOKENS ===================================================== */
-/** Vizuálne tokeny pre HR graf – aby sme nemali farby napevno v komponente */
 export const CHART_HR = {
-  /** fallback strop pre os Y, ak stream ide nížšie/vyššie */
   maxBpm: 207,
-  /** cut-off hrany zón (Z1..Z5). Ponecháme 4 rezy = 5 zón. */
   zoneCuts: [154, 173, 183, 193] as [number, number, number, number],
-  /** farby zón (svetlý aj tmavý motív sú v praxi rovnaké, nech je to konzistentné) */
   colors: {
-    z1: "#60A5FA", // blue
-    z2: "#34D399", // emerald
-    z3: "#FBBF24", // amber
-    z4: "#F97316", // orange
-    z5: "#EF4444", // red
+    z1: "#60A5FA",
+    z2: "#34D399",
+    z3: "#FBBF24",
+    z4: "#F97316",
+    z5: "#EF4444",
   },
-  /** priehľadná mriežka v grafe */
   grid: "rgba(255,255,255,.18)",
-  /** farby textov na osiach a tickoch */
   tickText: "#cbd5e1",
   axisText: "#94a3b8",
-  /** priesvitnosť zónových pásov za krivkou */
   bandOpacity: 0.08,
-  /** hrúbky krivky */
   lineWidth: { normal: 2, compact: 1.6 },
-  /** textový štýl pre “empty state” */
   emptyTextClass: "opacity-70 text-sm",
 };
 
 /* ===== CHART – MINI SPARK (HR) ========================================= */
 export const CHART_SPARK = {
-  width: 300,                  // virtuálna viewBox šírka
+  width: 300,
   lineWidth: 2,
-  gradientTop: "#22C55E",      // emerald-500
-  gradientBottom: "#EF4444",   // red-500
+  gradientTop: "#22C55E",
+  gradientBottom: "#EF4444",
   baseline: "rgba(255,255,255,0.10)",
   infoTextClass: "text-xs opacity-75 whitespace-nowrap",
   emptyTextClass: "text-xs opacity-70",
@@ -245,7 +255,7 @@ export const CHART_SPARK = {
 
 /* ===== CHART – TREND S PÁSMAMI (Chart.js) ============================== */
 export const CHART_TREND = {
-  lineColor: "cyan",           // default, dá sa prebiť cez prop
-  bandAlphaHex: "33",          // ~20% (pridá sa za hex farbu pásma)
-  containerClass: "mt-4",      // doplnok na spacing
+  lineColor: "cyan",
+  bandAlphaHex: "33",
+  containerClass: "mt-4",
 };
