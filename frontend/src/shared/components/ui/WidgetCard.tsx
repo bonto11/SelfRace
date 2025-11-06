@@ -1,8 +1,17 @@
-// src/shared/components/ui/WidgetCard.tsx
 "use client";
 
 import Link from "next/link";
 import React from "react";
+import {
+  WIDGET_CARD,
+  WIDGET_CARD_INTERACTIVE,
+  WIDGET_INNER,
+  WIDGET_TITLE,
+  WIDGET_HINT,
+  WIDGET_NOTE,
+  WIDGET_FOOTER,
+  WIDGET_ACCENT_BAR,
+} from "@/shared/ui/classes";
 
 function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");
@@ -43,47 +52,38 @@ export default function WidgetCard({
   const isInteractive = interactive ?? Boolean(href || onOpen);
 
   const outer = cx(
-    "w-full text-left rounded-2xl shadow-lg border border-white/10",
-    "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-    isInteractive &&
-      "transition-colors hover:bg-white dark:hover:bg-gray-900/80 cursor-pointer",
-    "focus:outline-none p-4",
+    WIDGET_CARD,
+    isInteractive && WIDGET_CARD_INTERACTIVE,
     className
   );
 
   // ak accent je farba -> použijeme style; inak ponecháme Tailwind class
   const accentIsColor = isColorValue(accent);
-  const accentClass = accentIsColor ? "" : accent; // pôvodné
+  const accentClass = accentIsColor ? "" : accent;
   const accentStyle = accentIsColor ? { background: accent as string } : undefined;
 
   const content = (
-    <div className={cx("flex flex-col", innerClassName)} style={{ minHeight: minH }}>
+    <div className={cx(WIDGET_INNER, innerClassName)} style={{ minHeight: minH }}>
       {(title || isInteractive) && (
         <div className="flex items-center justify-between gap-2 mb-2">
           {title ? (
-            <h3 className="text-sm md:text-base font-semibold tracking-tight">
-              {title}
-            </h3>
+            <h3 className={WIDGET_TITLE}>{title}</h3>
           ) : (
             <span className="sr-only">Widget</span>
           )}
-          {isInteractive && (
-            <span className="text-xs opacity-75 whitespace-nowrap">
-              otvoriť detail ⟶
-            </span>
-          )}
+          {isInteractive && <span className={WIDGET_HINT}>otvoriť detail ⟶</span>}
         </div>
       )}
 
       <div className="flex-1">
         {children}
-        {note && <p className="opacity-80 text-sm mt-2">{note}</p>}
+        {note && <p className={WIDGET_NOTE}>{note}</p>}
       </div>
 
-      {footer && <div className="mt-3">{footer}</div>}
+      {footer && <div className={WIDGET_FOOTER}>{footer}</div>}
 
       {/* spodná lišta */}
-      <div className={cx("h-1.5 rounded-b-xl mt-3", accentClass)} style={accentStyle} />
+      <div className={cx(WIDGET_ACCENT_BAR, accentClass)} style={accentStyle} />
     </div>
   );
 
