@@ -3,10 +3,12 @@
 import * as React from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import Pill from "@/shared/components/ui/Pill";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/shared/theme/tokens";
+import { NO_X_OVERFLOW } from "@/shared/ui/classes";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -17,31 +19,16 @@ type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[]
 
 function levelColor(label: string) {
   const l = label.toLowerCase();
-  if (l.includes("excellent") || l.includes("elite")) return THEME.chart.excellent; // #10B981
-  if (l.includes("superior")) return THEME.chart.superior;                         // #14B8A6
-  if (l.includes("good")) return THEME.chart.good;                                 // #22D3EE
-  if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;        // #F59E0B
-  if (l.includes("poor")) return THEME.chart.poor;                                 // #F43F5E
-  return THEME.chart.neutral;                                                      // #64748B
+  if (l.includes("excellent") || l.includes("elite")) return (THEME as any)?.chart?.excellent ?? "#10B981";
+  if (l.includes("superior"))                         return (THEME as any)?.chart?.superior  ?? "#14B8A6";
+  if (l.includes("good"))                             return (THEME as any)?.chart?.good      ?? "#22D3EE";
+  if (l.includes("fair") || l.includes("average"))    return (THEME as any)?.chart?.fair      ?? "#F59E0B";
+  if (l.includes("poor"))                             return (THEME as any)?.chart?.poor      ?? "#F43F5E";
+  return (THEME as any)?.chart?.neutral ?? "#64748B";
 }
 
 function fmtDate(d?: string | null) {
   return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
-}
-
-function Pill({ label, color }: { label: string; color: string }) {
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-      style={{
-        background: `${color}1A`,   // ~10 % alpha
-        border: `1px solid ${color}66`,
-        color,
-      }}
-    >
-      {label}
-    </span>
-  );
 }
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
@@ -98,7 +85,6 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     ranges = [];
   }
 
-  // zistí level + farbu z rovnakého mapovania ako v trendoch
   const pickLevel = (v?: number | null) => {
     if (v == null || !Number.isFinite(v)) return null;
     const hit = ranges.find((rr) => (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max));
@@ -107,11 +93,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     return { label, color: levelColor(label) };
   };
 
-  const levelMeasured = pickLevel(mVO2);
+  const levelMeasured  = pickLevel(mVO2);
   const levelEstimated = pickLevel(Number.isFinite(est?.value as number) ? Number(est?.value) : null);
 
-  // accent = farba levelu (uprednostni merané; ak nič, neutrál)
-  const accentHex = levelMeasured?.color ?? levelEstimated?.color ?? THEME.chart.neutral;
+  const accentHex =
+    levelMeasured?.color ??
+    levelEstimated?.color ??
+    (THEME as any)?.accent?.primary ??
+    (THEME as any)?.chart?.neutral ??
+    "#64748B";
 
   return (
     <WidgetCard
@@ -120,13 +110,13 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       interactive={!!handleOpen}
       accent={accentHex}
       minH={168}
+      innerClassName={NO_X_OVERFLOW}
     >
       {loading ? (
         <div className="grid place-items-center py-6">
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        // presne centrované: 1fr | 1px | 1fr, deliaca čiara v strede
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] items-start gap-6 md:gap-10">
           {/* ODHAD (ľavý blok) */}
           <div className="min-w-0">
@@ -145,7 +135,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
             </div>
           </div>
 
-          {/* separátor – presne v strede (len na md+) */}
+          {/* separátor – md+ */}
           <div className="hidden md:block w-px bg-white/10 mx-auto" />
 
           {/* MERANÉ (pravý blok) */}
