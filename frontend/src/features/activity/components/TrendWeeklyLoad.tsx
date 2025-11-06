@@ -7,46 +7,27 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import WeeklySummary from "@/features/activity/components/WeeklySummary";
 import { THEME } from "@/shared/theme/tokens";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
-import { CARD } from "@/shared/ui/classes";
+import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
-export type WeekPick = {
-  week: string;
-  start: string;
-  end: string;
-  sport: string;
-};
+export type WeekPick = { week: string; start: string; end: string; sport: string };
 
 type WeekRow = {
   week: string;
   label: string;
   start: string;
   end: string;
-  km_run: number;
-  km_ride: number;
-  km_mixed: number;
-  km_skate: number;
-  time_run_min: number;
-  time_ride_min: number;
-  time_strength_min: number;
-  time_mixed_min: number;
-  time_skate_min: number;
-  time_other_min: number;
-  trimp_run: number;
-  trimp_ride: number;
-  trimp_strength: number;
-  trimp_mixed: number;
-  trimp_skate: number;
-  trimp_other: number;
-  monotony: { km?: number; time?: number; trimp?: number };
-  strain: { km?: number; time?: number; trimp?: number };
+  km_run: number; km_ride: number; km_mixed: number; km_skate: number;
+  time_run_min: number; time_ride_min: number; time_strength_min: number;
+  time_mixed_min: number; time_skate_min: number; time_other_min: number;
+  trimp_run: number; trimp_ride: number; trimp_strength: number;
+  trimp_mixed: number; trimp_skate: number; trimp_other: number;
 };
 
 const C = {
@@ -56,8 +37,6 @@ const C = {
   mixed: "#34D399",
   skate: "#60A5FA",
   other: "#9CA3AF",
-  monotony: "#84CC16",
-  strain: "#FDE047",
 };
 
 function rangeLabel(start?: string, end?: string) {
@@ -82,7 +61,6 @@ export default function TrendWeeklyLoad({
   const [lookback, setLookback] = useState<number>(8);
   const [sport, setSport] = useState<string>("all");
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
-  const [picked, setPicked] = useState<WeekPick | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { onSportChange?.(sport); }, [sport, onSportChange]);
@@ -96,11 +74,7 @@ export default function TrendWeeklyLoad({
         const url = `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}&sport=${sport}`;
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
-        const raw: any[] = Array.isArray(json?.weeks)
-          ? json.weeks
-          : Array.isArray(json?.data)
-          ? json.data
-          : [];
+        const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
         const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
         if (!alive) return;
         setWeeks(
@@ -125,8 +99,6 @@ export default function TrendWeeklyLoad({
             trimp_mixed: num(w.trimp_mixed),
             trimp_skate: num(w.trimp_skate),
             trimp_other: num(w.trimp_other ?? w.other_trimp),
-            monotony: w.monotony ?? {},
-            strain: w.strain ?? {},
           }))
         );
       } finally {
@@ -137,20 +109,6 @@ export default function TrendWeeklyLoad({
   }, [userId, lookback, sport]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-  const mono = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
-  const strn = useMemo(() => weeks.map((w) => w.strain?.[metric] ?? null), [weeks, metric]);
-
-  const monoMax = useMemo(() => {
-    const vals = mono.filter((v): v is number => Number.isFinite(v as number));
-    const m = vals.length ? Math.max(...vals) : 1.5;
-    return Math.max(3, Math.ceil(m + 0.3));
-  }, [mono]);
-
-  const strainMax = useMemo(() => {
-    const vals = strn.filter((v): v is number => Number.isFinite(v as number));
-    const m = vals.length ? Math.max(...vals) : 80;
-    return Math.ceil(m * 1.1);
-  }, [strn]);
 
   const datasets = useMemo(() => {
     const W = weeks;
@@ -194,38 +152,10 @@ export default function TrendWeeklyLoad({
       pushBar("other", "TRIMP (other)", W.map((w) => w.trimp_other));
     }
 
-    ds.push({
-      type: "line" as const,
-      label: "Monotony",
-      data: mono,
-      yAxisID: "y1",
-      borderColor: C.monotony,
-      backgroundColor: C.monotony,
-      tension: 0.3,
-      pointRadius: 2,
-      borderWidth: 2,
-      spanGaps: true,
-      order: 99,
-    });
-    ds.push({
-      type: "line" as const,
-      label: "Strain",
-      data: strn,
-      yAxisID: "y2",
-      borderColor: C.strain,
-      backgroundColor: C.strain,
-      tension: 0.3,
-      pointRadius: 2,
-      borderWidth: 2,
-      borderDash: [4, 4],
-      spanGaps: true,
-      order: 99,
-    });
-
     return ds;
-  }, [weeks, metric, mono, strn, sport]);
+  }, [weeks, metric, sport]);
 
-  const data: ChartData<"bar" | "line", (number | null)[], string> = { labels, datasets };
+  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
 
   const options: ChartOptions<"bar" | "line"> = useMemo(
     () => ({
@@ -235,9 +165,9 @@ export default function TrendWeeklyLoad({
       elements: { point: { radius: 2, hitRadius: 8 } },
       datasets: {
         bar: {
-          maxBarThickness: 12,
-          categoryPercentage: 0.6,
-          barPercentage: 0.7,
+          maxBarThickness: THEME.chart.bar?.maxThickness ?? 12,
+          categoryPercentage: THEME.chart.bar?.categoryPct ?? 0.6,
+          barPercentage: THEME.chart.bar?.barPct ?? 0.7,
         },
       },
       layout: { padding: { bottom: 12 } },
@@ -258,10 +188,7 @@ export default function TrendWeeklyLoad({
         if (idx == null) return;
         const w = weeks[idx];
         if (!w) return;
-        const key = w.week || w.label || w.start || "";
-        const pick = { week: key, start: w.start, end: w.end, sport };
-        setPicked(pick);
-        onPickWeek?.(pick);
+        onPickWeek?.({ week: w.week || w.label || w.start || "", start: w.start, end: w.end, sport });
       },
       scales: {
         y: {
@@ -273,67 +200,29 @@ export default function TrendWeeklyLoad({
             text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
           },
         },
-        y1: {
-          position: "right",
-          min: 0,
-          max: monoMax,
-          grid: { drawOnChartArea: false },
-          border: { color: C.monotony },
-          ticks: { color: C.monotony },
-          title: { display: true, text: "Monotony", color: C.monotony },
-        },
-        y2: {
-          position: "right",
-          min: 0,
-          max: strainMax,
-          grid: { drawOnChartArea: false },
-          border: { color: C.strain },
-          ticks: { color: C.strain },
-          title: { display: true, text: "Strain", color: C.strain },
-        },
         x: {
           grid: { color: THEME.chart.gridSoft },
-          ticks: {
-            autoSkip: true,
-            minRotation: 55,
-            maxRotation: 55,
-            padding: 6,
-            font: { size: 10 },
-          },
+          ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } },
         },
       },
     }),
-    [metric, weeks, monoMax, strainMax, onPickWeek, sport]
+    [metric, weeks, onPickWeek, sport]
   );
 
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
 
   return (
     <div className={`${CARD} relative`}>
-      {/* header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      {/* HEADER – padding */}
+      <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Týždňová záťaž</h2>
-
         <div className="flex items-center gap-2">
-          {/* metric toggle cez tvoje Button-y */}
           <div className="flex items-center gap-1">
-            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>
-              Km
-            </Button>
-            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>
-              Čas
-            </Button>
-            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>
-              TRIMP
-            </Button>
+            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>Km</Button>
+            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>Čas</Button>
+            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>TRIMP</Button>
           </div>
-
-          {/* šport + lookback (tvoje inputClass) */}
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            className={`${inputClass} h-8 text-xs w-[130px]`}
-          >
+          <select value={sport} onChange={(e) => setSport(e.target.value)} className={`${inputClass} h-8 text-xs w-[130px]`}>
             <option value="all">Všetko</option>
             <option value="run">Run</option>
             <option value="ride">Ride</option>
@@ -342,13 +231,8 @@ export default function TrendWeeklyLoad({
             <option value="skate">Skate</option>
             <option value="other">Other</option>
           </select>
-
           {showLookback && (
-            <select
-              value={lookback}
-              onChange={(e) => setLookback(Number(e.target.value))}
-              className={`${inputClass} h-8 text-xs w-[130px]`}
-            >
+            <select value={lookback} onChange={(e) => setLookback(Number(e.target.value))} className={`${inputClass} h-8 text-xs w-[130px]`}>
               <option value={4}>4 týždne</option>
               <option value={8}>8 týždňov</option>
               <option value={12}>12 týždňov</option>
@@ -357,11 +241,8 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      {/* graf + overlay spinner */}
-      <div
-        className="overflow-x-auto overflow-y-hidden rounded-md min-w-0"
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
+      {/* BODY – flush + scroll */}
+      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -373,10 +254,6 @@ export default function TrendWeeklyLoad({
           </div>
         </div>
       </div>
-
-      {picked && (
-        <WeeklySummary weeks={weeks as any} metric={metric} selectedWeek={picked.week} />
-      )}
     </div>
   );
 }
