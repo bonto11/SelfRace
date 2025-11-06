@@ -5,6 +5,7 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import HrChart from "@/shared/components/trend/HrChart";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
 import { ComponentVariant } from "@/features/activity/utils/activity";
+import { SURFACE_CARD, SURFACE_INLINE, FLUSH_DETAIL } from "@/shared/ui/classes";
 
 /* ===== Typy vstupu ===== */
 type DataIn = {
@@ -87,7 +88,7 @@ function useIsTouch(): boolean {
       const viaOn = typeof window !== "undefined" && ("ontouchstart" in window);
       const isTouch = !!(viaMQ || viaPts || viaOn);
       setTouch(isTouch);
-    } catch (e) {
+    } catch {
       setTouch(false);
     }
   }, []);
@@ -134,14 +135,7 @@ export default function ActivitySingle({
   }
 
   return (
-    <section
-      className={[
-        "rounded-2xl shadow-lg border border-white/10",
-        "bg-white/90 dark:bg-gray-900/70 backdrop-blur",
-        "overflow-hidden",
-        cfg.outerPadding,
-      ].join(" ")}
-    >
+    <section className={[SURFACE_CARD, "overflow-hidden", cfg.outerPadding].join(" ")}>
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{headerLeft}</div>
@@ -184,12 +178,10 @@ export default function ActivitySingle({
 
       {/* Hlavný text podľa variantu */}
       {isPB ? (
-        // PB: veľký čas z DB
         <div className="mt-1 text-2xl font-extrabold tabular-nums leading-none">
           {data.timeStr ?? "—"}
         </div>
       ) : (
-        // Activity/Calendar/Plan: veľký názov aktivity/plánu
         <div className="mt-1 text-base font-semibold tracking-tight truncate">
           {data.name}
         </div>
@@ -202,17 +194,9 @@ export default function ActivitySingle({
 
       {/* Detail (flush) */}
       {opened && (
-        cfg.detailFlush ? (
-          <div className="-mx-5 -mb-4 mt-3">
-            <div className="px-4 pb-4">
-              <DetailBody variant={variant} data={data} compactChart={cfg.compactChart} />
-            </div>
-          </div>
-        ) : (
-          <div className="mt-3">
-            <DetailBody variant={variant} data={data} compactChart={cfg.compactChart} />
-          </div>
-        )
+        <div className={FLUSH_DETAIL}>
+          <DetailBody variant={variant} data={data} compactChart={cfg.compactChart} />
+        </div>
       )}
     </section>
   );
@@ -243,7 +227,7 @@ function DetailBody({
           ]
             .filter(Boolean)
             .map((t: any) => (
-              <div key={t.label} className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
+              <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
                 <div className="text-[10px] opacity-70">{t.label}</div>
                 <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
               </div>
@@ -257,7 +241,7 @@ function DetailBody({
     );
   }
 
-  // ACTIVITY / PB (snažíme sa načítať summary/streams podľa activityId)
+  // ACTIVITY / PB (načíta summary/streams podľa activityId)
   const s = data.activityId != null ? (getSummary(data.activityId) as any | null) : null;
 
   // KPI – TIME zo summary; fallback PB/secondary čas z data.timeStr
@@ -298,7 +282,7 @@ function DetailBody({
           { label: "AVG HR", value: avgTxt },
           { label: "MAX HR", value: maxTxt },
         ].map(t => (
-          <div key={t.label} className="rounded-xl border border-white/10 bg-white/5 dark:bg-black/20 px-3 py-2">
+          <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
             <div className="text-[10px] opacity-70">{t.label}</div>
             <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
           </div>
