@@ -3,17 +3,17 @@
 import * as React from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import Pill from "@/shared/components/ui/Pill";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/shared/utils/bands";
 import { THEME } from "@/shared/theme/tokens";
+import { NO_X_OVERFLOW } from "@/shared/ui/classes";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 type StaticProfile = { sex: "M" | "F" };
 
-// BE row
 type MetricRowBE = { measured_at: string; value_num: number | null };
-// FE local shape (aby si nemusel meniť zvyšok)
 type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 
 function fmtDate(d?: string | null) {
@@ -22,12 +22,12 @@ function fmtDate(d?: string | null) {
 
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete"))   return THEME.chart.athletes;
-  if (l.includes("fitness"))   return THEME.chart.fitness;
-  if (l.includes("average"))   return THEME.chart.average;
-  if (l.includes("essential")) return THEME.chart.essential;
-  if (l.includes("obese"))     return THEME.chart.obese;
-  return THEME.chart.neutral;
+  if (l.includes("athlete"))   return (THEME as any)?.chart?.athletes ?? "#10B981";
+  if (l.includes("fitness"))   return (THEME as any)?.chart?.fitness  ?? "#14B8A6";
+  if (l.includes("average"))   return (THEME as any)?.chart?.average  ?? "#F59E0B";
+  if (l.includes("essential")) return (THEME as any)?.chart?.essential?? "#22D3EE";
+  if (l.includes("obese"))     return (THEME as any)?.chart?.obese    ?? "#F43F5E";
+  return (THEME as any)?.chart?.neutral ?? "#64748B";
 }
 
 function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
@@ -36,15 +36,6 @@ function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
   const hit = bands.find(b => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max));
   if (!hit) return null;
   return { label: hit.label.trim(), color: colorForLevel(hit.label) };
-}
-
-function Pill({ label, color }: { label: string; color: string }) {
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-          style={{ background: `${color}1A`, border: `1px solid ${color}66`, color }}>
-      {label}
-    </span>
-  );
 }
 
 export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
@@ -69,7 +60,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
           if (alive && js0?.success) setStat(js0.data as StaticProfile);
         } catch {}
 
-        // posledná hodnota BF – vezmeme history a zoberieme koniec
+        // posledná hodnota BF
         const r1 = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" });
         const js1 = await r1.json().catch(() => ({}));
         const rowsBE: MetricRowBE[] = Array.isArray(js1?.data) ? js1.data : [];
@@ -88,10 +79,22 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
   const pct = latest?.body_fat_pct ?? null;
   const level = classifyBodyFat(stat?.sex ?? "M", pct);
-  const accentHex = level?.color ?? THEME.chart.neutral;
+
+  const accentHex =
+    level?.color ??
+    (THEME as any)?.accent?.primary ??
+    (THEME as any)?.chart?.neutral ??
+    "#64748B";
 
   return (
-    <WidgetCard title="Body Fat %" onOpen={handleOpen} interactive={!!handleOpen} accent={accentHex} minH={168}>
+    <WidgetCard
+      title="Body Fat %"
+      onOpen={handleOpen}
+      interactive={!!handleOpen}
+      accent={accentHex}
+      minH={168}
+      innerClassName={NO_X_OVERFLOW}
+    >
       {loading ? (
         <div className="grid place-items-center py-6">
           <LoadingSpinner size="widget" />
@@ -107,7 +110,11 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
                 {pct != null ? pct.toFixed(1) : "—"}
                 <span className="text-base align-top ml-1">%</span>
               </div>
-              {level ? <Pill label={level.label} color={level.color} /> : <span className="text-xs opacity-60">—</span>}
+              {level ? (
+                <Pill label={level.label} color={level.color} />
+              ) : (
+                <span className="text-xs opacity-60">—</span>
+              )}
             </div>
           </div>
         </div>
