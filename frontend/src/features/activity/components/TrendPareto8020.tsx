@@ -1,3 +1,4 @@
+// src/features/pareto/components/TrendPareto8020.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,7 +10,11 @@ import { fmtSecondsHMS } from "@/shared/utils/format";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
-  SPORT_OPTIONS, PARETO_DEFAULT_SET, normalizeSport, sportsToCSV, isInParetoDefault,
+  SPORT_OPTIONS,
+  PARETO_DEFAULT_SET,
+  normalizeSport,
+  sportsToCSV,
+  isInParetoDefault,
 } from "@/configs/config_sports";
 
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
@@ -32,12 +37,18 @@ type Row = {
   end?: string;
 };
 
-export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: ParetoWeekPick) => void }) {
+export default function TrendPareto8020({
+  onPickWeek,
+}: {
+  onPickWeek?: (w: ParetoWeekPick) => void;
+}) {
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
   const [loading, setLoading] = useState(false);
 
-  const [selectedSports, setSelectedSports] = useState<string[]>(Array.from(PARETO_DEFAULT_SET));
+  const [selectedSports, setSelectedSports] = useState<string[]>(
+    Array.from(PARETO_DEFAULT_SET)
+  );
   const sportParam = useMemo(() => sportsToCSV(selectedSports), [selectedSports]);
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -71,118 +82,134 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
     return () => { alive = false; };
   }, [userId, lookback, sportParam]);
 
-  const labels = useMemo(() => rows.map(r => r.label), [rows]);
+  const labels = useMemo(() => rows.map((r) => r.label), [rows]);
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
   const ref20 = useMemo(() => Array(labels.length).fill(20), [labels.length]);
 
-  const data: ChartData<"line", number[], string> = useMemo(() => ({
-    labels,
-    datasets: [
-      {
-        type: "line",
-        label: "Easy %",
-        data: rows.map(r => (Number.isFinite(r.easy_pct) ? r.easy_pct : 0)),
-        borderColor: THEME.chart.easy80,
-        backgroundColor: THEME.chart.easy80,
-        tension: 0.25,
-        pointRadius: 2,
-        order: 2,
-      },
-      {
-        type: "line",
-        label: "Hard %",
-        data: rows.map(r => (Number.isFinite(r.hard_pct) ? r.hard_pct : 0)),
-        borderColor: THEME.chart.hard20,
-        backgroundColor: THEME.chart.hard20,
-        tension: 0.25,
-        pointRadius: 2,
-        borderDash: [4, 4],
-        order: 2,
-      },
-      {
-        type: "line",
-        label: "80% ref",
-        data: ref80,
-        borderColor: THEME.chart.ref80,
-        backgroundColor: THEME.chart.ref80,
-        borderWidth: 1,
-        pointRadius: 0,
-        borderDash: [6, 6],
-        yAxisID: "y",
-        order: 1,
-      },
-      {
-        type: "line",
-        label: "20% ref",
-        data: ref20,
-        borderColor: THEME.chart.ref20,
-        backgroundColor: THEME.chart.ref20,
-        borderWidth: 1,
-        pointRadius: 0,
-        borderDash: [6, 6],
-        yAxisID: "y",
-        order: 1,
-      },
-    ],
-  }), [rows, labels, ref80, ref20]);
+  const data: ChartData<"line", number[], string> = useMemo(
+    () => ({
+      labels,
+      datasets: [
+        {
+          type: "line",
+          label: "Easy %",
+          data: rows.map((r) => (Number.isFinite(r.easy_pct) ? r.easy_pct : 0)),
+          borderColor: THEME.chart.easy80,
+          backgroundColor: THEME.chart.easy80,
+          tension: 0.25,
+          pointRadius: 2,
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "Hard %",
+          data: rows.map((r) => (Number.isFinite(r.hard_pct) ? r.hard_pct : 0)),
+          borderColor: THEME.chart.hard20,
+          backgroundColor: THEME.chart.hard20,
+          tension: 0.25,
+          pointRadius: 2,
+          borderDash: [4, 4],
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "80% ref",
+          data: ref80,
+          borderColor: THEME.chart.ref80,
+          backgroundColor: THEME.chart.ref80,
+          borderWidth: 1,
+          pointRadius: 0,
+          borderDash: [6, 6],
+          yAxisID: "y",
+          order: 1,
+        },
+        {
+          type: "line",
+          label: "20% ref",
+          data: ref20,
+          borderColor: THEME.chart.ref20,
+          backgroundColor: THEME.chart.ref20,
+          borderWidth: 1,
+          pointRadius: 0,
+          borderDash: [6, 6],
+          yAxisID: "y",
+          order: 1,
+        },
+      ],
+    }),
+    [rows, labels, ref80, ref20]
+  );
 
-  const options: ChartOptions<"line"> = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    // 💡 necháme priestor osovým textom, ale žiadne „zbytočné“ okraje
-    layout: { padding: { top: 8, right: 10, bottom: 12, left: 12 } },
-    plugins: {
-      legend: {
-        position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", padding: 10, boxWidth: 6, boxHeight: 6 },
-      },
-      tooltip: {
-        padding: 8,
-        displayColors: true,
-        callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
-          footer: (items) => {
-            const i = items?.[0]?.dataIndex ?? 0;
-            const r = rows[i];
-            if (!r) return "";
-            return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+  const options: ChartOptions<"line"> = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      // necháme miesto pre osi/legendu, ale nie zbytočný „air“
+      layout: { padding: { top: 8, right: 10, bottom: 12, left: 12 } },
+      plugins: {
+        legend: {
+          position: THEME.chart.legendPosition,
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            padding: 10,
+            boxWidth: 6,
+            boxHeight: 6,
+          },
+        },
+        tooltip: {
+          padding: 8,
+          displayColors: true,
+          callbacks: {
+            label: (ctx) =>
+              `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
+            footer: (items) => {
+              const i = items?.[0]?.dataIndex ?? 0;
+              const r = rows[i];
+              if (!r) return "";
+              return `Easy ${fmtSecondsHMS(
+                r.easy_min || 0
+              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+            },
           },
         },
       },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        max: 100,
-        title: { display: true, text: "%" },
-        grid: { color: THEME.chart.grid, drawBorder: false },
-        ticks: { padding: 6 },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: "%" },
+          grid: { color: THEME.chart.grid, drawBorder: false },
+          ticks: { padding: 6 },
+        },
+        x: {
+          ticks: { maxRotation: 0, padding: 6 },
+          grid: { color: THEME.chart.gridSoft, drawBorder: false },
+        },
       },
-      x: {
-        ticks: { maxRotation: 0, padding: 6 },
-        grid: { color: THEME.chart.gridSoft, drawBorder: false },
+      onClick: (_evt, elements) => {
+        const idx = elements?.[0]?.index;
+        if (idx == null) return;
+        setPickedIdx(idx);
+        const r = rows[idx];
+        if (!r) return;
+        const csv = sportsToCSV(selectedSports);
+        onPickWeek?.({ start: r.start, end: r.end, sport: csv });
       },
-    },
-    onClick: (_evt, elements) => {
-      const idx = elements?.[0]?.index;
-      if (idx == null) return;
-      const r = rows[idx];
-      setPickedIdx(idx);
-      const csv = sportsToCSV(selectedSports);
-      onPickWeek?.({ start: r?.start, end: r?.end, sport: csv });
-    },
-  }), [rows, selectedSports, onPickWeek]);
+    }),
+    [rows, selectedSports, onPickWeek]
+  );
 
-  // 👇 šírka grafu podľa počtu labelov (garantovaný overflow)
-  const minWidthPx = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
-  const picked = pickedIdx != null ? rows[pickedIdx] : null;
+  // rovnako ako WeeklyLoad – šírka z počtu labelov => garantovaný horizontal scroll
+  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const heightPx = THEME.chart.weeklyHeightCompact ?? 200; // máš v tokens aj weeklyHeightCompact
 
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
     if (!n || n === "all") return;
     setPickedIdx(null);
-    setSelectedSports(prev => {
+    setSelectedSports((prev) => {
       const set = new Set(prev.map(normalizeSport).filter(Boolean) as string[]);
       set.has(n) ? set.delete(n) : set.add(n);
       return Array.from(set);
@@ -190,7 +217,9 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
   };
 
   useEffect(() => {
-    if (selectedSports.length === 0) setSelectedSports(Array.from(PARETO_DEFAULT_SET));
+    if (selectedSports.length === 0) {
+      setSelectedSports(Array.from(PARETO_DEFAULT_SET));
+    }
   }, [selectedSports.length]);
 
   return (
@@ -226,39 +255,33 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
               onClick={() => toggleSport(opt.value)}
               title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
             >
-              {opt.label}{isDefault ? "" : " *"}
+              {opt.label}
+              {isDefault ? "" : " *"}
             </Button>
           );
         })}
       </div>
 
-      {/* graf – v tej istej karte, normálne paddingy na texte, H-scroll garantovaný */}
-      <div className={`${SCROLL_X} mb-2`}>
-        <div className="relative" style={{ height: 260, width: `${minWidthPx}px` }}>
-          {loading ? (
-            <div className="w-full h-full flex items-center justify-center">
+      {/* graf – rovnaký scroll pattern ako TrendWeeklyLoad */}
+      <div
+        className={`${SCROLL_X} rounded-md min-w-0 mb-2`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
+        <div className="relative" style={{ height: heightPx }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
             </div>
-          ) : (
-            <LineChart type="line" data={data} options={options} />
           )}
+
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <LineChart type="line" data={data} options={options} />
+          </div>
         </div>
       </div>
 
-      {/* detail vybraného týždňa */}
-      <div className="text-xs opacity-80">
-        {picked ? (
-          <>
-            <div className="font-semibold">{picked.label}</div>
-            <div>
-              Easy: {fmtSecondsHMS(picked.easy_min || 0)} ({Math.round(picked.easy_pct)}%) {" • "}
-              Hard: {fmtSecondsHMS(picked.hard_min || 0)} ({Math.round(picked.hard_pct)}%)
-            </div>
-          </>
-        ) : (
-          <div>Klikni na bod v grafe pre detail týždňa.</div>
-        )}
-      </div>
+      {/* hint / detail */}
+      <div className="text-xs opacity-80">Klikni na bod v grafe pre detail týždňa.</div>
     </div>
   );
 }
