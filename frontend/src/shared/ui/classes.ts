@@ -260,16 +260,16 @@ export const CHART_TREND = {
   containerClass: "mt-4",
 };
 
-// src/shared/ui/classes.ts  (doplnky na koniec súboru)
+// --- na koniec súboru (alebo do sekcie LAYOUT/UTILS) ---
 
+/** Horizontálny scroll wrapper – funguje aj na mobile/Safari */
 export const SCROLL_X = [
-  "overflow-x-auto",           // povolí horizontálny scroll
-  "-mx-4 px-4",                // „nasaje“ sa pod vlastný padding karty
-  "[scrollbar-gutter:stable]", // netancuje layout pri zobrazovaní scrollbaru
-  "touch-pan-x",               // príjemnejší horizontálny pan na mobile
+  "w-full",
+  "max-w-full",
+  "overflow-x-auto",
+  "touch-pan-x",                // plynulé gesto na mobile
+  "[scrollbar-gutter:stable]",  // neskáče layout pri objavení scrollbarov
 ].join(" ");
 
-export const CHART_TIGHT = [
-  "rounded-md",                // jemné rohy kontajnera s grafom
-  "bg-transparent",            // bez vlastného pozadia (graf je v hlavnej karte)
-].join(" ");
+/** Jemný vizuál priamo pre oblasť grafu (ak chceš zaoblenie, bez vlastného paddingu) */
+export const CHART_TIGHT = "rounded-md bg-transparent";
