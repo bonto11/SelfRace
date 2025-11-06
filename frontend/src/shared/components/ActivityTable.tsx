@@ -1,7 +1,8 @@
+// src/shared/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD } from "@/shared/ui/classes";
+import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
 import { toEffSport } from "@/features/activity/utils/sport";
@@ -22,6 +23,7 @@ function normSportsList(sel: string | string[] | null | undefined): string[] | n
   const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
   return arr.length ? Array.from(new Set(arr)) : null;
 }
+
 function prettySkDate(iso: string) {
   const d = new Date(iso);
   const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -69,6 +71,7 @@ export default function ActivityTable({
       return;
     }
     setLoading(true);
+
     const inRange = selectByRange(start, end);
     const afterWhitelist =
       Array.isArray(allowedSports) && allowedSports.length
@@ -76,12 +79,22 @@ export default function ActivityTable({
         : inRange;
 
     const finalRows = sportList ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r))) : afterWhitelist;
+
     setRows(finalRows);
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
-  const wrapperCls = [CARD, "space-y-4", variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5"].join(" ");
-  const headerCls  = ["flex justify-between items-center", variant === "calendar" ? "mb-1" : "mb-2"].join(" ");
+  // layout – konzistentné povrchy a paddingy z classes
+  const wrapperCls = [
+    CARD,
+    "space-y-4",
+    variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5",
+  ].join(" ");
+
+  const headerCls = [
+    "flex justify-between items-center",
+    variant === "calendar" ? "mb-1" : "mb-2",
+  ].join(" ");
 
   return (
     <div className={wrapperCls}>
@@ -96,7 +109,7 @@ export default function ActivityTable({
       )}
 
       {!loading && rows.length > 0 && (
-        <ul className="space-y-3 pb-1">
+        <ul className={["space-y-3 pb-1", NO_X_OVERFLOW].join(" ")}>
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
