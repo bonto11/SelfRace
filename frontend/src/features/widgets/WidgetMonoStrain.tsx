@@ -7,23 +7,24 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 
 function classifyMonotony(v?: number | null) {
-  if (v == null) return { label: "—", accent: "bg-slate-700" };
-  if (v < 0.8) return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
-  if (v <= 1.5) return { label: "vyvážené (OK)", accent: "bg-emerald-600" };
-  if (v <= 2.0) return { label: "vyššia monotónnosť", accent: "bg-amber-500" };
+  if (v == null || !Number.isFinite(v)) return { label: "—", accent: "bg-slate-700" };
+  if (v < 0.8)  return { label: "nízka variabilita (OK)", accent: "bg-emerald-600" };
+  if (v <= 1.5) return { label: "vyvážené (OK)",          accent: "bg-emerald-600" };
+  if (v <= 2.0) return { label: "vyššia monotónnosť",      accent: "bg-amber-500" };
   return { label: "riziko preťaženia", accent: "bg-red-600" };
 }
 
 function classifyStrain(v?: number | null) {
-  if (v == null) return { label: "—", accent: "bg-slate-700" };
-  if (v < 600) return { label: "ľahší týždeň", accent: "bg-blue-700" };
-  if (v < 1200) return { label: "stredný load", accent: "bg-emerald-600" };
-  if (v < 1800) return { label: "vyšší load", accent: "bg-amber-500" };
+  if (v == null || !Number.isFinite(v)) return { label: "—", accent: "bg-slate-700" };
+  if (v < 600)   return { label: "ľahší týždeň", accent: "bg-blue-700" };
+  if (v < 1200)  return { label: "stredný load", accent: "bg-emerald-600" };
+  if (v < 1800)  return { label: "vyšší load",   accent: "bg-amber-500" };
   return { label: "veľmi vysoký", accent: "bg-red-600" };
 }
 
 function fmtRange(s: string, e: string) {
   const sd = new Date(s), ed = new Date(e);
+  if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) return "—";
   const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
   const edD = ed.getDate(), edM = ed.getMonth() + 1;
   return sdM === edM ? `${sdD}–${edD}.${edM}.` : `${sdD}.${sdM}.–${edD}.${edM}.`;
@@ -38,22 +39,22 @@ export default function MonoStrainWidget({
 }) {
   const { rolling7, loading } = useActivityData();
 
-  // počítame na základe ČASU (minúty). Ak budeš chcieť TRIMP, stačí zmeniť na "trimp".
-  const r7 = rolling7("time");
-  const mono = useMemo(() => r7.last.mono ?? null, [r7]);
-  const strain = useMemo(() => r7.last.strain ?? null, [r7]);
+  // môže byť undefined, tak ošetri
+  const r7 = rolling7?.("time");
+  const mono   = useMemo(() => (r7?.last?.mono ?? null) as number | null, [r7]);
+  const strain = useMemo(() => (r7?.last?.strain ?? null) as number | null, [r7]);
 
   const mC = classifyMonotony(mono);
   const sC = classifyStrain(strain);
 
+  // accent = najhoršia z dvoch farieb (red > amber > emerald > fallback)
   const accent =
-    mC.accent === "bg-red-600" || sC.accent === "bg-red-600"
-      ? "bg-red-600"
-      : mC.accent === "bg-amber-500" || sC.accent === "bg-amber-500"
-      ? "bg-amber-500"
-      : mC.accent === "bg-emerald-600" || sC.accent === "bg-emerald-600"
-      ? "bg-emerald-600"
-      : "bg-slate-700";
+    [mC.accent, sC.accent].includes("bg-red-600")   ? "bg-red-600"   :
+    [mC.accent, sC.accent].includes("bg-amber-500") ? "bg-amber-500" :
+    [mC.accent, sC.accent].includes("bg-emerald-600") ? "bg-emerald-600" :
+    "bg-slate-700";
+
+  const rangeTxt = r7?.last?.range ? fmtRange(r7.last.range.start, r7.last.range.end) : "—";
 
   return (
     <WidgetCard
@@ -67,7 +68,7 @@ export default function MonoStrainWidget({
         <div className="grid place-items-center py-6">
           <LoadingSpinner size="widget" />
         </div>
-      ) : (
+      ) : r7?.last ? (
         <>
           <div className="grid grid-cols-2 gap-6">
             <div>
@@ -91,9 +92,11 @@ export default function MonoStrainWidget({
           </div>
 
           <div className="opacity-80 text-sm mt-2">
-            Posledných 7 dní • {fmtRange(r7.last.range.start, r7.last.range.end)}
+            Posledných 7 dní • {rangeTxt}
           </div>
         </>
+      ) : (
+        <div className="opacity-75 text-sm py-6">Dáta pre posledných 7 dní nie sú k dispozícii.</div>
       )}
     </WidgetCard>
   );
