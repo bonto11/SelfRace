@@ -95,3 +95,11 @@ export const CONTENT_CONTAINER = "container mx-auto px-3 sm:px-4 lg:px-6 py-4";
 
 /** Typografia značky v topbare */
 export const BRAND_TEXT = "font-semibold";
+
+export const AVATAR_BUTTON =
+  "w-9 h-9 rounded-full bg-emerald-600 text-white font-semibold grid place-items-center";
+
+export const DROPDOWN_PANEL = SURFACE_INSET + " absolute right-0 mt-2 w-56 p-2 z-30";
+export const DROPDOWN_DIVIDER = "my-1 border-t border-white/10";
+export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded hover:bg-white/10";
+export const DROPDOWN_ITEM_DANGER = DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
