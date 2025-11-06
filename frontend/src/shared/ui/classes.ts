@@ -259,3 +259,17 @@ export const CHART_TREND = {
   bandAlphaHex: "33",
   containerClass: "mt-4",
 };
+
+// src/shared/ui/classes.ts  (doplnky na koniec súboru)
+
+export const SCROLL_X = [
+  "overflow-x-auto",           // povolí horizontálny scroll
+  "-mx-4 px-4",                // „nasaje“ sa pod vlastný padding karty
+  "[scrollbar-gutter:stable]", // netancuje layout pri zobrazovaní scrollbaru
+  "touch-pan-x",               // príjemnejší horizontálny pan na mobile
+].join(" ");
+
+export const CHART_TIGHT = [
+  "rounded-md",                // jemné rohy kontajnera s grafom
+  "bg-transparent",            // bez vlastného pozadia (graf je v hlavnej karte)
+].join(" ");
