@@ -203,3 +203,31 @@ export const inputClass =
     "placeholder:opacity-60",
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
   ].join(" ");
+
+/* ===== CHART TOKENS ===================================================== */
+/** Vizuálne tokeny pre HR graf – aby sme nemali farby napevno v komponente */
+export const CHART_HR = {
+  /** fallback strop pre os Y, ak stream ide nížšie/vyššie */
+  maxBpm: 207,
+  /** cut-off hrany zón (Z1..Z5). Ponecháme 4 rezy = 5 zón. */
+  zoneCuts: [154, 173, 183, 193] as [number, number, number, number],
+  /** farby zón (svetlý aj tmavý motív sú v praxi rovnaké, nech je to konzistentné) */
+  colors: {
+    z1: "#60A5FA", // blue
+    z2: "#34D399", // emerald
+    z3: "#FBBF24", // amber
+    z4: "#F97316", // orange
+    z5: "#EF4444", // red
+  },
+  /** priehľadná mriežka v grafe */
+  grid: "rgba(255,255,255,.18)",
+  /** farby textov na osiach a tickoch */
+  tickText: "#cbd5e1",
+  axisText: "#94a3b8",
+  /** priesvitnosť zónových pásov za krivkou */
+  bandOpacity: 0.08,
+  /** hrúbky krivky */
+  lineWidth: { normal: 2, compact: 1.6 },
+  /** textový štýl pre “empty state” */
+  emptyTextClass: "opacity-70 text-sm",
+};
