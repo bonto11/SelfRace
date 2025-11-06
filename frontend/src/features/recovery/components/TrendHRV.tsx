@@ -18,10 +18,10 @@ ensureChartJSRegistered();
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
 
-  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
+  const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // len šírka – koľko px na 1 deň pre minWidth
+  // len horizontálna šírka na deň (prípadne zmeň na 24/22 ak chceš kompaktnejšie)
   const DAY_PX_PER_LABEL = 26;
 
   useEffect(() => { setLoading(true); }, [weeks]);
@@ -133,7 +133,6 @@ export default function TrendHRV() {
       tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
     });
 
-    // Jemné vnútorné okraje vpravo, nič s výškou
     return {
       ...base,
       layout: { padding: { left: 6, right: 10, top: 8, bottom: 12 } },
@@ -141,6 +140,8 @@ export default function TrendHRV() {
         ...base.plugins,
         legend: {
           ...(base.plugins?.legend ?? {}),
+          position: "top",
+          align: "start",                // ← legenda vľavo
           labels: {
             ...(base.plugins?.legend?.labels ?? {}),
             padding: 10,
@@ -154,19 +155,18 @@ export default function TrendHRV() {
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // Šírka pre scroll: len horizontálna dimenzia
   const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER s paddingom (text/ovládanie) */}
+    <div className={`${CARD} relative text-left`}>
+      {/* HEADER – ľavé zarovnanie */}
       <div className="px-4 pt-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col items-start gap-2">
           <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
           <select
             value={weeks}
             onChange={(e) => setWeeks(Number(e.target.value))}
-            className={`${inputClass} h-8 text-xs w-[128px] shrink-0`}
+            className={`${inputClass} h-8 text-xs w-[128px]`}
           >
             <option value={2}>2 týždne</option>
             <option value={4}>4 týždne</option>
@@ -176,10 +176,10 @@ export default function TrendHRV() {
         </div>
       </div>
 
-      {/* GRAF (bez vlastných paddingov) */}
+      {/* GRAF – ľavé zarovnanie, bez vlastných paddingov, len pr-1 kvôli pravému “dychu” */}
       <div className="mt-2">
         <div
-          className="overflow-x-auto overflow-y-hidden rounded-xl min-w-0"
+          className="overflow-x-auto overflow-y-hidden rounded-xl min-w-0 text-left"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <div className="relative pr-1" style={{ height: THEME.chart.weeklyHeight }}>
