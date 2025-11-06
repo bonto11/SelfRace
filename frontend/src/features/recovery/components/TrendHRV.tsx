@@ -149,7 +149,7 @@ export default function DetailHRV() {
   }, [labelsISO, hrv, baselineArr]);
 
   // menšia výška + horizontálny scroll podľa počtu dní
-  const height = THEME.chart?.recoveryHeight ?? 220; // <— menšie než weeklyHeight
+  const height = THEME.chart?.weeklyHeight ?? 220;
   const pxPerLabel = THEME.chart?.pxPerLabel ?? 26;
   const minWidth = Math.max(360, Math.round(labelsISO.length * pxPerLabel));
 
