@@ -19,8 +19,9 @@ import {
 
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
-import { WIDGET_CARD } from "@/shared/ui/classes";
+import { CARD } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
+import { SCROLL_X, CHART_TIGHT } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
@@ -36,7 +37,11 @@ type Row = {
   end?: string;
 };
 
-export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: ParetoWeekPick) => void }) {
+export default function TrendPareto8020({
+  onPickWeek,
+}: {
+  onPickWeek?: (w: ParetoWeekPick) => void;
+}) {
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
   const [loading, setLoading] = useState(false);
@@ -106,31 +111,10 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
           borderDash: [4, 4],
           order: 2,
         },
-        // referencie
-        {
-          type: "line",
-          label: "80% ref",
-          data: ref80,
-          borderColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
-          backgroundColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
-          borderWidth: 1,
-          pointRadius: 0,
-          borderDash: [6, 6],
-          yAxisID: "y",
-          order: 1,
-        },
-        {
-          type: "line",
-          label: "20% ref",
-          data: ref20,
-          borderColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
-          backgroundColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
-          borderWidth: 1,
-          pointRadius: 0,
-          borderDash: [6, 6],
-          yAxisID: "y",
-          order: 1,
-        },
+        { type: "line", label: "80% ref", data: ref80, borderColor: THEME.chart.ref80,
+          backgroundColor: THEME.chart.ref80, borderWidth: 1, pointRadius: 0, borderDash: [6,6], yAxisID: "y", order:1 },
+        { type: "line", label: "20% ref", data: ref20, borderColor: THEME.chart.ref20,
+          backgroundColor: THEME.chart.ref20, borderWidth: 1, pointRadius: 0, borderDash: [6,6], yAxisID: "y", order:1 },
       ],
     }),
     [rows, labels, ref80, ref20]
@@ -140,15 +124,16 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
     () => ({
       responsive: true,
       maintainAspectRatio: false,
-      // jemný vnútorný padding, ale bez ďalšieho vizuálneho panelu
-      layout: { padding: 12 },
       interaction: { mode: "index", intersect: false },
+      layout: { padding: { top: 4, right: 6, bottom: 6, left: 6 } }, // ✨ minimálne vnútorné okraje
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
-          labels: { usePointStyle: true, pointStyle: "circle", padding: 10, boxWidth: 6, boxHeight: 6 },
+          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6 },
         },
         tooltip: {
+          padding: 6,
+          displayColors: true,
           callbacks: {
             label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
             footer: (items) => {
@@ -165,12 +150,12 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
           beginAtZero: true,
           max: 100,
           title: { display: true, text: "%" },
-          ticks: { padding: 6 },
-          grid: { color: THEME.chart.grid },
+          grid: { color: THEME.chart.grid, drawBorder: false },
+          ticks: { padding: 4 },
         },
         x: {
-          ticks: { maxRotation: 0, padding: 6 },
-          grid: { color: THEME.chart.gridSoft },
+          ticks: { maxRotation: 0, padding: 4 },
+          grid: { color: THEME.chart.gridSoft, drawBorder: false },
         },
       },
       onClick: (_evt, elements) => {
@@ -207,7 +192,7 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
   }, [selectedSports.length]);
 
   return (
-    <div className={`${WIDGET_CARD} relative`}>
+    <div className={`${CARD} relative`}>
       {/* header */}
       <div className="flex items-center gap-2 mb-2">
         <h2 className="text-lg font-bold">Trend 80/20</h2>
@@ -226,12 +211,11 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
       </div>
 
       {/* športový multi-select */}
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-2">
         {SPORT_OPTIONS.map((opt) => {
           const norm = normalizeSport(opt.value) ?? "";
           const active = selectedSports.map(normalizeSport).includes(norm);
           const isDefault = isInParetoDefault(norm);
-
           return (
             <Button
               key={opt.value}
@@ -240,30 +224,27 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
               onClick={() => toggleSport(opt.value)}
               title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
             >
-              {opt.label}
-              {isDefault ? "" : " *"}
+              {opt.label}{isDefault ? "" : " *"}
             </Button>
           );
         })}
       </div>
 
-      {/* graf – bez vlastného panelu, iba overflow a výška */}
-      <div className="overflow-x-auto mt-2" style={{ WebkitOverflowScrolling: "touch" }}>
-        <div style={{ height: 260 }}>
+      {/* graf – v tej istej karte, bez vnútorného panelu, so scrollom */}
+      <div className={`${SCROLL_X} ${CHART_TIGHT} mb-2`}>
+        <div className="relative" style={{ height: 260, width: minWidth }}>
           {loading ? (
             <div className="w-full h-full flex items-center justify-center">
               <LoadingSpinner size="trend" />
             </div>
           ) : (
-            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <LineChart type="line" data={data} options={options} />
-            </div>
+            <LineChart type="line" data={data} options={options} />
           )}
         </div>
       </div>
 
       {/* detail vybraného týždňa */}
-      <div className="mt-2 text-xs opacity-80">
+      <div className="text-xs opacity-80">
         {picked ? (
           <>
             <div className="font-semibold">{picked.label}</div>
