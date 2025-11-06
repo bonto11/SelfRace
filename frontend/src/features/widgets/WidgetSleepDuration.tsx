@@ -12,22 +12,12 @@ import {
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
-export default function WidgetSleepDuration({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
-  const { rows, loading: loadingRaw } = useRecoveryData() as {
-    rows: any[];
-    loading?: boolean;
-  };
+export default function WidgetSleepDuration({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  const { rows, loading: loadingRaw } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
-    () =>
-      rows.map((r) =>
-        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null
-      ),
+    () => rows.map((r) => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null)),
     [rows]
   );
 
@@ -36,20 +26,14 @@ export default function WidgetSleepDuration({
     return typeof v === "number" ? v : null;
   }, [values]);
 
-  const baselinePoint = useMemo(
-    () => makeBaselinePoint(values, 14, true),
-    [values]
-  );
+  const baselinePoint = useMemo(() => makeBaselinePoint(values, 14, true), [values]);
 
   const cmp = compareLatestToBaseline(latest, baselinePoint, "higher-better", 0.05);
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA
-    ? "—"
-    : Number.isFinite(latest as number)
-    ? minutesToHHMM(latest as number)
-    : "—";
+  const valueText =
+    showNA ? "—" : Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—";
   const note = showNA ? freshness.message : cmp.note;
 
   const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
