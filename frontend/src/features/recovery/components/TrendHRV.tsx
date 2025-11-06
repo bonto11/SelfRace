@@ -10,39 +10,66 @@ import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
-import { CARD } from "@/shared/ui/classes";
+import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
+
+/**
+ * Poznámky:
+ * - Šírku počítame PO TÝŽDŇOCH (ako WeeklyLoad), nie po dňoch ⇒ stabilná hustota.
+ * - Week select má pevnú menšiu šírku, nech netlačí layout.
+ * - Hlavička má padding, telo (graf) je „flush“ s horizontálnym scrollom.
+ */
 
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // len horizontálny krok – podľa potreby zmeň na 24/22 ak chceš ešte kompaktnejšie
-  const DAY_PX_PER_LABEL = 26;
+  // koeficient šírky NA TÝŽDEŇ – berieme rovnaký ako WeeklyLoad
+  const PX_PER_WEEK = THEME.chart?.weeklyPxPerLabel ?? 80;
 
-  useEffect(() => { setLoading(true); }, [weeks]);
+  useEffect(() => {
+    setLoading(true);
+  }, [weeks]);
 
+  // orež na posledných N dní podľa lookbacku
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
+  // vypni spinner po prepočte
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
+  // ---- dáta
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
+
   const hrv = useMemo(
-    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
+    () =>
+      rows.map((r) =>
+        typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN
+      ),
     [rows]
   );
+
   const baselineArr = useMemo(
-    () => rollingMean(rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)), 14),
+    () =>
+      rollingMean(
+        rows.map((r) =>
+          typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null
+        ),
+        14
+      ),
     [rows]
   );
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr]
+  );
 
   const comments = useMemo(() => {
     const m = new Map<string, string>();
@@ -50,8 +77,11 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
+  // ---- datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) =>
+      xs.map((v) => (typeof v === "number" ? v : NaN));
+
     return {
       labels: labelsISO,
       datasets: [
@@ -106,6 +136,7 @@ export default function TrendHRV() {
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
+  // ---- options (rovnaké nastavenia legendy + drobný padding ako pri WeeklyLoad)
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
@@ -117,6 +148,7 @@ export default function TrendHRV() {
       tooltipLabelForItem: (ctx): string | string[] => {
         const idx = ctx.dataIndex ?? 0;
         const lines: string[] = [];
+
         if (ctx.datasetIndex === 3) {
           const v = hrv[idx];
           if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
@@ -127,75 +159,92 @@ export default function TrendHRV() {
           const b = baselineArr[idx];
           if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
         }
-        return lines.length ? lines : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+
+        return lines.length
+          ? lines
+          : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
       },
       tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
     });
 
     return {
       ...base,
+      maintainAspectRatio: false,
       layout: { padding: { left: 6, right: 10, top: 8, bottom: 12 } },
       plugins: {
         ...base.plugins,
         legend: {
           ...(base.plugins?.legend ?? {}),
-          position: "top",
+          position: THEME.chart.legendPosition ?? "top",
           align: "start",
           labels: {
             ...(base.plugins?.legend?.labels ?? {}),
-            padding: 10,
             usePointStyle: true,
             pointStyle: "circle",
             boxWidth: 6,
             boxHeight: 6,
+            padding: 10,
+          },
+        },
+      },
+      scales: {
+        ...(base.scales ?? {}),
+        x: {
+          ...(base.scales?.x as any),
+          grid: { color: THEME.chart.gridSoft },
+          ticks: {
+            autoSkip: true,
+            minRotation: 55,
+            maxRotation: 55,
+            padding: 6,
+            font: { size: 10 },
           },
         },
       },
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // min. šírka podľa počtu dní – iba horizontálna dimenzia
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+  // ---- rozmery (ako WeeklyLoad)
+  // Prepočet na "počet týždňov" = dĺžka/7, nech hustota sedí s WeeklyLoad.
+  const weeksCount = Math.max(1, Math.ceil(labelsISO.length / 7));
+  const minWidth = Math.max(320, Math.round(weeksCount * PX_PER_WEEK));
 
   return (
-    <div className={`${CARD} relative text-left`}>
-      {/* HEADER – vľavo, select fixnúť a nechať shrink-0 */}
-      <div className="px-4 pt-4">
-        <div className="flex flex-wrap items-start gap-2">
-          <h2 className="text-lg font-bold mr-2">Detail — HRV (RMSSD)</h2>
-          <select
-            value={weeks}
-            onChange={(e) => setWeeks(Number(e.target.value))}
-            className={`${inputClass} h-8 text-xs w-[132px] sm:w-[150px] md:w-[168px] shrink-0 self-start`}
-          >
-            <option value={2}>2 týždne</option>
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
+    <div className={`${CARD} relative`}>
+      {/* HEADER – padding a menší select */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
+          <div className="flex items-center gap-2">
+            <select
+              value={weeks}
+              onChange={(e) => setWeeks(Number(e.target.value))}
+              className={`${inputClass} h-8 text-xs w-[116px] sm:w-[128px] md:w-[140px] shrink-0`}
+              title="Lookback"
+            >
+              <option value={2}>2 týždne</option>
+              <option value={4}>4 týždne</option>
+              <option value={8}>8 týždňov</option>
+              <option value={12}>12 týždňov</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* GRAF */}
-      <div className="mt-2">
-        <div
-          className="overflow-x-auto overflow-y-hidden rounded-xl min-w-0"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <div className="relative pr-1" style={{ height: THEME.chart.weeklyHeight }}>
-            {loading && (
-              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-                <LoadingSpinner size="trend" />
-              </div>
-            )}
-            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <Line data={data} options={options} />
+      {/* BODY – flush + horizontálny scroll (identicky s WeeklyLoad) */}
+      <div
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
             </div>
+          )}
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <Line data={data} options={options} />
           </div>
-        </div>
-
-        <div className="px-4 pb-3 pt-2 text-xs opacity-80">
-          Tip: dlhší rozsah je horizontálne rolovateľný.
         </div>
       </div>
     </div>
