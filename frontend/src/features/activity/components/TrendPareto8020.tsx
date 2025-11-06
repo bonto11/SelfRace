@@ -19,7 +19,7 @@ import {
 
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
-import { CARD } from "@/shared/ui/classes";
+import { WIDGET_CARD, SECTION_WIDE } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
@@ -36,16 +36,11 @@ type Row = {
   end?: string;
 };
 
-export default function TrendPareto8020({
-  onPickWeek,
-}: {
-  onPickWeek?: (w: ParetoWeekPick) => void;
-}) {
+export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: ParetoWeekPick) => void }) {
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<4 | 8 | 12>(4);
   const [loading, setLoading] = useState(false);
 
-  // multi-select športov; default = BE default whitelist
   const [selectedSports, setSelectedSports] = useState<string[]>(
     Array.from(PARETO_DEFAULT_SET)
   );
@@ -147,6 +142,10 @@ export default function TrendPareto8020({
     () => ({
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        // jemný vnútorný padding grafu, aby sa body/legendy „nedotýkali” okrajov
+        padding: 12,
+      },
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: {
@@ -154,7 +153,7 @@ export default function TrendPareto8020({
           labels: {
             usePointStyle: true,
             pointStyle: "circle",
-            padding: 8,
+            padding: 10,
             boxWidth: 6,
             boxHeight: 6,
           },
@@ -167,9 +166,7 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(
-                r.easy_min || 0
-              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
         },
@@ -179,9 +176,13 @@ export default function TrendPareto8020({
           beginAtZero: true,
           max: 100,
           title: { display: true, text: "%" },
+          ticks: { padding: 6 },
           grid: { color: THEME.chart.grid },
         },
-        x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
+        x: {
+          ticks: { maxRotation: 0, padding: 6 },
+          grid: { color: THEME.chart.gridSoft },
+        },
       },
       onClick: (_evt, elements) => {
         const idx = elements?.[0]?.index;
@@ -199,7 +200,6 @@ export default function TrendPareto8020({
   const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
   const picked = pickedIdx != null ? rows[pickedIdx] : null;
 
-  // športové toggle-y → použijeme tvoj Button (menej krikľavé farby)
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
     if (!n || n === "all") return;
@@ -211,7 +211,6 @@ export default function TrendPareto8020({
     });
   };
 
-  // reset na default, ak by si vyprázdnil výber
   useEffect(() => {
     if (selectedSports.length === 0) {
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
@@ -219,7 +218,7 @@ export default function TrendPareto8020({
   }, [selectedSports.length]);
 
   return (
-    <div className={`${CARD} relative`}>
+    <div className={`${WIDGET_CARD} relative`}>
       {/* header */}
       <div className="flex items-center gap-2 mb-2">
         <h2 className="text-lg font-bold">Trend 80/20</h2>
@@ -259,12 +258,9 @@ export default function TrendPareto8020({
         })}
       </div>
 
-      {/* graf */}
-      <div
-        className="overflow-x-auto rounded-md"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <div style={{ height: 240 }}>
+      {/* graf – vlastný sekčný podklad + padding, aby nič neležalo na okrajoch */}
+      <div className={`${SECTION_WIDE} overflow-x-auto`} style={{ WebkitOverflowScrolling: "touch" }}>
+        <div style={{ height: 260 }}>
           {loading ? (
             <div className="w-full h-full flex items-center justify-center">
               <LoadingSpinner size="trend" />
@@ -283,10 +279,8 @@ export default function TrendPareto8020({
           <>
             <div className="font-semibold">{picked.label}</div>
             <div>
-              Easy: {fmtSecondsHMS(picked.easy_min || 0)} (
-              {Math.round(picked.easy_pct)}%) {" • "}
-              Hard: {fmtSecondsHMS(picked.hard_min || 0)} (
-              {Math.round(picked.hard_pct)}%)
+              Easy: {fmtSecondsHMS(picked.easy_min || 0)} ({Math.round(picked.easy_pct)}%) {" • "}
+              Hard: {fmtSecondsHMS(picked.hard_min || 0)} ({Math.round(picked.hard_pct)}%)
             </div>
           </>
         ) : (
