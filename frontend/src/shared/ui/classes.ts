@@ -103,3 +103,14 @@ export const DROPDOWN_PANEL = SURFACE_INSET + " absolute right-0 mt-2 w-56 p-2 z
 export const DROPDOWN_DIVIDER = "my-1 border-t border-white/10";
 export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded hover:bg-white/10";
 export const DROPDOWN_ITEM_DANGER = DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
+
+// WidgetCard – konzistentné povrchy a typografia
+export const WIDGET_CARD = SURFACE_CARD + " p-4";
+export const WIDGET_CARD_INTERACTIVE =
+  "transition-colors hover:bg-white dark:hover:bg-gray-900/80 cursor-pointer focus:outline-none";
+export const WIDGET_INNER = "flex flex-col";
+export const WIDGET_TITLE = "text-sm md:text-base font-semibold tracking-tight";
+export const WIDGET_HINT = "text-xs opacity-75 whitespace-nowrap";
+export const WIDGET_NOTE = "opacity-80 text-sm mt-2";
+export const WIDGET_FOOTER = "mt-3";
+export const WIDGET_ACCENT_BAR = "h-1.5 rounded-b-xl mt-3";
