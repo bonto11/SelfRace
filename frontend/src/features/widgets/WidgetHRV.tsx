@@ -1,3 +1,4 @@
+// src/features/widgets/WidgetHRV.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -10,15 +11,8 @@ import {
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
-export default function WidgetHRV({
-  onOpenDetail,   // zachovám kompatibilitu s tvojimi stránkami
-}: {
-  onOpenDetail?: () => void;
-}) {
-  const { rows, loading: loadingRaw } = useRecoveryData() as {
-    rows: any[];
-    loading?: boolean;
-  };
+export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  const { rows, loading: loadingRaw } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
@@ -43,15 +37,11 @@ export default function WidgetHRV({
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA
-    ? "—"
-    : Number.isFinite(yesterday)
-    ? String(Math.round(yesterday as number))
-    : "—";
+  const valueText =
+    showNA ? "—" : Number.isFinite(yesterday) ? String(Math.round(yesterday as number)) : "—";
   const note = showNA ? freshness.message : cmp.note;
 
-  const accent =
-    loading || showNA ? "bg-slate-700" : cmp.accent; // ostáva tvoja logika farieb
+  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
 
   return (
     <WidgetCard
