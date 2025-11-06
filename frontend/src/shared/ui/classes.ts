@@ -114,3 +114,29 @@ export const WIDGET_HINT = "text-xs opacity-75 whitespace-nowrap";
 export const WIDGET_NOTE = "opacity-80 text-sm mt-2";
 export const WIDGET_FOOTER = "mt-3";
 export const WIDGET_ACCENT_BAR = "h-1.5 rounded-b-xl mt-3";
+
+/* ===== TOAST (globálne toast notifikácie) =============================== */
+export const TOAST_LAYER =
+  "pointer-events-none fixed inset-0 z-[60] flex justify-center pt-[12vh]";
+export const TOAST_STACK = "w-full flex flex-col items-center gap-2";
+export const TOAST_PILL_BASE =
+  [
+    "pointer-events-auto select-none",
+    "w-[calc(100vw-24px)] sm:w-[520px]",
+    "rounded-[22px] px-4 py-3",
+    "backdrop-blur-md shadow-lg border",
+    "text-[15px] leading-snug font-medium",
+  ].join(" ");
+export const TOAST_SUCCESS = "bg-emerald-600/95 text-white border-emerald-500/50";
+export const TOAST_ERROR   = "bg-red-600/95 text-white border-red-500/50";
+export const TOAST_INFO    = "bg-neutral-800/95 text-white border-neutral-700/60";
+
+/* Pozn.: animácie ostávajú cez CSS triedy .toast-enter / .toast-hold / .toast-exit */
+
+/* ===== SPINNER (centrálne farby/veľkosti) =============================== */
+export type SpinnerPreset = { px: number; accent: string; track: string; dot?: string };
+export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> = {
+  widget: { px: 18, accent: "#3B82F6", track: "#3B82F633", dot: "#93C5FD" }, // modrá
+  trend:  { px: 32, accent: "#10B981", track: "#10B98133", dot: "#A7F3D0" }, // zelená
+  screen: { px: 56, accent: "#8B5CF6", track: "#8B5CF633", dot: "#DDD6FE" }, // fialová
+};
