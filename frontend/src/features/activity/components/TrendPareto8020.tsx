@@ -19,7 +19,7 @@ import {
 
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
-import { WIDGET_CARD, SECTION_WIDE } from "@/shared/ui/classes";
+import { WIDGET_CARD } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
@@ -74,9 +74,7 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, lookback, sportParam]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
@@ -142,26 +140,17 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
     () => ({
       responsive: true,
       maintainAspectRatio: false,
-      layout: {
-        // jemný vnútorný padding grafu, aby sa body/legendy „nedotýkali” okrajov
-        padding: 12,
-      },
+      // jemný vnútorný padding, ale bez ďalšieho vizuálneho panelu
+      layout: { padding: 12 },
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            padding: 10,
-            boxWidth: 6,
-            boxHeight: 6,
-          },
+          labels: { usePointStyle: true, pointStyle: "circle", padding: 10, boxWidth: 6, boxHeight: 6 },
         },
         tooltip: {
           callbacks: {
-            label: (ctx) =>
-              `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
+            label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
             footer: (items) => {
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
@@ -258,8 +247,8 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
         })}
       </div>
 
-      {/* graf – vlastný sekčný podklad + padding, aby nič neležalo na okrajoch */}
-      <div className={`${SECTION_WIDE} overflow-x-auto`} style={{ WebkitOverflowScrolling: "touch" }}>
+      {/* graf – bez vlastného panelu, iba overflow a výška */}
+      <div className="overflow-x-auto mt-2" style={{ WebkitOverflowScrolling: "touch" }}>
         <div style={{ height: 260 }}>
           {loading ? (
             <div className="w-full h-full flex items-center justify-center">
