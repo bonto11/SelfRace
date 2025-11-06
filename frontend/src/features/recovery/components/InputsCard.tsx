@@ -9,12 +9,25 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
 import { toast } from "@/shared/components/ui/Toast";
 
+import {
+  SECTION,
+  FORM_GRID_TWO,
+  FORM_GRID_SPLIT,
+  WIDGET_HEADER_ROW,
+  WIDGET_HEADER_SIDE,
+  WIDGET_HEADER_CENTER,
+  WIDGET_HEADER_BELOW,
+  PILL_BUTTON,
+  TEXTAREA_BASE,
+} from "@/shared/ui/classes";
+
 export default function InputsCard() {
   const { userId } = useUserId();
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
-  const [open, setOpen] = useState(false); // ⬅️ toggle pre rozbalenie
+  const [open, setOpen] = useState(false);
   const [openDate, setOpenDate] = useState(false);
+
   const [date, setDate] = useState<string>(todayIso);
   const [rhr, setRhr] = useState("");
   const [hrvAvg, setHrvAvg] = useState("");
@@ -27,9 +40,8 @@ export default function InputsCard() {
   const [alcoholType, setAlcoholType] = useState("");
   const [comments, setComments] = useState("");
 
-  function shiftDate(deltaDays: number) {
+  const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
-  }
 
   async function handleSave() {
     if (!userId) return alert("❌ Užívateľ neznámy");
@@ -74,84 +86,67 @@ export default function InputsCard() {
 
   return (
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
-    
-    {/* HEADER: segmented group v strede + toggle vpravo, s rozbalením datepickeru */}
-    <div className="mb-3">
-      {/* horný riadok */}
-      <div className="flex items-center">
-        <div className="flex-1" />
-    
-        {/* stredná skupina – vycentrovaná, symetrické medzery */}
-        <div className="inline-flex items-center justify-center gap-3 select-none">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => shiftDate(-1)}
-            disabled={saving}
-            className="shrink-0"
-            aria-label="Predošlý deň"
-          >
-            −1d
-          </Button>
-    
-          {/* dátum ako „pill“ – NESTLÁČA susedné prvky, žiadny native ring */}
-          <button
-            type="button"
-            onClick={() => setOpenDate((v) => !v)}
-            className="shrink-0 px-4 py-2 rounded-xl border border-white/15 bg-white/5 dark:bg-gray-900/40
-                       hover:bg-white/10 transition-colors
-                       text-sm font-medium"
-            title="Zmeniť dátum"
-          >
-            {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
-          </button>
-    
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => shiftDate(+1)}
-            disabled={saving}
-            className="shrink-0"
-            aria-label="Ďalší deň"
-          >
-            +1d
-          </Button>
+      {/* HEADER */}
+      <div className={WIDGET_HEADER_BELOW}>
+        <div className={WIDGET_HEADER_ROW}>
+          {/* ľavá strana – voliteľné rýchle skoky (desktop) */}
+          <div className={WIDGET_HEADER_SIDE}>
+            <div className="hidden sm:flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => shiftDate(-1)} disabled={saving}>−1d</Button>
+              <Button size="sm" variant="ghost" onClick={() => setDate(addDaysIso(todayIso, -1))} disabled={saving}>Včera</Button>
+              <Button size="sm" variant="ghost" onClick={() => setDate(todayIso)} disabled={saving}>Dnes</Button>
+              <Button size="sm" variant="ghost" onClick={() => setDate(addDaysIso(todayIso, +1))} disabled={saving}>Zajtra</Button>
+              <Button size="sm" variant="ghost" onClick={() => shiftDate(+1)} disabled={saving}>+1d</Button>
+            </div>
+          </div>
+
+          {/* stred – dátumový „pill“ */}
+          <div className={WIDGET_HEADER_CENTER}>
+            <button
+              type="button"
+              onClick={() => setOpenDate((v) => !v)}
+              className={PILL_BUTTON}
+              title="Zmeniť dátum"
+            >
+              {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
+            </button>
+          </div>
+
+          {/* pravá strana – toggle */}
+          <div className={WIDGET_HEADER_SIDE + " flex justify-end"}>
+            <Button
+              circle
+              size="sm"
+              variant="secondary"
+              onClick={() => setOpen((v) => !v)}
+              aria-label={open ? "Zbaliť formulár" : "Rozbaliť formulár"}
+              title={open ? "Zbaliť" : "Rozbaliť"}
+            >
+              {open ? "−" : "+"}
+            </Button>
+          </div>
         </div>
-    
-        <div className="flex-1 flex justify-end">
-          <Button
-            circle
-            size="sm"
-            variant="secondary"
-            onClick={() => setOpen((v) => !v)}
-            aria-label={open ? "Zbaliť formulár" : "Rozbaliť formulár"}
-            title={open ? "Zbaliť" : "Rozbaliť"}
-          >
-            {open ? "−" : "+"}
-          </Button>
-        </div>
+
+        {/* rozbalený natívny date input pod stredom */}
+        {openDate && (
+          <div className="mt-2 flex justify-center">
+            <TextField
+              type="date"
+              value={date}
+              onChange={(e) => setDate((e.target as HTMLInputElement).value)}
+              disabled={saving}
+              className="w-[min(320px,80%)] text-center"
+            />
+          </div>
+        )}
       </div>
 
-  {/* rozbalený „plný“ datepicker priamo pod skupinou (centrálne) */}
-  {openDate && (
-    <div className="mt-2 flex justify-center">
-      <TextField
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        disabled={saving}
-        className="w-[min(320px,80%)] text-center"
-      />
-    </div>
-  )}
-</div>
-
-      {/* BODY – rendruj len ak je otvorené */}
+      {/* BODY – až po otvorení */}
       {open && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className={FORM_GRID_TWO}>
             {/* RHR */}
-            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+            <section className={SECTION}>
               <div className="text-sm opacity-75 mb-1">Resting HR</div>
               <TextField
                 type="number"
@@ -163,9 +158,9 @@ export default function InputsCard() {
             </section>
 
             {/* HRV avg / max */}
-            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+            <section className={SECTION}>
               <div className="text-sm opacity-75 mb-1">HRV (RMSSD)</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className={FORM_GRID_SPLIT}>
                 <TextField
                   type="number"
                   value={hrvAvg}
@@ -184,9 +179,9 @@ export default function InputsCard() {
             </section>
 
             {/* Sleep */}
-            <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+            <section className={SECTION + " md:col-span-2"}>
               <div className="text-sm opacity-75 mb-1">Sleep</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className={FORM_GRID_SPLIT}>
                 <TextField
                   type="text"
                   placeholder="HH:MM duration"
@@ -207,7 +202,7 @@ export default function InputsCard() {
             </section>
 
             {/* Evening factors */}
-            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+            <section className={SECTION}>
               <div className="text-sm opacity-75 mb-2">Evening factors</div>
               <label className="flex items-center gap-2 mb-2">
                 <input
@@ -230,9 +225,9 @@ export default function InputsCard() {
             </section>
 
             {/* Alcohol */}
-            <section className="rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+            <section className={SECTION}>
               <div className="text-sm opacity-75 mb-1">Alcohol</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className={FORM_GRID_SPLIT}>
                 <TextField
                   type="number"
                   value={alcoholVolume}
@@ -250,8 +245,8 @@ export default function InputsCard() {
               </div>
             </section>
 
-            {/* Comment – natívny textarea, lebo tvoj TextField je input */}
-            <section className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 dark:bg-gray-900/40 p-3">
+            {/* Comment */}
+            <section className={SECTION + " md:col-span-2"}>
               <div className="text-sm opacity-75 mb-1">Comment</div>
               <textarea
                 rows={3}
@@ -259,8 +254,7 @@ export default function InputsCard() {
                 onChange={(e) => setComments(e.target.value)}
                 placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
                 disabled={saving}
-                className="w-full rounded-md bg-white/70 dark:bg-gray-800/60 border border-white/10 px-3 py-2
-                           focus:outline-none focus:ring-2 focus:ring-white/20 resize-y"
+                className={TEXTAREA_BASE}
               />
             </section>
           </div>
