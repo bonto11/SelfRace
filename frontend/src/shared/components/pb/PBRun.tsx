@@ -19,7 +19,7 @@ import { confirm } from "@/shared/components/ui/Confirm";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
-import { NO_X } from "@/shared/ui/classes";
+import { NO_X, SURFACE_INLINE } from "@/shared/ui/classes";
 import { useIsTouch } from "@/shared/utils/detection";
 import type { PBRunFormState } from "@/shared/types/pb";
 import type { MiniActivity } from "@/shared/types/activities";
@@ -126,15 +126,11 @@ export default function PBRun() {
       </div>
 
       {/* FORM */}
-      <div
-        className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}
-      >
+      <div className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}>
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, distance_m: e.target.value }))
-          }
+          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
@@ -165,9 +161,7 @@ export default function PBRun() {
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
             value={form.achieved_at}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, achieved_at: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
             aria-label="Pick date"
           />
         </div>
@@ -213,7 +207,6 @@ export default function PBRun() {
                 : b.time_str ?? "—";
             const dist = distanceLabel(b.distance_m, "run");
 
-            // handlers, ktoré už používaš
             const doEdit = () => {
               setForm({
                 distance_m: String(b.distance_m),
@@ -227,7 +220,6 @@ export default function PBRun() {
             };
             const doDelete = () => handleDelete(b.distance_m);
 
-            // === TOUCH (SwipeRow) verzia ===
             if (isTouch) {
               return (
                 <SwipeRow
@@ -253,7 +245,6 @@ export default function PBRun() {
               );
             }
 
-            // === DESKTOP verzia s hornými tlačidlami ===
             return (
               <ActivitySingle
                 key={b.distance_m}
@@ -322,12 +313,7 @@ function SwipeRow({
   };
 
   return (
-    <li
-      className={["relative w-full overflow-hidden", NO_X].join(" ")}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
+    <li className={["relative w-full overflow-hidden", NO_X].join(" ")}>
       <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
