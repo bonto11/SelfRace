@@ -1,43 +1,49 @@
+// src/app/_components/ClientShell.tsx
 "use client";
 
 import { ReactNode } from "react";
 import Sidebar from "@/features/Toolbars/components/Sidebar";
 import UserMenu from "@/features/auth/components/UserMenu";
 import { SidebarProvider, useSidebar } from "@/features/Toolbars/hooks/useSidebar";
+import {
+  SHELL_BG,
+  TOPBAR_MOBILE,
+  ICON_BUTTON,
+  BRAND_TEXT,
+  SHELL_GRID,
+  SIDEBAR_DESKTOP,
+  TOPBAR_DESKTOP,
+  SIDEBAR_OVERLAY,
+  SIDEBAR_MOBILE_PANEL,
+} from "@/shared/ui/classes";
 
 function ShellBody({ children }: { children: ReactNode }) {
   const { open, toggle, setOpen } = useSidebar();
 
   return (
-    <div className="min-h-dvh bg-neutral-950 text-neutral-100">
+    <div className={SHELL_BG}>
       {/* TOPBAR (mobile) */}
-      <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 bg-neutral-950/90 backdrop-blur px-3 py-2 border-b border-neutral-800">
-        <button
-          onClick={toggle}
-          aria-label="Menu"
-          className="rounded-lg p-2 border border-neutral-700 hover:bg-neutral-800"
-        >
+      <div className={TOPBAR_MOBILE}>
+        <button onClick={toggle} aria-label="Menu" className={ICON_BUTTON}>
           ☰
         </button>
-        <div className="font-semibold">Trainalyze</div>
+        <div className={BRAND_TEXT}>Trainalyze</div>
         <div className="ml-auto">
-          {/* už bez props */}
           <UserMenu />
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[280px_1fr]">
+      <div className={SHELL_GRID}>
         {/* SIDEBAR (desktop) */}
-        <aside className="hidden lg:block border-r border-neutral-800 sticky top-0 h-dvh">
+        <aside className={SIDEBAR_DESKTOP}>
           <Sidebar />
         </aside>
 
         {/* CONTENT */}
         <section className="min-h-dvh flex flex-col">
           {/* TOPBAR (desktop) */}
-          <header className="hidden lg:flex h-14 items-center justify-between px-4 border-b border-neutral-800 bg-neutral-950">
-            <div className="font-semibold">SelfRace</div>
-            {/* už bez props */}
+          <header className={TOPBAR_DESKTOP}>
+            <div className={BRAND_TEXT}>SelfRace</div>
             <UserMenu />
           </header>
 
@@ -46,14 +52,10 @@ function ShellBody({ children }: { children: ReactNode }) {
       </div>
 
       {/* Overlay (mobile) */}
-      {open && <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />}
+      {open && <div className={SIDEBAR_OVERLAY} onClick={() => setOpen(false)} />}
 
       {/* Off-canvas sidebar (mobile) */}
-      <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-[280px] bg-neutral-900 border-r border-neutral-800 shadow-xl transition-transform duration-200 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+      <div className={`${SIDEBAR_MOBILE_PANEL} ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <Sidebar />
       </div>
     </div>
