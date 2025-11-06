@@ -1,19 +1,19 @@
 /* ===== SURFACES (globálne konzistentné) =============================== */
 /** Hlavný panel/karta – najvýraznejší povrch (použi pre hlavné widgety) */
 export const SURFACE_CARD =
-  "rounded-2xl shadow-lg border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur";
+  "rounded-2xl shadow-lg border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur text-left";
 
 /** Sekundárny panel vnútri karty (napr. detaily) */
 export const SURFACE_SUBCARD =
-  "rounded-2xl border border-white/10 bg-white/80 dark:bg-gray-900/60 backdrop-blur";
+  "rounded-2xl border border-white/10 bg-white/80 dark:bg-gray-900/60 backdrop-blur text-left";
 
 /** Tretí stupeň (jemnejší blok – drobné vnorené oblasti) */
 export const SURFACE_INSET =
-  "rounded-2xl border border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur";
+  "rounded-2xl border border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur text-left";
 
 /** Štvrtý stupeň (najjemnejší podklad, napr. inline boxy) */
 export const SURFACE_INLINE =
-  "rounded-2xl border border-white/10 bg-white/60 dark:bg-gray-700/50 backdrop-blur";
+  "rounded-2xl border border-white/10 bg-white/60 dark:bg-gray-700/50 backdrop-blur text-left";
 
 /* ===== KOMPAT ALIASY =================================================== */
 export const CARD = SURFACE_CARD;
@@ -105,10 +105,10 @@ export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded hover:bg-white/
 export const DROPDOWN_ITEM_DANGER = DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
 
 // WidgetCard – konzistentné povrchy a typografia
-export const WIDGET_CARD = SURFACE_CARD + " p-4";
+export const WIDGET_CARD = SURFACE_CARD + " p-4 text-left";
 export const WIDGET_CARD_INTERACTIVE =
   "transition-colors hover:bg-white dark:hover:bg-gray-900/80 cursor-pointer focus:outline-none";
-export const WIDGET_INNER = "flex flex-col";
+export const WIDGET_INNER = "flex flex-col text-left";
 export const WIDGET_TITLE = "text-sm md:text-base font-semibold tracking-tight";
 export const WIDGET_HINT = "text-xs opacity-75 whitespace-nowrap";
 export const WIDGET_NOTE = "opacity-80 text-sm mt-2";
