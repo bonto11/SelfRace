@@ -18,40 +18,31 @@ ensureChartJSRegistered();
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
 
-  // UI state
   const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Rozmery – lokálne konštanty (nech netreba meniť THEME)
-  const CHART_HEIGHT_PX = 180;       // kompaktná výška grafu
-  const DAY_PX_PER_LABEL = 28;       // šírka na jeden deň pre minWidth
+  // len šírka – koľko px na 1 deň pre minWidth
+  const DAY_PX_PER_LABEL = 26;
 
-  // spinner pri zmene lookbacku
   useEffect(() => { setLoading(true); }, [weeks]);
 
-  // dáta: posledných N dní
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  // vypni spinner po prepočítaní
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  // --------- prepočty sérií ----------
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
-
   const hrv = useMemo(
     () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
     [rows]
   );
-
   const baselineArr = useMemo(
     () => rollingMean(rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)), 14),
     [rows]
   );
-
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
   const comments = useMemo(() => {
@@ -60,7 +51,6 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
-  // --------- datasets ----------
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
@@ -117,7 +107,6 @@ export default function TrendHRV() {
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
-  // --------- options (jemné vnútorné paddingy grafu) ----------
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
@@ -139,13 +128,12 @@ export default function TrendHRV() {
           const b = baselineArr[idx];
           if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
         }
-        if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
-        return lines;
+        return lines.length ? lines : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
       },
       tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
     });
 
-    // kompaktné okraje, aby nič nepretláčalo pravý roh
+    // Jemné vnútorné okraje vpravo, nič s výškou
     return {
       ...base,
       layout: { padding: { left: 6, right: 10, top: 8, bottom: 12 } },
@@ -166,12 +154,12 @@ export default function TrendHRV() {
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // --------- šírka & scroll ----------
+  // Šírka pre scroll: len horizontálna dimenzia
   const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
     <div className={`${CARD} relative`}>
-      {/* HEADER s paddingom */}
+      {/* HEADER s paddingom (text/ovládanie) */}
       <div className="px-4 pt-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
@@ -179,7 +167,6 @@ export default function TrendHRV() {
             value={weeks}
             onChange={(e) => setWeeks(Number(e.target.value))}
             className={`${inputClass} h-8 text-xs w-[128px] shrink-0`}
-            title="Rozsah"
           >
             <option value={2}>2 týždne</option>
             <option value={4}>4 týždne</option>
@@ -189,10 +176,13 @@ export default function TrendHRV() {
         </div>
       </div>
 
-      {/* GRAF – bez paddingu, s horizontálnym scrollom */}
+      {/* GRAF (bez vlastných paddingov) */}
       <div className="mt-2">
-        <div className="overflow-x-auto overflow-y-hidden rounded-xl" style={{ WebkitOverflowScrolling: "touch" }}>
-          <div className="relative pr-1" style={{ height: CHART_HEIGHT_PX }}>
+        <div
+          className="overflow-x-auto overflow-y-hidden rounded-xl min-w-0"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="relative pr-1" style={{ height: THEME.chart.weeklyHeight }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
                 <LoadingSpinner size="trend" />
