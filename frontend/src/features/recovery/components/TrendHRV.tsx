@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import type { ChartData } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
@@ -17,163 +17,166 @@ ensureChartJSRegistered();
 
 export default function DetailHRV() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
-  const [loading, setLoading] = useState<boolean>(false);
+  const [weeks, setWeeks] = useState<number>(2);
+  const [loading, setLoading] = useState(false);
 
-  // zapni spinner pri zmene lookbacku
   useEffect(() => { setLoading(true); }, [weeks]);
 
-  // orež na posledných N dní
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  // vypni spinner po prepočte dát
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
-  const hrv = useMemo(
-    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
-    [rows]
-  );
+  const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
+  const hrv = useMemo(() => rows.map(r => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms as number : NaN)), [rows]);
 
-  // baseline (14d rolling) + pásma ±5 %
   const baselineArr = useMemo(
-    () =>
-      rollingMean(
-        rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)),
-        14
-      ),
+    () => rollingMean(rows.map(r => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms as number : null)), 14),
     [rows]
   );
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  // map komentárov
   const comments = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rows) if (r.comments) m.set(r.date, r.comments);
     return m;
   }, [rows]);
 
-  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
-
-    const bandLower = {
-      type: "line" as const,
-      label: "Baseline −5%",
-      data: toNum(lower),
-      borderColor: "rgba(16,185,129,0)",
-      backgroundColor: "rgba(16,185,129,0.15)",
-      pointRadius: 0,
-      borderWidth: 0,
-      tension: 0.2,
-      order: 1,
+    const toNum = (xs: (number | null)[]) => xs.map(v => (typeof v === "number" ? v : NaN));
+    return {
+      labels: labelsISO,
+      datasets: [
+        {
+          type: "line",
+          label: "Baseline −5%",
+          data: toNum(lower),
+          borderColor: "rgba(16,185,129,0)",
+          backgroundColor: "rgba(16,185,129,0.15)",
+          pointRadius: 0,
+          borderWidth: 0,
+          tension: 0.2,
+          order: 1,
+        },
+        {
+          type: "line",
+          label: "Baseline +5%",
+          data: toNum(upper),
+          borderColor: "rgba(16,185,129,0)",
+          backgroundColor: "rgba(16,185,129,0.15)",
+          pointRadius: 0,
+          borderWidth: 0,
+          tension: 0.2,
+          fill: "-1",
+          order: 1,
+        },
+        {
+          type: "line",
+          label: "Baseline (14d priemer)",
+          data: toNum(baselineArr),
+          borderColor: "#22c55e",
+          backgroundColor: "#22c55e",
+          pointRadius: 0,
+          borderWidth: 2,
+          tension: 0.25,
+          spanGaps: true,
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "HRV (RMSSD)",
+          data: hrv,
+          borderColor: "#0ea5e9",
+          backgroundColor: "#0ea5e9",
+          pointRadius: 3,
+          borderWidth: 2,
+          tension: 0.2,
+          spanGaps: true,
+          order: 3,
+        },
+      ],
     };
-    const bandUpper = {
-      type: "line" as const,
-      label: "Baseline +5%",
-      data: toNum(upper),
-      borderColor: "rgba(16,185,129,0)",
-      backgroundColor: "rgba(16,185,129,0.15)",
-      pointRadius: 0,
-      borderWidth: 0,
-      tension: 0.2,
-      fill: "-1" as const,
-      order: 1,
-    };
-    const baselineLine = {
-      type: "line" as const,
-      label: "Baseline (14d priemer)",
-      data: toNum(baselineArr),
-      borderColor: "#22c55e",
-      backgroundColor: "#22c55e",
-      pointRadius: 0,
-      borderWidth: 2,
-      tension: 0.25,
-      spanGaps: true,
-      order: 2,
-    };
-    const hrvLine = {
-      type: "line" as const,
-      label: "HRV (RMSSD)",
-      data: hrv,
-      borderColor: "#0ea5e9",
-      backgroundColor: "#0ea5e9",
-      pointRadius: 3,
-      borderWidth: 2,
-      tension: 0.2,
-      spanGaps: true,
-      order: 3,
-    };
-
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, hrvLine] };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
-  // options (zachovávam tvoj build helper)
-  const options = useMemo(
-    () =>
-      buildRecoveryLineOptions({
-        labelsISO,
-        yTitle: "ms",
-        tooltipTitleForIndex: (i) => {
-          const iso = labelsISO[i] ?? "";
-          return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
+  // vezmeme base options a doplníme kompaktné rozloženie osí/legendy
+  const options: ChartOptions<"line"> = useMemo(() => {
+    const base = buildRecoveryLineOptions({
+      labelsISO,
+      yTitle: "ms",
+      tooltipTitleForIndex: (i) => {
+        const iso = labelsISO[i] ?? "";
+        return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
+      },
+      tooltipLabelForItem: (ctx): string | string[] => {
+        const idx = ctx.dataIndex ?? 0;
+        const lines: string[] = [];
+        if (ctx.datasetIndex === 3) {
+          const v = hrv[idx];
+          if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
+          const c = comments.get(labelsISO[idx] ?? "");
+          if (c) lines.push(...wrapToLines(c, 44));
+        }
+        if (ctx.datasetIndex === 2) {
+          const b = baselineArr[idx];
+          if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
+        }
+        return lines.length ? lines : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+      },
+      tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+    });
+
+    return {
+      ...base,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 0, right: 0, bottom: 0, left: 0 } },
+      plugins: {
+        ...base.plugins,
+        legend: {
+          position: THEME.chart.legendPosition,
+          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6, font: { size: 11 } },
         },
-        tooltipLabelForItem: (ctx): string | string[] => {
-          const idx = ctx.dataIndex ?? 0;
-          const lines: string[] = [];
-
-          if (ctx.datasetIndex === 3) {
-            const v = hrv[idx];
-            if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
-            const c = comments.get(labelsISO[idx] ?? "");
-            if (c) lines.push(...wrapToLines(c, 44));
-          }
-          if (ctx.datasetIndex === 2) {
-            const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
-          }
-
-          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
-          return lines;
+      },
+      scales: {
+        ...base.scales,
+        x: {
+          ...base.scales?.x,
+          ticks: { ...(base.scales as any)?.x?.ticks, maxRotation: 0, minRotation: 0, padding: 4, font: { size: 10 } },
+          grid: { color: THEME.chart.gridSoft },
         },
-        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
-      }),
-    [labelsISO, hrv, baselineArr, comments]
-  );
+        y: {
+          ...base.scales?.y,
+          grid: { color: THEME.chart.grid },
+        },
+      },
+    };
+  }, [labelsISO, hrv, baselineArr, comments]);
 
-  // šírka pre horizontálny scroll (rovnaká filozofia ako weekly/pareto)
   const minWidth = Math.max(320, Math.round(labelsISO.length * (THEME.chart?.pxPerLabel ?? 26)));
 
   return (
     <div className={`${CARD} relative`}>
-      {/* HEADER (s paddingom) */}
+      {/* HEADER s paddingom */}
       <div className="px-3 pt-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Detail — HRV</h2>
-          <div className="flex items-center gap-2">
-            <select
-              value={weeks}
-              onChange={(e) => setWeeks(Number(e.target.value))}
-              className={`${inputClass} h-8 text-xs w-[140px]`}
-              title="Lookback"
-            >
-              <option value={2}>2 týždne</option>
-              <option value={4}>4 týždne</option>
-              <option value={8}>8 týždňov</option>
-              <option value={12}>12 týždňov</option>
-            </select>
-          </div>
+          <h2 className="text-lg font-semibold">Detail — HRV (RMSSD)</h2>
+          <select
+            value={weeks}
+            onChange={(e) => setWeeks(Number(e.target.value))}
+            className={`${inputClass} h-8 text-xs w-[140px]`}
+          >
+            <option value={2}>2 týždne</option>
+            <option value={4}>4 týždne</option>
+            <option value={8}>8 týždňov</option>
+            <option value={12}>12 týždňov</option>
+          </select>
         </div>
-
-        {/* tenká deliaca čiara ako v ostatných trendoch */}
         <div className="mt-3 border-t border-white/10" />
       </div>
 
-      {/* CHART OBLASŤ (bez vnútorných paddingov) */}
+      {/* CHART bez paddingov + horizontálny scroll */}
       <div
         className="overflow-x-auto overflow-y-hidden rounded-b-xl min-w-0"
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
