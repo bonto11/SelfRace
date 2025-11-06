@@ -43,7 +43,6 @@ export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }
 
   // farby z témy (fallback na neutrál, ak by chýbali tokens)
   const accent =
-    THEME?.sport?.run ??
     THEME?.chart?.run ??
     THEME?.chart?.positive ??
     "#10B981";
