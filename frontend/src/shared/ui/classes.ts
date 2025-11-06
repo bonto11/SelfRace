@@ -140,3 +140,66 @@ export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> =
   trend:  { px: 32, accent: "#10B981", track: "#10B98133", dot: "#A7F3D0" }, // zelená
   screen: { px: 56, accent: "#8B5CF6", track: "#8B5CF633", dot: "#DDD6FE" }, // fialová
 };
+
+/* ===== BUTTONS (centrálny systém) ======================================= */
+
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
+export type ButtonSize = "sm" | "md" | "lg";
+
+const BTN_BASE =
+  [
+    "inline-flex items-center justify-center gap-2 select-none",
+    "rounded-full border transition-colors",
+    "font-semibold",
+    "disabled:opacity-50 disabled:cursor-not-allowed",
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+  ].join(" ");
+
+const BTN_VARIANT: Record<ButtonVariant, string> = {
+  primary:  "bg-blue-600 hover:bg-blue-500 text-white border-white/10",
+  secondary:"bg-neutral-800 hover:bg-neutral-700 text-white border-white/10",
+  ghost:    "bg-transparent hover:bg-white/10 text-white border-white/10",
+  danger:   "bg-rose-600 hover:bg-rose-500 text-white border-white/10",
+  success:  "bg-emerald-600 hover:bg-emerald-500 text-white border-white/10",
+};
+
+const BTN_SIZE: Record<ButtonSize, string> = {
+  sm: "text-sm px-3 py-1.5",
+  md: "text-sm px-3.5 py-2",
+  lg: "text-base px-4 py-2.5",
+};
+
+export function buttonClass(
+  variant: ButtonVariant = "primary",
+  size: ButtonSize = "md",
+  opts?: { circle?: boolean }
+) {
+  const base = [BTN_BASE, BTN_VARIANT[variant], BTN_SIZE[size]];
+  if (opts?.circle) {
+    // kruh – výška/šírka podľa size, bez horizontálnych paddingov
+    const dims =
+      size === "sm" ? "w-8 h-8" :
+      size === "md" ? "w-9 h-9" :
+      /* lg */        "w-10 h-10";
+    base.push(dims, "p-0");
+  }
+  return base.join(" ");
+}
+
+/* ===== FORM INPUTS (pre TextField a ko.) ================================ */
+
+export const labelClass =
+  "text-xs font-medium tracking-wide opacity-80 select-none";
+
+export const hintClass =
+  "text-xs opacity-70";
+
+export const inputClass =
+  [
+    "w-full rounded-lg",
+    "bg-neutral-900 text-white",
+    "border border-neutral-700",
+    "px-3 py-2",
+    "placeholder:opacity-60",
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+  ].join(" ");
