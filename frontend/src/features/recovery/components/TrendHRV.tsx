@@ -30,23 +30,21 @@ export default function DetailHRV() {
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
-  const hrv = useMemo(() => rows.map(r => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms as number : NaN)), [rows]);
+  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
+  const hrv = useMemo(
+    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
+    [rows]
+  );
 
   const baselineArr = useMemo(
-    () => rollingMean(rows.map(r => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms as number : null)), 14),
+    () => rollingMean(rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)), 14),
     [rows]
   );
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  const comments = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of rows) if (r.comments) m.set(r.date, r.comments);
-    return m;
-  }, [rows]);
-
+  // ---- datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map(v => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
@@ -91,7 +89,7 @@ export default function DetailHRV() {
           data: hrv,
           borderColor: "#0ea5e9",
           backgroundColor: "#0ea5e9",
-          pointRadius: 3,
+          pointRadius: 2,
           borderWidth: 2,
           tension: 0.2,
           spanGaps: true,
@@ -101,7 +99,7 @@ export default function DetailHRV() {
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
-  // vezmeme base options a doplníme kompaktné rozloženie osí/legendy
+  // ---- options (kompakt: bez internej legendy, kratšie tick-y, žiadna rotácia)
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
@@ -116,8 +114,6 @@ export default function DetailHRV() {
         if (ctx.datasetIndex === 3) {
           const v = hrv[idx];
           if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
-          const c = comments.get(labelsISO[idx] ?? "");
-          if (c) lines.push(...wrapToLines(c, 44));
         }
         if (ctx.datasetIndex === 2) {
           const b = baselineArr[idx];
@@ -131,19 +127,17 @@ export default function DetailHRV() {
     return {
       ...base,
       maintainAspectRatio: false,
-      layout: { padding: { top: 0, right: 0, bottom: 0, left: 0 } },
       plugins: {
         ...base.plugins,
-        legend: {
-          position: THEME.chart.legendPosition,
-          labels: { usePointStyle: true, pointStyle: "circle", padding: 8, boxWidth: 6, boxHeight: 6, font: { size: 11 } },
-        },
+        legend: { display: false }, // ← presunuli sme legendu do headeru
       },
+      layout: { padding: 0 },
+      elements: { point: { radius: 2, hitRadius: 8 } },
       scales: {
         ...base.scales,
         x: {
           ...base.scales?.x,
-          ticks: { ...(base.scales as any)?.x?.ticks, maxRotation: 0, minRotation: 0, padding: 4, font: { size: 10 } },
+          ticks: { maxRotation: 0, minRotation: 0, padding: 4, font: { size: 10 } },
           grid: { color: THEME.chart.gridSoft },
         },
         y: {
@@ -152,13 +146,16 @@ export default function DetailHRV() {
         },
       },
     };
-  }, [labelsISO, hrv, baselineArr, comments]);
+  }, [labelsISO, hrv, baselineArr]);
 
-  const minWidth = Math.max(320, Math.round(labelsISO.length * (THEME.chart?.pxPerLabel ?? 26)));
+  // menšia výška + horizontálny scroll podľa počtu dní
+  const height = THEME.chart?.recoveryHeight ?? 220; // <— menšie než weeklyHeight
+  const pxPerLabel = THEME.chart?.pxPerLabel ?? 26;
+  const minWidth = Math.max(360, Math.round(labelsISO.length * pxPerLabel));
 
   return (
     <div className={`${CARD} relative`}>
-      {/* HEADER s paddingom */}
+      {/* HEADER (padding len tu) */}
       <div className="px-3 pt-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Detail — HRV (RMSSD)</h2>
@@ -173,15 +170,24 @@ export default function DetailHRV() {
             <option value={12}>12 týždňov</option>
           </select>
         </div>
-        <div className="mt-3 border-t border-white/10" />
+
+        {/* custom plochá legenda – nezaberá výšku grafu */}
+        <div className="mt-2 mb-2 flex flex-wrap items-center gap-4 text-xs opacity-80">
+          <LegendDot color="#16a34a33" border="transparent" label="Baseline −5%" />
+          <LegendDot color="#16a34a33" border="transparent" label="Baseline +5%" />
+          <LegendDot color="#22c55e" border="#22c55e" label="Baseline (14d priemer)" />
+          <LegendDot color="#0ea5e9" border="#0ea5e9" label="HRV (RMSSD)" />
+        </div>
+
+        <div className="border-t border-white/10" />
       </div>
 
-      {/* CHART bez paddingov + horizontálny scroll */}
+      {/* CHART (bez paddingov) */}
       <div
         className="overflow-x-auto overflow-y-hidden rounded-b-xl min-w-0"
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+        <div className="relative" style={{ height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
@@ -193,5 +199,18 @@ export default function DetailHRV() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** malá bodka do legendy v headeri */
+function LegendDot({ color, border, label }: { color: string; border?: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        className="inline-block w-3 h-3 rounded-full"
+        style={{ backgroundColor: color, border: border ? `2px solid ${border}` : undefined }}
+      />
+      {label}
+    </span>
   );
 }
