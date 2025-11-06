@@ -4,63 +4,53 @@
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData } from "chart.js";
-import Link from "next/link";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/shared/components/ui/LoadingSpinner"; // NEW
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { CARD } from "@/shared/ui/classes";
+import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
 export default function DetailHRV() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
-  const [loading, setLoading] = useState<boolean>(false); // NEW
+  const [loading, setLoading] = useState<boolean>(false);
 
   // zapni spinner pri zmene lookbacku
-  useEffect(() => {
-    setLoading(true);
-  }, [weeks]);
+  useEffect(() => { setLoading(true); }, [weeks]);
 
-  // vždy orež na posledných N dní z provideru
+  // orež na posledných N dní
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  // vypni spinner po prepočte dát (na najbližší render/frame)
+  // vypni spinner po prepočte dát
   useEffect(() => {
-    // krátke odľahčenie, nech sa spinner stihne vykresliť a potom vypnúť
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const hrv = useMemo(
-    () =>
-      rows.map((r) =>
-        typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN
-      ),
+    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
     [rows]
   );
 
-  // baseline (rolling mean z predchádzajúcich dní) + pásma ±5 %
+  // baseline (14d rolling) + pásma ±5 %
   const baselineArr = useMemo(
     () =>
       rollingMean(
-        rows.map((r) =>
-          typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null
-        ),
+        rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)),
         14
       ),
     [rows]
   );
-  const { lower, upper } = useMemo(
-    () => bandsAround(baselineArr, 0.05),
-    [baselineArr]
-  );
+  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  // komentáre
+  // map komentárov
   const comments = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rows) if (r.comments) m.set(r.date, r.comments);
@@ -69,8 +59,7 @@ export default function DetailHRV() {
 
   // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) =>
-      xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
 
     const bandLower = {
       type: "line" as const,
@@ -120,13 +109,10 @@ export default function DetailHRV() {
       order: 3,
     };
 
-    return {
-      labels: labelsISO,
-      datasets: [bandLower, bandUpper, baselineLine, hrvLine],
-    };
+    return { labels: labelsISO, datasets: [bandLower, bandUpper, baselineLine, hrvLine] };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
-  // options
+  // options (zachovávam tvoj build helper)
   const options = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -142,52 +128,66 @@ export default function DetailHRV() {
 
           if (ctx.datasetIndex === 3) {
             const v = hrv[idx];
-            if (Number.isFinite(v))
-              lines.push(`HRV: ${Math.round(v as number)} ms`);
+            if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
           if (ctx.datasetIndex === 2) {
             const b = baselineArr[idx];
-            if (Number.isFinite(b as number))
-              lines.push(`Baseline: ${Math.round(b as number)} ms`);
+            if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
           }
 
-          if (!lines.length)
-            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (!lines.length) return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
           return lines;
         },
-        tooltipFilter: (item) =>
-          item.datasetIndex === 2 || item.datasetIndex === 3,
+        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
       }),
     [labelsISO, hrv, baselineArr, comments]
   );
 
+  // šírka pre horizontálny scroll (rovnaká filozofia ako weekly/pareto)
+  const minWidth = Math.max(320, Math.round(labelsISO.length * (THEME.chart?.pxPerLabel ?? 26)));
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-semibold">Detail — HRV (RMSSD)</h2>
-        <div className="flex items-center gap-2">
-          <select
-            value={weeks}
-            onChange={(e) => setWeeks(Number(e.target.value))}
-            className="px-2 py-1 rounded bg-gray-700 text-sm"
-          >
-            <option value={2}>2 týždne</option>
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
+    <div className={`${CARD} relative`}>
+      {/* HEADER (s paddingom) */}
+      <div className="px-3 pt-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Detail — HRV (RMSSD)</h2>
+          <div className="flex items-center gap-2">
+            <select
+              value={weeks}
+              onChange={(e) => setWeeks(Number(e.target.value))}
+              className={`${inputClass} h-8 text-xs w-[140px]`}
+              title="Lookback"
+            >
+              <option value={2}>2 týždne</option>
+              <option value={4}>4 týždne</option>
+              <option value={8}>8 týždňov</option>
+              <option value={12}>12 týždňov</option>
+            </select>
+          </div>
         </div>
+
+        {/* tenká deliaca čiara ako v ostatných trendoch */}
+        <div className="mt-3 border-t border-white/10" />
       </div>
 
-      <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
-        {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-            <LoadingSpinner size="trend" />
+      {/* CHART OBLASŤ (bez vnútorných paddingov) */}
+      <div
+        className="overflow-x-auto overflow-y-hidden rounded-b-xl min-w-0"
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
+            </div>
+          )}
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <Line data={data} options={options} />
           </div>
-        )}
-        <Line data={data} options={options} />
+        </div>
       </div>
     </div>
   );
