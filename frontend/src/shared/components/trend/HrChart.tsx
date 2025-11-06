@@ -2,25 +2,16 @@
 
 import { useMemo } from "react";
 import { fmtSecondsHMS } from "@/shared/utils/format";
-
-// fixné farby + zóny (kým nepôjdeme z profilu)
-const COL = {
-  z1: "#60A5FA",
-  z2: "#34D399",
-  z3: "#FBBF24",
-  z4: "#F97316",
-  z5: "#EF4444",
-  grid: "rgba(255,255,255,.18)",
-};
-const CUTS: [number, number, number, number] = [154, 173, 183, 193];
-const HR_MAX = 207;
+import { CHART_HR } from "@/shared/ui/classes";
 
 function zoneColor(hr: number) {
-  if (hr <= CUTS[0]) return COL.z1;
-  if (hr <= CUTS[1]) return COL.z2;
-  if (hr <= CUTS[2]) return COL.z3;
-  if (hr <= CUTS[3]) return COL.z4;
-  return COL.z5;
+  const [c1, c2, c3, c4] = CHART_HR.zoneCuts;
+  const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
+  if (hr <= c1) return z1;
+  if (hr <= c2) return z2;
+  if (hr <= c3) return z3;
+  if (hr <= c4) return z4;
+  return z5;
 }
 
 export default function HrChart({
@@ -36,10 +27,10 @@ export default function HrChart({
 }) {
   const Svg = useMemo(() => {
     const n = Math.min(xs.length, ys.length);
-    if (!n)
-      return () => (
-        <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
-      );
+    if (!n) {
+      const cls = CHART_HR.emptyTextClass;
+      return () => <div className={cls}>HR stream nie je k dispozícii.</div>;
+    }
 
     // tesnejšie vnútorné okraje (kompaktný režim má menšie pad-y)
     const padL = compact ? 28 : 40;
@@ -51,8 +42,8 @@ export default function HrChart({
     const H = Math.max(100, height);
 
     // očistené body
-    const xv: number[] = [],
-      yv: number[] = [];
+    const xv: number[] = [];
+    const yv: number[] = [];
     for (let i = 0; i < n; i++) {
       const h = ys[i];
       if (h != null) {
@@ -60,13 +51,13 @@ export default function HrChart({
         yv.push(h);
       }
     }
-    if (!yv.length)
-      return () => (
-        <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
-      );
+    if (!yv.length) {
+      const cls = CHART_HR.emptyTextClass;
+      return () => <div className={cls}>HR stream nie je k dispozícii.</div>;
+    }
 
     const minY = Math.min(120, ...yv);
-    const maxY = Math.max(HR_MAX, ...yv);
+    const maxY = Math.max(CHART_HR.maxBpm, ...yv);
     const minX = xv[0];
     const maxX = xv[xv.length - 1];
 
@@ -79,24 +70,19 @@ export default function HrChart({
     };
 
     // mriežka
-    const yTicks = 4,
-      yVals = Array.from(
-        { length: yTicks + 1 },
-        (_, i) => minY + (i * (maxY - minY)) / yTicks
-      );
-    const xTicks = 5,
-      xVals = Array.from(
-        { length: xTicks + 1 },
-        (_, i) => minX + (i * (maxX - minX)) / xTicks
-      );
+    const yTicks = 4;
+    const yVals = Array.from({ length: yTicks + 1 }, (_, i) => minY + (i * (maxY - minY)) / yTicks);
+    const xTicks = 5;
+    const xVals = Array.from({ length: xTicks + 1 }, (_, i) => minX + (i * (maxX - minX)) / xTicks);
 
     // zónové pásy
     const bands: JSX.Element[] = [];
-    const levels = [minY, ...CUTS, maxY];
-    const colors = [COL.z1, COL.z2, COL.z3, COL.z4, COL.z5];
+    const levels = [minY, ...CHART_HR.zoneCuts, maxY];
+    const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
+    const colors = [z1, z2, z3, z4, z5];
     for (let i = 0; i < 5; i++) {
-      const yTop = sy(levels[i + 1]),
-        yBot = sy(levels[i]);
+      const yTop = sy(levels[i + 1]);
+      const yBot = sy(levels[i]);
       bands.push(
         <rect
           key={`band-${i}`}
@@ -105,18 +91,16 @@ export default function HrChart({
           y={yTop}
           height={Math.max(0, yBot - yTop)}
           fill={colors[i]}
-          opacity={0.08}
+          opacity={CHART_HR.bandOpacity}
         />
       );
     }
 
-    // polyline – segmentované, tenšia čiara, nech nie je “krikľavá”
+    // polyline – segmentované
     const segs: JSX.Element[] = [];
     for (let i = 1; i < yv.length; i++) {
-      const x1 = sx(xv[i - 1]),
-        y1 = sy(yv[i - 1]);
-      const x2 = sx(xv[i]),
-        y2 = sy(yv[i]);
+      const x1 = sx(xv[i - 1]), y1 = sy(yv[i - 1]);
+      const x2 = sx(xv[i]),     y2 = sy(yv[i]);
       const col = zoneColor((yv[i - 1] + yv[i]) / 2);
       segs.push(
         <line
@@ -126,7 +110,7 @@ export default function HrChart({
           x2={x2}
           y2={y2}
           stroke={col}
-          strokeWidth={compact ? 1.6 : 2}
+          strokeWidth={compact ? CHART_HR.lineWidth.compact : CHART_HR.lineWidth.normal}
           strokeLinecap="round"
         />
       );
@@ -134,20 +118,20 @@ export default function HrChart({
 
     // legenda – centrovaná hore
     const LEG_W = 5 * 36; // približná šírka legendy
-    const LEG_X = (W - LEG_W) / 2,
-      LEG_Y = padT - 4; // trošku bližšie hore
+    const LEG_X = (W - LEG_W) / 2;
+    const LEG_Y = padT - 4; // trošku bližšie hore
     const Legend = () => (
       <g transform={`translate(${LEG_X},${LEG_Y})`}>
         {[
-          ["Z1", COL.z1],
-          ["Z2", COL.z2],
-          ["Z3", COL.z3],
-          ["Z4", COL.z4],
-          ["Z5", COL.z5],
+          ["Z1", z1],
+          ["Z2", z2],
+          ["Z3", z3],
+          ["Z4", z4],
+          ["Z5", z5],
         ].map(([t, c], i) => (
           <g key={t} transform={`translate(${i * 36},0)`}>
             <circle cx={0} cy={0} r={4} fill={c as string} />
-            <text x={8} y={2} fontSize={10} fill="#cbd5e1">
+            <text x={8} y={2} fontSize={10} fill={CHART_HR.tickText}>
               {t}
             </text>
           </g>
@@ -164,7 +148,7 @@ export default function HrChart({
               x2={W - padR}
               y1={sy(v)}
               y2={sy(v)}
-              stroke={COL.grid}
+              stroke={CHART_HR.grid}
               strokeDasharray="4 4"
             />
             <text
@@ -173,7 +157,7 @@ export default function HrChart({
               textAnchor="end"
               dominantBaseline="central"
               fontSize={10}
-              fill="#cbd5e1"
+              fill={CHART_HR.tickText}
             >
               {Math.round(v)}
             </text>
@@ -186,7 +170,7 @@ export default function HrChart({
               x2={sx(t)}
               y1={padT}
               y2={H - padB}
-              stroke={COL.grid}
+              stroke={CHART_HR.grid}
               strokeDasharray="4 4"
             />
             <text
@@ -194,20 +178,20 @@ export default function HrChart({
               y={H - padB + 14}
               textAnchor="middle"
               fontSize={10}
-              fill="#cbd5e1"
+              fill={CHART_HR.tickText}
             >
               {fmtSecondsHMS(Math.round(t))}
             </text>
           </g>
         ))}
-        {/* Osi – popisky posunuté dovnútra, aby sa NEodrezali */}
+        {/* osi – popisky dovnútra */}
         <text
           x={padL + 4}
           y={(padT + (H - padB)) / 2}
           transform={`rotate(-90 ${padL + 4} ${(padT + (H - padB)) / 2})`}
           textAnchor="middle"
           fontSize={10}
-          fill="#94a3b8"
+          fill={CHART_HR.axisText}
         >
           bpm
         </text>
@@ -216,7 +200,7 @@ export default function HrChart({
           y={H - 4}
           textAnchor="middle"
           fontSize={10}
-          fill="#94a3b8"
+          fill={CHART_HR.axisText}
         >
           čas
         </text>
