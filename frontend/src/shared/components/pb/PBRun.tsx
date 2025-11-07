@@ -285,7 +285,7 @@ export default function PBRun() {
   );
 }
 
-/* --- SwipeRow (ponechané) --- */
+/* --- SwipeRow (touch events – pripojené správne) --- */
 function SwipeRow({
   children,
   onEdit,
@@ -304,29 +304,40 @@ function SwipeRow({
   const ACTION_W = 168;
   const SNAP_OPEN = -ACTION_W;
   const SNAP_CLOSED = 0;
+  const THRESHOLD = 8;
 
-  const snap = (x: number) =>
-    setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const clamp = (v: number) => Math.max(SNAP_OPEN, Math.min(SNAP_CLOSED, v));
+  const snap = (v: number) => setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
-  const onTouchStart = (e: React.TouchEvent) => {
+  function onTouchStart(e: React.TouchEvent) {
     if (!enableSwipe) return;
     startX.current = e.touches[0].clientX;
     startTx.current = tx;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
+  }
+  function onTouchMove(e: React.TouchEvent) {
     if (!enableSwipe || startX.current == null) return;
     const dx = e.touches[0].clientX - startX.current;
-    const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
-    setTx(next);
-  };
-  const onTouchEnd = () => {
+    if (Math.abs(dx) < THRESHOLD) return;
+    // blokuj horizontálne scrollovanie počas drag-u
+    e.preventDefault();
+    setTx(clamp(startTx.current + dx));
+  }
+  function onTouchEnd() {
     if (!enableSwipe) return;
     snap(tx);
     startX.current = null;
-  };
+  }
 
   return (
-    <li className={["relative w-full overflow-hidden", NO_X].join(" ")}>
+    <li
+      className={["relative w-full overflow-hidden select-none", NO_X].join(" ")}
+      style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      {/* akcie vpravo */}
       <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
@@ -349,16 +360,10 @@ function SwipeRow({
         </button>
       </div>
 
+      {/* obsah – posúvaný horizontálne */}
       <div
-        className="relative z-10 w-full box-border"
-        style={
-          enableSwipe
-            ? {
-                transform: `translateX(${tx}px)`,
-                transition: "transform 160ms ease-out",
-              }
-            : undefined
-        }
+        className="relative z-10 w-full box-border will-change-transform"
+        style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
       >
         {children}
       </div>
