@@ -4,10 +4,12 @@
 import { useState } from "react";
 import { supabase } from "@/shared/hooks/supabaseClient";
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
-};
+// UI systém
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
+import { SURFACE_SUBCARD } from "@/shared/ui/classes";
+
+type Props = { open: boolean; onClose: () => void };
 
 export default function ChangeEmailModal({ open, onClose }: Props) {
   const [email, setEmail] = useState("");
@@ -20,14 +22,11 @@ export default function ChangeEmailModal({ open, onClose }: Props) {
     e.preventDefault();
     setMsg(null);
     if (!email) return;
-
     try {
       setLoading(true);
       const { error } = await supabase.auth.updateUser({ email });
       if (error) throw error;
-      // Supabase pošle verifikačný email na novú adresu
       setMsg("Overovací email bol odoslaný na novú adresu ✅");
-      // onClose(); // ak chceš zavrieť hneď
     } catch (err: any) {
       setMsg(err?.message ?? "Chyba pri zmene e-mailu");
     } finally {
@@ -36,44 +35,34 @@ export default function ChangeEmailModal({ open, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-lg bg-gray-800 p-5 text-sm shadow-xl">
+    <div className="fixed inset-0 z-[60] bg-black/60 grid place-items-center p-4">
+      <div className={`${SURFACE_SUBCARD} w-full max-w-md p-5 text-sm`}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold">Zmeniť e-mail</h3>
-          <button onClick={onClose} className="opacity-70 hover:opacity-100">
-            ✕
-          </button>
+          <button onClick={onClose} className="opacity-70 hover:opacity-100">✕</button>
         </div>
 
         <form className="space-y-3" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1 block opacity-80">Nový e-mail</label>
-            <input
+            <label className="mb-1 block opacity-80 text-xs">Nový e-mail</label>
+            <TextField
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2"
+              onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
               placeholder="name@example.com"
+              autoComplete="email"
             />
           </div>
 
-          {msg && <div className="rounded bg-gray-700/60 px-3 py-2">{msg}</div>}
+          {msg && <div className="rounded border border-white/10 bg-white/5 px-3 py-2">{msg}</div>}
 
           <div className="mt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded bg-gray-700 px-4 py-2 hover:bg-gray-600"
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={onClose}>
               Zavrieť
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !email}
-              className="rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-50 hover:bg-emerald-700"
-            >
+            </Button>
+            <Button type="submit" variant="success" size="sm" disabled={loading || !email}>
               {loading ? "Odosielam…" : "Potvrdiť"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

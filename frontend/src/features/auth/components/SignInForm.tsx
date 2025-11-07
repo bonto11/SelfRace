@@ -1,11 +1,14 @@
 // src/features/auth/components/SignInForm.tsx
-
 "use client";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
 import { toast } from "@/shared/components/ui/Toast";
+import { CARD, SURFACE_INSET } from "@/shared/ui/classes";
+import { THEME } from "@/shared/theme/tokens";
 
 export default function SignInForm() {
   const router = useRouter();
@@ -24,23 +27,16 @@ export default function SignInForm() {
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setErr(null);
     setLoading(true);
 
-    const { data, error } = await sb.auth.signInWithPassword({
-      email,
-      password: pwd,
-    });
-
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
     setLoading(false);
 
     if (error) {
-      setErr(error.message || "Prihlásenie zlyhalo.");
-      toast.error(error.message)
+      toast.error(error.message || "Prihlásenie zlyhalo.");
       return;
     }
 
-    // zapíš httpOnly session + naše sr_* cookies
     if (data?.session) {
       try {
         await fetch("/api/auth/set-session", {
@@ -49,60 +45,54 @@ export default function SignInForm() {
           credentials: "include",
           body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
         });
-      } catch {
-        // ticho – UI nezablokujeme
-      }
+      } catch {/* ignore */}
     }
 
     router.replace("/dashboard");
   }
 
   return (
-    <div className="max-w-sm mx-auto mt-16">
-      <h1 className="text-xl font-semibold mb-4">Sign in</h1>
+    <div className="max-w-sm mx-auto mt-12">
+      <form onSubmit={submit} className={`${CARD} p-4`}>
+        <h1 className="text-base md:text-lg font-semibold mb-3">Sign in</h1>
 
-      {info && (
-        <div className="mb-3 rounded border px-3 py-2 text-sm opacity-90">
-          {info}
+        {info && (
+          <div className={`${SURFACE_INSET} px-3 py-2 text-sm mb-3`}>
+            {info}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <TextField
+            type="email"
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.currentTarget.value)}
+            required
+            autoComplete="email"
+          />
+          <TextField
+            type="password"
+            placeholder="Password"
+            value={pwd}
+            onChange={(e) => setPwd(e.currentTarget.value)}
+            required
+            autoComplete="current-password"
+          />
+
+          {err && <div className="text-sm text-red-400">{err}</div>}
+
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
+
+          <div className="text-xs text-center">
+            <a href="/forgot-password" className="underline" style={{ color: THEME.chart.linePrimary }}>
+              Zabudnuté heslo?
+            </a>
+          </div>
         </div>
-      )}
-
-      <form onSubmit={submit} className="space-y-3">
-        <input
-          className="w-full rounded border px-3 py-2 bg-background"
-          type="email"
-          placeholder="you@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-        />
-        <input
-          className="w-full rounded border px-3 py-2 bg-background"
-          type="password"
-          placeholder="Password"
-          value={pwd}
-          onChange={(e) => setPwd(e.target.value)}
-          required
-          autoComplete="current-password"
-        />
-        {err && <div className="text-red-500 text-sm">{err}</div>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-white/10 hover:bg-white/20 px-3 py-2"
-        >
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
       </form>
-
-      <div className="mt-3 text-sm">
-        <p>
-          <a className="underline opacity-80 hover:opacity-100" href="/forgot-password">
-            Zabudnuté heslo?
-          </a>
-        </p>
-      </div>
     </div>
   );
 }

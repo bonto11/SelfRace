@@ -1,8 +1,13 @@
-// src/features/auth/components/ForgotPasswordDialog.tsx (alebo kde to máš)
+// src/features/auth/components/ForgotPasswordDialog.tsx
 "use client";
 
 import { useState } from "react";
 import { supabase } from "@/shared/hooks/supabaseClient";
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
+import { CARD, SIDEBAR_OVERLAY } from "@/shared/ui/classes";
+import { THEME } from "@/shared/theme/tokens";
+import { toast } from "@/shared/components/ui/Toast";
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -17,49 +22,52 @@ export default function ForgotPasswordDialog({ open, onClose }: Props) {
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    setMsg(null);
-    setErr(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         { redirectTo: `${window.location.origin}/update-password` }
       );
       if (error) throw error;
-      setMsg("✔️ Poslali sme ti e-mail s odkazom na zmenu hesla.");
+      toast.info("✔️ Poslali sme ti e-mail s odkazom na zmenu hesla.");
     } catch (e: any) {
-      setErr(e?.message ?? "Nepodarilo sa odoslať reset e-mail.");
+      toast.error(e?.message ?? "Nepodarilo sa odoslať reset e-mail.");
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-gray-800 rounded shadow p-4">
+    <div className={`${SIDEBAR_OVERLAY} grid place-items-center p-4`} role="dialog" aria-modal="true">
+      <div className={`${CARD} w-full max-w-md p-4`}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Zabudnuté heslo</h3>
-          <button onClick={onClose} className="text-sm opacity-70 hover:opacity-100">✕</button>
+          <h3 className="text-base md:text-lg font-semibold">Zabudnuté heslo</h3>
+          <button
+            onClick={onClose}
+            className="text-sm opacity-70 hover:opacity-100"
+            aria-label="Zavrieť"
+            title="Zavrieť"
+            style={{ color: THEME.chart.linePrimary }}
+          >
+            ✕
+          </button>
         </div>
 
         <form onSubmit={handleSend} className="space-y-3">
-          <input
+          <TextField
             type="email"
             required
-            placeholder="Tvoj e-mail"
+            placeholder="tvoj@email.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+            onChange={(e) => setEmail(e.currentTarget.value)}
+            autoComplete="email"
           />
-          <button
-            type="submit"
-            disabled={!email.trim() || sending}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 disabled:opacity-50"
-          >
+
+          <Button type="submit" disabled={!email.trim() || sending} className="w-full">
             {sending ? "Odosielam…" : "Poslať reset link"}
-          </button>
+          </Button>
         </form>
 
-        {msg && <p className="mt-3 text-green-400 text-sm">{msg}</p>}
+        {msg && <p className="mt-3 text-emerald-400 text-sm">{msg}</p>}
         {err && <p className="mt-3 text-red-400 text-sm">✖ {err}</p>}
       </div>
     </div>

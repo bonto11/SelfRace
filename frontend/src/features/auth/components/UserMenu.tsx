@@ -2,20 +2,24 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { signOut } from "@/shared/utils/signOut"
+import { signOut } from "@/shared/utils/signOut";
+import {
+  AVATAR_BUTTON,
+  DROPDOWN_PANEL,
+  DROPDOWN_DIVIDER,
+  DROPDOWN_ITEM,
+  DROPDOWN_ITEM_DANGER,
+} from "@/shared/ui/classes";
 
 type LocalUser = { email: string; name: string; avatarUrl: string | null };
 
 export default function UserMenu() {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"reset" | "signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // načítaj profil zo servera (z Supabase cookies)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -24,9 +28,7 @@ export default function UserMenu() {
         const j = await r.json();
         if (!alive) return;
         if (j?.ok) setMe(j.user as LocalUser);
-      } catch {
-        /* ignore */
-      }
+      } catch {/* ignore */}
     })();
     return () => { alive = false; };
   }, []);
@@ -65,35 +67,40 @@ export default function UserMenu() {
 
   return (
     <div ref={boxRef} className="relative">
-      <button className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10"
-              onClick={() => setOpen(v => !v)}>
+      <button
+        className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10"
+        onClick={() => setOpen(v => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
         {me?.avatarUrl ? (
           <Image src={me.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
         ) : (
-          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">
-            {initials}
-          </div>
+          <div className={AVATAR_BUTTON}>{initials}</div>
         )}
         <span className="text-sm hidden sm:block">{me?.email ?? ""}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-md border bg-background shadow-lg z-50">
-          <div className="px-3 py-2 text-sm border-b">
+        <div className={DROPDOWN_PANEL} role="menu">
+          <div className="px-2 py-2 text-sm border-b border-white/10">
             <div className="font-medium">{me?.name || "User"}</div>
             <div className="opacity-70 truncate">{me?.email}</div>
           </div>
+
           <nav className="py-1">
-            <a className="block px-3 py-2 text-sm hover:bg-white/10" href="/forgot-password">
+            <a className={DROPDOWN_ITEM} href="/forgot-password" role="menuitem">
               Zmeniť heslo (e-mailom)
             </a>
-            <a className="block px-3 py-2 text-sm hover:bg-white/10" href="/profile">
+            <a className={DROPDOWN_ITEM} href="/profile" role="menuitem">
               Change email
             </a>
+            <div className={DROPDOWN_DIVIDER} />
             <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+              className={DROPDOWN_ITEM_DANGER + " w-full"}
               onClick={handleSignOut}
               disabled={busy === "signout"}
+              role="menuitem"
             >
               {busy === "signout" ? "Signing out…" : "Sign out"}
             </button>
