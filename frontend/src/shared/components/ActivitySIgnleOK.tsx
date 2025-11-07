@@ -15,17 +15,17 @@ type DataIn = {
   sport: "run" | "ride" | "strength" | "mixed" | "other" | string;
 
   // ACTIVITY / PB
-  timeStr?: string | null;
-  distanceStr?: string | null;
+  timeStr?: string | null;        // PB čas alebo duration z aktivity
+  distanceStr?: string | null;    // napr. "6.08 km" alebo "0.00 km"
   avgHr?: number | null;
   maxHr?: number | null;
-  activityId?: number | null;
+  activityId?: number | null;     // pre načítanie streamov/detailu (activity/pb)
 
   // PLAN (AI coach)
-  planDur?: string | null;
-  planIntensity?: string | null;
-  planTarget?: string | null;
-  planNotes?: string | null;
+  planDur?: string | null;        // napr. "60 min"
+  planIntensity?: string | null;  // napr. "Z3 / tempo"
+  planTarget?: string | null;     // napr. "pace 4:40–4:50"
+  planNotes?: string | null;      // ľubovoľný text
 
   singleDayContext?: boolean;
 };
@@ -38,10 +38,6 @@ export type ActivitySingleProps = {
   /** voliteľné akcie – použijú sa iba na DESKTOPE (náhrada za swipe) */
   onEdit?: () => void;
   onDelete?: () => void;
-
-  /** PB favorite (voliteľné; bezpečné defaulty) */
-  isFavorite?: boolean;
-  onToggleFavorite?: () => void;
 };
 
 /* ===== Presety ===== */
@@ -106,8 +102,6 @@ export default function ActivitySingle({
   defaultOpen = false,
   onEdit,
   onDelete,
-  isFavorite,
-  onToggleFavorite,
 }: ActivitySingleProps) {
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(defaultOpen);
@@ -119,13 +113,21 @@ export default function ActivitySingle({
   // Header: vľavo dátum – skry v kalendári, inak zobraz
   const headerLeft = variant === "calendar" ? "" : prettySkDate(data.dateIso ?? null);
 
-  // Sekundárna línia
+  // Sekundárna línia pod hlavným textom:
+  // - PB: vždy Distance (ak je)
+  // - PLAN: poskladaj z planDur / intensity / target
+  // - Activity/Calendar: ak distance > 0 → Distance; inak Time
   const distKm = parseKm(data.distanceStr);
   let secondaryLine: string | null = null;
+
   if (isPB) {
     secondaryLine = data.distanceStr ? `Distance ${data.distanceStr}` : null;
   } else if (isPlan) {
-    const bits = [data.planDur ?? "", data.planIntensity ?? "", data.planTarget ?? ""].filter(Boolean);
+    const bits = [
+      data.planDur ?? "",
+      data.planIntensity ?? "",
+      data.planTarget ?? "",
+    ].filter(Boolean);
     secondaryLine = bits.length ? bits.join(" · ") : null;
   } else {
     if (distKm != null && distKm > 0) secondaryLine = `Distance ${data.distanceStr}`;
@@ -158,24 +160,6 @@ export default function ActivitySingle({
                 </button>
               )}
             </>
-          )}
-
-          {/* ★ Favorite pre PB – voliteľné, nezasiahne iné použitia */}
-          {isPB && onToggleFavorite && (
-            <button
-              type="button"
-              onClick={onToggleFavorite}
-              title={isFavorite ? "Unfavorite" : "Set as favorite"}
-              aria-pressed={!!isFavorite}
-              className={[
-                "h-8 w-8 grid place-items-center rounded-full border transition-colors",
-                isFavorite
-                  ? "bg-amber-400 text-black border-white/10 hover:bg-amber-300"
-                  : "bg-white/10 hover:bg-white/20 border-white/10 text-white",
-              ].join(" ")}
-            >
-              <span className="text-base leading-none">{isFavorite ? "★" : "☆"}</span>
-            </button>
           )}
 
           <SportBadge kind={data.sport} />
@@ -234,6 +218,7 @@ function DetailBody({
   if (variant === "plan") {
     return (
       <div>
+        {/* KPI pre plan */}
         <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             data.planDur ? { label: "DURATION", value: data.planDur } : null,
@@ -259,6 +244,7 @@ function DetailBody({
   // ACTIVITY / PB (načíta summary/streams podľa activityId)
   const s = data.activityId != null ? (getSummary(data.activityId) as any | null) : null;
 
+  // KPI – TIME zo summary; fallback PB/secondary čas z data.timeStr
   const distTxt = s ? fmtDistance(s.distance_m ?? null) : (data.distanceStr ?? "—");
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (data.timeStr ?? "—");
   const avgTxt  = s ? (s.average_heartrate_bpm ?? "—") : (data.avgHr ?? "—");
@@ -288,7 +274,7 @@ function DetailBody({
 
   return (
     <div>
-      {/* KPI */}
+      {/* Veľké KPI */}
       <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
         {[
           { label: "TIME", value: timeTxt },

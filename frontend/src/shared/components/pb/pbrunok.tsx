@@ -37,7 +37,7 @@ const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 export default function PBRun() {
   const { userId } = useUserId();
-  const { favM, setFavM } = useFavoritePBRun(); // perzistencia -> DB + storage (hook to rieši)
+  const { favM, setFavM } = useFavoritePBRun();
   const favoriteM = favM ?? 5000;
   const isTouch = useIsTouch();
 
@@ -206,7 +206,6 @@ export default function PBRun() {
                 ? secToHHMMSS(b.best_time_s)
                 : b.time_str ?? "—";
             const dist = distanceLabel(b.distance_m, "run");
-            const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
@@ -220,14 +219,6 @@ export default function PBRun() {
               });
             };
             const doDelete = () => handleDelete(b.distance_m);
-            const toggleFav = async () => {
-              try {
-                await setFavM(b.distance_m);
-                toast.success(`★ Favorite: ${dist}`);
-              } catch (e: any) {
-                toast.error(String(e?.message ?? e));
-              }
-            };
 
             if (isTouch) {
               return (
@@ -244,13 +235,11 @@ export default function PBRun() {
                       name: dist,
                       dateIso: isoDateOnly(b.achieved_at),
                       sport: "run",
-                      timeStr: timeDB,
-                      distanceStr: dist.replace("— ", ""),
+                      timeStr: timeDB, // veľký čas z DB
+                      distanceStr: dist.replace("— ", ""), // nech je “Distance 5 km”
                       activityId: actId ?? undefined,
                     }}
                     defaultOpen={false}
-                    isFavorite={isFav}
-                    onToggleFavorite={toggleFav}
                   />
                 </SwipeRow>
               );
@@ -272,8 +261,6 @@ export default function PBRun() {
                 defaultOpen={false}
                 onEdit={doEdit}
                 onDelete={doDelete}
-                isFavorite={isFav}
-                onToggleFavorite={toggleFav}
               />
             );
           })}
