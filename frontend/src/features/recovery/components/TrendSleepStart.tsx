@@ -15,12 +15,26 @@ import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
+// util: HEX -> rgba s alfou (lokálne)
+function hexToRgba(hex?: string, alpha = 0.15) {
+  if (!hex) return `rgba(255,255,255,${alpha})`;
+  const h = hex.replace("#", "");
+  const v = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+  const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export default function DetailSleepStart() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const DAY_PX_PER_LABEL = 26;
+  const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+
+  const COLOR = {
+    main: THEME.chart?.linePrimary ?? "#FFFFFF",
+    bandFill: hexToRgba(THEME.chart?.positive, 0.15),
+  };
 
   useEffect(() => { setLoading(true); }, [weeks]);
 
@@ -34,10 +48,11 @@ export default function DetailSleepStart() {
 
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const startMin = useMemo(
-    () => rows.map((r) => {
-      const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
-      return typeof m === "number" ? m : NaN;
-    }),
+    () =>
+      rows.map((r) => {
+        const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
+        return typeof m === "number" ? m : NaN;
+      }),
     [rows]
   );
 
@@ -54,11 +69,43 @@ export default function DetailSleepStart() {
   const data: ChartData<"line", number[], string> = useMemo(() => ({
     labels: labelsISO,
     datasets: [
-      { type: "line", label: "22:00–23:00 (spodná)", data: lowerBand, borderColor: "rgba(16,185,129,0)", backgroundColor: "rgba(16,185,129,0.15)", pointRadius: 0, borderWidth: 0, tension: 0.2, order: 1 },
-      { type: "line", label: "22:00–23:00 (horná)",  data: upperBand, borderColor: "rgba(16,185,129,0)", backgroundColor: "rgba(16,185,129,0.15)", pointRadius: 0, borderWidth: 0, tension: 0.2, fill: "-1", order: 1 },
-      { type: "line", label: "Sleep start", data: startMin, borderColor: "#06b6d4", backgroundColor: "#06b6d4", pointRadius: 3, borderWidth: 2, tension: 0.2, spanGaps: true, order: 2 },
+      {
+        type: "line",
+        label: "22:00–23:00 (spodná)",
+        data: lowerBand,
+        borderColor: "rgba(0,0,0,0)",
+        backgroundColor: COLOR.bandFill,
+        pointRadius: 0,
+        borderWidth: 0,
+        tension: 0.2,
+        order: 1,
+      },
+      {
+        type: "line",
+        label: "22:00–23:00 (horná)",
+        data: upperBand,
+        borderColor: "rgba(0,0,0,0)",
+        backgroundColor: COLOR.bandFill,
+        pointRadius: 0,
+        borderWidth: 0,
+        tension: 0.2,
+        fill: "-1",
+        order: 1,
+      },
+      {
+        type: "line",
+        label: "Sleep start",
+        data: startMin,
+        borderColor: COLOR.main,
+        backgroundColor: COLOR.main,
+        pointRadius: 3,
+        borderWidth: 2,
+        tension: 0.2,
+        spanGaps: true,
+        order: 2,
+      },
     ],
-  }), [labelsISO, lowerBand, upperBand, startMin]);
+  }), [labelsISO, lowerBand, upperBand, startMin, COLOR.bandFill, COLOR.main]);
 
   const options: ChartOptions<"line"> = useMemo(
     () =>
@@ -66,7 +113,8 @@ export default function DetailSleepStart() {
         labelsISO,
         yTitle: "čas",
         yTickFormatter: (v: number) => minutesToHHMM(v),
-        tooltipTitleForIndex: (i) => new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
+        tooltipTitleForIndex: (i) =>
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"),
         tooltipLabelForItem: (ctx): string => {
           const idx = ctx.dataIndex ?? 0;
           const lines: string[] = [];
@@ -87,9 +135,14 @@ export default function DetailSleepStart() {
 
   return (
     <div className={`${CARD} relative`}>
+      {/* HEADER */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Sleep Start time</h2>
-        <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} className={`${inputClass} h-8 text-xs w-[132px]`}>
+        <select
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value))}
+          className={`${inputClass} h-8 text-xs w-[132px]`}
+        >
           <option value={2}>2 týždne</option>
           <option value={4}>4 týždne</option>
           <option value={8}>8 týždňov</option>
@@ -97,6 +150,7 @@ export default function DetailSleepStart() {
         </select>
       </div>
 
+      {/* GRAPH BODY */}
       <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && <div className="absolute inset-0 grid place-items-center z-10 bg-black/10"><LoadingSpinner size="trend" /></div>}
