@@ -15,18 +15,16 @@ import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
-/** Zmeraj šírku wrapperu (bez knižníc) */
 function useContainerWidth<T extends HTMLElement>() {
   const [w, setW] = useState(0);
   const ref = useRef<T | null>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const el = ref.current;
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (cr?.width) setW(Math.round(cr.width));
     });
-    ro.observe(el);
+    ro.observe(ref.current);
     return () => ro.disconnect();
   }, []);
   return [ref, w] as const;
@@ -35,26 +33,22 @@ function useContainerWidth<T extends HTMLElement>() {
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
-  // HYBRID PARAMS – môžeš si doladiť:
-  const MIN_PX_PER_POINT = 12;  // min. pixlov na 1 deň; pod týmto prahom sa zapne scroll
-  const MIN_CANVAS_W = 160;     // safety min šírka canvasu
+  // hybrid parametre
+  const MIN_PX_PER_POINT = 12;
+  const MIN_CANVAS_W = 160;
 
-  // spinner pri zmene rozsahu
   useEffect(() => { setLoading(true); }, [weeks]);
 
-  // orež na posledných N dní
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  // vypni spinner po prepočte dát
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  // dáta
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const hrv = useMemo(
     () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
@@ -72,64 +66,27 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
-  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
-        {
-          type: "line",
-          label: "Baseline −5%",
-          data: toNum(lower),
-          borderColor: "rgba(16,185,129,0)",
-          backgroundColor: "rgba(16,185,129,0.15)",
-          pointRadius: 0,
-          borderWidth: 0,
-          tension: 0.2,
-          order: 1,
-        },
-        {
-          type: "line",
-          label: "Baseline +5%",
-          data: toNum(upper),
-          borderColor: "rgba(16,185,129,0)",
-          backgroundColor: "rgba(16,185,129,0.15)",
-          pointRadius: 0,
-          borderWidth: 0,
-          tension: 0.2,
-          fill: "-1",
-          order: 1,
-        },
-        {
-          type: "line",
-          label: "Baseline (14d priemer)",
-          data: toNum(baselineArr),
-          borderColor: "#22c55e",
-          backgroundColor: "#22c55e",
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.25,
-          spanGaps: true,
-          order: 2,
-        },
-        {
-          type: "line",
-          label: "HRV (RMSSD)",
-          data: hrv,
-          borderColor: "#0ea5e9",
-          backgroundColor: "#0ea5e9",
-          pointRadius: 3,
-          borderWidth: 2,
-          tension: 0.2,
-          spanGaps: true,
-          order: 3,
-        },
+        { type: "line", label: "Baseline −5%", data: toNum(lower),
+          borderColor: "rgba(16,185,129,0)", backgroundColor: "rgba(16,185,129,0.15)",
+          pointRadius: 0, borderWidth: 0, tension: 0.2, order: 1 },
+        { type: "line", label: "Baseline +5%", data: toNum(upper),
+          borderColor: "rgba(16,185,129,0)", backgroundColor: "rgba(16,185,129,0.15)",
+          pointRadius: 0, borderWidth: 0, tension: 0.2, fill: "-1", order: 1 },
+        { type: "line", label: "Baseline (14d priemer)", data: toNum(baselineArr),
+          borderColor: "#22c55e", backgroundColor: "#22c55e",
+          pointRadius: 0, borderWidth: 2, tension: 0.25, spanGaps: true, order: 2 },
+        { type: "line", label: "HRV (RMSSD)", data: hrv,
+          borderColor: "#0ea5e9", backgroundColor: "#0ea5e9",
+          pointRadius: 3, borderWidth: 2, tension: 0.2, spanGaps: true, order: 3 },
       ],
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
-  // options – fit-to-container; autoSkip sa postará o hustotu tickov
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
@@ -158,6 +115,7 @@ export default function TrendHRV() {
 
     return {
       ...base,
+      responsive: true,
       maintainAspectRatio: false,
       layout: { padding: { left: 4, right: 6, top: 6, bottom: 10 } },
       plugins: {
@@ -179,34 +137,28 @@ export default function TrendHRV() {
       },
       scales: {
         ...(base.scales ?? {}),
-        x: {
-          ...(base.scales as any)?.x,
-          ticks: { autoSkip: true, maxRotation: 0 },
-        },
+        x: { ...(base.scales as any)?.x, ticks: { autoSkip: true, maxRotation: 0 } },
       },
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // HYBRID: zmeraj šírku a rozhodni, či treba scrollovať
+  // HYBRID – fit vs. scroll
   const [wrapRef, wrapW] = useContainerWidth<HTMLDivElement>();
   const pts = labelsISO.length;
   const pxPerPointFit = pts > 0 ? (wrapW || 0) / pts : (wrapW || 0);
   const needScroll = pts > 0 && pxPerPointFit < MIN_PX_PER_POINT;
-  const canvasMinWidth = needScroll
-    ? Math.max(MIN_CANVAS_W, pts * MIN_PX_PER_POINT)
-    : 0;
+  const canvasMinWidth = needScroll ? Math.max(MIN_CANVAS_W, pts * MIN_PX_PER_POINT) : 0;
 
   return (
-    <div className={`${CARD} relative min-w-0 text-left`}>
-      {/* HEADER – vľavo, kompaktné paddingy */}
+    <div className={`${CARD} w-full max-w-full overflow-hidden relative`}>
+      {/* header */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex flex-wrap items-start gap-2">
           <h2 className="text-lg font-bold mr-2">Detail — HRV (RMSSD)</h2>
           <select
             value={weeks}
             onChange={(e) => setWeeks(Number(e.target.value))}
-            className={`${inputClass} h-8 text-xs w-[112px] shrink-0 self-start`}
-            title="Rozsah"
+            className={`${inputClass} h-8 text-xs w-[112px] shrink-0`}
           >
             <option value={2}>2 týždne</option>
             <option value={4}>4 týždne</option>
@@ -216,12 +168,10 @@ export default function TrendHRV() {
         </div>
       </div>
 
-      {/* BODY – fit-to-container + auto scroll fallback */}
+      {/* body */}
       <div ref={wrapRef} className="w-full">
-        <div
-          className="overflow-x-auto overflow-y-hidden rounded-xl min-w-0"
-          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-        >
+        <div className="overflow-x-auto overflow-y-hidden rounded-xl min-w-0"
+             style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
           <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -236,12 +186,12 @@ export default function TrendHRV() {
                 maxWidth: "none",
               }}
             >
-              <Line data={data} options={options} />
+              {/* DÔLEŽITÉ: canvas musí byť block a 100%/100% */}
+              <Line data={data} options={options} className="block w-full h-full" />
             </div>
           </div>
         </div>
 
-        {/* voliteľný hint */}
         <div className="px-4 pb-3 pt-2 text-xs opacity-80">
           Tip: dlhší rozsah je horizontálne rolovateľný.
         </div>
