@@ -18,28 +18,31 @@ ensureChartJSRegistered();
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // rovnaká filozofia ako weeklyLoad – horizontálna šírka len vo vnútri scroll zóny
-  const DAY_PX = 26; // ak chceš kompaktnejšie, daj 24 alebo 22
+  // len horizontálna šírka – konzistentne s RHR/SleepStart
+  const DAY_PX_PER_LABEL = 26;
 
-  useEffect(() => setLoading(true), [weeks]);
+  useEffect(() => { setLoading(true); }, [weeks]);
 
+  // vyber posledných N dní
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
+  // vypni spinner po prepočte
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  const labelsISO = useMemo(() => rows.map(r => r.date), [rows]);
+  // dáta
+  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const hrv = useMemo(
-    () => rows.map(r => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
+    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : NaN)),
     [rows]
   );
   const baselineArr = useMemo(
-    () => rollingMean(rows.map(r => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)), 14),
+    () => rollingMean(rows.map((r) => (typeof r.HRV_avg_ms === "number" ? (r.HRV_avg_ms as number) : null)), 14),
     [rows]
   );
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
@@ -50,8 +53,9 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
+  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map(v => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
@@ -106,35 +110,34 @@ export default function TrendHRV() {
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
+  // options – identické správanie s RHR/SleepStart
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
       yTitle: "ms",
-      tooltipTitleForIndex: (i) => {
-        const iso = labelsISO[i] ?? "";
-        return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
-      },
+      tooltipTitleForIndex: (i) =>
+        new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
       tooltipLabelForItem: (ctx): string | string[] => {
         const idx = ctx.dataIndex ?? 0;
-        const lines: string[] = [];
+        const out: string[] = [];
         if (ctx.datasetIndex === 3) {
           const v = hrv[idx];
-          if (Number.isFinite(v)) lines.push(`HRV: ${Math.round(v as number)} ms`);
+          if (Number.isFinite(v)) out.push(`HRV: ${Math.round(v as number)} ms`);
           const c = comments.get(labelsISO[idx] ?? "");
-          if (c) lines.push(...wrapToLines(c, 44));
+          if (c) out.push(...wrapToLines(c, 44));
         }
         if (ctx.datasetIndex === 2) {
           const b = baselineArr[idx];
-          if (Number.isFinite(b as number)) lines.push(`Baseline: ${Math.round(b as number)} ms`);
+          if (Number.isFinite(b as number)) out.push(`Baseline: ${Math.round(b as number)} ms`);
         }
-        return lines.length ? lines : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+        return out.length ? out : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
       },
       tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
     });
 
     return {
       ...base,
-      maintainAspectRatio: false,
+      // (rovnaké legendy/paddingy ako pri RHR/SleepStart)
       layout: { padding: { left: 6, right: 10, top: 8, bottom: 12 } },
       plugins: {
         ...base.plugins,
@@ -155,29 +158,27 @@ export default function TrendHRV() {
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // iba vnútorná šírka pre scroll – karta ostáva w-full
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX));
+  // šírka iba vodorovne (scroll)
+  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
-    <div className={`${CARD} w-full max-w-full overflow-hidden`}>
+    <div className={`${CARD} relative`}>
       {/* HEADER */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex flex-wrap items-start gap-2">
-          <h2 className="text-lg font-bold mr-2">Detail — HRV (RMSSD)</h2>
-          <select
-            value={weeks}
-            onChange={(e) => setWeeks(Number(e.target.value))}
-            className={`${inputClass} h-8 text-xs w-[120px] sm:w-[140px] md:w-[156px] shrink-0`}
-          >
-            <option value={2}>2 týždne</option>
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
-        </div>
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">HR Variability</h2>
+        <select
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value))}
+          className={`${inputClass} h-8 text-xs w-[132px]`}
+        >
+          <option value={2}>2 týždne</option>
+          <option value={4}>4 týždne</option>
+          <option value={8}>8 týždňov</option>
+          <option value={12}>12 týždňov</option>
+        </select>
       </div>
 
-      {/* BODY – flush + scroll presne ako weeklyLoad */}
+      {/* BODY – flush + horizontal scroll */}
       <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
@@ -185,14 +186,10 @@ export default function TrendHRV() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          <div style={{ minWidth, height: "90%", maxWidth: "none" }}>
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
             <Line data={data} options={options} />
           </div>
         </div>
-      </div>
-
-      <div className="px-4 pb-3 pt-2 text-xs opacity-80">
-        Tip: dlhší rozsah je horizontálne rolovateľný.
       </div>
     </div>
   );

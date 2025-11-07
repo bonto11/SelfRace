@@ -93,7 +93,7 @@ export default function DetailRHR() {
     <div className={`${CARD} relative`}>
       {/* HEADER */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Detail — Resting HR</h2>
+        <h2 className="text-lg font-bold">Resting HR</h2>
         <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} className={`${inputClass} h-8 text-xs w-[132px]`}>
           <option value={2}>2 týždne</option>
           <option value={4}>4 týždne</option>
@@ -111,8 +111,6 @@ export default function DetailRHR() {
           </div>
         </div>
       </div>
-
-      <div className="px-4 pb-3 pt-2 text-xs opacity-80">Tip: dlhší rozsah je horizontálne rolovateľný.</div>
     </div>
   );
 }
