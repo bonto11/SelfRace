@@ -1,4 +1,3 @@
-// src/features/activity/components/TrendWeeklyLoad.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,11 +11,11 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
+import type { WeekPick } from "@/features/activity/utils/activity";
 
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
-export type WeekPick = { week: string; start: string; end: string; sport: string };
 
 type WeekRow = {
   week: string;

@@ -2,11 +2,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import TrendWeeklyLoad, {
-  WeekPick,
-} from "@/features/activity/components/TrendWeeklyLoad";
+import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
 import ActivityTable from "@/shared/components/ActivityTable";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
+import type { WeekPick } from "@/features/activity/utils/activity";
 
 type Range = { start?: string; end?: string };
 

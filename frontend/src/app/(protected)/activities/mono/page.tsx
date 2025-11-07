@@ -2,11 +2,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import TrendWeeklyLoad, {
-  WeekPick,
-} from "@/features/activity/components/TrendWeeklyLoad";
+import TrendWeeklyMonoStrain from "@/features/activity/components/TrendWeeklyMonoStrain";
 import ActivityTable from "@/shared/components/ActivityTable";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
+import type { WeekPick } from "@/features/activity/utils/activity";
 
 type Range = { start?: string; end?: string };
 
@@ -27,7 +26,7 @@ export default function Page() {
       {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">
         <div className="mt-3">
-          <TrendWeeklyLoad
+          <TrendWeeklyMonoStrain
             onPickWeek={handlePick}
             onSportChange={(s) => setSport(s)}
           />

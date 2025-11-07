@@ -1,22 +1,24 @@
-// src/features/activity/components/TrendWeeklyMonoStrain.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Chart as LineChart } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import Button from "@/shared/components/ui/Button";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
+import type { WeekPick } from "@/features/activity/utils/activity";
 
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
 
 type WeekRow = {
+  week: string;
   label: string;
   start: string; end: string;
   monotony: { km?: number; time?: number; trimp?: number };
@@ -25,13 +27,23 @@ type WeekRow = {
 
 const C = { monotony: "#84CC16", strain: "#FDE047" };
 
-export default function TrendWeeklyMonoStrain() {
+export default function TrendWeeklyMonoStrain({
+  onPickWeek,
+  onSportChange,
+  showLookback = true,
+}: {
+  onPickWeek?: (w: WeekPick) => void;
+  onSportChange?: (sport: string) => void;
+  showLookback?: boolean;
+}) {
   const { userId } = useUserId();
   const [metric, setMetric] = useState<Metric>("km");
   const [lookback, setLookback] = useState<number>(8);
   const [sport, setSport] = useState<string>("all");
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => { onSportChange?.(sport); }, [sport, onSportChange]);
 
   useEffect(() => {
     if (!userId) return;
@@ -46,7 +58,8 @@ export default function TrendWeeklyMonoStrain() {
         if (!alive) return;
         setWeeks(
           raw.map((w) => ({
-            label: w.label ?? w.week ?? "",
+            week: w.week ?? w.iso_week ?? w.label ?? "",
+            label: (w.label ?? w.week ?? "") as string,
             start: w.start ?? "",
             end: w.end ?? "",
             monotony: w.monotony ?? {},
@@ -60,7 +73,7 @@ export default function TrendWeeklyMonoStrain() {
     return () => { alive = false; };
   }, [userId, lookback, sport]);
 
-  const labels = useMemo(() => weeks.map((w) => w.label), [weeks]);
+  const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
   const mono = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
   const strn = useMemo(() => weeks.map((w) => w.strain?.[metric] ?? null), [weeks, metric]);
 
@@ -120,6 +133,13 @@ export default function TrendWeeklyMonoStrain() {
         labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 10 },
       },
     },
+    onClick: (_evt, els) => {
+      const idx = els?.[0]?.index;
+      if (idx == null) return;
+      const w = weeks[idx];
+      if (!w) return;
+      onPickWeek?.({ week: w.week || w.label || w.start || "", start: w.start, end: w.end, sport });
+    },
     scales: {
       y1: {
         position: "right",
@@ -139,9 +159,9 @@ export default function TrendWeeklyMonoStrain() {
         ticks: { color: C.strain },
         title: { display: true, text: "Strain", color: C.strain },
       },
-      x: { grid: { color: THEME.chart.gridSoft }, ticks: { minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } } },
+      x: { grid: { color: THEME.chart.gridSoft }, ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } } },
     },
-  }), [monoMax, strainMax]);
+  }), [monoMax, strainMax, weeks, onPickWeek, sport]);
 
   const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
   const height = THEME.chart.weeklyHeightCompact ?? 200;
@@ -153,15 +173,10 @@ export default function TrendWeeklyMonoStrain() {
         <h2 className="text-lg font-bold">Monotónnosť & Strain</h2>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <button className={`${inputClass} h-8 text-xs px-3`} onClick={() => setMetric("km")}>Km</button>
-            <button className={`${inputClass} h-8 text-xs px-3`} onClick={() => setMetric("time")}>Čas</button>
-            <button className={`${inputClass} h-8 text-xs px-3`} onClick={() => setMetric("trimp")}>TRIMP</button>
+            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>Km</Button>
+            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>Čas</Button>
+            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>TRIMP</Button>
           </div>
-          <select value={lookback} onChange={(e) => setLookback(Number(e.target.value))} className={`${inputClass} h-8 text-xs w-[130px]`}>
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
           <select value={sport} onChange={(e) => setSport(e.target.value)} className={`${inputClass} h-8 text-xs w-[130px]`}>
             <option value="all">Všetko</option>
             <option value="run">Run</option>
@@ -171,6 +186,13 @@ export default function TrendWeeklyMonoStrain() {
             <option value="skate">Skate</option>
             <option value="other">Other</option>
           </select>
+          {showLookback && (
+            <select value={lookback} onChange={(e) => setLookback(Number(e.target.value))} className={`${inputClass} h-8 text-xs w-[130px]`}>
+              <option value={4}>4 týždne</option>
+              <option value={8}>8 týždňov</option>
+              <option value={12}>12 týždňov</option>
+            </select>
+          )}
         </div>
       </div>
 
@@ -183,7 +205,7 @@ export default function TrendWeeklyMonoStrain() {
             </div>
           )}
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <LineChart type="line" data={data} options={options} />
+            <Line data={data} options={options} />
           </div>
         </div>
       </div>
