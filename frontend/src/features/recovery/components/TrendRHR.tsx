@@ -15,32 +15,18 @@ import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
-// malá utilitka: HEX -> rgba(...) s danou alfou (bez zásahov do iných súborov)
-function hexToRgba(hex?: string, alpha = 0.15) {
-  if (!hex) return `rgba(255,255,255,${alpha})`;
-  const h = hex.replace("#", "");
-  const bigint = parseInt(h.length === 3
-    ? h.split("").map((c) => c + c).join("")
-    : h, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 export default function DetailRHR() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // horizontálna šírka podľa dní (nech sa správa rovnako ako ostatné trendy)
+  // rovnaké správanie šírky ako SleepStart
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
-  // farby z THEME
+  // farby – baseline sa nekreslí, nechávame len band + hlavnú čiaru
   const COLOR = {
     main: THEME.chart?.linePrimary ?? "#FFFFFF",
-    baseline: THEME.chart?.lineSecondary ?? "#FDE047",
-    bandFill: hexToRgba(THEME.chart?.positive, 0.15), // jemné zelené pásmo
+    bandFill: THEME.chart?.bandFill ?? "rgba(16,185,129,0.15)",
   };
 
   useEffect(() => { setLoading(true); }, [weeks]);
@@ -59,6 +45,7 @@ export default function DetailRHR() {
     [rows]
   );
 
+  // baseline ARR zostáva len pre výpočet pásma ±5 %, ale LÍNIU nebudeme kresliť
   const baselineArr = useMemo(
     () => rollingMean(rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)), 14),
     [rows]
@@ -77,7 +64,7 @@ export default function DetailRHR() {
     return {
       labels: labelsISO,
       datasets: [
-        // band −5 %
+        // len zelené pásmo okolo baseline (−5 % a +5 %)
         {
           type: "line" as const,
           label: "Baseline −5%",
@@ -89,7 +76,6 @@ export default function DetailRHR() {
           tension: 0.2,
           order: 1,
         },
-        // band +5 % (fill: "-1" vyplní medzi touto a predošlou dataset)
         {
           type: "line" as const,
           label: "Baseline +5%",
@@ -102,20 +88,7 @@ export default function DetailRHR() {
           fill: "-1" as const,
           order: 1,
         },
-        // baseline
-        {
-          type: "line" as const,
-          label: "Baseline (14d priemer)",
-          data: toNum(baselineArr),
-          borderColor: COLOR.baseline,
-          backgroundColor: COLOR.baseline,
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.25,
-          spanGaps: true,
-          order: 2,
-        },
-        // hlavná línia
+        // HLAVNÁ LÍNIA (žiadna baseline čiara)
         {
           type: "line" as const,
           label: "Resting HR",
@@ -126,45 +99,41 @@ export default function DetailRHR() {
           borderWidth: 2,
           tension: 0.2,
           spanGaps: true,
-          order: 3,
+          order: 2,
         },
       ],
     };
-  }, [labelsISO, lower, upper, baselineArr, rhr, COLOR.bandFill, COLOR.baseline, COLOR.main]);
+  }, [labelsISO, lower, upper, rhr, COLOR.bandFill, COLOR.main]);
 
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
         yTitle: "bpm",
-        // buildRecoveryLineOptions už používa THEME.chart.grid / gridSoft / ticks, takže netreba nič násilne prepisovať
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const out: string[] = [];
-          if (ctx.datasetIndex === 3) {
+          if (ctx.datasetIndex === 2) {
             const v = rhr[idx];
             if (Number.isFinite(v)) out.push(`RHR: ${Math.round(v as number)} bpm`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
           }
-          if (ctx.datasetIndex === 2) {
-            const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) out.push(`Baseline: ${Math.round(b as number)} bpm`);
-          }
           return out.length ? out : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
         },
-        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+        // zobrazuj tooltip len pre hlavnú líniu
+        tooltipFilter: (item) => item.datasetIndex === 2,
       }),
-    [labelsISO, rhr, baselineArr, comments]
+    [labelsISO, rhr, comments]
   );
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
     <div className={`${CARD} relative`}>
-      {/* HEADER */}
+      {/* HEADER – rovnaký ako pri SleepStart */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Resting HR</h2>
         <select
@@ -179,7 +148,7 @@ export default function DetailRHR() {
         </select>
       </div>
 
-      {/* BODY – flush + horizontal scroll */}
+      {/* BODY – flush + horizontal scroll (ako SleepStart) */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}

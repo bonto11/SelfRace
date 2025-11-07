@@ -51,7 +51,9 @@ export const THEME = {
     cool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
 
     linePrimary: '#FFFFFF', //biela
-    lineSecondary: '#FDE047', //ZLTA?
+    lineSecondary: '#FDE047', //zlta
+    lineBase: '#4ADE8059',
+    bandFill: "rgba(16,185,129,0.15)",
     grid:        '#FFFFFF12',
     gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,

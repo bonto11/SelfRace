@@ -32,7 +32,7 @@ export default function DetailSleepStart() {
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
   const COLOR = {
-    main: THEME.chart?.linePrimary ?? "#FFFFFF",
+    main: THEME.chart?.linePrimary,
     bandFill: hexToRgba(THEME.chart?.positive, 0.15),
   };
 
