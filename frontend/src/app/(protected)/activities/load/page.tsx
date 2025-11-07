@@ -10,7 +10,7 @@ import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 type Range = { start?: string; end?: string };
 
-export default function ActivitiesLoadPage() {
+export default function Page() {
   const [range, setRange] = useState<Range>({});
   const [sport, setSport] = useState<string>("all");
 
