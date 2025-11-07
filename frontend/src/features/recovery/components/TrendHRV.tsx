@@ -185,7 +185,7 @@ export default function TrendHRV() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+          <div style={{ minWidth, height: "90%", maxWidth: "none" }}>
             <Line data={data} options={options} />
           </div>
         </div>
