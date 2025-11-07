@@ -85,48 +85,46 @@ export default function InputsCard() {
 
   return (
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
-      {/* HEADER – iba -1, dátum (1 pole), +1 */}
+      {/* HEADER – len −1 | dátum | +1 (+ toggle vpravo) */}
       <div className={WIDGET_HEADER_BELOW}>
-        <div className={WIDGET_HEADER_ROW}>
-          {/* ľavá strana – skok -1 */}
-          <div className={WIDGET_HEADER_SIDE}>
-            <div className="hidden sm:flex gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => shiftDate(-1)}
-                disabled={saving}
-              >
-                −1
-              </Button>
-            </div>
+        <div className={WIDGET_HEADER_ROW + " gap-2"}>
+          {/* ľavá strana: −1 vždy viditeľné */}
+          <div className={WIDGET_HEADER_SIDE + " flex"}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => shiftDate(-1)}
+              disabled={saving}
+              aria-label="Posuň o deň späť"
+            >
+              −1
+            </Button>
           </div>
 
-          {/* stred – JEDINÉ pole s dátumom (otvorí natívny picker) */}
+          {/* stred: JEDINÉ pole s dátumom (natívny picker) */}
           <div className={WIDGET_HEADER_CENTER}>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               disabled={saving}
-              // použijeme vzhľad pilulky
               className={
                 PILL_BUTTON +
-                " text-center select-none " +
-                " px-3 py-2 !rounded-xl " + // rozumné rozmery
-                " w-[min(220px,70%)] " + // fit-to-size na mobile
-                " [color-scheme:dark]" // krajší natívny picker v dark mode
+                " text-center px-3 py-2 !rounded-xl " +
+                " w-[min(220px,60vw)] [color-scheme:dark]"
               }
+              aria-label="Zvoľ dátum"
             />
           </div>
 
-          {/* pravá strana – skok +1 a toggle formulára */}
+          {/* pravá strana: +1 a toggle (na mobile vedľa seba) */}
           <div className={WIDGET_HEADER_SIDE + " flex justify-end gap-2"}>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => shiftDate(+1)}
               disabled={saving}
+              aria-label="Posuň o deň dopredu"
             >
               +1
             </Button>
