@@ -15,6 +15,13 @@ export const SURFACE_INSET =
 export const SURFACE_INLINE =
   "rounded-2xl border border-white/10 bg-white/60 dark:bg-gray-700/50 backdrop-blur text-left";
 
+export const PAD = {
+  "card" : "p-3",
+  "head" : "px-3 pb-3 pb-1.5",
+  "foot" : "px-3 pb-3 pt-1.5",
+  "note" : "mt-1.5",
+}
+
 /* ===== KOMPAT ALIASY =================================================== */
 export const CARD = SURFACE_CARD;
 export const SUBCARD = SURFACE_SUBCARD;
@@ -104,7 +111,7 @@ export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded hover:bg-white/
 export const DROPDOWN_ITEM_DANGER = DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
 
 /* ===== WidgetCard – konzistentné povrchy a typografia ================== */
-export const WIDGET_CARD = SURFACE_CARD + " p-4 text-left";
+export const WIDGET_CARD = SURFACE_CARD + " " + PAD.card + " text-left";
 export const WIDGET_CARD_INTERACTIVE =
   "transition-colors hover:bg-white dark:hover:bg-gray-900/80 cursor-pointer focus:outline-none";
 export const WIDGET_INNER = "flex flex-col text-left";
@@ -267,6 +274,8 @@ export const SCROLL_X = [
   "w-full",
   "max-w-full",
   "overflow-x-auto",
+  "overflow-y-hidden",
+  "min-w-0",
   "touch-pan-x",                // plynulé gesto na mobile
   "[scrollbar-gutter:stable]",  // neskáče layout pri objavení scrollbarov
 ].join(" ");

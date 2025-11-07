@@ -10,7 +10,7 @@ import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/shared/ui/classes";
+import { CARD, SCROLL_X, PAD } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
@@ -161,7 +161,7 @@ export default function TrendHRV() {
   return (
     <div className={`${CARD} relative`}>
       {/* HEADER – presne rovnaké paddings */}
-      <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className={`${PAD.head} flex flex-wrap items-center justify-between gap-2`}>
         <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
         <select
           value={weeks}
@@ -190,11 +190,6 @@ export default function TrendHRV() {
             <Line data={data} options={options} />
           </div>
         </div>
-      </div>
-
-      {/* voliteľný tip */}
-      <div className="px-4 pb-3 pt-2 text-xs opacity-80">
-        Tip: dlhší rozsah je horizontálne rolovateľný.
       </div>
     </div>
   );
