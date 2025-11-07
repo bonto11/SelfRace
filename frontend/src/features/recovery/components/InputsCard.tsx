@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
@@ -38,21 +38,6 @@ export default function InputsCard() {
   const [alcoholVolume, setAlcoholVolume] = useState("");
   const [alcoholType, setAlcoholType] = useState("");
   const [comments, setComments] = useState("");
-
-  // hore v komponente (pri ostatných useState)
-  const dateInputRef = useRef<HTMLInputElement>(null);
-  const openNativePicker = () => {
-    const el = dateInputRef.current;
-    // moderné prehliadače
-    // @ts-ignore
-    if (el?.showPicker) {
-      /* Safari/Chromium */
-      // @ts-ignore
-      el.showPicker();
-    } else {
-      el?.click();
-    }
-  };
 
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
@@ -117,27 +102,21 @@ export default function InputsCard() {
             </div>
           </div>
 
-          {/* stred – JEDEN pill s dátumom (otvorí natívny picker) */}
+          {/* stred – JEDINÉ pole s dátumom (otvorí natívny picker) */}
           <div className={WIDGET_HEADER_CENTER}>
-            <button
-              type="button"
-              onClick={openNativePicker}
-              className={PILL_BUTTON}
-              title="Zmeniť dátum"
-              aria-label="Zmeniť dátum"
-            >
-              {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
-            </button>
-
-            {/* skrytý input, aby sa otvoril natívny date-picker */}
             <input
-              ref={dateInputRef}
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="absolute opacity-0 pointer-events-none w-0 h-0"
-              tabIndex={-1}
-              aria-hidden="true"
+              disabled={saving}
+              // použijeme vzhľad pilulky
+              className={
+                PILL_BUTTON +
+                " text-center select-none " +
+                " px-3 py-2 !rounded-xl " + // rozumné rozmery
+                " w-[min(220px,70%)] " + // fit-to-size na mobile
+                " [color-scheme:dark]" // krajší natívny picker v dark mode
+              }
             />
           </div>
 
