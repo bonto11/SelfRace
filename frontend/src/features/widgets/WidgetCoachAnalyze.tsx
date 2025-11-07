@@ -6,7 +6,7 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
 import PlanResult from "@/features/coach/components/PlanResult";
-import { PANEL } from "@/shared/ui/classes";
+import { PANEL, NO_X_OVERFLOW } from "@/shared/ui/classes";
 
 import {
   makeCacheKey,
@@ -14,6 +14,11 @@ import {
   saveCachedResult,
   clearCachedByKey,
 } from "@/features/coach/utils/cache";
+
+import Button from "@/shared/components/ui/Button";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import Pill from "@/shared/components/ui/Pill";
+import { THEME } from "@/shared/theme/tokens";
 
 export default function WidgetCoachAnalyze() {
   const { userId } = useUserId();
@@ -111,66 +116,67 @@ export default function WidgetCoachAnalyze() {
   return (
     <div className="col-span-full space-y-3">
       {/* --- PANEL: AI Analyze ovládanie --- */}
-      <section className={PANEL}>
-        <header className="px-4 py-3 flex items-center justify-between">
-          <div>
+      <section className={[PANEL, NO_X_OVERFLOW].join(" ")}>
+        <header className="px-4 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <div className="text-base font-semibold">AI Analyze</div>
             <div className="text-xs opacity-75">
               Najprv skúsi cache; ak chýba → zavolá AI a uloží.
             </div>
           </div>
 
-          <button
-            onClick={handleAnalyzeOrLoad}
-            disabled={!canRun}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5
-                       bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white"
-          >
-            {loading && (
-              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-            )}
-            {loading ? "Načítavam…" : "Analyze / Load"}
-          </button>
+          <div className="shrink-0">
+            <Button
+              onClick={handleAnalyzeOrLoad}
+              disabled={!canRun}
+              variant="primary"
+              size="sm"
+            >
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoadingSpinner size="widget" />
+                  Načítavam…
+                </span>
+              ) : (
+                "Analyze / Load"
+              )}
+            </Button>
+          </div>
         </header>
 
-        <div className="px-4 pb-4 space-y-2">
+        <div className="px-4 pb-4 space-y-3">
           {/* toolbar chips */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-2 py-1 rounded-full bg-gray-700/60">
-              source: {source ?? "—"}
-            </span>
-            <button
+            <Pill label={`source: ${source ?? "—"}`} color={THEME.chart.neutral} />
+
+            <Button
               onClick={handleForceRerun}
               disabled={!canRun || loading}
-              className="px-2 py-1 rounded-full border border-white/10 hover:bg-gray-700/40"
+              variant="secondary"
+              size="sm"
             >
               Force re-run
-            </button>
-            <button
+            </Button>
+
+            <Button
               onClick={handleClear}
               disabled={loading}
-              className="px-2 py-1 rounded-full border border-rose-400/30 text-rose-200 hover:bg-rose-600/20"
+              variant="danger"
+              size="sm"
             >
               Clear cache
-            </button>
+            </Button>
 
             {diag && (
               <div className="ml-auto flex flex-wrap gap-2">
-                <span className="px-2 py-1 rounded-full bg-gray-700/60">
-                  success: {String(diag.success)}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-gray-700/60">
-                  model: {diag.model ?? "—"}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-gray-700/60">
-                  summary: {String(diag.hasSummary)}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-gray-700/60">
-                  narrative: {String(diag.hasNarrative)}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-gray-700/60">
-                  plan: {String(diag.hasPlan)}
-                </span>
+                <Pill
+                  label={`success: ${String(diag.success)}`}
+                  color={diag.success ? THEME.chart.excellent : THEME.chart.poor}
+                />
+                <Pill label={`model: ${diag.model ?? "—"}`} color={THEME.chart.neutral} />
+                <Pill label={`summary: ${String(diag.hasSummary)}`} color={THEME.chart.fitness} />
+                <Pill label={`narrative: ${String(diag.hasNarrative)}`} color={THEME.chart.good} />
+                <Pill label={`plan: ${String(diag.hasPlan)}`} color={THEME.chart.athletes} />
               </div>
             )}
           </div>
@@ -187,23 +193,21 @@ export default function WidgetCoachAnalyze() {
         <div className="h-1.5 rounded-b-2xl bg-slate-700" />
       </section>
 
-      {/* --- PANEL: výsledok (zachovaný tvoj PB look) --- */}
+      {/* --- PANEL: výsledok --- */}
       {result && (
-        <section className={PANEL}>
-          <header className="px-4 py-3 flex items-center justify-between">
-            <div className="font-semibold">AI Coach — plán a zhrnutie</div>
-            <div className="text-xs opacity-75">
-              model: <b>{model}</b>
-              {source === "cache" && (
-                <span className="ml-2 inline-block text-xs bg-blue-600/30 border border-blue-600 text-blue-200 px-2 py-0.5 rounded">
-                  from cache
-                </span>
-              )}
-              {result?.analysis?._meta?.plan_source === "fallback_min" && (
-                <span className="ml-2 inline-block text-xs bg-amber-600/30 border border-amber-600 text-amber-200 px-2 py-0.5 rounded">
-                  fallback plan
-                </span>
-              )}
+        <section className={[PANEL, NO_X_OVERFLOW].join(" ")}>
+          <header className="px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">AI Coach — plán a zhrnutie</div>
+              <div className="text-xs opacity-75 flex items-center gap-2 flex-wrap">
+                <span>model: <b>{model}</b></span>
+                {source === "cache" && (
+                  <Pill label="from cache" color={THEME.chart.good} />
+                )}
+                {result?.analysis?._meta?.plan_source === "fallback_min" && (
+                  <Pill label="fallback plan" color={THEME.chart.fair} />
+                )}
+              </div>
             </div>
           </header>
 

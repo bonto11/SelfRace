@@ -1,3 +1,4 @@
+// src/features/profile/components/TableMetrics.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,9 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import Button from "@/shared/components/ui/Button";
 import { Plus, Minus } from "lucide-react";
 import { toast } from "@/shared/components/ui/Toast";
+import { CARD, ICON_BUTTON } from "@/shared/ui/classes";
+import { inputClass, labelClass } from "@/shared/ui";
+import { THEME } from "@/shared/theme/tokens";
 
 type LatestMap = {
   value: number | null;
@@ -37,11 +41,9 @@ type DirtyMap = {
   [K in keyof MetricState]: boolean;
 };
 
-const NUM_INPUT =
-  "w-full px-3 py-2 rounded border border-neutral-800 bg-[#111827] text-[#E5E7EB] text-center";
-
 function fmtDate(d?: string | null) {
-  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
+  const loc = THEME.i18n?.dateLocale ?? "sk-SK";
+  return d ? new Date(d).toLocaleDateString(loc) : "—";
 }
 
 function SummaryRow({ k, v, extra }: { k: string; v: string; extra?: string }) {
@@ -66,7 +68,7 @@ export default function TableMetrics() {
 
   const [latest, setLatest] = useState<LatestResp["data"] | null>(null);
 
-  // VSTUPNÉ HODNOTY — už NEPREDVYPLŇUJEME poslednými hodnotami.
+  // VSTUPNÉ HODNOTY — neprefillujeme, placeholders berú z latest.
   const [m, setM] = useState<MetricState>({
     weight_kg: null,
     body_fat_pct: null,
@@ -75,7 +77,6 @@ export default function TableMetrics() {
     VO2Max_estimated: null,
   });
 
-  // Track “čo bolo menené”
   const [dirty, setDirty] = useState<DirtyMap>({
     weight_kg: false,
     body_fat_pct: false,
@@ -86,79 +87,51 @@ export default function TableMetrics() {
 
   const uidQS = userUid ? `?user_uid=${encodeURIComponent(userUid)}` : "";
 
-  // načítaj posledné hodnoty (len na sumár a placeholdery)
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(
-          `${API_URL}/profile/metrics/latest/${userId}${uidQS}`,
-          { cache: "no-store" }
-        );
-        const js: LatestResp = await r
-          .json()
-          .catch(() => ({ success: false, data: {} as any }));
+        const r = await fetch(`${API_URL}/profile/metrics/latest/${userId}${uidQS}`, { cache: "no-store" });
+        const js: LatestResp = await r.json().catch(() => ({ success: false, data: {} as any }));
         if (!alive) return;
         setLatest(js?.success ? js.data : null);
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, uidQS]);
 
-  // Placeholdery: preferuj latest → fallback default
   const ph = useMemo(() => {
     return {
       weight_kg:
-        (latest?.weight_kg?.value != null
-          ? String(latest.weight_kg.value)
-          : "80") + " kg",
+        (latest?.weight_kg?.value != null ? String(latest.weight_kg.value) : "80") + " kg",
       body_fat_pct:
-        (latest?.body_fat_pct?.value != null
-          ? String(latest.body_fat_pct.value)
-          : "12") + " %",
+        (latest?.body_fat_pct?.value != null ? String(latest.body_fat_pct.value) : "12") + " %",
       HR_max:
-        (latest?.HR_max?.value != null
-          ? String(latest.HR_max.value)
-          : "201") + " bpm",
+        (latest?.HR_max?.value != null ? String(latest.HR_max.value) : "201") + " bpm",
       VO2Max_measured:
-        (latest?.VO2Max_measured?.value != null
-          ? String(latest.VO2Max_measured.value)
-          : "46") + " mL/kg/min",
+        (latest?.VO2Max_measured?.value != null ? String(latest.VO2Max_measured.value) : "46") + " mL/kg/min",
       VO2Max_estimated:
-        (latest?.VO2Max_estimated?.value != null
-          ? String(latest.VO2Max_estimated.value)
-          : "48") + " mL/kg/min",
+        (latest?.VO2Max_estimated?.value != null ? String(latest.VO2Max_estimated.value) : "48") + " mL/kg/min",
     };
   }, [latest]);
 
   const bmiText = useMemo(() => {
     const bmi = latest?.BMI?.value;
-    return Number.isFinite(bmi as number)
-      ? (bmi as number).toFixed(1)
-      : "—";
+    return Number.isFinite(bmi as number) ? (bmi as number).toFixed(1) : "—";
   }, [latest]);
 
-  function onChangeNumber<K extends keyof MetricState>(
-    key: K,
-    raw: string
-  ) {
+  function onChangeNumber<K extends keyof MetricState>(key: K, raw: string) {
     setDirty((d) => ({ ...d, [key]: true }));
-    setM((s) => ({
-      ...s,
-      [key]: raw === "" ? null : Number(raw),
-    }));
+    setM((s) => ({ ...s, [key]: raw === "" ? null : Number(raw) }));
   }
 
   async function handleSave() {
     if (!userId) return;
 
-    // priprav entries len z “dirty” polí a len čísla
     const defs: Array<[keyof MetricState, string]> = [
       ["weight_kg", "kg"],
       ["body_fat_pct", "%"],
@@ -168,8 +141,8 @@ export default function TableMetrics() {
     ];
 
     const entries = defs
-      .filter(([k]) => dirty[k]) // iba to, čo si menil
-      .filter(([k]) => Number.isFinite(m[k] as number)) // a je to číslo
+      .filter(([k]) => dirty[k])
+      .filter(([k]) => Number.isFinite(m[k] as number))
       .map(([k, unit]) => ({
         metric: k,
         value_num: Number(m[k] as number),
@@ -188,36 +161,18 @@ export default function TableMetrics() {
       const res = await fetch(`${API_URL}/profile/metrics/${userId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_uid: userUid ?? undefined,
-          entries,
-        }),
+        body: JSON.stringify({ user_uid: userUid ?? undefined, entries }),
       });
       const js = await res.json();
       if (js?.success) {
         toast.success(`✅ Uložené (${js.inserted})`);
-        // refresh latest na sumár a placeholdery
-        const r2 = await fetch(
-          `${API_URL}/profile/metrics/latest/${userId}${uidQS}`,
-          { cache: "no-store" }
-        );
+        // refresh summary
+        const r2 = await fetch(`${API_URL}/profile/metrics/latest/${userId}${uidQS}`, { cache: "no-store" });
         const l2: LatestResp = await r2.json();
         if (l2?.success) setLatest(l2.data);
-        // resetni form (nech je čistý), dirty aj hodnoty
-        setM({
-          weight_kg: null,
-          body_fat_pct: null,
-          HR_max: null,
-          VO2Max_measured: null,
-          VO2Max_estimated: null,
-        });
-        setDirty({
-          weight_kg: false,
-          body_fat_pct: false,
-          HR_max: false,
-          VO2Max_measured: false,
-          VO2Max_estimated: false,
-        });
+        // reset form
+        setM({ weight_kg: null, body_fat_pct: null, HR_max: null, VO2Max_measured: null, VO2Max_estimated: null });
+        setDirty({ weight_kg: false, body_fat_pct: false, HR_max: false, VO2Max_measured: false, VO2Max_estimated: false });
         setOpen(false);
       } else {
         toast.error(`❌ Chyba: ${js?.detail || "unknown"}`);
@@ -230,13 +185,13 @@ export default function TableMetrics() {
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur p-4">
+    <div className={`${CARD} p-4`}>
       <div className="flex items-center justify-between">
         <h2 className="text-base md:text-lg font-semibold">Metrics</h2>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 transition"
+          className={ICON_BUTTON}
           aria-label={open ? "Zbaliť" : "Rozbaliť"}
           title={open ? "Zbaliť" : "Rozbaliť"}
         >
@@ -248,47 +203,27 @@ export default function TableMetrics() {
         <div className="mt-2">
           <SummaryRow
             k="Weight"
-            v={
-              Number.isFinite(latest?.weight_kg?.value as number)
-                ? `${latest?.weight_kg?.value} kg`
-                : "—"
-            }
+            v={Number.isFinite(latest?.weight_kg?.value as number) ? `${latest?.weight_kg?.value} kg` : "—"}
             extra={fmtDate(latest?.weight_kg?.updated_at)}
           />
           <SummaryRow
             k="Body fat %"
-            v={
-              Number.isFinite(latest?.body_fat_pct?.value as number)
-                ? `${latest?.body_fat_pct?.value}%`
-                : "—"
-            }
+            v={Number.isFinite(latest?.body_fat_pct?.value as number) ? `${latest?.body_fat_pct?.value}%` : "—"}
             extra={fmtDate(latest?.body_fat_pct?.updated_at)}
           />
           <SummaryRow
             k="HR max"
-            v={
-              Number.isFinite(latest?.HR_max?.value as number)
-                ? `${latest?.HR_max?.value} bpm`
-                : "—"
-            }
+            v={Number.isFinite(latest?.HR_max?.value as number) ? `${latest?.HR_max?.value} bpm` : "—"}
             extra={fmtDate(latest?.HR_max?.updated_at)}
           />
           <SummaryRow
             k="VO₂Max (measured)"
-            v={
-              Number.isFinite(latest?.VO2Max_measured?.value as number)
-                ? `${latest?.VO2Max_measured?.value} mL/kg/min`
-                : "—"
-            }
+            v={Number.isFinite(latest?.VO2Max_measured?.value as number) ? `${latest?.VO2Max_measured?.value} mL/kg/min` : "—"}
             extra={fmtDate(latest?.VO2Max_measured?.updated_at)}
           />
           <SummaryRow
             k="VO₂Max (estimated)"
-            v={
-              Number.isFinite(latest?.VO2Max_estimated?.value as number)
-                ? `${latest?.VO2Max_estimated?.value} mL/kg/min`
-                : "—"
-            }
+            v={Number.isFinite(latest?.VO2Max_estimated?.value as number) ? `${latest?.VO2Max_estimated?.value} mL/kg/min` : "—"}
             extra={fmtDate(latest?.VO2Max_estimated?.updated_at)}
           />
           <SummaryRow
@@ -300,7 +235,7 @@ export default function TableMetrics() {
       ) : (
         <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs opacity-70 mb-1">
+            <label className={`${labelClass} block mb-1`}>
               Weight <span className="opacity-60">(kg)</span>
             </label>
             <input
@@ -309,12 +244,12 @@ export default function TableMetrics() {
               value={m.weight_kg ?? ""}
               placeholder={ph.weight_kg}
               onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
-              className={NUM_INPUT}
+              className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
 
           <div>
-            <label className="block text-xs opacity-70 mb-1">
+            <label className={`${labelClass} block mb-1`}>
               Body fat <span className="opacity-60">(%)</span>
             </label>
             <input
@@ -323,12 +258,12 @@ export default function TableMetrics() {
               value={m.body_fat_pct ?? ""}
               placeholder={ph.body_fat_pct}
               onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
-              className={NUM_INPUT}
+              className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
 
           <div>
-            <label className="block text-xs opacity-70 mb-1">
+            <label className={`${labelClass} block mb-1`}>
               HR max <span className="opacity-60">(bpm)</span>
             </label>
             <input
@@ -337,41 +272,35 @@ export default function TableMetrics() {
               value={m.HR_max ?? ""}
               placeholder={ph.HR_max}
               onChange={(e) => onChangeNumber("HR_max", e.target.value)}
-              className={NUM_INPUT}
+              className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
 
           <div>
-            <label className="block text-xs opacity-70 mb-1">
-              VO₂Max (measured){" "}
-              <span className="opacity-60">(mL/kg/min)</span>
+            <label className={`${labelClass} block mb-1`}>
+              VO₂Max (measured) <span className="opacity-60">(mL/kg/min)</span>
             </label>
             <input
               type="number"
               inputMode="decimal"
               value={m.VO2Max_measured ?? ""}
               placeholder={ph.VO2Max_measured}
-              onChange={(e) =>
-                onChangeNumber("VO2Max_measured", e.target.value)
-              }
-              className={NUM_INPUT}
+              onChange={(e) => onChangeNumber("VO2Max_measured", e.target.value)}
+              className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
 
           <div>
-            <label className="block text-xs opacity-70 mb-1">
-              VO₂Max (estimated){" "}
-              <span className="opacity-60">(mL/kg/min)</span>
+            <label className={`${labelClass} block mb-1`}>
+              VO₂Max (estimated) <span className="opacity-60">(mL/kg/min)</span>
             </label>
             <input
               type="number"
               inputMode="decimal"
               value={m.VO2Max_estimated ?? ""}
               placeholder={ph.VO2Max_estimated}
-              onChange={(e) =>
-                onChangeNumber("VO2Max_estimated", e.target.value)
-              }
-              className={NUM_INPUT}
+              onChange={(e) => onChangeNumber("VO2Max_estimated", e.target.value)}
+              className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
 

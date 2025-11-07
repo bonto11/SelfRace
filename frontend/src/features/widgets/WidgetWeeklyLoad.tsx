@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
+import { THEME } from "@/shared/theme/tokens";
 
 function minToHM(totalMin: number) {
   const h = Math.floor(totalMin / 60);
@@ -13,6 +14,7 @@ function minToHM(totalMin: number) {
 }
 function fmtRange(s: string, e: string) {
   const sd = new Date(s), ed = new Date(e);
+  if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) return "—";
   const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
   const edD = ed.getDate(), edM = ed.getMonth() + 1;
   return sdM === edM
@@ -29,40 +31,53 @@ export default function WeeklyLoadWidget({
 }) {
   const { rolling7, loading } = useActivityData();
 
-  const r7 = rolling7("time"); // čas v minútach
-  const totalLast = r7.last.sum || 0;
-  const totalPrev = r7.prev.sum || 0;
+  // môže byť undefined, tak ošetri:
+  const r7 = rolling7?.("time"); // čas v minútach
+  const totalLast = Number(r7?.last?.sum ?? 0);
+  const totalPrev = Number(r7?.prev?.sum ?? 0);
 
   const { h, m } = useMemo(() => minToHM(totalLast), [totalLast]);
-  const diffPct = useMemo(
-    () => (totalPrev ? ((totalLast - totalPrev) / totalPrev) * 100 : 0),
-    [totalLast, totalPrev]
-  );
+
+  // ak nie je predchádzajúce okno, diffPct = null
+  const diffPct: number | null = useMemo(() => {
+    if (!totalPrev) return null;
+    return ((totalLast - totalPrev) / totalPrev) * 100;
+  }, [totalLast, totalPrev]);
+
+  // text + accent (THEME fallbacky)
+  const colNeutral = THEME?.chart?.neutral ?? "#64748B";
+  const colUp      = THEME?.chart?.positive ?? "#10B981";
+  const colWarn    = THEME?.chart?.warning  ?? "#F59E0B";
+  const colDown    = THEME?.chart?.cool     ?? "#3B82F6";
 
   let note = "—";
-  let accent = "bg-slate-700";
+  let accent: string | undefined = colNeutral;
+
   if (!loading) {
-    if (diffPct > 20) {
+    if (diffPct == null) {
+      note = "—";
+      accent = colNeutral;
+    } else if (diffPct > 20) {
       note = "↑ oproti predošlým 7 dňom výrazne viac";
-      accent = "bg-amber-500";
+      accent = colWarn; // jantár
     } else if (diffPct < -20) {
       note = "↓ výrazne menej než predchádzajúcich 7 dní";
-      accent = "bg-blue-700";
+      accent = colDown; // modrá
     } else {
       note = "≈ podobne ako predchádzajúcich 7 dní";
-      accent = "bg-emerald-600";
+      accent = colUp; // zelená
     }
   }
 
   const rangeTxt =
     r7?.last?.range?.start && r7?.last?.range?.end
       ? fmtRange(r7.last.range.start, r7.last.range.end)
-      : "";
+      : "—";
 
   return (
     <WidgetCard
       title={title}
-      accent={accent}
+      accent={accent}                 // ← prijíma hex aj Tailwind class
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
@@ -83,8 +98,7 @@ export default function WeeklyLoadWidget({
           </div>
 
           <div className="opacity-80 text-sm mt-1">
-            {note}
-            {rangeTxt ? ` • ${rangeTxt}` : ""}
+            {note} {rangeTxt && rangeTxt !== "—" ? ` • ${rangeTxt}` : ""}
           </div>
         </>
       )}

@@ -1,9 +1,10 @@
 // src/features/Toolbars/Sidebar.tsx
-'use client';
-import { useEffect, useRef } from 'react';
-import { useSidebar } from '@/features/Toolbars/hooks/useSidebar';
-import { useBodyScrollLock } from '@/features/Toolbars/hooks/useBodyScrollLock';
-import NavLink from './NavLink';
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useSidebar } from "@/features/Toolbars/hooks/useSidebar";
+import { useBodyScrollLock } from "@/features/Toolbars/hooks/useBodyScrollLock";
+import NavLink from "./NavLink";
 
 export default function Sidebar() {
   const { open, setOpen } = useSidebar();
@@ -15,13 +16,13 @@ export default function Sidebar() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === "Escape") setOpen(false);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [open, setOpen]);
 
-  // mini focus trap – po otvorení zaostri na panel
+  // focus panel po otvorení
   useEffect(() => {
     if (open) panelRef.current?.focus();
   }, [open]);
@@ -33,7 +34,7 @@ export default function Sidebar() {
         <button
           aria-label="Close menu overlay"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-[50] bg-black/50 lg:hidden"
         />
       )}
 
@@ -42,34 +43,47 @@ export default function Sidebar() {
         ref={panelRef}
         tabIndex={-1}
         aria-label="Primary"
-        aria-hidden={false}
         className={[
-          'fixed z-50 inset-y-0 left-0 w-[280px]',
-          'bg-neutral-900 text-neutral-100',
-          'transform transition-transform duration-200',
-          open ? 'translate-x-0' : '-translate-x-full',
-          'lg:static lg:translate-x-0 lg:z-auto lg:h-dvh lg:border-r lg:border-neutral-800',
-        ].join(' ')}
-        onClick={() => setOpen(false)} // zatvor po kliknutí v mobile
+          "fixed inset-y-0 left-0 w-[280px]",
+          "bg-neutral-900 text-neutral-100",
+          "transform transition-transform duration-200 will-change-transform",
+          "z-[55]",
+          open ? "translate-x-0" : "-translate-x-full",
+          "lg:static lg:z-auto lg:h-dvh lg:border-r lg:border-neutral-800 lg:translate-x-0",
+        ].join(" ")}
       >
         <div className="p-4 flex items-center justify-between">
           <div className="font-bold">SelfRace</div>
-          {/* Close button (mobile only) */}
+          {/* Close (mobile) */}
           <button
+            type="button"
             className="lg:hidden inline-flex items-center justify-center w-8 h-8 rounded hover:bg-neutral-800"
             aria-label="Close menu"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+            onClick={() => setOpen(false)}
           >
             ✕
           </button>
         </div>
 
-        <ul className="space-y-1 px-2 pb-4">
-          <li><NavLink href="/dashboard"  onClick={() => setOpen(false)}>Dashboard</NavLink></li>
-          <li><NavLink href="/activities" onClick={() => setOpen(false)}>Activities</NavLink></li>
-          <li><NavLink href="/recovery"   onClick={() => setOpen(false)}>Recovery</NavLink></li>
-          <li><NavLink href="/coach"      onClick={() => setOpen(false)}>AI Coach</NavLink></li>
-          <li><NavLink href="/profile"    onClick={() => setOpen(false)}>Profile</NavLink></li>
+        <ul
+          className="space-y-1 px-2 pb-4"
+          onClick={() => setOpen(false)} // zatvára len pri kliknutí na link
+        >
+          <li>
+            <NavLink href="/dashboard">Dashboard</NavLink>
+          </li>
+          <li>
+            <NavLink href="/activities">Activities</NavLink>
+          </li>
+          <li>
+            <NavLink href="/recovery">Recovery</NavLink>
+          </li>
+          <li>
+            <NavLink href="/coach">AI Coach</NavLink>
+          </li>
+          <li>
+            <NavLink href="/profile">Profile</NavLink>
+          </li>
         </ul>
       </nav>
     </>

@@ -5,11 +5,13 @@ import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
+import {
+  CALENDAR_CONTAINER,
+  CALENDAR_DAY_CELL,
+  NO_X_OVERFLOW,
+} from "@/shared/ui/classes";
 
-const ActivityTable = dynamic(
-  () => import("@/shared/components/ActivityTable"),
-  { ssr: false }
-);
+const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -32,7 +34,8 @@ type DayCellData = {
 function daysInMonth(y: number, m0: number) { return new Date(y, m0 + 1, 0).getDate(); }
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 const iso  = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
-const startWeekday = (y: number, m0: number) => (new Date(y, m0, 1).getDay() + 6) % 7; // Po=0
+// Po=0
+const startWeekday = (y: number, m0: number) => (new Date(y, m0, 1).getDay() + 6) % 7;
 
 function useMonthActivities(year: number, month0: number) {
   const { rows } = useActivityData();
@@ -45,7 +48,8 @@ function useMonthActivities(year: number, month0: number) {
     const grid: Record<string, DayCellData> = {};
 
     for (let i = 0; i < totalCells; i++) {
-      const d = new Date(firstCell); d.setDate(firstCell.getDate() + i);
+      const d = new Date(firstCell);
+      d.setDate(firstCell.getDate() + i);
       const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
       const inMonth = d.getMonth() === month0;
       grid[k] = { iso: k, inMonth, day: inMonth ? d.getDate() : null, items: [] };
@@ -86,8 +90,7 @@ function DayCell({
       onClick={() => onSelect(cell.iso)}
       className={[
         "px-2 py-1.5 text-left w-full focus:outline-none",
-        "rounded-xl border border-white/10 overflow-hidden",
-        "bg-white/5 dark:bg-black/20",
+        CALENDAR_DAY_CELL,
         "min-h-[56px]",
         isSelected ? "ring-2 ring-emerald-500/60" : "",
         "hover:bg-white/10",
@@ -142,7 +145,8 @@ export default function ActivitiesCalendar({
     const offset = startWeekday(year, month0);
     const firstCell = new Date(year, month0, 1 - offset);
     for (let i = 0; i < 42; i++) {
-      const d = new Date(firstCell); d.setDate(firstCell.getDate() + i);
+      const d = new Date(firstCell);
+      d.setDate(firstCell.getDate() + i);
       const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
       out.push(
         map[k] ?? {
@@ -170,21 +174,41 @@ export default function ActivitiesCalendar({
   });
 
   return (
-    <div className="space-y-3">
-      {/* HLAVIČKA */}
-      <div className="p-3 rounded-2xl shadow-lg border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur">
+    <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
+      {/* HLAVIČKA + mriežka */}
+      <div className={[CALENDAR_CONTAINER, "p-3"].join(" ")}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
           <div className="flex items-center gap-2 translate-y-[2px]">
-            <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>‹</Button>
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
-            <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>›</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              circle
+              aria-label="Predchádzajúci mesiac"
+              onClick={() => jump(-1)}
+            >
+              ‹
+            </Button>
+            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">
+              {label}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              circle
+              aria-label="Nasledujúci mesiac"
+              onClick={() => jump(1)}
+            >
+              ›
+            </Button>
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
-          {["p","u","s","š","p","s","n"].map((d) => (
-            <div key={d} className="text-center">{d}</div>
+          {["p", "u", "s", "š", "p", "s", "n"].map((d) => (
+            <div key={d} className="text-center">
+              {d}
+            </div>
           ))}
         </div>
 
@@ -194,20 +218,22 @@ export default function ActivitiesCalendar({
               key={c.iso}
               cell={c}
               isSelected={selectedIso === c.iso}
-              onSelect={(iso) => setSelectedIso((cur) => (cur === iso ? null : iso))}
+              onSelect={(iso) =>
+                setSelectedIso((cur) => (cur === iso ? null : iso))
+              }
             />
           ))}
         </div>
       </div>
 
-      {/* DETAIL pod kalendárom – nechá titulok pekne odsadený a karty od strán */}
+      {/* DETAIL pod kalendárom */}
       {selectedIso && (
         <div className="mt-3 ml-1">
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
-            variant="calendar"            // ➜ layout & odsadenia pre kalendár
-            suppressItemHeaderIfSingleDay // ➜ neskryje meta, ale skryje duplicitný dátum v každej karte
+            variant="calendar"            // náš ActivitySingle už vie skryť dátum v tomto variante
+            suppressItemHeaderIfSingleDay
           />
         </div>
       )}

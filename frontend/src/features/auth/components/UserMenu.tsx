@@ -2,25 +2,32 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { signOut } from "@/shared/utils/signOut"
+import { signOut } from "@/shared/utils/signOut";
+import {
+  AVATAR_BUTTON,
+  DROPDOWN_PANEL,
+  DROPDOWN_DIVIDER,
+  DROPDOWN_ITEM,
+  DROPDOWN_ITEM_DANGER,
+} from "@/shared/ui/classes";
 
 type LocalUser = { email: string; name: string; avatarUrl: string | null };
 
 export default function UserMenu() {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"reset" | "signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // načítaj profil zo servera (z Supabase cookies)
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const r = await fetch("/api/auth/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
         const j = await r.json();
         if (!alive) return;
         if (j?.ok) setMe(j.user as LocalUser);
@@ -28,7 +35,9 @@ export default function UserMenu() {
         /* ignore */
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // close on outside/Esc
@@ -65,39 +74,58 @@ export default function UserMenu() {
 
   return (
     <div ref={boxRef} className="relative">
-      <button className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10"
-              onClick={() => setOpen(v => !v)}>
+      <button
+        className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
         {me?.avatarUrl ? (
-          <Image src={me.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
+          <Image
+            src={me.avatarUrl}
+            alt="avatar"
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
         ) : (
-          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold">
-            {initials}
-          </div>
+          <div className={AVATAR_BUTTON}>{initials}</div>
         )}
         <span className="text-sm hidden sm:block">{me?.email ?? ""}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-md border bg-background shadow-lg z-50">
-          <div className="px-3 py-2 text-sm border-b">
-            <div className="font-medium">{me?.name || "User"}</div>
-            <div className="opacity-70 truncate">{me?.email}</div>
+        <div className="absolute right-0 mt-2 w-64 z-50">
+          <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
+            {/* header sekcia */}
+            <div className="px-3 py-2 text-sm border-b border-white/10">
+              <div className="font-medium">{me?.name || "User"}</div>
+              <div className="opacity-70 truncate">{me?.email}</div>
+            </div>
+
+            {/* položky menu – vertikálne pod sebou */}
+            <nav className="py-1 flex flex-col gap-1">
+              <a
+                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                href="/forgot-password"
+              >
+                Zmeniť heslo (e-mailom)
+              </a>
+              <a
+                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                href="/profile"
+              >
+                Change email
+              </a>
+              <button
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+                onClick={handleSignOut}
+                disabled={busy === "signout"}
+              >
+                {busy === "signout" ? "Signing out…" : "Sign out"}
+              </button>
+            </nav>
           </div>
-          <nav className="py-1">
-            <a className="block px-3 py-2 text-sm hover:bg-white/10" href="/forgot-password">
-              Zmeniť heslo (e-mailom)
-            </a>
-            <a className="block px-3 py-2 text-sm hover:bg-white/10" href="/profile">
-              Change email
-            </a>
-            <button
-              className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-              onClick={handleSignOut}
-              disabled={busy === "signout"}
-            >
-              {busy === "signout" ? "Signing out…" : "Sign out"}
-            </button>
-          </nav>
         </div>
       )}
     </div>

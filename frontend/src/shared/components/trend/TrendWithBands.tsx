@@ -1,4 +1,3 @@
-// src/components/common/TrendWithBands.tsx
 "use client";
 
 import { Line } from "react-chartjs-2";
@@ -9,17 +8,19 @@ import {
 } from "chart.js";
 import annotationPlugin from "chartjs-plugin-annotation";
 import { useMemo } from "react";
+import { SURFACE_SUBCARD } from "@/shared/ui/classes";
+import { CHART_TREND } from "@/shared/ui/classes";
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin
 );
 
 export type Point = { date: string; value: number | null };
-export type Band  = { 
-  label: string; 
-  min: number | null; 
-  max: number | null; 
-  color: string 
+export type Band  = {
+  label: string;
+  min: number | null;
+  max: number | null;
+  color: string; // hex / rgba / hsl
 };
 
 interface Props {
@@ -30,7 +31,7 @@ interface Props {
   lineColor?: string;
   ySuggestedMin?: number;
   ySuggestedMax?: number;
-  /** ✅ nové: umožní vlastné formátovanie Y-osi (napr. min→HH:MM) */
+  /** vlastný formatter Y-osi (napr. s → HH:MM) */
   yTickFormatter?: (v: number) => string;
 }
 
@@ -39,7 +40,7 @@ export default function TrendWithBands({
   points,
   bands = [],
   unit = "",
-  lineColor = "cyan",
+  lineColor,
   ySuggestedMin,
   ySuggestedMax,
   yTickFormatter,
@@ -52,11 +53,15 @@ export default function TrendWithBands({
 
   const annotations = useMemo(() => {
     return bands.reduce((acc: any, b, idx) => {
+      // priesvitnosť pásma – pridáme alpha, ak je to hex bez alpha
+      const bg = b.color.startsWith("#") && b.color.length === 7
+        ? b.color + CHART_TREND.bandAlphaHex
+        : b.color;
       acc["band" + idx] = {
         type: "box",
         yMin: b.min ?? -Infinity,
         yMax: b.max ?? Infinity,
-        backgroundColor: b.color + "33",
+        backgroundColor: bg,
         borderWidth: 0,
       };
       return acc;
@@ -68,9 +73,11 @@ export default function TrendWithBands({
     datasets: [{
       label: title,
       data: dataVals,
-      borderColor: lineColor,
-      backgroundColor: lineColor,
+      borderColor: lineColor ?? CHART_TREND.lineColor,
+      backgroundColor: lineColor ?? CHART_TREND.lineColor,
       tension: 0.2,
+      pointRadius: 0,
+      borderWidth: 2,
     }],
   }), [labels, dataVals, lineColor, title]);
 
@@ -91,6 +98,10 @@ export default function TrendWithBands({
       },
     },
     scales: {
+      x: {
+        ticks: { maxRotation: 0 },
+        grid: { display: false },
+      },
       y: {
         beginAtZero: false,
         suggestedMin: ySuggestedMin,
@@ -102,12 +113,13 @@ export default function TrendWithBands({
             return unit ? `${num} ${unit}` : `${num}`;
           },
         },
+        grid: { color: "rgba(255,255,255,.12)" },
       },
     },
   }), [annotations, unit, yTickFormatter, ySuggestedMin, ySuggestedMax]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow mt-4">
+    <div className={`${SURFACE_SUBCARD} p-4 ${CHART_TREND.containerClass}`}>
       <h2 className="text-lg font-bold mb-2">{title}</h2>
       <Line data={data} options={options} />
     </div>

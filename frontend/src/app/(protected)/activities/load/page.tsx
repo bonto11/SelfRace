@@ -1,16 +1,15 @@
-// src/app/(protected)/activities/detail/page.tsx
+// src/app/(protected)/activities/load/page.tsx
 "use client";
 
 import { useCallback, useState } from "react";
-import TrendWeeklyLoad, {
-  WeekPick,
-} from "@/features/activity/components/TrendWeeklyLoad";
+import TrendWeeklyLoad from "@/features/activity/components/TrendWeeklyLoad";
 import ActivityTable from "@/shared/components/ActivityTable";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
+import type { WeekPick } from "@/features/activity/utils/activity";
 
 type Range = { start?: string; end?: string };
 
-export default function ActivitiesDetailPage() {
+export default function Page() {
   const [range, setRange] = useState<Range>({});
   const [sport, setSport] = useState<string>("all");
 
@@ -22,7 +21,7 @@ export default function ActivitiesDetailPage() {
   return (
     <>
       {/* Sticky header s Back */}
-      <ButtonBack title="Detailný trend" />
+      <ButtonBack title="Load trend" />
 
       {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">

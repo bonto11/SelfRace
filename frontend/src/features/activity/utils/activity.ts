@@ -25,6 +25,7 @@ export interface ActivityDetailExtra {
   splits: any[];
 }
 
+
 /** Týždenná agregácia pre grafy a summary */
 export type Metric = "km" | "time" | "trimp";
 export interface WeekRow {
@@ -337,3 +338,8 @@ function stddev(a: number[], m: number) {
   return Math.sqrt(v);
 }
 const round2 = (x: number) => Math.round(x * 100) / 100;
+
+export type ComponentVariant = "activity" | "calendar" | "pb" | "plan";
+
+export type WeekPick = { week: string; start: string; end: string; sport: string };
+

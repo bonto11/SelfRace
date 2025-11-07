@@ -46,8 +46,14 @@ export const THEME = {
     essential : '#EF4444', // červená
     obese     : '#EF4444', // červená
 
+    positive  : '#00E676', // “↑ OK” – zhodné s excellent/athletes
+    warning   : '#F59E0B', // pozor – jantár (match so strength)
+    cool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
+
     linePrimary: '#FFFFFF', //biela
-    lineSecondary: '#FDE047', //ZLTA?
+    lineSecondary: '#FDE047', //zlta
+    lineBase: '#4ADE8059',
+    bandFill: "rgba(16,185,129,0.15)",
     grid:        '#FFFFFF12',
     gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,

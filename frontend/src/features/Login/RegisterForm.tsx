@@ -1,71 +1,68 @@
+// src/features/auth/RegisterForm.tsx
 "use client";
 
 import { useState } from "react";
 import { supabase } from "@/shared/hooks/supabaseClient";
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
+import { CARD } from "@/shared/ui/classes";
+import { THEME } from "@/shared/theme/tokens";
 
 export default function RegisterForm() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setError(error.message);
     } else {
-      // Redirect alebo správa o úspechu
-      window.location.href = "/dashboard";
+      window.location.assign("/dashboard");
     }
-
     setLoading(false);
   };
 
   return (
-    <form onSubmit={handleRegister} className="max-w-sm mx-auto p-4 space-y-4">
-      <h1 className="text-xl font-bold">Register</h1>
+    <form onSubmit={handleRegister} className={`${CARD} max-w-sm mx-auto p-4`}>
+      <h1 className="text-base md:text-lg font-semibold mb-3">Register</h1>
 
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        className="w-full border p-2 rounded"
-      />
+      <div className="space-y-3">
+        <TextField
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.currentTarget.value)}
+          placeholder="Email"
+          required
+        />
+        <TextField
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.currentTarget.value)}
+          placeholder="Heslo"
+          required
+        />
 
-      <input
-        type="password"
-        placeholder="Heslo"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        className="w-full border p-2 rounded"
-      />
+        {error && (
+          <p className="text-sm text-red-400">{error}</p>
+        )}
 
-      {error && <p className="text-red-500">{error}</p>}
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? "Registrujem..." : "Register"}
+        </Button>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-green-600 text-white p-2 rounded"
-      >
-        {loading ? "Registrujem..." : "Register"}
-      </button>
-      <p className="text-sm text-center">
-        Už máš účet?{" "}
-        <a href="/login" className="text-blue-600">
-          Prihlás sa
-        </a>
-      </p>
+        <p className="text-xs text-center opacity-80">
+          Už máš účet?{" "}
+          <a href="/login" style={{ color: THEME.chart.linePrimary }}>
+            Prihlás sa
+          </a>
+        </p>
+      </div>
     </form>
   );
 }

@@ -1,13 +1,12 @@
-'use client';
-import { useEffect } from 'react';
+// src/features/Toolbars/hooks/useBodyScrollLock.ts
+import { useEffect } from "react";
 
-export function useBodyScrollLock(locked: boolean) {
+export function useBodyScrollLock(lock: boolean) {
   useEffect(() => {
-    if (!locked) return;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    if (lock) document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [locked]);
+  }, [lock]);
 }

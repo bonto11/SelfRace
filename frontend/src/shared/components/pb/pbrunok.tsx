@@ -37,7 +37,7 @@ const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 export default function PBRun() {
   const { userId } = useUserId();
-  const { favM, setFavM } = useFavoritePBRun(); // perzistencia -> DB + storage (hook to rieši)
+  const { favM, setFavM } = useFavoritePBRun();
   const favoriteM = favM ?? 5000;
   const isTouch = useIsTouch();
 
@@ -206,7 +206,6 @@ export default function PBRun() {
                 ? secToHHMMSS(b.best_time_s)
                 : b.time_str ?? "—";
             const dist = distanceLabel(b.distance_m, "run");
-            const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
@@ -220,14 +219,6 @@ export default function PBRun() {
               });
             };
             const doDelete = () => handleDelete(b.distance_m);
-            const toggleFav = async () => {
-              try {
-                await setFavM(b.distance_m);
-                toast.success(`★ Favorite: ${dist}`);
-              } catch (e: any) {
-                toast.error(String(e?.message ?? e));
-              }
-            };
 
             if (isTouch) {
               return (
@@ -244,13 +235,11 @@ export default function PBRun() {
                       name: dist,
                       dateIso: isoDateOnly(b.achieved_at),
                       sport: "run",
-                      timeStr: timeDB,
-                      distanceStr: dist.replace("— ", ""),
+                      timeStr: timeDB, // veľký čas z DB
+                      distanceStr: dist.replace("— ", ""), // nech je “Distance 5 km”
                       activityId: actId ?? undefined,
                     }}
                     defaultOpen={false}
-                    isFavorite={isFav}
-                    onToggleFavorite={toggleFav}
                   />
                 </SwipeRow>
               );
@@ -272,8 +261,6 @@ export default function PBRun() {
                 defaultOpen={false}
                 onEdit={doEdit}
                 onDelete={doDelete}
-                isFavorite={isFav}
-                onToggleFavorite={toggleFav}
               />
             );
           })}
@@ -285,7 +272,7 @@ export default function PBRun() {
   );
 }
 
-/* --- SwipeRow (touch events – pripojené správne) --- */
+/* --- SwipeRow (ponechané) --- */
 function SwipeRow({
   children,
   onEdit,
@@ -304,40 +291,29 @@ function SwipeRow({
   const ACTION_W = 168;
   const SNAP_OPEN = -ACTION_W;
   const SNAP_CLOSED = 0;
-  const THRESHOLD = 8;
 
-  const clamp = (v: number) => Math.max(SNAP_OPEN, Math.min(SNAP_CLOSED, v));
-  const snap = (v: number) => setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (x: number) =>
+    setTx(Math.abs(x) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
-  function onTouchStart(e: React.TouchEvent) {
+  const onTouchStart = (e: React.TouchEvent) => {
     if (!enableSwipe) return;
     startX.current = e.touches[0].clientX;
     startTx.current = tx;
-  }
-  function onTouchMove(e: React.TouchEvent) {
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
     if (!enableSwipe || startX.current == null) return;
     const dx = e.touches[0].clientX - startX.current;
-    if (Math.abs(dx) < THRESHOLD) return;
-    // blokuj horizontálne scrollovanie počas drag-u
-    e.preventDefault();
-    setTx(clamp(startTx.current + dx));
-  }
-  function onTouchEnd() {
+    const next = Math.max(SNAP_OPEN, Math.min(0, startTx.current + dx));
+    setTx(next);
+  };
+  const onTouchEnd = () => {
     if (!enableSwipe) return;
     snap(tx);
     startX.current = null;
-  }
+  };
 
   return (
-    <li
-      className={["relative w-full overflow-hidden select-none", NO_X].join(" ")}
-      style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-    >
-      {/* akcie vpravo */}
+    <li className={["relative w-full overflow-hidden", NO_X].join(" ")}>
       <div className="absolute inset-y-0 right-0 z-0 flex items-center gap-2 pr-3 pl-2">
         <button
           className="h-9 px-3 min-w-[72px] rounded-full text-sm font-semibold
@@ -360,10 +336,16 @@ function SwipeRow({
         </button>
       </div>
 
-      {/* obsah – posúvaný horizontálne */}
       <div
-        className="relative z-10 w-full box-border will-change-transform"
-        style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
+        className="relative z-10 w-full box-border"
+        style={
+          enableSwipe
+            ? {
+                transform: `translateX(${tx}px)`,
+                transition: "transform 160ms ease-out",
+              }
+            : undefined
+        }
       >
         {children}
       </div>

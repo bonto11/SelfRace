@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
+import { CALENDAR_DAY_CELL, NO_X_OVERFLOW } from "@/shared/ui/classes";
 
 const SPORT_COLORS: Record<string, string> = {
   run: (THEME as any)?.sport?.run ?? THEME.chart.run,
@@ -61,7 +62,7 @@ export default function WidgetWeekActivities({ openHref = "/calendar", perDayLim
       });
     }
     return map;
-  }, [selectByRange, startIso, endIso]);
+  }, [selectByRange, startIso, endIso, monday]);
 
   const weekLabel =
     `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
@@ -69,13 +70,20 @@ export default function WidgetWeekActivities({ openHref = "/calendar", perDayLim
 
   const handleOpen = () => router.push(openHref);
 
+  // accent cez token s fallbackom (WidgetCard vie prijať aj priamu farbu)
+  const accent =
+    (THEME as any)?.accent?.neutral ??
+    (THEME as any)?.accent?.primary ??
+    "#64748B"; // slate-500 fallback
+
   return (
     <WidgetCard
       title={`Týždenná agenda • ${weekLabel}`}
       onOpen={handleOpen}
       interactive
-      accent="bg-slate-700"
+      accent={accent}
       minH={160}
+      innerClassName={NO_X_OVERFLOW}
     >
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
         {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
@@ -103,22 +111,17 @@ export default function WidgetWeekActivities({ openHref = "/calendar", perDayLim
             <div
               key={key}
               className={[
-                "rounded-2xl border border-white/10 bg-white/5 dark:bg-black/20",
-                "px-2 py-1.5 select-none min-h-[64px]", // vyššie: miesto na číslo + doty
+                CALENDAR_DAY_CELL,
+                "px-2 py-1.5 select-none min-h-[64px]",
                 isToday ? "ring-2 ring-emerald-500/60" : "",
+                "hover:bg-white/10",
               ].join(" ")}
             >
-              {/* NOVÝ LAYOUT: stĺpec – číslo hore vľavo, doty pod ním */}
               <div className="flex flex-col">
-                {/* Číslo dňa bez akéhokoľvek pozadia / chipu */}
-                <span
-                  className="day-num text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5"
-                  style={{ background: "transparent", borderRadius: 0, boxShadow: "none" }}
-                >
+                <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5">
                   {d.getDate()}
                 </span>
 
-                {/* Sport doty pod číslom; wrap keď je ich viac */}
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
                   {shown.map((it) => (
                     <span

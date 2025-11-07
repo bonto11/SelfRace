@@ -21,6 +21,7 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
 import { CARD } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
+import { SCROLL_X } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
@@ -36,21 +37,14 @@ type Row = {
   end?: string;
 };
 
-export default function TrendPareto8020({
-  onPickWeek,
-}: {
-  onPickWeek?: (w: ParetoWeekPick) => void;
-}) {
+export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: ParetoWeekPick) => void }) {
   const { userId } = useUserId();
-  const [lookback, setLookback] = useState<4 | 8 | 12>(4);
+  const [lookback, setLookback] = useState<4 | 8 | 12>(12);
   const [loading, setLoading] = useState(false);
 
-  // multi-select športov; default = BE default whitelist
-  const [selectedSports, setSelectedSports] = useState<string[]>(
-    Array.from(PARETO_DEFAULT_SET)
-  );
-
+  const [selectedSports, setSelectedSports] = useState<string[]>(Array.from(PARETO_DEFAULT_SET));
   const sportParam = useMemo(() => sportsToCSV(selectedSports), [selectedSports]);
+
   const [rows, setRows] = useState<Row[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
@@ -79,9 +73,7 @@ export default function TrendPareto8020({
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, lookback, sportParam]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
@@ -113,13 +105,12 @@ export default function TrendPareto8020({
           borderDash: [4, 4],
           order: 2,
         },
-        // referencie
         {
           type: "line",
           label: "80% ref",
           data: ref80,
-          borderColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
-          backgroundColor: THEME.chart?.ref80 ?? "rgba(74,222,128,0.35)",
+          borderColor: THEME.chart.ref80,
+          backgroundColor: THEME.chart.ref80,
           borderWidth: 1,
           pointRadius: 0,
           borderDash: [6, 6],
@@ -130,8 +121,8 @@ export default function TrendPareto8020({
           type: "line",
           label: "20% ref",
           data: ref20,
-          borderColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
-          backgroundColor: THEME.chart?.ref20 ?? "rgba(248,113,113,0.35)",
+          borderColor: THEME.chart.ref20,
+          backgroundColor: THEME.chart.ref20,
           borderWidth: 1,
           pointRadius: 0,
           borderDash: [6, 6],
@@ -148,18 +139,21 @@ export default function TrendPareto8020({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
+      // malé vnútorné rezervy iba pre osi/legendu, nie „vzduch“ okolo
+      layout: { padding: { top: 6, right: 8, bottom: 10, left: 10 } },
       plugins: {
         legend: {
           position: THEME.chart.legendPosition,
           labels: {
             usePointStyle: true,
             pointStyle: "circle",
-            padding: 8,
+            padding: 10,
             boxWidth: 6,
             boxHeight: 6,
           },
         },
         tooltip: {
+          padding: 8,
           callbacks: {
             label: (ctx) =>
               `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
@@ -167,9 +161,7 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(
-                r.easy_min || 0
-              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
         },
@@ -179,9 +171,10 @@ export default function TrendPareto8020({
           beginAtZero: true,
           max: 100,
           title: { display: true, text: "%" },
-          grid: { color: THEME.chart.grid },
+          grid: { color: THEME.chart.grid, drawBorder: false },
+          ticks: { padding: 6 },
         },
-        x: { ticks: { maxRotation: 0 }, grid: { color: THEME.chart.gridSoft } },
+        x: { ticks: { maxRotation: 0, padding: 6 }, grid: { color: THEME.chart.gridSoft, drawBorder: false } },
       },
       onClick: (_evt, elements) => {
         const idx = elements?.[0]?.index;
@@ -189,17 +182,16 @@ export default function TrendPareto8020({
         setPickedIdx(idx);
         const r = rows[idx];
         if (!r) return;
-        const csv = sportsToCSV(selectedSports);
-        onPickWeek?.({ start: r.start, end: r.end, sport: csv });
+        onPickWeek?.({ start: r.start, end: r.end, sport: sportsToCSV(selectedSports) });
       },
     }),
     [rows, selectedSports, onPickWeek]
   );
 
-  const minWidth = Math.max(360, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
-  const picked = pickedIdx != null ? rows[pickedIdx] : null;
+  // rovnaký scroll pattern ako TrendWeeklyLoad
+  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const heightPx = THEME.chart.weeklyHeightCompact ?? 200;
 
-  // športové toggle-y → použijeme tvoj Button (menej krikľavé farby)
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
     if (!n || n === "all") return;
@@ -211,87 +203,67 @@ export default function TrendPareto8020({
     });
   };
 
-  // reset na default, ak by si vyprázdnil výber
   useEffect(() => {
-    if (selectedSports.length === 0) {
-      setSelectedSports(Array.from(PARETO_DEFAULT_SET));
-    }
+    if (selectedSports.length === 0) setSelectedSports(Array.from(PARETO_DEFAULT_SET));
   }, [selectedSports.length]);
 
   return (
     <div className={`${CARD} relative`}>
-      {/* header */}
-      <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-lg font-bold">Trend 80/20</h2>
-        <div className="ml-auto flex items-center gap-2">
-          <select
-            className={`${inputClass} h-8 text-xs w-[130px]`}
-            value={lookback}
-            onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
-            title="Lookback"
-          >
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
+      {/* HEADER (má štandardný padding) */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold">Trend 80/20</h2>
+          <div className="ml-auto">
+            <select
+              className={`${inputClass} h-8 text-xs w-[130px]`}
+              value={lookback}
+              onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
+              title="Lookback"
+            >
+              <option value={4}>4 týždne</option>
+              <option value={8}>8 týždňov</option>
+              <option value={12}>12 týždňov</option>
+            </select>
+          </div>
+        </div>
+
+        {/* športový multi-select */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {SPORT_OPTIONS.map((opt) => {
+            const norm = normalizeSport(opt.value) ?? "";
+            const active = selectedSports.map(normalizeSport).includes(norm);
+            const isDefault = isInParetoDefault(norm);
+            return (
+              <Button
+                key={opt.value}
+                size="xs"
+                variant={active ? "secondary" : "ghost"}
+                onClick={() => toggleSport(opt.value)}
+                title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
+              >
+                {opt.label}
+                {isDefault ? "" : " *"}
+              </Button>
+            );
+          })}
         </div>
       </div>
 
-      {/* športový multi-select */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {SPORT_OPTIONS.map((opt) => {
-          const norm = normalizeSport(opt.value) ?? "";
-          const active = selectedSports.map(normalizeSport).includes(norm);
-          const isDefault = isInParetoDefault(norm);
-
-          return (
-            <Button
-              key={opt.value}
-              size="xs"
-              variant={active ? "secondary" : "ghost"}
-              onClick={() => toggleSport(opt.value)}
-              title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
-            >
-              {opt.label}
-              {isDefault ? "" : " *"}
-            </Button>
-          );
-        })}
-      </div>
-
-      {/* graf */}
+      {/* BODY (graf) – bez paddingu, full-width, so scrollom) */}
       <div
-        className="overflow-x-auto rounded-md"
-        style={{ WebkitOverflowScrolling: "touch" }}
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div style={{ height: 240 }}>
-          {loading ? (
-            <div className="w-full h-full flex items-center justify-center">
+        <div className="relative" style={{ height: heightPx }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
             </div>
-          ) : (
-            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <LineChart type="line" data={data} options={options} />
-            </div>
           )}
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <LineChart type="line" data={data} options={options} />
+          </div>
         </div>
-      </div>
-
-      {/* detail vybraného týždňa */}
-      <div className="mt-2 text-xs opacity-80">
-        {picked ? (
-          <>
-            <div className="font-semibold">{picked.label}</div>
-            <div>
-              Easy: {fmtSecondsHMS(picked.easy_min || 0)} (
-              {Math.round(picked.easy_pct)}%) {" • "}
-              Hard: {fmtSecondsHMS(picked.hard_min || 0)} (
-              {Math.round(picked.hard_pct)}%)
-            </div>
-          </>
-        ) : (
-          <div>Klikni na bod v grafe pre detail týždňa.</div>
-        )}
       </div>
     </div>
   );

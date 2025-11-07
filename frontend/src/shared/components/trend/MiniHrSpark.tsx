@@ -1,9 +1,9 @@
-// src/features/activity/components/MiniHrSpark.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS } from "@/shared/utils/format";
+import { CHART_SPARK } from "@/shared/ui/classes";
 
 type Props = { activityId: number; height?: number };
 
@@ -22,27 +22,23 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
       setYs(s.hr || []);
       setDur(s.duration_s || 0);
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [activityId, getStreams]);
 
   const [minHR, maxHR] = useMemo(() => {
     const vals = ys.filter((v): v is number => Number.isFinite(v as number));
     if (!vals.length) return [0, 0];
-    const lo = Math.min(...vals),
-      hi = Math.max(...vals);
-    return [lo, hi];
+    return [Math.min(...vals), Math.max(...vals)];
   }, [ys]);
 
   const path = useMemo(() => {
     if (!xs.length || !ys.length || maxHR <= minHR) return "";
-    const w = 300; // kreslíme do šírky 300, potom natiahneme viewBox
+    const w = CHART_SPARK.width;
     const h = height;
     const n = Math.min(xs.length, ys.length);
-    const x0 = xs[0],
-      x1 = xs[n - 1],
-      span = Math.max(1, x1 - x0);
+    const x0 = xs[0];
+    const x1 = xs[n - 1];
+    const span = Math.max(1, x1 - x0);
     const sx = (t: number) => ((t - x0) / span) * w;
     const sy = (hr: number) => {
       const p = (hr - minHR) / (maxHR - minHR);
@@ -61,9 +57,7 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
   }, [xs, ys, minHR, maxHR, height]);
 
   if (!xs.length || !ys.length) {
-    return (
-      <div className="text-xs opacity-70">HR stream nie je k dispozícii.</div>
-    );
+    return <div className={CHART_SPARK.emptyTextClass}>HR stream nie je k dispozícii.</div>;
   }
 
   return (
@@ -71,36 +65,39 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
       <svg
         width="100%"
         height={height}
-        viewBox={`0 0 300 ${height}`}
+        viewBox={`0 0 ${CHART_SPARK.width} ${height}`}
         preserveAspectRatio="none"
+        role="img"
+        aria-label="HR sparkline"
       >
         <defs>
           <linearGradient id="hrLine" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#22c55e" />
-            <stop offset="100%" stopColor="#ef4444" />
+            <stop offset="0%" stopColor={CHART_SPARK.gradientTop} />
+            <stop offset="100%" stopColor={CHART_SPARK.gradientBottom} />
           </linearGradient>
         </defs>
+
         {/* baseline */}
         <rect
           x="0"
           y={height - 1}
-          width="300"
+          width={CHART_SPARK.width}
           height="1"
-          fill="rgba(255,255,255,0.1)"
+          fill={CHART_SPARK.baseline}
         />
+
         {/* HR path */}
         <path
           d={path}
           fill="none"
           stroke="url(#hrLine)"
-          strokeWidth="2"
+          strokeWidth={CHART_SPARK.lineWidth}
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <div className="text-xs opacity-75 whitespace-nowrap">
-        <div>
-          HR: {minHR}–{maxHR} bpm
-        </div>
+
+      <div className={CHART_SPARK.infoTextClass}>
+        <div>HR: {minHR}–{maxHR} bpm</div>
         <div>Čas: {fmtSecondsHMS(dur)}</div>
       </div>
     </div>

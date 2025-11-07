@@ -3,154 +3,158 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import type { ChartData } from "chart.js";
-import Link from "next/link";
+import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { minutesToHHMM, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/shared/components/ui/LoadingSpinner"; // NEW
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { CARD, SCROLL_X } from "@/shared/ui/classes";
+import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
+// util: HEX -> rgba s alfou (lokálne, bez zásahu do iných súborov)
+function hexToRgba(hex?: string, alpha = 0.15) {
+  if (!hex) return `rgba(255,255,255,${alpha})`;
+  const h = hex.replace("#", "");
+  const v = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+  const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export default function DetailSleepDuration() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(2); // 2/4/8/12
-  const [loading, setLoading] = useState<boolean>(false); // NEW
+  const [weeks, setWeeks] = useState<number>(2);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // zapni spinner pri zmene lookbacku
-  useEffect(() => {
-    setLoading(true);
-  }, [weeks]);
+  const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
-  // vždy orež na posledných N dní z provideru
+  // farby jedine z THEME
+  const COLOR = {
+    main: THEME.chart?.linePrimary ?? "#FFFFFF",
+    bandFill: hexToRgba(THEME.chart?.positive, 0.15),
+  };
+
+  useEffect(() => { setLoading(true); }, [weeks]);
+
   const days = weeks * 7;
   const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  // vypni spinner po prepočte dát (na najbližší frame)
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  // osi + hodnoty
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
   const sleepMin = useMemo(
-    () =>
-      rows.map((r) =>
-        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : NaN
-      ),
+    () => rows.map((r) => (typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : NaN)),
     [rows]
   );
 
-  // fixné odporúčané pásmo 7–9h (420–540 min)
+  // odporúčané pásmo 7–9h
   const lowerBand = useMemo(() => rows.map(() => 420), [rows]);
   const upperBand = useMemo(() => rows.map(() => 540), [rows]);
 
-  // komentáre
   const comments = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rows) if (r.comments) m.set(r.date, r.comments);
     return m;
   }, [rows]);
 
-  // datasets
-  const data: ChartData<"line", number[], string> = useMemo(() => {
-    const bandLower = {
-      type: "line" as const,
-      label: "7–9h (odporúčané) – spodná",
-      data: lowerBand,
-      borderColor: "rgba(16,185,129,0)",
-      backgroundColor: "rgba(16,185,129,0.15)",
-      pointRadius: 0,
-      borderWidth: 0,
-      tension: 0.2,
-      order: 1,
-    };
-    const bandUpper = {
-      type: "line" as const,
-      label: "7–9h (odporúčané) – horná",
-      data: upperBand,
-      borderColor: "rgba(16,185,129,0)",
-      backgroundColor: "rgba(16,185,129,0.15)",
-      pointRadius: 0,
-      borderWidth: 0,
-      tension: 0.2,
-      fill: "-1" as const,
-      order: 1,
-    };
-    const sleepLine = {
-      type: "line" as const,
-      label: "Sleep duration",
-      data: sleepMin,
-      borderColor: "#8b5cf6",
-      backgroundColor: "#8b5cf6",
-      pointRadius: 3,
-      borderWidth: 2,
-      tension: 0.2,
-      spanGaps: true,
-      order: 2,
-    };
+  const data: ChartData<"line", number[], string> = useMemo(() => ({
+    labels: labelsISO,
+    datasets: [
+      {
+        type: "line",
+        label: "7–9h (spodná)",
+        data: lowerBand,
+        borderColor: "rgba(0,0,0,0)",
+        backgroundColor: COLOR.bandFill,
+        pointRadius: 0,
+        borderWidth: 0,
+        tension: 0.2,
+        order: 1,
+      },
+      {
+        type: "line",
+        label: "7–9h (horná)",
+        data: upperBand,
+        borderColor: "rgba(0,0,0,0)",
+        backgroundColor: COLOR.bandFill,
+        pointRadius: 0,
+        borderWidth: 0,
+        tension: 0.2,
+        fill: "-1",
+        order: 1,
+      },
+      {
+        type: "line",
+        label: "Sleep duration",
+        data: sleepMin,
+        borderColor: COLOR.main,
+        backgroundColor: COLOR.main,
+        pointRadius: 3,
+        borderWidth: 2,
+        tension: 0.2,
+        spanGaps: true,
+        order: 2,
+      },
+    ],
+  }), [labelsISO, lowerBand, upperBand, sleepMin, COLOR.bandFill, COLOR.main]);
 
-    return { labels: labelsISO, datasets: [bandLower, bandUpper, sleepLine] };
-  }, [labelsISO, lowerBand, upperBand, sleepMin]);
-
-  // options – spoločné (x: len pondelky, 55°; y: HH:MM)
-  const options = useMemo(
+  const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
         yTitle: "min",
         yTickFormatter: (v: number) => minutesToHHMM(v),
-        tooltipTitleForIndex: (i) => {
-          const iso = labelsISO[i] ?? "";
-          return new Date(iso + "T00:00:00").toLocaleDateString("sk-SK");
-        },
+        tooltipTitleForIndex: (i) =>
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"),
         tooltipLabelForItem: (ctx): string => {
           const idx = ctx.dataIndex ?? 0;
           const lines: string[] = [];
           if (ctx.datasetIndex === 2) {
             const v = sleepMin[idx];
-            if (Number.isFinite(v))
-              lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v)) lines.push(`Spánok: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) lines.push(...wrapToLines(c, 44));
           }
-          if (!lines.length)
-            return `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
-          return lines.join("\n");
+          return lines.length ? lines.join("\n") : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
         },
-        tooltipFilter: (item) => item.datasetIndex === 2, // len hlavná krivka
+        tooltipFilter: (item) => item.datasetIndex === 2,
       }),
     [labelsISO, sleepMin, comments]
   );
 
+  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-semibold">Detail — Sleep Duration</h2>
-        <div className="flex items-center gap-2">
-          <select
-            value={weeks}
-            onChange={(e) => setWeeks(Number(e.target.value))}
-            className="px-2 py-1 rounded bg-gray-700 text-sm"
-          >
-            <option value={2}>2 týždne</option>
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
-        </div>
+    <div className={`${CARD} relative`}>
+      {/* HEADER */}
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">Sleep Duration</h2>
+        <select
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value))}
+          className={`${inputClass} h-8 text-xs w-[132px]`}
+        >
+          <option value={2}>2 týždne</option>
+          <option value={4}>4 týždne</option>
+          <option value={8}>8 týždňov</option>
+          <option value={12}>12 týždňov</option>
+        </select>
       </div>
 
-      <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
-        {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-            <LoadingSpinner size="trend" />
+      {/* GRAPH BODY */}
+      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          {loading && <div className="absolute inset-0 grid place-items-center z-10 bg-black/10"><LoadingSpinner size="trend" /></div>}
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <Line data={data} options={options} />
           </div>
-        )}
-        <Line data={data} options={options} />
+        </div>
       </div>
     </div>
   );

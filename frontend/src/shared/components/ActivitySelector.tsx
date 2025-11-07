@@ -1,8 +1,10 @@
+// src/shared/components/ActivitySelector.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { fetchActivitiesAround } from "@/shared/api/activities";
 import type { MiniActivity, SportFE } from "@/shared/types/activities";
+import { FIELD_BASE, FIELD_DISABLED, FIELD_HELP } from "@/shared/ui/classes";
 
 type Props = {
   userId: number | null;
@@ -64,15 +66,12 @@ export default function ActivitySelector({
           if (hit) {
             onPicked(hit);
           } else {
-            // ⚠️ fallback objekt, typovo korektný podľa tvojho MiniActivity
             const phantom: MiniActivity = {
               id: Number(value),
               name: "(Unknown activity)",
               sport: (sports?.[0] ?? "run") as SportFE,
               start_date: `${dateIso}T00:00:00Z`,
               distance_km: null,
-              // pridaj sem ďalšie voliteľné polia, ak ich tvoj typ má
-              // duration_min: null,
             };
             onPicked(phantom);
           }
@@ -98,7 +97,10 @@ export default function ActivitySelector({
   return (
     <div className={className}>
       <select
-        className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full"
+        className={[
+          FIELD_BASE,
+          disabled ? FIELD_DISABLED : "",
+        ].join(" ")}
         value={value === "" ? "" : String(value)}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
@@ -126,7 +128,7 @@ export default function ActivitySelector({
       </select>
 
       {!disabled && (
-        <div className="mt-1 text-xs opacity-70">
+        <div className={FIELD_HELP}>
           Načítané podľa dátumu (±{deltaDays} dňa) a športu {sports?.join(", ") ?? "run,mixed"}.
         </div>
       )}

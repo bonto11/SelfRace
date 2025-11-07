@@ -5,13 +5,17 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/shared/hooks/supabaseClient";
 
+// UI systém
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
+import { SURFACE_SUBCARD } from "@/shared/ui/classes";
+
 type Props = { open: boolean; onClose: () => void };
 
 function validatePassword(p: string) {
   if (p.length < 8) return "Min. 8 znakov.";
   if (!/[0-9]/.test(p)) return "Aspoň 1 číslica.";
-  if (!/[!@#$%^&*()_\-+=\[{\]}|\\:;\"'<>,.?/]/.test(p))
-    return "Aspoň 1 špeciálny znak.";
+  if (!/[!@#$%^&*()_\-+=\[{\]}|\\:;\"'<>,.?/]/.test(p)) return "Aspoň 1 špeciálny znak.";
   return null;
 }
 
@@ -25,23 +29,20 @@ export default function ChangePasswordModal({ open, onClose }: Props) {
 
   const ref = useRef<HTMLDivElement>(null);
 
-  // zisti, či je auth session (inak vypíš hlášku)
+  // zisti session
   useEffect(() => {
     if (!open) return;
     let unsub = () => {};
     (async () => {
       const { data } = await supabase.auth.getSession();
       setHasSession(!!data.session);
-
-      const sub = supabase.auth.onAuthStateChange((_e, session) => {
-        setHasSession(!!session);
-      });
+      const sub = supabase.auth.onAuthStateChange((_e, session) => setHasSession(!!session));
       unsub = () => sub.data.subscription.unsubscribe();
     })();
     return () => unsub();
   }, [open]);
 
-  // zavri ESC a klik mimo
+  // ESC + klik mimo
   useEffect(() => {
     if (!open) return;
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -71,10 +72,7 @@ export default function ChangePasswordModal({ open, onClose }: Props) {
     try {
       const { error } = await supabase.auth.updateUser({ password: pwd });
       if (error) throw error;
-
-      // odhlás serverovo (cookies) aby middleware okamžite uvidel logout
       await fetch("/api/auth/signout", { method: "POST" });
-
       onClose();
       router.replace("/signin");
     } catch (e: any) {
@@ -85,48 +83,39 @@ export default function ChangePasswordModal({ open, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4">
-      <div ref={ref} className="w-full max-w-md bg-gray-800 rounded shadow p-4">
+    <div className="fixed inset-0 z-[60] bg-black/60 grid place-items-center p-4">
+      <div ref={ref} className={`${SURFACE_SUBCARD} w-full max-w-md p-4`}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Zmeniť heslo</h3>
+          <h3 className="text-base md:text-lg font-semibold">Zmeniť heslo</h3>
           <button onClick={onClose} className="text-sm opacity-70 hover:opacity-100">✕</button>
         </div>
 
         <form onSubmit={handleSave} className="space-y-3">
-          <input
+          <TextField
             type="password"
             placeholder="Nové heslo"
             value={pwd}
-            onChange={(e) => setPwd(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+            onChange={(e) => setPwd((e.target as HTMLInputElement).value)}
           />
-          <input
+          <TextField
             type="password"
             placeholder="Zopakuj nové heslo"
             value={pwd2}
-            onChange={(e) => setPwd2(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2"
+            onChange={(e) => setPwd2((e.target as HTMLInputElement).value)}
           />
 
           {!hasSession && (
-            <div className="text-sm text-amber-400">
-              Auth session missing!
-            </div>
+            <div className="text-xs text-amber-400">Auth session missing!</div>
           )}
-
-          {err && <div className="text-sm text-red-400">✖ {err}</div>}
+          {err && <div className="text-sm text-rose-400">✖ {err}</div>}
 
           <div className="flex gap-2 justify-end pt-2">
-            <button type="button" onClick={onClose} className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600">
+            <Button type="button" variant="secondary" size="sm" onClick={onClose}>
               Zavrieť
-            </button>
-            <button
-              type="submit"
-              disabled={busy || !hasSession}
-              className="px-3 py-2 rounded bg-green-600 hover:bg-green-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" variant="success" size="sm" disabled={busy || !hasSession}>
               {busy ? "Ukladám…" : "Uložiť"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

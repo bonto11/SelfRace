@@ -1,8 +1,15 @@
-// src/shared/components/ui/Toast.tsx
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/shared/ui";
+import {
+  TOAST_LAYER,
+  TOAST_STACK,
+  TOAST_PILL_BASE,
+  TOAST_SUCCESS,
+  TOAST_ERROR,
+  TOAST_INFO,
+} from "@/shared/ui/classes";
 
 type ToastType = "success" | "error" | "info";
 type Phase = "in" | "hold" | "out";
@@ -36,27 +43,19 @@ export default function ToastHost() {
 
   const show = (type: ToastType, text: string, ttl = 2800) => {
     const id = Date.now() + Math.random();
-    // 1) mount v stave "in"
     setItems(arr => [...arr, { id, type, text, ttl, phase: "in" }]);
-
-    // 2) po vstupe smoothe prepneme do "hold"
     window.setTimeout(() => {
       setItems(arr => arr.map(x => x.id === id ? { ...x, phase: "hold" } : x));
     }, 20);
-
-    // 3) ~300ms pred koncom spustíme "out"
     const outAt = Math.max(600, ttl - 360);
     window.setTimeout(() => {
       setItems(arr => arr.map(x => x.id === id ? { ...x, phase: "out" } : x));
     }, outAt);
-
-    // 4) po dobe TTL odmount
     window.setTimeout(() => {
       setItems(arr => arr.filter(x => x.id !== id));
     }, ttl);
   };
 
-  // počúvaj globálny bus
   React.useEffect(() => {
     const onBus = (e: Event) => {
       const { type, text, ttl } = (e as BusEvent).detail;
@@ -67,32 +66,16 @@ export default function ToastHost() {
   }, []);
 
   const node = (
-    <div
-      className={cx(
-        // celá overlay vrstva
-        "pointer-events-none fixed inset-0 z-[60]",
-        // kontajner pri vrchu: ~pod headerom, centrovaný
-        "flex justify-center pt-[12vh]" // cca výška 8/10 zhora ako si chcel
-      )}
-    >
-      <div className="w-full flex flex-col items-center gap-2">
+    <div className={TOAST_LAYER}>
+      <div className={TOAST_STACK}>
         {items.map(t => (
           <div
             key={t.id}
             className={cx(
-              "pointer-events-auto select-none",
-              // šírka: mobil ~full - 24px; desktop fixná kapsula
-              "w-[calc(100vw-24px)] sm:w-[520px]",
-              // vizuál „iOS pill“
-              "rounded-[22px] sm:rounded-[22px] px-4 py-3",
-              "backdrop-blur-md shadow-lg border",
-              // farby podľa typu
-              t.type === "success" && "bg-emerald-600/95 text-white border-emerald-500/50",
-              t.type === "error" && "bg-red-600/95 text-white border-red-500/50",
-              t.type === "info" && "bg-neutral-800/95 text-white border-neutral-700/60",
-              // typografia
-              "text-[15px] leading-snug font-medium",
-              // animácia: sprava -> stred -> doprava
+              TOAST_PILL_BASE,
+              t.type === "success" && TOAST_SUCCESS,
+              t.type === "error" && TOAST_ERROR,
+              t.type === "info" && TOAST_INFO,
               t.phase === "in"   && "toast-enter",
               t.phase === "hold" && "toast-hold",
               t.phase === "out"  && "toast-exit"

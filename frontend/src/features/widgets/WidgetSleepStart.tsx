@@ -15,15 +15,8 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
 const TOL_MIN = 30;
 
-export default function WidgetSleepStart({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
-  const { rows, loading: loadingRaw } = useRecoveryData() as {
-    rows: any[];
-    loading?: boolean;
-  };
+export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () => void }) {
+  const { rows, loading: loadingRaw } = useRecoveryData() as { rows: any[]; loading?: boolean };
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
@@ -44,11 +37,8 @@ export default function WidgetSleepStart({
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA
-    ? "—"
-    : Number.isFinite(latest as number)
-    ? minutesToHHMM(latest as number)
-    : "—";
+  const valueText =
+    showNA ? "—" : Number.isFinite(latest as number) ? minutesToHHMM(latest as number) : "—";
   const note = showNA ? freshness.message : cmp.note;
 
   const accent = loading || showNA ? "bg-slate-700" : cmp.accent;

@@ -1,3 +1,4 @@
+// src/app/(protected)/ClientProtectedShell.tsx
 "use client";
 
 import type { ReactNode } from "react";
@@ -10,7 +11,7 @@ import UserPrefsBootstrapper from "@/shared/bootstrap/userPrefsBootstrap";
 import ToastHost from "@/shared/components/ui/Toast";
 import ConfirmHost from "@/shared/components/ui/Confirm";
 
-// >>> tvoje dátové providery (teraz sú globálne pre protected sekciu)
+// dátové providery (globálne pre protected sekciu)
 import { CoachDataProvider } from "@/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/shared/components/dataProviders/RecoveryDataProvider";
@@ -18,18 +19,22 @@ import { RecoveryDataProvider } from "@/shared/components/dataProviders/Recovery
 export default function ClientProtectedShell({ children }: { children: ReactNode }) {
   return (
     <>
-      {/* bootstrap preferencií po prihlásení (klientsky) */}
+      {/* bootstrap preferencií po prihlásení (client) */}
       <UserPrefsBootstrapper />
 
-      {/* ľahký UI provider */}
+      {/* UI provider (no-op wrapper kvôli kompatibilite) */}
       <SidebarProvider>
         {/* dátové providery – stable defaults pre dashboard */}
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
               <div className="min-h-dvh grid lg:grid-cols-[280px_1fr] bg-neutral-950 text-neutral-100">
+                {/* SIDEBAR (desktop aj off-canvas kontajner) */}
                 <Sidebar />
+
+                {/* CONTENT */}
                 <div className="min-h-dvh flex flex-col">
+                  {/* TOPBAR */}
                   <header className="sticky top-0 z-30 h-14 border-b border-neutral-800 flex items-center justify-between px-3 lg:px-4 gap-3 bg-neutral-950/90 backdrop-blur [padding-top:env(safe-area-inset-top)]">
                     <div className="flex items-center gap-2">
                       <HeaderToggle />
@@ -46,7 +51,7 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
         </CoachDataProvider>
       </SidebarProvider>
 
-      {/* Globálny toast/confirm pre protected sekciu (stačí jedna inštancia) */}
+      {/* Globálny toast/confirm pre protected sekciu */}
       <ToastHost />
       <ConfirmHost />
     </>
