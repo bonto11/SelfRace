@@ -1,25 +1,26 @@
 // src/features/Toolbars/Topbar.tsx
-'use client';
+"use client";
 
+import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
 import UserMenu from "@/features/auth/components/UserMenu";
-import { TOPBAR_DESKTOP, BRAND_TEXT } from "@/shared/ui/classes";
 
 type TopbarUser = { email?: string | null } | null;
 
 export default function Topbar({ user }: { user?: TopbarUser }) {
   return (
-    <div className={TOPBAR_DESKTOP}>
-      {/* brand / názov */}
-      <h1 className={BRAND_TEXT}>SelfRace</h1>
+    <div className="flex items-center gap-3 px-3 sm:px-6 py-2.5 border-b border-gray-800 bg-gray-900 sticky top-0 z-[57]">
+      {/* mobile menu button */}
+      <HeaderToggle />
 
-      {/* voliteľný email (vľavo, tichý) */}
+      {/* brand / názov */}
+      <h1 className="text-base sm:text-lg font-bold">SelfRace</h1>
+
+      {/* voliteľne email (menšie, vľavo) */}
       {user?.email && (
-        <span className="text-sm opacity-70 hidden sm:inline">
-          {user.email}
-        </span>
+        <span className="text-sm opacity-70 hidden sm:inline">{user.email}</span>
       )}
 
-      {/* avatar + menu doprava */}
+      {/* avatar menu vpravo */}
       <div className="ml-auto">
         <UserMenu />
       </div>
