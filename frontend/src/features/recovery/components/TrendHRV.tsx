@@ -15,17 +15,6 @@ import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
-// identická utilita z DetailRHR – nič nemením
-function hexToRgba(hex?: string, alpha = 0.15) {
-  if (!hex) return `rgba(255,255,255,${alpha})`;
-  const h = hex.replace("#", "");
-  const bigint = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
@@ -34,9 +23,8 @@ export default function TrendHRV() {
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
   const COLOR = {
-    main: THEME.chart?.linePrimary,
-    baseline: THEME.chart?.lineBase,
-    bandFill: hexToRgba(THEME.chart?.positive, 0.15),
+    main: THEME.chart?.linePrimary ?? "#FFFFFF",
+    bandFill: THEME.chart?.bandFill ?? "rgba(16,185,129,0.15)",
   };
 
   useEffect(() => { setLoading(true); }, [weeks]);
@@ -49,19 +37,19 @@ export default function TrendHRV() {
     return () => cancelAnimationFrame(t);
   }, [rows]);
 
-  // #### DÁTA – iba sem siaham: beriem HRV namiesto RHR
   const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
 
+  // HRV dáta
   const hrv = useMemo(
     () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : NaN)),
     [rows]
   );
 
+  // Baseline (len na výpočet pásma ±5 %, čiaru nekreslíme)
   const baselineArr = useMemo(
     () => rollingMean(rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)), 14),
     [rows]
   );
-
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
   const comments = useMemo(() => {
@@ -70,12 +58,12 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
-  // #### DATASETS – názvy a texty nechávam ROVNAKÉ ako v RHR, len hodnoty sú z HRV
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
+        // zelené pásmo okolo baseline
         {
           type: "line" as const,
           label: "Baseline −5%",
@@ -99,69 +87,54 @@ export default function TrendHRV() {
           fill: "-1" as const,
           order: 1,
         },
+        // hlavná línia (bez baseline čiary)
         {
           type: "line" as const,
-          label: "Baseline (14d priemer)",
-          data: toNum(baselineArr),
-          borderColor: COLOR.baseline,
-          backgroundColor: COLOR.baseline,
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.25,
-          spanGaps: true,
-          order: 2,
-        },
-        {
-          type: "line" as const,
-          label: "Resting HR", // zámerne ponechané rovnaké označenie/text
-          data: hrv,            // ← ale sú to HRV hodnoty
+          label: "HRV (RMSSD)",
+          data: hrv,
           borderColor: COLOR.main,
           backgroundColor: COLOR.main,
           pointRadius: 3,
           borderWidth: 2,
           tension: 0.2,
           spanGaps: true,
-          order: 3,
+          order: 2,
         },
       ],
     };
-  }, [labelsISO, lower, upper, baselineArr, hrv, COLOR.bandFill, COLOR.baseline, COLOR.main]);
+  }, [labelsISO, lower, upper, hrv, COLOR.bandFill, COLOR.main]);
 
-  // #### OPTIONS – texty/jednotky nechávam z RHR (yTitle "bpm", tooltip texty atď.)
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
-        yTitle: "bpm", // zámerne NEMENÍM
+        yTitle: "ms",
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const out: string[] = [];
-          if (ctx.datasetIndex === 3) {
+          if (ctx.datasetIndex === 2) {
             const v = hrv[idx];
-            if (Number.isFinite(v)) out.push(`RHR: ${Math.round(v as number)} bpm`); // ponechaný text z RHR
+            if (Number.isFinite(v)) out.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
           }
-          if (ctx.datasetIndex === 2) {
-            const b = baselineArr[idx];
-            if (Number.isFinite(b as number)) out.push(`Baseline: ${Math.round(b as number)} bpm`);
-          }
           return out.length ? out : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
         },
-        tooltipFilter: (item) => item.datasetIndex === 2 || item.datasetIndex === 3,
+        // tooltip iba pre hlavnú líniu
+        tooltipFilter: (item) => item.datasetIndex === 2,
       }),
-    [labelsISO, hrv, baselineArr, comments]
+    [labelsISO, hrv, comments]
   );
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
     <div className={`${CARD} relative`}>
-      {/* HEADER – názov/ovládanie ponechané identické */}
+      {/* HEADER – rovnaké wrappy/paddingy ako ostatné trendy */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Resting HR</h2>
+        <h2 className="text-lg font-bold">HR Variability</h2>
         <select
           value={weeks}
           onChange={(e) => setWeeks(Number(e.target.value))}
@@ -174,7 +147,7 @@ export default function TrendHRV() {
         </select>
       </div>
 
-      {/* BODY – flush + horizontal scroll (1:1) */}
+      {/* BODY – flush + horizontal scroll */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
