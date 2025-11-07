@@ -10,8 +10,7 @@ import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X, PAD } from "@/shared/ui/classes";
-import { inputClass } from "@/shared/ui";
+import { CARD, PAD, SCROLL_X, inputClass } from "@/shared/ui/classes";
 
 ensureChartJSRegistered();
 
@@ -20,8 +19,10 @@ export default function TrendHRV() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // presne ako WeeklyLoad: šírka grafu sa riadi len cez minWidth
-  const DAY_PX_PER_LABEL = 26;
+  // ❗ Použi centrálne px/label; keď chcem menšie, uberiem 20 %
+  const PX_PER_LABEL = Math.round((THEME.chart?.pxPerLabel ?? 26) * 0.8); // 20 → ~21
+  // ❗ Polovičný min-guard (bol 360) – teraz 180
+  const MIN_CANVAS_W = 180;
 
   useEffect(() => { setLoading(true); }, [weeks]);
 
@@ -50,7 +51,6 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
-  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
@@ -107,7 +107,6 @@ export default function TrendHRV() {
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
-  // options – zhodné rozloženie legendy/top paddingy ako WeeklyLoad
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
@@ -136,17 +135,19 @@ export default function TrendHRV() {
 
     return {
       ...base,
-      maintainAspectRatio: false,
-      layout: { padding: { bottom: 12 } },
+      // ❗ úplne minimálne okraje grafu – nech je „flush“
+      layout: { padding: { left: 4, right: 6, top: 6, bottom: 10 } },
       plugins: {
         ...base.plugins,
         legend: {
           ...(base.plugins?.legend ?? {}),
-          position: THEME.chart.legendPosition,
+          position: "top",
+          align: "start",
           labels: {
+            ...(base.plugins?.legend?.labels ?? {}),
+            padding: 8,
             usePointStyle: true,
             pointStyle: "circle",
-            padding: 10,
             boxWidth: 6,
             boxHeight: 6,
           },
@@ -155,18 +156,19 @@ export default function TrendHRV() {
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // šírka grafu = počet dní × krok (ako pri WeeklyLoad)
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+  // ❗ menšia min-width + menší krok na deň
+  const minWidth = Math.max(MIN_CANVAS_W, Math.round(labelsISO.length * PX_PER_LABEL));
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER – presne rovnaké paddings */}
-      <div className={`${PAD.head} flex flex-wrap items-center justify-between gap-2`}>
-        <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
+    <div className={`${CARD} relative min-w-0 text-left`}>
+      {/* HEADER – výhradne z PAD.head, žiadne lokálne px-4/pt-4 */}
+      <div className={`${PAD.head} flex flex-wrap items-start gap-2`}>
+        <h2 className="text-lg font-bold mr-2">Detail — HRV (RMSSD)</h2>
         <select
           value={weeks}
           onChange={(e) => setWeeks(Number(e.target.value))}
-          className={`${inputClass} h-8 text-xs w-[130px] shrink-0`}
+          // ❗ fix šírka menšia, shrink-0 aby netlačilo layout
+          className={`${inputClass} h-8 text-xs w-[96px] sm:w-[112px] md:w-[128px] shrink-0 self-start`}
         >
           <option value={2}>2 týždne</option>
           <option value={4}>4 týždne</option>
@@ -175,11 +177,8 @@ export default function TrendHRV() {
         </select>
       </div>
 
-      {/* BODY – flush + scroll */}
-      <div
-        className={`${SCROLL_X}`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
+      {/* BODY – flush + horizontálny scroll */}
+      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -191,6 +190,9 @@ export default function TrendHRV() {
           </div>
         </div>
       </div>
+
+      {/* FOOTER – jemný padding z PAD.foot (ak chceš) */}
+      {/* <div className={`${PAD.foot} text-xs opacity-80`}>Tip: rozsah je rolovateľný.</div> */}
     </div>
   );
 }
