@@ -1,4 +1,4 @@
-// src/app/(protected)/activities/detail/page.tsx
+// src/app/(protected)/activities/load/page.tsx
 "use client";
 
 import { useCallback, useState } from "react";

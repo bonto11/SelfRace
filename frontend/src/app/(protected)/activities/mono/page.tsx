@@ -1,4 +1,4 @@
-// src/app/(protected)/activities/detail/page.tsx
+// src/app/(protected)/activities/mono/page.tsx
 "use client";
 
 import { useCallback, useState } from "react";
@@ -21,7 +21,7 @@ export default function Page() {
   return (
     <>
       {/* Sticky header s Back */}
-      <ButtonBack title="Load trend" />
+      <ButtonBack title="Monotomy & Strain trend" />
 
       {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">

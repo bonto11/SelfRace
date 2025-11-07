@@ -40,6 +40,7 @@ export const FLUSH_DETAIL =
 
 /* ====== GLOBAL SAFETY (limit horizontálneho tečenia) =================== */
 export const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
+
 /** Kompat alias (nech nie je dvojaká definícia) */
 export const NO_X = NO_X_OVERFLOW;
 export const FLEX_SHRINK_FIX = "min-w-0"; // použi na flex-containery s textom

@@ -30,12 +30,12 @@ type WeekRow = {
 };
 
 const C = {
-  run: "#22D3EE",
-  ride: "#A78BFA",
-  strength: "#F59E0B",
-  mixed: "#34D399",
-  skate: "#60A5FA",
-  other: "#9CA3AF",
+  run: THEME.chart.run,
+  ride: THEME.chart.ride,
+  strength: THEME.chart.strength,
+  mixed: THEME.chart.mixed,
+  skate: THEME.chart.skate,
+  other: THEME.chart.other,
 };
 
 function rangeLabel(start?: string, end?: string) {
