@@ -24,13 +24,20 @@ export default function UserMenu() {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const r = await fetch("/api/auth/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
         const j = await r.json();
         if (!alive) return;
         if (j?.ok) setMe(j.user as LocalUser);
-      } catch {/* ignore */}
+      } catch {
+        /* ignore */
+      }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // close on outside/Esc
@@ -69,12 +76,18 @@ export default function UserMenu() {
     <div ref={boxRef} className="relative">
       <button
         className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         {me?.avatarUrl ? (
-          <Image src={me.avatarUrl} alt="avatar" width={28} height={28} className="rounded-full" />
+          <Image
+            src={me.avatarUrl}
+            alt="avatar"
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
         ) : (
           <div className={AVATAR_BUTTON}>{initials}</div>
         )}
@@ -82,29 +95,37 @@ export default function UserMenu() {
       </button>
 
       {open && (
-        <div className={DROPDOWN_PANEL} role="menu">
-          <div className="px-2 py-2 text-sm border-b border-white/10">
-            <div className="font-medium">{me?.name || "User"}</div>
-            <div className="opacity-70 truncate">{me?.email}</div>
-          </div>
+        <div className="absolute right-0 mt-2 w-64 z-50">
+          <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
+            {/* header sekcia */}
+            <div className="px-3 py-2 text-sm border-b border-white/10">
+              <div className="font-medium">{me?.name || "User"}</div>
+              <div className="opacity-70 truncate">{me?.email}</div>
+            </div>
 
-          <nav className="py-1">
-            <a className={DROPDOWN_ITEM} href="/forgot-password" role="menuitem">
-              Zmeniť heslo (e-mailom)
-            </a>
-            <a className={DROPDOWN_ITEM} href="/profile" role="menuitem">
-              Change email
-            </a>
-            <div className={DROPDOWN_DIVIDER} />
-            <button
-              className={DROPDOWN_ITEM_DANGER + " w-full"}
-              onClick={handleSignOut}
-              disabled={busy === "signout"}
-              role="menuitem"
-            >
-              {busy === "signout" ? "Signing out…" : "Sign out"}
-            </button>
-          </nav>
+            {/* položky menu – vertikálne pod sebou */}
+            <nav className="py-1 flex flex-col gap-1">
+              <a
+                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                href="/forgot-password"
+              >
+                Zmeniť heslo (e-mailom)
+              </a>
+              <a
+                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                href="/profile"
+              >
+                Change email
+              </a>
+              <button
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+                onClick={handleSignOut}
+                disabled={busy === "signout"}
+              >
+                {busy === "signout" ? "Signing out…" : "Sign out"}
+              </button>
+            </nav>
+          </div>
         </div>
       )}
     </div>

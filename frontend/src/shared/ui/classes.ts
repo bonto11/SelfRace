@@ -283,3 +283,10 @@ export const SCROLL_X = [
 
 /** Jemný vizuál priamo pre oblasť grafu (ak chceš zaoblenie, bez vlastného paddingu) */
 export const CHART_TIGHT = "rounded-md bg-transparent";
+
+// --- NAVIGATION (nové) ---
+export const NAV_ITEM = "block px-3 py-2 rounded-lg hover:bg-white/10";
+export const NAV_ITEM_ACTIVE = "bg-white/10 text-white";
+
+// --- ICON BUTTON (mobilné toggly – rozšírenie) ---
+export const HAMBURGER_BTN = ICON_BUTTON + " w-10 h-10 -ml-2";

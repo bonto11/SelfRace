@@ -4,6 +4,12 @@ import { useEffect, useRef } from 'react';
 import { useSidebar } from '@/features/Toolbars/hooks/useSidebar';
 import { useBodyScrollLock } from '@/features/Toolbars/hooks/useBodyScrollLock';
 import NavLink from './NavLink';
+import {
+  SIDEBAR_OVERLAY,
+  SIDEBAR_MOBILE_PANEL,
+  SIDEBAR_DESKTOP,
+  BRAND_TEXT,
+} from '@/shared/ui/classes';
 
 export default function Sidebar() {
   const { open, setOpen } = useSidebar();
@@ -14,14 +20,12 @@ export default function Sidebar() {
   // ESC to close
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, setOpen]);
 
-  // mini focus trap – po otvorení zaostri na panel
+  // focus po otvorení
   useEffect(() => {
     if (open) panelRef.current?.focus();
   }, [open]);
@@ -33,30 +37,25 @@ export default function Sidebar() {
         <button
           aria-label="Close menu overlay"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className={SIDEBAR_OVERLAY}
         />
       )}
 
-      {/* Panel */}
+      {/* Panel – mobilný off-canvas + desktop sidebar */}
       <nav
         ref={panelRef}
         tabIndex={-1}
         aria-label="Primary"
         aria-hidden={false}
-        className={[
-          'fixed z-50 inset-y-0 left-0 w-[280px]',
-          'bg-neutral-900 text-neutral-100',
-          'transform transition-transform duration-200',
-          open ? 'translate-x-0' : '-translate-x-full',
-          'lg:static lg:translate-x-0 lg:z-auto lg:h-dvh lg:border-r lg:border-neutral-800',
-        ].join(' ')}
+        className={`${SIDEBAR_MOBILE_PANEL} ${SIDEBAR_DESKTOP}`}
         onClick={() => setOpen(false)} // zatvor po kliknutí v mobile
       >
-        <div className="p-4 flex items-center justify-between">
-          <div className="font-bold">SelfRace</div>
-          {/* Close button (mobile only) */}
+        <div className="p-4 flex items-center justify-between border-b border-neutral-800">
+          <div className={BRAND_TEXT}>SelfRace</div>
+
+          {/* Close (mobile only) – ikonové tlačidlo */}
           <button
-            className="lg:hidden inline-flex items-center justify-center w-8 h-8 rounded hover:bg-neutral-800"
+            className="lg:hidden rounded-lg p-2 border border-neutral-700 hover:bg-neutral-800"
             aria-label="Close menu"
             onClick={(e) => { e.stopPropagation(); setOpen(false); }}
           >
@@ -64,12 +63,12 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <ul className="space-y-1 px-2 pb-4">
-          <li><NavLink href="/dashboard"  onClick={() => setOpen(false)}>Dashboard</NavLink></li>
-          <li><NavLink href="/activities" onClick={() => setOpen(false)}>Activities</NavLink></li>
-          <li><NavLink href="/recovery"   onClick={() => setOpen(false)}>Recovery</NavLink></li>
-          <li><NavLink href="/coach"      onClick={() => setOpen(false)}>AI Coach</NavLink></li>
-          <li><NavLink href="/profile"    onClick={() => setOpen(false)}>Profile</NavLink></li>
+        <ul className="space-y-1 px-2 pb-4 pt-2">
+          <li><NavLink href="/dashboard" >Dashboard</NavLink></li>
+          <li><NavLink href="/activities">Activities</NavLink></li>
+          <li><NavLink href="/recovery"  >Recovery</NavLink></li>
+          <li><NavLink href="/coach"     >AI Coach</NavLink></li>
+          <li><NavLink href="/profile"   >Profile</NavLink></li>
         </ul>
       </nav>
     </>

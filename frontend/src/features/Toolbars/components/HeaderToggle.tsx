@@ -1,12 +1,14 @@
+// src/features/Toolbars/components/HeaderToggle.tsx
 'use client';
 import { useSidebar } from '@/features/Toolbars/hooks/useSidebar';
+import { HAMBURGER_BTN } from '@/shared/ui/classes';
 
 export default function HeaderToggle() {
   const { toggle } = useSidebar();
   return (
     <button
       onClick={toggle}
-      className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded hover:bg-neutral-800 -ml-2"
+      className={HAMBURGER_BTN}
       aria-label="Open menu"
       title="Menu"
     >
