@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
@@ -39,6 +39,21 @@ export default function InputsCard() {
   const [alcoholVolume, setAlcoholVolume] = useState("");
   const [alcoholType, setAlcoholType] = useState("");
   const [comments, setComments] = useState("");
+
+  // hore v komponente (pri ostatných useState)
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const openNativePicker = () => {
+    const el = dateInputRef.current;
+    // moderné prehliadače
+    // @ts-ignore
+    if (el?.showPicker) {
+      /* Safari/Chromium */
+      // @ts-ignore
+      el.showPicker();
+    } else {
+      el?.click();
+    }
+  };
 
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
@@ -86,10 +101,10 @@ export default function InputsCard() {
 
   return (
     <WidgetCard title="Recovery Inputs" accent="bg-slate-700" minH={0}>
-      {/* HEADER */}
+      {/* HEADER – iba -1, dátum (1 pole), +1 */}
       <div className={WIDGET_HEADER_BELOW}>
         <div className={WIDGET_HEADER_ROW}>
-          {/* ľavá strana – rýchle skoky */}
+          {/* ľavá strana – skok -1 */}
           <div className={WIDGET_HEADER_SIDE}>
             <div className="hidden sm:flex gap-2">
               <Button
@@ -100,45 +115,43 @@ export default function InputsCard() {
               >
                 −1
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setDate(todayIso)}
-                disabled={saving}
-              >
-                dnes
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => shiftDate(+1)}
-                disabled={saving}
-              >
-                +1
-              </Button>
             </div>
           </div>
 
-          {/* stred – zvolený dátum + malý badge s dnešným dátumom */}
+          {/* stred – JEDEN pill s dátumom (otvorí natívny picker) */}
           <div className={WIDGET_HEADER_CENTER}>
             <button
               type="button"
-              onClick={() => setOpenDate((v) => !v)}
+              onClick={openNativePicker}
               className={PILL_BUTTON}
               title="Zmeniť dátum"
+              aria-label="Zmeniť dátum"
             >
               {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
             </button>
-            <span
-              className="ml-2 text-[11px] px-2 py-0.5 rounded border border-white/10 bg-white/5 dark:bg-gray-900/40 whitespace-nowrap"
-              title="Dnešný dátum"
-            >
-              {todayIso.replace(/-/g, ".")}
-            </span>
+
+            {/* skrytý input, aby sa otvoril natívny date-picker */}
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
           </div>
 
-          {/* pravá strana – toggle */}
-          <div className={WIDGET_HEADER_SIDE + " flex justify-end"}>
+          {/* pravá strana – skok +1 a toggle formulára */}
+          <div className={WIDGET_HEADER_SIDE + " flex justify-end gap-2"}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => shiftDate(+1)}
+              disabled={saving}
+            >
+              +1
+            </Button>
             <Button
               circle
               size="sm"
@@ -151,19 +164,6 @@ export default function InputsCard() {
             </Button>
           </div>
         </div>
-
-        {/* rozbalený natívny date input pod stredom */}
-        {openDate && (
-          <div className="mt-2 flex justify-center">
-            <TextField
-              type="date"
-              value={date}
-              onChange={(e) => setDate((e.target as HTMLInputElement).value)}
-              disabled={saving}
-              className="w-[min(320px,80%)] text-center"
-            />
-          </div>
-        )}
       </div>
 
       {/* BODY – až po otvorení */}
