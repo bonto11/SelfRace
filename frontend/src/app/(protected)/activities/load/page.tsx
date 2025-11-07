@@ -10,7 +10,7 @@ import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 type Range = { start?: string; end?: string };
 
-export default function ActivitiesDetailPage() {
+export default function ActivitiesLoadPage() {
   const [range, setRange] = useState<Range>({});
   const [sport, setSport] = useState<string>("all");
 
@@ -22,7 +22,7 @@ export default function ActivitiesDetailPage() {
   return (
     <>
       {/* Sticky header s Back */}
-      <ButtonBack title="Detailný trend" />
+      <ButtonBack title="Load trend" />
 
       {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">

@@ -37,7 +37,8 @@ export default function ActivitiesPage() {
     }
   }
 
-  const openDetailLoad = () => router.push("/activities/detail");
+  const openDetailLoad = () => router.push("/activities/load");
+  const openDetailMono = () => router.push("/activities/mono");
   const openDetail8020 = () => router.push("/activities/pareto");
  
   return (
@@ -61,7 +62,7 @@ export default function ActivitiesPage() {
       <div className="max-w-screen-lg mx-auto px-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
           <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
-          <MonoStrainWidget onOpenDetail={openDetailLoad} />
+          <MonoStrainWidget onOpenDetail={openDetailMono} />
           <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
           <WidgetActivitiesCalendar/>
         </div>
