@@ -26,7 +26,6 @@ export default function InputsCard() {
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
-  const [openDate, setOpenDate] = useState(false);
 
   const [date, setDate] = useState<string>(todayIso);
   const [rhr, setRhr] = useState("");
