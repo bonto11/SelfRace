@@ -177,7 +177,7 @@ export default function TrendHRV() {
 
       {/* BODY – flush + scroll */}
       <div
-        className={`${SCROLL_X} min-w-0`}
+        className={`${SCROLL_X}`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
