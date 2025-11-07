@@ -20,8 +20,8 @@ export default function TrendHRV() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // rovnaká hustota ako WeeklyLoad (v px na 1 týždeň)
-  const PX_PER_WEEK = THEME.chart?.weeklyPxPerLabel ?? 80;
+  // presne ako WeeklyLoad: šírka grafu sa riadi len cez minWidth
+  const DAY_PX_PER_LABEL = 26;
 
   useEffect(() => { setLoading(true); }, [weeks]);
 
@@ -50,19 +50,64 @@ export default function TrendHRV() {
     return m;
   }, [rows]);
 
+  // datasets
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
-        { type: "line", label: "Baseline −5%", data: toNum(lower), borderColor: "rgba(16,185,129,0)", backgroundColor: "rgba(16,185,129,0.15)", pointRadius: 0, borderWidth: 0, tension: 0.2, order: 1 },
-        { type: "line", label: "Baseline +5%", data: toNum(upper), borderColor: "rgba(16,185,129,0)", backgroundColor: "rgba(16,185,129,0.15)", pointRadius: 0, borderWidth: 0, tension: 0.2, fill: "-1", order: 1 },
-        { type: "line", label: "Baseline (14d priemer)", data: toNum(baselineArr), borderColor: "#22c55e", backgroundColor: "#22c55e", pointRadius: 0, borderWidth: 2, tension: 0.25, spanGaps: true, order: 2 },
-        { type: "line", label: "HRV (RMSSD)", data: hrv, borderColor: "#0ea5e9", backgroundColor: "#0ea5e9", pointRadius: 3, borderWidth: 2, tension: 0.2, spanGaps: true, order: 3 },
+        {
+          type: "line",
+          label: "Baseline −5%",
+          data: toNum(lower),
+          borderColor: "rgba(16,185,129,0)",
+          backgroundColor: "rgba(16,185,129,0.15)",
+          pointRadius: 0,
+          borderWidth: 0,
+          tension: 0.2,
+          order: 1,
+        },
+        {
+          type: "line",
+          label: "Baseline +5%",
+          data: toNum(upper),
+          borderColor: "rgba(16,185,129,0)",
+          backgroundColor: "rgba(16,185,129,0.15)",
+          pointRadius: 0,
+          borderWidth: 0,
+          tension: 0.2,
+          fill: "-1",
+          order: 1,
+        },
+        {
+          type: "line",
+          label: "Baseline (14d priemer)",
+          data: toNum(baselineArr),
+          borderColor: "#22c55e",
+          backgroundColor: "#22c55e",
+          pointRadius: 0,
+          borderWidth: 2,
+          tension: 0.25,
+          spanGaps: true,
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "HRV (RMSSD)",
+          data: hrv,
+          borderColor: "#0ea5e9",
+          backgroundColor: "#0ea5e9",
+          pointRadius: 3,
+          borderWidth: 2,
+          tension: 0.2,
+          spanGaps: true,
+          order: 3,
+        },
       ],
     };
   }, [labelsISO, lower, upper, baselineArr, hrv]);
 
+  // options – zhodné rozloženie legendy/top paddingy ako WeeklyLoad
   const options: ChartOptions<"line"> = useMemo(() => {
     const base = buildRecoveryLineOptions({
       labelsISO,
@@ -92,70 +137,49 @@ export default function TrendHRV() {
     return {
       ...base,
       maintainAspectRatio: false,
-      layout: { padding: { left: 6, right: 10, top: 8, bottom: 12 } },
+      layout: { padding: { bottom: 12 } },
       plugins: {
         ...base.plugins,
         legend: {
           ...(base.plugins?.legend ?? {}),
-          position: THEME.chart.legendPosition ?? "top",
-          align: "start",
+          position: THEME.chart.legendPosition,
           labels: {
-            ...(base.plugins?.legend?.labels ?? {}),
             usePointStyle: true,
             pointStyle: "circle",
+            padding: 10,
             boxWidth: 6,
             boxHeight: 6,
-            padding: 10,
           },
-        },
-      },
-      scales: {
-        ...(base.scales ?? {}),
-        x: {
-          ...(base.scales?.x as any),
-          grid: { color: THEME.chart.gridSoft },
-          ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } },
         },
       },
     };
   }, [labelsISO, hrv, baselineArr, comments]);
 
-  // === Rozmery a anti-overflow
-  const weeksCount = Math.max(1, Math.ceil(labelsISO.length / 7));
-  const minWidth = Math.max(320, Math.round(weeksCount * PX_PER_WEEK));
+  // šírka grafu = počet dní × krok (ako pri WeeklyLoad)
+  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
-    <div
-  className={`${CARD} relative mx-auto w-full max-w-[calc(100vw-24px)] overflow-hidden box-border`}
-  style={{ contain: "layout" }}
->
-      {/* HEADER */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
-          <select
-            value={weeks}
-            onChange={(e) => setWeeks(Number(e.target.value))}
-            className={`${inputClass} h-8 text-xs w-[116px] sm:w-[128px] md:w-[140px] shrink-0`}
-            title="Lookback"
-          >
-            <option value={2}>2 týždne</option>
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
-        </div>
+    <div className={`${CARD} relative`}>
+      {/* HEADER – presne rovnaké paddings */}
+      <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">Detail — HRV (RMSSD)</h2>
+        <select
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value))}
+          className={`${inputClass} h-8 text-xs w-[130px] shrink-0`}
+        >
+          <option value={2}>2 týždne</option>
+          <option value={4}>4 týždne</option>
+          <option value={8}>8 týždňov</option>
+          <option value={12}>12 týždňov</option>
+        </select>
       </div>
 
-      {/* BODY – flush + horizontálny scroll (s 1px gutterom kvôli Safari) */}
+      {/* BODY – flush + scroll */}
       <div
-  className={`${SCROLL_X} min-w-0 px-[2px]`}  // žiadne negatívne marginy
-  style={{
-    WebkitOverflowScrolling: "touch",
-    contain: "inline-size",
-    scrollbarGutter: "stable both-edges",
-  }}
->
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -166,6 +190,11 @@ export default function TrendHRV() {
             <Line data={data} options={options} />
           </div>
         </div>
+      </div>
+
+      {/* voliteľný tip */}
+      <div className="px-4 pb-3 pt-2 text-xs opacity-80">
+        Tip: dlhší rozsah je horizontálne rolovateľný.
       </div>
     </div>
   );
