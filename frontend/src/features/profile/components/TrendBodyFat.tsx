@@ -1,3 +1,4 @@
+// src/features/profile/components/TrendBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -9,29 +10,36 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/shared/utils/bands";
 import { THEME } from "@/shared/theme/tokens";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
-import { CARD } from "@/shared/ui/classes";
+import { CARD, SCROLL_X } from "@/shared/ui/classes";
+import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
 
 type StaticProfile = { sex: "M" | "F" } | null;
 type RowBE = { measured_at: string; value_num: number | null };
 
-function hexA(hex: string, a: number) {
-  const h = (hex || "#FFFFFF").replace("#", "");
-  const aa = Math.round(Math.min(Math.max(a, 0), 1) * 255)
-    .toString(16)
-    .padStart(2, "0")
-    .toUpperCase();
-  return `#${h}${aa}`;
+const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+
+function hexA(hex?: string, a = 0.18) {
+  if (!hex) return `rgba(255,255,255,${a})`;
+  const h = hex.replace("#", "");
+  const v =
+    h.length === 3
+      ? parseInt(h.split("").map((c) => c + c).join(""), 16)
+      : parseInt(h, 16);
+  const r = (v >> 16) & 255,
+    g = (v >> 8) & 255,
+    b = v & 255;
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 function colorForBandLabel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete"))   return THEME.chart.athletes;
-  if (l.includes("fitness"))   return THEME.chart.fitness;
-  if (l.includes("average"))   return THEME.chart.average;
+  if (l.includes("athlete")) return THEME.chart.athletes;
+  if (l.includes("fitness")) return THEME.chart.fitness;
+  if (l.includes("average")) return THEME.chart.average;
   if (l.includes("essential")) return THEME.chart.essential;
-  if (l.includes("obese"))     return THEME.chart.obese;
+  if (l.includes("obese")) return THEME.chart.obese;
   return THEME.chart.neutral;
 }
 
@@ -49,39 +57,42 @@ export default function TrendBodyFat() {
       setLoading(true);
       try {
         const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" })
-          .then(r => r.json()).catch(() => null);
+          .then((r) => r.json())
+          .catch(() => null);
         if (alive && s?.success) setStat(s.data as StaticProfile);
 
         const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" })
-          .then(r => r.json()).catch(() => null);
+          .then((r) => r.json())
+          .catch(() => null);
         const rows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
         if (alive) setHist(rows);
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
-  // --- transformácia: používame len dátumy meraní (žiadne denné bodky) ---
   const lookbackDays = weeks * 7;
   const cutoffISO = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
 
   const samples = (hist || [])
-    .map(r => ({
+    .map((r) => ({
       dISO: (r.measured_at || "").slice(0, 10),
-      v: (typeof r.value_num === "number" ? r.value_num : NaN),
+      v: typeof r.value_num === "number" ? r.value_num : NaN,
     }))
-    .filter(x => !!x.dISO && Number.isFinite(x.v))
+    .filter((x) => !!x.dISO && Number.isFinite(x.v))
     .sort((a, b) => (a.dISO < b.dISO ? -1 : a.dISO > b.dISO ? 1 : 0))
-    // orežeme na posledné N týždňov, ale vždy necháme aspoň 1 meranie
-    .filter(x => x.dISO >= cutoffISO || true);
+    // nechávame i staršie + posledné merania; ak ich je málo, stále vykreslíme
+    .filter((x) => x.dISO >= cutoffISO || true);
 
   if (samples.length === 0) {
     return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
   }
 
-  // --- ak je len 1 meranie: doplníme VIRTUÁLNY PRAVÝ BOD (dnes) s rovnakou hodnotou ---
+  // ak je len 1 meranie -> pridáme virtuálny pravý bod (dnes) s rovnakou hodnotou
   let points: { dISO: string; v: number }[] = [...samples];
   if (samples.length === 1) {
     const todayISO = new Date().toISOString().slice(0, 10);
@@ -90,16 +101,14 @@ export default function TrendBodyFat() {
     }
   }
 
-  // labels len pre existujúce body (resp. 2 body pri single-point)
-  const labels = points.map(p => new Date(p.dISO).toLocaleDateString("sk-SK"));
-  const values = points.map(p => p.v);
+  const labelsISO = points.map((p) => p.dISO);
+  const labels = labelsISO.map((d) => new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"));
+  const values = points.map((p) => p.v);
   const seriesMax = Math.max(0, ...(values.filter(Number.isFinite) as number[]));
 
   const bands = stat ? getBodyFatBands(stat.sex) : [];
 
-  // === DATASETS ===
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pásma (vyplnené pozadia – používajú rovnaký počet x-labelov)
     ...bands.map((b, i) => {
       const color = colorForBandLabel(b.label || "");
       const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
@@ -115,8 +124,6 @@ export default function TrendBodyFat() {
         order: 1,
       };
     }),
-
-    // reálne (a prípadne 1 virtuálny pravý bod) – bez denného zahusťovania
     {
       type: "line" as const,
       label: "Body Fat %",
@@ -125,8 +132,8 @@ export default function TrendBodyFat() {
       backgroundColor: THEME.chart.linePrimary,
       pointRadius: 2,
       borderWidth: 2,
-      showLine: true,        // pri 2 bodoch vznikne pekná horizontálna/šikmá čiara
-      tension: 0,            // rovná čiara
+      showLine: true,
+      tension: 0,
       spanGaps: true,
       order: 2,
     },
@@ -135,7 +142,6 @@ export default function TrendBodyFat() {
   const data: ChartData<"line", number[], string> = { labels, datasets };
   const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
-  // === TOOLTIP – jasné farby bulletiek ===
   const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -159,19 +165,6 @@ export default function TrendBodyFat() {
         displayColors: true,
         caretSize: 6,
         cornerRadius: 8,
-        callbacks: {
-          labelColor: (ctx) => {
-            const lbl = (ctx.dataset?.label || "").toLowerCase();
-            if (lbl.includes("essential")) return { borderColor: THEME.chart.essential, backgroundColor: THEME.chart.essential };
-            if (lbl.includes("athlete"))   return { borderColor: THEME.chart.athletes,  backgroundColor: THEME.chart.athletes  };
-            if (lbl.includes("fitness"))   return { borderColor: THEME.chart.fitness,   backgroundColor: THEME.chart.fitness   };
-            if (lbl.includes("average"))   return { borderColor: THEME.chart.average,   backgroundColor: THEME.chart.average   };
-            if (lbl.includes("obese"))     return { borderColor: THEME.chart.obese,     backgroundColor: THEME.chart.obese     };
-            if (lbl.startsWith("body fat"))return { borderColor: THEME.chart.linePrimary, backgroundColor: THEME.chart.linePrimary };
-            return { borderColor: THEME.chart.neutral, backgroundColor: THEME.chart.neutral };
-          },
-          labelTextColor: () => "#FFFFFF",
-        },
       },
     },
     scales: {
@@ -187,32 +180,36 @@ export default function TrendBodyFat() {
     },
   };
 
+  const minWidth = Math.max(360, Math.round(labels.length * DAY_PX_PER_LABEL));
+
   return (
-    <div className={CARD}>
-      <div className="flex items-center justify-between p-3 border-b border-neutral-800">
-        <h2 className="text-base md:text-lg font-semibold">Detail – Body Fat %</h2>
-        <div className="flex items-center gap-2 text-xs">
-          <select
-            value={weeks}
-            onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
-            className="px-2 py-1 rounded bg-gray-700 text-white"
-            aria-label="Lookback"
-          >
-            <option value={4}>4 týždne</option>
-            <option value={8}>8 týždňov</option>
-            <option value={12}>12 týždňov</option>
-          </select>
-        </div>
+    <div className={`${CARD} relative`}>
+      {/* HEADER */}
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">Detail – Body Fat %</h2>
+        <select
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
+          className={`${inputClass} h-8 text-xs w-[132px]`}
+          aria-label="Lookback"
+        >
+          <option value={4}>4 týždne</option>
+          <option value={8}>8 týždňov</option>
+          <option value={12}>12 týždňov</option>
+        </select>
       </div>
 
-      <div className="p-3">
+      {/* GRAPH */}
+      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
             </div>
           )}
-          <Line data={data} options={options} />
+          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+            <Line data={data} options={options} />
+          </div>
         </div>
       </div>
     </div>

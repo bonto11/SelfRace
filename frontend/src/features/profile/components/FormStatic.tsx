@@ -1,3 +1,4 @@
+// src/features/profile/components/TableStatic.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,9 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import Button from "@/shared/components/ui/Button";
 import { Plus, Minus } from "lucide-react";
 import { toast } from "@/shared/components/ui/Toast";
+import { CARD, ICON_BUTTON } from "@/shared/ui/classes";
+import { inputClass, labelClass } from "@/shared/ui";
+import { THEME } from "@/shared/theme/tokens";
 
 type Sex = "M" | "F" | null;
 
@@ -58,11 +62,7 @@ export default function TableStatic() {
       const res = await fetch(`${API_URL}/profile/static/${userId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // BE preferuje user_uid ak je
-          user_uid: userUid ?? undefined,
-          ...staticData,
-        }),
+        body: JSON.stringify({ user_uid: userUid ?? undefined, ...staticData }),
       });
       const js = await res.json();
       if (js?.success) {
@@ -84,13 +84,13 @@ export default function TableStatic() {
   }, [staticData]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/90 dark:bg-gray-900/70 backdrop-blur p-4 mb-6">
+    <div className={`${CARD} p-4 mb-6`}>
       <div className="flex items-center justify-between">
         <h2 className="text-base md:text-lg font-semibold">Static Profile</h2>
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
-          className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 transition"
+          className={ICON_BUTTON}
           aria-label={open ? "Zbaliť" : "Rozbaliť"}
           title={open ? "Zbaliť" : "Rozbaliť"}
         >
@@ -100,18 +100,18 @@ export default function TableStatic() {
 
       {!open ? (
         <div className="mt-2">
-          <Row label="Sex" value={summary.sex as string} />
+          <Row label="Sex"        value={summary.sex as string} />
           <Row label="Birth date" value={summary.bd as string} />
-          <Row label="Height" value={summary.h as string} />
+          <Row label="Height"     value={summary.h as string} />
         </div>
       ) : (
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs opacity-70 mb-1">Sex</label>
+            <label className={`${labelClass} block mb-1`}>Sex</label>
             <select
               value={staticData.sex ?? ""}
               onChange={(e) => setStaticData(s => ({ ...s, sex: (e.target.value || null) as Sex }))}
-              className="w-full px-3 py-2 rounded border border-neutral-800 bg-[#111827] text-[#E5E7EB]"
+              className={`${inputClass} h-9 text-sm`}
             >
               <option value="">—</option>
               <option value="M">Muž</option>
@@ -120,23 +120,23 @@ export default function TableStatic() {
           </div>
 
           <div>
-            <label className="block text-xs opacity-70 mb-1">Birth date</label>
+            <label className={`${labelClass} block mb-1`}>Birth date</label>
             <input
               type="date"
               value={staticData.birth_date ?? ""}
               onChange={(e) => setStaticData(s => ({ ...s, birth_date: e.target.value || null }))}
-              className="w-full px-3 py-2 rounded border border-neutral-800 bg-[#111827] text-[#E5E7EB]"
+              className={`${inputClass} h-9 text-sm`}
             />
           </div>
 
           <div>
-            <label className="block text-xs opacity-70 mb-1">Height (cm)</label>
+            <label className={`${labelClass} block mb-1`}>Height (cm)</label>
             <input
               type="number"
               inputMode="decimal"
               value={staticData.height_cm ?? ""}
               onChange={(e) => setStaticData(s => ({ ...s, height_cm: e.target.value ? Number(e.target.value) : null }))}
-              className="w-full px-3 py-2 rounded border border-neutral-800 bg-[#111827] text-[#E5E7EB] text-center"
+              className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
 

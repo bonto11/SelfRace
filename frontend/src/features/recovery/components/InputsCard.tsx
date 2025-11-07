@@ -89,18 +89,37 @@ export default function InputsCard() {
       {/* HEADER */}
       <div className={WIDGET_HEADER_BELOW}>
         <div className={WIDGET_HEADER_ROW}>
-          {/* ľavá strana – voliteľné rýchle skoky (desktop) */}
+          {/* ľavá strana – rýchle skoky */}
           <div className={WIDGET_HEADER_SIDE}>
             <div className="hidden sm:flex gap-2">
-              <Button size="sm" variant="ghost" onClick={() => shiftDate(-1)} disabled={saving}>−1d</Button>
-              <Button size="sm" variant="ghost" onClick={() => setDate(addDaysIso(todayIso, -1))} disabled={saving}>Včera</Button>
-              <Button size="sm" variant="ghost" onClick={() => setDate(todayIso)} disabled={saving}>Dnes</Button>
-              <Button size="sm" variant="ghost" onClick={() => setDate(addDaysIso(todayIso, +1))} disabled={saving}>Zajtra</Button>
-              <Button size="sm" variant="ghost" onClick={() => shiftDate(+1)} disabled={saving}>+1d</Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => shiftDate(-1)}
+                disabled={saving}
+              >
+                −1
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setDate(todayIso)}
+                disabled={saving}
+              >
+                dnes
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => shiftDate(+1)}
+                disabled={saving}
+              >
+                +1
+              </Button>
             </div>
           </div>
 
-          {/* stred – dátumový „pill“ */}
+          {/* stred – zvolený dátum + malý badge s dnešným dátumom */}
           <div className={WIDGET_HEADER_CENTER}>
             <button
               type="button"
@@ -110,6 +129,12 @@ export default function InputsCard() {
             >
               {date ? date.replace(/-/g, ".") : "YYYY-MM-DD"}
             </button>
+            <span
+              className="ml-2 text-[11px] px-2 py-0.5 rounded border border-white/10 bg-white/5 dark:bg-gray-900/40 whitespace-nowrap"
+              title="Dnešný dátum"
+            >
+              {todayIso.replace(/-/g, ".")}
+            </span>
           </div>
 
           {/* pravá strana – toggle */}
