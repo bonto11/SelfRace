@@ -1,7 +1,7 @@
 // src/features/coach/components/CoachPreferencies/index.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   CoachPrefs, GoalKind, SportKind,
   ExternalActivity, ExternalIntensity, ExternalSport,
@@ -16,35 +16,57 @@ import {
   saveCoachPrefs,
 } from "@/features/coach/utils/prefs";
 
+import Button from "@/shared/components/ui/Button";
+import TextField from "@/shared/components/ui/TextField";
+
+import {
+  NO_X,
+  SURFACE_INSET,
+  SURFACE_INLINE,
+  SECTION,
+  FORM_GRID_TWO,
+  FORM_GRID_SPLIT,
+  PILL_BUTTON,
+} from "@/shared/ui/classes";
+import { inputClass } from "@/shared/ui";
+
+/* ===== Konštanty ===== */
 const ALL_DAYS: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const ALL_SPORTS: SportKind[] = ["run","ride","strength"];
-const ALL_GOALS: GoalKind[] = ["race_time","improve_speed","improve_endurance","improve_overall","maintain"];
+const ALL_GOALS: GoalKind[] = [
+  "race_time","improve_speed","improve_endurance","improve_overall","maintain"
+];
 
-/* helper „enumy“ pre advanced */
 const EXT_SPORTS: ExternalSport[] = ["football","run","ride","strength","other"];
 const EXT_INTENS: ExternalIntensity[] = ["low","moderate","high"];
 const INJ_AREAS: InjuryArea[] = ["foot","ankle","shin","knee","hip","hamstring","calf","back","shoulder","other"];
-const INJ_TYPES: InjuryType[] = ["overuse","acute","tendon","stress","shin_splints","plantar","itb","other"];
+const INJ_TYPES: InjuryType[]  = ["overuse","acute","tendon","stress","shin_splints","plantar","itb","other"];
 const FOCUS_CHOICES = [
   "ankle_strength","foot_intrinsics","calf_strength","hamstrings",
   "glutes","core_stability","thoracic_mobility","shoulder_stability"
 ];
 const AVOID_CHOICES = ["impact_high","downhill_runs","hard_surfaces","back_to_back_speed"];
 
-/* --- component --- */
+/* ===== Komponent ===== */
 export default function PrefsForm() {
   const { userId } = useUserId();
 
-  // 1) init z localStorage (okamžité UI)
+  // 1) rýchly init z localStorage
   const [local, setLocal] = useState<CoachPrefs>(() => readCoachPrefsFromStorage());
-  // 2) po mount-e skús dotiahnuť DB a zosynchronizovať
+  // 2) dotiahni z DB
   useEffect(() => {
     if (!userId) return;
     refreshCoachPrefsFromDB(userId).then(setLocal).catch(() => {});
   }, [userId]);
 
-  const prevPrefs = (p: CoachPrefs) =>
-    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, wu_cd_detail: true };
+  const prefDefaults = (p: CoachPrefs) =>
+    p.preferences ?? {
+      days_off: [],
+      long_run_days: [],
+      avoid_back_to_back_hard: true,
+      use_zones: true,
+      wu_cd_detail: true,
+    };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] => {
     const base = arr ?? [];
@@ -54,16 +76,24 @@ export default function PrefsForm() {
   const setPref = <K extends keyof CoachPrefs>(key: K, val: CoachPrefs[K]) =>
     setLocal(prev => ({ ...prev, [key]: val }));
 
-  const setPrefNested = (path: "preferences.days_off" | "preferences.long_run_days" | "primary_sports", v: any) => {
-    if (path === "primary_sports") { setLocal(prev => ({ ...prev, primary_sports: v })); return; }
-    const p = prevPrefs(local);
+  const setPrefNested = (
+    path: "preferences.days_off" | "preferences.long_run_days" | "primary_sports",
+    v: any
+  ) => {
+    if (path === "primary_sports") {
+      setLocal(prev => ({ ...prev, primary_sports: v }));
+      return;
+    }
+    const p = prefDefaults(local);
     const next = { ...local, preferences: p };
     if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
     if (path.endsWith("long_run_days")) next.preferences!.long_run_days = v as DayAbbrev[];
     setLocal(next);
   };
 
-  const upsertRunTargets = (patch: Partial<NonNullable<CoachPrefs["targets"]>["run"]>) =>
+  const upsertRunTargets = (
+    patch: Partial<NonNullable<CoachPrefs["targets"]>["run"]>
+  ) =>
     setLocal(prev => ({
       ...prev,
       targets: {
@@ -82,7 +112,7 @@ export default function PrefsForm() {
   const onSave = async () => {
     if (!userId) return;
     try {
-      await saveCoachPrefs(userId, local);   // uloží do DB a do LS
+      await saveCoachPrefs(userId, local);
       toast.success("Preferences saved");
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
@@ -100,22 +130,23 @@ export default function PrefsForm() {
     }
   };
 
-  const pref = prevPrefs(local);
+  const pref = prefDefaults(local);
   const [showAdv, setShowAdv] = useState(false);
 
-  /* lokálny draft pre „pridať externú aktivitu“ */
+  // Drafty pre „pridať položku“
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
     day: "Tue", sport: "football", intensity: "high", note: ""
   });
-
-  /* lokálny draft pre zranenie */
   const [injDraft, setInjDraft] = useState<Injury>({
     area: "foot", type: "overuse", note: "bolesť nártov po dlhých behoch"
   });
 
   const addExternal = () => {
     const cur = local.external_activities ?? [];
-    setLocal(p => ({ ...p, external_activities: [...cur, { ...extDraft, note: extDraft.note?.trim() || undefined }] }));
+    setLocal(p => ({
+      ...p,
+      external_activities: [...cur, { ...extDraft, note: extDraft.note?.trim() || undefined }]
+    }));
   };
   const removeExternal = (idx: number) => {
     const cur = local.external_activities ?? [];
@@ -124,7 +155,10 @@ export default function PrefsForm() {
 
   const addInjury = () => {
     const cur = local.injuries ?? [];
-    setLocal(p => ({ ...p, injuries: [...cur, { ...injDraft, note: injDraft.note?.trim() || undefined }] }));
+    setLocal(p => ({
+      ...p,
+      injuries: [...cur, { ...injDraft, note: injDraft.note?.trim() || undefined }]
+    }));
   };
   const removeInjury = (idx: number) => {
     const cur = local.injuries ?? [];
@@ -132,64 +166,68 @@ export default function PrefsForm() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className={["space-y-4", NO_X].join(" ")}>
       {/* ========== ZÁKLADNÉ ========== */}
-      {/* Goal */}
-      <div className="space-y-2">
-        <div className="text-sm font-medium opacity-90">Goal</div>
+      <section className={SECTION}>
+        <div className="text-sm font-medium opacity-90 mb-2">Goal</div>
         <div className="flex flex-wrap gap-2">
-          {ALL_GOALS.map(g => (
-            <button
-              key={g}
-              onClick={() => setPref("goal_kind", g)}
-              className={[
-                "px-3 py-1.5 rounded text-sm border",
-                local.goal_kind === g ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
-              ].join(" ")}
-            >
-              {g}
-            </button>
-          ))}
+          {ALL_GOALS.map(g => {
+            const active = local.goal_kind === g;
+            return (
+              <button
+                key={g}
+                onClick={() => setPref("goal_kind", g)}
+                className={[
+                  PILL_BUTTON,
+                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
+                         : "border-white/15"
+                ].join(" ")}
+              >
+                {g}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <input
-            className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <TextField
             placeholder="weeks (e.g. 8, 10, 12)"
-            inputMode="numeric"
             value={local.weeks ?? ""}
-            onChange={(e) => setPref("weeks", e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) =>
+              setPref("weeks", (e.target as HTMLInputElement).value
+                ? Number((e.target as HTMLInputElement).value)
+                : undefined)
+            }
+            inputMode="numeric"
           />
-          <input
-            className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
+          <TextField
             placeholder="current best (hh:mm:ss)"
             value={local.targets?.run.current_best_time ?? ""}
-            onChange={(e) => upsertRunTargets({ current_best_time: e.target.value || null })}
+            onChange={(e) => upsertRunTargets({ current_best_time: (e.target as HTMLInputElement).value || null })}
           />
-          <input
-            className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
+          <TextField
             placeholder="target time (hh:mm:ss)"
             value={local.targets?.run.target_time ?? ""}
-            onChange={(e) => upsertRunTargets({ target_time: e.target.value || null })}
+            onChange={(e) => upsertRunTargets({ target_time: (e.target as HTMLInputElement).value || null })}
           />
         </div>
-      </div>
+      </section>
 
-      {/* Sports */}
-      <div className="space-y-2">
-        <div className="text-sm font-medium opacity-90">Sports</div>
+      <section className={SECTION}>
+        <div className="text-sm font-medium opacity-90 mb-2">Sports</div>
         <div className="flex flex-wrap gap-2">
           {ALL_SPORTS.map(s => {
             const cur = local.primary_sports ?? local.sports ?? [];
-            const next = toggleInArray(cur, s);
             const active = cur.includes(s);
+            const next = toggleInArray(cur, s);
             return (
               <button
                 key={s}
                 onClick={() => setPrefNested("primary_sports", next)}
                 className={[
-                  "px-3 py-1.5 rounded text-sm border",
-                  active ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  PILL_BUTTON,
+                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
+                         : "border-white/15"
                 ].join(" ")}
               >
                 {s}
@@ -197,22 +235,22 @@ export default function PrefsForm() {
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Days off */}
-      <div className="space-y-2">
-        <div className="text-sm font-medium opacity-90">Days off</div>
+      <section className={SECTION}>
+        <div className="text-sm font-medium opacity-90 mb-2">Days off</div>
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map(d => {
-            const next = toggleInArray(pref.days_off, d);
             const active = pref.days_off?.includes(d);
+            const next = toggleInArray(pref.days_off, d);
             return (
               <button
                 key={d}
                 onClick={() => setPrefNested("preferences.days_off", next)}
                 className={[
-                  "px-3 py-1.5 rounded text-sm border",
-                  active ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  PILL_BUTTON,
+                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
+                         : "border-white/15"
                 ].join(" ")}
               >
                 {d}
@@ -220,22 +258,22 @@ export default function PrefsForm() {
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Long run days */}
-      <div className="space-y-2">
-        <div className="text-sm font-medium opacity-90">Preferred long-run days</div>
+      <section className={SECTION}>
+        <div className="text-sm font-medium opacity-90 mb-2">Preferred long-run days</div>
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map(d => {
-            const next = toggleInArray(pref.long_run_days ?? [], d);
             const active = pref.long_run_days?.includes(d);
+            const next = toggleInArray(pref.long_run_days ?? [], d);
             return (
               <button
                 key={d}
                 onClick={() => setPrefNested("preferences.long_run_days", next)}
                 className={[
-                  "px-3 py-1.5 rounded text-sm border",
-                  active ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  PILL_BUTTON,
+                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
+                         : "border-white/15"
                 ].join(" ")}
               >
                 {d}
@@ -243,62 +281,74 @@ export default function PrefsForm() {
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Switches */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={!!pref.avoid_back_to_back_hard}
-            onChange={(e) => setLocal(prev => ({
-              ...prev,
-              preferences: { ...prevPrefs(prev), avoid_back_to_back_hard: e.target.checked },
-            }))}
-          />
-          Avoid two hard days in a row
-        </label>
+      <section className={SECTION}>
+        <div className={FORM_GRID_TWO}>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={!!pref.avoid_back_to_back_hard}
+              onChange={(e) =>
+                setLocal(prev => ({
+                  ...prev,
+                  preferences: { ...prefDefaults(prev), avoid_back_to_back_hard: e.target.checked },
+                }))
+              }
+            />
+            Avoid two hard days in a row
+          </label>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={!!pref.use_zones}
-            onChange={(e) => setLocal(prev => ({
-              ...prev,
-              preferences: { ...prevPrefs(prev), use_zones: e.target.checked },
-            }))}
-          />
-          Use zones
-        </label>
+          <div className={FORM_GRID_SPLIT}>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!pref.use_zones}
+                onChange={(e) =>
+                  setLocal(prev => ({
+                    ...prev,
+                    preferences: { ...prefDefaults(prev), use_zones: e.target.checked },
+                  }))
+                }
+              />
+              Use zones
+            </label>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={!!pref.wu_cd_detail}
-            onChange={(e) => setLocal(prev => ({
-              ...prev,
-              preferences: { ...prevPrefs(prev), wu_cd_detail: e.target.checked },
-            }))}
-          />
-          Include WU/CD details
-        </label>
-      </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!pref.wu_cd_detail}
+                onChange={(e) =>
+                  setLocal(prev => ({
+                    ...prev,
+                    preferences: { ...prefDefaults(prev), wu_cd_detail: e.target.checked },
+                  }))
+                }
+              />
+              Include WU/CD details
+            </label>
+          </div>
+        </div>
+      </section>
 
-      {/* ===== Pokročilé – collapsible ===== */}
-      <div className="pt-2">
+      {/* ====== Pokročilé ====== */}
+      <div className="flex">
         <button
           type="button"
           onClick={() => setShowAdv(s => !s)}
-          className="px-3 py-1.5 rounded text-sm border bg-white/5 border-white/10 hover:bg-white/10"
+          className={[PILL_BUTTON, "mx-auto"].join(" ")}
           aria-expanded={showAdv}
         >
           {showAdv ? "Hide advanced preferences" : "Show advanced preferences"}
         </button>
+      </div>
 
-        {showAdv && (
-          <div className="mt-3 space-y-5">
-            {/* Model & špecifické tréningy */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {showAdv && (
+        <>
+          {/* Modely / špecifické tréningy */}
+          <section className={SECTION}>
+            <div className="text-sm font-medium opacity-90 mb-2">Intensity models & specific blocks</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -325,11 +375,11 @@ export default function PrefsForm() {
               </label>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
                 className={[
-                  "px-3 py-1.5 rounded text-sm border",
-                  local.polarized_model ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  PILL_BUTTON,
+                  local.polarized_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
                 ].join(" ")}
                 onClick={() => setPref("polarized_model", true)}
               >
@@ -337,225 +387,231 @@ export default function PrefsForm() {
               </button>
               <button
                 className={[
-                  "px-3 py-1.5 rounded text-sm border",
-                  local.pyramidal_model ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
+                  PILL_BUTTON,
+                  local.pyramidal_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
                 ].join(" ")}
                 onClick={() => setPref("pyramidal_model", true)}
               >
                 Pyramidal
               </button>
               <button
-                className="px-3 py-1.5 rounded text-sm border bg-white/5 border-white/10 hover:bg-white/10"
+                className={[PILL_BUTTON].join(" ")}
                 onClick={() => setLocal(p => ({ ...p, polarized_model: false, pyramidal_model: false }))}
               >
                 Clear model
               </button>
             </div>
+          </section>
 
-            {/* Externé aktivity (mimo trénera) */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium opacity-90">External activities (non-coach)</div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <select
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  value={extDraft.day}
-                  onChange={(e) => setExtDraft(d => ({ ...d, day: e.target.value as DayAbbrev }))}
-                >
-                  {ALL_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-                <select
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  value={extDraft.sport}
-                  onChange={(e) => setExtDraft(d => ({ ...d, sport: e.target.value as ExternalSport }))}
-                >
-                  {EXT_SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  value={extDraft.intensity}
-                  onChange={(e) => setExtDraft(d => ({ ...d, intensity: e.target.value as any }))}
-                >
-                  {EXT_INTENS.map(i => <option key={i} value={i}>{i}</option>)}
-                </select>
+          {/* Externé aktivity */}
+          <section className={SECTION}>
+            <div className="text-sm font-medium opacity-90 mb-2">External activities (non-coach)</div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <select
+                className={inputClass}
+                value={extDraft.day}
+                onChange={(e) => setExtDraft(d => ({ ...d, day: e.target.value as DayAbbrev }))}
+              >
+                {ALL_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select
+                className={inputClass}
+                value={extDraft.sport}
+                onChange={(e) => setExtDraft(d => ({ ...d, sport: e.target.value as ExternalSport }))}
+              >
+                {EXT_SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select
+                className={inputClass}
+                value={extDraft.intensity}
+                onChange={(e) => setExtDraft(d => ({ ...d, intensity: e.target.value as ExternalIntensity }))}
+              >
+                {EXT_INTENS.map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
+              <TextField
+                placeholder="note (optional)"
+                value={extDraft.note ?? ""}
+                onChange={(e) => setExtDraft(d => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+              />
+            </div>
+            <div className="mt-2">
+              <Button onClick={addExternal} size="sm" variant="success">Add external</Button>
+            </div>
+
+            {(local.external_activities ?? []).length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {(local.external_activities ?? []).map((a, idx) => (
+                  <li key={idx} className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}>
+                    <span className="text-sm">
+                      {a.day} · {a.sport} · {a.intensity}{a.note ? ` — ${a.note}` : ""}
+                    </span>
+                    <Button size="sm" variant="danger" onClick={() => removeExternal(idx)}>remove</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Zranenia */}
+          <section className={SECTION}>
+            <div className="text-sm font-medium opacity-90 mb-2">Injuries / limitations</div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <select
+                className={inputClass}
+                value={injDraft.area}
+                onChange={(e) => setInjDraft(d => ({ ...d, area: e.target.value as InjuryArea }))}
+              >
+                {INJ_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select
+                className={inputClass}
+                value={injDraft.type}
+                onChange={(e) => setInjDraft(d => ({ ...d, type: e.target.value as InjuryType }))}
+              >
+                {INJ_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <TextField
+                placeholder="note (e.g., bolesť nártov…) "
+                value={injDraft.note ?? ""}
+                onChange={(e) => setInjDraft(d => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+                containerClassName="md:col-span-2"
+              />
+            </div>
+            <div className="mt-2">
+              <Button onClick={addInjury} size="sm" variant="success">Add injury</Button>
+            </div>
+
+            {(local.injuries ?? []).length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {(local.injuries ?? []).map((it, idx) => (
+                  <li key={idx} className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}>
+                    <span className="text-sm">
+                      {it.area} · {it.type}{it.note ? ` — ${it.note}` : ""}
+                    </span>
+                    <Button size="sm" variant="danger" onClick={() => removeInjury(idx)}>remove</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Fokus a obmedzenia */}
+          <section className={SECTION}>
+            <div className="text-sm font-medium opacity-90 mb-2">Focus areas</div>
+            <div className="flex flex-wrap gap-2">
+              {FOCUS_CHOICES.map(k => {
+                const active = (local.focus_areas ?? []).includes(k);
+                const next = toggleInArray(local.focus_areas, k);
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setPref("focus_areas", next)}
+                    className={[
+                      PILL_BUTTON,
+                      active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
+                    ].join(" ")}
+                  >
+                    {k}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 text-sm font-medium opacity-90 mb-2">Avoid</div>
+            <div className="flex flex-wrap gap-2">
+              {AVOID_CHOICES.map(k => {
+                const active = (local.avoid_zones ?? []).includes(k);
+                const next = toggleInArray(local.avoid_zones, k);
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setPref("avoid_zones", next)}
+                    className={[
+                      PILL_BUTTON,
+                      active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
+                    ].join(" ")}
+                  >
+                    {k}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Rehab */}
+          <section className={SECTION}>
+            <div className="text-sm font-medium opacity-90 mb-2">Rehab & recovery</div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <label className="flex items-center gap-2 text-sm">
                 <input
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  placeholder="note (optional)"
-                  value={extDraft.note ?? ""}
-                  onChange={(e) => setExtDraft(d => ({ ...d, note: e.target.value }))}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={addExternal} className="px-3 py-1.5 rounded text-sm border bg-emerald-600 border-emerald-600">
-                  Add external
-                </button>
-              </div>
-              {(local.external_activities ?? []).length > 0 && (
-                <ul className="mt-2 space-y-1 text-sm">
-                  {(local.external_activities ?? []).map((a, idx) => (
-                    <li key={idx} className="flex items-center justify-between bg-white/5 border border-white/10 rounded px-3 py-1.5">
-                      <span>{a.day} · {a.sport} · {a.intensity}{a.note ? ` — ${a.note}` : ""}</span>
-                      <button className="text-rose-400 hover:underline" onClick={() => removeExternal(idx)}>remove</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Zranenia / obmedzenia */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium opacity-90">Injuries / limitations</div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <select
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  value={injDraft.area}
-                  onChange={(e) => setInjDraft(d => ({ ...d, area: e.target.value as any }))}
-                >
-                  {INJ_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-                <select
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  value={injDraft.type}
-                  onChange={(e) => setInjDraft(d => ({ ...d, type: e.target.value as any }))}
-                >
-                  {INJ_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <input
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm sm:col-span-2"
-                  placeholder="note (e.g., bolesť nártov po dlhých behoch)"
-                  value={injDraft.note ?? ""}
-                  onChange={(e) => setInjDraft(d => ({ ...d, note: e.target.value }))}
-                />
-              </div>
-              <button onClick={addInjury} className="mt-1 px-3 py-1.5 rounded text-sm border bg-emerald-600 border-emerald-600">
-                Add injury
-              </button>
-
-              {(local.injuries ?? []).length > 0 && (
-                <ul className="mt-2 space-y-1 text-sm">
-                  {(local.injuries ?? []).map((it, idx) => (
-                    <li key={idx} className="flex items-center justify-between bg-white/5 border border-white/10 rounded px-3 py-1.5">
-                      <span>{it.area} · {it.type}{it.note ? ` — ${it.note}` : ""}</span>
-                      <button className="text-rose-400 hover:underline" onClick={() => removeInjury(idx)}>remove</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Focus areas */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium opacity-90">Focus areas</div>
-              <div className="flex flex-wrap gap-2">
-                {FOCUS_CHOICES.map(k => {
-                  const active = (local.focus_areas ?? []).includes(k);
-                  const next = toggleInArray(local.focus_areas, k);
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => setPref("focus_areas", next)}
-                      className={[
-                        "px-3 py-1.5 rounded text-sm border",
-                        active ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
-                      ].join(" ")}
-                    >
-                      {k}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Avoid zones */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium opacity-90">Avoid</div>
-              <div className="flex flex-wrap gap-2">
-                {AVOID_CHOICES.map(k => {
-                  const active = (local.avoid_zones ?? []).includes(k);
-                  const next = toggleInArray(local.avoid_zones, k);
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => setPref("avoid_zones", next)}
-                      className={[
-                        "px-3 py-1.5 rounded text-sm border",
-                        active ? "bg-emerald-600 border-emerald-600" : "bg-gray-900 border-gray-700 hover:bg-gray-800",
-                      ].join(" ")}
-                    >
-                      {k}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Rehab / recovery */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium opacity-90">Rehab & recovery</div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!local.rehab_focus?.stretching}
-                    onChange={(e) => setPref("rehab_focus", {
+                  type="checkbox"
+                  checked={!!local.rehab_focus?.stretching}
+                  onChange={(e) =>
+                    setPref("rehab_focus", {
                       stretching: e.target.checked,
                       mobility: !!local.rehab_focus?.mobility,
                       balance: !!local.rehab_focus?.balance,
                       recovery_protocol: local.rehab_focus?.recovery_protocol ?? null
-                    })}
-                  />
-                  Stretching
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!local.rehab_focus?.mobility}
-                    onChange={(e) => setPref("rehab_focus", {
+                    })
+                  }
+                />
+                Stretching
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={!!local.rehab_focus?.mobility}
+                  onChange={(e) =>
+                    setPref("rehab_focus", {
                       stretching: !!local.rehab_focus?.stretching,
                       mobility: e.target.checked,
                       balance: !!local.rehab_focus?.balance,
                       recovery_protocol: local.rehab_focus?.recovery_protocol ?? null
-                    })}
-                  />
-                  Mobility
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!local.rehab_focus?.balance}
-                    onChange={(e) => setPref("rehab_focus", {
+                    })
+                  }
+                />
+                Mobility
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={!!local.rehab_focus?.balance}
+                  onChange={(e) =>
+                    setPref("rehab_focus", {
                       stretching: !!local.rehab_focus?.stretching,
                       mobility: !!local.rehab_focus?.mobility,
                       balance: e.target.checked,
                       recovery_protocol: local.rehab_focus?.recovery_protocol ?? null
-                    })}
-                  />
-                  Balance/Proprioception
-                </label>
-                <input
-                  className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm"
-                  placeholder="protocol key (optional)"
-                  value={local.rehab_focus?.recovery_protocol ?? ""}
-                  onChange={(e) => setPref("rehab_focus", {
+                    })
+                  }
+                />
+                Balance/Proprioception
+              </label>
+              <TextField
+                placeholder="protocol key (optional)"
+                value={local.rehab_focus?.recovery_protocol ?? ""}
+                onChange={(e) =>
+                  setPref("rehab_focus", {
                     stretching: !!local.rehab_focus?.stretching,
                     mobility: !!local.rehab_focus?.mobility,
                     balance: !!local.rehab_focus?.balance,
-                    recovery_protocol: e.target.value || null
-                  })}
-                />
-              </div>
+                    recovery_protocol: (e.target as HTMLInputElement).value || null
+                  })
+                }
+              />
             </div>
-          </div>
-        )}
-      </div>
+          </section>
+        </>
+      )}
 
-      {/* actions */}
-      <div className="flex gap-2 pt-2">
-        <button onClick={onSave} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm">
+      {/* Akcie */}
+      <div className="flex gap-2 pt-1">
+        <Button onClick={onSave} variant="success">
           Save
-        </button>
-        <button onClick={onRefresh} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm">
+        </Button>
+        <Button onClick={onRefresh} variant="secondary">
           Refresh
-        </button>
+        </Button>
       </div>
     </div>
   );
