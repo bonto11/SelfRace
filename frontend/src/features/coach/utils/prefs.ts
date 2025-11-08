@@ -1,4 +1,3 @@
-// src/features/coach/utils/prefs.ts
 "use client";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
@@ -44,42 +43,30 @@ export function clearCoachPrefsCache() { lsClear(); }
 export function normalizeCoachPrefs(input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
-  // ak už je kanonický tvar
   if ("targets" in input || "preferences" in input || "primary_sports" in input) {
     const i = input as CoachPrefs;
     return {
+      ...DEFAULT_PREFS,
       ...i,
       primary_sports: (i.primary_sports as SportKind[] | undefined) ?? clampSports(i.sports),
       preferences: i.preferences ?? {
         days_off: [],
-        avoid_back_to_back_hard: !!i.prefer_two_hard_days_apart,
+        avoid_back_to_back_hard: !!(i as any).prefer_two_hard_days_apart,
         use_zones: true,
-        wu_cd_detail: !!i.include_wu_cd_details,
-        long_run_days: i.preferred_long_run_days,
+        wu_cd_detail: !!(i as any).include_wu_cd_details,
+        long_run_days: (i as any).preferred_long_run_days,
       },
     };
   }
 
-  // legacy loose → canonical
   const l = input as CoachPrefsLegacyLoose;
   return {
+    ...DEFAULT_PREFS,
     goal_kind: (l.goal_kind ?? "improve_overall") as CoachPrefs["goal_kind"],
     distance: l.goal_distance_km ? String(l.goal_distance_km) : undefined,
     current_pace: l.current_pace ?? undefined,
     target_pace: l.target_pace ?? undefined,
     weeks: l.weeks ?? undefined,
     primary_sports: clampSports(l.sports),
-    targets: {
-      run: { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null },
-      ride: { focus: "endurance", weekly_time_target_min: null },
-      strength: { focus: "general", sessions_per_week: 2 },
-    },
-    preferences: {
-      days_off: [],
-      long_run_days: undefined,
-      avoid_back_to_back_hard: false,
-      use_zones: true,
-      wu_cd_detail: true,
-    },
   };
 }
