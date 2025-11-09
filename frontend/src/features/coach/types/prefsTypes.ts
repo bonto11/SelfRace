@@ -1,3 +1,4 @@
+// src/features/coach/types/prefsTypes.ts
 import type { DayAbbrev } from "@/shared/types/day";
 
 export type GoalKind =
@@ -9,36 +10,10 @@ export type GoalKind =
 
 export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
 
-/* --- NOVÉ typy pre pokročilé preferencie --- */
-export type ExternalIntensity = "low" | "moderate" | "high";
-export type ExternalSport = SportKind | "football" | "other";
-export type InjuryArea =
-  | "foot" | "ankle" | "shin" | "knee" | "hip"
-  | "hamstring" | "calf" | "back" | "shoulder" | "other";
-export type InjuryType =
-  | "overuse" | "acute" | "tendon" | "stress" | "shin_splints"
-  | "plantar" | "itb" | "other";
+/** Coach personality (komunikačný štýl AI trénera) */
+export type CoachPersona = "kapral" | "hecovac" | "statistik" | "realista";
 
-export interface ExternalActivity {
-  day: DayAbbrev;               // napr. "Tue"
-  sport: ExternalSport;         // napr. "football"
-  intensity: ExternalIntensity; // low/moderate/high
-  note?: string | null;
-}
-
-export interface Injury {
-  area: InjuryArea;             // napr. "foot"
-  type: InjuryType;             // napr. "overuse"
-  note?: string | null;         // “bolesť nártov po dlhých behoch”
-}
-
-export interface RehabFocus {
-  stretching: boolean;
-  mobility: boolean;
-  balance: boolean;
-  recovery_protocol?: string | null; // napr. "ankle_mobility_and_foot_strength"
-}
-
+/* -------- Preferences (jadro) -------- */
 export interface Preferences {
   days_off: DayAbbrev[];
   long_run_days?: DayAbbrev[];
@@ -48,7 +23,7 @@ export interface Preferences {
   include_strides?: boolean;
 }
 
-/* --- existujúce targets --- */
+/* -------- Targets -------- */
 export interface RunTargets {
   race_goal: "5k" | "10k" | "half" | "marathon" | null;
   current_best_time: string | null;
@@ -66,6 +41,34 @@ export interface StrengthTargets {
   sessions_per_week: number;
 }
 
+/* -------- Externé aktivity / zranenia -------- */
+export type ExternalSport = "football" | "run" | "ride" | "strength" | "other";
+export type ExternalIntensity = "low" | "moderate" | "high";
+export type ExternalActivity = {
+  day: DayAbbrev;
+  sport: ExternalSport;
+  intensity: ExternalIntensity;
+  note?: string;
+};
+
+export type InjuryArea =
+  | "foot" | "ankle" | "shin" | "knee" | "hip" | "hamstring" | "calf" | "back" | "shoulder" | "other";
+export type InjuryType =
+  | "overuse" | "acute" | "tendon" | "stress" | "shin_splints" | "plantar" | "itb" | "other";
+export type Injury = {
+  area: InjuryArea;
+  type: InjuryType;
+  note?: string;
+};
+
+export type RehabFocus = {
+  stretching: boolean;
+  mobility: boolean;
+  balance: boolean;
+  recovery_protocol?: string | null;
+};
+
+/* -------- Hlavný typ CoachPrefs -------- */
 export type CoachPrefs = {
   goal_kind?: GoalKind;
   distance?: string;
@@ -76,6 +79,7 @@ export type CoachPrefs = {
   sports?: SportKind[];           // legacy
   primary_sports?: SportKind[];
 
+  // rozšírené ciele
   targets?: {
     run: RunTargets;
     ride: BikeTargets;
@@ -84,25 +88,36 @@ export type CoachPrefs = {
 
   preferences?: Preferences;
 
-  /* --- NOVÉ pokročilé voľby (voliteľné) --- */
-  vo2max_training?: boolean;      // beh VO2 bloky
-  ftp_training?: boolean;         // bike FTP bloky
-  threshold_focus?: boolean;      // viac prahu
-  polarized_model?: boolean;      // 80/20
-  pyramidal_model?: boolean;      // pyramída Z1>Z2>Z3
-
-  external_activities?: ExternalActivity[]; // napr. futbal v Utorok (high)
-  injuries?: Injury[];                       // obmedzenia/zranenia
-  focus_areas?: string[];                    // napr. ["ankle_strength","core_stability"]
-  avoid_zones?: string[];                    // napr. ["impact_high","downhill_runs"]
-  rehab_focus?: RehabFocus;                  // mobility/balance/stretčing
-
   // legacy aliasy
   prefer_two_hard_days_apart?: boolean;
   include_wu_cd_details?: boolean;
   preferred_long_run_days?: DayAbbrev[];
 
   goal_text_override?: string;
+
+  /* ---- Rozšírenia (voliteľné) ---- */
+  main_sport?: SportKind | null;
+  secondary_mix?: { sport: SportKind; role: "supplement" | "improve"; share_pct: number }[];
+
+  // tréningové modely/bloky
+  vo2max_training?: boolean;
+  ftp_training?: boolean;
+  threshold_focus?: boolean;
+  polarized_model?: boolean;
+  pyramidal_model?: boolean;
+
+  // externé aktivity, zranenia, fokus/avoid
+  external_activities?: ExternalActivity[];
+  injuries?: Injury[];
+  focus_areas?: string[];
+  avoid_zones?: string[];
+
+  // rehab
+  rehab_focus?: RehabFocus;
+
+  // osobnosť trénera a jemné nastavenia tónu
+  coach_voice?: CoachPersona;
+  coach_tone?: { directness: number; praise: number; challenge: number; emoji: number; explain: number };
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
@@ -120,15 +135,6 @@ export const DEFAULT_PREFS: CoachPrefs = {
     use_zones: true,
     wu_cd_detail: true,
   },
-  /* defaulty pokročilých – opatrné */
-  vo2max_training: false,
-  ftp_training: false,
-  threshold_focus: false,
-  polarized_model: false,
-  pyramidal_model: true,
-  external_activities: [],
-  injuries: [],
-  focus_areas: [],
-  avoid_zones: [],
-  rehab_focus: { stretching: true, mobility: true, balance: true, recovery_protocol: null },
+  coach_voice: "hecovac",
+  coach_tone: { directness: 50, praise: 60, challenge: 55, emoji: 20, explain: 60 },
 };
