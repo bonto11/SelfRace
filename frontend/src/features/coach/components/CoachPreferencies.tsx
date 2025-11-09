@@ -1,11 +1,13 @@
 // src/features/coach/components/CoachPreferencies/index.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CoachPrefs, GoalKind, SportKind,
+  CoachPersona,
   ExternalActivity, ExternalIntensity, ExternalSport,
-  Injury, InjuryArea, InjuryType
+  Injury, InjuryArea, InjuryType,
+  RehabFocus
 } from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";
 import { useUserId } from "@/shared/hooks/useUserId";
@@ -29,22 +31,21 @@ import {
 } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
-/* ===== Nové rozšírenia PREFS (nekolidujú so starými) ================== */
+/* ===== Rozšírenia PREFS (nekolidujú so starými) ======================= */
 type SecondaryRole = "supplement" | "improve";
 type SecondaryMix = { sport: SportKind; role: SecondaryRole; share_pct: number };
 
-/** Bezpečne doplníme pole do CoachPrefs cez „index.tsx“ (BE si uloží JSON). */
 type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
   secondary_mix?: SecondaryMix[];
+  coach_voice?: CoachPersona;
+  coach_tone?: { directness: number; praise: number; challenge: number; emoji: number; explain: number };
 };
 
 /* ===== Konštanty ======================================================= */
 const ALL_DAYS: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const ALL_SPORTS: SportKind[] = ["run","ride","strength"];
-const ALL_GOALS: GoalKind[] = [
-  "race_time","improve_speed","improve_endurance","improve_overall","maintain"
-];
+const ALL_GOALS: GoalKind[] = ["race_time","improve_speed","improve_endurance","improve_overall","maintain"];
 
 const EXT_SPORTS: ExternalSport[] = ["football","run","ride","strength","other"];
 const EXT_INTENS: ExternalIntensity[] = ["low","moderate","high"];
@@ -55,6 +56,9 @@ const FOCUS_CHOICES = [
   "glutes","core_stability","thoracic_mobility","shoulder_stability"
 ];
 const AVOID_CHOICES = ["impact_high","downhill_runs","hard_surfaces","back_to_back_speed"];
+
+const ACTIVE_PILL =
+  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
 
 /* ===== Mini InfoPopover (ikonka „i“) ================================== */
 function InfoPopover({ text }: { text: string }) {
@@ -90,11 +94,23 @@ function InfoPopover({ text }: { text: string }) {
 export default function PrefsForm() {
   const { userId } = useUserId();
 
-  // init z LS + DB
+  // --- Anti-overwrite guard: ak používateľ práve mení UI, ignoruj neskorý fetch ---
+  const dirtyRef = useRef(false);
+  const markDirty = () => { dirtyRef.current = true; };
+
+  // init z LS + (oneshot) DB
   const [local, setLocal] = useState<CoachPrefsExtended>(() => readCoachPrefsFromStorage() as CoachPrefsExtended);
   useEffect(() => {
     if (!userId) return;
-    refreshCoachPrefsFromDB(userId).then(p => setLocal(p as CoachPrefsExtended)).catch(() => {});
+    let alive = true;
+    (async () => {
+      try {
+        const p = (await refreshCoachPrefsFromDB(userId)) as CoachPrefsExtended;
+        if (!alive) return;
+        if (!dirtyRef.current) setLocal(p); // kľúčová zmena: neprepíšeme práve klikané voľby
+      } catch {/* ignore */}
+    })();
+    return () => { alive = false; };
   }, [userId]);
 
   // defaults preferences
@@ -112,13 +128,16 @@ export default function PrefsForm() {
     return base.includes(v) ? base.filter(x => x !== v) : [...base, v];
   };
 
-  const setPref = <K extends keyof CoachPrefsExtended>(key: K, val: CoachPrefsExtended[K]) =>
+  const setPref = <K extends keyof CoachPrefsExtended>(key: K, val: CoachPrefsExtended[K]) => {
+    markDirty();
     setLocal(prev => ({ ...prev, [key]: val }));
+  };
 
   const setPrefNested = (
     path: "preferences.days_off" | "preferences.long_run_days",
     v: any
   ) => {
+    markDirty();
     const p = prefDefaults(local);
     const next = { ...local, preferences: p };
     if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
@@ -128,7 +147,8 @@ export default function PrefsForm() {
 
   const upsertRunTargets = (
     patch: Partial<NonNullable<CoachPrefsExtended["targets"]>["run"]>
-  ) =>
+  ) => {
+    markDirty();
     setLocal(prev => ({
       ...prev,
       targets: {
@@ -143,11 +163,13 @@ export default function PrefsForm() {
         strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
       },
     }));
+  };
 
   const onSave = async () => {
     if (!userId) return;
     try {
       await saveCoachPrefs(userId, local);
+      dirtyRef.current = false; // po uložení už môžeme prijať budúcu hydratačnú hodnotu
       toast.success("Preferences saved");
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
@@ -157,8 +179,8 @@ export default function PrefsForm() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const fresh = await refreshCoachPrefsFromDB(userId);
-      setLocal(fresh as CoachPrefsExtended);
+      const fresh = (await refreshCoachPrefsFromDB(userId)) as CoachPrefsExtended;
+      if (!dirtyRef.current) setLocal(fresh);
       toast.success("Refreshed");
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
@@ -169,15 +191,10 @@ export default function PrefsForm() {
   const [showAdv, setShowAdv] = useState(false);
 
   /* --------- Hlavný & doplnkové športy ---------- */
-  const mainSport = useMemo<SportKind>(() => {
-    // fallback na "run", ak nie je zvolené
-    return (local.main_sport as SportKind) || "run";
-  }, [local.main_sport]);
+  const mainSport = useMemo<SportKind>(() => (local.main_sport as SportKind) || "run", [local.main_sport]);
 
-  // normalizuj secondary_mix tak, aby neobsahoval mainSport
   const secondary = useMemo<SecondaryMix[]>(() => {
     const cur = (local.secondary_mix ?? []).filter(s => s.sport !== mainSport);
-    // uisti sa, že všetky ostatné športy sú prítomné aspoň s defaultom
     const missing = ALL_SPORTS
       .filter(s => s !== mainSport)
       .filter(s => !cur.some(x => x.sport === s))
@@ -185,8 +202,7 @@ export default function PrefsForm() {
     return [...cur, ...missing];
   }, [local.secondary_mix, mainSport]);
 
-  const setSecondary = (mix: SecondaryMix[]) => setLocal(p => ({ ...p, secondary_mix: mix }));
-
+  const setSecondary = (mix: SecondaryMix[]) => { markDirty(); setLocal(p => ({ ...p, secondary_mix: mix })); };
   const updateSecondary = (sport: SportKind, patch: Partial<SecondaryMix>) => {
     const next = secondary.map(x => (x.sport === sport ? { ...x, ...patch } : x));
     setSecondary(next);
@@ -196,36 +212,40 @@ export default function PrefsForm() {
   const shareWarn = sumShare > 100;
 
   /* --------- Externé aktivity / zranenia (advanced) ---------- */
-  const [extDraft, setExtDraft] = useState<ExternalActivity>({
-    day: "Tue", sport: "football", intensity: "high", note: ""
-  });
-  const [injDraft, setInjDraft] = useState<Injury>({
-    area: "foot", type: "overuse", note: "bolesť nártov po dlhých behoch"
-  });
+  const [extDraft, setExtDraft] = useState<ExternalActivity>({ day: "Tue", sport: "football", intensity: "high", note: "" });
+  const [injDraft, setInjDraft] = useState<Injury>({ area: "foot", type: "overuse", note: "bolesť nártov po dlhých behoch" });
 
   const addExternal = () => {
+    markDirty();
     const cur = (local as any).external_activities ?? [];
-    setLocal(p => ({
-      ...p,
-      external_activities: [...cur, { ...extDraft, note: extDraft.note?.trim() || undefined }]
-    }) as any);
+    setLocal(p => ({ ...p, external_activities: [...cur, { ...extDraft, note: extDraft.note?.trim() || undefined }] } as any));
   };
   const removeExternal = (idx: number) => {
+    markDirty();
     const cur = (local as any).external_activities ?? [];
-    setLocal(p => ({ ...p, external_activities: cur.filter((_: any, i: number) => i !== idx) }) as any);
+    setLocal(p => ({ ...p, external_activities: cur.filter((_: any, i: number) => i !== idx) } as any));
   };
 
   const addInjury = () => {
+    markDirty();
     const cur = (local as any).injuries ?? [];
-    setLocal(p => ({
-      ...p,
-      injuries: [...cur, { ...injDraft, note: injDraft.note?.trim() || undefined }]
-    }) as any);
+    setLocal(p => ({ ...p, injuries: [...cur, { ...injDraft, note: injDraft.note?.trim() || undefined }] } as any));
   };
   const removeInjury = (idx: number) => {
+    markDirty();
     const cur = (local as any).injuries ?? [];
-    setLocal(p => ({ ...p, injuries: cur.filter((_: any, i: number) => i !== idx) }) as any);
+    setLocal(p => ({ ...p, injuries: cur.filter((_: any, i: number) => i !== idx) } as any));
   };
+
+  /* --------- Personalita trénera ---------- */
+  const personas: { key: CoachPersona; label: string; hint: string }[] = [
+    { key: "kapral",   label: "Kaprál (Oldschooler)", hint: "Prísny drill, direktívny tón, minimum emócií." },
+    { key: "hecovac",  label: "Hecovač (Parťák)",     hint: "Podporný, pozitívny, občas emoji." },
+    { key: "statistik",label: "Štatistik (Inžinier)", hint: "Vecný, analytický, čísla > dojmy." },
+    { key: "realista", label: "Realista (Bez cukru)", hint: "Úprimný challenge, nikdy toxický." },
+  ];
+
+  const tone = local.coach_tone ?? { directness: 50, praise: 50, challenge: 50, emoji: 20, explain: 60 };
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
@@ -246,8 +266,7 @@ export default function PrefsForm() {
                 onClick={() => setPref("goal_kind", g)}
                 className={[
                   PILL_BUTTON,
-                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
-                         : "border-white/15"
+                  active ? ACTIVE_PILL : "border-white/15"
                 ].join(" ")}
               >
                 {g}
@@ -280,11 +299,61 @@ export default function PrefsForm() {
         </div>
       </section>
 
+      {/* ====== PERSONALITA TRÉNERA ====== */}
+      <section className={SECTION}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">Coach personality</div>
+          <InfoPopover text="Vyber štýl komunikácie trénera. Nižšie môžeš doladiť tón (directness/praise/challenge/emoji/explain)." />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {personas.map(p => {
+            const active = local.coach_voice === p.key;
+            return (
+              <button
+                key={p.key}
+                onClick={() => setPref("coach_voice", p.key)}
+                title={p.hint}
+                className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* sliders */}
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3">
+          {[
+            { key: "directness", label: "Directness" },
+            { key: "praise",     label: "Praise" },
+            { key: "challenge",  label: "Challenge" },
+            { key: "emoji",      label: "Emoji" },
+            { key: "explain",    label: "Explanations" },
+          ].map(it => (
+            <div key={it.key} className={SURFACE_INLINE + " px-3 py-2"}>
+              <div className="text-xs opacity-80 mb-1">{it.label}</div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={(tone as any)[it.key]}
+                  onChange={(e) => setPref("coach_tone", { ...tone, [it.key]: Number(e.target.value) })}
+                  className="flex-1 accent-emerald-500"
+                />
+                <div className="w-10 text-right text-xs tabular-nums">{(tone as any)[it.key]}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ====== ŠPORTY: hlavný + doplnkové ====== */}
       <section className={SECTION}>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium opacity-90">Sports</div>
-          <InfoPopover text="Zvoľ hlavný šport. Ostatné nastav ako doplnkové: ich podiel vyjadruje koľko % tréningovej energie pôjde mimo hlavného. 'Supplement' = udržiavanie/doplnok, 'Improve' = chceme v ňom aktívne napredovať." />
+          <InfoPopover text="Zvoľ hlavný šport. Ostatné nastav ako doplnkové: ich podiel je % tréningovej energie mimo hlavného. 'Supplement' = udržiavanie, 'Improve' = aktívne zlepšovať." />
         </div>
 
         {/* Hlavný šport */}
@@ -297,7 +366,6 @@ export default function PrefsForm() {
               onChange={(e) => {
                 const ms = e.target.value as SportKind;
                 setPref("main_sport", ms);
-                // odfiltruj main zo secondary
                 const filtered = (local.secondary_mix ?? []).filter(s => s.sport !== ms);
                 setPref("secondary_mix", filtered as any);
               }}
@@ -319,65 +387,56 @@ export default function PrefsForm() {
           </div>
         </div>
 
-        {/* Doplnkové športy (ostatné okrem main) */}
+        {/* Doplnkové športy */}
         <div className="mt-3 grid grid-cols-1 gap-2">
-          {secondary.map(sec => {
-            return (
-              <div key={sec.sport} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="min-w-[80px] text-sm font-medium">{sec.sport}</div>
+          {secondary.map(sec => (
+            <div key={sec.sport} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="min-w-[80px] text-sm font-medium">{sec.sport}</div>
 
-                  {/* Role switch (pill buttons) */}
-                  <div className="inline-flex items-center gap-1">
-                    {(["supplement","improve"] as SecondaryRole[]).map(r => {
-                      const active = sec.role === r;
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => updateSecondary(sec.sport, { role: r })}
-                          className={[
-                            PILL_BUTTON,
-                            "text-xs px-2 py-1",
-                            active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15"
-                          ].join(" ")}
-                          title={r === "supplement" ? "doplnok/udržiavať" : "cieľ zlepšiť"}
-                        >
-                          {r}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="inline-flex items-center gap-1">
+                  {(["supplement","improve"] as SecondaryRole[]).map(r => {
+                    const active = sec.role === r;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => updateSecondary(sec.sport, { role: r })}
+                        className={[PILL_BUTTON, "text-xs px-2 py-1", active ? ACTIVE_PILL : "border-white/15"].join(" ")}
+                        title={r === "supplement" ? "doplnok/udržiavať" : "cieľ zlepšiť"}
+                      >
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  {/* Slider share % */}
-                  <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={5}
-                      value={sec.share_pct}
-                      onChange={(e) => updateSecondary(sec.sport, { share_pct: Number(e.target.value) })}
-                      className="flex-1 accent-emerald-500"
-                    />
-                    <div className="w-12 text-right text-sm tabular-nums">{sec.share_pct}%</div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={sec.share_pct}
+                    onChange={(e) => updateSecondary(sec.sport, { share_pct: Number(e.target.value) })}
+                    className="flex-1 accent-emerald-500"
+                  />
+                  <div className="w-12 text-right text-sm tabular-nums">{sec.share_pct}%</div>
+                </div>
 
-                  {/* Rýchly reset */}
-                  <div className="ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => updateSecondary(sec.sport, { share_pct: 25, role: "supplement" })}
-                      className={[PILL_BUTTON, "text-xs px-2 py-1"].join(" ")}
-                      title="Reset to 25% / supplement"
-                    >
-                      reset
-                    </button>
-                  </div>
+                <div className="ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => updateSecondary(sec.sport, { share_pct: 25, role: "supplement" })}
+                    className={[PILL_BUTTON, "text-xs px-2 py-1"].join(" ")}
+                    title="Reset to 25% / supplement"
+                  >
+                    reset
+                  </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -385,7 +444,7 @@ export default function PrefsForm() {
       <section className={SECTION}>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium opacity-90">Days off</div>
-          <InfoPopover text="Dni bez tréningu od trénera. Môžu obsahovať ľahký voľný pohyb, ale plán nebude pridávať štruktúru." />
+          <InfoPopover text="Dni bez tréningu od trénera (môžeš mať ľahký voľný pohyb)." />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -396,11 +455,7 @@ export default function PrefsForm() {
               <button
                 key={d}
                 onClick={() => setPrefNested("preferences.days_off", next)}
-                className={[
-                  PILL_BUTTON,
-                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
-                         : "border-white/15"
-                ].join(" ")}
+                className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
               >
                 {d}
               </button>
@@ -413,7 +468,7 @@ export default function PrefsForm() {
       <section className={SECTION}>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium opacity-90">Preferred long-run days</div>
-          <InfoPopover text="Dni, kedy ti najviac vyhovuje dlhší beh/jazda. Plán sa bude snažiť ich uprednostniť." />
+          <InfoPopover text="Dni, kedy ti najviac vyhovuje dlhší beh/jazda." />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -424,11 +479,7 @@ export default function PrefsForm() {
               <button
                 key={d}
                 onClick={() => setPrefNested("preferences.long_run_days", next)}
-                className={[
-                  PILL_BUTTON,
-                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
-                         : "border-white/15"
-                ].join(" ")}
+                className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
               >
                 {d}
               </button>
@@ -437,11 +488,11 @@ export default function PrefsForm() {
         </div>
       </section>
 
-      {/* ====== Prepínače ====== */}
+      {/* ====== Pravidlá ====== */}
       <section className={SECTION}>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium opacity-90">Rules</div>
-          <InfoPopover text="Základné pravidlá skladby tréningov: nepokladať 2 ťažké dni po sebe, používať zóny a rozpísať WU/CD." />
+          <InfoPopover text="Základné pravidlá skladby tréningov." />
         </div>
 
         <div className={FORM_GRID_TWO}>
@@ -455,6 +506,7 @@ export default function PrefsForm() {
                   preferences: { ...prefDefaults(prev), avoid_back_to_back_hard: e.target.checked },
                 }))
               }
+              onInput={markDirty}
             />
             Avoid two hard days in a row
           </label>
@@ -470,6 +522,7 @@ export default function PrefsForm() {
                     preferences: { ...prefDefaults(prev), use_zones: e.target.checked },
                   }))
                 }
+                onInput={markDirty}
               />
               Use zones
             </label>
@@ -484,6 +537,7 @@ export default function PrefsForm() {
                     preferences: { ...prefDefaults(prev), wu_cd_detail: e.target.checked },
                   }))
                 }
+                onInput={markDirty}
               />
               Include WU/CD details
             </label>
@@ -491,7 +545,7 @@ export default function PrefsForm() {
         </div>
       </section>
 
-      {/* ====== Advanced ====== */}
+      {/* ====== Advanced toggle ====== */}
       <div className="flex">
         <button
           type="button"
@@ -541,25 +595,19 @@ export default function PrefsForm() {
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button
-                className={[
-                  PILL_BUTTON,
-                  (local as any).polarized_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
-                ].join(" ")}
+                className={[PILL_BUTTON, (local as any).polarized_model ? ACTIVE_PILL : "border-white/15"].join(" ")}
                 onClick={() => setPref("polarized_model" as any, true as any)}
               >
                 Polarized (80/20)
               </button>
               <button
-                className={[
-                  PILL_BUTTON,
-                  (local as any).pyramidal_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
-                ].join(" ")}
+                className={[PILL_BUTTON, (local as any).pyramidal_model ? ACTIVE_PILL : "border-white/15"].join(" ")}
                 onClick={() => setPref("pyramidal_model" as any, true as any)}
               >
                 Pyramidal
               </button>
               <button
-                className={[PILL_BUTTON].join(" ")}
+                className={PILL_BUTTON}
                 onClick={() => setLocal(p => ({ ...p, polarized_model: false, pyramidal_model: false } as any))}
               >
                 Clear model
@@ -575,25 +623,16 @@ export default function PrefsForm() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <select
-                className={inputClass}
-                value={extDraft.day}
-                onChange={(e) => setExtDraft(d => ({ ...d, day: e.target.value as DayAbbrev }))}
-              >
+              <select className={inputClass} value={extDraft.day}
+                onChange={(e) => setExtDraft(d => ({ ...d, day: e.target.value as DayAbbrev }))}>
                 {ALL_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
-              <select
-                className={inputClass}
-                value={extDraft.sport}
-                onChange={(e) => setExtDraft(d => ({ ...d, sport: e.target.value as ExternalSport }))}
-              >
+              <select className={inputClass} value={extDraft.sport}
+                onChange={(e) => setExtDraft(d => ({ ...d, sport: e.target.value as ExternalSport }))}>
                 {EXT_SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <select
-                className={inputClass}
-                value={extDraft.intensity}
-                onChange={(e) => setExtDraft(d => ({ ...d, intensity: e.target.value as ExternalIntensity }))}
-              >
+              <select className={inputClass} value={extDraft.intensity}
+                onChange={(e) => setExtDraft(d => ({ ...d, intensity: e.target.value as ExternalIntensity }))}>
                 {EXT_INTENS.map(i => <option key={i} value={i}>{i}</option>)}
               </select>
               <TextField
@@ -628,18 +667,12 @@ export default function PrefsForm() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <select
-                className={inputClass}
-                value={injDraft.area}
-                onChange={(e) => setInjDraft(d => ({ ...d, area: e.target.value as InjuryArea }))}
-              >
+              <select className={inputClass} value={injDraft.area}
+                onChange={(e) => setInjDraft(d => ({ ...d, area: e.target.value as InjuryArea }))}>
                 {INJ_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
-              <select
-                className={inputClass}
-                value={injDraft.type}
-                onChange={(e) => setInjDraft(d => ({ ...d, type: e.target.value as InjuryType }))}
-              >
+              <select className={inputClass} value={injDraft.type}
+                onChange={(e) => setInjDraft(d => ({ ...d, type: e.target.value as InjuryType }))}>
                 {INJ_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <TextField
@@ -667,7 +700,7 @@ export default function PrefsForm() {
             )}
           </section>
 
-          {/* Fokus a obmedzenia */}
+          {/* Fokus & Avoid */}
           <section className={SECTION}>
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium opacity-90">Focus & Avoid</div>
@@ -677,16 +710,14 @@ export default function PrefsForm() {
             <div className="text-xs opacity-80 mb-1">Focus areas</div>
             <div className="flex flex-wrap gap-2">
               {FOCUS_CHOICES.map(k => {
-                const active = (local as any).focus_areas?.includes(k);
-                const next = toggleInArray((local as any).focus_areas, k);
+                const cur = (local as any).focus_areas as string[] | undefined;
+                const active = !!cur?.includes(k);
+                const next = toggleInArray(cur, k);
                 return (
                   <button
                     key={k}
                     onClick={() => setPref("focus_areas" as any, next as any)}
-                    className={[
-                      PILL_BUTTON,
-                      active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
-                    ].join(" ")}
+                    className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
                   >
                     {k}
                   </button>
@@ -697,16 +728,14 @@ export default function PrefsForm() {
             <div className="mt-3 text-xs opacity-80 mb-1">Avoid</div>
             <div className="flex flex-wrap gap-2">
               {AVOID_CHOICES.map(k => {
-                const active = (local as any).avoid_zones?.includes(k);
-                const next = toggleInArray((local as any).avoid_zones, k);
+                const cur = (local as any).avoid_zones as string[] | undefined;
+                const active = !!cur?.includes(k);
+                const next = toggleInArray(cur, k);
                 return (
                   <button
                     key={k}
                     onClick={() => setPref("avoid_zones" as any, next as any)}
-                    className={[
-                      PILL_BUTTON,
-                      active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
-                    ].join(" ")}
+                    className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
                   >
                     {k}
                   </button>
@@ -732,7 +761,7 @@ export default function PrefsForm() {
                       mobility: !!(local as any).rehab_focus?.mobility,
                       balance: !!(local as any).rehab_focus?.balance,
                       recovery_protocol: (local as any).rehab_focus?.recovery_protocol ?? null
-                    } as any)
+                    } as RehabFocus)
                   }
                 />
                 Stretching
@@ -747,7 +776,7 @@ export default function PrefsForm() {
                       mobility: e.target.checked,
                       balance: !!(local as any).rehab_focus?.balance,
                       recovery_protocol: (local as any).rehab_focus?.recovery_protocol ?? null
-                    } as any)
+                    } as RehabFocus)
                   }
                 />
                 Mobility
@@ -762,7 +791,7 @@ export default function PrefsForm() {
                       mobility: !!(local as any).rehab_focus?.mobility,
                       balance: e.target.checked,
                       recovery_protocol: (local as any).rehab_focus?.recovery_protocol ?? null
-                    } as any)
+                    } as RehabFocus)
                   }
                 />
                 Balance/Proprioception
@@ -776,7 +805,7 @@ export default function PrefsForm() {
                     mobility: !!(local as any).rehab_focus?.mobility,
                     balance: !!(local as any).rehab_focus?.balance,
                     recovery_protocol: (e.target as HTMLInputElement).value || null
-                  } as any)
+                  } as RehabFocus)
                 }
               />
             </div>
