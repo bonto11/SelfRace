@@ -1,7 +1,7 @@
 // src/features/coach/components/CoachPreferencies/index.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   CoachPrefs, GoalKind, SportKind,
   ExternalActivity, ExternalIntensity, ExternalSport,
@@ -18,7 +18,6 @@ import {
 
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
-
 import {
   NO_X,
   SURFACE_INSET,
@@ -30,7 +29,17 @@ import {
 } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
-/* ===== Konštanty ===== */
+/* ===== Nové rozšírenia PREFS (nekolidujú so starými) ================== */
+type SecondaryRole = "supplement" | "improve";
+type SecondaryMix = { sport: SportKind; role: SecondaryRole; share_pct: number };
+
+/** Bezpečne doplníme pole do CoachPrefs cez „index.tsx“ (BE si uloží JSON). */
+type CoachPrefsExtended = CoachPrefs & {
+  main_sport?: SportKind | null;
+  secondary_mix?: SecondaryMix[];
+};
+
+/* ===== Konštanty ======================================================= */
 const ALL_DAYS: DayAbbrev[] = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const ALL_SPORTS: SportKind[] = ["run","ride","strength"];
 const ALL_GOALS: GoalKind[] = [
@@ -47,19 +56,49 @@ const FOCUS_CHOICES = [
 ];
 const AVOID_CHOICES = ["impact_high","downhill_runs","hard_surfaces","back_to_back_speed"];
 
-/* ===== Komponent ===== */
+/* ===== Mini InfoPopover (ikonka „i“) ================================== */
+function InfoPopover({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="px-2 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-xs"
+        aria-expanded={open}
+        aria-label="Info"
+        title="Info"
+      >
+        i
+      </button>
+      {open && (
+        <div
+          className={[
+            SURFACE_INSET,
+            "absolute right-0 mt-2 w-[min(74vw,360px)] p-3 text-xs leading-snug z-30",
+          ].join(" ")}
+          role="note"
+        >
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== Komponent ======================================================= */
 export default function PrefsForm() {
   const { userId } = useUserId();
 
-  // 1) rýchly init z localStorage
-  const [local, setLocal] = useState<CoachPrefs>(() => readCoachPrefsFromStorage());
-  // 2) dotiahni z DB
+  // init z LS + DB
+  const [local, setLocal] = useState<CoachPrefsExtended>(() => readCoachPrefsFromStorage() as CoachPrefsExtended);
   useEffect(() => {
     if (!userId) return;
-    refreshCoachPrefsFromDB(userId).then(setLocal).catch(() => {});
+    refreshCoachPrefsFromDB(userId).then(p => setLocal(p as CoachPrefsExtended)).catch(() => {});
   }, [userId]);
 
-  const prefDefaults = (p: CoachPrefs) =>
+  // defaults preferences
+  const prefDefaults = (p: CoachPrefsExtended) =>
     p.preferences ?? {
       days_off: [],
       long_run_days: [],
@@ -73,17 +112,13 @@ export default function PrefsForm() {
     return base.includes(v) ? base.filter(x => x !== v) : [...base, v];
   };
 
-  const setPref = <K extends keyof CoachPrefs>(key: K, val: CoachPrefs[K]) =>
+  const setPref = <K extends keyof CoachPrefsExtended>(key: K, val: CoachPrefsExtended[K]) =>
     setLocal(prev => ({ ...prev, [key]: val }));
 
   const setPrefNested = (
-    path: "preferences.days_off" | "preferences.long_run_days" | "primary_sports",
+    path: "preferences.days_off" | "preferences.long_run_days",
     v: any
   ) => {
-    if (path === "primary_sports") {
-      setLocal(prev => ({ ...prev, primary_sports: v }));
-      return;
-    }
     const p = prefDefaults(local);
     const next = { ...local, preferences: p };
     if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
@@ -92,7 +127,7 @@ export default function PrefsForm() {
   };
 
   const upsertRunTargets = (
-    patch: Partial<NonNullable<CoachPrefs["targets"]>["run"]>
+    patch: Partial<NonNullable<CoachPrefsExtended["targets"]>["run"]>
   ) =>
     setLocal(prev => ({
       ...prev,
@@ -123,7 +158,7 @@ export default function PrefsForm() {
     if (!userId) return;
     try {
       const fresh = await refreshCoachPrefsFromDB(userId);
-      setLocal(fresh);
+      setLocal(fresh as CoachPrefsExtended);
       toast.success("Refreshed");
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
@@ -133,7 +168,34 @@ export default function PrefsForm() {
   const pref = prefDefaults(local);
   const [showAdv, setShowAdv] = useState(false);
 
-  // Drafty pre „pridať položku“
+  /* --------- Hlavný & doplnkové športy ---------- */
+  const mainSport = useMemo<SportKind>(() => {
+    // fallback na "run", ak nie je zvolené
+    return (local.main_sport as SportKind) || "run";
+  }, [local.main_sport]);
+
+  // normalizuj secondary_mix tak, aby neobsahoval mainSport
+  const secondary = useMemo<SecondaryMix[]>(() => {
+    const cur = (local.secondary_mix ?? []).filter(s => s.sport !== mainSport);
+    // uisti sa, že všetky ostatné športy sú prítomné aspoň s defaultom
+    const missing = ALL_SPORTS
+      .filter(s => s !== mainSport)
+      .filter(s => !cur.some(x => x.sport === s))
+      .map<SecondaryMix>(s => ({ sport: s, role: "supplement", share_pct: 25 }));
+    return [...cur, ...missing];
+  }, [local.secondary_mix, mainSport]);
+
+  const setSecondary = (mix: SecondaryMix[]) => setLocal(p => ({ ...p, secondary_mix: mix }));
+
+  const updateSecondary = (sport: SportKind, patch: Partial<SecondaryMix>) => {
+    const next = secondary.map(x => (x.sport === sport ? { ...x, ...patch } : x));
+    setSecondary(next);
+  };
+
+  const sumShare = secondary.reduce((a, b) => a + (Number.isFinite(b.share_pct) ? b.share_pct : 0), 0);
+  const shareWarn = sumShare > 100;
+
+  /* --------- Externé aktivity / zranenia (advanced) ---------- */
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
     day: "Tue", sport: "football", intensity: "high", note: ""
   });
@@ -142,34 +204,39 @@ export default function PrefsForm() {
   });
 
   const addExternal = () => {
-    const cur = local.external_activities ?? [];
+    const cur = (local as any).external_activities ?? [];
     setLocal(p => ({
       ...p,
       external_activities: [...cur, { ...extDraft, note: extDraft.note?.trim() || undefined }]
-    }));
+    }) as any);
   };
   const removeExternal = (idx: number) => {
-    const cur = local.external_activities ?? [];
-    setLocal(p => ({ ...p, external_activities: cur.filter((_, i) => i !== idx) }));
+    const cur = (local as any).external_activities ?? [];
+    setLocal(p => ({ ...p, external_activities: cur.filter((_: any, i: number) => i !== idx) }) as any);
   };
 
   const addInjury = () => {
-    const cur = local.injuries ?? [];
+    const cur = (local as any).injuries ?? [];
     setLocal(p => ({
       ...p,
       injuries: [...cur, { ...injDraft, note: injDraft.note?.trim() || undefined }]
-    }));
+    }) as any);
   };
   const removeInjury = (idx: number) => {
-    const cur = local.injuries ?? [];
-    setLocal(p => ({ ...p, injuries: cur.filter((_, i) => i !== idx) }));
+    const cur = (local as any).injuries ?? [];
+    setLocal(p => ({ ...p, injuries: cur.filter((_: any, i: number) => i !== idx) }) as any);
   };
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
-      {/* ========== ZÁKLADNÉ ========== */}
+
+      {/* ====== GOAL ====== */}
       <section className={SECTION}>
-        <div className="text-sm font-medium opacity-90 mb-2">Goal</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">Goal</div>
+          <InfoPopover text="Vyber celkový cieľ prípravy a časové okno. Pri 'race_time' uveď aj súčasné a cieľové časy pre beh." />
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {ALL_GOALS.map(g => {
             const active = local.goal_kind === g;
@@ -213,32 +280,114 @@ export default function PrefsForm() {
         </div>
       </section>
 
+      {/* ====== ŠPORTY: hlavný + doplnkové ====== */}
       <section className={SECTION}>
-        <div className="text-sm font-medium opacity-90 mb-2">Sports</div>
-        <div className="flex flex-wrap gap-2">
-          {ALL_SPORTS.map(s => {
-            const cur = local.primary_sports ?? local.sports ?? [];
-            const active = cur.includes(s);
-            const next = toggleInArray(cur, s);
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">Sports</div>
+          <InfoPopover text="Zvoľ hlavný šport. Ostatné nastav ako doplnkové: ich podiel vyjadruje koľko % tréningovej energie pôjde mimo hlavného. 'Supplement' = udržiavanie/doplnok, 'Improve' = chceme v ňom aktívne napredovať." />
+        </div>
+
+        {/* Hlavný šport */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <div className="text-xs opacity-80 mb-1">Main sport</div>
+            <select
+              className={inputClass}
+              value={mainSport}
+              onChange={(e) => {
+                const ms = e.target.value as SportKind;
+                setPref("main_sport", ms);
+                // odfiltruj main zo secondary
+                const filtered = (local.secondary_mix ?? []).filter(s => s.sport !== ms);
+                setPref("secondary_mix", filtered as any);
+              }}
+            >
+              {ALL_SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {/* Sumár podielov */}
+          <div className="sm:col-span-2">
+            <div className="text-xs opacity-80 mb-1">Secondary share (sum)</div>
+            <div className={[
+              SURFACE_INLINE,
+              "px-3 py-2 text-sm font-semibold tabular-nums",
+              shareWarn ? "text-rose-300" : "opacity-90"
+            ].join(" ")}>
+              {sumShare}% {shareWarn ? "— reduce below 100%" : ""}
+            </div>
+          </div>
+        </div>
+
+        {/* Doplnkové športy (ostatné okrem main) */}
+        <div className="mt-3 grid grid-cols-1 gap-2">
+          {secondary.map(sec => {
             return (
-              <button
-                key={s}
-                onClick={() => setPrefNested("primary_sports", next)}
-                className={[
-                  PILL_BUTTON,
-                  active ? "bg-emerald-600/90 border-emerald-500 text-white"
-                         : "border-white/15"
-                ].join(" ")}
-              >
-                {s}
-              </button>
+              <div key={sec.sport} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="min-w-[80px] text-sm font-medium">{sec.sport}</div>
+
+                  {/* Role switch (pill buttons) */}
+                  <div className="inline-flex items-center gap-1">
+                    {(["supplement","improve"] as SecondaryRole[]).map(r => {
+                      const active = sec.role === r;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => updateSecondary(sec.sport, { role: r })}
+                          className={[
+                            PILL_BUTTON,
+                            "text-xs px-2 py-1",
+                            active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15"
+                          ].join(" ")}
+                          title={r === "supplement" ? "doplnok/udržiavať" : "cieľ zlepšiť"}
+                        >
+                          {r}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Slider share % */}
+                  <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={sec.share_pct}
+                      onChange={(e) => updateSecondary(sec.sport, { share_pct: Number(e.target.value) })}
+                      className="flex-1 accent-emerald-500"
+                    />
+                    <div className="w-12 text-right text-sm tabular-nums">{sec.share_pct}%</div>
+                  </div>
+
+                  {/* Rýchly reset */}
+                  <div className="ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => updateSecondary(sec.sport, { share_pct: 25, role: "supplement" })}
+                      className={[PILL_BUTTON, "text-xs px-2 py-1"].join(" ")}
+                      title="Reset to 25% / supplement"
+                    >
+                      reset
+                    </button>
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>
       </section>
 
+      {/* ====== Days off ====== */}
       <section className={SECTION}>
-        <div className="text-sm font-medium opacity-90 mb-2">Days off</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">Days off</div>
+          <InfoPopover text="Dni bez tréningu od trénera. Môžu obsahovať ľahký voľný pohyb, ale plán nebude pridávať štruktúru." />
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map(d => {
             const active = pref.days_off?.includes(d);
@@ -260,11 +409,16 @@ export default function PrefsForm() {
         </div>
       </section>
 
+      {/* ====== Long-run dni ====== */}
       <section className={SECTION}>
-        <div className="text-sm font-medium opacity-90 mb-2">Preferred long-run days</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">Preferred long-run days</div>
+          <InfoPopover text="Dni, kedy ti najviac vyhovuje dlhší beh/jazda. Plán sa bude snažiť ich uprednostniť." />
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map(d => {
-            const active = pref.long_run_days?.includes(d);
+            const active = (pref.long_run_days ?? []).includes(d);
             const next = toggleInArray(pref.long_run_days ?? [], d);
             return (
               <button
@@ -283,7 +437,13 @@ export default function PrefsForm() {
         </div>
       </section>
 
+      {/* ====== Prepínače ====== */}
       <section className={SECTION}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">Rules</div>
+          <InfoPopover text="Základné pravidlá skladby tréningov: nepokladať 2 ťažké dni po sebe, používať zóny a rozpísať WU/CD." />
+        </div>
+
         <div className={FORM_GRID_TWO}>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -331,7 +491,7 @@ export default function PrefsForm() {
         </div>
       </section>
 
-      {/* ====== Pokročilé ====== */}
+      {/* ====== Advanced ====== */}
       <div className="flex">
         <button
           type="button"
@@ -345,31 +505,35 @@ export default function PrefsForm() {
 
       {showAdv && (
         <>
-          {/* Modely / špecifické tréningy */}
+          {/* Modely / špecifické bloky */}
           <section className={SECTION}>
-            <div className="text-sm font-medium opacity-90 mb-2">Intensity models & specific blocks</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium opacity-90">Intensity models & specific blocks</div>
+              <InfoPopover text="Polarized/Pyramidal ovplyvní rozloženie intenzít. VO₂max/FTP zapne cielené bloky." />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={!!local.vo2max_training}
-                  onChange={(e) => setPref("vo2max_training", e.target.checked)}
+                  checked={!!(local as any).vo2max_training}
+                  onChange={(e) => setPref("vo2max_training" as any, e.target.checked as any)}
                 />
                 Include VO₂max blocks (run)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={!!local.ftp_training}
-                  onChange={(e) => setPref("ftp_training", e.target.checked)}
+                  checked={!!(local as any).ftp_training}
+                  onChange={(e) => setPref("ftp_training" as any, e.target.checked as any)}
                 />
                 Include FTP blocks (ride)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={!!local.threshold_focus}
-                  onChange={(e) => setPref("threshold_focus", e.target.checked)}
+                  checked={!!(local as any).threshold_focus}
+                  onChange={(e) => setPref("threshold_focus" as any, e.target.checked as any)}
                 />
                 Threshold focus (more Z3/Z4)
               </label>
@@ -379,24 +543,24 @@ export default function PrefsForm() {
               <button
                 className={[
                   PILL_BUTTON,
-                  local.polarized_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
+                  (local as any).polarized_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
                 ].join(" ")}
-                onClick={() => setPref("polarized_model", true)}
+                onClick={() => setPref("polarized_model" as any, true as any)}
               >
                 Polarized (80/20)
               </button>
               <button
                 className={[
                   PILL_BUTTON,
-                  local.pyramidal_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
+                  (local as any).pyramidal_model ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
                 ].join(" ")}
-                onClick={() => setPref("pyramidal_model", true)}
+                onClick={() => setPref("pyramidal_model" as any, true as any)}
               >
                 Pyramidal
               </button>
               <button
                 className={[PILL_BUTTON].join(" ")}
-                onClick={() => setLocal(p => ({ ...p, polarized_model: false, pyramidal_model: false }))}
+                onClick={() => setLocal(p => ({ ...p, polarized_model: false, pyramidal_model: false } as any))}
               >
                 Clear model
               </button>
@@ -405,7 +569,11 @@ export default function PrefsForm() {
 
           {/* Externé aktivity */}
           <section className={SECTION}>
-            <div className="text-sm font-medium opacity-90 mb-2">External activities (non-coach)</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium opacity-90">External activities (non-coach)</div>
+              <InfoPopover text="Aktivity mimo trénera (napr. futbal). Plán s nimi počíta pri rozklade záťaže." />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <select
                 className={inputClass}
@@ -438,9 +606,9 @@ export default function PrefsForm() {
               <Button onClick={addExternal} size="sm" variant="success">Add external</Button>
             </div>
 
-            {(local.external_activities ?? []).length > 0 && (
+            {((local as any).external_activities ?? []).length > 0 && (
               <ul className="mt-3 space-y-2">
-                {(local.external_activities ?? []).map((a, idx) => (
+                {((local as any).external_activities ?? []).map((a: any, idx: number) => (
                   <li key={idx} className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}>
                     <span className="text-sm">
                       {a.day} · {a.sport} · {a.intensity}{a.note ? ` — ${a.note}` : ""}
@@ -454,7 +622,11 @@ export default function PrefsForm() {
 
           {/* Zranenia */}
           <section className={SECTION}>
-            <div className="text-sm font-medium opacity-90 mb-2">Injuries / limitations</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium opacity-90">Injuries / limitations</div>
+              <InfoPopover text="Zdravotné obmedzenia (napr. bolesť nártov). Plán zníži rizikové prvky a zaradí kompenzácie." />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <select
                 className={inputClass}
@@ -471,7 +643,7 @@ export default function PrefsForm() {
                 {INJ_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <TextField
-                placeholder="note (e.g., bolesť nártov…) "
+                placeholder="note (e.g., bolesť nártov…)"
                 value={injDraft.note ?? ""}
                 onChange={(e) => setInjDraft(d => ({ ...d, note: (e.target as HTMLInputElement).value }))}
                 containerClassName="md:col-span-2"
@@ -481,9 +653,9 @@ export default function PrefsForm() {
               <Button onClick={addInjury} size="sm" variant="success">Add injury</Button>
             </div>
 
-            {(local.injuries ?? []).length > 0 && (
+            {((local as any).injuries ?? []).length > 0 && (
               <ul className="mt-3 space-y-2">
-                {(local.injuries ?? []).map((it, idx) => (
+                {((local as any).injuries ?? []).map((it: any, idx: number) => (
                   <li key={idx} className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}>
                     <span className="text-sm">
                       {it.area} · {it.type}{it.note ? ` — ${it.note}` : ""}
@@ -497,15 +669,20 @@ export default function PrefsForm() {
 
           {/* Fokus a obmedzenia */}
           <section className={SECTION}>
-            <div className="text-sm font-medium opacity-90 mb-2">Focus areas</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium opacity-90">Focus & Avoid</div>
+              <InfoPopover text="Zameranie na slabiny (strength/mobility) a veci, ktorým sa má plán vyhýbať (napr. veľa zbehov)." />
+            </div>
+
+            <div className="text-xs opacity-80 mb-1">Focus areas</div>
             <div className="flex flex-wrap gap-2">
               {FOCUS_CHOICES.map(k => {
-                const active = (local.focus_areas ?? []).includes(k);
-                const next = toggleInArray(local.focus_areas, k);
+                const active = (local as any).focus_areas?.includes(k);
+                const next = toggleInArray((local as any).focus_areas, k);
                 return (
                   <button
                     key={k}
-                    onClick={() => setPref("focus_areas", next)}
+                    onClick={() => setPref("focus_areas" as any, next as any)}
                     className={[
                       PILL_BUTTON,
                       active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
@@ -517,15 +694,15 @@ export default function PrefsForm() {
               })}
             </div>
 
-            <div className="mt-3 text-sm font-medium opacity-90 mb-2">Avoid</div>
+            <div className="mt-3 text-xs opacity-80 mb-1">Avoid</div>
             <div className="flex flex-wrap gap-2">
               {AVOID_CHOICES.map(k => {
-                const active = (local.avoid_zones ?? []).includes(k);
-                const next = toggleInArray(local.avoid_zones, k);
+                const active = (local as any).avoid_zones?.includes(k);
+                const next = toggleInArray((local as any).avoid_zones, k);
                 return (
                   <button
                     key={k}
-                    onClick={() => setPref("avoid_zones", next)}
+                    onClick={() => setPref("avoid_zones" as any, next as any)}
                     className={[
                       PILL_BUTTON,
                       active ? "bg-emerald-600/90 border-emerald-500 text-white" : "border-white/15",
@@ -540,19 +717,22 @@ export default function PrefsForm() {
 
           {/* Rehab */}
           <section className={SECTION}>
-            <div className="text-sm font-medium opacity-90 mb-2">Rehab & recovery</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium opacity-90">Rehab & recovery</div>
+              <InfoPopover text="Dlhodobejšie kompenzácie – stretching/mobility/balance a prípadný protokol (kľúč)." />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={!!local.rehab_focus?.stretching}
+                  checked={!!(local as any).rehab_focus?.stretching}
                   onChange={(e) =>
-                    setPref("rehab_focus", {
+                    setPref("rehab_focus" as any, {
                       stretching: e.target.checked,
-                      mobility: !!local.rehab_focus?.mobility,
-                      balance: !!local.rehab_focus?.balance,
-                      recovery_protocol: local.rehab_focus?.recovery_protocol ?? null
-                    })
+                      mobility: !!(local as any).rehab_focus?.mobility,
+                      balance: !!(local as any).rehab_focus?.balance,
+                      recovery_protocol: (local as any).rehab_focus?.recovery_protocol ?? null
+                    } as any)
                   }
                 />
                 Stretching
@@ -560,14 +740,14 @@ export default function PrefsForm() {
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={!!local.rehab_focus?.mobility}
+                  checked={!!(local as any).rehab_focus?.mobility}
                   onChange={(e) =>
-                    setPref("rehab_focus", {
-                      stretching: !!local.rehab_focus?.stretching,
+                    setPref("rehab_focus" as any, {
+                      stretching: !!(local as any).rehab_focus?.stretching,
                       mobility: e.target.checked,
-                      balance: !!local.rehab_focus?.balance,
-                      recovery_protocol: local.rehab_focus?.recovery_protocol ?? null
-                    })
+                      balance: !!(local as any).rehab_focus?.balance,
+                      recovery_protocol: (local as any).rehab_focus?.recovery_protocol ?? null
+                    } as any)
                   }
                 />
                 Mobility
@@ -575,28 +755,28 @@ export default function PrefsForm() {
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={!!local.rehab_focus?.balance}
+                  checked={!!(local as any).rehab_focus?.balance}
                   onChange={(e) =>
-                    setPref("rehab_focus", {
-                      stretching: !!local.rehab_focus?.stretching,
-                      mobility: !!local.rehab_focus?.mobility,
+                    setPref("rehab_focus" as any, {
+                      stretching: !!(local as any).rehab_focus?.stretching,
+                      mobility: !!(local as any).rehab_focus?.mobility,
                       balance: e.target.checked,
-                      recovery_protocol: local.rehab_focus?.recovery_protocol ?? null
-                    })
+                      recovery_protocol: (local as any).rehab_focus?.recovery_protocol ?? null
+                    } as any)
                   }
                 />
                 Balance/Proprioception
               </label>
               <TextField
                 placeholder="protocol key (optional)"
-                value={local.rehab_focus?.recovery_protocol ?? ""}
+                value={(local as any).rehab_focus?.recovery_protocol ?? ""}
                 onChange={(e) =>
-                  setPref("rehab_focus", {
-                    stretching: !!local.rehab_focus?.stretching,
-                    mobility: !!local.rehab_focus?.mobility,
-                    balance: !!local.rehab_focus?.balance,
+                  setPref("rehab_focus" as any, {
+                    stretching: !!(local as any).rehab_focus?.stretching,
+                    mobility: !!(local as any).rehab_focus?.mobility,
+                    balance: !!(local as any).rehab_focus?.balance,
                     recovery_protocol: (e.target as HTMLInputElement).value || null
-                  })
+                  } as any)
                 }
               />
             </div>
@@ -606,12 +786,8 @@ export default function PrefsForm() {
 
       {/* Akcie */}
       <div className="flex gap-2 pt-1">
-        <Button onClick={onSave} variant="success">
-          Save
-        </Button>
-        <Button onClick={onRefresh} variant="secondary">
-          Refresh
-        </Button>
+        <Button onClick={onSave} variant="success">Save</Button>
+        <Button onClick={onRefresh} variant="secondary">Refresh</Button>
       </div>
     </div>
   );
