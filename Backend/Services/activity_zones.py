@@ -9,7 +9,7 @@ from Configs.config import (
     TABLE_ACTIVITIES_ENRICHMENT,
     TABLE_ACTIVITIES_SUMMARY,
 )
-from backend.Services.Supabase.users import get_user_uid
+from Services.Supabase.users import get_user_uid
 
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch, cache_streams_for_activities
 
