@@ -1,12 +1,12 @@
 # Routes/coach_context.py
 from __future__ import annotations
 from fastapi import APIRouter, HTTPException
-from backend.Services.Supabase.user_bests import fetch_user_bests
-from backend.Services.Supabase.user_notes import fetch_recent_notes
-from backend.Services.Supabase.user_prefs import fetch_pref
-from backend.Services.Supabase.user_recovery import fetch_recent_recovery
-from backend.Services.Supabase.user_thresholds import fetch_user_thresholds
-from backend.Services.Supabase.user_zones import fetch_user_zones
+from Services.Supabase.user_bests import fetch_user_bests
+from Services.Supabase.user_notes import fetch_recent_notes
+from Services.Supabase.user_prefs import fetch_pref
+from Services.Supabase.user_recovery import fetch_recent_recovery
+from Services.Supabase.user_thresholds import fetch_user_thresholds
+from Services.Supabase.user_zones import fetch_user_zones
 from Services.coach_weekly import build_weekly_context
 
 router = APIRouter(prefix="/coach", tags=["coach"])

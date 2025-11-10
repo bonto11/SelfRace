@@ -10,17 +10,14 @@ from Configs.config import (
     TABLE_ACTIVITIES_LAPS,
 )
 
+from Services.time import parse_date_ymd
+
 from Services.time import is_time  # ak nemáš, validáciu urobíme lokálne nižšie
 
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 supabase = get_client()
 
-def _parse_date_ymd(s: str) -> date:
-    try:
-        return datetime.strptime(s, "%Y-%m-%d").date()
-    except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD")
 
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -160,7 +157,7 @@ def select_activities(
     filtrované podľa sport_type_fe (CSV). Minimal payload pre picker.
     """
     try:
-        center = _parse_date_ymd(date)
+        center = parse_date_ymd(date)
         date_from = (center - timedelta(days=delta_days)).isoformat()
         date_to   = (center + timedelta(days=delta_days)).isoformat()
         sport_list = [s.strip() for s in sports.split(",") if s.strip()]

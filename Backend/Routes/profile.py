@@ -5,16 +5,8 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from Modules.SQL.db_handler import get_client
 
-# Skús najprv "Services", fallback na "service"
-try:
-    from Services.profile import (
-        MetricKey, MetricEntry, BatchMetricsPayload, StaticPayload,
-        _iso_now, _birth_to_iso_date, _fetch_static, _fetch_latest_by_metric,
-        _apply_user_filter,
-    )
-except Exception:  # noqa: BLE001
-    from service.profile import (  # type: ignore
-        MetricKey, MetricEntry, BatchMetricsPayload, StaticPayload,
+from Services.profile import (
+        MetricKey, BatchMetricsPayload, StaticPayload,
         _iso_now, _birth_to_iso_date, _fetch_static, _fetch_latest_by_metric,
         _apply_user_filter,
     )
