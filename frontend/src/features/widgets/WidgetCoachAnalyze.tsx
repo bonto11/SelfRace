@@ -20,6 +20,20 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Pill from "@/shared/components/ui/Pill";
 import { THEME } from "@/shared/theme/tokens";
 
+function JsonBlock({ title, data }: { title: string; data: any }) {
+    if (!data) return null;
+    return (
+      <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
+        <summary className="cursor-pointer select-none text-sm font-semibold py-1">
+          {title}
+        </summary>
+        <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </details>
+    );
+  }
+
 export default function WidgetCoachAnalyze() {
   const { userId } = useUserId();
   const { prefs, pbRun } = useCoachData();
@@ -120,20 +134,6 @@ export default function WidgetCoachAnalyze() {
         hasPlan: !!result?.analysis?.next_week_plan,
       }
     : null;
-
-  function JsonBlock({ title, data }: { title: string; data: any }) {
-    if (!data) return null;
-    return (
-      <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
-        <summary className="cursor-pointer select-none text-sm font-semibold py-1">
-          {title}
-        </summary>
-        <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      </details>
-    );
-  }
 
   return (
     <div className="col-span-full space-y-3">
