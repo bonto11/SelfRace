@@ -21,6 +21,7 @@ from Configs.config import (
 )
 from Services.time import week_key, week_bounds
 from Services.analytics import compute_trimp, monotony_and_strain
+from Services.bests import fetch_user_bests
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 supabase = get_client()
@@ -126,23 +127,6 @@ def fetch_weekly(user_id: int, weeks: int = 12):
 
     # Aktivity – len polia, ktoré máš: date, sport_type(_fe/_ovrd), distance_m, moving_time_s, average_heartrate_bpm
     try:
-        """
-        res = (
-            supabase.table(TABLE_ACTIVITIES_SUMMARY)
-            .select(
-                "date,"
-                "sport_type_fe,sport_type_ovrd,"
-                "distance_m,moving_time_s,average_heartrate_bpm,average_hr,"
-                "name,activity_id"
-            )
-            .eq("user_id", user_id)
-            .gte("date", since_iso)
-            .order("date", desc=True)   # neskôr agregujeme podľa týždňov
-            .execute()
-        )
-    """
-        since_date = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
-
         res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select(
@@ -150,7 +134,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
                 "sport_type,sport_type_fe,sport_type_ovrd,"
                 "distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,date"
             )
-            .eq("user_id", 13)
+            .eq("user_id", user_id)
             .gte("date", since_iso)
             .order("date", desc=True)
             .execute()
@@ -314,34 +298,6 @@ def fetch_user_zones(user_id: int) -> list[dict]:
 
 STD_DISTANCES = [400, 1000, 5000, 21097, 42195]
 
-def fetch_user_bests(user_id: int) -> dict:
-    try:
-        res = (
-            supabase.table(TABLE_USERS_BESTS)
-            .select("distance_m,best_time_s,achieved_at,event_name,activity_id,updated_at")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        rows = res.data or []
-        bests: dict[int, dict] = {}
-        for r in rows:
-            d = int(r.get("distance_m") or 0)
-            t = r.get("best_time_s")
-            if d not in STD_DISTANCES or t is None:
-                continue
-            prev = bests.get(d)
-            if not prev or int(t) < int(prev["best_time_s"]):
-                bests[d] = {
-                    "distance_m": d,
-                    "best_time_s": int(t),
-                    "achieved_at": r.get("achieved_at"),
-                    "event_name": r.get("event_name"),
-                    "activity_id": r.get("activity_id"),
-                    "updated_at": r.get("updated_at"),
-                }
-        return bests
-    except Exception:
-        return {}
 
 def fetch_user_coach_prefs(user_id: int) -> dict | None:
     try:
@@ -380,7 +336,7 @@ def coach_context(user_id: int, weeks: int = 6, rec_days: int = 21):
         thresholds = fetch_user_thresholds(user_id)
         zones = fetch_user_zones(user_id)
         prefs = fetch_user_coach_prefs(user_id)
-        bests = fetch_user_bests(user_id)
+        bests = fetch_user_bests(user_id, "run")
         return {
             "success": True,
             "weekly": weekly,
