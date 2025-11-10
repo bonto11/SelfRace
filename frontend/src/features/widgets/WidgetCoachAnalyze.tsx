@@ -266,6 +266,7 @@ export default function WidgetCoachAnalyze() {
               </div>
             </header>
             <div className="px-4 pb-4 space-y-3">
+              <JsonBlock title="Current FE prefs" data={debugFEprefs} />
               <JsonBlock title="Sent payload (FE → BE)" data={debugPayload} />
               <JsonBlock title="Context used (BE → AI)" data={result?.context_used} />
               <JsonBlock title="AI JSON (BE ← AI)" data={result?.analysis} />
