@@ -1,40 +1,121 @@
 import { API_URL } from "@/shared/config";
-import type { CoachPrefs, SportKind } from "@/features/coach/types/prefsTypes";
+import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
-/** ---- Adapter: CoachPrefs -> BE payload --------------------------------- */
+/** ---- BE payload (nový kontrakt) -------------------------------------- */
 
 export type AnalyzePayloadBE = {
-  weeks: number;
-  goal: string;             // napr. "improve_overall" alebo "race_time:5k"
-  primary_sports: string[]; // ["run","ride","strength"]
+  schema_version: number;
+
+  goal: {
+    goal_kind?: CoachPrefs["goal_kind"];
+    horizon_weeks?: number;
+  };
+
+  voice: {
+    coach_voice?: CoachPrefs["coach_voice"];
+    coach_tone?: CoachPrefs["coach_tone"];
+  };
+
+  sports: {
+    main_sport?: CoachPrefs["main_sport"];
+    secondary_mix?: NonNullable<CoachPrefs["secondary_mix"]>;
+  };
+
+  targets?: CoachPrefs["targets"];
+  rules?: CoachPrefs["preferences"];
+
+  externals?: CoachPrefs["external_activities"];
+  injuries?: CoachPrefs["injuries"];
+
+  focus?: {
+    areas?: string[];
+    avoid_zones?: string[];
+    rehab?: CoachPrefs["rehab_focus"];
+  };
+
+  intensity_model?: "polarized" | "pyramidal" | null;
+  blocks?: {
+    vo2max?: boolean;
+    threshold?: boolean;
+    ftp?: boolean;
+  };
+
+  // voliteľne kvôli spätn. kompatibilite
+  legacy?: {
+    distance?: CoachPrefs["distance"];
+    current_pace?: CoachPrefs["current_pace"];
+    target_pace?: CoachPrefs["target_pace"];
+  };
 };
 
+/** ---- Adapter: CoachPrefs -> AnalyzePayloadBE -------------------------- */
+
 export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE {
-  const weeks = prefs.weeks ?? 8;
+  // vyber presne jeden intensity model
+  const intensity_model =
+    prefs.polarized_model ? "polarized" :
+    prefs.pyramidal_model ? "pyramidal" :
+    null;
 
-  const gk = prefs.goal_kind ?? "improve_overall";
-  let goal = gk as string;
+  // sekundárne športy len s podielom > 0
+  const secondary = (prefs.secondary_mix ?? []).filter(
+    (x) => (x?.share_pct ?? 0) > 0
+  );
 
-  // ak máš štruktúrované ciele pre beh
-  const race = prefs.targets?.run?.race_goal;
-  if (gk === "race_time" && race) {
-    goal = `race_time:${race}`;
-  }
+  return {
+    schema_version: 2,
 
-  const primary = (prefs.primary_sports ?? prefs.sports ?? []) as SportKind[];
-  const primary_sports = primary.length ? primary.map(String) : ["run", "ride", "strength"];
+    goal: {
+      goal_kind: prefs.goal_kind,
+      horizon_weeks: prefs.weeks ?? undefined,
+    },
 
-  return { weeks, goal, primary_sports };
+    voice: {
+      coach_voice: prefs.coach_voice,
+      coach_tone: prefs.coach_tone,
+    },
+
+    sports: {
+      main_sport: prefs.main_sport,
+      secondary_mix: secondary,
+    },
+
+    targets: prefs.targets ?? undefined,
+    rules: prefs.preferences ?? undefined,
+
+    externals: prefs.external_activities ?? [],
+    injuries: prefs.injuries ?? [],
+
+    focus: {
+      areas: prefs.focus_areas ?? [],
+      avoid_zones: prefs.avoid_zones ?? [],
+      rehab: prefs.rehab_focus ?? undefined,
+    },
+
+    intensity_model,
+
+    blocks: {
+      vo2max: !!prefs.vo2max_training,
+      threshold: !!prefs.threshold_focus,
+      ftp: !!prefs.ftp_training,
+    },
+
+    legacy: {
+      distance: prefs.distance ?? undefined,
+      current_pace: prefs.current_pace ?? undefined,
+      target_pace: prefs.target_pace ?? undefined,
+    },
+  };
 }
 
-/** ---- API calls ---------------------------------------------------------- */
+/** ---- API calls -------------------------------------------------------- */
 
 export async function analyzeCoach(
   userId: number,
   prefsOrPayload: Partial<CoachPrefs> | AnalyzePayloadBE
 ) {
   const payload: AnalyzePayloadBE =
-    "primary_sports" in (prefsOrPayload as any)
+    "schema_version" in (prefsOrPayload as any)
       ? (prefsOrPayload as AnalyzePayloadBE)
       : toAnalyzePayloadBE(prefsOrPayload as Partial<CoachPrefs>);
 
@@ -52,7 +133,7 @@ export async function analyzeCoach(
     const msg = json?.detail || json?.error || `HTTP ${res.status}`;
     throw new Error(msg);
   }
-  return json; // raw – BE kontrakt ešte ladíme
+  return json;
 }
 
 export async function sendCoachFeedback(userId: number, body: unknown) {
