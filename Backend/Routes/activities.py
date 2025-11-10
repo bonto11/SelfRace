@@ -1,7 +1,6 @@
 # backend/Routes/activities.py
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta, timezone, time, date
-from Services.time import iso_date
 from Modules.SQL.db_handler import get_client
 from Modules.Sync import sync_handler
 from Configs.config import (
@@ -11,14 +10,6 @@ from Configs.config import (
 )
 
 from Services.time import parse_date_ymd
-
-from Services.time import is_time  # ak nemáš, validáciu urobíme lokálne nižšie
-
-
-router = APIRouter(prefix="/activities", tags=["activities"])
-supabase = get_client()
-
-
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 supabase = get_client()
