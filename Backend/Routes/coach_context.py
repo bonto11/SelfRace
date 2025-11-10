@@ -67,14 +67,78 @@ def _rhr_for_date(rhr_by_date: Dict[str, float], iso_date: str) -> Optional[floa
             return rhr_by_date[d_prev]
     return None
 
+# --- nový helper -----------------------------------------------------------
+def _fetch_activities_since(user_id: int, since_dt: datetime) -> List[dict]:
+    """Skús získať aktivity 3 spôsobmi, kým niečo nepríde."""
+    since_iso_z = since_dt.strftime("%Y-%m-%dT00:00:00Z")
+    since_date = since_dt.date().isoformat()
+
+    base_select = (
+        "date,start_date,start_date_local,"
+        "sport_type,sport_type_fe,sport_type_ovrd,name,"
+        "distance_m,distance,distance_meters,"
+        "moving_time_s,moving_time,elapsed_time_s,"
+        "average_heartrate_bpm,average_hr,activity_id"
+    )
+
+    # 1) najprv priamo cez "date"
+    try:
+        r1 = (
+            supabase.table(TABLE_ACTIVITIES_SUMMARY)
+            .select(base_select)
+            .eq("user_id", user_id)
+            .gte("date", since_iso_z)
+            .order("date", desc=False)
+            .execute()
+        )
+        rows = r1.data or []
+        if rows:
+            return rows
+    except Exception:
+        pass
+
+    # 2) potom cez "start_date_local"
+    try:
+        r2 = (
+            supabase.table(TABLE_ACTIVITIES_SUMMARY)
+            .select(base_select)
+            .eq("user_id", user_id)
+            .gte("start_date_local", since_iso_z)
+            .order("start_date_local", desc=False)
+            .execute()
+        )
+        rows = r2.data or []
+        if rows:
+            return rows
+    except Exception:
+        pass
+
+    # 3) napokon hrubá sila: date::date >= 'YYYY-MM-DD'
+    #    (PostgREST: filter na virtuálny stĺpec; vyžaduje presný zápis)
+    try:
+        r3 = (
+            supabase.table(TABLE_ACTIVITIES_SUMMARY)
+            .select(base_select)
+            .eq("user_id", user_id)
+            .gte("date::date", since_date)
+            .order("date", desc=False)
+            .execute()
+        )
+        rows = r3.data or []
+        return rows
+    except Exception:
+        return []
+
+# --- upravený fetch_weekly -------------------------------------------------
 def fetch_weekly(user_id: int, weeks: int = 12):
     sex: Optional[str] = None
     hr_max: Optional[float] = None
 
-    # --- profily / HR_max ---
+    # profil / HRmax
     try:
         st = supabase.table(TABLE_PROFILE_STATIC).select("sex").eq("user_id", user_id).limit(1).execute()
-        if st.data: sex = st.data[0].get("sex")
+        if st.data:
+            sex = st.data[0].get("sex")
     except Exception:
         pass
 
@@ -94,33 +158,10 @@ def fetch_weekly(user_id: int, weeks: int = 12):
     except Exception:
         pass
 
-    # --- časové okno s časovou zónou (Z) ---
-    since_dt = (datetime.utcnow() - timedelta(weeks=weeks + 1))
-    since_iso = since_dt.strftime("%Y-%m-%dT00:00:00Z")
+    # okno
+    since_dt = datetime.utcnow() - timedelta(weeks=weeks + 1)
+    rows = _fetch_activities_since(user_id, since_dt)
 
-    rhr_by_date = _rhr_map_since(user_id, since_iso)
-
-    # --- aktivity: OR filter cez rôzne dátumové polia + širší výber stĺpcov ---
-    try:
-        res = (
-            supabase.table(TABLE_ACTIVITIES_SUMMARY)
-            .select(
-                "date,start_date,start_date_local,"
-                "sport_type,sport_type_fe,sport_type_ovrd,name,"
-                "distance_m,distance,distance_meters,"
-                "moving_time_s,moving_time,elapsed_time_s,"
-                "average_heartrate_bpm,average_hr,activity_id"
-            )
-            .or_(f"date.gte.{since_iso},start_date.gte.{since_iso},start_date_local.gte.{since_iso}")
-            .eq("user_id", user_id)
-            .order("date", desc=False)  # ak 'date' existuje (u teba áno)
-            .execute()
-        )
-        rows = res.data or []
-    except Exception:
-        rows = []
-
-    # --- agregácia po týždňoch ---
     week_agg: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
         "trimp": 0.0, "trimp_run": 0.0, "trimp_ride": 0.0, "trimp_strength": 0.0, "trimp_other": 0.0,
         "time_min": 0.0, "time_run_min": 0.0, "time_ride_min": 0.0, "time_strength_min": 0.0, "time_other_min": 0.0,
@@ -130,7 +171,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
     })
 
     for r in rows:
-        # --- dátum: vezmi prvé dostupné pole a orež na YYYY-MM-DD ---
+        # dátum – vezmi prvé dostupné pole
         d_raw = r.get("date") or r.get("start_date_local") or r.get("start_date")
         d_str = str(d_raw)[:10] if d_raw else None
         try:
@@ -141,7 +182,6 @@ def fetch_weekly(user_id: int, weeks: int = 12):
             continue
         wk = week_key(d)
 
-        # --- športový bucket (jednoduché) ---
         raw_type = (r.get("sport_type_ovrd")
                     or r.get("sport_type_fe")
                     or r.get("sport_type")
@@ -149,7 +189,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
                     or "")
         bucket = _bucket_sport_simple(raw_type)
 
-        # --- vzdialenosť (m → km) ---
+        # vzdialenosť
         dist_m = r.get("distance_m")
         if dist_m is None:
             dist_m = r.get("distance") or r.get("distance_meters") or 0
@@ -158,7 +198,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
         except Exception:
             dist_km = 0.0
 
-        # --- čas (s → min) ---
+        # čas
         secs = r.get("moving_time_s")
         if secs is None:
             secs = r.get("moving_time") or r.get("elapsed_time_s") or 0
@@ -167,15 +207,16 @@ def fetch_weekly(user_id: int, weeks: int = 12):
         except Exception:
             time_min = 0.0
 
-        # --- priemerné HR (môže byť string) ---
+        # HR
         avg_hr_raw = r.get("average_heartrate_bpm") or r.get("average_hr")
         try:
             avg_hr = float(avg_hr_raw) if avg_hr_raw is not None else None
         except Exception:
             avg_hr = None
 
-        # --- TRIMP s RHR fallbackom (posledné 1–2 dni dozadu) ---
-        rhr = _rhr_for_date(rhr_by_date, d.isoformat())
+        # TRIMP
+        rhr_map = _rhr_map_since(user_id, (d - timedelta(days=2)).isoformat())
+        rhr = _rhr_for_date(rhr_map, d.isoformat())
         tr = compute_trimp(avg_hr, time_min, hr_max, rhr, sex)
 
         wa = week_agg[wk]
@@ -221,6 +262,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
             "strain": {"km": strain_km, "time": strain_tm, "trimp": strain_tr},
             "examples": wa["examples"],
         })
+
     return {"weeks": out_weeks, "hr_used": {"sex": sex, "hr_max": hr_max}}
 
 def fetch_recent_recovery(user_id: int, days: int = 21):
