@@ -28,7 +28,9 @@ export default function WidgetCoachAnalyze() {
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [source, setSource] = useState<"cache" | "ai" | null>(null);
-
+  
+  const [debugPayload, setDebugPayload] = useState<any>(null);
+  
   const canRun = !!userId && !!prefs && !loading;
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
@@ -62,8 +64,9 @@ export default function WidgetCoachAnalyze() {
 
       const base = toAnalyzePayloadBE(prefs);
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
-      console.log("payload", payload);
-      console.debug("[AI payload]", payload);
+      
+      setDebugPayload(base);
+
       const json = await analyzeCoach(userId, payload);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
@@ -84,10 +87,11 @@ export default function WidgetCoachAnalyze() {
     setErr(null);
     try {
       const base = toAnalyzePayloadBE(prefs);
+
+      setDebugPayload(basePayload);
+
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
       const json = await analyzeCoach(userId, payload);
-      console.log("json", json);
-      console.debug("[AI payload]", payload);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
       setResult(json);
@@ -116,6 +120,20 @@ export default function WidgetCoachAnalyze() {
         hasPlan: !!result?.analysis?.next_week_plan,
       }
     : null;
+
+  function JsonBlock({ title, data }: { title: string; data: any }) {
+    if (!data) return null;
+    return (
+      <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
+        <summary className="cursor-pointer select-none text-sm font-semibold py-1">
+          {title}
+        </summary>
+        <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </details>
+    );
+  }
 
   return (
     <div className="col-span-full space-y-3">
@@ -223,5 +241,21 @@ export default function WidgetCoachAnalyze() {
         </section>
       )}
     </div>
+
+    {(debugPayload || result) && (
+      <section className={[PANEL, NO_X_OVERFLOW].join(" ")}>
+        <header className="px-4 py-3">
+          <div className="text-base font-semibold">Debug</div>
+          <div className="text-xs opacity-75">Dočasné – raw payload &amp; AI JSON</div>
+        </header>
+        <div className="px-4 pb-4 space-y-3">
+          <JsonBlock title="Sent payload (FE → BE)" data={debugPayload} />
+          <JsonBlock title="Context used (BE → AI)" data={result?.context_used} />
+          <JsonBlock title="AI JSON (BE ← AI)" data={result?.analysis} />
+        </div>
+        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+      </section>
+    )}
+
   );
 }
