@@ -11,7 +11,7 @@ export type GoalKind =
 export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
 
 /** Coach personality (komunikačný štýl AI trénera) */
-export type CoachPersona = "kapral" | "hecovac" | "statistik" | "realista";
+export type CoachPersona = "oldschooler" | "motivator" | "analyst" | "realist" | "custom";
 
 /* -------- Preferences (jadro) -------- */
 export interface Preferences {
@@ -135,6 +135,6 @@ export const DEFAULT_PREFS: CoachPrefs = {
     use_zones: true,
     wu_cd_detail: true,
   },
-  coach_voice: "hecovac",
+  coach_voice: "motivator",
   coach_tone: { directness: 50, praise: 60, challenge: 55, emoji: 20, explain: 60 },
 };
