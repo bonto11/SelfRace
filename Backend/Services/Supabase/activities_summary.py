@@ -9,7 +9,7 @@ supabase = get_client()
 FIELDS = (
     "activity_id,name,"
     "sport_type,sport_type_fe,sport_type_ovrd,"
-    "distance_m,moving_time_s,average_heartrate_bpm,average_hr,"
+    "distance_m,moving_time_s,average_heartrate_bpm,"
     "date"
 )
 
