@@ -32,7 +32,6 @@ supabase = get_client()
 def get_activities(user_id: int, days: int = 30):
     try:
         since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
-        print(f"➡️ get_activities: user_id={user_id}, since_date={since_date}")
 
         rec = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
@@ -48,11 +47,9 @@ def get_activities(user_id: int, days: int = 30):
         )
 
         data = rec.data or []
-        print(f"➡️ get_activities: DB response count={len(data)}")
-        return {"success": True, "data": data}
 
+        return {"success": True, "data": data}
     except Exception as e:
-        print("❌ get_activities error:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -60,8 +57,6 @@ def get_activities(user_id: int, days: int = 30):
 @router.get("/detail/{activity_id}")
 def get_activity_detail(activity_id: int):
     try:
-        print(f"➡️ get_activity_detail: activity_id={activity_id}")
-
         summary_res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select("*")
@@ -70,7 +65,6 @@ def get_activity_detail(activity_id: int):
             .execute()
         )
         summary = summary_res.data[0] if summary_res.data else None
-        print(f"➡️ detail: summary found={bool(summary)}")
 
         laps_res = (
             supabase.table(TABLE_ACTIVITIES_LAPS)
@@ -87,8 +81,6 @@ def get_activity_detail(activity_id: int):
             .order("split_index", desc=False)
             .execute()
         )
-
-        print(f"➡️ detail: laps={len(laps_res.data or [])}, splits={len(splits_res.data or [])}")
 
         return {
             "success": True,

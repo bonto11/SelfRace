@@ -126,11 +126,12 @@ def fetch_weekly(user_id: int, weeks: int = 12):
 
     # Aktivity – len polia, ktoré máš: date, sport_type(_fe/_ovrd), distance_m, moving_time_s, average_heartrate_bpm
     try:
+        """
         res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select(
                 "date,"
-                "sport_type,sport_type_fe,sport_type_ovrd,"
+                "sport_type_fe,sport_type_ovrd,"
                 "distance_m,moving_time_s,average_heartrate_bpm,average_hr,"
                 "name,activity_id"
             )
@@ -139,9 +140,26 @@ def fetch_weekly(user_id: int, weeks: int = 12):
             .order("date", desc=True)   # neskôr agregujeme podľa týždňov
             .execute()
         )
+    """
+        since_date = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+
+        res = (
+            supabase.table(TABLE_ACTIVITIES_SUMMARY)
+            .select(
+                "activity_id,name,"
+                "sport_type,sport_type_fe,sport_type_ovrd,"
+                "distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,date"
+            )
+            .eq("user_id", 13)
+            .gte("date", since_iso)
+            .order("date", desc=True)
+            .execute()
+        )
+
         rows = res.data or []
     except Exception:
         rows = []
+
 
     # bucketovanie športov – jednoducho podľa stringu
     def _bucket(s: str) -> str:
