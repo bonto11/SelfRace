@@ -63,6 +63,7 @@ export default function WidgetCoachAnalyze() {
       const base = toAnalyzePayloadBE(prefs);
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
       const json = await analyzeCoach(userId, payload);
+      console.log("json", json);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
       setResult(json);
@@ -84,6 +85,7 @@ export default function WidgetCoachAnalyze() {
       const base = toAnalyzePayloadBE(prefs);
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
       const json = await analyzeCoach(userId, payload);
+      console.log("json", json);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
       setResult(json);
