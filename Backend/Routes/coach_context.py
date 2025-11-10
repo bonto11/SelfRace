@@ -71,6 +71,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
     sex: Optional[str] = None
     hr_max: Optional[float] = None
 
+    # --- profily / HR_max ---
     try:
         st = supabase.table(TABLE_PROFILE_STATIC).select("sex").eq("user_id", user_id).limit(1).execute()
         if st.data: sex = st.data[0].get("sex")
@@ -93,21 +94,33 @@ def fetch_weekly(user_id: int, weeks: int = 12):
     except Exception:
         pass
 
-    since = (datetime.utcnow() - timedelta(weeks=weeks + 1)).date().isoformat()
-    rhr_by_date = _rhr_map_since(user_id, since)
+    # --- časové okno s časovou zónou (Z) ---
+    since_dt = (datetime.utcnow() - timedelta(weeks=weeks + 1))
+    since_iso = since_dt.strftime("%Y-%m-%dT00:00:00Z")
 
+    rhr_by_date = _rhr_map_since(user_id, since_iso)
+
+    # --- aktivity: OR filter cez rôzne dátumové polia + širší výber stĺpcov ---
     try:
         res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
-            .select("date,sport_type,distance_m,moving_time_s,average_heartrate_bpm,average_hr,name,activity_id,sport_type_fe,sport_type_ovrd")
+            .select(
+                "date,start_date,start_date_local,"
+                "sport_type,sport_type_fe,sport_type_ovrd,name,"
+                "distance_m,distance,distance_meters,"
+                "moving_time_s,moving_time,elapsed_time_s,"
+                "average_heartrate_bpm,average_hr,activity_id"
+            )
+            .or_(f"date.gte.{since_iso},start_date.gte.{since_iso},start_date_local.gte.{since_iso}")
             .eq("user_id", user_id)
-            .gte("date", since)
+            .order("date", desc=False)  # ak 'date' existuje (u teba áno)
             .execute()
         )
         rows = res.data or []
     except Exception:
         rows = []
 
+    # --- agregácia po týždňoch ---
     week_agg: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
         "trimp": 0.0, "trimp_run": 0.0, "trimp_ride": 0.0, "trimp_strength": 0.0, "trimp_other": 0.0,
         "time_min": 0.0, "time_run_min": 0.0, "time_ride_min": 0.0, "time_strength_min": 0.0, "time_other_min": 0.0,
@@ -117,21 +130,52 @@ def fetch_weekly(user_id: int, weeks: int = 12):
     })
 
     for r in rows:
-        d_str = (r.get("date") or "")[:10]
+        # --- dátum: vezmi prvé dostupné pole a orež na YYYY-MM-DD ---
+        d_raw = r.get("date") or r.get("start_date_local") or r.get("start_date")
+        d_str = str(d_raw)[:10] if d_raw else None
         try:
-            d = date.fromisoformat(d_str)
+            d = date.fromisoformat(d_str) if d_str else None
         except Exception:
+            d = None
+        if not d:
             continue
         wk = week_key(d)
 
-        raw_type = (r.get("sport_type_ovrd") or r.get("sport_type_fe") or r.get("sport_type") or r.get("name") or "")
+        # --- športový bucket (jednoduché) ---
+        raw_type = (r.get("sport_type_ovrd")
+                    or r.get("sport_type_fe")
+                    or r.get("sport_type")
+                    or r.get("name")
+                    or "")
         bucket = _bucket_sport_simple(raw_type)
 
-        dist_km = float(r.get("distance_m") or 0.0) / 1000.0
-        time_min = float(r.get("moving_time_s") or 0.0) / 60.0
-        avg_hr = r.get("average_heartrate_bpm") or r.get("average_hr")
+        # --- vzdialenosť (m → km) ---
+        dist_m = r.get("distance_m")
+        if dist_m is None:
+            dist_m = r.get("distance") or r.get("distance_meters") or 0
+        try:
+            dist_km = float(dist_m) / 1000.0
+        except Exception:
+            dist_km = 0.0
 
-        rhr = _rhr_for_date(rhr_by_date, d_str)
+        # --- čas (s → min) ---
+        secs = r.get("moving_time_s")
+        if secs is None:
+            secs = r.get("moving_time") or r.get("elapsed_time_s") or 0
+        try:
+            time_min = float(secs) / 60.0
+        except Exception:
+            time_min = 0.0
+
+        # --- priemerné HR (môže byť string) ---
+        avg_hr_raw = r.get("average_heartrate_bpm") or r.get("average_hr")
+        try:
+            avg_hr = float(avg_hr_raw) if avg_hr_raw is not None else None
+        except Exception:
+            avg_hr = None
+
+        # --- TRIMP s RHR fallbackom (posledné 1–2 dni dozadu) ---
+        rhr = _rhr_for_date(rhr_by_date, d.isoformat())
         tr = compute_trimp(avg_hr, time_min, hr_max, rhr, sex)
 
         wa = week_agg[wk]
