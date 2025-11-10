@@ -166,15 +166,29 @@ export default function PrefsForm() {
   };
 
   const onSave = async () => {
-    if (!userId) return;
-    try {
-      await saveCoachPrefs(userId, local);
-      dirtyRef.current = false; // po uložení už môžeme prijať budúcu hydratačnú hodnotu
-      toast.success("Preferences saved");
-    } catch (e: any) {
-      toast.error(String(e?.message ?? e));
-    }
-  };
+  if (!userId) return;
+  try {
+    // normalizácia podľa nového modelu
+    const ms = (local.main_sport as any) || local.primary_sports?.[0] || "run";
+    const sec = (local.secondary_mix ?? [])
+      .filter((x: any) => Number(x?.share_pct) > 0)
+      .map((x: any) => x.sport);
+
+    const normalized = {
+      ...local,
+      main_sport: ms,
+      // nech primary_sports odráža aktuálne aktívne športy
+      primary_sports: [ms, ...sec],
+      // voliteľne: ukladaj len aktívne sekundárne
+      secondary_mix: (local.secondary_mix ?? []).filter((x: any) => Number(x?.share_pct) > 0),
+    };
+
+    await saveCoachPrefs(userId, normalized);
+    toast.success("Preferences saved");
+  } catch (e: any) {
+    toast.error(String(e?.message ?? e));
+  }
+};
 
   const onRefresh = async () => {
     if (!userId) return;
