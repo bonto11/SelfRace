@@ -1,3 +1,5 @@
+//coach/api/coach
+
 import { API_URL } from "@/shared/config";
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 

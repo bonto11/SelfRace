@@ -62,8 +62,8 @@ export default function WidgetCoachAnalyze() {
 
       const base = toAnalyzePayloadBE(prefs);
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
+      console.log("payload", payload);
       const json = await analyzeCoach(userId, payload);
-      console.log("json", json);
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
       setResult(json);
