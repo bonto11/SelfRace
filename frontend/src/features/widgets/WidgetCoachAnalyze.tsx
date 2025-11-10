@@ -46,7 +46,8 @@ export default function WidgetCoachAnalyze() {
 
   // debug: čo sme poslali na BE
   const [debugPayload, setDebugPayload] = useState<any>(null);
-
+  const [debugFEprefs, setDebugFEprefs] = useState<any>(null);
+  
   const canRun = !!userId && !!prefs && !loading;
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
@@ -81,6 +82,7 @@ export default function WidgetCoachAnalyze() {
       const base = toAnalyzePayloadBE(prefs);
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
 
+      setDebugFEprefs(prefs);
       setDebugPayload(base);
       console.debug?.("[Coach] Sent payload (FE→BE)", base);
 
@@ -110,6 +112,7 @@ export default function WidgetCoachAnalyze() {
       const base = toAnalyzePayloadBE(prefs);
       const payload = { ...base, goal_structured: prefs, bests: { run: pbRun } };
 
+      setDebugFEprefs(prefs);
       setDebugPayload(base); // fix: basePayload → base
       console.debug?.("[Coach] Sent payload (FE→BE) [force]", base);
 
