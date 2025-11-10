@@ -15,10 +15,9 @@ from Routes import (
     analytics_pareto8020,
     activities_streams,
     user_prefs,
-    user_bests,
-    context,
-    coach_analysis
+    user_bests
 )
+from backend.Routes import coach_context, coach_planning
 
 app = FastAPI()
 
@@ -64,5 +63,5 @@ app.include_router(analytics_pareto8020.router)
 app.include_router(activities_streams.router)
 app.include_router(user_prefs.router)
 app.include_router(user_bests.router)
-app.include_router(context.router)
-app.include_router(coach_analysis.router)
+app.include_router(coach_context.router)
+app.include_router(coach_planning.router)

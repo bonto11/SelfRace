@@ -1,13 +1,12 @@
-# backend/Routes/context.py
+# Routes/coach_context.py
 from __future__ import annotations
 import json
 from fastapi import APIRouter, HTTPException
 from datetime import date, datetime, timedelta
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional
 
 from Modules.SQL.db_handler import get_client
-# backend/Routes/context.py (hlavička)
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_PROFILE_STATIC,
@@ -17,29 +16,22 @@ from Configs.config import (
     TABLE_USERS_THRESHOLDS,
     TABLE_USERS_ZONES,
     TABLE_USERS_BESTS,
-    TABLE_USER_PREFERENCES,     # <-- PRIDANÉ
+    TABLE_USER_PREFERENCES,
 )
-
 from Services.time import week_key, week_bounds
 from Services.analytics import sport_bucket, compute_trimp, monotony_and_strain
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 supabase = get_client()
 
-
-def _sport_bucket_simple(s: str) -> str:
+def _bucket_sport_simple(s: str) -> str:
     s = (s or "").lower()
-    if "run" in s:
-        return "run"
-    if "ride" in s or "bike" in s or "cycle" in s:
-        return "ride"
-    if any(k in s for k in ["strength", "weight", "gym"]):
-        return "strength"
+    if "run" in s: return "run"
+    if "ride" in s or "bike" in s or "cycle" in s: return "ride"
+    if any(k in s for k in ["strength", "weight", "gym"]): return "strength"
     return "other"
 
-
-def _rhr_map_for_window(user_id: int, since_iso: str) -> Dict[str, float]:
-    """Načíta RHR z recovery pre okno [since_iso, today]; vráti mapu date -> RHR_bpm."""
+def _rhr_map_since(user_id: int, since_iso: str) -> Dict[str, float]:
     mp: Dict[str, float] = {}
     try:
         rec = (
@@ -56,19 +48,15 @@ def _rhr_map_for_window(user_id: int, since_iso: str) -> Dict[str, float]:
                 v = float(rr.get("RHR_bpm") or 0)
             except Exception:
                 v = 0.0
-            if v <= 0:
-                continue
+            if v <= 0: continue
             if d not in mp or v < mp[d]:
                 mp[d] = v
     except Exception:
         pass
     return mp
 
-
-def _rhr_for_day(rhr_by_date: Dict[str, float], iso_date: str) -> Optional[float]:
-    """Denný RHR; ak chýba, skús 1–2 dni dozadu (lacný fallback)."""
-    if iso_date in rhr_by_date:
-        return rhr_by_date[iso_date]
+def _rhr_for_date(rhr_by_date: Dict[str, float], iso_date: str) -> Optional[float]:
+    if iso_date in rhr_by_date: return rhr_by_date[iso_date]
     try:
         d0 = date.fromisoformat(iso_date)
     except Exception:
@@ -79,16 +67,13 @@ def _rhr_for_day(rhr_by_date: Dict[str, float], iso_date: str) -> Optional[float
             return rhr_by_date[d_prev]
     return None
 
-
 def fetch_weekly(user_id: int, weeks: int = 12):
-    # HR parametre
     sex: Optional[str] = None
     hr_max: Optional[float] = None
 
     try:
         st = supabase.table(TABLE_PROFILE_STATIC).select("sex").eq("user_id", user_id).limit(1).execute()
-        if st.data:
-            sex = st.data[0].get("sex")
+        if st.data: sex = st.data[0].get("sex")
     except Exception:
         pass
 
@@ -108,11 +93,9 @@ def fetch_weekly(user_id: int, weeks: int = 12):
     except Exception:
         pass
 
-    # okno
     since = (datetime.utcnow() - timedelta(weeks=weeks + 1)).date().isoformat()
-    rhr_by_date = _rhr_map_for_window(user_id, since)
+    rhr_by_date = _rhr_map_since(user_id, since)
 
-    # aktivity
     try:
         res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
@@ -142,14 +125,13 @@ def fetch_weekly(user_id: int, weeks: int = 12):
         wk = week_key(d)
 
         raw_type = (r.get("sport_type_ovrd") or r.get("sport_type_fe") or r.get("sport_type") or r.get("name") or "")
-        # pre coach context nech zostane pôvodné „jednoduché“ bucketovanie
-        bucket = _sport_bucket_simple(raw_type)
+        bucket = _bucket_sport_simple(raw_type)
 
         dist_km = float(r.get("distance_m") or 0.0) / 1000.0
         time_min = float(r.get("moving_time_s") or 0.0) / 60.0
         avg_hr = r.get("average_heartrate_bpm") or r.get("average_hr")
 
-        rhr = _rhr_for_day(rhr_by_date, d_str)  # môže byť None -> fallback Edwards
+        rhr = _rhr_for_date(rhr_by_date, d_str)
         tr = compute_trimp(avg_hr, time_min, hr_max, rhr, sex)
 
         wa = week_agg[wk]
@@ -195,9 +177,7 @@ def fetch_weekly(user_id: int, weeks: int = 12):
             "strain": {"km": strain_km, "time": strain_tm, "trimp": strain_tr},
             "examples": wa["examples"],
         })
-
     return {"weeks": out_weeks, "hr_used": {"sex": sex, "hr_max": hr_max}}
-
 
 def fetch_recent_recovery(user_id: int, days: int = 21):
     try:
@@ -214,7 +194,6 @@ def fetch_recent_recovery(user_id: int, days: int = 21):
     except Exception:
         return []
 
-
 def fetch_recent_notes(user_id: int, days: int = 28):
     try:
         since_dt = datetime.utcnow() - timedelta(days=days)
@@ -230,36 +209,20 @@ def fetch_recent_notes(user_id: int, days: int = 28):
     except Exception:
         return []
 
-
 def fetch_user_thresholds(user_id: int) -> list[dict]:
     try:
-        res = (
-            supabase.table(TABLE_USERS_THRESHOLDS)
-            .select("*")
-            .eq("user_id", user_id)
-            .order("updated_at", desc=True)
-            .execute()
-        )
+        res = supabase.table(TABLE_USERS_THRESHOLDS).select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
         return res.data or []
     except Exception:
         return []
-
 
 def fetch_user_zones(user_id: int) -> list[dict]:
     try:
-        res = (
-            supabase.table(TABLE_USERS_ZONES)
-            .select("*")
-            .eq("user_id", user_id)
-            .order("updated_at", desc=True)
-            .execute()
-        )
+        res = supabase.table(TABLE_USERS_ZONES).select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
         return res.data or []
     except Exception:
         return []
 
-
-# ---- BESTS (len presne 400,1000,5000,21097,42195) ----
 STD_DISTANCES = [400, 1000, 5000, 21097, 42195]
 
 def fetch_user_bests(user_id: int) -> dict:
@@ -273,10 +236,8 @@ def fetch_user_bests(user_id: int) -> dict:
         rows = res.data or []
         bests: dict[int, dict] = {}
         for r in rows:
-            d = int(r.get("distance_m") or 0)
-            t = r.get("best_time_s")
-            if d not in STD_DISTANCES or t is None:
-                continue
+            d = int(r.get("distance_m") or 0); t = r.get("best_time_s")
+            if d not in STD_DISTANCES or t is None: continue
             prev = bests.get(d)
             if not prev or int(t) < int(prev["best_time_s"]):
                 bests[d] = {
@@ -291,15 +252,7 @@ def fetch_user_bests(user_id: int) -> dict:
     except Exception:
         return {}
 
-
-
-def fetch_user_coachPrefs(user_id: int) -> dict | None:
-    """
-    Prefs sa čítajú z user_preferences:
-      - user_id: int (náš interný)
-      - key: 'coach.prefs'
-      - value: jsonb (Supabase vráti buď dict, alebo JSON string; ošetríme oboje)
-    """
+def fetch_user_coach_prefs(user_id: int) -> dict | None:
     try:
         res = (
             supabase.table(TABLE_USER_PREFERENCES)
@@ -310,21 +263,15 @@ def fetch_user_coachPrefs(user_id: int) -> dict | None:
             .execute()
         )
         row = (res.data or [None])[0]
-        if not row:
-            return None
+        if not row: return None
         val = row.get("value")
-        # Supabase typicky vráti priamo dict; fallback, ak to príde ako string:
         if isinstance(val, str):
-            try:
-                return json.loads(val)
-            except Exception:
-                return None
-        if isinstance(val, dict):
-            return val
+            try: return json.loads(val)
+            except Exception: return None
+        if isinstance(val, dict): return val
         return None
     except Exception:
         return None
-
 
 @router.get("/context/{user_id}")
 def coach_context(user_id: int, weeks: int = 6, rec_days: int = 21):
@@ -334,7 +281,7 @@ def coach_context(user_id: int, weeks: int = 6, rec_days: int = 21):
         notes = fetch_recent_notes(user_id, days=weeks * 7)
         thresholds = fetch_user_thresholds(user_id)
         zones = fetch_user_zones(user_id)
-        prefs = fetch_user_coachPrefs(user_id)
+        prefs = fetch_user_coach_prefs(user_id)
         bests = fetch_user_bests(user_id)
         return {
             "success": True,
