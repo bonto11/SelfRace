@@ -73,6 +73,10 @@ export type RehabFocus = {
 export type CoachPrefs = {
   goal_kind?: GoalKind;
 
+  distance?: string;
+  current_pace?: string;
+  target_pace?: string;
+
   weeks?: number;
   sports?: SportKind[];           // legacy
   primary_sports?: SportKind[];
