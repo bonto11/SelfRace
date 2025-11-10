@@ -41,7 +41,7 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
 export default function WidgetCoachAnalyze() {
   const { userId } = useUserId();
 
-  // z providera si zatiaľ berieme len PB (môže byť null → nevadí)
+  // z providera berieme len PB (prefs z providera sa nevyužívajú, aby sme nemali defaulty)
   const { pbRun } = useCoachData();
 
   const [loading, setLoading] = useState(false);
@@ -53,13 +53,13 @@ export default function WidgetCoachAnalyze() {
   const [debugFreshPrefs, setDebugFreshPrefs] = useState<CoachPrefs | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
 
-  // cache key via fresh prefs (ak nie sú, tak userId-only, ale snažíme sa vždy mať fresh)
+  // cache key via FRESH prefs
   const cacheKey = useMemo(() => {
     if (!userId || !debugFreshPrefs) return undefined;
     return makeCacheKey(String(userId), debugFreshPrefs);
   }, [userId, debugFreshPrefs]);
 
-  // auto-load z cache po mount-e (len ak už máme fresh prefs v state)
+  // ak už máme fresh prefs (napr. po prvom behu), skús auto-load z cache
   useEffect(() => {
     if (!cacheKey || result) return;
     const cached = loadCachedResult(cacheKey);
@@ -69,7 +69,7 @@ export default function WidgetCoachAnalyze() {
     }
   }, [cacheKey, result]);
 
-  // common runner – vždy natvrdo stiahne prefs z DB a použije ich
+  // spoločný runner – vždy najprv fetchnúť prefs z DB, ak nie sú → ERROR
   const runAnalyze = useCallback(
     async (ignoreCache: boolean) => {
       if (!userId || loading) return;
@@ -77,14 +77,14 @@ export default function WidgetCoachAnalyze() {
       setLoading(true);
       setErr(null);
       try {
-        // 1) natvrdo stiahni prefs z DB
+        // 1) FRESH PREFS z DB (žiadne defaulty)
         const fresh = await getPrefs(userId);
         if (!fresh) {
           throw new Error("Nepodarilo sa načítať nastavenia Coacha z DB.");
         }
         setDebugFreshPrefs(fresh);
 
-        // 2) cache check (ak nechceme ignorovať)
+        // 2) Cache (voliteľne)
         const ck = makeCacheKey(String(userId), fresh);
         if (!ignoreCache) {
           const cached = loadCachedResult(ck);
@@ -95,12 +95,12 @@ export default function WidgetCoachAnalyze() {
           }
         }
 
-        // 3) priprav payload priamo z fresh prefs
+        // 3) Payload priamo z FRESH prefs
         const base = toAnalyzePayloadBE(fresh);
-        const payload = { ...base, goal_structured: fresh, bests: { run: pbRun } };
-
+        const payload = { ...base, goal_structured: fresh, bests: { run: pbRun ?? [] } };
         setDebugPayload(base);
-        // 4) call BE
+
+        // 4) Call BE
         const json = await analyzeCoach(userId, payload);
         if (!json?.success) throw new Error(json?.detail || "Analyze failed");
 
@@ -116,13 +116,8 @@ export default function WidgetCoachAnalyze() {
     [userId, pbRun, loading]
   );
 
-  const handleAnalyzeOrLoad = useCallback(() => {
-    return runAnalyze(false); // použije cache, ale vždy predtým stiahne fresh prefs
-  }, [runAnalyze]);
-
-  const handleForceRerun = useCallback(() => {
-    return runAnalyze(true); // ignoruje cache, ale tiež stiahne fresh prefs
-  }, [runAnalyze]);
+  const handleAnalyzeOrLoad = useCallback(() => runAnalyze(false), [runAnalyze]); // použije cache, ale prefs vždy fetchne
+  const handleForceRerun = useCallback(() => runAnalyze(true), [runAnalyze]);   // ignoruje cache, prefs vždy fetchne
 
   const handleClear = useCallback(() => {
     if (cacheKey) clearCachedByKey(cacheKey);
@@ -141,7 +136,6 @@ export default function WidgetCoachAnalyze() {
       }
     : null;
 
-  // tlačidlá povoľ len, keď máme userId a nie je loading
   const canRun = !!userId && !loading;
 
   return (
@@ -157,12 +151,7 @@ export default function WidgetCoachAnalyze() {
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            <Button
-              onClick={handleAnalyzeOrLoad}
-              disabled={!canRun}
-              variant="primary"
-              size="sm"
-            >
+            <Button onClick={handleAnalyzeOrLoad} disabled={!canRun} variant="primary" size="sm">
               {loading ? (
                 <span className="inline-flex items-center gap-2">
                   <LoadingSpinner size="widget" />
@@ -173,21 +162,11 @@ export default function WidgetCoachAnalyze() {
               )}
             </Button>
 
-            <Button
-              onClick={handleForceRerun}
-              disabled={!canRun || loading}
-              variant="secondary"
-              size="sm"
-            >
+            <Button onClick={handleForceRerun} disabled={!canRun || loading} variant="secondary" size="sm">
               Force re-run
             </Button>
 
-            <Button
-              onClick={handleClear}
-              disabled={loading}
-              variant="danger"
-              size="sm"
-            >
+            <Button onClick={handleClear} disabled={loading} variant="danger" size="sm">
               Clear cache
             </Button>
           </div>
@@ -199,10 +178,7 @@ export default function WidgetCoachAnalyze() {
             <Pill label={`source: ${source ?? "—"}`} color={THEME.chart.neutral} />
             {diag && (
               <div className="ml-auto flex flex-wrap gap-2">
-                <Pill
-                  label={`success: ${String(diag.success)}`}
-                  color={diag.success ? THEME.chart.excellent : THEME.chart.poor}
-                />
+                <Pill label={`success: ${String(diag.success)}`} color={diag.success ? THEME.chart.excellent : THEME.chart.poor} />
                 <Pill label={`model: ${diag.model ?? "—"}`} color={THEME.chart.neutral} />
                 <Pill label={`summary: ${String(diag.hasSummary)}`} color={THEME.chart.fitness} />
                 <Pill label={`narrative: ${String(diag.hasNarrative)}`} color={THEME.chart.good} />
@@ -229,12 +205,8 @@ export default function WidgetCoachAnalyze() {
             <div className="min-w-0">
               <div className="font-semibold">AI Coach — plán a zhrnutie</div>
               <div className="text-xs opacity-75 flex items-center gap-2 flex-wrap">
-                <span>
-                  model: <b>{model}</b>
-                </span>
-                {source === "cache" && (
-                  <Pill label="from cache" color={THEME.chart.good} />
-                )}
+                <span>model: <b>{model}</b></span>
+                {source === "cache" && <Pill label="from cache" color={THEME.chart.good} />}
                 {result?.analysis?._meta?.plan_source === "fallback_min" && (
                   <Pill label="fallback plan" color={THEME.chart.fair} />
                 )}
@@ -255,9 +227,7 @@ export default function WidgetCoachAnalyze() {
         <section className={[PANEL, NO_X_OVERFLOW].join(" ")}>
           <header className="px-4 py-3">
             <div className="text-base font-semibold">Debug</div>
-            <div className="text-xs opacity-75">
-              Dočasné – raw payload &amp; AI JSON
-            </div>
+            <div className="text-xs opacity-75">Dočasné – raw payload &amp; AI JSON</div>
           </header>
           <div className="px-4 pb-4 space-y-3">
             <JsonBlock title="Current FE prefs (fresh from DB)" data={debugFreshPrefs} />
