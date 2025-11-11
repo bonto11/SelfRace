@@ -44,8 +44,8 @@ CACHE_DIR = "data/strava_cache"
 
 # dobrovoľný globálny delay medzi requestami (sekundy, napr. 0, 0.5, 1.0…)
 REQUEST_DELAY_SECS = 0.3
-OPENAI_API_KEY : str = env_required("OPENAI_API_KEY")
-DEFAULT_MODEL   : str = env_required("OPENAI_MODEL")
+OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY")
+DEFAULT_MODEL   = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 FALLBACK_MODELS = [m.strip() for m in os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini").split(",") if m.strip()]
 LLM_TIMEOUT_S   = int(os.getenv("OPENAI_TIMEOUT_S", "25"))
 LLM_RETRIES     = int(os.getenv("OPENAI_RETRIES", "2"))
