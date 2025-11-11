@@ -121,6 +121,9 @@ export default function PlanResult({ result, showDebugSplit = true }: { result: 
                     planIntensity: null,
                     planTarget: null,
                     planNotes: null,
+                    planRaw: null,
+                    planStructure: null,
+                    planExercises: null,
                   }}
                   defaultOpen={false}
                 />
@@ -145,6 +148,9 @@ export default function PlanResult({ result, showDebugSplit = true }: { result: 
                     planIntensity: normIntensity(it),
                     planTarget: normTarget(it),
                     planNotes: normNotes(it),
+                    planRaw: it,
+                    planStructure: it?.structure ?? null,
+                    planExercises: it?.exercise ?? null,
                   }}
                   defaultOpen={false}
                 />
