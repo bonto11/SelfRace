@@ -205,7 +205,7 @@ export default function CoachPlanActions() {
 
       // 4) call BE
       // ⬇ tu vieš vynútiť rýchlejší model počas testu (prázdne = server fallbacks)
-      const explicitModel = ""; // napr. "gpt-4o-mini"
+      const explicitModel = "gpt-4o-mini"; // napr. "gpt-4o-mini"
       markOnly("Sending request", explicitModel ? `model=${explicitModel}` : "model=fallbacks");
       markOnly("Generating plan (AI)");
       const json = await analyzeCoach(userId, { ...payload, explicit_model: explicitModel }).catch((e: any) => {
