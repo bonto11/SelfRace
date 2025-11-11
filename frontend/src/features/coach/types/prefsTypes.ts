@@ -69,6 +69,20 @@ export type RehabFocus = {
   recovery_protocol?: string | null;
 };
 
+export type StrengthLocation = "gym" | "home" | "outdoor";
+export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
+
+/** voľný slovník, nech vieme poslať AI aj konkrétne kusy náradia */
+export type StrengthEquipmentKey =
+  | "dumbbells" | "barbell" | "kettlebell" | "trx" | "pullup_bar"
+  | "resistance_bands" | "bench" | "medicine_ball" | "sandbag" | "box" | "other";
+
+export type StrengthSettings = {
+  location?: StrengthLocation | null;          // kde cvičíš
+  equipment_mode?: StrengthEquipmentMode | null; // úroveň vybavenia
+  available?: StrengthEquipmentKey[];          // konkrétne kusy (ak má zmysel)
+};
+
 /* -------- Main prefs -------- */
 export type CoachPrefs = {
   goal_kind?: GoalKind;
@@ -115,6 +129,12 @@ export type CoachPrefs = {
 
   coach_voice?: CoachPersona | null;  // null → none selected
   coach_tone?: { directness: number; praise: number; challenge: number; emoji: number; explain: number };
+
+  /** plán-štart (ISO YYYY-MM-DD); UI default = dnes + 2, min = zajtra */
+  start_date?: string | null;
+
+  /** preferencie pre silu */
+  strength_settings?: StrengthSettings | null;
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {

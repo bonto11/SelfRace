@@ -67,6 +67,9 @@ def _normalize_payload(payload: dict) -> dict:
         "rehab": payload.get("goal_structured", {}).get("rehab_focus") or None,
     }
 
+    start_date = payload.get("start_date") or payload.get("goal_structured", {}).get("start_date")
+    strength_settings = payload.get("strength_settings") or payload.get("goal_structured", {}).get("strength_settings")
+
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
         g = payload.get("goal_structured", {})
@@ -98,6 +101,8 @@ def _normalize_payload(payload: dict) -> dict:
         "focus": focus,
         "intensity_model": intensity_model,
         "blocks": blocks,
+        "start_date": start_date,
+        "strength_settings": strength_settings,
         "_raw": payload,
     }
 
@@ -119,7 +124,7 @@ def coach_analyze(user_id: int, payload: dict = Body(...)):
         zones      = ctx.get("zones", [])
         prefs      = ctx.get("prefs")
         bests      = ctx.get("bests", {})
-
+        
         llm_input = {
             "goal": goal,
             "schema_version": norm["schema_version"],
@@ -134,7 +139,8 @@ def coach_analyze(user_id: int, payload: dict = Body(...)):
             "focus": norm["focus"],
             "intensity_model": norm["intensity_model"],
             "blocks": norm["blocks"],
-
+            "start_date": norm["start_date"],
+            "strength_settings" :norm["strength_settings"],
             "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
             "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
         }

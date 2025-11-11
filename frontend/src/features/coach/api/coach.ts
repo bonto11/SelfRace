@@ -11,6 +11,8 @@ export type AnalyzePayloadBE = {
   goal: {
     goal_kind?: CoachPrefs["goal_kind"];
     horizon_weeks?: number;
+    /** NOVÉ: od kedy plánovať (ISO) */
+    start_date?: string;
   };
 
   voice: {
@@ -42,7 +44,9 @@ export type AnalyzePayloadBE = {
     ftp?: boolean;
   };
 
-  // voliteľne kvôli spätn. kompatibilite
+  /** NOVÉ: sila – prostredie & vybavenie */
+  strength_settings?: CoachPrefs["strength_settings"];
+
   legacy?: {
     distance?: CoachPrefs["distance"];
     current_pace?: CoachPrefs["current_pace"];
@@ -50,16 +54,12 @@ export type AnalyzePayloadBE = {
   };
 };
 
-/** ---- Adapter: CoachPrefs -> AnalyzePayloadBE -------------------------- */
-
 export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE {
-  // vyber presne jeden intensity model
   const intensity_model =
     prefs.polarized_model ? "polarized" :
     prefs.pyramidal_model ? "pyramidal" :
     null;
 
-  // sekundárne športy len s podielom > 0
   const secondary = (prefs.secondary_mix ?? []).filter(
     (x) => (x?.share_pct ?? 0) > 0
   );
@@ -70,6 +70,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     goal: {
       goal_kind: prefs.goal_kind,
       horizon_weeks: prefs.weeks ?? undefined,
+      start_date: prefs.start_date ?? undefined, // NOVÉ
     },
 
     voice: {
@@ -102,6 +103,9 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
       ftp: !!prefs.ftp_training,
     },
 
+    /** pošli AI silové podmienky */
+    strength_settings: prefs.strength_settings ?? undefined,
+
     legacy: {
       distance: prefs.distance ?? undefined,
       current_pace: prefs.current_pace ?? undefined,
@@ -109,7 +113,6 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     },
   };
 }
-
 /** ---- API calls -------------------------------------------------------- */
 
 export async function analyzeCoach(
