@@ -13,6 +13,7 @@ import { THEME } from "@/shared/theme/tokens";
 import { makeCacheKey, saveCachedResult, loadCachedResult, clearCachedByKey } from "@/features/coach/utils/cache";
 import PlanResult from "@/features/coach/components/PlanResult";
 import { saveActivePlan, updateActivePlan } from "@/features/coach/api/plan";
+import { SURFACE_INLINE } from "@/shared/ui/classes";
 
 /* --- mini debug blok --- */
 function JsonBlock({ title, data }: { title: string; data: any }) {
@@ -47,6 +48,64 @@ function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
   );
 }
 
+/* ===== Stavový automat (jasné mená krokov) ===== */
+type StepKey =
+  | "loading_prefs"
+  | "preparing_inputs"
+  | "checking_cache"
+  | "sending_request"
+  | "ai_generating"
+  | "parsing_response"
+  | "saving_storage"
+  | "ready";
+
+type Step = { key: StepKey; label: string; state: "idle" | "active" | "ok" | "err" };
+
+const STEP_DEFS: Record<StepKey, string> = {
+  loading_prefs:   "Loading preferences",
+  preparing_inputs:"Preparing inputs for AI",
+  checking_cache:  "Checking cache",
+  sending_request: "Sending request",
+  ai_generating:   "Generating plan (AI)",
+  parsing_response:"Parsing response",
+  saving_storage:  "Saving to storage",
+  ready:           "Ready",
+};
+
+function StepsView({ steps }: { steps: Step[] }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-2 mt-2">
+      {steps.map(s => {
+        const color =
+          s.state === "active" ? THEME.chart.good :
+          s.state === "ok"     ? THEME.chart.fitness :
+          s.state === "err"    ? THEME.chart.poor :
+          THEME.chart.neutral;
+        return (
+          <div key={s.key} className={[SURFACE_INLINE, "px-3 py-2 text-xs"].join(" ")}>
+            <div className="flex items-center gap-2">
+              <Pill label={STEP_DEFS[s.key]} color={color} />
+              {s.state === "active" && <LoadingSpinner size="button" />}
+              {s.state === "ok" && <span>✓</span>}
+              {s.state === "err" && <span>✕</span>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function useSteps() {
+  const [steps, set] = useState<Step[]>(
+    (Object.keys(STEP_DEFS) as StepKey[]).map(k => ({ key: k, label: STEP_DEFS[k], state: "idle" }))
+  );
+  const setState = (key: StepKey, state: Step["state"]) =>
+    set(prev => prev.map(s => (s.key === key ? { ...s, state } : s)));
+  const reset = () => set(prev => prev.map(s => ({ ...s, state: "idle" })));
+  return { steps, setState, reset };
+}
+
 export default function CoachPlanActions() {
   const { userId } = useUserId();
   const { pbRun } = useCoachData();
@@ -58,6 +117,8 @@ export default function CoachPlanActions() {
   const [diag, setDiag] = useState<{ source: "cache" | "ai" | null; model?: string | null } | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
 
+  const { steps, setState: step, reset: resetSteps } = useSteps();
+
   const cacheKey = useMemo(() => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined), [userId, prefs]);
   const canRun = !!userId && !loading;
 
@@ -66,49 +127,92 @@ export default function CoachPlanActions() {
     if (!userId) return;
     (async () => {
       try {
+        step("loading_prefs", "active");
         const p = await getPrefs(userId);
         setPrefs(p);
-      } catch {}
+        step("loading_prefs", "ok");
+      } catch {
+        step("loading_prefs", "err");
+      }
     })();
-  }, [userId]);
+  }, [userId, step]);
 
   const handleGenerate = useCallback(async () => {
     if (!userId) return;
-    setLoading(true); setErr(null);
-    try {
-      // fresh prefs vždy
-      const fresh = await getPrefs(userId);
-      if (!fresh) throw new Error("Chýbajú preferences v DB.");
-      setPrefs(fresh);
+    resetSteps();
+    setLoading(true);
+    setErr(null);
+    const t0 = performance.now();
 
-      // cache?
-      const ck = makeCacheKey(String(userId), fresh);
+    try {
+      // Loading preferences (fresh)
+      step("loading_prefs", "active");
+      const fresh = await getPrefs(userId);
+      if (!fresh) throw new Error("Preferences not found in DB.");
+      setPrefs(fresh);
+      step("loading_prefs", "ok");
+
+      // Preparing inputs
+      step("preparing_inputs", "active");
       const base = toAnalyzePayloadBE(fresh);
       const payload = { ...base, goal_structured: fresh, bests: { run: pbRun ?? [] } };
       setDebugPayload(base);
+      step("preparing_inputs", "ok");
 
+      // Checking cache
+      step("checking_cache", "active");
+      const ck = makeCacheKey(String(userId), fresh);
       const cached = loadCachedResult(ck);
       if (cached?.result) {
+        step("checking_cache", "ok");
+        step("sending_request", "ok");
+        step("ai_generating", "ok");
+        step("parsing_response", "ok");
+        step("saving_storage", "active");
         setAnalysis(cached.result.analysis);
         setDiag({ source: "cache", model: cached.result.model });
-        // ulož aj do storage (coach.generated)
-        localStorage.setItem("coach.generated", JSON.stringify(cached.result.analysis));
+        try { localStorage.setItem("coach.generated", JSON.stringify(cached.result.analysis)); } catch {}
+        step("saving_storage", "ok");
+        step("ready", "ok");
         return;
       }
+      step("checking_cache", "ok");
 
-      const json = await (await import("@/features/coach/api/coach")).analyzeCoach(userId, payload);
+      // Sending request
+      step("sending_request", "active");
+      // Generating plan (AI)
+      step("ai_generating", "active");
+      const json = await analyzeCoach(userId, payload);
+      step("sending_request", "ok");
+      step("ai_generating", "ok");
+
+      // Parsing response
+      step("parsing_response", "active");
       if (!json?.success) throw new Error(json?.detail || "Analyze failed");
       setAnalysis(json.analysis);
       setDiag({ source: "ai", model: json.model });
       saveCachedResult(ck, json, json?.model);
-      // ulož do storage
-      localStorage.setItem("coach.generated", JSON.stringify(json.analysis));
+      step("parsing_response", "ok");
+
+      // Saving to storage
+      step("saving_storage", "active");
+      try { localStorage.setItem("coach.generated", JSON.stringify(json.analysis)); } catch {}
+      step("saving_storage", "ok");
+
+      step("ready", "ok");
+      const t1 = performance.now();
+      // ľahké časovanie do konzoly
+      // eslint-disable-next-line no-console
+      console.log(`[CoachPlan] done in ${(t1 - t0).toFixed(0)} ms`);
     } catch (e: any) {
       setErr(e?.message || "Generate failed");
+      // označ prvý aktívny krok ako err
+      const firstActive = steps.find(s => s.state === "active");
+      if (firstActive) step(firstActive.key, "err");
     } finally {
       setLoading(false);
     }
-  }, [userId, pbRun]);
+  }, [userId, pbRun, steps, step, resetSteps]);
 
   const handleStart = useCallback(async () => {
     try {
@@ -133,7 +237,6 @@ export default function CoachPlanActions() {
       if (!userId) throw new Error("Chýba userId.");
       const updated = await updateActivePlan(userId);
       if (updated) {
-        // pre istotu ulož aj do storage (aktívny)
         localStorage.setItem("coach.active", JSON.stringify(updated));
       }
     } catch (e: any) {
@@ -155,7 +258,7 @@ export default function CoachPlanActions() {
       {/* ovládanie */}
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={handleGenerate} disabled={!canRun} variant="primary" size="sm">
-          {loading ? <span className="inline-flex items-center gap-2"><LoadingSpinner size="widget" />Generating…</span> : "Generate plan"}
+          {loading ? <span className="inline-flex items-center gap-2"><LoadingSpinner size="widget" /> Generating…</span> : "Generate plan"}
         </Button>
         <Button onClick={handleStart} disabled={loading} variant="success" size="sm">Start plan</Button>
         <Button onClick={handleUpdate} disabled={loading} variant="secondary" size="sm">Update plan</Button>
@@ -168,6 +271,9 @@ export default function CoachPlanActions() {
           </div>
         )}
       </div>
+
+      {/* stavový automat */}
+      <StepsView steps={steps} />
 
       {err && (
         <div className="rounded-xl border border-red-600 bg-red-900/30 text-red-100 p-3">
