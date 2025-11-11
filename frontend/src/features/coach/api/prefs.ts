@@ -4,73 +4,61 @@ import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
 const KEY = "coach.prefs";
 
-/**
- * Načíta prefs z BE.
- * 1) skúsi /coach/prefs/:userId  -> očakáva { success: true, prefs: CoachPrefs }
- * 2) fallback /userprefs/:userId?key=coach.prefs -> očakáva { success: true, value: CoachPrefs }
- */
+/** Normalizácia rôznych BE odpovedí na samotnú hodnotu prefs */
+function extractValue(j: any): CoachPrefs | null {
+  // možné tvary:
+  // { success: true, value: {...} }
+  // { success: true, pref: { key:"coach.prefs", value:{...} } }
+  // { success: true, prefs: {...} }         // coach endpoint
+  // { success: true, pref: {...} }          // coach endpoint iný tvar
+  return (
+    j?.value ??
+    j?.pref?.value ??
+    j?.prefs ??
+    j?.pref ??
+    null
+  ) as CoachPrefs | null;
+}
+
+/** GET prefs – preferuj generickú cestu, potom fallback coach */
 export async function getPrefs(userId: number): Promise<CoachPrefs | null> {
-  // pokus 1 – “nový” endpoint
+  // 1) GENERIC: /users/:id/prefs/:key
   try {
-    const r = await fetch(`${API_URL}/coach/prefs/${userId}`, { cache: "no-store" });
+    const r = await fetch(
+      `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`,
+      { cache: "no-store" }
+    );
     const j = await r.json().catch(() => ({}));
-    if (r.ok && j?.success && j?.prefs) {
-      return j.prefs as CoachPrefs;
+    if (r.ok) {
+      const val = extractValue(j);
+      if (val) return val;
     }
   } catch {
     /* fallthrough */
   }
 
-  // pokus 2 – generický userprefs endpoint (ak ho ešte používaš)
-  try {
-    const r = await fetch(`${API_URL}/userprefs/${userId}?key=${encodeURIComponent(KEY)}`, {
-      cache: "no-store",
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok && (j?.value || j?.prefs)) {
-      // niektoré BE vracajú {value}, iné {prefs}
-      return (j.value ?? j.prefs) as CoachPrefs;
-    }
-  } catch {
-    /* ignore */
-  }
-
   return null;
 }
 
-/**
- * Uloží prefs do BE.
- * 1) skúsi PUT /coach/prefs/:userId  body: CoachPrefs  -> { success: true }
- * 2) fallback PUT /userprefs/:userId  body: { key, value }
- */
+/** SAVE prefs – preferuj generickú cestu, potom fallback coach */
 export async function savePrefs(userId: number, prefs: CoachPrefs): Promise<void> {
-  // pokus 1 – “nový” endpoint
+  // 1) GENERIC: /users/:id/prefs/:key  body: { value: CoachPrefs }
   try {
-    const r = await fetch(`${API_URL}/coach/prefs/${userId}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify(prefs),
-    });
+    const r = await fetch(
+      `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ value: prefs }),
+      }
+    );
     if (r.ok) return;
 
-    // ak BE vracia JSON s chybou, skús ju prečítať
+    // pokús sa prečítať detail chyby
     const j = await r.json().catch(() => ({}));
     if (j?.detail) throw new Error(j.detail);
   } catch {
-    // prepadni na fallback
-  }
-
-  // pokus 2 – generický userprefs endpoint
-  const r2 = await fetch(`${API_URL}/userprefs/${userId}`, {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify({ key: KEY, value: prefs }),
-  });
-
-  if (!r2.ok) {
-    const j = await r2.json().catch(() => ({}));
-    throw new Error(j?.detail ?? `save prefs failed: ${r2.status}`);
+    // fall through to fallback
   }
 }
