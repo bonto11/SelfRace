@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Body, HTTPException
 from typing import Any, Dict, List, cast
 
-from Services.db import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
+from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
 from Services.plan_generation import generate_plan_json, ensure_minimum_week_plan
 from Services.progress_narrative import build_progress_narrative
 from Routes.coach_context import coach_context

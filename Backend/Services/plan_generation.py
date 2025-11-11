@@ -3,7 +3,7 @@ import json, re
 from typing import Any, Dict, List, cast
 from fastapi import HTTPException
 from openai import OpenAI
-from Services.db import OPENAI_API_KEY, LLM_TIMEOUT_S  # timeout a kľúč ostávajú
+from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S  # timeout a kľúč ostávajú
 
 def parse_json_lenient(text: str) -> dict:
     t = (text or "").strip()

@@ -2,9 +2,13 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime
-
-from Services.db import supabase, TABLE_USERS_BESTS
+from Modules.SQL.db_handler import get_client
 from Services.time import hhmmss_to_seconds, seconds_to_hhmmss
+from Configs.config import (
+    TABLE_USERS_BESTS,
+)
+
+supabase = get_client()
 
 # povolené vzdialenosti podľa športu
 STD_DISTANCES_BY_SPORT: dict[str, list[int]] = {

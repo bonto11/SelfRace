@@ -6,7 +6,6 @@ from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_USERS_NOTES,
 )
-
 supabase = get_client()
 
 def fetch_recent_notes(user_id: int, days: int = 28):
