@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
 import { extractDailyPlan, DAY_ORDER, detectSport } from "@/features/coach/utils/plan";
 import ActivitySingle from "@/shared/components/ActivitySingle";
 
-/* ===== ISO dátum z weekStart (Po) ===== */
+/* ===== ISO utils ===== */
 const DAY_OFFSET: Record<(typeof DAY_ORDER)[number], number> = {
   Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6,
 };
@@ -30,15 +31,19 @@ function isoFromWeekStart(weekStartIso: string | undefined, day: (typeof DAY_ORD
   d.setUTCDate(base.getUTCDate() + off);
   return toIso(d);
 }
+function addDays(iso: string, n: number): string {
+  const d = parseIsoDate(iso); if (!d) return iso;
+  const c = new Date(d); c.setUTCDate(d.getUTCDate() + n);
+  return toIso(c);
+}
 
-/* ===== Normalizácia polí z AI itemu → to čo žerie ActivitySingle ===== */
+/* ===== Normalizácia pre ActivitySingle ===== */
 type AnyObj = Record<string, any>;
 
 function normTitle(it: AnyObj) {
   return it?.title ?? it?.name ?? "Session";
 }
 function normDuration(it: AnyObj) {
-  // podporuj duration_min (AI) aj pôvodné dur
   const minutes =
     (typeof it?.duration_min === "number" && it.duration_min) ??
     (typeof it?.dur === "number" && it.dur) ??
@@ -49,7 +54,6 @@ function normIntensity(it: AnyObj) {
   return it?.intensity ?? null;
 }
 function normTarget(it: AnyObj) {
-  // viac zdrojov: target_pace_min_per_km | target | structure.main.target.pace
   return (
     it?.target_pace_min_per_km ??
     it?.target ??
@@ -58,7 +62,6 @@ function normTarget(it: AnyObj) {
   );
 }
 function normNotes(it: AnyObj) {
-  // podpor aj warmup/cooldown poznámky, ak nie sú top-level
   if (it?.notes) return it.notes;
   const wu = it?.structure?.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : "";
   const cd = it?.structure?.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : "";
@@ -75,37 +78,83 @@ function normNotes(it: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
-/* ===== Krátke čipy pre debug výpis ===== */
-function Chip({ children }: { children: React.ReactNode }) {
-  return <span className="inline-block rounded-md bg-white/10 px-2 py-0.5 text-xs">{children}</span>;
-}
-
-/* ===== hlavný komponent ===== */
-export default function PlanResult({ result, showDebugSplit = true }: { result: any; showDebugSplit?: boolean }) {
+/* ===== komponent ===== */
+export default function PlanResult({
+  result,
+  showDebugSplit = true,
+}: {
+  result: any;
+  showDebugSplit?: boolean;
+}) {
   if (!result) return null;
 
-  const plan      = result?.analysis?.next_week_plan;
-  const daily     = extractDailyPlan(plan); // zachované tvoje utils
-  const weekStart = result?.analysis?._meta?.week_start as string | undefined;
+  const analysis   = result?.analysis ?? {};
+  const plan       = analysis?.next_week_plan;
+  const daily      = extractDailyPlan(plan);
+  const weekStart  = analysis?._meta?.week_start as string | undefined;
+  const first10    = Array.isArray(analysis?.next_10_days) ? analysis.next_10_days as AnyObj[] : [];
+  const planStart  = (result?.context_used?.plan_start_date as string | undefined) || undefined;
+
+  /* Ulož AI výstup do storage: coach.generated */
+  useEffect(() => {
+    try {
+      if (analysis && Object.keys(analysis).length) {
+        localStorage.setItem("coach.generated", JSON.stringify(analysis));
+      }
+    } catch {/* ignore quota / SSR */}
+  }, [analysis]);
 
   return (
     <div className="space-y-3">
-      {/* Coach narrative */}
+      {/* Narrative */}
       {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
 
       {/* Summary */}
-      {result?.analysis?.summary && (
+      {analysis?.summary && (
         <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
           <h3 className="font-semibold mb-1">Summary</h3>
-          <p>{result.analysis.summary}</p>
+          <p>{analysis.summary}</p>
         </div>
       )}
 
-      {/* Karty dňa – priamo ActivitySingle (variant "plan") */}
+      {/* First 10 days (ak sú) */}
+      {first10.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="font-semibold px-1">First 10 days</h3>
+          {first10.map((it, i) => {
+            // dátum preferuj z item.date, inak z plan_start_date + index
+            const explicit = typeof it?.date === "string" ? it.date : null;
+            const dateIso = explicit ?? (planStart ? addDays(planStart, i) : undefined);
+            const sport = (detectSport(it) as "run" | "ride" | "strength" | "other" | "mixed") ?? "other";
+            return (
+              <ActivitySingle
+                key={`d10-${i}`}
+                variant="plan"
+                data={{
+                  id: `d10-${i}`,
+                  name: normTitle(it),
+                  dateIso: dateIso ?? undefined,
+                  sport,
+                  planDur: normDuration(it),
+                  planIntensity: normIntensity(it),
+                  planTarget: normTarget(it),
+                  planNotes: normNotes(it),
+                  // surové pre detail
+                  planRaw: it,
+                  planStructure: it?.structure ?? null,
+                  planExercises: it?.exercises ?? null,
+                }}
+                defaultOpen={false}
+              />
+            );
+          })}
+        </section>
+      )}
+
+      {/* Týždenné karty (ako doteraz) */}
       {Array.isArray(daily) && daily.length > 0 ? (
         <div className="space-y-2">
           {daily.flatMap(({ day, items }) => {
-            // prázdny deň
             if (!items?.length) {
               const dateIso = isoFromWeekStart(weekStart, day);
               return (
@@ -131,10 +180,8 @@ export default function PlanResult({ result, showDebugSplit = true }: { result: 
             }
 
             return items.map((it: AnyObj, idx: number) => {
-              // detekcia športu nech ostáva cez tvoju utilitu
               const sport = (detectSport(it) as "run" | "ride" | "strength" | "other" | "mixed") ?? "other";
               const dateIso = isoFromWeekStart(weekStart, day);
-
               return (
                 <ActivitySingle
                   key={`${day}-${idx}`}
@@ -150,7 +197,7 @@ export default function PlanResult({ result, showDebugSplit = true }: { result: 
                     planNotes: normNotes(it),
                     planRaw: it,
                     planStructure: it?.structure ?? null,
-                    planExercises: it?.exercise ?? null,
+                    planExercises: it?.exercises ?? null,
                   }}
                   defaultOpen={false}
                 />
@@ -159,7 +206,6 @@ export default function PlanResult({ result, showDebugSplit = true }: { result: 
           })}
         </div>
       ) : plan ? (
-        // fallback – ak sa nepodarilo rozkúskovať na daily
         <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
           <h3 className="font-semibold mb-1">Next week</h3>
           <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
@@ -167,39 +213,6 @@ export default function PlanResult({ result, showDebugSplit = true }: { result: 
           </pre>
         </div>
       ) : null}
-
-      {/* --- Textový daily split (debug) — voliteľný, default zapnutý --- */}
-      {showDebugSplit && Array.isArray(daily) && daily.length > 0 && (
-        <div className="rounded-xl border border-white/10 p-3 bg-white/5 space-y-3">
-          <h3 className="font-semibold">Daily split (text)</h3>
-          {daily.map(({ day, items }) => (
-            <div key={`dbg-${day}`} className="space-y-1">
-              <div className="text-xs uppercase tracking-wide opacity-80">{day}</div>
-              {!items?.length ? (
-                <div className="text-sm opacity-70">— no session —</div>
-              ) : (
-                items.map((it: AnyObj, i: number) => {
-                  const sport = (detectSport(it) as string) || "other";
-                  return (
-                    <div key={`dbg-${day}-${i}`} className="rounded-md border border-white/10 p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-medium">{normTitle(it)}</div>
-                        <Chip>{sport}</Chip>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs opacity-90 mt-1">
-                        {normDuration(it) && <Chip>duration: {normDuration(it)}</Chip>}
-                        {normIntensity(it) && <Chip>intensity: {normIntensity(it)}</Chip>}
-                        {normTarget(it) && <Chip>target: {String(normTarget(it))}</Chip>}
-                      </div>
-                      {normNotes(it) && <div className="text-sm mt-1">{normNotes(it)}</div>}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

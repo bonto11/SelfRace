@@ -1,170 +1,229 @@
-# Routes/coach_planning.py
-from fastapi import APIRouter, Body, HTTPException
+# Services/plan_generation.py
+import json, re
 from typing import Any, Dict, List, cast
+from fastapi import HTTPException
+from openai import OpenAI
+from datetime import date, timedelta
+from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S  # timeout a kľúč ostávajú
 
-from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
-from Services.plan_generation import generate_plan_json, ensure_minimum_week_plan
-from Services.progress_narrative import build_progress_narrative
-from Routes.coach_context import coach_context
 
-router = APIRouter(prefix="/coach", tags=["coach"])
+def _monday_of(iso_str: str) -> str:
+    """Vráti ISO dátum pondelka týždňa, do ktorého patrí iso_str."""
+    d = date.fromisoformat(iso_str)
+    monday = d - timedelta(days=d.weekday() % 7)  # 0 = Mon
+    return monday.isoformat()
 
-def _recent_run_km_avg(weekly: list[dict]) -> float:
-    vals = [float(w.get("km_run") or 0.0) for w in (weekly[-3:] if weekly else [])]
-    return (sum(vals) / len(vals)) if vals else 30.0
 
-def _build_min_plan_from_context(ctx_in: Dict[str, Any]) -> Dict[str, Any]:
-    sports: List[str] = cast(List[str], ctx_in.get("primary_sports") or ["run", "strength"])
-    run_s = [
-        {"title": "Intervals 6×800m @ 5k pace", "duration_min": 60, "intensity": "high", "notes": "RPE 8; pauzy 2–3 min"},
-        {"title": "Tempo 20–25 min @ LT", "duration_min": 55, "intensity": "med-high", "notes": "RPE 7"},
-        {"title": "Long run easy", "duration_min": 80, "intensity": "easy", "notes": "RPE 4"},
-    ]
-    ride_s = [{"title": "Endurance Z2", "duration_min": 45}, {"title": "Endurance Z2", "duration_min": 45}]
-    str_s = [{"title": "Full-body", "duration_min": 45}, {"title": "Core+Mobility", "duration_min": 25}]
-    plan: Dict[str, Any] = {
-        "focus": "build",
-        "monday": {"title": "Rest", "duration_min": 0, "notes": "Hydration, sleep"},
-        "tuesday": run_s[0] if "run" in sports else (ride_s[0] if "ride" in sports else str_s[0]),
-        "wednesday": str_s[0] if "strength" in sports else {"title": "Easy cross", "duration_min": 30},
-        "thursday": run_s[1] if "run" in sports else (ride_s[1] if "ride" in sports else str_s[-1]),
-        "friday": {"title": "Rest", "duration_min": 0, "notes": "Light mobility"},
-        "saturday": run_s[2] if "run" in sports else (ride_s[0] if "ride" in sports else {"title": "Hike", "duration_min": 60}),
-        "sunday": (ride_s[1] if "ride" in sports else str_s[-1]) if "run" not in sports else {"title": "Easy jog", "duration_min": 40},
-        "rest_days": ["Mon", "Fri"],
-        "run": {"weekly_km_target": 30, "sessions": run_s},
-        "ride": {"weekly_time_target_min": 90, "sessions": ride_s},
-        "strength": {"sessions": str_s},
-    }
-    return plan
-
-# --- v2/v1 payload normalizácia ------------------------------------------------
-def _norm_goal(goal_in) -> str:
-    if isinstance(goal_in, dict):
-        kind = (goal_in.get("kind") or "").strip()
-        rg = goal_in.get("race_goal")
-        if kind == "race_time" and rg:
-            return f"race_time:{rg}"
-        return kind or "improve_overall"
-    return (goal_in or "improve_overall")
-
-def _normalize_payload(payload: dict) -> dict:
-    weeks = int(payload.get("weeks") or payload.get("goal_structured", {}).get("weeks") or 6)
-    goal_str = _norm_goal(payload.get("goal") or payload.get("goal_structured", {}).get("goal"))
-    primary_sports = payload.get("primary_sports") or payload.get("goal_structured", {}).get("primary_sports") or ["run", "ride", "strength"]
-
-    persona = payload.get("persona") or payload.get("goal_structured", {}).get("persona")
-    main_sport = payload.get("main_sport") or payload.get("goal_structured", {}).get("main_sport")
-    secondary_mix = payload.get("secondary_mix") or payload.get("goal_structured", {}).get("secondary_mix")
-
-    targets = payload.get("targets") or payload.get("goal_structured", {}).get("targets")
-    rules = payload.get("rules") or payload.get("goal_structured", {}).get("preferences")
-    externals = payload.get("externals") or payload.get("goal_structured", {}).get("external_activities") or []
-    injuries = payload.get("injuries") or payload.get("goal_structured", {}).get("injuries") or []
-    focus = payload.get("focus") or {
-        "areas": (payload.get("goal_structured", {}).get("focus_areas") or []),
-        "avoid_zones": (payload.get("goal_structured", {}).get("avoid_zones") or []),
-        "rehab": payload.get("goal_structured", {}).get("rehab_focus") or None,
-    }
-
-    start_date = payload.get("start_date") or payload.get("goal_structured", {}).get("start_date")
-    strength_settings = payload.get("strength_settings") or payload.get("goal_structured", {}).get("strength_settings")
-
-    intensity_model = payload.get("intensity_model")
-    if intensity_model is None:
-        g = payload.get("goal_structured", {})
-        if g.get("polarized_model"): intensity_model = "polarized"
-        elif g.get("pyramidal_model"): intensity_model = "pyramidal"
-
-    blocks = payload.get("blocks")
-    if blocks is None:
-        g = payload.get("goal_structured", {})
-        blocks = {
-            "vo2max": bool(g.get("vo2max_training")),
-            "ftp": bool(g.get("ftp_training")),
-            "threshold": bool(g.get("threshold_focus")),
-        }
-
-    schema_version = int(payload.get("schema_version") or 1)
-    return {
-        "schema_version": schema_version,
-        "weeks": weeks,
-        "goal": goal_str,
-        "primary_sports": primary_sports,
-        "persona": persona,
-        "main_sport": main_sport,
-        "secondary_mix": secondary_mix,
-        "targets": targets,
-        "rules": rules,
-        "externals": externals,
-        "injuries": injuries,
-        "focus": focus,
-        "intensity_model": intensity_model,
-        "blocks": blocks,
-        "start_date": start_date,
-        "strength_settings": strength_settings,
-        "_raw": payload,
-    }
-
-@router.post("/analyze/{user_id}")
-def coach_analyze(user_id: int, payload: dict = Body(...)):
+def parse_json_lenient(text: str) -> dict:
+    t = (text or "").strip()
     try:
-        norm = _normalize_payload(payload)
-        weeks = norm["weeks"]; goal = norm["goal"]; primary_sports = norm["primary_sports"]
+        return json.loads(t)
+    except Exception:
+        pass
+    start, end = t.find("{"), t.rfind("}")
+    candidate = t[start:end + 1] if start != -1 and end != -1 and end > start else t
+    safe = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', candidate)
+    return json.loads(safe)
 
-        ctx = coach_context(user_id, weeks=weeks)
-        if not ctx.get("success"):
-            raise HTTPException(status_code=500, detail="Context build failed")
 
-        weekly     = ctx["weekly"]["weeks"][-weeks:]
-        hr_used    = ctx["weekly"]["hr_used"]
-        recovery   = ctx.get("recovery", [])[-21:]
-        notes      = ctx.get("notes", [])[-50:]
-        thresholds = ctx.get("thresholds", [])
-        zones      = ctx.get("zones", [])
-        prefs      = ctx.get("prefs")
-        bests      = ctx.get("bests", {})
-        
-        llm_input = {
-            "goal": goal,
-            "schema_version": norm["schema_version"],
-            "primary_sports": primary_sports,
-            "persona": norm["persona"],
-            "main_sport": norm["main_sport"],
-            "secondary_mix": norm["secondary_mix"],
-            "targets": norm["targets"],
-            "rules": norm["rules"],
-            "externals": norm["externals"],
-            "injuries": norm["injuries"],
-            "focus": norm["focus"],
-            "intensity_model": norm["intensity_model"],
-            "blocks": norm["blocks"],
-            "start_date": norm["start_date"],
-            "strength_settings" :norm["strength_settings"],
-            "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
-            "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
-        }
-        narr = build_progress_narrative(ctx, weeks)
+def _as_list(obj, key) -> list:
+    v = obj.get(key)
+    return v if isinstance(v, list) else []
 
-        models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
-        parsed = None; used_model = DEFAULT_MODEL; last_err = None
 
-        for m in models:
-            for _ in range(LLM_RETRIES + 1):
-                try:
-                    p = generate_plan_json(llm_input, m)
-                    parsed = ensure_minimum_week_plan(p, llm_input, _build_min_plan_from_context)
-                    used_model = m
-                    break
-                except Exception as e:
-                    last_err = str(e); continue
-            if parsed is not None: break
+def normalize_plan_json(obj: dict, plan_start_iso: str | None = None) -> dict:
+    """
+    Normalizuje AI JSON:
+    - summary, insights, red_flags
+    - week_overview (alias outline_10w)
+    - next_10_days (alias first_10_days)
+    - next_week_plan (+_meta.week_start & plan_source)
+    """
+    if not isinstance(obj, dict):
+        raise ValueError("AI output is not a JSON object")
 
-        if parsed is None:
-            raise HTTPException(status_code=500, detail=f"AI generation failed: {last_err}")
+    out: Dict[str, Any] = {
+        "summary": obj.get("summary") or "No summary.",
+        "insights": [],
+        "red_flags": _as_list(obj, "red_flags"),
+        "week_overview": _as_list(obj, "week_overview") or _as_list(obj, "outline_10w"),
+        "next_10_days": _as_list(obj, "next_10_days") or _as_list(obj, "first_10_days"),
+        "next_week_plan": obj.get("next_week_plan"),
+        "_meta": {"coerced": False, "plan_source": "ai"},
+    }
 
-        return {"success": True, "model": used_model, "analysis": parsed, "context_used": llm_input, "narrative": narr}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # insights – podpor aj dict → splošti
+    ins = obj.get("insights")
+    if isinstance(ins, list):
+        out["insights"] = [str(x) for x in ins]
+    elif isinstance(ins, dict):
+        bullets: List[str] = []
+
+        def flat(p: str, v: Any):
+            if isinstance(v, dict):
+                for k, vv in v.items():
+                    flat(f"{p}{k}:", vv)
+            elif isinstance(v, list):
+                for it in v:
+                    flat(p, it)
+            else:
+                s = f"{p} {v}".strip()
+                if s:
+                    bullets.append(s)
+
+        flat("", ins)
+        out["insights"] = [b.replace("  ", " ").strip(" :") for b in bullets if b]
+
+    # week_start meta (pondelok podľa plan_start_date, ak je k dispozícii)
+    if plan_start_iso:
+        out["_meta"]["week_start"] = _monday_of(plan_start_iso)
+
+    # next_week_plan – robustná koercia
+    nwp = obj.get("next_week_plan")
+    if isinstance(nwp, list) and all(isinstance(x, str) for x in nwp):
+        out["_meta"]["coerced"] = True
+        out["_meta"]["plan_source"] = "coerced_from_guidelines"
+        out["next_week_plan"] = None
+        out["_guidelines"] = nwp
+    elif isinstance(nwp, dict):
+        out["next_week_plan"] = nwp
+    else:
+        out["_meta"]["coerced"] = True
+        out["_meta"]["plan_source"] = "coerced_empty"
+        out["next_week_plan"] = None
+
+    return out
+
+
+def ensure_minimum_week_plan(parsed: dict, context_in: dict, build_min_plan_fn) -> dict:
+    if not isinstance(parsed, dict):
+        raise ValueError("AI output not a dict")
+
+    plan = parsed.get("next_week_plan")
+    has_any = False
+    if isinstance(plan, dict):
+        for k in ("run", "ride", "strength"):
+            s = plan.get(k)
+            if s and isinstance(s, dict) and isinstance(s.get("sessions"), list) and s["sessions"]:
+                has_any = True
+                break
+        if not has_any and any(
+            d in plan for d in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+        ):
+            has_any = True
+
+    if not plan or not has_any:
+        parsed.setdefault("summary", "Auto-filled plan based on recent context (guidelines detected).")
+        parsed["next_week_plan"] = build_min_plan_fn(context_in)
+        meta = parsed.setdefault("_meta", {})
+        meta["plan_source"] = "coerced_from_guidelines" if meta.get("plan_source") == "coerced_from_guidelines" else "fallback_min"
+    else:
+        parsed.setdefault("_meta", {})["plan_source"] = parsed.get("_meta", {}).get("plan_source", "ai")
+    return parsed
+
+
+def generate_plan_json(context_payload: dict, model: str) -> dict:
+    """
+    Vygeneruje:
+      - summary, insights, red_flags
+      - week_overview: 1–2 vety na každý týždeň od plan_start_date (počet týždňov = ctx.weeks)
+      - next_10_days: detailné denné položky od plan_start_date (max 10)
+      - next_week_plan: 7-dňový plán (kvôli existujúcemu UI)
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
+
+    client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=LLM_TIMEOUT_S)
+
+    # vstupy → defaulty
+    start_iso = (context_payload.get("plan_start_date")
+                 or (date.today() + timedelta(days=2)).isoformat())
+    weeks = int(context_payload.get("weeks") or 6)
+
+    # schéma – rozšírená o week_overview/next_10_days (+ aliasy pre spätnú komp.)
+    json_schema_text = """
+JSON object with keys:
+  summary: string
+  insights: string[]
+  red_flags: {type:string, details?:string, evidence?:string}[]
+  week_overview: {week_index:number, start:string, end:string, focus?:string, summary:string}[]
+  next_10_days: (Session | {date?: string, day?: string, sessions?: Session[]})[]
+  next_week_plan: {
+    focus: "base" | "build" | "recovery",
+    monday?: Session|Session[], tuesday?: Session|Session[], wednesday?: Session|Session[],
+    thursday?: Session|Session[], friday?: Session|Session[], saturday?: Session|Session[], sunday?: Session|Session[],
+    rest_days?: string[],
+    run?: { weekly_km_target?: number|null, sessions?: Session[] },
+    ride?: { weekly_time_target_min?: number|null, sessions?: Session[] },
+    strength?: { sessions?: Session[] }
+  }
+where Session = {
+  title: string, duration_min: number,
+  intensity?: "low"|"moderate"|"med-high"|"high"|null, notes?: string|null,
+  target_pace_min_per_km?: string|null,
+  target_hr_bpm_range?: [number, number]|null,
+  target_power_watts?: number|null, zone?: string|null,
+  structure?: {
+    warmup?:   {minutes?:number, notes?:string, target?:{pace?:string|null, hr?:[number,number]|null, zone?:string|null}},
+    main?:     {reps?:number, work_min?:number, recover_min?:number, recovery_mode?:"walk"|"jog"|"stop"|null,
+                target?:{pace?:string|null, hr?:[number,number]|null, power?:number|null, zone?:string|null}} | (
+                {reps?:number, work_min?:number, recover_min?:number, ...}[] ),
+    cooldown?: {minutes?:number, notes?:string}
+  },
+  exercises?: {name:string, sets?:number, reps?:number, rest_sec?:number, tempo?:string|null, focus?:string|null}[]
+}
+Constraints:
+- Start all schedules exactly at plan_start_date.
+- Provide week_overview for all weeks (1–2 sentences per week).
+- Provide next_10_days for the first 10 days starting at plan_start_date.
+- Respect thresholds/zones, external activities, injuries, intensity model, and strength_settings (location/mode/gear).
+- Return ONLY JSON.
+- Keep weekly progression ≤10%.
+Aliases accepted for backwards-compat:
+- outline_10w -> week_overview
+- first_10_days -> next_10_days
+"""
+
+    system_txt = (
+        "You are an endurance coaching assistant. "
+        "Using the provided context and preferences, produce a concrete plan starting from plan_start_date. "
+        "Return ONLY JSON matching the schema."
+    )
+
+    # do promptu explicitne posielame relevantné časti
+    user_payload = {
+        **context_payload,
+        "plan_start_date": start_iso,
+        "weeks": weeks,
+        "_hint_week_start": _monday_of(start_iso),
+        "first_n_days": 10,
+    }
+
+    user_txt = "Context JSON:\n" + json.dumps(user_payload, ensure_ascii=False) + "\n\nSchema (instructional):\n" + json_schema_text
+
+    cc = client.chat.completions.create(
+        model=model,
+        messages=cast(Any, [
+            {"role": "system", "content": system_txt},
+            {"role": "user", "content": user_txt},
+        ]),
+        response_format={"type": "json_object"},
+        temperature=0.35,
+        max_tokens=1600,
+    )
+
+    raw = (
+        getattr(getattr(cc.choices[0], "message", {}), "content", None)
+        or getattr(cc.choices[0], "text", None)
+        or ""
+    ).strip()
+    if not raw:
+        raise RuntimeError("empty_response_chat_json_object")
+
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = parse_json_lenient(raw)
+
+    normalized = normalize_plan_json(parsed, plan_start_iso=start_iso)
+    return normalized

@@ -44,7 +44,7 @@ export type AnalyzePayloadBE = {
     ftp?: boolean;
   };
 
-  /** NOVÉ: sila – prostredie & vybavenie */
+  plan_start_date?: string | null;
   strength_settings?: CoachPrefs["strength_settings"];
 
   legacy?: {
@@ -103,7 +103,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
       ftp: !!prefs.ftp_training,
     },
 
-    /** pošli AI silové podmienky */
+    plan_start_date: prefs.distance?? undefined,
     strength_settings: prefs.strength_settings ?? undefined,
 
     legacy: {
