@@ -75,7 +75,7 @@ export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gy
 /** voľný slovník, nech vieme poslať AI aj konkrétne kusy náradia */
 export type StrengthEquipmentKey =
   | "dumbbells" | "barbell" | "kettlebell" | "trx" | "pullup_bar"
-  | "resistance_bands" | "bench" | "medicine_ball" | "sandbag" | "box" | "other";
+  | "resistance_bands" | "bench" | "medicine_ball" | "sandbag" | "box" | "abwheel" | "other";
 
 export type StrengthSettings = {
   location?: StrengthLocation | null;          // kde cvičíš

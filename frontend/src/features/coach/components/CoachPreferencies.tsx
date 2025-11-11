@@ -267,7 +267,7 @@ export default function PrefsForm() {
         ...activeSecondaries,
       ];
 
-       // guard: start_date min = zajtra
+      // guard: start_date min = zajtra
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
       const safeStart = !startIso || startIso < minIso ? minIso : startIso;
@@ -543,18 +543,30 @@ export default function PrefsForm() {
             type="date"
             value={local.start_date ?? ""}
             min={MIN_PLAN_START()}
-            onChange={(e) => { markDirty(); setLocal(p => ({ ...p, start_date: (e.target as HTMLInputElement).value })); }}
+            onChange={(e) => {
+              markDirty();
+              setLocal((p) => ({
+                ...p,
+                start_date: (e.target as HTMLInputElement).value,
+              }));
+            }}
             className={inputClass}
           />
           <Button
             variant="secondary"
-            onClick={() => { markDirty(); setLocal(p => ({ ...p, start_date: DEFAULT_PLAN_START() })); }}
+            onClick={() => {
+              markDirty();
+              setLocal((p) => ({ ...p, start_date: DEFAULT_PLAN_START() }));
+            }}
           >
             Set default (D+2)
           </Button>
           <Button
             variant="secondary"
-            onClick={() => { markDirty(); setLocal(p => ({ ...p, start_date: MIN_PLAN_START() })); }}
+            onClick={() => {
+              markDirty();
+              setLocal((p) => ({ ...p, start_date: MIN_PLAN_START() }));
+            }}
           >
             Start tomorrow
           </Button>
@@ -578,7 +590,6 @@ export default function PrefsForm() {
               onChange={(e) => {
                 const v = e.target.value as SportKind | "";
                 setPref("main_sport", v === "" ? null : (v as SportKind));
-                // when changing main → keep secondary list consistent
                 const filtered = (local.secondary_mix ?? []).filter(
                   (s) => s.sport !== v
                 );
@@ -611,7 +622,9 @@ export default function PrefsForm() {
         {/* Secondary rows */}
         <div className="mt-3 grid grid-cols-1 gap-2">
           {secondary.map((sec) => {
-            const disableSlider = sec.role === "none" || sec.share_pct === 0;
+            // slider vypneme len ak je role === "none"
+            const disableSlider = sec.role === "none";
+
             return (
               <div
                 key={sec.sport}
@@ -622,35 +635,42 @@ export default function PrefsForm() {
                     {sec.sport}
                   </div>
 
+                  {/* role toggles */}
                   <div className="inline-flex items-center gap-1">
-                    {(["none", "supplement", "improve"] as SecondaryRole[]).map(
-                      (r) => {
-                        const active = sec.role === r;
-                        return (
-                          <button
-                            key={r}
-                            type="button"
-                            onClick={() =>
-                              updateSecondary(sec.sport, {
-                                role: r,
-                                share_pct: r === "none" ? 0 : sec.share_pct,
-                              })
-                            }
-                            className={[
-                              PILL_BUTTON,
-                              "text-xs px-2 py-1",
-                              active ? ACTIVE_PILL : "border-white/15",
-                            ].join(" ")}
-                            title={r}
-                          >
-                            {r}
-                          </button>
-                        );
-                      }
-                    )}
+                    {(["none", "supplement", "improve"] as const).map((r) => {
+                      const active = sec.role === r;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            // keď prepneme z none -> (supplement|improve) a share_pct==0, dajmu hneď 25
+                            const nextShare =
+                              r === "none"
+                                ? 0
+                                : sec.share_pct && sec.share_pct > 0
+                                ? sec.share_pct
+                                : 25;
+                            updateSecondary(sec.sport, {
+                              role: r,
+                              share_pct: nextShare,
+                            });
+                          }}
+                          className={[
+                            PILL_BUTTON,
+                            "text-xs px-2 py-1",
+                            active ? ACTIVE_PILL : "border-white/15",
+                          ].join(" ")}
+                          title={r}
+                        >
+                          {r}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                  {/* slider + numeric input */}
+                  <div className="flex items-center gap-2 flex-1 min-w-[220px]">
                     <input
                       type="range"
                       min={0}
@@ -669,9 +689,22 @@ export default function PrefsForm() {
                         disableSlider ? "opacity-50 cursor-not-allowed" : "",
                       ].join(" ")}
                     />
-                    <div className="w-12 text-right text-sm tabular-nums">
-                      {sec.share_pct}%
-                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={sec.share_pct}
+                      disabled={disableSlider}
+                      onChange={(e) => {
+                        const v = Math.max(
+                          0,
+                          Math.min(100, Number(e.target.value || 0))
+                        );
+                        updateSecondary(sec.sport, { share_pct: v });
+                      }}
+                      className="w-16 text-right text-sm tabular-nums bg-transparent border border-white/15 rounded px-2 py-1"
+                    />
                   </div>
 
                   <div className="ml-auto flex gap-2">
@@ -721,17 +754,27 @@ export default function PrefsForm() {
           <div>
             <div className="text-xs opacity-80 mb-1">Location</div>
             <div className="flex flex-wrap gap-2">
-              {(["gym","home","outdoor"] as const).map(loc => {
-                const active = (local.strength_settings?.location ?? null) === loc;
+              {(["gym", "home", "outdoor"] as const).map((loc) => {
+                const active =
+                  (local.strength_settings?.location ?? null) === loc;
                 return (
                   <button
                     key={loc}
                     type="button"
-                    onClick={()=>{
+                    onClick={() => {
                       markDirty();
-                      setLocal(p => ({ ...p, strength_settings: { ...(p.strength_settings ?? {}), location: active ? null : loc } }));
+                      setLocal((p) => ({
+                        ...p,
+                        strength_settings: {
+                          ...(p.strength_settings ?? {}),
+                          location: active ? null : loc,
+                        },
+                      }));
                     }}
-                    className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
+                    className={[
+                      PILL_BUTTON,
+                      active ? ACTIVE_PILL : "border-white/15",
+                    ].join(" ")}
                   >
                     {loc}
                   </button>
@@ -744,22 +787,34 @@ export default function PrefsForm() {
           <div>
             <div className="text-xs opacity-80 mb-1">Equipment mode</div>
             <div className="flex flex-wrap gap-2">
-              {(["none","bodyweight","minimal","full_gym"] as const).map(mode => {
-                const active = (local.strength_settings?.equipment_mode ?? null) === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={()=>{
-                      markDirty();
-                      setLocal(p => ({ ...p, strength_settings: { ...(p.strength_settings ?? {}), equipment_mode: active ? null : mode } }));
-                    }}
-                    className={[PILL_BUTTON, active ? ACTIVE_PILL : "border-white/15"].join(" ")}
-                  >
-                    {mode}
-                  </button>
-                );
-              })}
+              {(["none", "bodyweight", "minimal", "full_gym"] as const).map(
+                (mode) => {
+                  const active =
+                    (local.strength_settings?.equipment_mode ?? null) === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        markDirty();
+                        setLocal((p) => ({
+                          ...p,
+                          strength_settings: {
+                            ...(p.strength_settings ?? {}),
+                            equipment_mode: active ? null : mode,
+                          },
+                        }));
+                      }}
+                      className={[
+                        PILL_BUTTON,
+                        active ? ACTIVE_PILL : "border-white/15",
+                      ].join(" ")}
+                    >
+                      {mode}
+                    </button>
+                  );
+                }
+              )}
             </div>
           </div>
 
@@ -767,20 +822,46 @@ export default function PrefsForm() {
           <div>
             <div className="text-xs opacity-80 mb-1">Available gear</div>
             <div className="flex flex-wrap gap-2">
-              {(["dumbbells","barbell","kettlebell","trx","pullup_bar","resistance_bands","bench","medicine_ball","sandbag","box"] as const).map(key => {
+              {(
+                [
+                  "dumbbells",
+                  "barbell",
+                  "kettlebell",
+                  "trx",
+                  "pullup_bar",
+                  "resistance_bands",
+                  "bench",
+                  "medicine_ball",
+                  "sandbag",
+                  "box",
+                  "abwheel",
+                ] as const
+              ).map((key) => {
                 const cur = local.strength_settings?.available ?? [];
                 const active = cur.includes(key);
-                const next = active ? cur.filter(k => k !== key) : [...cur, key];
+                const next = active
+                  ? cur.filter((k) => k !== key)
+                  : [...cur, key];
                 // ak je full_gym, tags sú len informatívne – necháme aj tak
                 return (
                   <button
                     key={key}
                     type="button"
-                    onClick={()=>{
+                    onClick={() => {
                       markDirty();
-                      setLocal(p => ({ ...p, strength_settings: { ...(p.strength_settings ?? {}), available: next } }));
+                      setLocal((p) => ({
+                        ...p,
+                        strength_settings: {
+                          ...(p.strength_settings ?? {}),
+                          available: next,
+                        },
+                      }));
                     }}
-                    className={[PILL_BUTTON, "text-xs", active ? ACTIVE_PILL : "border-white/15"].join(" ")}
+                    className={[
+                      PILL_BUTTON,
+                      "text-xs",
+                      active ? ACTIVE_PILL : "border-white/15",
+                    ].join(" ")}
                   >
                     {key}
                   </button>
