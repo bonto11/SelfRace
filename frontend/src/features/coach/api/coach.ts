@@ -1,5 +1,4 @@
-//coach/api/coach
-
+// src/features/coach/api/coach.ts
 import { API_URL } from "@/shared/config";
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
@@ -11,7 +10,7 @@ export type AnalyzePayloadBE = {
   goal: {
     goal_kind?: CoachPrefs["goal_kind"];
     horizon_weeks?: number;
-    /** NOVÉ: od kedy plánovať (ISO) */
+    /** Od kedy plánovať (ISO, YYYY-MM-DD) */
     start_date?: string;
   };
 
@@ -44,7 +43,9 @@ export type AnalyzePayloadBE = {
     ftp?: boolean;
   };
 
+  /** Kompat: ak BE ešte číta aj toto pole mimo goal */
   plan_start_date?: string | null;
+
   strength_settings?: CoachPrefs["strength_settings"];
 
   legacy?: {
@@ -52,6 +53,9 @@ export type AnalyzePayloadBE = {
     current_pace?: CoachPrefs["current_pace"];
     target_pace?: CoachPrefs["target_pace"];
   };
+
+  /** Voliteľné – umožníš FE prepnúť model (napr. "gpt-5" alebo "gpt-4o-mini") */
+  explicit_model?: string | null;
 };
 
 export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE {
@@ -70,7 +74,8 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     goal: {
       goal_kind: prefs.goal_kind,
       horizon_weeks: prefs.weeks ?? undefined,
-      start_date: prefs.start_date ?? undefined, // NOVÉ
+      // správne mapovanie – preferuj plan_start_date z prefs
+      start_date: (prefs as any).plan_start_date ?? (prefs as any).start_date ?? undefined,
     },
 
     voice: {
@@ -103,7 +108,9 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
       ftp: !!prefs.ftp_training,
     },
 
-    plan_start_date: prefs.distance?? undefined,
+    // ⚠️ FIX: predtým tu bola chyba (distance). Teraz posielame správny dátum.
+    plan_start_date: (prefs as any).plan_start_date ?? (prefs as any).start_date ?? null,
+
     strength_settings: prefs.strength_settings ?? undefined,
 
     legacy: {
@@ -111,8 +118,12 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
       current_pace: prefs.current_pace ?? undefined,
       target_pace: prefs.target_pace ?? undefined,
     },
+
+    // optional – FE môže doplniť pri volaní analyzeCoach (ak chceš)
+    explicit_model: null,
   };
 }
+
 /** ---- API calls -------------------------------------------------------- */
 
 export async function analyzeCoach(
