@@ -1,10 +1,11 @@
 // src/features/coach/components/PlanResult.tsx
 "use client";
 
-import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
-import { detectSport } from "@/features/coach/utils/plan";
-import ActivitySingle from "@/shared/components/ActivitySingle";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
+import ActivitySingle from "@/shared/components/ActivitySingle";
+import { detectSport } from "@/features/coach/utils/plan";
+// Ak chceš dočasne skryť naratív, necháme import zakomentovaný
+// import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
 
 /* ───────── helpers ───────── */
 type AnyObj = Record<string, any>;
@@ -24,19 +25,17 @@ function powerToText(w?: any): string | null {
 }
 
 function normTarget(it: AnyObj): string | null {
-  // prefer explicit fields
-  const hr = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
+  const hr   = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
   const pace = it?.target_pace_min_per_km ?? null;
-  const pow = it?.target_power_watts ?? null;
+  const pow  = it?.target_power_watts ?? null;
 
-  // try structure.main[0].target.*
   const mainT = Array.isArray(it?.structure?.main)
     ? it.structure.main[0]?.target
     : it?.structure?.main?.target;
 
-  const hr2 = hr ?? mainT?.hr ?? mainT?.heart_rate ?? null;
+  const hr2   = hr   ?? mainT?.hr ?? mainT?.heart_rate ?? null;
   const pace2 = pace ?? mainT?.pace ?? null;
-  const pow2 = pow ?? mainT?.power ?? null;
+  const pow2  = pow  ?? mainT?.power ?? null;
 
   const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
@@ -45,27 +44,19 @@ function normTarget(it: AnyObj): string | null {
 function intervalsToText(main: any): string | null {
   const arr =
     Array.isArray(main) ? main :
-    main && Array.isArray(main.sets) ? main.sets :
-    null;
+    (main && Array.isArray(main.sets) ? main.sets : null);
   if (!arr || !arr.length) return null;
 
   const first = arr[0];
   const reps = Number.isFinite(first?.reps) ? `${first.reps}×` : "";
   const work = Number.isFinite(first?.work_min) ? `${first.work_min}′` : "";
-  const rec =
-    Number.isFinite(first?.recover_min) && first.recover_min > 0
-      ? ` / ${first.recover_min}′ rec`
-      : "";
-
+  const rec  = Number.isFinite(first?.recover_min) && first.recover_min > 0 ? ` / ${first.recover_min}′ rec` : "";
   const targ = first?.target
     ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
-        .filter(Boolean)
-        .join(" · ")
+        .filter(Boolean).join(" · ")
     : "";
 
-  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ]
-    .filter(Boolean)
-    .join(" ");
+  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ].filter(Boolean).join(" ");
   return txt || null;
 }
 
@@ -82,22 +73,16 @@ function parseIso(iso?: string | null): Date | null {
   return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0));
 }
 
-function normTitle(it: AnyObj) {
-  return it?.title ?? it?.name ?? "Session";
-}
-function normDuration(it: AnyObj) {
+function normTitle(it: AnyObj)       { return it?.title ?? it?.name ?? "Session"; }
+function normDuration(it: AnyObj)    {
   const minutes =
     (typeof it?.duration_min === "number" && it.duration_min) ??
-    (typeof it?.dur === "number" && it.dur) ??
-    null;
+    (typeof it?.dur === "number" && it.dur) ?? null;
   return minutes != null ? `${minutes} min` : null;
 }
-function normIntensity(it: AnyObj) {
-  return it?.intensity ?? null;
-}
+function normIntensity(it: AnyObj)   { return it?.intensity ?? null; }
 
 function normNotes(it: AnyObj) {
-  // len to, čo prišlo z AI (žiadne vymýšľanie)
   if (it?.notes) return it.notes;
 
   const wu = it?.structure?.warmup
@@ -121,14 +106,12 @@ function normNotes(it: AnyObj) {
     : "";
 
   const ex = Array.isArray(it?.exercises) && it.exercises.length
-    ? "Exercises: " + it.exercises
-        .map((e: any) => {
-          const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
-          if (e?.seconds) parts.push(`${e.seconds}s`);
-          else if (e?.reps) parts.push(`${e.reps}`);
-          return parts.filter(Boolean).join(" ");
-        })
-        .join(", ")
+    ? "Exercises: " + it.exercises.map((e: any) => {
+        const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
+        if (e?.seconds) parts.push(`${e.seconds}s`);
+        else if (e?.reps) parts.push(`${e.reps}`);
+        return parts.filter(Boolean).join(" ");
+      }).join(", ")
     : "";
 
   const parts = [wu, main, cd, ex].filter(Boolean);
@@ -138,7 +121,7 @@ function normNotes(it: AnyObj) {
 function WeekPreview({ lines }: { lines: string[] }) {
   if (!lines?.length) return null;
   return (
-    <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
+    <div className={[CARD, "p-3 bg-white/70 dark:bg-gray-900/40"].join(" ")}>
       <h3 className="font-semibold mb-1">Weekly preview</h3>
       <ul className="list-disc pl-5 text-sm">
         {lines.map((s, i) => <li key={i}>{s}</li>)}
@@ -152,24 +135,21 @@ function WeekPreview({ lines }: { lines: string[] }) {
 export default function PlanResult({
   result,
   showDebugSplit = false,
+  showNarrative = false, // nech je čierny panel preč, kým ho nebudeme chcieť
 }: {
   result: any;
   showDebugSplit?: boolean;
+  showNarrative?: boolean;
 }) {
   if (!result) return null;
 
   const analysis = result?.analysis ?? {};
-
-  // 1) Weekly preview
   const preview: string[] = analysis?.week_overview || analysis?.outline_10w || [];
 
-  // 2) Next 10 days — prefer next_10_days
   const next10Raw: any[] =
     (Array.isArray(analysis?.next_10_days) && analysis.next_10_days) ||
-    (Array.isArray(analysis?.first_10_days) && analysis.first_10_days) ||
-    [];
+    (Array.isArray(analysis?.first_10_days) && analysis.first_10_days) || [];
 
-  // 2a) začiatok 10 dní
   const metaStart: string | null =
     analysis?._meta?.next10_start ||
     (next10Raw.length && typeof next10Raw[0]?.day === "string" ? next10Raw[0].day : null) ||
@@ -177,7 +157,6 @@ export default function PlanResult({
 
   const startDateObj = parseIso(metaStart || undefined);
 
-  // 2b) bezpečný 10-dňový zoznam ISO dátumov
   const safeDates: string[] = startDateObj
     ? Array.from({ length: 10 }, (_, i) =>
         toIso(new Date(Date.UTC(
@@ -189,53 +168,52 @@ export default function PlanResult({
       )
     : [];
 
-  // 2c) day → sessions
   const byDate: Record<string, any[]> = {};
   for (const entry of next10Raw) {
     if (entry && typeof entry === "object" && typeof entry.day === "string") {
       const sessions = Array.isArray(entry.sessions)
         ? entry.sessions
-        : entry.title
-          ? [entry]
-          : [];
+        : (entry.title ? [entry] : []);
       byDate[entry.day] = sessions;
     }
   }
 
-  // ── LAYOUT: rovnaký panel ako ActivityTable ───────────────────────────────
-  const wrapperCls = [
-    CARD,            // rovnaký card povrch
-    "space-y-4",     // zvislé rozostupy
-    "p-4 md:p-5",    // rovnaké paddingy
-    "overflow-visible", // neorezáva rozbalené ActivitySingle
-  ].join(" ");
-
   return (
-    <div className={wrapperCls}>
-      {/* Nadpis panelu, držíme rovnakú hierarchiu */}
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="text-lg font-bold">Tréningový plán — ďalších 10 dní</h2>
-      </div>
-
-      {/* Narratív (ak je) */}
-      {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
-
-      {/* Summary box */}
-      {analysis?.summary && (
-        <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40 overflow-visible">
-          <h3 className="font-semibold mb-1">Summary</h3>
-          <p>{analysis.summary}</p>
+    <div className="max-w-screen-lg w-full mx-auto px-3 md:px-4 lg:px-6 space-y-4">
+      {/* Narratív – default skrytý (žiadne tmavé pozadie vzadu) */}
+      {showNarrative && result?.narrative && (
+        <div className={[CARD, "p-3 md:p-4"].join(" ")}>
+          {/* <CoachViewPanel narrative={result.narrative} /> */}
+          <div className="text-sm opacity-80">Narrative hidden placeholder</div>
         </div>
       )}
 
-      {/* Preview */}
-      {!!preview.length && <WeekPreview lines={preview} />}
+      {/* SUMMARY ostrovček */}
+      {(analysis?.summary || preview.length) && (
+        <section className={[CARD, "p-4 md:p-5 space-y-3"].join(" ")}>
+          <div className="flex justify-between items-center mb-1">
+            <h2 className="text-lg font-bold">Tréningový plán — prehľad</h2>
+          </div>
 
-      {/* --- Next 10 days (len to, čo pošle AI) --- */}
+          {analysis?.summary && (
+            <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
+              <h3 className="font-semibold mb-1">Summary</h3>
+              <p>{analysis.summary}</p>
+            </div>
+          )}
+
+          {!!preview.length && <WeekPreview lines={preview} />}
+        </section>
+      )}
+
+      {/* NEXT 10 DAYS ostrovček */}
       {safeDates.length > 0 && (
-        <section className="rounded-xl border border-white/10 p-3 bg-white/5 overflow-visible">
-          <h3 className="font-semibold mb-2">Next 10 days</h3>
-          <ul className={["space-y-2", NO_X_OVERFLOW].join(" ")}>
+        <section className={[CARD, "p-4 md:p-5"].join(" ")}>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-bold">Next 10 days</h2>
+          </div>
+
+          <ul className={["space-y-2", NO_X_OVERFLOW, "overflow-visible"].join(" ")}>
             {safeDates.map((iso) => {
               const sessions = byDate[iso] || [];
               if (!sessions.length) {
@@ -272,8 +250,8 @@ export default function PlanResult({
                       sport: (detectSport(it) as any) ?? "other",
                       planDur: normDuration(it),
                       planIntensity: normIntensity(it),
-                      planTarget: normTarget(it),     // HR / pace / power (z AI)
-                      planNotes: normNotes(it),       // WU / MAIN / CD / exercises (z AI)
+                      planTarget: normTarget(it),
+                      planNotes: normNotes(it),
                       planRaw: it,
                       planStructure: it?.structure ?? null,
                       planExercises: it?.exercises ?? null,
@@ -284,13 +262,13 @@ export default function PlanResult({
               ));
             })}
           </ul>
-        </section>
-      )}
 
-      {showDebugSplit && (
-        <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
-          {JSON.stringify(analysis, null, 2)}
-        </pre>
+          {showDebugSplit && (
+            <pre className="text-xs bg-black/30 p-2 rounded overflow-auto mt-3">
+              {JSON.stringify(analysis, null, 2)}
+            </pre>
+          )}
+        </section>
       )}
     </div>
   );
