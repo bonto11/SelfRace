@@ -69,44 +69,67 @@ def _normalize_payload(payload: dict) -> dict:
     }
 
 # ---- strict BE validácia bez dopĺňania ----
-def _validate_next10(parsed: Dict[str, Any], must_start: str | None) -> None:
+def _validate_next10(parsed: Dict[str, Any], must_start: str | None, rules: Dict[str, Any] | None) -> None:
     n10 = parsed.get("next_10_days")
     if not (isinstance(n10, list) and len(n10) == 10):
         raise HTTPException(status_code=502, detail="AI must return next_10_days with 10 items")
 
-    # validácia po dňoch
+    require_wu_cd = bool((rules or {}).get("wu_cd_detail"))
+
     for i, d in enumerate(n10):
-        if not isinstance(d, dict):
-            raise HTTPException(status_code=502, detail=f"Invalid day at index {i}")
-        if not isinstance(d.get("day"), str):
-            raise HTTPException(status_code=502, detail=f"Missing ISO date at index {i}")
+        if not isinstance(d, dict) or not isinstance(d.get("day"), str):
+            raise HTTPException(status_code=502, detail=f"Invalid or missing day at index {i}")
         if not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
             raise HTTPException(status_code=502, detail=f"Empty sessions at index {i}")
 
         for j, s in enumerate(d["sessions"]):
             if not isinstance(s, dict):
                 raise HTTPException(status_code=502, detail=f"Invalid session at {i}:{j}")
+
             sport = (s.get("sport") or "").lower()
             title = (s.get("title") or "").lower()
             is_run = sport == "run" or "run" in title
+            is_strength = sport == "strength" or "strength" in title or "weight" in title
+
             if is_run:
+                # HR target povinný
                 hr = s.get("target_hr_bpm_range")
-                # alebo cez structure.main[].target.hr
-                if not (isinstance(hr, list) and len(hr) == 2):
+                ok_hr = isinstance(hr, list) and len(hr) == 2
+                if not ok_hr:
                     struc = s.get("structure")
-                    ok = False
                     if isinstance(struc, dict) and isinstance(struc.get("main"), list):
                         for blk in struc["main"]:
                             thr = (blk or {}).get("target", {}).get("hr")
                             if isinstance(thr, list) and len(thr) == 2:
-                                ok = True; break
-                    if not ok:
-                        raise HTTPException(status_code=502, detail=f"Missing HR target in run session at {i}:{j}")
+                                ok_hr = True; break
+                if not ok_hr:
+                    raise HTTPException(status_code=502, detail=f"Missing HR target in run session at {i}:{j}")
 
-    # musí začať v plan_start_date (ak máme)
-    if must_start:
-        if n10[0]["day"] != must_start:
-            raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
+                # Ak vyžaduješ WU/CD, skontroluj štruktúru
+                if require_wu_cd:
+                    struc = s.get("structure")
+                    if not isinstance(struc, dict):
+                        raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must include structure")
+                    wu = struc.get("warmup"); cd = struc.get("cooldown"); main = struc.get("main")
+                    if not (isinstance(wu, dict) and isinstance(cd, dict) and isinstance(main, list) and len(main) > 0):
+                        raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must include warmup/main/cooldown")
+                    if "minutes" in (wu or {}) and not isinstance(wu.get("minutes"), (int, float)):
+                        raise HTTPException(status_code=502, detail=f"Warmup minutes invalid at {i}:{j}")
+                    if "minutes" in (cd or {}) and not isinstance(cd.get("minutes"), (int, float)):
+                        raise HTTPException(status_code=502, detail=f"Cooldown minutes invalid at {i}:{j}")
+
+            if is_strength:
+                ex = s.get("exercises")
+                if not (isinstance(ex, list) and len(ex) >= 3):
+                    raise HTTPException(status_code=502, detail=f"Strength session {i}:{j} must include exercises[]")
+                for k, e in enumerate(ex):
+                    if not isinstance(e, dict) or not e.get("name") or not isinstance(e.get("sets"), (int, float)):
+                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include name and sets")
+                    if not (isinstance(e.get("reps"), (int, float)) or isinstance(e.get("seconds"), (int, float))):
+                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include reps or seconds")
+
+    if must_start and n10[0]["day"] != must_start:
+        raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
@@ -144,7 +167,6 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
             "first_n_days": 10,
-            # kontext pre AI (môže použiť na HR targety)
             "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
             "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
         }
@@ -169,7 +191,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
 
-        _validate_next10(parsed, norm["plan_start_date"])
+        _validate_next10(parsed, norm["plan_start_date"], norm.get("rules"))
 
         return {
             "success": True,
