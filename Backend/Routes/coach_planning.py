@@ -1,6 +1,5 @@
-# Routes/coach_planning.py
 from fastapi import APIRouter, Body, HTTPException, Request
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
 from Services.plan_generation import generate_plan_json
@@ -81,7 +80,7 @@ def _normalize_payload(payload: dict) -> dict:
         "strength_settings": strength_settings,
         "_raw": payload,
     }
-# Routes/coach_planning.py (výťah – dolná časť handlera)
+
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     try:
@@ -132,7 +131,8 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
-                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=True)
+                    # STRICT JSON (loose=False – ignorujeme a ideme striktne v implementácii)
+                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
                     parsed = p
                     used_model = m
                     debug_trace = dbg
@@ -144,6 +144,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
 
+        # vyžaduj 10-dňovku
         f10 = parsed.get("first_10_days") or []
         n10 = parsed.get("next_10_days") or []
         if not (isinstance(f10, list) and f10) and not (isinstance(n10, list) and n10):
@@ -152,10 +153,10 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         return {
             "success": True,
             "model": used_model,
-            "analysis": parsed,          # nič nedorábame
+            "analysis": parsed,
             "context_used": llm_input,
             "narrative": narr,
-            "ai_debug": debug_trace,     # stále vraciame trace
+            "ai_debug": debug_trace,
         }
     except HTTPException:
         raise
