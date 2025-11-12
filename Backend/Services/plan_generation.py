@@ -1,16 +1,17 @@
 # Services/plan_generation.py
 import os, json, re, time, datetime as dt
-from typing import Any, Dict, List, Tuple, Optional, cast
+from typing import Any, Dict, List, Tuple, Optional
 from fastapi import HTTPException
 from openai import OpenAI
 from datetime import date, timedelta
-from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S  # čas z .env (Railway)
+from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
+# ---------- Utility helpers ----------
 def _monday_of(iso_str: str) -> str:
     d = date.fromisoformat(iso_str)
-    monday = d - timedelta(days=d.weekday())  # 0 = Mon
+    monday = d - timedelta(days=d.weekday())
     return monday.isoformat()
 
 def _strip_codefence(s: str) -> str:
@@ -65,7 +66,7 @@ def _as_list(obj, key) -> list:
     v = obj.get(key)
     return v if isinstance(v, list) else []
 
-# ---------------- normalizácia ----------------
+# ---------- Normalization ----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
     if not isinstance(obj, dict):
         raise ValueError("AI output is not a JSON object")
@@ -137,7 +138,7 @@ def ensure_minimum_week_plan(parsed: dict, context_in: dict, build_min_plan_fn) 
         parsed.setdefault("_meta", {})["plan_source"] = parsed.get("_meta", {}).get("plan_source", "ai")
     return parsed
 
-# ---------------- koercie tréningov ----------------
+# ---------- Coercion of session structures ----------
 def _coerce_run_structure(sess: Dict[str,Any]) -> None:
     title = (sess.get("title") or "").lower()
     if "run" not in title: return
@@ -151,8 +152,7 @@ def _coerce_run_structure(sess: Dict[str,Any]) -> None:
     sess.setdefault("structure", {})
     sess["structure"]["warmup"]   = {"minutes": wu, "notes":"Easy jog", "target":{"hr":[120,140]}}
     sess["structure"]["main"]     = [{"reps":1, "work_min": main, "recover_min":0,
-                                      "target":{"pace": sess.get("target_pace_min_per_km") or None,
-                                                "hr":[145,165]}}]
+                                      "target":{"hr":[145,165]}}]
     sess["structure"]["cooldown"] = {"minutes": cd, "notes":"Easy walk or jog"}
 
 def _coerce_strength_exercises(sess: Dict[str,Any], gear: List[str]) -> None:
@@ -181,6 +181,7 @@ def _coerce_next_10_days(parsed: Dict[str,Any], start_date_str: Optional[str], s
     if not start_date_str: return
     start = _parse_date(start_date_str)
     if not start: return
+
     want_dates = [_iso(start + dt.timedelta(days=i)) for i in range(10)]
 
     raw = parsed.get("first_10_days") or parsed.get("next_10_days")
@@ -211,9 +212,9 @@ def _coerce_next_10_days(parsed: Dict[str,Any], start_date_str: Optional[str], s
             out_list.append({"day": d, "sessions": cur["sessions"]})
 
     parsed["first_10_days"] = out_list
-    parsed["_meta"] = {**parsed.get("_meta", {}), "next10_start": start_date_str}
+    parsed.setdefault("_meta", {})["next10_start"] = start_date_str
 
-# ---------------- LLM volanie + RAW DEBUG ----------------
+# ---------- LLM core ----------
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
@@ -224,18 +225,20 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 def _build_prompts(context_payload: dict, schema_text: str, loose: bool):
     if loose:
         system_txt = "You are an endurance coaching assistant. Reply helpfully."
-        user_txt = "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) + "\n\n" + \
-                   "Return a plan and the next 10 days. JSON is preferred but free-form text is OK."
+        user_txt = (
+            "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) +
+            "\n\nReturn a weekly plan and the next 10 days. JSON is preferred but free-form is OK."
+        )
     else:
         system_txt = (
             "You are an endurance coaching assistant. "
             "Always return a single valid JSON object matching the schema. No prose. No code fences."
         )
-        user_txt = "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) + "\n\nSchema (instructional):\n" + schema_text
+        user_txt = "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) + "\n\nSchema:\n" + schema_text
     return system_txt, user_txt
 
 def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int, loose: bool) -> str:
-    kwargs = dict(
+    kwargs: Dict[str, Any] = dict(
         model=model,
         messages=[{"role":"system","content":system_txt},{"role":"user","content":user_txt}],
         temperature=0.25,
@@ -243,11 +246,11 @@ def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max
     )
     if not loose:
         kwargs["response_format"] = {"type": "json_object"}
-    cc = client.chat.completions.create(**kwargs)  # type: ignore
+    cc = client.chat.completions.create(**kwargs)
     return (getattr(getattr(cc.choices[0], "message", {}), "content", None)
             or getattr(cc.choices[0], "text", None) or "").strip()
 
-def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=False, loose: bool=False) -> Tuple[dict, Optional[dict]]:
+def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=True, loose: bool=True) -> Tuple[dict, dict]:
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
@@ -267,27 +270,16 @@ JSON object with keys:
   week_overview?: string[]
   first_10_days?: { day: string(YYYY-MM-DD), sessions: Session[] }[]
   next_week_plan: { ... }
-where Session = {
-  title: string, duration_min: number,
-  intensity?: string|null, notes?: string|null,
-  target_pace_min_per_km?: string|null,
-  target_hr_bpm_range?: [number, number]|null,
-  target_power_watts?: number|null, zone?: string|null,
-  structure?: { warmup?: {...}, main?: [...], cooldown?: {...} },
-  exercises?: { name:string, sets:number, reps?:number, seconds?:number, rest_sec?:number }[]
-}
-Hard constraints:
-- Return ONLY JSON (strict mode). For loose mode this is advisory.
 """.strip()
 
-    # priprav prompts raz (rovnaké pre všetky pokusy)
     system_txt, user_txt = _build_prompts(context_payload, schema_text, loose)
+    print(f"[AI] compose prompts | system_len={len(system_txt)} user_len={len(user_txt)}")
 
-    trace = {
+    trace: Dict[str, Any] = {
         "system_prompt": system_txt,
         "user_prompt": user_txt,
         "models_tried": models,
-        "attempts": []  # list of {model, attempt, tokens_budget, started_at, duration_ms, ok, error?, raw_preview}
+        "attempts": []
     }
 
     last_err: Optional[str] = None
@@ -297,44 +289,42 @@ Hard constraints:
         for attempt in range(1, retries + 1):
             started = time.time()
             budget = token_budgets[min(attempt-1, len(token_budgets)-1)]
+            print(f"[AI] call start | model={m} attempt={attempt} budget={budget}")
             try:
                 raw = _call_openai(client, m, system_txt, user_txt, budget, loose)
                 last_raw = raw
-                dur = int((time.time() - started) * 1000)
+                dur_ms = int((time.time() - started) * 1000)
+                print(f"[AI] call ok    | model={m} attempt={attempt} dur_ms={dur_ms} raw_len={len(raw)}")
 
                 trace["attempts"].append({
                     "model": m, "attempt": attempt, "tokens_budget": budget,
-                    "started_at": started, "duration_ms": dur,
-                    "ok": True,
+                    "duration_ms": dur_ms, "ok": True,
                     "raw_preview": (raw[:800] + ("…[truncated]" if len(raw) > 800 else "")),
                 })
 
-                if loose:
-                    # skúsiť parse, ale nevyžadovať
-                    try:
-                        parsed_dict, _ = _parse_ai_json(raw)
-                    except Exception:
-                        parsed_dict = {"raw_text": raw}
-                else:
-                    if not raw:
-                        raise RuntimeError("empty_response_chat_json_object")
+                try:
                     parsed_dict, _ = _parse_ai_json(raw)
+                except Exception:
+                    parsed_dict = {"raw_text": raw}
 
-                start_date = (context_payload.get("goal") or {}).get("start_date")
-                parsed = normalize_plan_json(parsed_dict, plan_start_iso=start_date)
+                start_date = (
+                    (context_payload.get("goal") or {}).get("start_date")
+                    or context_payload.get("plan_start_date")
+                )
                 strength_gear = (context_payload.get("strength_settings") or {}).get("available") or []
+                parsed = normalize_plan_json(parsed_dict, plan_start_iso=start_date)
                 _coerce_next_10_days(parsed, start_date, strength_gear)
-                if debug_raw:
-                    trace["last_raw"] = last_raw
-                return parsed, (trace if debug_raw else None)
+
+                trace["last_raw"] = raw
+                return parsed, trace
 
             except Exception as e:
-                dur = int((time.time() - started) * 1000)
+                dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{type(e).__name__}: {e}"
+                print(f"[AI] call fail  | model={m} attempt={attempt} dur_ms={dur_ms} err={last_err}")
                 trace["attempts"].append({
                     "model": m, "attempt": attempt, "tokens_budget": budget,
-                    "started_at": started, "duration_ms": dur,
-                    "ok": False, "error": last_err
+                    "duration_ms": dur_ms, "ok": False, "error": last_err
                 })
                 time.sleep(0.6 * attempt)
                 continue

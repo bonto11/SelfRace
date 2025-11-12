@@ -1,3 +1,4 @@
+// src/features/coach/components/CoachPlanActions.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,8 +18,8 @@ import Button from "@/shared/components/ui/Button";
 import Pill from "@/shared/components/ui/Pill";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { THEME } from "@/shared/theme/tokens";
-import { API_URL as RAW_API_UTL} from "@/shared/config";
-const API_URL : string = RAW_API_UTL?? "";
+import { API_URL as RAW_API_URL } from "@/shared/config";
+const API_URL: string = RAW_API_URL ?? "";
 
 /* ────────────── UI helpers ────────────── */
 function JsonBlock({ title, data }: { title: string; data: any }) {
@@ -26,7 +27,7 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
   return (
     <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
       <summary className="cursor-pointer select-none text-sm font-semibold py-1">{title}</summary>
-      <pre className="mt-2 max-h-72 overflow-auto text-xs leading-5">{JSON.stringify(data, null, 2)}</pre>
+      <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">{JSON.stringify(data, null, 2)}</pre>
     </details>
   );
 }
@@ -80,7 +81,7 @@ const makeSteps = (st: StepState["state"] = "idle"): StepState[] =>
 function readPrefsFromStorage(): CoachPrefs | null {
   if (typeof window === "undefined") return null;
   try {
-    const rawUP = localStorage.getItem("up:coach.prefs"); // tvoj pôvodný kľúč
+    const rawUP = localStorage.getItem("up:coach.prefs");
     if (rawUP) return JSON.parse(rawUP);
     const raw = localStorage.getItem("coach.prefs");
     return raw ? JSON.parse(raw) : null;
@@ -92,11 +93,9 @@ function readPrefsFromStorage(): CoachPrefs | null {
 /* ────────────── simple BE ping ────────────── */
 async function pingApi(base: string): Promise<{ ok: boolean; status?: number; text?: string; cors?: boolean }> {
   try {
-    // použijeme /health, ak ho nemáš, 404 stále znamená že sieť/CORS prešla
     const r = await fetch(`${base}/health`, { method: "GET", cache: "no-store" });
     return { ok: r.ok || r.status === 404, status: r.status, text: r.statusText, cors: false };
   } catch (e: any) {
-    // “Failed to fetch” = CORS/offline/DNS/TLS
     return { ok: false, cors: true, text: String(e?.message || e) };
   }
 }
@@ -114,6 +113,12 @@ export default function CoachPlanActions() {
   const [err, setErr] = useState<string | null>(null);
   const [diag, setDiag] = useState<{ source: "cache" | "ai" | null; model?: string | null } | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
+
+  // AI raw debug polia z BE
+  const [aiAttempts, setAiAttempts] = useState<any>(null);
+  const [aiSystem, setAiSystem] = useState<any>(null);
+  const [aiUser, setAiUser] = useState<any>(null);
+  const [aiLastRaw, setAiLastRaw] = useState<any>(null);
 
   const [apiStatus, setApiStatus] = useState<{ ok: boolean; status?: number; text?: string; cors?: boolean } | null>(null);
 
@@ -135,13 +140,15 @@ export default function CoachPlanActions() {
     setSteps((prev) => prev.map((s) => (s.name === at ? { ...s, state: "error", note: [s.note, `[${now()}] ${note ?? ""}`].filter(Boolean).join(" · ") } : s)));
   }, []);
 
-  /* — Ping API na mount + načítanie prefs (DB → storage) — */
+  /* Ping API na mount */
   useEffect(() => {
     (async () => {
       const ping = await pingApi(API_URL);
       setApiStatus(ping);
     })();
   }, []);
+
+  /* Načítanie prefs (DB → storage) */
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -157,22 +164,21 @@ export default function CoachPlanActions() {
     })();
   }, [userId, markOnly]);
 
-  /* — Generate plan — */
+  /* Generate plan — RAW DEBUG režim */
   const handleGenerate = useCallback(async () => {
     if (!userId) return;
     setErr(null);
+    setAiAttempts(null); setAiSystem(null); setAiUser(null); setAiLastRaw(null);
     resetSteps();
     setLoading(true);
 
     try {
-      // 0) ping (rýchly feedback)
+      // 0) ping
       const ping = await pingApi(API_URL);
       setApiStatus(ping);
-      if (!ping.ok) {
-        throw new Error(ping.cors ? `Network/CORS: ${ping.text}` : `API not reachable (${ping.status} ${ping.text})`);
-      }
+      if (!ping.ok) throw new Error(ping.cors ? `Network/CORS: ${ping.text}` : `API not reachable (${ping.status} ${ping.text})`);
 
-      // 1) prefs (DB → fallback)
+      // 1) prefs
       markOnly("Loading preferences", "fetch from DB");
       const fresh = await getPrefs(userId).catch(() => null);
       const effectivePrefs = fresh ?? readPrefsFromStorage();
@@ -203,15 +209,10 @@ export default function CoachPlanActions() {
         return;
       }
 
-      // 4) call BE
-      // ⬇ tu vieš vynútiť rýchlejší model počas testu (prázdne = server fallbacks)
-      const explicitModel = "gpt-4o-mini"; // napr. "gpt-4o-mini"
-      markOnly("Sending request", explicitModel ? `model=${explicitModel}` : "model=fallbacks");
+      // 4) BE call – RAW debug ON, loose ON, bez explicit modelu (ENV rozhoduje)
+      markOnly("Sending request", "debug_raw=1, loose=1");
       markOnly("Generating plan (AI)");
-      const json = await analyzeCoach(userId, { ...payload, explicit_model: explicitModel }).catch((e: any) => {
-        // zachyť “Failed to fetch” vs HTTP
-        throw e;
-      });
+      const json = await analyzeCoach(userId, payload, { debugRaw: true, loose: true });
 
       if (!json?.success) {
         const detail = json?.detail || "Analyze failed";
@@ -219,19 +220,22 @@ export default function CoachPlanActions() {
         throw new Error(detail);
       }
 
-      // 5) parse
+      // AI raw debug polia (ak BE pošle)
+      setAiAttempts(json?.ai_debug?.attempts ?? null);
+      setAiSystem(json?.ai_debug?.system_prompt ?? null);
+      setAiUser(json?.ai_debug?.user_prompt ?? null);
+      setAiLastRaw(json?.ai_debug?.last_raw ?? null);
+
+      // 5) parse/save
       markOnly("Parsing response", "ok");
       setAnalysis(json.analysis);
       setDiag({ source: "ai", model: json.model });
       saveCachedResult(ck, json, json?.model);
 
-      // 6) save to storage
       markOnly("Saving to storage");
       localStorage.setItem("coach.generated", JSON.stringify(json.analysis));
-
       markOnly(null);
     } catch (e: any) {
-      // lepšie hlášky pre “Failed to fetch”
       const msg = String(e?.message || e);
       if (/Failed to fetch/i.test(msg)) {
         setErr(`Failed to fetch (network/CORS/timeout). API_URL=${API_URL}`);
@@ -243,7 +247,7 @@ export default function CoachPlanActions() {
     }
   }, [userId, pbRun, resetSteps, markOnly]);
 
-  /* — Start plan — */
+  /* Start plan */
   const handleStart = useCallback(async () => {
     try {
       const raw = localStorage.getItem("coach.generated");
@@ -262,38 +266,33 @@ export default function CoachPlanActions() {
     }
   }, [prefs, userId]);
 
-  /* — Update plan — */
+  /* Update plan */
   const handleUpdate = useCallback(async () => {
     try {
       if (!userId) throw new Error("Chýba userId.");
       const updated = await updateActivePlan(userId);
-      if (updated) {
-        localStorage.setItem("coach.active", JSON.stringify(updated));
-      }
+      if (updated) localStorage.setItem("coach.active", JSON.stringify(updated));
     } catch (e: any) {
       setErr(e?.message || "Update failed");
     }
   }, [userId]);
 
-  /* — Clear cache — */
+  /* Clear cache */
   const handleClearCache = useCallback(() => {
     if (cacheKey) clearCachedByKey(cacheKey);
   }, [cacheKey]);
 
-  /* — Render stavových krokov — */
+  /* Render krokového panelu */
   const StepsStrip = () => (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         {steps.map((s) => {
           const base = "px-2 py-1 rounded-md text-xs border";
           const stateCls =
-            s.state === "idle"
-              ? "bg-slate-700/40 border-slate-600"
-              : s.state === "active"
-              ? "bg-cyan-700/50 border-cyan-500"
-              : s.state === "done"
-              ? "bg-emerald-700/50 border-emerald-500"
-              : "bg-rose-800/60 border-rose-500";
+            s.state === "idle" ? "bg-slate-700/40 border-slate-600"
+            : s.state === "active" ? "bg-cyan-700/50 border-cyan-500"
+            : s.state === "done" ? "bg-emerald-700/50 border-emerald-500"
+            : "bg-rose-800/60 border-rose-500";
           return (
             <span key={s.name} className={`${base} ${stateCls} inline-flex items-center gap-1`}>
               {s.state === "active" && <LoadingSpinner size="widget" />}
@@ -302,14 +301,11 @@ export default function CoachPlanActions() {
           );
         })}
       </div>
-      {/* posledná poznámka z aktívneho kroku alebo erroru */}
       {steps.some((s) => s.note) && (
         <div className="text-xs opacity-80">
-          {steps
-            .filter((s) => s.note)
-            .map((s) => (
-              <div key={`${s.name}-note`}>{s.name}: {s.note}</div>
-            ))}
+          {steps.filter((s) => s.note).map((s) => (
+            <div key={`${s.name}-note`}>{s.name}: {s.note}</div>
+          ))}
         </div>
       )}
     </div>
@@ -384,6 +380,11 @@ export default function CoachPlanActions() {
         <JsonBlock title="Prefs (effective: DB → storage fallback)" data={prefs} />
         <JsonBlock title="Sent payload (FE→BE, base)" data={debugPayload} />
         <JsonBlock title="Generated (analysis)" data={analysis} />
+        {/* AI RAW DEBUG z BE */}
+        <JsonBlock title="AI debug — attempts" data={aiAttempts} />
+        <JsonBlock title="AI debug — system prompt" data={aiSystem} />
+        <JsonBlock title="AI debug — user prompt" data={aiUser} />
+        <JsonBlock title="AI debug — last_raw (model output)" data={aiLastRaw} />
       </div>
     </div>
   );

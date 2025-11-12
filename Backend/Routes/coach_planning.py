@@ -108,15 +108,9 @@ def _normalize_payload(payload: dict) -> dict:
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     """
-    DEBUG režimy cez query:
-      ?debug_raw=1  -> vráti system/user prompt a raw odpoveď AI
-      ?loose=1      -> pošli do AI voľnejší prompt (bez response_format)
+    RAW-DEBUG: vždy vrátime ai_debug (system/user prompt, attempts, last_raw).
     """
     try:
-        q = request.query_params
-        debug_raw = q.get("debug_raw") == "1"
-        loose = q.get("loose") == "1"
-
         norm = _normalize_payload(payload)
         weeks = norm["weeks"]; goal = norm["goal"]; primary_sports = norm["primary_sports"]
 
@@ -132,7 +126,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         zones      = ctx.get("zones", [])
         prefs      = ctx.get("prefs")
         bests      = ctx.get("bests", {})
-        
+
         llm_input = {
             "goal": goal,
             "schema_version": norm["schema_version"],
@@ -148,8 +142,8 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "intensity_model": norm["intensity_model"],
             "blocks": norm["blocks"],
             "plan_start_date": norm["plan_start_date"],
-            "strength_settings" :norm["strength_settings"],
-            "first_n_days" : 10,
+            "strength_settings": norm["strength_settings"],
+            "first_n_days": 10,
             "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
             "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
         }
@@ -161,10 +155,11 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
-                    p, dbg = generate_plan_json(llm_input, m, debug_raw=debug_raw, loose=loose)
+                    # ALWAYS debug_raw + loose
+                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=True)
                     parsed = ensure_minimum_week_plan(p, llm_input, _build_min_plan_from_context)
                     used_model = m
-                    debug_trace = dbg  # obsahuje raw system/user/raw_output + časovanie
+                    debug_trace = dbg
                     break
                 except Exception as e:
                     last_err = str(e); continue
@@ -173,16 +168,14 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=500, detail=f"AI generation failed: {last_err}")
 
-        resp = {
+        return {
             "success": True,
             "model": used_model,
             "analysis": parsed,
             "context_used": llm_input,
             "narrative": narr,
+            "ai_debug": debug_trace,  # vždy
         }
-        if debug_raw and debug_trace:
-            resp["ai_debug"] = debug_trace  # system_prompt, user_prompt, attempts[], last_raw
-        return resp
     except HTTPException:
         raise
     except Exception as e:
