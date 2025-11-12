@@ -4,6 +4,7 @@
 import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
 import { detectSport } from "@/features/coach/utils/plan";
 import ActivitySingle from "@/shared/components/ActivitySingle";
+import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 
 /* ───────── helpers ───────── */
 type AnyObj = Record<string, any>;
@@ -201,31 +202,46 @@ export default function PlanResult({
     }
   }
 
+  // ── LAYOUT: rovnaký panel ako ActivityTable ───────────────────────────────
+  const wrapperCls = [
+    CARD,            // rovnaký card povrch
+    "space-y-4",     // zvislé rozostupy
+    "p-4 md:p-5",    // rovnaké paddingy
+    "overflow-visible", // neorezáva rozbalené ActivitySingle
+  ].join(" ");
+
   return (
-    <div className="max-w-screen-lg w-full mx-auto px-3 md:px-4 lg:px-6">
-      <div className="space-y-3">
-        {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
+    <div className={wrapperCls}>
+      {/* Nadpis panelu, držíme rovnakú hierarchiu */}
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-lg font-bold">Tréningový plán — ďalších 10 dní</h2>
+      </div>
 
-        {analysis?.summary && (
-          <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
-            <h3 className="font-semibold mb-1">Summary</h3>
-            <p>{analysis.summary}</p>
-          </div>
-        )}
+      {/* Narratív (ak je) */}
+      {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
 
-        {!!preview.length && <WeekPreview lines={preview} />}
+      {/* Summary box */}
+      {analysis?.summary && (
+        <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40 overflow-visible">
+          <h3 className="font-semibold mb-1">Summary</h3>
+          <p>{analysis.summary}</p>
+        </div>
+      )}
 
-        {/* --- Next 10 days (len to, čo pošle AI) --- */}
-        {safeDates.length > 0 && (
-          <section className="rounded-xl border border-white/10 p-3 bg-white/5">
-            <h3 className="font-semibold mb-2">Next 10 days</h3>
-            <div className="space-y-2">
-              {safeDates.map((iso) => {
-                const sessions = byDate[iso] || [];
-                if (!sessions.length) {
-                  return (
+      {/* Preview */}
+      {!!preview.length && <WeekPreview lines={preview} />}
+
+      {/* --- Next 10 days (len to, čo pošle AI) --- */}
+      {safeDates.length > 0 && (
+        <section className="rounded-xl border border-white/10 p-3 bg-white/5 overflow-visible">
+          <h3 className="font-semibold mb-2">Next 10 days</h3>
+          <ul className={["space-y-2", NO_X_OVERFLOW].join(" ")}>
+            {safeDates.map((iso) => {
+              const sessions = byDate[iso] || [];
+              if (!sessions.length) {
+                return (
+                  <li key={`d10-${iso}-empty`} className="px-0">
                     <ActivitySingle
-                      key={`d10-${iso}-empty`}
                       variant="plan"
                       data={{
                         id: `d10-${iso}-empty`,
@@ -242,11 +258,12 @@ export default function PlanResult({
                       }}
                       defaultOpen={false}
                     />
-                  );
-                }
-                return sessions.map((it: AnyObj, sidx: number) => (
+                  </li>
+                );
+              }
+              return sessions.map((it: AnyObj, sidx: number) => (
+                <li key={`d10-${iso}-${sidx}`} className="px-0">
                   <ActivitySingle
-                    key={`d10-${iso}-${sidx}`}
                     variant="plan"
                     data={{
                       id: `d10-${iso}-${sidx}`,
@@ -263,18 +280,18 @@ export default function PlanResult({
                     }}
                     defaultOpen={false}
                   />
-                ));
-              })}
-            </div>
-          </section>
-        )}
+                </li>
+              ));
+            })}
+          </ul>
+        </section>
+      )}
 
-        {showDebugSplit && (
-          <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
-            {JSON.stringify(analysis, null, 2)}
-          </pre>
-        )}
-      </div>
+      {showDebugSplit && (
+        <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
+          {JSON.stringify(analysis, null, 2)}
+        </pre>
+      )}
     </div>
   );
 }
