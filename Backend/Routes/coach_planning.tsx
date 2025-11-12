@@ -1,5 +1,5 @@
 # Routes/coach_planning.py
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException
 from typing import Any, Dict, List, cast
 
 from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
@@ -38,6 +38,7 @@ def _build_min_plan_from_context(ctx_in: Dict[str, Any]) -> Dict[str, Any]:
     }
     return plan
 
+# --- v2/v1 payload normalizácia ------------------------------------------------
 def _norm_goal(goal_in) -> str:
     if isinstance(goal_in, dict):
         kind = (goal_in.get("kind") or "").strip()
@@ -106,17 +107,8 @@ def _normalize_payload(payload: dict) -> dict:
     }
 
 @router.post("/analyze/{user_id}")
-def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
-    """
-    DEBUG režimy cez query:
-      ?debug_raw=1  -> vráti system/user prompt a raw odpoveď AI
-      ?loose=1      -> pošli do AI voľnejší prompt (bez response_format)
-    """
+def coach_analyze(user_id: int, payload: dict = Body(...)):
     try:
-        q = request.query_params
-        debug_raw = q.get("debug_raw") == "1"
-        loose = q.get("loose") == "1"
-
         norm = _normalize_payload(payload)
         weeks = norm["weeks"]; goal = norm["goal"]; primary_sports = norm["primary_sports"]
 
@@ -156,15 +148,14 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         narr = build_progress_narrative(ctx, weeks)
 
         models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
-        parsed = None; used_model = DEFAULT_MODEL; last_err = None; debug_trace = None
+        parsed = None; used_model = DEFAULT_MODEL; last_err = None
 
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
-                    p, dbg = generate_plan_json(llm_input, m, debug_raw=debug_raw, loose=loose)
+                    p = generate_plan_json(llm_input, m)
                     parsed = ensure_minimum_week_plan(p, llm_input, _build_min_plan_from_context)
                     used_model = m
-                    debug_trace = dbg  # obsahuje raw system/user/raw_output + časovanie
                     break
                 except Exception as e:
                     last_err = str(e); continue
@@ -173,16 +164,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=500, detail=f"AI generation failed: {last_err}")
 
-        resp = {
-            "success": True,
-            "model": used_model,
-            "analysis": parsed,
-            "context_used": llm_input,
-            "narrative": narr,
-        }
-        if debug_raw and debug_trace:
-            resp["ai_debug"] = debug_trace  # system_prompt, user_prompt, attempts[], last_raw
-        return resp
+        return {"success": True, "model": used_model, "analysis": parsed, "context_used": llm_input, "narrative": narr}
     except HTTPException:
         raise
     except Exception as e:
