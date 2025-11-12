@@ -1,3 +1,4 @@
+// src/features/coach/components/PlanResult.tsx
 "use client";
 
 import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
@@ -21,46 +22,49 @@ function powerToText(w?: any): string | null {
   return Number.isFinite(w) ? `power ${w}W` : null;
 }
 
-/** vytiahne HR/pace/power – najprv explicitné polia, potom structure.main[0].target */
 function normTarget(it: AnyObj): string | null {
+  // prefer explicit fields
   const hr  = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
   const pace = it?.target_pace_min_per_km ?? null;
   const pow  = it?.target_power_watts ?? null;
 
+  // try structure.main[0].target.*
   const mainT =
     Array.isArray(it?.structure?.main)
       ? it.structure.main[0]?.target
       : it?.structure?.main?.target;
 
-  const hr2   = hr ?? mainT?.hr ?? mainT?.heart_rate ?? null;
+  const hr2   = hr   ?? mainT?.hr   ?? mainT?.heart_rate ?? null;
   const pace2 = pace ?? mainT?.pace ?? null;
-  const pow2  = pow ?? mainT?.power ?? null;
+  const pow2  = pow  ?? mainT?.power ?? null;
 
   const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
 
-/** stručný text pre jednoduché intervaly z main / main.sets (ak je) */
 function intervalsToText(main: any): string | null {
   const arr =
-    Array.isArray(main) ? main : main && Array.isArray(main.sets) ? main.sets : null;
+    Array.isArray(main) ? main :
+    main && Array.isArray(main.sets) ? main.sets :
+    null;
   if (!arr || !arr.length) return null;
 
   const first = arr[0];
   const reps = Number.isFinite(first?.reps) ? `${first.reps}×` : "";
   const work = Number.isFinite(first?.work_min) ? `${first.work_min}′` : "";
-  const rec =
+  const rec  =
     Number.isFinite(first?.recover_min) && first.recover_min > 0
       ? ` / ${first.recover_min}′ rec`
       : "";
-  const targ = first?.target
-    ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
-        .filter(Boolean)
-        .join(" · ")
-    : "";
-  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ]
-    .filter(Boolean)
-    .join(" ");
+
+  const targ =
+    first?.target
+      ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
+          .filter(Boolean)
+          .join(" · ")
+      : "";
+
+  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ].filter(Boolean).join(" ");
   return txt || null;
 }
 
@@ -91,19 +95,30 @@ function normIntensity(it: AnyObj) {
   return it?.intensity ?? null;
 }
 function normNotes(it: AnyObj) {
-  // zobrazujeme LEN to, čo prišlo od AI (nepridávame nič vlastné)
+  // zobraz len AI poznámky/štruktúru – nič nedopočítavame
   if (it?.notes) return it.notes;
 
-  // ak AI poslalo structure, spravíme len stručný súhrn textom
-  const mainTxt = (() => {
-    const m = Array.isArray(it?.structure?.main)
-      ? it.structure.main[0]
-      : it?.structure?.main;
-    return m ? intervalsToText(m) : null;
-  })();
+  const wu =
+    it?.structure?.warmup
+      ? [
+          it.structure.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : null,
+          hrToText(it.structure.warmup?.target?.hr),
+          paceToText(it.structure.warmup?.target?.pace),
+          powerToText(it.structure.warmup?.target?.power),
+        ].filter(Boolean).join(" · ")
+      : "";
 
-  const wu = it?.structure?.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : "";
-  const cd = it?.structure?.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : "";
+  const main = it?.structure?.main ? intervalsToText(it.structure.main) : "";
+
+  const cd =
+    it?.structure?.cooldown
+      ? [
+          it.structure.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : null,
+          hrToText(it.structure.cooldown?.target?.hr),
+          paceToText(it.structure.cooldown?.target?.pace),
+          powerToText(it.structure.cooldown?.target?.power),
+        ].filter(Boolean).join(" · ")
+      : "";
 
   const ex =
     Array.isArray(it?.exercises) && it.exercises.length
@@ -118,11 +133,24 @@ function normNotes(it: AnyObj) {
           .join(", ")
       : "";
 
-  const parts = [mainTxt, wu, cd, ex].filter(Boolean);
+  const parts = [wu, main, cd, ex].filter(Boolean);
   return parts.length ? parts.join(" • ") : null;
 }
 
+function WeekPreview({ lines }: { lines: string[] }) {
+  if (!lines?.length) return null;
+  return (
+    <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
+      <h3 className="font-semibold mb-1">Weekly preview</h3>
+      <ul className="list-disc pl-5 text-sm">
+        {lines.map((s, i) => <li key={i}>{s}</li>)}
+      </ul>
+    </div>
+  );
+}
+
 /* ───────── component ───────── */
+
 export default function PlanResult({
   result,
   showDebugSplit = false,
@@ -134,54 +162,45 @@ export default function PlanResult({
 
   const analysis = result?.analysis ?? {};
 
-  // weekly preview – ak model neposlal, zoznam je prázdny (je to v tvojom sample)
-  const preview: string[] =
-    (Array.isArray(analysis?.week_overview) && analysis.week_overview) ||
-    (Array.isArray(analysis?.outline_10w) && analysis.outline_10w) ||
-    [];
+  // 1) Weekly preview (ak ho AI pošle)
+  const preview: string[] = analysis?.week_overview || analysis?.outline_10w || [];
 
-  // preferuj next_10_days; fallback first_10_days
+  // 2) Next 10 days — preferuj `next_10_days`, fallback `first_10_days`
   const next10Raw: any[] =
     (Array.isArray(analysis?.next_10_days) && analysis.next_10_days) ||
     (Array.isArray(analysis?.first_10_days) && analysis.first_10_days) ||
     [];
 
-  // štart 10-dňovky
+  // 2a) začiatok 10 dní
   const metaStart: string | null =
     analysis?._meta?.next10_start ||
     (next10Raw.length && typeof next10Raw[0]?.day === "string" ? next10Raw[0].day : null) ||
     null;
+
   const startDateObj = parseIso(metaStart || undefined);
 
-  // bezpečných 10 dátumov
+  // 2b) bezpečný 10-dňový zoznam ISO dátumov
   const safeDates: string[] = startDateObj
     ? Array.from({ length: 10 }, (_, i) =>
-        toIso(
-          new Date(
-            Date.UTC(
-              startDateObj.getUTCFullYear(),
-              startDateObj.getUTCMonth(),
-              startDateObj.getUTCDate() + i,
-              12,
-              0,
-              0
-            )
-          )
-        )
+        toIso(new Date(Date.UTC(
+          startDateObj.getUTCFullYear(),
+          startDateObj.getUTCMonth(),
+          startDateObj.getUTCDate() + i,
+          12, 0, 0
+        )))
       )
     : [];
 
-  // mapovanie ISO → sessions
+  // 2c) day → sessions
   const byDate: Record<string, any[]> = {};
   for (const entry of next10Raw) {
     if (entry && typeof entry === "object" && typeof entry.day === "string") {
-      const d = entry.day;
       const sessions = Array.isArray(entry.sessions)
         ? entry.sessions
         : entry.title
-        ? [entry]
-        : [];
-      byDate[d] = sessions;
+          ? [entry]
+          : [];
+      byDate[entry.day] = sessions;
     }
   }
 
@@ -196,18 +215,9 @@ export default function PlanResult({
         </div>
       )}
 
-      {!!preview.length && (
-        <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
-          <h3 className="font-semibold mb-1">Weekly preview</h3>
-          <ul className="list-disc pl-5 text-sm">
-            {preview.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {!!preview.length && <WeekPreview lines={preview} />}
 
-      {/* --- Next 10 days (bez 7-dňového bloku) --- */}
+      {/* --- Next 10 days (len to, čo pošle AI) --- */}
       {safeDates.length > 0 && (
         <section className="rounded-xl border border-white/10 p-3 bg-white/5">
           <h3 className="font-semibold mb-2">Next 10 days</h3>
@@ -242,14 +252,13 @@ export default function PlanResult({
                   variant="plan"
                   data={{
                     id: `d10-${iso}-${sidx}`,
-                    name: it?.title ?? it?.name ?? "Session",
+                    name: normTitle(it),
                     dateIso: iso,
                     sport: (detectSport(it) as any) ?? "other",
-                    planDur:
-                      typeof it?.duration_min === "number" ? `${it.duration_min} min` : null,
-                    planIntensity: it?.intensity ?? null,
-                    planTarget: normTarget(it), // ← HR/pace/power z AI
-                    planNotes: normNotes(it),   // ← text len z AI štruktúry
+                    planDur: normDuration(it),
+                    planIntensity: normIntensity(it),
+                    planTarget: normTarget(it),     // HR / pace / power (z AI)
+                    planNotes: normNotes(it),       // WU / MAIN / CD (z AI)
                     planRaw: it,
                     planStructure: it?.structure ?? null,
                     planExercises: it?.exercises ?? null,
