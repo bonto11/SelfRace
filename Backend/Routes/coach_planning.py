@@ -81,33 +81,27 @@ def _normalize_payload(payload: dict) -> dict:
         "strength_settings": strength_settings,
         "_raw": payload,
     }
-
+# Routes/coach_planning.py (výťah – dolná časť handlera)
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
-    """
-    RAW-DEBUG always on: ai_debug obsahuje system/user prompt, pokusy a last_raw.
-    Bez fallbacku – ak AI nedá použiteľný obsah, vraciame 502.
-    """
     try:
         norm = _normalize_payload(payload)
-        weeks = norm["weeks"]
-        goal = norm["goal"]
-        primary_sports = norm["primary_sports"]
+        weeks = norm["weeks"]; goal = norm["goal"]; primary_sports = norm["primary_sports"]
 
         ctx = coach_context(user_id, weeks=weeks)
         if not ctx.get("success"):
             raise HTTPException(status_code=500, detail="Context build failed")
 
-        weekly = ctx["weekly"]["weeks"][-weeks:]
-        hr_used = ctx["weekly"]["hr_used"]
-        recovery = ctx.get("recovery", [])[-21:]
-        notes = ctx.get("notes", [])[-50:]
+        weekly     = ctx["weekly"]["weeks"][-weeks:]
+        hr_used    = ctx["weekly"]["hr_used"]
+        recovery   = ctx.get("recovery", [])[-21:]
+        notes      = ctx.get("notes", [])[-50:]
         thresholds = ctx.get("thresholds", [])
-        zones = ctx.get("zones", [])
-        prefs = ctx.get("prefs")
-        bests = ctx.get("bests", {})
+        zones      = ctx.get("zones", [])
+        prefs      = ctx.get("prefs")
+        bests      = ctx.get("bests", {})
 
-        llm_input: Dict[str, Any] = {
+        llm_input = {
             "goal": goal,
             "schema_version": norm["schema_version"],
             "primary_sports": primary_sports,
@@ -124,63 +118,45 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
             "first_n_days": 10,
-            "hr_used": hr_used,
-            "weekly": weekly,
-            "recovery": recovery,
-            "notes": notes,
-            "thresholds": thresholds,
-            "zones": zones,
-            "prefs": prefs,
-            "bests": bests,
+            "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
+            "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
         }
-
         narr = build_progress_narrative(ctx, weeks)
 
         models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
-        used_model = DEFAULT_MODEL
-        debug_trace = None
         parsed: Dict[str, Any] | None = None
+        used_model = DEFAULT_MODEL
         last_err: str | None = None
+        debug_trace = None
 
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
                     p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=True)
-                    parsed = cast(Dict[str, Any], p)   # <<< typovo ukotvi
+                    parsed = p
                     used_model = m
                     debug_trace = dbg
                     break
                 except Exception as e:
-                    last_err = str(e)
-                    continue
-            if parsed is not None:
-                break
+                    last_err = str(e); continue
+            if parsed is not None: break
 
         if parsed is None:
             raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
 
-        # --- bezpečné zistenie, čo nám AI reálne vrátilo
-        first10_any: Any = (parsed.get("first_10_days") or parsed.get("next_10_days"))
-        has_10: bool = isinstance(first10_any, list) and len(first10_any) > 0
-
-        nwp_any: Any = parsed.get("next_week_plan")
-        has_week: bool = isinstance(nwp_any, (dict, list)) and bool(nwp_any)
-
-        if not has_10 and not has_week:
-            raise HTTPException(
-                status_code=502,
-                detail="AI returned empty content (no first_10_days/next_10_days and no next_week_plan)"
-            )
+        f10 = parsed.get("first_10_days") or []
+        n10 = parsed.get("next_10_days") or []
+        if not (isinstance(f10, list) and f10) and not (isinstance(n10, list) and n10):
+            raise HTTPException(status_code=502, detail="AI returned no 10-day plan")
 
         return {
             "success": True,
             "model": used_model,
-            "analysis": parsed,          # bez fallbackov
+            "analysis": parsed,          # nič nedorábame
             "context_used": llm_input,
             "narrative": narr,
-            "ai_debug": debug_trace,     # vždy
+            "ai_debug": debug_trace,     # stále vraciame trace
         }
-
     except HTTPException:
         raise
     except Exception as e:
