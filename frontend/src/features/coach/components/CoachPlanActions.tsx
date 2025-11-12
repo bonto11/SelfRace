@@ -370,11 +370,11 @@ export default function CoachPlanActions() {
 
       {/* výsledok */}
       {analysis && (
-        <div className="rounded-xl border border-white/10 p-3 bg-white/5">
+        <div className="mt-2">
           <PlanResult result={{ analysis, narrative: null, model: diag?.model }} />
         </div>
       )}
-
+      
       {/* debug */}
       <div className="space-y-2">
         <JsonBlock title="Prefs (effective: DB → storage fallback)" data={prefs} />
