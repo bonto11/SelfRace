@@ -35,15 +35,18 @@ def _normalize_payload(payload: dict) -> dict:
     }
     plan_start_date = payload.get("plan_start_date") or payload.get("goal_structured", {}).get("plan_start_date")
     strength_settings = payload.get("strength_settings") or payload.get("goal_structured", {}).get("strength_settings")
+
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
         g = payload.get("goal_structured", {})
         if g.get("polarized_model"): intensity_model = "polarized"
         elif g.get("pyramidal_model"): intensity_model = "pyramidal"
+
     blocks = payload.get("blocks")
     if blocks is None:
         g = payload.get("goal_structured", {})
         blocks = {"vo2max": bool(g.get("vo2max_training")), "ftp": bool(g.get("ftp_training")), "threshold": bool(g.get("threshold_focus"))}
+
     schema_version = int(payload.get("schema_version") or 1)
     return {
         "schema_version": schema_version,
@@ -65,13 +68,45 @@ def _normalize_payload(payload: dict) -> dict:
         "_raw": payload,
     }
 
-def _validate_next10(parsed: Dict[str, Any]) -> None:
+# ---- strict BE validácia bez dopĺňania ----
+def _validate_next10(parsed: Dict[str, Any], must_start: str | None) -> None:
     n10 = parsed.get("next_10_days")
     if not (isinstance(n10, list) and len(n10) == 10):
         raise HTTPException(status_code=502, detail="AI must return next_10_days with 10 items")
+
+    # validácia po dňoch
     for i, d in enumerate(n10):
-        if not isinstance(d, dict) or not isinstance(d.get("day"), str) or not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
-            raise HTTPException(status_code=502, detail=f"AI returned empty or invalid sessions at index {i}")
+        if not isinstance(d, dict):
+            raise HTTPException(status_code=502, detail=f"Invalid day at index {i}")
+        if not isinstance(d.get("day"), str):
+            raise HTTPException(status_code=502, detail=f"Missing ISO date at index {i}")
+        if not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
+            raise HTTPException(status_code=502, detail=f"Empty sessions at index {i}")
+
+        for j, s in enumerate(d["sessions"]):
+            if not isinstance(s, dict):
+                raise HTTPException(status_code=502, detail=f"Invalid session at {i}:{j}")
+            sport = (s.get("sport") or "").lower()
+            title = (s.get("title") or "").lower()
+            is_run = sport == "run" or "run" in title
+            if is_run:
+                hr = s.get("target_hr_bpm_range")
+                # alebo cez structure.main[].target.hr
+                if not (isinstance(hr, list) and len(hr) == 2):
+                    struc = s.get("structure")
+                    ok = False
+                    if isinstance(struc, dict) and isinstance(struc.get("main"), list):
+                        for blk in struc["main"]:
+                            thr = (blk or {}).get("target", {}).get("hr")
+                            if isinstance(thr, list) and len(thr) == 2:
+                                ok = True; break
+                    if not ok:
+                        raise HTTPException(status_code=502, detail=f"Missing HR target in run session at {i}:{j}")
+
+    # musí začať v plan_start_date (ak máme)
+    if must_start:
+        if n10[0]["day"] != must_start:
+            raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
@@ -109,6 +144,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
             "first_n_days": 10,
+            # kontext pre AI (môže použiť na HR targety)
             "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
             "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
         }
@@ -133,7 +169,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
 
-        _validate_next10(parsed)  # <-- prázdne sessions = 502
+        _validate_next10(parsed, norm["plan_start_date"])
 
         return {
             "success": True,

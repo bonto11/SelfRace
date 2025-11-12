@@ -44,7 +44,7 @@ def _parse_ai_json(raw: str) -> Tuple[dict, str]:
             snippet = cleaned[:400]
             raise ValueError(f"malformed_json_after_sanitize: {e}; snippet={snippet!r}")
 
-# ---------- normalize (len aliasy; bez dopĺňania) ----------
+# ---------- normalize (aliasy, bez dopĺňania obsahu) ----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
     if not isinstance(obj, dict):
         raise ValueError("AI output is not a JSON object")
@@ -63,7 +63,7 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         },
     }
 
-# ---------- LLM call (STRICT JSON) ----------
+# ---------- LLM call ----------
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
@@ -72,20 +72,24 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     return env_models if not explicit_model else [explicit_model] + env_models
 
 def _build_prompts(context_payload: dict, schema_text: str):
+    # Kontext obsahuje aj zóny/thresholdy → AI má použiť práve tie (nie BE).
     system_txt = (
         "You are an endurance coaching assistant. "
-        "Return a single valid JSON object matching the schema. "
-        "No prose, no code fences."
+        "Return ONE valid JSON object that matches the schema. No prose, no code fences."
     )
     user_txt = (
         "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) +
         "\n\nSchema (instructional):\n" + schema_text +
-        "\n\nHard requirements:\n"
-        "- Provide `next_10_days` with EXACTLY 10 items.\n"
-        "- Each item MUST have `day` (YYYY-MM-DD) and `sessions` (non-empty array).\n"
-        "- If the day is rest, include a session object: {\"title\":\"Rest Day\",\"duration_min\":0}.\n"
-        "- Never leave `sessions` empty.\n"
-        "- `next_week_plan` may be null; still produce valid `next_10_days`.\n"
+        "\n\nHard requirements (must ALL be satisfied):\n"
+        "- Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date` in the context.\n"
+        "- Each day MUST include non-empty `sessions`.\n"
+        "- If a day is rest: include one session `{ \"title\": \"Rest Day\", \"sport\": \"other\", \"duration_min\": 0 }`.\n"
+        "- Include `sport` for every session (e.g., run/ride/strength/other). Infer from title if needed.\n"
+        "- For RUN sessions you MUST provide heart-rate targets. Prefer top-level `target_hr_bpm_range: [low, high]`.\n"
+        "  If you structure workouts, you may also include `structure.main[].target.hr`. In any case, there must be HR targets.\n"
+        "- Derive HR targets using provided zones/thresholds in the context (do NOT invent new physiology fields).\n"
+        "- Units: pace as `min/km` string; power in watts; HR in bpm.\n"
+        "- `next_week_plan` is optional and may be null. Still produce valid `next_10_days`.\n"
         "- Output JSON only."
     )
     return system_txt, user_txt
@@ -128,7 +132,7 @@ def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=Fal
 
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
     models = _llm_models_priority(model)
-    token_budgets = [2200, 1800, 1400]
+    token_budgets = [2400, 2000, 1600]
 
     schema_text = """
 {
@@ -138,10 +142,11 @@ def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=Fal
   "week_overview"?: string[],
   "next_week_plan"?: { ... } | null,
   "first_10_days"?: { "day": "YYYY-MM-DD", "sessions": Session[] }[],
-  "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]  // exactly 10, sessions must be non-empty
+  "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]
 }
 Where Session = {
   "title": string,
+  "sport": "run" | "ride" | "strength" | "other",
   "duration_min": number,
   "intensity"?: string | null,
   "notes"?: string | null,
