@@ -1,42 +1,13 @@
 # Routes/coach_planning.py
 from fastapi import APIRouter, Body, HTTPException, Request
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, cast
 
 from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
-from Services.plan_generation import generate_plan_json, ensure_minimum_week_plan
+from Services.plan_generation import generate_plan_json
 from Services.progress_narrative import build_progress_narrative
 from Routes.coach_context import coach_context
 
 router = APIRouter(prefix="/coach", tags=["coach"])
-
-def _recent_run_km_avg(weekly: list[dict]) -> float:
-    vals = [float(w.get("km_run") or 0.0) for w in (weekly[-3:] if weekly else [])]
-    return (sum(vals) / len(vals)) if vals else 30.0
-
-def _build_min_plan_from_context(ctx_in: Dict[str, Any]) -> Dict[str, Any]:
-    sports: List[str] = cast(List[str], ctx_in.get("primary_sports") or ["run", "strength"])
-    run_s = [
-        {"title": "Intervals 6×800m @ 5k pace", "duration_min": 60, "intensity": "high", "notes": "RPE 8; pauzy 2–3 min"},
-        {"title": "Tempo 20–25 min @ LT", "duration_min": 55, "intensity": "med-high", "notes": "RPE 7"},
-        {"title": "Long run easy", "duration_min": 80, "intensity": "easy", "notes": "RPE 4"},
-    ]
-    ride_s = [{"title": "Endurance Z2", "duration_min": 45}, {"title": "Endurance Z2", "duration_min": 45}]
-    str_s = [{"title": "Full-body", "duration_min": 45}, {"title": "Core+Mobility", "duration_min": 25}]
-    plan: Dict[str, Any] = {
-        "focus": "build",
-        "monday": {"title": "Rest", "duration_min": 0, "notes": "Hydration, sleep"},
-        "tuesday": run_s[0] if "run" in sports else (ride_s[0] if "ride" in sports else str_s[0]),
-        "wednesday": str_s[0] if "strength" in sports else {"title": "Easy cross", "duration_min": 30},
-        "thursday": run_s[1] if "run" in sports else (ride_s[1] if "ride" in sports else str_s[-1]),
-        "friday": {"title": "Rest", "duration_min": 0, "notes": "Light mobility"},
-        "saturday": run_s[2] if "run" in sports else (ride_s[0] if "ride" in sports else {"title": "Hike", "duration_min": 60}),
-        "sunday": (ride_s[1] if "ride" in sports else str_s[-1]) if "run" not in sports else {"title": "Easy jog", "duration_min": 40},
-        "rest_days": ["Mon", "Fri"],
-        "run": {"weekly_km_target": 30, "sessions": run_s},
-        "ride": {"weekly_time_target_min": 90, "sessions": ride_s},
-        "strength": {"sessions": str_s},
-    }
-    return plan
 
 def _norm_goal(goal_in) -> str:
     if isinstance(goal_in, dict):
@@ -50,7 +21,11 @@ def _norm_goal(goal_in) -> str:
 def _normalize_payload(payload: dict) -> dict:
     weeks = int(payload.get("weeks") or payload.get("goal_structured", {}).get("weeks") or 6)
     goal_str = _norm_goal(payload.get("goal") or payload.get("goal_structured", {}).get("goal"))
-    primary_sports = payload.get("primary_sports") or payload.get("goal_structured", {}).get("primary_sports") or ["run", "ride", "strength"]
+    primary_sports = (
+        payload.get("primary_sports")
+        or payload.get("goal_structured", {}).get("primary_sports")
+        or ["run", "ride", "strength"]
+    )
 
     persona = payload.get("persona") or payload.get("goal_structured", {}).get("persona")
     main_sport = payload.get("main_sport") or payload.get("goal_structured", {}).get("main_sport")
@@ -72,8 +47,10 @@ def _normalize_payload(payload: dict) -> dict:
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
         g = payload.get("goal_structured", {})
-        if g.get("polarized_model"): intensity_model = "polarized"
-        elif g.get("pyramidal_model"): intensity_model = "pyramidal"
+        if g.get("polarized_model"):
+            intensity_model = "polarized"
+        elif g.get("pyramidal_model"):
+            intensity_model = "pyramidal"
 
     blocks = payload.get("blocks")
     if blocks is None:
@@ -108,26 +85,29 @@ def _normalize_payload(payload: dict) -> dict:
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     """
-    RAW-DEBUG: vždy vrátime ai_debug (system/user prompt, attempts, last_raw).
+    RAW-DEBUG always on: ai_debug obsahuje system/user prompt, pokusy a last_raw.
+    Bez fallbacku – ak AI nedá použiteľný obsah, vraciame 502.
     """
     try:
         norm = _normalize_payload(payload)
-        weeks = norm["weeks"]; goal = norm["goal"]; primary_sports = norm["primary_sports"]
+        weeks = norm["weeks"]
+        goal = norm["goal"]
+        primary_sports = norm["primary_sports"]
 
         ctx = coach_context(user_id, weeks=weeks)
         if not ctx.get("success"):
             raise HTTPException(status_code=500, detail="Context build failed")
 
-        weekly     = ctx["weekly"]["weeks"][-weeks:]
-        hr_used    = ctx["weekly"]["hr_used"]
-        recovery   = ctx.get("recovery", [])[-21:]
-        notes      = ctx.get("notes", [])[-50:]
+        weekly = ctx["weekly"]["weeks"][-weeks:]
+        hr_used = ctx["weekly"]["hr_used"]
+        recovery = ctx.get("recovery", [])[-21:]
+        notes = ctx.get("notes", [])[-50:]
         thresholds = ctx.get("thresholds", [])
-        zones      = ctx.get("zones", [])
-        prefs      = ctx.get("prefs")
-        bests      = ctx.get("bests", {})
+        zones = ctx.get("zones", [])
+        prefs = ctx.get("prefs")
+        bests = ctx.get("bests", {})
 
-        llm_input = {
+        llm_input: Dict[str, Any] = {
             "goal": goal,
             "schema_version": norm["schema_version"],
             "primary_sports": primary_sports,
@@ -144,38 +124,63 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
             "first_n_days": 10,
-            "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
-            "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
+            "hr_used": hr_used,
+            "weekly": weekly,
+            "recovery": recovery,
+            "notes": notes,
+            "thresholds": thresholds,
+            "zones": zones,
+            "prefs": prefs,
+            "bests": bests,
         }
+
         narr = build_progress_narrative(ctx, weeks)
 
         models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
-        parsed = None; used_model = DEFAULT_MODEL; last_err = None; debug_trace = None
+        used_model = DEFAULT_MODEL
+        debug_trace = None
+        parsed: Dict[str, Any] | None = None
+        last_err: str | None = None
 
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
-                    # ALWAYS debug_raw + loose
                     p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=True)
-                    parsed = ensure_minimum_week_plan(p, llm_input, _build_min_plan_from_context)
+                    parsed = cast(Dict[str, Any], p)   # <<< typovo ukotvi
                     used_model = m
                     debug_trace = dbg
                     break
                 except Exception as e:
-                    last_err = str(e); continue
-            if parsed is not None: break
+                    last_err = str(e)
+                    continue
+            if parsed is not None:
+                break
 
         if parsed is None:
-            raise HTTPException(status_code=500, detail=f"AI generation failed: {last_err}")
+            raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
+
+        # --- bezpečné zistenie, čo nám AI reálne vrátilo
+        first10_any: Any = (parsed.get("first_10_days") or parsed.get("next_10_days"))
+        has_10: bool = isinstance(first10_any, list) and len(first10_any) > 0
+
+        nwp_any: Any = parsed.get("next_week_plan")
+        has_week: bool = isinstance(nwp_any, (dict, list)) and bool(nwp_any)
+
+        if not has_10 and not has_week:
+            raise HTTPException(
+                status_code=502,
+                detail="AI returned empty content (no first_10_days/next_10_days and no next_week_plan)"
+            )
 
         return {
             "success": True,
             "model": used_model,
-            "analysis": parsed,
+            "analysis": parsed,          # bez fallbackov
             "context_used": llm_input,
             "narrative": narr,
-            "ai_debug": debug_trace,  # vždy
+            "ai_debug": debug_trace,     # vždy
         }
+
     except HTTPException:
         raise
     except Exception as e:
