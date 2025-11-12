@@ -72,7 +72,30 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     return env_models if not explicit_model else [explicit_model] + env_models
 
 def _build_prompts(context_payload: dict, schema_text: str):
-    # Kontext obsahuje aj zóny/thresholdy → AI má použiť práve tie (nie BE).
+    # Tvrdé požiadavky – žiadne dopĺňanie z BE
+    wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
+    hard = [
+        "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date` in the context.",
+        "Each day MUST include non-empty `sessions`.",
+        "If a day is rest: include one session {\"title\":\"Rest Day\",\"sport\":\"other\",\"duration_min\":0}.",
+        "Include `sport` for every session (run/ride/strength/other). Infer from title if needed.",
+        "For RUN sessions you MUST provide heart-rate targets. Prefer `target_hr_bpm_range:[low,high]`.",
+        "If structure is present, targets may ALSO appear in `structure.main[].target.hr`.",
+        "Derive HR ranges from thresholds/zones in the context (no invented physiology).",
+        "Units: pace as `min/km` string; power in watts; HR in bpm.",
+        "`next_week_plan` may be null. Output JSON only."
+    ]
+    if wu_cd_required:
+        hard += [
+            "For every RUN session include `structure` with: `warmup` (5–15 min), at least one `main` block, and `cooldown` (5–10 min).",
+            "Put HR targets either top-level or in `structure.*.target.hr`."
+        ]
+    # Strength bloky vždy s cvikmi
+    hard += [
+        "For every STRENGTH session include `exercises` array (3–8 items).",
+        "Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only equipment listed in `strength_settings.available`."
+    ]
+
     system_txt = (
         "You are an endurance coaching assistant. "
         "Return ONE valid JSON object that matches the schema. No prose, no code fences."
@@ -80,37 +103,20 @@ def _build_prompts(context_payload: dict, schema_text: str):
     user_txt = (
         "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) +
         "\n\nSchema (instructional):\n" + schema_text +
-        "\n\nHard requirements (must ALL be satisfied):\n"
-        "- Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date` in the context.\n"
-        "- Each day MUST include non-empty `sessions`.\n"
-        "- If a day is rest: include one session `{ \"title\": \"Rest Day\", \"sport\": \"other\", \"duration_min\": 0 }`.\n"
-        "- Include `sport` for every session (e.g., run/ride/strength/other). Infer from title if needed.\n"
-        "- For RUN sessions you MUST provide heart-rate targets. Prefer top-level `target_hr_bpm_range: [low, high]`.\n"
-        "  If you structure workouts, you may also include `structure.main[].target.hr`. In any case, there must be HR targets.\n"
-        "- Derive HR targets using provided zones/thresholds in the context (do NOT invent new physiology fields).\n"
-        "- Units: pace as `min/km` string; power in watts; HR in bpm.\n"
-        "- `next_week_plan` is optional and may be null. Still produce valid `next_10_days`.\n"
-        "- Output JSON only."
+        "\n\nHard requirements (must ALL be satisfied):\n- " + "\n- ".join(hard)
     )
     return system_txt, user_txt
 
 def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int) -> str:
     kwargs: Dict[str, Any] = {
         "model": model,
-        "messages": [
-            {"role":"system","content":system_txt},
-            {"role":"user","content":user_txt},
-        ],
+        "messages": [{"role":"system","content":system_txt},{"role":"user","content":user_txt}],
         "temperature": 0.2,
         "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
     }
     cc = client.chat.completions.create(**kwargs)
-    return (
-        getattr(getattr(cc.choices[0], "message", {}), "content", None)
-        or getattr(cc.choices[0], "text", None)
-        or ""
-    ).strip()
+    return (getattr(getattr(cc.choices[0], "message", {}), "content", None) or getattr(cc.choices[0], "text", None) or "").strip()
 
 def _extract_start_date(ctx: dict) -> Optional[str]:
     sd = ctx.get("plan_start_date") or ctx.get("start_date")
