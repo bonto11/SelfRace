@@ -1,5 +1,3 @@
-# Services/plan_generation.py
-
 import os
 import json
 import re
@@ -68,13 +66,14 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
 # ---------- normalize (aliasy, bez dopĺňania obsahu) ----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
     if not isinstance(obj, dict):
+        # tu radšej raise — toto je interná chyba, nie AI validácia
         raise ValueError("AI output is not a JSON object")
     return {
         "summary": obj.get("summary") or "No summary.",
         "insights": obj.get("insights") or [],
         "red_flags": obj.get("red_flags") or [],
         "week_overview": obj.get("week_overview") or obj.get("outline_10w") or [],
-        # preferuj first_10_days; ak AI poslalo next_10_days, ponechaj ho aj tak
+        # prefer first_10_days; fallback na next_10_days kvôli kompatibilite FE
         "first_10_days": obj.get("first_10_days") or obj.get("next_10_days") or [],
         "next_10_days": obj.get("next_10_days") or None,
         "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}) else None,
@@ -160,11 +159,11 @@ def generate_plan_json(
     loose: bool = False,  # len kvôli spätnej kompatibilite (ignorované)
 ) -> Tuple[dict, Optional[dict]]:
     """
-    Vždy vráti (parsed_or_fallback, debug_trace). Nikdy neháče HTTPException.
+    Vždy vráti (parsed_or_fallback, debug_trace). Nikdy neháče HTTPException (okrem chýbajúceho API key).
     Keď AI zlyhá, parsed bude minimálny fallback + debug obsahuje raw/cleaned/trace.
     """
     if not OPENAI_API_KEY:
-        # radšej explicitne crashni – bez kľúča to nedáva zmysel pokračovať
+        # Toto je reálna serverová chyba — bez kľúča sa nedá volať AI
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
