@@ -8,11 +8,7 @@ from fastapi import HTTPException
 from openai import OpenAI
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
-<<<<<<< HEAD
 # ---------- parsing utils ----------
-=======
-# ----------- utils (len parsing / hygiene) -----------
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 def _strip_codefence(s: str) -> str:
