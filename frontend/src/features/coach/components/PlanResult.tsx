@@ -24,19 +24,18 @@ function powerToText(w?: any): string | null {
 
 function normTarget(it: AnyObj): string | null {
   // prefer explicit fields
-  const hr  = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
+  const hr = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
   const pace = it?.target_pace_min_per_km ?? null;
-  const pow  = it?.target_power_watts ?? null;
+  const pow = it?.target_power_watts ?? null;
 
   // try structure.main[0].target.*
-  const mainT =
-    Array.isArray(it?.structure?.main)
-      ? it.structure.main[0]?.target
-      : it?.structure?.main?.target;
+  const mainT = Array.isArray(it?.structure?.main)
+    ? it.structure.main[0]?.target
+    : it?.structure?.main?.target;
 
-  const hr2   = hr   ?? mainT?.hr   ?? mainT?.heart_rate ?? null;
+  const hr2 = hr ?? mainT?.hr ?? mainT?.heart_rate ?? null;
   const pace2 = pace ?? mainT?.pace ?? null;
-  const pow2  = pow  ?? mainT?.power ?? null;
+  const pow2 = pow ?? mainT?.power ?? null;
 
   const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
@@ -52,19 +51,20 @@ function intervalsToText(main: any): string | null {
   const first = arr[0];
   const reps = Number.isFinite(first?.reps) ? `${first.reps}×` : "";
   const work = Number.isFinite(first?.work_min) ? `${first.work_min}′` : "";
-  const rec  =
+  const rec =
     Number.isFinite(first?.recover_min) && first.recover_min > 0
       ? ` / ${first.recover_min}′ rec`
       : "";
 
-  const targ =
-    first?.target
-      ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
-          .filter(Boolean)
-          .join(" · ")
-      : "";
+  const targ = first?.target
+    ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
-  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ].filter(Boolean).join(" ");
+  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ]
+    .filter(Boolean)
+    .join(" ");
   return txt || null;
 }
 
@@ -94,44 +94,41 @@ function normDuration(it: AnyObj) {
 function normIntensity(it: AnyObj) {
   return it?.intensity ?? null;
 }
+
 function normNotes(it: AnyObj) {
-  // zobraz len AI poznámky/štruktúru – nič nedopočítavame
+  // len to, čo prišlo z AI (žiadne vymýšľanie)
   if (it?.notes) return it.notes;
 
-  const wu =
-    it?.structure?.warmup
-      ? [
-          it.structure.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : null,
-          hrToText(it.structure.warmup?.target?.hr),
-          paceToText(it.structure.warmup?.target?.pace),
-          powerToText(it.structure.warmup?.target?.power),
-        ].filter(Boolean).join(" · ")
-      : "";
+  const wu = it?.structure?.warmup
+    ? [
+        it.structure.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : null,
+        hrToText(it.structure.warmup?.target?.hr),
+        paceToText(it.structure.warmup?.target?.pace),
+        powerToText(it.structure.warmup?.target?.power),
+      ].filter(Boolean).join(" · ")
+    : "";
 
   const main = it?.structure?.main ? intervalsToText(it.structure.main) : "";
 
-  const cd =
-    it?.structure?.cooldown
-      ? [
-          it.structure.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : null,
-          hrToText(it.structure.cooldown?.target?.hr),
-          paceToText(it.structure.cooldown?.target?.pace),
-          powerToText(it.structure.cooldown?.target?.power),
-        ].filter(Boolean).join(" · ")
-      : "";
+  const cd = it?.structure?.cooldown
+    ? [
+        it.structure.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : null,
+        hrToText(it.structure.cooldown?.target?.hr),
+        paceToText(it.structure.cooldown?.target?.pace),
+        powerToText(it.structure.cooldown?.target?.power),
+      ].filter(Boolean).join(" · ")
+    : "";
 
-  const ex =
-    Array.isArray(it?.exercises) && it.exercises.length
-      ? "Exercises: " +
-        it.exercises
-          .map((e: any) => {
-            const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
-            if (e?.seconds) parts.push(`${e.seconds}s`);
-            else if (e?.reps) parts.push(`${e.reps}`);
-            return parts.filter(Boolean).join(" ");
-          })
-          .join(", ")
-      : "";
+  const ex = Array.isArray(it?.exercises) && it.exercises.length
+    ? "Exercises: " + it.exercises
+        .map((e: any) => {
+          const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
+          if (e?.seconds) parts.push(`${e.seconds}s`);
+          else if (e?.reps) parts.push(`${e.reps}`);
+          return parts.filter(Boolean).join(" ");
+        })
+        .join(", ")
+    : "";
 
   const parts = [wu, main, cd, ex].filter(Boolean);
   return parts.length ? parts.join(" • ") : null;
@@ -162,10 +159,10 @@ export default function PlanResult({
 
   const analysis = result?.analysis ?? {};
 
-  // 1) Weekly preview (ak ho AI pošle)
+  // 1) Weekly preview
   const preview: string[] = analysis?.week_overview || analysis?.outline_10w || [];
 
-  // 2) Next 10 days — preferuj `next_10_days`, fallback `first_10_days`
+  // 2) Next 10 days — prefer next_10_days
   const next10Raw: any[] =
     (Array.isArray(analysis?.next_10_days) && analysis.next_10_days) ||
     (Array.isArray(analysis?.first_10_days) && analysis.first_10_days) ||
@@ -205,77 +202,79 @@ export default function PlanResult({
   }
 
   return (
-    <div className="space-y-3">
-      {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
+    <div className="max-w-screen-lg w-full mx-auto px-3 md:px-4 lg:px-6">
+      <div className="space-y-3">
+        {result?.narrative && <CoachViewPanel narrative={result.narrative} />}
 
-      {analysis?.summary && (
-        <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
-          <h3 className="font-semibold mb-1">Summary</h3>
-          <p>{analysis.summary}</p>
-        </div>
-      )}
+        {analysis?.summary && (
+          <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
+            <h3 className="font-semibold mb-1">Summary</h3>
+            <p>{analysis.summary}</p>
+          </div>
+        )}
 
-      {!!preview.length && <WeekPreview lines={preview} />}
+        {!!preview.length && <WeekPreview lines={preview} />}
 
-      {/* --- Next 10 days (len to, čo pošle AI) --- */}
-      {safeDates.length > 0 && (
-        <section className="rounded-xl border border-white/10 p-3 bg-white/5">
-          <h3 className="font-semibold mb-2">Next 10 days</h3>
-          <div className="space-y-2">
-            {safeDates.map((iso) => {
-              const sessions = byDate[iso] || [];
-              if (!sessions.length) {
-                return (
+        {/* --- Next 10 days (len to, čo pošle AI) --- */}
+        {safeDates.length > 0 && (
+          <section className="rounded-xl border border-white/10 p-3 bg-white/5">
+            <h3 className="font-semibold mb-2">Next 10 days</h3>
+            <div className="space-y-2">
+              {safeDates.map((iso) => {
+                const sessions = byDate[iso] || [];
+                if (!sessions.length) {
+                  return (
+                    <ActivitySingle
+                      key={`d10-${iso}-empty`}
+                      variant="plan"
+                      data={{
+                        id: `d10-${iso}-empty`,
+                        name: "—",
+                        dateIso: iso,
+                        sport: "other",
+                        planDur: null,
+                        planIntensity: null,
+                        planTarget: null,
+                        planNotes: null,
+                        planRaw: null,
+                        planStructure: null,
+                        planExercises: null,
+                      }}
+                      defaultOpen={false}
+                    />
+                  );
+                }
+                return sessions.map((it: AnyObj, sidx: number) => (
                   <ActivitySingle
-                    key={`d10-${iso}-empty`}
+                    key={`d10-${iso}-${sidx}`}
                     variant="plan"
                     data={{
-                      id: `d10-${iso}-empty`,
-                      name: "—",
+                      id: `d10-${iso}-${sidx}`,
+                      name: normTitle(it),
                       dateIso: iso,
-                      sport: "other",
-                      planDur: null,
-                      planIntensity: null,
-                      planTarget: null,
-                      planNotes: null,
-                      planRaw: null,
-                      planStructure: null,
-                      planExercises: null,
+                      sport: (detectSport(it) as any) ?? "other",
+                      planDur: normDuration(it),
+                      planIntensity: normIntensity(it),
+                      planTarget: normTarget(it),     // HR / pace / power (z AI)
+                      planNotes: normNotes(it),       // WU / MAIN / CD / exercises (z AI)
+                      planRaw: it,
+                      planStructure: it?.structure ?? null,
+                      planExercises: it?.exercises ?? null,
                     }}
                     defaultOpen={false}
                   />
-                );
-              }
-              return sessions.map((it: AnyObj, sidx: number) => (
-                <ActivitySingle
-                  key={`d10-${iso}-${sidx}`}
-                  variant="plan"
-                  data={{
-                    id: `d10-${iso}-${sidx}`,
-                    name: normTitle(it),
-                    dateIso: iso,
-                    sport: (detectSport(it) as any) ?? "other",
-                    planDur: normDuration(it),
-                    planIntensity: normIntensity(it),
-                    planTarget: normTarget(it),     // HR / pace / power (z AI)
-                    planNotes: normNotes(it),       // WU / MAIN / CD (z AI)
-                    planRaw: it,
-                    planStructure: it?.structure ?? null,
-                    planExercises: it?.exercises ?? null,
-                  }}
-                  defaultOpen={false}
-                />
-              ));
-            })}
-          </div>
-        </section>
-      )}
+                ));
+              })}
+            </div>
+          </section>
+        )}
 
-      {showDebugSplit && (
-        <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
-          {JSON.stringify(analysis, null, 2)}
-        </pre>
-      )}
+        {showDebugSplit && (
+          <pre className="text-xs bg-black/30 p-2 rounded overflow-auto">
+            {JSON.stringify(analysis, null, 2)}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }
