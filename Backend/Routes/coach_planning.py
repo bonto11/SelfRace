@@ -1,6 +1,6 @@
 # Routes/coach_planning.py
 from fastapi import APIRouter, Body, HTTPException, Request
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
 from Services.plan_generation import generate_plan_json
@@ -21,16 +21,10 @@ def _norm_goal(goal_in) -> str:
 def _normalize_payload(payload: dict) -> dict:
     weeks = int(payload.get("weeks") or payload.get("goal_structured", {}).get("weeks") or 6)
     goal_str = _norm_goal(payload.get("goal") or payload.get("goal_structured", {}).get("goal"))
-    primary_sports = (
-        payload.get("primary_sports")
-        or payload.get("goal_structured", {}).get("primary_sports")
-        or ["run", "ride", "strength"]
-    )
-
+    primary_sports = payload.get("primary_sports") or payload.get("goal_structured", {}).get("primary_sports") or ["run","ride","strength"]
     persona = payload.get("persona") or payload.get("goal_structured", {}).get("persona")
     main_sport = payload.get("main_sport") or payload.get("goal_structured", {}).get("main_sport")
     secondary_mix = payload.get("secondary_mix") or payload.get("goal_structured", {}).get("secondary_mix")
-
     targets = payload.get("targets") or payload.get("goal_structured", {}).get("targets")
     rules = payload.get("rules") or payload.get("goal_structured", {}).get("preferences")
     externals = payload.get("externals") or payload.get("goal_structured", {}).get("external_activities") or []
@@ -40,27 +34,17 @@ def _normalize_payload(payload: dict) -> dict:
         "avoid_zones": (payload.get("goal_structured", {}).get("avoid_zones") or []),
         "rehab": payload.get("goal_structured", {}).get("rehab_focus") or None,
     }
-
     plan_start_date = payload.get("plan_start_date") or payload.get("goal_structured", {}).get("plan_start_date")
     strength_settings = payload.get("strength_settings") or payload.get("goal_structured", {}).get("strength_settings")
-
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
         g = payload.get("goal_structured", {})
-        if g.get("polarized_model"):
-            intensity_model = "polarized"
-        elif g.get("pyramidal_model"):
-            intensity_model = "pyramidal"
-
+        if g.get("polarized_model"): intensity_model = "polarized"
+        elif g.get("pyramidal_model"): intensity_model = "pyramidal"
     blocks = payload.get("blocks")
     if blocks is None:
         g = payload.get("goal_structured", {})
-        blocks = {
-            "vo2max": bool(g.get("vo2max_training")),
-            "ftp": bool(g.get("ftp_training")),
-            "threshold": bool(g.get("threshold_focus")),
-        }
-
+        blocks = {"vo2max": bool(g.get("vo2max_training")), "ftp": bool(g.get("ftp_training")), "threshold": bool(g.get("threshold_focus"))}
     schema_version = int(payload.get("schema_version") or 1)
     return {
         "schema_version": schema_version,
@@ -81,7 +65,15 @@ def _normalize_payload(payload: dict) -> dict:
         "strength_settings": strength_settings,
         "_raw": payload,
     }
-# Routes/coach_planning.py (výťah – dolná časť handlera)
+
+def _validate_next10(parsed: Dict[str, Any]) -> None:
+    n10 = parsed.get("next_10_days")
+    if not (isinstance(n10, list) and len(n10) == 10):
+        raise HTTPException(status_code=502, detail="AI must return next_10_days with 10 items")
+    for i, d in enumerate(n10):
+        if not isinstance(d, dict) or not isinstance(d.get("day"), str) or not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
+            raise HTTPException(status_code=502, detail=f"AI returned empty or invalid sessions at index {i}")
+
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     try:
@@ -132,10 +124,8 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
-                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=True)
-                    parsed = p
-                    used_model = m
-                    debug_trace = dbg
+                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
+                    parsed = p; used_model = m; debug_trace = dbg
                     break
                 except Exception as e:
                     last_err = str(e); continue
@@ -144,18 +134,15 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
 
-        f10 = parsed.get("first_10_days") or []
-        n10 = parsed.get("next_10_days") or []
-        if not (isinstance(f10, list) and f10) and not (isinstance(n10, list) and n10):
-            raise HTTPException(status_code=502, detail="AI returned no 10-day plan")
+        _validate_next10(parsed)  # <-- prázdne sessions = 502
 
         return {
             "success": True,
             "model": used_model,
-            "analysis": parsed,          # nič nedorábame
+            "analysis": parsed,
             "context_used": llm_input,
             "narrative": narr,
-            "ai_debug": debug_trace,     # stále vraciame trace
+            "ai_debug": debug_trace,
         }
     except HTTPException:
         raise
