@@ -131,29 +131,19 @@ def _validate_next10(parsed: Dict[str, Any], must_start: str | None, rules: Dict
     if must_start and n10[0]["day"] != must_start:
         raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
+
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     try:
         norm = _normalize_payload(payload)
-        weeks = norm["weeks"]; goal = norm["goal"]; primary_sports = norm["primary_sports"]
-
-        ctx = coach_context(user_id, weeks=weeks)
+        ctx = coach_context(user_id, weeks=norm["weeks"])
         if not ctx.get("success"):
             raise HTTPException(status_code=500, detail="Context build failed")
 
-        weekly     = ctx["weekly"]["weeks"][-weeks:]
-        hr_used    = ctx["weekly"]["hr_used"]
-        recovery   = ctx.get("recovery", [])[-21:]
-        notes      = ctx.get("notes", [])[-50:]
-        thresholds = ctx.get("thresholds", [])
-        zones      = ctx.get("zones", [])
-        prefs      = ctx.get("prefs")
-        bests      = ctx.get("bests", {})
-
         llm_input = {
-            "goal": goal,
+            "goal": norm["goal"],
             "schema_version": norm["schema_version"],
-            "primary_sports": primary_sports,
+            "primary_sports": norm["primary_sports"],
             "persona": norm["persona"],
             "main_sport": norm["main_sport"],
             "secondary_mix": norm["secondary_mix"],
@@ -167,41 +157,35 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
             "first_n_days": 10,
-            "hr_used": hr_used, "weekly": weekly, "recovery": recovery, "notes": notes,
-            "thresholds": thresholds, "zones": zones, "prefs": prefs, "bests": bests,
+            "hr_used": ctx["weekly"]["hr_used"],
+            "weekly": ctx["weekly"]["weeks"][-norm["weeks"]:],
+            "recovery": ctx.get("recovery", [])[-21:],
+            "notes": ctx.get("notes", [])[-50:],
+            "thresholds": ctx.get("thresholds", []),
+            "zones": ctx.get("zones", []),
+            "prefs": ctx.get("prefs"),
+            "bests": ctx.get("bests", []),
         }
-        narr = build_progress_narrative(ctx, weeks)
 
-        models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
-        parsed: Dict[str, Any] | None = None
-        used_model = DEFAULT_MODEL
-        last_err: str | None = None
-        debug_trace = None
-
-        for m in models:
-            for _ in range(LLM_RETRIES + 1):
-                try:
-                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
-                    parsed = p; used_model = m; debug_trace = dbg
-                    break
-                except Exception as e:
-                    last_err = str(e); continue
-            if parsed is not None: break
-
-        if parsed is None:
-            raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
-
-        _validate_next10(parsed, norm["plan_start_date"], norm.get("rules"))
+        parsed, debug = generate_plan_json(llm_input, DEFAULT_MODEL, debug_raw=True)
+        try:
+            _validate_next10(parsed, norm["plan_start_date"], norm.get("rules"))
+        except Exception as e:
+            # chybný formát – stále vrátime raw aby sa to dalo analyzovať
+            return {
+                "success": False,
+                "error": str(e),
+                "analysis_raw": debug.get("raw"),
+                "cleaned": debug.get("cleaned"),
+                "trace": debug,
+            }
 
         return {
             "success": True,
-            "model": used_model,
+            "model": debug.get("ok_model"),
             "analysis": parsed,
-            "context_used": llm_input,
-            "narrative": narr,
-            "ai_debug": debug_trace,
+            "trace": debug,
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
