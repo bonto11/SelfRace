@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# Services/plan_generation.py
-=======
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
 import os, json, re, time, datetime as dt
 from typing import Any, Dict, List, Tuple, Optional
 from fastapi import HTTPException
@@ -48,14 +44,8 @@ def _parse_ai_json(raw: str) -> Tuple[dict, str]:
             snippet = cleaned[:400]
             raise ValueError(f"malformed_json_after_sanitize: {e}; snippet={snippet!r}")
 
-<<<<<<< HEAD
 # ---------- normalize (len aliasy; bez dopĺňania) ----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
-=======
-# ----------- minimal normalize (bez dopĺňania) -----------
-def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
-    """Len premenuj aliasy, nič nevymýšľaj."""
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
     if not isinstance(obj, dict):
         raise ValueError("AI output is not a JSON object")
     return {
@@ -63,10 +53,6 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         "insights": obj.get("insights") or [],
         "red_flags": obj.get("red_flags") or [],
         "week_overview": obj.get("week_overview") or obj.get("outline_10w") or [],
-<<<<<<< HEAD
-=======
-        # preferuj first_10_days; ak AI dá iba next_10_days, prenechaj ho (nič nemaž)
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
         "first_10_days": obj.get("first_10_days") or obj.get("next_10_days") or [],
         "next_10_days": obj.get("next_10_days") or None,
         "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}) else None,
@@ -77,11 +63,7 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         },
     }
 
-<<<<<<< HEAD
 # ---------- LLM call (STRICT JSON) ----------
-=======
-# ----------- LLM volanie (STRICT) -----------
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
@@ -92,30 +74,19 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 def _build_prompts(context_payload: dict, schema_text: str):
     system_txt = (
         "You are an endurance coaching assistant. "
-<<<<<<< HEAD
         "Return a single valid JSON object matching the schema. "
-=======
-        "Return a single valid JSON object conforming to the schema. "
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
         "No prose, no code fences."
     )
     user_txt = (
         "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) +
         "\n\nSchema (instructional):\n" + schema_text +
         "\n\nHard requirements:\n"
-<<<<<<< HEAD
         "- Provide `next_10_days` with EXACTLY 10 items.\n"
         "- Each item MUST have `day` (YYYY-MM-DD) and `sessions` (non-empty array).\n"
         "- If the day is rest, include a session object: {\"title\":\"Rest Day\",\"duration_min\":0}.\n"
         "- Never leave `sessions` empty.\n"
         "- `next_week_plan` may be null; still produce valid `next_10_days`.\n"
         "- Output JSON only."
-=======
-        "- Always include `next_10_days` as an array of exactly 10 objects.\n"
-        "- Each item must have `day` (YYYY-MM-DD) and `sessions` (array).\n"
-        "- `next_week_plan` may be null; still produce `next_10_days`.\n"
-        "- No additional commentary."
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
     )
     return system_txt, user_txt
 
@@ -149,7 +120,6 @@ def _extract_start_date(ctx: dict) -> Optional[str]:
     return None
 
 def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=False, loose: bool=False) -> Tuple[dict, Optional[dict]]:
-    # `loose` tu ignorujeme – ideme striktne
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
@@ -168,12 +138,7 @@ def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=Fal
   "week_overview"?: string[],
   "next_week_plan"?: { ... } | null,
   "first_10_days"?: { "day": "YYYY-MM-DD", "sessions": Session[] }[],
-<<<<<<< HEAD
   "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]  // exactly 10, sessions must be non-empty
-=======
-  "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[],  // EXACTLY 10 items
-  "_meta"?: any
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
 }
 Where Session = {
   "title": string,

@@ -65,7 +65,6 @@ def _normalize_payload(payload: dict) -> dict:
         "_raw": payload,
     }
 
-<<<<<<< HEAD
 def _validate_next10(parsed: Dict[str, Any]) -> None:
     n10 = parsed.get("next_10_days")
     if not (isinstance(n10, list) and len(n10) == 10):
@@ -74,8 +73,6 @@ def _validate_next10(parsed: Dict[str, Any]) -> None:
         if not isinstance(d, dict) or not isinstance(d.get("day"), str) or not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
             raise HTTPException(status_code=502, detail=f"AI returned empty or invalid sessions at index {i}")
 
-=======
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     try:
@@ -126,16 +123,8 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         for m in models:
             for _ in range(LLM_RETRIES + 1):
                 try:
-<<<<<<< HEAD
                     p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
                     parsed = p; used_model = m; debug_trace = dbg
-=======
-                    # STRICT JSON (loose=False – ignorujeme a ideme striktne v implementácii)
-                    p, dbg = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
-                    parsed = p
-                    used_model = m
-                    debug_trace = dbg
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
                     break
                 except Exception as e:
                     last_err = str(e); continue
@@ -144,15 +133,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if parsed is None:
             raise HTTPException(status_code=502, detail=f"AI generation failed: {last_err}")
 
-<<<<<<< HEAD
         _validate_next10(parsed)  # <-- prázdne sessions = 502
-=======
-        # vyžaduj 10-dňovku
-        f10 = parsed.get("first_10_days") or []
-        n10 = parsed.get("next_10_days") or []
-        if not (isinstance(f10, list) and f10) and not (isinstance(n10, list) and n10):
-            raise HTTPException(status_code=502, detail="AI returned no 10-day plan")
->>>>>>> 65b4aa8034d0e42994e31c235ac18bf050c14854
 
         return {
             "success": True,
