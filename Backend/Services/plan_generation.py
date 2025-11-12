@@ -4,7 +4,6 @@ from fastapi import HTTPException
 from openai import OpenAI
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
-# ---------- parsing utils ----------
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 def _strip_codefence(s: str) -> str:
@@ -33,18 +32,18 @@ def _sanitize_json_guess(s: str) -> str:
     s = re.sub(r"\bNaN\b|\bInfinity\b|-Infinity", "null", s)
     return s.strip()
 
-def _parse_ai_json(raw: str) -> Tuple[dict, str]:
+def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
+    if not raw:
+        return None, "", ""
     try:
-        return json.loads(raw.strip()), raw.strip()
+        return json.loads(raw.strip()), raw.strip(), raw.strip()
     except Exception:
-        cleaned = _sanitize_json_guess(raw or "")
+        cleaned = _sanitize_json_guess(raw)
         try:
-            return json.loads(cleaned), cleaned
+            return json.loads(cleaned), cleaned, raw
         except Exception as e:
-            snippet = cleaned[:400]
-            raise ValueError(f"malformed_json_after_sanitize: {e}; snippet={snippet!r}")
+            return None, cleaned, raw  # ← vrátime aj pokazené JSON
 
-# ---------- normalize (aliasy, bez dopĺňania obsahu) ----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
     if not isinstance(obj, dict):
         raise ValueError("AI output is not a JSON object")
@@ -63,7 +62,6 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         },
     }
 
-# ---------- LLM call ----------
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
@@ -72,142 +70,76 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     return env_models if not explicit_model else [explicit_model] + env_models
 
 def _build_prompts(context_payload: dict, schema_text: str):
-    # Tvrdé požiadavky – žiadne dopĺňanie z BE
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
     hard = [
-        "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date` in the context.",
+        "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date`.",
         "Each day MUST include non-empty `sessions`.",
-        "If a day is rest: include one session {\"title\":\"Rest Day\",\"sport\":\"other\",\"duration_min\":0}.",
-        "Include `sport` for every session (run/ride/strength/other). Infer from title if needed.",
-        "For RUN sessions you MUST provide heart-rate targets. Prefer `target_hr_bpm_range:[low,high]`.",
-        "If structure is present, targets may ALSO appear in `structure.main[].target.hr`.",
-        "Derive HR ranges from thresholds/zones in the context (no invented physiology).",
-        "Units: pace as `min/km` string; power in watts; HR in bpm.",
-        "`next_week_plan` may be null. Output JSON only."
+        "If rest: include one session with sport:'other' and duration_min:0.",
+        "Include sport for every session.",
+        "For RUN sessions you MUST provide target_hr_bpm_range:[low,high].",
+        "For STRENGTH sessions include exercises array (3–8 items)."
     ]
     if wu_cd_required:
-        hard += [
-            "For every RUN session include `structure` with: `warmup` (5–15 min), at least one `main` block, and `cooldown` (5–10 min).",
-            "Put HR targets either top-level or in `structure.*.target.hr`."
-        ]
-    # Strength bloky vždy s cvikmi
-    hard += [
-        "For every STRENGTH session include `exercises` array (3–8 items).",
-        "Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only equipment listed in `strength_settings.available`."
-    ]
+        hard.append("Include warmup/main/cooldown with HR targets for runs.")
 
-    system_txt = (
-        "You are an endurance coaching assistant. "
-        "Return ONE valid JSON object that matches the schema. No prose, no code fences."
-    )
+    system_txt = "You are an endurance coach. Return one valid JSON object only."
     user_txt = (
         "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) +
         "\n\nSchema (instructional):\n" + schema_text +
-        "\n\nHard requirements (must ALL be satisfied):\n- " + "\n- ".join(hard)
+        "\n\nHard requirements:\n- " + "\n- ".join(hard)
     )
     return system_txt, user_txt
 
 def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int) -> str:
-    kwargs: Dict[str, Any] = {
-        "model": model,
-        "messages": [{"role":"system","content":system_txt},{"role":"user","content":user_txt}],
-        "temperature": 0.2,
-        "max_tokens": max_tokens,
-        "response_format": {"type": "json_object"},
-    }
-    cc = client.chat.completions.create(**kwargs)
-    return (getattr(getattr(cc.choices[0], "message", {}), "content", None) or getattr(cc.choices[0], "text", None) or "").strip()
+    cc = client.chat.completions.create(
+        model=model,
+        messages=[{"role":"system","content":system_txt},{"role":"user","content":user_txt}],
+        temperature=0.2,
+        max_tokens=max_tokens,
+        response_format={"type":"json_object"},
+    )
+    return getattr(cc.choices[0].message, "content", "").strip()
 
 def _extract_start_date(ctx: dict) -> Optional[str]:
     sd = ctx.get("plan_start_date") or ctx.get("start_date")
-    if isinstance(sd, str) and sd:
-        return sd
+    if isinstance(sd, str): return sd
     g = ctx.get("goal")
-    if isinstance(g, dict):
-        sd2 = g.get("start_date")
-        if isinstance(sd2, str) and sd2:
-            return sd2
+    if isinstance(g, dict) and isinstance(g.get("start_date"), str):
+        return g["start_date"]
     return None
 
-def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=False, loose: bool=False) -> Tuple[dict, Optional[dict]]:
-    if not OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
-
-    retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
-    timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
-
-    client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
+def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=False, loose: bool=False):
+    client = OpenAI(api_key=OPENAI_API_KEY)
     models = _llm_models_priority(model)
-    token_budgets = [2400, 2000, 1600]
-
-    schema_text = """
-{
-  "summary": string,
-  "insights": string[],
-  "red_flags": { "type": string, "details"?: string, "evidence"?: string }[],
-  "week_overview"?: string[],
-  "next_week_plan"?: { ... } | null,
-  "first_10_days"?: { "day": "YYYY-MM-DD", "sessions": Session[] }[],
-  "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]
-}
-Where Session = {
-  "title": string,
-  "sport": "run" | "ride" | "strength" | "other",
-  "duration_min": number,
-  "intensity"?: string | null,
-  "notes"?: string | null,
-  "target_pace_min_per_km"?: string | null,
-  "target_hr_bpm_range"?: [number, number] | null,
-  "target_power_watts"?: number | null,
-  "zone"?: string | null,
-  "structure"?: {
-    "warmup"?: { "minutes"?: number, "notes"?: string, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } },
-    "main"?:   ({ "reps"?: number, "work_min"?: number, "recover_min"?: number, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } }[]),
-    "cooldown"?: { "minutes"?: number, "notes"?: string, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } }
-  },
-  "exercises"?: { "name": string, "sets": number, "reps"?: number, "seconds"?: number, "rest_sec"?: number }[]
-}
-""".strip()
-
+    schema_text = """{ "summary":string, "insights":string[], "red_flags":[], "next_10_days":[{ "day":"YYYY-MM-DD","sessions":[]}]}"""
     system_txt, user_txt = _build_prompts(context_payload, schema_text)
-    print(f"[AI] compose prompts | system_len={len(system_txt)} user_len={len(user_txt)}")
 
-    trace = {"system_prompt": system_txt, "user_prompt": user_txt, "models_tried": models, "attempts": []}
-    last_err: Optional[str] = None
-    last_raw: Optional[str] = None
+    trace = {"models_tried": models, "attempts": []}
+    last_raw, last_clean, last_err = None, None, None
 
     for m in models:
-        for attempt in range(1, retries + 1):
-            started = time.time()
-            budget = token_budgets[min(attempt-1, len(token_budgets)-1)]
-            print(f"[AI] call start | model={m} attempt={attempt} budget={budget}")
-            try:
-                raw = _call_openai(client, m, system_txt, user_txt, budget)
-                last_raw = raw
-                dur_ms = int((time.time() - started) * 1000)
-                print(f"[AI] call ok    | model={m} attempt={attempt} dur_ms={dur_ms} raw_len={len(raw)}")
-                trace["attempts"].append({
-                    "model": m, "attempt": attempt, "tokens_budget": budget,
-                    "duration_ms": dur_ms, "ok": True,
-                    "raw_preview": (raw[:800] + ("…[truncated]" if len(raw) > 800 else "")),
-                })
+        try:
+            raw = _call_openai(client, m, system_txt, user_txt, 2000)
+            last_raw = raw
+            parsed, cleaned, raw2 = _parse_ai_json(raw)
+            if not parsed:
+                raise ValueError("AI returned invalid JSON")
+            start_date = _extract_start_date(context_payload)
+            normalized = normalize_plan_json(parsed, start_date)
+            trace["ok_model"] = m
+            if debug_raw:
+                trace["raw"] = raw2
+                trace["cleaned"] = cleaned
+            return normalized, trace
+        except Exception as e:
+            last_err = str(e)
+            trace["attempts"].append({"model": m, "error": last_err})
+            continue
 
-                parsed_dict, _ = _parse_ai_json(raw) if raw else ({}, "")
-                start_date = _extract_start_date(context_payload)
-                parsed = normalize_plan_json(parsed_dict, plan_start_iso=start_date)
-                if debug_raw:
-                    trace["last_raw"] = last_raw
-                return parsed, (trace if debug_raw else None)
-
-            except Exception as e:
-                dur_ms = int((time.time() - started) * 1000)
-                last_err = f"{type(e).__name__}: {e}"
-                print(f"[AI] call fail  | model={m} attempt={attempt} dur_ms={dur_ms} err={last_err}")
-                trace["attempts"].append({
-                    "model": m, "attempt": attempt, "tokens_budget": budget,
-                    "duration_ms": dur_ms, "ok": False, "error": last_err
-                })
-                time.sleep(0.6 * attempt)
-                continue
-
-    raise HTTPException(status_code=504, detail=f"AI generation failed: {last_err or 'Timeout/error'}")
+    return {
+        "summary": "AI generation failed.",
+        "insights": [],
+        "red_flags": [{"type": "error", "details": last_err}],
+        "next_10_days": [],
+        "_meta": {"plan_source": "ai", "ok": False},
+    }, {"error": last_err, "raw": last_raw, "cleaned": last_clean, "trace": trace}
