@@ -1,13 +1,10 @@
-# Services/plan_generation.py
-
-# Services/plan_generation.py (výťah – nahraď týmito verziami)
-
 import os, json, re, time, datetime as dt
 from typing import Any, Dict, List, Tuple, Optional
 from fastapi import HTTPException
 from openai import OpenAI
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
+# ----------- utils (len parsing / hygiene) -----------
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 def _strip_codefence(s: str) -> str:
@@ -47,8 +44,9 @@ def _parse_ai_json(raw: str) -> Tuple[dict, str]:
             snippet = cleaned[:400]
             raise ValueError(f"malformed_json_after_sanitize: {e}; snippet={snippet!r}")
 
+# ----------- minimal normalize (bez dopĺňania) -----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
-    """Len premapuj polia/aliasy. Nič nedoplňuj, nič nevymýšľaj."""
+    """Len premenuj aliasy, nič nevymýšľaj."""
     if not isinstance(obj, dict):
         raise ValueError("AI output is not a JSON object")
 
@@ -57,17 +55,19 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         "insights": obj.get("insights") or [],
         "red_flags": obj.get("red_flags") or [],
         "week_overview": obj.get("week_overview") or obj.get("outline_10w") or [],
-        # preferuj first_10_days; ak AI poslalo next_10_days, prenechaj ho aj tak (nič nemaž)
+        # preferuj first_10_days; ak AI dá iba next_10_days, prenechaj ho (nič nemaž)
         "first_10_days": obj.get("first_10_days") or obj.get("next_10_days") or [],
         "next_10_days": obj.get("next_10_days") or None,
         "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}) else None,
         "_meta": {
             "plan_source": "ai",
-            "week_start": plan_start_iso or None,   # žiadne lepenie na pondelok
+            "week_start": plan_start_iso or None,
+            "next10_start": plan_start_iso or None,
         },
     }
     return out
 
+# ----------- LLM volanie (STRICT) -----------
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
@@ -75,26 +75,40 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
         return [explicit_model] + env_models
     return env_models if not explicit_model else [explicit_model] + env_models
 
-def _build_prompts(context_payload: dict, schema_text: str, loose: bool):
-    if loose:
-        system_txt = "You are an endurance coaching assistant. Reply helpfully."
-        user_txt = "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) + "\n\nReturn a plan and the next 10 days. JSON is preferred but free-form text is OK."
-    else:
-        system_txt = "You are an endurance coaching assistant. Always return a single valid JSON object matching the schema. No prose. No code fences."
-        user_txt = "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) + "\n\nSchema (instructional):\n" + schema_text
+def _build_prompts(context_payload: dict, schema_text: str):
+    system_txt = (
+        "You are an endurance coaching assistant. "
+        "Return a single valid JSON object conforming to the schema. "
+        "No prose, no code fences."
+    )
+    user_txt = (
+        "Context JSON:\n" + json.dumps(context_payload, ensure_ascii=False) +
+        "\n\nSchema (instructional):\n" + schema_text +
+        "\n\nHard requirements:\n"
+        "- Always include `next_10_days` as an array of exactly 10 objects.\n"
+        "- Each item must have `day` (YYYY-MM-DD) and `sessions` (array).\n"
+        "- `next_week_plan` may be null; still produce `next_10_days`.\n"
+        "- No additional commentary."
+    )
     return system_txt, user_txt
 
-def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int, loose: bool) -> str:
+def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int) -> str:
     kwargs: Dict[str, Any] = {
         "model": model,
-        "messages": [{"role":"system","content":system_txt},{"role":"user","content":user_txt}],
-        "temperature": 0.25,
+        "messages": [
+            {"role":"system","content":system_txt},
+            {"role":"user","content":user_txt},
+        ],
+        "temperature": 0.2,
         "max_tokens": max_tokens,
+        "response_format": {"type": "json_object"},
     }
-    if not loose:
-        kwargs["response_format"] = {"type": "json_object"}  # type: ignore[assignment]
     cc = client.chat.completions.create(**kwargs)
-    return (getattr(getattr(cc.choices[0], "message", {}), "content", None) or getattr(cc.choices[0], "text", None) or "").strip()
+    return (
+        getattr(getattr(cc.choices[0], "message", {}), "content", None)
+        or getattr(cc.choices[0], "text", None)
+        or ""
+    ).strip()
 
 def _extract_start_date(ctx: dict) -> Optional[str]:
     sd = ctx.get("plan_start_date") or ctx.get("start_date")
@@ -108,6 +122,7 @@ def _extract_start_date(ctx: dict) -> Optional[str]:
     return None
 
 def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=False, loose: bool=False) -> Tuple[dict, Optional[dict]]:
+    # `loose` tu ignorujeme – ideme striktne
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
@@ -119,26 +134,35 @@ def generate_plan_json(context_payload: dict, model: str, *, debug_raw: bool=Fal
     token_budgets = [2200, 1800, 1400]
 
     schema_text = """
-JSON object with keys:
-  summary: string
-  insights: string[]
-  red_flags: {type:string, details?:string, evidence?:string}[]
-  week_overview?: string[]
-  first_10_days?: { day: string(YYYY-MM-DD), sessions: Session[] }[]
-  next_week_plan?: { ... }
-  next_10_days?: { day: string(YYYY-MM-DD), sessions: Session[] }[]
-where Session = {
-  title: string, duration_min: number,
-  intensity?: string|null, notes?: string|null,
-  target_pace_min_per_km?: string|null,
-  target_hr_bpm_range?: [number, number]|null,
-  target_power_watts?: number|null, zone?: string|null,
-  structure?: { warmup?: {...}, main?: [...], cooldown?: {...} },
-  exercises?: { name:string, sets:number, reps?:number, seconds?:number, rest_sec?:number }[]
+{
+  "summary": string,
+  "insights": string[],
+  "red_flags": { "type": string, "details"?: string, "evidence"?: string }[],
+  "week_overview"?: string[],
+  "next_week_plan"?: { ... } | null,
+  "first_10_days"?: { "day": "YYYY-MM-DD", "sessions": Session[] }[],
+  "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[],  // EXACTLY 10 items
+  "_meta"?: any
+}
+Where Session = {
+  "title": string,
+  "duration_min": number,
+  "intensity"?: string | null,
+  "notes"?: string | null,
+  "target_pace_min_per_km"?: string | null,
+  "target_hr_bpm_range"?: [number, number] | null,
+  "target_power_watts"?: number | null,
+  "zone"?: string | null,
+  "structure"?: {
+    "warmup"?: { "minutes"?: number, "notes"?: string, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } },
+    "main"?:   ({ "reps"?: number, "work_min"?: number, "recover_min"?: number, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } }[]),
+    "cooldown"?: { "minutes"?: number, "notes"?: string, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } }
+  },
+  "exercises"?: { "name": string, "sets": number, "reps"?: number, "seconds"?: number, "rest_sec"?: number }[]
 }
 """.strip()
 
-    system_txt, user_txt = _build_prompts(context_payload, schema_text, loose)
+    system_txt, user_txt = _build_prompts(context_payload, schema_text)
     print(f"[AI] compose prompts | system_len={len(system_txt)} user_len={len(user_txt)}")
 
     trace = {"system_prompt": system_txt, "user_prompt": user_txt, "models_tried": models, "attempts": []}
@@ -151,7 +175,7 @@ where Session = {
             budget = token_budgets[min(attempt-1, len(token_budgets)-1)]
             print(f"[AI] call start | model={m} attempt={attempt} budget={budget}")
             try:
-                raw = _call_openai(client, m, system_txt, user_txt, budget, loose)
+                raw = _call_openai(client, m, system_txt, user_txt, budget)
                 last_raw = raw
                 dur_ms = int((time.time() - started) * 1000)
                 print(f"[AI] call ok    | model={m} attempt={attempt} dur_ms={dur_ms} raw_len={len(raw)}")
@@ -163,6 +187,7 @@ where Session = {
                 if debug_raw:
                     trace["last_raw"] = last_raw
                 return parsed, (trace if debug_raw else None)
+
             except Exception as e:
                 dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{type(e).__name__}: {e}"
@@ -172,242 +197,3 @@ where Session = {
                 continue
 
     raise HTTPException(status_code=504, detail=f"AI generation failed: {last_err or 'Timeout/error'}")
-
-
-WEEKDAY_ORDER = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
-
-def _iso(d: dt.date) -> str:
-    return d.isoformat()
-
-def _parse_date(s: Optional[str]) -> Optional[dt.date]:
-    if not s: return None
-    try:
-        y,m,d = map(int, s.split("-"))
-        return dt.date(y,m,d)
-    except Exception:
-        return None
-
-def _as_list(obj, key) -> list:
-    v = obj.get(key)
-    return v if isinstance(v, list) else []
-
-def _weekday_name_of(d: dt.date) -> str:
-    return WEEKDAY_ORDER[d.weekday()]
-
-def ensure_minimum_week_plan(parsed: dict, context_in: dict, build_min_plan_fn) -> dict:
-    if not isinstance(parsed, dict):
-        raise ValueError("AI output not a dict")
-
-    plan = parsed.get("next_week_plan")
-    has_any = False
-    if isinstance(plan, dict):
-        for k in ("run", "ride", "strength"):
-            s = plan.get(k)
-            if s and isinstance(s, dict) and isinstance(s.get("sessions"), list) and s["sessions"]:
-                has_any = True; break
-        if not has_any and any(d in plan for d in ("monday","tuesday","wednesday","thursday","friday","saturday","sunday")):
-            has_any = True
-
-    if not plan or not has_any:
-        parsed.setdefault("summary", "Auto-filled plan based on recent context (guidelines detected).")
-        parsed["next_week_plan"] = build_min_plan_fn(context_in)
-        meta = parsed.setdefault("_meta", {})
-        meta["plan_source"] = "coerced_from_guidelines" if meta.get("plan_source") == "coerced_from_guidelines" else "fallback_min"
-    else:
-        parsed.setdefault("_meta", {})["plan_source"] = parsed.get("_meta", {}).get("plan_source", "ai")
-    return parsed
-
-# ---------- koercie tréningov ----------
-def _coerce_run_structure(sess: Dict[str,Any]) -> None:
-    """Ak run nemá detail, doplň WU/Main/CD rozumne podľa duration."""
-    title = (sess.get("title") or "").lower()
-    if "run" not in title: return
-    if isinstance(sess.get("structure"), dict) and sess["structure"].get("main"): return
-
-    dur = int(sess.get("duration_min") or 0)
-    wu  = min(10, max(5, round(dur*0.15))) if dur >= 20 else 5
-    cd  = min(10, max(5, round(dur*0.10))) if dur >= 20 else 5
-    main = max(10, dur - (wu+cd)) if dur else 20
-
-    sess.setdefault("structure", {})
-    sess["structure"]["warmup"]   = {"minutes": wu, "notes":"Easy jog", "target":{"hr":[120,140]}}
-    sess["structure"]["main"]     = [{"reps":1, "work_min": main, "recover_min":0,
-                                      "target":{"pace": sess.get("target_pace_min_per_km") or None,
-                                                "hr":[145,165]}}]
-    sess["structure"]["cooldown"] = {"minutes": cd, "notes":"Easy walk or jog"}
-
-def _coerce_strength_exercises(sess: Dict[str,Any], gear: List[str]) -> None:
-    """Ak chýbajú cviky, doplň základ podľa dostupnej výbavy. Plank → seconds."""
-    if "strength" not in (sess.get("title","").lower()): return
-
-    if sess.get("exercises"):
-        xs = []
-        for e in sess["exercises"]:
-            en = (e.get("name") or "").lower()
-            if "plank" in en:
-                sec = int(e.get("seconds") or e.get("reps") or 30)
-                xs.append({"name": e.get("name","Plank"), "sets": e.get("sets",3), "seconds": sec, "rest_sec": e.get("rest_sec",30)})
-            else:
-                xs.append({"name": e.get("name","Exercise"), "sets": e.get("sets",3), "reps": int(e.get("reps",10)), "rest_sec": e.get("rest_sec",60)})
-        sess["exercises"] = xs
-        return
-
-    bank_minimal = [
-        {"name":"Goblet Squat" if ("dumbbells" in gear or "kettlebell" in gear) else "Air Squat", "sets":3, "reps":12, "rest_sec":60},
-        {"name":"Push-up", "sets":3, "reps":10, "rest_sec":60},
-        {"name":"Bent-over Row (band/TRX/pull-up)" if any(g in gear for g in ["trx","resistance_bands","pullup_bar"]) else "Door-row (towel)", "sets":3, "reps":12, "rest_sec":60},
-        {"name":"Plank", "sets":3, "seconds":30, "rest_sec":30},
-        {"name":"Lunge", "sets":3, "reps":10, "rest_sec":45},
-    ]
-    sess["exercises"] = bank_minimal
-
-def _coerce_weekday_plan_sessions(nwp: Dict[str, Any], gear: List[str]) -> None:
-    """Doplň štruktúry aj do weekday plánu (ak nie sú)."""
-    for k, v in list(nwp.items()):
-        if k.lower() not in WEEKDAY_ORDER: 
-            continue
-        if isinstance(v, dict):
-            sessions = v.get("sessions")
-            if isinstance(sessions, list):
-                for s in sessions:
-                    if isinstance(s, dict):
-                        _coerce_run_structure(s)
-                        _coerce_strength_exercises(s, gear)
-            else:
-                _coerce_run_structure(v)
-                _coerce_strength_exercises(v, gear)
-
-def _build_next_10_days(parsed: Dict[str,Any], start_date_iso: Optional[str]) -> List[Dict[str,Any]]:
-    """
-    Rolling 10 dní od start_date:
-      1) Ak máme 'first_10_days' s dátumami → normalizuj a doplň štruktúry.
-      2) Inak namapuj 'next_week_plan' podľa dni v týždni na konkrétne dátumy.
-      3) Ak nič, doplň rozumné defaults.
-    """
-    out: List[Dict[str,Any]] = []
-    if not start_date_iso:
-        return out
-
-    start = _parse_date(start_date_iso)
-    if not start:
-        return out
-
-    want_dates = [_iso(start + dt.timedelta(days=i)) for i in range(10)]
-    strength_gear = (parsed.get("strength_settings") or {}).get("available") or []
-
-    # (1) skúsiť existujúcu 'first_10_days'
-    raw = parsed.get("first_10_days")
-    if isinstance(raw, list) and raw:
-        # normalizuj + koercie
-        norm_map: Dict[str, Dict[str,Any]] = {}
-        for entry in raw:
-            if not isinstance(entry, dict): 
-                continue
-            day = entry.get("day") or entry.get("date")
-            ses = entry.get("sessions") or ([entry] if entry.get("title") else [])
-            if isinstance(ses, dict): 
-                ses = [ses]
-            if isinstance(ses, list):
-                clean = []
-                for s in ses:
-                    if isinstance(s, dict):
-                        _coerce_run_structure(s)
-                        _coerce_strength_exercises(s, strength_gear)
-                        clean.append(s)
-                norm_map[str(day)] = {"day": str(day), "sessions": clean}
-
-        for d in want_dates:
-            if d in norm_map:
-                out.append({"day": d, "sessions": norm_map[d]["sessions"]})
-            else:
-                # fallback deň
-                sess = {"title": "Rest Day", "duration_min": 0} if len(out) in (2,5) else {"title":"Easy Run","duration_min":30,"intensity":"easy"}
-                if "Run" in sess["title"]:
-                    _coerce_run_structure(sess)  # type: ignore[arg-type]
-                out.append({"day": d, "sessions": [sess]})
-        return out
-
-    # (2) mapovanie z weekday plánu
-    nwp = parsed.get("next_week_plan")
-    if isinstance(nwp, dict) and nwp:
-        _coerce_weekday_plan_sessions(nwp, strength_gear)  # doplň štruktúry
-        nwp_lc = { (k or "").lower(): v for k,v in nwp.items() if isinstance(k, str) }
-
-        for i in range(10):
-            day = start + dt.timedelta(days=i)
-            wd = _weekday_name_of(day)
-            cand = nwp_lc.get(wd)
-            if isinstance(cand, dict):
-                sessions = cand.get("sessions")
-                if isinstance(sessions, list):
-                    out.append({"day": _iso(day), "sessions": sessions})
-                else:
-                    out.append({"day": _iso(day), "sessions": [{ **{k:v for k,v in cand.items() if k != "sessions"} }]})
-            elif isinstance(cand, list):
-                out.append({"day": _iso(day), "sessions": cand})
-            else:
-                # fallback, ak v pláne nie je daný deň
-                sess = {"title":"Rest Day","duration_min":0} if i in (2,5) else {"title":"Easy Run","duration_min":30,"intensity":"easy"}
-                if "Run" in sess["title"]:
-                    _coerce_run_structure(sess)  # type: ignore[arg-type]
-                out.append({"day": _iso(day), "sessions":[sess]})
-        return out
-
-    # (3) úplný default
-    for i in range(10):
-        sess = {"title":"Rest Day","duration_min":0} if i in (2,5) else {"title":"Easy Run","duration_min":30,"intensity":"easy"}
-        if "Run" in sess["title"]:
-            _coerce_run_structure(sess)  # type: ignore[arg-type]
-        out.append({"day": _iso(start + dt.timedelta(days=i)), "sessions":[sess]})
-    return out
-
-def _coerce_next_10_days(parsed: Dict[str,Any], start_date_str: Optional[str], strength_gear: List[str]) -> None:
-    """
-    (ZACHOVANÉ API PRE EXISTUJÚCI KÓD)
-    Koercia zostáva kvôli kompatibilite: pre ‘first_10_days’ dorobíme presne 10 dní
-    od start_date (a doplníme štruktúry). ‘next_10_days’ však FE môže preferovať.
-    """
-    if not start_date_str:
-        parsed["first_10_days"] = []
-        parsed.setdefault("_meta", {})["next10_start"] = None
-        return
-
-    start = _parse_date(start_date_str)
-    if not start:
-        parsed["first_10_days"] = []
-        parsed.setdefault("_meta", {})["next10_start"] = None
-        return
-
-    want_dates = [_iso(start + dt.timedelta(days=i)) for i in range(10)]
-    raw = parsed.get("first_10_days") or parsed.get("next_10_days")
-    norm: Dict[str, Dict[str,Any]] = {}
-
-    if isinstance(raw, list):
-        for entry in raw:
-            if isinstance(entry, dict):
-                day = entry.get("day") or entry.get("date")
-                ses = entry.get("sessions") or ([entry] if entry.get("title") else [])
-                if isinstance(ses, dict): ses = [ses]
-                cleaned = []
-                for s in (ses or []):
-                    if isinstance(s, dict):
-                        _coerce_run_structure(s)
-                        _coerce_strength_exercises(s, strength_gear)
-                        cleaned.append(s)
-                norm[str(day)] = {"day": str(day), "sessions": cleaned}
-
-    out_list: List[Dict[str,Any]] = []
-    for i, d in enumerate(want_dates):
-        cur = norm.get(d)
-        if not cur:
-            sess = {"title": "Rest Day" if i in (2,5) else "Easy Run", "duration_min": 0 if i in (2,5) else 30, "intensity": "easy" if i not in (2,5) else None}
-            if "run" in (sess.get("title","").lower()):
-                _coerce_run_structure(sess)
-            elif "strength" in (sess.get("title","").lower()):
-                _coerce_strength_exercises(sess, strength_gear)
-            out_list.append({"day": d, "sessions":[sess]})
-        else:
-            out_list.append({"day": d, "sessions": cur["sessions"]})
-
-    parsed["first_10_days"] = out_list
-    parsed.setdefault("_meta", {})["next10_start"] = start_date_str
