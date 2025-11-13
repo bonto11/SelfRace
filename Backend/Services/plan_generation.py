@@ -67,15 +67,33 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
 # ---------- session_type helpers (fallback na Easy) ----------
 
 
+# ---------- session_type helpers (fallback na Easy) ----------
+
 def _canonical_sport(sport: Any) -> str:
-    s = (str(sport or "")).lower()
+    """
+    Normalizuje názov športu:
+    - bike / cycling -> ride
+    - gym -> strength
+    - run / ride / strength / swim / other -> ako sú
+    - prázdny -> run (fallback)
+    - čokoľvek iné -> other
+    """
+    s = (str(sport or "")).lower().strip()
+
+    if not s:
+        # keď AI nič neposlalo, fallback na run
+        return "run"
+
     if s in ("bike", "cycling"):
         return "ride"
     if s in ("gym",):
         return "strength"
-    if s not in ("run", "ride", "strength", "swim"):
-        return "run"
-    return s
+
+    if s in ("run", "ride", "strength", "swim", "other"):
+        return s
+
+    # exotické veci (yoga, walk, hike, ...) nech označíme ako "other"
+    return "other"
 
 
 def _default_session_type_for_sport(sport: str) -> str:
@@ -83,12 +101,17 @@ def _default_session_type_for_sport(sport: str) -> str:
     Default session_type keď AI nič nedá.
     """
     s = _canonical_sport(sport)
+
     if s == "ride":
         return "ride_easy_endurance"
     if s == "strength":
         return "strength_full_body"
     if s == "swim":
         return "swim_easy_technique"
+    if s == "other":
+        # napr. Rest Day alebo voľná aktivita – v katalógu nemusí byť
+        return "rest_day"
+
     # default – beh
     return "run_easy"
 
