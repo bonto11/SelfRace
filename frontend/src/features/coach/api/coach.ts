@@ -8,6 +8,7 @@ export type AnalyzePayloadBE = {
   goal: {
     goal_kind?: CoachPrefs["goal_kind"];
     weeks?: number;
+    // start_date už nemusíme využívať – kanonický je plan_start_date
     start_date?: string;
   };
   voice: {
@@ -29,7 +30,6 @@ export type AnalyzePayloadBE = {
   };
   intensity_model?: "polarized" | "pyramidal" | null;
   blocks?: { vo2max?: boolean; threshold?: boolean; ftp?: boolean };
-  /** preferovaný kľúč pre BE */
   plan_start_date?: string | null;
   strength_settings?: CoachPrefs["strength_settings"];
   legacy?: {
@@ -52,7 +52,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     goal: {
       goal_kind: prefs.goal_kind,
       weeks: prefs.weeks ?? undefined,
-      start_date: (prefs as any).start_date ?? (prefs as any).plan_start_date ?? undefined,
+      // start_date už sem netlačíme, nech je dátum len na jednom mieste
     },
     voice: { coach_voice: prefs.coach_voice, coach_tone: prefs.coach_tone },
     sports: { main_sport: prefs.main_sport, secondary_mix: secondary },
@@ -71,8 +71,10 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
       threshold: !!prefs.threshold_focus,
       ftp: !!prefs.ftp_training,
     },
-    // BUGFIX: pôvodne omylom distance; má byť start_date/plan_start_date
-    plan_start_date: (prefs as any).plan_start_date ?? (prefs as any).start_date ?? null,
+    plan_start_date:
+      (prefs as any).plan_start_date ??
+      (prefs as any).start_date ??
+      null,
     strength_settings: prefs.strength_settings ?? undefined,
     legacy: {
       distance: prefs.distance ?? undefined,
@@ -81,6 +83,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     },
   };
 }
+
 
 /** ---- API calls -------------------------------------------------------- */
 

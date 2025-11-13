@@ -1,8 +1,9 @@
+# Routes/coach_planning.py
 from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS, LLM_RETRIES
+from Configs.config import DEFAULT_MODEL, FALLBACK_MODELS
 from Services.plan_generation import generate_plan_json
 from Services.progress_narrative import build_progress_narrative
 from Routes.coach_context import coach_context
@@ -11,8 +12,12 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 
 
 def _norm_goal(goal_in) -> str:
+    """
+    Normalizuje cieľ na jednoduchý string.
+    Podporuje staré aj nové polia: kind / goal_kind.
+    """
     if isinstance(goal_in, dict):
-        kind = (goal_in.get("kind") or "").strip()
+        kind = (goal_in.get("kind") or goal_in.get("goal_kind") or "").strip()
         rg = goal_in.get("race_goal")
         if kind == "race_time" and rg:
             return f"race_time:{rg}"
@@ -22,105 +27,120 @@ def _norm_goal(goal_in) -> str:
 
 def _normalize_payload(payload: dict) -> dict:
     """
-    Normalizuje payload z FE na interný tvar pre coach_context + AI.
-
-    Podporuje:
-      - nový kontrakt (schema_version >= 2):
-          {
-            schema_version: 2,
-            goal: { goal_kind, weeks, start_date },
-            sports: { main_sport, secondary_mix },
-            targets, rules, externals, injuries, focus, intensity_model, blocks,
-            plan_start_date, strength_settings, ...
-          }
-      - starý kontrakt s goal_structured.*
+    Zoberie payload z FE (nový kontrakt) + prípadné legacy `goal_structured`
+    a vráti plochú štruktúru, ktorú používame ďalej v BE.
     """
-    schema_version = int(payload.get("schema_version") or 1)
-
+    goal_struct = payload.get("goal_structured") or {}  # legacy
     goal_block = payload.get("goal") or {}
-    sports_block = payload.get("sports") or {}
 
-    # --- weeks ---
+    # --- weeks -----------------------------------------------------------------
     weeks = int(
         payload.get("weeks")
         or goal_block.get("weeks")
+        or goal_struct.get("weeks")
         or 6
     )
 
-    # --- goal string ---
-    raw_goal = payload.get("goal")
-    if isinstance(raw_goal, dict) and (
-        "goal_kind" in raw_goal or "weeks" in raw_goal or "start_date" in raw_goal
-    ):
-        goal_str = (raw_goal.get("goal_kind") or "improve_overall")
-    else:
-        goal_str = _norm_goal(raw_goal)
-
-    # --- primary_sports / main_sport / secondary_mix ---
-    primary_sports = (
-        payload.get("primary_sports")
-        or None
+    # --- goal string -----------------------------------------------------------
+    goal_str = _norm_goal(
+        goal_block
+        or payload.get("goal")
+        or goal_struct.get("goal")
+        or {"goal_kind": goal_struct.get("goal_kind")}
     )
 
+    # --- sports ----------------------------------------------------------------
+    sports_block = payload.get("sports") or {}
     main_sport = (
         payload.get("main_sport")
         or sports_block.get("main_sport")
+        or goal_struct.get("main_sport")
     )
 
     secondary_mix = (
         payload.get("secondary_mix")
         or sports_block.get("secondary_mix")
+        or goal_struct.get("secondary_mix")
+        or []
     )
 
+    # primárne športy – nový kontrakt ich neposiela, tak si ich zložíme
+    primary_sports = payload.get("primary_sports") or goal_struct.get("primary_sports")
     if not primary_sports:
-        ps: List[str] = []
+        primary = []
         if main_sport:
-            ps.append(main_sport)
-        if isinstance(secondary_mix, list):
-            for item in secondary_mix:
-                s = (item or {}).get("sport")
-                if s and s not in ps:
-                    ps.append(s)
-        primary_sports = ps or ["run", "ride", "strength"]
+            primary.append(main_sport)
+        for it in secondary_mix or []:
+            s = (it or {}).get("sport")
+            if s and s not in primary:
+                primary.append(s)
+        if not primary:
+            primary = ["run", "ride", "strength"]
+        primary_sports = primary
 
-    persona = payload.get("persona")
+    # --- persona / hlas --------------------------------------------------------
+    persona = (
+        payload.get("persona")
+        or goal_struct.get("persona")
+        or (payload.get("voice") or {}).get("coach_voice")
+    )
 
-    # --- targets / rules / externals / injuries / focus ---
-    targets = payload.get("targets")
-    rules = payload.get("rules")
-    externals = payload.get("externals") or []
-    injuries = payload.get("injuries") or []
+    # --- targets / rules / externals / injuries / focus ------------------------
+    targets = payload.get("targets") or goal_struct.get("targets")
 
-    if "focus" in payload and isinstance(payload.get("focus"), dict):
-        focus_in = payload["focus"]
+    rules = payload.get("rules") or goal_struct.get("preferences")
+
+    externals = payload.get("externals") or goal_struct.get("external_activities") or []
+
+    injuries = payload.get("injuries") or goal_struct.get("injuries") or []
+
+    if isinstance(payload.get("focus"), dict):
+        f_in = payload["focus"]
         focus = {
-            "areas": focus_in.get("areas") or [],
-            "avoid_zones": focus_in.get("avoid_zones") or [],
-            "rehab": focus_in.get("rehab"),
+            "areas": f_in.get("areas") or [],
+            "avoid_zones": f_in.get("avoid_zones") or [],
+            "rehab": f_in.get("rehab") or None,
+        }
+    else:
+        focus = {
+            "areas": goal_struct.get("focus_areas") or [],
+            "avoid_zones": goal_struct.get("avoid_zones") or [],
+            "rehab": goal_struct.get("rehab_focus") or None,
         }
 
-
-    # --- plan_start_date / strength_settings ---
+    # --- dátum začiatku – JEDEN kanonický kľúč -------------------------------
     plan_start_date = (
         payload.get("plan_start_date")
         or goal_block.get("start_date")
+        or goal_struct.get("plan_start_date")
+        or goal_struct.get("start_date")
     )
 
-    strength_settings = payload.get("strength_settings")
+    # --- strength --------------------------------------------------------------
+    strength_settings = (
+        payload.get("strength_settings")
+        or goal_struct.get("strength_settings")
+    )
 
-    # --- intensity model / blocks ---
+    # --- intenzitný model / blocks --------------------------------------------
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
-        intensity_model = "polarized"
-
+        g = goal_struct
+        if g.get("polarized_model"):
+            intensity_model = "polarized"
+        elif g.get("pyramidal_model"):
+            intensity_model = "pyramidal"
 
     blocks = payload.get("blocks")
     if blocks is None:
+        g = goal_struct
         blocks = {
-            "vo2max": True,
-            "ftp": True,
-            "threshold": True,
+            "vo2max": bool(g.get("vo2max_training")),
+            "ftp": bool(g.get("ftp_training")),
+            "threshold": bool(g.get("threshold_focus")),
         }
+
+    schema_version = int(payload.get("schema_version") or 1)
 
     return {
         "schema_version": schema_version,
@@ -219,8 +239,9 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             raise HTTPException(status_code=500, detail="Context build failed")
 
         llm_input = {
-            "goal": norm["goal"],
             "schema_version": norm["schema_version"],
+            "weeks": weeks,  # ← dôležité pre week_overview v AI
+            "goal": norm["goal"],
             "primary_sports": norm["primary_sports"],
             "persona": norm["persona"],
             "main_sport": norm["main_sport"],
@@ -248,18 +269,11 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
         parsed: Optional[Dict[str, Any]] = None
         debug_trace: Optional[Dict[str, Any]] = None
-        used_model: Optional[str] = None
 
-        # generate_plan_json už sám robí fallbacky, tu stačí prvý model (alebo cyklus, ak chceš)
-        for m in models:
-            candidate, trace = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
-            parsed = candidate
-            debug_trace = trace
-            used_model = (trace or {}).get("ok_model") or m
-            break
+        # generate_plan_json už robí vlastné fallbacky naprieč modelmi
+        parsed, debug_trace = generate_plan_json(llm_input, models[0], debug_raw=True, loose=False)
 
         if parsed is None:
-            # Teoreticky by sa nemalo stať, ale nech je to kryté
             return {
                 "success": False,
                 "error": "AI generation failed (no parsed content).",
@@ -267,7 +281,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                 "cleaned": (debug_trace or {}).get("cleaned"),
             }
 
-        # validácia next_10_days – keď failne, NEháčeme HTTP error, ale vrátime raw
+        # validácia next_10_days – keď failne, neskončíme 5xx ale vrátime raw
         try:
             _validate_next10(parsed, norm.get("plan_start_date"), norm.get("rules"))
         except Exception as e:
@@ -288,7 +302,6 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
 
         narr = build_progress_narrative(ctx, weeks)
 
-        # pri úspechu pošleme LEN malý debug (bez contextu, bez promptov, bez raw)
         slim_debug = None
         if isinstance(debug_trace, dict):
             slim_debug = {
@@ -299,7 +312,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
 
         return {
             "success": True,
-            "model": used_model,
+            "model": (slim_debug or {}).get("ok_model"),
             "analysis": parsed,
             "narrative": narr,
             "ai_debug": slim_debug,

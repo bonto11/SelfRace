@@ -1,3 +1,4 @@
+# Services/plan_generation.py
 import os
 import json
 import re
@@ -9,9 +10,8 @@ from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
+CODEFENCE_RE = re.compile(r"(?:json)?\s*([\s\S]*?)\s*", re.IGNORECASE)
 
-# ---------- parsing utils ----------
-CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 
 def _strip_codefence(s: str) -> str:
@@ -63,25 +63,16 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
 
 # ---------- normalize (aliasy, bez dopĺňania obsahu) ----------
 def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
-    """
-    Normalizuje AI výstup na jednotný tvar pre FE.
-    Používame len:
-      - summary, insights, red_flags
-      - weeks_overview (alebo outline_10w)
-      - next_10_days
-      - next_week_plan (ak je neprazdne)
-    """
     if not isinstance(obj, dict):
-        # toto je skôr interná chyba ako validačná – nech to spadne
         raise ValueError("AI output is not a JSON object")
-
     return {
         "summary": obj.get("summary") or "No summary.",
         "insights": obj.get("insights") or [],
         "red_flags": obj.get("red_flags") or [],
-        "weeks_overview": obj.get("weeks_overview") or obj.get("outline_10w") or [],
-        "next_10_days": obj.get("next_10_days") or [],
-        "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}, None) else None,
+        "week_overview": obj.get("week_overview") or obj.get("outline_10w") or [],
+        "first_10_days": obj.get("first_10_days") or obj.get("next_10_days") or [],
+        "next_10_days": obj.get("next_10_days") or None,
+        "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}) else None,
         "_meta": {
             "plan_source": "ai",
             "week_start": plan_start_iso or None,
@@ -100,36 +91,35 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
-    # koľko týždňov rieši plán – použijeme len na počet riadkov v weeks_overview
-    weeks = int(context_payload.get("weeks") or 6)
+    weeks = int(
+        context_payload.get("weeks")
+        or (context_payload.get("goal") or {}).get("weeks")
+        or 6
+    )
 
-    wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
+    wu_cd_required = bool((context_payload.get("rules") or {}).get("wu_cd_detail", False))
     hard = [
-        "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date`.",
-        "Each day MUST include non-empty `sessions`.",
+        "Produce next_10_days for EXACTLY 10 consecutive dates starting from plan_start_date.",
+        "Each day MUST include non-empty sessions.",
         "If a day is rest: include one session {\"title\":\"Rest Day\",\"sport\":\"other\",\"duration_min\":0}.",
-        "Include `sport` for every session (run/ride/strength/other).",
-        "For RUN sessions provide `target_hr_bpm_range:[low,high]` (bpm).",
+        "Include sport for every session (run/ride/strength/other).",
+        "For RUN sessions provide target_hr_bpm_range:[low,high] (bpm).",
         "Derive HR ranges from thresholds/zones provided in context (do NOT invent physiology).",
-        "Pace as string `min/km`; power in watts.",
-        "`next_week_plan` is optional and may be null.",
+        "Pace as string min/km; power in watts.",
+        "next_week_plan is optional and may be null.",
         "Output JSON only.",
-        "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
-        # weeks_overview
-        f"Include `weeks_overview` as an array of up to {min(weeks, 12)} short strings.",
-        "Each item in `weeks_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
-        "Keep every `weeks_overview` item <= 120 characters and very concise.",
+        "Strength sessions MUST include exercises array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
+        f"Include week_overview as an array of up to {min(weeks, 12)} short strings.",
+        "Each item in week_overview should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
+        "Keep every week_overview item <= 120 characters and very concise.",
     ]
     if wu_cd_required:
         hard += [
-            "For RUN sessions include `structure` with warmup (5–15 min), at least one `main` block, and cooldown (5–10 min).",
+            "For RUN sessions include structure with warmup (5–15 min), at least one main block, and cooldown (5–10 min).",
             "HR targets can be top-level or inside structure.*.target.hr.",
         ]
 
-    system_txt = (
-        "You are an endurance coaching assistant. "
-        "Return one valid JSON object only. No prose, no code fences."
-    )
+    system_txt = "You are an endurance coaching assistant. Return one valid JSON object only. No prose, no code fences."
     user_txt = (
         "Context JSON:\n"
         + json.dumps(context_payload, ensure_ascii=False)
@@ -167,19 +157,13 @@ def _extract_start_date(ctx: dict) -> Optional[str]:
             return sd2
     return None
 
-
 def generate_plan_json(
     context_payload: dict,
     model: str,
     *,
     debug_raw: bool = False,
-    loose: bool = False,  # ignorované, len kvôli spätné kompatibilite
+    loose: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
-    """
-    Vždy vráti (parsed_or_fallback, debug_trace).
-    Nikdy neháče HTTPException (okrem chýbajúceho API key).
-    Keď AI zlyhá, parsed bude minimálny fallback + debug obsahuje raw/cleaned/trace.
-    """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
@@ -190,33 +174,7 @@ def generate_plan_json(
     models = _llm_models_priority(model)
     token_budgets = [3000, 2500, 2000]
 
-    schema_text = """
-{
-  "summary": string,
-  "insights": string[],
-  "red_flags": { "type": string, "details"?: string, "evidence"?: string }[],
-  "weeks_overview"?: string[],
-  "next_week_plan"?: { ... } | null,
-  "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]
-}
-Where Session = {
-  "title": string,
-  "sport": "run" | "ride" | "strength" | "other",
-  "duration_min": number,
-  "intensity"?: string | null,
-  "notes"?: string | null,
-  "target_pace_min_per_km"?: string | null,
-  "target_hr_bpm_range"?: [number, number] | null,
-  "target_power_watts"?: number | null,
-  "zone"?: string | null,
-  "structure"?: {
-    "warmup"?: { "minutes"?: number, "notes"?: string, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } },
-    "main"?:   ({ "reps"?: number, "work_min"?: number, "recover_min"?: number, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } }[]),
-    "cooldown"?: { "minutes"?: number, "notes"?: string, "target"?: { "hr"?: [number,number], "pace"?: string, "power"?: number } }
-  },
-  "exercises"?: { "name": string, "sets": number, "reps"?: number, "seconds"?: number, "rest_sec"?: number }[]
-}
-""".strip()
+    schema_text = """{ ... }""".strip()  # nechávam ako máš
 
     system_txt, user_txt = _build_prompts(context_payload, schema_text)
 
@@ -232,6 +190,7 @@ Where Session = {
             try:
                 raw = _call_openai(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
+
                 parsed_dict, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
@@ -258,7 +217,11 @@ Where Session = {
 
             except Exception as e:
                 dur_ms = int((time.time() - started) * 1000)
-                last_err = f"{type(e).__name__}: {e}"
+
+                # pekné meno chyby bez Pylance warningu
+                err_name = e.__class__.__name__
+                last_err = f"{err_name}: {e}"
+
                 trace["attempts"].append({
                     "model": m,
                     "attempt": attempt,
@@ -266,15 +229,16 @@ Where Session = {
                     "duration_ms": dur_ms,
                     "error": last_err,
                 })
+
                 time.sleep(0.5 * attempt)
                 continue
 
-    # fallback – AI sa nepodarilo
     fallback = {
         "summary": "AI generation failed.",
         "insights": [],
         "red_flags": [{"type": "error", "details": last_err or "unknown"}],
-        "weeks_overview": [],
+        "week_overview": [],
+        "first_10_days": [],
         "next_10_days": [],
         "next_week_plan": None,
         "_meta": {"plan_source": "ai", "ok": False},

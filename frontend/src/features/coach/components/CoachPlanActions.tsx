@@ -192,7 +192,7 @@ export default function CoachPlanActions() {
       // 2) inputs
       markOnly("Preparing inputs for AI", "build payload");
       const base = toAnalyzePayloadBE(effectivePrefs);
-      const payload = { ...base, goal_structured: effectivePrefs, bests: { run: pbRun ?? [] } };
+      const payload = { ...base, bests: { run: pbRun ?? [] } };
       setDebugPayload(base);
 
       // 3) cache
