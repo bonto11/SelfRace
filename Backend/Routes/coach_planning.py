@@ -140,17 +140,14 @@ def _normalize_payload(payload: dict) -> dict:
 # ---- strict BE validácia bez dopĺňania ----
 
 def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]) -> None:
-    """
-    Kontroluje len to, čo AI *musí* dodržať:
-    - 10 dní,
-    - každá položka má day + sessions,
-    - run má HR target (buď top-level alebo v structure.main[].target.hr),
-    - strength má exercises[].
-    session_type, sport atď. rieši normalize_plan_json v Services.plan_generation.
-    """
     n10 = parsed.get("next_10_days")
-    if not (isinstance(n10, list) and len(n10) == 10):
-        raise HTTPException(status_code=502, detail="AI must return next_10_days with 10 items")
+
+    # AI musí dať aspoň 7 dní
+    if not isinstance(n10, list) or len(n10) < 7:
+        raise HTTPException(
+            status_code=502,
+            detail="AI must return next_10_days with at least 7 items"
+        )
 
     require_wu_cd = bool((rules or {}).get("wu_cd_detail"))
 
@@ -169,6 +166,7 @@ def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: O
             is_run = sport == "run" or "run" in title
             is_strength = sport == "strength" or "strength" in title or "weight" in title
 
+            # ---- RUN checks ----
             if is_run:
                 hr = s.get("target_hr_bpm_range")
                 ok_hr = isinstance(hr, list) and len(hr) == 2
@@ -197,6 +195,7 @@ def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: O
                     if "minutes" in (cd or {}) and not isinstance(cd.get("minutes"), (int, float)):
                         raise HTTPException(status_code=502, detail=f"Cooldown minutes invalid at {i}:{j}")
 
+            # ---- STRENGTH checks ----
             if is_strength:
                 ex = s.get("exercises")
                 if not (isinstance(ex, list) and len(ex) >= 3):
@@ -207,6 +206,7 @@ def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: O
                     if not (isinstance(e.get("reps"), (int, float)) or isinstance(e.get("seconds"), (int, float))):
                         raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include reps or seconds")
 
+    # dátum prvého dňa musí sedieť
     if must_start and n10[0]["day"] != must_start:
         raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
