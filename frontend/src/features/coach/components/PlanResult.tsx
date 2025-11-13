@@ -201,6 +201,13 @@ export default function PlanResult({
             </div>
           )}
 
+          {analysis?.insights && (
+            <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
+              <h3 className="font-semibold mb-1">Insights</h3>
+              <p>{analysis.insights}</p>
+            </div>
+          )}
+
           {!!preview.length && <WeekPreview lines={preview} />}
         </section>
       )}
