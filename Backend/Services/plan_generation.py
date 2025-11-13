@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
+from shared.training_types import get_session_type_catalog_for_prompt
 
 
 # ---------- parsing utils ----------
@@ -41,7 +42,7 @@ def _sanitize_json_guess(s: str) -> str:
     s = _strip_codefence(s)
     s = _find_outer_json_block(s)
     s = re.sub(r",\s*([}\]])", r"\1", s)  # trailing commas
-    s = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', s)  # bad backslashes
+    s = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", s)  # bad backslashes
     s = re.sub(r"\bNaN\b|\bInfinity\b|-Infinity", "null", s)
     return s.strip()
 
@@ -63,13 +64,90 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
             return None, cleaned, raw
 
 
+# ---------- session_type helpers (fallback na Easy) ----------
+
+
+def _canonical_sport(sport: Any) -> str:
+    s = (str(sport or "")).lower()
+    if s in ("bike", "cycling"):
+        return "ride"
+    if s in ("gym",):
+        return "strength"
+    if s not in ("run", "ride", "strength", "swim"):
+        return "run"
+    return s
+
+
+def _default_session_type_for_sport(sport: str) -> str:
+    """
+    Default session_type keď AI nič nedá.
+    """
+    s = _canonical_sport(sport)
+    if s == "ride":
+        return "ride_easy_endurance"
+    if s == "strength":
+        return "strength_full_body"
+    if s == "swim":
+        return "swim_easy_technique"
+    # default – beh
+    return "run_easy"
+
+
+def _ensure_session_types(next10: Any, default_sport: str) -> List[dict]:
+    """
+    Prejde next_10_days a:
+    - normalizuje sport (run/ride/strength/swim),
+    - doplní session_type, ak chýba (podľa športu),
+    - nechá session_type na pokoji, ak už AI niečo rozumné poslala.
+    """
+    if not isinstance(next10, list):
+        return []
+
+    default_sport = _canonical_sport(default_sport)
+
+    for d in next10:
+        if not isinstance(d, dict):
+            continue
+        sessions = d.get("sessions")
+        if not isinstance(sessions, list):
+            continue
+        for s in sessions:
+            if not isinstance(s, dict):
+                continue
+
+            sport = s.get("sport")
+            sport = _canonical_sport(sport or default_sport)
+            s["sport"] = sport  # normalizovaný názov
+
+            # session_type: vezmi existujúce (session_type/type/kind) alebo fallback
+            st = s.get("session_type") or s.get("type") or s.get("kind")
+            if not isinstance(st, str) or not st.strip():
+                st = _default_session_type_for_sport(sport)
+            s["session_type"] = st
+
+    return next10
+
+
 # ---------- normalize (aliasy, bez dopĺňania obsahu) ----------
-def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict:
+
+
+def normalize_plan_json(
+    obj: dict,
+    plan_start_iso: Optional[str] = None,
+    default_sport: str = "run",
+) -> dict:
+    """
+    Normalizuje AI výstup:
+    - názvy kľúčov,
+    - doplní meta,
+    - *post-process* next_10_days, aby tam vždy bol sport + session_type.
+    """
     if not isinstance(obj, dict):
         # toto je interná chyba, nie AI validácia
         raise ValueError("AI output is not a JSON object")
 
-    next10 = obj.get("next_10_days") or []
+    raw_next10 = obj.get("next_10_days") or []
+    next10 = _ensure_session_types(raw_next10, default_sport=default_sport)
 
     return {
         "summary": obj.get("summary") or "No summary.",
@@ -77,7 +155,11 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         "red_flags": obj.get("red_flags") or [],
         "weeks_overview": obj.get("weeks_overview") or obj.get("outline_10w") or [],
         "next_10_days": next10,
-        "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}) else None,
+        "next_week_plan": (
+            obj.get("next_week_plan")
+            if obj.get("next_week_plan") not in ([], {})
+            else None
+        ),
         "_meta": {
             "plan_source": "ai",
             "week_start": plan_start_iso or None,
@@ -87,6 +169,8 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
 
 
 # ---------- coach voice helpers ----------
+
+
 def _bucket_level(val: Any) -> str:
     """low / medium / high z 0–100 slidera."""
     if val is None:
@@ -105,7 +189,7 @@ def _bucket_level(val: Any) -> str:
 def _describe_coach_voice(voice_block: Optional[dict]) -> str:
     """
     Preloží coach_voice + coach_tone (emoji/praise/explain/challenge)
-    na krátny textový popis štýlu, ktorý dáme do promptu.
+    na krátky textový popis štýlu, ktorý dáme do promptu.
     """
     vb = voice_block or {}
     voice_name = (vb.get("coach_voice") or "neutral").lower()
@@ -137,9 +221,13 @@ def _describe_coach_voice(voice_block: Optional[dict]) -> str:
 
     # pochvala
     if praise_level == "low":
-        extras.append("Praise only when there is a really strong reason; be rather strict.")
+        extras.append(
+            "Praise only when there is a really strong reason; be rather strict."
+        )
     elif praise_level == "high":
-        extras.append("Regularly highlight wins and positive trends to keep motivation high.")
+        extras.append(
+            "Regularly highlight wins and positive trends to keep motivation high."
+        )
     else:
         extras.append("Use praise in a balanced way when it is deserved.")
 
@@ -147,22 +235,32 @@ def _describe_coach_voice(voice_block: Optional[dict]) -> str:
     if explain_level == "low":
         extras.append("Keep explanations short and only when necessary.")
     elif explain_level == "high":
-        extras.append("Briefly explain *why* important decisions are made (zones, structure, intensity).")
+        extras.append(
+            "Briefly explain *why* important decisions are made (zones, structure, intensity)."
+        )
     else:
         extras.append("Explain key points, but do not go into excessive detail.")
 
     # challenge
     if challenge_level == "low":
-        extras.append("Be cautious with pushing intensity; emphasize safety and recovery.")
+        extras.append(
+            "Be cautious with pushing intensity; emphasize safety and recovery."
+        )
     elif challenge_level == "high":
-        extras.append("Do not hesitate to challenge the athlete and suggest ambitious, but safe, workloads.")
+        extras.append(
+            "Do not hesitate to challenge the athlete and suggest ambitious, but safe, workloads."
+        )
     else:
-        extras.append("Balance between comfort and challenge; push gently, not aggressively.")
+        extras.append(
+            "Balance between comfort and challenge; push gently, not aggressively."
+        )
 
     return base + " " + " ".join(extras)
 
 
 # ---------- LLM call ----------
+
+
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
@@ -178,14 +276,18 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     # textový popis coach voice
     voice_desc = _describe_coach_voice(context_payload.get("voice") or {})
 
+    # session_type katalóg zo shared/training_types.json
+    session_catalog = get_session_type_catalog_for_prompt()
+    session_catalog_txt = json.dumps(session_catalog, ensure_ascii=False)
+
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
     hard: List[str] = [
         "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date`.",
         "`next_10_days` MUST be an ARRAY with exactly 10 items (do NOT return a single object).",
         "Do NOT include any `first_10_days` key in the output.",
         "Each day in `next_10_days` MUST include non-empty `sessions`.",
-        "If a day is rest: include one session {\"title\":\"Rest Day\",\"sport\":\"other\",\"duration_min\":0}.",
-        "Include `sport` for every session (run/ride/strength/other).",
+        'If a day is rest: include one session {"title":"Rest Day","sport":"other","duration_min":0}.',
+        "Include `sport` for every session (run/ride/strength/other/swim).",
         "For RUN sessions provide `target_hr_bpm_range:[low,high]` (bpm).",
         "Derive HR ranges from thresholds/zones provided in context (do NOT invent physiology).",
         "Pace as string `min/km`; power in watts.",
@@ -196,7 +298,14 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         f"Include `weeks_overview` as an array of up to {min(weeks, 12)} short strings.",
         "Each item in `weeks_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
         "Keep every `weeks_overview` item <= 120 characters and very concise.",
-        # aplikovať štýl trénera
+        # SESSION TYPE – naviazané na shared katalóg
+        "Each session MUST include `session_type` (string).",
+        "For each session, `session_type` MUST be chosen from the session type catalog provided (per sport).",
+        "Do NOT invent new `session_type` codes. Only use keys from that catalog.",
+        "If you are unsure which `session_type` to use, choose an easy/aerobic one for that sport "
+        "('run_easy' for running, 'ride_easy_endurance' for cycling, "
+        "'strength_full_body' for strength, 'swim_easy_technique' for swimming).",
+        # štýl trénera
         "Apply the specified coaching style and tone to all textual fields (`summary`, `insights`, `notes`).",
     ]
     if wu_cd_required:
@@ -213,6 +322,8 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     user_txt = (
         "Context JSON:\n"
         + json.dumps(context_payload, ensure_ascii=False)
+        + "\n\nSession type catalog (per sport):\n"
+        + session_catalog_txt
         + "\n\nCoaching style and tone:\n"
         + voice_desc
         + "\n\nSchema (instructional):\n"
@@ -223,7 +334,9 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     return system_txt, user_txt
 
 
-def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int) -> str:
+def _call_openai(
+    client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
+) -> str:
     kwargs: Dict[str, Any] = {
         "model": model,
         "messages": [
@@ -248,6 +361,22 @@ def _extract_start_date(ctx: dict) -> Optional[str]:
         if isinstance(sd2, str) and sd2:
             return sd2
     return None
+
+
+def _default_sport_from_context(ctx: dict) -> str:
+    """
+    Z kontextu vyberie “hlavný” šport na fallback (ak AI nedá sport).
+    """
+    main = ctx.get("main_sport")
+    if isinstance(main, str) and main:
+        return _canonical_sport(main)
+
+    prim = ctx.get("primary_sports")
+    if isinstance(prim, list) and prim:
+        return _canonical_sport(prim[0])
+
+    # fallback
+    return "run"
 
 
 def generate_plan_json(
@@ -282,9 +411,10 @@ def generate_plan_json(
 }
 Where Session = {
   "title": string,
-  "sport": "run" | "ride" | "strength" | "other",
+  "sport": "run" | "ride" | "strength" | "other" | "swim",
   "duration_min": number,
   "intensity"?: string | null,
+  "session_type"?: string,
   "notes"?: string | null,
   "target_pace_min_per_km"?: string | null,
   "target_hr_bpm_range"?: [number, number] | null,
@@ -306,6 +436,8 @@ Where Session = {
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
 
+    default_sport = _default_sport_from_context(context_payload)
+
     for m in models:
         for attempt in range(1, retries + 1):
             started = time.time()
@@ -322,7 +454,8 @@ Where Session = {
                         "attempt": attempt,
                         "ok": parsed_dict is not None,
                         "duration_ms": dur_ms,
-                        "raw_preview": raw[:800] + ("…[truncated]" if len(raw) > 800 else ""),
+                        "raw_preview": raw[:800]
+                        + ("…[truncated]" if len(raw) > 800 else ""),
                     }
                 )
 
@@ -331,7 +464,11 @@ Where Session = {
                     continue
 
                 start_date = _extract_start_date(context_payload)
-                parsed = normalize_plan_json(parsed_dict, plan_start_iso=start_date)
+                parsed = normalize_plan_json(
+                    parsed_dict,
+                    plan_start_iso=start_date,
+                    default_sport=default_sport,
+                )
 
                 if debug_raw:
                     trace["raw"] = raw_keep

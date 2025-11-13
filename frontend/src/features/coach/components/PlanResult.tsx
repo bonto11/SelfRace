@@ -4,8 +4,7 @@
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import ActivitySingle from "@/shared/components/ActivitySingle";
 import { detectSport } from "@/features/coach/utils/plan";
-// Ak chceš dočasne skryť naratív, necháme import zakomentovaný
-// import CoachViewPanel from "@/features/coach/components/CoachViewPanel";
+import { findTrainingTypeById } from "@/shared/types/training";
 
 /* ───────── helpers ───────── */
 type AnyObj = Record<string, any>;
@@ -201,10 +200,14 @@ export default function PlanResult({
             </div>
           )}
 
-          {analysis?.insights && (
+          {Array.isArray(analysis?.insights) && analysis.insights.length > 0 && (
             <div className="rounded-xl border border-white/10 p-3 bg-white/70 dark:bg-gray-900/40">
               <h3 className="font-semibold mb-1">Insights</h3>
-              <p>{analysis.insights}</p>
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                {analysis.insights.map((ins: any, idx: number) => (
+                  <li key={idx}>{String(ins)}</li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -245,27 +248,39 @@ export default function PlanResult({
                   </li>
                 );
               }
-              return sessions.map((it: AnyObj, sidx: number) => (
-                <li key={`d10-${iso}-${sidx}`} className="px-0">
-                  <ActivitySingle
-                    variant="plan"
-                    data={{
-                      id: `d10-${iso}-${sidx}`,
-                      name: normTitle(it),
-                      dateIso: iso,
-                      sport: (detectSport(it) as any) ?? "other",
-                      planDur: normDuration(it),
-                      planIntensity: normIntensity(it),
-                      planTarget: normTarget(it),
-                      planNotes: normNotes(it),
-                      planRaw: it,
-                      planStructure: it?.structure ?? null,
-                      planExercises: it?.exercises ?? null,
-                    }}
-                    defaultOpen={false}
-                  />
-                </li>
-              ));
+              return sessions.map((it: AnyObj, sidx: number) => {
+                const sessionTypeId =
+                  typeof it?.session_type === "string" ? it.session_type : null;
+                const trainingDef = findTrainingTypeById(sessionTypeId);
+
+                const title = trainingDef?.label || normTitle(it);
+
+                const baseNotes = normNotes(it);
+                const typeLine = trainingDef?.description || null;
+                const combinedNotes = [typeLine, baseNotes].filter(Boolean).join(" • ");
+
+                return (
+                  <li key={`d10-${iso}-${sidx}`} className="px-0">
+                    <ActivitySingle
+                      variant="plan"
+                      data={{
+                        id: `d10-${iso}-${sidx}`,
+                        name: title,
+                        dateIso: iso,
+                        sport: (detectSport(it) as any) ?? "other",
+                        planDur: normDuration(it),
+                        planIntensity: normIntensity(it),
+                        planTarget: normTarget(it),
+                        planNotes: combinedNotes || null,
+                        planRaw: it,
+                        planStructure: it?.structure ?? null,
+                        planExercises: it?.exercises ?? null,
+                      }}
+                      defaultOpen={false}
+                    />
+                  </li>
+                );
+              });
             })}
           </ul>
 

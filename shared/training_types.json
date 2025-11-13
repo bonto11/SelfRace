@@ -1,0 +1,256 @@
+{
+  "run": {
+    "run_easy": {
+      "id": "run_easy",
+      "sport": "run",
+      "label": "Easy run",
+      "description": "Pokojný beh v nízkej intenzite (Z1–Z2) na budovanie aerobnej bázy a podporu regenerácie bez veľkej únavy."
+    },
+    "run_recovery": {
+      "id": "run_recovery",
+      "sport": "run",
+      "label": "Recovery run",
+      "description": "Veľmi ľahký beh po náročnom tréningu alebo preteku, cieľom je len rozhýbať nohy a podporiť priechodnosť svalov."
+    },
+    "run_long": {
+      "id": "run_long",
+      "sport": "run",
+      "label": "Long run",
+      "description": "Dlhší beh v prevažne nízkej intenzite, zameraný na vytrvalosť, toleranciu záťaže nôh a mentálnu odolnosť."
+    },
+    "run_tempo": {
+      "id": "run_tempo",
+      "sport": "run",
+      "label": "Tempo run",
+      "description": "Sústredený beh v stredne vysokej intenzite, zvyčajne mierne pod alebo okolo pretekového tempa na 10 km."
+    },
+    "run_threshold": {
+      "id": "run_threshold",
+      "sport": "run",
+      "label": "Threshold run",
+      "description": "Beh v okolí laktátového prahu (Z3–Z4), zameraný na zlepšenie udržateľného rýchleho tempa a ekonomiky."
+    },
+    "run_intervals": {
+      "id": "run_intervals",
+      "sport": "run",
+      "label": "Intervaly",
+      "description": "Opakované úseky v vyššej intenzite s oddychom medzi, zamerané na rýchlosť, silu nôh a odolnosť voči únave."
+    },
+    "run_vo2max": {
+      "id": "run_vo2max",
+      "sport": "run",
+      "label": "VO2max intervals",
+      "description": "Krátke až stredné intervaly vo veľmi vysokej intenzite (Z4–Z5) na zvýšenie VO2max a maximálnej aeróbnej kapacity."
+    },
+    "run_hill_repeats": {
+      "id": "run_hill_repeats",
+      "sport": "run",
+      "label": "Hill repeats",
+      "description": "Opakované výbehy kopcov na rozvoj sily nôh, techniky a odolnosti voči stúpaním, často v Z3–Z5."
+    },
+    "run_progression": {
+      "id": "run_progression",
+      "sport": "run",
+      "label": "Progression run",
+      "description": "Beh, kde sa tempo postupne zrýchľuje od easy po tempo/threshold, zameraný na kontrolu tempa a finish."
+    },
+    "run_fartlek": {
+      "id": "run_fartlek",
+      "sport": "run",
+      "label": "Fartlek",
+      "description": "Striedanie rýchlejších a pomalších úsekov podľa pocitu alebo jednoduchého vzoru, hravý rozvoj rýchlosti a vytrvalosti."
+    },
+    "run_strides": {
+      "id": "run_strides",
+      "sport": "run",
+      "label": "Strides",
+      "description": "Krátke svižné rovinky (15–30 s) s plnou regeneráciou, zamerané na techniku, kadenciu a pocit rýchlosti."
+    },
+    "run_race_pace": {
+      "id": "run_race_pace",
+      "sport": "run",
+      "label": "Race-pace run",
+      "description": "Beh alebo intervaly v tempe plánovaného preteku (5 km, 10 km, polmaratón), na nácvik tempa a stratégie."
+    }
+  },
+  "strength": {
+    "strength_full_body": {
+      "id": "strength_full_body",
+      "sport": "strength",
+      "label": "Full-body strength",
+      "description": "Komplexný tréning celého tela so základnými cvikmi, zameraný na funkčnú silu a stabilitu."
+    },
+    "strength_upper": {
+      "id": "strength_upper",
+      "sport": "strength",
+      "label": "Upper body",
+      "description": "Silový tréning zameraný na vrch tela (ťahy, tlaky, ramená), dôležitý pre držanie tela a OCR."
+    },
+    "strength_lower": {
+      "id": "strength_lower",
+      "sport": "strength",
+      "label": "Lower body",
+      "description": "Tréning zameraný na nohy (drepy, výpady, zadok, hamstringy) pre beh, kopce a odolnosť voči zraneniam."
+    },
+    "strength_core": {
+      "id": "strength_core",
+      "sport": "strength",
+      "label": "Core & stability",
+      "description": "Tréning stredu tela, stability a kontrolovaného pohybu, dôležitý pre ekonomiku behu a prevenciu bolesti chrbta."
+    },
+    "strength_ocr_grip": {
+      "id": "strength_ocr_grip",
+      "sport": "strength",
+      "label": "OCR / grip",
+      "description": "Tréning úchopu, chrbta a ťahových vzorov pre prekážkové behy (TRX, hrazda, úchopy, farmer’s walk)."
+    },
+    "strength_max": {
+      "id": "strength_max",
+      "sport": "strength",
+      "label": "Max strength",
+      "description": "Ťažké váhy s nízkym počtom opakovaní, cieľom je zvýšiť maximálnu silu a nervovo-svalovú koordináciu."
+    },
+    "strength_hypertrophy": {
+      "id": "strength_hypertrophy",
+      "sport": "strength",
+      "label": "Hypertrophy",
+      "description": "Stredné váhy a vyšší počet opakovaní na budovanie svalovej hmoty a zlepšenie tolerance objemu."
+    },
+    "strength_tabata": {
+      "id": "strength_tabata",
+      "sport": "strength",
+      "label": "Tabata",
+      "description": "Krátke vysoko intenzívne intervaly (napr. 20 s práca / 10 s pauza), zamerané na kondíciu a metabolický stres."
+    },
+    "strength_hiit": {
+      "id": "strength_hiit",
+      "sport": "strength",
+      "label": "HIIT",
+      "description": "Vysoko intenzívny intervalový tréning celého tela, často v kruhoch, s krátkymi pauzami."
+    },
+    "strength_emom": {
+      "id": "strength_emom",
+      "sport": "strength",
+      "label": "EMOM",
+      "description": "Every Minute On the Minute – na začiatku každej minúty predpísané opakovania, potom zvyšok minúty oddych."
+    },
+    "strength_circuit": {
+      "id": "strength_circuit",
+      "sport": "strength",
+      "label": "Circuit training",
+      "description": "Kruhový tréning s viacerými stanovišťami, striedajúci cviky na celé telo pre silu aj kondíciu."
+    },
+    "strength_pyramid": {
+      "id": "strength_pyramid",
+      "sport": "strength",
+      "label": "Pyramid",
+      "description": "Postupné zvyšovanie a následné znižovanie počtu opakovaní alebo váhy, zamerané na silu aj vytrvalosť."
+    }
+  },
+  "ride": {
+    "ride_easy_endurance": {
+      "id": "ride_easy_endurance",
+      "sport": "ride",
+      "label": "Easy endurance",
+      "description": "Pokojná jazda v nízkej intenzite, zameraná na vytrvalosť a objem bez veľkej únavy."
+    },
+    "ride_recovery_spin": {
+      "id": "ride_recovery_spin",
+      "sport": "ride",
+      "label": "Recovery spin",
+      "description": "Veľmi ľahká, krátka jazda s nízkym odporom na rozhýbanie nôh a podporu regenerácie."
+    },
+    "ride_long": {
+      "id": "ride_long",
+      "sport": "ride",
+      "label": "Long ride",
+      "description": "Dlhšia jazda v nízkej až strednej intenzite, buduje základnú cyklo vytrvalosť a toleranciu sedu."
+    },
+    "ride_tempo": {
+      "id": "ride_tempo",
+      "sport": "ride",
+      "label": "Tempo ride",
+      "description": "Jazda v stredne vysokej intenzite, nad komfortnou Z2, zameraná na udržateľnú silu a výkon."
+    },
+    "ride_sweet_spot": {
+      "id": "ride_sweet_spot",
+      "sport": "ride",
+      "label": "Sweet spot",
+      "description": "Jazda alebo intervaly tesne pod prahom (okolo sweet-spotu), efektívny kompromis medzi objemom a intenzitou."
+    },
+    "ride_threshold": {
+      "id": "ride_threshold",
+      "sport": "ride",
+      "label": "Threshold intervals",
+      "description": "Intervaly v okolí funkčného prahového výkonu (FTP), zamerané na zlepšenie udržateľného výkonu."
+    },
+    "ride_vo2max": {
+      "id": "ride_vo2max",
+      "sport": "ride",
+      "label": "VO2max intervals",
+      "description": "Krátke intervaly vo vysokej intenzite nad prahom, zamerané na zvýšenie VO2max a toleranciu vysokého výkonu."
+    },
+    "ride_sprints": {
+      "id": "ride_sprints",
+      "sport": "ride",
+      "label": "Sprints",
+      "description": "Krátke maximálne šprinty s plnou regeneráciou, zamerané na neuromuskulárnu silu a špičkový výkon."
+    },
+    "ride_hill_repeats": {
+      "id": "ride_hill_repeats",
+      "sport": "ride",
+      "label": "Hill repeats",
+      "description": "Opakované výjazdy do kopca, zamerané na silu nôh, kadenciu a zvládanie stúpaní."
+    },
+    "ride_cadence_drills": {
+      "id": "ride_cadence_drills",
+      "sport": "ride",
+      "label": "Cadence drills",
+      "description": "Cielené bloky s vyššou alebo nižšou kadenciou, na zlepšenie šliapania a kontroly nad frekvenciou."
+    }
+  },
+  "swim": {
+    "swim_easy_technique": {
+      "id": "swim_easy_technique",
+      "sport": "swim",
+      "label": "Easy / technique",
+      "description": "Pokojné plávanie s dôrazom na techniku, dýchanie a pocit z vody, minimálna intenzita."
+    },
+    "swim_endurance": {
+      "id": "swim_endurance",
+      "sport": "swim",
+      "label": "Endurance",
+      "description": "Dlhšie úseky v strednej intenzite na budovanie vytrvalosti a ekonomiky plávania."
+    },
+    "swim_intervals": {
+      "id": "swim_intervals",
+      "sport": "swim",
+      "label": "Intervals",
+      "description": "Opakované úseky s pevne danou dĺžkou a pauzou, zamerané na rýchlosť a kondíciu."
+    },
+    "swim_threshold": {
+      "id": "swim_threshold",
+      "sport": "swim",
+      "label": "Threshold",
+      "description": "Úseky v okolí prahu, zamerané na schopnosť udržať vyššie tempo s dobrou technikou."
+    },
+    "swim_speed": {
+      "id": "swim_speed",
+      "sport": "swim",
+      "label": "Speed",
+      "description": "Krátke rýchlostné úseky s dôrazom na explozívnu silu a techniku pri vyššom tempe."
+    },
+    "swim_drills": {
+      "id": "swim_drills",
+      "sport": "swim",
+      "label": "Drills",
+      "description": "Technické cvičenia (napr. jednoruké plávanie, catch-up) na zlepšenie zábere, polohy tela a dýchania."
+    },
+    "swim_open_water_sim": {
+      "id": "swim_open_water_sim",
+      "sport": "swim",
+      "label": "Open water simulation",
+      "description": "Tréning simulujúci otvorenú vodu (dlhšie úseky, menej odpočinku, orientácia, kontinuálne tempo)."
+    }
+  }
+}

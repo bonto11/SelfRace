@@ -52,6 +52,9 @@ def _normalize_payload(payload: dict) -> dict:
     )
     goal_str = _norm_goal(goal_block, fallback_kind=fallback_kind)
 
+    # voice (coach_voice + coach_tone)
+    voice = payload.get("voice") or goal_struct.get("voice") or None
+
     # športy
     sports_block = payload.get("sports") or {}
     primary_sports = (
@@ -116,6 +119,7 @@ def _normalize_payload(payload: dict) -> dict:
         "schema_version": schema_version,
         "weeks": weeks,
         "goal": goal_str,
+        "voice": voice,
         "primary_sports": primary_sports,
         "persona": persona,
         "main_sport": main_sport,
@@ -134,7 +138,16 @@ def _normalize_payload(payload: dict) -> dict:
 
 
 # ---- strict BE validácia bez dopĺňania ----
+
 def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]) -> None:
+    """
+    Kontroluje len to, čo AI *musí* dodržať:
+    - 10 dní,
+    - každá položka má day + sessions,
+    - run má HR target (buď top-level alebo v structure.main[].target.hr),
+    - strength má exercises[].
+    session_type, sport atď. rieši normalize_plan_json v Services.plan_generation.
+    """
     n10 = parsed.get("next_10_days")
     if not (isinstance(n10, list) and len(n10) == 10):
         raise HTTPException(status_code=502, detail="AI must return next_10_days with 10 items")
@@ -224,8 +237,8 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "blocks": norm["blocks"],
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
-            "first_n_days": 10,
-            "weeks": weeks,  # aby AI vedela koľko týždňov rieši (week_overview)
+            "first_n_days": 10,   # len info pre AI, výstup je vždy next_10_days
+            "weeks": weeks,       # aby AI vedela koľko týždňov rieši (weeks_overview)
             "hr_used": ctx["weekly"]["hr_used"],
             "weekly": ctx["weekly"]["weeks"][-weeks:],
             "recovery": ctx.get("recovery", [])[-21:],
@@ -234,10 +247,16 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "zones": ctx.get("zones", []),
             "prefs": ctx.get("prefs"),
             "bests": ctx.get("bests", {}),
+            "voice": norm.get("voice"),
         }
 
-        # generate_plan_json si rieši fallbacky modelov sám
-        parsed, debug_trace = generate_plan_json(llm_input, DEFAULT_MODEL, debug_raw=True, loose=False)
+        # generate_plan_json si rieši fallbacky modelov sám + session_type katalog
+        parsed, debug_trace = generate_plan_json(
+            llm_input,
+            DEFAULT_MODEL,
+            debug_raw=True,
+            loose=False,
+        )
         used_model = (debug_trace or {}).get("ok_model") or DEFAULT_MODEL
 
         if parsed is None:
