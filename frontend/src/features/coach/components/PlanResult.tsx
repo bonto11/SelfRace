@@ -144,11 +144,10 @@ export default function PlanResult({
   if (!result) return null;
 
   const analysis = result?.analysis ?? {};
-  const preview: string[] = analysis?.week_overview || analysis?.outline_10w || [];
+  const preview: string[] = analysis?.weeks_overview || analysis?.outline_10w || [];
 
   const next10Raw: any[] =
-    (Array.isArray(analysis?.next_10_days) && analysis.next_10_days) ||
-    (Array.isArray(analysis?.first_10_days) && analysis.first_10_days) || [];
+    (Array.isArray(analysis?.next_10_days) && analysis.next_10_days) || [];
 
   const metaStart: string | null =
     analysis?._meta?.next10_start ||

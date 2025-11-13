@@ -325,7 +325,6 @@ export default function CoachPlanActions() {
         ) : (
           <Pill label="checking…" color={THEME.chart.neutral} />
         )}
-        <span className="ml-2">API_URL: <code className="opacity-90">{API_URL}</code></span>
       </div>
 
       {/* mini sumár prefs */}
@@ -338,7 +337,7 @@ export default function CoachPlanActions() {
         <Button onClick={handleGenerate} disabled={!canRun} variant="primary" size="sm">
           {loading ? (
             <span className="inline-flex items-center gap-2">
-              <LoadingSpinner size="widget" />
+              <LoadingSpinner size="button" />
               Generating…
             </span>
           ) : (
