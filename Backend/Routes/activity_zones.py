@@ -11,12 +11,10 @@ from Services.activity_zones import (
 
 router = APIRouter(prefix="/streams", tags=["streams"])
 
-
 # POST { "ids":[...], "fetch": true }
 class ZonesReq(BaseModel):
     ids: List[int]
     fetch: Optional[bool] = True
-
 
 @router.post("/zones/{user_id}")
 def zones_preview_post(user_id: int, body: ZonesReq):

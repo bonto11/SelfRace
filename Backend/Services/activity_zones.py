@@ -7,26 +7,14 @@ from Configs.config import (
     TABLE_USERS_ZONES,
     TABLE_ACTIVITIES_STREAMS,
     TABLE_ACTIVITIES_ENRICHMENT,
-    TABLE_USERS,
     TABLE_ACTIVITIES_SUMMARY,
 )
+from Services.Supabase.users import get_user_uid
 
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch, cache_streams_for_activities
 
 sb = get_client()
 
-def _get_user_uid(user_id: int) -> str:
-    r = (
-        sb.table(TABLE_USERS)
-        .select("auth_uid")
-        .eq("id", user_id)
-        .limit(1)
-        .execute()
-    )
-    row = (r.data or [None])[0]
-    if not row or not row.get("auth_uid"):
-        raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
-    return str(row["auth_uid"])
 
 def _to_int(v: Any) -> Optional[int]:
     try:
@@ -308,7 +296,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     s_map = _load_summary_map(user_id, ids)
     now_ts = datetime.now(timezone.utc).isoformat()
 
-    user_uid = _get_user_uid(user_id)
+    user_uid = get_user_uid(user_id)
     rows: List[dict] = []
     skipped = 0
     for it in items:

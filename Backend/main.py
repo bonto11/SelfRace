@@ -16,8 +16,8 @@ from Routes import (
     activities_streams,
     user_prefs,
     user_bests,
-    context,
-    coach_analysis
+    coach_context,
+    coach_planning,
 )
 
 app = FastAPI()
@@ -43,26 +43,21 @@ app.add_middleware(
     allow_headers=["*"],  # alebo ["Content-Type", "Authorization", ...]
 )
 
-
-# (voliteľné) healthcheck
-@app.get("/healthz")
-def healthz():
-    return {"ok": True}
-
-
 # -------- Routers --------
 app.include_router(recovery.router)
 app.include_router(users.router)
-app.include_router(activities.router)
 app.include_router(profile.router)
-app.include_router(notes.router)
-app.include_router(analytics.router)
+app.include_router(user_prefs.router)
+app.include_router(user_bests.router)
+
 app.include_router(account.router)
+app.include_router(activities.router)
 app.include_router(streams.router)
+app.include_router(analytics.router)
 app.include_router(activity_zones.router)
 app.include_router(analytics_pareto8020.router)
 app.include_router(activities_streams.router)
-app.include_router(user_prefs.router)
-app.include_router(user_bests.router)
-app.include_router(context.router)
-app.include_router(coach_analysis.router)
+app.include_router(notes.router)
+
+app.include_router(coach_context.router)
+app.include_router(coach_planning.router)

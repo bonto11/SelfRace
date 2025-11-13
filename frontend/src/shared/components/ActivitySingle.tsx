@@ -27,6 +27,23 @@ type DataIn = {
   planTarget?: string | null;
   planNotes?: string | null;
 
+  planStructure?: {
+    warmup?: { minutes?: number; notes?: string };
+    main?: {
+      reps?: number;
+      work_min?: number;
+      recover_min?: number;
+      target?: { pace?: string; power?: string; hr?: string } | string | null;
+      notes?: string;
+    };
+    cooldown?: { minutes?: number; notes?: string };
+  } | null;
+
+  planExercises?: Array<{ name?: string; sets?: number; reps?: number; rest_sec?: number }> | null;
+
+  // fallback – ak nechceš mapovať zvlášť, pošli sem celý AI item; vytiahnem z neho, čo treba
+  planRaw?: any;
+
   singleDayContext?: boolean;
 };
 
@@ -230,10 +247,30 @@ function DetailBody({
 }) {
   const { getSummary, getStreams, getDetail } = useActivityData();
 
-  // PLAN: jednoduchý detail bez fetchovania streamov
+ // PLAN: renderujeme štruktúru (run) a cviky (strength), ak sú k dispozícii
   if (variant === "plan") {
+    const raw = (data as any).planRaw ?? null;
+
+    // preferuj explicitné polia; fallbackni na raw
+    const structure = (data as any).planStructure ?? raw?.structure ?? null;
+    const exercises = (data as any).planExercises ?? raw?.exercises ?? null;
+
+    // helpers
+    const fmtMin = (m?: number) => (typeof m === "number" && m > 0 ? `${m} min` : null);
+    const tgtToStr = (t: any): string | null => {
+      if (!t) return null;
+      if (typeof t === "string") return t;
+      const bits = [t?.pace, t?.power, t?.hr].filter(Boolean);
+      return bits.length ? bits.join(" · ") : null;
+    };
+
+    const wu = structure?.warmup ?? null;
+    const mn = structure?.main ?? null;
+    const cd = structure?.cooldown ?? null;
+
     return (
       <div>
+        {/* KPI chips (zachované) */}
         <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             data.planDur ? { label: "DURATION", value: data.planDur } : null,
@@ -249,8 +286,79 @@ function DetailBody({
             ))}
         </div>
 
+        {/* --- RUN: Warm-up / Main / Cool-down --- */}
+        {(wu || mn || cd) && (
+          <div className="mt-4 space-y-3">
+            {wu && (
+              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-[11px] font-semibold opacity-80">WARM-UP</div>
+                <div className="text-sm mt-0.5">
+                  {[fmtMin(wu.minutes), wu.notes].filter(Boolean).join(" · ") || "—"}
+                </div>
+              </div>
+            )}
+
+            {mn && (
+              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-[11px] font-semibold opacity-80">MAIN</div>
+                <div className="text-sm mt-0.5 space-y-0.5">
+                  <div>
+                    {[
+                      mn.reps ? `${mn.reps}×` : null,
+                      fmtMin(mn.work_min),
+                      mn.recover_min ? `rec ${mn.recover_min} min` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </div>
+                  {tgtToStr(mn.target) && (
+                    <div className="opacity-90">target: {tgtToStr(mn.target)}</div>
+                  )}
+                  {mn.notes && <div className="opacity-90">{mn.notes}</div>}
+                </div>
+              </div>
+            )}
+
+            {cd && (
+              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-[11px] font-semibold opacity-80">COOL-DOWN</div>
+                <div className="text-sm mt-0.5">
+                  {[fmtMin(cd.minutes), cd.notes].filter(Boolean).join(" · ") || "—"}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- STRENGTH: zoznam cvikov --- */}
+        {Array.isArray(exercises) && exercises.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[11px] font-semibold opacity-80 mb-1.5">EXERCISES</div>
+            <ul className="space-y-1.5">
+              {exercises.map((e: any, i: number) => (
+                <li
+                  key={`${e?.name ?? "ex"}-${i}`}
+                  className="rounded-md border border-white/10 px-3 py-2"
+                >
+                  <div className="text-sm font-medium">{e?.name ?? `Exercise ${i + 1}`}</div>
+                  <div className="text-xs opacity-85 mt-0.5">
+                    {[
+                      e?.sets ? `${e.sets} sets` : null,
+                      e?.reps ? `${e.reps} reps` : null,
+                      e?.rest_sec ? `rest ${e.rest_sec}s` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* poznámky na záver (ak ostali) */}
         {data.planNotes && (
-          <div className="mt-3 text-sm opacity-90">{data.planNotes}</div>
+          <div className="mt-4 text-sm opacity-90">{data.planNotes}</div>
         )}
       </div>
     );

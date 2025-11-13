@@ -6,9 +6,7 @@ import Pill from "@/shared/components/ui/Pill";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 
-type Props = {
-  onOpenDetail?: () => void;
-};
+type Props = { onOpenDetail?: () => void };
 
 const SPORT_ACCENT: Record<string, string> = {
   run: THEME.chart.run,
@@ -23,25 +21,32 @@ const SPORT_ACCENT: Record<string, string> = {
 
 function pickAccent(goal?: string | null, primarySport?: string | null) {
   const g = (goal || "").toLowerCase();
-  // jemné mapovanie podľa typu cieľa, fallback na šport
-  if (g.includes("vo2") || g.includes("speed") || g.includes("5k") || g.includes("10k"))
-    return THEME.chart.athletes;
-  if (g.includes("fat") || g.includes("weight") || g.includes("cut"))
-    return THEME.chart.fair;
-  if (g.includes("base") || g.includes("z2") || g.includes("endurance"))
-    return THEME.chart.fitness;
-
+  if (g.includes("vo2") || g.includes("speed") || g.includes("5k") || g.includes("10k")) return THEME.chart.athletes;
+  if (g.includes("fat") || g.includes("weight") || g.includes("cut")) return THEME.chart.fair;
+  if (g.includes("base") || g.includes("z2") || g.includes("endurance")) return THEME.chart.fitness;
   if (primarySport && SPORT_ACCENT[primarySport]) return SPORT_ACCENT[primarySport];
   return THEME.chart.neutral;
 }
 
 export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
   const { prefs } = useCoachData();
-  const sports: string[] =
-    (prefs.primary_sports ?? prefs.sports ?? []) as string[];
 
-  const primary = sports?.[0] ?? "other";
-  const accentHex = pickAccent(prefs.goal_kind, primary);
+  // 1) urč hlavný šport
+  const mainSport: string =
+    (prefs.main_sport as string) ||
+    prefs.primary_sports?.[0] ||
+    (prefs.sports?.[0] as string) ||
+    "other";
+
+  // 2) sekundárne aktívne športy = share > 0
+  const secActive: string[] = (prefs.secondary_mix ?? [])
+    .filter((s: any) => Number(s?.share_pct) > 0)
+    .map((s: any) => String(s.sport));
+
+  // 3) finálny zoznam pre UI (bez duplicit)
+  const sports: string[] = [mainSport, ...secActive].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+
+  const accentHex = pickAccent(prefs.goal_kind, mainSport);
 
   return (
     <WidgetCard
@@ -63,11 +68,7 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
         <div className="flex flex-wrap gap-1.5">
           {sports.length ? (
             sports.map((s) => (
-              <Pill
-                key={s}
-                label={s}
-                color={SPORT_ACCENT[s] ?? THEME.chart.neutral}
-              />
+              <Pill key={s} label={s} color={SPORT_ACCENT[s] ?? THEME.chart.neutral} />
             ))
           ) : (
             <span className="font-semibold">—</span>

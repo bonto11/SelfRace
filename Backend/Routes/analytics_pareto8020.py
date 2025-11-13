@@ -71,14 +71,6 @@ def _parse_sport_query(sport: str | None) -> Optional[Set[str]]:
     norm = normalize_sport_list(parts)
     return norm or None
 
-# --------------------------- META -------------------------------
-@router.get("/meta")
-def pareto_meta_route() -> Dict[str, Any]:
-    """
-    FE si vie zobraziť, čo presne sa ráta do 80/20 a aké aliasy sú k dispozícii.
-    """
-    return {"success": True, "data": pareto_meta()}
-
 # --------------------------- SOURCE -----------------------------
 @router.get("/source/{user_id}")
 def pareto_source(user_id: int, months: int = 3, count_no_hr_as_easy: bool = True) -> Dict[str, Any]:

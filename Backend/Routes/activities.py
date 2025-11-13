@@ -1,7 +1,6 @@
 # backend/Routes/activities.py
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta, timezone, time, date
-from Services.time import iso_date
 from Modules.SQL.db_handler import get_client
 from Modules.Sync import sync_handler
 from Configs.config import (
@@ -10,18 +9,7 @@ from Configs.config import (
     TABLE_ACTIVITIES_LAPS,
 )
 
-from Services.time import is_time  # ak nemáš, validáciu urobíme lokálne nižšie
-
-
-router = APIRouter(prefix="/activities", tags=["activities"])
-supabase = get_client()
-
-def _parse_date_ymd(s: str) -> date:
-    try:
-        return datetime.strptime(s, "%Y-%m-%d").date()
-    except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD")
-
+from Services.time import parse_date_ymd
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 supabase = get_client()
@@ -32,7 +20,6 @@ supabase = get_client()
 def get_activities(user_id: int, days: int = 30):
     try:
         since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
-        print(f"➡️ get_activities: user_id={user_id}, since_date={since_date}")
 
         rec = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
@@ -48,11 +35,9 @@ def get_activities(user_id: int, days: int = 30):
         )
 
         data = rec.data or []
-        print(f"➡️ get_activities: DB response count={len(data)}")
-        return {"success": True, "data": data}
 
+        return {"success": True, "data": data}
     except Exception as e:
-        print("❌ get_activities error:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -60,8 +45,6 @@ def get_activities(user_id: int, days: int = 30):
 @router.get("/detail/{activity_id}")
 def get_activity_detail(activity_id: int):
     try:
-        print(f"➡️ get_activity_detail: activity_id={activity_id}")
-
         summary_res = (
             supabase.table(TABLE_ACTIVITIES_SUMMARY)
             .select("*")
@@ -70,7 +53,6 @@ def get_activity_detail(activity_id: int):
             .execute()
         )
         summary = summary_res.data[0] if summary_res.data else None
-        print(f"➡️ detail: summary found={bool(summary)}")
 
         laps_res = (
             supabase.table(TABLE_ACTIVITIES_LAPS)
@@ -87,8 +69,6 @@ def get_activity_detail(activity_id: int):
             .order("split_index", desc=False)
             .execute()
         )
-
-        print(f"➡️ detail: laps={len(laps_res.data or [])}, splits={len(splits_res.data or [])}")
 
         return {
             "success": True,
@@ -168,7 +148,7 @@ def select_activities(
     filtrované podľa sport_type_fe (CSV). Minimal payload pre picker.
     """
     try:
-        center = _parse_date_ymd(date)
+        center = parse_date_ymd(date)
         date_from = (center - timedelta(days=delta_days)).isoformat()
         date_to   = (center + timedelta(days=delta_days)).isoformat()
         sport_list = [s.strip() for s in sports.split(",") if s.strip()]

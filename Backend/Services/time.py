@@ -1,5 +1,6 @@
 # Services/time.py
-from datetime import datetime, timedelta, timezone, date
+from datetime import datetime, timedelta, timezone, date, time
+from fastapi import HTTPException
 
 def hhmmss_to_seconds(s: str | None) -> int | None:
     if not s:
@@ -94,3 +95,16 @@ def is_time(
             return (0 <= hours <= max_hours) and (0 <= minutes <= 59) and (0 <= seconds <= 59)
 
     return False
+
+def _day_floor_utc(d: date) -> datetime:
+    return datetime.combine(d, time(0, 0, 0, tzinfo=timezone.utc))
+
+def since_weeks_utc(weeks: int) -> datetime:
+    # okno = (weeks + 1) kvôli zásahu do predchádzajúceho týždňa
+    return _day_floor_utc((datetime.now(timezone.utc) - timedelta(weeks=weeks + 1)).date())
+
+def parse_date_ymd(s: str) -> date:
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD")

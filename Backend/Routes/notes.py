@@ -99,3 +99,4 @@ def get_note(user_id: int, activity_id: int):
     except Exception as e:
         print(f"❌ [NOTES] Error while fetching: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
