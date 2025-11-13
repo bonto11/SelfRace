@@ -8,7 +8,7 @@ from typing import Any, Dict
 # shared/training_types.json je o jeden level vyššie v ../shared
 # Ak máš inú štruktúru, uprav ROOT_DIR.
 ROOT_DIR = Path(__file__).resolve().parents[1]  # .. nad Services/
-SHARED_JSON = ROOT_DIR / "shared" / "training_types.json"
+SHARED_JSON = ROOT_DIR / "shared" / "files" / "training_types.json"
 
 if not SHARED_JSON.exists():
   raise RuntimeError(f"training_types.json not found at {SHARED_JSON}")
