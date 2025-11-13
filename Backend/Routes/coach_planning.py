@@ -21,45 +21,107 @@ def _norm_goal(goal_in) -> str:
 
 
 def _normalize_payload(payload: dict) -> dict:
-    weeks = int(payload.get("weeks") or payload.get("goal_structured", {}).get("weeks") or 6)
-    goal_str = _norm_goal(payload.get("goal") or payload.get("goal_structured", {}).get("goal"))
-    primary_sports = payload.get("primary_sports") or payload.get("goal_structured", {}).get("primary_sports") or ["run", "ride", "strength"]
+    """
+    Normalizuje payload z FE na interný tvar pre coach_context + AI.
 
-    persona = payload.get("persona") or payload.get("goal_structured", {}).get("persona")
-    main_sport = payload.get("main_sport") or payload.get("goal_structured", {}).get("main_sport")
-    secondary_mix = payload.get("secondary_mix") or payload.get("goal_structured", {}).get("secondary_mix")
+    Podporuje:
+      - nový kontrakt (schema_version >= 2):
+          {
+            schema_version: 2,
+            goal: { goal_kind, weeks, start_date },
+            sports: { main_sport, secondary_mix },
+            targets, rules, externals, injuries, focus, intensity_model, blocks,
+            plan_start_date, strength_settings, ...
+          }
+      - starý kontrakt s goal_structured.*
+    """
+    schema_version = int(payload.get("schema_version") or 1)
 
-    targets = payload.get("targets") or payload.get("goal_structured", {}).get("targets")
-    rules = payload.get("rules") or payload.get("goal_structured", {}).get("preferences")
-    externals = payload.get("externals") or payload.get("goal_structured", {}).get("external_activities") or []
-    injuries = payload.get("injuries") or payload.get("goal_structured", {}).get("injuries") or []
-    focus = payload.get("focus") or {
-        "areas": (payload.get("goal_structured", {}).get("focus_areas") or []),
-        "avoid_zones": (payload.get("goal_structured", {}).get("avoid_zones") or []),
-        "rehab": payload.get("goal_structured", {}).get("rehab_focus") or None,
-    }
+    goal_block = payload.get("goal") or {}
+    sports_block = payload.get("sports") or {}
 
-    plan_start_date = payload.get("plan_start_date") or payload.get("goal_structured", {}).get("plan_start_date")
-    strength_settings = payload.get("strength_settings") or payload.get("goal_structured", {}).get("strength_settings")
+    # --- weeks ---
+    weeks = int(
+        payload.get("weeks")
+        or goal_block.get("weeks")
+        or 6
+    )
 
+    # --- goal string ---
+    raw_goal = payload.get("goal")
+    if isinstance(raw_goal, dict) and (
+        "goal_kind" in raw_goal or "weeks" in raw_goal or "start_date" in raw_goal
+    ):
+        goal_str = (raw_goal.get("goal_kind") or "improve_overall")
+    else:
+        goal_str = _norm_goal(raw_goal)
+
+    # --- primary_sports / main_sport / secondary_mix ---
+    primary_sports = (
+        payload.get("primary_sports")
+        or None
+    )
+
+    main_sport = (
+        payload.get("main_sport")
+        or sports_block.get("main_sport")
+    )
+
+    secondary_mix = (
+        payload.get("secondary_mix")
+        or sports_block.get("secondary_mix")
+    )
+
+    if not primary_sports:
+        ps: List[str] = []
+        if main_sport:
+            ps.append(main_sport)
+        if isinstance(secondary_mix, list):
+            for item in secondary_mix:
+                s = (item or {}).get("sport")
+                if s and s not in ps:
+                    ps.append(s)
+        primary_sports = ps or ["run", "ride", "strength"]
+
+    persona = payload.get("persona")
+
+    # --- targets / rules / externals / injuries / focus ---
+    targets = payload.get("targets")
+    rules = payload.get("rules")
+    externals = payload.get("externals") or []
+    injuries = payload.get("injuries") or []
+
+    if "focus" in payload and isinstance(payload.get("focus"), dict):
+        focus_in = payload["focus"]
+        focus = {
+            "areas": focus_in.get("areas") or [],
+            "avoid_zones": focus_in.get("avoid_zones") or [],
+            "rehab": focus_in.get("rehab"),
+        }
+
+
+    # --- plan_start_date / strength_settings ---
+    plan_start_date = (
+        payload.get("plan_start_date")
+        or goal_block.get("start_date")
+    )
+
+    strength_settings = payload.get("strength_settings")
+
+    # --- intensity model / blocks ---
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
-        g = payload.get("goal_structured", {})
-        if g.get("polarized_model"):
-            intensity_model = "polarized"
-        elif g.get("pyramidal_model"):
-            intensity_model = "pyramidal"
+        intensity_model = "polarized"
+
 
     blocks = payload.get("blocks")
     if blocks is None:
-        g = payload.get("goal_structured", {})
         blocks = {
-            "vo2max": bool(g.get("vo2max_training")),
-            "ftp": bool(g.get("ftp_training")),
-            "threshold": bool(g.get("threshold_focus")),
+            "vo2max": True,
+            "ftp": True,
+            "threshold": True,
         }
 
-    schema_version = int(payload.get("schema_version") or 1)
     return {
         "schema_version": schema_version,
         "weeks": weeks,
