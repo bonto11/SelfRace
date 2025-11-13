@@ -17,8 +17,8 @@ from Routes import (
     user_prefs,
     user_bests,
     coach_context,
-    coach_planning,
 )
+from backend.Routes import coach_plan_db, coach_plan_generation
 
 app = FastAPI()
 
@@ -60,4 +60,5 @@ app.include_router(activities_streams.router)
 app.include_router(notes.router)
 
 app.include_router(coach_context.router)
-app.include_router(coach_planning.router)
+app.include_router(coach_plan_generation.router)
+app.include_router(coach_plan_db.router)
