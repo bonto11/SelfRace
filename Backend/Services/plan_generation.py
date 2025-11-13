@@ -95,7 +95,9 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
-    # Tvrdé požiadavky – žiadne dopĺňanie z BE
+    # koľko týždňov rieši plán – použijeme len na počet riadkov v week_overview
+    weeks = int(context_payload.get("weeks") or 6)
+
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
     hard = [
         "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date`.",
@@ -108,6 +110,10 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         "`next_week_plan` is optional and may be null.",
         "Output JSON only.",
         "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
+        # ── nový blok pre week_overview ─────────────────────────────
+        f"Include `week_overview` as an array of up to {min(weeks, 12)} short strings.",
+        "Each item in `week_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
+        "Keep every `week_overview` item <= 120 characters and very concise.",
     ]
     if wu_cd_required:
         hard += [
