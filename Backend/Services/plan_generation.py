@@ -299,28 +299,69 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     # textový popis coach voice
     voice_desc = _describe_coach_voice(context_payload.get("voice") or {})
 
+    # ===== športy & prefs =====
+    primary_sports_raw = context_payload.get("primary_sports") or []
+    primary_sports = [
+        _canonical_sport(s) for s in primary_sports_raw
+        if isinstance(s, str) and s.strip()
+    ]
+
+    # ak nie sú zadané, fallback – ale nech je to explicitné
+    if not primary_sports:
+        main = context_payload.get("main_sport")
+        if isinstance(main, str) and main.strip():
+            primary_sports = [_canonical_sport(main)]
+        else:
+            primary_sports = ["run"]
+
+    allowed_sports_set = {s for s in primary_sports if s in ("run", "ride", "strength", "swim", "other")}
+    if not allowed_sports_set:
+        allowed_sports_set = {"run"}
+
+    allowed_sports_str = ", ".join(sorted(allowed_sports_set))
+
+    intensity_model = (context_payload.get("intensity_model") or "").lower().strip()
+    prefs_block = context_payload.get("prefs") or {}
+
     # session_type katalóg zo shared/training_types.json
     session_catalog = get_session_type_catalog_for_prompt()
     session_catalog_txt = json.dumps(session_catalog, ensure_ascii=False)
 
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
+
     hard: List[str] = [
-        "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date`.",
-        "`next_10_days` MUST be an ARRAY with exactly 10 items (do NOT return a single object).",
+        # DÁTOVÁ ŠTRUKTÚRA
+        "Produce `next_10_days` for a continuous block of dates starting from `plan_start_date`.",
+        "`next_10_days` MUST be an ARRAY with between 7 and 10 items (do NOT return a single object).",
         "Do NOT include any `first_10_days` key in the output.",
         "Each day in `next_10_days` MUST include non-empty `sessions`.",
         'If a day is rest: include one session {"title":"Rest Day","sport":"other","duration_min":0}.',
-        "Include `sport` for every session (run/ride/strength/other/swim).",
+
+        # ŠPORTY – STRICT podľa používateľa
+        f"Allowed sports for planned sessions are STRICTLY limited to: {allowed_sports_str}.",
+        "Do NOT propose sessions in any other sport, even if such sports appear in historical training data.",
+        "Use historical weekly data ONLY to estimate fitness, fatigue and recent volume – NOT to change the sport mix away from the requested primary sports.",
+        "For each session, set `sport` to one of the allowed sports only.",
+
+        # HR / ZÓNY
         "For RUN sessions provide `target_hr_bpm_range:[low,high]` (bpm).",
-        "Derive HR ranges from thresholds/zones provided in context (do NOT invent physiology).",
-        "Pace as string `min/km`; power in watts.",
+        "HR ranges MUST be consistent with the zones. If zones are not provided, use thresholds provided in the `zones` and `thresholds` fields of the context JSON.",
+        "Easy and recovery sessions MUST stay entirely in low-intensity zones (Z1–Z2 according to the context zones).",
+        "Do NOT mark a session as easy or recovery if its HR range is around threshold or in high zones.",
+        "Pace must be a string in `min/km`; power in watts.",
+
+        # next_week_plan
         "`next_week_plan` is optional and may be null.",
         "Output JSON only.",
-        "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
+
+        # STRENGTH
+        "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only equipment that the athlete has available (see context).",
+
         # weeks_overview kompaktný
         f"Include `weeks_overview` as an array of up to {min(weeks, 12)} short strings.",
         "Each item in `weeks_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
         "Keep every `weeks_overview` item <= 120 characters and very concise.",
+
         # SESSION TYPE – naviazané na shared katalóg
         "Each session MUST include `session_type` (string).",
         "For each session, `session_type` MUST be chosen from the session type catalog provided (per sport).",
@@ -328,9 +369,37 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         "If you are unsure which `session_type` to use, choose an easy/aerobic one for that sport "
         "('run_easy' for running, 'ride_easy_endurance' for cycling, "
         "'strength_full_body' for strength, 'swim_easy_technique' for swimming).",
+
+        # PREFS
+        "Respect the user's preferences in the `prefs` block (days, number of sessions, which sports, which day off and for long run/ride) as the PRIMARY source of the weekly structure.",
+        "Historical training is secondary: adjust volume and intensity based on history, but do not override the requested sports or days from `prefs`.",
+
         # štýl trénera
         "Apply the specified coaching style and tone to all textual fields (`summary`, `insights`, `notes`).",
     ]
+
+    # INTENSITY MODEL – špecifické pravidlá
+    if intensity_model == "polarized":
+        hard += [
+            "The intensity model is POLARIZED (80/20).",
+            "At least ~80% of total planned training time must be in low-intensity zones (Z1–Z2).",
+            "At most ~20% of total planned training time may be in higher-intensity zones (Z3 and above).",
+            "Do NOT create a week where most sessions are threshold/VO2 or all near maximal HR.",
+            "Separate hard/high-intensity days with at least one low-intensity or rest day whenever possible.",
+        ]
+    elif intensity_model == "pyramidal":
+        hard += [
+            "The intensity model is PYRAMIDAL.",
+            "Most of the total planned training time must still be in low-intensity zones (Z1–Z2).",
+            "A smaller, but noticeable portion of time can be in moderate intensity (around tempo/threshold), and only a small part in very high intensity (VO2 or above).",
+            "Avoid planning many high-intensity days back-to-back; distribute intensity across the week.",
+        ]
+    else:
+        hard += [
+            "Use a balanced intensity distribution that respects the zones from the context.",
+            "Avoid making almost all sessions high-intensity or near maximal HR.",
+        ]
+
     if wu_cd_required:
         hard += [
             "For RUN sessions include `structure` with warmup (5–15 min), at least one `main` block, and cooldown (5–10 min).",
@@ -339,11 +408,12 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
 
     system_txt = (
         "You are an endurance coaching assistant. "
+        "Always follow the user's preferences and physiological data strictly. "
         "Return one valid JSON object only. No prose, no code fences."
     )
 
     user_txt = (
-        "Context JSON:\n"
+        "Context JSON (this contains the ground truth for zones, thresholds, preferences and history):\n"
         + json.dumps(context_payload, ensure_ascii=False)
         + "\n\nSession type catalog (per sport):\n"
         + session_catalog_txt
