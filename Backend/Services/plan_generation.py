@@ -67,7 +67,7 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
     Normalizuje AI výstup na jednotný tvar pre FE.
     Používame len:
       - summary, insights, red_flags
-      - week_overview (alebo outline_10w)
+      - weeks_overview (alebo outline_10w)
       - next_10_days
       - next_week_plan (ak je neprazdne)
     """
@@ -79,7 +79,7 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         "summary": obj.get("summary") or "No summary.",
         "insights": obj.get("insights") or [],
         "red_flags": obj.get("red_flags") or [],
-        "week_overview": obj.get("week_overview") or obj.get("outline_10w") or [],
+        "weeks_overview": obj.get("weeks_overview") or obj.get("outline_10w") or [],
         "next_10_days": obj.get("next_10_days") or [],
         "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}, None) else None,
         "_meta": {
@@ -100,7 +100,7 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
-    # koľko týždňov rieši plán – použijeme len na počet riadkov v week_overview
+    # koľko týždňov rieši plán – použijeme len na počet riadkov v weeks_overview
     weeks = int(context_payload.get("weeks") or 6)
 
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
@@ -115,10 +115,10 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         "`next_week_plan` is optional and may be null.",
         "Output JSON only.",
         "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
-        # week_overview
-        f"Include `week_overview` as an array of up to {min(weeks, 12)} short strings.",
-        "Each item in `week_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
-        "Keep every `week_overview` item <= 120 characters and very concise.",
+        # weeks_overview
+        f"Include `weeks_overview` as an array of up to {min(weeks, 12)} short strings.",
+        "Each item in `weeks_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
+        "Keep every `weeks_overview` item <= 120 characters and very concise.",
     ]
     if wu_cd_required:
         hard += [
@@ -195,7 +195,7 @@ def generate_plan_json(
   "summary": string,
   "insights": string[],
   "red_flags": { "type": string, "details"?: string, "evidence"?: string }[],
-  "week_overview"?: string[],
+  "weeks_overview"?: string[],
   "next_week_plan"?: { ... } | null,
   "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]
 }
@@ -274,7 +274,7 @@ Where Session = {
         "summary": "AI generation failed.",
         "insights": [],
         "red_flags": [{"type": "error", "details": last_err or "unknown"}],
-        "week_overview": [],
+        "weeks_overview": [],
         "next_10_days": [],
         "next_week_plan": None,
         "_meta": {"plan_source": "ai", "ok": False},
