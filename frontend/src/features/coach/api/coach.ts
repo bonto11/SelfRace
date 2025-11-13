@@ -8,8 +8,6 @@ export type AnalyzePayloadBE = {
   goal: {
     goal_kind?: CoachPrefs["goal_kind"];
     weeks?: number;
-    // start_date už nemusíme využívať – kanonický je plan_start_date
-    start_date?: string;
   };
   voice: {
     coach_voice?: CoachPrefs["coach_voice"];
@@ -51,8 +49,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     schema_version: 2,
     goal: {
       goal_kind: prefs.goal_kind,
-      weeks: prefs.weeks ?? undefined,
-      // start_date už sem netlačíme, nech je dátum len na jednom mieste
+      weeks: prefs.weeks ?? undefined
     },
     voice: { coach_voice: prefs.coach_voice, coach_tone: prefs.coach_tone },
     sports: { main_sport: prefs.main_sport, secondary_mix: secondary },
