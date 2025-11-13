@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
@@ -81,36 +81,23 @@ def _normalize_payload(payload: dict) -> dict:
     }
 
 
-# ---- soft validácia (nikdy neháče HTTPException) ----
-def _validate_next10_soft(parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]) -> List[str]:
-    errors: List[str] = []
-
-    # alias: ak chýba next_10_days, ale je first_10_days s presne 10 dňami, použijeme to na validáciu
+# ---- strict BE validácia bez dopĺňania ----
+def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]) -> None:
     n10 = parsed.get("next_10_days")
-    f10 = parsed.get("first_10_days")
     if not (isinstance(n10, list) and len(n10) == 10):
-        if isinstance(f10, list) and len(f10) == 10:
-            n10 = f10
-        else:
-            got_len = (len(n10) if isinstance(n10, list) else None)
-            f10_len = (len(f10) if isinstance(f10, list) else None)
-            errors.append(f"next_10_days must have 10 items (got={got_len}); first_10_days_len={f10_len}")
-            return errors  # bez ďalšej validácie
+        raise HTTPException(status_code=502, detail="AI must return next_10_days with 10 items")
 
     require_wu_cd = bool((rules or {}).get("wu_cd_detail"))
 
     for i, d in enumerate(n10):
         if not isinstance(d, dict) or not isinstance(d.get("day"), str):
-            errors.append(f"Invalid or missing day at index {i}")
-            continue
+            raise HTTPException(status_code=502, detail=f"Invalid or missing day at index {i}")
         if not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
-            errors.append(f"Empty sessions at index {i}")
-            continue
+            raise HTTPException(status_code=502, detail=f"Empty sessions at index {i}")
 
         for j, s in enumerate(d["sessions"]):
             if not isinstance(s, dict):
-                errors.append(f"Invalid session at {i}:{j}")
-                continue
+                raise HTTPException(status_code=502, detail=f"Invalid session at {i}:{j}")
 
             sport = (s.get("sport") or "").lower()
             title = (s.get("title") or "").lower()
@@ -129,39 +116,34 @@ def _validate_next10_soft(parsed: Dict[str, Any], must_start: Optional[str], rul
                                 ok_hr = True
                                 break
                 if not ok_hr:
-                    errors.append(f"Missing HR target in run session at {i}:{j}")
+                    raise HTTPException(status_code=502, detail=f"Missing HR target in run session at {i}:{j}")
 
                 if require_wu_cd:
                     struc = s.get("structure")
                     if not isinstance(struc, dict):
-                        errors.append(f"Run session {i}:{j} must include structure")
-                    else:
-                        wu = struc.get("warmup")
-                        cd = struc.get("cooldown")
-                        main = struc.get("main")
-                        if not (isinstance(wu, dict) and isinstance(cd, dict) and isinstance(main, list) and len(main) > 0):
-                            errors.append(f"Run session {i}:{j} must include warmup/main/cooldown")
-                        if isinstance(wu, dict) and "minutes" in wu and not isinstance(wu.get("minutes"), (int, float)):
-                            errors.append(f"Warmup minutes invalid at {i}:{j}")
-                        if isinstance(cd, dict) and "minutes" in cd and not isinstance(cd.get("minutes"), (int, float)):
-                            errors.append(f"Cooldown minutes invalid at {i}:{j}")
+                        raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must include structure")
+                    wu = struc.get("warmup")
+                    cd = struc.get("cooldown")
+                    main = struc.get("main")
+                    if not (isinstance(wu, dict) and isinstance(cd, dict) and isinstance(main, list) and len(main) > 0):
+                        raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must include warmup/main/cooldown")
+                    if "minutes" in (wu or {}) and not isinstance(wu.get("minutes"), (int, float)):
+                        raise HTTPException(status_code=502, detail=f"Warmup minutes invalid at {i}:{j}")
+                    if "minutes" in (cd or {}) and not isinstance(cd.get("minutes"), (int, float)):
+                        raise HTTPException(status_code=502, detail=f"Cooldown minutes invalid at {i}:{j}")
 
             if is_strength:
                 ex = s.get("exercises")
                 if not (isinstance(ex, list) and len(ex) >= 3):
-                    errors.append(f"Strength session {i}:{j} must include exercises[]")
-                    continue
+                    raise HTTPException(status_code=502, detail=f"Strength session {i}:{j} must include exercises[]")
                 for k, e in enumerate(ex):
                     if not isinstance(e, dict) or not e.get("name") or not isinstance(e.get("sets"), (int, float)):
-                        errors.append(f"Exercise {i}:{j}:{k} must include name and sets")
+                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include name and sets")
                     if not (isinstance(e.get("reps"), (int, float)) or isinstance(e.get("seconds"), (int, float))):
-                        errors.append(f"Exercise {i}:{j}:{k} must include reps or seconds")
+                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include reps or seconds")
 
-    if must_start and isinstance(n10, list) and n10 and isinstance(n10[0], dict):
-        if n10[0].get("day") != must_start:
-            errors.append(f"next_10_days should start at plan_start_date {must_start} (got {n10[0].get('day')})")
-
-    return errors
+    if must_start and n10[0]["day"] != must_start:
+        raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
 
 @router.post("/analyze/{user_id}")
@@ -201,43 +183,67 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "bests": ctx.get("bests", {}),
         }
 
-        # Modely v poradí; generate_plan_json neháče (okrem chýbajúceho API key)
         models = [DEFAULT_MODEL] + [m for m in FALLBACK_MODELS if m != DEFAULT_MODEL]
         parsed: Optional[Dict[str, Any]] = None
         debug_trace: Optional[Dict[str, Any]] = None
+        used_model: Optional[str] = None
 
+        # generate_plan_json už sám robí fallbacky, tu stačí prvý model (alebo cyklus, ak chceš)
         for m in models:
             candidate, trace = generate_plan_json(llm_input, m, debug_raw=True, loose=False)
             parsed = candidate
             debug_trace = trace
-            if parsed and (parsed.get("next_10_days") or parsed.get("first_10_days")):
-                break
+            used_model = (trace or {}).get("ok_model") or m
+            break
 
         if parsed is None:
+            # Teoreticky by sa nemalo stať, ale nech je to kryté
             return {
                 "success": False,
                 "error": "AI generation failed (no parsed content).",
-                "analysis": None,
-                "ai_debug": debug_trace,
+                "analysis_raw": (debug_trace or {}).get("raw"),
+                "cleaned": (debug_trace or {}).get("cleaned"),
             }
 
-        # soft validácia — nikdy nevracia HTTP chybu
-        validation_errors = _validate_next10_soft(parsed, norm.get("plan_start_date"), norm.get("rules"))
+        # validácia next_10_days – keď failne, NEháčeme HTTP error, ale vrátime raw
+        try:
+            _validate_next10(parsed, norm.get("plan_start_date"), norm.get("rules"))
+        except Exception as e:
+            slim_debug = None
+            if isinstance(debug_trace, dict):
+                slim_debug = {
+                    "models_tried": debug_trace.get("models_tried"),
+                    "attempts": debug_trace.get("attempts"),
+                    "ok_model": debug_trace.get("ok_model"),
+                }
+            return {
+                "success": False,
+                "error": str(e),
+                "analysis_raw": (debug_trace or {}).get("raw"),
+                "cleaned": (debug_trace or {}).get("cleaned"),
+                "ai_debug": slim_debug,
+            }
+
         narr = build_progress_narrative(ctx, weeks)
 
+        # pri úspechu pošleme LEN malý debug (bez contextu, bez promptov, bez raw)
+        slim_debug = None
+        if isinstance(debug_trace, dict):
+            slim_debug = {
+                "models_tried": debug_trace.get("models_tried"),
+                "attempts": debug_trace.get("attempts"),
+                "ok_model": debug_trace.get("ok_model"),
+            }
+
         return {
-            "success": len(validation_errors) == 0,
-            "model": (debug_trace or {}).get("ok_model"),
+            "success": True,
+            "model": used_model,
             "analysis": parsed,
-            "validation_errors": validation_errors,
-            "context_used": llm_input,
             "narrative": narr,
-            "ai_debug": debug_trace,  # obsahuje raw + cleaned keď debug_raw=True
+            "ai_debug": slim_debug,
         }
 
     except HTTPException:
-        # zachovaj doterajšie správanie pre reálne serverové chyby (nie AI)
         raise
     except Exception as e:
-        # nečakané chyby BE
         raise HTTPException(status_code=500, detail=str(e))

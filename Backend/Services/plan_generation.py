@@ -35,7 +35,6 @@ def _find_outer_json_block(s: str) -> str:
     end = s.rfind("}")
     return s[start : end + 1] if end > start else s
 
-
 def _sanitize_json_guess(s: str) -> str:
     s = s.replace("“", '"').replace("”", '"').replace("’", "'")
     s = _strip_codefence(s)
@@ -45,11 +44,10 @@ def _sanitize_json_guess(s: str) -> str:
     s = re.sub(r"\bNaN\b|\bInfinity\b|-Infinity", "null", s)
     return s.strip()
 
-
 def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
     Return (parsed_dict or None, cleaned_text, raw_text).
-    Never raises — ak sa nedá parsovať, parsed je None, ale vrátime cleaned aj raw.
+    Nikdy neháče – ak sa nedá parsovať, parsed je None, ale vrátime cleaned aj raw.
     """
     if not raw:
         return None, "", ""
@@ -69,10 +67,9 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
     Normalizuje AI výstup na jednotný tvar pre FE.
     Používame len:
       - summary, insights, red_flags
-      - weeks_overview (alebo outline_10w)
-      - next_10_days (povinné podľa našich pravidiel)
+      - week_overview (alebo outline_10w)
+      - next_10_days
       - next_week_plan (ak je neprazdne)
-    first_10_days už NERIEŠIME – ak ho AI pošle, ignorujeme.
     """
     if not isinstance(obj, dict):
         # toto je skôr interná chyba ako validačná – nech to spadne
@@ -82,13 +79,9 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         "summary": obj.get("summary") or "No summary.",
         "insights": obj.get("insights") or [],
         "red_flags": obj.get("red_flags") or [],
-        "weeks_overview": obj.get("weeks_overview") or obj.get("outline_10w") or [],
+        "week_overview": obj.get("week_overview") or obj.get("outline_10w") or [],
         "next_10_days": obj.get("next_10_days") or [],
-        "next_week_plan": (
-            obj.get("next_week_plan")
-            if obj.get("next_week_plan") not in ([], {}, None)
-            else None
-        ),
+        "next_week_plan": obj.get("next_week_plan") if obj.get("next_week_plan") not in ([], {}, None) else None,
         "_meta": {
             "plan_source": "ai",
             "week_start": plan_start_iso or None,
@@ -107,25 +100,25 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
-    # Koľko týždňov rieši plán – použijeme len na počet riadkov v weeks_overview
+    # koľko týždňov rieši plán – použijeme len na počet riadkov v week_overview
     weeks = int(context_payload.get("weeks") or 6)
 
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
     hard = [
         "Produce `next_10_days` for EXACTLY 10 consecutive dates starting from `plan_start_date`.",
         "Each day MUST include non-empty `sessions`.",
-        'If a day is rest: include one session {"title":"Rest Day","sport":"other","duration_min":0}.',
+        "If a day is rest: include one session {\"title\":\"Rest Day\",\"sport\":\"other\",\"duration_min\":0}.",
         "Include `sport` for every session (run/ride/strength/other).",
         "For RUN sessions provide `target_hr_bpm_range:[low,high]` (bpm).",
-        "Derive HR ranges from zones/thresholds provided in context (do NOT invent physiology).",
+        "Derive HR ranges from thresholds/zones provided in context (do NOT invent physiology).",
         "Pace as string `min/km`; power in watts.",
         "`next_week_plan` is optional and may be null.",
         "Output JSON only.",
-        "Strength sessions MUST include `exercises` array (6–12 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
-        # ---- weeks_overview ----
-        f"Include `weeks_overview` as an array of up to {min(weeks, 12)} short strings.",
-        "Each item in `weeks_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
-        "Keep every `weeks_overview` item <= 120 characters and very concise.",
+        "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only available equipment.",
+        # week_overview
+        f"Include `week_overview` as an array of up to {min(weeks, 12)} short strings.",
+        "Each item in `week_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
+        "Keep every `week_overview` item <= 120 characters and very concise.",
     ]
     if wu_cd_required:
         hard += [
@@ -133,7 +126,10 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
             "HR targets can be top-level or inside structure.*.target.hr.",
         ]
 
-    system_txt = "You are an endurance coaching assistant. Return one valid JSON object only. No prose, no code fences."
+    system_txt = (
+        "You are an endurance coaching assistant. "
+        "Return one valid JSON object only. No prose, no code fences."
+    )
     user_txt = (
         "Context JSON:\n"
         + json.dumps(context_payload, ensure_ascii=False)
@@ -145,9 +141,7 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     return system_txt, user_txt
 
 
-def _call_openai(
-    client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
-) -> str:
+def _call_openai(client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int) -> str:
     kwargs: Dict[str, Any] = {
         "model": model,
         "messages": [
@@ -179,7 +173,7 @@ def generate_plan_json(
     model: str,
     *,
     debug_raw: bool = False,
-    loose: bool = False,  # len kvôli spätnej kompatibilite (ignorované)
+    loose: bool = False,  # ignorované, len kvôli spätné kompatibilite
 ) -> Tuple[dict, Optional[dict]]:
     """
     Vždy vráti (parsed_or_fallback, debug_trace).
@@ -187,7 +181,6 @@ def generate_plan_json(
     Keď AI zlyhá, parsed bude minimálny fallback + debug obsahuje raw/cleaned/trace.
     """
     if not OPENAI_API_KEY:
-        # Toto je reálna serverová chyba — bez kľúča sa nedá volať AI
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
@@ -195,7 +188,6 @@ def generate_plan_json(
 
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
     models = _llm_models_priority(model)
-    # Trochu vyšší budget, ale stále bezpečný
     token_budgets = [3000, 2500, 2000]
 
     schema_text = """
@@ -203,7 +195,7 @@ def generate_plan_json(
   "summary": string,
   "insights": string[],
   "red_flags": { "type": string, "details"?: string, "evidence"?: string }[],
-  "weeks_overview"?: string[],
+  "week_overview"?: string[],
   "next_week_plan"?: { ... } | null,
   "next_10_days": { "day": "YYYY-MM-DD", "sessions": Session[] }[]
 }
@@ -243,17 +235,13 @@ Where Session = {
                 parsed_dict, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": parsed_dict is not None,
-                        "duration_ms": dur_ms,
-                        "raw_preview": (
-                            raw[:800] + ("…[truncated]" if len(raw) > 800 else "")
-                        ),
-                    }
-                )
+                trace["attempts"].append({
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": parsed_dict is not None,
+                    "duration_ms": dur_ms,
+                    "raw_preview": (raw[:800] + ("…[truncated]" if len(raw) > 800 else "")),
+                })
 
                 if not parsed_dict:
                     last_err = "AI returned invalid JSON"
@@ -271,15 +259,13 @@ Where Session = {
             except Exception as e:
                 dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{type(e).__name__}: {e}"
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": False,
-                        "duration_ms": dur_ms,
-                        "error": last_err,
-                    }
-                )
+                trace["attempts"].append({
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": False,
+                    "duration_ms": dur_ms,
+                    "error": last_err,
+                })
                 time.sleep(0.5 * attempt)
                 continue
 
@@ -288,7 +274,7 @@ Where Session = {
         "summary": "AI generation failed.",
         "insights": [],
         "red_flags": [{"type": "error", "details": last_err or "unknown"}],
-        "weeks_overview": [],
+        "week_overview": [],
         "next_10_days": [],
         "next_week_plan": None,
         "_meta": {"plan_source": "ai", "ok": False},
