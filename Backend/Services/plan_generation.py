@@ -70,8 +70,7 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
         raise ValueError("AI output is not a JSON object")
 
     next10 = obj.get("next_10_days") or []
-    # chceme, aby to bol vždy list – ak AI pošle objekt, necháme to tak
-    # a BE validátor to chytí (_validate_next10)
+
     return {
         "summary": obj.get("summary") or "No summary.",
         "insights": obj.get("insights") or [],
@@ -87,6 +86,82 @@ def normalize_plan_json(obj: dict, plan_start_iso: Optional[str] = None) -> dict
     }
 
 
+# ---------- coach voice helpers ----------
+def _bucket_level(val: Any) -> str:
+    """low / medium / high z 0–100 slidera."""
+    if val is None:
+        return "medium"
+    try:
+        v = float(val)
+    except Exception:
+        return "medium"
+    if v <= 30:
+        return "low"
+    if v >= 70:
+        return "high"
+    return "medium"
+
+
+def _describe_coach_voice(voice_block: Optional[dict]) -> str:
+    """
+    Preloží coach_voice + coach_tone (emoji/praise/explain/challenge)
+    na krátny textový popis štýlu, ktorý dáme do promptu.
+    """
+    vb = voice_block or {}
+    voice_name = (vb.get("coach_voice") or "neutral").lower()
+    tone = vb.get("coach_tone") or {}
+
+    emoji_level = _bucket_level(tone.get("emoji"))
+    praise_level = _bucket_level(tone.get("praise"))
+    explain_level = _bucket_level(tone.get("explain"))
+    challenge_level = _bucket_level(tone.get("challenge"))
+
+    voice_map = {
+        "realist": "Be direct and fact-focused. Do not sugar-coat, but stay respectful and constructive.",
+        "motivator": "Be energetic and encouraging. Highlight progress and help the athlete feel confident.",
+        "supportive": "Be empathetic and reassuring. Focus on encouragement and long-term consistency.",
+        "drill_sergeant": "Be very demanding and strict, but not insulting. Push the athlete strongly toward their limits.",
+        "neutral": "Use a balanced, professional tone without extremes.",
+    }
+    base = voice_map.get(voice_name, voice_map["neutral"])
+
+    extras: List[str] = []
+
+    # emoji / ľudskosť
+    if emoji_level == "low":
+        extras.append("Avoid emojis and slang; keep language clean and professional.")
+    elif emoji_level == "high":
+        extras.append("Use a friendly, conversational tone with occasional emojis.")
+    else:
+        extras.append("Tone can be human and friendly, but do not overuse emojis.")
+
+    # pochvala
+    if praise_level == "low":
+        extras.append("Praise only when there is a really strong reason; be rather strict.")
+    elif praise_level == "high":
+        extras.append("Regularly highlight wins and positive trends to keep motivation high.")
+    else:
+        extras.append("Use praise in a balanced way when it is deserved.")
+
+    # vysvetľovanie
+    if explain_level == "low":
+        extras.append("Keep explanations short and only when necessary.")
+    elif explain_level == "high":
+        extras.append("Briefly explain *why* important decisions are made (zones, structure, intensity).")
+    else:
+        extras.append("Explain key points, but do not go into excessive detail.")
+
+    # challenge
+    if challenge_level == "low":
+        extras.append("Be cautious with pushing intensity; emphasize safety and recovery.")
+    elif challenge_level == "high":
+        extras.append("Do not hesitate to challenge the athlete and suggest ambitious, but safe, workloads.")
+    else:
+        extras.append("Balance between comfort and challenge; push gently, not aggressively.")
+
+    return base + " " + " ".join(extras)
+
+
 # ---------- LLM call ----------
 def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
@@ -99,6 +174,9 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     # koľko týždňov rieši plán – len na počet riadkov v week_overview
     weeks = int(context_payload.get("weeks") or 6)
+    
+    # textový popis coach voice
+    voice_desc = _describe_coach_voice(context_payload.get("voice") or {})
 
     wu_cd_required = bool(context_payload.get("rules", {}).get("wu_cd_detail", False))
     hard: List[str] = [
@@ -118,6 +196,8 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         f"Include `week_overview` as an array of up to {min(weeks, 12)} short strings.",
         "Each item in `week_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
         "Keep every `week_overview` item <= 120 characters and very concise.",
+        # aplikovať štýl trénera
+        "Apply the specified coaching style and tone to all textual fields (`summary`, `insights`, `notes`).",
     ]
     if wu_cd_required:
         hard += [
@@ -125,10 +205,16 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
             "HR targets can be top-level or inside structure.*.target.hr.",
         ]
 
-    system_txt = "You are an endurance coaching assistant. Return one valid JSON object only. No prose, no code fences."
+    system_txt = (
+        "You are an endurance coaching assistant. "
+        "Return one valid JSON object only. No prose, no code fences."
+    )
+
     user_txt = (
         "Context JSON:\n"
         + json.dumps(context_payload, ensure_ascii=False)
+        + "\n\nCoaching style and tone:\n"
+        + voice_desc
         + "\n\nSchema (instructional):\n"
         + schema_text
         + "\n\nHard requirements (all must be satisfied):\n- "
