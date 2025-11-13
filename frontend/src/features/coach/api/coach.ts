@@ -7,7 +7,7 @@ export type AnalyzePayloadBE = {
   schema_version: number;
   goal: {
     goal_kind?: CoachPrefs["goal_kind"];
-    horizon_weeks?: number;
+    weeks?: number;
     start_date?: string;
   };
   voice: {
@@ -51,7 +51,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
     schema_version: 2,
     goal: {
       goal_kind: prefs.goal_kind,
-      horizon_weeks: prefs.weeks ?? undefined,
+      weeks: prefs.weeks ?? undefined,
       start_date: (prefs as any).start_date ?? (prefs as any).plan_start_date ?? undefined,
     },
     voice: { coach_voice: prefs.coach_voice, coach_tone: prefs.coach_tone },
