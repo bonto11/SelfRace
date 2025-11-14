@@ -50,6 +50,8 @@ type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
   secondary_mix?: SecondaryMix[];
   coach_voice?: CoachPersona | null;
+  zones?: any;
+  thresholds?: any;
 };
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
