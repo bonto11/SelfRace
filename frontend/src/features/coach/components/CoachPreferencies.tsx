@@ -1,4 +1,3 @@
-// src/features/coach/components/CoachPreferencies/index.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +36,7 @@ import {
 } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 import { PERSONA_TONES, clamp01 } from "@/features/coach/utils/persona";
+import { fetchUserZones } from "@/features/coach/api/zones";
 
 /* ---- local DTOs ---- */
 type SecondaryRole = "none" | "supplement" | "improve";
@@ -163,21 +163,46 @@ export default function PrefsForm() {
     () => readCoachPrefsFromStorage() as CoachPrefsExtended
   );
 
+  // initial load z DB + zóny
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
       try {
-        const p = await refreshCoachPrefsFromDB(userId);
+        const [p, zones] = await Promise.all([
+          refreshCoachPrefsFromDB(userId),
+          fetchUserZones(userId),
+        ]);
+
         if (!alive) return;
-        if (!dirtyRef.current) setLocal(p as CoachPrefsExtended);
-      } catch {}
+
+        let next = p as CoachPrefsExtended;
+
+        // ak prefs ešte nemajú zones a API vrátilo zóny -> doplň
+        if (!next.zones && zones) {
+          next = {
+            ...next,
+            zones: zones as any,
+          };
+        }
+
+        console.debug("[CoachPrefs]init", {
+          fromDB: p,
+          zonesFromAPI: zones,
+          finalZones: (next as any).zones ?? null,
+        });
+
+        if (!dirtyRef.current) setLocal(next);
+      } catch (e) {
+        console.error("[CoachPrefs]init error", e);
+      }
     })();
     return () => {
       alive = false;
     };
   }, [userId]);
 
+  // guard na start_date
   useEffect(() => {
     // ak chýba start_date → doplň default (D+2)
     if (!local?.start_date) {
@@ -291,10 +316,30 @@ export default function PrefsForm() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const fresh = await refreshCoachPrefsFromDB(userId);
-      if (!dirtyRef.current) setLocal(fresh as CoachPrefsExtended);
+      const [fresh, zones] = await Promise.all([
+        refreshCoachPrefsFromDB(userId),
+        fetchUserZones(userId),
+      ]);
+
+      let next = fresh as CoachPrefsExtended;
+
+      if (!next.zones && zones) {
+        next = {
+          ...next,
+          zones: zones as any,
+        };
+      }
+
+      console.debug("[CoachPrefs]refresh", {
+        fromDB: fresh,
+        zonesFromAPI: zones,
+        finalZones: (next as any).zones ?? null,
+      });
+
+      if (!dirtyRef.current) setLocal(next);
       toast.success("Refreshed");
     } catch (e: any) {
+      console.error("[CoachPrefs]refresh error", e);
       toast.error(String(e?.message ?? e));
     }
   };
