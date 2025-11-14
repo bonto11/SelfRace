@@ -165,7 +165,7 @@ def _compute_minutes_for_streams(stream_row: Dict[str, Any], Z: Dict[str, int]) 
 def preview_zones_for_activities(
     user_id: int, activity_ids: List[int], fetch_if_missing: bool = True
 ) -> Dict[str, Any]:
-    Z = _load_user_zones(user_id)
+    Z = load_user_zones(user_id)
     if not Z:
         return {"ok": False, "error": "No zones for user", "items": []}
 
