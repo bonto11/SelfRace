@@ -1,22 +1,25 @@
+// src/features/coach/components/CoachPersonalitySection.tsx
 "use client";
 
-import { SECTION, SURFACE_INSET, PILL_BUTTON } from "@/shared/ui/classes";
+import { SURFACE_INSET, PILL_BUTTON } from "@/shared/ui/classes";
 import { clamp01, PERSONA_TONES } from "@/features/coach/utils/persona";
+import type { CoachPersona } from "@/features/coach/types/prefsTypes";
+
+type CoachPersonalitySectionProps = {
+  // nechceme riešiť celý rozsiahly typ, stačí "hocijaký objekt"
+  local: any;
+  setPref: (key: any, val: any) => void;
+  markDirty: () => void;
+};
 
 const ACTIVE_PILL =
   "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
-
-type Props = {
-  local: any;
-  setPref: (key: any, value: any) => void;
-  markDirty: () => void;
-};
 
 export function CoachPersonalitySection({
   local,
   setPref,
   markDirty,
-}: Props) {
+}: CoachPersonalitySectionProps) {
   const tone =
     local.coach_tone ?? ({
       directness: 50,
@@ -24,9 +27,9 @@ export function CoachPersonalitySection({
       challenge: 50,
       emoji: 20,
       explain: 60,
-    } as any);
+    } as const);
 
-  const personaOptions: { key: any; label: string }[] = [
+  const personaOptions: { key: CoachPersona | null; label: string }[] = [
     { key: null, label: "None" },
     { key: "drill_sergeant", label: "Drill Sergeant" },
     { key: "motivator", label: "Motivator" },
@@ -36,7 +39,7 @@ export function CoachPersonalitySection({
   ];
 
   return (
-    <section className={SECTION}>
+    <section className={SURFACE_INSET + " rounded-2xl p-4 space-y-3"}>
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Coach personality</div>
         <div className="text-xs opacity-70">
@@ -68,8 +71,10 @@ export function CoachPersonalitySection({
                     }
                   );
                 } else {
+                  // tu TS potrebuje zúženie k typu kľúča PERSONA_TONES
+                  const personaKey = key as keyof typeof PERSONA_TONES;
                   setPref("coach_voice", key);
-                  setPref("coach_tone", PERSONA_TONES[key]);
+                  setPref("coach_tone", PERSONA_TONES[personaKey]);
                 }
               }}
               className={[
