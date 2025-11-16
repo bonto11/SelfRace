@@ -94,13 +94,14 @@ export default function PrefsForm() {
         let next = p as CoachPrefsExtended;
 
         // ak prefs ešte nemajú zones a API vrátilo zóny -> doplň
+        console.log("ZONES RAW:", zones);
         if (!next.zones && zones) {
           next = {
             ...next,
             zones: zones as any,
           };
         }
-
+        console.log("ZONES RAW2:", zones);
         console.debug("[CoachPrefs]init", {
           fromDB: p,
           zonesFromAPI: zones,
