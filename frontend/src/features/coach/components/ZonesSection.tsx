@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
 import { InfoPopover } from "./InfoPopover";
 
-type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
+// mód výpočtu zón
+export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
 
 type Props = {
   zones: any | undefined;
   thresholds: any | undefined;
-  zoneCalcMode?: ZoneCalcMode;
-  onZoneCalcModeChange?: (m: ZoneCalcMode) => void;
-  onZonesChange?: (z: any) => void;
-  onThresholdsChange?: (t: any) => void;
+
+  onZonesChange: (z: any) => void;
+  onThresholdsChange: (t: any) => void;
+
   onSaveZonesToDB?: (z: any) => Promise<void>;
   onSaveThresholdsToDB?: (t: any) => Promise<void>;
 };
@@ -20,8 +21,6 @@ type Props = {
 export function ZonesSection({
   zones,
   thresholds,
-  zoneCalcMode = "manual",
-  onZoneCalcModeChange,
   onZonesChange,
   onThresholdsChange,
   onSaveZonesToDB,
@@ -29,8 +28,101 @@ export function ZonesSection({
 }: Props) {
   const [open, setOpen] = useState(false);
 
+  // mode uložíme len lokálne v tejto sekcii
+  const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
+
   const hasZones = !!zones;
   const hasThresholds = !!thresholds;
+
+  /* ------------------------------------------------------------ */
+  /*   VÝPOČET ZÓN PODĽA MODE - HRmax / LTHR / default            */
+  /* ------------------------------------------------------------ */
+
+  const recalcZones = (mode: ZoneCalcMode, z: any, thr: any) => {
+    console.log("[ZONES] Recalculating based on mode:", mode);
+
+    if (!z) return;
+
+    let hrmax = Number(z.hr_max) || 200;
+    let lthr = thr?.HR_bpm ? Number(thr.HR_bpm) : null;
+
+    const out = { ...z };
+
+    if (mode === "manual") return out;
+
+    /* ---- HRmax (%) zóny ---- */
+    if (mode === "hrmax") {
+      out.z1_min = Math.round(hrmax * 0.50);
+      out.z1_max = Math.round(hrmax * 0.60);
+
+      out.z2_min = Math.round(hrmax * 0.60);
+      out.z2_max = Math.round(hrmax * 0.70);
+
+      out.z3_min = Math.round(hrmax * 0.70);
+      out.z3_max = Math.round(hrmax * 0.80);
+
+      out.z4_min = Math.round(hrmax * 0.80);
+      out.z4_max = Math.round(hrmax * 0.90);
+
+      out.z5_min = Math.round(hrmax * 0.90);
+      out.z5_max = hrmax;
+      return out;
+    }
+
+    /* ---- % LTHR ---- */
+    if (mode === "percent_lthr" && lthr) {
+      out.z1_min = Math.round(lthr * 0.81);
+      out.z1_max = Math.round(lthr * 0.89);
+
+      out.z2_min = Math.round(lthr * 0.90);
+      out.z2_max = Math.round(lthr * 0.93);
+
+      out.z3_min = Math.round(lthr * 0.94);
+      out.z3_max = Math.round(lthr * 0.99);
+
+      out.z4_min = Math.round(lthr * 1.0);
+      out.z4_max = Math.round(lthr * 1.06);
+
+      out.z5_min = out.z4_max + 1;
+      out.z5_max = out.z5_min + 10;
+      return out;
+    }
+
+    /* ---- DEFAULT = HRmax, fallback 200 ---- */
+    if (mode === "default") {
+      const h = hrmax;
+      out.z1_min = Math.round(h * 0.50);
+      out.z1_max = Math.round(h * 0.60);
+
+      out.z2_min = Math.round(h * 0.60);
+      out.z2_max = Math.round(h * 0.70);
+
+      out.z3_min = Math.round(h * 0.70);
+      out.z3_max = Math.round(h * 0.80);
+
+      out.z4_min = Math.round(h * 0.80);
+      out.z4_max = Math.round(h * 0.90);
+
+      out.z5_min = Math.round(h * 0.90);
+      out.z5_max = h;
+      return out;
+    }
+
+    return out;
+  };
+
+  /* ------------------------------------------------------------ */
+  /*   Keď sa zmení calculation mode → automaticky prepočítať     */
+  /* ------------------------------------------------------------ */
+
+  useEffect(() => {
+    if (!zones) return;
+    const newZones = recalcZones(calcMode, zones, thresholds);
+    onZonesChange(newZones);
+  }, [calcMode]);
+
+  /* LOCK inputs when not manual */
+  const zonesLocked = calcMode !== "manual";
 
   return (
     <section className={SECTION}>
@@ -41,7 +133,7 @@ export function ZonesSection({
         </div>
 
         <div className="flex items-center gap-2">
-          <InfoPopover text="Zóny vypočítané manuálne, z HRmax alebo z percent LTHR." />
+          <InfoPopover text="Výpočet zón podľa HRmax, %LTHR alebo manuálne." />
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -52,7 +144,7 @@ export function ZonesSection({
         </div>
       </div>
 
-      {/* CLOSED */}
+      {/* CLOSED PREVIEW */}
       {!open && (
         <div
           className={[
@@ -66,34 +158,26 @@ export function ZonesSection({
         </div>
       )}
 
-      {/* OPEN */}
+      {/* OPEN CONTENT */}
       {open && (
         <div className="space-y-5">
+
           {/* --------------------------------------------------- */}
-          {/*   ZONE CALC MODE + HRmax                          */}
+          {/* SELECTOR MODE + HRmax input */}
           {/* --------------------------------------------------- */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* SELECTOR */}
+
+            {/* MODE SELECTOR */}
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <div className="flex items-center justify-between mb-1">
                 <div className="text-xs opacity-70">Zone calculation</div>
-                <InfoPopover
-                  text={
-                    zoneCalcMode === "manual"
-                      ? "Manuálne nastavenie zón = najpresnejšie ak máš kvalitný test."
-                      : zoneCalcMode === "hrmax"
-                      ? "Vypočítané z percent z HRmax. Menej presné pri dlhých behov."
-                      : zoneCalcMode === "percent_lthr"
-                      ? "Zóny z percent laktátového prahu. Veľmi presné pre endurance."
-                      : "Interné default hodnoty (ak nič iné nemáš)."
-                  }
-                />
+                <InfoPopover text="Vyber spôsob výpočtu zón." />
               </div>
 
               <select
-                value={zoneCalcMode}
+                value={calcMode}
                 onChange={(e) =>
-                  onZoneCalcModeChange?.(e.target.value as ZoneCalcMode)
+                  setCalcMode(e.target.value as ZoneCalcMode)
                 }
                 className="w-full bg-gray-800 px-2 py-1 rounded text-sm"
               >
@@ -104,25 +188,31 @@ export function ZonesSection({
               </select>
             </div>
 
-            {/* HRmax INPUT */}
+            {/* HRmax */}
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <div className="text-xs opacity-70 mb-1">HRmax (bpm)</div>
+
               <input
                 type="number"
                 className="bg-gray-800 px-2 py-1 rounded w-full"
                 value={zones?.hr_max ?? ""}
-                onChange={(e) =>
-                  onZonesChange?.({
-                    ...zones,
-                    hr_max: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
+                onChange={(e) => {
+                  const val = e.target.value ? Number(e.target.value) : null;
+                  const next = { ...zones, hr_max: val };
+                  onZonesChange(next);
+
+                  // Auto recalculation when HRmax changes
+                  if (calcMode !== "manual") {
+                    const recalc = recalcZones(calcMode, next, thresholds);
+                    onZonesChange(recalc);
+                  }
+                }}
               />
             </div>
           </div>
 
           {/* --------------------------------------------------- */}
-          {/*   ZONES EDITOR                                     */}
+          {/* ZONES EDITOR */}
           {/* --------------------------------------------------- */}
           {hasZones && (
             <>
@@ -131,6 +221,7 @@ export function ZonesSection({
                 {["z1", "z2", "z3", "z4", "z5"].map((key) => {
                   const minKey = `${key}_min`;
                   const maxKey = `${key}_max`;
+
                   return (
                     <div
                       key={key}
@@ -139,13 +230,15 @@ export function ZonesSection({
                       <div className="text-xs opacity-70 uppercase mb-1">
                         {key.toUpperCase()}
                       </div>
+
                       <div className="flex items-center gap-2">
                         <input
+                          disabled={zonesLocked}
                           type="number"
-                          className="bg-gray-800 px-2 py-1 rounded w-20"
+                          className="bg-gray-800 px-2 py-1 rounded w-20 disabled:opacity-40"
                           value={zones[minKey] ?? ""}
                           onChange={(e) =>
-                            onZonesChange?.({
+                            onZonesChange({
                               ...zones,
                               [minKey]: e.target.value
                                 ? Number(e.target.value)
@@ -153,13 +246,16 @@ export function ZonesSection({
                             })
                           }
                         />
+
                         <span className="opacity-60">–</span>
+
                         <input
+                          disabled={zonesLocked}
                           type="number"
-                          className="bg-gray-800 px-2 py-1 rounded w-20"
+                          className="bg-gray-800 px-2 py-1 rounded w-20 disabled:opacity-40"
                           value={zones[maxKey] ?? ""}
                           onChange={(e) =>
-                            onZonesChange?.({
+                            onZonesChange({
                               ...zones,
                               [maxKey]: e.target.value
                                 ? Number(e.target.value)
@@ -176,7 +272,10 @@ export function ZonesSection({
               {onSaveZonesToDB && (
                 <button
                   type="button"
-                  onClick={() => onSaveZonesToDB(zones)}
+                  onClick={() => {
+                    console.log("[ZONES] Saving to DB:", zones);
+                    onSaveZonesToDB(zones);
+                  }}
                   className="text-xs mt-2 px-3 py-1 rounded bg-green-700 hover:bg-green-600"
                 >
                   Save zones to DB
@@ -186,7 +285,7 @@ export function ZonesSection({
           )}
 
           {/* --------------------------------------------------- */}
-          {/*   THRESHOLDS EDITOR                                */}
+          {/* THRESHOLDS */}
           {/* --------------------------------------------------- */}
           {hasThresholds && (
             <>
@@ -201,12 +300,13 @@ export function ZonesSection({
                     <div className="text-xs opacity-70 uppercase mb-1">
                       {key}
                     </div>
+
                     <input
                       type="number"
                       className="bg-gray-800 px-2 py-1 rounded w-full"
                       value={val ?? ""}
                       onChange={(e) =>
-                        onThresholdsChange?.({
+                        onThresholdsChange({
                           ...thresholds,
                           [key]: e.target.value
                             ? Number(e.target.value)
@@ -221,7 +321,10 @@ export function ZonesSection({
               {onSaveThresholdsToDB && (
                 <button
                   type="button"
-                  onClick={() => onSaveThresholdsToDB(thresholds)}
+                  onClick={() => {
+                    console.log("[THRESHOLDS] Saving to DB:", thresholds);
+                    onSaveThresholdsToDB(thresholds);
+                  }}
                   className="text-xs mt-2 px-3 py-1 rounded bg-green-700 hover:bg-green-600"
                 >
                   Save thresholds to DB
