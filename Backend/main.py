@@ -17,6 +17,7 @@ from Routes import (
     user_prefs,
     user_bests,
     user_zones,
+    user_thresholds,
     coach_context,
     coach_plan_generation,
     coach_plan_db
@@ -53,6 +54,7 @@ app.include_router(profile.router)
 app.include_router(user_prefs.router)
 app.include_router(user_bests.router)
 app.include_router(user_zones.router)
+app.include_router(user_thresholds.router)
 
 app.include_router(account.router)
 app.include_router(activities.router)

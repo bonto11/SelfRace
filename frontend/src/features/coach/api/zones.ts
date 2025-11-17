@@ -15,20 +15,51 @@ export type UserZones = {
 };
 
 export async function fetchUserZones(userId: number): Promise<UserZones | null> {
-  const res = await fetch(`${API_URL}/users/${userId}/zones`, {
-    method: "GET",
-    cache: "no-store",
+  const url = `${API_URL}/users/${userId}/zones`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      console.error("[fetchUserZones] HTTP error", res.status, url);
+      return null;
+    }
+
+    const json = await res.json().catch(() => null);
+    if (!json || json.success !== true) return null;
+
+    return (json.zones ?? null) as UserZones | null;
+  } catch (err) {
+    console.error("[fetchUserZones] fetch failed", err);
+    return null;
+  }
+}
+
+/**
+ * Ukladá zóny pre daného usera.
+ * Backend si neskôr zosúladíme – očakáva sa PUT /users/{id}/zones.
+ */
+export async function saveUserZones(
+  userId: number,
+  zones: Partial<UserZones>
+): Promise<void> {
+  const url = `${API_URL}/users/${userId}/zones`;
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ zones }),
   });
 
   if (!res.ok) {
-    console.error("[fetchUserZones] HTTP error", res.status);
-    return null;
+    const txt = await res.text().catch(() => "");
+    throw new Error(
+      `[saveUserZones] HTTP ${res.status} ${res.statusText} ${txt}`
+    );
   }
-
-  const json = await res.json().catch(() => null);
-  console.log("[fetchUserZones] RAW:", json);
-
-  if (!json || json.success !== true) return null;
-
-  return (json.zones ?? null) as UserZones | null;
 }

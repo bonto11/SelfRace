@@ -16,12 +16,15 @@ import {
 } from "@/features/coach/utils/prefs";
 
 import Button from "@/shared/components/ui/Button";
+import { NO_X, SECTION, PILL_BUTTON } from "@/shared/ui/classes";
 import {
-  NO_X,
-  SECTION,
-  PILL_BUTTON,
-} from "@/shared/ui/classes";
-import { fetchUserZones } from "@/features/coach/api/zones";
+  fetchUserZones,
+  saveUserZones,
+} from "@/features/coach/api/zones";
+import {
+  fetchUserThresholds,
+  saveUserThresholds,
+} from "@/features/coach/api/thresholds";
 
 // podpanely
 import { GoalSection } from "./GoalSection";
@@ -78,34 +81,35 @@ export default function PrefsForm() {
     () => readCoachPrefsFromStorage() as CoachPrefsExtended
   );
 
-  // initial load z DB + zóny
+  // initial load z DB + zóny + thresholds
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
       try {
-        const [p, zones] = await Promise.all([
+        const [p, zones, thresholds] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
           fetchUserZones(userId),
+          fetchUserThresholds(userId),
         ]);
 
         if (!alive) return;
 
         let next = p as CoachPrefsExtended;
 
-        // ak prefs ešte nemajú zones a API vrátilo zóny -> doplň
-        console.log("ZONES RAW:", zones);
         if (!next.zones && zones) {
-          next = {
-            ...next,
-            zones: zones as any,
-          };
+          next = { ...next, zones: zones as any };
         }
-        console.log("ZONES RAW2:", zones);
+        if (!next.thresholds && thresholds) {
+          next = { ...next, thresholds: thresholds as any };
+        }
+
         console.debug("[CoachPrefs]init", {
           fromDB: p,
           zonesFromAPI: zones,
+          thresholdsFromAPI: thresholds,
           finalZones: (next as any).zones ?? null,
+          finalThresholds: (next as any).thresholds ?? null,
         });
 
         if (!dirtyRef.current) setLocal(next);
@@ -205,7 +209,6 @@ export default function PrefsForm() {
         ...activeSecondaries,
       ];
 
-      // guard: start_date min = zajtra
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
       const safeStart = !startIso || startIso < minIso ? minIso : startIso;
@@ -229,24 +232,23 @@ export default function PrefsForm() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const [fresh, zones] = await Promise.all([
+      const [fresh, zones, thresholds] = await Promise.all([
         refreshCoachPrefsFromDB(userId),
         fetchUserZones(userId),
+        fetchUserThresholds(userId),
       ]);
 
       let next = fresh as CoachPrefsExtended;
 
-      if (!next.zones && zones) {
-        next = {
-          ...next,
-          zones: zones as any,
-        };
-      }
+      if (zones) next = { ...next, zones: zones as any };
+      if (thresholds) next = { ...next, thresholds: thresholds as any };
 
       console.debug("[CoachPrefs]refresh", {
         fromDB: fresh,
         zonesFromAPI: zones,
+        thresholdsFromAPI: thresholds,
         finalZones: (next as any).zones ?? null,
+        finalThresholds: (next as any).thresholds ?? null,
       });
 
       if (!dirtyRef.current) setLocal(next);
@@ -289,6 +291,40 @@ export default function PrefsForm() {
     0
   );
   const shareWarn = sumShare > 100;
+
+  // callbacks pre zones/thresholds panel
+ // callbacks pre zones/thresholds panel
+const handleZonesChange = (z: any) => {
+  setLocal((prev) => ({ ...prev, zones: z }));
+  markDirty();
+};
+
+const handleThresholdsChange = (t: any) => {
+  setLocal((prev) => ({ ...prev, thresholds: t }));
+  markDirty();
+};
+
+const handleSaveZonesToDB = async (z: any) => {
+  if (!userId) return;
+  try {
+    await saveUserZones(userId, z ?? {});
+    toast.success("Zones saved to DB");
+  } catch (e) {
+    console.error(e);
+    toast.error("Saving zones failed (BE endpoint not ready?)");
+  }
+};
+
+const handleSaveThresholdsToDB = async (t: any) => {
+  if (!userId) return;
+  try {
+    await saveUserThresholds(userId, t ?? {});
+    toast.success("Threshold saved to DB");
+  } catch (e) {
+    console.error(e);
+    toast.error("Saving threshold failed (BE endpoint not ready?)");
+  }
+};
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
@@ -352,8 +388,15 @@ export default function PrefsForm() {
         markDirty={markDirty}
       />
 
-      {/* ZONES PREVIEW */}
-      <ZonesSection zones={local.zones} thresholds={local.thresholds} />
+      {/* ZONES + THRESHOLDS + CALC */}
+      <ZonesSection
+        zones={local.zones}
+        thresholds={local.thresholds}
+        onZonesChange={handleZonesChange}
+        onThresholdsChange={handleThresholdsChange}
+        onSaveZonesToDB={handleSaveZonesToDB}
+        onSaveThresholdsToDB={handleSaveThresholdsToDB}
+      />
 
       {/* ADVANCED TOGGLE */}
       <div className="flex">
