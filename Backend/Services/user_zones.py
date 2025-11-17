@@ -122,11 +122,12 @@ def _normalize_zones_for_insert(user_id: int, payload: Dict[str, Any]) -> Dict[s
 
 
 def save_user_zones(user_id: int, payload: Dict[str, Any]) -> bool:
-  """
-  Uloží nový záznam do users_zones.
-  Nikdy neposiela None do NOT NULL stĺpcov.
-  """
-  row = _normalize_zones_for_insert(user_id, payload or {})
+    print("\n\n=== [BE] SAVE ZONES PAYLOAD ===")
+    print(payload)
+    row = _normalize_zones_for_insert(user_id, payload)
+    print("=== [BE] FINAL ROW TO INSERT ===")
+    print(row)
+    print("================================\n")
 
-  sb.table(TABLE_USERS_ZONES).insert(row).execute()
-  return True
+    sb.table(TABLE_USERS_ZONES).insert(row).execute()
+    return True
