@@ -21,11 +21,13 @@ export async function fetchUserZones(userId: number): Promise<UserZones | null> 
   });
 
   if (!res.ok) {
-    // ak chceš byť tvrdší, hoď error; teraz len ticho fail
+    console.error("[fetchUserZones] HTTP error", res.status);
     return null;
   }
 
   const json = await res.json().catch(() => null);
+  console.log("[fetchUserZones] RAW:", json);
+
   if (!json || json.success !== true) return null;
 
   return (json.zones ?? null) as UserZones | null;

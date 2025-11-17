@@ -32,13 +32,11 @@ def load_user_zones(user_id: int) -> Optional[Dict[str, int]]:
         except Exception:
             return None
 
-    hr_max = (
-        _num(row.get("hr_max_bpm"))
-        or _num(row.get("HR_max_bpm"))
-        or _num(row.get("HR_max"))
-    )
+    # DB má len hr_max_bpm – ostatné fallbacky zahodíme
+    hr_max = _num(row.get("hr_max_bpm"))
 
-    z1_min = _num(row.get("z1_min_bpm"))
+    # v DB NEMÁŠ z1_min_bpm ani z5_max_bpm -> tieto sa dopočítavajú
+    z1_min = None                        # dopočítame
     z1_max = _num(row.get("z1_max_bpm"))
     z2_min = _num(row.get("z2_min_bpm"))
     z2_max = _num(row.get("z2_max_bpm"))
@@ -47,8 +45,9 @@ def load_user_zones(user_id: int) -> Optional[Dict[str, int]]:
     z4_min = _num(row.get("z4_min_bpm"))
     z4_max = _num(row.get("z4_max_bpm"))
     z5_min = _num(row.get("z5_min_bpm"))
-    z5_max = _num(row.get("z5_max_bpm"))
+    z5_max = None                        # dopočítame
 
+    # reťazové dopočty
     if z1_min is None:
         z1_min = 0
     if z2_min is None and z1_max is not None:
