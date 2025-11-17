@@ -15,7 +15,7 @@ export type UserZones = {
 };
 
 export async function fetchUserZones(userId: number): Promise<UserZones | null> {
-  const res = await fetch(`${API_URL}/profile/zones/${userId}`, {
+  const res = await fetch(`${API_URL}/users/${userId}/zones`, {
     method: "GET",
     cache: "no-store",
   });
