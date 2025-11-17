@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from Services.user_zones import load_user_zones, upsert_user_zones
+from Services.user_zones import load_user_zones, save_user_zones
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -46,7 +46,7 @@ def put_user_zones(user_id: int, payload: ZonesPayload):
   Uloží zóny z FE (vždy spraví nový záznam v users_zones) a vráti normalizovaný stav.
   """
   try:
-    zones = upsert_user_zones(user_id, payload.dict(exclude_unset=True))
+    zones = save_user_zones(user_id, payload.dict(exclude_unset=True))
   except Exception as e:  # noqa: BLE001
     raise HTTPException(status_code=500, detail=str(e))
 
