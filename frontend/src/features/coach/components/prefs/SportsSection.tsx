@@ -1,7 +1,7 @@
 // src/features/coach/components/SportsSection.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import SelectField from "@/shared/components/ui/SelectField";
@@ -43,6 +43,20 @@ export function SportsSection({
     0
   );
 
+  // ---------- closed preview ----------
+  const preview = useMemo(() => {
+    const main = mainSport || "— none —";
+    const secBrief = secondary
+      .filter((s) => s.role !== "none" && (s.share_pct ?? 0) > 0)
+      .map((s) => `${s.sport} (${s.role} ${s.share_pct}%)`);
+    const secText = secBrief.length ? secBrief.join(", ") : "none";
+    return {
+      mainText: `Main: ${main}`,
+      secText: `Secondary: ${secText}`,
+      sumText: `Sum: ${sumShare}%`,
+    };
+  }, [mainSport, secondary, sumShare]);
+
   return (
     <section className={SECTION}>
       {/* Header */}
@@ -58,6 +72,23 @@ export function SportsSection({
           />
         </div>
       </div>
+
+      {/* Closed preview */}
+      {!open && (
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs select-none",
+            shareWarn ? "text-rose-300" : "opacity-80",
+          ].join(" ")}
+        >
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <span>{preview.mainText}</span>
+            <span>{preview.secText}</span>
+            <span>{preview.sumText}</span>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       {open && (
