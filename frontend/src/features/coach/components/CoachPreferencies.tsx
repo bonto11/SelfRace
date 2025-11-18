@@ -293,7 +293,6 @@ export default function PrefsForm() {
   const shareWarn = sumShare > 100;
 
   // callbacks pre zones/thresholds panel
- // callbacks pre zones/thresholds panel
 const handleZonesChange = (z: any) => {
   setLocal((prev) => ({ ...prev, zones: z }));
   markDirty();

@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
 import { InfoPopover } from "./InfoPopover";
 import { toast } from "@/shared/components/ui/Toast";
+import TextField from "@/shared/components/ui/TextField";
+import Button from "@/shared/components/ui/Button";
+import SelectField from "@/shared/components/ui/SelectField";
 
 // mód výpočtu zón
 export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
@@ -21,7 +24,7 @@ type Props = {
 
 /* ---------------- ZONES VALIDATION ---------------- */
 
-const ZONE_KEYS: string[] = [
+const ZONE_KEYS: Array<keyof any> = [
   "z1_min",
   "z1_max",
   "z2_min",
@@ -39,10 +42,13 @@ function validateZones(z: any): string[] {
 
   const errors: string[] = [];
 
+  // všetky čísla?
   for (const key of ZONE_KEYS) {
     const v = z[key];
     if (v == null || Number.isNaN(Number(v))) {
-      errors.push(`Field ${key} must be a number (got ${v ?? "empty"})`);
+      errors.push(
+        `Field ${String(key)} must be a number (got ${v ?? "empty"})`
+      );
     }
   }
 
@@ -76,6 +82,7 @@ function validateZones(z: any): string[] {
     }
   }
 
+  // monotónnosť medzi zónami (len mäkká kontrola)
   if (
     !(
       z1_max < z2_min &&
@@ -85,7 +92,7 @@ function validateZones(z: any): string[] {
     )
   ) {
     errors.push(
-      "Zones should be ordered and non-overlapping (Z1 < Z2 < Z3 < Z4 < Z5).",
+      "Zones should be ordered and non-overlapping (Z1 < Z2 < Z3 < Z4 < Z5)."
     );
   }
 
@@ -96,11 +103,7 @@ function validateZones(z: any): string[] {
   return errors;
 }
 
-/* ---------------- THRESHOLDS VALIDATION ---------------- */
-
-const THR_NUMERIC_KEYS = new Set(["HR_bpm", "pace_sec_km", "power_watt"]);
-const THR_READONLY_KEYS = new Set(["updated_at", "user_uid", "user_id"]);
-// value zahadzujeme – nebudeme ho ani zobrazovať
+/* ---------------- THRESHOLDS VALIDATION + HELPERS ---------------- */
 
 function validateThresholds(t: any): string[] {
   if (!t) return ["Threshold payload is empty"];
@@ -133,29 +136,30 @@ function validateThresholds(t: any): string[] {
   return errors;
 }
 
-/* -------- pomocné na pace min/km <-> sek/km -------- */
-
-function secToPaceString(sec: number | null | undefined): string {
-  if (!sec || !Number.isFinite(sec)) return "";
-  const s = Math.round(Number(sec));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, "0")}`;
+// seconds -> "mm:ss"
+function formatPace(sec: any): string {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const m = Math.floor(n / 60);
+  const s = n % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function paceStringToSec(val: string): number | null {
-  if (!val.trim()) return null;
-  // podpora "4:55" aj "295"
-  if (val.includes(":")) {
-    const [mStr, sStr] = val.split(":");
+// "mm:ss" -> seconds (int)
+function parsePace(str: string): number | null {
+  const raw = str.trim();
+  if (!raw) return null;
+  if (raw.includes(":")) {
+    const [mStr, sStr] = raw.split(":");
     const m = Number(mStr);
     const s = Number(sStr);
     if (!Number.isFinite(m) || !Number.isFinite(s)) return null;
     return m * 60 + s;
   }
-  const n = Number(val);
+  // fallback – ak zadáš len číslo, beriem to ako sekundy
+  const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
+  return Math.round(n);
 }
 
 /* ---------------- COMPONENT ---------------- */
@@ -171,37 +175,11 @@ export function ZonesSection({
   const [open, setOpen] = useState(false);
   const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
 
-  // keď z DB nič nepríde, spravíme default zóny, aby sa zobrazil editor
-  const effectiveZones =
-    zones ?? {
-      hr_max: 200,
-      z1_min: 0,
-      z1_max: 119,
-      z2_min: 120,
-      z2_max: 139,
-      z3_min: 140,
-      z3_max: 159,
-      z4_min: 160,
-      z4_max: 179,
-      z5_min: 180,
-      z5_max: 200,
-    };
-
-  const effectiveThr = thresholds ?? {
-    sport: "",
-    threshold_type: "",
-    HR_bpm: "",
-    pace_sec_km: "",
-    power_watt: "",
-    measurement_type: "",
-    updated_at: "",
-  };
-
-  const hasZones = true; // vždy zobrazíme grid (už máme effectiveZones)
-  const hasThresholds = true; // editor zobrazíme, aj keď je to zatiaľ prázdne
+  const hasZones = !!zones;
+  const hasThresholds = !!thresholds;
 
   /* ------------------------------------------------------------ */
-  /*   VÝPOČET ZÓN PODĽA MODE                                    */
+  /*   VÝPOČET ZÓN PODĽA MODE - HRmax / LTHR / default            */
   /* ------------------------------------------------------------ */
 
   const recalcZones = (mode: ZoneCalcMode, z: any, thr: any) => {
@@ -283,16 +261,8 @@ export function ZonesSection({
 
   const zonesLocked = calcMode !== "manual";
 
-  /* threshold select options */
-  const SPORT_OPTIONS = ["running", "cycling", "triathlon"];
-  const THR_TYPE_OPTIONS = ["LT1", "LT2", "FTP", "CP", "custom"];
-  const MEAS_TYPE_OPTIONS = [
-    "lab",
-    "field test",
-    "estimate garmin",
-    "estimate polar",
-    "coach",
-  ];
+  const thr = thresholds ?? {};
+  const paceDisplay = formatPace(thr.pace_sec_km);
 
   return (
     <section className={SECTION}>
@@ -304,16 +274,18 @@ export function ZonesSection({
 
         <div className="flex items-center gap-2">
           <InfoPopover text="Výpočet zón podľa HRmax, %LTHR alebo manuálne." />
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             onClick={() => setOpen((o) => !o)}
-            className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
           >
             {open ? "Hide" : "Show"}
-          </button>
+          </Button>
         </div>
       </div>
 
+      {/* CLOSED PREVIEW */}
       {!open && (
         <div
           className={[
@@ -321,44 +293,54 @@ export function ZonesSection({
             "px-3 py-2 text-xs opacity-70 select-none",
           ].join(" ")}
         >
-          Click Show to view or edit your zones and thresholds.
+          {hasZones || hasThresholds
+            ? "Click Show to view or edit your zones."
+            : "No HR zones or thresholds found."}
         </div>
       )}
 
+      {/* OPEN CONTENT */}
       {open && (
         <div className="space-y-5">
-          {/* MODE + HRmax */}
+          {/* --------------------------------------------------- */}
+          {/* SELECTOR MODE + HRmax input */}
+          {/* --------------------------------------------------- */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs opacity-70">Zone calculation</div>
-                <InfoPopover text="Vyber spôsob výpočtu zón." />
-              </div>
-
-              <select
+            <div className={[SURFACE_INLINE, "px-3 py-2 space-y-2"].join(" ")}>
+              <SelectField
+                label="Zone calculation"
                 value={calcMode}
                 onChange={(e) =>
                   setCalcMode(e.target.value as ZoneCalcMode)
                 }
-                className="w-full bg-gray-800 px-2 py-1 rounded text-sm"
-              >
-                <option value="manual">Manual (test/custom)</option>
-                <option value="hrmax">From HRmax (%)</option>
-                <option value="percent_lthr">From % LTHR</option>
-                <option value="default">Internal default</option>
-              </select>
+                options={[
+                  { value: "manual", label: "Manual (test/custom)" },
+                  { value: "hrmax", label: "From HRmax (%)" },
+                  { value: "percent_lthr", label: "From % LTHR" },
+                  { value: "default", label: "Internal default" },
+                ]}
+                hint={
+                  calcMode === "manual"
+                    ? "Najpresnejšie pri kvalitnom teste (analýza laktátu / lab)."
+                    : calcMode === "hrmax"
+                    ? "Jednoduchý model z %HRmax – OK pre hobby, horšie pre pokročilejších."
+                    : calcMode === "percent_lthr"
+                    ? "Zóny ako % laktátového prahu – dobré pre pokročilejších, menej presne ako test."
+                    : "Fallback, ak nemáš žiadne dáta – interné default hodnoty."
+                }
+              />
             </div>
 
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <div className="text-xs opacity-70 mb-1">HRmax (bpm)</div>
-              <input
+              <TextField
+                label="HRmax (bpm)"
                 type="number"
-                className="bg-gray-800 px-2 py-1 rounded w-full"
-                value={effectiveZones.hr_max ?? ""}
+                value={zones?.hr_max ?? ""}
                 onChange={(e) => {
                   const val = e.target.value ? Number(e.target.value) : null;
-                  const next = { ...effectiveZones, hr_max: val };
+                  const next = { ...(zones ?? {}), hr_max: val };
                   onZonesChange(next);
+
                   if (calcMode !== "manual") {
                     const recalc = recalcZones(calcMode, next, thresholds);
                     onZonesChange(recalc);
@@ -368,7 +350,9 @@ export function ZonesSection({
             </div>
           </div>
 
+          {/* --------------------------------------------------- */}
           {/* ZONES EDITOR */}
+          {/* --------------------------------------------------- */}
           {hasZones && (
             <>
               <div className="text-xs opacity-70">Zones (bpm)</div>
@@ -385,15 +369,16 @@ export function ZonesSection({
                       <div className="text-xs opacity-70 uppercase mb-1">
                         {key.toUpperCase()}
                       </div>
+
                       <div className="flex items-center gap-2">
-                        <input
-                          disabled={zonesLocked}
+                        <TextField
                           type="number"
-                          className="bg-gray-800 px-2 py-1 rounded w-20 disabled:opacity-40"
-                          value={effectiveZones[minKey] ?? ""}
+                          disabled={zonesLocked}
+                          className="w-20"
+                          value={zones?.[minKey] ?? ""}
                           onChange={(e) =>
                             onZonesChange({
-                              ...effectiveZones,
+                              ...(zones ?? {}),
                               [minKey]: e.target.value
                                 ? Number(e.target.value)
                                 : null,
@@ -401,14 +386,14 @@ export function ZonesSection({
                           }
                         />
                         <span className="opacity-60">–</span>
-                        <input
-                          disabled={zonesLocked}
+                        <TextField
                           type="number"
-                          className="bg-gray-800 px-2 py-1 rounded w-20 disabled:opacity-40"
-                          value={effectiveZones[maxKey] ?? ""}
+                          disabled={zonesLocked}
+                          className="w-20"
+                          value={zones?.[maxKey] ?? ""}
                           onChange={(e) =>
                             onZonesChange({
-                              ...effectiveZones,
+                              ...(zones ?? {}),
                               [maxKey]: e.target.value
                                 ? Number(e.target.value)
                                 : null,
@@ -422,27 +407,31 @@ export function ZonesSection({
               </div>
 
               {onSaveZonesToDB && (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="success"
+                  className="mt-2"
                   onClick={async () => {
-                    const errs = validateZones(effectiveZones);
+                    const errs = validateZones(zones);
                     if (errs.length) {
                       console.warn("[ZONES] Validation failed:", errs);
                       toast.error(errs[0]);
                       return;
                     }
-                    console.log("[ZONES] Saving to DB:", effectiveZones);
-                    await onSaveZonesToDB(effectiveZones);
+                    console.log("[ZONES] Saving to DB:", zones);
+                    await onSaveZonesToDB(zones);
                   }}
-                  className="text-xs mt-2 px-3 py-1 rounded bg-green-700 hover:bg-green-600"
                 >
                   Save zones to DB
-                </button>
+                </Button>
               )}
             </>
           )}
 
-          {/* THRESHOLDS EDITOR */}
+          {/* --------------------------------------------------- */}
+          {/* THRESHOLDS – štruktúrované, bez `value`             */}
+          {/* --------------------------------------------------- */}
           {hasThresholds && (
             <>
               <div className="text-xs opacity-70">Thresholds</div>
@@ -450,162 +439,145 @@ export function ZonesSection({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* SPORT */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">SPORT</div>
-                  <select
-                    className="bg-gray-800 px-2 py-1 rounded w-full"
-                    value={effectiveThr.sport ?? ""}
+                  <SelectField
+                    label="Sport"
+                    value={thr.sport ?? "running"}
                     onChange={(e) =>
                       onThresholdsChange({
-                        ...effectiveThr,
+                        ...thr,
                         sport: e.target.value,
                       })
                     }
-                  >
-                    <option value="">(select)</option>
-                    {SPORT_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "running", label: "Running" },
+                      { value: "cycling", label: "Cycling" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
                 </div>
 
-                {/* THRESHOLD_TYPE */}
+                {/* THRESHOLD TYPE */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    THRESHOLD_TYPE
-                  </div>
-                  <select
-                    className="bg-gray-800 px-2 py-1 rounded w-full"
-                    value={effectiveThr.threshold_type ?? ""}
+                  <SelectField
+                    label="Threshold type"
+                    value={thr.threshold_type ?? "LT2"}
                     onChange={(e) =>
                       onThresholdsChange({
-                        ...effectiveThr,
+                        ...thr,
                         threshold_type: e.target.value,
                       })
                     }
-                  >
-                    <option value="">(select)</option>
-                    {THR_TYPE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "LT1", label: "LT1 (aerobic)" },
+                      { value: "LT2", label: "LT2 (anaerobic)" },
+                      { value: "FTP", label: "FTP (cycling)" },
+                      { value: "HR_LT2", label: "HR at LT2" },
+                      { value: "PACE_LT2", label: "Pace at LT2" },
+                    ]}
+                  />
                 </div>
 
-                {/* UPDATED_AT (read only) */}
+                {/* UPDATED AT – read-only */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    UPDATED_AT
-                  </div>
-                  <input
-                    className="bg-gray-800 px-2 py-1 rounded w-full disabled:opacity-60"
+                  <TextField
+                    label="Updated at"
+                    value={thr.updated_at ?? ""}
                     disabled
-                    value={effectiveThr.updated_at ?? ""}
-                    onChange={() => {}}
+                    hint="Read-only – nastavuje backend."
                   />
                 </div>
 
-                {/* HR_BPM */}
+                {/* HR_bpm */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    HR_BPM
-                  </div>
-                  <input
+                  <TextField
+                    label="Threshold HR (bpm)"
                     type="number"
-                    className="bg-gray-800 px-2 py-1 rounded w-full"
-                    value={effectiveThr.HR_bpm ?? ""}
+                    value={thr.HR_bpm ?? ""}
                     onChange={(e) =>
                       onThresholdsChange({
-                        ...effectiveThr,
-                        HR_bpm: e.target.value ? Number(e.target.value) : null,
+                        ...thr,
+                        HR_bpm:
+                          e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
                   />
                 </div>
 
-                {/* PACE SEC/KM – zobrazované ako min/km */}
+                {/* PACE – min/km -> pace_sec_km */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    PACE (min/km)
-                  </div>
-                  <input
-                    type="text"
-                    className="bg-gray-800 px-2 py-1 rounded w-full"
+                  <TextField
+                    label="Threshold pace (min/km)"
+                    value={paceDisplay}
                     placeholder="4:55"
-                    value={secToPaceString(effectiveThr.pace_sec_km)}
-                    onChange={(e) =>
+                    hint="Formát mm:ss – napr. 4:55"
+                    onChange={(e) => {
+                      const seconds = parsePace(e.target.value);
                       onThresholdsChange({
-                        ...effectiveThr,
-                        pace_sec_km: paceStringToSec(e.target.value),
-                      })
-                    }
+                        ...thr,
+                        pace_sec_km: seconds,
+                      });
+                    }}
                   />
                 </div>
 
-                {/* POWER_WATT */}
+                {/* POWER WATT */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    POWER_WATT
-                  </div>
-                  <input
+                  <TextField
+                    label="Threshold power (W)"
                     type="number"
-                    className="bg-gray-800 px-2 py-1 rounded w-full"
-                    value={effectiveThr.power_watt ?? ""}
+                    value={thr.power_watt ?? ""}
                     onChange={(e) =>
                       onThresholdsChange({
-                        ...effectiveThr,
-                        power_watt: e.target.value
-                          ? Number(e.target.value)
-                          : null,
+                        ...thr,
+                        power_watt:
+                          e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
                   />
                 </div>
 
-                {/* MEASUREMENT_TYPE */}
+                {/* MEASUREMENT TYPE */}
                 <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    MEASUREMENT_TYPE
-                  </div>
-                  <select
-                    className="bg-gray-800 px-2 py-1 rounded w-full"
-                    value={effectiveThr.measurement_type ?? ""}
+                  <SelectField
+                    label="Measurement type"
+                    value={thr.measurement_type ?? "estimate garmin"}
                     onChange={(e) =>
                       onThresholdsChange({
-                        ...effectiveThr,
+                        ...thr,
                         measurement_type: e.target.value,
                       })
                     }
-                  >
-                    <option value="">(select)</option>
-                    {MEAS_TYPE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "lab test", label: "Lab test" },
+                      { value: "field test", label: "Field test" },
+                      { value: "estimate garmin", label: "Estimate – Garmin" },
+                      { value: "estimate strava", label: "Estimate – Strava" },
+                      { value: "coach estimate", label: "Coach estimate" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
                 </div>
               </div>
 
               {onSaveThresholdsToDB && (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="success"
+                  className="mt-2"
                   onClick={async () => {
-                    const errs = validateThresholds(effectiveThr);
+                    const errs = validateThresholds(thr);
                     if (errs.length) {
                       console.warn("[THRESHOLDS] Validation failed:", errs);
                       toast.error(errs[0]);
                       return;
                     }
-                    console.log("[THRESHOLDS] Saving to DB:", effectiveThr);
-                    await onSaveThresholdsToDB(effectiveThr);
+                    console.log("[THRESHOLDS] Saving to DB:", thr);
+                    await onSaveThresholdsToDB(thr);
                   }}
-                  className="text-xs mt-2 px-3 py-1 rounded bg-green-700 hover:bg-green-600"
                 >
                   Save thresholds to DB
-                </button>
+                </Button>
               )}
             </>
           )}
