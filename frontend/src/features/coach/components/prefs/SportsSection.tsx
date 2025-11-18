@@ -6,7 +6,7 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import {SURFACE_INLINE, SECTION,  COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE, PILL_BUTTON } from "@/shared/ui/classes";
+import { SURFACE_INLINE, SECTION } from "@/shared/ui/classes";
 import type { SportKind } from "@/features/coach/types/prefsTypes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
@@ -123,7 +123,8 @@ export function SportsSection({
                             key={r}
                             type="button"
                             size="xs"
-                            variant="secondary"
+                            variant="prefs"
+                            active={active}
                             onClick={() => {
                               const nextShare =
                                 r === "none"
@@ -136,11 +137,6 @@ export function SportsSection({
                                 share_pct: nextShare,
                               });
                             }}
-                            className={[
-                              PILL_BUTTON,
-                              "px-2 py-1",
-                              active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                            ].join(" ")}
                             title={r}
                           >
                             {r}
@@ -198,7 +194,6 @@ export function SportsSection({
                             share_pct: 0,
                           })
                         }
-                        className={[PILL_BUTTON, "px-2 py-1"].join(" ")}
                       >
                         clear
                       </Button>
@@ -212,7 +207,6 @@ export function SportsSection({
                             share_pct: 25,
                           })
                         }
-                        className={[PILL_BUTTON, "px-2 py-1"].join(" ")}
                       >
                         reset
                       </Button>
