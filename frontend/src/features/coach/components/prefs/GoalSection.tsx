@@ -62,7 +62,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 <Button
                   key={g}
                   size="sm"
-                  variant="secondary"
+                  variant="ghost"
                   onClick={() => setPref("goal_kind", isActive ? undefined : g)}
                   className={isActive ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
                 >
@@ -74,7 +74,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             {/* explicit None */}
             <Button
               size="sm"
-              variant="secondary"
+              variant="ghost"
               onClick={() => setPref("goal_kind", undefined)}
               className={!activeGoal ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
             >
