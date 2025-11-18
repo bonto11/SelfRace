@@ -45,7 +45,6 @@ function validateZones(z: any): string[] {
 
   const errors: string[] = [];
 
-  // všetky čísla?
   for (const key of ZONE_KEYS) {
     const v = z[key];
     if (v == null || Number.isNaN(Number(v))) {
@@ -80,7 +79,6 @@ function validateZones(z: any): string[] {
     if (min >= max) errors.push(`${label}: min must be < max (${min} vs ${max})`);
   }
 
-  // monotónnosť medzi zónami (mäkká kontrola)
   if (!(z1_max < z2_min && z2_max <= z3_min && z3_max <= z4_min && z4_max <= z5_min)) {
     errors.push("Zones should be ordered and non-overlapping (Z1 < Z2 < Z3 < Z4 < Z5).");
   }
@@ -180,7 +178,7 @@ function recalcZones(mode: ZoneCalcMode, z: any, thr: any) {
   }
 
   if (mode === "percent_lthr") {
-    if (!lthr) return out; // nemáme LTHR – necháme hodnoty, hint zobrazíme nižšie
+    if (!lthr) return out;
     out.z1_min = Math.round(lthr * 0.81);
     out.z1_max = Math.round(lthr * 0.89);
 
@@ -199,24 +197,22 @@ function recalcZones(mode: ZoneCalcMode, z: any, thr: any) {
   }
 
   // default = HRmax fallback
-  {
-    const h = hrmax;
-    out.z1_min = Math.round(h * 0.5);
-    out.z1_max = Math.round(h * 0.6);
+  const h = hrmax;
+  out.z1_min = Math.round(h * 0.5);
+  out.z1_max = Math.round(h * 0.6);
 
-    out.z2_min = Math.round(h * 0.6);
-    out.z2_max = Math.round(h * 0.7);
+  out.z2_min = Math.round(h * 0.6);
+  out.z2_max = Math.round(h * 0.7);
 
-    out.z3_min = Math.round(h * 0.7);
-    out.z3_max = Math.round(h * 0.8);
+  out.z3_min = Math.round(h * 0.7);
+  out.z3_max = Math.round(h * 0.8);
 
-    out.z4_min = Math.round(h * 0.8);
-    out.z4_max = Math.round(h * 0.9);
+  out.z4_min = Math.round(h * 0.8);
+  out.z4_max = Math.round(h * 0.9);
 
-    out.z5_min = Math.round(h * 0.9);
-    out.z5_max = h;
-    return out;
-  }
+  out.z5_min = Math.round(h * 0.9);
+  out.z5_max = h;
+  return out;
 }
 
 /* ---------------- COMPONENT ---------------- */
@@ -232,7 +228,7 @@ export function ZonesSection({
   const [open, setOpen] = useState(false);
   const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
 
-  // vždy zobraz polia – aj keď nemáme data
+  // vždy zobraz polia – aj bez dát z DB
   const z = useMemo(
     () => ({
       hr_max: zones?.hr_max ?? null,
@@ -249,12 +245,12 @@ export function ZonesSection({
     }),
     [zones]
   );
+
   const thr = thresholds ?? {};
   const paceDisplay = formatPace(thr.pace_sec_km);
-
   const zonesLocked = calcMode !== "manual";
 
-  // Recalc pri zmene módu / HRmax / LTHR
+  // Recalc pri zmene módu / HRmax / LTHR (len keď nie je manual)
   useEffect(() => {
     if (!zones) return;
     if (calcMode === "manual") return;
@@ -284,9 +280,7 @@ export function ZonesSection({
       {/* OPEN CONTENT */}
       {open && (
         <div className="space-y-5">
-          {/* --------------------------------------------------- */}
-          {/* MODE + HRmax + LTHR (read-only)                     */}
-          {/* --------------------------------------------------- */}
+          {/* MODE + HRmax + LTHR (read-only) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <SelectField
@@ -334,9 +328,7 @@ export function ZonesSection({
             </div>
           </div>
 
-          {/* --------------------------------------------------- */}
-          {/* ZONES EDITOR (vždy viditeľné)                       */}
-          {/* --------------------------------------------------- */}
+          {/* ZONES EDITOR – vždy viditeľné, uzamknuté mimo manual */}
           <div className="text-xs opacity-70">Zones (bpm)</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(["z1", "z2", "z3", "z4", "z5"] as const).map((key) => {
@@ -390,7 +382,6 @@ export function ZonesSection({
                   toast.error(errs[0]);
                   return;
                 }
-                console.log("[ZONES] Saving to DB:", { ...(zones ?? {}), ...z });
                 await onSaveZonesToDB({ ...(zones ?? {}), ...z });
               }}
             >
@@ -398,9 +389,7 @@ export function ZonesSection({
             </Button>
           )}
 
-          {/* --------------------------------------------------- */}
-          {/* THRESHOLDS – štruktúrované, bez `value`             */}
-          {/* --------------------------------------------------- */}
+          {/* THRESHOLDS */}
           <div className="text-xs opacity-70">Thresholds</div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -514,7 +503,6 @@ export function ZonesSection({
                   toast.error(errs[0]);
                   return;
                 }
-                console.log("[THRESHOLDS] Saving to DB:", thr);
                 await onSaveThresholdsToDB(thr);
               }}
             >
