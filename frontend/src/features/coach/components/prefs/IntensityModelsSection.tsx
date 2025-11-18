@@ -1,8 +1,7 @@
-// src/features/coach/components/IntensityModelsSection.tsx
 "use client";
 
 import Button from "@/shared/components/ui/Button";
-import { SECTION, PILL_BUTTON , COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE} from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type Props = {
@@ -12,6 +11,9 @@ type Props = {
 };
 
 export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
+  const pol = !!local.polarized_model;
+  const pyr = !!local.pyramidal_model;
+
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
@@ -21,6 +23,7 @@ export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
         <InfoPopover text="Polarized/Pyramidal shape; VO₂max/FTP blocks." />
       </div>
 
+      {/* toggles (checkboxes) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -48,32 +51,48 @@ export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
         </label>
       </div>
 
+      {/* model pills */}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
           type="button"
           size="xs"
-          variant="ghost"
-          className={[PILL_BUTTON, local.polarized_model ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
-          onClick={() => setPref("polarized_model", true)}
+          variant="prefs"
+          active={pol}
+          onClick={() =>
+            setLocal((p: any) => ({
+              ...p,
+              polarized_model: !p.polarized_model,
+              pyramidal_model: false,
+            }))
+          }
         >
           Polarized (80/20)
         </Button>
         <Button
           type="button"
           size="xs"
-          variant="ghost"
-          className={[PILL_BUTTON, local.pyramidal_model ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
-          onClick={() => setPref("pyramidal_model", true)}
+          variant="prefs"
+          active={pyr}
+          onClick={() =>
+            setLocal((p: any) => ({
+              ...p,
+              pyramidal_model: !p.pyramidal_model,
+              polarized_model: false,
+            }))
+          }
         >
           Pyramidal
         </Button>
         <Button
           type="button"
           size="xs"
-          variant="ghost"
-          className={PILL_BUTTON}
+          variant="secondary"
           onClick={() =>
-            setLocal((p: any) => ({ ...p, polarized_model: false, pyramidal_model: false }))
+            setLocal((p: any) => ({
+              ...p,
+              polarized_model: false,
+              pyramidal_model: false,
+            }))
           }
         >
           Clear model
