@@ -250,6 +250,18 @@ export function ZonesSection({
   const paceDisplay = formatPace(thr.pace_sec_km);
   const zonesLocked = calcMode !== "manual";
 
+  // derived preview strings
+  const fmtRange = (a: any, b: any) =>
+    Number.isFinite(Number(a)) && Number.isFinite(Number(b))
+      ? `${Number(a)}–${Number(b)} bpm`
+      : "—";
+  const previewZ2 = fmtRange(z.z2_min, z.z2_max);
+  const previewZ4 = fmtRange(z.z4_min, z.z4_max);
+  const previewHRM =
+    z.hr_max != null && Number.isFinite(Number(z.hr_max))
+      ? `${Number(z.hr_max)} bpm`
+      : "—";
+
   // Recalc pri zmene módu / HRmax / LTHR (len keď nie je manual)
   useEffect(() => {
     if (!zones) return;
@@ -263,17 +275,37 @@ export function ZonesSection({
     <section className={SECTION}>
       {/* HEADER */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Heart-rate zones & thresholds</div>
+        <div className="text-sm font-medium opacity-90">
+          Heart-rate zones & thresholds
+        </div>
         <div className="flex items-center gap-2">
           <InfoPopover text="Výpočet zón podľa HRmax, %LTHR alebo manuálne. LTHR sa edituje v Thresholds." />
           <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
         </div>
       </div>
 
-      {/* CLOSED PREVIEW */}
+      {/* CLOSED PREVIEW — LT1 (Z2), LT2 (Z4), HRmax */}
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-70 select-none"].join(" ")}>
-          Zóny a prahy – klikni na šípku pre zobrazenie.
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs select-none",
+          ].join(" ")}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 text-center">
+            <div>
+              <span className="opacity-70 mr-1">Aerobic (Z2):</span>
+              <span className="font-semibold">{previewZ2}</span>
+            </div>
+            <div>
+              <span className="opacity-70 mr-1">Anaerobic (Z4):</span>
+              <span className="font-semibold">{previewZ4}</span>
+            </div>
+            <div>
+              <span className="opacity-70 mr-1">HRmax:</span>
+              <span className="font-semibold">{previewHRM}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -336,7 +368,9 @@ export function ZonesSection({
               const maxKey = `${key}_max` as const;
               return (
                 <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">{key.toUpperCase()}</div>
+                  <div className="text-xs opacity-70 uppercase mb-1">
+                    {key.toUpperCase()}
+                  </div>
                   <div className="flex items-center gap-2">
                     <TextField
                       type="number"
