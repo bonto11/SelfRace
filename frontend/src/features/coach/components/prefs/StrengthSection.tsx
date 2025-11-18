@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION,  COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE } from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type Props = {
@@ -47,7 +47,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                     key={loc}
                     type="button"
                     size="sm"
-                    variant="secondary"
+                    variant="prefs"
+                    active={active}
                     onClick={() => {
                       markDirty();
                       setLocal((p) => ({
@@ -58,9 +59,6 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                         },
                       }));
                     }}
-                    className={[active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(
-                      " "
-                    )}
                   >
                     {loc}
                   </Button>
@@ -82,7 +80,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                       key={mode}
                       type="button"
                       size="sm"
-                      variant="secondary"
+                      variant="prefs"
+                      active={active}
                       onClick={() => {
                         markDirty();
                         setLocal((p) => ({
@@ -93,9 +92,6 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                           },
                         }));
                       }}
-                      className={[
-                        active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                      ].join(" ")}
                     >
                       {mode}
                     </Button>
@@ -134,7 +130,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                     key={key}
                     type="button"
                     size="xs"
-                    variant="secondary"
+                    variant="prefs"
+                    active={active}
                     onClick={() => {
                       markDirty();
                       setLocal((p) => ({
@@ -145,10 +142,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                         },
                       }));
                     }}
-                    className={[
-                      "text-xs",
-                      active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                    ].join(" ")}
+                    className="text-xs"
                   >
                     {key}
                   </Button>
