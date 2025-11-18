@@ -12,9 +12,12 @@ export type UserZones = {
   z4_max: number;
   z5_min: number;
   z5_max: number;
+  hr_max?: number | null; // pridaj, ak ho používaš
 };
 
-export async function fetchUserZones(userId: number): Promise<UserZones | null> {
+export async function fetchUserZones(
+  userId: number
+): Promise<UserZones | null> {
   const url = `${API_URL}/users/${userId}/zones`;
 
   try {
@@ -40,11 +43,10 @@ export async function fetchUserZones(userId: number): Promise<UserZones | null> 
 
 /**
  * Ukladá zóny pre daného usera.
- * Backend si neskôr zosúladíme – očakáva sa PUT /users/{id}/zones.
  */
 export async function saveUserZones(
   userId: number,
-  zones: Partial<UserZones>
+  zones: Partial<UserZones> & { hr_max?: number | null }
 ): Promise<void> {
   const url = `${API_URL}/users/${userId}/zones`;
 
@@ -53,7 +55,8 @@ export async function saveUserZones(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ zones }),
+    // DÔLEŽITÉ: posielame priamo zones, nie { zones: ... }
+    body: JSON.stringify(zones),
   });
 
   if (!res.ok) {
