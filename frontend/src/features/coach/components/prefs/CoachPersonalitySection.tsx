@@ -47,7 +47,6 @@ export function CoachPersonalitySection({
   const previewText = (() => {
     if (voice === null) return "Disabled";
     if (voice === "custom") return "Preset: Custom";
-    }
     const lbl = personaOptions.find((o) => o.key === voice)?.label ?? voice;
     return `Preset: ${lbl}`;
   })();
