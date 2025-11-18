@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION } from "@/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type Props = {
@@ -17,7 +17,7 @@ type Props = {
 const RULES: Array<{
   key: "avoid_back_to_back_hard" | "use_zones" | "wu_cd_detail";
   label: string; // tooltip
-  short: string; // text na pilule
+  short: string; // pill text
 }> = [
   {
     key: "avoid_back_to_back_hard",
@@ -55,6 +55,12 @@ export function RulesSection({
     });
   };
 
+  const enabled = RULES.filter((r) => !!pref?.[r.key]).map((r) => r.short);
+  const previewText =
+    enabled.length > 0
+      ? `Enabled: ${enabled.join(", ")} (${enabled.length})`
+      : "Enabled: none";
+
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
@@ -64,6 +70,17 @@ export function RulesSection({
           <DisclosureToggle open={open} onToggle={() => setOpen(!open)} />
         </div>
       </div>
+
+      {!open && (
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-80 select-none",
+          ].join(" ")}
+        >
+          {previewText}
+        </div>
+      )}
 
       {open && (
         <div className="flex flex-wrap gap-2">
