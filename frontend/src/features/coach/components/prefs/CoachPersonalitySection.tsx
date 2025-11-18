@@ -1,9 +1,10 @@
+// src/features/coach/components/CoachPersonalitySection.tsx
 "use client";
 
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INSET } from "@/shared/ui/classes";
+import { SECTION, SURFACE_INSET, SURFACE_INLINE } from "@/shared/ui/classes";
 import { clamp01, PERSONA_TONES } from "@/features/coach/utils/persona";
 import type { CoachPersona } from "@/features/coach/types/prefsTypes";
 import { InfoPopover } from "../InfoPopover";
@@ -22,7 +23,8 @@ export function CoachPersonalitySection({
   const [open, setOpen] = useState(false);
 
   const tone =
-    local.coach_tone ?? ({
+    local.coach_tone ??
+    ({
       directness: 50,
       praise: 50,
       challenge: 50,
@@ -36,8 +38,25 @@ export function CoachPersonalitySection({
     { key: "motivator", label: "Motivator" },
     { key: "analyst", label: "Analyst" },
     { key: "realist", label: "Realist" },
-    { key: "custom", label: "Custom" },
+    // 'custom' je mimo tejto mapy (zobrazujeme zvlášť)
   ];
+
+  const voice: CoachPersona | "custom" | null =
+    (local.coach_voice as CoachPersona | "custom" | null) ?? null;
+
+  const previewText = (() => {
+    if (voice === null) return "Disabled";
+    if (voice === "custom") {
+      const d = Math.round(clamp01(Number(tone.directness ?? 0)));
+      const p = Math.round(clamp01(Number(tone.praise ?? 0)));
+      const c = Math.round(clamp01(Number(tone.challenge ?? 0)));
+      const e = Math.round(clamp01(Number(tone.explain ?? 0)));
+      const emo = Math.round(clamp01(Number(tone.emoji ?? 0)));
+      return `Custom · D ${d}% · P ${p}% · Ch ${c}% · Expl ${e}% · Emojis ${emo}%`;
+    }
+    const lbl = personaOptions.find((o) => o.key === voice)?.label ?? voice;
+    return `Preset: ${lbl}`;
+  })();
 
   return (
     <section className={SECTION}>
@@ -55,47 +74,84 @@ export function CoachPersonalitySection({
         </div>
       </div>
 
+      {/* Closed preview */}
+      {!open && (
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-80 select-none",
+          ].join(" ")}
+        >
+          {previewText}
+        </div>
+      )}
+
       {/* Body */}
       {open && (
         <div className="space-y-3">
           {/* Persona pills */}
           <div className="flex flex-wrap gap-2">
-            {personaOptions.map(({ key, label }) => {
-              const active = (local.coach_voice ?? null) === key;
-              return (
-                <Button
-                  key={label}
-                  type="button"
-                  size="sm"
-                  variant="prefs"
-                  active={active}
-                  onClick={() => {
-                    markDirty();
-                    if (key === null) {
-                      setPref("coach_voice", null);
-                    } else if (key === "custom") {
-                      setPref("coach_voice", "custom");
-                      setPref(
-                        "coach_tone",
-                        local.coach_tone ?? {
-                          directness: 50,
-                          praise: 50,
-                          challenge: 50,
-                          emoji: 20,
-                          explain: 60,
-                        }
-                      );
-                    } else {
+            {/* None */}
+            <Button
+              type="button"
+              size="sm"
+              variant="prefs"
+              active={voice === null}
+              onClick={() => {
+                markDirty();
+                setPref("coach_voice", null);
+              }}
+            >
+              None
+            </Button>
+
+            {/* Presets */}
+            {personaOptions
+              .filter((o) => o.key !== null)
+              .map(({ key, label }) => {
+                const active = voice === key;
+                return (
+                  <Button
+                    key={label}
+                    type="button"
+                    size="sm"
+                    variant="prefs"
+                    active={active}
+                    onClick={() => {
+                      markDirty();
                       const personaKey = key as keyof typeof PERSONA_TONES;
                       setPref("coach_voice", key);
                       setPref("coach_tone", PERSONA_TONES[personaKey]);
-                    }
-                  }}
-                >
-                  {label}
-                </Button>
-              );
-            })}
+                    }}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+
+            {/* Custom */}
+            <Button
+              type="button"
+              size="sm"
+              variant="prefs"
+              active={voice === "custom"}
+              onClick={() => {
+                markDirty();
+                setPref("coach_voice", "custom");
+                setPref(
+                  "coach_tone",
+                  local.coach_tone ?? {
+                    directness: 50,
+                    praise: 50,
+                    challenge: 50,
+                    emoji: 20,
+                    explain: 60,
+                  }
+                );
+              }}
+            >
+              Custom
+            </Button>
           </div>
 
           {/* Sliders */}
@@ -104,8 +160,8 @@ export function CoachPersonalitySection({
               ["directness", "praise", "challenge", "emoji", "explain"] as const
             ).map((key) => {
               const v = Number((tone as any)[key] ?? 50);
-              const locked = local.coach_voice !== "custom";
-              const disabled = local.coach_voice == null;
+              const locked = voice !== "custom";
+              const disabled = voice == null;
               return (
                 <div
                   key={key}
@@ -118,7 +174,7 @@ export function CoachPersonalitySection({
                   <div className="flex items-center justify-between">
                     <div className="text-sm capitalize">{key}</div>
                     <div className="text-sm tabular-nums opacity-80">
-                      {clamp01(v)}%
+                      {Math.round(clamp01(v))}%
                     </div>
                   </div>
                   <input
@@ -126,10 +182,12 @@ export function CoachPersonalitySection({
                     min={0}
                     max={100}
                     step={1}
-                    value={clamp01(v)}
+                    value={Math.round(clamp01(v))}
                     disabled={locked || disabled}
                     onChange={(e) => {
-                      const nv = clamp01(Number(e.target.value));
+                      const nv = Math.round(
+                        clamp01(Number(e.currentTarget.value))
+                      );
                       markDirty();
                       setPref("coach_tone", { ...tone, [key]: nv });
                     }}
