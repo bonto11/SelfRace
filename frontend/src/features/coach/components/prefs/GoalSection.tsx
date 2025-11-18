@@ -5,7 +5,11 @@ import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION, COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE } from "@/shared/ui/classes";
+import {
+  SECTION,
+  COLOR_PREFS_INACTIVE,
+  COLOR_PREFS_ACTIVE,
+} from "@/shared/ui/classes";
 
 const ALL_GOALS = [
   "race_time",
@@ -35,7 +39,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   return (
     <section className={SECTION}>
-      {/* Hlavička + toggle vpravo */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Goal</div>
         <div className="flex items-center gap-2">
@@ -44,17 +48,17 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
           </div>
           <DisclosureToggle
             open={open}
-            onToggle={() => setOpen((o) => !o)}
+            onToggle={() => setOpen(!open)}
             labelWhenOpen="Collapse Goal section"
             labelWhenClosed="Expand Goal section"
           />
         </div>
       </div>
 
-      {/* Telo sekcie – zobraz len keď open === true */}
+      {/* Body */}
       {open && (
         <>
-          {/* Pilulové prepínače cieľa */}
+          {/* goal pills */}
           <div className="flex flex-wrap gap-2 mb-3">
             {ALL_GOALS.map((g) => {
               const isActive = activeGoal === g;
@@ -62,7 +66,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 <Button
                   key={g}
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
                   onClick={() => setPref("goal_kind", isActive ? undefined : g)}
                   className={isActive ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
                 >
@@ -74,7 +78,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             {/* explicit None */}
             <Button
               size="sm"
-              variant="ghost"
+              variant="secondary"
               onClick={() => setPref("goal_kind", undefined)}
               className={!activeGoal ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
             >
@@ -82,7 +86,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             </Button>
           </div>
 
-          {/* Polia pre detail cieľa */}
+          {/* detail fields */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <TextField
               placeholder="weeks (e.g. 8, 10, 12)"
@@ -90,7 +94,9 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
               onChange={(e) =>
                 setPref(
                   "weeks",
-                  e.currentTarget.value ? Number(e.currentTarget.value) : undefined
+                  e.currentTarget.value
+                    ? Number(e.currentTarget.value)
+                    : undefined
                 )
               }
               inputMode="numeric"

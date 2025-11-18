@@ -305,9 +305,11 @@ export const NAV_ITEM_ACTIVE = "bg-white/10 text-white";
 // --- ICON BUTTON (mobilné toggly – rozšírenie) ---
 export const HAMBURGER_BTN = ICON_BUTTON + " w-10 h-10 -ml-2";
 
-/** Preferenčné pill farby (jasnejšie) */
+
+// --- farby pre výber (jasná zelená = aktívne, sivé = neaktívne) ---
 export const COLOR_PREFS_ACTIVE =
-  "border bg-green-500 text-white border-green-500 hover:bg-green-600";
+  "bg-emerald-500 text-white border-emerald-400 hover:brightness-110 " +
+  "shadow-[inset_0_0_0_2px_rgba(16,185,129,.18)]";
 
 export const COLOR_PREFS_INACTIVE =
-  "border bg-white/10 text-white border-white/20 hover:bg-white/16";
+  "bg-white/10 text-white border border-white/15 hover:bg-white/16";
