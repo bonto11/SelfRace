@@ -4,12 +4,7 @@ import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import {
-  SECTION,
-  PREFS_PILL,
-  COLOR_PREFS_INACTIVE,
-  COLOR_PREFS_ACTIVE,
-} from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 
 const ALL_GOALS = [
   "race_time",
@@ -39,10 +34,13 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   return (
     <section className={SECTION}>
-      {/* Header */}
+      {/* header */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Goal</div>
         <div className="flex items-center gap-2">
+          <div className="text-xs opacity-70 hidden sm:block">
+            Pick the goal. Click again to clear.
+          </div>
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen(!open)}
@@ -52,44 +50,34 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
         </div>
       </div>
 
-      {/* Body */}
       {open && (
         <>
-          {/* goal pills */}
+          {/* pills */}
           <div className="flex flex-wrap gap-2 mb-3">
-            {ALL_GOALS.map((g) => {
-              const isActive = activeGoal === g;
-              return (
-                <Button
-                  key={g}
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setPref("goal_kind", isActive ? undefined : g)}
-                  className={[
-                    PREFS_PILL,
-                    isActive ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                  ].join(" ")}
-                >
-                  {GOAL_LABEL[g]}
-                </Button>
-              );
-            })}
-
-            {/* explicit None */}
+            {ALL_GOALS.map((g) => (
+              <Button
+                key={g}
+                size="sm"
+                variant="prefs"
+                active={activeGoal === g}
+                onClick={() =>
+                  setPref("goal_kind", activeGoal === g ? undefined : g)
+                }
+              >
+                {GOAL_LABEL[g]}
+              </Button>
+            ))}
             <Button
               size="sm"
-              variant="ghost"
+              variant="prefs"
+              active={!activeGoal}
               onClick={() => setPref("goal_kind", undefined)}
-              className={[
-                PREFS_PILL,
-                !activeGoal ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-              ].join(" ")}
             >
               None
             </Button>
           </div>
 
-          {/* detail fields */}
+          {/* fields */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <TextField
               placeholder="weeks (e.g. 8, 10, 12)"
@@ -104,7 +92,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
               }
               inputMode="numeric"
             />
-
             <TextField
               placeholder="current best (hh:mm:ss)"
               value={local.targets?.run?.current_best_time ?? ""}
@@ -114,7 +101,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 })
               }
             />
-
             <TextField
               placeholder="target time (hh:mm:ss)"
               value={local.targets?.run?.target_time ?? ""}
