@@ -1,11 +1,10 @@
-// src/features/coach/components/DaysOffSection.tsx
 "use client";
 
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/shared/types/day";
-import { SECTION, PILL_BUTTON, COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE} from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 import { InfoPopover } from "../InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -37,20 +36,15 @@ export function DaysOffSection({
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map((d) => {
             const active = (daysOff ?? []).includes(d);
-            const next = toggleInArray(daysOff ?? [], d);
+            const next = toggleInArray(daysOff ?? [], d) as DayAbbrev[];
             return (
               <Button
                 key={d}
                 type="button"
                 size="xs"
-                variant="secondary"
-                onClick={() =>
-                  setPrefNested("preferences.days_off", next as DayAbbrev[])
-                }
-                className={[
-                  PILL_BUTTON,
-                  active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                ].join(" ")}
+                variant="prefs"
+                active={active}
+                onClick={() => setPrefNested("preferences.days_off", next)}
               >
                 {d}
               </Button>
