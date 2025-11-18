@@ -1,16 +1,9 @@
-// src/features/coach/components/CoachPersonalitySection.tsx
 "use client";
 
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import {
-  SECTION,
-  SURFACE_INSET,
-  PILL_BUTTON,
-  COLOR_PREFS_INACTIVE,
-  COLOR_PREFS_ACTIVE,
-} from "@/shared/ui/classes";
+import { SECTION, SURFACE_INSET } from "@/shared/ui/classes";
 import { clamp01, PERSONA_TONES } from "@/features/coach/utils/persona";
 import type { CoachPersona } from "@/features/coach/types/prefsTypes";
 import { InfoPopover } from "../InfoPopover";
@@ -29,8 +22,7 @@ export function CoachPersonalitySection({
   const [open, setOpen] = useState(false);
 
   const tone =
-    local.coach_tone ??
-    ({
+    local.coach_tone ?? ({
       directness: 50,
       praise: 50,
       challenge: 50,
@@ -63,7 +55,7 @@ export function CoachPersonalitySection({
         </div>
       </div>
 
-      {/* Body (collapsible) */}
+      {/* Body */}
       {open && (
         <div className="space-y-3">
           {/* Persona pills */}
@@ -75,7 +67,8 @@ export function CoachPersonalitySection({
                   key={label}
                   type="button"
                   size="sm"
-                  variant="secondary"
+                  variant="prefs"
+                  active={active}
                   onClick={() => {
                     markDirty();
                     if (key === null) {
@@ -98,10 +91,6 @@ export function CoachPersonalitySection({
                       setPref("coach_tone", PERSONA_TONES[personaKey]);
                     }
                   }}
-                  className={[
-                    PILL_BUTTON,
-                    active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                  ].join(" ")}
                 >
                   {label}
                 </Button>
