@@ -86,12 +86,11 @@ def load_user_zones(user_id: int) -> Optional[Dict[str, Optional[int]]]:
         "z4_max": z4_max,
         "z5_min": z5_min,
         "z5_max": z5_max,
-        "hr_max": hr_max
+        "hr_max": hr_max,
     }
 
 
 def _normalize_zones_for_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
-<<<<<<< HEAD
     """
     Čisté mapovanie FE -> DB.
 
@@ -144,49 +143,5 @@ def save_user_zones(user_id: int, payload: Dict[str, Any]) -> bool:
     print(row)
     print("==================================\n")
 
-=======
-    """FE → DB mapping 1:1. Žiadne prepísanie hodnot defaultami."""
-
-    def N(v):
-        try:
-            return int(float(v)) if v is not None else None
-        except:
-            return None
-
-    # Priamo premapujeme FE -> DB
-    return {
-        "user_id": user_id,
-        "sport": payload.get("sport") or "run",
-
-        "hr_max_bpm": N(payload.get("hr_max") or payload.get("hr_max_bpm")),
-
-        # zóny
-        "z1_min_bpm": N(payload.get("z1_min")),
-        "z1_max_bpm": N(payload.get("z1_max")),
-
-        "z2_min_bpm": N(payload.get("z2_min")),
-        "z2_max_bpm": N(payload.get("z2_max")),
-
-        "z3_min_bpm": N(payload.get("z3_min")),
-        "z3_max_bpm": N(payload.get("z3_max")),
-
-        "z4_min_bpm": N(payload.get("z4_min")),
-        "z4_max_bpm": N(payload.get("z4_max")),
-
-        "z5_min_bpm": N(payload.get("z5_min")),
-        # ak FE pošle z5_max → uložíme, ak nie → hrmax
-        "z5_max_bpm": N(payload.get("z5_max")) or N(payload.get("hr_max")),
-    }
-
-
-def save_user_zones(user_id: int, payload: Dict[str, Any]) -> bool:
-    print("\n\n=== [BE] SAVE ZONES PAYLOAD ===")
-    print(payload)
-    row = _normalize_zones_for_insert(user_id, payload)
-    print("=== [BE] FINAL ROW TO INSERT ===")
-    print(row)
-    print("================================\n")
-
->>>>>>> d64845fb096242757908107ba6852f018f2012fe
     sb.table(TABLE_USERS_ZONES).insert(row).execute()
     return True
