@@ -1,10 +1,11 @@
+// src/features/coach/components/GoalSection.tsx
 "use client";
 
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION } from "@/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
 
 const ALL_GOALS = [
   "race_time",
@@ -32,6 +33,21 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const [open, setOpen] = useState(false);
   const activeGoal: (typeof ALL_GOALS)[number] | undefined = local.goal_kind;
 
+  // closed preview
+  const weeks = local.weeks ? `${local.weeks}w` : null;
+  const cur = local.targets?.run?.current_best_time || null;
+  const tgt = local.targets?.run?.target_time || null;
+  const goalLabel = activeGoal ? GOAL_LABEL[activeGoal] : "None";
+
+  const previewParts = [
+    `Goal: ${goalLabel}`,
+    weeks ? `Horizon: ${weeks}` : null,
+    cur || tgt ? `Time: ${cur ?? "—"} → ${tgt ?? "—"}` : null,
+  ].filter(Boolean);
+
+  const previewText =
+    previewParts.length > 0 ? previewParts.join(" · ") : "No goal set";
+
   return (
     <section className={SECTION}>
       {/* header */}
@@ -49,6 +65,18 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
           />
         </div>
       </div>
+
+      {/* closed preview */}
+      {!open && (
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-70 select-none",
+          ].join(" ")}
+        >
+          {previewText}
+        </div>
+      )}
 
       {open && (
         <>
