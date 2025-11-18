@@ -46,13 +46,7 @@ export function CoachPersonalitySection({
 
   const previewText = (() => {
     if (voice === null) return "Disabled";
-    if (voice === "custom") {
-      const d = Math.round(clamp01(Number(tone.directness ?? 0)));
-      const p = Math.round(clamp01(Number(tone.praise ?? 0)));
-      const c = Math.round(clamp01(Number(tone.challenge ?? 0)));
-      const e = Math.round(clamp01(Number(tone.explain ?? 0)));
-      const emo = Math.round(clamp01(Number(tone.emoji ?? 0)));
-      return `Custom · D ${d}% · P ${p}% · Ch ${c}% · Expl ${e}% · Emojis ${emo}%`;
+    if (voice === "custom") return "Preset: Custom";
     }
     const lbl = personaOptions.find((o) => o.key === voice)?.label ?? voice;
     return `Preset: ${lbl}`;
