@@ -306,10 +306,15 @@ export const NAV_ITEM_ACTIVE = "bg-white/10 text-white";
 export const HAMBURGER_BTN = ICON_BUTTON + " w-10 h-10 -ml-2";
 
 
-// --- farby pre výber (jasná zelená = aktívne, sivé = neaktívne) ---
+// --- základ pre "prefs" pilule (nezávislé od PILL_BUTTON, nič ti to nerozbije) ---
+export const PREFS_PILL =
+  "rounded-full px-3 py-1.5 text-sm font-medium border " +
+  "transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400/60";
+
+// --- farebné stavy ---
 export const COLOR_PREFS_ACTIVE =
   "bg-emerald-500 text-white border-emerald-400 hover:brightness-110 " +
   "shadow-[inset_0_0_0_2px_rgba(16,185,129,.18)]";
 
 export const COLOR_PREFS_INACTIVE =
-  "bg-white/10 text-white border border-white/15 hover:bg-white/16";
+  "bg-white/10 text-white border-white/15 hover:bg-white/16";

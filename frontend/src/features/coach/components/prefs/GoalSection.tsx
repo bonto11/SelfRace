@@ -1,4 +1,3 @@
-// src/features/coach/components/GoalSection.tsx
 "use client";
 
 import { useState } from "react";
@@ -7,6 +6,7 @@ import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import {
   SECTION,
+  PREFS_PILL,
   COLOR_PREFS_INACTIVE,
   COLOR_PREFS_ACTIVE,
 } from "@/shared/ui/classes";
@@ -43,9 +43,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Goal</div>
         <div className="flex items-center gap-2">
-          <div className="text-xs opacity-70 hidden sm:block">
-            Pick the goal. Click again to clear.
-          </div>
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen(!open)}
@@ -66,9 +63,12 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 <Button
                   key={g}
                   size="sm"
-                  variant="secondary"
+                  variant="ghost"
                   onClick={() => setPref("goal_kind", isActive ? undefined : g)}
-                  className={isActive ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
+                  className={[
+                    PREFS_PILL,
+                    isActive ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
+                  ].join(" ")}
                 >
                   {GOAL_LABEL[g]}
                 </Button>
@@ -78,9 +78,12 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             {/* explicit None */}
             <Button
               size="sm"
-              variant="secondary"
+              variant="ghost"
               onClick={() => setPref("goal_kind", undefined)}
-              className={!activeGoal ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
+              className={[
+                PREFS_PILL,
+                !activeGoal ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
+              ].join(" ")}
             >
               None
             </Button>
