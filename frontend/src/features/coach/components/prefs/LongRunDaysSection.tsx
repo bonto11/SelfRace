@@ -5,7 +5,7 @@ import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/shared/types/day";
-import { SECTION,  COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE, PILL_BUTTON } from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -45,11 +45,11 @@ export function LongRunDaysSection({
                 key={d}
                 type="button"
                 size="xs"
-                variant="secondary"
+                variant="prefs"
+                active={active}
                 onClick={() =>
                   setPrefNested("preferences.long_run_days", next as DayAbbrev[])
                 }
-                className={[PILL_BUTTON, active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
               >
                 {d}
               </Button>
