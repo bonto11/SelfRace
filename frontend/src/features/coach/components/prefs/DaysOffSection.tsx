@@ -1,10 +1,11 @@
+// src/features/coach/components/DaysOffSection.tsx
 "use client";
 
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/shared/types/day";
-import { SECTION } from "@/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
 import { InfoPopover } from "../InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -22,8 +23,14 @@ export function DaysOffSection({
 }: Props) {
   const [open, setOpen] = useState(false);
 
+  const selected = (daysOff ?? []) as DayAbbrev[];
+  const previewText = selected.length
+    ? `Days off (${selected.length}): ${selected.join(" · ")}`
+    : "Days off: none";
+
   return (
     <section className={SECTION}>
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Days off</div>
         <div className="flex items-center gap-2">
@@ -32,11 +39,21 @@ export function DaysOffSection({
         </div>
       </div>
 
+      {/* Closed preview */}
+      {!open && (
+        <div
+          className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-70 select-none"].join(" ")}
+        >
+          {previewText}
+        </div>
+      )}
+
+      {/* Body */}
       {open && (
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map((d) => {
-            const active = (daysOff ?? []).includes(d);
-            const next = toggleInArray(daysOff ?? [], d) as DayAbbrev[];
+            const active = selected.includes(d);
+            const next = toggleInArray(selected, d) as DayAbbrev[];
             return (
               <Button
                 key={d}
