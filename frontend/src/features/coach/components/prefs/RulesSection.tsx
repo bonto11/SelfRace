@@ -1,14 +1,10 @@
+// src/features/coach/components/RulesSection.tsx
 "use client";
 
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import {
-  SECTION,
-  PILL_BUTTON,
-  COLOR_PREFS_ACTIVE,
-  COLOR_PREFS_INACTIVE,
-} from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type Props = {
@@ -20,19 +16,15 @@ type Props = {
 
 const RULES: Array<{
   key: "avoid_back_to_back_hard" | "use_zones" | "wu_cd_detail";
-  label: string;      // full text (tooltip)
-  short: string;      // pill text
+  label: string; // tooltip
+  short: string; // text na pilule
 }> = [
   {
     key: "avoid_back_to_back_hard",
     label: "Avoid two hard days in a row",
     short: "No back-to-back hard",
   },
-  {
-    key: "use_zones",
-    label: "Use zones",
-    short: "Use zones",
-  },
+  { key: "use_zones", label: "Use zones", short: "Use zones" },
   {
     key: "wu_cd_detail",
     label: "Include warm-up / cool-down details",
@@ -82,13 +74,10 @@ export function RulesSection({
                 key={key}
                 type="button"
                 size="sm"
-                variant="secondary"
-                title={label} // tooltip s plným textom
+                variant="prefs"
+                active={active}
+                title={label}
                 onClick={() => toggleRule(key)}
-                className={[
-                  PILL_BUTTON,
-                  active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
-                ].join(" ")}
               >
                 {short}
               </Button>
