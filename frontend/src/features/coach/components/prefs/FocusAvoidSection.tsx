@@ -1,8 +1,7 @@
-// src/features/coach/components/FocusAvoidSection.tsx
 "use client";
 
 import Button from "@/shared/components/ui/Button";
-import { SECTION, PILL_BUTTON, COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE } from "@/shared/ui/classes";
+import { SECTION } from "@/shared/ui/classes";
 
 const FOCUS_CHOICES = [
   "ankle_strength",
@@ -42,9 +41,9 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
               key={k}
               type="button"
               size="xs"
-              variant="secondary"
+              variant="prefs"
+              active={active}
               onClick={() => setPref("focus_areas", next)}
-              className={[active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE, "px-2 py-1"].join(" ")}
             >
               {k}
             </Button>
@@ -63,9 +62,9 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
               key={k}
               type="button"
               size="xs"
-              variant="secondary"
+              variant="prefs"
+              active={active}
               onClick={() => setPref("avoid_zones", next)}
-              className={[active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE, "px-2 py-1"].join(" ")}
             >
               {k}
             </Button>
