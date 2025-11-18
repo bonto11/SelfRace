@@ -5,7 +5,7 @@ import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/shared/types/day";
-import { SECTION } from "@/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -23,6 +23,12 @@ export function LongRunDaysSection({
 }: Props) {
   const [open, setOpen] = useState(false);
 
+  const selected = longRunDays ?? [];
+  const previewText =
+    selected.length > 0
+      ? `Selected: ${selected.join(", ")} (${selected.length})`
+      : "Selected: none";
+
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
@@ -35,11 +41,22 @@ export function LongRunDaysSection({
         </div>
       </div>
 
+      {!open && (
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-80 select-none",
+          ].join(" ")}
+        >
+          {previewText}
+        </div>
+      )}
+
       {open && (
         <div className="flex flex-wrap gap-2">
           {ALL_DAYS.map((d) => {
-            const active = (longRunDays ?? []).includes(d);
-            const next = toggleInArray(longRunDays ?? [], d);
+            const active = selected.includes(d);
+            const next = toggleInArray(selected, d) as DayAbbrev[];
             return (
               <Button
                 key={d}
@@ -48,7 +65,7 @@ export function LongRunDaysSection({
                 variant="prefs"
                 active={active}
                 onClick={() =>
-                  setPrefNested("preferences.long_run_days", next as DayAbbrev[])
+                  setPrefNested("preferences.long_run_days", next)
                 }
               >
                 {d}
