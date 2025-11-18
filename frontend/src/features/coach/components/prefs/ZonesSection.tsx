@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import { InfoPopover } from "./InfoPopover";
+import { InfoPopover } from "@/features/coach/components/InfoPopover";
 import { toast } from "@/shared/components/ui/Toast";
 
 import TextField from "@/shared/components/ui/TextField";

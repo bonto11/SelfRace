@@ -2,11 +2,8 @@
 "use client";
 
 import Button from "@/shared/components/ui/Button";
-import { SECTION, PILL_BUTTON } from "@/shared/ui/classes";
+import { SECTION, PILL_BUTTON , COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE} from "@/shared/ui/classes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
-
-const ACTIVE_PILL =
-  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
 
 type Props = {
   local: any;
@@ -56,7 +53,7 @@ export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
           type="button"
           size="xs"
           variant="secondary"
-          className={[PILL_BUTTON, local.polarized_model ? ACTIVE_PILL : "border-white/15"].join(" ")}
+          className={[PILL_BUTTON, local.polarized_model ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
           onClick={() => setPref("polarized_model", true)}
         >
           Polarized (80/20)
@@ -65,7 +62,7 @@ export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
           type="button"
           size="xs"
           variant="secondary"
-          className={[PILL_BUTTON, local.pyramidal_model ? ACTIVE_PILL : "border-white/15"].join(" ")}
+          className={[PILL_BUTTON, local.pyramidal_model ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
           onClick={() => setPref("pyramidal_model", true)}
         >
           Pyramidal

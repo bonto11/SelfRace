@@ -2,10 +2,7 @@
 "use client";
 
 import Button from "@/shared/components/ui/Button";
-import { SECTION, PILL_BUTTON } from "@/shared/ui/classes";
-
-const ACTIVE_PILL =
-  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
+import { SECTION, PILL_BUTTON, COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE } from "@/shared/ui/classes";
 
 const FOCUS_CHOICES = [
   "ankle_strength",
@@ -47,7 +44,7 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
               size="xs"
               variant="secondary"
               onClick={() => setPref("focus_areas", next)}
-              className={[active ? ACTIVE_PILL : "border-white/15", "px-2 py-1"].join(" ")}
+              className={[active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE, "px-2 py-1"].join(" ")}
             >
               {k}
             </Button>
@@ -68,7 +65,7 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
               size="xs"
               variant="secondary"
               onClick={() => setPref("avoid_zones", next)}
-              className={[active ? ACTIVE_PILL : "border-white/15", "px-2 py-1"].join(" ")}
+              className={[active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE, "px-2 py-1"].join(" ")}
             >
               {k}
             </Button>

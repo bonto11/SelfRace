@@ -5,13 +5,7 @@ import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION } from "@/shared/ui/classes";
-
-/** vizuálne konštanty pre aktívny/ neaktívny pilulový stav */
-export const GOAL_ACTIVE_CLS =
-  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
-export const GOAL_INACTIVE_CLS =
-  "bg-white/10 text-white border border-white/15 hover:bg-white/16";
+import { SECTION, COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE } from "@/shared/ui/classes";
 
 const ALL_GOALS = [
   "race_time",
@@ -70,7 +64,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                   size="sm"
                   variant="secondary"
                   onClick={() => setPref("goal_kind", isActive ? undefined : g)}
-                  className={isActive ? GOAL_ACTIVE_CLS : GOAL_INACTIVE_CLS}
+                  className={isActive ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
                 >
                   {GOAL_LABEL[g]}
                 </Button>
@@ -82,7 +76,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
               size="sm"
               variant="secondary"
               onClick={() => setPref("goal_kind", undefined)}
-              className={!activeGoal ? GOAL_ACTIVE_CLS : GOAL_INACTIVE_CLS}
+              className={!activeGoal ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE}
             >
               None
             </Button>

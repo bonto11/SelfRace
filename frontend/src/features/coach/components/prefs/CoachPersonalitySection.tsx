@@ -4,7 +4,13 @@
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INSET, PILL_BUTTON } from "@/shared/ui/classes";
+import {
+  SECTION,
+  SURFACE_INSET,
+  PILL_BUTTON,
+  COLOR_PREFS_INACTIVE,
+  COLOR_PREFS_ACTIVE,
+} from "@/shared/ui/classes";
 import { clamp01, PERSONA_TONES } from "@/features/coach/utils/persona";
 import type { CoachPersona } from "@/features/coach/types/prefsTypes";
 import { InfoPopover } from "../InfoPopover";
@@ -14,10 +20,6 @@ type CoachPersonalitySectionProps = {
   setPref: (key: any, val: any) => void;
   markDirty: () => void;
 };
-
-/** aktívna kapsula – držme farby/štýl na jednom mieste */
-const ACTIVE_PILL =
-  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
 
 export function CoachPersonalitySection({
   local,
@@ -98,7 +100,7 @@ export function CoachPersonalitySection({
                   }}
                   className={[
                     PILL_BUTTON,
-                    active ? ACTIVE_PILL : "border-white/15",
+                    active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
                   ].join(" ")}
                 >
                   {label}

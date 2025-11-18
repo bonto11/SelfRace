@@ -16,7 +16,7 @@ import {
 } from "@/features/coach/utils/prefs";
 
 import Button from "@/shared/components/ui/Button";
-import { NO_X, SECTION, PILL_BUTTON } from "@/shared/ui/classes";
+import { NO_X, PILL_BUTTON } from "@/shared/ui/classes";
 import { fetchUserZones, saveUserZones } from "@/features/coach/api/zones";
 import {
   fetchUserThresholds,
@@ -55,7 +55,6 @@ type CoachPrefsExtended = CoachPrefs & {
   thresholds?: any;
 };
 
-const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
 
 function isoTodayPlus(days: number): string {

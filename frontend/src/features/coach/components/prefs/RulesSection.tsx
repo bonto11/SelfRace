@@ -4,8 +4,7 @@
 import { useState } from "react";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SECTION, FORM_GRID_TWO, FORM_GRID_SPLIT } from "@/shared/ui/classes";
-import { InfoPopover } from "../InfoPopover";
-import type { DayAbbrev } from "@/shared/types/day";
+import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type Props = {
   pref: any;

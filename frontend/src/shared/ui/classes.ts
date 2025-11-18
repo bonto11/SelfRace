@@ -16,11 +16,11 @@ export const SURFACE_INLINE =
   "rounded-2xl border border-white/10 bg-white/60 dark:bg-gray-700/50 backdrop-blur text-left";
 
 export const PAD = {
-  "card" : "p-3",
-  "head" : "px-3 pb-3 pb-1.5",
-  "foot" : "px-3 pb-3 pt-1.5",
-  "note" : "mt-1.5",
-}
+  card: "p-3",
+  head: "px-3 pb-3 pb-1.5",
+  foot: "px-3 pb-3 pt-1.5",
+  note: "mt-1.5",
+};
 
 /* ===== KOMPAT ALIASY =================================================== */
 export const CARD = SURFACE_CARD;
@@ -106,10 +106,13 @@ export const BRAND_TEXT = "font-semibold";
 export const AVATAR_BUTTON =
   "w-9 h-9 rounded-full bg-emerald-600 text-white font-semibold grid place-items-center";
 
-export const DROPDOWN_PANEL = SURFACE_INSET + " absolute right-0 mt-2 w-56 p-2 z-30";
+export const DROPDOWN_PANEL =
+  SURFACE_INSET + " absolute right-0 mt-2 w-56 p-2 z-30";
 export const DROPDOWN_DIVIDER = "my-1 border-t border-white/10";
-export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded hover:bg-white/10";
-export const DROPDOWN_ITEM_DANGER = DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
+export const DROPDOWN_ITEM =
+  "w-full text-left px-2 py-1 rounded hover:bg-white/10";
+export const DROPDOWN_ITEM_DANGER =
+  DROPDOWN_ITEM + " text-rose-300 hover:bg-rose-500/10";
 
 /* ===== WidgetCard – konzistentné povrchy a typografia ================== */
 export const WIDGET_CARD = SURFACE_CARD + " " + PAD.card + " text-left";
@@ -125,7 +128,8 @@ export const WIDGET_ACCENT_BAR = "h-1.5 rounded-b-xl mt-3";
 /* ===== WIDGET HEADER aliasy (centrálne) =================================*/
 export const WIDGET_HEADER_ROW = "flex items-center";
 export const WIDGET_HEADER_SIDE = "flex-1";
-export const WIDGET_HEADER_CENTER = "inline-flex items-center justify-center gap-3 select-none";
+export const WIDGET_HEADER_CENTER =
+  "inline-flex items-center justify-center gap-3 select-none";
 export const WIDGET_HEADER_BELOW = "mb-3"; // margin pod headerom, ak treba
 
 /* ===== Sekcie a form gridy ============================================ */
@@ -149,47 +153,57 @@ export const TEXTAREA_BASE =
 export const TOAST_LAYER =
   "pointer-events-none fixed inset-0 z-[60] flex justify-center pt-[12vh]";
 export const TOAST_STACK = "w-full flex flex-col items-center gap-2";
-export const TOAST_PILL_BASE =
-  [
-    "pointer-events-auto select-none",
-    "w-[calc(100vw-24px)] sm:w-[520px]",
-    "rounded-[22px] px-4 py-3",
-    "backdrop-blur-md shadow-lg border",
-    "text-[15px] leading-snug font-medium",
-  ].join(" ");
-export const TOAST_SUCCESS = "bg-emerald-600/95 text-white border-emerald-500/50";
-export const TOAST_ERROR   = "bg-red-600/95 text-white border-red-500/50";
-export const TOAST_INFO    = "bg-neutral-800/95 text-white border-neutral-700/60";
+export const TOAST_PILL_BASE = [
+  "pointer-events-auto select-none",
+  "w-[calc(100vw-24px)] sm:w-[520px]",
+  "rounded-[22px] px-4 py-3",
+  "backdrop-blur-md shadow-lg border",
+  "text-[15px] leading-snug font-medium",
+].join(" ");
+export const TOAST_SUCCESS =
+  "bg-emerald-600/95 text-white border-emerald-500/50";
+export const TOAST_ERROR = "bg-red-600/95 text-white border-red-500/50";
+export const TOAST_INFO = "bg-neutral-800/95 text-white border-neutral-700/60";
 
 /* Pozn.: animácie ostávajú cez CSS triedy .toast-enter / .toast-hold / .toast-exit */
 
 /* ===== SPINNER (centrálne farby/veľkosti) =============================== */
-export type SpinnerPreset = { px: number; accent: string; track: string; dot?: string };
-export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> = {
-  widget: { px: 18, accent: "#3B82F6", track: "#3B82F633", dot: "#93C5FD" }, // modrá
-  trend:  { px: 32, accent: "#10B981", track: "#10B98133", dot: "#A7F3D0" }, // zelená
-  screen: { px: 56, accent: "#8B5CF6", track: "#8B5CF633", dot: "#DDD6FE" }, // fialová
+export type SpinnerPreset = {
+  px: number;
+  accent: string;
+  track: string;
+  dot?: string;
 };
+export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> =
+  {
+    widget: { px: 18, accent: "#3B82F6", track: "#3B82F633", dot: "#93C5FD" }, // modrá
+    trend: { px: 32, accent: "#10B981", track: "#10B98133", dot: "#A7F3D0" }, // zelená
+    screen: { px: 56, accent: "#8B5CF6", track: "#8B5CF633", dot: "#DDD6FE" }, // fialová
+  };
 
 /* ===== BUTTONS (centrálny systém) ======================================= */
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "danger"
+  | "success";
 export type ButtonSize = "sm" | "md" | "lg";
 
-const BTN_BASE =
-  [
-    "inline-flex items-center justify-center gap-2 select-none",
-    "rounded-full border transition-colors",
-    "font-semibold",
-    "disabled:opacity-50 disabled:cursor-not-allowed",
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
-  ].join(" ");
+const BTN_BASE = [
+  "inline-flex items-center justify-center gap-2 select-none",
+  "rounded-full border transition-colors",
+  "font-semibold",
+  "disabled:opacity-50 disabled:cursor-not-allowed",
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+].join(" ");
 
 const BTN_VARIANT: Record<ButtonVariant, string> = {
-  primary:  "bg-blue-600 hover:bg-blue-500 text-white border-white/10",
-  secondary:"bg-neutral-800 hover:bg-neutral-700 text-white border-white/10",
-  ghost:    "bg-transparent hover:bg-white/10 text-white border-white/10",
-  danger:   "bg-rose-600 hover:bg-rose-500 text-white border-white/10",
-  success:  "bg-emerald-600 hover:bg-emerald-500 text-white border-white/10",
+  primary: "bg-blue-600 hover:bg-blue-500 text-white border-white/10",
+  secondary: "bg-neutral-800 hover:bg-neutral-700 text-white border-white/10",
+  ghost: "bg-transparent hover:bg-white/10 text-white border-white/10",
+  danger: "bg-rose-600 hover:bg-rose-500 text-white border-white/10",
+  success: "bg-emerald-600 hover:bg-emerald-500 text-white border-white/10",
 };
 
 const BTN_SIZE: Record<ButtonSize, string> = {
@@ -206,9 +220,11 @@ export function buttonClass(
   const base = [BTN_BASE, BTN_VARIANT[variant], BTN_SIZE[size]];
   if (opts?.circle) {
     const dims =
-      size === "sm" ? "w-8 h-8" :
-      size === "md" ? "w-9 h-9" :
-      /* lg */        "w-10 h-10";
+      size === "sm"
+        ? "w-8 h-8"
+        : size === "md"
+        ? "w-9 h-9"
+        : /* lg */ "w-10 h-10";
     base.push(dims, "p-0");
   }
   return base.join(" ");
@@ -218,18 +234,16 @@ export function buttonClass(
 export const labelClass =
   "text-xs font-medium tracking-wide opacity-80 select-none";
 
-export const hintClass =
-  "text-xs opacity-70";
+export const hintClass = "text-xs opacity-70";
 
-export const inputClass =
-  [
-    "w-full rounded-lg",
-    "bg-neutral-900 text-white",
-    "border border-neutral-700",
-    "px-3 py-2",
-    "placeholder:opacity-60",
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
-  ].join(" ");
+export const inputClass = [
+  "w-full rounded-lg",
+  "bg-neutral-900 text-white",
+  "border border-neutral-700",
+  "px-3 py-2",
+  "placeholder:opacity-60",
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+].join(" ");
 
 /* ===== CHART TOKENS ===================================================== */
 export const CHART_HR = {
@@ -277,8 +291,8 @@ export const SCROLL_X = [
   "overflow-x-auto",
   "overflow-y-hidden",
   "min-w-0",
-  "touch-pan-x",                // plynulé gesto na mobile
-  "[scrollbar-gutter:stable]",  // neskáče layout pri objavení scrollbarov
+  "touch-pan-x", // plynulé gesto na mobile
+  "[scrollbar-gutter:stable]", // neskáče layout pri objavení scrollbarov
 ].join(" ");
 
 /** Jemný vizuál priamo pre oblasť grafu (ak chceš zaoblenie, bez vlastného paddingu) */
@@ -290,3 +304,8 @@ export const NAV_ITEM_ACTIVE = "bg-white/10 text-white";
 
 // --- ICON BUTTON (mobilné toggly – rozšírenie) ---
 export const HAMBURGER_BTN = ICON_BUTTON + " w-10 h-10 -ml-2";
+
+export const COLOR_PREFS_ACTIVE =
+  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
+export const COLOR_PREFS_INACTIVE =
+  "bg-white/10 text-white border border-white/15 hover:bg-white/16";

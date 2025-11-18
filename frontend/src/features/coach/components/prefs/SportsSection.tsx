@@ -6,12 +6,9 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE, PILL_BUTTON } from "@/shared/ui/classes";
+import {SURFACE_INLINE, SECTION,  COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE, PILL_BUTTON } from "@/shared/ui/classes";
 import type { SportKind } from "@/features/coach/types/prefsTypes";
-import { InfoPopover } from "../InfoPopover";
-
-const ACTIVE_PILL =
-  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
+import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
 
@@ -142,7 +139,7 @@ export function SportsSection({
                             className={[
                               PILL_BUTTON,
                               "px-2 py-1",
-                              active ? ACTIVE_PILL : "border-white/15",
+                              active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
                             ].join(" ")}
                             title={r}
                           >

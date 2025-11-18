@@ -4,11 +4,8 @@
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
-import { SECTION, PILL_BUTTON } from "@/shared/ui/classes";
-import { InfoPopover } from "../InfoPopover";
-
-const ACTIVE_PILL =
-  "bg-emerald-600/90 border-emerald-500 text-white shadow-[inset_0_0_0_2px_rgba(16,185,129,.25)]";
+import { SECTION,  COLOR_PREFS_INACTIVE,COLOR_PREFS_ACTIVE } from "@/shared/ui/classes";
+import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type Props = {
   local: any;
@@ -61,7 +58,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                         },
                       }));
                     }}
-                    className={[active ? ACTIVE_PILL : "border-white/15"].join(
+                    className={[active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(
                       " "
                     )}
                   >
@@ -97,7 +94,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                         }));
                       }}
                       className={[
-                        active ? ACTIVE_PILL : "border-white/15",
+                        active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
                       ].join(" ")}
                     >
                       {mode}
@@ -150,7 +147,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                     }}
                     className={[
                       "text-xs",
-                      active ? ACTIVE_PILL : "border-white/15",
+                      active ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE,
                     ].join(" ")}
                   >
                     {key}
