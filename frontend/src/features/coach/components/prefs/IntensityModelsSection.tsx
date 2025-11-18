@@ -52,7 +52,7 @@ export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
         <Button
           type="button"
           size="xs"
-          variant="secondary"
+          variant="ghost"
           className={[PILL_BUTTON, local.polarized_model ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
           onClick={() => setPref("polarized_model", true)}
         >
@@ -61,7 +61,7 @@ export function IntensityModelsSection({ local, setLocal, setPref }: Props) {
         <Button
           type="button"
           size="xs"
-          variant="secondary"
+          variant="ghost"
           className={[PILL_BUTTON, local.pyramidal_model ? COLOR_PREFS_ACTIVE : COLOR_PREFS_INACTIVE].join(" ")}
           onClick={() => setPref("pyramidal_model", true)}
         >
