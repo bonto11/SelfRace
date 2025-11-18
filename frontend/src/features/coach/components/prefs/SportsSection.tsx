@@ -53,7 +53,6 @@ export function SportsSection({
     return {
       mainText: `Main: ${main}`,
       secText: `Secondary: ${secText}`,
-      sumText: `Sum: ${sumShare}%`,
     };
   }, [mainSport, secondary, sumShare]);
 
@@ -85,7 +84,6 @@ export function SportsSection({
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <span>{preview.mainText}</span>
             <span>{preview.secText}</span>
-            <span>{preview.sumText}</span>
           </div>
         </div>
       )}
