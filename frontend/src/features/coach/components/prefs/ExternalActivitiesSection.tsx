@@ -1,4 +1,3 @@
-// src/features/coach/components/ExternalActivitiesSection.tsx
 "use client";
 
 import { useState } from "react";
@@ -36,7 +35,9 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">External activities (non-coach)</div>
+        <div className="text-sm font-medium opacity-90">
+          External activities (non-coach)
+        </div>
         <InfoPopover text="Other sports like football; planner accounts for them." />
       </div>
 
@@ -44,20 +45,30 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
         <SelectField
           label="Day"
           value={extDraft.day}
-          onChange={(e) => setExtDraft((d) => ({ ...d, day: e.target.value as DayAbbrev }))}
+          onChange={(e) =>
+            setExtDraft((d) => ({ ...d, day: e.target.value as DayAbbrev }))
+          }
           options={ALL_DAYS.map((d) => ({ value: d, label: d }))}
         />
         <SelectField
           label="Sport"
           value={extDraft.sport}
-          onChange={(e) => setExtDraft((d) => ({ ...d, sport: e.target.value as ExternalSport }))}
+          onChange={(e) =>
+            setExtDraft((d) => ({
+              ...d,
+              sport: e.target.value as ExternalSport,
+            }))
+          }
           options={EXT_SPORTS.map((s) => ({ value: s, label: s }))}
         />
         <SelectField
           label="Intensity"
           value={extDraft.intensity}
           onChange={(e) =>
-            setExtDraft((d) => ({ ...d, intensity: e.target.value as ExternalIntensity }))
+            setExtDraft((d) => ({
+              ...d,
+              intensity: e.target.value as ExternalIntensity,
+            }))
           }
           options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
         />
@@ -65,14 +76,21 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
           label="Note"
           placeholder="optional"
           value={extDraft.note ?? ""}
-          onChange={(e) => setExtDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+          onChange={(e) =>
+            setExtDraft((d) => ({
+              ...d,
+              note: (e.target as HTMLInputElement).value,
+            }))
+          }
         />
       </div>
 
       <div className="mt-2">
         <Button
           onClick={() => {
-            const arr = list.concat([{ ...extDraft, note: extDraft.note?.trim() || undefined }]);
+            const arr = list.concat([
+              { ...extDraft, note: extDraft.note?.trim() || undefined },
+            ]);
             setLocal((p: any) => ({ ...p, external_activities: arr }));
           }}
           size="sm"
@@ -87,7 +105,10 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
           {list.map((a, idx) => (
             <li
               key={`${a.day}-${a.sport}-${idx}`}
-              className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}
+              className={[
+                SURFACE_INLINE,
+                "px-3 py-2 flex items-center justify-between",
+              ].join(" ")}
             >
               <span className="text-sm">
                 {a.day} · {a.sport} · {a.intensity}
