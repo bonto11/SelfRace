@@ -17,26 +17,27 @@ import {
 
 import Button from "@/shared/components/ui/Button";
 import { NO_X, SECTION, PILL_BUTTON } from "@/shared/ui/classes";
-import {
-  fetchUserZones,
-  saveUserZones,
-} from "@/features/coach/api/zones";
+import { fetchUserZones, saveUserZones } from "@/features/coach/api/zones";
 import {
   fetchUserThresholds,
   saveUserThresholds,
 } from "@/features/coach/api/thresholds";
 
 // podpanely
-import { GoalSection } from "./GoalSection";
-import { CoachPersonalitySection } from "./CoachPersonalitySection";
-import { PlanStartSection } from "./PlanStartSection";
-import { SportsSection } from "./SportsSection";
-import { StrengthSection } from "./StrengthSection";
-import { DaysOffSection } from "./DaysOffSection";
-import { LongRunDaysSection } from "./LongRunDaysSection";
-import { RulesSection } from "./RulesSection";
-import { ZonesSection } from "./ZonesSection";
-import { AdvancedSection } from "./AdvancedSection";
+import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
+import { CoachPersonalitySection } from "@/features/coach/components/prefs/CoachPersonalitySection";
+import { PlanStartSection } from "@/features/coach/components/prefs/PlanStartSection";
+import { SportsSection } from "@/features/coach/components/prefs/SportsSection";
+import { StrengthSection } from "@/features/coach/components/prefs/StrengthSection";
+import { DaysOffSection } from "@/features/coach/components/prefs/DaysOffSection";
+import { LongRunDaysSection } from "@/features/coach/components/prefs/LongRunDaysSection";
+import { RulesSection } from "@/features/coach/components/prefs/RulesSection";
+import { ZonesSection } from "@/features/coach/components/prefs/ZonesSection";
+import { IntensityModelsSection } from "@/features/coach/components/prefs/IntensityModelsSection";
+import { ExternalActivitiesSection } from "@/features/coach/components/prefs/ExternalActivitiesSection";
+import { InjuriesSection } from "@/features/coach/components/prefs/InjuriesSection";
+import { FocusAvoidSection } from "@/features/coach/components/prefs/FocusAvoidSection";
+import { RehabSection } from "@/features/coach/components/prefs/RehabSection";
 
 /* ---- local DTOs ---- */
 type SecondaryRole = "none" | "supplement" | "improve";
@@ -293,59 +294,53 @@ export default function PrefsForm() {
   const shareWarn = sumShare > 100;
 
   // callbacks pre zones/thresholds panel
-const handleZonesChange = (z: any) => {
-  setLocal((prev) => ({ ...prev, zones: z }));
-  markDirty();
-};
+  const handleZonesChange = (z: any) => {
+    setLocal((prev) => ({ ...prev, zones: z }));
+    markDirty();
+  };
 
-const handleThresholdsChange = (t: any) => {
-  setLocal((prev) => ({ ...prev, thresholds: t }));
-  markDirty();
-};
+  const handleThresholdsChange = (t: any) => {
+    setLocal((prev) => ({ ...prev, thresholds: t }));
+    markDirty();
+  };
 
-const handleSaveZonesToDB = async (z: any) => {
-  if (!userId) return;
-  try {
-    await saveUserZones(userId, z ?? {});
-    toast.success("Zones saved to DB");
-  } catch (e) {
-    console.error(e);
-    toast.error("Saving zones failed (BE endpoint not ready?)");
-  }
-};
+  const handleSaveZonesToDB = async (z: any) => {
+    if (!userId) return;
+    try {
+      await saveUserZones(userId, z ?? {});
+      toast.success("Zones saved to DB");
+    } catch (e) {
+      console.error(e);
+      toast.error("Saving zones failed (BE endpoint not ready?)");
+    }
+  };
 
-const handleSaveThresholdsToDB = async (t: any) => {
-  if (!userId) return;
-  try {
-    await saveUserThresholds(userId, t ?? {});
-    toast.success("Threshold saved to DB");
-  } catch (e) {
-    console.error(e);
-    toast.error("Saving threshold failed (BE endpoint not ready?)");
-  }
-};
+  const handleSaveThresholdsToDB = async (t: any) => {
+    if (!userId) return;
+    try {
+      await saveUserThresholds(userId, t ?? {});
+      toast.success("Threshold saved to DB");
+    } catch (e) {
+      console.error(e);
+      toast.error("Saving threshold failed (BE endpoint not ready?)");
+    }
+  };
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
-      {/* GOAL */}
-      <GoalSection
-        local={local}
-        setPref={setPref}
-        upsertRunTargets={upsertRunTargets}
-      />
-
-      {/* COACH PERSONALITY */}
-      <CoachPersonalitySection
-        local={local}
-        setPref={setPref}
-        markDirty={markDirty}
-      />
 
       {/* PLAN START */}
       <PlanStartSection
         local={local}
         setLocal={setLocal}
         markDirty={markDirty}
+      />
+
+      {/* GOAL */}
+      <GoalSection
+        local={local}
+        setPref={setPref}
+        upsertRunTargets={upsertRunTargets}
       />
 
       {/* SPORTS */}
@@ -397,6 +392,13 @@ const handleSaveThresholdsToDB = async (t: any) => {
         onSaveThresholdsToDB={handleSaveThresholdsToDB}
       />
 
+      {/* COACH PERSONALITY */}
+      <CoachPersonalitySection
+        local={local}
+        setPref={setPref}
+        markDirty={markDirty}
+      />
+
       {/* ADVANCED TOGGLE */}
       <div className="flex">
         <button
@@ -409,14 +411,14 @@ const handleSaveThresholdsToDB = async (t: any) => {
         </button>
       </div>
 
-      {/* ADVANCED PANELS */}
       {showAdv && (
-        <AdvancedSection
-          local={local}
-          setLocal={setLocal}
-          setPref={setPref}
-          toggleInArray={toggleInArray}
-        />
+        <>
+          <IntensityModelsSection local={local} setLocal={setLocal} setPref={setPref} />
+          <ExternalActivitiesSection local={local} setLocal={setLocal} />
+          <InjuriesSection local={local} setLocal={setLocal} />
+          <FocusAvoidSection local={local} setPref={setPref} toggleInArray={toggleInArray} />
+          <RehabSection local={local} setPref={setPref} />
+        </>
       )}
 
       {/* ACTIONS */}
