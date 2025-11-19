@@ -19,7 +19,12 @@ const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const EXT_SPORTS: ExternalSport[] = ["football", "run", "ride", "strength", "other"];
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
-export function ExternalActivitiesSection({ local, setLocal }: { local: any; setLocal: (fn: (prev: any) => any) => void; }) {
+type Props = {
+  local: any;
+  setLocal: (fn: (prev: any) => any) => void;
+};
+
+export function ExternalActivitiesSection({ local, setLocal }: Props) {
   const [open, setOpen] = useState(false);
 
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
@@ -31,7 +36,6 @@ export function ExternalActivitiesSection({ local, setLocal }: { local: any; set
 
   const list = (local.external_activities ?? []) as ExternalActivity[];
 
-  // sorted preview (Mon..Sun), stable by sport/intensity
   const preview = useMemo(() => {
     const order = Object.fromEntries(ALL_DAYS.map((d, i) => [d, i]));
     return [...list].sort((a, b) => {
@@ -59,7 +63,7 @@ export function ExternalActivitiesSection({ local, setLocal }: { local: any; set
         </div>
       </div>
 
-      {/* Closed preview — compact list: Day · Sport · Intensity (no count) */}
+      {/* Closed preview */}
       {!open && (
         <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
           {preview.length === 0 ? (
@@ -80,7 +84,7 @@ export function ExternalActivitiesSection({ local, setLocal }: { local: any; set
         </div>
       )}
 
-      {/* Body */}
+      {/* Open body */}
       {open && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -98,35 +102,23 @@ export function ExternalActivitiesSection({ local, setLocal }: { local: any; set
               options={EXT_SPORTS.map((s) => ({ value: s, label: s }))}
             />
 
-            {/* Intensity select + quick pills */}
-            <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
-              <SelectField
-                label="Intensity"
-                value={extDraft.intensity}
-                onChange={(e) => setExtDraft((d) => ({ ...d, intensity: e.target.value as ExternalIntensity }))}
-                options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                {EXT_INTENS.map((i) => (
-                  <Button
-                    key={i}
-                    type="button"
-                    size="xs"
-                    variant="prefs"
-                    active={extDraft.intensity === i}
-                    onClick={() => setExtDraft((d) => ({ ...d, intensity: i }))}
-                  >
-                    {i}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            {/* Intensity — rovnaký SelectField ako ostatné */}
+            <SelectField
+              label="Intensity"
+              value={extDraft.intensity}
+              onChange={(e) =>
+                setExtDraft((d) => ({ ...d, intensity: e.target.value as ExternalIntensity }))
+              }
+              options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
+            />
 
             <TextField
               label="Note"
               placeholder="optional"
               value={extDraft.note ?? ""}
-              onChange={(e) => setExtDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+              onChange={(e) =>
+                setExtDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))
+              }
             />
           </div>
 
@@ -148,7 +140,9 @@ export function ExternalActivitiesSection({ local, setLocal }: { local: any; set
               {list.map((a, idx) => (
                 <li
                   key={`${a.day}-${a.sport}-${idx}`}
-                  className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}
+                  className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(
+                    " "
+                  )}
                 >
                   <span className="text-sm">
                     {a.day} · {a.sport} · {a.intensity}
@@ -160,7 +154,9 @@ export function ExternalActivitiesSection({ local, setLocal }: { local: any; set
                     onClick={() =>
                       setLocal((p: any) => ({
                         ...p,
-                        external_activities: (p.external_activities ?? []).filter((_: any, i: number) => i !== idx),
+                        external_activities: (p.external_activities ?? []).filter(
+                          (_: any, i: number) => i !== idx
+                        ),
                       }))
                     }
                   >

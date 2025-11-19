@@ -1,41 +1,19 @@
 // src/features/coach/components/InjuriesSection.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
-import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import type {
-  Injury,
-  InjuryArea,
-  InjuryType,
-} from "@/features/coach/types/prefsTypes";
+import type { Injury, InjuryArea, InjuryType } from "@/features/coach/types/prefsTypes";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const INJ_AREAS: InjuryArea[] = [
-  "foot",
-  "ankle",
-  "shin",
-  "knee",
-  "hip",
-  "hamstring",
-  "calf",
-  "back",
-  "shoulder",
-  "other",
+  "foot","ankle","shin","knee","hip","hamstring","calf","back","shoulder","other",
 ];
-
 const INJ_TYPES: InjuryType[] = [
-  "overuse",
-  "acute",
-  "tendon",
-  "stress",
-  "shin_splints",
-  "plantar",
-  "itb",
-  "other",
+  "overuse","acute","tendon","stress","shin_splints","plantar","itb","other",
 ];
 
 type Props = {
@@ -49,10 +27,12 @@ export function InjuriesSection({ local, setLocal }: Props) {
   const [injDraft, setInjDraft] = useState<Injury>({
     area: "foot",
     type: "overuse",
-    note: "bolesť nártov po dlhých behoch",
+    note: "",
   });
 
   const list = (local.injuries ?? []) as Injury[];
+
+  const preview = useMemo(() => list.map((i) => `${i.area} — ${i.type}`), [list]);
 
   return (
     <section className={SECTION}>
@@ -72,28 +52,32 @@ export function InjuriesSection({ local, setLocal }: Props) {
 
       {/* Closed preview */}
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-70 select-none"].join(" ")}>
-          {list.length
-            ? `${list.length} entr${list.length === 1 ? "y" : "ies"}`
-            : "No injuries recorded"}
+        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
+          {preview.length === 0 ? (
+            <span className="opacity-70">No injuries recorded</span>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {preview.map((txt, idx) => (
+                <span
+                  key={`${txt}-${idx}`}
+                  className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
+                >
+                  {txt}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Body */}
+      {/* Open body */}
       {open && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            {/* Area select + quick pills */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {/* AREA pill box */}
             <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
-              <SelectField
-                label="Area"
-                value={injDraft.area}
-                onChange={(e) =>
-                  setInjDraft((d) => ({ ...d, area: e.target.value as InjuryArea }))
-                }
-                options={INJ_AREAS.map((a) => ({ value: a, label: a }))}
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="text-xs font-medium opacity-80 mb-2">Area</div>
+              <div className="flex flex-wrap gap-2">
                 {INJ_AREAS.map((a) => {
                   const active = injDraft.area === a;
                   return (
@@ -104,6 +88,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
                       variant="prefs"
                       active={active}
                       onClick={() => setInjDraft((d) => ({ ...d, area: a }))}
+                      className="text-xs"
                     >
                       {a}
                     </Button>
@@ -112,17 +97,10 @@ export function InjuriesSection({ local, setLocal }: Props) {
               </div>
             </div>
 
-            {/* Type select + quick pills */}
+            {/* TYPE pill box */}
             <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
-              <SelectField
-                label="Type"
-                value={injDraft.type}
-                onChange={(e) =>
-                  setInjDraft((d) => ({ ...d, type: e.target.value as InjuryType }))
-                }
-                options={INJ_TYPES.map((t) => ({ value: t, label: t }))}
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="text-xs font-medium opacity-80 mb-2">Type</div>
+              <div className="flex flex-wrap gap-2">
                 {INJ_TYPES.map((t) => {
                   const active = injDraft.type === t;
                   return (
@@ -133,6 +111,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
                       variant="prefs"
                       active={active}
                       onClick={() => setInjDraft((d) => ({ ...d, type: t }))}
+                      className="text-xs"
                     >
                       {t}
                     </Button>
@@ -141,19 +120,17 @@ export function InjuriesSection({ local, setLocal }: Props) {
               </div>
             </div>
 
-            {/* Note */}
-            <TextField
-              label="Note"
-              placeholder="e.g., foot pain…"
-              value={injDraft.note ?? ""}
-              onChange={(e) =>
-                setInjDraft((d) => ({
-                  ...d,
-                  note: (e.target as HTMLInputElement).value,
-                }))
-              }
-              containerClassName="md:col-span-2"
-            />
+            {/* NOTE */}
+            <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
+              <TextField
+                label="Note"
+                placeholder="e.g., foot pain after long runs"
+                value={injDraft.note ?? ""}
+                onChange={(e) =>
+                  setInjDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))
+                }
+              />
+            </div>
           </div>
 
           <div className="mt-2">
