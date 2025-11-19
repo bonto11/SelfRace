@@ -18,7 +18,7 @@ def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
     "sport": row.get("sport"),
     "threshold_type": row.get("threshold_type"),
     "updated_at": row.get("updated_at"),
-    "hr_bpm": _num(row.get("HR_bpm")),
+    "hr_bpm": _num(row.get("hr_bpm")),
     "pace_sec_km": _num(row.get("pace_sec_km")),
     "power_watt": _num(row.get("power_watt")),
     "measurement_type": row.get("measurement_type"),
@@ -27,7 +27,7 @@ def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
 def list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
   q = (
     sb.table(TABLE_USERS_THRESHOLDS)
-    .select("sport,threshold_type,updated_at,HR_bpm,pace_sec_km,power_watt,measurement_type")
+    .select("sport,threshold_type,updated_at,hr_bpm,pace_sec_km,power_watt,measurement_type")
     .eq("user_id", user_id)
     .order("updated_at", desc=True)
     .execute()
@@ -68,7 +68,7 @@ def upsert_user_threshold(user_id: int, payload: Dict[str, Any]) -> Optional[Dic
     "user_id": user_id,
     "sport": sport,
     "threshold_type": t_type,
-    "HR_bpm": payload.get("hr_bpm") or payload.get("HR_bpm"),
+    "hr_bpm": payload.get("hr_bpm"),
     "pace_sec_km": payload.get("pace_sec_km"),
     "power_watt": payload.get("power_watt"),
     "measurement_type": payload.get("measurement_type") or "manual",

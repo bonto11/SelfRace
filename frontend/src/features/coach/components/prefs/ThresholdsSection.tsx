@@ -126,8 +126,8 @@ export default function ThresholdsSection({ thresholds, onChange, onSaveToDB }: 
               <TextField
                 label="Threshold HR (bpm)"
                 type="number"
-                value={thr.HR_bpm ?? ""}
-                onChange={(e) => onChange({ ...thr, HR_bpm: e.target.value === "" ? null : Number(e.target.value) })}
+                value={thr.hr_bpm ?? ""}
+                onChange={(e) => onChange({ ...thr, hr_bpm: e.target.value === "" ? null : Number(e.target.value) })}
               />
             </div>
 
@@ -182,7 +182,7 @@ export default function ThresholdsSection({ thresholds, onChange, onSaveToDB }: 
               className="mt-1"
               onClick={async () => {
                 // minimalistická validácia
-                if (thr.HR_bpm != null && !Number.isFinite(Number(thr.HR_bpm))) {
+                if (thr.hr_bpm != null && !Number.isFinite(Number(thr.hr_bpm))) {
                   toast.error("HR must be a number"); return;
                 }
                 await onSaveToDB(thr);
