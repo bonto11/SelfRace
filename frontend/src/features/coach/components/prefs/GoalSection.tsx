@@ -41,7 +41,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   const previewParts = [
     `Goal: ${goalLabel}`,
-    weeks ? `Horizon: ${weeks}` : null,
+    weeks ? `in ${weeks}` : null,
     cur || tgt ? `Time: ${cur ?? "—"} → ${tgt ?? "—"}` : null,
   ].filter(Boolean);
 

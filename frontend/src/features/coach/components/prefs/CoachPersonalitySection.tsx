@@ -45,10 +45,10 @@ export function CoachPersonalitySection({
     (local.coach_voice as CoachPersona | "custom" | null) ?? null;
 
   const previewText = (() => {
-    if (voice === null) return "Disabled";
-    if (voice === "custom") return "Preset: Custom";
+    if (voice === null) return "None";
+    if (voice === "custom") return "Custom";
     const lbl = personaOptions.find((o) => o.key === voice)?.label ?? voice;
-    return `Preset: ${lbl}`;
+    return `${lbl}`;
   })();
 
   return (

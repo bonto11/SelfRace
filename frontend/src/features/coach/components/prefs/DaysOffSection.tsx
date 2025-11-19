@@ -25,8 +25,8 @@ export function DaysOffSection({
 
   const selected = (daysOff ?? []) as DayAbbrev[];
   const previewText = selected.length
-    ? `Days off (${selected.length}): ${selected.join(" · ")}`
-    : "Days off: none";
+    ? `${selected.join(" · ")}`
+    : "none";
 
   return (
     <section className={SECTION}>

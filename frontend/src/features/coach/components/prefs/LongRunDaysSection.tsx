@@ -26,7 +26,7 @@ export function LongRunDaysSection({
   const selected = longRunDays ?? [];
   const previewText =
     selected.length > 0
-      ? `Selected: ${selected.join(", ")} (${selected.length})`
+      ? `Selected: ${selected.join(", ")}`
       : "Selected: none";
 
   return (
