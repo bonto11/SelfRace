@@ -19,10 +19,8 @@ class ThresholdPayload(BaseModel):
   hr_bpm: Optional[float] = None
   pace_sec_km: Optional[float] = None
   power_watt: Optional[float] = None
-  value: Optional[float] = None
 
   measurement_type: Optional[str] = None  # napr. "estimate garmin", "manual"
-
 
 @router.get("/{user_id}/thresholds")
 def get_user_thresholds(user_id: int):

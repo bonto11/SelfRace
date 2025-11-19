@@ -6,7 +6,6 @@ from Configs.config import TABLE_USERS_THRESHOLDS  # pridaj si do configu
 
 sb = get_client()
 
-
 def _num(v):
   try:
     if v is None:
@@ -46,7 +45,6 @@ def load_user_thresholds(
     "hr_bpm": _num(row.get("HR_bpm")),
     "pace_sec_km": _num(row.get("pace_sec_km")),
     "power_watt": _num(row.get("power_watt")),
-    "value": _num(row.get("value")),
     "measurement_type": row.get("measurement_type"),
   }
 
@@ -68,7 +66,6 @@ def upsert_user_threshold(
     "HR_bpm": payload.get("hr_bpm") or payload.get("HR_bpm"),
     "pace_sec_km": payload.get("pace_sec_km"),
     "power_watt": payload.get("power_watt"),
-    "value": payload.get("value"),
     "measurement_type": payload.get("measurement_type") or "manual",
   }
 

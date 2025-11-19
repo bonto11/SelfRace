@@ -1,4 +1,3 @@
-// src/features/coach/types/prefsTypes.ts
 import type { DayAbbrev } from "@/shared/types/day";
 
 /** Goals */
@@ -19,6 +18,26 @@ export type CoachPersona =
   | "analyst"
   | "realist"
   | "custom";
+
+/* -------- Zones & Thresholds (NEW) -------- */
+export type Zones = {
+  hr_max?: number | null;
+  z1_min?: number | null; z1_max?: number | null;
+  z2_min?: number | null; z2_max?: number | null;
+  z3_min?: number | null; z3_max?: number | null;
+  z4_min?: number | null; z4_max?: number | null;
+  z5_min?: number | null; z5_max?: number | null;
+};
+
+export type Thresholds = {
+  sport?: "running" | "cycling" | "other" | string | null;
+  hr_bpm?: number | null;          // normalizované (HR_bpm -> hr_bpm)
+  pace_sec_km?: number | null;
+  power_watt?: number | null;
+  threshold_type?: "LT1" | "LT2" | "FTP" | "HR_LT2" | "PACE_LT2" | string | null;
+  measurement_type?: "lab test" | "field test" | "estimate garmin" | "estimate strava" | "coach estimate" | "other" | string | null;
+  updated_at?: string | null;
+};
 
 /* -------- Preferences -------- */
 export interface Preferences {
@@ -78,9 +97,9 @@ export type StrengthEquipmentKey =
   | "resistance_bands" | "bench" | "medicine_ball" | "sandbag" | "box" | "abwheel" | "other";
 
 export type StrengthSettings = {
-  location?: StrengthLocation | null;          // kde cvičíš
-  equipment_mode?: StrengthEquipmentMode | null; // úroveň vybavenia
-  available?: StrengthEquipmentKey[];          // konkrétne kusy (ak má zmysel)
+  location?: StrengthLocation | null;
+  equipment_mode?: StrengthEquipmentMode | null;
+  available?: StrengthEquipmentKey[];
 };
 
 /* -------- Main prefs -------- */
@@ -135,6 +154,10 @@ export type CoachPrefs = {
 
   /** preferencie pre silu */
   strength_settings?: StrengthSettings | null;
+
+  /** NEW: top-level fyzio info */
+  zones?: Zones;
+  thresholds?: Thresholds;
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
