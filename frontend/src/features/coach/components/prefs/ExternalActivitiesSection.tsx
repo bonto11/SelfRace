@@ -1,7 +1,7 @@
 // src/features/coach/components/ExternalActivitiesSection.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import SelectField from "@/shared/components/ui/SelectField";
@@ -19,12 +19,7 @@ const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const EXT_SPORTS: ExternalSport[] = ["football", "run", "ride", "strength", "other"];
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
-type Props = {
-  local: any;
-  setLocal: (fn: (prev: any) => any) => void;
-};
-
-export function ExternalActivitiesSection({ local, setLocal }: Props) {
+export function ExternalActivitiesSection({ local, setLocal }: { local: any; setLocal: (fn: (prev: any) => any) => void; }) {
   const [open, setOpen] = useState(false);
 
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
@@ -36,13 +31,23 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
 
   const list = (local.external_activities ?? []) as ExternalActivity[];
 
+  // sorted preview (Mon..Sun), stable by sport/intensity
+  const preview = useMemo(() => {
+    const order = Object.fromEntries(ALL_DAYS.map((d, i) => [d, i]));
+    return [...list].sort((a, b) => {
+      const d = (order[a.day] ?? 0) - (order[b.day] ?? 0);
+      if (d !== 0) return d;
+      const s = a.sport.localeCompare(b.sport);
+      if (s !== 0) return s;
+      return a.intensity.localeCompare(b.intensity);
+    });
+  }, [list]);
+
   return (
     <section className={SECTION}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">
-          External activities (non-coach)
-        </div>
+        <div className="text-sm font-medium opacity-90">External activities (non-coach)</div>
         <div className="flex items-center gap-2">
           <InfoPopover text="Other sports like football; planner accounts for them." />
           <DisclosureToggle
@@ -54,12 +59,24 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
         </div>
       </div>
 
-      {/* Closed preview */}
+      {/* Closed preview — compact list: Day · Sport · Intensity (no count) */}
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-70 select-none"].join(" ")}>
-          {list.length
-            ? `${list.length} external activit${list.length === 1 ? "y" : "ies"} scheduled`
-            : "No external activities yet – click the arrow to add some."}
+        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
+          {preview.length === 0 ? (
+            <span className="opacity-70">No external activities — click the arrow to add.</span>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {preview.map((a, idx) => (
+                <span
+                  key={`${a.day}-${a.sport}-${a.intensity}-${idx}`}
+                  className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
+                  title={a.note ? a.note : `${a.day} · ${a.sport} · ${a.intensity}`}
+                >
+                  {a.day} · {a.sport} · {a.intensity}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -70,21 +87,14 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
             <SelectField
               label="Day"
               value={extDraft.day}
-              onChange={(e) =>
-                setExtDraft((d) => ({ ...d, day: e.target.value as DayAbbrev }))
-              }
+              onChange={(e) => setExtDraft((d) => ({ ...d, day: e.target.value as DayAbbrev }))}
               options={ALL_DAYS.map((d) => ({ value: d, label: d }))}
             />
 
             <SelectField
               label="Sport"
               value={extDraft.sport}
-              onChange={(e) =>
-                setExtDraft((d) => ({
-                  ...d,
-                  sport: e.target.value as ExternalSport,
-                }))
-              }
+              onChange={(e) => setExtDraft((d) => ({ ...d, sport: e.target.value as ExternalSport }))}
               options={EXT_SPORTS.map((s) => ({ value: s, label: s }))}
             />
 
@@ -93,30 +103,22 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
               <SelectField
                 label="Intensity"
                 value={extDraft.intensity}
-                onChange={(e) =>
-                  setExtDraft((d) => ({
-                    ...d,
-                    intensity: e.target.value as ExternalIntensity,
-                  }))
-                }
+                onChange={(e) => setExtDraft((d) => ({ ...d, intensity: e.target.value as ExternalIntensity }))}
                 options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
               />
               <div className="mt-2 flex flex-wrap gap-2">
-                {EXT_INTENS.map((i) => {
-                  const active = extDraft.intensity === i;
-                  return (
-                    <Button
-                      key={i}
-                      type="button"
-                      size="xs"
-                      variant="prefs"
-                      active={active}
-                      onClick={() => setExtDraft((d) => ({ ...d, intensity: i }))}
-                    >
-                      {i}
-                    </Button>
-                  );
-                })}
+                {EXT_INTENS.map((i) => (
+                  <Button
+                    key={i}
+                    type="button"
+                    size="xs"
+                    variant="prefs"
+                    active={extDraft.intensity === i}
+                    onClick={() => setExtDraft((d) => ({ ...d, intensity: i }))}
+                  >
+                    {i}
+                  </Button>
+                ))}
               </div>
             </div>
 
@@ -124,21 +126,14 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
               label="Note"
               placeholder="optional"
               value={extDraft.note ?? ""}
-              onChange={(e) =>
-                setExtDraft((d) => ({
-                  ...d,
-                  note: (e.target as HTMLInputElement).value,
-                }))
-              }
+              onChange={(e) => setExtDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
             />
           </div>
 
           <div className="mt-2">
             <Button
               onClick={() => {
-                const arr = list.concat([
-                  { ...extDraft, note: extDraft.note?.trim() || undefined },
-                ]);
+                const arr = list.concat([{ ...extDraft, note: extDraft.note?.trim() || undefined }]);
                 setLocal((p: any) => ({ ...p, external_activities: arr }));
               }}
               size="sm"
@@ -153,9 +148,7 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
               {list.map((a, idx) => (
                 <li
                   key={`${a.day}-${a.sport}-${idx}`}
-                  className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(
-                    " "
-                  )}
+                  className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(" ")}
                 >
                   <span className="text-sm">
                     {a.day} · {a.sport} · {a.intensity}
@@ -167,9 +160,7 @@ export function ExternalActivitiesSection({ local, setLocal }: Props) {
                     onClick={() =>
                       setLocal((p: any) => ({
                         ...p,
-                        external_activities: (p.external_activities ?? []).filter(
-                          (_: any, i: number) => i !== idx
-                        ),
+                        external_activities: (p.external_activities ?? []).filter((_: any, i: number) => i !== idx),
                       }))
                     }
                   >

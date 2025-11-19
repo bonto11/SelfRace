@@ -58,8 +58,8 @@ export function RulesSection({
   const enabled = RULES.filter((r) => !!pref?.[r.key]).map((r) => r.short);
   const previewText =
     enabled.length > 0
-      ? `Enabled: ${enabled.join(", ")} (${enabled.length})`
-      : "Enabled: none";
+      ? `${enabled.join(", ")}`
+      : "none";
 
   return (
     <section className={SECTION}>

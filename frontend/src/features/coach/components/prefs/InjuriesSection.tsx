@@ -75,7 +75,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
         <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-70 select-none"].join(" ")}>
           {list.length
             ? `${list.length} entr${list.length === 1 ? "y" : "ies"}`
-            : "No injuries recorded — click the arrow to add one."}
+            : "No injuries recorded"}
         </div>
       )}
 

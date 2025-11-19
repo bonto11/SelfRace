@@ -34,7 +34,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const activeGoal: (typeof ALL_GOALS)[number] | undefined = local.goal_kind;
 
   // closed preview
-  const weeks = local.weeks ? `${local.weeks}w` : null;
+  const weeks = local.weeks ? `${local.weeks} weeks` : null;
   const cur = local.targets?.run?.current_best_time || null;
   const tgt = local.targets?.run?.target_time || null;
   const goalLabel = activeGoal ? GOAL_LABEL[activeGoal] : "None";
@@ -46,7 +46,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   ].filter(Boolean);
 
   const previewText =
-    previewParts.length > 0 ? previewParts.join(" · ") : "No goal set";
+    previewParts.length > 0 ? previewParts.join(" ") : "No goal set";
 
   return (
     <section className={SECTION}>
