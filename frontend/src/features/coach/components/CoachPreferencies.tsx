@@ -18,7 +18,7 @@ import {
 
 import Button from "@/shared/components/ui/Button";
 import { NO_X, PILL_BUTTON } from "@/shared/ui/classes";
-import { fetchUserZones, saveUserZones } from "@/features/coach/api/zones";
+import { fetchUserZones, saveUserZones, type UserZones } from "@/features/coach/api/zones";
 import { saveUserThresholds } from "@/features/coach/api/thresholds";
 
 // podpanely
@@ -270,26 +270,30 @@ export default function PrefsForm() {
     setLocal((prev) => ({ ...prev, thresholds: t }));
     markDirty();
   };
-  const handleSaveZonesToDB = async (z: any) => {
-    if (!userId) return;
-    try {
-      await saveUserZones(userId, z ?? {});
-      toast.success("Zones saved to DB");
-    } catch (e) {
-      console.error(e);
-      toast.error("Saving zones failed");
-    }
-  };
+
+  const handleSaveZonesToDB = async (z: Partial<UserZones>) => {
+  if (!userId) return;
+  try {
+    const saved = await saveUserZones(userId, z);
+    setLocal(prev => ({ ...prev, zones: saved })); // lokálny = to, čo je v DB
+    toast.success("Zones saved to DB");
+  } catch (e) {
+    console.error(e);
+    toast.error("Saving zones failed");
+  }
+};
+
   const handleSaveThresholdsToDB = async (t: any) => {
-    if (!userId) return;
-    try {
-      await saveUserThresholds(userId, t ?? {});
-      toast.success("Threshold saved to DB");
-    } catch (e) {
-      console.error(e);
-      toast.error("Saving threshold failed");
-    }
-  };
+  if (!userId) return;
+  try {
+    const saved = await saveUserThresholds(userId, t ?? {});
+    setLocal(prev => ({ ...prev, thresholds: saved }));  // lokálny stav = to, čo je v DB
+    toast.success("Threshold saved to DB");
+  } catch (e) {
+    console.error(e);
+    toast.error("Saving threshold failed");
+  }
+};
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
