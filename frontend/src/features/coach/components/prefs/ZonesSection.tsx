@@ -11,12 +11,21 @@ import Button from "@/shared/components/ui/Button";
 import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 
-// mód výpočtu zón
+import { useUserId } from "@/shared/hooks/useUserId";
+import {
+  fetchUserThresholdsLatest,
+  reduceLatestByCombo,
+  debugLogLatestThresholds,
+  type UserThresholdRow,
+} from "@/features/coach/api/thresholds";
+
+/* ---------------- TYPES ---------------- */
+
 export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
 
 type Props = {
   zones: any | undefined;
-  thresholds: any | undefined;
+  thresholds: any | undefined; // aktuálne editovaný draft (sport + type + HR/pace/power + measurement/only)
 
   onZonesChange: (z: any) => void;
   onThresholdsChange: (t: any) => void;
@@ -25,105 +34,79 @@ type Props = {
   onSaveThresholdsToDB?: (t: any) => Promise<void>;
 };
 
-/* ---------------- ZONES VALIDATION ---------------- */
+/* ---------------- HELPERS: ZONES ---------------- */
 
 const ZONE_KEYS: Array<keyof any> = [
-  "z1_min",
-  "z1_max",
-  "z2_min",
-  "z2_max",
-  "z3_min",
-  "z3_max",
-  "z4_min",
-  "z4_max",
-  "z5_min",
-  "z5_max",
+  "z1_min","z1_max","z2_min","z2_max","z3_min","z3_max","z4_min","z4_max","z5_min","z5_max",
 ];
 
 function validateZones(z: any): string[] {
   if (!z) return ["Zones payload is empty"];
-
   const errors: string[] = [];
-
-  for (const key of ZONE_KEYS) {
-    const v = z[key];
-    if (v == null || Number.isNaN(Number(v))) {
-      errors.push(`Field ${String(key)} must be a number (got ${v ?? "empty"})`);
-    }
+  for (const k of ZONE_KEYS) {
+    const v = z[k];
+    if (v == null || Number.isNaN(Number(v))) errors.push(`Field ${String(k)} must be a number`);
   }
   if (errors.length) return errors;
 
-  const {
-    z1_min,
-    z1_max,
-    z2_min,
-    z2_max,
-    z3_min,
-    z3_max,
-    z4_min,
-    z4_max,
-    z5_min,
-    z5_max,
-    hr_max,
-  } = z as Record<string, number>;
+  const { z1_min,z1_max,z2_min,z2_max,z3_min,z3_max,z4_min,z4_max,z5_min,z5_max,hr_max } =
+    z as Record<string, number>;
 
   const pairs: Array<[number, number, string]> = [
-    [z1_min, z1_max, "Z1"],
-    [z2_min, z2_max, "Z2"],
-    [z3_min, z3_max, "Z3"],
-    [z4_min, z4_max, "Z4"],
-    [z5_min, z5_max, "Z5"],
+    [z1_min, z1_max, "Z1"],[z2_min, z2_max, "Z2"],[z3_min, z3_max, "Z3"],
+    [z4_min, z4_max, "Z4"],[z5_min, z5_max, "Z5"],
   ];
-
-  for (const [min, max, label] of pairs) {
-    if (min >= max) errors.push(`${label}: min must be < max (${min} vs ${max})`);
-  }
-
+  for (const [min, max, label] of pairs) if (min >= max) errors.push(`${label}: min < max`);
   if (!(z1_max < z2_min && z2_max <= z3_min && z3_max <= z4_min && z4_max <= z5_min)) {
-    errors.push("Zones should be ordered and non-overlapping (Z1 < Z2 < Z3 < Z4 < Z5).");
+    errors.push("Zones should be ordered and non-overlapping.");
   }
-
-  if (hr_max && z5_max > hr_max) {
-    errors.push(`Z5 max (${z5_max}) must be ≤ HRmax (${hr_max}).`);
-  }
-
+  if (hr_max && z5_max > hr_max) errors.push(`Z5 max (${z5_max}) must be ≤ HRmax (${hr_max}).`);
   return errors;
 }
 
-/* ---------------- THRESHOLDS VALIDATION + HELPERS ---------------- */
+function recalcZones(mode: ZoneCalcMode, z: any, thr: any) {
+  if (!z) return z;
+  const out = { ...z };
+  const hrmax = Number(z.hr_max) || 200;
+  const lthr = thr?.HR_bpm ? Number(thr.HR_bpm) : null;
+
+  if (mode === "manual") return out;
+
+  if (mode === "hrmax" || mode === "default") {
+    const h = hrmax;
+    out.z1_min = Math.round(h * 0.5); out.z1_max = Math.round(h * 0.6);
+    out.z2_min = Math.round(h * 0.6); out.z2_max = Math.round(h * 0.7);
+    out.z3_min = Math.round(h * 0.7); out.z3_max = Math.round(h * 0.8);
+    out.z4_min = Math.round(h * 0.8); out.z4_max = Math.round(h * 0.9);
+    out.z5_min = Math.round(h * 0.9); out.z5_max = h;
+    return out;
+  }
+
+  if (mode === "percent_lthr" && lthr) {
+    out.z1_min = Math.round(lthr * 0.81); out.z1_max = Math.round(lthr * 0.89);
+    out.z2_min = Math.round(lthr * 0.9);  out.z2_max = Math.round(lthr * 0.93);
+    out.z3_min = Math.round(lthr * 0.94); out.z3_max = Math.round(lthr * 0.99);
+    out.z4_min = Math.round(lthr * 1.0);  out.z4_max = Math.round(lthr * 1.06);
+    out.z5_min = out.z4_max + 1;          out.z5_max = out.z5_min + 10;
+    return out;
+  }
+
+  return out;
+}
+
+/* ---------------- HELPERS: THRESHOLDS ---------------- */
 
 function validateThresholds(t: any): string[] {
   if (!t) return ["Threshold payload is empty"];
-
-  const errors: string[] = [];
-
-  if (t.HR_bpm != null && t.HR_bpm !== "") {
-    const hr = Number(t.HR_bpm);
-    if (!Number.isFinite(hr)) {
-      errors.push("Threshold HR (HR_bpm) must be a number.");
-    } else if (hr < 100 || hr > 230) {
-      errors.push("Threshold HR (HR_bpm) looks unrealistic (100–230 bpm).");
-    }
-  }
-
-  if (t.pace_sec_km != null && t.pace_sec_km !== "") {
-    const p = Number(t.pace_sec_km);
-    if (!Number.isFinite(p) || p <= 0) {
-      errors.push("pace_sec_km must be a positive number (seconds per km).");
-    }
-  }
-
-  if (t.power_watt != null && t.power_watt !== "") {
-    const w = Number(t.power_watt);
-    if (!Number.isFinite(w) || w <= 0) {
-      errors.push("power_watt must be a positive number.");
-    }
-  }
-
-  return errors;
+  const e: string[] = [];
+  if (t.HR_bpm !== "" && t.HR_bpm != null && !Number.isFinite(Number(t.HR_bpm))) e.push("HR must be a number");
+  if (t.pace_sec_km !== "" && t.pace_sec_km != null && (!Number.isFinite(Number(t.pace_sec_km)) || Number(t.pace_sec_km) <= 0))
+    e.push("Pace must be seconds > 0");
+  if (t.power_watt !== "" && t.power_watt != null && (!Number.isFinite(Number(t.power_watt)) || Number(t.power_watt) <= 0))
+    e.push("Power must be > 0");
+  return e;
 }
 
-// seconds -> "mm:ss"
 function formatPace(sec: any): string {
   const n = Number(sec);
   if (!Number.isFinite(n) || n <= 0) return "";
@@ -131,88 +114,18 @@ function formatPace(sec: any): string {
   const s = n % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
-
-// "mm:ss" -> seconds (int)
 function parsePace(str: string): number | null {
   const raw = str.trim();
   if (!raw) return null;
   if (raw.includes(":")) {
     const [mStr, sStr] = raw.split(":");
-    const m = Number(mStr);
-    const s = Number(sStr);
+    const m = Number(mStr), s = Number(sStr);
     if (!Number.isFinite(m) || !Number.isFinite(s)) return null;
     return m * 60 + s;
   }
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return null;
   return Math.round(n);
-}
-
-/* ---------------- RE-CALC ---------------- */
-
-function recalcZones(mode: ZoneCalcMode, z: any, thr: any) {
-  if (!z) return z;
-
-  const out = { ...z };
-  const hrmax = Number(z.hr_max) || 200;
-  const lthr = thr?.HR_bpm ? Number(thr.HR_bpm) : null;
-
-  if (mode === "manual") return out;
-
-  if (mode === "hrmax") {
-    out.z1_min = Math.round(hrmax * 0.5);
-    out.z1_max = Math.round(hrmax * 0.6);
-
-    out.z2_min = Math.round(hrmax * 0.6);
-    out.z2_max = Math.round(hrmax * 0.7);
-
-    out.z3_min = Math.round(hrmax * 0.7);
-    out.z3_max = Math.round(hrmax * 0.8);
-
-    out.z4_min = Math.round(hrmax * 0.8);
-    out.z4_max = Math.round(hrmax * 0.9);
-
-    out.z5_min = Math.round(hrmax * 0.9);
-    out.z5_max = hrmax;
-    return out;
-  }
-
-  if (mode === "percent_lthr") {
-    if (!lthr) return out;
-    out.z1_min = Math.round(lthr * 0.81);
-    out.z1_max = Math.round(lthr * 0.89);
-
-    out.z2_min = Math.round(lthr * 0.9);
-    out.z2_max = Math.round(lthr * 0.93);
-
-    out.z3_min = Math.round(lthr * 0.94);
-    out.z3_max = Math.round(lthr * 0.99);
-
-    out.z4_min = Math.round(lthr * 1.0);
-    out.z4_max = Math.round(lthr * 1.06);
-
-    out.z5_min = out.z4_max + 1;
-    out.z5_max = out.z5_min + 10;
-    return out;
-  }
-
-  // default = HRmax fallback
-  const h = hrmax;
-  out.z1_min = Math.round(h * 0.5);
-  out.z1_max = Math.round(h * 0.6);
-
-  out.z2_min = Math.round(h * 0.6);
-  out.z2_max = Math.round(h * 0.7);
-
-  out.z3_min = Math.round(h * 0.7);
-  out.z3_max = Math.round(h * 0.8);
-
-  out.z4_min = Math.round(h * 0.8);
-  out.z4_max = Math.round(h * 0.9);
-
-  out.z5_min = Math.round(h * 0.9);
-  out.z5_max = h;
-  return out;
 }
 
 /* ---------------- COMPONENT ---------------- */
@@ -225,23 +138,20 @@ export function ZonesSection({
   onSaveZonesToDB,
   onSaveThresholdsToDB,
 }: Props) {
+  const { userId } = useUserId();
   const [open, setOpen] = useState(false);
   const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
+  const [latest, setLatest] = useState<UserThresholdRow[]>([]);
 
-  // vždy zobraz polia – aj bez dát z DB
+  // zóny – memo model
   const z = useMemo(
     () => ({
       hr_max: zones?.hr_max ?? null,
-      z1_min: zones?.z1_min ?? null,
-      z1_max: zones?.z1_max ?? null,
-      z2_min: zones?.z2_min ?? null,
-      z2_max: zones?.z2_max ?? null,
-      z3_min: zones?.z3_min ?? null,
-      z3_max: zones?.z3_max ?? null,
-      z4_min: zones?.z4_min ?? null,
-      z4_max: zones?.z4_max ?? null,
-      z5_min: zones?.z5_min ?? null,
-      z5_max: zones?.z5_max ?? null,
+      z1_min: zones?.z1_min ?? null, z1_max: zones?.z1_max ?? null,
+      z2_min: zones?.z2_min ?? null, z2_max: zones?.z2_max ?? null,
+      z3_min: zones?.z3_min ?? null, z3_max: zones?.z3_max ?? null,
+      z4_min: zones?.z4_min ?? null, z4_max: zones?.z4_max ?? null,
+      z5_min: zones?.z5_min ?? null, z5_max: zones?.z5_max ?? null,
     }),
     [zones]
   );
@@ -250,61 +160,57 @@ export function ZonesSection({
   const paceDisplay = formatPace(thr.pace_sec_km);
   const zonesLocked = calcMode !== "manual";
 
-  // derived preview strings
+  // preview (closed)
   const fmtRange = (a: any, b: any) =>
-    Number.isFinite(Number(a)) && Number.isFinite(Number(b))
-      ? `${Number(a)}–${Number(b)} bpm`
-      : "—";
+    Number.isFinite(Number(a)) && Number.isFinite(Number(b)) ? `${Number(a)}–${Number(b)} bpm` : "—";
   const previewZ2 = fmtRange(z.z2_min, z.z2_max);
   const previewZ4 = fmtRange(z.z4_min, z.z4_max);
-  const previewHRM =
-    z.hr_max != null && Number.isFinite(Number(z.hr_max))
-      ? `${Number(z.hr_max)} bpm`
-      : "—";
+  const previewHRM = z.hr_max != null && Number.isFinite(Number(z.hr_max)) ? `${Number(z.hr_max)} bpm` : "—";
 
-  // Recalc pri zmene módu / HRmax / LTHR (len keď nie je manual)
+  // auto-recalc
   useEffect(() => {
-    if (!zones) return;
-    if (calcMode === "manual") return;
+    if (!zones || calcMode === "manual") return;
     const next = recalcZones(calcMode, zones, thresholds);
     if (next) onZonesChange(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calcMode, zones?.hr_max, thresholds?.HR_bpm]);
 
+  // fetch latest thresholds (self-contained)
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const rows = await fetchUserThresholdsLatest(userId);
+        const reduced = reduceLatestByCombo(rows);
+        if (!alive) return;
+        setLatest(reduced);
+        debugLogLatestThresholds(reduced); // požadovaný debug výpis do konzoly
+      } catch (e) {
+        // ticho zlyhať, UI to nepotrebuje
+      }
+    })();
+    return () => { alive = false; };
+  }, [userId]);
+
   return (
     <section className={SECTION}>
       {/* HEADER */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">
-          Heart-rate zones & thresholds
-        </div>
+        <div className="text-sm font-medium opacity-90">Heart-rate zones & thresholds</div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Výpočet zón podľa HRmax, %LTHR alebo manuálne. LTHR sa edituje v Thresholds." />
+          <InfoPopover text="Vyber zónový režim; prahy ukladáš per šport × typ (LT1/LT2/FTP)." />
           <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
         </div>
       </div>
 
       {/* CLOSED PREVIEW — LT1 (Z2), LT2 (Z4), HRmax */}
       {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs select-none",
-          ].join(" ")}
-        >
+        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 text-center">
-            <div>
-              <span className="opacity-70 mr-1">Aerobic (Z2):</span>
-              <span className="font-semibold">{previewZ2}</span>
-            </div>
-            <div>
-              <span className="opacity-70 mr-1">Anaerobic (Z4):</span>
-              <span className="font-semibold">{previewZ4}</span>
-            </div>
-            <div>
-              <span className="opacity-70 mr-1">HRmax:</span>
-              <span className="font-semibold">{previewHRM}</span>
-            </div>
+            <div><span className="opacity-70 mr-1">Aerobic (Z2):</span><span className="font-semibold">{previewZ2}</span></div>
+            <div><span className="opacity-70 mr-1">Anaerobic (Z4):</span><span className="font-semibold">{previewZ4}</span></div>
+            <div><span className="opacity-70 mr-1">HRmax:</span><span className="font-semibold">{previewHRM}</span></div>
           </div>
         </div>
       )}
@@ -312,7 +218,7 @@ export function ZonesSection({
       {/* OPEN CONTENT */}
       {open && (
         <div className="space-y-5">
-          {/* MODE + HRmax + LTHR (read-only) */}
+          {/* MODE + HRmax + LTHR preview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <SelectField
@@ -320,19 +226,13 @@ export function ZonesSection({
                 value={calcMode}
                 onChange={(e) => setCalcMode(e.target.value as ZoneCalcMode)}
                 options={[
-                  { value: "manual", label: "Manual (test/custom)" },
+                  { value: "manual", label: "Manual" },
                   { value: "hrmax", label: "From HRmax (%)" },
                   { value: "percent_lthr", label: "From % LTHR" },
                   { value: "default", label: "Internal default" },
                 ]}
-                hint={
-                  calcMode === "percent_lthr" && !thresholds?.HR_bpm
-                    ? "Set LTHR in Thresholds to enable accurate %LTHR calc."
-                    : undefined
-                }
               />
             </div>
-
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <TextField
                 label="HRmax (bpm)"
@@ -349,40 +249,27 @@ export function ZonesSection({
                 }}
               />
             </div>
-
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField
-                label="LTHR (bpm)"
-                value={thresholds?.HR_bpm ?? ""}
-                disabled
-                hint="Edituj v sekcii Thresholds"
-              />
+              <TextField label="LTHR (bpm)" value={thresholds?.HR_bpm ?? ""} disabled hint="Edituješ nižšie v Thresholds" />
             </div>
           </div>
 
-          {/* ZONES EDITOR – vždy viditeľné, uzamknuté mimo manual */}
+          {/* ZONES EDITOR */}
           <div className="text-xs opacity-70">Zones (bpm)</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {(["z1", "z2", "z3", "z4", "z5"] as const).map((key) => {
+            {(["z1","z2","z3","z4","z5"] as const).map((key) => {
               const minKey = `${key}_min` as const;
               const maxKey = `${key}_max` as const;
               return (
                 <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    {key.toUpperCase()}
-                  </div>
+                  <div className="text-xs opacity-70 uppercase mb-1">{key.toUpperCase()}</div>
                   <div className="flex items-center gap-2">
                     <TextField
                       type="number"
                       disabled={zonesLocked}
                       className="w-20 disabled:opacity-40"
                       value={z[minKey] ?? ""}
-                      onChange={(e) =>
-                        onZonesChange({
-                          ...(zones ?? {}),
-                          [minKey]: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
+                      onChange={(e) => onZonesChange({ ...(zones ?? {}), [minKey]: e.target.value ? Number(e.target.value) : null })}
                     />
                     <span className="opacity-60">–</span>
                     <TextField
@@ -390,12 +277,7 @@ export function ZonesSection({
                       disabled={zonesLocked}
                       className="w-20 disabled:opacity-40"
                       value={z[maxKey] ?? ""}
-                      onChange={(e) =>
-                        onZonesChange({
-                          ...(zones ?? {}),
-                          [maxKey]: e.target.value ? Number(e.target.value) : null,
-                        })
-                      }
+                      onChange={(e) => onZonesChange({ ...(zones ?? {}), [maxKey]: e.target.value ? Number(e.target.value) : null })}
                     />
                   </div>
                 </div>
@@ -411,11 +293,7 @@ export function ZonesSection({
               className="mt-2"
               onClick={async () => {
                 const errs = validateZones({ ...(zones ?? {}), ...z });
-                if (errs.length) {
-                  console.warn("[ZONES] Validation failed:", errs);
-                  toast.error(errs[0]);
-                  return;
-                }
+                if (errs.length) { toast.error(errs[0]); return; }
                 await onSaveZonesToDB({ ...(zones ?? {}), ...z });
               }}
             >
@@ -423,11 +301,11 @@ export function ZonesSection({
             </Button>
           )}
 
-          {/* THRESHOLDS */}
+          {/* THRESHOLDS UI */}
           <div className="text-xs opacity-70">Thresholds</div>
 
+          {/* 1) Sport + Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {/* SPORT */}
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <SelectField
                 label="Sport"
@@ -440,8 +318,6 @@ export function ZonesSection({
                 ]}
               />
             </div>
-
-            {/* THRESHOLD TYPE */}
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <SelectField
                 label="Threshold type"
@@ -451,62 +327,42 @@ export function ZonesSection({
                   { value: "LT1", label: "LT1 (aerobic)" },
                   { value: "LT2", label: "LT2 (anaerobic)" },
                   { value: "FTP", label: "FTP (cycling)" },
-                  { value: "HR_LT2", label: "HR at LT2" },
-                  { value: "PACE_LT2", label: "Pace at LT2" },
                 ]}
               />
             </div>
+          </div>
 
-            {/* UPDATED AT – read-only */}
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField label="Updated at" value={thr.updated_at ?? ""} disabled hint="Read-only" />
-            </div>
-
-            {/* HR_bpm */}
+          {/* 2) HR / Pace / Power */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <TextField
                 label="Threshold HR (bpm)"
                 type="number"
                 value={thr.HR_bpm ?? ""}
-                onChange={(e) =>
-                  onThresholdsChange({
-                    ...thr,
-                    HR_bpm: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
+                onChange={(e) => onThresholdsChange({ ...thr, HR_bpm: e.target.value === "" ? null : Number(e.target.value) })}
               />
             </div>
-
-            {/* PACE – min/km -> pace_sec_km */}
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <TextField
                 label="Threshold pace (min/km)"
                 value={paceDisplay}
                 placeholder="4:55"
-                hint="Formát mm:ss – napr. 4:55"
-                onChange={(e) => {
-                  const seconds = parsePace(e.target.value);
-                  onThresholdsChange({ ...thr, pace_sec_km: seconds });
-                }}
+                hint="mm:ss"
+                onChange={(e) => onThresholdsChange({ ...thr, pace_sec_km: parsePace(e.target.value) })}
               />
             </div>
-
-            {/* POWER WATT */}
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <TextField
                 label="Threshold power (W)"
                 type="number"
                 value={thr.power_watt ?? ""}
-                onChange={(e) =>
-                  onThresholdsChange({
-                    ...thr,
-                    power_watt: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
+                onChange={(e) => onThresholdsChange({ ...thr, power_watt: e.target.value === "" ? null : Number(e.target.value) })}
               />
             </div>
+          </div>
 
-            {/* MEASUREMENT TYPE */}
+          {/* 3) Measurement + Only */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <SelectField
                 label="Measurement type"
@@ -522,6 +378,14 @@ export function ZonesSection({
                 ]}
               />
             </div>
+            <div className={[SURFACE_INLINE, "px-3 py-2 flex items-center gap-3"].join(" ")}>
+              <label className="text-xs opacity-70">Only</label>
+              <input
+                type="checkbox"
+                checked={!!thr.only}
+                onChange={(e) => onThresholdsChange({ ...thr, only: e.target.checked })}
+              />
+            </div>
           </div>
 
           {onSaveThresholdsToDB && (
@@ -532,16 +396,36 @@ export function ZonesSection({
               className="mt-2"
               onClick={async () => {
                 const errs = validateThresholds(thr);
-                if (errs.length) {
-                  console.warn("[THRESHOLDS] Validation failed:", errs);
-                  toast.error(errs[0]);
-                  return;
-                }
+                if (errs.length) { toast.error(errs[0]); return; }
                 await onSaveThresholdsToDB(thr);
               }}
             >
-              Save thresholds to DB
+              Save threshold to DB
             </Button>
+          )}
+
+          {/* PREVIEW: Aktuálne uložené v DB (latest per šport×typ) */}
+          {latest.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs opacity-70">Aktuálne uložené v DB</div>
+              <ul className="flex flex-wrap gap-2">
+                {latest.map((r, i) => {
+                  const pace = formatPace(r.pace_sec_km);
+                  return (
+                    <li
+                      key={`${r.sport}-${r.threshold_type}-${i}`}
+                      className={[SURFACE_INLINE, "px-3 py-1.5 text-xs"].join(" ")}
+                    >
+                      <span className="font-medium">{r.sport}</span>
+                      <span> · {r.threshold_type}</span>
+                      {r.hr_bpm ? <span> · HR {Math.round(r.hr_bpm)}</span> : null}
+                      {pace ? <span> · {pace} /km</span> : null}
+                      {r.power_watt ? <span> · {Math.round(r.power_watt)} W</span> : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       )}

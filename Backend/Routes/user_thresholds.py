@@ -1,48 +1,53 @@
 # Routes/user_zones.py
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 
 from Services.user_thresholds import (
   load_user_thresholds,
   upsert_user_threshold,
+  list_user_thresholds,
+  list_latest_per_combo,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-
 class ThresholdPayload(BaseModel):
-  sport: Optional[str] = None          # default: running
-  threshold_type: Optional[str] = None # default: LT2
-
+  sport: Optional[str] = None
+  threshold_type: Optional[str] = None
   hr_bpm: Optional[float] = None
   pace_sec_km: Optional[float] = None
   power_watt: Optional[float] = None
-
-  measurement_type: Optional[str] = None  # napr. "estimate garmin", "manual"
+  measurement_type: Optional[str] = None
 
 @router.get("/{user_id}/thresholds")
 def get_user_thresholds(user_id: int):
-  """
-  Najnovší threshold (default running/LT2) pre FE.
-  """
   try:
     thr = load_user_thresholds(user_id)
-  except Exception as e:  # noqa: BLE001
+    return {"success": True, "thresholds": thr}
+  except Exception as e:
     raise HTTPException(status_code=500, detail=str(e))
 
-  return {"success": True, "thresholds": thr}
+@router.get("/{user_id}/thresholds/all")
+def get_user_thresholds_all(user_id: int):
+  try:
+    rows = list_user_thresholds(user_id)
+    return {"success": True, "rows": rows}
+  except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{user_id}/thresholds/latest")
+def get_user_thresholds_latest(user_id: int):
+  try:
+    rows = list_latest_per_combo(user_id)
+    return {"success": True, "rows": rows}
+  except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{user_id}/thresholds")
 def put_user_thresholds(user_id: int, payload: ThresholdPayload):
-  """
-  Upraví / vytvorí threshold pre usera (running + LT2 by default).
-  """
   try:
     thr = upsert_user_threshold(user_id, payload.dict(exclude_unset=True))
-  except Exception as e:  # noqa: BLE001
+    return {"success": True, "thresholds": thr}
+  except Exception as e:
     raise HTTPException(status_code=500, detail=str(e))
-
-  return {"success": True, "thresholds": thr}

@@ -1,3 +1,4 @@
+// src/features/coach/components/prefs/PrefsForm.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,10 +19,7 @@ import {
 import Button from "@/shared/components/ui/Button";
 import { NO_X, PILL_BUTTON } from "@/shared/ui/classes";
 import { fetchUserZones, saveUserZones } from "@/features/coach/api/zones";
-import {
-  fetchUserThresholds,
-  saveUserThresholds,
-} from "@/features/coach/api/thresholds";
+import { saveUserThresholds } from "@/features/coach/api/thresholds";
 
 // podpanely
 import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
@@ -52,7 +50,7 @@ type CoachPrefsExtended = CoachPrefs & {
   secondary_mix?: SecondaryMix[];
   coach_voice?: CoachPersona | null;
   zones?: any;
-  thresholds?: any;
+  thresholds?: any; // lokálny draft (UI)
 };
 
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
@@ -66,50 +64,39 @@ function isoTodayPlus(days: number): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-const DEFAULT_PLAN_START = () => isoTodayPlus(2); // predvyplň = D+2
-const MIN_PLAN_START = () => isoTodayPlus(1); // min = zajtra
+const DEFAULT_PLAN_START = () => isoTodayPlus(2);
+const MIN_PLAN_START = () => isoTodayPlus(1);
 
 export default function PrefsForm() {
   const { userId } = useUserId();
 
   const dirtyRef = useRef(false);
-  const markDirty = () => {
-    dirtyRef.current = true;
-  };
+  const markDirty = () => { dirtyRef.current = true; };
 
   const [local, setLocal] = useState<CoachPrefsExtended>(
     () => readCoachPrefsFromStorage() as CoachPrefsExtended
   );
 
-  // initial load z DB + zóny + thresholds
+  // initial load z DB + zóny (thresholds fetch rieši ZonesSection)
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
       try {
-        const [p, zones, thresholds] = await Promise.all([
+        const [p, zones] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
           fetchUserZones(userId),
-          fetchUserThresholds(userId),
         ]);
 
         if (!alive) return;
 
         let next = p as CoachPrefsExtended;
-
-        if (!next.zones && zones) {
-          next = { ...next, zones: zones as any };
-        }
-        if (!next.thresholds && thresholds) {
-          next = { ...next, thresholds: thresholds as any };
-        }
+        if (!next.zones && zones) next = { ...next, zones: zones as any };
 
         console.debug("[CoachPrefs]init", {
           fromDB: p,
           zonesFromAPI: zones,
-          thresholdsFromAPI: thresholds,
           finalZones: (next as any).zones ?? null,
-          finalThresholds: (next as any).thresholds ?? null,
         });
 
         if (!dirtyRef.current) setLocal(next);
@@ -117,9 +104,7 @@ export default function PrefsForm() {
         console.error("[CoachPrefs]init error", e);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId]);
 
   // guard na start_date
@@ -164,10 +149,8 @@ export default function PrefsForm() {
     markDirty();
     const p = prefDefaults(local);
     const next = { ...local, preferences: p };
-    if (path.endsWith("days_off"))
-      next.preferences!.days_off = v as DayAbbrev[];
-    if (path.endsWith("long_run_days"))
-      next.preferences!.long_run_days = v as DayAbbrev[];
+    if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
+    if (path.endsWith("long_run_days")) next.preferences!.long_run_days = v as DayAbbrev[];
     setLocal(next);
   };
 
@@ -182,18 +165,11 @@ export default function PrefsForm() {
           race_goal: prev.targets?.run?.race_goal ?? null,
           current_best_time: prev.targets?.run?.current_best_time ?? null,
           target_time: prev.targets?.run?.target_time ?? null,
-          longest_recent_distance_km:
-            prev.targets?.run?.longest_recent_distance_km ?? null,
+          longest_recent_distance_km: prev.targets?.run?.longest_recent_distance_km ?? null,
           ...patch,
         },
-        ride: prev.targets?.ride ?? {
-          focus: "endurance",
-          weekly_time_target_min: null,
-        },
-        strength: prev.targets?.strength ?? {
-          focus: "general",
-          sessions_per_week: 2,
-        },
+        ride: prev.targets?.ride ?? { focus: "endurance", weekly_time_target_min: null },
+        strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
       },
     }));
   };
@@ -212,6 +188,7 @@ export default function PrefsForm() {
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
       const safeStart = !startIso || startIso < minIso ? minIso : startIso;
+
       const normalized: CoachPrefsExtended = {
         ...local,
         start_date: safeStart,
@@ -232,23 +209,18 @@ export default function PrefsForm() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const [fresh, zones, thresholds] = await Promise.all([
+      const [fresh, zones] = await Promise.all([
         refreshCoachPrefsFromDB(userId),
         fetchUserZones(userId),
-        fetchUserThresholds(userId),
       ]);
 
       let next = fresh as CoachPrefsExtended;
-
       if (zones) next = { ...next, zones: zones as any };
-      if (thresholds) next = { ...next, thresholds: thresholds as any };
 
       console.debug("[CoachPrefs]refresh", {
         fromDB: fresh,
         zonesFromAPI: zones,
-        thresholdsFromAPI: thresholds,
         finalZones: (next as any).zones ?? null,
-        finalThresholds: (next as any).thresholds ?? null,
       });
 
       if (!dirtyRef.current) setLocal(next);
@@ -266,10 +238,9 @@ export default function PrefsForm() {
   const mainSport: SportKind | "" = (local.main_sport ?? "") as any;
 
   const secondary: SecondaryMix[] = useMemo(() => {
-    const cur = (local.secondary_mix ?? []).filter(
-      (s) => s.sport !== local.main_sport
-    );
-    const missing = ALL_SPORTS.filter((s) => s !== local.main_sport)
+    const cur = (local.secondary_mix ?? []).filter((s) => s.sport !== local.main_sport);
+    const missing = ALL_SPORTS
+      .filter((s) => s !== local.main_sport)
       .filter((s) => !cur.some((x) => x.sport === s))
       .map<SecondaryMix>((s) => ({ sport: s, role: "none", share_pct: 0 }));
     return [...cur, ...missing];
@@ -280,9 +251,7 @@ export default function PrefsForm() {
     setLocal((p) => ({ ...p, secondary_mix: mix }));
   };
   const updateSecondary = (sport: SportKind, patch: Partial<SecondaryMix>) => {
-    const next = secondary.map((x) =>
-      x.sport === sport ? { ...x, ...patch } : x
-    );
+    const next = secondary.map((x) => (x.sport === sport ? { ...x, ...patch } : x));
     setSecondary(next);
   };
 
@@ -292,17 +261,15 @@ export default function PrefsForm() {
   );
   const shareWarn = sumShare > 100;
 
-  // callbacks pre zones/thresholds panel
+  // callbacks pre ZonesSection
   const handleZonesChange = (z: any) => {
     setLocal((prev) => ({ ...prev, zones: z }));
     markDirty();
   };
-
   const handleThresholdsChange = (t: any) => {
     setLocal((prev) => ({ ...prev, thresholds: t }));
     markDirty();
   };
-
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
@@ -310,10 +277,9 @@ export default function PrefsForm() {
       toast.success("Zones saved to DB");
     } catch (e) {
       console.error(e);
-      toast.error("Saving zones failed (BE endpoint not ready?)");
+      toast.error("Saving zones failed");
     }
   };
-
   const handleSaveThresholdsToDB = async (t: any) => {
     if (!userId) return;
     try {
@@ -321,7 +287,7 @@ export default function PrefsForm() {
       toast.success("Threshold saved to DB");
     } catch (e) {
       console.error(e);
-      toast.error("Saving threshold failed (BE endpoint not ready?)");
+      toast.error("Saving threshold failed");
     }
   };
 
@@ -329,18 +295,10 @@ export default function PrefsForm() {
     <div className={["space-y-4", NO_X].join(" ")}>
 
       {/* PLAN START */}
-      <PlanStartSection
-        local={local}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
+      <PlanStartSection local={local} setLocal={setLocal} markDirty={markDirty} />
 
       {/* GOAL */}
-      <GoalSection
-        local={local}
-        setPref={setPref}
-        upsertRunTargets={upsertRunTargets}
-      />
+      <GoalSection local={local} setPref={setPref} upsertRunTargets={upsertRunTargets} />
 
       {/* SPORTS */}
       <SportsSection
@@ -353,11 +311,7 @@ export default function PrefsForm() {
       />
 
       {/* STRENGTH SETUP */}
-      <StrengthSection
-        local={local}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
+      <StrengthSection local={local} setLocal={setLocal} markDirty={markDirty} />
 
       {/* DAYS OFF */}
       <DaysOffSection
@@ -374,14 +328,9 @@ export default function PrefsForm() {
       />
 
       {/* RULES */}
-      <RulesSection
-        pref={pref}
-        prefDefaults={prefDefaults}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
+      <RulesSection pref={pref} prefDefaults={prefDefaults} setLocal={setLocal} markDirty={markDirty} />
 
-      {/* ZONES + THRESHOLDS + CALC */}
+      {/* ZONES + THRESHOLDS */}
       <ZonesSection
         zones={local.zones}
         thresholds={local.thresholds}
@@ -392,11 +341,7 @@ export default function PrefsForm() {
       />
 
       {/* COACH PERSONALITY */}
-      <CoachPersonalitySection
-        local={local}
-        setPref={setPref}
-        markDirty={markDirty}
-      />
+      <CoachPersonalitySection local={local} setPref={setPref} markDirty={markDirty} />
 
       {/* ADVANCED TOGGLE */}
       <div className="flex">
@@ -422,12 +367,8 @@ export default function PrefsForm() {
 
       {/* ACTIONS */}
       <div className="flex gap-2 pt-1">
-        <Button onClick={onSave} variant="success">
-          Save
-        </Button>
-        <Button onClick={onRefresh} variant="secondary">
-          Refresh
-        </Button>
+        <Button onClick={onSave} variant="success">Save</Button>
+        <Button onClick={onRefresh} variant="secondary">Refresh</Button>
       </div>
     </div>
   );
