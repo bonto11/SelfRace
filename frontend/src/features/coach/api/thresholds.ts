@@ -1,101 +1,73 @@
-// src/features/coach/api/thresholds.ts
 import { API_URL } from "@/shared/config";
 
+/** DB row */
 export type UserThresholdRow = {
   sport: string | null;
   threshold_type: string | null;
   updated_at: string | null;
-  hr_bpm: number | null;       // FE snake_case pre konzistenciu s BE
+  hr_bpm: number | null;
   pace_sec_km: number | null;
   power_watt: number | null;
-  value?: number | null;
   measurement_type: string | null;
 };
 
-type ApiOk<T> = { success: true; thresholds: T };
-type ApiFail = { success: false; detail?: string };
-
-// GET — zatiaľ 1 najnovší záznam podľa BE (running/LT2 default)
-export async function fetchUserThresholds(
-  userId: number
-): Promise<UserThresholdRow | null> {
+/** GET latest rows (BE môže vrátiť jeden objekt alebo pole) */
+export async function fetchUserThresholdsLatest(userId: number): Promise<UserThresholdRow[]> {
   const url = `${API_URL}/users/${userId}/thresholds`;
-  const res = await fetch(url, { method: "GET", cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as ApiOk<UserThresholdRow> | ApiFail | null;
-  if (!res.ok || !json || (json as ApiFail).success === false) return null;
-  return (json as ApiOk<UserThresholdRow>).thresholds ?? null;
+  try {
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return [];
+    const raw = json?.thresholds ?? json ?? null;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw as UserThresholdRow[];
+    return [raw as UserThresholdRow];
+  } catch {
+    return [];
+  }
 }
 
-// PUT — vráti uložený záznam (už normalizovaný BE)
-export async function saveUserThresholds(
-  userId: number,
-  thresholds: Partial<UserThresholdRow>
-): Promise<UserThresholdRow> {
+/** Reduce na latest per (sport, type) podľa updated_at */
+export function reduceLatestByCombo(rows: UserThresholdRow[]): UserThresholdRow[] {
+  const map = new Map<string, UserThresholdRow>();
+  for (const r of rows ?? []) {
+    const key = `${r.sport ?? "running"}|${r.threshold_type ?? "LT2"}`;
+    const prev = map.get(key);
+    if (!prev) { map.set(key, r); continue; }
+    const a = Date.parse(prev.updated_at ?? "") || 0;
+    const b = Date.parse(r.updated_at ?? "") || 0;
+    if (b >= a) map.set(key, r);
+  }
+  return Array.from(map.values());
+}
+
+export function debugLogLatestThresholds(rows: UserThresholdRow[]) {
+  // krátky, čitateľný log
+  const out = rows.map(r => ({
+    sport: r.sport, type: r.threshold_type,
+    HR: r.hr_bpm, pace: r.pace_sec_km, power: r.power_watt, at: r.updated_at
+  }));
+  // eslint-disable-next-line no-console
+  console.debug("[thresholds.latest]", out);
+}
+
+/** PUT (upsert) threshold pre danú kombináciu */
+export async function saveUserThresholds(userId: number, t: Partial<UserThresholdRow>): Promise<UserThresholdRow | null> {
   const url = `${API_URL}/users/${userId}/thresholds`;
   const res = await fetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
-    body: JSON.stringify({ ...thresholds }),
+    body: JSON.stringify({
+      sport: t.sport ?? "running",
+      threshold_type: t.threshold_type ?? "LT2",
+      hr_bpm: t.hr_bpm ?? t.hr_bpm ?? null,
+      pace_sec_km: t.pace_sec_km ?? null,
+      power_watt: t.power_watt ?? null,
+      measurement_type: t.measurement_type ?? "manual",
+    }),
   });
-  const json = (await res.json().catch(() => null)) as ApiOk<UserThresholdRow> | ApiFail | null;
-  if (!res.ok || !json || (json as ApiFail).success === false) {
-    const msg = (json as ApiFail)?.detail || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return (json as ApiOk<UserThresholdRow>).thresholds;
-}
-
-/** Všetky riadky (zoradené desc na BE) */
-export async function fetchUserThresholdsAll(userId: number): Promise<UserThresholdRow[]> {
-  const url = `${API_URL}/users/${userId}/thresholds/all`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return [];
-  const json = await res.json().catch(() => null);
-  return json?.success ? (json.rows as UserThresholdRow[]) : [];
-}
-
-/** Najnovší pre každú kombináciu (ak chceš priamo BE z /latest) */
-export async function fetchUserThresholdsLatest(userId: number): Promise<UserThresholdRow[]> {
-  const url = `${API_URL}/users/${userId}/thresholds/latest`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return [];
-  const json = await res.json().catch(() => null);
-  return json?.success ? (json.rows as UserThresholdRow[]) : [];
-}
-
-/** Redukcia na FE: najnovší pre (sport × type) z ľubovoľného zoznamu */
-export function reduceLatestByCombo(rows: UserThresholdRow[]): UserThresholdRow[] {
-  const out: UserThresholdRow[] = [];
-  const seen = new Set<string>();
-  for (const r of [...rows].sort((a, b) => Date.parse(b.updated_at ?? "") - Date.parse(a.updated_at ?? ""))) {
-    const key = `${r.sport ?? ""}:${r.threshold_type ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(r);
-  }
-  return out;
-}
-
-/** Debug helper – vytlačí peknú tabuľku */
-export function debugLogLatestThresholds(rows: UserThresholdRow[]) {
-  const latest = reduceLatestByCombo(rows);
-  const mmss = (s: number | null) => {
-    if (!s || s <= 0) return "";
-    const m = Math.floor(s / 60);
-    const ss = String(Math.round(s % 60)).padStart(2, "0");
-    return `${m}:${ss}`;
-  };
-  const table = latest.map((r) => ({
-    sport: r.sport,
-    type: r.threshold_type,
-    updated: r.updated_at,
-    HR: r.hr_bpm ?? "",
-    Pace: mmss(r.pace_sec_km ?? null),
-    Power: r.power_watt ?? "",
-    source: r.measurement_type ?? "",
-  }));
-  // výpis len do konzoly:
-  // eslint-disable-next-line no-console
-  console.table(table);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.detail || `HTTP ${res.status}`);
+  return (json?.thresholds ?? null) as UserThresholdRow | null;
 }
