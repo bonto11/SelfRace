@@ -14,10 +14,20 @@ export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
 
 type Props = {
   zones: any | undefined;
+  /** LT2 HR pre aktívny šport (ak je, pre %LTHR výpočet) */
   lthrBpm?: number | null;
   onZonesChange: (z: any) => void;
   onSaveZonesToDB?: (z: any) => Promise<void>;
 };
+
+const SPORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "running",  label: "Running" },
+  { value: "cycling",  label: "Cycling" },
+  // tieto sa v BE dnes kanonizujú na "other"
+  { value: "rowing",   label: "Rowing" },
+  { value: "swimming", label: "Swimming" },
+  { value: "other",    label: "Other" },
+];
 
 const ZONE_KEYS: Array<keyof any> = [
   "z1_min","z1_max","z2_min","z2_max","z3_min","z3_max","z4_min","z4_max","z5_min","z5_max",
@@ -26,10 +36,18 @@ const ZONE_KEYS: Array<keyof any> = [
 function validateZones(z: any): string[] {
   if (!z) return ["Zones payload is empty"];
   const e: string[] = [];
-  for (const k of ZONE_KEYS) if (z[k] == null || Number.isNaN(Number(z[k]))) e.push(`${String(k)} must be a number`);
-  const { z1_min,z1_max,z2_min,z2_max,z3_min,z3_max,z4_min,z4_max,z5_min,z5_max,hr_max } = z as Record<string, number>;
-  if (z1_min >= z1_max || z2_min >= z2_max || z3_min >= z3_max || z4_min >= z4_max || z5_min >= z5_max) e.push("Each zone: min < max");
-  if (!(z1_max < z2_min && z2_max <= z3_min && z3_max <= z4_min && z4_max <= z5_min)) e.push("Zones must be ordered");
+  for (const k of ZONE_KEYS)
+    if (z[k] == null || Number.isNaN(Number(z[k])))
+      e.push(`${String(k)} must be a number`);
+  const {
+    z1_min,z1_max,z2_min,z2_max,z3_min,z3_max,z4_min,z4_max,z5_min,z5_max,hr_max,
+  } = z as Record<string, number>;
+  if (z1_min >= z1_max || z2_min >= z2_max || z3_min >= z3_max || z4_min >= z4_max || z5_min >= z5_max) {
+    e.push("Each zone: min < max");
+  }
+  if (!(z1_max < z2_min && z2_max <= z3_min && z3_max <= z4_min && z4_max <= z5_min)) {
+    e.push("Zones must be ordered");
+  }
   if (hr_max && z5_max > hr_max) e.push(`Z5 max ≤ HRmax (${hr_max})`);
   return e;
 }
@@ -40,11 +58,11 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
   const h = Number(z.hr_max) || 200;
 
   if (mode === "hrmax" || mode === "default") {
-    out.z1_min = Math.round(h * 0.5); out.z1_max = Math.round(h * 0.6);
-    out.z2_min = Math.round(h * 0.6); out.z2_max = Math.round(h * 0.7);
-    out.z3_min = Math.round(h * 0.7); out.z3_max = Math.round(h * 0.8);
-    out.z4_min = Math.round(h * 0.8); out.z4_max = Math.round(h * 0.9);
-    out.z5_min = Math.round(h * 0.9); out.z5_max = h;
+    out.z1_min = Math.round(h * 0.50); out.z1_max = Math.round(h * 0.60);
+    out.z2_min = Math.round(h * 0.60); out.z2_max = Math.round(h * 0.70);
+    out.z3_min = Math.round(h * 0.70); out.z3_max = Math.round(h * 0.80);
+    out.z4_min = Math.round(h * 0.80); out.z4_max = Math.round(h * 0.90);
+    out.z5_min = Math.round(h * 0.90); out.z5_max = h;
     return out;
   }
 
@@ -61,12 +79,15 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
   return out;
 }
 
-export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZonesToDB }: Props) {
+export default function ZonesSection({
+  zones, lthrBpm, onZonesChange, onSaveZonesToDB,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
 
   const z = useMemo(
     () => ({
+      sport:  zones?.sport ?? "running",
       hr_max: zones?.hr_max ?? null,
       z1_min: zones?.z1_min ?? null, z1_max: zones?.z1_max ?? null,
       z2_min: zones?.z2_min ?? null, z2_max: zones?.z2_max ?? null,
@@ -78,27 +99,34 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
   );
 
   const zonesLocked = calcMode !== "manual";
-  const fmtRange = (a: any, b: any) => (Number.isFinite(Number(a)) && Number.isFinite(Number(b)) ? `${Number(a)}–${Number(b)} bpm` : "—");
+
+  const fmtRange = (a: any, b: any) =>
+    Number.isFinite(Number(a)) && Number.isFinite(Number(b))
+      ? `${Number(a)}–${Number(b)} bpm` : "—";
   const previewZ2 = fmtRange(z.z2_min, z.z2_max);
   const previewZ4 = fmtRange(z.z4_min, z.z4_max);
-  const previewHRM = z.hr_max != null && Number.isFinite(Number(z.hr_max)) ? `${Number(z.hr_max)} bpm` : "—";
+  const previewHRM =
+    z.hr_max != null && Number.isFinite(Number(z.hr_max)) ? `${Number(z.hr_max)} bpm` : "—";
 
+  // automatický prepočet pri zmene režimu/HRmax/LTHR
   useEffect(() => {
     if (!zones) return;
-    onZonesChange(recalc(calcMode, zones, lthrBpm));
+    onZonesChange(recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calcMode, zones?.hr_max, lthrBpm]);
+  }, [calcMode, zones?.hr_max, lthrBpm, z.sport]);
 
   return (
     <section className={SECTION}>
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Heart-rate zones</div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="HRmax alebo %LTHR. LTHR sa berie z Thresholds (LT2 HR)." />
+          <InfoPopover text="Zóny podľa HRmax alebo %LTHR. Šport sa ukladá k záznamu." />
           <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
         </div>
       </div>
 
+      {/* PREVIEW */}
       {!open && (
         <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 text-center">
@@ -109,9 +137,21 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
         </div>
       )}
 
+      {/* EDIT */}
       {open && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* šport + výpočet + HRmax + LTHR */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+              <SelectField
+                label="Sport"
+                value={z.sport}
+                onChange={(e) => onZonesChange({ ...(zones ?? {}), sport: e.target.value })}
+                options={SPORT_OPTIONS}
+                hint='Pozn.: aktuálne BE rozlišuje "running", "cycling", iné mapuje na "other".'
+              />
+            </div>
+
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <SelectField
                 label="Zone calculation"
@@ -123,9 +163,14 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
                   { value: "percent_lthr", label: "From % LTHR" },
                   { value: "default", label: "Internal default" },
                 ]}
-                hint={calcMode === "percent_lthr" && !Number.isFinite(Number(lthrBpm)) ? "Zadaj LT2 HR v Thresholds." : undefined}
+                hint={
+                  calcMode === "percent_lthr" && !Number.isFinite(Number(lthrBpm))
+                    ? "Zadaj LT2 HR v Thresholds pre tento šport."
+                    : undefined
+                }
               />
             </div>
+
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <TextField
                 label="HRmax (bpm)"
@@ -133,16 +178,23 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
                 value={z.hr_max ?? ""}
                 onChange={(e) => {
                   const val = e.target.value ? Number(e.target.value) : null;
-                  const next = { ...(zones ?? {}), hr_max: val };
+                  const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };
                   onZonesChange(calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm));
                 }}
               />
             </div>
+
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField label="LTHR (bpm)" value={Number.isFinite(Number(lthrBpm)) ? String(lthrBpm) : ""} disabled hint="Zdroj: Thresholds" />
+              <TextField
+                label="LTHR (bpm)"
+                value={Number.isFinite(Number(lthrBpm)) ? String(lthrBpm) : ""}
+                disabled
+                hint="Zdroj: Thresholds (LT2 HR)"
+              />
             </div>
           </div>
 
+          {/* ručná editácia */}
           <div className="text-xs opacity-70">Zones (bpm)</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(["z1","z2","z3","z4","z5"] as const).map((key) => {
@@ -153,18 +205,30 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
                   <div className="flex items-center gap-2">
                     <TextField
                       type="number"
-                      disabled={calcMode !== "manual"}
+                      disabled={zonesLocked}
                       className="w-20 disabled:opacity-40"
                       value={z[minKey] ?? ""}
-                      onChange={(e) => onZonesChange({ ...(zones ?? {}), [minKey]: e.target.value ? Number(e.target.value) : null })}
+                      onChange={(e) =>
+                        onZonesChange({
+                          ...(zones ?? {}),
+                          sport: z.sport,
+                          [minKey]: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
                     />
                     <span className="opacity-60">–</span>
                     <TextField
                       type="number"
-                      disabled={calcMode !== "manual"}
+                      disabled={zonesLocked}
                       className="w-20 disabled:opacity-40"
                       value={z[maxKey] ?? ""}
-                      onChange={(e) => onZonesChange({ ...(zones ?? {}), [maxKey]: e.target.value ? Number(e.target.value) : null })}
+                      onChange={(e) =>
+                        onZonesChange({
+                          ...(zones ?? {}),
+                          sport: z.sport,
+                          [maxKey]: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -174,11 +238,15 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
 
           {onSaveZonesToDB && (
             <Button
-              type="button" size="sm" variant="success" className="mt-1"
+              type="button"
+              size="sm"
+              variant="success"
+              className="mt-1"
               onClick={async () => {
-                const errs = validateZones({ ...(zones ?? {}), ...z });
+                const payload = { ...(zones ?? {}), ...z };
+                const errs = validateZones(payload);
                 if (errs.length) { toast.error(errs[0]); return; }
-                await onSaveZonesToDB({ ...(zones ?? {}), ...z });
+                await onSaveZonesToDB(payload);
               }}
             >
               Save zones to DB
