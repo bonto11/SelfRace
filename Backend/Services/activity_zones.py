@@ -1,6 +1,7 @@
+# Modules/Services/compute_zones.py
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional, Tuple, cast
+from typing import Dict, Any, List, Optional, cast
 from datetime import datetime, timedelta, timezone
 
 from Modules.SQL.db_handler import get_client
@@ -11,7 +12,7 @@ from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
 )
 from Services.Supabase.users import get_user_uid
-from Services.user_zones import load_user_zones, ZonesOut  # ⬅️ importni aj typ
+from Services.user_zones import load_user_zones, ZonesOut  # typ + loader
 from Modules.API.Strava.streams import (
     fetch_and_optionally_store_batch,
     cache_streams_for_activities,
@@ -19,8 +20,16 @@ from Modules.API.Strava.streams import (
 
 sb = get_client()
 
+# Toggle detailných logov
+DEBUG = True
+
 
 # ------------------------- utils -------------------------
+
+def _dbg(msg: str) -> None:
+    if DEBUG:
+        print(msg, flush=True)
+
 
 def _to_int(v: Any) -> Optional[int]:
     try:
@@ -65,6 +74,7 @@ def _canon_sport(s: Optional[str]) -> str:
 # -------------------- DB loaders (summary/streams) --------------------
 
 def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
+    _dbg(f"[ENRICH] _load_activity_ids_since user={user_id} since={since_iso_date}")
     out: List[int] = []
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
@@ -78,12 +88,14 @@ def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
         aid = _to_int(r.get("activity_id"))
         if aid is not None:
             out.append(aid)
+    _dbg(f"[ENRICH] found activity_ids={len(out)} (sample={out[:10]})")
     return out
 
 
 def _load_summary_map(user_id: int, ids: List[int]) -> dict[int, dict]:
     if not ids:
         return {}
+    _dbg(f"[ENRICH] _load_summary_map user={user_id} ids={len(ids)}")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -105,6 +117,7 @@ def _load_summary_map(user_id: int, ids: List[int]) -> dict[int, dict]:
             "distance_m": r.get("distance_m"),
             "sport_type_fe": _canon_sport(r.get("sport_type_fe")),
         }
+    _dbg(f"[ENRICH] summary_map size={len(mp)} sample_keys={list(mp.keys())[:10]}")
     return mp
 
 
@@ -117,15 +130,24 @@ def _load_streams_row(user_id: int, activity_id: int) -> Optional[Dict[str, Any]
         .limit(1)
         .execute()
     )
-    return (r.data or [None])[0]
+    row = (r.data or [None])[0]
+    if DEBUG:
+        if not row:
+            _dbg(f"[ENRICH] streams miss user={user_id} activity={activity_id}")
+        else:
+            tlen = len(row.get("time_s") or [])
+            hlen = len(row.get("heartrate_bpm") or [])
+            _dbg(f"[ENRICH] streams hit user={user_id} activity={activity_id} len(time)={tlen} len(hr)={hlen}")
+    return row
 
 
 # -------------------- zónové helpery --------------------
 
 def _zones_out_to_numeric(z: ZonesOut) -> Dict[str, int]:
     """
-    ZonesOut (TypedDict) -> čisto numerické hranice pre klasifikáciu.
-    Chýbajúce spodky doplní reťazovo; hornú hranicu Z5 nevyužívame.
+    ZonesOut -> numerické hranice.
+    Doplňuje chýbajúce hodnoty reťazovo. Ak stále chýbajú, použije fallback
+    podľa % HRmax (ak je) a logne to.
     """
     def n(key: str, default: Optional[int] = None) -> Optional[int]:
         v = z.get(key)  # type: ignore[index]
@@ -136,6 +158,7 @@ def _zones_out_to_numeric(z: ZonesOut) -> Dict[str, int]:
         except Exception:
             return default
 
+    hrmax = n("hr_max")
     z1_min = n("z1_min", 0)
     z1_max = n("z1_max")
     z2_min = n("z2_min", z1_max + 1 if z1_max is not None else None)
@@ -146,20 +169,29 @@ def _zones_out_to_numeric(z: ZonesOut) -> Dict[str, int]:
     z4_max = n("z4_max")
     z5_min = n("z5_min", z4_max + 1 if z4_max is not None else None)
 
-    def safe(v: Optional[int]) -> int:
-        return int(v) if isinstance(v, int) else 0
+    # Fallback: ak stále chýba časť párov, skús percentá z HRmax
+    need_fallback = any(v is None for v in [z1_max, z2_min, z2_max, z3_min, z3_max, z4_min, z4_max, z5_min])
+    if need_fallback and hrmax:
+        _dbg(f"[ENRICH] zones fallback by HRmax={hrmax} for sport={z.get('sport')}")
+        z1_max = int(round(hrmax * 0.60))
+        z2_min = int(round(hrmax * 0.60)); z2_max = int(round(hrmax * 0.70))
+        z3_min = int(round(hrmax * 0.70)); z3_max = int(round(hrmax * 0.80))
+        z4_min = int(round(hrmax * 0.80)); z4_max = int(round(hrmax * 0.90))
+        z5_min = int(round(hrmax * 0.90))
 
-    return {
-        "z1_min": safe(z1_min),
-        "z1_max": safe(z1_max),
-        "z2_min": safe(z2_min),
-        "z2_max": safe(z2_max),
-        "z3_min": safe(z3_min),
-        "z3_max": safe(z3_max),
-        "z4_min": safe(z4_min),
-        "z4_max": safe(z4_max),
-        "z5_min": safe(z5_min),
+    out = {
+        "z1_min": int(z1_min or 0),
+        "z1_max": int(z1_max or (z2_min - 1 if z2_min else (hrmax * 0.60 if hrmax else 120))),
+        "z2_min": int(z2_min or ((z1_max or 119) + 1)),
+        "z2_max": int(z2_max or (z3_min - 1 if z3_min else (hrmax * 0.70 if hrmax else 140))),
+        "z3_min": int(z3_min or ((z2_max or 139) + 1)),
+        "z3_max": int(z3_max or (z4_min - 1 if z4_min else (hrmax * 0.80 if hrmax else 160))),
+        "z4_min": int(z4_min or ((z3_max or 159) + 1)),
+        "z4_max": int(z4_max or (z5_min - 1 if z5_min else (hrmax * 0.90 if hrmax else 180))),
+        "z5_min": int(z5_min or ((z4_max or 179) + 1)),
     }
+    _dbg(f"[ENRICH] zones numeric for sport={z.get('sport')} -> {out}")
+    return out
 
 
 def _zone_of(hr: Optional[int], Z: Dict[str, int]) -> str:
@@ -181,6 +213,7 @@ def _zone_of(hr: Optional[int], Z: Dict[str, int]) -> str:
 # -------------------- fetch ak chýba --------------------
 
 def _fetch_and_store_if_missing(user_id: int, activity_ids: List[int]) -> None:
+    _dbg(f"[ENRICH] fetch_and_store missing_count={len(activity_ids)} ids={activity_ids[:10]}")
     fetch_and_optionally_store_batch(user_id, activity_ids, store=True)
 
 
@@ -192,12 +225,18 @@ def _compute_minutes_for_streams(
     time_s = stream_row.get("time_s") or []
     hr = stream_row.get("heartrate_bpm") or []
     if not time_s:
+        _dbg("[ENRICH] compute skip: no time_s")
         return None
     if not hr:
+        _dbg("[ENRICH] compute skip: no heartrate")
         return None
 
     n = len(time_s)
     buckets = {"z1": 0.0, "z2": 0.0, "z3": 0.0, "z4": 0.0, "z5": 0.0}
+
+    # rýchla kontrola „tvaru“ streamu
+    if DEBUG:
+        _dbg(f"[ENRICH] compute len(time)={len(time_s)} len(hr)={len(hr)} sample_hr={hr[:5]}")
 
     for i in range(n):
         t0 = int(time_s[i] or 0)
@@ -209,13 +248,15 @@ def _compute_minutes_for_streams(
         b = _zone_of(h, Z)
         buckets[b] += float(dur)
 
-    return {
+    out = {
         "z1_min": round(buckets["z1"] / 60.0, 2),
         "z2_min": round(buckets["z2"] / 60.0, 2),
         "z3_min": round(buckets["z3"] / 60.0, 2),
         "z4_min": round(buckets["z4"] / 60.0, 2),
         "z5_min": round(buckets["z5"] / 60.0, 2),
     }
+    _dbg(f"[ENRICH] minutes result -> {out}")
+    return out
 
 
 # -------------------- public API --------------------
@@ -223,6 +264,7 @@ def _compute_minutes_for_streams(
 def preview_zones_for_activities(
     user_id: int, activity_ids: List[int], fetch_if_missing: bool = True
 ) -> Dict[str, Any]:
+    _dbg(f"[ENRICH] preview_zones_for_activities user={user_id} ids={len(activity_ids)}")
     # per-sport cache + fallback (running -> latest any)
     zones_cache: dict[str, Optional[Dict[str, int]]] = {}
 
@@ -231,11 +273,17 @@ def preview_zones_for_activities(
         if s_key in zones_cache:
             return zones_cache[s_key]
         z_out = load_user_zones(user_id, s_key)  # ZonesOut | None
-        zones_cache[s_key] = _zones_out_to_numeric(z_out) if z_out else None
+        if z_out:
+            _dbg(f"[ENRICH] zones load OK for sport={s_key}")
+            zones_cache[s_key] = _zones_out_to_numeric(z_out)
+        else:
+            _dbg(f"[ENRICH] zones load MISS for sport={s_key}")
+            zones_cache[s_key] = None
         return zones_cache[s_key]
 
     default_z = _load_numeric_for("running") or _load_numeric_for(None)
     if not default_z:
+        _dbg("[ENRICH] default zones missing -> abort")
         return {"ok": False, "error": "No zones for user", "items": []}
 
     # ktoré aktivity nemajú streamy
@@ -245,6 +293,7 @@ def preview_zones_for_activities(
         if not row or not (row.get("time_s") or []):
             missing.append(int(aid))
 
+    _dbg(f"[ENRICH] missing streams count={len(missing)}")
     if missing and fetch_if_missing:
         _fetch_and_store_if_missing(user_id, missing)
 
@@ -263,6 +312,8 @@ def preview_zones_for_activities(
 
         sp = _canon_sport((s_map.get(aid_i) or {}).get("sport_type_fe"))
         Z = _load_numeric_for(sp) or _load_numeric_for("running") or default_z
+        if DEBUG:
+            _dbg(f"[ENRICH] compute activity={aid_i} sport={sp} using_zones={Z}")
 
         mins = _compute_minutes_for_streams(row, Z)
         if mins is None:
@@ -272,11 +323,12 @@ def preview_zones_for_activities(
         items.append({"activity_id": aid_i, "ok": True, "minutes": mins})
         have += 1
 
-    print(f"[ZONES] preview: computed={have}/{len(activity_ids)}")
+    _dbg(f"[ENRICH] preview done: computed={have}/{len(activity_ids)}")
     return {"ok": True, "user_id": user_id, "zones": default_z, "items": items}
 
 
 def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
+    _dbg(f"[ENRICH] upsert_enrichment_minutes items_in={len(items)}")
     if not items:
         return {"saved": 0, "skipped": 0}
 
@@ -288,6 +340,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
             except Exception:
                 pass
 
+    _dbg(f"[ENRICH] candidate rows to save={len(ids)} ids(sample)={ids[:10]}")
     s_map = _load_summary_map(user_id, ids)
     now_ts = datetime.now(timezone.utc).isoformat()
     user_uid = get_user_uid(user_id)
@@ -307,24 +360,24 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
             continue
 
         extras = s_map.get(aid_i, {})
-        rows.append(
-            {
-                "user_id": int(user_id),
-                "user_uid": user_uid,
-                "activity_id": aid_i,
-                "z1_min": _to_int_min(mins.get("z1_min")),
-                "z2_min": _to_int_min(mins.get("z2_min")),
-                "z3_min": _to_int_min(mins.get("z3_min")),
-                "z4_min": _to_int_min(mins.get("z4_min")),
-                "z5_min": _to_int_min(mins.get("z5_min")),
-                "computed_at": now_ts,
-                "avg_hr_bpm": extras.get("avg_hr_bpm"),
-                "moving_time_s": extras.get("moving_time_s"),
-                "distance_m": extras.get("distance_m"),
-                "sport_type_fe": extras.get("sport_type_fe") or "other",
-            }
-        )
+        row = {
+            "user_id": int(user_id),
+            "user_uid": user_uid,
+            "activity_id": aid_i,
+            "z1_min": _to_int_min(mins.get("z1_min")),
+            "z2_min": _to_int_min(mins.get("z2_min")),
+            "z3_min": _to_int_min(mins.get("z3_min")),
+            "z4_min": _to_int_min(mins.get("z4_min")),
+            "z5_min": _to_int_min(mins.get("z5_min")),
+            "computed_at": now_ts,
+            "avg_hr_bpm": extras.get("avg_hr_bpm"),
+            "moving_time_s": extras.get("moving_time_s"),
+            "distance_m": extras.get("distance_m"),
+            "sport_type_fe": extras.get("sport_type_fe") or "other",
+        }
+        rows.append(row)
 
+    _dbg(f"[ENRICH] final rows to upsert={len(rows)} skipped={skipped}")
     if not rows:
         return {"saved": 0, "skipped": skipped}
 
@@ -332,10 +385,16 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     BATCH = 200
     for i in range(0, len(rows), BATCH):
         chunk = rows[i : i + BATCH]
-        sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
-            chunk, on_conflict="activity_id"
-        ).execute()
-        saved += len(chunk)
+        try:
+            _dbg(f"[ENRICH] UPSERT chunk {i//BATCH+1} size={len(chunk)}")
+            resp = sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
+                chunk, on_conflict="activity_id"
+            ).execute()
+            # Nie každý klient vracia count; aspoň logni špičku dát
+            _dbg(f"[ENRICH] UPSERT resp.data len={len(getattr(resp, 'data', []) or [])}")
+            saved += len(chunk)
+        except Exception as e:
+            _dbg(f"[ENRICH] UPSERT ERROR chunk {i//BATCH+1}: {e}")
 
     return {"saved": saved, "skipped": skipped}
 
@@ -348,8 +407,9 @@ def backfill_enrichment_for_period(
     batch: int = 25,
 ) -> dict:
     since_iso = _iso_utc_months_ago(months)
-    ids = _load_activity_ids_since(user_id, since_iso)
+    _dbg(f"[ENRICH] backfill user={user_id} months={months} since={since_iso} batch={batch} fetch_if_missing={fetch_if_missing} save={save}")
 
+    ids = _load_activity_ids_since(user_id, since_iso)
     total = len(ids)
     saved = 0
     preview_count = 0
@@ -358,14 +418,17 @@ def backfill_enrichment_for_period(
     for i in range(0, total, max(1, batch)):
         chunk = ids[i : i + batch]
         logs.append(f"[backfill] chunk {i//batch+1}: {len(chunk)} ids")
+        _dbg(f"[ENRICH] backfill chunk {i//batch+1}/{(total + batch - 1)//batch} size={len(chunk)}")
 
         res = preview_zones_for_activities(user_id, chunk, fetch_if_missing=fetch_if_missing)
         items = res.get("items") or []
         preview_count += len(items)
+        _dbg(f"[ENRICH] backfill preview items={len(items)}")
 
         if save and items:
             u = upsert_enrichment_minutes(user_id, items)
             saved += int(u.get("saved") or 0)
+            _dbg(f"[ENRICH] backfill saved += {int(u.get('saved') or 0)} total_saved={saved}")
 
     return {
         "ok": True,
@@ -382,8 +445,10 @@ def backfill_enrichment_for_period(
 
 
 def compute_and_save_enrichment_for_ids(user_id: int, ids: list[int]) -> dict:
+    _dbg(f"[ENRICH] compute_and_save_enrichment_for_ids user={user_id} ids_in={ids}")
     ids = [int(x) for x in ids if x]
     if not ids:
+        _dbg("[ENRICH] no ids -> early return")
         return {"saved": 0, "items": []}
 
     # 1) cachni chýbajúce streamy
@@ -397,16 +462,20 @@ def compute_and_save_enrichment_for_ids(user_id: int, ids: list[int]) -> dict:
         )
         have = {int(r["activity_id"]) for r in (res.data or [])}
         missing = [aid for aid in ids if aid not in have]
-    except Exception:
+    except Exception as e:
+        _dbg(f"[ENRICH] stream existence check error -> assume missing all. err={e}")
         missing = ids[:]
 
+    _dbg(f"[ENRICH] have_streams={len(ids)-len(missing)} missing_streams={len(missing)}")
     if missing:
         cache_streams_for_activities(user_id, missing)
 
     # 2) výpočet
     prev = preview_zones_for_activities(user_id, ids, fetch_if_missing=False)
     items = prev.get("items") or []
+    _dbg(f"[ENRICH] compute preview items={len(items)}")
 
     # 3) uloženie
     saved = upsert_enrichment_minutes(user_id, items).get("saved", 0)
+    _dbg(f"[ENRICH] compute saved={saved}")
     return {"saved": int(saved), "count": len(ids)}
