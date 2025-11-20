@@ -148,7 +148,7 @@ export default function ZonesSection({
                 value={z.sport}
                 onChange={(e) => onZonesChange({ ...(zones ?? {}), sport: e.target.value })}
                 options={SPORT_OPTIONS}
-                hint='Pozn.: aktuálne BE rozlišuje "running", "cycling", iné mapuje na "other".'
+                hint=""
               />
             </div>
 
