@@ -230,7 +230,7 @@ export default function PrefsForm() {
     const rows = (local.thresholds_latest ?? []) as any[];
     const lt2 = rows.find((r) => String(r.threshold_type).toUpperCase() === "LT2");
     return lt2?.hr_bpm ?? null;
-  }, [local?.thresholds?.HR_bpm, local.thresholds_latest]);
+  }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
