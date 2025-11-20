@@ -72,7 +72,7 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
     out.z2_min = Math.round(L * 0.90); out.z2_max = Math.round(L * 0.93);
     out.z3_min = Math.round(L * 0.94); out.z3_max = Math.round(L * 0.99);
     out.z4_min = Math.round(L * 1.00); out.z4_max = Math.round(L * 1.06);
-    out.z5_min = out.z4_max + 1;       out.z5_max = out.z5_min + 10;
+    out.z5_min = out.z4_max + 1;       out.z5_max = h;
     return out;
   }
 
