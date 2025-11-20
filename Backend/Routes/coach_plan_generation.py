@@ -209,7 +209,6 @@ def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: O
     if must_start and n10[0]["day"] != must_start:
         raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
-
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     try:
