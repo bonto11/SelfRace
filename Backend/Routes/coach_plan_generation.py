@@ -9,7 +9,6 @@ from Routes.coach_context import coach_context
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
-
 def _norm_goal(goal_in, fallback_kind: Optional[str] = None) -> str:
     """
     Zjednotený goal string pre AI.
@@ -244,7 +243,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "recovery": ctx.get("recovery", [])[-21:],
             "notes": ctx.get("notes", [])[-50:],
             "thresholds": ctx.get("thresholds", []),
-            "zones": ctx.get("zones", []),
+            "zones": ctx.get("zones", {}) or {},  # dict pre plan_generation (hr_max, z1_min..)
             "prefs": ctx.get("prefs"),
             "bests": ctx.get("bests", {}),
             "voice": norm.get("voice"),
