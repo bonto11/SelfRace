@@ -20,12 +20,12 @@ type Props = {
   onSaveZonesToDB?: (z: any) => Promise<void>;
 };
 
-const SPORT_OPTIONS: { value: string; label: string }[] = [
+const SPORT_OPTIONS : { value: string; label: string }[] = [
   { value: "running",  label: "Running" },
-  { value: "cycling",  label: "Cycling" },
-  // tieto sa v BE dnes kanonizujú na "other"
-  { value: "rowing",   label: "Rowing" },
+  { value: "ride",  label: "Ride" },
   { value: "swimming", label: "Swimming" },
+  { value: "rowing",   label: "Rowing" },
+  { value: "strength", label: "Strength" },
   { value: "other",    label: "Other" },
 ];
 

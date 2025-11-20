@@ -46,7 +46,7 @@ type Props = {
 /* odporúčané športy */
 const THR_SPORTS = [
   { value: "running",  label: "Running" },
-  { value: "cycling",  label: "Cycling" },
+  { value: "ride",  label: "Ride" },
   { value: "swimming", label: "Swimming" },
   { value: "rowing",   label: "Rowing" },
   { value: "strength", label: "Strength" },

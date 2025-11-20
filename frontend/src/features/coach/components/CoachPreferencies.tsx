@@ -254,8 +254,7 @@ export default function PrefsForm() {
       {/* Zones – s LTHR pre %LTHR režim */}
       <ZonesSection
         zones={local.zones}
-        /*lthrBpm={lthrBpm}*/
-        lthrBpm={180}
+        lthrBpm={lthrBpm}
         onZonesChange={handleZonesChange}
         onSaveZonesToDB={handleSaveZonesToDB}
       />
