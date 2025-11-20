@@ -12,6 +12,7 @@ from shared.training_types import get_session_type_catalog_for_prompt
 
 
 # ---------- parsing utils ----------
+
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 
@@ -64,7 +65,7 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
             return None, cleaned, raw
 
 
-# ---------- session_type helpers ----------
+# ---------- session_type & sport helpers ----------
 
 
 def _canonical_sport(sport: Any) -> str:
@@ -79,7 +80,6 @@ def _canonical_sport(sport: Any) -> str:
     s = (str(sport or "")).lower().strip()
 
     if not s:
-        # keď AI nič neposlalo, fallback na run
         return "run"
 
     if s in ("bike", "cycling"):
@@ -90,7 +90,6 @@ def _canonical_sport(sport: Any) -> str:
     if s in ("run", "ride", "strength", "swim", "other"):
         return s
 
-    # exotické veci (yoga, walk, hike, ...) nech označíme ako "other"
     return "other"
 
 
@@ -107,26 +106,211 @@ def _default_session_type_for_sport(sport: str) -> str:
     if s == "swim":
         return "swim_easy_technique"
     if s == "other":
-        # napr. Rest Day alebo voľná aktivita – v katalógu nemusí byť
         return "rest_day"
 
     # default – beh
     return "run_easy"
 
 
+# ---------- zóny z kontextu + enrichment RUN ----------
+
+
+def _extract_zone_bounds_from_context(z_ctx: Any) -> Optional[Dict[str, int]]:
+    """
+    Vytiahne číselné HR zóny z context_payload["zones"].
+
+    Podporuje tvary:
+      - priamo dict so z1_min..z5_max
+      - dict per sport: { "running": {...}, "cycling": {...} }
+      - list dictov: [ {sport:"running", ...}, {...} ]
+
+    Výstup: dict[str,int] – hodnoty 0 znamenajú "neznáme".
+    Keď chýba Z1 alebo Z2, vráti None.
+    """
+    if not z_ctx:
+        return None
+
+    src: Optional[dict] = None
+
+    # 1) priamo dict so zónami
+    if isinstance(z_ctx, dict) and ("z1_min" in z_ctx or "z2_min" in z_ctx):
+        src = z_ctx
+    # 2) dict per-sport
+    elif isinstance(z_ctx, dict):
+        for key in ("running", "run"):
+            v = z_ctx.get(key)
+            if isinstance(v, dict):
+                src = v
+                break
+        if src is None:
+            for v in z_ctx.values():
+                if isinstance(v, dict):
+                    src = v
+                    break
+    # 3) list / pole zón
+    elif isinstance(z_ctx, list):
+        for r in z_ctx:
+            if not isinstance(r, dict):
+                continue
+            sport = str(r.get("sport") or "").lower()
+            if sport in ("run", "running"):
+                src = r
+                break
+        if src is None:
+            for r in z_ctx:
+                if isinstance(r, dict):
+                    src = r
+                    break
+
+    if not isinstance(src, dict):
+        return None
+
+    def n(key: str) -> int:
+        v = src.get(key)
+        if v is None:
+            return 0
+        try:
+            return int(round(float(v)))
+        except Exception:
+            return 0
+
+    z = {
+        "hr_max": n("hr_max"),
+        "z1_min": n("z1_min"),
+        "z1_max": n("z1_max"),
+        "z2_min": n("z2_min"),
+        "z2_max": n("z2_max"),
+        "z3_min": n("z3_min"),
+        "z3_max": n("z3_max"),
+        "z4_min": n("z4_min"),
+        "z4_max": n("z4_max"),
+        "z5_min": n("z5_min"),
+        "z5_max": n("z5_max"),
+    }
+
+    # ak nemáme aspoň Z1 + Z2, nemá to zmysel
+    if (
+        z["z1_min"] <= 0
+        or z["z1_max"] <= 0
+        or z["z2_min"] <= 0
+        or z["z2_max"] <= 0
+    ):
+        return None
+
+    return z
+
+
+def _enrich_run_session_from_zones(
+    s: dict,
+    z: Dict[str, int],
+    wu_cd_required: bool = False,
+) -> None:
+    """
+    Pre RUN session doplní:
+      - target_hr_bpm_range podľa typu (run_easy / run_long / recovery)
+      - structure.warmup/main/cooldown podľa duration_min, ak wu_cd_required=True.
+    Modifikuje dict `s` in-place.
+    """
+    if (s.get("sport") or "").lower() != "run":
+        return
+
+    st = str(s.get("session_type") or "").lower()
+    dur = s.get("duration_min")
+
+    # bezpečná konverzia na minúty
+    dur_min = 0
+    if isinstance(dur, (int, float, str)):
+        try:
+            dur_min = int(round(float(dur)))
+        except Exception:
+            dur_min = 0
+
+    z1_min = z.get("z1_min", 0)
+    z1_max = z.get("z1_max", 0)
+    z2_min = z.get("z2_min", 0)
+    z2_max = z.get("z2_max", 0)
+
+    # Bez rozumných zón nevieme nič
+    if min(z1_min, z1_max, z2_min, z2_max) <= 0:
+        return
+
+    # EASY / LONG = Z2, recovery = Z1
+    is_easy = st.startswith("run_easy") or st == "run_aerobic"
+    is_long = st.startswith("run_long")
+    is_recovery = "recovery" in st
+
+    if is_recovery:
+        main_lo, main_hi = z1_min, z1_max
+    else:
+        # easy aj long – Z2
+        main_lo, main_hi = z2_min, z2_max
+
+    # Ak session nemá HR range, nastav ju
+    if not isinstance(s.get("target_hr_bpm_range"), list):
+        s["target_hr_bpm_range"] = [int(main_lo), int(main_hi)]
+
+    if not wu_cd_required or dur_min <= 0:
+        # nemusíme stavať WU/CD – stačí top-level HR
+        return
+
+    # Rozbi duration na WU / MAIN / CD
+    # jednoduchý model: ~20% WU, ~15% CD, zvyšok main
+    wu = max(5, min(15, int(round(dur_min * 0.2))))
+    cd = max(5, min(10, int(round(dur_min * 0.15))))
+    main_total = max(0, dur_min - wu - cd)
+
+    # HR pre WU/CD – nižší koniec spektra (Z1–začiatok Z2)
+    wu_lo = z1_min
+    wu_hi = z2_min
+    cd_lo = z1_min
+    cd_hi = z2_min
+
+    struct = s.get("structure")
+    if not isinstance(struct, dict):
+        struct = {}
+        s["structure"] = struct
+
+    # warmup
+    if not isinstance(struct.get("warmup"), dict):
+        struct["warmup"] = {
+            "minutes": wu,
+            "target": {"hr": [int(wu_lo), int(wu_hi)]},
+        }
+
+    # main
+    if not isinstance(struct.get("main"), list) or not struct["main"]:
+        main_block = {
+            "work_min": main_total if main_total > 0 else dur_min,
+            "target": {"hr": [int(main_lo), int(main_hi)]},
+        }
+        struct["main"] = [main_block]
+
+    # cooldown
+    if not isinstance(struct.get("cooldown"), dict):
+        struct["cooldown"] = {
+            "minutes": cd,
+            "target": {"hr": [int(cd_lo), int(cd_hi)]},
+        }
+
+
 def _ensure_session_types(
     next10: Any,
     default_sport: str,
+    zones: Optional[Dict[str, int]] = None,
+    rules: Optional[dict] = None,
 ) -> List[dict]:
     """
     - Normalizuje sport (run/ride/strength/swim/other)
-    - Doplní session_type (podľa športu), ak chýba
-    - NERIEŠI HR ani structure – tie ignorujeme v ďalšom kroku
+    - Doplní session_type (podľa športu)
+    - Ak máme zóny a ide o RUN + run_easy/run_long/recovery:
+        - nastaví target_hr_bpm_range
+        - a pri wu_cd_detail=True doplní warmup/main/cooldown.
     """
     if not isinstance(next10, list):
         return []
 
     default_sport = _canonical_sport(default_sport)
+    wu_cd_required = bool((rules or {}).get("wu_cd_detail"))
 
     for d in next10:
         if not isinstance(d, dict):
@@ -148,61 +332,47 @@ def _ensure_session_types(
             st = s.get("session_type") or s.get("type") or s.get("kind")
             if not isinstance(st, str) or not st.strip():
                 st = _default_session_type_for_sport(sport)
-            s["session_type"] = st.strip()
+            st = st.strip()
+            s["session_type"] = st
+
+            # RUN enrichment zo zón
+            if sport == "run" and isinstance(zones, dict):
+                _enrich_run_session_from_zones(s, zones, wu_cd_required=wu_cd_required)
 
     return next10
 
 
-# ---------- normalize (aliasy, bez dopĺňania obsahu) ----------
+# ---------- normalize AI výstupu ----------
 
 
 def normalize_plan_json(
     obj: dict,
     plan_start_iso: Optional[str] = None,
     default_sport: str = "run",
-    context: Optional[dict] = None,  # ponechané kvôli signatúre, ale tu ho už nepoužívame
+    context: Optional[dict] = None,
 ) -> dict:
     """
     Normalizuje AI výstup:
-    - názvy kľúčov,
-    - doplní meta,
-    - post-process next_10_days:
-        * sport + session_type (podľa nášho katalógu),
-        * zahodí všetky detailné ciele (HR/pace/power/structure).
+    - summary/insights/red_flags/weeks_overview
+    - next_10_days: doplní sport + session_type
+    - pre RUN sessions doplní HR + WU/CD štruktúru podľa zón z CONTEXTU.
     """
     if not isinstance(obj, dict):
         raise ValueError("AI output is not a JSON object")
+
+    ctx_dict = context or {}
+    ctx_zones = ctx_dict.get("zones")
+    rules = ctx_dict.get("rules") or {}
+
+    zone_bounds = _extract_zone_bounds_from_context(ctx_zones)
 
     raw_next10 = obj.get("next_10_days") or []
     next10 = _ensure_session_types(
         raw_next10,
         default_sport=default_sport,
+        zones=zone_bounds,
+        rules=rules,
     )
-
-    # vyčisti sessions – nechávame len to, čo fakt používame
-    ALLOWED_KEYS = {
-        "title",
-        "sport",
-        "duration_min",
-        "intensity",
-        "session_type",
-        "notes",
-        "exercises",  # pre strength
-    }
-
-    for d in next10:
-        if not isinstance(d, dict):
-            continue
-        sessions = d.get("sessions")
-        if not isinstance(sessions, list):
-            continue
-        cleaned_sessions = []
-        for s in sessions:
-            if not isinstance(s, dict):
-                continue
-            clean = {k: v for k, v in s.items() if k in ALLOWED_KEYS}
-            cleaned_sessions.append(clean)
-        d["sessions"] = cleaned_sessions
 
     return {
         "summary": obj.get("summary") or "No summary.",
@@ -266,7 +436,6 @@ def _describe_coach_voice(voice_block: Optional[dict]) -> str:
 
     extras: List[str] = []
 
-    # emoji / ľudskosť
     if emoji_level == "low":
         extras.append("Avoid emojis and slang; keep language clean and professional.")
     elif emoji_level == "high":
@@ -274,11 +443,8 @@ def _describe_coach_voice(voice_block: Optional[dict]) -> str:
     else:
         extras.append("Tone can be human and friendly, but do not overuse emojis.")
 
-    # pochvala
     if praise_level == "low":
-        extras.append(
-            "Praise only when there is a really strong reason; be rather strict."
-        )
+        extras.append("Praise only when there is a really strong reason; be rather strict.")
     elif praise_level == "high":
         extras.append(
             "Regularly highlight wins and positive trends to keep motivation high."
@@ -286,7 +452,6 @@ def _describe_coach_voice(voice_block: Optional[dict]) -> str:
     else:
         extras.append("Use praise in a balanced way when it is deserved.")
 
-    # vysvetľovanie
     if explain_level == "low":
         extras.append("Keep explanations short and only when necessary.")
     elif explain_level == "high":
@@ -296,7 +461,6 @@ def _describe_coach_voice(voice_block: Optional[dict]) -> str:
     else:
         extras.append("Explain key points, but do not go into excessive detail.")
 
-    # challenge
     if challenge_level == "low":
         extras.append(
             "Be cautious with pushing intensity; emphasize safety and recovery."
@@ -339,7 +503,6 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         if isinstance(s, str) and s.strip()
     ]
 
-    # ak nie sú zadané, fallback – ale nech je to explicitné
     if not primary_sports:
         main = context_payload.get("main_sport")
         if isinstance(main, str) and main.strip():
@@ -356,7 +519,6 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     allowed_sports_str = ", ".join(sorted(allowed_sports_set))
 
     intensity_model = (context_payload.get("intensity_model") or "").lower().strip()
-    prefs_block = context_payload.get("prefs") or {}
 
     # session_type katalóg zo shared/training_types.json
     session_catalog = get_session_type_catalog_for_prompt()
@@ -370,7 +532,7 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         "`next_10_days` MUST be an ARRAY with between 7 and 10 items (do NOT return a single object).",
         "Do NOT include any `first_10_days` key in the output.",
         "Each day in `next_10_days` MUST include non-empty `sessions`.",
-        'If a day is rest: include one session {\"title\":\"Rest Day\",\"sport\":\"other\",\"duration_min\":0}.',
+        'If a day is rest: include one session {"title":"Rest Day","sport":"other","duration_min":0}.',
 
         # ŠPORTY – STRICT podľa používateľa
         f"Allowed sports for planned sessions are STRICTLY limited to: {allowed_sports_str}.",
@@ -408,14 +570,14 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         "Historical training is secondary: adjust volume and intensity based on history, but do not override the requested sports or days from `prefs`.",
 
         # ŠTRUKTÚRA BEHU
-        "Do NOT include warmup/main/cooldown `structure` objects in sessions. "
-        "The system will add warmup and cooldown templates automatically later.",
+        "Do NOT include warmup/main/cooldown `structure` objects with HR in sessions. "
+        "You may optionally include a very compact `structure.main_part` describing only the main work blocks, "
+        "but the system will add warmup and cooldown templates automatically later.",
 
         # štýl trénera
         "Apply the specified coaching style and tone to all textual fields (`summary`, `insights`, `notes`).",
     ]
 
-    # INTENSITY MODEL – špecifické pravidlá
     if intensity_model == "polarized":
         hard += [
             "The intensity model is POLARIZED (80/20).",
@@ -438,7 +600,6 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         ]
 
     if wu_cd_required:
-        # aj keď FE chce detail wu/cd, AI ho už neposiela – len info pre ňu, že wu/cd musíme brať do úvahy pri objeme
         hard += [
             "When planning total duration for RUN sessions, mentally include time for warmup and cooldown, "
             "even though you do not output the structure explicitly.",
@@ -495,9 +656,6 @@ def _extract_start_date(ctx: dict) -> Optional[str]:
 
 
 def _default_sport_from_context(ctx: dict) -> str:
-    """
-    Z kontextu vyberie “hlavný” šport na fallback (ak AI nedá sport).
-    """
     main = ctx.get("main_sport")
     if isinstance(main, str) and main:
         return _canonical_sport(main)
@@ -506,15 +664,15 @@ def _default_sport_from_context(ctx: dict) -> str:
     if isinstance(prim, list) and prim:
         return _canonical_sport(prim[0])
 
-    # fallback
     return "run"
+
 
 def generate_plan_json(
     context_payload: dict,
     model: str,
     *,
     debug_raw: bool = False,
-    loose: bool = False,  # kvôli spätnej kompatibilite – aktuálne ignorované
+    loose: bool = False,  # spätná kompatibilita – aktuálne ignorované
 ) -> Tuple[dict, Optional[dict]]:
     """
     Vždy vráti (parsed_or_fallback, debug_trace). Nikdy neháče HTTPException (okrem chýbajúceho API key).
@@ -530,7 +688,7 @@ def generate_plan_json(
     models = _llm_models_priority(model)
     token_budgets = [3000, 2500, 2000]
 
-    # ⬇⬇⬇ upravená schéma – žiadne HR / warmup / cooldown
+    # Schéma – žiadne explicitné HR / WU/CD, len typ + duration (+ prípadný main_part)
     schema_text = """
 {
   "summary": string,
@@ -545,20 +703,16 @@ Where Session = {
   "sport": "run" | "ride" | "strength" | "other" | "swim",
   "duration_min": number,
   "intensity"?: string | null,
-  "session_type"?: string,           // kľúč – typ tréningu (run_easy, run_long, ...)
+  "session_type"?: string,
   "notes"?: string | null,
-  // voliteľné – len hlavná časť tréningu, žiadny warmup/cooldown, žiadne HR/pace/power
   "structure"?: {
-    "main_part"?: (
-      {
-        "reps"?: number,
-        "work_min"?: number,
-        "recover_min"?: number,
-        "notes"?: string
-      }[]
-    )
+    "main_part"?: {
+      "reps"?: number,
+      "work_min"?: number,
+      "recover_min"?: number,
+      "notes"?: string
+    }[]
   },
-  // pre silu: zoznam cvikov
   "exercises"?: {
     "name": string,
     "sets": number,
@@ -568,7 +722,6 @@ Where Session = {
   }[]
 }
 """.strip()
-    # ⬆⬆⬆
 
     system_txt, user_txt = _build_prompts(context_payload, schema_text)
 
