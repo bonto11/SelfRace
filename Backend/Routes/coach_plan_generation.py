@@ -9,6 +9,7 @@ from Routes.coach_context import coach_context
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
+
 def _norm_goal(goal_in, fallback_kind: Optional[str] = None) -> str:
     """
     Zjednotený goal string pre AI.
@@ -23,7 +24,7 @@ def _norm_goal(goal_in, fallback_kind: Optional[str] = None) -> str:
         if kind == "race_time" and rg:
             return f"race_time:{rg}"
         return kind or (fallback_kind or "improve_overall")
-    return (goal_in or fallback_kind or "improve_overall")
+    return goal_in or fallback_kind or "improve_overall"
 
 
 def _normalize_payload(payload: dict) -> dict:
@@ -95,7 +96,9 @@ def _normalize_payload(payload: dict) -> dict:
         or goal_struct.get("start_date")
     )
 
-    strength_settings = payload.get("strength_settings") or goal_struct.get("strength_settings")
+    strength_settings = payload.get("strength_settings") or goal_struct.get(
+        "strength_settings"
+    )
 
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
@@ -138,76 +141,83 @@ def _normalize_payload(payload: dict) -> dict:
 
 # ---- strict BE validácia bez dopĺňania ----
 
-def _validate_next10(parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]) -> None:
+
+def _validate_next10(
+    parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]
+) -> None:
     n10 = parsed.get("next_10_days")
 
     # AI musí dať aspoň 7 dní
     if not isinstance(n10, list) or len(n10) < 7:
         raise HTTPException(
-            status_code=502,
-            detail="AI must return next_10_days with at least 7 items"
+            status_code=502, detail="AI must return next_10_days with at least 7 items"
         )
-
-    require_wu_cd = bool((rules or {}).get("wu_cd_detail"))
 
     for i, d in enumerate(n10):
         if not isinstance(d, dict) or not isinstance(d.get("day"), str):
-            raise HTTPException(status_code=502, detail=f"Invalid or missing day at index {i}")
+            raise HTTPException(
+                status_code=502, detail=f"Invalid or missing day at index {i}"
+            )
         if not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
             raise HTTPException(status_code=502, detail=f"Empty sessions at index {i}")
 
         for j, s in enumerate(d["sessions"]):
             if not isinstance(s, dict):
-                raise HTTPException(status_code=502, detail=f"Invalid session at {i}:{j}")
+                raise HTTPException(
+                    status_code=502, detail=f"Invalid session at {i}:{j}"
+                )
 
             sport = (s.get("sport") or "").lower()
             title = (s.get("title") or "").lower()
             is_run = sport == "run" or "run" in title
-            is_strength = sport == "strength" or "strength" in title or "weight" in title
+            is_strength = (
+                sport == "strength" or "strength" in title or "weight" in title
+            )
 
             # ---- RUN checks ----
             if is_run:
-                hr = s.get("target_hr_bpm_range")
-                ok_hr = isinstance(hr, list) and len(hr) == 2
-                if not ok_hr:
-                    struc = s.get("structure")
-                    if isinstance(struc, dict) and isinstance(struc.get("main"), list):
-                        for blk in struc["main"]:
-                            thr = (blk or {}).get("target", {}).get("hr")
-                            if isinstance(thr, list) and len(thr) == 2:
-                                ok_hr = True
-                                break
-                if not ok_hr:
-                    raise HTTPException(status_code=502, detail=f"Missing HR target in run session at {i}:{j}")
-
-                if require_wu_cd:
-                    struc = s.get("structure")
-                    if not isinstance(struc, dict):
-                        raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must include structure")
-                    wu = struc.get("warmup")
-                    cd = struc.get("cooldown")
-                    main = struc.get("main")
-                    if not (isinstance(wu, dict) and isinstance(cd, dict) and isinstance(main, list) and len(main) > 0):
-                        raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must include warmup/main/cooldown")
-                    if "minutes" in (wu or {}) and not isinstance(wu.get("minutes"), (int, float)):
-                        raise HTTPException(status_code=502, detail=f"Warmup minutes invalid at {i}:{j}")
-                    if "minutes" in (cd or {}) and not isinstance(cd.get("minutes"), (int, float)):
-                        raise HTTPException(status_code=502, detail=f"Cooldown minutes invalid at {i}:{j}")
+                # HR už nie je povinný – budeme ho dopĺňať podľa session_type + zóny.
+                dur = s.get("duration_min")
+                if not isinstance(dur, (int, float)) or dur <= 0:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Run session {i}:{j} must have positive duration_min",
+                    )
 
             # ---- STRENGTH checks ----
             if is_strength:
                 ex = s.get("exercises")
                 if not (isinstance(ex, list) and len(ex) >= 3):
-                    raise HTTPException(status_code=502, detail=f"Strength session {i}:{j} must include exercises[]")
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Strength session {i}:{j} must include exercises[]",
+                    )
                 for k, e in enumerate(ex):
-                    if not isinstance(e, dict) or not e.get("name") or not isinstance(e.get("sets"), (int, float)):
-                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include name and sets")
-                    if not (isinstance(e.get("reps"), (int, float)) or isinstance(e.get("seconds"), (int, float))):
-                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include reps or seconds")
+                    if (
+                        not isinstance(e, dict)
+                        or not e.get("name")
+                        or not isinstance(e.get("sets"), (int, float))
+                    ):
+                        raise HTTPException(
+                            status_code=502,
+                            detail=f"Exercise {i}:{j}:{k} must include name and sets",
+                        )
+                    if not (
+                        isinstance(e.get("reps"), (int, float))
+                        or isinstance(e.get("seconds"), (int, float))
+                    ):
+                        raise HTTPException(
+                            status_code=502,
+                            detail=f"Exercise {i}:{j}:{k} must include reps or seconds",
+                        )
 
     # dátum prvého dňa musí sedieť
     if must_start and n10[0]["day"] != must_start:
-        raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"next_10_days must start at plan_start_date {must_start}",
+        )
+
 
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
@@ -235,14 +245,15 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "blocks": norm["blocks"],
             "plan_start_date": norm["plan_start_date"],
             "strength_settings": norm["strength_settings"],
-            "first_n_days": 10,   # len info pre AI, výstup je vždy next_10_days
-            "weeks": weeks,       # aby AI vedela koľko týždňov rieši (weeks_overview)
+            "first_n_days": 10,  # len info pre AI, výstup je vždy next_10_days
+            "weeks": weeks,  # aby AI vedela koľko týždňov rieši (weeks_overview)
             "hr_used": ctx["weekly"]["hr_used"],
             "weekly": ctx["weekly"]["weeks"][-weeks:],
             "recovery": ctx.get("recovery", [])[-21:],
             "notes": ctx.get("notes", [])[-50:],
             "thresholds": ctx.get("thresholds", []),
-            "zones": ctx.get("zones", {}) or {},  # dict pre plan_generation (hr_max, z1_min..)
+            "zones": ctx.get("zones", {})
+            or {},  # dict pre plan_generation (hr_max, z1_min..)
             "prefs": ctx.get("prefs"),
             "bests": ctx.get("bests", {}),
             "voice": norm.get("voice"),
