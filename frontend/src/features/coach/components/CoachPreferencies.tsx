@@ -225,7 +225,7 @@ export default function PrefsForm() {
 
   // LTHR pre zónový výpočet: uprednostni aktuálny draft; inak posledný uložený LT2 HR
   const lthrBpm: number | null = useMemo(() => {
-    const draft = Number(local?.thresholds?.HR_bpm);
+    const draft = Number(local?.thresholds?.hr_bpm);
     if (Number.isFinite(draft) && draft > 0) return draft;
     const rows = (local.thresholds_latest ?? []) as any[];
     const lt2 = rows.find((r) => String(r.threshold_type).toUpperCase() === "LT2");
