@@ -16,9 +16,13 @@ from Routes import (
     activities_streams,
     user_prefs,
     user_bests,
+    user_zones,
+    user_thresholds,
     coach_context,
-    coach_planning,
+    coach_plan_generation,
+    coach_plan_db
 )
+
 
 app = FastAPI()
 
@@ -49,6 +53,8 @@ app.include_router(users.router)
 app.include_router(profile.router)
 app.include_router(user_prefs.router)
 app.include_router(user_bests.router)
+app.include_router(user_zones.router)
+app.include_router(user_thresholds.router)
 
 app.include_router(account.router)
 app.include_router(activities.router)
@@ -60,4 +66,6 @@ app.include_router(activities_streams.router)
 app.include_router(notes.router)
 
 app.include_router(coach_context.router)
-app.include_router(coach_planning.router)
+app.include_router(coach_plan_generation.router)
+app.include_router(coach_plan_db.router)
+

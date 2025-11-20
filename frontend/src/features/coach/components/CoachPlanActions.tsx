@@ -40,12 +40,12 @@ function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
     <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
       <div className="opacity-75">Goal</div><div className="font-semibold truncate">{prefs.goal_kind ?? "—"}</div>
       <div className="opacity-75">Weeks</div><div className="font-semibold">{prefs.weeks ?? "—"}</div>
-      <div className="opacity-75">Plan start</div><div className="font-semibold">{(prefs as any).plan_start_date ?? "—"}</div>
+      <div className="opacity-75">Plan start</div><div className="font-semibold">{(prefs as any).start_date ?? "—"}</div>
       <div className="opacity-75">Main</div><div className="font-semibold">{main}</div>
       <div className="opacity-75">Secondary</div><div className="font-semibold truncate">{sec}</div>
       <div className="opacity-75">Strength mode</div>
       <div className="font-semibold">
-        {(prefs as any)?.strength_settings?.mode ?? "—"} · {(prefs as any)?.strength_settings?.location ?? "—"}
+        {(prefs as any)?.strength_settings?.equipment_mode ?? "—"} · {(prefs as any)?.strength_settings?.location ?? "—"}
       </div>
     </div>
   );
@@ -90,15 +90,6 @@ function readPrefsFromStorage(): CoachPrefs | null {
   }
 }
 
-/* ────────────── simple BE ping ────────────── */
-async function pingApi(base: string): Promise<{ ok: boolean; status?: number; text?: string; cors?: boolean }> {
-  try {
-    const r = await fetch(`${base}/health`, { method: "GET", cache: "no-store" });
-    return { ok: r.ok || r.status === 404, status: r.status, text: r.statusText, cors: false };
-  } catch (e: any) {
-    return { ok: false, cors: true, text: String(e?.message || e) };
-  }
-}
 
 /* ────────────── Main component ────────────── */
 export default function CoachPlanActions() {
@@ -140,14 +131,6 @@ export default function CoachPlanActions() {
     setSteps((prev) => prev.map((s) => (s.name === at ? { ...s, state: "error", note: [s.note, `[${now()}] ${note ?? ""}`].filter(Boolean).join(" · ") } : s)));
   }, []);
 
-  /* Ping API na mount */
-  useEffect(() => {
-    (async () => {
-      const ping = await pingApi(API_URL);
-      setApiStatus(ping);
-    })();
-  }, []);
-
   /* Načítanie prefs (DB → storage) */
   useEffect(() => {
     if (!userId) return;
@@ -173,11 +156,6 @@ export default function CoachPlanActions() {
     setLoading(true);
 
     try {
-      // 0) ping
-      const ping = await pingApi(API_URL);
-      setApiStatus(ping);
-      if (!ping.ok) throw new Error(ping.cors ? `Network/CORS: ${ping.text}` : `API not reachable (${ping.status} ${ping.text})`);
-
       // 1) prefs
       markOnly("Loading preferences", "fetch from DB");
       const fresh = await getPrefs(userId).catch(() => null);
@@ -301,32 +279,11 @@ export default function CoachPlanActions() {
           );
         })}
       </div>
-      {steps.some((s) => s.note) && (
-        <div className="text-xs opacity-80">
-          {steps.filter((s) => s.note).map((s) => (
-            <div key={`${s.name}-note`}>{s.name}: {s.note}</div>
-          ))}
-        </div>
-      )}
     </div>
   );
 
   return (
     <div className="space-y-4">
-      {/* API ping badge */}
-      <div className="flex items-center gap-2 text-xs opacity-80">
-        <span>API:</span>
-        {apiStatus ? (
-          apiStatus.ok ? (
-            <Pill label={`reachable (${apiStatus.status ?? "OK"})`} color={THEME.chart.good} />
-          ) : (
-            <Pill label={apiStatus.cors ? "CORS/Network" : `HTTP ${apiStatus.status} ${apiStatus.text ?? ""}`} color={THEME.chart.poor} />
-          )
-        ) : (
-          <Pill label="checking…" color={THEME.chart.neutral} />
-        )}
-      </div>
-
       {/* mini sumár prefs */}
       <div className="rounded-xl border border-white/10 p-3 bg-white/5">
         <PrefsMini prefs={prefs} />
