@@ -226,19 +226,13 @@ def _infer_intensity_tag(session_type: str, sport: str, duration_min: Any = None
 
 # ---------- WU/CD defaults from catalog ----------
 
-def _fetch_wu_cd_defaults(
-    session_type: str,
-    sport: str,
-    catalog: Dict[str, Any],
-) -> Tuple[Optional[int], Optional[int]]:
-    """
-    Z katalógu session types načíta default warmup/cooldown minúty.
-    Očakávaná štruktúra:
-      catalog[sport][session_type] má voliteľné kľúče "wu_min", "cd_min"
-      (alebo "warmup_min"/"cooldown_min" – podporujeme oba).
-    """
+def _fetch_wu_cd_defaults(session_type: str, sport: str, catalog: Dict[str, Any]):
     s = _canonical_sport(sport)
-    node = (catalog.get(s) or {}).get(session_type) or {}
+    node = {}
+    try:
+        node = (catalog.get(s) or {}).get(session_type) or {}
+    except Exception:
+        node = {}
     w = node.get("wu_min", node.get("warmup_min"))
     c = node.get("cd_min", node.get("cooldown_min"))
     return _to_min(w), _to_min(c)
@@ -348,7 +342,9 @@ def _ensure_session_types(
         return []
 
     default_sport = _canonical_sport(default_sport)
-    catalog = get_session_type_catalog_for_prompt()  # lokálne použitie aj pre WU/CD
+    catalog = get_session_type_catalog_for_prompt()
+    if not isinstance(catalog, dict):
+        catalog = {}
 
     for d in next10:
         if not isinstance(d, dict):

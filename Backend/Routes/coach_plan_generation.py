@@ -347,7 +347,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             days_off=rules.get("days_off") or [],
             externals=norm.get("externals") or []
         )
-        avoid_two_a_day = bool(rules.get("avoid_two_a_day", True))
+        avoid_two_a_day = bool(rules.get("avoid_two_a_day", False))
 
         zones_payload = _best_zones_for_context(norm, ctx)
 
@@ -385,13 +385,18 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         }
 
         _ai_debug_insert({
-            "user_id": user_id,
-            "route": "/api/coach/analyze",
-            "model": DEFAULT_MODEL,
-            "payload_json": llm_input,
-            "response_json": None,
-            "ok": True,
-            "note": "ai_debug_v1: input",
+        "user_id": user_id,
+        "route": "/api/coach/analyze",
+        "model": DEFAULT_MODEL,
+        "payload_json": {
+            "types": {
+                "rules": type(rules).__name__,
+                "zones_payload": type(zones_payload).__name__,
+            }
+        },
+        "response_json": None,
+        "ok": True,
+        "note": "ai_debug_v1: types before LLM",
         })
 
         parsed, debug_trace = generate_plan_json(

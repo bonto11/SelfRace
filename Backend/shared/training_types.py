@@ -1,34 +1,25 @@
-# backend/shared/training_types
+# shared/training_types.py
+import json, os
+from typing import Dict, Any
 
-import json
-from pathlib import Path
-from typing import Any, Dict
+JSON_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "training_types.json")
 
-# Predpoklad: backend/Services/training_types.py
-# shared/training_types.json je o jeden level vyššie v ../shared
-# Ak máš inú štruktúru, uprav ROOT_DIR.
-ROOT_DIR = Path(__file__).resolve().parents[1]  # .. nad Services/
-SHARED_JSON = ROOT_DIR / "shared" / "files" / "training_types.json"
+SPORT_KEYS = {"run", "ride", "strength", "swim"}
 
-if not SHARED_JSON.exists():
-  raise RuntimeError(f"training_types.json not found at {SHARED_JSON}")
-
-TRAINING_TYPES: Dict[str, Dict[str, Any]] = json.loads(SHARED_JSON.read_text(encoding="utf-8"))
-
-
-def get_session_type_catalog_for_prompt() -> Dict[str, Dict[str, str]]:
+def get_session_type_catalog_for_prompt() -> Dict[str, Any]:
     """
-    Vracia zjednodušenú mapu pre prompt:
-    { "run": { "run_easy": "Easy run – ...", ... }, ... }
-    aby sme do AI neposielali zbytočné polia.
+    Vráti IBA mapu {run|ride|strength|swim: {session_type: {...}}}.
+    Ignoruje meta kľúče (version, meta, notes, atď.).
+    Nikdy nevráti int/list.
     """
-    out: Dict[str, Dict[str, str]] = {}
-    for sport, types in TRAINING_TYPES.items():
-        sport_map: Dict[str, str] = {}
-        for key, info in types.items():
-            sid = str(info.get("id") or key)
-            label = str(info.get("label") or sid)
-            desc = str(info.get("description") or "")
-            sport_map[sid] = f"{label}: {desc}".strip()
-        out[sport] = sport_map
+    with open(JSON_PATH, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+
+    if not isinstance(raw, dict):
+        return {}
+
+    out: Dict[str, Any] = {}
+    for k, v in raw.items():
+        if k in SPORT_KEYS and isinstance(v, dict):
+            out[k] = v
     return out
