@@ -178,7 +178,36 @@ def _normalize_payload(payload: dict) -> dict:
         "_raw": payload,
     }
 
+# --- ZONES: vyber najlepší zdroj z ctx alebo z payloadu ---
+def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
+    """
+    Vráti dict so zónami (hr_max, z1_min..z5_max) pre kontext AI aj obohatenie.
+    Poradie zdrojov:
+      1) ctx["zones"]
+      2) norm["_raw"]["zones"]
+      3) norm["_raw"]["prefs"]["value"]["zones"]
+    Ak nič, vráti {}.
+    """
+    # 1) z coach_context
+    z = ctx.get("zones")
+    if isinstance(z, dict) and z:
+        return z
 
+    raw = norm.get("_raw") or {}
+    if isinstance(raw, dict):
+        # 2) top-level zones v payload-e
+        z2 = raw.get("zones")
+        if isinstance(z2, dict) and z2:
+            return z2
+        # 3) prefs.value.zones (typické pre tvoje FE)
+        prefs = raw.get("prefs") or {}
+        if isinstance(prefs, dict):
+            val = prefs.get("value") or {}
+            if isinstance(val, dict):
+                z3 = val.get("zones")
+                if isinstance(z3, dict) and z3:
+                    return z3
+    return {}
 # ---- strict BE validácia bez dopĺňania ----
 # --- HARD CONSTRAINTS: výpočet OFF dní (days_off + externals) ---
 def _iso(d) -> str:
@@ -378,6 +407,8 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             externals=norm.get("externals") or []
         )
 
+        zones_payload = _best_zones_for_context(norm, ctx)
+
         llm_input = {
             "goal": norm["goal"],
             "schema_version": norm["schema_version"],
@@ -401,14 +432,14 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "recovery": ctx.get("recovery", [])[-21:],
             "notes": ctx.get("notes", [])[-50:],
             "thresholds": ctx.get("thresholds", []),
-            "zones": ctx.get("zones") or {},
+            "zones": zones_payload,
             "prefs": ctx.get("prefs"),
             "bests": ctx.get("bests", {}),
             "voice": norm.get("voice"),
             # --- HARD CONSTRAINTS -> do promptu ---
             "hard_constraints": {
                 "no_sessions_on": no_sessions_on,
-                "max_one_session_per_day": True,
+                "max_one_session_per_day": False,
             },
         }
 

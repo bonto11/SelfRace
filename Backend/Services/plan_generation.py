@@ -286,7 +286,7 @@ def _ensure_session_types(
             s["session_type"] = st
 
             # --- ENRICHMENT: intensity tag vždy ---
-            s["intensity"] = _infer_intensity_tag(st, sport)
+            s["intensity"] = _infer_intensity_tag(st, sport, s.get("duration_min"))
 
             # --- ENRICHMENT: RUN hr + WU/CD (ak máme zóny) ---
             if sport == "run" and isinstance(zones, dict):
@@ -586,20 +586,24 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     return system_txt, user_txt
 
 # --- ENRICHMENT: intenzita z session_type ---
-def _infer_intensity_tag(session_type: str, sport: str) -> str:
+def _infer_intensity_tag(session_type: str, sport: str, duration_min: Any = None) -> str:
     st = (session_type or "").lower()
     sp = (sport or "").lower()
 
-    # strength – väčšinou moderate
+    # Rest / off day
+    try:
+        dur = int(round(float(duration_min))) if duration_min is not None else None
+    except Exception:
+        dur = None
+    if "rest" in st or (dur is not None and dur <= 0):
+        return "off"
+
     if sp == "strength":
         if "recovery" in st or "mobility" in st: return "low"
         if "hypertrophy" in st or "heavy" in st: return "high"
         return "moderate"
 
-    # beh/jazda/plávanie
-    if any(k in st for k in ["recovery", "easy", "aerobic", "base"]):
-        return "low"
-    if any(k in st for k in ["long"]):
+    if any(k in st for k in ["recovery", "easy", "aerobic", "base", "long"]):
         return "low"
     if any(k in st for k in ["tempo", "threshold"]):
         return "moderate-high"
