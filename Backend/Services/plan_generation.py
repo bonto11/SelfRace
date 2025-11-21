@@ -205,92 +205,56 @@ def _enrich_run_session_from_zones(
     z: Dict[str, int],
     wu_cd_required: bool = False,
 ) -> None:
-    """
-    Pre RUN session doplní:
-      - target_hr_bpm_range podľa typu (run_easy / run_long / recovery)
-      - structure.warmup/main/cooldown podľa duration_min, ak wu_cd_required=True.
-    Modifikuje dict `s` in-place.
-    """
     if (s.get("sport") or "").lower() != "run":
         return
 
     st = str(s.get("session_type") or "").lower()
     dur = s.get("duration_min")
 
-    # bezpečná konverzia na minúty
     dur_min = 0
     if isinstance(dur, (int, float, str)):
-        try:
-            dur_min = int(round(float(dur)))
-        except Exception:
-            dur_min = 0
+        try: dur_min = int(round(float(dur)))
+        except Exception: dur_min = 0
 
-    z1_min = z.get("z1_min", 0)
-    z1_max = z.get("z1_max", 0)
-    z2_min = z.get("z2_min", 0)
-    z2_max = z.get("z2_max", 0)
-
-    # Bez rozumných zón nevieme nič
+    z1_min,z1_max = z.get("z1_min",0), z.get("z1_max",0)
+    z2_min,z2_max = z.get("z2_min",0), z.get("z2_max",0)
     if min(z1_min, z1_max, z2_min, z2_max) <= 0:
         return
 
-    # EASY / LONG = Z2, recovery = Z1
     is_easy = st.startswith("run_easy") or st == "run_aerobic"
     is_long = st.startswith("run_long")
     is_recovery = "recovery" in st
 
     if is_recovery:
         main_lo, main_hi = z1_min, z1_max
+        s.setdefault("hr_zone_label", "Z1")
     else:
-        # easy aj long – Z2
         main_lo, main_hi = z2_min, z2_max
+        s.setdefault("hr_zone_label", "Z2")
 
-    # Ak session nemá HR range, nastav ju
     if not isinstance(s.get("target_hr_bpm_range"), list):
         s["target_hr_bpm_range"] = [int(main_lo), int(main_hi)]
 
     if not wu_cd_required or dur_min <= 0:
-        # nemusíme stavať WU/CD – stačí top-level HR
         return
 
-    # Rozbi duration na WU / MAIN / CD
-    # jednoduchý model: ~20% WU, ~15% CD, zvyšok main
     wu = max(5, min(15, int(round(dur_min * 0.2))))
     cd = max(5, min(10, int(round(dur_min * 0.15))))
     main_total = max(0, dur_min - wu - cd)
 
-    # HR pre WU/CD – nižší koniec spektra (Z1–začiatok Z2)
-    wu_lo = z1_min
-    wu_hi = z2_min
-    cd_lo = z1_min
-    cd_hi = z2_min
+    wu_lo, wu_hi = z1_min, z2_min
+    cd_lo, cd_hi = z1_min, z2_min
 
-    struct = s.get("structure")
-    if not isinstance(struct, dict):
-        struct = {}
-        s["structure"] = struct
+    struct = s.get("structure") or {}
+    s["structure"] = struct
 
-    # warmup
-    if not isinstance(struct.get("warmup"), dict):
-        struct["warmup"] = {
-            "minutes": wu,
-            "target": {"hr": [int(wu_lo), int(wu_hi)]},
-        }
-
-    # main
+    struct.setdefault("warmup", {"minutes": wu, "target": {"hr": [int(wu_lo), int(wu_hi)]}})
     if not isinstance(struct.get("main"), list) or not struct["main"]:
-        main_block = {
+        struct["main"] = [{
             "work_min": main_total if main_total > 0 else dur_min,
             "target": {"hr": [int(main_lo), int(main_hi)]},
-        }
-        struct["main"] = [main_block]
-
-    # cooldown
-    if not isinstance(struct.get("cooldown"), dict):
-        struct["cooldown"] = {
-            "minutes": cd,
-            "target": {"hr": [int(cd_lo), int(cd_hi)]},
-        }
+        }]
+    struct.setdefault("cooldown", {"minutes": cd, "target": {"hr": [int(cd_lo), int(cd_hi)]}})
 
 
 def _ensure_session_types(
@@ -299,43 +263,32 @@ def _ensure_session_types(
     zones: Optional[Dict[str, int]] = None,
     rules: Optional[dict] = None,
 ) -> List[dict]:
-    """
-    - Normalizuje sport (run/ride/strength/swim/other)
-    - Doplní session_type (podľa športu)
-    - Ak máme zóny a ide o RUN + run_easy/run_long/recovery:
-        - nastaví target_hr_bpm_range
-        - a pri wu_cd_detail=True doplní warmup/main/cooldown.
-    """
     if not isinstance(next10, list):
         return []
-
     default_sport = _canonical_sport(default_sport)
     wu_cd_required = bool((rules or {}).get("wu_cd_detail"))
 
     for d in next10:
-        if not isinstance(d, dict):
-            continue
+        if not isinstance(d, dict): continue
         sessions = d.get("sessions")
-        if not isinstance(sessions, list):
-            continue
+        if not isinstance(sessions, list): continue
 
         for s in sessions:
-            if not isinstance(s, dict):
-                continue
+            if not isinstance(s, dict): continue
 
-            # SPORT
-            sport = s.get("sport")
-            sport = _canonical_sport(sport or default_sport)
+            sport = _canonical_sport(s.get("sport") or default_sport)
             s["sport"] = sport
 
-            # SESSION TYPE
             st = s.get("session_type") or s.get("type") or s.get("kind")
             if not isinstance(st, str) or not st.strip():
                 st = _default_session_type_for_sport(sport)
             st = st.strip()
             s["session_type"] = st
 
-            # RUN enrichment zo zón
+            # --- ENRICHMENT: intensity tag vždy ---
+            s["intensity"] = _infer_intensity_tag(st, sport)
+
+            # --- ENRICHMENT: RUN hr + WU/CD (ak máme zóny) ---
             if sport == "run" and isinstance(zones, dict):
                 _enrich_run_session_from_zones(s, zones, wu_cd_required=wu_cd_required)
 
@@ -599,11 +552,18 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
             "Avoid making almost all sessions high-intensity or near maximal HR.",
         ]
 
-    if wu_cd_required:
-        hard += [
-            "When planning total duration for RUN sessions, mentally include time for warmup and cooldown, "
-            "even though you do not output the structure explicitly.",
-        ]
+    # --- HARD CONSTRAINTS -> prompt ---
+    hc = context_payload.get("hard_constraints") or {}
+    if isinstance(hc, dict):
+        ban = hc.get("no_sessions_on") or []
+        if isinstance(ban, list) and ban:
+            hard += [
+                "Do NOT schedule any training session on the following dates (these are off/occupied days):",
+                ", ".join([str(x)[:10] for x in ban]),
+                "On those dates, include only a 'Rest Day' stub if needed.",
+            ]
+        if hc.get("max_one_session_per_day"):
+            hard += ["Plan at most ONE session per day."]
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -625,6 +585,27 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
     )
     return system_txt, user_txt
 
+# --- ENRICHMENT: intenzita z session_type ---
+def _infer_intensity_tag(session_type: str, sport: str) -> str:
+    st = (session_type or "").lower()
+    sp = (sport or "").lower()
+
+    # strength – väčšinou moderate
+    if sp == "strength":
+        if "recovery" in st or "mobility" in st: return "low"
+        if "hypertrophy" in st or "heavy" in st: return "high"
+        return "moderate"
+
+    # beh/jazda/plávanie
+    if any(k in st for k in ["recovery", "easy", "aerobic", "base"]):
+        return "low"
+    if any(k in st for k in ["long"]):
+        return "low"
+    if any(k in st for k in ["tempo", "threshold"]):
+        return "moderate-high"
+    if any(k in st for k in ["vo2", "interval", "repeats", "hills", "speed"]):
+        return "high"
+    return "moderate"
 
 def _call_openai(
     client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
@@ -665,7 +646,6 @@ def _default_sport_from_context(ctx: dict) -> str:
         return _canonical_sport(prim[0])
 
     return "run"
-
 
 def generate_plan_json(
     context_payload: dict,
