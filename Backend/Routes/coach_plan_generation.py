@@ -1,29 +1,23 @@
 from typing import Any, Dict, Optional, List, Sequence
 from fastapi import APIRouter, Body, HTTPException, Request
 from datetime import date as _date, timedelta
+import os, json, time, urllib.request
 
 from Configs.config import DEFAULT_MODEL
 from Services.plan_generation import generate_plan_json
 from Services.progress_narrative import build_progress_narrative
 from Routes.coach_context import coach_context
 
-# --- AI_DEBUG: supabase REST insert (bez extra lib) ---
-import os, json, time
-import urllib.request
+router = APIRouter(prefix="/coach", tags=["coach"])
 
+DOW3 = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 
+# --------- AI_DEBUG (Supabase REST insert) ---------
 def _ai_debug_insert(row: Dict[str, Any]) -> None:
-    """
-    INSERT do public.ai_debug cez Supabase REST. Bezpečne no-op ak chýbajú envy.
-    ENV:
-      SUPABASE_URL=https://<proj>.supabase.co
-      SUPABASE_SERVICE_ROLE=<service_key>
-    """
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_ROLE")
     if not url or not key:
-        return  # ticho preskoč
-
+        return
     endpoint = f"{url}/rest/v1/ai_debug"
     data = json.dumps(row).encode("utf-8")
     req = urllib.request.Request(
@@ -38,26 +32,13 @@ def _ai_debug_insert(row: Dict[str, Any]) -> None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as _:
+        with urllib.request.urlopen(req, timeout=5):
             pass
     except Exception:
-        # nerob nič – audit je best-effort
         pass
 
-
-router = APIRouter(prefix="/coach", tags=["coach"])
-
-DOW3 = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-
+# --------- helpers ---------
 def _norm_goal(goal_in, fallback_kind: Optional[str] = None) -> str:
-    """
-    Zjednotený goal string pre AI.
-    Podporuje:
-      - {"kind": "...", "race_goal": "..."}
-      - {"goal_kind": "...", "race_goal": "..."}
-      - plain string "improve_overall"
-    """
     if isinstance(goal_in, dict):
         kind = (goal_in.get("kind") or goal_in.get("goal_kind") or "").strip()
         rg = goal_in.get("race_goal")
@@ -66,16 +47,46 @@ def _norm_goal(goal_in, fallback_kind: Optional[str] = None) -> str:
         return kind or (fallback_kind or "improve_overall")
     return goal_in or fallback_kind or "improve_overall"
 
+def _coerce_rules(rules_in: Any) -> Dict[str, Any]:
+    """
+    Bezpečne znormalizuje rules na dict.
+    - ak príde primitív (int/str/bool) alebo list -> {}
+    - zmaže legacy kľúče (wu_cd_detail)
+    - zaistí typy polí
+    """
+    out: Dict[str, Any] = {}
+    if isinstance(rules_in, dict):
+        out = dict(rules_in)
+    # legacy cleanup
+    out.pop("wu_cd_detail", None)  # definitívne vyhadzujeme
+    # typové istoty
+    days_off = out.get("days_off")
+    if not isinstance(days_off, list):
+        out["days_off"] = []
+    else:
+        out["days_off"] = [str(x) for x in days_off if x]
+
+    long_run_days = out.get("long_run_days")
+    if not isinstance(long_run_days, list):
+        out["long_run_days"] = []
+    else:
+        out["long_run_days"] = [str(x) for x in long_run_days if x]
+
+    # nové pravidlo – default True (radšej neplánuj 2 tréningy denne)
+    avoid_two = out.get("avoid_two_a_day")
+    out["avoid_two_a_day"] = bool(avoid_two) if isinstance(avoid_two, bool) else True
+
+    # pre spätnú kompatibilitu
+    avoid_b2b = out.get("avoid_back_to_back_hard")
+    if not isinstance(avoid_b2b, bool):
+        out["avoid_back_to_back_hard"] = False
+
+    return out
 
 def _normalize_payload(payload: dict) -> dict:
-    """
-    Zoberie FE payload (nový kontrakt + prípadné legacy goal_structured)
-    a urobí z toho čistý objekt pre coach_context + AI.
-    """
     goal_block = payload.get("goal") or {}
     goal_struct = payload.get("goal_structured") or {}
 
-    # weeks – preferuj goal.weeks, potom legacy, default 6
     weeks = int(
         (goal_block.get("weeks"))
         or payload.get("weeks")
@@ -83,7 +94,6 @@ def _normalize_payload(payload: dict) -> dict:
         or 6
     )
 
-    # goal kind
     fallback_kind = (
         goal_block.get("goal_kind")
         or goal_struct.get("goal_kind")
@@ -92,10 +102,8 @@ def _normalize_payload(payload: dict) -> dict:
     )
     goal_str = _norm_goal(goal_block, fallback_kind=fallback_kind)
 
-    # voice (coach_voice + coach_tone)
     voice = payload.get("voice") or goal_struct.get("voice") or None
 
-    # športy
     sports_block = payload.get("sports") or {}
     primary_sports = (
         payload.get("primary_sports")
@@ -116,7 +124,10 @@ def _normalize_payload(payload: dict) -> dict:
     )
 
     targets = payload.get("targets") or goal_struct.get("targets")
-    rules = payload.get("rules") or goal_struct.get("preferences")
+
+    # rules – bezpečná normalizácia + odstránenie legacy kľúčov
+    rules_raw = payload.get("rules") or goal_struct.get("preferences") or {}
+    rules = _coerce_rules(rules_raw)
 
     externals = payload.get("externals") or goal_struct.get("external_activities") or []
     injuries = payload.get("injuries") or goal_struct.get("injuries") or []
@@ -136,9 +147,7 @@ def _normalize_payload(payload: dict) -> dict:
         or goal_struct.get("start_date")
     )
 
-    strength_settings = payload.get("strength_settings") or goal_struct.get(
-        "strength_settings"
-    )
+    strength_settings = payload.get("strength_settings") or goal_struct.get("strength_settings")
 
     intensity_model = payload.get("intensity_model")
     if intensity_model is None:
@@ -178,29 +187,16 @@ def _normalize_payload(payload: dict) -> dict:
         "_raw": payload,
     }
 
-
-# --- ZONES: vyber najlepší zdroj z ctx alebo z payloadu ---
+# --------- zones source resolution ---------
 def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
-    """
-    Vráti dict so zónami (hr_max, z1_min..z5_max) pre kontext AI aj obohatenie.
-    Poradie zdrojov:
-      1) ctx["zones"]
-      2) norm["_raw"]["zones"]
-      3) norm["_raw"]["prefs"]["value"]["zones"]
-    Ak nič, vráti {}.
-    """
-    # 1) z coach_context
     z = ctx.get("zones")
     if isinstance(z, dict) and z:
         return z
-
     raw = norm.get("_raw") or {}
     if isinstance(raw, dict):
-        # 2) top-level zones v payload-e
         z2 = raw.get("zones")
         if isinstance(z2, dict) and z2:
             return z2
-        # 3) prefs.value.zones (typické pre FE)
         prefs = raw.get("prefs") or {}
         if isinstance(prefs, dict):
             val = prefs.get("value") or {}
@@ -210,11 +206,9 @@ def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
                     return z3
     return {}
 
-
-# ---- HARD CONSTRAINTS: výpočet OFF dní (days_off + externals) ----
+# --------- HARD CONSTRAINTS helpers ---------
 def _iso(d) -> str:
     return time.strftime("%Y-%m-%d", time.gmtime(d))
-
 
 def _compute_no_sessions_on(
     plan_start_iso: Optional[str],
@@ -222,12 +216,6 @@ def _compute_no_sessions_on(
     days_off: Sequence[str] | None,
     externals: Sequence[dict] | None,
 ) -> List[str]:
-    """
-    Vracia zoznam dátumov YYYY-MM-DD, kedy NEmá byť plánovaný tréning.
-    - days_off: zoznam skratiek dní (Mon..Sun alebo 'Wed', 'Sunday' -> berieme prvé 3 znaky)
-    - externals: ak má záznam date => ten deň blokujeme; ak má day => mapneme cez horizont
-      Pozn.: ak externals[intensity] == 'low', neblokujeme (ostatné blokujeme).
-    """
     if not plan_start_iso or weeks <= 0:
         return []
     try:
@@ -238,7 +226,7 @@ def _compute_no_sessions_on(
     horizon = weeks * 7
     off = set()
 
-    want = {(d or "").strip()[:3].title() for d in (days_off or []) if d}
+    want = { (d or "").strip()[:3].title() for d in (days_off or []) if d }
     for i in range(horizon):
         d = start + timedelta(days=i)
         if DOW3[d.weekday()] in want:
@@ -249,7 +237,6 @@ def _compute_no_sessions_on(
             continue
         inten = str(ex.get("intensity") or "").lower().strip()
         if ex.get("date"):
-            # blokuj všetko okrem explicitne low
             if inten != "low":
                 off.add(str(ex["date"])[:10])
             continue
@@ -262,88 +249,48 @@ def _compute_no_sessions_on(
                     d = start + timedelta(days=i)
                     if DOW3[d.weekday()] == day3:
                         off.add(d.isoformat())
-
     return sorted(off)
 
-
-# ---- STRICT BE validácia ----------------------------
 def _validate_next10(
     parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]
 ) -> None:
     n10 = parsed.get("next_10_days")
-
-    # AI musí dať aspoň 7 dní
     if not isinstance(n10, list) or len(n10) < 7:
-        raise HTTPException(
-            status_code=502, detail="AI must return next_10_days with at least 7 items"
-        )
+        raise HTTPException(status_code=502, detail="AI must return next_10_days with at least 7 items")
 
     for i, d in enumerate(n10):
         if not isinstance(d, dict) or not isinstance(d.get("day"), str):
-            raise HTTPException(
-                status_code=502, detail=f"Invalid or missing day at index {i}"
-            )
+            raise HTTPException(status_code=502, detail=f"Invalid or missing day at index {i}")
         if not isinstance(d.get("sessions"), list) or len(d["sessions"]) == 0:
             raise HTTPException(status_code=502, detail=f"Empty sessions at index {i}")
 
         for j, s in enumerate(d["sessions"]):
             if not isinstance(s, dict):
-                raise HTTPException(
-                    status_code=502, detail=f"Invalid session at {i}:{j}"
-                )
+                raise HTTPException(status_code=502, detail=f"Invalid session at {i}:{j}")
 
             sport = (s.get("sport") or "").lower()
             title = (s.get("title") or "").lower()
             is_run = sport == "run" or "run" in title
-            is_strength = (
-                sport == "strength" or "strength" in title or "weight" in title
-            )
+            is_strength = (sport == "strength" or "strength" in title or "weight" in title)
 
-            # ---- RUN checks ----
             if is_run:
                 dur = s.get("duration_min")
                 if not isinstance(dur, (int, float)) or dur <= 0:
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Run session {i}:{j} must have positive duration_min",
-                    )
+                    raise HTTPException(status_code=502, detail=f"Run session {i}:{j} must have positive duration_min")
 
-            # ---- STRENGTH checks ----
             if is_strength:
                 ex = s.get("exercises")
                 if not (isinstance(ex, list) and len(ex) >= 3):
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Strength session {i}:{j} must include exercises[]",
-                    )
+                    raise HTTPException(status_code=502, detail=f"Strength session {i}:{j} must include exercises[]")
                 for k, e in enumerate(ex):
-                    if (
-                        not isinstance(e, dict)
-                        or not e.get("name")
-                        or not isinstance(e.get("sets"), (int, float))
-                    ):
-                        raise HTTPException(
-                            status_code=502,
-                            detail=f"Exercise {i}:{j}:{k} must include name and sets",
-                        )
-                    if not (
-                        isinstance(e.get("reps"), (int, float))
-                        or isinstance(e.get("seconds"), (int, float))
-                    ):
-                        raise HTTPException(
-                            status_code=502,
-                            detail=f"Exercise {i}:{j}:{k} must include reps or seconds",
-                        )
+                    if (not isinstance(e, dict) or not e.get("name") or not isinstance(e.get("sets"), (int, float))):
+                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include name and sets")
+                    if not (isinstance(e.get("reps"), (int, float)) or isinstance(e.get("seconds"), (int, float))):
+                        raise HTTPException(status_code=502, detail=f"Exercise {i}:{j}:{k} must include reps or seconds")
 
-    # dátum prvého dňa musí sedieť
     if must_start and n10[0]["day"] != must_start:
-        raise HTTPException(
-            status_code=502,
-            detail=f"next_10_days must start at plan_start_date {must_start}",
-        )
+        raise HTTPException(status_code=502, detail=f"next_10_days must start at plan_start_date {must_start}")
 
-
-# ---- HARD CONSTRAINTS: post-fix (OFF dni + per-day limit) ----
 def _fix_plan_offdays_and_per_day_limit(
     parsed: Dict[str, Any],
     banned_dates: List[str],
@@ -369,31 +316,8 @@ def _fix_plan_offdays_and_per_day_limit(
         keep: List[dict] = []
 
         if d in banned:
-            # ponechaj len REST ak existuje, inak prázdny REST
-            for s in sessions:
-                sport = (s.get("sport") or "").lower()
-                title = (s.get("title") or "").lower()
-                if sport in ("other", "rest") or "rest" in title:
-                    keep = [
-                        {
-                            "title": "Rest Day",
-                            "sport": "other",
-                            "duration_min": 0,
-                            "session_type": "rest_day",
-                        }
-                    ]
-                    break
-            else:
-                keep = [
-                    {
-                        "title": "Rest Day",
-                        "sport": "other",
-                        "duration_min": 0,
-                        "session_type": "rest_day",
-                    }
-                ]
+            keep = [{"title":"Rest Day","sport":"other","duration_min":0,"session_type":"rest_day"}]
         else:
-            # necháme poradie AI, dobrovoľne limitujeme podľa flagu
             for s in sessions:
                 if max_one_session_per_day and len(keep) >= 1:
                     break
@@ -404,7 +328,7 @@ def _fix_plan_offdays_and_per_day_limit(
     parsed["next_10_days"] = fixed_days
     return parsed
 
-
+# --------- ROUTE ---------
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     try:
@@ -415,21 +339,17 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         if not ctx.get("success"):
             raise HTTPException(status_code=500, detail="Context build failed")
 
-        # --- HARD CONSTRAINTS: priprava dátumov OFF dní ---
+        # hard constraints – dátumy OFF podľa pravidiel + externals
         rules = norm.get("rules") or {}
-        avoid_two = bool(rules.get("avoid_two_a_day", False))
-
         no_sessions_on = _compute_no_sessions_on(
             plan_start_iso=norm.get("plan_start_date"),
             weeks=weeks,
             days_off=rules.get("days_off") or [],
-            externals=norm.get("externals") or [],
+            externals=norm.get("externals") or []
         )
+        avoid_two_a_day = bool(rules.get("avoid_two_a_day", True))
 
         zones_payload = _best_zones_for_context(norm, ctx)
-
-        rules_for_prompt = dict(rules or {})
-        rules_for_prompt["avoid_two_a_day"] = avoid_two
 
         llm_input = {
             "goal": norm["goal"],
@@ -439,7 +359,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "main_sport": norm["main_sport"],
             "secondary_mix": norm["secondary_mix"],
             "targets": norm["targets"],
-            "rules": rules_for_prompt,
+            "rules": rules,
             "externals": norm.get("externals") or [],
             "injuries": norm["injuries"],
             "focus": norm["focus"],
@@ -458,25 +378,21 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "prefs": ctx.get("prefs"),
             "bests": ctx.get("bests", {}),
             "voice": norm.get("voice"),
-            # --- HARD CONSTRAINTS -> do promptu ---
             "hard_constraints": {
                 "no_sessions_on": no_sessions_on,
-                "max_one_session_per_day": bool(avoid_two),
+                "max_one_session_per_day": avoid_two_a_day,
             },
         }
 
-        # --- AI_DEBUG: log INPUT (pred volaním AI) ---
-        _ai_debug_insert(
-            {
-                "user_id": user_id,
-                "route": "/api/coach/analyze",
-                "model": DEFAULT_MODEL,
-                "payload_json": llm_input,
-                "response_json": None,
-                "ok": True,
-                "note": "ai_debug_v1: input",
-            }
-        )
+        _ai_debug_insert({
+            "user_id": user_id,
+            "route": "/api/coach/analyze",
+            "model": DEFAULT_MODEL,
+            "payload_json": llm_input,
+            "response_json": None,
+            "ok": True,
+            "note": "ai_debug_v1: input",
+        })
 
         parsed, debug_trace = generate_plan_json(
             llm_input,
@@ -487,17 +403,15 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         used_model = (debug_trace or {}).get("ok_model") or DEFAULT_MODEL
 
         if parsed is None:
-            _ai_debug_insert(
-                {
-                    "user_id": user_id,
-                    "route": "/api/coach/analyze",
-                    "model": used_model,
-                    "payload_json": llm_input,
-                    "response_json": (debug_trace or {}).get("raw"),
-                    "ok": False,
-                    "note": "ai_debug_v1: parsed None",
-                }
-            )
+            _ai_debug_insert({
+                "user_id": user_id,
+                "route": "/api/coach/analyze",
+                "model": used_model,
+                "payload_json": llm_input,
+                "response_json": (debug_trace or {}).get("raw"),
+                "ok": False,
+                "note": "ai_debug_v1: parsed None",
+            })
             return {
                 "success": False,
                 "error": "AI generation failed (no parsed content).",
@@ -505,7 +419,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                 "cleaned": (debug_trace or {}).get("cleaned"),
             }
 
-        # BE VALIDÁCIA – ako doteraz
+        # BE validácia
         try:
             _validate_next10(parsed, norm.get("plan_start_date"), norm.get("rules"))
         except Exception as e:
@@ -516,18 +430,15 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                     "attempts": debug_trace.get("attempts"),
                     "ok_model": debug_trace.get("ok_model"),
                 }
-            # aj pri chybe zaloguj RAW
-            _ai_debug_insert(
-                {
-                    "user_id": user_id,
-                    "route": "/api/coach/analyze",
-                    "model": used_model,
-                    "payload_json": llm_input,
-                    "response_json": (debug_trace or {}).get("raw"),
-                    "ok": False,
-                    "note": f"ai_debug_v1: validate_error: {str(e)[:120]}",
-                }
-            )
+            _ai_debug_insert({
+                "user_id": user_id,
+                "route": "/api/coach/analyze",
+                "model": used_model,
+                "payload_json": llm_input,
+                "response_json": (debug_trace or {}).get("raw"),
+                "ok": False,
+                "note": f"ai_debug_v1: validate_error: {str(e)[:120]}",
+            })
             return {
                 "success": False,
                 "error": str(e),
@@ -536,11 +447,11 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                 "ai_debug": slim_debug,
             }
 
-        # --- HARD CONSTRAINTS: post-fix (off-days + limit podľa avoid_two_a_day) ---
+        # HARD CONSTRAINTS post-fix
         parsed = _fix_plan_offdays_and_per_day_limit(
             parsed,
             banned_dates=no_sessions_on,
-            max_one_session_per_day=bool(avoid_two),
+            max_one_session_per_day=avoid_two_a_day,
         )
 
         narr = build_progress_narrative(ctx, weeks)
@@ -553,18 +464,15 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                 "ok_model": debug_trace.get("ok_model"),
             }
 
-        # --- AI_DEBUG: log OUTPUT (po fixoch) ---
-        _ai_debug_insert(
-            {
-                "user_id": user_id,
-                "route": "/api/coach/analyze",
-                "model": used_model,
-                "payload_json": llm_input,
-                "response_json": parsed,
-                "ok": True,
-                "note": "ai_debug_v1: output",
-            }
-        )
+        _ai_debug_insert({
+            "user_id": user_id,
+            "route": "/api/coach/analyze",
+            "model": used_model,
+            "payload_json": llm_input,
+            "response_json": parsed,
+            "ok": True,
+            "note": "ai_debug_v1: output",
+        })
 
         return {
             "success": True,
@@ -577,15 +485,13 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     except HTTPException:
         raise
     except Exception as e:
-        _ai_debug_insert(
-            {
-                "user_id": user_id,
-                "route": "/api/coach/analyze",
-                "model": DEFAULT_MODEL,
-                "payload_json": {"error_at": "exception", "payload": payload},
-                "response_json": {"exception": str(e)},
-                "ok": False,
-                "note": "ai_debug_v1: exception",
-            }
-        )
+        _ai_debug_insert({
+            "user_id": user_id,
+            "route": "/api/coach/analyze",
+            "model": DEFAULT_MODEL,
+            "payload_json": {"error_at": "exception", "payload": payload},
+            "response_json": {"exception": str(e)},
+            "ok": False,
+            "note": "ai_debug_v1: exception",
+        })
         raise HTTPException(status_code=500, detail=str(e))
