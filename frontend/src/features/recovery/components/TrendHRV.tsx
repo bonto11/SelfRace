@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import type { ChartData, ChartOptions, Plugin } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { rollingMean, bandsAround, wrapToLines } from "@/shared/utils/recovery";
@@ -30,7 +30,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(4); // môžeš vrátiť 2, len som ladil na 4
+  const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
@@ -45,7 +45,7 @@ export default function TrendHRV() {
 
   const days = weeks * 7;
 
-  // --- Denzifikácia osi X na denné kroky ---
+  // --- denzifikácia osi X na denné kroky ---
   const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
@@ -90,7 +90,7 @@ export default function TrendHRV() {
   // --- chýbajúce dni ---
   const missingIdx = useMemo(() => hrv.map((v) => !Number.isFinite(v)), [hrv]);
 
-  // Y-pozícia pre chýbajúce (interpolácia, okraje carry-forward/back)
+  // Y-pozícia pre chýbajúce (lineárna interpolácia; okraje carry-forward/back)
   const missingY = useMemo(() => {
     const n = hrv.length;
     const out = new Array<number | null>(n).fill(null);
@@ -113,11 +113,11 @@ export default function TrendHRV() {
         const vp = hrv[prev] as number;
         const vn = hrv[nxt] as number;
         const t = (i - prev) / (nxt - prev);
-        y = vp + (vn - vp) * t; // lineárna interpolácia
+        y = vp + (vn - vp) * t;
       } else if (prev !== -1) {
-        y = hrv[prev] as number; // carry-forward
+        y = hrv[prev] as number;
       } else if (nxt !== -1) {
-        y = hrv[nxt] as number; // carry-back
+        y = hrv[nxt] as number;
       } else {
         y = null;
       }
@@ -157,7 +157,7 @@ export default function TrendHRV() {
           order: 1,
         },
 
-        // hlavná HRV línia
+        // HRV línia – rovné segmenty kvôli presnému zarovnaniu
         {
           type: "line" as const,
           label: "HRV (RMSSD)",
@@ -166,33 +166,60 @@ export default function TrendHRV() {
           backgroundColor: COLOR.main,
           pointRadius: 3,
           borderWidth: 2,
-          tension: 0.2,
+          tension: 0,        // <<< dôležité
           spanGaps: true,
           order: 2,
         },
 
-        // chýbajúce dni – červené krúžky, nad krivkou
+        // chýbajúce dni – dataset len pre tooltip/hit-detekciu
         {
           type: "line" as const,
           label: "Missing",
           data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
           showLine: false,
           pointStyle: "circle",
-          pointRadius: 5,
-          pointHoverRadius: 6,
-          pointHitRadius: 12,
+          pointRadius: 0,          // vizuál kreslí plugin (navrch)
+          pointHitRadius: 12,      // ale nech sa dá chytiť tooltip
           pointBackgroundColor: COLOR.missing,
           pointBorderColor: COLOR.missing,
           pointBorderWidth: 2,
           borderWidth: 0,
-          order: 10,   // istota, že je nad
-          z: 10,
+          order: 999,
+          clip: false as any,
         },
       ],
     };
   }, [labelsISO, lower, upper, hrv, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]);
 
-  // --- options + tooltipy (HRV aj Missing, baseline skryté) ---
+  // --- plugin: prekreslí Missing kruhy úplne navrch, v správnych XY ---
+  const drawMissingOnTop: Plugin<"line"> = useMemo(
+    () => ({
+      id: "draw-missing-on-top",
+      afterDatasetsDraw(chart) {
+        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
+        if (dsIndex < 0) return;
+        const meta = chart.getDatasetMeta(dsIndex);
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.fillStyle = COLOR.missing;
+        ctx.strokeStyle = COLOR.missing;
+        ctx.lineWidth = 2;
+        // meta.data obsahuje PointElement-y pre tie indexy, kde nie je NaN
+        for (const el of meta.data as any[]) {
+          if (!el || el.skip) continue;
+          const { x, y } = el.tooltipPosition(true);
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+      },
+    }),
+    [COLOR.missing]
+  );
+
+  // --- options + tooltippy (HRV aj Missing) ---
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -213,10 +240,7 @@ export default function TrendHRV() {
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "HRV: –";
           }
-          if (label === "Missing") {
-            // zobraz len informáciu, že chýba záznam; hodnotu (interpoláciu) nespájame s realitou
-            return "Bez záznamu";
-          }
+          if (label === "Missing") return "Bez záznamu";
           return "";
         },
         tooltipFilter: (item) => {
@@ -227,7 +251,6 @@ export default function TrendHRV() {
     [labelsISO, hrv, comments]
   );
 
-  // spinner vypni po prekreslení labelov
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoading(false));
     return () => cancelAnimationFrame(t);
@@ -264,7 +287,7 @@ export default function TrendHRV() {
             </div>
           )}
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} />
+            <Line data={data} options={options} plugins={[drawMissingOnTop]} />
           </div>
         </div>
       </div>
