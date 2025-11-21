@@ -30,7 +30,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 
 export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
-  const [weeks, setWeeks] = useState<number>(2);
+  const [weeks, setWeeks] = useState<number>(4); // môžeš vrátiť 2, len som ladil na 4
   const [loading, setLoading] = useState<boolean>(false);
 
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
@@ -41,13 +41,11 @@ export default function TrendHRV() {
     missing: THEME.chart?.missing ?? "#ef4444", // red-500
   };
 
-  useEffect(() => {
-    setLoading(true);
-  }, [weeks]);
+  useEffect(() => { setLoading(true); }, [weeks]);
 
   const days = weeks * 7;
 
-  // --- denzifikácia osi X na denné kroky ---
+  // --- Denzifikácia osi X na denné kroky ---
   const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
@@ -92,7 +90,7 @@ export default function TrendHRV() {
   // --- chýbajúce dni ---
   const missingIdx = useMemo(() => hrv.map((v) => !Number.isFinite(v)), [hrv]);
 
-  // Y-pozícia pre X (interpolácia; na okrajoch carry-forward/back)
+  // Y-pozícia pre chýbajúce (interpolácia, okraje carry-forward/back)
   const missingY = useMemo(() => {
     const n = hrv.length;
     const out = new Array<number | null>(n).fill(null);
@@ -105,13 +103,10 @@ export default function TrendHRV() {
       nextKnown[i] = last;
     }
 
-    // zľava a výpočet Y pre chýbajúce
+    // zľava a výpočet
     let prev = -1;
     for (let i = 0; i < n; i++) {
-      if (Number.isFinite(hrv[i])) {
-        prev = i;
-        continue;
-      }
+      if (Number.isFinite(hrv[i])) { prev = i; continue; }
       const nxt = nextKnown[i];
       let y: number | null = null;
       if (prev !== -1 && nxt !== -1) {
@@ -124,7 +119,7 @@ export default function TrendHRV() {
       } else if (nxt !== -1) {
         y = hrv[nxt] as number; // carry-back
       } else {
-        y = null; // úplne bez dát
+        y = null;
       }
       out[i] = y;
     }
@@ -137,7 +132,7 @@ export default function TrendHRV() {
     return {
       labels: labelsISO,
       datasets: [
-        // zelené pásmo okolo baseline
+        // pásmo okolo baseline
         {
           type: "line" as const,
           label: "Baseline −5%",
@@ -176,26 +171,28 @@ export default function TrendHRV() {
           order: 2,
         },
 
-        // červené X pre chýbajúce dni (zarovnané na krivku)
+        // chýbajúce dni – červené krúžky, nad krivkou
         {
           type: "line" as const,
-          label: "Missing day",
+          label: "Missing",
           data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
           showLine: false,
-          pointStyle: "crossRot",
-          pointRadius: 6,
-          pointHoverRadius: 7,
-          pointBackgroundColor: "transparent",
+          pointStyle: "circle",
+          pointRadius: 5,
+          pointHoverRadius: 6,
+          pointHitRadius: 12,
+          pointBackgroundColor: COLOR.missing,
           pointBorderColor: COLOR.missing,
           pointBorderWidth: 2,
           borderWidth: 0,
-          order: 3,
+          order: 10,   // istota, že je nad
+          z: 10,
         },
       ],
     };
   }, [labelsISO, lower, upper, hrv, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]);
 
-  // --- options + tooltippy len pre hlavnú líniu ---
+  // --- options + tooltipy (HRV aj Missing, baseline skryté) ---
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -207,16 +204,25 @@ export default function TrendHRV() {
           ),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
-          const out: string[] = [];
-          if (ctx.dataset?.label === "HRV (RMSSD)") {
+          const label = ctx.dataset?.label ?? "";
+          if (label === "HRV (RMSSD)") {
             const v = hrv[idx];
+            const out: string[] = [];
             if (Number.isFinite(v)) out.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
+            return out.length ? out : "HRV: –";
           }
-          return out.length ? out : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (label === "Missing") {
+            // zobraz len informáciu, že chýba záznam; hodnotu (interpoláciu) nespájame s realitou
+            return "Bez záznamu";
+          }
+          return "";
         },
-        tooltipFilter: (item) => item.dataset.label === "HRV (RMSSD)",
+        tooltipFilter: (item) => {
+          const l = item.dataset.label ?? "";
+          return l === "HRV (RMSSD)" || l === "Missing";
+        },
       }),
     [labelsISO, hrv, comments]
   );
