@@ -54,6 +54,7 @@ export const THEME = {
     lineSecondary: '#FDE047', //zlta
     lineBase: '#4ADE8059',
     bandFill: "rgba(16,185,129,0.15)",
+    missing: "#ef4444", // tailwind red-500
     grid:        '#FFFFFF12',
     gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,
