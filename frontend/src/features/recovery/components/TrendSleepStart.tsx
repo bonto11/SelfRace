@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import type { ChartData, ChartOptions, Plugin } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
 import { minutesToHHMM, wrapToLines, HHMMToMinutes } from "@/shared/utils/recovery";
@@ -24,6 +24,19 @@ function hexToRgba(hex?: string, alpha = 0.15) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// denné ISO labely
+function iso(d: Date) {
+  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  return z.toISOString().slice(0, 10);
+}
+function dateSeq(startISO: string, endISO: string): string[] {
+  const out: string[] = [];
+  const start = new Date(startISO + "T00:00:00");
+  const end = new Date(endISO + "T00:00:00");
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
+  return out;
+}
+
 export default function DetailSleepStart() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
@@ -34,38 +47,91 @@ export default function DetailSleepStart() {
   const COLOR = {
     main: THEME.chart?.linePrimary,
     bandFill: hexToRgba(THEME.chart?.positive, 0.15),
+    missing: THEME.chart?.missing ?? "#ef4444",
   };
 
   useEffect(() => { setLoading(true); }, [weeks]);
 
   const days = weeks * 7;
-  const rows = useMemo(() => (days > 0 ? all.slice(-days) : all), [all, days]);
 
-  useEffect(() => {
-    const t = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(t);
-  }, [rows]);
+  // --- denzifikácia osi X na denné kroky ---
+  const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
+  const startISO = useMemo(() => {
+    const d = new Date(endISO + "T00:00:00");
+    d.setUTCDate(d.getUTCDate() - (days - 1));
+    return iso(d);
+  }, [endISO, days]);
 
-  const labelsISO = useMemo(() => rows.map((r) => r.date), [rows]);
+  const byDate = useMemo(() => {
+    const m = new Map<string, (typeof all)[number]>();
+    for (const r of all) m.set(r.date, r);
+    return m;
+  }, [all]);
+
+  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+
+  // --- séria SleepStart (v minútach) na zhustenej osi ---
   const startMin = useMemo(
     () =>
-      rows.map((r) => {
-        const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
+      labelsISO.map((d) => {
+        const rec = byDate.get(d);
+        const m = rec?.sleep_start_time ? HHMMToMinutes(rec.sleep_start_time) : null;
         return typeof m === "number" ? m : NaN;
       }),
-    [rows]
+    [labelsISO, byDate]
   );
 
   // odporúčané pásmo 22:00–23:00
-  const lowerBand = useMemo(() => rows.map(() => 22 * 60), [rows]);
-  const upperBand = useMemo(() => rows.map(() => 23 * 60), [rows]);
+  const lowerBand = useMemo(() => labelsISO.map(() => 22 * 60), [labelsISO]);
+  const upperBand = useMemo(() => labelsISO.map(() => 23 * 60), [labelsISO]);
 
   const comments = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) if (r.comments) m.set(r.date, r.comments);
+    for (const d of labelsISO) {
+      const c = byDate.get(d)?.comments;
+      if (c) m.set(d, c);
+    }
     return m;
-  }, [rows]);
+  }, [labelsISO, byDate]);
 
+  // --- chýbajúce dni ---
+  const missingIdx = useMemo(() => startMin.map((v) => !Number.isFinite(v)), [startMin]);
+
+  // Y-pozícia pre chýbajúce (interpolácia; okraje carry-forward/back)
+  const missingY = useMemo(() => {
+    const n = startMin.length;
+    const out = new Array<number | null>(n).fill(null);
+
+    const nextKnown: number[] = new Array(n).fill(-1);
+    let last = -1;
+    for (let i = n - 1; i >= 0; i--) {
+      if (Number.isFinite(startMin[i])) last = i;
+      nextKnown[i] = last;
+    }
+
+    let prev = -1;
+    for (let i = 0; i < n; i++) {
+      if (Number.isFinite(startMin[i])) { prev = i; continue; }
+      const nxt = nextKnown[i];
+      let y: number | null = null;
+      if (prev !== -1 && nxt !== -1) {
+        const vp = startMin[prev] as number;
+        const vn = startMin[nxt] as number;
+        const t = (i - prev) / (nxt - prev);
+        y = vp + (vn - vp) * t;
+      } else if (prev !== -1) {
+        y = startMin[prev] as number;
+      } else if (nxt !== -1) {
+        y = startMin[nxt] as number;
+      } else {
+        y = null;
+      }
+      out[i] = y;
+    }
+    return out;
+  }, [startMin]);
+
+  // --- datasety ---
   const data: ChartData<"line", number[], string> = useMemo(() => ({
     labels: labelsISO,
     datasets: [
@@ -89,9 +155,10 @@ export default function DetailSleepStart() {
         pointRadius: 0,
         borderWidth: 0,
         tension: 0.2,
-        fill: "-1",
+        fill: "-1" as const,
         order: 1,
       },
+      // hlavná čiara – rovné segmenty, nech je marker presne na čiare
       {
         type: "line",
         label: "Sleep start",
@@ -100,13 +167,57 @@ export default function DetailSleepStart() {
         backgroundColor: COLOR.main,
         pointRadius: 3,
         borderWidth: 2,
-        tension: 0.2,
+        tension: 0,          // dôležité
         spanGaps: true,
         order: 2,
       },
+      // chýbajúce dni – dataset pre hit/tooltip (vizuál nakreslí plugin)
+      {
+        type: "line",
+        label: "Missing",
+        data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
+        showLine: false,
+        pointStyle: "circle",
+        pointRadius: 0,          // vizuál nižšie
+        pointHitRadius: 12,
+        pointBackgroundColor: COLOR.missing,
+        pointBorderColor: COLOR.missing,
+        pointBorderWidth: 2,
+        borderWidth: 0,
+        order: 999,
+        clip: false as any,
+      },
     ],
-  }), [labelsISO, lowerBand, upperBand, startMin, COLOR.bandFill, COLOR.main]);
+  }), [labelsISO, lowerBand, upperBand, startMin, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]);
 
+  // plugin: prekreslí Missing kruhy úplne navrch
+  const drawMissingOnTop: Plugin<"line"> = useMemo(
+    () => ({
+      id: "draw-missing-on-top-sleepstart",
+      afterDatasetsDraw(chart) {
+        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
+        if (dsIndex < 0) return;
+        const meta = chart.getDatasetMeta(dsIndex);
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.fillStyle = COLOR.missing!;
+        ctx.strokeStyle = COLOR.missing!;
+        ctx.lineWidth = 2;
+        for (const el of meta.data as any[]) {
+          if (!el || el.skip) continue;
+          const { x, y } = el.tooltipPosition(true);
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+      },
+    }),
+    [COLOR.missing]
+  );
+
+  // options + tooltippy (Sleep start aj Missing)
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -114,22 +225,36 @@ export default function DetailSleepStart() {
         yTitle: "čas",
         yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"),
-        tooltipLabelForItem: (ctx): string => {
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
+            THEME.i18n?.dateLocale ?? "sk-SK"
+          ),
+        tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
-          const lines: string[] = [];
-          if (ctx.datasetIndex === 2) {
+          const label = ctx.dataset?.label ?? "";
+          if (label === "Sleep start") {
             const v = startMin[idx];
-            if (Number.isFinite(v)) lines.push(`Zaspal: ${minutesToHHMM(v as number)}`);
+            const out: string[] = [];
+            if (Number.isFinite(v)) out.push(`Zaspal: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
-            if (c) lines.push(...wrapToLines(c, 44));
+            if (c) out.push(...wrapToLines(c, 44));
+            return out.length ? out : "Zaspal: –";
           }
-          return lines.length ? lines.join("\n") : `${ctx.dataset?.label ?? ""}: ${ctx.formattedValue ?? ""}`;
+          if (label === "Missing") return "Bez záznamu";
+          return "";
         },
-        tooltipFilter: (item) => item.datasetIndex === 2,
+        tooltipFilter: (item) => {
+          const l = item.dataset.label ?? "";
+          return l === "Sleep start" || l === "Missing";
+        },
       }),
     [labelsISO, startMin, comments]
   );
+
+  // spinner vypni po prekreslení labelov
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(t);
+  }, [labelsISO.join("|")]);
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
@@ -153,9 +278,13 @@ export default function DetailSleepStart() {
       {/* GRAPH BODY */}
       <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
-          {loading && <div className="absolute inset-0 grid place-items-center z-10 bg-black/10"><LoadingSpinner size="trend" /></div>}
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
+            </div>
+          )}
           <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} />
+            <Line data={data} options={options} plugins={[drawMissingOnTop]} />
           </div>
         </div>
       </div>

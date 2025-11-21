@@ -40,7 +40,7 @@ export default function TrendWeeklyMonoStrain({
 }) {
   const { userId } = useUserId();
   const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(8);
+  const [lookback, setLookback] = useState<number>(2);
   const [sport, setSport] = useState<string>("all");
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -262,6 +262,7 @@ export default function TrendWeeklyMonoStrain({
               onChange={(e) => setLookback(Number(e.target.value))}
               className={`${inputClass} h-8 text-xs w-[130px]`}
             >
+              <option value={2}>2 týždne</option>
               <option value={4}>4 týždne</option>
               <option value={8}>8 týždňov</option>
               <option value={12}>12 týždňov</option>
