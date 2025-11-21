@@ -68,10 +68,10 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
 
   if (mode === "percent_lthr" && Number.isFinite(Number(lthrBpm))) {
     const L = Number(lthrBpm);
-    out.z1_min = Math.round(L * 0.81); out.z1_max = Math.round(L * 0.89);
-    out.z2_min = Math.round(L * 0.90); out.z2_max = Math.round(L * 0.93);
-    out.z3_min = Math.round(L * 0.94); out.z3_max = Math.round(L * 0.99);
-    out.z4_min = Math.round(L * 1.00); out.z4_max = Math.round(L * 1.06);
+    out.z1_max = Math.round(L * 0.81); out.z1_min = Math.round(L * 0.65);
+    out.z2_max = Math.round(L * 0.89); out.z2_min = out.z1_max - 1; 
+    out.z3_max = Math.round(L * 0.93); out.z3_min = out.z2_max - 1; 
+    out.z4_max = Math.round(L * 0.99); out.z4_min = out.z3_max - 1; 
     out.z5_min = out.z4_max + 1;       out.z5_max = h;
     return out;
   }
