@@ -72,9 +72,9 @@ export function normalizeCoachPrefs(input: CoachPrefs | CoachPrefsLegacyLoose | 
       primary_sports: (i.primary_sports as SportKind[] | undefined) ?? clampSports(i.sports),
       preferences: i.preferences ?? {
         days_off: [],
-        avoid_back_to_back_hard: !!i.prefer_two_hard_days_apart,
+        avoid_back_to_back_hard: !!i.avoid_back_to_back_hard,
         use_zones: true,
-        wu_cd_detail: !!i.include_wu_cd_details,
+        avoid_two_a_day: !!i.avoid_two_a_day,
         long_run_days: i.preferred_long_run_days,
       },
     };
@@ -99,7 +99,7 @@ export function normalizeCoachPrefs(input: CoachPrefs | CoachPrefsLegacyLoose | 
       long_run_days: undefined,
       avoid_back_to_back_hard: false,
       use_zones: true,
-      wu_cd_detail: true,
+      avoid_two_a_day: true,
     },
   };
 }

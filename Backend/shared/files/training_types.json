@@ -4,73 +4,121 @@
       "id": "run_easy",
       "sport": "run",
       "label": "Easy run",
-      "description": "Pokojný beh v nízkej intenzite (Z1–Z2) na budovanie aerobnej bázy a podporu regenerácie bez veľkej únavy."
+      "description": "Pokojný beh v nízkej intenzite (Z1–Z2) na budovanie aerobnej bázy a podporu regenerácie bez veľkej únavy.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "run_recovery": {
       "id": "run_recovery",
       "sport": "run",
       "label": "Recovery run",
-      "description": "Veľmi ľahký beh po náročnom tréningu alebo preteku, cieľom je len rozhýbať nohy a podporiť priechodnosť svalov."
+      "description": "Veľmi ľahký beh po náročnom tréningu alebo preteku, cieľom je len rozhýbať nohy a podporiť priechodnosť svalov.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "run_long": {
       "id": "run_long",
       "sport": "run",
       "label": "Long run",
-      "description": "Dlhší beh v prevažne nízkej intenzite, zameraný na vytrvalosť, toleranciu záťaže nôh a mentálnu odolnosť."
+      "description": "Dlhší beh v prevažne nízkej intenzite, zameraný na vytrvalosť, toleranciu záťaže nôh a mentálnu odolnosť.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "run_tempo": {
       "id": "run_tempo",
       "sport": "run",
       "label": "Tempo run",
-      "description": "Sústredený beh v stredne vysokej intenzite, zvyčajne mierne pod alebo okolo pretekového tempa na 10 km."
+      "description": "Sústredený beh v stredne vysokej intenzite, zvyčajne mierne pod alebo okolo pretekového tempa na 10 km.",
+      "defaults": {
+        "warmup": 12,
+        "cooldown": 8
+      }
     },
     "run_threshold": {
       "id": "run_threshold",
       "sport": "run",
       "label": "Threshold run",
-      "description": "Beh v okolí laktátového prahu (Z3–Z4), zameraný na zlepšenie udržateľného rýchleho tempa a ekonomiky."
+      "description": "Beh v okolí laktátového prahu (Z3–Z4), zameraný na zlepšenie udržateľného rýchleho tempa a ekonomiky.",
+      "defaults": {
+        "warmup": 15,
+        "cooldown": 10
+      }
     },
     "run_intervals": {
       "id": "run_intervals",
       "sport": "run",
       "label": "Intervaly",
-      "description": "Opakované úseky v vyššej intenzite s oddychom medzi, zamerané na rýchlosť, silu nôh a odolnosť voči únave."
+      "description": "Opakované úseky v vyššej intenzite s oddychom medzi, zamerané na rýchlosť, silu nôh a odolnosť voči únave.",
+      "defaults": {
+        "warmup": 15,
+        "cooldown": 10
+      }
     },
     "run_vo2max": {
       "id": "run_vo2max",
       "sport": "run",
       "label": "VO2max intervals",
-      "description": "Krátke až stredné intervaly vo veľmi vysokej intenzite (Z4–Z5) na zvýšenie VO2max a maximálnej aeróbnej kapacity."
+      "description": "Krátke až stredné intervaly vo veľmi vysokej intenzite (Z4–Z5) na zvýšenie VO2max a maximálnej aeróbnej kapacity.",
+      "defaults": {
+        "warmup": 15,
+        "cooldown": 10
+      }
     },
     "run_hill_repeats": {
       "id": "run_hill_repeats",
       "sport": "run",
       "label": "Hill repeats",
-      "description": "Opakované výbehy kopcov na rozvoj sily nôh, techniky a odolnosti voči stúpaním, často v Z3–Z5."
+      "description": "Opakované výbehy kopcov na rozvoj sily nôh, techniky a odolnosti voči stúpaním, často v Z3–Z5.",
+      "defaults": {
+        "warmup": 12,
+        "cooldown": 8
+      }
     },
     "run_progression": {
       "id": "run_progression",
       "sport": "run",
       "label": "Progression run",
-      "description": "Beh, kde sa tempo postupne zrýchľuje od easy po tempo/threshold, zameraný na kontrolu tempa a finish."
+      "description": "Beh, kde sa tempo postupne zrýchľuje od easy po tempo/threshold, zameraný na kontrolu tempa a finish.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 10
+      }
     },
     "run_fartlek": {
       "id": "run_fartlek",
       "sport": "run",
       "label": "Fartlek",
-      "description": "Striedanie rýchlejších a pomalších úsekov podľa pocitu alebo jednoduchého vzoru, hravý rozvoj rýchlosti a vytrvalosti."
+      "description": "Striedanie rýchlejších a pomalších úsekov podľa pocitu alebo jednoduchého vzoru, hravý rozvoj rýchlosti a vytrvalosti.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 8
+      }
     },
     "run_strides": {
       "id": "run_strides",
       "sport": "run",
       "label": "Strides",
-      "description": "Krátke svižné rovinky (15–30 s) s plnou regeneráciou, zamerané na techniku, kadenciu a pocit rýchlosti."
+      "description": "Krátke svižné rovinky (15–30 s) s plnou regeneráciou, zamerané na techniku, kadenciu a pocit rýchlosti.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 10
+      }
     },
     "run_race_pace": {
       "id": "run_race_pace",
       "sport": "run",
       "label": "Race-pace run",
-      "description": "Beh alebo intervaly v tempe plánovaného preteku (5 km, 10 km, polmaratón), na nácvik tempa a stratégie."
+      "description": "Beh alebo intervaly v tempe plánovaného preteku (5 km, 10 km, polmaratón), na nácvik tempa a stratégie.",
+      "defaults": {
+        "warmup": 15,
+        "cooldown": 10
+      }
     }
   },
   "strength": {
@@ -78,73 +126,121 @@
       "id": "strength_full_body",
       "sport": "strength",
       "label": "Full-body strength",
-      "description": "Komplexný tréning celého tela so základnými cvikmi, zameraný na funkčnú silu a stabilitu."
+      "description": "Komplexný tréning celého tela so základnými cvikmi, zameraný na funkčnú silu a stabilitu.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_upper": {
       "id": "strength_upper",
       "sport": "strength",
       "label": "Upper body",
-      "description": "Silový tréning zameraný na vrch tela (ťahy, tlaky, ramená), dôležitý pre držanie tela a OCR."
+      "description": "Silový tréning zameraný na vrch tela (ťahy, tlaky, ramená), dôležitý pre držanie tela a OCR.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_lower": {
       "id": "strength_lower",
       "sport": "strength",
       "label": "Lower body",
-      "description": "Tréning zameraný na nohy (drepy, výpady, zadok, hamstringy) pre beh, kopce a odolnosť voči zraneniam."
+      "description": "Tréning zameraný na nohy (drepy, výpady, zadok, hamstringy) pre beh, kopce a odolnosť voči zraneniam.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_core": {
       "id": "strength_core",
       "sport": "strength",
       "label": "Core & stability",
-      "description": "Tréning stredu tela, stability a kontrolovaného pohybu, dôležitý pre ekonomiku behu a prevenciu bolesti chrbta."
+      "description": "Tréning stredu tela, stability a kontrolovaného pohybu, dôležitý pre ekonomiku behu a prevenciu bolesti chrbta.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_ocr_grip": {
       "id": "strength_ocr_grip",
       "sport": "strength",
       "label": "OCR / grip",
-      "description": "Tréning úchopu, chrbta a ťahových vzorov pre prekážkové behy (TRX, hrazda, úchopy, farmer’s walk)."
+      "description": "Tréning úchopu, chrbta a ťahových vzorov pre prekážkové behy (TRX, hrazda, úchopy, farmer’s walk).",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_max": {
       "id": "strength_max",
       "sport": "strength",
       "label": "Max strength",
-      "description": "Ťažké váhy s nízkym počtom opakovaní, cieľom je zvýšiť maximálnu silu a nervovo-svalovú koordináciu."
+      "description": "Ťažké váhy s nízkym počtom opakovaní, cieľom je zvýšiť maximálnu silu a nervovo-svalovú koordináciu.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_hypertrophy": {
       "id": "strength_hypertrophy",
       "sport": "strength",
       "label": "Hypertrophy",
-      "description": "Stredné váhy a vyšší počet opakovaní na budovanie svalovej hmoty a zlepšenie tolerance objemu."
+      "description": "Stredné váhy a vyšší počet opakovaní na budovanie svalovej hmoty a zlepšenie tolerance objemu.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_tabata": {
       "id": "strength_tabata",
       "sport": "strength",
       "label": "Tabata",
-      "description": "Krátke vysoko intenzívne intervaly (napr. 20 s práca / 10 s pauza), zamerané na kondíciu a metabolický stres."
+      "description": "Krátke vysoko intenzívne intervaly (napr. 20 s práca / 10 s pauza), zamerané na kondíciu a metabolický stres.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_hiit": {
       "id": "strength_hiit",
       "sport": "strength",
       "label": "HIIT",
-      "description": "Vysoko intenzívny intervalový tréning celého tela, často v kruhoch, s krátkymi pauzami."
+      "description": "Vysoko intenzívny intervalový tréning celého tela, často v kruhoch, s krátkymi pauzami.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_emom": {
       "id": "strength_emom",
       "sport": "strength",
       "label": "EMOM",
-      "description": "Every Minute On the Minute – na začiatku každej minúty predpísané opakovania, potom zvyšok minúty oddych."
+      "description": "Every Minute On the Minute – na začiatku každej minúty predpísané opakovania, potom zvyšok minúty oddych.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_circuit": {
       "id": "strength_circuit",
       "sport": "strength",
       "label": "Circuit training",
-      "description": "Kruhový tréning s viacerými stanovišťami, striedajúci cviky na celé telo pre silu aj kondíciu."
+      "description": "Kruhový tréning s viacerými stanovišťami, striedajúci cviky na celé telo pre silu aj kondíciu.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "strength_pyramid": {
       "id": "strength_pyramid",
       "sport": "strength",
       "label": "Pyramid",
-      "description": "Postupné zvyšovanie a následné znižovanie počtu opakovaní alebo váhy, zamerané na silu aj vytrvalosť."
+      "description": "Postupné zvyšovanie a následné znižovanie počtu opakovaní alebo váhy, zamerané na silu aj vytrvalosť.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     }
   },
   "ride": {
@@ -152,61 +248,101 @@
       "id": "ride_easy_endurance",
       "sport": "ride",
       "label": "Easy endurance",
-      "description": "Pokojná jazda v nízkej intenzite, zameraná na vytrvalosť a objem bez veľkej únavy."
+      "description": "Pokojná jazda v nízkej intenzite, zameraná na vytrvalosť a objem bez veľkej únavy.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "ride_recovery_spin": {
       "id": "ride_recovery_spin",
       "sport": "ride",
       "label": "Recovery spin",
-      "description": "Veľmi ľahká, krátka jazda s nízkym odporom na rozhýbanie nôh a podporu regenerácie."
+      "description": "Veľmi ľahká, krátka jazda s nízkym odporom na rozhýbanie nôh a podporu regenerácie.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "ride_long": {
       "id": "ride_long",
       "sport": "ride",
       "label": "Long ride",
-      "description": "Dlhšia jazda v nízkej až strednej intenzite, buduje základnú cyklo vytrvalosť a toleranciu sedu."
+      "description": "Dlhšia jazda v nízkej až strednej intenzite, buduje základnú cyklo vytrvalosť a toleranciu sedu.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "ride_tempo": {
       "id": "ride_tempo",
       "sport": "ride",
       "label": "Tempo ride",
-      "description": "Jazda v stredne vysokej intenzite, nad komfortnou Z2, zameraná na udržateľnú silu a výkon."
+      "description": "Jazda v stredne vysokej intenzite, nad komfortnou Z2, zameraná na udržateľnú silu a výkon.",
+      "defaults": {
+        "warmup": 12,
+        "cooldown": 8
+      }
     },
     "ride_sweet_spot": {
       "id": "ride_sweet_spot",
       "sport": "ride",
       "label": "Sweet spot",
-      "description": "Jazda alebo intervaly tesne pod prahom (okolo sweet-spotu), efektívny kompromis medzi objemom a intenzitou."
+      "description": "Jazda alebo intervaly tesne pod prahom (okolo sweet-spotu), efektívny kompromis medzi objemom a intenzitou.",
+      "defaults": {
+        "warmup": 12,
+        "cooldown": 8
+      }
     },
     "ride_threshold": {
       "id": "ride_threshold",
       "sport": "ride",
       "label": "Threshold intervals",
-      "description": "Intervaly v okolí funkčného prahového výkonu (FTP), zamerané na zlepšenie udržateľného výkonu."
+      "description": "Intervaly v okolí funkčného prahového výkonu (FTP), zamerané na zlepšenie udržateľného výkonu.",
+      "defaults": {
+        "warmup": 15,
+        "cooldown": 10
+      }
     },
     "ride_vo2max": {
       "id": "ride_vo2max",
       "sport": "ride",
       "label": "VO2max intervals",
-      "description": "Krátke intervaly vo vysokej intenzite nad prahom, zamerané na zvýšenie VO2max a toleranciu vysokého výkonu."
+      "description": "Krátke intervaly vo vysokej intenzite nad prahom, zamerané na zvýšenie VO2max a toleranciu vysokého výkonu.",
+      "defaults": {
+        "warmup": 15,
+        "cooldown": 10
+      }
     },
     "ride_sprints": {
       "id": "ride_sprints",
       "sport": "ride",
       "label": "Sprints",
-      "description": "Krátke maximálne šprinty s plnou regeneráciou, zamerané na neuromuskulárnu silu a špičkový výkon."
+      "description": "Krátke maximálne šprinty s plnou regeneráciou, zamerané na neuromuskulárnu silu a špičkový výkon.",
+      "defaults": {
+        "warmup": 12,
+        "cooldown": 10
+      }
     },
     "ride_hill_repeats": {
       "id": "ride_hill_repeats",
       "sport": "ride",
       "label": "Hill repeats",
-      "description": "Opakované výjazdy do kopca, zamerané na silu nôh, kadenciu a zvládanie stúpaní."
+      "description": "Opakované výjazdy do kopca, zamerané na silu nôh, kadenciu a zvládanie stúpaní.",
+      "defaults": {
+        "warmup": 12,
+        "cooldown": 8
+      }
     },
     "ride_cadence_drills": {
       "id": "ride_cadence_drills",
       "sport": "ride",
       "label": "Cadence drills",
-      "description": "Cielené bloky s vyššou alebo nižšou kadenciou, na zlepšenie šliapania a kontroly nad frekvenciou."
+      "description": "Cielené bloky s vyššou alebo nižšou kadenciou, na zlepšenie šliapania a kontroly nad frekvenciou.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 8
+      }
     }
   },
   "swim": {
@@ -214,43 +350,75 @@
       "id": "swim_easy_technique",
       "sport": "swim",
       "label": "Easy / technique",
-      "description": "Pokojné plávanie s dôrazom na techniku, dýchanie a pocit z vody, minimálna intenzita."
+      "description": "Pokojné plávanie s dôrazom na techniku, dýchanie a pocit z vody, minimálna intenzita.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "swim_endurance": {
       "id": "swim_endurance",
       "sport": "swim",
       "label": "Endurance",
-      "description": "Dlhšie úseky v strednej intenzite na budovanie vytrvalosti a ekonomiky plávania."
+      "description": "Dlhšie úseky v strednej intenzite na budovanie vytrvalosti a ekonomiky plávania.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "swim_intervals": {
       "id": "swim_intervals",
       "sport": "swim",
       "label": "Intervals",
-      "description": "Opakované úseky s pevne danou dĺžkou a pauzou, zamerané na rýchlosť a kondíciu."
+      "description": "Opakované úseky s pevne danou dĺžkou a pauzou, zamerané na rýchlosť a kondíciu.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 10
+      }
     },
     "swim_threshold": {
       "id": "swim_threshold",
       "sport": "swim",
       "label": "Threshold",
-      "description": "Úseky v okolí prahu, zamerané na schopnosť udržať vyššie tempo s dobrou technikou."
+      "description": "Úseky v okolí prahu, zamerané na schopnosť udržať vyššie tempo s dobrou technikou.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 10
+      }
     },
     "swim_speed": {
       "id": "swim_speed",
       "sport": "swim",
       "label": "Speed",
-      "description": "Krátke rýchlostné úseky s dôrazom na explozívnu silu a techniku pri vyššom tempe."
+      "description": "Krátke rýchlostné úseky s dôrazom na explozívnu silu a techniku pri vyššom tempe.",
+      "defaults": {
+        "warmup": 10,
+        "cooldown": 10
+      }
     },
     "swim_drills": {
       "id": "swim_drills",
       "sport": "swim",
       "label": "Drills",
-      "description": "Technické cvičenia (napr. jednoruké plávanie, catch-up) na zlepšenie zábere, polohy tela a dýchania."
+      "description": "Technické cvičenia (napr. jednoruké plávanie, catch-up) na zlepšenie zábere, polohy tela a dýchania.",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     },
     "swim_open_water_sim": {
       "id": "swim_open_water_sim",
       "sport": "swim",
       "label": "Open water simulation",
-      "description": "Tréning simulujúci otvorenú vodu (dlhšie úseky, menej odpočinku, orientácia, kontinuálne tempo)."
+      "description": "Tréning simulujúci otvorenú vodu (dlhšie úseky, menej odpočinku, orientácia, kontinuálne tempo).",
+      "defaults": {
+        "warmup": "none",
+        "cooldown": "none"
+      }
     }
+  },
+  "_meta": {
+    "version": 1,
+    "notes": "WU/CD defaults per session type. 'none' means do not explicitly model warmup/cooldown for this type."
   }
 }

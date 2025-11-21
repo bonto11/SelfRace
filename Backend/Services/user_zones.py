@@ -10,11 +10,16 @@ Sport = Literal["running", "cycling", "other"]
 class ZonesOut(TypedDict, total=False):
     sport: Sport
     hr_max: Optional[int]
-    z1_min: Optional[int]; z1_max: Optional[int]
-    z2_min: Optional[int]; z2_max: Optional[int]
-    z3_min: Optional[int]; z3_max: Optional[int]
-    z4_min: Optional[int]; z4_max: Optional[int]
-    z5_min: Optional[int]; z5_max: Optional[int]
+    z1_min: Optional[int]
+    z1_max: Optional[int]
+    z2_min: Optional[int]
+    z2_max: Optional[int]
+    z3_min: Optional[int]
+    z3_max: Optional[int]
+    z4_min: Optional[int]
+    z4_max: Optional[int]
+    z5_min: Optional[int]
+    z5_max: Optional[int]
     created_at: Optional[str]
 
 
@@ -37,29 +42,45 @@ def _canon_sport(s: Optional[str]) -> Sport:
 
 
 def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
-    hr_max = _num(row.get("hr_max_bpm")) or _num(row.get("HR_max_bpm")) or _num(row.get("HR_max"))
+    hr_max = (
+        _num(row.get("hr_max_bpm"))
+        or _num(row.get("HR_max_bpm"))
+        or _num(row.get("HR_max"))
+    )
 
     z1_max = _num(row.get("z1_max_bpm"))
-    z2_min = _num(row.get("z2_min_bpm")); z2_max = _num(row.get("z2_max_bpm"))
-    z3_min = _num(row.get("z3_min_bpm")); z3_max = _num(row.get("z3_max_bpm"))
-    z4_min = _num(row.get("z4_min_bpm")); z4_max = _num(row.get("z4_max_bpm"))
+    z2_min = _num(row.get("z2_min_bpm"))
+    z2_max = _num(row.get("z2_max_bpm"))
+    z3_min = _num(row.get("z3_min_bpm"))
+    z3_max = _num(row.get("z3_max_bpm"))
+    z4_min = _num(row.get("z4_min_bpm"))
+    z4_max = _num(row.get("z4_max_bpm"))
     z5_min = _num(row.get("z5_min_bpm"))
 
     z1_min = 0
-    if z2_min is None and z1_max is not None: z2_min = z1_max + 1
-    if z3_min is None and z2_max is not None: z3_min = z2_max + 1
-    if z4_min is None and z3_max is not None: z4_min = z3_max + 1
-    if z5_min is None and z4_max is not None: z5_min = z4_max + 1
+    if z2_min is None and z1_max is not None:
+        z2_min = z1_max + 1
+    if z3_min is None and z2_max is not None:
+        z3_min = z2_max + 1
+    if z4_min is None and z3_max is not None:
+        z4_min = z3_max + 1
+    if z5_min is None and z4_max is not None:
+        z5_min = z4_max + 1
     z5_max = hr_max
 
     return {
         "sport": _canon_sport(row.get("sport")),
         "hr_max": hr_max,
-        "z1_min": z1_min, "z1_max": z1_max,
-        "z2_min": z2_min, "z2_max": z2_max,
-        "z3_min": z3_min, "z3_max": z3_max,
-        "z4_min": z4_min, "z4_max": z4_max,
-        "z5_min": z5_min, "z5_max": z5_max,
+        "z1_min": z1_min,
+        "z1_max": z1_max,
+        "z2_min": z2_min,
+        "z2_max": z2_max,
+        "z3_min": z3_min,
+        "z3_max": z3_max,
+        "z4_min": z4_min,
+        "z4_max": z4_max,
+        "z5_min": z5_min,
+        "z5_max": z5_max,
         "created_at": row.get("created_at"),
     }
 
@@ -86,7 +107,7 @@ def load_user_zones_all_latest(user_id: int) -> Dict[str, ZonesOut]:
         .execute()
     )
     out: Dict[str, ZonesOut] = {}
-    for r in (res.data or []):
+    for r in res.data or []:
         s = _canon_sport(r.get("sport"))
         if s not in out:
             out[s] = _normalize_out(r)
@@ -94,15 +115,22 @@ def load_user_zones_all_latest(user_id: int) -> Dict[str, ZonesOut]:
 
 
 def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
-    hr_max = _num(payload.get("hr_max")) or _num(payload.get("hr_max_bpm")) or _num(payload.get("z5_max"))
+    hr_max = (
+        _num(payload.get("hr_max"))
+        or _num(payload.get("hr_max_bpm"))
+        or _num(payload.get("z5_max"))
+    )
     return {
         "user_id": user_id,
         "sport": _canon_sport(payload.get("sport")),
         "hr_max_bpm": hr_max,
         "z1_max_bpm": _num(payload.get("z1_max")),
-        "z2_min_bpm": _num(payload.get("z2_min")), "z2_max_bpm": _num(payload.get("z2_max")),
-        "z3_min_bpm": _num(payload.get("z3_min")), "z3_max_bpm": _num(payload.get("z3_max")),
-        "z4_min_bpm": _num(payload.get("z4_min")), "z4_max_bpm": _num(payload.get("z4_max")),
+        "z2_min_bpm": _num(payload.get("z2_min")),
+        "z2_max_bpm": _num(payload.get("z2_max")),
+        "z3_min_bpm": _num(payload.get("z3_min")),
+        "z3_max_bpm": _num(payload.get("z3_max")),
+        "z4_min_bpm": _num(payload.get("z4_min")),
+        "z4_max_bpm": _num(payload.get("z4_max")),
         "z5_min_bpm": _num(payload.get("z5_min")),
     }
 
@@ -113,7 +141,9 @@ def save_user_zones(user_id: int, payload: Dict[str, Any]) -> ZonesOut:
     return load_user_zones(user_id, row["sport"]) or {"sport": row["sport"]}  # type: ignore[return-value]
 
 
-def choose_best_zones(user_id: int, preferred_sport: Optional[str] = None) -> Optional[ZonesOut]:
+def choose_best_zones(
+    user_id: int, preferred_sport: Optional[str] = None
+) -> Optional[ZonesOut]:
     z = load_user_zones(user_id, preferred_sport)
     if z:
         return z

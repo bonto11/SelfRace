@@ -45,7 +45,7 @@ export interface Preferences {
   long_run_days?: DayAbbrev[];
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
-  wu_cd_detail: boolean;
+  avoid_two_a_day: boolean;
   include_strides?: boolean;
 }
 
@@ -123,8 +123,8 @@ export type CoachPrefs = {
   preferences?: Preferences;
 
   // legacy aliases
-  prefer_two_hard_days_apart?: boolean;
-  include_wu_cd_details?: boolean;
+  avoid_back_to_back_hard?: boolean;
+  avoid_two_a_day?: boolean;
   preferred_long_run_days?: DayAbbrev[];
 
   goal_text_override?: string;
@@ -173,7 +173,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     long_run_days: ["Sat", "Sun"],
     avoid_back_to_back_hard: true,
     use_zones: true,
-    wu_cd_detail: true,
+    avoid_two_a_day: true,
   },
   coach_voice: "motivator",
   coach_tone: { directness: 55, praise: 80, challenge: 60, emoji: 35, explain: 55 },

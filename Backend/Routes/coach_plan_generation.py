@@ -12,9 +12,7 @@ import os, json, time
 import urllib.request
 
 
-def _ai_debug_insert(
-    row: Dict[str, Any]
-) -> None:
+def _ai_debug_insert(row: Dict[str, Any]) -> None:
     """
     INSERT do public.ai_debug cez Supabase REST. Bezpečne no-op ak chýbajú envy.
     ENV:
@@ -46,9 +44,11 @@ def _ai_debug_insert(
         # nerob nič – audit je best-effort
         pass
 
+
 router = APIRouter(prefix="/coach", tags=["coach"])
 
-DOW3 = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+DOW3 = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 
 def _norm_goal(goal_in, fallback_kind: Optional[str] = None) -> str:
     """
@@ -178,6 +178,7 @@ def _normalize_payload(payload: dict) -> dict:
         "_raw": payload,
     }
 
+
 # --- ZONES: vyber najlepší zdroj z ctx alebo z payloadu ---
 def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
     """
@@ -199,7 +200,7 @@ def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
         z2 = raw.get("zones")
         if isinstance(z2, dict) and z2:
             return z2
-        # 3) prefs.value.zones (typické pre tvoje FE)
+        # 3) prefs.value.zones (typické pre FE)
         prefs = raw.get("prefs") or {}
         if isinstance(prefs, dict):
             val = prefs.get("value") or {}
@@ -208,10 +209,12 @@ def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
                 if isinstance(z3, dict) and z3:
                     return z3
     return {}
-# ---- strict BE validácia bez dopĺňania ----
-# --- HARD CONSTRAINTS: výpočet OFF dní (days_off + externals) ---
+
+
+# ---- HARD CONSTRAINTS: výpočet OFF dní (days_off + externals) ----
 def _iso(d) -> str:
     return time.strftime("%Y-%m-%d", time.gmtime(d))
+
 
 def _compute_no_sessions_on(
     plan_start_iso: Optional[str],
@@ -235,7 +238,7 @@ def _compute_no_sessions_on(
     horizon = weeks * 7
     off = set()
 
-    want = { (d or "").strip()[:3].title() for d in (days_off or []) if d }
+    want = {(d or "").strip()[:3].title() for d in (days_off or []) if d}
     for i in range(horizon):
         d = start + timedelta(days=i)
         if DOW3[d.weekday()] in want:
@@ -262,6 +265,8 @@ def _compute_no_sessions_on(
 
     return sorted(off)
 
+
+# ---- STRICT BE validácia ----------------------------
 def _validate_next10(
     parsed: Dict[str, Any], must_start: Optional[str], rules: Optional[Dict[str, Any]]
 ) -> None:
@@ -296,7 +301,6 @@ def _validate_next10(
 
             # ---- RUN checks ----
             if is_run:
-                # HR už nie je povinný – budeme ho dopĺňať podľa session_type + zóny.
                 dur = s.get("duration_min")
                 if not isinstance(dur, (int, float)) or dur <= 0:
                     raise HTTPException(
@@ -338,7 +342,8 @@ def _validate_next10(
             detail=f"next_10_days must start at plan_start_date {must_start}",
         )
 
-# --- HARD CONSTRAINTS: validácia a oprava návratu AI ---
+
+# ---- HARD CONSTRAINTS: post-fix (OFF dni + per-day limit) ----
 def _fix_plan_offdays_and_per_day_limit(
     parsed: Dict[str, Any],
     banned_dates: List[str],
@@ -368,25 +373,37 @@ def _fix_plan_offdays_and_per_day_limit(
             for s in sessions:
                 sport = (s.get("sport") or "").lower()
                 title = (s.get("title") or "").lower()
-                if sport in ("other","rest") or "rest" in title:
-                    keep = [ { "title":"Rest Day", "sport":"other", "duration_min":0, "session_type":"rest_day" } ]
+                if sport in ("other", "rest") or "rest" in title:
+                    keep = [
+                        {
+                            "title": "Rest Day",
+                            "sport": "other",
+                            "duration_min": 0,
+                            "session_type": "rest_day",
+                        }
+                    ]
                     break
             else:
-                keep = [ { "title":"Rest Day", "sport":"other", "duration_min":0, "session_type":"rest_day" } ]
+                keep = [
+                    {
+                        "title": "Rest Day",
+                        "sport": "other",
+                        "duration_min": 0,
+                        "session_type": "rest_day",
+                    }
+                ]
         else:
-            # necháme poradie AI, dobrovoľne limitujeme na 1 tréning/deň (priorita 1. položka)
+            # necháme poradie AI, dobrovoľne limitujeme podľa flagu
             for s in sessions:
                 if max_one_session_per_day and len(keep) >= 1:
                     break
                 keep.append(s)
 
-        fixed_days.append({
-            "day": d,
-            "sessions": keep
-        })
+        fixed_days.append({"day": d, "sessions": keep})
 
     parsed["next_10_days"] = fixed_days
     return parsed
+
 
 @router.post("/analyze/{user_id}")
 def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
@@ -400,14 +417,19 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
 
         # --- HARD CONSTRAINTS: priprava dátumov OFF dní ---
         rules = norm.get("rules") or {}
+        avoid_two = bool(rules.get("avoid_two_a_day", False))
+
         no_sessions_on = _compute_no_sessions_on(
             plan_start_iso=norm.get("plan_start_date"),
             weeks=weeks,
             days_off=rules.get("days_off") or [],
-            externals=norm.get("externals") or []
+            externals=norm.get("externals") or [],
         )
 
         zones_payload = _best_zones_for_context(norm, ctx)
+
+        rules_for_prompt = dict(rules or {})
+        rules_for_prompt["avoid_two_a_day"] = avoid_two
 
         llm_input = {
             "goal": norm["goal"],
@@ -417,7 +439,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             "main_sport": norm["main_sport"],
             "secondary_mix": norm["secondary_mix"],
             "targets": norm["targets"],
-            "rules": rules,
+            "rules": rules_for_prompt,
             "externals": norm.get("externals") or [],
             "injuries": norm["injuries"],
             "focus": norm["focus"],
@@ -439,20 +461,22 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             # --- HARD CONSTRAINTS -> do promptu ---
             "hard_constraints": {
                 "no_sessions_on": no_sessions_on,
-                "max_one_session_per_day": False,
+                "max_one_session_per_day": bool(avoid_two),
             },
         }
 
         # --- AI_DEBUG: log INPUT (pred volaním AI) ---
-        _ai_debug_insert({
-            "user_id": user_id,
-            "route": "/api/coach/analyze",
-            "model": DEFAULT_MODEL,
-            "payload_json": llm_input,
-            "response_json": None,
-            "ok": True,
-            "note": "ai_debug_v1: input",
-        })
+        _ai_debug_insert(
+            {
+                "user_id": user_id,
+                "route": "/api/coach/analyze",
+                "model": DEFAULT_MODEL,
+                "payload_json": llm_input,
+                "response_json": None,
+                "ok": True,
+                "note": "ai_debug_v1: input",
+            }
+        )
 
         parsed, debug_trace = generate_plan_json(
             llm_input,
@@ -463,15 +487,17 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
         used_model = (debug_trace or {}).get("ok_model") or DEFAULT_MODEL
 
         if parsed is None:
-            _ai_debug_insert({
-                "user_id": user_id,
-                "route": "/api/coach/analyze",
-                "model": used_model,
-                "payload_json": llm_input,
-                "response_json": (debug_trace or {}).get("raw"),
-                "ok": False,
-                "note": "ai_debug_v1: parsed None",
-            })
+            _ai_debug_insert(
+                {
+                    "user_id": user_id,
+                    "route": "/api/coach/analyze",
+                    "model": used_model,
+                    "payload_json": llm_input,
+                    "response_json": (debug_trace or {}).get("raw"),
+                    "ok": False,
+                    "note": "ai_debug_v1: parsed None",
+                }
+            )
             return {
                 "success": False,
                 "error": "AI generation failed (no parsed content).",
@@ -479,7 +505,7 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                 "cleaned": (debug_trace or {}).get("cleaned"),
             }
 
-         # BE VALIDÁCIA – ako doteraz
+        # BE VALIDÁCIA – ako doteraz
         try:
             _validate_next10(parsed, norm.get("plan_start_date"), norm.get("rules"))
         except Exception as e:
@@ -491,15 +517,17 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                     "ok_model": debug_trace.get("ok_model"),
                 }
             # aj pri chybe zaloguj RAW
-            _ai_debug_insert({
-                "user_id": user_id,
-                "route": "/api/coach/analyze",
-                "model": used_model,
-                "payload_json": llm_input,
-                "response_json": (debug_trace or {}).get("raw"),
-                "ok": False,
-                "note": f"ai_debug_v1: validate_error: {str(e)[:120]}",
-            })
+            _ai_debug_insert(
+                {
+                    "user_id": user_id,
+                    "route": "/api/coach/analyze",
+                    "model": used_model,
+                    "payload_json": llm_input,
+                    "response_json": (debug_trace or {}).get("raw"),
+                    "ok": False,
+                    "note": f"ai_debug_v1: validate_error: {str(e)[:120]}",
+                }
+            )
             return {
                 "success": False,
                 "error": str(e),
@@ -508,11 +536,11 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
                 "ai_debug": slim_debug,
             }
 
-        # --- HARD CONSTRAINTS: post-fix (off-days + max one per day) ---
+        # --- HARD CONSTRAINTS: post-fix (off-days + limit podľa avoid_two_a_day) ---
         parsed = _fix_plan_offdays_and_per_day_limit(
             parsed,
             banned_dates=no_sessions_on,
-            max_one_session_per_day=True,
+            max_one_session_per_day=bool(avoid_two),
         )
 
         narr = build_progress_narrative(ctx, weeks)
@@ -526,15 +554,17 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
             }
 
         # --- AI_DEBUG: log OUTPUT (po fixoch) ---
-        _ai_debug_insert({
-            "user_id": user_id,
-            "route": "/api/coach/analyze",
-            "model": used_model,
-            "payload_json": llm_input,
-            "response_json": parsed,
-            "ok": True,
-            "note": "ai_debug_v1: output",
-        })
+        _ai_debug_insert(
+            {
+                "user_id": user_id,
+                "route": "/api/coach/analyze",
+                "model": used_model,
+                "payload_json": llm_input,
+                "response_json": parsed,
+                "ok": True,
+                "note": "ai_debug_v1: output",
+            }
+        )
 
         return {
             "success": True,
@@ -547,13 +577,15 @@ def coach_analyze(user_id: int, request: Request, payload: dict = Body(...)):
     except HTTPException:
         raise
     except Exception as e:
-        _ai_debug_insert({
-            "user_id": user_id,
-            "route": "/api/coach/analyze",
-            "model": DEFAULT_MODEL,
-            "payload_json": {"error_at": "exception", "payload": payload},
-            "response_json": {"exception": str(e)},
-            "ok": False,
-            "note": "ai_debug_v1: exception",
-        })
+        _ai_debug_insert(
+            {
+                "user_id": user_id,
+                "route": "/api/coach/analyze",
+                "model": DEFAULT_MODEL,
+                "payload_json": {"error_at": "exception", "payload": payload},
+                "response_json": {"exception": str(e)},
+                "ok": False,
+                "note": "ai_debug_v1: exception",
+            }
+        )
         raise HTTPException(status_code=500, detail=str(e))

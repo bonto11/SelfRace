@@ -99,7 +99,7 @@ export default function PrefsForm() {
   }, []);
 
   const prefDefaults = (p: CoachPrefsExtended) =>
-    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, wu_cd_detail: true };
+    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, avoid_two_a_day: false };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] =>
     (arr ?? []).includes(v) ? (arr ?? []).filter((x) => x !== v) : [...(arr ?? []), v];
