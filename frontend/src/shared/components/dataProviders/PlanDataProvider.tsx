@@ -10,152 +10,165 @@ import React, {
 } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
+import {
+  todayISO,
+  addDays,
+} from "@/features/activity/utils/activity"; // používame rovnaké helpers ako aktivity
 
-// typ z DB
-export type PlannedSession = {
+/* ----------------- Typy ----------------- */
+
+export type PlanRow = {
   id: number;
   user_id: number;
-  plan_date: string; // YYYY-MM-DD
+  plan_date: string; // "YYYY-MM-DD"
   sport: string;
-  title: string | null;
-  duration_min: number | null;
-  intensity: string | null;
-  session_type: string | null;
-  session_index: number | null;
-  payload: any;
-  activity_id: number | null;
+  title?: string | null;
+  duration_min?: number | null;
+  intensity?: string | null;
+  plan_id?: string | null;
+  activity_id?: number | null;
+  session_type?: string | null;
+  session_index?: number | null;
+  payload?: any;
+  [key: string]: any;
 };
 
-type Ctx = {
-  rows: PlannedSession[];
+type PlanCtx = {
+  rangeStart: string;
+  rangeEnd: string;
+  rows: PlanRow[];
   loading: boolean;
   refresh: (force?: boolean) => Promise<void>;
-  selectPlanByRange: (start: string, end: string) => PlannedSession[];
+  selectPlanByRange: (start: string, end: string) => PlanRow[];
 };
 
-const PlanDataContext = createContext<Ctx | null>(null);
+const PlanDataContext = createContext<PlanCtx | null>(null);
 
-function hasSS() {
-  try {
-    return typeof window !== "undefined" && !!window.sessionStorage;
-  } catch {
-    return false;
-  }
-}
-
-function rangeKey(userId: number, start: string, end: string) {
-  return `PLAN:RANGE:${userId}:${start}:${end}`;
-}
-
-function saveRange(userId: number, start: string, end: string, rows: any[]) {
-  if (!hasSS()) return;
-  try {
-    sessionStorage.setItem(rangeKey(userId, start, end), JSON.stringify({ at: Date.now(), rows }));
-  } catch {}
-}
-
-function loadRange(userId: number, start: string, end: string) {
-  if (!hasSS()) return null;
-  try {
-    const raw = sessionStorage.getItem(rangeKey(userId, start, end));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.rows ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export function usePlanData() {
+export function usePlanData(): PlanCtx {
   const ctx = useContext(PlanDataContext);
-  if (!ctx) throw new Error("usePlanData must be used inside <PlanDataProvider>");
+  if (!ctx) {
+    throw new Error("usePlanData must be used inside <PlanDataProvider>");
+  }
   return ctx;
 }
 
+/* ----------------- Provider ----------------- */
+
 export function PlanDataProvider({
   children,
-  days = 90,
+  pastDays = 90,
+  futureDays = 15,
 }: {
   children: React.ReactNode;
-  days?: number;
+  pastDays?: number;
+  futureDays?: number;
 }) {
   const { userId } = useUserId();
-  const [rows, setRows] = useState<PlannedSession[]>([]);
+  const [rows, setRows] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const today = new Date();
-  const endIso = today.toISOString().slice(0, 10);
+  // today … minulosť  (pastDays-1) … + budúcnosť futureDays
+  const today = todayISO();
+  const rangeStart = addDays(today, -(pastDays - 1));
+  const rangeEnd = addDays(today, futureDays);
 
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - (days - 1));
-  const startIso = startDate.toISOString().slice(0, 10);
-
-  const doFetch = useCallback(
-    async (force: boolean) => {
-      if (!userId) return;
-
-      if (!force) {
-        const cached = loadRange(userId, startIso, endIso);
-        if (cached) {
-          setRows(cached);
-        }
+  const fetchRange = useCallback(
+    async (force = false): Promise<void> => {
+      if (userId == null) {
+        console.warn("[PLAN][provider] no userId -> skip fetchRange");
+        setRows([]);
+        return;
       }
+
+      const t0 = performance.now();
+      console.debug("[PLAN][provider] fetchRange", {
+        force,
+        userId,
+        rangeStart,
+        rangeEnd,
+      });
 
       setLoading(true);
       try {
-        const url = `${API_URL}/coach-plan/${userId}?date_from=${startIso}&date_to=${endIso}`;
-        const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const list = Array.isArray(json?.data) ? json.data : [];
+        const url = `${API_URL}/coach-plan/${userId}?date_from=${rangeStart}&date_to=${rangeEnd}`;
+        console.debug("[PLAN][fetch] ->", url);
 
-        list.sort((a: any, b: any) => {
-          if (a.plan_date === b.plan_date) {
-            return (a.session_index ?? 0) - (b.session_index ?? 0);
-          }
-          return a.plan_date.localeCompare(b.plan_date);
+        const res = await fetch(url, { cache: "no-store" });
+        const text = await res.text();
+        let json: any = {};
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          console.warn("[PLAN][fetch] JSON parse error, raw:", text.slice(0, 400));
+          throw e;
+        }
+
+        const list: any[] = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.rows)
+          ? json.rows
+          : [];
+
+        const norm: PlanRow[] = (list as any[])
+          .map((r, idx) => ({
+            ...r,
+            // fallbacky, keby niečo chýbalo
+            id: Number(r.id ?? idx),
+            user_id: Number(r.user_id ?? userId),
+            plan_date: String(r.plan_date).slice(0, 10),
+            sport: String(r.sport ?? "other"),
+          }))
+          .sort((a, b) => a.plan_date.localeCompare(b.plan_date));
+
+        console.debug("[PLAN][fetch] normalized", {
+          count: norm.length,
+          first: norm[0],
+          last: norm[norm.length - 1],
         });
 
-        setRows(list);
-        saveRange(userId, startIso, endIso, list);
+        setRows(norm);
       } catch (e) {
-        console.error("[PLAN][provider] fetch error:", e);
+        console.error("[PLAN][fetch] ERROR", e);
+        if (!force) setRows([]);
       } finally {
         setLoading(false);
+        console.debug("[PLAN][provider] fetchRange end", {
+          tookMs: Math.round(performance.now() - t0),
+        });
       }
     },
-    [userId, startIso, endIso]
+    [userId, rangeStart, rangeEnd]
   );
 
+  // init: keď sa zmení userId / range, načítaj
   useEffect(() => {
-    if (!userId) {
+    if (userId == null) {
       setRows([]);
       return;
     }
-    void doFetch(false);
-  }, [userId, doFetch]);
-
-  const refresh = useCallback(
-    async (force = true) => {
-      await doFetch(force);
-    },
-    [doFetch]
-  );
+    void fetchRange(true);
+  }, [userId, rangeStart, rangeEnd, fetchRange]);
 
   const selectPlanByRange = useCallback(
-    (start: string, end: string) => {
-      return rows.filter((r) => r.plan_date >= start && r.plan_date <= end);
+    (start: string, end: string): PlanRow[] => {
+      if (!rows.length) return [];
+      return rows.filter(
+        (r) => r.plan_date >= start && r.plan_date <= end
+      );
     },
     [rows]
   );
 
-  const value: Ctx = useMemo(
+  const value: PlanCtx = useMemo(
     () => ({
+      rangeStart,
+      rangeEnd,
       rows,
       loading,
-      refresh,
+      refresh: fetchRange,
       selectPlanByRange,
     }),
-    [rows, loading, refresh, selectPlanByRange]
+    [rangeStart, rangeEnd, rows, loading, fetchRange, selectPlanByRange]
   );
 
   return (
