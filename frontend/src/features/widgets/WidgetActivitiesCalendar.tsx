@@ -48,19 +48,14 @@ export default function WidgetWeekActivities({
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(
-    monday.getFullYear(),
-    monday.getMonth(),
-    monday.getDate()
-  );
-  const endIso = iso(
-    sunday.getFullYear(),
-    sunday.getMonth(),
-    sunday.getDate()
-  );
+  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const byDay = React.useMemo(() => {
-    const map = new Map<string, { id: number; sport: string }[]>();
+    const map = new Map<
+      string,
+      { id: number; sport: string; kind: "activity" | "plan" }[]
+    >();
 
     // init 7 dní
     for (let i = 0; i < 7; i++) {
@@ -77,30 +72,24 @@ export default function WidgetWeekActivities({
       (map.get(k) as any[]).push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
+        kind: "activity",
       });
     }
 
-    // plánované sessions (bez rest days)
+    // plán (bez REST)
     const planRows = selectPlanByRange(startIso, endIso);
     for (const p of planRows) {
-      const k = String((p as any).plan_date || (p as any).date).slice(0, 10);
+      const k = String(p.plan_date).slice(0, 10);
       if (!map.has(k)) continue;
 
-      const sport = (p as any).sport || "other";
-      const title = ((p as any).title || "").toLowerCase();
-      const duration = (p as any).duration_min;
-
-      const isRest =
-        sport === "other" &&
-        (!duration || Number(duration) <= 0) &&
-        title.includes("rest");
-
-      if (isRest) continue;
+      const title = String(p.title || "").toLowerCase();
+      const sType = String(p.session_type || "").toLowerCase();
+      if (sType === "rest" || title.startsWith("rest")) continue;
 
       (map.get(k) as any[]).push({
-        // plánom dáme záporné ID, aby sa nebil s activity_id
-        id: -Number((p as any).id ?? 0) || Math.random(),
-        sport,
+        id: p.id,
+        sport: p.sport || "other",
+        kind: "plan",
       });
     }
 
@@ -174,7 +163,7 @@ export default function WidgetWeekActivities({
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
                   {shown.map((it) => (
                     <span
-                      key={it.id}
+                      key={`${it.kind}-${it.id}`}
                       className="inline-block w-1.5 h-1.5 rounded-full"
                       style={{
                         backgroundColor:
