@@ -36,11 +36,6 @@ type Props = {
   perDayLimit?: number;
 };
 
-type DayAgg = {
-  activities: { id: number; sport: string }[];
-  planned: { id: number; sport: string; hasActivity: boolean }[];
-};
-
 export default function WidgetWeekActivities({
   openHref = "/calendar",
   perDayLimit = 6,
@@ -65,41 +60,47 @@ export default function WidgetWeekActivities({
   );
 
   const byDay = React.useMemo(() => {
-    const map = new Map<string, DayAgg>();
+    const map = new Map<string, { id: number; sport: string }[]>();
+
     // init 7 dní
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
-      map.set(key, { activities: [], planned: [] });
+      map.set(iso(d.getFullYear(), d.getMonth(), d.getDate()), []);
     }
 
-    // aktivity
-    const rows = selectByRange(startIso, endIso);
-    for (const r of rows) {
+    // reálne aktivity
+    const actRows = selectByRange(startIso, endIso);
+    for (const r of actRows) {
       const k = r.date.slice(0, 10);
-      const bucket = map.get(k);
-      if (!bucket) continue;
-      bucket.activities.push({
+      if (!map.has(k)) continue;
+      (map.get(k) as any[]).push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
       });
     }
 
-    // plánované sessions
+    // plánované sessions (bez rest days)
     const planRows = selectPlanByRange(startIso, endIso);
     for (const p of planRows) {
-      const k = String(p.plan_date).slice(0, 10);
-      const bucket = map.get(k);
-      if (!bucket) continue;
-      bucket.planned.push({
-        id: p.id,
-        sport:
-          (p as any).sport ||
-          (p as any).payload?.sport ||
-          (p as any).payload?.session_sport ||
-          "other",
-        hasActivity: !!(p as any).activity_id,
+      const k = String((p as any).plan_date || (p as any).date).slice(0, 10);
+      if (!map.has(k)) continue;
+
+      const sport = (p as any).sport || "other";
+      const title = ((p as any).title || "").toLowerCase();
+      const duration = (p as any).duration_min;
+
+      const isRest =
+        sport === "other" &&
+        (!duration || Number(duration) <= 0) &&
+        title.includes("rest");
+
+      if (isRest) continue;
+
+      (map.get(k) as any[]).push({
+        // plánom dáme záporné ID, aby sa nebil s activity_id
+        id: -Number((p as any).id ?? 0) || Math.random(),
+        sport,
       });
     }
 
@@ -140,7 +141,6 @@ export default function WidgetWeekActivities({
         ))}
       </div>
 
-      {/* 7 stĺpcov – klik otvára kalendár */}
       <div
         className="grid grid-cols-7 gap-2 cursor-pointer"
         onClick={handleOpen}
@@ -151,14 +151,8 @@ export default function WidgetWeekActivities({
           d.setDate(monday.getDate() + i);
 
           const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
-          const bucket = byDay.get(key) ?? { activities: [], planned: [] };
-          const actShown = bucket.activities.slice(0, perDayLimit);
-          const remainingSlots =
-            perDayLimit - actShown.length > 0 ? perDayLimit - actShown.length : 0;
-          const planShown = bucket.planned.slice(0, remainingSlots);
-
-          const totalCount = bucket.activities.length + bucket.planned.length;
-          const shownCount = actShown.length + planShown.length;
+          const items = byDay.get(key) ?? [];
+          const shown = items.slice(0, perDayLimit);
 
           const isToday = new Date().toDateString() === d.toDateString();
 
@@ -178,10 +172,9 @@ export default function WidgetWeekActivities({
                 </span>
 
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-                  {/* reálne aktivity – plné bodky */}
-                  {actShown.map((it) => (
+                  {shown.map((it) => (
                     <span
-                      key={`act-${it.id}`}
+                      key={it.id}
                       className="inline-block w-1.5 h-1.5 rounded-full"
                       style={{
                         backgroundColor:
@@ -189,22 +182,9 @@ export default function WidgetWeekActivities({
                       }}
                     />
                   ))}
-
-                  {/* plánované sessions – orámované krúžky */}
-                  {planShown.map((it) => (
-                    <span
-                      key={`plan-${it.id}`}
-                      className="inline-block w-1.5 h-1.5 rounded-full border border-dashed"
-                      style={{
-                        borderColor:
-                          SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
-                      }}
-                    />
-                  ))}
-
-                  {totalCount > shownCount && (
+                  {items.length > shown.length && (
                     <span className="text-[10px] opacity-70">
-                      +{totalCount - shownCount}
+                      +{items.length - shown.length}
                     </span>
                   )}
                 </div>
