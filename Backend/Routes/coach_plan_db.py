@@ -8,7 +8,7 @@ from datetime import date
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from Modules.SQL.db_handler import get_client
-from Configs.config import TABLE_COACH_PLANNED_SESSIONS
+from Configs.config import TABLE_COACH_PLAN_LOG
 
 router = APIRouter(prefix="/coach/plan", tags=["coach-plan"])
 supabase = get_client()
@@ -135,7 +135,7 @@ def get_active_plan(
     """
     try:
         base_q = (
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+            supabase.table(TABLE_COACH_PLAN_LOG)
             .select("*")
             .eq("user_id", user_id)
         )
@@ -147,7 +147,7 @@ def get_active_plan(
         if not plan_id:
             # distinct plan_id, najnovší created_at
             pid_res = (
-                supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+                supabase.table(TABLE_COACH_PLAN_LOG)
                 .select("plan_id, created_at")
                 .eq("user_id", user_id)
                 .not_.is_("plan_id", "null")  # len tie, čo majú plan_id
@@ -241,7 +241,7 @@ def save_plan(
     if overwrite:
         try:
             (
-                supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+                supabase.table(TABLE_COACH_PLAN_LOG)
                 .delete()
                 .eq("user_id", user_id)
                 .gte("plan_date", start_d.isoformat())
@@ -303,7 +303,7 @@ def save_plan(
         raise HTTPException(status_code=400, detail="No sessions to save")
 
     try:
-        res = supabase.table(TABLE_COACH_PLANNED_SESSIONS).insert(rows).execute()
+        res = supabase.table(TABLE_COACH_PLAN_LOG).insert(rows).execute()
         inserted = len(res.data or rows)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Insert failed: {e}")
