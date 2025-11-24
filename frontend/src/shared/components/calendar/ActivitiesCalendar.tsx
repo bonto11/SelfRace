@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
@@ -10,6 +11,11 @@ import {
   CALENDAR_DAY_CELL,
   NO_X_OVERFLOW,
 } from "@/shared/ui/classes";
+
+const ActivityTable = dynamic(
+  () => import("@/shared/components/ActivityTable"),
+  { ssr: false }
+);
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -26,8 +32,8 @@ type DayCellData = {
   iso: string;
   inMonth: boolean;
   day: number | null;
-  hasActivity: boolean;
-  hasPlan: boolean;
+  items: { id: number; sport: string; name: string }[];
+  planned: { id: number; sport: string; title: string | null; duration_min: number | null }[];
 };
 
 function daysInMonth(y: number, m0: number) {
@@ -36,6 +42,7 @@ function daysInMonth(y: number, m0: number) {
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 const iso = (y: number, m0: number, d: number) =>
   `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+// Po = 0
 const startWeekday = (y: number, m0: number) =>
   (new Date(y, m0, 1).getDay() + 6) % 7;
 
@@ -59,35 +66,48 @@ function useMonthData(year: number, month0: number) {
         iso: k,
         inMonth,
         day: inMonth ? d.getDate() : null,
-        hasActivity: false,
-        hasPlan: false,
+        items: [],
+        planned: [],
       };
     }
 
+    // reálne aktivity
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
-
-    // aktivity
     for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.hasActivity = true;
+      cell.items.push({
+        id: r.activity_id,
+        sport: (r as any).sport || (r as any).sport_type_fe || "other",
+        name: r.name || "",
+      });
     }
 
-    // plán (bez REST)
+    // plán – ignoruj rest days (sport "other" a duration_min <= 0)
     for (const p of planRows) {
       const dIso = String(p.plan_date).slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
+      const sport = (p as any).sport || "other";
+      const duration = p.duration_min ?? null;
+      const isRest =
+        sport === "other" ||
+        duration === 0 ||
+        (typeof (p as any).title === "string" &&
+          /(rest|volno)/i.test((p as any).title));
+
+      if (isRest) continue;
+
       const cell = grid[dIso];
       if (!cell) continue;
-
-      const title = String(p.title || "").toLowerCase();
-      const sType = String(p.session_type || "").toLowerCase();
-      if (sType === "rest" || title.startsWith("rest")) continue;
-
-      cell.hasPlan = true;
+      cell.planned.push({
+        id: p.id,
+        sport,
+        title: (p as any).title ?? (p as any).session_type ?? null,
+        duration_min: duration,
+      });
     }
 
     setMap(grid);
@@ -107,25 +127,12 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  // bodka za aktivity / plán – plán dáme mierne odlišnú (okraj)
-  const dots: JSX.Element[] = [];
-  if (cell.hasActivity) {
-    dots.push(
-      <span
-        key="act"
-        className="inline-block w-1.5 h-1.5 rounded-full"
-        style={{ backgroundColor: SPORT_COLORS.run }}
-      />
-    );
+  const dots: { key: string; sport: string }[] = [];
+  for (const it of cell.items) {
+    dots.push({ key: `a-${it.id}`, sport: it.sport });
   }
-  if (cell.hasPlan) {
-    dots.push(
-      <span
-        key="plan"
-        className="inline-block w-1.5 h-1.5 rounded-full border border-emerald-400"
-        style={{ backgroundColor: SPORT_COLORS.other }}
-      />
-    );
+  for (const it of cell.planned) {
+    dots.push({ key: `p-${it.id}`, sport: it.sport });
   }
 
   return (
@@ -147,7 +154,21 @@ function DayCell({
           {cell.day ?? ""}
         </span>
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-          {dots}
+          {dots.slice(0, 8).map((it) => (
+            <span
+              key={it.key}
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor:
+                  SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
+              }}
+            />
+          ))}
+          {dots.length > 8 && (
+            <span className="text-[10px] opacity-70">
+              +{dots.length - 8}
+            </span>
+          )}
         </div>
       </div>
     </button>
@@ -161,13 +182,12 @@ export default function ActivitiesCalendar({
   year?: number;
   month?: number;
 }) {
-  const { selectByRange } = useActivityData();
-  const { selectPlanByRange } = usePlanData();
-
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
+
+  const { rows: planRows } = usePlanData();
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -192,8 +212,8 @@ export default function ActivitiesCalendar({
           iso: k,
           inMonth: d.getMonth() === month0,
           day: d.getMonth() === month0 ? d.getDate() : null,
-          hasActivity: false,
-          hasPlan: false,
+          items: [],
+          planned: [],
         }
       );
     }
@@ -213,36 +233,27 @@ export default function ActivitiesCalendar({
     year: "numeric",
   });
 
-  const dayLabel =
-    selectedIso &&
-    new Date(selectedIso).toLocaleDateString("sk-SK", {
+  const selectedPlans = React.useMemo(() => {
+    if (!selectedIso) return [];
+    return planRows.filter(
+      (p) => String(p.plan_date).slice(0, 10) === selectedIso
+    );
+  }, [planRows, selectedIso]);
+
+  const selectedLabel = React.useMemo(() => {
+    if (!selectedIso) return "";
+    const d = new Date(selectedIso);
+    return d.toLocaleDateString("sk-SK", {
       weekday: "short",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-
-  const dayActivities = React.useMemo(
-    () =>
-      selectedIso ? selectByRange(selectedIso, selectedIso) : [],
-    [selectedIso, selectByRange]
-  );
-
-  const dayPlan = React.useMemo(
-    () =>
-      selectedIso
-        ? selectPlanByRange(selectedIso, selectedIso).filter((p) => {
-            const title = String(p.title || "").toLowerCase();
-            const sType = String(p.session_type || "").toLowerCase();
-            return !(sType === "rest" || title.startsWith("rest"));
-          })
-        : [],
-    [selectedIso, selectPlanByRange]
-  );
+  }, [selectedIso]);
 
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-      {/* HLAVIČKA + GRID */}
+      {/* HLAVIČKA + mriežka */}
       <div className={[CALENDAR_CONTAINER, "p-3"].join(" ")}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
@@ -293,152 +304,68 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
-      {/* DETAIL (aktivity + plán) */}
+      {/* DETAIL pod kalendárom – pôvodný ActivityTable + plán zvlášť */}
       {selectedIso && (
-        <div className="mt-3 ml-1 rounded-2xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-semibold">
-              Aktivity &amp; plán — {dayLabel}
-            </h3>
-          </div>
+        <div className="mt-3 ml-1 space-y-3">
+          {/* pôvodný vzhľad a funkcionalita (klikateľné aktivity) */}
+          <ActivityTable
+            start={selectedIso}
+            end={selectedIso}
+            variant="calendar"
+            suppressItemHeaderIfSingleDay
+          />
 
-          {/* reálne aktivity */}
-          {dayActivities.length === 0 ? (
-            <p className="text-sm opacity-70">
-              Žiadne zaznamenané aktivity v zadanom období.
-            </p>
-          ) : (
-            <ul className="space-y-1.5 text-sm mb-3">
-              {dayActivities.map((a: any) => {
-                const sport =
-                  a.sport || a.sport_type_fe || "other";
-                const durMin = Math.round(
-                  (Number(a.moving_time_s) || 0) / 60
-                );
-                const distKm =
-                  (Number(a.distance_m) || 0) / 1000;
-                return (
-                  <li
-                    key={a.activity_id}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor:
-                            SPORT_COLORS[sport] ??
-                            SPORT_COLORS.other,
-                        }}
-                      />
-                      <span className="truncate">
-                        {a.name || "(bez názvu)"}
-                      </span>
-                    </div>
-                    <div className="text-xs opacity-70 flex-shrink-0">
-                      {distKm > 0 && (
-                        <span className="mr-2">
-                          {distKm.toFixed(1)} km
-                        </span>
-                      )}
-                      {durMin > 0 && <span>{durMin} min</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {/* plánované tréningy */}
-          {dayPlan.length > 0 && (
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="text-xs uppercase tracking-wide opacity-70 mb-1.5">
-                Plánované tréningy (AI)
-              </div>
-              <ul className="space-y-1.5 text-sm">
-                {dayPlan.map((p) => {
-                  const dur = p.duration_min ?? null;
-                  const title = p.title || "(bez názvu)";
-                  const sport = p.sport || "other";
-                  const intensity = p.intensity || p.session_type || null;
-                  const struct = (p.payload as any)?.structure;
-                  const zoneText =
-                    p.zone_text ||
-                    (p.payload as any)?.target_hr_bpm_range?.length === 2
-                      ? `HR ${
-                          (p.payload as any)
-                            ?.target_hr_bpm_range?.[0]
-                        }–${
-                          (p.payload as any)
-                            ?.target_hr_bpm_range?.[1]
-                        }`
-                      : null;
+          {/* plán na daný deň */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-sm font-semibold">
+                Plánované tréningy — {selectedLabel}
+              </h3>
+            </div>
+            {selectedPlans.length === 0 ? (
+              <p className="text-sm opacity-70">
+                Pre tento deň nie je vytvorený žiadny plán.
+              </p>
+            ) : (
+              <ul className="mt-1 space-y-1.5">
+                {selectedPlans.map((p) => {
+                  const title =
+                    (p as any).title ||
+                    (p as any).session_type ||
+                    "Tréning";
+                  const duration =
+                    p.duration_min != null ? `${p.duration_min} min` : "";
+                  const sport =
+                    (p as any).sport && SPORT_COLORS[(p as any).sport]
+                      ? (p as any).sport
+                      : "other";
 
                   return (
                     <li
                       key={p.id}
-                      className="rounded-xl bg-black/20 border border-white/10 px-2.5 py-2"
+                      className="flex items-center justify-between text-sm"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                            style={{
-                              backgroundColor:
-                                SPORT_COLORS[sport] ??
-                                SPORT_COLORS.other,
-                            }}
-                          />
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-medium truncate">
-                              {title}
-                            </span>
-                            <span className="text-[11px] opacity-70">
-                              {sport}{" "}
-                              {intensity ? `• ${intensity}` : ""}
-                              {zoneText ? ` • ${zoneText}` : ""}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-xs opacity-80 flex-shrink-0">
-                          {dur != null && `${dur} min`}
-                        </div>
-                      </div>
-
-                      {struct && Array.isArray(struct) && struct.length > 0 && (
-                        <details className="mt-1.5 text-xs">
-                          <summary className="cursor-pointer opacity-80">
-                            Zobraziť štruktúru
-                          </summary>
-                          <ul className="mt-1.5 space-y-0.5">
-                            {struct.map((b: any, idx: number) => (
-                              <li key={idx}>
-                                {b.label ||
-                                  b.part ||
-                                  `Úsek ${idx + 1}`}{" "}
-                                {b.duration_min
-                                  ? `• ${b.duration_min} min`
-                                  : ""}
-                                {b.hr_zone
-                                  ? ` • zóna ${b.hr_zone}`
-                                  : ""}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block w-1.5 h-1.5 rounded-full"
+                          style={{
+                            backgroundColor:
+                              SPORT_COLORS[sport] ?? SPORT_COLORS.other,
+                          }}
+                        />
+                        <span>{title}</span>
+                      </span>
+                      {duration && (
+                        <span className="text-xs opacity-70">
+                          {duration}
+                        </span>
                       )}
                     </li>
                   );
                 })}
               </ul>
-            </div>
-          )}
-
-          {dayPlan.length === 0 && (
-            <p className="mt-2 text-xs opacity-60">
-              Pre tento deň nie je vytvorený žiadny plán.
-            </p>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
