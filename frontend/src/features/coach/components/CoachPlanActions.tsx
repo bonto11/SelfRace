@@ -32,7 +32,7 @@ const API_URL: string = RAW_API_URL ?? "";
  * - false  = production mód (žiadne debug bloky, minimum UI)
  * - true   = developer mód (stavový panel, JSON bloky, extra logy)
  */
-const COACH_DEBUG = true; // nastav si na false pre „normálny“ režim
+const COACH_DEBUG = false; // nastav si na false pre „normálny“ režim
 
 /* ────────────── UI helpers ────────────── */
 function JsonBlock({ title, data }: { title: string; data: any }) {
