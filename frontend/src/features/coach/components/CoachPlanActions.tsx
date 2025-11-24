@@ -230,15 +230,22 @@ export default function CoachPlanActions() {
     try {
       const raw = localStorage.getItem("coach.generated");
       if (!raw) throw new Error("Najprv vygeneruj plán (Generate).");
-      const plan = JSON.parse(raw);
+      const analysis = JSON.parse(raw);
+      if (!analysis?.next_10_days) {
+        throw new Error("Generated plan nemá next_10_days.");
+      }
+      if (!userId) throw new Error("Chýba userId.");
+
       const meta = {
         started_at_iso: new Date().toISOString(),
-        plan_start_date: (prefs as any)?.plan_start_date ?? null,
+        plan_start_date: (prefs as any)?.plan_start_date ?? (prefs as any)?.start_date ?? null,
         weeks: (prefs as any)?.weeks ?? null,
       };
-      const payload = { plan, meta };
-      if (!userId) throw new Error("Chýba userId.");
-      await saveActivePlan(userId, payload);
+
+      const res = await saveActivePlan(userId, analysis, meta);
+      if (!res?.success) {
+        throw new Error("Uloženie plánu zlyhalo.");
+      }
     } catch (e: any) {
       setErr(e?.message || "Start failed");
     }
