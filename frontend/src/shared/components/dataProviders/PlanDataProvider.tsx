@@ -1,3 +1,4 @@
+// src/shared/components/dataProviders/PlanDataProvider.tsx
 "use client";
 
 import React, {
@@ -10,10 +11,7 @@ import React, {
 } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import {
-  todayISO,
-  addDays,
-} from "@/features/activity/utils/activity"; // používame rovnaké helpers ako aktivity
+import { todayISO, addDays } from "@/features/activity/utils/activity";
 
 /* ----------------- Typy ----------------- */
 
@@ -40,6 +38,7 @@ type PlanCtx = {
   loading: boolean;
   refresh: (force?: boolean) => Promise<void>;
   selectPlanByRange: (start: string, end: string) => PlanRow[];
+  // extra helper – celé pole, aby si ho mohol brať priamo
   planRows: PlanRow[];
 };
 
@@ -68,7 +67,7 @@ export function PlanDataProvider({
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // today … minulosť  (pastDays-1) … + budúcnosť futureDays
+  // today … minulosť (pastDays-1) … + budúcnosť futureDays
   const today = todayISO();
   const rangeStart = addDays(today, -(pastDays - 1));
   const rangeEnd = addDays(today, futureDays);
@@ -113,7 +112,6 @@ export function PlanDataProvider({
         const norm: PlanRow[] = (list as any[])
           .map((r, idx) => ({
             ...r,
-            // fallbacky, keby niečo chýbalo
             id: Number(r.id ?? idx),
             user_id: Number(r.user_id ?? userId),
             plan_date: String(r.plan_date).slice(0, 10),
@@ -153,9 +151,10 @@ export function PlanDataProvider({
   const selectPlanByRange = useCallback(
     (start: string, end: string): PlanRow[] => {
       if (!rows.length) return [];
-      return rows.filter(
+      const out = rows.filter(
         (r) => r.plan_date >= start && r.plan_date <= end
       );
+      return out;
     },
     [rows]
   );
@@ -168,9 +167,9 @@ export function PlanDataProvider({
       loading,
       refresh: fetchRange,
       selectPlanByRange,
+      planRows: rows,
     }),
-    [rangeStart, rangeEnd, rows, loading, fetchRange, selectPlanByRange],
-    planRows: rows,
+    [rangeStart, rangeEnd, rows, loading, fetchRange, selectPlanByRange]
   );
 
   return (
