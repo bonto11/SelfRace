@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
@@ -11,11 +10,6 @@ import {
   CALENDAR_DAY_CELL,
   NO_X_OVERFLOW,
 } from "@/shared/ui/classes";
-
-const ActivityTable = dynamic(
-  () => import("@/shared/components/ActivityTable"),
-  { ssr: false }
-);
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -32,7 +26,8 @@ type DayCellData = {
   iso: string;
   inMonth: boolean;
   day: number | null;
-  items: { id: number; sport: string; name: string }[];
+  hasActivity: boolean;
+  hasPlan: boolean;
 };
 
 function daysInMonth(y: number, m0: number) {
@@ -41,13 +36,12 @@ function daysInMonth(y: number, m0: number) {
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 const iso = (y: number, m0: number, d: number) =>
   `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
-// Po=0
 const startWeekday = (y: number, m0: number) =>
   (new Date(y, m0, 1).getDay() + 6) % 7;
 
-function useMonthActivities(year: number, month0: number) {
-  const { rows } = useActivityData();
-  const { planRows } = usePlanData();
+function useMonthData(year: number, month0: number) {
+  const { rows: actRows } = useActivityData();
+  const { rows: planRows } = usePlanData();
   const [map, setMap] = React.useState<Record<string, DayCellData>>({});
 
   React.useEffect(() => {
@@ -65,53 +59,39 @@ function useMonthActivities(year: number, month0: number) {
         iso: k,
         inMonth,
         day: inMonth ? d.getDate() : null,
-        items: [],
+        hasActivity: false,
+        hasPlan: false,
       };
     }
 
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
 
-    // reálne aktivity
-    for (const r of rows) {
+    // aktivity
+    for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.items.push({
-        id: r.activity_id,
-        sport: (r as any).sport || (r as any).sport_type_fe || "other",
-        name: r.name || "",
-      });
+      cell.hasActivity = true;
     }
 
-    // plánované sessions (bez rest days)
+    // plán (bez REST)
     for (const p of planRows) {
-      const dIso = String((p as any).plan_date || (p as any).date).slice(0, 10);
+      const dIso = String(p.plan_date).slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
 
-      const sport = (p as any).sport || "other";
-      const title = ((p as any).title || "").toLowerCase();
-      const duration = (p as any).duration_min;
+      const title = String(p.title || "").toLowerCase();
+      const sType = String(p.session_type || "").toLowerCase();
+      if (sType === "rest" || title.startsWith("rest")) continue;
 
-      const isRest =
-        sport === "other" &&
-        (!duration || Number(duration) <= 0) &&
-        title.includes("rest");
-
-      if (isRest) continue;
-
-      cell.items.push({
-        id: -Number((p as any).id ?? 0) || Math.random(),
-        sport,
-        name: (p as any).title || "",
-      });
+      cell.hasPlan = true;
     }
 
     setMap(grid);
-  }, [rows, planRows, year, month0]);
+  }, [actRows, planRows, year, month0]);
 
   return map;
 }
@@ -126,6 +106,28 @@ function DayCell({
   isSelected: boolean;
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
+
+  // bodka za aktivity / plán – plán dáme mierne odlišnú (okraj)
+  const dots: JSX.Element[] = [];
+  if (cell.hasActivity) {
+    dots.push(
+      <span
+        key="act"
+        className="inline-block w-1.5 h-1.5 rounded-full"
+        style={{ backgroundColor: SPORT_COLORS.run }}
+      />
+    );
+  }
+  if (cell.hasPlan) {
+    dots.push(
+      <span
+        key="plan"
+        className="inline-block w-1.5 h-1.5 rounded-full border border-emerald-400"
+        style={{ backgroundColor: SPORT_COLORS.other }}
+      />
+    );
+  }
+
   return (
     <button
       type="button"
@@ -145,22 +147,7 @@ function DayCell({
           {cell.day ?? ""}
         </span>
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-          {cell.items.slice(0, 8).map((it) => (
-            <span
-              key={it.id}
-              className="inline-block w-1.5 h-1.5 rounded-full"
-              style={{
-                backgroundColor:
-                  SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
-              }}
-              title={it.name || it.sport}
-            />
-          ))}
-          {cell.items.length > 8 && (
-            <span className="text-[10px] opacity-70">
-              +{cell.items.length - 8}
-            </span>
-          )}
+          {dots}
         </div>
       </div>
     </button>
@@ -174,12 +161,13 @@ export default function ActivitiesCalendar({
   year?: number;
   month?: number;
 }) {
+  const { selectByRange } = useActivityData();
+  const { selectPlanByRange } = usePlanData();
+
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
-
-  const { selectPlanByRange } = usePlanData();
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -189,7 +177,7 @@ export default function ActivitiesCalendar({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const map = useMonthActivities(year, month0);
+  const map = useMonthData(year, month0);
 
   const cells = React.useMemo(() => {
     const out: DayCellData[] = [];
@@ -204,7 +192,8 @@ export default function ActivitiesCalendar({
           iso: k,
           inMonth: d.getMonth() === month0,
           day: d.getMonth() === month0 ? d.getDate() : null,
-          items: [],
+          hasActivity: false,
+          hasPlan: false,
         }
       );
     }
@@ -224,24 +213,36 @@ export default function ActivitiesCalendar({
     year: "numeric",
   });
 
-  // plánované pre vybraný deň
-  const plannedForDay =
-    selectedIso != null
-      ? selectPlanByRange(selectedIso, selectedIso).filter((p) => {
-          const sport = (p as any).sport || "other";
-          const title = ((p as any).title || "").toLowerCase();
-          const duration = (p as any).duration_min;
-          const isRest =
-            sport === "other" &&
-            (!duration || Number(duration) <= 0) &&
-            title.includes("rest");
-          return !isRest;
-        })
-      : [];
+  const dayLabel =
+    selectedIso &&
+    new Date(selectedIso).toLocaleDateString("sk-SK", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+  const dayActivities = React.useMemo(
+    () =>
+      selectedIso ? selectByRange(selectedIso, selectedIso) : [],
+    [selectedIso, selectByRange]
+  );
+
+  const dayPlan = React.useMemo(
+    () =>
+      selectedIso
+        ? selectPlanByRange(selectedIso, selectedIso).filter((p) => {
+            const title = String(p.title || "").toLowerCase();
+            const sType = String(p.session_type || "").toLowerCase();
+            return !(sType === "rest" || title.startsWith("rest"));
+          })
+        : [],
+    [selectedIso, selectPlanByRange]
+  );
 
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-      {/* HLAVIČKA + mriežka */}
+      {/* HLAVIČKA + GRID */}
       <div className={[CALENDAR_CONTAINER, "p-3"].join(" ")}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
@@ -284,65 +285,159 @@ export default function ActivitiesCalendar({
               key={c.iso}
               cell={c}
               isSelected={selectedIso === c.iso}
-              onSelect={(isoStr) =>
-                setSelectedIso((cur) => (cur === isoStr ? null : isoStr))
+              onSelect={(isoVal) =>
+                setSelectedIso((cur) => (cur === isoVal ? null : isoVal))
               }
             />
           ))}
         </div>
       </div>
 
-      {/* DETAIL pod kalendárom */}
+      {/* DETAIL (aktivity + plán) */}
       {selectedIso && (
-        <div className="mt-3 ml-1 space-y-4">
-          {/* reálne aktivity */}
-          <ActivityTable
-            start={selectedIso}
-            end={selectedIso}
-            variant="calendar"
-            suppressItemHeaderIfSingleDay
-          />
+        <div className="mt-3 ml-1 rounded-2xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-base font-semibold">
+              Aktivity &amp; plán — {dayLabel}
+            </h3>
+          </div>
 
-          {/* plánované tréningy */}
-          {plannedForDay.length > 0 && (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="text-sm font-semibold mb-2">
-                Plánované tréningy •{" "}
-                {new Date(selectedIso).toLocaleDateString("sk-SK", {
-                  weekday: "short",
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })}
-              </div>
-              <ul className="space-y-1 text-sm">
-                {plannedForDay.map((p) => (
+          {/* reálne aktivity */}
+          {dayActivities.length === 0 ? (
+            <p className="text-sm opacity-70">
+              Žiadne zaznamenané aktivity v zadanom období.
+            </p>
+          ) : (
+            <ul className="space-y-1.5 text-sm mb-3">
+              {dayActivities.map((a: any) => {
+                const sport =
+                  a.sport || a.sport_type_fe || "other";
+                const durMin = Math.round(
+                  (Number(a.moving_time_s) || 0) / 60
+                );
+                const distKm =
+                  (Number(a.distance_m) || 0) / 1000;
+                return (
                   <li
-                    key={(p as any).id}
-                    className="flex items-baseline justify-between gap-2"
+                    key={a.activity_id}
+                    className="flex items-center justify-between gap-3"
                   >
-                    <span className="inline-flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className="inline-block w-1.5 h-1.5 rounded-full"
+                        className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                         style={{
                           backgroundColor:
-                            SPORT_COLORS[(p as any).sport] ??
+                            SPORT_COLORS[sport] ??
                             SPORT_COLORS.other,
                         }}
                       />
-                      <span className="font-medium">
-                        {(p as any).title || "Tréning"}
+                      <span className="truncate">
+                        {a.name || "(bez názvu)"}
                       </span>
-                    </span>
-                    <span className="opacity-80 text-xs">
-                      {(p as any).duration_min
-                        ? `${(p as any).duration_min} min`
-                        : ""}
-                    </span>
+                    </div>
+                    <div className="text-xs opacity-70 flex-shrink-0">
+                      {distKm > 0 && (
+                        <span className="mr-2">
+                          {distKm.toFixed(1)} km
+                        </span>
+                      )}
+                      {durMin > 0 && <span>{durMin} min</span>}
+                    </div>
                   </li>
-                ))}
+                );
+              })}
+            </ul>
+          )}
+
+          {/* plánované tréningy */}
+          {dayPlan.length > 0 && (
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="text-xs uppercase tracking-wide opacity-70 mb-1.5">
+                Plánované tréningy (AI)
+              </div>
+              <ul className="space-y-1.5 text-sm">
+                {dayPlan.map((p) => {
+                  const dur = p.duration_min ?? null;
+                  const title = p.title || "(bez názvu)";
+                  const sport = p.sport || "other";
+                  const intensity = p.intensity || p.session_type || null;
+                  const struct = (p.payload as any)?.structure;
+                  const zoneText =
+                    p.zone_text ||
+                    (p.payload as any)?.target_hr_bpm_range?.length === 2
+                      ? `HR ${
+                          (p.payload as any)
+                            ?.target_hr_bpm_range?.[0]
+                        }–${
+                          (p.payload as any)
+                            ?.target_hr_bpm_range?.[1]
+                        }`
+                      : null;
+
+                  return (
+                    <li
+                      key={p.id}
+                      className="rounded-xl bg-black/20 border border-white/10 px-2.5 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                            style={{
+                              backgroundColor:
+                                SPORT_COLORS[sport] ??
+                                SPORT_COLORS.other,
+                            }}
+                          />
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium truncate">
+                              {title}
+                            </span>
+                            <span className="text-[11px] opacity-70">
+                              {sport}{" "}
+                              {intensity ? `• ${intensity}` : ""}
+                              {zoneText ? ` • ${zoneText}` : ""}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xs opacity-80 flex-shrink-0">
+                          {dur != null && `${dur} min`}
+                        </div>
+                      </div>
+
+                      {struct && Array.isArray(struct) && struct.length > 0 && (
+                        <details className="mt-1.5 text-xs">
+                          <summary className="cursor-pointer opacity-80">
+                            Zobraziť štruktúru
+                          </summary>
+                          <ul className="mt-1.5 space-y-0.5">
+                            {struct.map((b: any, idx: number) => (
+                              <li key={idx}>
+                                {b.label ||
+                                  b.part ||
+                                  `Úsek ${idx + 1}`}{" "}
+                                {b.duration_min
+                                  ? `• ${b.duration_min} min`
+                                  : ""}
+                                {b.hr_zone
+                                  ? ` • zóna ${b.hr_zone}`
+                                  : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
+          )}
+
+          {dayPlan.length === 0 && (
+            <p className="mt-2 text-xs opacity-60">
+              Pre tento deň nie je vytvorený žiadny plán.
+            </p>
           )}
         </div>
       )}
