@@ -1,97 +1,146 @@
 // src/features/coach/api/plan.ts
 import { API_URL } from "@/shared/config";
 
-const DEV_COACH_DEBUG = false;
-
-function dlog(...args: any[]) {
-  if (!DEV_COACH_DEBUG) return;
-  // eslint-disable-next-line no-console
-  console.log("[coach/plan/api]", ...args);
-}
+type SaveResult = {
+  success: boolean;
+  via: "api" | "local" | "none";
+  planId?: string | null;
+};
 
 export async function saveActivePlan(
   userId: number,
   analysis: any,
-  meta?: any
-) {
+  meta?: any,
+): Promise<SaveResult> {
   const payload = {
     next_10_days: analysis?.next_10_days ?? [],
     meta: meta ?? null,
     overwrite: true,
   };
 
-  dlog("saveActivePlan payload", { userId, payload });
+  console.log("[coach.plan] saveActivePlan → payload", payload);
 
-  const url = `${API_URL}/coach/plan/${userId}`;
-
-  try {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    dlog("saveActivePlan response", r.status, r.statusText);
-
-    if (r.ok) {
-      const j = await r.json().catch(() => ({}));
-      dlog("saveActivePlan json", j);
-      try {
-        localStorage.setItem("coach.active", JSON.stringify(analysis));
-      } catch {
-        // ignore
-      }
-      return { success: true, via: "api", meta: j };
-    }
-
-    // fallback → localStorage
-    dlog("saveActivePlan fallback to localStorage");
+  // ak nemáme API_URL, ulož čisto lokálne
+  if (!API_URL) {
     try {
-      localStorage.setItem("coach.active", JSON.stringify(analysis));
-      return { success: true, via: "local" };
-    } catch (e) {
-      throw new Error(`saveActivePlan failed, status=${r.status}`);
-    }
-  } catch (e: any) {
-    dlog("saveActivePlan error", e);
-    // posledný fallback
-    try {
-      localStorage.setItem("coach.active", JSON.stringify(analysis));
-      return { success: true, via: "local-error" };
+      localStorage.setItem(
+        "coach.active",
+        JSON.stringify({ analysis, meta, plan_id: null }),
+      );
+      return { success: true, via: "local", planId: null };
     } catch {
-      throw new Error(e?.message || "saveActivePlan failed");
+      return { success: false, via: "none", planId: null };
     }
+  }
+
+  const r = await fetch(`${API_URL}/coach-plan/${userId}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch((err) => {
+    console.error("[coach.plan] saveActivePlan fetch error", err);
+    return null;
+  });
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    console.log("[coach.plan] saveActivePlan response", j);
+    const planId = j?.plan_id ?? null;
+
+    try {
+      localStorage.setItem(
+        "coach.active",
+        JSON.stringify({ analysis, meta, plan_id: planId }),
+      );
+    } catch {
+      // ignore
+    }
+
+    return { success: true, via: "api", planId };
+  }
+
+  // fallback → localStorage
+  try {
+    localStorage.setItem(
+      "coach.active",
+      JSON.stringify({ analysis, meta, plan_id: null }),
+    );
+    return { success: true, via: "local", planId: null };
+  } catch {
+    return { success: false, via: "none", planId: null };
   }
 }
 
-export async function loadActivePlan(userId: number) {
-  const url = `${API_URL}/coach/plan/${userId}`;
-  dlog("loadActivePlan url", url);
+export async function cancelActivePlan(
+  userId: number,
+  planId?: string | null,
+): Promise<{ success: boolean; via: "api" | "local" | "none"; deleted?: number }> {
+  console.log("[coach.plan] cancelActivePlan called", { userId, planId });
 
-  try {
-    const r = await fetch(url, { cache: "no-store" }).catch(() => null);
-    if (r && r.ok) {
-      const j = await r.json().catch(() => ({}));
-      dlog("loadActivePlan api json", j);
-      // vrátime len raw sessions; neskôr môžeš riešiť rekonštrukciu
-      return j?.data ?? null;
+  if (!API_URL) {
+    try {
+      localStorage.removeItem("coach.active");
+      return { success: true, via: "local", deleted: 0 };
+    } catch {
+      return { success: false, via: "none" };
     }
-  } catch (e) {
-    dlog("loadActivePlan api error", e);
+  }
+
+  const r = await fetch(`${API_URL}/coach-plan/${userId}`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ plan_id: planId ?? null }),
+  }).catch((err) => {
+    console.error("[coach.plan] cancelActivePlan fetch error", err);
+    return null;
+  });
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    console.log("[coach.plan] cancelActivePlan response", j);
+    try {
+      localStorage.removeItem("coach.active");
+    } catch {
+      // ignore
+    }
+    return { success: true, via: "api", deleted: j?.deleted ?? 0 };
+  }
+
+  // fallback – aspoň zmaž lokálne
+  try {
+    localStorage.removeItem("coach.active");
+    return { success: true, via: "local" };
+  } catch {
+    return { success: false, via: "none" };
+  }
+}
+
+// staré load/update si nechaj ako sú, ak ich používaš inde
+export async function updateActivePlan(userId: number) {
+  if (!API_URL) {
+    try {
+      const raw = localStorage.getItem("coach.active");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const r = await fetch(`${API_URL}/coach-plan/${userId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "reconcile" }),
+  }).catch(() => null);
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    return j?.plan ?? null;
   }
 
   try {
     const raw = localStorage.getItem("coach.active");
-    const parsed = raw ? JSON.parse(raw) : null;
-    dlog("loadActivePlan localStorage", parsed);
-    return parsed;
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
-}
-
-export async function updateActivePlan(userId: number) {
-  // zatiaľ žiadny PATCH endpoint → len refrešni z BE alebo localStorage
-  dlog("updateActivePlan", userId);
-  return loadActivePlan(userId);
 }

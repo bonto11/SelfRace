@@ -11,8 +11,17 @@ import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
 import PlanResult from "@/features/coach/components/PlanResult";
 
-import { saveActivePlan, updateActivePlan } from "@/features/coach/api/plan";
-import { makeCacheKey, saveCachedResult, loadCachedResult, clearCachedByKey } from "@/features/coach/utils/cache";
+import {
+  saveActivePlan,
+  updateActivePlan,
+  cancelActivePlan,
+} from "@/features/coach/api/plan";
+import {
+  makeCacheKey,
+  saveCachedResult,
+  loadCachedResult,
+  clearCachedByKey,
+} from "@/features/coach/utils/cache";
 
 import Button from "@/shared/components/ui/Button";
 import Pill from "@/shared/components/ui/Pill";
@@ -22,21 +31,18 @@ import { API_URL as RAW_API_URL } from "@/shared/config";
 
 const API_URL: string = RAW_API_URL ?? "";
 
-/** Prepínač – keď ho dáš na true, uvidíš všetky debug panely + extra logy. */
-const DEV_COACH_DEBUG = false;
-
-function dlog(...args: any[]) {
-  if (!DEV_COACH_DEBUG) return;
-  // eslint-disable-next-line no-console
-  console.log("[CoachPlanActions]", ...args);
-}
+// prepínač debug módu (vývojársky vs. produkčný)
+const COACH_DEBUG = process.env.NEXT_PUBLIC_COACH_DEBUG === "1";
 
 /* ────────────── UI helpers ────────────── */
 function JsonBlock({ title, data }: { title: string; data: any }) {
   if (!data) return null;
+  if (!COACH_DEBUG) return null;
   return (
     <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
-      <summary className="cursor-pointer select-none text-sm font-semibold py-1">{title}</summary>
+      <summary className="cursor-pointer select-none text-sm font-semibold py-1">
+        {title}
+      </summary>
       <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">
         {JSON.stringify(data, null, 2)}
       </pre>
@@ -117,6 +123,12 @@ function readPrefsFromStorage(): CoachPrefs | null {
 }
 
 /* ────────────── Main component ────────────── */
+type ActiveMeta = {
+  plan_id?: string | null;
+  goal?: string | null;
+  weeks?: number | null;
+};
+
 export default function CoachPlanActions() {
   const { userId } = useUserId();
   const { pbRun } = useCoachData();
@@ -127,7 +139,10 @@ export default function CoachPlanActions() {
   const [steps, setSteps] = useState<StepState[]>(makeSteps());
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [diag, setDiag] = useState<{ source: "cache" | "ai" | null; model?: string | null } | null>(null);
+  const [diag, setDiag] = useState<{
+    source: "cache" | "ai" | null;
+    model?: string | null;
+  } | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
 
   // AI raw debug polia z BE
@@ -136,41 +151,50 @@ export default function CoachPlanActions() {
   const [aiUser, setAiUser] = useState<any>(null);
   const [aiLastRaw, setAiLastRaw] = useState<any>(null);
 
-  const [apiStatus, setApiStatus] = useState<{ ok: boolean; status?: number; text?: string; cors?: boolean } | null>(null);
+  // aktívny plán (len jednoduché meta info)
+  const [activeMeta, setActiveMeta] = useState<ActiveMeta | null>(null);
 
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
     [userId, prefs],
   );
-  const canRun = !!userId && !loading;
+
+  // odvodené stavy
+  const hasGenerated =
+    !!analysis &&
+    Array.isArray(analysis.next_10_days) &&
+    analysis.next_10_days.length > 0;
+  const hasActivePlan = !!activeMeta;
+
+  const canRunGenerate = !!userId && !loading && !hasActivePlan;
+  const canStart = !loading && !hasActivePlan && hasGenerated;
+  const canUpdate = !loading && hasActivePlan;
+  const canCancel = !loading && hasActivePlan;
 
   const resetSteps = useCallback(() => setSteps(makeSteps("idle")), []);
-  const markOnly = useCallback(
-    (active: StepName | null, note?: string) => {
-      if (!DEV_COACH_DEBUG) return; // v prod móde strip vôbec neprepisujeme
-      setSteps((prev) =>
-        prev.map((s) => {
-          if (active === null)
-            return s.state === "active"
-              ? { ...s, state: "done", note: s.note }
-              : s;
-          if (s.name === active)
-            return {
-              ...s,
-              state: "active",
-              note: [s.note, `[${now()}] ${note ?? ""}`]
-                .filter(Boolean)
-                .join(" · "),
-            };
-          if (s.state === "active") return { ...s, state: "done", note: s.note };
-          return s;
-        }),
-      );
-    },
-    [],
-  );
+  const markOnly = useCallback((active: StepName | null, note?: string) => {
+    if (!COACH_DEBUG) return; // v non-debug móde panel riešiť nemusíme
+    setSteps((prev) =>
+      prev.map((s) => {
+        if (active === null)
+          return s.state === "active"
+            ? { ...s, state: "done", note: s.note }
+            : s;
+        if (s.name === active)
+          return {
+            ...s,
+            state: "active",
+            note: [s.note, `[${now()}] ${note ?? ""}`]
+              .filter(Boolean)
+              .join(" · "),
+          };
+        if (s.state === "active") return { ...s, state: "done", note: s.note };
+        return s;
+      }),
+    );
+  }, []);
   const markError = useCallback((at: StepName, note?: string) => {
-    if (!DEV_COACH_DEBUG) return;
+    if (!COACH_DEBUG) return;
     setSteps((prev) =>
       prev.map((s) =>
         s.name === at
@@ -192,23 +216,44 @@ export default function CoachPlanActions() {
     (async () => {
       try {
         markOnly("Loading preferences", "initial");
+        console.log("[coach.actions] loading prefs for user", userId);
         const p = await getPrefs(userId).catch(() => null);
-        dlog("useEffect prefs from DB", p);
         const eff = p ?? readPrefsFromStorage();
-        dlog("useEffect prefs effective", eff);
         setPrefs(eff);
         markOnly(null);
-      } catch (e) {
-        dlog("useEffect prefs error", e);
+      } catch {
         setPrefs(readPrefsFromStorage());
         markOnly(null);
       }
     })();
   }, [userId, markOnly]);
 
-  /* Generate plan */
+  /* Načítanie info o aktívnom pláne z localStorage (zatím FE-only) */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("coach.active");
+      if (!raw) {
+        setActiveMeta(null);
+        return;
+      }
+      const obj = JSON.parse(raw);
+      const meta: ActiveMeta = {
+        plan_id: obj.plan_id ?? null,
+        goal: obj.meta?.goal_kind ?? obj.meta?.goal ?? null,
+        weeks: obj.meta?.weeks ?? null,
+      };
+      setActiveMeta(meta);
+      console.log("[coach.actions] active plan loaded from storage", meta);
+    } catch {
+      setActiveMeta(null);
+    }
+  }, [userId]);
+
+  /* Generate plan — RAW DEBUG režim */
   const handleGenerate = useCallback(async () => {
     if (!userId) return;
+    console.log("[coach.actions] handleGenerate clicked");
     setErr(null);
     setAiAttempts(null);
     setAiSystem(null);
@@ -216,14 +261,12 @@ export default function CoachPlanActions() {
     setAiLastRaw(null);
     resetSteps();
     setLoading(true);
-    dlog("handleGenerate start", { userId });
 
     try {
       // 1) prefs
       markOnly("Loading preferences", "fetch from DB");
       const fresh = await getPrefs(userId).catch(() => null);
       const effectivePrefs = fresh ?? readPrefsFromStorage();
-      dlog("handleGenerate prefs", { fresh, effectivePrefs });
       if (!effectivePrefs) {
         markError("Loading preferences", "none in DB nor storage");
         throw new Error("Preferences not found in DB or storage.");
@@ -236,14 +279,14 @@ export default function CoachPlanActions() {
       const base = toAnalyzePayloadBE(effectivePrefs);
       const payload = { ...base, bests: { run: pbRun ?? [] } };
       setDebugPayload(base);
-      dlog("handleGenerate payload", payload);
+      console.log("[coach.actions] analyze payload", payload);
 
       // 3) cache
       markOnly("Checking cache");
       const ck = makeCacheKey(String(userId), effectivePrefs);
       const cached = loadCachedResult(ck);
-      dlog("handleGenerate cache", cached);
       if (cached?.result) {
+        console.log("[coach.actions] using cached plan", cached);
         markOnly("Saving to storage", "from cache");
         setAnalysis(cached.result.analysis);
         setDiag({ source: "cache", model: cached.result.model });
@@ -256,20 +299,21 @@ export default function CoachPlanActions() {
         return;
       }
 
-      // 4) BE call
+      // 4) BE call – RAW debug ON
       markOnly("Sending request", "debug_raw=1, loose=1");
       markOnly("Generating plan (AI)");
       const json = await analyzeCoach(userId, payload, {
         debugRaw: true,
         loose: true,
       });
-      dlog("handleGenerate analyzeCoach response", json);
 
       if (!json?.success) {
-        const detail = json?.detail || json?.error || "Analyze failed";
+        const detail = json?.detail || "Analyze failed";
         markError("Generating plan (AI)", detail);
         throw new Error(detail);
       }
+
+      console.log("[coach.actions] analyzeCoach response", json);
 
       // AI raw debug polia (ak BE pošle)
       setAiAttempts(json?.ai_debug?.attempts ?? null);
@@ -288,7 +332,7 @@ export default function CoachPlanActions() {
       markOnly(null);
     } catch (e: any) {
       const msg = String(e?.message || e);
-      dlog("handleGenerate error", msg, e);
+      console.error("[coach.actions] handleGenerate error", e);
       if (/Failed to fetch/i.test(msg)) {
         setErr(`Failed to fetch (network/CORS/timeout). API_URL=${API_URL}`);
       } else {
@@ -299,15 +343,14 @@ export default function CoachPlanActions() {
     }
   }, [userId, pbRun, resetSteps, markOnly, markError]);
 
-  /* Start plan – uloženie do DB */
+  /* Start plan – uloženie do DB + nastavenie aktívneho plánu */
   const handleStart = useCallback(async () => {
     try {
+      console.log("[coach.actions] handleStart clicked");
       const raw = localStorage.getItem("coach.generated");
-      dlog("handleStart raw from storage", raw);
       if (!raw) throw new Error("Najprv vygeneruj plán (Generate).");
-      const analysis = JSON.parse(raw);
-      dlog("handleStart parsed analysis", analysis);
-      if (!analysis?.next_10_days) {
+      const genAnalysis = JSON.parse(raw);
+      if (!genAnalysis?.next_10_days) {
         throw new Error("Generated plan nemá next_10_days.");
       }
       if (!userId) throw new Error("Chýba userId.");
@@ -319,44 +362,66 @@ export default function CoachPlanActions() {
           (prefs as any)?.start_date ??
           null,
         weeks: (prefs as any)?.weeks ?? null,
+        goal_kind: (prefs as any)?.goal_kind ?? null,
       };
 
-      dlog("handleStart meta", meta);
+      const res = await saveActivePlan(userId, genAnalysis, meta);
+      console.log("[coach.actions] saveActivePlan result", res);
 
-      const res = await saveActivePlan(userId, analysis, meta);
-      dlog("handleStart saveActivePlan result", res);
       if (!res?.success) {
         throw new Error("Uloženie plánu zlyhalo.");
       }
+
+      const newMeta: ActiveMeta = {
+        plan_id: res.planId ?? null,
+        goal: meta.goal_kind,
+        weeks: meta.weeks,
+      };
+      setActiveMeta(newMeta);
     } catch (e: any) {
-      dlog("handleStart error", e);
+      console.error("[coach.actions] handleStart error", e);
       setErr(e?.message || "Start failed");
     }
   }, [prefs, userId]);
 
-  /* Update plan */
+  /* Update plan – zatiaľ len skeleton (FE/DB sync) */
   const handleUpdate = useCallback(async () => {
     try {
+      console.log("[coach.actions] handleUpdate clicked");
       if (!userId) throw new Error("Chýba userId.");
-      dlog("handleUpdate start", userId);
       const updated = await updateActivePlan(userId);
-      dlog("handleUpdate updated", updated);
-      if (updated) localStorage.setItem("coach.active", JSON.stringify(updated));
+      if (updated)
+        localStorage.setItem("coach.active", JSON.stringify(updated));
     } catch (e: any) {
-      dlog("handleUpdate error", e);
+      console.error("[coach.actions] handleUpdate error", e);
       setErr(e?.message || "Update failed");
     }
   }, [userId]);
 
-  /* Clear cache */
+  /* Cancel plan – zruší aktívny plán v DB + storage */
+  const handleCancel = useCallback(async () => {
+    try {
+      console.log("[coach.actions] handleCancel clicked");
+      if (!userId) throw new Error("Chýba userId.");
+      const res = await cancelActivePlan(userId, activeMeta?.plan_id ?? null);
+      console.log("[coach.actions] cancelActivePlan result", res);
+      if (!res?.success) throw new Error("Zrušenie plánu zlyhalo.");
+      setActiveMeta(null);
+    } catch (e: any) {
+      console.error("[coach.actions] handleCancel error", e);
+      setErr(e?.message || "Cancel failed");
+    }
+  }, [userId, activeMeta]);
+
+  /* Clear cache (len lokálne) */
   const handleClearCache = useCallback(() => {
-    dlog("handleClearCache", cacheKey);
+    console.log("[coach.actions] handleClearCache clicked");
     if (cacheKey) clearCachedByKey(cacheKey);
   }, [cacheKey]);
 
-  /* Render krokového panelu */
-  const StepsStrip = () =>
-    !DEV_COACH_DEBUG ? null : (
+  const StepsStrip = () => {
+    if (!COACH_DEBUG) return null;
+    return (
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
           {steps.map((s) => {
@@ -382,23 +447,46 @@ export default function CoachPlanActions() {
         </div>
       </div>
     );
+  };
+
+  const activeSummary = useMemo(() => {
+    if (!hasActivePlan) return null;
+    const goal =
+      activeMeta?.goal ??
+      (prefs as any)?.goal_kind ??
+      (prefs as any)?.goal ??
+      "—";
+    const weeks =
+      activeMeta?.weeks ??
+      (prefs as any)?.weeks ??
+      (prefs as any)?.plan_weeks ??
+      "—";
+    return { goal, weeks };
+  }, [hasActivePlan, activeMeta, prefs]);
 
   return (
     <div className="space-y-4">
       {/* mini sumár prefs */}
       <div className="rounded-xl border border-white/10 p-3 bg-white/5">
         <PrefsMini prefs={prefs} />
+        {activeSummary && (
+          <div className="mt-2 text-xs text-emerald-300">
+            Active plan: <span className="font-semibold">{activeSummary.goal}</span>
+            {", "}
+            <span className="font-semibold">{activeSummary.weeks}</span> weeks
+          </div>
+        )}
       </div>
 
       {/* ovládanie */}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           onClick={handleGenerate}
-          disabled={!canRun}
+          disabled={!canRunGenerate}
           variant="primary"
           size="sm"
         >
-          {loading ? (
+          {loading && !hasGenerated ? (
             <span className="inline-flex items-center gap-2">
               <LoadingSpinner size="button" />
               Generating…
@@ -407,30 +495,44 @@ export default function CoachPlanActions() {
             "Generate plan"
           )}
         </Button>
+
         <Button
           onClick={handleStart}
-          disabled={loading}
-          variant="success"
+          disabled={!canStart}
+          variant="primary"
           size="sm"
         >
           Start plan
         </Button>
+
         <Button
           onClick={handleUpdate}
-          disabled={loading}
-          variant="secondary"
+          disabled={!canUpdate}
+          variant="primary"
           size="sm"
         >
           Update plan
         </Button>
+
         <Button
-          onClick={handleClearCache}
-          disabled={loading}
+          onClick={handleCancel}
+          disabled={!canCancel}
           variant="danger"
           size="sm"
         >
-          Clear cache
+          Cancel plan
         </Button>
+
+        {COACH_DEBUG && (
+          <Button
+            onClick={handleClearCache}
+            disabled={loading}
+            variant="danger"
+            size="sm"
+          >
+            Clear cache
+          </Button>
+        )}
 
         {diag && (
           <div className="ml-auto flex flex-wrap gap-2 text-xs">
@@ -446,7 +548,7 @@ export default function CoachPlanActions() {
         )}
       </div>
 
-      {/* stavový panel (len v DEV móde) */}
+      {/* stavový panel */}
       <StepsStrip />
 
       {/* error */}
@@ -466,25 +568,19 @@ export default function CoachPlanActions() {
         </div>
       )}
 
-      {/* debug panely – len v DEV móde */}
-      {DEV_COACH_DEBUG && (
-        <div className="space-y-2">
-          <JsonBlock
-            title="Prefs (effective: DB → storage fallback)"
-            data={prefs}
-          />
-          <JsonBlock title="Sent payload (FE→BE, base)" data={debugPayload} />
-          <JsonBlock title="Generated (analysis)" data={analysis} />
-          <JsonBlock title="AI debug — attempts" data={aiAttempts} />
-          <JsonBlock title="AI debug — system prompt" data={aiSystem} />
-          <JsonBlock title="AI debug — user prompt" data={aiUser} />
-          <JsonBlock
-            title="AI debug — last_raw (model output)"
-            data={aiLastRaw}
-          />
-          <JsonBlock title="API status" data={apiStatus} />
-        </div>
-      )}
+      {/* debug */}
+      <div className="space-y-2">
+        <JsonBlock
+          title="Prefs (effective: DB → storage fallback)"
+          data={prefs}
+        />
+        <JsonBlock title="Sent payload (FE→BE, base)" data={debugPayload} />
+        <JsonBlock title="Generated (analysis)" data={analysis} />
+        <JsonBlock title="AI debug — attempts" data={aiAttempts} />
+        <JsonBlock title="AI debug — system prompt" data={aiSystem} />
+        <JsonBlock title="AI debug — user prompt" data={aiUser} />
+        <JsonBlock title="AI debug — last_raw (model output)" data={aiLastRaw} />
+      </div>
     </div>
   );
 }
