@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
+import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import { CALENDAR_DAY_CELL, NO_X_OVERFLOW } from "@/shared/ui/classes";
 
@@ -19,7 +20,8 @@ const SPORT_COLORS: Record<string, string> = {
 };
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
-const iso = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+const iso = (y: number, m0: number, d: number) =>
+  `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
 
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
@@ -30,51 +32,96 @@ function startOfWeek(date = new Date()) {
 }
 
 type Props = {
-  openHref?: string;   // default /calendar
+  openHref?: string; // default /calendar
   perDayLimit?: number;
 };
 
-export default function WidgetWeekActivities({ openHref = "/calendar", perDayLimit = 6 }: Props) {
+type DayAgg = {
+  activities: { id: number; sport: string }[];
+  planned: { id: number; sport: string; hasActivity: boolean }[];
+};
+
+export default function WidgetWeekActivities({
+  openHref = "/calendar",
+  perDayLimit = 6,
+}: Props) {
   const router = useRouter();
   const { selectByRange } = useActivityData();
+  const { selectPlanByRange } = usePlanData();
 
   const monday = startOfWeek();
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
-  const endIso   = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
+  const startIso = iso(
+    monday.getFullYear(),
+    monday.getMonth(),
+    monday.getDate()
+  );
+  const endIso = iso(
+    sunday.getFullYear(),
+    sunday.getMonth(),
+    sunday.getDate()
+  );
 
   const byDay = React.useMemo(() => {
-    const map = new Map<string, { id: number; sport: string }[]>();
+    const map = new Map<string, DayAgg>();
+    // init 7 dní
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      map.set(iso(d.getFullYear(), d.getMonth(), d.getDate()), []);
+      const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
+      map.set(key, { activities: [], planned: [] });
     }
+
+    // aktivity
     const rows = selectByRange(startIso, endIso);
     for (const r of rows) {
       const k = r.date.slice(0, 10);
-      if (!map.has(k)) continue;
-      (map.get(k) as any[]).push({
+      const bucket = map.get(k);
+      if (!bucket) continue;
+      bucket.activities.push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
       });
     }
+
+    // plánované sessions
+    const planRows = selectPlanByRange(startIso, endIso);
+    for (const p of planRows) {
+      const k = String(p.plan_date).slice(0, 10);
+      const bucket = map.get(k);
+      if (!bucket) continue;
+      bucket.planned.push({
+        id: p.id,
+        sport:
+          (p as any).sport ||
+          (p as any).payload?.sport ||
+          (p as any).payload?.session_sport ||
+          "other",
+        hasActivity: !!(p as any).activity_id,
+      });
+    }
+
     return map;
-  }, [selectByRange, startIso, endIso, monday]);
+  }, [selectByRange, selectPlanByRange, startIso, endIso, monday]);
 
   const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
-    `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
+    `${monday.toLocaleDateString("sk-SK", {
+      month: "short",
+      day: "2-digit",
+    })} – ` +
+    `${sunday.toLocaleDateString("sk-SK", {
+      month: "short",
+      day: "2-digit",
+    })}`;
 
   const handleOpen = () => router.push(openHref);
 
-  // accent cez token s fallbackom (WidgetCard vie prijať aj priamu farbu)
   const accent =
     (THEME as any)?.accent?.neutral ??
     (THEME as any)?.accent?.primary ??
-    "#64748B"; // slate-500 fallback
+    "#64748B";
 
   return (
     <WidgetCard
@@ -87,7 +134,9 @@ export default function WidgetWeekActivities({ openHref = "/calendar", perDayLim
     >
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
         {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
-          <div key={d} className="text-center">{d}</div>
+          <div key={d} className="text-center">
+            {d}
+          </div>
         ))}
       </div>
 
@@ -101,9 +150,15 @@ export default function WidgetWeekActivities({ openHref = "/calendar", perDayLim
           const d = new Date(monday);
           d.setDate(monday.getDate() + i);
 
-          const key   = iso(d.getFullYear(), d.getMonth(), d.getDate());
-          const items = byDay.get(key) ?? [];
-          const shown = items.slice(0, perDayLimit);
+          const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
+          const bucket = byDay.get(key) ?? { activities: [], planned: [] };
+          const actShown = bucket.activities.slice(0, perDayLimit);
+          const remainingSlots =
+            perDayLimit - actShown.length > 0 ? perDayLimit - actShown.length : 0;
+          const planShown = bucket.planned.slice(0, remainingSlots);
+
+          const totalCount = bucket.activities.length + bucket.planned.length;
+          const shownCount = actShown.length + planShown.length;
 
           const isToday = new Date().toDateString() === d.toDateString();
 
@@ -123,15 +178,34 @@ export default function WidgetWeekActivities({ openHref = "/calendar", perDayLim
                 </span>
 
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-                  {shown.map((it) => (
+                  {/* reálne aktivity – plné bodky */}
+                  {actShown.map((it) => (
                     <span
-                      key={it.id}
+                      key={`act-${it.id}`}
                       className="inline-block w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: SPORT_COLORS[it.sport] ?? SPORT_COLORS.other }}
+                      style={{
+                        backgroundColor:
+                          SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
+                      }}
                     />
                   ))}
-                  {items.length > shown.length && (
-                    <span className="text-[10px] opacity-70">+{items.length - shown.length}</span>
+
+                  {/* plánované sessions – orámované krúžky */}
+                  {planShown.map((it) => (
+                    <span
+                      key={`plan-${it.id}`}
+                      className="inline-block w-1.5 h-1.5 rounded-full border border-dashed"
+                      style={{
+                        borderColor:
+                          SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
+                      }}
+                    />
+                  ))}
+
+                  {totalCount > shownCount && (
+                    <span className="text-[10px] opacity-70">
+                      +{totalCount - shownCount}
+                    </span>
                   )}
                 </div>
               </div>

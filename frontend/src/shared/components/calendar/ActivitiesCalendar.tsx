@@ -3,6 +3,7 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
+import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
 import {
@@ -11,7 +12,10 @@ import {
   NO_X_OVERFLOW,
 } from "@/shared/ui/classes";
 
-const ActivityTable = dynamic(() => import("@/shared/components/ActivityTable"), { ssr: false });
+const ActivityTable = dynamic(
+  () => import("@/shared/components/ActivityTable"),
+  { ssr: false }
+);
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -28,17 +32,23 @@ type DayCellData = {
   iso: string;
   inMonth: boolean;
   day: number | null;
-  items: { id: number; sport: string; name: string }[];
+  activities: { id: number; sport: string; name: string }[];
+  planned: { id: number; sport: string; title: string; hasActivity: boolean }[];
 };
 
-function daysInMonth(y: number, m0: number) { return new Date(y, m0 + 1, 0).getDate(); }
+function daysInMonth(y: number, m0: number) {
+  return new Date(y, m0 + 1, 0).getDate();
+}
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
-const iso  = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+const iso = (y: number, m0: number, d: number) =>
+  `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
 // Po=0
-const startWeekday = (y: number, m0: number) => (new Date(y, m0, 1).getDay() + 6) % 7;
+const startWeekday = (y: number, m0: number) =>
+  (new Date(y, m0, 1).getDay() + 6) % 7;
 
 function useMonthActivities(year: number, month0: number) {
   const { rows } = useActivityData();
+  const { selectPlanByRange } = usePlanData();
   const [map, setMap] = React.useState<Record<string, DayCellData>>({});
 
   React.useEffect(() => {
@@ -52,24 +62,55 @@ function useMonthActivities(year: number, month0: number) {
       d.setDate(firstCell.getDate() + i);
       const k = iso(d.getFullYear(), d.getMonth(), d.getDate());
       const inMonth = d.getMonth() === month0;
-      grid[k] = { iso: k, inMonth, day: inMonth ? d.getDate() : null, items: [] };
+      grid[k] = {
+        iso: k,
+        inMonth,
+        day: inMonth ? d.getDate() : null,
+        activities: [],
+        planned: [],
+      };
     }
 
     const firstIso = iso(year, month0, 1);
-    const lastIso  = iso(year, month0, daysInMonth(year, month0));
+    const lastIso = iso(year, month0, daysInMonth(year, month0));
+
+    // aktivity
     for (const r of rows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.items.push({
+      cell.activities.push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
         name: r.name || "",
       });
     }
+
+    // plánované sessions
+    const plans = selectPlanByRange(firstIso, lastIso);
+    for (const p of plans) {
+      const dIso = String(p.plan_date).slice(0, 10);
+      const cell = grid[dIso];
+      if (!cell) continue;
+      cell.planned.push({
+        id: p.id,
+        sport:
+          (p as any).sport ||
+          (p as any).payload?.sport ||
+          (p as any).payload?.session_sport ||
+          "other",
+        title:
+          (p as any).title ||
+          (p as any).payload?.title ||
+          (p as any).payload?.session_title ||
+          "",
+        hasActivity: !!(p as any).activity_id,
+      });
+    }
+
     setMap(grid);
-  }, [rows, year, month0]);
+  }, [rows, year, month0, selectPlanByRange]);
 
   return map;
 }
@@ -84,6 +125,10 @@ function DayCell({
   isSelected: boolean;
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
+
+  const activitiesShown = cell.activities.slice(0, 8);
+  const plannedShown = cell.planned.slice(0, 6); // nech to nie je mega vysoké
+
   return (
     <button
       type="button"
@@ -102,19 +147,48 @@ function DayCell({
         <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
           {cell.day ?? ""}
         </span>
+
+        {/* reálne aktivity – plné bodky */}
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-          {cell.items.slice(0, 8).map((it) => (
+          {activitiesShown.map((it) => (
             <span
-              key={it.id}
+              key={`act-${it.id}`}
               className="inline-block w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: SPORT_COLORS[it.sport] ?? SPORT_COLORS.other }}
+              style={{
+                backgroundColor:
+                  SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
+              }}
               title={it.name || it.sport}
             />
           ))}
-          {cell.items.length > 8 && (
-            <span className="text-[10px] opacity-70">+{cell.items.length - 8}</span>
+          {cell.activities.length > activitiesShown.length && (
+            <span className="text-[10px] opacity-70">
+              +{cell.activities.length - activitiesShown.length}
+            </span>
           )}
         </div>
+
+        {/* plánované sessions – orámované krúžky */}
+        {cell.planned.length > 0 && (
+          <div className="mt-0.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
+            {plannedShown.map((it) => (
+              <span
+                key={`plan-${it.id}`}
+                className="inline-block w-1.5 h-1.5 rounded-full border border-dashed"
+                style={{
+                  borderColor:
+                    SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
+                }}
+                title={it.title || it.sport}
+              />
+            ))}
+            {cell.planned.length > plannedShown.length && (
+              <span className="text-[10px] opacity-70">
+                +{cell.planned.length - plannedShown.length}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </button>
   );
@@ -133,7 +207,9 @@ export default function ActivitiesCalendar({
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedIso(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedIso(null);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -153,7 +229,8 @@ export default function ActivitiesCalendar({
           iso: k,
           inMonth: d.getMonth() === month0,
           day: d.getMonth() === month0 ? d.getDate() : null,
-          items: [],
+          activities: [],
+          planned: [],
         }
       );
     }
@@ -232,7 +309,7 @@ export default function ActivitiesCalendar({
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
-            variant="calendar"            // náš ActivitySingle už vie skryť dátum v tomto variante
+            variant="calendar"
             suppressItemHeaderIfSingleDay
           />
         </div>
