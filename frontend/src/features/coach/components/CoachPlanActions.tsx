@@ -30,9 +30,7 @@ import { THEME } from "@/shared/theme/tokens";
 import { API_URL as RAW_API_URL } from "@/shared/config";
 
 const API_URL: string = RAW_API_URL ?? "";
-
-// prepínač debug módu (vývojársky vs. produkčný)
-const COACH_DEBUG = process.env.NEXT_PUBLIC_COACH_DEBUG === "1";
+const COACH_DEBUG = false;
 
 /* ────────────── UI helpers ────────────── */
 function JsonBlock({ title, data }: { title: string; data: any }) {
@@ -145,13 +143,11 @@ export default function CoachPlanActions() {
   } | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
 
-  // AI raw debug polia z BE
   const [aiAttempts, setAiAttempts] = useState<any>(null);
   const [aiSystem, setAiSystem] = useState<any>(null);
   const [aiUser, setAiUser] = useState<any>(null);
   const [aiLastRaw, setAiLastRaw] = useState<any>(null);
 
-  // aktívny plán (len jednoduché meta info)
   const [activeMeta, setActiveMeta] = useState<ActiveMeta | null>(null);
 
   const cacheKey = useMemo(
@@ -159,7 +155,6 @@ export default function CoachPlanActions() {
     [userId, prefs],
   );
 
-  // odvodené stavy
   const hasGenerated =
     !!analysis &&
     Array.isArray(analysis.next_10_days) &&
@@ -167,13 +162,13 @@ export default function CoachPlanActions() {
   const hasActivePlan = !!activeMeta;
 
   const canRunGenerate = !!userId && !loading && !hasActivePlan;
-  const canStart = !loading && !hasActivePlan && hasGenerated;
-  const canUpdate = !loading && hasActivePlan;
-  const canCancel = !loading && hasActivePlan;
+  const canStart = !!userId && !loading && hasGenerated && !hasActivePlan;
+  const canUpdate = !!userId && !loading && hasActivePlan;
+  const canCancel = !!userId && !loading && hasActivePlan;
 
   const resetSteps = useCallback(() => setSteps(makeSteps("idle")), []);
   const markOnly = useCallback((active: StepName | null, note?: string) => {
-    if (!COACH_DEBUG) return; // v non-debug móde panel riešiť nemusíme
+    if (!COACH_DEBUG) return;
     setSteps((prev) =>
       prev.map((s) => {
         if (active === null)
@@ -210,7 +205,7 @@ export default function CoachPlanActions() {
     );
   }, []);
 
-  /* Načítanie prefs (DB → storage) */
+  /* Prefs – DB → storage */
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -228,29 +223,43 @@ export default function CoachPlanActions() {
     })();
   }, [userId, markOnly]);
 
-  /* Načítanie info o aktívnom pláne z localStorage (zatím FE-only) */
+  /* Načítanie generated plánu + active plánu z localStorage pri mount-e */
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     try {
-      const raw = localStorage.getItem("coach.active");
-      if (!raw) {
-        setActiveMeta(null);
-        return;
+      const rawGen = localStorage.getItem("coach.generated");
+      if (rawGen) {
+        const obj = JSON.parse(rawGen);
+        setAnalysis(obj);
+        console.log("[coach.actions] loaded generated plan from storage");
+      } else {
+        setAnalysis(null);
       }
-      const obj = JSON.parse(raw);
-      const meta: ActiveMeta = {
-        plan_id: obj.plan_id ?? null,
-        goal: obj.meta?.goal_kind ?? obj.meta?.goal ?? null,
-        weeks: obj.meta?.weeks ?? null,
-      };
-      setActiveMeta(meta);
-      console.log("[coach.actions] active plan loaded from storage", meta);
+    } catch {
+      setAnalysis(null);
+    }
+
+    try {
+      const rawActive = localStorage.getItem("coach.active");
+      if (rawActive) {
+        const obj = JSON.parse(rawActive);
+        const meta: ActiveMeta = {
+          plan_id: obj.plan_id ?? null,
+          goal: obj.meta?.goal_kind ?? obj.meta?.goal ?? null,
+          weeks: obj.meta?.weeks ?? null,
+        };
+        setActiveMeta(meta);
+        console.log("[coach.actions] loaded active plan from storage", meta);
+      } else {
+        setActiveMeta(null);
+      }
     } catch {
       setActiveMeta(null);
     }
   }, [userId]);
 
-  /* Generate plan — RAW DEBUG režim */
+  /* Generate plan */
   const handleGenerate = useCallback(async () => {
     if (!userId) return;
     console.log("[coach.actions] handleGenerate clicked");
@@ -263,7 +272,6 @@ export default function CoachPlanActions() {
     setLoading(true);
 
     try {
-      // 1) prefs
       markOnly("Loading preferences", "fetch from DB");
       const fresh = await getPrefs(userId).catch(() => null);
       const effectivePrefs = fresh ?? readPrefsFromStorage();
@@ -274,14 +282,12 @@ export default function CoachPlanActions() {
       setPrefs(effectivePrefs);
       markOnly(null);
 
-      // 2) inputs
       markOnly("Preparing inputs for AI", "build payload");
       const base = toAnalyzePayloadBE(effectivePrefs);
       const payload = { ...base, bests: { run: pbRun ?? [] } };
       setDebugPayload(base);
       console.log("[coach.actions] analyze payload", payload);
 
-      // 3) cache
       markOnly("Checking cache");
       const ck = makeCacheKey(String(userId), effectivePrefs);
       const cached = loadCachedResult(ck);
@@ -299,7 +305,6 @@ export default function CoachPlanActions() {
         return;
       }
 
-      // 4) BE call – RAW debug ON
       markOnly("Sending request", "debug_raw=1, loose=1");
       markOnly("Generating plan (AI)");
       const json = await analyzeCoach(userId, payload, {
@@ -315,13 +320,11 @@ export default function CoachPlanActions() {
 
       console.log("[coach.actions] analyzeCoach response", json);
 
-      // AI raw debug polia (ak BE pošle)
       setAiAttempts(json?.ai_debug?.attempts ?? null);
       setAiSystem(json?.ai_debug?.system_prompt ?? null);
       setAiUser(json?.ai_debug?.user_prompt ?? null);
       setAiLastRaw(json?.ai_debug?.last_raw ?? null);
 
-      // 5) parse/save
       markOnly("Parsing response", "ok");
       setAnalysis(json.analysis);
       setDiag({ source: "ai", model: json.model });
@@ -343,7 +346,7 @@ export default function CoachPlanActions() {
     }
   }, [userId, pbRun, resetSteps, markOnly, markError]);
 
-  /* Start plan – uloženie do DB + nastavenie aktívneho plánu */
+  /* Start plan */
   const handleStart = useCallback(async () => {
     try {
       console.log("[coach.actions] handleStart clicked");
@@ -384,7 +387,7 @@ export default function CoachPlanActions() {
     }
   }, [prefs, userId]);
 
-  /* Update plan – zatiaľ len skeleton (FE/DB sync) */
+  /* Update plan – zatiaľ skeleton */
   const handleUpdate = useCallback(async () => {
     try {
       console.log("[coach.actions] handleUpdate clicked");
@@ -398,7 +401,7 @@ export default function CoachPlanActions() {
     }
   }, [userId]);
 
-  /* Cancel plan – zruší aktívny plán v DB + storage */
+  /* Cancel plan – zruší BE aj FE stav */
   const handleCancel = useCallback(async () => {
     try {
       console.log("[coach.actions] handleCancel clicked");
@@ -406,14 +409,22 @@ export default function CoachPlanActions() {
       const res = await cancelActivePlan(userId, activeMeta?.plan_id ?? null);
       console.log("[coach.actions] cancelActivePlan result", res);
       if (!res?.success) throw new Error("Zrušenie plánu zlyhalo.");
+
+      // vyčisti aktívny plán aj generated plán
       setActiveMeta(null);
+      setAnalysis(null);
+      setDiag(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("coach.active");
+        localStorage.removeItem("coach.generated");
+      }
     } catch (e: any) {
       console.error("[coach.actions] handleCancel error", e);
       setErr(e?.message || "Cancel failed");
     }
   }, [userId, activeMeta]);
 
-  /* Clear cache (len lokálne) */
+  /* Clear cache (len v debug móde) */
   const handleClearCache = useCallback(() => {
     console.log("[coach.actions] handleClearCache clicked");
     if (cacheKey) clearCachedByKey(cacheKey);
@@ -466,13 +477,13 @@ export default function CoachPlanActions() {
 
   return (
     <div className="space-y-4">
-      {/* mini sumár prefs */}
+      {/* mini sumár prefs + info o aktívnom pláne */}
       <div className="rounded-xl border border-white/10 p-3 bg-white/5">
         <PrefsMini prefs={prefs} />
         {activeSummary && (
           <div className="mt-2 text-xs text-emerald-300">
-            Active plan: <span className="font-semibold">{activeSummary.goal}</span>
-            {", "}
+            Active plan:{" "}
+            <span className="font-semibold">{activeSummary.goal}</span>,{" "}
             <span className="font-semibold">{activeSummary.weeks}</span> weeks
           </div>
         )}
@@ -548,7 +559,7 @@ export default function CoachPlanActions() {
         )}
       </div>
 
-      {/* stavový panel */}
+      {/* stavový panel (len v debug móde) */}
       <StepsStrip />
 
       {/* error */}
@@ -568,7 +579,7 @@ export default function CoachPlanActions() {
         </div>
       )}
 
-      {/* debug */}
+      {/* debug bloky */}
       <div className="space-y-2">
         <JsonBlock
           title="Prefs (effective: DB → storage fallback)"

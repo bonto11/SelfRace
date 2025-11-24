@@ -24,6 +24,7 @@ export default function Button({
   active = false,
   className,
   children,
+  disabled,
   ...rest
 }: Props) {
   // auto-kruh pre krátky text/ikonu; pre "prefs" nikdy nechceme kruh
@@ -36,11 +37,12 @@ export default function Button({
   const cls = cx(
     buttonClass(variant, size, { circle: useCircle, active }),
     block && "w-full",
+    disabled && "opacity-40 cursor-not-allowed",
     className
   );
 
   return (
-    <button className={cls} {...rest}>
+    <button className={cls} disabled={disabled} {...rest}>
       {leftIcon && !useCircle && <span className="inline-flex">{leftIcon}</span>}
       {!useCircle && children}
       {rightIcon && !useCircle && <span className="inline-flex">{rightIcon}</span>}
