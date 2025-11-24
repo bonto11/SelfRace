@@ -32,8 +32,7 @@ type DayCellData = {
   iso: string;
   inMonth: boolean;
   day: number | null;
-  activities: { id: number; sport: string; name: string }[];
-  planned: { id: number; sport: string; title: string; hasActivity: boolean }[];
+  items: { id: number; sport: string; name: string }[];
 };
 
 function daysInMonth(y: number, m0: number) {
@@ -48,7 +47,7 @@ const startWeekday = (y: number, m0: number) =>
 
 function useMonthActivities(year: number, month0: number) {
   const { rows } = useActivityData();
-  const { selectPlanByRange } = usePlanData();
+  const { planRows } = usePlanData();
   const [map, setMap] = React.useState<Record<string, DayCellData>>({});
 
   React.useEffect(() => {
@@ -66,51 +65,53 @@ function useMonthActivities(year: number, month0: number) {
         iso: k,
         inMonth,
         day: inMonth ? d.getDate() : null,
-        activities: [],
-        planned: [],
+        items: [],
       };
     }
 
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
 
-    // aktivity
+    // reálne aktivity
     for (const r of rows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.activities.push({
+      cell.items.push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
         name: r.name || "",
       });
     }
 
-    // plánované sessions
-    const plans = selectPlanByRange(firstIso, lastIso);
-    for (const p of plans) {
-      const dIso = String(p.plan_date).slice(0, 10);
+    // plánované sessions (bez rest days)
+    for (const p of planRows) {
+      const dIso = String((p as any).plan_date || (p as any).date).slice(0, 10);
+      if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.planned.push({
-        id: p.id,
-        sport:
-          (p as any).sport ||
-          (p as any).payload?.sport ||
-          (p as any).payload?.session_sport ||
-          "other",
-        title:
-          (p as any).title ||
-          (p as any).payload?.title ||
-          (p as any).payload?.session_title ||
-          "",
-        hasActivity: !!(p as any).activity_id,
+
+      const sport = (p as any).sport || "other";
+      const title = ((p as any).title || "").toLowerCase();
+      const duration = (p as any).duration_min;
+
+      const isRest =
+        sport === "other" &&
+        (!duration || Number(duration) <= 0) &&
+        title.includes("rest");
+
+      if (isRest) continue;
+
+      cell.items.push({
+        id: -Number((p as any).id ?? 0) || Math.random(),
+        sport,
+        name: (p as any).title || "",
       });
     }
 
     setMap(grid);
-  }, [rows, year, month0, selectPlanByRange]);
+  }, [rows, planRows, year, month0]);
 
   return map;
 }
@@ -125,10 +126,6 @@ function DayCell({
   isSelected: boolean;
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
-
-  const activitiesShown = cell.activities.slice(0, 8);
-  const plannedShown = cell.planned.slice(0, 6); // nech to nie je mega vysoké
-
   return (
     <button
       type="button"
@@ -147,12 +144,10 @@ function DayCell({
         <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
           {cell.day ?? ""}
         </span>
-
-        {/* reálne aktivity – plné bodky */}
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-          {activitiesShown.map((it) => (
+          {cell.items.slice(0, 8).map((it) => (
             <span
-              key={`act-${it.id}`}
+              key={it.id}
               className="inline-block w-1.5 h-1.5 rounded-full"
               style={{
                 backgroundColor:
@@ -161,34 +156,12 @@ function DayCell({
               title={it.name || it.sport}
             />
           ))}
-          {cell.activities.length > activitiesShown.length && (
+          {cell.items.length > 8 && (
             <span className="text-[10px] opacity-70">
-              +{cell.activities.length - activitiesShown.length}
+              +{cell.items.length - 8}
             </span>
           )}
         </div>
-
-        {/* plánované sessions – orámované krúžky */}
-        {cell.planned.length > 0 && (
-          <div className="mt-0.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-            {plannedShown.map((it) => (
-              <span
-                key={`plan-${it.id}`}
-                className="inline-block w-1.5 h-1.5 rounded-full border border-dashed"
-                style={{
-                  borderColor:
-                    SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
-                }}
-                title={it.title || it.sport}
-              />
-            ))}
-            {cell.planned.length > plannedShown.length && (
-              <span className="text-[10px] opacity-70">
-                +{cell.planned.length - plannedShown.length}
-              </span>
-            )}
-          </div>
-        )}
       </div>
     </button>
   );
@@ -205,6 +178,8 @@ export default function ActivitiesCalendar({
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
+
+  const { selectPlanByRange } = usePlanData();
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -229,8 +204,7 @@ export default function ActivitiesCalendar({
           iso: k,
           inMonth: d.getMonth() === month0,
           day: d.getMonth() === month0 ? d.getDate() : null,
-          activities: [],
-          planned: [],
+          items: [],
         }
       );
     }
@@ -249,6 +223,21 @@ export default function ActivitiesCalendar({
     month: "long",
     year: "numeric",
   });
+
+  // plánované pre vybraný deň
+  const plannedForDay =
+    selectedIso != null
+      ? selectPlanByRange(selectedIso, selectedIso).filter((p) => {
+          const sport = (p as any).sport || "other";
+          const title = ((p as any).title || "").toLowerCase();
+          const duration = (p as any).duration_min;
+          const isRest =
+            sport === "other" &&
+            (!duration || Number(duration) <= 0) &&
+            title.includes("rest");
+          return !isRest;
+        })
+      : [];
 
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
@@ -295,8 +284,8 @@ export default function ActivitiesCalendar({
               key={c.iso}
               cell={c}
               isSelected={selectedIso === c.iso}
-              onSelect={(iso) =>
-                setSelectedIso((cur) => (cur === iso ? null : iso))
+              onSelect={(isoStr) =>
+                setSelectedIso((cur) => (cur === isoStr ? null : isoStr))
               }
             />
           ))}
@@ -305,13 +294,56 @@ export default function ActivitiesCalendar({
 
       {/* DETAIL pod kalendárom */}
       {selectedIso && (
-        <div className="mt-3 ml-1">
+        <div className="mt-3 ml-1 space-y-4">
+          {/* reálne aktivity */}
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
             variant="calendar"
             suppressItemHeaderIfSingleDay
           />
+
+          {/* plánované tréningy */}
+          {plannedForDay.length > 0 && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="text-sm font-semibold mb-2">
+                Plánované tréningy •{" "}
+                {new Date(selectedIso).toLocaleDateString("sk-SK", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
+              </div>
+              <ul className="space-y-1 text-sm">
+                {plannedForDay.map((p) => (
+                  <li
+                    key={(p as any).id}
+                    className="flex items-baseline justify-between gap-2"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="inline-block w-1.5 h-1.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            SPORT_COLORS[(p as any).sport] ??
+                            SPORT_COLORS.other,
+                        }}
+                      />
+                      <span className="font-medium">
+                        {(p as any).title || "Tréning"}
+                      </span>
+                    </span>
+                    <span className="opacity-80 text-xs">
+                      {(p as any).duration_min
+                        ? `${(p as any).duration_min} min`
+                        : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
