@@ -40,6 +40,7 @@ type PlanCtx = {
   loading: boolean;
   refresh: (force?: boolean) => Promise<void>;
   selectPlanByRange: (start: string, end: string) => PlanRow[];
+  planRows: PlanRow[];
 };
 
 const PlanDataContext = createContext<PlanCtx | null>(null);
@@ -168,7 +169,8 @@ export function PlanDataProvider({
       refresh: fetchRange,
       selectPlanByRange,
     }),
-    [rangeStart, rangeEnd, rows, loading, fetchRange, selectPlanByRange]
+    [rangeStart, rangeEnd, rows, loading, fetchRange, selectPlanByRange],
+    planRows: rows,
   );
 
   return (
