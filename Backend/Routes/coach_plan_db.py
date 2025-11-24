@@ -1,4 +1,4 @@
-# Routes/coach_plan.py
+# Routes/coach_plan_db.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -95,7 +95,9 @@ def _group_rows_to_plan(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "notes": r.get("notes") or None,
             }
 
-        by_date.setdefault(d, []).append({"idx": r.get("session_index") or 0, "sess": sess})
+        by_date.setdefault(d, []).append(
+            {"idx": r.get("session_index") or 0, "sess": sess}
+        )
 
     # zoradíme podľa dátumu a session_index
     next_10_days: List[Dict[str, Any]] = []
@@ -134,11 +136,7 @@ def get_active_plan(
     }
     """
     try:
-        base_q = (
-            supabase.table(TABLE_COACH_PLAN_LOG)
-            .select("*")
-            .eq("user_id", user_id)
-        )
+        base_q = supabase.table(TABLE_COACH_PLAN_LOG).select("*").eq("user_id", user_id)
 
         if plan_id:
             base_q = base_q.eq("plan_id", plan_id)
@@ -292,7 +290,7 @@ def save_plan(
                 "session_index": idx,
                 "session_type": session_type,
                 "payload": {
-                    "plan": sess,   # celý plánovaný session
+                    "plan": sess,  # celý plánovaný session
                     # "actual": null – doplníme neskôr pri Strava sync
                 },
                 "activity_id": None,
