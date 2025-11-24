@@ -537,7 +537,6 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         # DÁTOVÁ ŠTRUKTÚRA
         "Produce `next_10_days` for a continuous block of dates starting from `plan_start_date`.",
         "`next_10_days` MUST be an ARRAY with between 7 and 10 items (do NOT return a single object).",
-        "Do NOT include any `first_10_days` key in the output.",
         "Each day in `next_10_days` MUST include non-empty `sessions`.",
         'If a day is rest: include one session {"title":"Rest Day","sport":"other","duration_min":0}.',
 
