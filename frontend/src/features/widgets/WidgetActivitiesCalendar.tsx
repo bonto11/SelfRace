@@ -1,3 +1,4 @@
+// src/shared/components/dashboard/WidgetWeekActivities.tsx
 "use client";
 
 import * as React from "react";
@@ -31,6 +32,12 @@ function startOfWeek(date = new Date()) {
   return d;
 }
 
+type DayItem = {
+  id: number;
+  sport: string;
+  kind: "activity" | "plan" | "done";
+};
+
 type Props = {
   openHref?: string; // default /calendar
   perDayLimit?: number;
@@ -52,10 +59,7 @@ export default function WidgetWeekActivities({
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const byDay = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { id: number; sport: string; kind: "activity" | "plan" }[]
-    >();
+    const map = new Map<string, DayItem[]>();
 
     // init 7 dní
     for (let i = 0; i < 7; i++) {
@@ -69,14 +73,15 @@ export default function WidgetWeekActivities({
     for (const r of actRows) {
       const k = r.date.slice(0, 10);
       if (!map.has(k)) continue;
-      (map.get(k) as any[]).push({
+      const arr = map.get(k)!;
+      arr.push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
         kind: "activity",
       });
     }
 
-    // plán (bez REST)
+    // plán (bez REST) + prepojenie na aktivity
     const planRows = selectPlanByRange(startIso, endIso);
     for (const p of planRows) {
       const k = String(p.plan_date).slice(0, 10);
@@ -84,13 +89,42 @@ export default function WidgetWeekActivities({
 
       const title = String(p.title || "").toLowerCase();
       const sType = String(p.session_type || "").toLowerCase();
-      if (sType === "rest" || title.startsWith("rest")) continue;
+      const sport = p.sport || "other";
+      const duration = p.duration_min ?? null;
 
-      (map.get(k) as any[]).push({
-        id: p.id,
-        sport: p.sport || "other",
-        kind: "plan",
-      });
+      const isRest =
+        sType === "rest" ||
+        title.startsWith("rest") ||
+        sport === "other" ||
+        duration === 0;
+
+      const arr = map.get(k)!;
+
+      // ak má activity_id → nájdi zodpovedajúcu aktivitu a označ ako done
+      const actIdRaw = (p as any).activity_id;
+      const actId =
+        actIdRaw != null && !Number.isNaN(Number(actIdRaw))
+          ? Number(actIdRaw)
+          : null;
+
+      if (actId) {
+        const idx = arr.findIndex(
+          (it) => it.kind === "activity" && it.id === actId
+        );
+        if (idx >= 0) {
+          arr[idx] = { ...arr[idx], kind: "done" };
+          continue; // žiadna druhá bodka
+        }
+      }
+
+      // čistý plán bez aktivity – ale nie rest day
+      if (!isRest) {
+        arr.push({
+          id: p.id,
+          sport,
+          kind: "plan",
+        });
+      }
     }
 
     return map;
@@ -161,16 +195,27 @@ export default function WidgetWeekActivities({
                 </span>
 
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-                  {shown.map((it) => (
-                    <span
-                      key={`${it.kind}-${it.id}`}
-                      className="inline-block w-1.5 h-1.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
-                      }}
-                    />
-                  ))}
+                  {shown.map((it) => {
+                    const color =
+                      SPORT_COLORS[it.sport] ?? SPORT_COLORS.other;
+                    const isPlan = it.kind === "plan";
+                    const isDone = it.kind === "done";
+
+                    return (
+                      <span
+                        key={`${it.kind}-${it.id}`}
+                        className={[
+                          "inline-block w-1.5 h-1.5 rounded-full",
+                          isPlan || isDone ? "border" : "",
+                          isPlan ? "opacity-70" : "",
+                        ].join(" ")}
+                        style={{
+                          backgroundColor: isPlan ? "transparent" : color,
+                          borderColor: isPlan || isDone ? color : undefined,
+                        }}
+                      />
+                    );
+                  })}
                   {items.length > shown.length && (
                     <span className="text-[10px] opacity-70">
                       +{items.length - shown.length}
