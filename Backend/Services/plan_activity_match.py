@@ -1,387 +1,453 @@
 # Services/plan_activity_match.py
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Optional, Tuple
+from datetime import date, timedelta
 
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
-    TABLE_ACTIVITIES_ENRICHMENT,
     TABLE_COACH_PLANNED_SESSIONS,
 )
 
 supabase = get_client()
 
 
-# ----------------- helpers: basic -----------------
+# ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
+
+def _date_from_ts(ts: Any) -> Optional[date]:
+    """
+    DB má v summary `date` ako timestamptz alebo string typu
+    '2025-11-24 18:30:00+00' / '2025-11-24T18:30:00+00'.
+
+    Zoberieme prvých 10 znakov a spravíme date().
+    """
+    if not ts:
+        return None
+    s = str(ts)[:10]
+    try:
+        y, m, d = map(int, s.split("-"))
+        return date(y, m, d)
+    except Exception:
+        return None
 
 
-def _sport_group(s: Any) -> str:
-    s = str(s or "").lower()
-    if s in ("run", "trail_run", "virtual_run"):
+def _sport_group_from_plan(s: Any) -> str:
+    """
+    Šport z plánovanej session (enum / text: run/ride/strength/swim/other).
+    """
+    if not s:
+        return "other"
+    v = str(s).lower()
+    if v.startswith("run"):
         return "run"
-    if s in ("ride", "virtual_ride", "ebike_ride", "gravel_ride"):
+    if v.startswith("ride") or v.startswith("bike") or v.startswith("velo"):
         return "ride"
-    if s in ("swim", "pool_swim", "open_water_swim"):
-        return "swim"
-    if s in ("workout", "weight_training", "strength", "gym"):
+    if v.startswith("str"):
         return "strength"
+    if v.startswith("swim"):
+        return "swim"
     return "other"
 
 
-def _date_only_from_db(v: Any) -> Optional[date]:
-    if not v:
-        return None
-    s = str(v)
-    # "2025-11-24 10:15:00+00" → "2025-11-24"
-    if " " in s:
-        s = s.split(" ", 1)[0]
-    if "T" in s:
-        s = s.split("T", 1)[0]
-    try:
-        return date.fromisoformat(s)
-    except Exception:
-        return None
+def _sport_group_from_activity(s: Any) -> str:
+    """
+    Šport z activities_summary.sport_type_fe (alebo fallback sport_type).
+    """
+    if not s:
+        return "other"
+    v = str(s).lower()
+    if v.startswith("run") or "run" in v or v in ("trail", "trail_run"):
+        return "run"
+    if v.startswith("ride") or v.startswith("cycle") or v.startswith("bike"):
+        return "ride"
+    if v.startswith("str") or "strength" in v or "gym" in v:
+        return "strength"
+    if "swim" in v:
+        return "swim"
+    return "other"
 
 
-def _to_float(v: Any) -> Optional[float]:
-    try:
-        if v is None or v == "":
-            return None
-        return float(v)
-    except Exception:
-        return None
+def _sport_compat(plan_sport: str, act_sport: str) -> float:
+    """
+    1.0 = rovnaká skupina (run/run, ride/ride, ...),
+    0.5 = trocha podobné (napr. run vs walk, ak by bol),
+    0.0 = úplne mimo.
+    """
+    if plan_sport == act_sport:
+        return 1.0
+    if {plan_sport, act_sport} == {"run", "other"}:
+        # napr. Strava to označí ako "Workout" → radšej nechať trochu šancu
+        return 0.4
+    return 0.0
 
 
-def _safe_date(s: str) -> date:
-    return date.fromisoformat(s[:10])
+# ───────────────────────────────────────── helpers: scoring ─────────────────────────────────────────
+
+def _ratio_score(a: Optional[float], b: Optional[float]) -> float:
+    """
+    Vráti číslo 0..1 podľa pomeru (min/max) – ak jeden chýba → 0.
+    """
+    if a is None or b is None:
+        return 0.0
+    if a <= 0 or b <= 0:
+        return 0.0
+    lo = min(a, b)
+    hi = max(a, b)
+    return float(lo) / float(hi)
 
 
-# ----------------- helpers: plan meta -----------------
+def _name_hint_score(plan_title: str, act_name: str) -> float:
+    """
+    Jednoduché keywordy v názve:
+      - interval / repeats / VO2 / 400m / 1000m / hills / tempo / threshold / long / easy / recovery
+    Čím viac zhod, tým vyššie.
+    """
+    if not plan_title and not act_name:
+        return 0.0
+
+    txt = f"{(plan_title or '')} || {(act_name or '')}".lower()
+
+    # kľúčové slová (možnosť pridávať)
+    groups = [
+        ["interval", "repeats", "repeat", "interv"],
+        ["vo2", "vO2"],
+        ["hill", "hills", "climb"],
+        ["tempo"],
+        ["threshold", "thr"],
+        ["easy", "recovery", "regen"],
+        ["long run", "dlhy beh", "longrun"],
+        ["fartlek"],
+        ["strength", "posilka", "gym"],
+    ]
+
+    hits = 0
+    for g in groups:
+        if any(k in txt for k in g):
+            hits += 1
+
+    if hits == 0:
+        return 0.0
+    if hits == 1:
+        return 0.3
+    if hits == 2:
+        return 0.6
+    return 1.0
 
 
-def _plan_hr_range(plan: Mapping[str, Any]) -> Optional[tuple[int, int]]:
-    # priamo v stĺpci / payload-e
-    payload = plan.get("payload") or {}
-    hr = plan.get("target_hr_bpm_range") or plan.get("target_hr") or payload.get(
-        "target_hr_bpm_range"
-    )
+def _compute_match_score(
+    act: Dict[str, Any],
+    sess: Dict[str, Any],
+    day_diff: int,
+) -> Tuple[float, Dict[str, float]]:
+    """
+    Vypočíta finálne skóre + rozpis komponentov.
+    Komponenty:
+      - date_score: 1.0 (rovnaký deň), 0.7 (±1), 0.3 (±2), inak 0
+      - sport_score: 0..1 podľa group
+      - dur_score: pomer duration (moving_time vs duration_min)
+      - name_score: 0..1 podľa názvu
 
-    if isinstance(hr, list) and len(hr) == 2:
+    Finálne:
+      score =
+          0.35*date_score +
+          0.25*sport_score +
+          0.25*dur_score +
+          0.15*name_score
+    """
+    # dátum
+    if day_diff == 0:
+        date_score = 1.0
+    elif abs(day_diff) == 1:
+        date_score = 0.7
+    elif abs(day_diff) == 2:
+        date_score = 0.3
+    else:
+        date_score = 0.0
+
+    # šport
+    plan_sg = _sport_group_from_plan(sess.get("sport"))
+    act_sg = _sport_group_from_activity(act.get("sport_type_fe") or act.get("sport_type"))
+    sport_score = _sport_compat(plan_sg, act_sg)
+
+    # trvanie
+    plan_dur_min = None
+    if sess.get("duration_min") is not None:
         try:
-            return int(hr[0]), int(hr[1])
+            plan_dur_min = float(sess["duration_min"])
         except Exception:
-            pass
+            plan_dur_min = None
 
-    struct = payload.get("structure") or {}
-    main = struct.get("main")
-    main_target: Mapping[str, Any] = {}
-
-    if isinstance(main, dict):
-        # buď priamo target alebo prvý set
-        if isinstance(main.get("target"), dict):
-            main_target = main["target"]
-        elif isinstance(main.get("sets"), list) and main["sets"]:
-            main_target = main["sets"][0].get("target") or {}
-    elif isinstance(main, list) and main:
-        main_target = main[0].get("target") or {}
-
-    hr2 = main_target.get("hr") or main_target.get("heart_rate")
-    if isinstance(hr2, list) and len(hr2) == 2:
+    act_dur_min = None
+    if act.get("moving_time_s") is not None:
         try:
-            return int(hr2[0]), int(hr2[1])
+            act_dur_min = float(act["moving_time_s"]) / 60.0
         except Exception:
-            pass
+            act_dur_min = None
 
-    return None
+    dur_score = _ratio_score(plan_dur_min, act_dur_min)
 
-
-def _plan_duration_min(plan: Mapping[str, Any]) -> Optional[float]:
-    payload = plan.get("payload") or {}
-    d = plan.get("duration_min") or payload.get("duration_min") or payload.get("dur")
-    return _to_float(d)
-
-
-def _plan_distance_km(plan: Mapping[str, Any]) -> Optional[float]:
-    payload = plan.get("payload") or {}
-    d = (
-        payload.get("distance_km")
-        or payload.get("distance_m")
-        or plan.get("distance_km")
-        or plan.get("distance_m")
+    # názov
+    name_score = _name_hint_score(
+        str(sess.get("title") or sess.get("session_type") or ""),
+        str(act.get("name") or ""),
     )
-    if d is None:
-        return None
-    v = _to_float(d)
-    if v is None:
-        return None
-    # ak je to v metroch, prehoď na km
-    return v / 1000.0 if v > 1000 else v
-
-
-# ----------------- helpers: scoring -----------------
-
-
-KEYWORDS: Dict[str, List[str]] = {
-    "interval": ["interval", "repeats", "reps", "repeat", "intervaly"],
-    "vo2": ["vo2", "vo2max"],
-    "threshold": ["threshold", "tempo", "lt2", "lactate"],
-    "long": ["long run", "long", "dlhy beh", "dlhý beh"],
-    "easy": ["easy", "recovery", "ľahký", "lahky", "z2"],
-}
-
-
-def _name_flags_from_plan(plan: Mapping[str, Any]) -> Dict[str, bool]:
-    payload = plan.get("payload") or {}
-    txt = " ".join(
-        str(x).lower()
-        for x in [
-            plan.get("title"),
-            plan.get("session_type"),
-            payload.get("session_type"),
-            plan.get("intensity"),
-        ]
-        if x
-    )
-    flags: Dict[str, bool] = {}
-    for k, words in KEYWORDS.items():
-        flags[k] = any(w in txt for w in words)
-    return flags
-
-
-def _name_flags_from_activity(act: Mapping[str, Any]) -> Dict[str, bool]:
-    txt = str(act.get("name") or "").lower()
-    flags: Dict[str, bool] = {}
-    for k, words in KEYWORDS.items():
-        flags[k] = any(w in txt for w in words)
-    return flags
-
-
-def _name_score(plan: Mapping[str, Any], act: Mapping[str, Any]) -> float:
-    p = _name_flags_from_plan(plan)
-    a = _name_flags_from_activity(act)
-    common = sum(1 for k in KEYWORDS.keys() if p.get(k) and a.get(k))
-    if common == 0:
-        return 0.0
-    if common == 1:
-        return 0.6
-    return 1.0  # >=2 tagy
-
-
-def _date_score(plan_date: date, act_date: date) -> float:
-    diff = abs((plan_date - act_date).days)
-    if diff == 0:
-        return 1.0
-    if diff == 1:
-        return 0.6
-    return 0.0
-
-
-def _hr_score(plan: Mapping[str, Any], act: Mapping[str, Any]) -> float:
-    avg = _to_float(act.get("avg_hr_bpm") or act.get("average_heartrate_bpm"))
-    if avg is None:
-        return 0.0
-    rng = _plan_hr_range(plan)
-    if not rng:
-        return 0.0
-    lo, hi = rng
-    if lo <= avg <= hi:
-        return 1.0
-    if lo - 5 <= avg <= hi + 5:
-        return 0.6
-    return 0.0
-
-
-def _duration_score(plan: Mapping[str, Any], act: Mapping[str, Any]) -> float:
-    plan_min = _plan_duration_min(plan)
-    if plan_min is None or plan_min <= 0:
-        return 0.0
-    act_min = _to_float(act.get("moving_time_s"))
-    if act_min is None or act_min <= 0:
-        return 0.0
-    act_min /= 60.0
-    ratio = act_min / plan_min
-    if 0.8 <= ratio <= 1.2:
-        return 1.0
-    if 0.6 <= ratio <= 1.4:
-        return 0.6
-    return 0.0
-
-
-def _distance_score(plan: Mapping[str, Any], act: Mapping[str, Any]) -> float:
-    plan_km = _plan_distance_km(plan)
-    if plan_km is None or plan_km <= 0:
-        return 0.0
-    d_m = _to_float(act.get("distance_m"))
-    if d_m is None or d_m <= 0:
-        return 0.0
-    act_km = d_m / 1000.0
-    ratio = act_km / plan_km
-    if 0.8 <= ratio <= 1.2:
-        return 1.0
-    if 0.6 <= ratio <= 1.4:
-        return 0.6
-    return 0.0
-
-
-def _plan_activity_score(plan: Mapping[str, Any], act: Mapping[str, Any]) -> float:
-    """Finálne skóre 0–1, predpokladáme už rovnaký user_id a sport-group."""
-    pd = _safe_date(str(plan["plan_date"]))
-    ad = _safe_date(str(act["date_iso"]))
-    ds = _date_score(pd, ad)
-    if ds == 0.0:
-        return 0.0
-
-    hr_s = _hr_score(plan, act)
-    name_s = _name_score(plan, act)
-    dur_s = _duration_score(plan, act)
-    dist_s = _distance_score(plan, act)
 
     score = (
-        0.30 * ds
-        + 0.30 * hr_s
-        + 0.20 * name_s
-        + 0.15 * dur_s
-        + 0.05 * dist_s
+        0.35 * date_score
+        + 0.25 * sport_score
+        + 0.25 * dur_score
+        + 0.15 * name_score
     )
-    return score
 
-
-# ----------------- load meta z DB -----------------
-
-
-def _load_activity_meta(
-    user_id: int, activity_ids: Sequence[int]
-) -> Dict[int, Dict[str, Any]]:
-    """Načíta info pre matchovanie z enrichment + summary."""
-    ids = sorted({int(x) for x in activity_ids if x is not None})
-    if not ids:
-        return {}
-
-    # enrichment (hr, zóny, čas, vzdialenosť, sport_type_fe)
-    enr = (
-        supabase.table(TABLE_ACTIVITIES_ENRICHMENT)
-        .select(
-            "activity_id, avg_hr_bpm, moving_time_s, distance_m, sport_type_fe"
-        )
-        .eq("user_id", user_id)
-        .in_("activity_id", ids)
-        .execute()
-    )
-    enr_map: Dict[int, Dict[str, Any]] = {
-        int(r["activity_id"]): dict(r) for r in (enr.data or [])
+    detail = {
+        "date_score": float(date_score),
+        "sport_score": float(sport_score),
+        "dur_score": float(dur_score),
+        "name_score": float(name_score),
+        "plan_dur_min": plan_dur_min or 0.0,
+        "act_dur_min": act_dur_min or 0.0,
+        "plan_sport_group": plan_sg,
+        "act_sport_group": act_sg,
     }
+    return float(score), detail
 
-    # summary (dátum, názov, fallback sport_type_fe)
-    summ = (
+
+# ───────────────────────────────────────── DB helpers ─────────────────────────────────────────
+
+def _load_activities_summary(user_id: int, activity_ids: List[int]) -> List[Dict[str, Any]]:
+    if not activity_ids:
+        return []
+
+    rows = (
         supabase.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
-            "activity_id, date, name, sport_type_fe, average_heartrate_bpm, moving_time_s, distance_m"
+            "activity_id,date,sport_type,sport_type_fe,moving_time_s,"
+            "distance_m,average_heartrate_bpm,name"
         )
         .eq("user_id", user_id)
-        .in_("activity_id", ids)
+        .in_("activity_id", activity_ids)
         .execute()
     )
-    out: Dict[int, Dict[str, Any]] = {}
-
-    for r in summ.data or []:
-        aid = int(r["activity_id"])
-        base: Dict[str, Any] = enr_map.get(aid, {})
-        base.setdefault("activity_id", aid)
-        base.setdefault("avg_hr_bpm", r.get("average_heartrate_bpm"))
-        base.setdefault("moving_time_s", r.get("moving_time_s"))
-        base.setdefault("distance_m", r.get("distance_m"))
-        base["name"] = r.get("name") or ""
-        base["sport_type_fe"] = base.get("sport_type_fe") or r.get("sport_type_fe") or "other"
-        d = _date_only_from_db(r.get("date"))
-        base["date_iso"] = d.isoformat() if d else None
-        out[aid] = base
-
-    return out
+    data = rows.data or []
+    print(f"[PLAN-MATCH] loaded activities_summary rows={len(data)} for user={user_id}")
+    return data
 
 
-# ----------------- public API -----------------
-
-
-def auto_map_plans_for_activities(
+def _load_plan_rows_for_range(
     user_id: int,
-    activity_ids: Sequence[int],
-    *,
-    date_window: int = 1,
-    threshold: float = 0.7,
+    start_d: date,
+    end_d: date,
+) -> List[Dict[str, Any]]:
+    """
+    Z planned_sessions / coach_plan_log zoberie všetko v rozsahu dní.
+    """
+    start_iso = start_d.isoformat()
+    end_iso = end_d.isoformat()
+
+    rows = (
+        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        .select(
+            "id,user_id,plan_date,sport,title,duration_min,intensity,"
+            "plan_id,activity_id,session_type,session_index,payload"
+        )
+        .eq("user_id", user_id)
+        .gte("plan_date", start_iso)
+        .lte("plan_date", end_iso)
+        .execute()
+    )
+    data = rows.data or []
+    print(
+        f"[PLAN-MATCH] loaded plan rows={len(data)} for user={user_id} "
+        f"range={start_iso}..{end_iso}"
+    )
+    return data
+
+
+# ───────────────────────────────────────── main entry ─────────────────────────────────────────
+
+def auto_map_plan_for_activities(
+    user_id: int,
+    activity_ids: List[int],
+    days_window: int = 1,
+    score_threshold: float = 0.55,
 ) -> Dict[str, int]:
     """
-    Pre daného usera a zoznam activity_id:
-      - nájde plánované tréningy v coach_plan_log (TABLE_COACH_PLANNED_SESSIONS),
-      - pokúsi sa ich spárovať podľa dátumu, športu, HR, názvu a trvania,
-      - do plánu zapíše activity_id, ak score >= threshold.
+    Automaticky namapuje aktivity (Strava) na plánované session v coach_plan_log/planned_sessions.
 
-    Vracia štatistiky: {"candidates": X, "mapped": Y}.
+    - pre každú aktivitu:
+        1) nájde kandidátov: plánované session v rozmedzí ±days_window dní
+        2) spočíta score
+        3) vezme najvyššie score
+        4) ak score >= threshold a session ešte nemá activity_id → update
+
+    Logy:
+      - [PLAN-MATCH][ACT] ... → info o aktivite
+      - [PLAN-MATCH][CAND] ... → info o kandidátovi + detail score
+      - [PLAN-MATCH][RESULT] ... → vyhodnotenie pre jednu aktivitu
+      - [PLAN-MATCH][SUMMARY] ... → súhrn po celej šnúre
     """
-    meta = _load_activity_meta(user_id, activity_ids)
-    if not meta:
-        return {"candidates": 0, "mapped": 0}
+    print(
+        f"[PLAN-MATCH] start user={user_id} "
+        f"activity_ids={activity_ids} days_window={days_window} "
+        f"threshold={score_threshold}"
+    )
 
+    if not activity_ids:
+        print("[PLAN-MATCH] no activity_ids -> nothing to do")
+        return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
+
+    # 1) aktivity
+    acts = _load_activities_summary(user_id, activity_ids)
+    if not acts:
+        print("[PLAN-MATCH] no activities_summary rows loaded")
+        return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
+
+    # z aktivity zistíme min/max dátum
+    act_dates: List[date] = []
+    for a in acts:
+        d = _date_from_ts(a.get("date"))
+        if d:
+            act_dates.append(d)
+    if not act_dates:
+        print("[PLAN-MATCH] no valid dates in activities")
+        return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
+
+    min_d = min(act_dates) - timedelta(days=days_window)
+    max_d = max(act_dates) + timedelta(days=days_window)
+
+    # 2) plánované session v rozmedzí
+    plan_rows = _load_plan_rows_for_range(user_id, min_d, max_d)
+    if not plan_rows:
+        print("[PLAN-MATCH] no plan rows in range")
+        return {"processed": len(acts), "candidates": 0, "mapped": 0, "skipped": 0}
+
+    # index podľa dátumu (plan_date)
+    plan_by_date: Dict[date, List[Dict[str, Any]]] = {}
+    for r in plan_rows:
+        pd_str = str(r.get("plan_date") or "")[:10]
+        try:
+            y, m, d = map(int, pd_str.split("-"))
+            pd = date(y, m, d)
+        except Exception:
+            continue
+        plan_by_date.setdefault(pd, []).append(r)
+
+    total_candidates = 0
     mapped = 0
-    candidates = 0
+    skipped = 0
 
-    for aid in sorted(meta.keys()):
-        act = meta[aid]
-        if not act.get("date_iso"):
+    # 3) per-activity matching
+    for a in acts:
+        aid = a.get("activity_id")
+        a_date = _date_from_ts(a.get("date"))
+        if not aid or not a_date:
+            skipped += 1
+            print(f"[PLAN-MATCH][ACT] skip (missing id or date) raw={a}")
             continue
 
-        act_date = _safe_date(act["date_iso"])
-        sport_group = _sport_group(act.get("sport_type_fe"))
-
-        date_from = (act_date - timedelta(days=date_window)).isoformat()
-        date_to = (act_date + timedelta(days=date_window)).isoformat()
-
-        # kandidáti z plánu
-        res = (
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-            .select("*")
-            .eq("user_id", user_id)
-            .gte("plan_date", date_from)
-            .lte("plan_date", date_to)
-            .is_("activity_id", None)
-            .execute()
+        print(
+            f"[PLAN-MATCH][ACT] aid={aid} date={a_date.isoformat()} "
+            f"sport_type_fe={a.get('sport_type_fe')} "
+            f"moving_time_s={a.get('moving_time_s')} "
+            f"avg_hr={a.get('average_heartrate_bpm')} "
+            f"name={a.get('name')!r}"
         )
-        plans: List[Dict[str, Any]] = res.data or []
-        if not plans:
+
+        # kandidáti: všetky session v ±days_window
+        candidates: List[Tuple[Dict[str, Any], int]] = []
+        for delta in range(-days_window, days_window + 1):
+            d = a_date + timedelta(days=delta)
+            if d in plan_by_date:
+                for sess in plan_by_date[d]:
+                    candidates.append((sess, delta))
+
+        print(
+            f"[PLAN-MATCH][ACT] aid={aid} candidates_found={len(candidates)}"
+        )
+        total_candidates += len(candidates)
+
+        if not candidates:
+            # nič v okolí dňa
             continue
 
-        # filtruj podľa sport-group
-        plans = [
-            p for p in plans if _sport_group(p.get("sport")) == sport_group
-        ]
-        if not plans:
-            continue
-
-        candidates += 1
-
-        best: Optional[Dict[str, Any]] = None
         best_score = 0.0
-        for p in plans:
-            score = _plan_activity_score(p, act)
+        best_sess: Optional[Dict[str, Any]] = None
+        best_detail: Dict[str, float] = {}
+
+        # 4) scoring kandidátov
+        for sess, delta in candidates:
+            if sess.get("activity_id"):
+                # už namapované → log a preskoč
+                print(
+                    f"[PLAN-MATCH][CAND] aid={aid} plan_row_id={sess.get('id')} "
+                    f"plan_date={sess.get('plan_date')} ALREADY_MAPPED activity_id={sess.get('activity_id')}"
+                )
+                continue
+
+            score, detail = _compute_match_score(a, sess, day_diff=delta)
+
+            print(
+                "[PLAN-MATCH][CAND] "
+                f"aid={aid} plan_row_id={sess.get('id')} "
+                f"plan_date={sess.get('plan_date')} "
+                f"sport={sess.get('sport')} title={sess.get('title')!r} "
+                f"session_type={sess.get('session_type')!r} "
+                f"∆day={delta} "
+                f"score={score:.3f} "
+                f"detail={detail}"
+            )
+
             if score > best_score:
                 best_score = score
-                best = p
+                best_sess = sess
+                best_detail = detail
 
-        if not best or best_score < threshold:
+        if not best_sess:
+            print(
+                f"[PLAN-MATCH][RESULT] aid={aid} best_score=0.000 "
+                f"mapped=False reason='no unmapped candidates with score>0'"
+            )
             continue
 
-        # zapis activity_id do plánu
-        try:
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS).update(
-                {"activity_id": aid}
-            ).eq("id", best["id"]).execute()
-            mapped += 1
+        # 5) rozhodnutie podľa threshold
+        if best_score >= score_threshold:
+            # update v DB
+            try:
+                res = (
+                    supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+                    .update({"activity_id": int(aid)})
+                    .eq("id", best_sess["id"])
+                    .execute()
+                )
+                mapped += 1
+                print(
+                    f"[PLAN-MATCH][RESULT] aid={aid} "
+                    f"mapped_plan_row_id={best_sess['id']} "
+                    f"best_score={best_score:.3f} "
+                    f"threshold={score_threshold} "
+                    f"detail={best_detail} "
+                    f"db_updated_rows={len(res.data or [])}"
+                )
+            except Exception as e:
+                skipped += 1
+                print(
+                    f"[PLAN-MATCH][RESULT] aid={aid} "
+                    f"best_score={best_score:.3f} "
+                    f"DB_UPDATE_ERROR={e!r}"
+                )
+        else:
             print(
-                f"[PLAN-MATCH] user={user_id} aid={aid} -> plan_id={best['id']} "
-                f"date={best['plan_date']} score={best_score:.3f}"
+                f"[PLAN-MATCH][RESULT] aid={aid} best_plan_row_id={best_sess['id']} "
+                f"best_score={best_score:.3f} < threshold={score_threshold} "
+                f"detail={best_detail}"
             )
-        except Exception as e:  # noqa: BLE001
-            print(f"[PLAN-MATCH] update failed user={user_id} aid={aid}: {e}")
 
-    return {"candidates": candidates, "mapped": mapped}
+    summary = {
+        "processed": len(acts),
+        "candidates": int(total_candidates),
+        "mapped": int(mapped),
+        "skipped": int(skipped),
+    }
+    print(f"[PLAN-MATCH][SUMMARY] {summary}")
+    return summary
