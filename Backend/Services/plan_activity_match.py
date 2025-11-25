@@ -266,7 +266,7 @@ def _load_plan_rows_for_range(
 
 # ───────────────────────────────────────── main entry ─────────────────────────────────────────
 
-def auto_map_plan_for_activities(
+def auto_map_plans_for_activities(
     user_id: int,
     activity_ids: List[int],
     days_window: int = 1,
