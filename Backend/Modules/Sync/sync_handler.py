@@ -9,6 +9,7 @@ from typing import Any, Optional, Iterable
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch
 from Services.activity_zones import preview_zones_for_activities, upsert_enrichment_minutes
 from Services.sport_type import infer_sport_type_fe
+from Services.plan_activity_match import auto_map_plans_for_activities
 
 from Modules.SQL.db_handler import get_client
 from Modules.API.Strava.auth import get_access_token
@@ -575,6 +576,17 @@ def sync_activities(
         to_save = [it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")]
         saved = upsert_enrichment_minutes(user_id, to_save)
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
+
+        # auto-mapping aktivít na plán (coach_plan_log)
+        try:
+            match_stats = auto_map_plans_for_activities(user_id, ids_recent)
+            print(
+                f"[SYNC] plan auto-mapping: candidates={match_stats['candidates']} "
+                f"mapped={match_stats['mapped']}"
+            )
+        except Exception as e:
+            print(f"[SYNC] plan auto-mapping failed: {e}")
+            
     except Exception as e:
         print(f"[SYNC] zones enrichment failed: {e}")
 
