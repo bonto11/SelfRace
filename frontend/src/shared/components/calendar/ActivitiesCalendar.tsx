@@ -1,3 +1,4 @@
+// src/shared/components/calendar/ActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
@@ -6,6 +7,9 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
+import ActivitySingle from "@/shared/components/ActivitySingle";
+import { detectSport } from "@/features/coach/utils/plan";
+import { findTrainingTypeById } from "@/shared/types/training";
 import {
   CALENDAR_CONTAINER,
   CALENDAR_DAY_CELL,
@@ -32,8 +36,8 @@ type DayCellData = {
   iso: string;
   inMonth: boolean;
   day: number | null;
-  activities: { id: number; sport: string; name: string }[];
-  planned: { id: number; sport: string; title: string; hasActivity: boolean }[];
+  items: { id: number; sport: string; name: string }[];
+  planned: { id: number; sport: string }[];
 };
 
 function daysInMonth(y: number, m0: number) {
@@ -42,13 +46,151 @@ function daysInMonth(y: number, m0: number) {
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 const iso = (y: number, m0: number, d: number) =>
   `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
-// Po=0
+// Po = 0
 const startWeekday = (y: number, m0: number) =>
   (new Date(y, m0, 1).getDay() + 6) % 7;
 
-function useMonthActivities(year: number, month0: number) {
-  const { rows } = useActivityData();
-  const { selectPlanByRange } = usePlanData();
+/* ───────── helpers pre plán (vykradnuté z PlanResult) ───────── */
+
+type AnyObj = Record<string, any>;
+
+function hrToText(hr?: any): string | null {
+  if (!hr) return null;
+  if (
+    Array.isArray(hr) &&
+    hr.length === 2 &&
+    hr.every((x) => Number.isFinite(x))
+  ) {
+    return `HR ${hr[0]}–${hr[1]}`;
+  }
+  return null;
+}
+function paceToText(p?: any): string | null {
+  return typeof p === "string" && p.trim() ? `pace ${p}` : null;
+}
+function powerToText(w?: any): string | null {
+  return Number.isFinite(w) ? `power ${w}W` : null;
+}
+
+function normTarget(it: AnyObj): string | null {
+  const hr = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
+  const pace = it?.target_pace_min_per_km ?? null;
+  const pow = it?.target_power_watts ?? null;
+
+  const mainT = Array.isArray(it?.structure?.main)
+    ? it.structure.main[0]?.target
+    : it?.structure?.main?.target;
+
+  const hr2 = hr ?? mainT?.hr ?? mainT?.heart_rate ?? null;
+  const pace2 = pace ?? mainT?.pace ?? null;
+  const pow2 = pow ?? mainT?.power ?? null;
+
+  const parts = [
+    hrToText(hr2),
+    paceToText(pace2),
+    powerToText(pow2),
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function intervalsToText(main: any): string | null {
+  const arr = Array.isArray(main)
+    ? main
+    : main && Array.isArray(main.sets)
+    ? main.sets
+    : null;
+  if (!arr || !arr.length) return null;
+
+  const first = arr[0];
+  const reps = Number.isFinite(first?.reps) ? `${first.reps}×` : "";
+  const work = Number.isFinite(first?.work_min) ? `${first.work_min}′` : "";
+  const rec =
+    Number.isFinite(first?.recover_min) && first.recover_min > 0
+      ? ` / ${first.recover_min}′ rec`
+      : "";
+  const targ = first?.target
+    ? [
+        hrToText(first.target.hr),
+        paceToText(first.target.pace),
+        powerToText(first.target.power),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ]
+    .filter(Boolean)
+    .join(" ");
+  return txt || null;
+}
+
+function normTitle(it: AnyObj) {
+  return it?.title ?? it?.name ?? "Session";
+}
+function normDuration(it: AnyObj) {
+  const minutes =
+    (typeof it?.duration_min === "number" && it.duration_min) ??
+    (typeof it?.dur === "number" && it.dur) ??
+    null;
+  return minutes != null ? `${minutes} min` : null;
+}
+function normIntensity(it: AnyObj) {
+  return it?.intensity ?? null;
+}
+
+function normNotes(it: AnyObj) {
+  if (it?.notes) return it.notes;
+
+  const wu = it?.structure?.warmup
+    ? [
+        it.structure.warmup?.notes
+          ? `WU: ${it.structure.warmup.notes}`
+          : null,
+        hrToText(it.structure.warmup?.target?.hr),
+        paceToText(it.structure.warmup?.target?.pace),
+        powerToText(it.structure.warmup?.target?.power),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const main = it?.structure?.main ? intervalsToText(it.structure.main) : "";
+
+  const cd = it?.structure?.cooldown
+    ? [
+        it.structure.cooldown?.notes
+          ? `CD: ${it.structure.cooldown.notes}`
+          : null,
+        hrToText(it.structure.cooldown?.target?.hr),
+        paceToText(it.structure.cooldown?.target?.pace),
+        powerToText(it.structure.cooldown?.target?.power),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const ex =
+    Array.isArray(it?.exercises) && it.exercises.length
+      ? "Exercises: " +
+        it.exercises
+          .map((e: any) => {
+            const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
+            if (e?.seconds) parts.push(`${e.seconds}s`);
+            else if (e?.reps) parts.push(`${e.reps}`);
+            return parts.filter(Boolean).join(" ");
+          })
+          .join(", ")
+      : "";
+
+  const parts = [wu, main, cd, ex].filter(Boolean);
+  return parts.length ? parts.join(" • ") : null;
+}
+
+/* ───────── mapovanie dát na grid ───────── */
+
+function useMonthData(year: number, month0: number) {
+  const { rows: actRows } = useActivityData();
+  const { rows: planRows } = usePlanData();
   const [map, setMap] = React.useState<Record<string, DayCellData>>({});
 
   React.useEffect(() => {
@@ -66,7 +208,7 @@ function useMonthActivities(year: number, month0: number) {
         iso: k,
         inMonth,
         day: inMonth ? d.getDate() : null,
-        activities: [],
+        items: [],
         planned: [],
       };
     }
@@ -74,46 +216,47 @@ function useMonthActivities(year: number, month0: number) {
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
 
-    // aktivity
-    for (const r of rows) {
+    // reálne aktivity
+    for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.activities.push({
+      cell.items.push({
         id: r.activity_id,
         sport: (r as any).sport || (r as any).sport_type_fe || "other",
         name: r.name || "",
       });
     }
 
-    // plánované sessions
-    const plans = selectPlanByRange(firstIso, lastIso);
-    for (const p of plans) {
+    // plán – ignoruj rest days (sport "other" + typické názvy / 0 min)
+    for (const p of planRows) {
       const dIso = String(p.plan_date).slice(0, 10);
+      if (dIso < firstIso || dIso > lastIso) continue;
+
+      const sport = (p as any).sport || "other";
+      const duration = p.duration_min ?? null;
+      const title = (p as any).title ?? (p as any).session_type ?? "";
+
+      const isRest =
+        sport === "other" ||
+        duration === 0 ||
+        /rest|volno|off day/i.test(title || "");
+
+      if (isRest) continue;
+
       const cell = grid[dIso];
       if (!cell) continue;
-      cell.planned.push({
-        id: p.id,
-        sport:
-          (p as any).sport ||
-          (p as any).payload?.sport ||
-          (p as any).payload?.session_sport ||
-          "other",
-        title:
-          (p as any).title ||
-          (p as any).payload?.title ||
-          (p as any).payload?.session_title ||
-          "",
-        hasActivity: !!(p as any).activity_id,
-      });
+      cell.planned.push({ id: p.id, sport });
     }
 
     setMap(grid);
-  }, [rows, year, month0, selectPlanByRange]);
+  }, [actRows, planRows, year, month0]);
 
   return map;
 }
+
+/* ───────── Day cell ───────── */
 
 function DayCell({
   cell,
@@ -126,8 +269,13 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  const activitiesShown = cell.activities.slice(0, 8);
-  const plannedShown = cell.planned.slice(0, 6); // nech to nie je mega vysoké
+  const dots: { key: string; sport: string }[] = [];
+  for (const it of cell.items) {
+    dots.push({ key: `a-${it.id}`, sport: it.sport });
+  }
+  for (const it of cell.planned) {
+    dots.push({ key: `p-${it.id}`, sport: it.sport });
+  }
 
   return (
     <button
@@ -147,52 +295,29 @@ function DayCell({
         <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
           {cell.day ?? ""}
         </span>
-
-        {/* reálne aktivity – plné bodky */}
         <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-          {activitiesShown.map((it) => (
+          {dots.slice(0, 8).map((it) => (
             <span
-              key={`act-${it.id}`}
+              key={it.key}
               className="inline-block w-1.5 h-1.5 rounded-full"
               style={{
                 backgroundColor:
                   SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
               }}
-              title={it.name || it.sport}
             />
           ))}
-          {cell.activities.length > activitiesShown.length && (
+          {dots.length > 8 && (
             <span className="text-[10px] opacity-70">
-              +{cell.activities.length - activitiesShown.length}
+              +{dots.length - 8}
             </span>
           )}
         </div>
-
-        {/* plánované sessions – orámované krúžky */}
-        {cell.planned.length > 0 && (
-          <div className="mt-0.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
-            {plannedShown.map((it) => (
-              <span
-                key={`plan-${it.id}`}
-                className="inline-block w-1.5 h-1.5 rounded-full border border-dashed"
-                style={{
-                  borderColor:
-                    SPORT_COLORS[it.sport] ?? SPORT_COLORS.other,
-                }}
-                title={it.title || it.sport}
-              />
-            ))}
-            {cell.planned.length > plannedShown.length && (
-              <span className="text-[10px] opacity-70">
-                +{cell.planned.length - plannedShown.length}
-              </span>
-            )}
-          </div>
-        )}
       </div>
     </button>
   );
 }
+
+/* ───────── hlavný komponent ───────── */
 
 export default function ActivitiesCalendar({
   year: yy,
@@ -206,6 +331,8 @@ export default function ActivitiesCalendar({
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
+  const { rows: planRows } = usePlanData();
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setSelectedIso(null);
@@ -214,7 +341,7 @@ export default function ActivitiesCalendar({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const map = useMonthActivities(year, month0);
+  const map = useMonthData(year, month0);
 
   const cells = React.useMemo(() => {
     const out: DayCellData[] = [];
@@ -229,7 +356,7 @@ export default function ActivitiesCalendar({
           iso: k,
           inMonth: d.getMonth() === month0,
           day: d.getMonth() === month0 ? d.getDate() : null,
-          activities: [],
+          items: [],
           planned: [],
         }
       );
@@ -249,6 +376,27 @@ export default function ActivitiesCalendar({
     month: "long",
     year: "numeric",
   });
+
+  // plán pre vybraný deň – zobrazíme LEN tie, čo ešte nemajú priradenú aktivitu
+  const selectedPlans = React.useMemo(() => {
+    if (!selectedIso) return [];
+    return planRows.filter(
+      (p) =>
+        String(p.plan_date).slice(0, 10) === selectedIso &&
+        (p.activity_id == null || Number.isNaN(p.activity_id))
+    );
+  }, [planRows, selectedIso]);
+
+  const selectedLabel = React.useMemo(() => {
+    if (!selectedIso) return "";
+    const d = new Date(selectedIso);
+    return d.toLocaleDateString("sk-SK", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }, [selectedIso]);
 
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
@@ -295,8 +443,8 @@ export default function ActivitiesCalendar({
               key={c.iso}
               cell={c}
               isSelected={selectedIso === c.iso}
-              onSelect={(iso) =>
-                setSelectedIso((cur) => (cur === iso ? null : iso))
+              onSelect={(isoVal) =>
+                setSelectedIso((cur) => (cur === isoVal ? null : isoVal))
               }
             />
           ))}
@@ -305,13 +453,81 @@ export default function ActivitiesCalendar({
 
       {/* DETAIL pod kalendárom */}
       {selectedIso && (
-        <div className="mt-3 ml-1">
+        <div className="mt-3 ml-1 space-y-3">
+          {/* 1) pôvodné ActivityTable – reálne aktivity, rozklikávací detail */}
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
             variant="calendar"
             suppressItemHeaderIfSingleDay
           />
+
+          {/* 2) Plánované tréningy – ActivitySingle variant="plan" */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-sm font-semibold">
+                Plánované tréningy — {selectedLabel}
+              </h3>
+            </div>
+
+            {selectedPlans.length === 0 ? (
+              <p className="text-sm opacity-70">
+                Pre tento deň nie je vytvorený žiadny plán.
+              </p>
+            ) : (
+              <ul className="mt-1 space-y-2">
+                {selectedPlans.map((p) => {
+                  const sess: AnyObj = p.payload ?? p;
+                  const sessionTypeId =
+                    typeof sess?.session_type === "string"
+                      ? sess.session_type
+                      : typeof p.session_type === "string"
+                      ? p.session_type
+                      : null;
+
+                  const trainingDef = sessionTypeId
+                    ? findTrainingTypeById(sessionTypeId)
+                    : null;
+
+                  const title =
+                    trainingDef?.label || normTitle(sess) || "Tréning";
+
+                  const baseNotes = normNotes(sess);
+                  const typeLine = trainingDef?.description || null;
+                  const combinedNotes = [typeLine, baseNotes]
+                    .filter(Boolean)
+                    .join(" • ");
+
+                  const sport =
+                    (p as any).sport ||
+                    detectSport(sess) ||
+                    "other";
+
+                  return (
+                    <li key={p.id} className="px-0">
+                      <ActivitySingle
+                        variant="plan"
+                        data={{
+                          id: `plan-${p.id}`,
+                          name: title,
+                          dateIso: String(p.plan_date).slice(0, 10),
+                          sport: sport as any,
+                          planDur: normDuration(sess),
+                          planIntensity: normIntensity(sess),
+                          planTarget: normTarget(sess),
+                          planNotes: combinedNotes || null,
+                          planRaw: sess,
+                          planStructure: sess?.structure ?? null,
+                          planExercises: sess?.exercises ?? null,
+                        }}
+                        defaultOpen={false}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       )}
     </div>
