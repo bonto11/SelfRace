@@ -1,4 +1,3 @@
-// src/shared/components/PlanSingle.tsx
 "use client";
 
 import * as React from "react";
@@ -24,17 +23,12 @@ type Props = {
   dateIso: string;
   sport: string;
   status: PlanStatus;
-
   planDur?: string | null;
   planIntensity?: string | null;
   planTarget?: string | null;
   planNotes?: string | null;
-
-  /** napr. "Afternoon Run · 8.15 km · 53 min" – zobrazí sa v sekcii REAL */
-  activitySummary?: string | null;
-
-  /** selector + Save / ďalší obsah vo vnútri rozbaleného plánu */
-  children?: React.ReactNode;
+  activitySummary?: string | null; // napr. "Afternoon Run · 8.15 km · 53 min"
+  children?: React.ReactNode; // selector + Save
 };
 
 function prettySkDate(iso: string) {
@@ -76,9 +70,14 @@ export default function PlanSingle({
   children,
 }: Props) {
   const [open, setOpen] = React.useState(false);
+
   const color = SPORT_COLORS[sport] ?? SPORT_COLORS.other;
 
-  const hasPlanKpi = !!(planDur || planIntensity || planTarget);
+  const kpis = [
+    planDur ? { label: "DURATION", value: planDur } : null,
+    planIntensity ? { label: "INTENSITY", value: planIntensity } : null,
+    planTarget ? { label: "TARGET", value: planTarget } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
 
   return (
     <div
@@ -95,24 +94,20 @@ export default function PlanSingle({
           <div className="text-[11px] uppercase opacity-70">
             {prettySkDate(dateIso)}
           </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-sm">{title}</span>
-
-            {/* stav plánu (planned / hotovo / missed) */}
             <span
               className={[
                 "inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border",
                 statusCls(status),
               ].join(" ")}
             >
-              ✓ {statusLabel(status)}
+              {statusLabel(status)}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* badge športu */}
           <span
             className="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px]"
             style={{
@@ -122,7 +117,6 @@ export default function PlanSingle({
           >
             {sport}
           </span>
-
           <span className="text-xs opacity-60">
             {open ? "▴" : "▾"}
           </span>
@@ -131,65 +125,44 @@ export default function PlanSingle({
 
       {/* BODY – len v rozbalenom stave */}
       {open && (
-        <div className="mt-3 pt-2 border-t border-neutral-800 text-sm space-y-3">
-          {/* PLANNED KPI – veľké “textfieldy” ako v ActivitySingle */}
-          {hasPlanKpi && (
+        <div className="mt-2 pt-2 border-t border-neutral-800 text-xs space-y-3">
+          {/* KPI chips – rovnaký štýl ako v ActivitySingle (plan) */}
+          {kpis.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {planDur && (
-                <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-[10px] uppercase opacity-70">
-                    DURATION
+              {kpis.map((k) => (
+                <div
+                  key={k.label}
+                  className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+                >
+                  <div className="text-[10px] opacity-70">
+                    {k.label}
                   </div>
                   <div className="text-xl font-semibold tabular-nums">
-                    {planDur}
+                    {k.value}
                   </div>
                 </div>
-              )}
-
-              {planIntensity && (
-                <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-[10px] uppercase opacity-70">
-                    INTENSITY
-                  </div>
-                  <div className="text-xl font-semibold tabular-nums">
-                    {planIntensity}
-                  </div>
-                </div>
-              )}
-
-              {planTarget && (
-                <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                  <div className="text-[10px] uppercase opacity-70">
-                    TARGET
-                  </div>
-                  <div className="text-xl font-semibold tabular-nums">
-                    {planTarget}
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
           )}
 
-          {/* PLANNED – dodatočné poznámky */}
+          {/* Popis / štruktúra (vrátane Exercises, lebo ich máš v planNotes) */}
           {planNotes && (
-            <div className="text-sm opacity-90">{planNotes}</div>
-          )}
-
-          {/* REAL – zobraz iba ak máme pripojenú aktivitu */}
-          {activitySummary && (
-            <div className="space-y-1">
-              <div className="text-[11px] uppercase opacity-70">
-                REAL
-              </div>
-              <div className={[SURFACE_INLINE, "px-3 py-2 text-sm"].join(" ")}>
-                {activitySummary}
-              </div>
+            <div className="text-xs sm:text-sm opacity-90">
+              {planNotes}
             </div>
           )}
 
-          {/* SELECTOR + SAVE / ďalší obsah – dodáva parent (ActivitiesCalendar) */}
+          {/* Real aktivita – zhrnutie */}
+          {activitySummary && (
+            <div className="text-xs sm:text-sm">
+              <span className="opacity-60 mr-1">Real:</span>
+              <span>{activitySummary}</span>
+            </div>
+          )}
+
+          {/* Selector + Save */}
           {children && (
-            <div className="pt-2 border-t border-neutral-800 text-xs">
+            <div className="pt-2 border-t border-neutral-800">
               {children}
             </div>
           )}

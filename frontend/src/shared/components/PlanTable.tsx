@@ -1,4 +1,3 @@
-// src/shared/components/PlanTable.tsx
 "use client";
 
 import * as React from "react";
@@ -130,8 +129,7 @@ function normNotes(it: AnyObj) {
   const cd = it?.structure?.cooldown
     ? [
         it.structure.cooldown?.notes
-          ? `CD: ${it.structure.cooldown.notes}`
-          : null,
+          ? `CD: ${it.structure.cooldown.notes}` : null,
         hrToText(it.structure.cooldown?.target?.hr),
         paceToText(it.structure.cooldown?.target?.pace),
         powerToText(it.structure.cooldown?.target?.power),
@@ -248,7 +246,7 @@ export default function PlanTable({ dateIso }: Props) {
         activityId
       );
       console.log("[PlanTable] savePlanActivityLink result", res);
-      // TODO: po API calle si môžeš spraviť refetch planRows
+      // tu si potom môžeš spraviť refetch planRows / invalidáciu cache
     } finally {
       setSavingId(null);
     }
@@ -322,9 +320,16 @@ export default function PlanTable({ dateIso }: Props) {
                   .join(" · ")
               : null;
 
-            const currentDraft =
-              draftLinks[p.id] ??
-              (isDone && actId != null ? actId : null);
+            // správne rozlíšenie medzi “žiadny draft” a “explicitne None”
+            const hasDraft = Object.prototype.hasOwnProperty.call(
+              draftLinks,
+              p.id
+            );
+            const currentDraft = hasDraft
+              ? draftLinks[p.id]
+              : isDone && actId != null
+              ? actId
+              : null;
 
             return (
               <li key={p.id} className="px-0">
@@ -350,8 +355,8 @@ export default function PlanTable({ dateIso }: Props) {
                         userId={inferredUserId}
                         dateIso={dateIso}
                         sports={[sport]}
-                        deltaDays={1}
-                        value={currentDraft ?? ""}
+                        deltaDays={2}
+                        value={currentDraft == null ? "" : currentDraft}
                         onChange={(id) => {
                           setDraftLinks((prev) => ({
                             ...prev,
@@ -359,8 +364,9 @@ export default function PlanTable({ dateIso }: Props) {
                           }));
                         }}
                         onPicked={() => {
-                          /* nič – len sa vyplní label */
+                          /* len update labelu */
                         }}
+                        variant="compact"
                       />
                     </div>
 
