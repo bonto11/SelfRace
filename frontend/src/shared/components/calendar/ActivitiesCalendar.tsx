@@ -7,21 +7,20 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
-import ActivitySingle from "@/shared/components/ActivitySingle";
-import { detectSport } from "@/features/coach/utils/plan";
-import { findTrainingTypeById } from "@/shared/types/training";
 import {
   CALENDAR_CONTAINER,
   CALENDAR_DAY_CELL,
   NO_X_OVERFLOW,
 } from "@/shared/ui/classes";
-import ActivitySelector from "@/shared/components/ActivitySelector";
-import { linkPlannedSessionActivity } from "@/features/coach/api/plan";
 
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
   { ssr: false }
 );
+
+const PlanTable = dynamic(() => import("@/shared/components/PlanTable"), {
+  ssr: false,
+});
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -599,195 +598,11 @@ export default function ActivitiesCalendar({
           />
 
           {/* plán / stav */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
-            <div className="flex items-center justify-between mb-1.5">
-              <h3 className="text-sm font-semibold">
-                Plán & stav tréningov — {selectedLabel}
-              </h3>
-            </div>
-
-            {selectedDonePlans.length === 0 &&
-              selectedPlans.length === 0 &&
-              !hasRestPlanForSelectedDay && (
-                <p className="text-sm opacity-70">
-                  Pre tento deň nie je vytvorený žiadny plán.
-                </p>
-              )}
-
-            {hasRestPlanForSelectedDay &&
-              selectedDonePlans.length === 0 &&
-              selectedPlans.length === 0 && (
-                <p className="text-sm opacity-70">
-                  Tento deň je v pláne ako oddych (rest day).
-                </p>
-              )}
-
-            {/* splnené z plánu */}
-            {selectedDonePlans.length > 0 && (
-              <div className="mb-2">
-                <ul className="space-y-3 text-sm">
-                  {selectedDonePlans.map((p: any) => {
-                    const sess: AnyObj = p.payload ?? p;
-                    const actId = Number(p.activity_id);
-                    const act = !Number.isNaN(actId) ? actMap.get(actId) : null;
-
-                    const title = normTitle(sess);
-                    const planDur = normDuration(sess);
-                    const actName = act?.name || "aktivita";
-                    const actDur = fmtRealDurationMin(
-                      act?.moving_time_s ?? act?.moving_time
-                    );
-
-                    const handleClick = () => {
-                      if (!Number.isNaN(actId)) {
-                        setFocusedActivityId(actId);
-                      }
-                    };
-
-                    const currentVal =
-                      draftLinks[p.id] ??
-                      (actId && !Number.isNaN(actId) ? actId : "");
-
-                    return (
-                      <li key={`done-${p.id}`} className="space-y-1.5">
-                        <button
-                          type="button"
-                          onClick={handleClick}
-                          className="flex w-full items-center justify-between gap-2 text-left hover:bg-white/5 rounded-xl px-2 py-1"
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300">
-                                ✓ hotovo
-                              </span>
-                            </div>
-                            <div className="pl-6 text-xs opacity-80 space-y-0.5">
-                              <div>
-                                Plán: {title}
-                                {planDur && ` · ${planDur}`}
-                              </div>
-                              <div>
-                                Hotovo: {actName}
-                                {actDur && ` · ${actDur}`}
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-
-                        {/* selector na úpravu mapovania */}
-                        <div className="pl-6 text-xs">
-                          <ActivitySelector
-                            userId={inferredUserId}
-                            dateIso={selectedIso || ""}
-                            sports={[(p as any).sport || "run"]}
-                            deltaDays={1}
-                            value={currentVal === "" ? "" : Number(currentVal)}
-                            onChange={(id) => {
-                              const val =
-                                id === "" || id == null ? null : Number(id);
-                              setDraftLinks((prev) => ({
-                                ...prev,
-                                [p.id]: val,
-                              }));
-                              if (inferredUserId) {
-                                void linkPlannedSessionActivity(
-                                  inferredUserId,
-                                  p.id,
-                                  val
-                                );
-                              }
-                            }}
-                            variant="compact"
-                            className="mt-1 max-w-xs"
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-
-            {/* nenaviazané plánované tréningy */}
-            {selectedPlans.length > 0 && (
-              <>
-                <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1 mt-1.5">
-                  Plánované tréningy
-                </div>
-                <ul className="space-y-3">
-                  {selectedPlans.map((p: any) => {
-                    const sess: AnyObj = p.payload ?? p;
-                    const sessionTypeId =
-                      typeof sess?.session_type === "string"
-                        ? sess.session_type
-                        : typeof p.session_type === "string"
-                        ? p.session_type
-                        : null;
-
-                    const trainingDef = sessionTypeId
-                      ? findTrainingTypeById(sessionTypeId)
-                      : null;
-
-                    const title =
-                      trainingDef?.label || normTitle(sess) || "Tréning";
-
-                    const baseNotes = normNotes(sess);
-                    const typeLine = trainingDef?.description || null;
-                    const combinedNotes = [typeLine, baseNotes]
-                      .filter(Boolean)
-                      .join(" • ");
-
-                    const sport =
-                      (p as any).sport || detectSport(sess) || "other";
-
-                    const currentDraft = draftLinks[p.id] ?? null;
-
-                    return (
-                      <li key={p.id} className="px-0 space-y-1.5">
-                        <ActivitySingle
-                          variant="plan"
-                          data={{
-                            id: `plan-${p.id}`,
-                            name: title,
-                            dateIso: String(p.plan_date).slice(0, 10),
-                            sport: sport as any,
-                            planDur: normDuration(sess),
-                            planIntensity: normIntensity(sess),
-                            planTarget: normTarget(sess),
-                            planNotes: combinedNotes || null,
-                            planRaw: sess,
-                            planStructure: sess?.structure ?? null,
-                            planExercises: sess?.exercises ?? null,
-                          }}
-                          defaultOpen={false}
-                        />
-
-                        <div className="pl-2 text-xs">
-                          <ActivitySelector
-                            userId={inferredUserId}
-                            dateIso={selectedIso || ""}
-                            sports={[sport]}
-                            deltaDays={1}
-                            value={currentDraft ?? ""}
-                            onChange={(id) => {
-                              setDraftLinks((prev) => ({
-                                ...prev,
-                                [p.id]:
-                                  id === "" || id == null ? null : Number(id),
-                              }));
-                              // TODO: API call na uloženie mapovania
-                            }}
-                            variant="compact"
-                            className="mt-1 max-w-xs"
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
+          <PlanTable
+            dateIso={selectedIso}
+            onFocusActivity={(id) => setFocusedActivityId(id)}
+            enableLinkSelector={true}
+          />
         </div>
       )}
     </div>
