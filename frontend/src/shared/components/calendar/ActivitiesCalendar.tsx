@@ -588,7 +588,6 @@ export default function ActivitiesCalendar({
       {/* DETAIL POD KALENDÁROM */}
       {selectedIso && (
         <div className="mt-3 ml-1 space-y-3">
-          {/* aktivity */}
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
@@ -597,11 +596,9 @@ export default function ActivitiesCalendar({
             autoOpenActivityId={focusedActivityId ?? undefined}
           />
 
-          {/* plán / stav */}
           <PlanTable
             dateIso={selectedIso}
             onFocusActivity={(id) => setFocusedActivityId(id)}
-            enableLinkSelector={true}
           />
         </div>
       )}

@@ -1,3 +1,4 @@
+// src/shared/components/PlanTable.tsx
 "use client";
 
 import * as React from "react";
@@ -6,10 +7,10 @@ import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider"
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import ActivitySingle from "@/shared/components/ActivitySingle";
 import ActivitySelector from "@/shared/components/ActivitySelector";
+import Button from "@/shared/components/ui/Button";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
-
-/* helpers – rovnaké ako v ActivitiesCalendar */
+import { savePlanActivityLink } from "@/features/coach/api/plan";
 
 type AnyObj = Record<string, any>;
 
@@ -23,6 +24,8 @@ function prettySkDate(iso: string) {
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
+
+/* --- helpers rovnaké ako v kalendári --- */
 
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
@@ -164,24 +167,33 @@ function fmtRealDurationMin(seconds?: number | null): string | null {
   return `${mins} min`;
 }
 
+function isRestSession(row: any, sess: AnyObj): boolean {
+  const sport = (row as any).sport || detectSport(sess) || "other";
+  const duration = sess.duration_min ?? row.duration_min ?? null;
+  const title = String(
+    sess.title || sess.session_type || row.title || row.session_type || ""
+  );
+
+  if (sport === "other") return true;
+  if (duration === 0) return true;
+  if (/rest|volno|off day/i.test(title)) return true;
+  return false;
+}
+
 /* ───────── props ───────── */
 
 type Props = {
   dateIso: string;
   onFocusActivity?: (activityId: number) => void;
-  enableLinkSelector?: boolean;
 };
 
-export default function PlanTable({
-  dateIso,
-  onFocusActivity,
-  enableLinkSelector = true,
-}: Props) {
+export default function PlanTable({ dateIso, onFocusActivity }: Props) {
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
   const [draftLinks, setDraftLinks] = React.useState<
     Record<number, number | null>
   >({});
+  const [savingId, setSavingId] = React.useState<number | null>(null);
 
   const inferredUserId: number | null =
     (planRows[0] as any)?.user_id ??
@@ -196,16 +208,14 @@ export default function PlanTable({
     [planRows, dateIso]
   );
 
-  const planned = plansForDay.filter(
-    (p: any) => p.activity_id == null || Number.isNaN(Number(p.activity_id))
-  );
-  const done = plansForDay.filter(
-    (p: any) => p.activity_id != null && !Number.isNaN(Number(p.activity_id))
-  );
-
-  const activitiesForDay = React.useMemo(
-    () => actRows.filter((r) => r.date.slice(0, 10) === dateIso),
-    [actRows, dateIso]
+  // odfiltrujeme rest day
+  const filteredPlans = React.useMemo(
+    () =>
+      plansForDay.filter((p: any) => {
+        const sess: AnyObj = p.payload ?? p;
+        return !isRestSession(p, sess);
+      }),
+    [plansForDay]
   );
 
   const actMap = React.useMemo(() => {
@@ -217,7 +227,34 @@ export default function PlanTable({
     return m;
   }, [actRows]);
 
+  const activitiesForDay = React.useMemo(
+    () => actRows.filter((r) => r.date.slice(0, 10) === dateIso),
+    [actRows, dateIso]
+  );
+
   const wrapperCls = [CARD, "space-y-3", "p-3 md:p-4"].join(" ");
+
+  async function handleSaveLink(sessionId: number) {
+    if (!inferredUserId) {
+      console.warn("[PlanTable] missing userId, cannot save link");
+      return;
+    }
+    const draft = draftLinks[sessionId];
+    const activityId = draft == null ? null : Number(draft);
+
+    setSavingId(sessionId);
+    try {
+      const res = await savePlanActivityLink(
+        inferredUserId,
+        sessionId,
+        activityId
+      );
+      console.log("[PlanTable] savePlanActivityLink result", res);
+      // FE refresh riešiš zatiaľ manuálne (napr. re-fetch z BE) – tu len držíme draft
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   return (
     <div className={wrapperCls}>
@@ -227,175 +264,129 @@ export default function PlanTable({
         </h2>
       </div>
 
-      {done.length === 0 && planned.length === 0 && (
+      {filteredPlans.length === 0 && (
         <p className="text-sm opacity-70">
           Pre tento deň nie je vytvorený žiadny plán.
         </p>
       )}
 
-      {done.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-[11px] uppercase tracking-wide opacity-70">
-            Splnené z plánu
-          </div>
-          <ul className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-            {done.map((p: any) => {
-              const sess: AnyObj = p.payload ?? p;
-              const actId = Number(p.activity_id);
-              const act = !Number.isNaN(actId) ? actMap.get(actId) : null;
+      {filteredPlans.length > 0 && (
+        <ul className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
+          {filteredPlans.map((p: any) => {
+            const sess: AnyObj = p.payload ?? p;
+            const sport =
+              (p as any).sport || detectSport(sess) || "other";
 
-              const sport =
-                (p as any).sport || detectSport(sess) || "other";
-
-              const title = normTitle(sess);
-              const planDur = normDuration(sess);
-
-              const actDur = fmtRealDurationMin(
-                act?.moving_time_s ?? act?.moving_time
-              );
-
-              const handleClick = () => {
-                if (onFocusActivity && !Number.isNaN(actId)) {
-                  onFocusActivity(actId);
-                }
-              };
-
-              const distanceStr =
-                act?.distance_m != null
-                  ? `${(act.distance_m / 1000).toFixed(2)} km`
-                  : null;
-
-              return (
-                <li key={`done-${p.id}`} className="px-0">
-                  {/* karta aktivity – rovnaké farby/styl ako v ActivityTable */}
-                  {act && (
-                    <button
-                      type="button"
-                      onClick={handleClick}
-                      className="w-full text-left"
-                    >
-                      <ActivitySingle
-                        variant="calendar"
-                        data={{
-                          id: act.activity_id,
-                          name: act.name || "Activity",
-                          dateIso,
-                          sport,
-                          timeStr: actDur,
-                          distanceStr,
-                          avgHr: act.average_heartrate_bpm ?? null,
-                          maxHr: act.max_heartrate_bpm ?? null,
-                          activityId: act.activity_id,
-                          singleDayContext: true,
-                          // prípadne sem vieš neskôr doplniť extra badge „z plánu“
-                        }}
-                        defaultOpen={false}
-                      />
-                    </button>
-                  )}
-
-                  {/* info o pláne pod kartou – zarovnané doľava */}
-                  <div className="mt-1 pl-1 text-xs opacity-80 space-y-0.5">
-                    <div>
-                      <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300 mr-2">
-                        ✓ hotovo
-                      </span>
-                      Plán: {title}
-                      {planDur && ` · ${planDur}`}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {planned.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-[11px] uppercase tracking-wide opacity-70">
-            Plánované tréningy
-          </div>
-
-          <ul className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-            {planned.map((p: any) => {
-              const sess: AnyObj = p.payload ?? p;
-              const sessionTypeId =
-                typeof sess?.session_type === "string"
-                  ? sess.session_type
-                  : typeof p.session_type === "string"
-                  ? p.session_type
-                  : null;
-
-              const trainingDef = sessionTypeId
-                ? findTrainingTypeById(sessionTypeId)
+            const sessionTypeId =
+              typeof sess?.session_type === "string"
+                ? sess.session_type
+                : typeof p.session_type === "string"
+                ? p.session_type
                 : null;
 
-              const title =
-                trainingDef?.label || normTitle(sess) || "Tréning";
+            const trainingDef = sessionTypeId
+              ? findTrainingTypeById(sessionTypeId)
+              : null;
 
-              const baseNotes = normNotes(sess);
-              const typeLine = trainingDef?.description || null;
-              const combinedNotes = [typeLine, baseNotes]
-                .filter(Boolean)
-                .join(" • ");
+            const title =
+              trainingDef?.label || normTitle(sess) || "Tréning";
 
-              const sport =
-                (p as any).sport || detectSport(sess) || "other";
+            const baseNotes = normNotes(sess);
+            const typeLine = trainingDef?.description || null;
+            const combinedNotes = [typeLine, baseNotes]
+              .filter(Boolean)
+              .join(" • ");
 
-              const currentDraft = draftLinks[p.id] ?? null;
+            const actId = p.activity_id != null ? Number(p.activity_id) : null;
+            const isDone = actId != null && !Number.isNaN(actId);
+            const act = isDone ? actMap.get(actId) : null;
 
-              return (
-                <li key={p.id} className="px-0 space-y-1.5">
-                  <ActivitySingle
-                    variant="plan"
-                    data={{
-                      id: `plan-${p.id}`,
-                      name: title,
-                      dateIso: String(p.plan_date).slice(0, 10),
-                      sport: sport as any,
-                      planDur: normDuration(sess),
-                      planIntensity: normIntensity(sess),
-                      planTarget: normTarget(sess),
-                      planNotes: combinedNotes || null,
-                      planRaw: sess,
-                      planStructure: sess?.structure ?? null,
-                      planExercises: sess?.exercises ?? null,
-                    }}
-                    defaultOpen={false}
-                  />
+            const actDur = fmtRealDurationMin(
+              act?.moving_time_s ?? act?.moving_time
+            );
+            const distStr =
+              act?.distance_m != null
+                ? `${(act.distance_m / 1000).toFixed(2)} km`
+                : null;
 
-                  {enableLinkSelector && (
-                    <div className="pl-2 text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
-                      <span className="opacity-70">
-                        Priradiť k aktivite:
-                      </span>
-                      <ActivitySelector
-                        userId={inferredUserId}
-                        dateIso={dateIso}
-                        sports={[sport]}
-                        deltaDays={1}
-                        value={currentDraft ?? ""}
-                        onChange={(id) => {
-                          setDraftLinks((prev) => ({
-                            ...prev,
-                            [p.id]: id === "" ? null : Number(id),
-                          }));
-                          // TODO: tu potom zavoláš nové API na uloženie mapovania
-                        }}
-                        onPicked={() => {
-                          /* nateraz nič */
-                        }}
-                        className="mt-1 max-w-xs"
-                        // variant compact ak si ho doplníš
-                      />
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+            const currentDraft =
+              draftLinks[p.id] ??
+              (isDone && actId != null ? actId : null);
+
+            return (
+              <li key={p.id} className="px-0 space-y-1.5">
+                <ActivitySingle
+                  variant="plan"
+                  data={{
+                    id: `plan-${p.id}`,
+                    name: title,
+                    dateIso: String(p.plan_date).slice(0, 10),
+                    sport: sport as any,
+                    planDur: normDuration(sess),
+                    planIntensity: normIntensity(sess),
+                    planTarget: normTarget(sess),
+                    planNotes: combinedNotes || null,
+                    planRaw: sess,
+                    planStructure: sess?.structure ?? null,
+                    planExercises: sess?.exercises ?? null,
+                  }}
+                  defaultOpen={false}
+                />
+
+                {/* riadok s info o splnení – bez duplicitnej karty aktivity */}
+                {isDone && (
+                  <div className="pl-2 text-xs flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300">
+                      ✓ hotovo
+                    </span>
+                    <span className="opacity-80">
+                      {act?.name || "Activity"}
+                      {distStr && ` · ${distStr}`}
+                      {actDur && ` · ${actDur}`}
+                    </span>
+                  </div>
+                )}
+
+                {/* selector + Save / unlink */}
+                <div className="pl-2 pt-0.5 text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+                  <span className="opacity-70">
+                    Priradiť k aktivite:
+                  </span>
+
+                  <div className="flex-1 max-w-xs">
+                    <ActivitySelector
+                      userId={inferredUserId}
+                      dateIso={dateIso}
+                      sports={[sport]}
+                      deltaDays={1}
+                      value={currentDraft ?? ""}
+                      onChange={(id) => {
+                        setDraftLinks((prev) => ({
+                          ...prev,
+                          [p.id]: id === "" ? null : Number(id),
+                        }));
+                      }}
+                      onPicked={() => {
+                        /* nič, len vyplní label */
+                      }}
+                    />
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="xs"
+                    disabled={
+                      !inferredUserId || savingId === p.id
+                    }
+                    onClick={() => handleSaveLink(p.id)}
+                  >
+                    {savingId === p.id ? "Ukladám…" : "Uložiť"}
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

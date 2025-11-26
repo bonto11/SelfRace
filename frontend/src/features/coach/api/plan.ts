@@ -149,37 +149,40 @@ export async function updateActivePlan(userId: number) {
  * Manuálne prelinkovanie jednej planned session na aktivitu.
  * activityId = null → odmapovanie.
  */
-export async function linkPlannedSessionActivity(
+// NOVÉ: ručné mapovanie plán ↔ aktivita
+
+export async function savePlanActivityLink(
   userId: number,
   sessionId: number,
   activityId: number | null,
-): Promise<{ success: boolean; via: "api" | "none"; updated?: number }> {
+): Promise<{ success: boolean; via: "api" | "none" }> {
   if (!API_URL) {
-    // bez BE nemá zmysel tváriť sa, že sme niečo uložili
-    console.warn("[coach.plan] linkPlannedSessionActivity called without API_URL");
-    return { success: false, via: "none", updated: 0 };
+    console.warn(
+      "[coach.plan] savePlanActivityLink – missing API_URL, skipping call",
+      { userId, sessionId, activityId },
+    );
+    return { success: false, via: "none" };
   }
 
   const payload = {
     session_id: sessionId,
-    activity_id: activityId,
+    activity_id: activityId, // null = unlink
   };
 
-  const r = await fetch(`${API_URL}/coach-plan/${userId}/session-activity`, {
-    method: "PATCH",
+  const r = await fetch(`${API_URL}/coach-plan-link/${userId}`, {
+    method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   }).catch((err) => {
-    console.error("[coach.plan] linkPlannedSessionActivity fetch error", err);
+    console.error("[coach.plan] savePlanActivityLink fetch error", err);
     return null;
   });
 
   if (r && r.ok) {
     const j = await r.json().catch(() => ({}));
-    const updated = j?.updated ?? 0;
-    console.log("[coach.plan] linkPlannedSessionActivity response", j);
-    return { success: true, via: "api", updated };
+    console.log("[coach.plan] savePlanActivityLink response", j);
+    return { success: true, via: "api" };
   }
 
-  return { success: false, via: "api", updated: 0 };
+  return { success: false, via: "api" };
 }
