@@ -1,7 +1,7 @@
 // src/shared/components/ActivityTable.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
@@ -38,8 +38,10 @@ type Props = {
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-  variant?: ComponentVariant; // "activity" | "calendar" | "pb" (tu používame len activity|calendar)
+  variant?: ComponentVariant; // "activity" | "calendar" | "pb"
   suppressItemHeaderIfSingleDay?: boolean;
+  /** ak je zadané, táto aktivita sa otvorí a scrollne sa na ňu */
+  autoOpenActivityId?: number;
 };
 
 export default function ActivityTable({
@@ -50,6 +52,7 @@ export default function ActivityTable({
   titleOverride,
   variant = "activity",
   suppressItemHeaderIfSingleDay = false,
+  autoOpenActivityId,
 }: Props) {
   const { selectByRange, rows: allRows } = useActivityData();
   const [rows, setRows] = useState<ActivityRow[]>([]);
@@ -78,13 +81,25 @@ export default function ActivityTable({
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
         : inRange;
 
-    const finalRows = sportList ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r))) : afterWhitelist;
+    const finalRows = sportList
+      ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r)))
+      : afterWhitelist;
 
     setRows(finalRows);
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
-  // layout – konzistentné povrchy a paddingy z classes
+  // scroll na fokusovanú aktivitu
+  const focusedRef = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    if (!autoOpenActivityId) return;
+    if (!rows.length) return;
+    if (!focusedRef.current) return;
+    focusedRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [autoOpenActivityId, rows]);
+
+  // layout
   const wrapperCls = [
     CARD,
     "space-y-4",
@@ -117,8 +132,21 @@ export default function ActivityTable({
             const dur  = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
             const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
+            const isFocused =
+              autoOpenActivityId != null &&
+              Number(r.activity_id) === Number(autoOpenActivityId);
+
+            const liCls = [
+              "px-0",
+              isFocused ? "ring-2 ring-emerald-500/70 rounded-2xl" : "",
+            ].join(" ");
+
             return (
-              <li key={r.activity_id} className="px-0">
+              <li
+                key={r.activity_id}
+                className={liCls}
+                ref={isFocused ? focusedRef : undefined}
+              >
                 <ActivitySingle
                   variant={variant === "calendar" ? "calendar" : "activity"}
                   data={{
@@ -133,6 +161,7 @@ export default function ActivityTable({
                     activityId: r.activity_id,
                     singleDayContext: suppressItemHeaderIfSingleDay && singleDay,
                   }}
+                  defaultOpen={isFocused}
                 />
               </li>
             );

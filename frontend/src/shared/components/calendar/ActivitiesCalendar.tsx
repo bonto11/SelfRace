@@ -1,4 +1,3 @@
-// src/shared/components/calendar/ActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
@@ -40,7 +39,7 @@ type DayCellData = {
     id: number;
     sport: string;
     name: string;
-    hasPlan: boolean; // naviazané na plán (activity_id v coach_planned_sessions)
+    hasPlan: boolean; // má naviazaný plán
   }[];
   plannedOnly: {
     id: number;
@@ -224,7 +223,7 @@ function useMonthData(year: number, month0: number) {
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
 
-    // plán – priprav mapu aktivita_id -> plán (len naviazané, nie rest day)
+    // plán – mapa activity_id -> plán (naviazané)
     const mappedByActId = new Map<number, any>();
 
     for (const p of planRows) {
@@ -247,17 +246,15 @@ function useMonthData(year: number, month0: number) {
           : null;
 
       if (actId) {
-        // naviazaný plán → zaznačíme pre aktivity, ale už nerobíme extra bodku
         mappedByActId.set(actId, p);
       } else if (!isRest) {
-        // čistý plán bez aktivity → jedna bodka (plán) v danom dni
         const cell = grid[dIso];
         if (!cell) continue;
         cell.plannedOnly.push({ id: p.id, sport });
       }
     }
 
-    // reálne aktivity + info, či sú z plánu
+    // reálne aktivity
     for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
@@ -295,8 +292,7 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  const dots: { key: string; sport: string; kind: "activity" | "plan" | "done" }[] =
-    [];
+  const dots: { key: string; sport: string; kind: "activity" | "plan" | "done" }[] = [];
   for (const it of cell.activities) {
     dots.push({
       key: `a-${it.id}`,
@@ -358,38 +354,6 @@ function DayCell({
   );
 }
 
-/* ───────── legenda pod headerom ───────── */
-
-function CalendarLegend() {
-  const sampleColor = SPORT_COLORS.run;
-
-  return (
-    <div className="mt-2 flex flex-wrap gap-4 justify-end text-[10px] md:text-[11px] opacity-70">
-      <div className="flex items-center gap-1.5">
-        <span
-          className="inline-block w-2 h-2 rounded-full"
-          style={{ backgroundColor: sampleColor }}
-        />
-        <span>reálna aktivita</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span
-          className="inline-block w-2 h-2 rounded-full border"
-          style={{ borderColor: sampleColor }}
-        />
-        <span>plánovaný tréning</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span
-          className="inline-block w-2 h-2 rounded-full border"
-          style={{ backgroundColor: sampleColor, borderColor: sampleColor }}
-        />
-        <span>splnené z plánu</span>
-      </div>
-    </div>
-  );
-}
-
 /* ───────── hlavný komponent ───────── */
 
 export default function ActivitiesCalendar({
@@ -403,6 +367,7 @@ export default function ActivitiesCalendar({
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
+  const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(null);
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
@@ -414,6 +379,11 @@ export default function ActivitiesCalendar({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // keď prepneš deň, zruš fokus
+  React.useEffect(() => {
+    setFocusedActivityId(null);
+  }, [selectedIso]);
 
   const map = useMonthData(year, month0);
 
@@ -521,16 +491,38 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
+        {/* legenda bodiek */}
+        <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: THEME.chart.run }}
+            />
+            <span>aktivita</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full border"
+              style={{ borderColor: THEME.chart.run }}
+            />
+            <span>plán</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full border"
+              style={{ borderColor: THEME.chart.run, backgroundColor: THEME.chart.run }}
+            />
+            <span>splnený plán</span>
+          </div>
+        </div>
+
+        <div className="mt-1 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
           {["p", "u", "s", "š", "p", "s", "n"].map((d) => (
             <div key={d} className="text-center">
               {d}
             </div>
           ))}
         </div>
-
-        {/* legenda bodiek */}
-        <CalendarLegend />
 
         <div className="mt-2 grid grid-cols-7 gap-2">
           {cells.map((c) => (
@@ -549,15 +541,16 @@ export default function ActivitiesCalendar({
       {/* DETAIL pod kalendárom */}
       {selectedIso && (
         <div className="mt-3 ml-1 space-y-3">
-          {/* 1) pôvodné ActivityTable – reálne aktivity, rozklikávací detail */}
+          {/* 1) reálne aktivity – prelink vie auto-open + scroll */}
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
             variant="calendar"
             suppressItemHeaderIfSingleDay
+            autoOpenActivityId={focusedActivityId ?? undefined}
           />
 
-          {/* 2) Plánované tréningy + info o splnených plánoch */}
+          {/* 2) Plánované tréningy + splnené */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
             <div className="flex items-center justify-between mb-1.5">
               <h3 className="text-sm font-semibold">
@@ -588,23 +581,32 @@ export default function ActivitiesCalendar({
                     const actName = act?.name || "aktivita";
                     const dur = normDuration(sess);
 
+                    const handleClick = () => {
+                      if (!Number.isNaN(actId)) {
+                        setFocusedActivityId(actId);
+                      }
+                    };
+
                     return (
-                      <li
-                        key={`done-${p.id}`}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300">
-                            ✓ hotovo
-                          </span>
-                          <span>
-                            {title}{" "}
-                            <span className="opacity-70">
-                              ({actName}
-                              {dur ? ` · ${dur}` : ""})
+                      <li key={`done-${p.id}`}>
+                        <button
+                          type="button"
+                          onClick={handleClick}
+                          className="flex w-full items-center justify-between gap-2 text-left hover:bg-white/5 rounded-xl px-2 py-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300">
+                              ✓ hotovo
                             </span>
-                          </span>
-                        </div>
+                            <span>
+                              {title}{" "}
+                              <span className="opacity-70">
+                                ({actName}
+                                {dur ? ` · ${dur}` : ""})
+                              </span>
+                            </span>
+                          </div>
+                        </button>
                       </li>
                     );
                   })}
