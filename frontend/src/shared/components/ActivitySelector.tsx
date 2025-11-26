@@ -118,7 +118,11 @@ export default function ActivitySelector({
         disabled={disabled}
       >
         <option value="">
-          {disabled ? "pick date first" : loading ? "Loading…" : "— choose activity —"}
+          {disabled
+            ? "pick date first"
+            : loading
+            ? "Loading…"
+            : "— žiadna aktivita —"}
         </option>
 
         {/* len “Názov (X km)” */}
@@ -129,7 +133,7 @@ export default function ActivitySelector({
         ))}
       </select>
 
-      {!disabled && variant === "default" && (   // MOD
+      {!disabled && variant === "default" && (
         <div className={FIELD_HELP}>
           Načítané podľa dátumu (±{deltaDays} dňa) a športu{" "}
           {sports?.join(", ") ?? "run,mixed"}.

@@ -598,7 +598,6 @@ export default function ActivitiesCalendar({
 
           <PlanTable
             dateIso={selectedIso}
-            onFocusActivity={(id) => setFocusedActivityId(id)}
           />
         </div>
       )}

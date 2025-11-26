@@ -5,12 +5,14 @@ import * as React from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import ActivitySingle from "@/shared/components/ActivitySingle";
 import ActivitySelector from "@/shared/components/ActivitySelector";
 import Button from "@/shared/components/ui/Button";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
 import { savePlanActivityLink } from "@/features/coach/api/plan";
+import PlanSingle, {
+  PlanStatus,
+} from "@/shared/components/PlanSingle";
 
 type AnyObj = Record<string, any>;
 
@@ -25,7 +27,7 @@ function prettySkDate(iso: string) {
   return `${wk} · ${day}`;
 }
 
-/* --- helpers rovnaké ako v kalendári --- */
+/* --- helpers (rovnaké ako v kalendári) --- */
 
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
@@ -184,10 +186,9 @@ function isRestSession(row: any, sess: AnyObj): boolean {
 
 type Props = {
   dateIso: string;
-  onFocusActivity?: (activityId: number) => void;
 };
 
-export default function PlanTable({ dateIso, onFocusActivity }: Props) {
+export default function PlanTable({ dateIso }: Props) {
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
   const [draftLinks, setDraftLinks] = React.useState<
@@ -199,6 +200,8 @@ export default function PlanTable({ dateIso, onFocusActivity }: Props) {
     (planRows[0] as any)?.user_id ??
     (actRows[0] as any)?.user_id ??
     null;
+
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const plansForDay = React.useMemo(
     () =>
@@ -227,11 +230,6 @@ export default function PlanTable({ dateIso, onFocusActivity }: Props) {
     return m;
   }, [actRows]);
 
-  const activitiesForDay = React.useMemo(
-    () => actRows.filter((r) => r.date.slice(0, 10) === dateIso),
-    [actRows, dateIso]
-  );
-
   const wrapperCls = [CARD, "space-y-3", "p-3 md:p-4"].join(" ");
 
   async function handleSaveLink(sessionId: number) {
@@ -250,7 +248,7 @@ export default function PlanTable({ dateIso, onFocusActivity }: Props) {
         activityId
       );
       console.log("[PlanTable] savePlanActivityLink result", res);
-      // FE refresh riešiš zatiaľ manuálne (napr. re-fetch z BE) – tu len držíme draft
+      // TODO: po API calle si môžeš spraviť refetch planRows
     } finally {
       setSavingId(null);
     }
@@ -299,6 +297,15 @@ export default function PlanTable({ dateIso, onFocusActivity }: Props) {
 
             const actId = p.activity_id != null ? Number(p.activity_id) : null;
             const isDone = actId != null && !Number.isNaN(actId);
+            const isMissed =
+              !isDone &&
+              String(p.plan_date).slice(0, 10) < todayIso;
+            const status: PlanStatus = isDone
+              ? "done"
+              : isMissed
+              ? "missed"
+              : "planned";
+
             const act = isDone ? actMap.get(actId) : null;
 
             const actDur = fmtRealDurationMin(
@@ -309,80 +316,66 @@ export default function PlanTable({ dateIso, onFocusActivity }: Props) {
                 ? `${(act.distance_m / 1000).toFixed(2)} km`
                 : null;
 
+            const activitySummary = isDone
+              ? [act?.name || "Activity", distStr, actDur]
+                  .filter(Boolean)
+                  .join(" · ")
+              : null;
+
             const currentDraft =
               draftLinks[p.id] ??
               (isDone && actId != null ? actId : null);
 
             return (
-              <li key={p.id} className="px-0 space-y-1.5">
-                <ActivitySingle
-                  variant="plan"
-                  data={{
-                    id: `plan-${p.id}`,
-                    name: title,
-                    dateIso: String(p.plan_date).slice(0, 10),
-                    sport: sport as any,
-                    planDur: normDuration(sess),
-                    planIntensity: normIntensity(sess),
-                    planTarget: normTarget(sess),
-                    planNotes: combinedNotes || null,
-                    planRaw: sess,
-                    planStructure: sess?.structure ?? null,
-                    planExercises: sess?.exercises ?? null,
-                  }}
-                  defaultOpen={false}
-                />
-
-                {/* riadok s info o splnení – bez duplicitnej karty aktivity */}
-                {isDone && (
-                  <div className="pl-2 text-xs flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300">
-                      ✓ hotovo
+              <li key={p.id} className="px-0">
+                <PlanSingle
+                  id={p.id}
+                  title={title}
+                  dateIso={String(p.plan_date).slice(0, 10)}
+                  sport={sport}
+                  status={status}
+                  planDur={normDuration(sess)}
+                  planIntensity={normIntensity(sess)}
+                  planTarget={normTarget(sess)}
+                  planNotes={combinedNotes || null}
+                  activitySummary={activitySummary}
+                >
+                  <div className="text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+                    <span className="opacity-70">
+                      Priradiť k aktivite:
                     </span>
-                    <span className="opacity-80">
-                      {act?.name || "Activity"}
-                      {distStr && ` · ${distStr}`}
-                      {actDur && ` · ${actDur}`}
-                    </span>
+
+                    <div className="flex-1 max-w-xs">
+                      <ActivitySelector
+                        userId={inferredUserId}
+                        dateIso={dateIso}
+                        sports={[sport]}
+                        deltaDays={1}
+                        value={currentDraft ?? ""}
+                        onChange={(id) => {
+                          setDraftLinks((prev) => ({
+                            ...prev,
+                            [p.id]: id === "" ? null : Number(id),
+                          }));
+                        }}
+                        onPicked={() => {
+                          /* nič – len sa vyplní label */
+                        }}
+                      />
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      disabled={
+                        !inferredUserId || savingId === p.id
+                      }
+                      onClick={() => handleSaveLink(p.id)}
+                    >
+                      {savingId === p.id ? "Ukladám…" : "Uložiť"}
+                    </Button>
                   </div>
-                )}
-
-                {/* selector + Save / unlink */}
-                <div className="pl-2 pt-0.5 text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
-                  <span className="opacity-70">
-                    Priradiť k aktivite:
-                  </span>
-
-                  <div className="flex-1 max-w-xs">
-                    <ActivitySelector
-                      userId={inferredUserId}
-                      dateIso={dateIso}
-                      sports={[sport]}
-                      deltaDays={1}
-                      value={currentDraft ?? ""}
-                      onChange={(id) => {
-                        setDraftLinks((prev) => ({
-                          ...prev,
-                          [p.id]: id === "" ? null : Number(id),
-                        }));
-                      }}
-                      onPicked={() => {
-                        /* nič, len vyplní label */
-                      }}
-                    />
-                  </div>
-
-                  <Button
-                    variant="primary"
-                    size="xs"
-                    disabled={
-                      !inferredUserId || savingId === p.id
-                    }
-                    onClick={() => handleSaveLink(p.id)}
-                  >
-                    {savingId === p.id ? "Ukladám…" : "Uložiť"}
-                  </Button>
-                </div>
+                </PlanSingle>
               </li>
             );
           })}
