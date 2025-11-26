@@ -11,12 +11,23 @@ type Props = {
   dateIso: string | "";
   sports?: SportFE[];
   deltaDays?: number;
-  value: number | "";                 // selected activity_id
+  value: number | "";                 // selected activity_id ("" = none)
   onChange: (id: number | "") => void;
   onPicked?: (a: MiniActivity | null) => void;
   className?: string;
   variant?: "default" | "compact";
 };
+
+function fmtShortDate(s: string) {
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("sk-SK", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
 
 export default function ActivitySelector({
   userId,
@@ -46,10 +57,18 @@ export default function ActivitySelector({
     let alive = true;
     setLoading(true);
     loadActivities()
-      .then(arr => { if (alive) setItems(arr); })
-      .catch(() => { if (alive) setItems([]); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+      .then((arr) => {
+        if (alive) setItems(arr);
+      })
+      .catch(() => {
+        if (alive) setItems([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, [open, disabled, userId, dateIso, deltaDays, JSON.stringify(sports)]);
 
   // AUTO-DOPLNENIE názvu pri edite (bez zmeny výberu)
@@ -63,7 +82,7 @@ export default function ActivitySelector({
         const arr = await loadActivities();
         if (!alive) return;
         setItems(arr);
-        const hit = arr.find(a => String(a.id) === String(value));
+        const hit = arr.find((a) => String(a.id) === String(value));
         if (onPicked) {
           if (hit) {
             onPicked(hit);
@@ -92,7 +111,9 @@ export default function ActivitySelector({
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, dateIso, value]);
 
@@ -111,7 +132,7 @@ export default function ActivitySelector({
           onChange(id);
 
           if (onPicked) {
-            const picked = v ? items.find(x => String(x.id) === v) ?? null : null;
+            const picked = v ? items.find((x) => String(x.id) === v) ?? null : null;
             onPicked(picked);
           }
         }}
@@ -125,12 +146,20 @@ export default function ActivitySelector({
             : "— žiadna aktivita —"}
         </option>
 
-        {/* len “Názov (X km)” */}
-        {!loading && items.map(a => (
-          <option key={a.id} value={a.id}>
-            {a.name}{a.distance_km ? ` (${a.distance_km} km)` : ""}
-          </option>
-        ))}
+        {!loading &&
+          items.map((a) => {
+            const dateLabel = fmtShortDate(a.start_date);
+            const dist =
+              a.distance_km != null ? ` (${a.distance_km} km)` : "";
+            const suffix = [dist, dateLabel].filter(Boolean).join(" · ");
+
+            return (
+              <option key={a.id} value={a.id}>
+                {a.name}
+                {suffix ? ` ${suffix}` : ""}
+              </option>
+            );
+          })}
       </select>
 
       {!disabled && variant === "default" && (

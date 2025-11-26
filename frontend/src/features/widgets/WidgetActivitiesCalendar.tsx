@@ -1,4 +1,5 @@
 // src/shared/components/dashboard/WidgetWeekActivities.tsx
+// src/shared/components/dashboard/WidgetWeekActivities.tsx
 "use client";
 
 import * as React from "react";
@@ -35,7 +36,7 @@ function startOfWeek(date = new Date()) {
 type DayItem = {
   id: number;
   sport: string;
-  kind: "activity" | "plan" | "done";
+  kind: "activity" | "plan" | "done" | "missed";
 };
 
 type Props = {
@@ -61,6 +62,8 @@ export default function WidgetWeekActivities({
   const byDay = React.useMemo(() => {
     const map = new Map<string, DayItem[]>();
 
+    const todayIso = new Date().toISOString().slice(0, 10);
+
     // init 7 dní
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
@@ -81,7 +84,7 @@ export default function WidgetWeekActivities({
       });
     }
 
-    // plán (bez REST) + prepojenie na aktivity
+    // plán (bez REST) + prepojenie na aktivity, vrátane missed
     const planRows = selectPlanByRange(startIso, endIso);
     for (const p of planRows) {
       const k = String(p.plan_date).slice(0, 10);
@@ -100,29 +103,30 @@ export default function WidgetWeekActivities({
 
       const arr = map.get(k)!;
 
-      // ak má activity_id → nájdi zodpovedajúcu aktivitu a označ ako done
       const actIdRaw = (p as any).activity_id;
       const actId =
         actIdRaw != null && !Number.isNaN(Number(actIdRaw))
           ? Number(actIdRaw)
           : null;
 
+      // ak má activity_id → nájdi zodpovedajúcu aktivitu a označ ako done
       if (actId) {
         const idx = arr.findIndex(
           (it) => it.kind === "activity" && it.id === actId
         );
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done" };
-          continue; // žiadna druhá bodka
+          continue; // druhú bodku už nepridávame
         }
       }
 
       // čistý plán bez aktivity – ale nie rest day
       if (!isRest) {
+        const isPast = k < todayIso; // tréning starší ako dnešok → missed
         arr.push({
           id: p.id,
           sport,
-          kind: "plan",
+          kind: isPast ? "missed" : "plan",
         });
       }
     }
@@ -198,24 +202,57 @@ export default function WidgetWeekActivities({
                   {shown.map((it) => {
                     const color =
                       SPORT_COLORS[it.sport] ?? SPORT_COLORS.other;
-                    const isPlan = it.kind === "plan";
-                    const isDone = it.kind === "done";
 
+                    if (it.kind === "activity") {
+                      // plná farebná bodka
+                      return (
+                        <span
+                          key={`${it.kind}-${it.id}`}
+                          className="inline-block w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                      );
+                    }
+
+                    if (it.kind === "plan") {
+                      // iba farebný obrys
+                      return (
+                        <span
+                          key={`${it.kind}-${it.id}`}
+                          className="inline-block w-1.5 h-1.5 rounded-full border"
+                          style={{
+                            borderColor: color,
+                            backgroundColor: "transparent",
+                          }}
+                        />
+                      );
+                    }
+
+                    if (it.kind === "done") {
+                      // farebná fajka
+                      return (
+                        <span
+                          key={`${it.kind}-${it.id}`}
+                          className="inline-flex items-center justify-center w-3 h-3 text-[9px] leading-none"
+                          style={{ color }}
+                        >
+                          ✓
+                        </span>
+                      );
+                    }
+
+                    // missed → farebné X
                     return (
                       <span
                         key={`${it.kind}-${it.id}`}
-                        className={[
-                          "inline-block w-1.5 h-1.5 rounded-full",
-                          isPlan || isDone ? "border" : "",
-                          isPlan ? "opacity-70" : "",
-                        ].join(" ")}
-                        style={{
-                          backgroundColor: isPlan ? "transparent" : color,
-                          borderColor: isPlan || isDone ? color : undefined,
-                        }}
-                      />
+                        className="inline-flex items-center justify-center w-3 h-3 text-[9px] leading-none"
+                        style={{ color }}
+                      >
+                        ✕
+                      </span>
                     );
                   })}
+
                   {items.length > shown.length && (
                     <span className="text-[10px] opacity-70">
                       +{items.length - shown.length}

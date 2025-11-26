@@ -10,7 +10,7 @@ type SaveResult = {
 export async function saveActivePlan(
   userId: number,
   analysis: any,
-  meta?: any,
+  meta?: any
 ): Promise<SaveResult> {
   const payload = {
     next_10_days: analysis?.next_10_days ?? [],
@@ -25,7 +25,7 @@ export async function saveActivePlan(
     try {
       localStorage.setItem(
         "coach.active",
-        JSON.stringify({ analysis, meta, plan_id: null }),
+        JSON.stringify({ analysis, meta, plan_id: null })
       );
       return { success: true, via: "local", planId: null };
     } catch {
@@ -50,7 +50,7 @@ export async function saveActivePlan(
     try {
       localStorage.setItem(
         "coach.active",
-        JSON.stringify({ analysis, meta, plan_id: planId }),
+        JSON.stringify({ analysis, meta, plan_id: planId })
       );
     } catch {
       // ignore
@@ -63,7 +63,7 @@ export async function saveActivePlan(
   try {
     localStorage.setItem(
       "coach.active",
-      JSON.stringify({ analysis, meta, plan_id: null }),
+      JSON.stringify({ analysis, meta, plan_id: null })
     );
     return { success: true, via: "local", planId: null };
   } catch {
@@ -73,8 +73,12 @@ export async function saveActivePlan(
 
 export async function cancelActivePlan(
   userId: number,
-  planId?: string | null,
-): Promise<{ success: boolean; via: "api" | "local" | "none"; deleted?: number }> {
+  planId?: string | null
+): Promise<{
+  success: boolean;
+  via: "api" | "local" | "none";
+  deleted?: number;
+}> {
   console.log("[coach.plan] cancelActivePlan called", { userId, planId });
 
   if (!API_URL) {
@@ -154,12 +158,12 @@ export async function updateActivePlan(userId: number) {
 export async function savePlanActivityLink(
   userId: number,
   sessionId: number,
-  activityId: number | null,
+  activityId: number | null
 ): Promise<{ success: boolean; via: "api" | "none" }> {
   if (!API_URL) {
     console.warn(
       "[coach.plan] savePlanActivityLink – missing API_URL, skipping call",
-      { userId, sessionId, activityId },
+      { userId, sessionId, activityId }
     );
     return { success: false, via: "none" };
   }
