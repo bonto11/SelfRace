@@ -4,7 +4,7 @@
 
 from typing import Any, Dict
 from fastapi import APIRouter, Body, HTTPException
-from Services.Supabase.user_bests import fetch_user_bests, upsert_user_best, delete_user_best
+from Routes_DB.user_bests import fetch_user_bests, upsert_user_best, delete_user_best
 
 router = APIRouter(prefix="/users", tags=["users"])
 

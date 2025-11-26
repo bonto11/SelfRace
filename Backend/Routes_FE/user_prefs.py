@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Body, HTTPException
-from Services.Supabase.user_prefs import (
+from Routes_DB.user_prefs import (
     fetch_all_prefs, fetch_pref, upsert_pref, upsert_many, delete_pref
 )
 

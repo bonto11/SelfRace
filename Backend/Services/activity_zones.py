@@ -10,7 +10,7 @@ from Configs.config import (
     TABLE_ACTIVITIES_ENRICHMENT,
     TABLE_ACTIVITIES_SUMMARY,
 )
-from Services.Supabase.users import get_user_uid
+from Routes_DB.users import get_user_uid
 from Services.user_zones import load_user_zones, ZonesOut  # typ + loader
 from Modules.API.Strava.streams import (
     fetch_and_optionally_store_batch,

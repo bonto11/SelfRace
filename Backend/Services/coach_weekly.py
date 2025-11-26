@@ -5,9 +5,9 @@ from collections import defaultdict
 from datetime import date
 from Services.time import week_key, week_bounds, since_weeks_utc
 from Services.analytics import compute_trimp, monotony_and_strain
-from Services.Supabase.user_profile import fetch_user_sex, fetch_user_hr_max
-from Services.Supabase.user_recovery import fetch_rhr_map_since, rhr_for_date
-from Services.Supabase.activities_summary import fetch_summary_since
+from Routes_DB.user_profile import fetch_user_sex, fetch_user_hr_max
+from Routes_DB.user_recovery import fetch_rhr_map_since, rhr_for_date
+from Routes_DB.activities_summary import fetch_summary_since
 
 def _bucket_simple(s: str) -> str:
     s = (s or "").lower()
