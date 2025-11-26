@@ -15,6 +15,7 @@ import {
   CALENDAR_DAY_CELL,
   NO_X_OVERFLOW,
 } from "@/shared/ui/classes";
+import ActivitySelector from "@/shared/components/ActivitySelector";
 
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
@@ -40,7 +41,7 @@ type DayCellData = {
     id: number;
     sport: string;
     name: string;
-    hasPlan: boolean;
+    hasPlan: boolean; // či je naviazaný na plán
   }[];
   plannedOnly: {
     id: number;
@@ -92,11 +93,9 @@ function normTarget(it: AnyObj): string | null {
   const pace2 = pace ?? mainT?.pace ?? null;
   const pow2 = pow ?? mainT?.power ?? null;
 
-  const parts = [
-    hrToText(hr2),
-    paceToText(pace2),
-    powerToText(pow2),
-  ].filter(Boolean);
+  const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(
+    Boolean
+  );
   return parts.length ? parts.join(" · ") : null;
 }
 
@@ -150,9 +149,7 @@ function normNotes(it: AnyObj) {
 
   const wu = it?.structure?.warmup
     ? [
-        it.structure.warmup?.notes
-          ? `WU: ${it.structure.warmup.notes}`
-          : null,
+        it.structure.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : null,
         hrToText(it.structure.warmup?.target?.hr),
         paceToText(it.structure.warmup?.target?.pace),
         powerToText(it.structure.warmup?.target?.power),
@@ -193,10 +190,27 @@ function normNotes(it: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
+/* rest day detekcia – používame všade rovnako */
+
+function isRestPlanRow(p: any): boolean {
+  const sport = (p as any).sport || "other";
+  const duration = p.duration_min ?? null;
+  const title = (p as any).title ?? (p as any).session_type ?? "";
+  return (
+    sport === "other" ||
+    duration === 0 ||
+    /rest|volno|off day/i.test(String(title))
+  );
+}
+
 /* reálna dĺžka v minútach */
 
 function fmtRealDurationMin(seconds?: number | null): string | null {
-  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+  if (
+    typeof seconds !== "number" ||
+    !Number.isFinite(seconds) ||
+    seconds <= 0
+  ) {
     return null;
   }
   const mins = Math.round(seconds / 60);
@@ -235,18 +249,10 @@ function useMonthData(year: number, month0: number) {
 
     const mappedByActId = new Map<number, any>();
 
+    // plán – priprav mapu aktivita_id -> plán (len nie rest day)
     for (const p of planRows) {
       const dIso = String(p.plan_date).slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
-
-      const sport = (p as any).sport || "other";
-      const duration = p.duration_min ?? null;
-      const title = (p as any).title ?? (p as any).session_type ?? "";
-
-      const isRest =
-        sport === "other" ||
-        duration === 0 ||
-        /rest|volno|off day/i.test(title || "");
 
       const actIdRaw = (p as any).activity_id;
       const actId =
@@ -254,15 +260,17 @@ function useMonthData(year: number, month0: number) {
           ? Number(actIdRaw)
           : null;
 
-      if (actId) {
+      if (actId && !isRestPlanRow(p)) {
         mappedByActId.set(actId, p);
-      } else if (!isRest) {
+      } else if (!actId && !isRestPlanRow(p)) {
+        const sport = (p as any).sport || "other";
         const cell = grid[dIso];
         if (!cell) continue;
         cell.plannedOnly.push({ id: p.id, sport });
       }
     }
 
+    // reálne aktivity + info, či sú z plánu
     for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
@@ -300,8 +308,12 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  const dots: { key: string; sport: string; kind: "activity" | "plan" | "done" }[] =
-    [];
+  const dots: {
+    key: string;
+    sport: string;
+    kind: "activity" | "plan" | "done";
+  }[] = [];
+
   for (const it of cell.activities) {
     dots.push({
       key: `a-${it.id}`,
@@ -337,25 +349,28 @@ function DayCell({
             const isPlan = it.kind === "plan";
             const isDone = it.kind === "done";
 
-            return (
-              <span
-                key={it.key}
-                className={[
-                  "inline-block w-1.5 h-1.5 rounded-full",
-                  isPlan || isDone ? "border" : "",
-                  isPlan ? "opacity-70" : "",
-                ].join(" ")}
-                style={{
-                  backgroundColor: isPlan ? "transparent" : color,
-                  borderColor: isPlan || isDone ? color : undefined,
-                }}
-              />
-            );
+            let cls = "inline-block w-1.5 h-1.5 rounded-full";
+            const style: React.CSSProperties = {};
+
+            if (isPlan) {
+              // plán – len obrys
+              cls += " border";
+              style.backgroundColor = "transparent";
+              style.borderColor = color;
+            } else if (isDone) {
+              // splnený plán – farebné vnútro + biely obrys
+              cls += " border-2";
+              style.backgroundColor = color;
+              style.borderColor = "#ffffff";
+            } else {
+              // obyčajná aktivita – plná bodka
+              style.backgroundColor = color;
+            }
+
+            return <span key={it.key} className={cls} style={style} />;
           })}
           {dots.length > 8 && (
-            <span className="text-[10px] opacity-70">
-              +{dots.length - 8}
-            </span>
+            <span className="text-[10px] opacity-70">+{dots.length - 8}</span>
           )}
         </div>
       </div>
@@ -376,15 +391,18 @@ export default function ActivitiesCalendar({
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
-  const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(
-    null
-  );
+  const [focusedActivityId, setFocusedActivityId] = React.useState<
+    number | null
+  >(null);
   const [draftLinks, setDraftLinks] = React.useState<
     Record<number, number | null>
   >({});
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
+
+  const inferredUserId: number | null =
+    (planRows[0] as any)?.user_id ?? (actRows[0] as any)?.user_id ?? null;
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -439,6 +457,7 @@ export default function ActivitiesCalendar({
     return planRows.filter(
       (p: any) =>
         String(p.plan_date).slice(0, 10) === selectedIso &&
+        !isRestPlanRow(p) &&
         (p.activity_id == null || Number.isNaN(Number(p.activity_id)))
     );
   }, [planRows, selectedIso]);
@@ -448,8 +467,17 @@ export default function ActivitiesCalendar({
     return planRows.filter(
       (p: any) =>
         String(p.plan_date).slice(0, 10) === selectedIso &&
+        !isRestPlanRow(p) &&
         p.activity_id != null &&
         !Number.isNaN(Number(p.activity_id))
+    );
+  }, [planRows, selectedIso]);
+
+  const hasRestPlanForSelectedDay = React.useMemo(() => {
+    if (!selectedIso) return false;
+    return planRows.some(
+      (p: any) =>
+        String(p.plan_date).slice(0, 10) === selectedIso && isRestPlanRow(p)
     );
   }, [planRows, selectedIso]);
 
@@ -473,15 +501,9 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
-  const activitiesForSelectedDay = React.useMemo(() => {
-    if (!selectedIso) return [];
-    return actRows.filter(
-      (r) => r.date.slice(0, 10) === selectedIso
-    );
-  }, [actRows, selectedIso]);
-
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
+      {/* HLAVIČKA + kalendár */}
       <div className={[CALENDAR_CONTAINER, "p-3"].join(" ")}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
@@ -522,15 +544,18 @@ export default function ActivitiesCalendar({
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-2 h-2 rounded-full border"
-              style={{ borderColor: THEME.chart.run }}
+              style={{
+                borderColor: THEME.chart.run,
+                backgroundColor: "transparent",
+              }}
             />
             <span>plán</span>
           </div>
           <div className="flex items-center gap-1">
             <span
-              className="inline-block w-2 h-2 rounded-full border"
+              className="inline-block w-2 h-2 rounded-full border-2"
               style={{
-                borderColor: THEME.chart.run,
+                borderColor: "#ffffff",
                 backgroundColor: THEME.chart.run,
               }}
             />
@@ -560,6 +585,7 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
+      {/* DETAIL POD KALENDÁROM */}
       {selectedIso && (
         <div className="mt-3 ml-1 space-y-3">
           {/* aktivity */}
@@ -571,7 +597,7 @@ export default function ActivitiesCalendar({
             autoOpenActivityId={focusedActivityId ?? undefined}
           />
 
-          {/* plán */}
+          {/* plán / stav */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
             <div className="flex items-center justify-between mb-1.5">
               <h3 className="text-sm font-semibold">
@@ -579,21 +605,30 @@ export default function ActivitiesCalendar({
               </h3>
             </div>
 
-            {selectedDonePlans.length === 0 && selectedPlans.length === 0 && (
-              <p className="text-sm opacity-70">
-                Pre tento deň nie je vytvorený žiadny plán.
-              </p>
-            )}
+            {selectedDonePlans.length === 0 &&
+              selectedPlans.length === 0 &&
+              !hasRestPlanForSelectedDay && (
+                <p className="text-sm opacity-70">
+                  Pre tento deň nie je vytvorený žiadny plán.
+                </p>
+              )}
 
+            {hasRestPlanForSelectedDay &&
+              selectedDonePlans.length === 0 &&
+              selectedPlans.length === 0 && (
+                <p className="text-sm opacity-70">
+                  Tento deň je v pláne ako oddych (rest day).
+                </p>
+              )}
+
+            {/* splnené z plánu */}
             {selectedDonePlans.length > 0 && (
               <div className="mb-2">
-                <ul className="space-y-1 text-sm">
+                <ul className="space-y-3 text-sm">
                   {selectedDonePlans.map((p: any) => {
                     const sess: AnyObj = p.payload ?? p;
                     const actId = Number(p.activity_id);
-                    const act = !Number.isNaN(actId)
-                      ? actMap.get(actId)
-                      : null;
+                    const act = !Number.isNaN(actId) ? actMap.get(actId) : null;
 
                     const title = normTitle(sess);
                     const planDur = normDuration(sess);
@@ -608,8 +643,12 @@ export default function ActivitiesCalendar({
                       }
                     };
 
+                    const currentVal =
+                      draftLinks[p.id] ??
+                      (actId && !Number.isNaN(actId) ? actId : "");
+
                     return (
-                      <li key={`done-${p.id}`}>
+                      <li key={`done-${p.id}`} className="space-y-1.5">
                         <button
                           type="button"
                           onClick={handleClick}
@@ -633,6 +672,29 @@ export default function ActivitiesCalendar({
                             </div>
                           </div>
                         </button>
+
+                        {/* selector na úpravu mapovania */}
+                        <div className="pl-6 text-xs">
+                          <ActivitySelector
+                            userId={inferredUserId}
+                            dateIso={selectedIso || ""}
+                            sports={[(p as any).sport || "run"]}
+                            deltaDays={1}
+                            value={
+                              currentVal === "" ? "" : Number(currentVal)
+                            }
+                            onChange={(id) => {
+                              setDraftLinks((prev) => ({
+                                ...prev,
+                                [p.id]:
+                                  id === "" || id == null ? null : Number(id),
+                              }));
+                              // TODO: tu neskôr API call na uloženie mapovania
+                            }}
+                            variant="compact"
+                            className="mt-1 max-w-xs"
+                          />
+                        </div>
                       </li>
                     );
                   })}
@@ -640,12 +702,13 @@ export default function ActivitiesCalendar({
               </div>
             )}
 
+            {/* nenaviazané plánované tréningy */}
             {selectedPlans.length > 0 && (
               <>
                 <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1 mt-1.5">
                   Plánované tréningy
                 </div>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {selectedPlans.map((p: any) => {
                     const sess: AnyObj = p.payload ?? p;
                     const sessionTypeId =
@@ -693,41 +756,26 @@ export default function ActivitiesCalendar({
                           defaultOpen={false}
                         />
 
-                        {/* vizuálny selector na linknutie aktivity */}
-                        <div className="pl-2 text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
-                          <span className="opacity-70">
-                            Priradiť k aktivite:
-                          </span>
-                          <select
-                            className="bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-emerald-500 w-full md:w-auto"
-                            value={currentDraft ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const v =
-                                val === "" ? null : Number(e.target.value);
+                        <div className="pl-2 text-xs">
+                          <ActivitySelector
+                            userId={inferredUserId}
+                            dateIso={selectedIso || ""}
+                            sports={[sport]}
+                            deltaDays={1}
+                            value={
+                              currentDraft ?? ""
+                            }
+                            onChange={(id) => {
                               setDraftLinks((prev) => ({
                                 ...prev,
-                                [p.id]: v,
+                                [p.id]:
+                                  id === "" || id == null ? null : Number(id),
                               }));
+                              // TODO: API call na uloženie mapovania
                             }}
-                          >
-                            <option value="">— vybrať aktivitu —</option>
-                            {activitiesForSelectedDay.map((a) => {
-                              const distKm =
-                                a.distance_m != null
-                                  ? (a.distance_m / 1000).toFixed(1) + " km"
-                                  : null;
-                              return (
-                                <option
-                                  key={a.activity_id}
-                                  value={a.activity_id}
-                                >
-                                  {a.name || "Activity"}
-                                  {distKm ? ` · ${distKm}` : ""}
-                                </option>
-                              );
-                            })}
-                          </select>
+                            variant="compact"
+                            className="mt-1 max-w-xs"
+                          />
                         </div>
                       </li>
                     );

@@ -7,7 +7,11 @@ from datetime import date, timedelta
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
-    TABLE_COACH_PLANNED_SESSIONS,
+)
+
+from Routes_DB.coach_plan_log import (
+  fetch_plan_rows_in_range,
+  link_session_to_activity,
 )
 
 supabase = get_client()
@@ -215,6 +219,7 @@ def _compute_match_score(
 
 # ───────────────────────────────────────── DB helpers ─────────────────────────────────────────
 
+
 def _load_activities_summary(user_id: int, activity_ids: List[int]) -> List[Dict[str, Any]]:
     if not activity_ids:
         return []
@@ -233,39 +238,6 @@ def _load_activities_summary(user_id: int, activity_ids: List[int]) -> List[Dict
     print(f"[PLAN-MATCH] loaded activities_summary rows={len(data)} for user={user_id}")
     return data
 
-
-def _load_plan_rows_for_range(
-    user_id: int,
-    start_d: date,
-    end_d: date,
-) -> List[Dict[str, Any]]:
-    """
-    Z planned_sessions / coach_plan_log zoberie všetko v rozsahu dní.
-    """
-    start_iso = start_d.isoformat()
-    end_iso = end_d.isoformat()
-
-    rows = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-        .select(
-            "id,user_id,plan_date,sport,title,duration_min,intensity,"
-            "plan_id,activity_id,session_type,session_index,payload"
-        )
-        .eq("user_id", user_id)
-        .gte("plan_date", start_iso)
-        .lte("plan_date", end_iso)
-        .execute()
-    )
-    data = rows.data or []
-    print(
-        f"[PLAN-MATCH] loaded plan rows={len(data)} for user={user_id} "
-        f"range={start_iso}..{end_iso}"
-    )
-    return data
-
-
-# ───────────────────────────────────────── main entry ─────────────────────────────────────────
-
 def auto_map_plans_for_activities(
     user_id: int,
     activity_ids: List[int],
@@ -273,19 +245,9 @@ def auto_map_plans_for_activities(
     score_threshold: float = 0.55,
 ) -> Dict[str, int]:
     """
-    Automaticky namapuje aktivity (Strava) na plánované session v coach_plan_log/planned_sessions.
+    Automaticky namapuje aktivity (Strava) na plánované session.
 
-    - pre každú aktivitu:
-        1) nájde kandidátov: plánované session v rozmedzí ±days_window dní
-        2) spočíta score
-        3) vezme najvyššie score
-        4) ak score >= threshold a session ešte nemá activity_id → update
-
-    Logy:
-      - [PLAN-MATCH][ACT] ... → info o aktivite
-      - [PLAN-MATCH][CAND] ... → info o kandidátovi + detail score
-      - [PLAN-MATCH][RESULT] ... → vyhodnotenie pre jednu aktivitu
-      - [PLAN-MATCH][SUMMARY] ... → súhrn po celej šnúre
+    DB operácie (select/update) sú delegované do Services.coach_plan_log.
     """
     print(
         f"[PLAN-MATCH] start user={user_id} "
@@ -316,8 +278,8 @@ def auto_map_plans_for_activities(
     min_d = min(act_dates) - timedelta(days=days_window)
     max_d = max(act_dates) + timedelta(days=days_window)
 
-    # 2) plánované session v rozmedzí
-    plan_rows = _load_plan_rows_for_range(user_id, min_d, max_d)
+    # 2) plánované session v rozmedzí – cez nový service
+    plan_rows = fetch_plan_rows_in_range(user_id, min_d, max_d)
     if not plan_rows:
         print("[PLAN-MATCH] no plan rows in range")
         return {"processed": len(acts), "candidates": 0, "mapped": 0, "skipped": 0}
@@ -368,7 +330,6 @@ def auto_map_plans_for_activities(
         total_candidates += len(candidates)
 
         if not candidates:
-            # nič v okolí dňa
             continue
 
         best_score = 0.0
@@ -378,7 +339,6 @@ def auto_map_plans_for_activities(
         # 4) scoring kandidátov
         for sess, delta in candidates:
             if sess.get("activity_id"):
-                # už namapované → log a preskoč
                 print(
                     f"[PLAN-MATCH][CAND] aid={aid} plan_row_id={sess.get('id')} "
                     f"plan_date={sess.get('plan_date')} ALREADY_MAPPED activity_id={sess.get('activity_id')}"
@@ -401,7 +361,7 @@ def auto_map_plans_for_activities(
             if score > best_score:
                 best_score = score
                 best_sess = sess
-                best_detail = detail
+            best_detail = detail
 
         if not best_sess:
             print(
@@ -412,13 +372,10 @@ def auto_map_plans_for_activities(
 
         # 5) rozhodnutie podľa threshold
         if best_score >= score_threshold:
-            # update v DB
             try:
-                res = (
-                    supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-                    .update({"activity_id": int(aid)})
-                    .eq("id", best_sess["id"])
-                    .execute()
+                updated = link_session_to_activity(
+                    session_id=int(best_sess["id"]),
+                    activity_id=int(aid),
                 )
                 mapped += 1
                 print(
@@ -427,7 +384,7 @@ def auto_map_plans_for_activities(
                     f"best_score={best_score:.3f} "
                     f"threshold={score_threshold} "
                     f"detail={best_detail} "
-                    f"db_updated_rows={len(res.data or [])}"
+                    f"db_updated_rows={updated}"
                 )
             except Exception as e:
                 skipped += 1

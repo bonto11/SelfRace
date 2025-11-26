@@ -6,7 +6,7 @@ import os, json, time, urllib.request
 from Configs.config import DEFAULT_MODEL
 from Services.plan_generation import generate_plan_json
 from Services.progress_narrative import build_progress_narrative
-from Routes.coach_context import coach_context
+from Routes_FE.coach_context import coach_context
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 

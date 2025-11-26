@@ -144,3 +144,42 @@ export async function updateActivePlan(userId: number) {
     return null;
   }
 }
+
+/**
+ * Manuálne prelinkovanie jednej planned session na aktivitu.
+ * activityId = null → odmapovanie.
+ */
+export async function linkPlannedSessionActivity(
+  userId: number,
+  sessionId: number,
+  activityId: number | null,
+): Promise<{ success: boolean; via: "api" | "none"; updated?: number }> {
+  if (!API_URL) {
+    // bez BE nemá zmysel tváriť sa, že sme niečo uložili
+    console.warn("[coach.plan] linkPlannedSessionActivity called without API_URL");
+    return { success: false, via: "none", updated: 0 };
+  }
+
+  const payload = {
+    session_id: sessionId,
+    activity_id: activityId,
+  };
+
+  const r = await fetch(`${API_URL}/coach-plan/${userId}/session-activity`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch((err) => {
+    console.error("[coach.plan] linkPlannedSessionActivity fetch error", err);
+    return null;
+  });
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    const updated = j?.updated ?? 0;
+    console.log("[coach.plan] linkPlannedSessionActivity response", j);
+    return { success: true, via: "api", updated };
+  }
+
+  return { success: false, via: "api", updated: 0 };
+}

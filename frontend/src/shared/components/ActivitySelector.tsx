@@ -15,6 +15,7 @@ type Props = {
   onChange: (id: number | "") => void;
   onPicked?: (a: MiniActivity | null) => void;
   className?: string;
+  variant?: "default" | "compact";
 };
 
 export default function ActivitySelector({
@@ -26,6 +27,7 @@ export default function ActivitySelector({
   onChange,
   onPicked,
   className = "",
+  variant = "default",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -127,9 +129,10 @@ export default function ActivitySelector({
         ))}
       </select>
 
-      {!disabled && (
+      {!disabled && variant === "default" && (   // MOD
         <div className={FIELD_HELP}>
-          Načítané podľa dátumu (±{deltaDays} dňa) a športu {sports?.join(", ") ?? "run,mixed"}.
+          Načítané podľa dátumu (±{deltaDays} dňa) a športu{" "}
+          {sports?.join(", ") ?? "run,mixed"}.
         </div>
       )}
     </div>
