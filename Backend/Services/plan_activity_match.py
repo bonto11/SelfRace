@@ -10,8 +10,8 @@ from Configs.config import (
 )
 
 from Routes_DB.coach_plan_log import (
-  fetch_plan_rows_in_range,
-  link_session_to_activity,
+  db_get_planned_range_rows,
+  db_link_session_to_activity,
 )
 
 supabase = get_client()
@@ -275,11 +275,11 @@ def auto_map_plans_for_activities(
         print("[PLAN-MATCH] no valid dates in activities")
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
 
-    min_d = min(act_dates) - timedelta(days=days_window)
-    max_d = max(act_dates) + timedelta(days=days_window)
+    min_d = str(min(act_dates) - timedelta(days=days_window))
+    max_d = str(max(act_dates) + timedelta(days=days_window))
 
     # 2) plánované session v rozmedzí – cez nový service
-    plan_rows = fetch_plan_rows_in_range(user_id, min_d, max_d)
+    plan_rows = db_get_planned_range_rows(user_id, min_d, max_d)
     if not plan_rows:
         print("[PLAN-MATCH] no plan rows in range")
         return {"processed": len(acts), "candidates": 0, "mapped": 0, "skipped": 0}
@@ -373,7 +373,7 @@ def auto_map_plans_for_activities(
         # 5) rozhodnutie podľa threshold
         if best_score >= score_threshold:
             try:
-                updated = link_session_to_activity(
+                updated = db_link_session_to_activity(
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
                 )
