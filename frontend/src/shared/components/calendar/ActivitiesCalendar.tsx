@@ -295,7 +295,8 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  const dots: { key: string; sport: string; kind: "activity" | "plan" | "done" }[] = [];
+  const dots: { key: string; sport: string; kind: "activity" | "plan" | "done" }[] =
+    [];
   for (const it of cell.activities) {
     dots.push({
       key: `a-${it.id}`,
@@ -354,6 +355,38 @@ function DayCell({
         </div>
       </div>
     </button>
+  );
+}
+
+/* ───────── legenda pod headerom ───────── */
+
+function CalendarLegend() {
+  const sampleColor = SPORT_COLORS.run;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-4 justify-end text-[10px] md:text-[11px] opacity-70">
+      <div className="flex items-center gap-1.5">
+        <span
+          className="inline-block w-2 h-2 rounded-full"
+          style={{ backgroundColor: sampleColor }}
+        />
+        <span>reálna aktivita</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span
+          className="inline-block w-2 h-2 rounded-full border"
+          style={{ borderColor: sampleColor }}
+        />
+        <span>plánovaný tréning</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span
+          className="inline-block w-2 h-2 rounded-full border"
+          style={{ backgroundColor: sampleColor, borderColor: sampleColor }}
+        />
+        <span>splnené z plánu</span>
+      </div>
+    </div>
   );
 }
 
@@ -495,6 +528,9 @@ export default function ActivitiesCalendar({
             </div>
           ))}
         </div>
+
+        {/* legenda bodiek */}
+        <CalendarLegend />
 
         <div className="mt-2 grid grid-cols-7 gap-2">
           {cells.map((c) => (
