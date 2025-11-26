@@ -1,3 +1,4 @@
+// src/shared/components/calendar/ActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
@@ -39,7 +40,7 @@ type DayCellData = {
     id: number;
     sport: string;
     name: string;
-    hasPlan: boolean; // naviazané na plán
+    hasPlan: boolean;
   }[];
   plannedOnly: {
     id: number;
@@ -53,11 +54,10 @@ function daysInMonth(y: number, m0: number) {
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 const iso = (y: number, m0: number, d: number) =>
   `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
-// Po = 0
 const startWeekday = (y: number, m0: number) =>
   (new Date(y, m0, 1).getDay() + 6) % 7;
 
-/* ───────── helpers pre plán (vykradnuté z PlanResult) ───────── */
+/* ───────── helpers pre plán ───────── */
 
 type AnyObj = Record<string, any>;
 
@@ -193,17 +193,7 @@ function normNotes(it: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
-/* malé helpery pre čas a reálny duration */
-
-function fmtTimeHM(isoStr?: string | null): string | null {
-  if (!isoStr) return null;
-  const d = new Date(isoStr);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString("sk-SK", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+/* reálna dĺžka v minútach */
 
 function fmtRealDurationMin(seconds?: number | null): string | null {
   if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
@@ -243,7 +233,6 @@ function useMonthData(year: number, month0: number) {
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
 
-    // plán – mapa activity_id -> plán (naviazané)
     const mappedByActId = new Map<number, any>();
 
     for (const p of planRows) {
@@ -274,7 +263,6 @@ function useMonthData(year: number, month0: number) {
       }
     }
 
-    // reálne aktivity
     for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
@@ -391,6 +379,9 @@ export default function ActivitiesCalendar({
   const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(
     null
   );
+  const [draftLinks, setDraftLinks] = React.useState<
+    Record<number, number | null>
+  >({});
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
@@ -403,7 +394,6 @@ export default function ActivitiesCalendar({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // pri zmene dňa zruš fokus
   React.useEffect(() => {
     setFocusedActivityId(null);
   }, [selectedIso]);
@@ -483,9 +473,15 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
+  const activitiesForSelectedDay = React.useMemo(() => {
+    if (!selectedIso) return [];
+    return actRows.filter(
+      (r) => r.date.slice(0, 10) === selectedIso
+    );
+  }, [actRows, selectedIso]);
+
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-      {/* HLAVIČKA + mriežka */}
       <div className={[CALENDAR_CONTAINER, "p-3"].join(" ")}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
@@ -514,7 +510,7 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        {/* legenda bodiek */}
+        {/* legenda */}
         <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
           <div className="flex items-center gap-1">
             <span
@@ -564,10 +560,9 @@ export default function ActivitiesCalendar({
         </div>
       </div>
 
-      {/* DETAIL pod kalendárom */}
       {selectedIso && (
         <div className="mt-3 ml-1 space-y-3">
-          {/* 1) reálne aktivity – autoOpen podľa focusedActivityId */}
+          {/* aktivity */}
           <ActivityTable
             start={selectedIso}
             end={selectedIso}
@@ -576,7 +571,7 @@ export default function ActivitiesCalendar({
             autoOpenActivityId={focusedActivityId ?? undefined}
           />
 
-          {/* 2) Plánované tréningy + splnené */}
+          {/* plán */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
             <div className="flex items-center justify-between mb-1.5">
               <h3 className="text-sm font-semibold">
@@ -592,9 +587,6 @@ export default function ActivitiesCalendar({
 
             {selectedDonePlans.length > 0 && (
               <div className="mb-2">
-                <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
-                  Splnené z plánu
-                </div>
                 <ul className="space-y-1 text-sm">
                   {selectedDonePlans.map((p: any) => {
                     const sess: AnyObj = p.payload ?? p;
@@ -606,7 +598,6 @@ export default function ActivitiesCalendar({
                     const title = normTitle(sess);
                     const planDur = normDuration(sess);
                     const actName = act?.name || "aktivita";
-                    const actTime = fmtTimeHM(act?.date);
                     const actDur = fmtRealDurationMin(
                       act?.moving_time_s ?? act?.moving_time
                     );
@@ -629,20 +620,16 @@ export default function ActivitiesCalendar({
                               <span className="inline-flex items-center justify-center rounded-full border border-emerald-500/80 text-[10px] px-1.5 py-0.5 text-emerald-300">
                                 ✓ hotovo
                               </span>
-                              <span>
-                                {title}
-                                {planDur && (
-                                  <span className="opacity-70">
-                                    {" "}
-                                    · plán {planDur}
-                                  </span>
-                                )}
-                              </span>
                             </div>
-                            <div className="pl-8 text-xs opacity-70">
-                              {actName}
-                              {actTime && ` · ${actTime}`}
-                              {actDur && ` · ${actDur}`}
+                            <div className="pl-6 text-xs opacity-80 space-y-0.5">
+                              <div>
+                                Plán: {title}
+                                {planDur && ` · ${planDur}`}
+                              </div>
+                              <div>
+                                Hotovo: {actName}
+                                {actDur && ` · ${actDur}`}
+                              </div>
                             </div>
                           </div>
                         </button>
@@ -684,8 +671,10 @@ export default function ActivitiesCalendar({
                     const sport =
                       (p as any).sport || detectSport(sess) || "other";
 
+                    const currentDraft = draftLinks[p.id] ?? null;
+
                     return (
-                      <li key={p.id} className="px-0">
+                      <li key={p.id} className="px-0 space-y-1.5">
                         <ActivitySingle
                           variant="plan"
                           data={{
@@ -703,6 +692,43 @@ export default function ActivitiesCalendar({
                           }}
                           defaultOpen={false}
                         />
+
+                        {/* vizuálny selector na linknutie aktivity */}
+                        <div className="pl-2 text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+                          <span className="opacity-70">
+                            Priradiť k aktivite:
+                          </span>
+                          <select
+                            className="bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-emerald-500 w-full md:w-auto"
+                            value={currentDraft ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const v =
+                                val === "" ? null : Number(e.target.value);
+                              setDraftLinks((prev) => ({
+                                ...prev,
+                                [p.id]: v,
+                              }));
+                            }}
+                          >
+                            <option value="">— vybrať aktivitu —</option>
+                            {activitiesForSelectedDay.map((a) => {
+                              const distKm =
+                                a.distance_m != null
+                                  ? (a.distance_m / 1000).toFixed(1) + " km"
+                                  : null;
+                              return (
+                                <option
+                                  key={a.activity_id}
+                                  value={a.activity_id}
+                                >
+                                  {a.name || "Activity"}
+                                  {distKm ? ` · ${distKm}` : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
                       </li>
                     );
                   })}
