@@ -16,6 +16,7 @@ import {
   NO_X_OVERFLOW,
 } from "@/shared/ui/classes";
 import ActivitySelector from "@/shared/components/ActivitySelector";
+import { linkPlannedSessionActivity } from "@/features/coach/api/plan";
 
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
@@ -680,16 +681,21 @@ export default function ActivitiesCalendar({
                             dateIso={selectedIso || ""}
                             sports={[(p as any).sport || "run"]}
                             deltaDays={1}
-                            value={
-                              currentVal === "" ? "" : Number(currentVal)
-                            }
+                            value={currentVal === "" ? "" : Number(currentVal)}
                             onChange={(id) => {
+                              const val =
+                                id === "" || id == null ? null : Number(id);
                               setDraftLinks((prev) => ({
                                 ...prev,
-                                [p.id]:
-                                  id === "" || id == null ? null : Number(id),
+                                [p.id]: val,
                               }));
-                              // TODO: tu neskôr API call na uloženie mapovania
+                              if (inferredUserId) {
+                                void linkPlannedSessionActivity(
+                                  inferredUserId,
+                                  p.id,
+                                  val
+                                );
+                              }
                             }}
                             variant="compact"
                             className="mt-1 max-w-xs"
@@ -762,9 +768,7 @@ export default function ActivitiesCalendar({
                             dateIso={selectedIso || ""}
                             sports={[sport]}
                             deltaDays={1}
-                            value={
-                              currentDraft ?? ""
-                            }
+                            value={currentDraft ?? ""}
                             onChange={(id) => {
                               setDraftLinks((prev) => ({
                                 ...prev,
