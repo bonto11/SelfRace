@@ -11,9 +11,14 @@ from Services.coach_plan_log import (
     get_planned_sessions_filtered,
     upsert_ai_plan_for_user,
     cancel_plan_for_user,
+    link_session_to_activity as service_link_session_to_activity,
 )
 
+# FE router pre /coach-plan/*
 router = APIRouter(prefix="/coach-plan", tags=["coach-plan"])
+
+# FE router pre /coach-plan-link/*
+router_link = APIRouter(prefix="/coach-plan-link", tags=["coach-plan"])
 
 
 # ========= RANGE (pre PlanDataProvider) =========
@@ -149,3 +154,58 @@ def cancel_plan(
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"success": True, "deleted": deleted}
+
+
+# ========= NOVÉ – /coach-plan-link/{user_id} – manuálne mapovanie plán ↔ aktivita =========
+
+
+@router_link.post("/{user_id}")
+def save_plan_activity_link(
+    user_id: int,  # pre debug/logy; samotný link je cez session_id
+    payload: Dict[str, Any] = Body(...),
+):
+    """
+    Ručné mapovanie planned session ↔ aktivita.
+
+    Body:
+      {
+        "session_id": int,          # id z coach_planned_sessions
+        "activity_id": int | null   # null → odmapovanie
+      }
+    """
+    session_id = payload.get("session_id")
+    if session_id is None:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    try:
+        session_id_int = int(session_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="session_id must be an integer")
+
+    activity_id_raw = payload.get("activity_id", None)
+    if activity_id_raw is None:
+        activity_id: Optional[int] = None
+    else:
+        try:
+            activity_id = int(activity_id_raw)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="activity_id must be an integer or null",
+            )
+
+    try:
+        updated = service_link_session_to_activity(
+            session_id=session_id_int,
+            activity_id=activity_id,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "success": updated > 0,
+        "updated": updated,
+        "user_id": user_id,
+        "session_id": session_id_int,
+        "activity_id": activity_id,
+    }
