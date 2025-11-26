@@ -1,7 +1,7 @@
 // src/shared/components/ActivityTable.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
@@ -40,7 +40,7 @@ type Props = {
   titleOverride?: string;
   variant?: ComponentVariant; // "activity" | "calendar" | "pb"
   suppressItemHeaderIfSingleDay?: boolean;
-  /** ak je zadané, táto aktivita sa otvorí a scrollne sa na ňu */
+  /** ak je zadané, táto aktivita sa otvorí (bez extra highlightu) */
   autoOpenActivityId?: number;
 };
 
@@ -89,17 +89,7 @@ export default function ActivityTable({
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
-  // scroll na fokusovanú aktivitu
-  const focusedRef = useRef<HTMLLIElement | null>(null);
-
-  useEffect(() => {
-    if (!autoOpenActivityId) return;
-    if (!rows.length) return;
-    if (!focusedRef.current) return;
-    focusedRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [autoOpenActivityId, rows]);
-
-  // layout
+  // layout – konzistentné povrchy a paddingy z classes
   const wrapperCls = [
     CARD,
     "space-y-4",
@@ -136,17 +126,8 @@ export default function ActivityTable({
               autoOpenActivityId != null &&
               Number(r.activity_id) === Number(autoOpenActivityId);
 
-            const liCls = [
-              "px-0",
-              isFocused ? "ring-2 ring-emerald-500/70 rounded-2xl" : "",
-            ].join(" ");
-
             return (
-              <li
-                key={r.activity_id}
-                className={liCls}
-                ref={isFocused ? focusedRef : undefined}
-              >
+              <li key={r.activity_id} className="px-0">
                 <ActivitySingle
                   variant={variant === "calendar" ? "calendar" : "activity"}
                   data={{
