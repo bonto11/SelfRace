@@ -10,6 +10,7 @@ import { todayISO } from "@/features/activity/utils/activity";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import PlanPreview from "@/features/coach/components/PlanPreview";
+import PlanActive from "@/features/coach/components/PlanActive";
 
 import {
   apiSaveActivePlan,
@@ -89,16 +90,9 @@ function readPrefsFromStorage(): CoachPrefs | null {
 /** Mini summary v hornej kartičke */
 function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
   if (!prefs)
-    return (
-      <div className="text-sm opacity-75">
-        — preferences nenačítané —
-      </div>
-    );
+    return <div className="text-sm opacity-75">— preferences nenačítané —</div>;
 
-  const main =
-    (prefs as any).main_sport ??
-    prefs.primary_sports?.[0] ??
-    "—";
+  const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
   const sec =
     (prefs as any).secondary_mix
       ?.filter((x: any) => Number(x?.share_pct) > 0)
@@ -108,19 +102,13 @@ function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
       <div className="opacity-75">Goal</div>
-      <div className="font-semibold truncate">
-        {prefs.goal_kind ?? "—"}
-      </div>
+      <div className="font-semibold truncate">{prefs.goal_kind ?? "—"}</div>
 
       <div className="opacity-75">Weeks</div>
-      <div className="font-semibold">
-        {prefs.weeks ?? "—"}
-      </div>
+      <div className="font-semibold">{prefs.weeks ?? "—"}</div>
 
       <div className="opacity-75">Plan start</div>
-      <div className="font-semibold">
-        {(prefs as any).start_date ?? "—"}
-      </div>
+      <div className="font-semibold">{(prefs as any).start_date ?? "—"}</div>
 
       <div className="opacity-75">Main</div>
       <div className="font-semibold">{main}</div>
@@ -142,7 +130,10 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
   if (!COACH_DEBUG) return null;
   if (!data) return null;
   return (
-    <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
+    <details
+      className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
+      open
+    >
       <summary className="cursor-pointer select-none text-sm font-semibold py-1">
         {title}
       </summary>
@@ -174,7 +165,7 @@ function buildNext10FromPlanRows(
     session_type?: string | null;
     notes?: string | null;
   }>,
-  today: string,
+  today: string
 ) {
   if (!rows.length) return [];
 
@@ -182,7 +173,7 @@ function buildNext10FromPlanRows(
   if (!future.length) return [];
 
   const uniqueDates = Array.from(
-    new Set(future.map((r) => r.plan_date)),
+    new Set(future.map((r) => r.plan_date))
   ).sort();
 
   const dates = uniqueDates.slice(0, 10);
@@ -219,7 +210,10 @@ export default function CoachPlanActions() {
   const [steps, setSteps] = useState<StepState[]>(makeSteps());
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [diag, setDiag] = useState<{ source: "cache" | "ai" | null; model?: string | null } | null>(null);
+  const [diag, setDiag] = useState<{
+    source: "cache" | "ai" | null;
+    model?: string | null;
+  } | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
 
   const [aiAttempts, setAiAttempts] = useState<any>(null);
@@ -231,13 +225,13 @@ export default function CoachPlanActions() {
 
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
-    [userId, prefs],
+    [userId, prefs]
   );
 
   const today = useMemo(() => todayISO(), []);
   const activeRows = useMemo(
     () => planRows.filter((r) => r.plan_id && r.plan_date >= today),
-    [planRows, today],
+    [planRows, today]
   );
 
   const hasGenerated =
@@ -253,59 +247,50 @@ export default function CoachPlanActions() {
   const canCancel = !!userId && !loading && hasActivePlan;
 
   // helpers pre steps (Debug only)
-  const resetSteps = useCallback(
-    () => setSteps(makeSteps("idle")),
-    [],
-  );
+  const resetSteps = useCallback(() => setSteps(makeSteps("idle")), []);
 
-  const markOnly = useCallback(
-    (active: StepName | null, note?: string) => {
-      if (!COACH_DEBUG) return;
-      setSteps((prev) =>
-        prev.map((s) => {
-          if (active === null) {
-            return s.state === "active"
-              ? { ...s, state: "done", note: s.note }
-              : s;
-          }
-          if (s.name === active) {
-            return {
+  const markOnly = useCallback((active: StepName | null, note?: string) => {
+    if (!COACH_DEBUG) return;
+    setSteps((prev) =>
+      prev.map((s) => {
+        if (active === null) {
+          return s.state === "active"
+            ? { ...s, state: "done", note: s.note }
+            : s;
+        }
+        if (s.name === active) {
+          return {
+            ...s,
+            state: "active",
+            note: [s.note, `[${now()}] ${note ?? ""}`]
+              .filter(Boolean)
+              .join(" · "),
+          };
+        }
+        if (s.state === "active") {
+          return { ...s, state: "done", note: s.note };
+        }
+        return s;
+      })
+    );
+  }, []);
+
+  const markError = useCallback((at: StepName, note?: string) => {
+    if (!COACH_DEBUG) return;
+    setSteps((prev) =>
+      prev.map((s) =>
+        s.name === at
+          ? {
               ...s,
-              state: "active",
+              state: "error",
               note: [s.note, `[${now()}] ${note ?? ""}`]
                 .filter(Boolean)
                 .join(" · "),
-            };
-          }
-          if (s.state === "active") {
-            return { ...s, state: "done", note: s.note };
-          }
-          return s;
-        }),
-      );
-    },
-    [],
-  );
-
-  const markError = useCallback(
-    (at: StepName, note?: string) => {
-      if (!COACH_DEBUG) return;
-      setSteps((prev) =>
-        prev.map((s) =>
-          s.name === at
-            ? {
-                ...s,
-                state: "error",
-                note: [s.note, `[${now()}] ${note ?? ""}`]
-                  .filter(Boolean)
-                  .join(" · "),
-              }
-            : s,
-        ),
-      );
-    },
-    [],
-  );
+            }
+          : s
+      )
+    );
+  }, []);
 
   // Prefs z DB / storage
   useEffect(() => {
@@ -360,14 +345,8 @@ export default function CoachPlanActions() {
 
     const meta: ActiveMeta = {
       plan_id: (activeRows[0] as any).plan_id ?? null,
-      goal:
-        (prefs as any)?.goal_kind ??
-        (prefs as any)?.goal ??
-        null,
-      weeks:
-        (prefs as any)?.weeks ??
-        (prefs as any)?.plan_weeks ??
-        null,
+      goal: (prefs as any)?.goal_kind ?? (prefs as any)?.goal ?? null,
+      weeks: (prefs as any)?.weeks ?? (prefs as any)?.plan_weeks ?? null,
       start_iso,
       end_iso,
     };
@@ -412,7 +391,7 @@ export default function CoachPlanActions() {
         if (typeof window !== "undefined") {
           localStorage.setItem(
             "coach.generated",
-            JSON.stringify(cached.result.analysis),
+            JSON.stringify(cached.result.analysis)
           );
         }
         markOnly(null);
@@ -471,9 +450,7 @@ export default function CoachPlanActions() {
       const meta = {
         started_at_iso: new Date().toISOString(),
         plan_start_date:
-          (prefs as any)?.plan_start_date ??
-          (prefs as any)?.start_date ??
-          null,
+          (prefs as any)?.plan_start_date ?? (prefs as any)?.start_date ?? null,
         weeks: (prefs as any)?.weeks ?? null,
         goal_kind: (prefs as any)?.goal_kind ?? null,
       };
@@ -513,7 +490,10 @@ export default function CoachPlanActions() {
   const handleCancel = useCallback(async () => {
     try {
       if (!userId) throw new Error("Chýba userId.");
-      const res = await apiCancelActivePlan(userId, activeMeta?.plan_id ?? null);
+      const res = await apiCancelActivePlan(
+        userId,
+        activeMeta?.plan_id ?? null
+      );
       if (!res?.success) throw new Error("Zrušenie plánu zlyhalo.");
 
       setActiveMeta(null);
@@ -593,8 +573,7 @@ export default function CoachPlanActions() {
           <div className="mt-2 text-xs text-emerald-300">
             Active plan:{" "}
             <span className="font-semibold">{activeSummary.goal}</span>,{" "}
-            <span className="font-semibold">{activeSummary.weeks}</span>{" "}
-            weeks{" "}
+            <span className="font-semibold">{activeSummary.weeks}</span> weeks{" "}
             <span className="opacity-80">
               ({activeSummary.start} → {activeSummary.end})
             </span>
@@ -682,11 +661,19 @@ export default function CoachPlanActions() {
       )}
 
       {/* PREVIEW – používa PlanPreview; analysis môže byť z AI, cache alebo z DB fallbacku */}
+      {/* PREVIEW – AI / DB next_10_days */}
       {analysis && (
         <div className="mt-2">
           <PlanPreview
             result={{ analysis, narrative: null, model: diag?.model }}
           />
+        </div>
+      )}
+
+      {/* ACTIVE BOARD – editácia plánu (drag & drop) */}
+      {hasActivePlan && (
+        <div className="mt-6">
+          <PlanActive />
         </div>
       )}
 
@@ -701,7 +688,10 @@ export default function CoachPlanActions() {
         <JsonBlock title="AI debug — attempts" data={aiAttempts} />
         <JsonBlock title="AI debug — system prompt" data={aiSystem} />
         <JsonBlock title="AI debug — user prompt" data={aiUser} />
-        <JsonBlock title="AI debug — last_raw (model output)" data={aiLastRaw} />
+        <JsonBlock
+          title="AI debug — last_raw (model output)"
+          data={aiLastRaw}
+        />
       </div>
     </div>
   );
