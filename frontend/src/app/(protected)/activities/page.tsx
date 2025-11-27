@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { toast } from "@/shared/components/ui/Toast";
-import WeeklyLoadWidget from "@/features/widgets/WidgetWeeklyLoad";
-import MonoStrainWidget from "@/features/widgets/WidgetMonoStrain";
-import WidgetPareto8020 from "@/features/widgets/WidgetPareto8020";
-import WidgetActivitiesCalendar from "@/features/widgets/WidgetActivitiesCalendar";
+import WeeklyLoadWidget from "@/shared/components/widgets/WidgetWeeklyLoad";
+import MonoStrainWidget from "@/shared/components/widgets/WidgetMonoStrain";
+import WidgetPareto8020 from "@/shared/components/widgets/WidgetPareto8020";
+import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
 import Button from "@/shared/components/ui/Button";
 
 export default function ActivitiesPage() {
@@ -20,13 +20,17 @@ export default function ActivitiesPage() {
     if (!userId || syncing) return;
     setSyncing(true);
     try {
-      const res = await fetch(`${API_URL}/activities/sync/${userId}`, { method: "POST" });
+      const res = await fetch(`${API_URL}/activities/sync/${userId}`, {
+        method: "POST",
+      });
       const json = await res.json().catch(() => ({}));
       if (json?.success) {
         const imp = Number.isFinite(json.imported) ? json.imported : 0;
         const upd = Number.isFinite(json.updated) ? json.updated : 0;
         const skp = Number.isFinite(json.skipped) ? json.skipped : 0;
-        toast.success(`✅ Sync OK • imported: ${imp} • updated: ${upd} • skipped: ${skp}`);
+        toast.success(
+          `✅ Sync OK • imported: ${imp} • updated: ${upd} • skipped: ${skp}`
+        );
       } else {
         toast.error(`❌ Sync error: ${json?.detail || "unknown"}`);
       }
@@ -40,7 +44,7 @@ export default function ActivitiesPage() {
   const openDetailLoad = () => router.push("/activities/load");
   const openDetailMono = () => router.push("/activities/mono");
   const openDetail8020 = () => router.push("/activities/pareto");
- 
+
   return (
     <>
       {/* Sticky header – rovnaký ako inde */}
@@ -64,7 +68,7 @@ export default function ActivitiesPage() {
           <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
           <MonoStrainWidget onOpenDetail={openDetailMono} />
           <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
-          <WidgetActivitiesCalendar/>
+          <WidgetActivitiesCalendar />
         </div>
       </div>
     </>
