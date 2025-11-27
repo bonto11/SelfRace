@@ -1,37 +1,45 @@
-// src/features/coach/components/PlanActive.tsx
 "use client";
 
 import * as React from "react";
-import { useUserId } from "@/shared/hooks/useUserId";
+import { CARD } from "@/shared/ui/classes";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
-import {
-  CARD,
-  NO_X_OVERFLOW,
-  SCROLL_X,
-  SURFACE_INLINE,
-} from "@/shared/ui/classes";
-import Button from "@/shared/components/ui/Button";
-import SportBadge from "@/shared/components/ui/SportBadge";
 import { todayISO, addDays } from "@/features/activity/utils/activity";
 import {
   apiSavePlanReorder,
   type PlanReorderUpdate,
 } from "@/features/coach/api/plan";
+import PlanSingle, {
+  type PlanStatus,
+} from "@/shared/components/PlanSingle";
 
 type AnyObj = Record<string, any>;
 
-/* ---- helpers z PlanTable / kalendára (skrátené) ---- */
+/* --- helpers (kopírka z PlanTable / starého PlanActive) --- */
+
+function prettySkDate(iso: string) {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  return `${wk} · ${day}`;
+}
 
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
-  if (Array.isArray(hr) && hr.length === 2 && hr.every((x) => Number.isFinite(x))) {
+  if (
+    Array.isArray(hr) &&
+    hr.length === 2 &&
+    hr.every((x) => Number.isFinite(x))
+  ) {
     return `HR ${hr[0]}–${hr[1]}`;
   }
   return null;
 }
-
 function paceToText(p?: any): string | null {
   return typeof p === "string" && p.trim() ? `pace ${p}` : null;
 }
@@ -40,19 +48,21 @@ function powerToText(w?: any): string | null {
 }
 
 function normTarget(it: AnyObj): string | null {
-  const hr   = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
+  const hr = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
   const pace = it?.target_pace_min_per_km ?? null;
-  const pow  = it?.target_power_watts ?? null;
+  const pow = it?.target_power_watts ?? null;
 
   const mainT = Array.isArray(it?.structure?.main)
     ? it.structure.main[0]?.target
     : it?.structure?.main?.target;
 
-  const hr2   = hr   ?? mainT?.hr ?? mainT?.heart_rate ?? null;
+  const hr2 = hr ?? mainT?.hr ?? mainT?.heart_rate ?? null;
   const pace2 = pace ?? mainT?.pace ?? null;
-  const pow2  = pow  ?? mainT?.power ?? null;
+  const pow2 = pow ?? mainT?.power ?? null;
 
-  const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(Boolean);
+  const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(
+    Boolean
+  );
   return parts.length ? parts.join(" · ") : null;
 }
 
@@ -87,31 +97,6 @@ function intervalsToText(main: any): string | null {
   return txt || null;
 }
 
-function normTitle(row: AnyObj, sess: AnyObj) {
-  const sessionTypeId =
-    typeof sess?.session_type === "string"
-      ? sess.session_type
-      : typeof row.session_type === "string"
-      ? row.session_type
-      : null;
-
-  const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
-  return trainingDef?.label ?? sess?.title ?? sess?.name ?? row?.title ?? "Tréning";
-}
-
-function normDuration(row: AnyObj, sess: AnyObj) {
-  const minutes =
-    (typeof sess?.duration_min === "number" && sess.duration_min) ??
-    (typeof row?.duration_min === "number" && row.duration_min) ??
-    (typeof sess?.dur === "number" && sess.dur) ??
-    null;
-  return minutes != null ? `${minutes} min` : null;
-}
-
-function normIntensity(row: AnyObj, sess: AnyObj) {
-  return sess?.intensity ?? row?.intensity ?? null;
-}
-
 function normNotes(sess: AnyObj) {
   if (sess?.notes) return sess.notes;
 
@@ -130,7 +115,9 @@ function normNotes(sess: AnyObj) {
 
   const cd = sess?.structure?.cooldown
     ? [
-        sess.structure.cooldown?.notes ? `CD: ${sess.structure.cooldown.notes}` : null,
+        sess.structure.cooldown?.notes
+          ? `CD: ${sess.structure.cooldown.notes}`
+          : null,
         hrToText(sess.structure.cooldown?.target?.hr),
         paceToText(sess.structure.cooldown?.target?.pace),
         powerToText(sess.structure.cooldown?.target?.power),
@@ -156,6 +143,31 @@ function normNotes(sess: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
+function normTitle(row: AnyObj, sess: AnyObj) {
+  const sessionTypeId =
+    typeof sess?.session_type === "string"
+      ? sess.session_type
+      : typeof row.session_type === "string"
+      ? row.session_type
+      : null;
+
+  const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
+  return trainingDef?.label ?? sess?.title ?? sess?.name ?? row?.title ?? "Tréning";
+}
+
+function normDuration(row: AnyObj, sess: AnyObj) {
+  const minutes =
+    (typeof sess?.duration_min === "number" && sess.duration_min) ??
+    (typeof row?.duration_min === "number" && row.duration_min) ??
+    (typeof sess?.dur === "number" && sess.dur) ??
+    null;
+  return minutes != null ? `${minutes} min` : null;
+}
+
+function normIntensity(row: AnyObj, sess: AnyObj) {
+  return sess?.intensity ?? row?.intensity ?? null;
+}
+
 function isRestSession(row: any, sess: AnyObj): boolean {
   const sport = (row as any).sport || detectSport(sess) || "other";
   const duration = sess.duration_min ?? row.duration_min ?? null;
@@ -169,194 +181,171 @@ function isRestSession(row: any, sess: AnyObj): boolean {
   return false;
 }
 
-function prettySkDate(iso: string) {
-  const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
-  return `${wk} · ${day}`;
-}
+/* --- typy pre draft --- */
 
-/* ---- typy pre lokálny draft ---- */
+type DraftByDay = Record<string, any[]>;
 
-type DraftSession = {
-  id: number;
-  plan_date: string;
-  session_index: number;
-  raw: AnyObj;
-};
+type OriginalPos = Record<
+  number,
+  {
+    plan_date: string;
+    session_index: number;
+  }
+>;
 
-type DraftByDay = Record<string, DraftSession[]>;
+/* --- helper na range dní --- */
 
-type DragInfo = {
-  sessionId: number;
-  fromDate: string;
-};
-
-/* ---- helper: safe day range ---- */
-
-function buildDayRange(startIso: string, endIso: string): string[] {
+function buildDayRange(fromIso: string, toIso: string): string[] {
   const out: string[] = [];
-  const start = new Date(startIso + "T00:00:00Z");
-  const end = new Date(endIso + "T00:00:00Z");
+  const start = new Date(fromIso + "T00:00:00Z");
+  const end = new Date(toIso + "T00:00:00Z");
 
   for (
     let d = new Date(start);
     d.getTime() <= end.getTime();
     d.setUTCDate(d.getUTCDate() + 1)
   ) {
-    const iso = d.toISOString().slice(0, 10);
-    out.push(iso);
+    out.push(d.toISOString().slice(0, 10));
   }
   return out;
 }
 
-/* ---- hlavný komponent ---- */
+/* ───────────────────── hlavný komponent ───────────────────── */
 
 export default function PlanActive() {
-  const { userId } = useUserId();
   const { rows, refresh } = usePlanData();
 
-  const [draft, setDraft] = React.useState<DraftByDay>({});
-  const [originalPos, setOriginalPos] = React.useState<
-    Record<number, { plan_date: string; session_index: number }>
-  >({});
-  const [dragOverDay, setDragOverDay] = React.useState<string | null>(null);
+  const [draftByDay, setDraftByDay] = React.useState<DraftByDay>({});
+  const [originalPos, setOriginalPos] = React.useState<OriginalPos>({});
+  const [selectedDay, setSelectedDay] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
 
-  // dátový rozsah – stabilný cez useMemo
   const today = React.useMemo(() => todayISO(), []);
   const from = React.useMemo(() => addDays(today, -5), [today]);
   const to = React.useMemo(() => addDays(today, 10), [today]);
 
-  // inicializácia draftu pri zmene rows (raz per fetch)
+  // len aktívny plán (má plan_id a je od dnes)
+  const activeRows = React.useMemo(
+    () =>
+      rows.filter(
+        (r: any) =>
+          r.plan_id &&
+          String(r.plan_date).slice(0, 10) >= today
+      ),
+    [rows, today]
+  );
+
+  // init draftu z DB
   React.useEffect(() => {
-    if (!rows.length) {
-      setDraft({});
+    if (!activeRows.length) {
+      setDraftByDay({});
       setOriginalPos({});
       return;
     }
 
-    const pos: Record<number, { plan_date: string; session_index: number }> = {};
-    const tmp: DraftByDay = {};
+    const byDay: DraftByDay = {};
+    const orig: OriginalPos = {};
 
-    for (const r of rows) {
+    for (const r of activeRows) {
       const dIso = String(r.plan_date).slice(0, 10);
       if (dIso < from || dIso > to) continue;
 
       const sess: AnyObj = (r as any).payload ?? r;
       if (isRestSession(r, sess)) continue;
 
-      if (!tmp[dIso]) tmp[dIso] = [];
+      if (!byDay[dIso]) byDay[dIso] = [];
 
-      const idx = Number.isFinite(r.session_index)
-        ? Number(r.session_index)
-        : tmp[dIso].length;
-
-      const item: DraftSession = {
-        id: Number(r.id),
-        plan_date: dIso,
-        session_index: idx,
-        raw: r,
-      };
-      tmp[dIso].push(item);
-
-      pos[item.id] = { plan_date: dIso, session_index: idx };
+      byDay[dIso].push(r);
     }
 
-    Object.keys(tmp).forEach((d) => {
-      tmp[d].sort((a, b) => a.session_index - b.session_index);
-      tmp[d] = tmp[d].map((it, idx) => ({ ...it, session_index: idx }));
+    Object.keys(byDay).forEach((day) => {
+      byDay[day].sort(
+        (a: any, b: any) =>
+          (a.session_index ?? 0) - (b.session_index ?? 0)
+      );
+      byDay[day].forEach((r: any, idx: number) => {
+        orig[Number(r.id)] = { plan_date: day, session_index: idx };
+      });
     });
 
-    setDraft(tmp);
-    setOriginalPos(pos);
-  }, [rows, from, to]);
+    setDraftByDay(byDay);
+    setOriginalPos(orig);
+    setSelectedDay(null);
+  }, [activeRows, from, to]);
 
-  // zoznam dní, ktoré zobrazujeme (aj dni bez plánov)
-  const days: string[] = React.useMemo(
-    () => buildDayRange(from, to),
-    [from, to]
-  );
+  const days = React.useMemo(() => buildDayRange(from, to), [from, to]);
 
-  // DnD eventy
+  const hasChanges = React.useMemo(() => {
+    for (const [dayIso, list] of Object.entries(draftByDay)) {
+      list.forEach((r: any, idx) => {
+        const o = originalPos[Number(r.id)];
+        if (!o) return true;
+        if (o.plan_date !== dayIso || o.session_index !== idx) {
+          // malá finta – keď nájdeme rozdiel, vraciame true cez closure
+          throw true;
+        }
+      });
+    }
+    return false;
+  }, [draftByDay, originalPos]);
 
-  const handleDragStart = (session: DraftSession, dayIso: string) => {
-    const data: DragInfo = { sessionId: session.id, fromDate: dayIso };
-    (window as any).__planDrag = data;
-  };
+  let changed = false;
+  try {
+    changed = hasChanges;
+  } catch {
+    changed = true;
+  }
 
-  const handleDragEnter = (dayIso: string) => {
-    setDragOverDay(dayIso);
-  };
+  const handleDayClick = (dayIso: string) => {
+    // prvý klik – len označ
+    if (!selectedDay || selectedDay === dayIso) {
+      setSelectedDay((prev) => (prev === dayIso ? null : dayIso));
+      return;
+    }
 
-  const handleDragLeave = (dayIso: string) => {
-    if (dragOverDay === dayIso) setDragOverDay(null);
-  };
+    // máme vybraný iný deň → swap
+    const a = selectedDay;
+    const b = dayIso;
 
-  const handleDropOnDay = (targetDay: string) => {
-    const data: DragInfo | undefined = (window as any).__planDrag;
-    (window as any).__planDrag = undefined;
-    setDragOverDay(null);
-    if (!data) return;
-
-    const { sessionId, fromDate } = data;
-    if (!sessionId || !fromDate) return;
-
-    setDraft((prev) => {
+    setDraftByDay((prev) => {
       const next: DraftByDay = { ...prev };
+      const listA = next[a] ?? [];
+      const listB = next[b] ?? [];
+      next[a] = listB;
+      next[b] = listA;
 
-      const fromArr = [...(next[fromDate] ?? [])];
-      const targetArr = [...(next[targetDay] ?? [])];
-
-      const idx = fromArr.findIndex((it) => it.id === sessionId);
-      if (idx === -1) return prev;
-
-      const [moved] = fromArr.splice(idx, 1);
-      const newSession: DraftSession = {
-        ...moved,
-        plan_date: targetDay,
-      };
-
-      targetArr.push(newSession);
-
-      next[fromDate] = fromArr.map((it, i) => ({ ...it, session_index: i }));
-      next[targetDay] = targetArr.map((it, i) => ({ ...it, session_index: i }));
+      // reindex
+      [a, b].forEach((d) => {
+        if (!next[d]) return;
+        next[d] = next[d].map((r: any, idx: number) => ({
+          ...r,
+          session_index: idx,
+        }));
+      });
 
       return next;
     });
+    setSelectedDay(null);
   };
 
   const handleReset = () => {
-    setDraft({});
-    setOriginalPos({});
     void refresh(true);
   };
 
   const handleSave = async () => {
-    if (!userId) return;
     setSaving(true);
     try {
       const updates: PlanReorderUpdate[] = [];
 
-      Object.entries(draft).forEach(([dayIso, list]) => {
-        list.forEach((it, idx) => {
-          const orig = originalPos[it.id];
-          const newDate = dayIso;
-          const newIndex = idx;
-
-          if (
-            !orig ||
-            orig.plan_date !== newDate ||
-            orig.session_index !== newIndex
-          ) {
+      Object.entries(draftByDay).forEach(([dayIso, list]) => {
+        list.forEach((r: any, idx) => {
+          const id = Number(r.id);
+          const orig = originalPos[id];
+          if (!orig || orig.plan_date !== dayIso || orig.session_index !== idx) {
             updates.push({
-              id: it.id,
-              plan_date: newDate,
-              session_index: newIndex,
+              id,
+              plan_date: dayIso,
+              session_index: idx,
             });
           }
         });
@@ -367,8 +356,11 @@ export default function PlanActive() {
         return;
       }
 
-      const res = await apiSavePlanReorder(userId, updates);
-      console.log("[PlanActive] savePlanReorder result", res, updates);
+      const res = await apiSavePlanReorder(
+        (activeRows[0] as any)?.user_id ?? 0,
+        updates
+      );
+      console.log("[PlanActive] savePlanReorder", res, updates);
 
       if (res.success) {
         await refresh(true);
@@ -378,139 +370,107 @@ export default function PlanActive() {
     }
   };
 
-  const hasChanges = React.useMemo(() => {
-    for (const [dayIso, list] of Object.entries(draft)) {
-      list.forEach((it, index) => {
-        const orig = originalPos[it.id];
-        if (!orig) return true;
-        if (orig.plan_date !== dayIso || orig.session_index !== index) {
-          throw true as never;
-        }
-      });
-    }
-    return false;
-  }, [draft, originalPos]);
-
-  let changed = false;
-  try {
-    changed = hasChanges;
-  } catch {
-    changed = true;
-  }
-
   return (
-    <section className={[CARD, "p-3 md:p-4 space-y-3", NO_X_OVERFLOW].join(" ")}>
+    <section className={[CARD, "p-3 md:p-4 space-y-4"].join(" ")}>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-bold">Aktívny plán — editácia</h2>
         <span className="text-xs opacity-70">
-          Presúvaj tréningy medzi dňami (drag & drop). Uloženie je manuálne.
+          Klikni na deň A a potom na deň B, tréningy sa medzi sebou vymenia.
         </span>
 
         <div className="ml-auto flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={saving || !changed}
+          <button
+            type="button"
             onClick={handleReset}
+            disabled={saving}
+            className="text-xs px-3 py-1.5 rounded-full border border-white/20 bg-white/5"
           >
             Reset
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={saving || !changed}
+          </button>
+          <button
+            type="button"
             onClick={handleSave}
+            disabled={saving || !changed}
+            className="text-xs px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save changes"}
-          </Button>
+          </button>
         </div>
       </div>
 
-      <div className={SCROLL_X}>
-        <div className="flex gap-3 min-w-max py-1">
-          {days.map((dIso) => {
-            const list = draft[dIso] ?? [];
-            const isToday = dIso === today;
-            const isOver = dragOverDay === dIso;
+      {/* dni pod sebou, rovnaký look ako PlanTable + PlanSingle */}
+      <div className="space-y-4">
+        {days.map((dIso) => {
+          const list = draftByDay[dIso] ?? [];
+          const isSelected = selectedDay === dIso;
 
-            return (
-              <div
-                key={dIso}
-                onDragEnter={() => handleDragEnter(dIso)}
-                onDragLeave={() => handleDragLeave(dIso)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDropOnDay(dIso)}
-                className={[
-                  "w-60 flex-shrink-0 rounded-2xl border border-white/10",
-                  "bg-white/5 dark:bg-black/20",
-                  "p-2 flex flex-col",
-                  isToday ? "ring-1 ring-emerald-500/60" : "",
-                  isOver ? "bg-white/10 dark:bg-white/10" : "",
-                ].join(" ")}
+          // keď v daný deň nemáme tréningy, ukáž len "žiadny tréning"
+          return (
+            <div
+              key={dIso}
+              className={[
+                "rounded-2xl border border-white/10 p-3 md:p-4 space-y-3",
+                isSelected ? "ring-1 ring-emerald-500/70" : "",
+              ].join(" ")}
+            >
+              <button
+                type="button"
+                onClick={() => handleDayClick(dIso)}
+                className="flex items-center justify-between w-full text-left"
               >
-                <div className="flex items-center justify-between gap-1">
+                <div className="flex flex-col gap-0.5">
                   <div className="text-xs font-semibold tracking-tight">
                     {prettySkDate(dIso)}
                   </div>
-                  {isToday && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
-                      Today
-                    </span>
-                  )}
+                  <div className="text-[11px] opacity-70">
+                    {list.length
+                      ? `${list.length} tréning(ov)`
+                      : "Žiadny tréning"}
+                  </div>
                 </div>
+                {isSelected && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
+                    vybraný
+                  </span>
+                )}
+              </button>
 
-                <div className="mt-1 text-[11px] opacity-70">
-                  {list.length ? `${list.length} tréning(ov)` : "Žiadny tréning"}
-                </div>
-
-                <ul className="mt-2 space-y-2 flex-1">
-                  {list.map((it, idx) => {
-                    const row = it.raw;
+              {list.length > 0 && (
+                <ul className="space-y-3">
+                  {list.map((row: any, idx: number) => {
                     const sess: AnyObj = row.payload ?? row;
                     const sport = row.sport || detectSport(sess) || "other";
+
                     const title = normTitle(row, sess);
                     const dur = normDuration(row, sess);
                     const intensity = normIntensity(row, sess);
                     const target = normTarget(sess);
                     const notes = normNotes(sess);
 
+                    const status: PlanStatus = "planned";
+
                     return (
-                      <li key={`${it.id}-${idx}`}>
-                        <div
-                          draggable
-                          onDragStart={() => handleDragStart(it, dIso)}
-                          className={[
-                            SURFACE_INLINE,
-                            "px-3 py-2 cursor-move select-none",
-                          ].join(" ")}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-semibold truncate">
-                              {title}
-                            </div>
-                            <SportBadge sport={sport} />
-                          </div>
-
-                          <div className="mt-0.5 text-[11px] opacity-80 flex flex-wrap gap-1">
-                            {dur && <span>{dur}</span>}
-                            {intensity && <span>· {intensity}</span>}
-                            {target && <span>· {target}</span>}
-                          </div>
-
-                          {notes && (
-                            <div className="mt-1 text-xs opacity-75 line-clamp-3">
-                              {notes}
-                            </div>
-                          )}
-                        </div>
+                      <li key={`${row.id}-${idx}`}>
+                        <PlanSingle
+                          id={Number(row.id)}
+                          title={title}
+                          dateIso={dIso}
+                          sport={sport}
+                          status={status}
+                          planDur={dur}
+                          planIntensity={intensity}
+                          planTarget={target}
+                          planNotes={notes}
+                          activitySummary={null}
+                        />
                       </li>
                     );
                   })}
                 </ul>
-              </div>
-            );
-          })}
-        </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
