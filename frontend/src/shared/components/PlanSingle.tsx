@@ -1,19 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { THEME } from "@/shared/theme/tokens";
 import { SURFACE_INLINE, SURFACE_CARD } from "@/shared/ui/classes";
+import SportBadge from "@/shared/components/ui/SportBadge"
 
-const SPORT_COLORS: Record<string, string> = {
-  run: THEME.chart.run,
-  ride: THEME.chart.ride,
-  swim: THEME.chart.swim,
-  strength: THEME.chart.strength,
-  mixed: THEME.chart.mixed,
-  skate: THEME.chart.skate,
-  walk: THEME.chart.walk,
-  other: THEME.chart.other,
-};
 
 export type PlanStatus = "planned" | "done" | "missed";
 
@@ -71,8 +61,6 @@ export default function PlanSingle({
 }: Props) {
   const [open, setOpen] = React.useState(false);
 
-  const color = SPORT_COLORS[sport] ?? SPORT_COLORS.other;
-
   const kpis = [
     planDur ? { label: "DURATION", value: planDur } : null,
     planIntensity ? { label: "INTENSITY", value: planIntensity } : null,
@@ -105,15 +93,7 @@ export default function PlanSingle({
         </div>
 
         <div className="flex items-center gap-2">
-          <span
-            className="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px]"
-            style={{
-              border: `1px solid ${color}`,
-              color,
-            }}
-          >
-            {sport}
-          </span>
+          <SportBadge sport={sport}/>
           <span className="text-xs opacity-60">{open ? "▴" : "▾"}</span>
         </div>
       </button>

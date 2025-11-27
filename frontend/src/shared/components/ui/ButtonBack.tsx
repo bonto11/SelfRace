@@ -4,7 +4,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { cx } from "@/shared/ui";
+import { cx, buttonClass } from "@/shared/ui";
 
 type Props = {
   /** Text vľavo v headri (voliteľný) */
@@ -50,14 +50,10 @@ export default function ButtonBack({
     }
   };
 
+  const backCls = buttonClass("back", "sm", { circle: false });
+
   const BackPill = (
-    <span
-      className={cx(
-        "inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full",
-        "bg-gray-700 hover:bg-gray-600 text-white transition",
-        "border border-white/10"
-      )}
-    >
+    <span className={backCls}>
       <ArrowLeft size={16} aria-hidden="true" />
       {label}
     </span>

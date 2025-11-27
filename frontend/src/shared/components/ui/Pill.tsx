@@ -1,3 +1,4 @@
+//shared/components/ui/Pill
 "use client";
 
 import * as React from "react";
