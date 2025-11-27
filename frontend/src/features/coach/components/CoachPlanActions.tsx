@@ -2,17 +2,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
+import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
+import { todayISO } from "@/features/activity/utils/activity";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
 import PlanPreview from "@/features/coach/components/PlanPreview";
-import PlanActive from "@/features/coach/components/PlanActive";
 
 import {
   apiSaveActivePlan,
-  apiUpdateActivePlan ,
+  apiUpdateActivePlan,
   apiCancelActivePlan,
 } from "@/features/coach/api/plan";
 import { apiGetPrefs } from "@/features/coach/api/prefs";
@@ -42,10 +44,7 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
   if (!data) return null;
   if (!COACH_DEBUG) return null;
   return (
-    <details
-      className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
-      open
-    >
+    <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
       <summary className="cursor-pointer select-none text-sm font-semibold py-1">
         {title}
       </summary>
@@ -59,7 +58,8 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
 function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
   if (!prefs)
     return <div className="text-sm opacity-75">— preferences nenačítané —</div>;
-  const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
+  const main =
+    (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
   const sec =
     (prefs as any).secondary_mix
       ?.filter((x: any) => Number(x?.share_pct) > 0)
@@ -72,7 +72,9 @@ function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
       <div className="opacity-75">Weeks</div>
       <div className="font-semibold">{prefs.weeks ?? "—"}</div>
       <div className="opacity-75">Plan start</div>
-      <div className="font-semibold">{(prefs as any).start_date ?? "—"}</div>
+      <div className="font-semibold">
+        {(prefs as any).start_date ?? "—"}
+      </div>
       <div className="opacity-75">Main</div>
       <div className="font-semibold">{main}</div>
       <div className="opacity-75">Secondary</div>
@@ -130,15 +132,11 @@ function readPrefsFromStorage(): CoachPrefs | null {
 }
 
 /* ────────────── Main component ────────────── */
-type ActiveMeta = {
-  plan_id?: string | null;
-  goal?: string | null;
-  weeks?: number | null;
-};
 
 export default function CoachPlanActions() {
   const { userId } = useUserId();
   const { pbRun } = useCoachData();
+  const { rows: planRows, refresh: refreshPlan } = usePlanData();
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -157,18 +155,51 @@ export default function CoachPlanActions() {
   const [aiUser, setAiUser] = useState<any>(null);
   const [aiLastRaw, setAiLastRaw] = useState<any>(null);
 
-  const [activeMeta, setActiveMeta] = useState<ActiveMeta | null>(null);
-
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
-    [userId, prefs]
+    [userId, prefs],
   );
 
   const hasGenerated =
     !!analysis &&
     Array.isArray(analysis.next_10_days) &&
     analysis.next_10_days.length > 0;
-  const hasActivePlan = !!activeMeta;
+
+  // AI aktívny plán = budúce riadky zo source === "ai"
+  const activePlanInfo = useMemo(() => {
+    if (!planRows.length) return null;
+
+    const today = todayISO();
+    const aiRows = planRows.filter(
+      (r) =>
+        String(r.plan_date) >= today &&
+        (r as any).source === "ai",
+    );
+
+    if (!aiRows.length) return null;
+
+    const sorted = [...aiRows].sort((a, b) =>
+      a.plan_date.localeCompare(b.plan_date),
+    );
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+
+    return {
+      plan_id: first.plan_id ?? null,
+      start: first.plan_date,
+      end: last.plan_date,
+      goal:
+        (prefs as any)?.goal_kind ??
+        (prefs as any)?.goal ??
+        null,
+      weeks:
+        (prefs as any)?.weeks ??
+        (prefs as any)?.plan_weeks ??
+        null,
+    };
+  }, [planRows, prefs]);
+
+  const hasActivePlan = !!activePlanInfo;
 
   const canRunGenerate = !!userId && !loading && !hasActivePlan;
   const canStart = !!userId && !loading && hasGenerated && !hasActivePlan;
@@ -194,7 +225,7 @@ export default function CoachPlanActions() {
           };
         if (s.state === "active") return { ...s, state: "done", note: s.note };
         return s;
-      })
+      }),
     );
   }, []);
   const markError = useCallback((at: StepName, note?: string) => {
@@ -209,8 +240,8 @@ export default function CoachPlanActions() {
                 .filter(Boolean)
                 .join(" · "),
             }
-          : s
-      )
+          : s,
+      ),
     );
   }, []);
 
@@ -232,7 +263,7 @@ export default function CoachPlanActions() {
     })();
   }, [userId, markOnly]);
 
-  /* Načítanie generated plánu + active plánu z localStorage pri mount-e */
+  /* Načítanie generated plánu z localStorage pri mount-e */
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -247,24 +278,6 @@ export default function CoachPlanActions() {
       }
     } catch {
       setAnalysis(null);
-    }
-
-    try {
-      const rawActive = localStorage.getItem("coach.active");
-      if (rawActive) {
-        const obj = JSON.parse(rawActive);
-        const meta: ActiveMeta = {
-          plan_id: obj.plan_id ?? null,
-          goal: obj.meta?.goal_kind ?? obj.meta?.goal ?? null,
-          weeks: obj.meta?.weeks ?? null,
-        };
-        setActiveMeta(meta);
-        console.log("[coach.actions] loaded active plan from storage", meta);
-      } else {
-        setActiveMeta(null);
-      }
-    } catch {
-      setActiveMeta(null);
     }
   }, [userId]);
 
@@ -307,7 +320,7 @@ export default function CoachPlanActions() {
         setDiag({ source: "cache", model: cached.result.model });
         localStorage.setItem(
           "coach.generated",
-          JSON.stringify(cached.result.analysis)
+          JSON.stringify(cached.result.analysis),
         );
         markOnly(null);
         setLoading(false);
@@ -355,7 +368,7 @@ export default function CoachPlanActions() {
     }
   }, [userId, pbRun, resetSteps, markOnly, markError]);
 
-  /* Start plan */
+  /* Start plan – uloží do DB, potom refetchne plánové riadky */
   const handleStart = useCallback(async () => {
     try {
       console.log("[coach.actions] handleStart clicked");
@@ -370,7 +383,9 @@ export default function CoachPlanActions() {
       const meta = {
         started_at_iso: new Date().toISOString(),
         plan_start_date:
-          (prefs as any)?.plan_start_date ?? (prefs as any)?.start_date ?? null,
+          (prefs as any)?.plan_start_date ??
+          (prefs as any)?.start_date ??
+          null,
         weeks: (prefs as any)?.weeks ?? null,
         goal_kind: (prefs as any)?.goal_kind ?? null,
       };
@@ -382,57 +397,56 @@ export default function CoachPlanActions() {
         throw new Error("Uloženie plánu zlyhalo.");
       }
 
-      const newMeta: ActiveMeta = {
-        plan_id: res.planId ?? null,
-        goal: meta.goal_kind,
-        weeks: meta.weeks,
-      };
-      setActiveMeta(newMeta);
+      // DB je pravda – refetchni plánové riadky
+      await refreshPlan(true);
     } catch (e: any) {
       console.error("[coach.actions] handleStart error", e);
       setErr(e?.message || "Start failed");
     }
-  }, [prefs, userId]);
+  }, [prefs, userId, refreshPlan]);
 
-  /* Update plan – zatiaľ skeleton */
+  /* Update plan – zatiaľ skeleton (DB reconcile + refetch) */
   const handleUpdate = useCallback(async () => {
     try {
       console.log("[coach.actions] handleUpdate clicked");
       if (!userId) throw new Error("Chýba userId.");
       const updated = await apiUpdateActivePlan(userId);
-      if (updated)
+      if (updated) {
         localStorage.setItem("coach.active", JSON.stringify(updated));
+      }
+      await refreshPlan(true);
     } catch (e: any) {
       console.error("[coach.actions] handleUpdate error", e);
       setErr(e?.message || "Update failed");
     }
-  }, [userId]);
+  }, [userId, refreshPlan]);
 
-  /* Cancel plan – zruší BE aj FE stav */
+  /* Cancel plan – zruší BE aj FE stav, DB refetch */
   const handleCancel = useCallback(async () => {
     try {
       console.log("[coach.actions] handleCancel clicked");
       if (!userId) throw new Error("Chýba userId.");
       const res = await apiCancelActivePlan(
         userId,
-        activeMeta?.plan_id ?? null
+        activePlanInfo?.plan_id ?? null,
       );
       console.log("[coach.actions] cancelActivePlan result", res);
       if (!res?.success) throw new Error("Zrušenie plánu zlyhalo.");
 
-      // vyčisti aktívny plán aj generated plán
-      setActiveMeta(null);
+      await refreshPlan(true);
+
+      // vyčisti preview
       setAnalysis(null);
       setDiag(null);
       if (typeof window !== "undefined") {
-        localStorage.removeItem("coach.active");
         localStorage.removeItem("coach.generated");
+        localStorage.removeItem("coach.active");
       }
     } catch (e: any) {
       console.error("[coach.actions] handleCancel error", e);
       setErr(e?.message || "Cancel failed");
     }
-  }, [userId, activeMeta]);
+  }, [userId, activePlanInfo, refreshPlan]);
 
   /* Clear cache (len v debug móde) */
   const handleClearCache = useCallback(() => {
@@ -471,19 +485,14 @@ export default function CoachPlanActions() {
   };
 
   const activeSummary = useMemo(() => {
-    if (!hasActivePlan) return null;
-    const goal =
-      activeMeta?.goal ??
-      (prefs as any)?.goal_kind ??
-      (prefs as any)?.goal ??
-      "—";
-    const weeks =
-      activeMeta?.weeks ??
-      (prefs as any)?.weeks ??
-      (prefs as any)?.plan_weeks ??
-      "—";
-    return { goal, weeks };
-  }, [hasActivePlan, activeMeta, prefs]);
+    if (!activePlanInfo) return null;
+    return {
+      goal: activePlanInfo.goal ?? "—",
+      weeks: activePlanInfo.weeks ?? "—",
+      start: activePlanInfo.start,
+      end: activePlanInfo.end,
+    };
+  }, [activePlanInfo]);
 
   return (
     <div className="space-y-4">
@@ -494,7 +503,10 @@ export default function CoachPlanActions() {
           <div className="mt-2 text-xs text-emerald-300">
             Active plan:{" "}
             <span className="font-semibold">{activeSummary.goal}</span>,{" "}
-            <span className="font-semibold">{activeSummary.weeks}</span> weeks
+            <span className="font-semibold">{activeSummary.weeks}</span> weeks{" "}
+            <span className="opacity-80">
+              ({activeSummary.start} → {activeSummary.end})
+            </span>
           </div>
         )}
       </div>
@@ -581,20 +593,12 @@ export default function CoachPlanActions() {
       )}
 
       {/* výsledok */}
-      {hasActivePlan ? (
+      {analysis && (
         <div className="mt-2">
-          {/* Aktívny plán – čítame z DB cez PlanDataProvider */}
-          <PlanActive />
+          <PlanPreview
+            result={{ analysis, narrative: null, model: diag?.model }}
+          />
         </div>
-      ) : (
-        analysis && (
-          <div className="mt-2">
-            {/* Len vygenerovaný plán (ešte neuložený) */}
-            <PlanPreview
-              result={{ analysis, narrative: null, model: diag?.model }}
-            />
-          </div>
-        )
       )}
 
       {/* debug bloky */}
@@ -608,10 +612,7 @@ export default function CoachPlanActions() {
         <JsonBlock title="AI debug — attempts" data={aiAttempts} />
         <JsonBlock title="AI debug — system prompt" data={aiSystem} />
         <JsonBlock title="AI debug — user prompt" data={aiUser} />
-        <JsonBlock
-          title="AI debug — last_raw (model output)"
-          data={aiLastRaw}
-        />
+        <JsonBlock title="AI debug — last_raw (model output)" data={aiLastRaw} />
       </div>
     </div>
   );

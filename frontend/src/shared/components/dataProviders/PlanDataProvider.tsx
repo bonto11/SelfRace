@@ -28,6 +28,7 @@ export type PlanRow = {
   session_type?: string | null;
   session_index?: number | null;
   payload?: any;
+  source? : string | null
   [key: string]: any;
 };
 
