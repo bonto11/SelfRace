@@ -1,3 +1,4 @@
+// src/features/coach/components/PlanActive.tsx
 "use client";
 
 import * as React from "react";
@@ -14,7 +15,10 @@ import {
 import Button from "@/shared/components/ui/Button";
 import SportBadge from "@/shared/components/ui/SportBadge";
 import { todayISO, addDays } from "@/features/activity/utils/activity";
-import { apiSavePlanReorder, type PlanReorderUpdate } from "@/features/coach/api/plan";
+import {
+  apiSavePlanReorder,
+  type PlanReorderUpdate,
+} from "@/features/coach/api/plan";
 
 type AnyObj = Record<string, any>;
 
@@ -192,6 +196,24 @@ type DragInfo = {
   fromDate: string;
 };
 
+/* ---- helper: safe day range ---- */
+
+function buildDayRange(startIso: string, endIso: string): string[] {
+  const out: string[] = [];
+  const start = new Date(startIso + "T00:00:00Z");
+  const end = new Date(endIso + "T00:00:00Z");
+
+  for (
+    let d = new Date(start);
+    d.getTime() <= end.getTime();
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const iso = d.toISOString().slice(0, 10);
+    out.push(iso);
+  }
+  return out;
+}
+
 /* ---- hlavný komponent ---- */
 
 export default function PlanActive() {
@@ -205,12 +227,19 @@ export default function PlanActive() {
   const [dragOverDay, setDragOverDay] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
 
-  const today = todayISO();
-  const from = addDays(today, -5);
-  const to = addDays(today, 10);
+  // dátový rozsah – stabilný cez useMemo
+  const today = React.useMemo(() => todayISO(), []);
+  const from = React.useMemo(() => addDays(today, -5), [today]);
+  const to = React.useMemo(() => addDays(today, 10), [today]);
 
-  // inicializácia draftu pri zmene rows
+  // inicializácia draftu pri zmene rows (raz per fetch)
   React.useEffect(() => {
+    if (!rows.length) {
+      setDraft({});
+      setOriginalPos({});
+      return;
+    }
+
     const pos: Record<number, { plan_date: string; session_index: number }> = {};
     const tmp: DraftByDay = {};
 
@@ -238,10 +267,8 @@ export default function PlanActive() {
       pos[item.id] = { plan_date: dIso, session_index: idx };
     }
 
-    // sortuj podľa session_index
     Object.keys(tmp).forEach((d) => {
       tmp[d].sort((a, b) => a.session_index - b.session_index);
-      // reindex pre istotu
       tmp[d] = tmp[d].map((it, idx) => ({ ...it, session_index: idx }));
     });
 
@@ -250,21 +277,15 @@ export default function PlanActive() {
   }, [rows, from, to]);
 
   // zoznam dní, ktoré zobrazujeme (aj dni bez plánov)
-  const days: string[] = React.useMemo(() => {
-    const out: string[] = [];
-    let cur = from;
-    while (cur <= to) {
-      out.push(cur);
-      cur = addDays(cur, 1);
-    }
-    return out;
-  }, [from, to]);
+  const days: string[] = React.useMemo(
+    () => buildDayRange(from, to),
+    [from, to]
+  );
 
   // DnD eventy
 
   const handleDragStart = (session: DraftSession, dayIso: string) => {
     const data: DragInfo = { sessionId: session.id, fromDate: dayIso };
-    // ukladáme do window, lebo dataTransfer s JSON je otravný na mobile
     (window as any).__planDrag = data;
   };
 
@@ -302,7 +323,6 @@ export default function PlanActive() {
 
       targetArr.push(newSession);
 
-      // reindex oboch dní
       next[fromDate] = fromArr.map((it, i) => ({ ...it, session_index: i }));
       next[targetDay] = targetArr.map((it, i) => ({ ...it, session_index: i }));
 
@@ -311,7 +331,6 @@ export default function PlanActive() {
   };
 
   const handleReset = () => {
-    // trigger znovu init z rows
     setDraft({});
     setOriginalPos({});
     void refresh(true);
@@ -343,8 +362,13 @@ export default function PlanActive() {
         });
       });
 
+      if (!updates.length) {
+        setSaving(false);
+        return;
+      }
+
       const res = await apiSavePlanReorder(userId, updates);
-      console.log("[PlanEditable] savePlanReorder result", res, updates);
+      console.log("[PlanActive] savePlanReorder result", res, updates);
 
       if (res.success) {
         await refresh(true);
@@ -355,19 +379,24 @@ export default function PlanActive() {
   };
 
   const hasChanges = React.useMemo(() => {
-    // jednoduché porovnanie: ak aspoň jeden riadok má inú pozíciu ako originalPos
     for (const [dayIso, list] of Object.entries(draft)) {
-      for (const it of list) {
+      list.forEach((it, index) => {
         const orig = originalPos[it.id];
-        const idx = list.indexOf(it);
         if (!orig) return true;
-        if (orig.plan_date !== dayIso || orig.session_index !== idx) {
-          return true;
+        if (orig.plan_date !== dayIso || orig.session_index !== index) {
+          throw true as never;
         }
-      }
+      });
     }
     return false;
   }, [draft, originalPos]);
+
+  let changed = false;
+  try {
+    changed = hasChanges;
+  } catch {
+    changed = true;
+  }
 
   return (
     <section className={[CARD, "p-3 md:p-4 space-y-3", NO_X_OVERFLOW].join(" ")}>
@@ -381,7 +410,7 @@ export default function PlanActive() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={saving || !hasChanges}
+            disabled={saving || !changed}
             onClick={handleReset}
           >
             Reset
@@ -389,7 +418,7 @@ export default function PlanActive() {
           <Button
             variant="primary"
             size="sm"
-            disabled={saving || !hasChanges}
+            disabled={saving || !changed}
             onClick={handleSave}
           >
             {saving ? "Saving…" : "Save changes"}
@@ -435,7 +464,7 @@ export default function PlanActive() {
                 </div>
 
                 <ul className="mt-2 space-y-2 flex-1">
-                  {list.map((it) => {
+                  {list.map((it, idx) => {
                     const row = it.raw;
                     const sess: AnyObj = row.payload ?? row;
                     const sport = row.sport || detectSport(sess) || "other";
@@ -446,7 +475,7 @@ export default function PlanActive() {
                     const notes = normNotes(sess);
 
                     return (
-                      <li key={it.id}>
+                      <li key={`${it.id}-${idx}`}>
                         <div
                           draggable
                           onDragStart={() => handleDragStart(it, dIso)}
