@@ -2,7 +2,7 @@
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
-import { fetchUserPref, upsertUserPref } from "@/shared/api/userPrefs";
+import { apiFetchUserPref, apiUpsertUserPref } from "@/shared/api/userPrefs";
 import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coach";
 import type { SportKind } from "@/features/coach/types/prefsTypes";
 
@@ -45,7 +45,7 @@ export function readCoachPrefsFromStorage(): CoachPrefs {
 }
 
 export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPrefs> {
-  const value = await fetchUserPref(userId, KEY);
+  const value = await apiFetchUserPref(userId, KEY);
   const prefs = value ? (value as CoachPrefs) : DEFAULT_PREFS;
   lsSet(prefs);
   broadcast(prefs); // <<< dôležité: nech sa widgety hneď refreshnú
@@ -53,7 +53,7 @@ export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPref
 }
 
 export async function saveCoachPrefs(userId: number, prefs: CoachPrefs): Promise<void> {
-  await upsertUserPref(userId, KEY, prefs);
+  await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
   broadcast(prefs); // <<< dôležité: zmeny sa prejavia okamžite
 }
