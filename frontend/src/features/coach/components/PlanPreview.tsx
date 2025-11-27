@@ -1,4 +1,4 @@
-// src/features/coach/components/PlanResult.tsx
+// src/features/coach/components/PlanPreview.tsx
 "use client";
 
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
@@ -130,16 +130,16 @@ function WeekPreview({ lines }: { lines: string[] }) {
 }
 
 /* ───────── component ───────── */
-
-export default function PlanResult({
+export default function PlanPreview({
   result,
   showDebugSplit = false,
-  showNarrative = false, // nech je čierny panel preč, kým ho nebudeme chcieť
+  showNarrative = false,
 }: {
   result: any;
   showDebugSplit?: boolean;
   showNarrative?: boolean;
 }) {
+
   if (!result) return null;
 
   const analysis = result?.analysis ?? {};

@@ -173,7 +173,7 @@ export async function savePlanActivityLink(
     activity_id: activityId, // null = unlink
   };
 
-  const r = await fetch(`${API_URL}/coach-plan-link/${userId}`, {
+  const r = await fetch(`${API_URL}/coach-plan/${userId}/link`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
@@ -189,4 +189,43 @@ export async function savePlanActivityLink(
   }
 
   return { success: false, via: "api" };
+}
+
+// --- BATCH REORDER / PRESUN PLÁNU (drag & drop board) -------------------
+export type PlanReorderUpdate = {
+  id: number;
+  plan_date: string;      // "YYYY-MM-DD" – nový deň
+  session_index: number;  // nové poradie v danom dni (0-based)
+};
+
+/**
+ * Uloží zmeny v pláne (presuny medzi dňami + nové poradie).
+ * - BE endpoint si potom vieš spraviť napr. na: POST /coach-plan-reorder/{user_id}
+ * - updates: len zmenené riadky (id + nový plan_date + session_index)
+ */
+export async function savePlanReorder(
+  userId: number,
+  updates: Array<{ id: number; plan_date: string; session_index: number }>
+): Promise<{ success: boolean }> {
+  if (!API_URL) {
+    console.warn("[coach.plan] savePlanReorder – missing API_URL", { userId, updates });
+    return { success: false };
+  }
+
+  const r = await fetch(`${API_URL}/coach-plan/${userId}/reorder`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ updates }),
+  }).catch((err) => {
+    console.error("[coach.plan] savePlanReorder fetch error", err);
+    return null;
+  });
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    console.log("[coach.plan] savePlanReorder response", j);
+    return { success: !!j?.success };
+  }
+
+  return { success: false };
 }

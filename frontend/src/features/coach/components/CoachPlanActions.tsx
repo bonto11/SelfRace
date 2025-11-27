@@ -5,17 +5,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 
-import { getPrefs } from "@/features/coach/api/prefs";
-import { analyzeCoach, toAnalyzePayloadBE } from "@/features/coach/api/coach";
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
-import PlanResult from "@/features/coach/components/PlanResult";
+import PlanPreview from "@/features/coach/components/PlanPreview";
+import PlanActive from "@/features/coach/components/PlanActive";
 
 import {
-  saveActivePlan,
-  updateActivePlan,
-  cancelActivePlan,
+  saveActivePlan as apiSaveActivePlan,
+  updateActivePlan as apiUpdateActivePlan,
+  cancelActivePlan as apiCancelActivePlan,
 } from "@/features/coach/api/plan";
+import { getPrefs as apiGetPrefs } from "@/features/coach/api/prefs";
+import {
+  analyzeCoach as apiAnalyzeCoach,
+  toAnalyzePayloadBE as apiToAnalyzePayloadBE,
+} from "@/features/coach/api/coach";
+
 import {
   makeCacheKey,
   saveCachedResult,
@@ -37,7 +42,10 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
   if (!data) return null;
   if (!COACH_DEBUG) return null;
   return (
-    <details className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2" open>
+    <details
+      className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
+      open
+    >
       <summary className="cursor-pointer select-none text-sm font-semibold py-1">
         {title}
       </summary>
@@ -49,7 +57,8 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
 }
 
 function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
-  if (!prefs) return <div className="text-sm opacity-75">— preferences nenačítané —</div>;
+  if (!prefs)
+    return <div className="text-sm opacity-75">— preferences nenačítané —</div>;
   const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
   const sec =
     (prefs as any).secondary_mix
@@ -152,7 +161,7 @@ export default function CoachPlanActions() {
 
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
-    [userId, prefs],
+    [userId, prefs]
   );
 
   const hasGenerated =
@@ -185,7 +194,7 @@ export default function CoachPlanActions() {
           };
         if (s.state === "active") return { ...s, state: "done", note: s.note };
         return s;
-      }),
+      })
     );
   }, []);
   const markError = useCallback((at: StepName, note?: string) => {
@@ -200,8 +209,8 @@ export default function CoachPlanActions() {
                 .filter(Boolean)
                 .join(" · "),
             }
-          : s,
-      ),
+          : s
+      )
     );
   }, []);
 
@@ -212,7 +221,7 @@ export default function CoachPlanActions() {
       try {
         markOnly("Loading preferences", "initial");
         console.log("[coach.actions] loading prefs for user", userId);
-        const p = await getPrefs(userId).catch(() => null);
+        const p = await apiGetPrefs(userId).catch(() => null);
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff);
         markOnly(null);
@@ -273,7 +282,7 @@ export default function CoachPlanActions() {
 
     try {
       markOnly("Loading preferences", "fetch from DB");
-      const fresh = await getPrefs(userId).catch(() => null);
+      const fresh = await apiGetPrefs(userId).catch(() => null);
       const effectivePrefs = fresh ?? readPrefsFromStorage();
       if (!effectivePrefs) {
         markError("Loading preferences", "none in DB nor storage");
@@ -283,7 +292,7 @@ export default function CoachPlanActions() {
       markOnly(null);
 
       markOnly("Preparing inputs for AI", "build payload");
-      const base = toAnalyzePayloadBE(effectivePrefs);
+      const base = apiToAnalyzePayloadBE(effectivePrefs);
       const payload = { ...base, bests: { run: pbRun ?? [] } };
       setDebugPayload(base);
       console.log("[coach.actions] analyze payload", payload);
@@ -298,7 +307,7 @@ export default function CoachPlanActions() {
         setDiag({ source: "cache", model: cached.result.model });
         localStorage.setItem(
           "coach.generated",
-          JSON.stringify(cached.result.analysis),
+          JSON.stringify(cached.result.analysis)
         );
         markOnly(null);
         setLoading(false);
@@ -307,7 +316,7 @@ export default function CoachPlanActions() {
 
       markOnly("Sending request", "debug_raw=1, loose=1");
       markOnly("Generating plan (AI)");
-      const json = await analyzeCoach(userId, payload, {
+      const json = await apiAnalyzeCoach(userId, payload, {
         debugRaw: true,
         loose: true,
       });
@@ -318,7 +327,7 @@ export default function CoachPlanActions() {
         throw new Error(detail);
       }
 
-      console.log("[coach.actions] analyzeCoach response", json);
+      console.log("[coach.actions] apiAnalyzeCoach response", json);
 
       setAiAttempts(json?.ai_debug?.attempts ?? null);
       setAiSystem(json?.ai_debug?.system_prompt ?? null);
@@ -361,15 +370,13 @@ export default function CoachPlanActions() {
       const meta = {
         started_at_iso: new Date().toISOString(),
         plan_start_date:
-          (prefs as any)?.plan_start_date ??
-          (prefs as any)?.start_date ??
-          null,
+          (prefs as any)?.plan_start_date ?? (prefs as any)?.start_date ?? null,
         weeks: (prefs as any)?.weeks ?? null,
         goal_kind: (prefs as any)?.goal_kind ?? null,
       };
 
-      const res = await saveActivePlan(userId, genAnalysis, meta);
-      console.log("[coach.actions] saveActivePlan result", res);
+      const res = await apiSaveActivePlan(userId, genAnalysis, meta);
+      console.log("[coach.actions] apiSaveActivePlan result", res);
 
       if (!res?.success) {
         throw new Error("Uloženie plánu zlyhalo.");
@@ -392,7 +399,7 @@ export default function CoachPlanActions() {
     try {
       console.log("[coach.actions] handleUpdate clicked");
       if (!userId) throw new Error("Chýba userId.");
-      const updated = await updateActivePlan(userId);
+      const updated = await apiUpdateActivePlan(userId);
       if (updated)
         localStorage.setItem("coach.active", JSON.stringify(updated));
     } catch (e: any) {
@@ -406,7 +413,10 @@ export default function CoachPlanActions() {
     try {
       console.log("[coach.actions] handleCancel clicked");
       if (!userId) throw new Error("Chýba userId.");
-      const res = await cancelActivePlan(userId, activeMeta?.plan_id ?? null);
+      const res = await apiCancelActivePlan(
+        userId,
+        activeMeta?.plan_id ?? null
+      );
       console.log("[coach.actions] cancelActivePlan result", res);
       if (!res?.success) throw new Error("Zrušenie plánu zlyhalo.");
 
@@ -571,12 +581,20 @@ export default function CoachPlanActions() {
       )}
 
       {/* výsledok */}
-      {analysis && (
+      {hasActivePlan ? (
         <div className="mt-2">
-          <PlanResult
-            result={{ analysis, narrative: null, model: diag?.model }}
-          />
+          {/* Aktívny plán – čítame z DB cez PlanDataProvider */}
+          <PlanActive />
         </div>
+      ) : (
+        analysis && (
+          <div className="mt-2">
+            {/* Len vygenerovaný plán (ešte neuložený) */}
+            <PlanPreview
+              result={{ analysis, narrative: null, model: diag?.model }}
+            />
+          </div>
+        )
       )}
 
       {/* debug bloky */}
@@ -590,7 +608,10 @@ export default function CoachPlanActions() {
         <JsonBlock title="AI debug — attempts" data={aiAttempts} />
         <JsonBlock title="AI debug — system prompt" data={aiSystem} />
         <JsonBlock title="AI debug — user prompt" data={aiUser} />
-        <JsonBlock title="AI debug — last_raw (model output)" data={aiLastRaw} />
+        <JsonBlock
+          title="AI debug — last_raw (model output)"
+          data={aiLastRaw}
+        />
       </div>
     </div>
   );

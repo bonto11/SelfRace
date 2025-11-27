@@ -20,9 +20,8 @@ from Routes_FE import (
     user_thresholds,
     coach_context,
     coach_plan_generation,
-    coach_plan_db
+    coach_plan_log
 )
-
 
 app = FastAPI()
 
@@ -67,5 +66,4 @@ app.include_router(notes.router)
 
 app.include_router(coach_context.router)
 app.include_router(coach_plan_generation.router)
-app.include_router(coach_plan_db.router)
-app.include_router(coach_plan_db.router_link)
+app.include_router(coach_plan_log.router)

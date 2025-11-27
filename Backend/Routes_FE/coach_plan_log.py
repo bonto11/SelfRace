@@ -1,24 +1,22 @@
-# Routes_FE/coach_plan_db.py
+# Routes_FE/coach_plan_log.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from Services.coach_plan_log import (
-    parse_iso_date,
-    get_planned_range_rows,
-    get_planned_sessions_filtered,
-    upsert_ai_plan_for_user,
-    cancel_plan_for_user,
-    link_session_to_activity as service_link_session_to_activity,
+    service_parse_iso_date,
+    service_get_planned_range_rows,
+    service_get_planned_sessions_filtered,
+    service_upsert_ai_plan_for_user,
+    service_cancel_plan_for_user,
+    service_link_session_to_activity,
+    service_reorder_planned_sessions,
 )
 
-# FE router pre /coach-plan/*
+# JEDEN router pre všetko okolo coach-planu
 router = APIRouter(prefix="/coach-plan", tags=["coach-plan"])
-
-# FE router pre /coach-plan-link/*
-router_link = APIRouter(prefix="/coach-plan-link", tags=["coach-plan"])
 
 
 # ========= RANGE (pre PlanDataProvider) =========
@@ -38,13 +36,13 @@ def get_planned_range(
     """
     try:
         # validácia dátumov
-        _ = parse_iso_date(start)
-        _ = parse_iso_date(end)
+        _ = service_parse_iso_date(start)
+        _ = service_parse_iso_date(end)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        rows = get_planned_range_rows(user_id=user_id, start_iso=start, end_iso=end)
+        rows = service_get_planned_range_rows(user_id=user_id, start_iso=start, end_iso=end)
         return {
             "success": True,
             "rows": rows,  # PlanDataProvider číta data/rows
@@ -70,7 +68,7 @@ def get_planned_sessions(
       GET /coach-plan/{user_id}?date_from=...&date_to=...&plan_id=...
     """
     try:
-        rows = get_planned_sessions_filtered(
+        rows = service_get_planned_sessions_filtered(
             user_id=user_id,
             date_from=date_from,
             date_to=date_to,
@@ -103,7 +101,7 @@ def upsert_plan(
     overwrite = bool(payload.get("overwrite", True))
 
     try:
-        result = upsert_ai_plan_for_user(
+        result = service_upsert_ai_plan_for_user(
             user_id=user_id,
             next_10_days=next_10_days,
             overwrite=overwrite,
@@ -149,23 +147,23 @@ def cancel_plan(
             plan_id = str(raw)
 
     try:
-        deleted = cancel_plan_for_user(user_id=user_id, plan_id=plan_id)
+        deleted = service_cancel_plan_for_user(user_id=user_id, plan_id=plan_id)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"success": True, "deleted": deleted}
 
 
-# ========= NOVÉ – /coach-plan-link/{user_id} – manuálne mapovanie plán ↔ aktivita =========
+# ========= LINK – manuálne mapovanie plán ↔️ aktivita =========
 
 
-@router_link.post("/{user_id}")
+@router.post("/{user_id}/link")
 def save_plan_activity_link(
     user_id: int,  # pre debug/logy; samotný link je cez session_id
     payload: Dict[str, Any] = Body(...),
 ):
     """
-    Ručné mapovanie planned session ↔ aktivita.
+    Ručné mapovanie planned session ↔️ aktivita.
 
     Body:
       {
@@ -208,4 +206,46 @@ def save_plan_activity_link(
         "user_id": user_id,
         "session_id": session_id_int,
         "activity_id": activity_id,
+    }
+
+
+# ========= REORDER – batch presun tréningov (drag & drop) =========
+
+
+@router.post("/{user_id}/reorder")
+def reorder_plan(
+    user_id: int,
+    payload: Dict[str, Any] = Body(...),
+):
+    """
+    Batch presun tréningov v pláne (drag & drop board).
+
+    Body:
+    {
+      "updates": [
+        { "id": int, "plan_date": "YYYY-MM-DD", "session_index": int },
+        ...
+      ]
+    }
+    """
+    updates = payload.get("updates")
+    if not isinstance(updates, list) or not updates:
+        raise HTTPException(
+            status_code=400,
+            detail="updates must be a non-empty list",
+        )
+
+    try:
+        updated = service_reorder_planned_sessions(user_id=user_id, updates=updates)
+    except ValueError as e:
+        # typicky invalid date -> 400
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "success": True,
+        "updated": updated,
+        "user_id": user_id,
+        "count": len(updates),
     }

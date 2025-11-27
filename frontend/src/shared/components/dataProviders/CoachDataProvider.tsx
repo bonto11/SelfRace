@@ -22,7 +22,7 @@ import {
 
 // API – personal bests (RUN)
 import {
-  getBests,
+  getBests as apiGetBests,
   type UserBest,
 } from "@/shared/api/bests";
 
@@ -73,7 +73,7 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
     setPrefs(p);
 
     // PB – RUN
-    const runBests: UserBest[] = await getBests(userId, "run").catch(() => []);
+    const runBests: UserBest[] = await apiGetBests(userId, "run").catch(() => []);
     setPbRun(runBests.map(mapRunBest));
   }, [userId]);
 

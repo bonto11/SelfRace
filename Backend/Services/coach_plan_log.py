@@ -15,13 +15,14 @@ from Routes_DB.coach_plan_log import (
     db_clear_range_for_user,
     db_delete_plan_for_user,
     db_link_session_to_activity,
+    db_reorder_planned_sessions,
 )
 
 
 # ───────────────────────────── helpers (logika) ─────────────────────────────
 
 
-def parse_iso_date(s: str) -> date:
+def service_parse_iso_date(s: str) -> date:
     """
     Parsuje YYYY-MM-DD na date.
     Pri chybe vyhodí ValueError – routa si to premapuje na HTTP 400.
@@ -33,7 +34,7 @@ def parse_iso_date(s: str) -> date:
         raise ValueError(f"Invalid date: {s}")
 
 
-def canonical_sport(sport: Any) -> str:
+def service_canonical_sport(sport: Any) -> str:
     s = str(sport or "").lower()
     if s in ("bike", "cycling"):
         return "ride"
@@ -44,7 +45,7 @@ def canonical_sport(sport: Any) -> str:
     return s
 
 
-def hr_zone_text(sess: Dict[str, Any]) -> Optional[str]:
+def service_hr_zone_text(sess: Dict[str, Any]) -> Optional[str]:
     hr = sess.get("target_hr_bpm_range")
     if isinstance(hr, list) and len(hr) == 2:
         try:
@@ -59,7 +60,7 @@ def hr_zone_text(sess: Dict[str, Any]) -> Optional[str]:
 # (toto volajú Routes_FE a iné služby – vnútri len používaš db_* funckie)
 
 
-def get_planned_range_rows(
+def service_get_planned_range_rows(
     user_id: int,
     start_iso: str,
     end_iso: str,
@@ -70,7 +71,7 @@ def get_planned_range_rows(
     return db_get_planned_range_rows(user_id=user_id, start_iso=start_iso, end_iso=end_iso)
 
 
-def get_planned_sessions_filtered(
+def service_get_planned_sessions_filtered(
     user_id: int,
     date_from: Optional[str],
     date_to: Optional[str],
@@ -87,7 +88,7 @@ def get_planned_sessions_filtered(
     )
 
 
-def fetch_plan_rows_in_range(
+def service_fetch_plan_rows_in_range(
     user_id: int,
     start_d: date,
     end_d: date,
@@ -106,7 +107,7 @@ def fetch_plan_rows_in_range(
     )
 
 
-def upsert_ai_plan_for_user(
+def service_upsert_ai_plan_for_user(
     user_id: int,
     next_10_days: List[Dict[str, Any]],
     overwrite: bool = True,
@@ -130,7 +131,7 @@ def upsert_ai_plan_for_user(
     for d in next_10_days:
         if not isinstance(d, dict) or "day" not in d:
             raise ValueError("Invalid entry in next_10_days (missing 'day')")
-        all_dates.append(parse_iso_date(str(d["day"])))
+        all_dates.append(service_parse_iso_date(str(d["day"])))
 
     start_d = min(all_dates)
     end_d = max(all_dates)
@@ -161,13 +162,13 @@ def upsert_ai_plan_for_user(
             if not isinstance(sess, dict):
                 continue
 
-            sport = canonical_sport(sess.get("sport"))
+            sport = service_canonical_sport(sess.get("sport"))
             title = sess.get("title") or None
             duration = sess.get("duration_min")
             intensity = sess.get("intensity")
             session_type = sess.get("session_type") or None
             notes = sess.get("notes") or None
-            zone_txt = hr_zone_text(sess)
+            zone_txt = service_hr_zone_text(sess)
 
             row: Dict[str, Any] = {
                 "user_id": user_id,
@@ -205,7 +206,7 @@ def upsert_ai_plan_for_user(
     }
 
 
-def cancel_plan_for_user(
+def service_cancel_plan_for_user(
     user_id: int,
     plan_id: Optional[str],
 ) -> int:
@@ -232,7 +233,7 @@ def cancel_plan_for_user(
     return deleted
 
 
-def link_session_to_activity(
+def service_link_session_to_activity(
     session_id: int,
     activity_id: Optional[int],
 ) -> int:
@@ -247,5 +248,66 @@ def link_session_to_activity(
     print(
         f"[SERVICE-COACH-PLAN] link_session_to_activity session_id={session_id} "
         f"activity_id={activity_id} updated={updated}"
+    )
+    return updated
+
+def service_reorder_planned_sessions(
+    user_id: int,
+    updates: List[Dict[str, Any]],
+) -> int:
+    """
+    Batch presun tréningov (plan_date + session_index).
+
+    updates: list items:
+      { "id": int, "plan_date": "YYYY-MM-DD", "session_index": int }
+
+    - validuje dátumy cez parse_iso_date
+    - normalizuje id a session_index na int
+    - potom zavolá db_reorder_planned_sessions
+    """
+    if not isinstance(updates, list) or not updates:
+        return 0
+
+    norm_updates: List[Dict[str, Any]] = []
+
+    for u in updates:
+        if not isinstance(u, dict):
+            continue
+
+        sid = u.get("id")
+        plan_date_raw = u.get("plan_date")
+        session_index_raw = u.get("session_index", 0)
+
+        if sid is None or plan_date_raw is None:
+            continue
+
+        # validácia dátumu (vyhodí ValueError → routa si to premapuje na 400)
+        _ = service_parse_iso_date(str(plan_date_raw))
+
+        try:
+            sid_int = int(sid)
+        except Exception:
+            continue
+
+        try:
+            idx_int = int(session_index_raw)
+        except Exception:
+            idx_int = 0
+
+        norm_updates.append(
+            {
+                "id": sid_int,
+                "plan_date": str(plan_date_raw),
+                "session_index": idx_int,
+            }
+        )
+
+    if not norm_updates:
+        return 0
+
+    updated = db_reorder_planned_sessions(user_id=user_id, updates=norm_updates)
+    print(
+        f"[SERVICE-COACH-PLAN] reorder_planned_sessions user={user_id} "
+        f"updates={len(norm_updates)} updated={updated}"
     )
     return updated

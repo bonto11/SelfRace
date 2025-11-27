@@ -268,3 +268,55 @@ def db_link_session_to_activity(
         f"activity_id={activity_id} updated_rows={len(rows)}"
     )
     return len(rows)
+
+def db_reorder_planned_sessions(
+    user_id: int,
+    updates: List[Dict[str, Any]],
+) -> int:
+    """
+    Batch update plan_date + session_index pre viac session_id naraz.
+    Očakáva sa, že každý update má:
+      { "id": int, "plan_date": "YYYY-MM-DD", "session_index": int }
+
+    Pre istotu ešte filtrujem user_id v WHERE, nech si nemôžeš hýbať
+    plánom niekoho iného.
+    """
+    if not updates:
+        return 0
+
+    total_updated = 0
+
+    for u in updates:
+        sid = u.get("id")
+        plan_date = u.get("plan_date")
+        session_index = u.get("session_index", 0)
+
+        if sid is None or plan_date is None:
+            continue
+
+        try:
+            sid_int = int(sid)
+            idx_int = int(session_index)
+        except Exception:
+            continue
+
+        res = (
+            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+            .update(
+                {
+                    "plan_date": plan_date,
+                    "session_index": idx_int,
+                }
+            )
+            .eq("id", sid_int)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        rows = res.data or []
+        total_updated += len(rows)
+
+    print(
+        f"[DB-COACH-PLAN] reorder_planned_sessions user={user_id} "
+        f"updates={len(updates)} updated_rows={total_updated}"
+    )
+    return total_updated
