@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { THEME } from "@/shared/theme/tokens";
-import { SURFACE_INLINE } from "@/shared/ui/classes";
+import { SURFACE_INLINE, SURFACE_CARD } from "@/shared/ui/classes";
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -80,10 +80,7 @@ export default function PlanSingle({
   ].filter(Boolean) as { label: string; value: string }[];
 
   return (
-    <div
-      className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2"
-      data-plan-id={id}
-    >
+    <div className={[SURFACE_CARD, "px-3 py-2"].join(" ")} data-plan-id={id}>
       {/* HEADER – vždy viditeľný */}
       <button
         type="button"
@@ -117,9 +114,7 @@ export default function PlanSingle({
           >
             {sport}
           </span>
-          <span className="text-xs opacity-60">
-            {open ? "▴" : "▾"}
-          </span>
+          <span className="text-xs opacity-60">{open ? "▴" : "▾"}</span>
         </div>
       </button>
 
@@ -134,9 +129,7 @@ export default function PlanSingle({
                   key={k.label}
                   className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
                 >
-                  <div className="text-[10px] opacity-70">
-                    {k.label}
-                  </div>
+                  <div className="text-[10px] opacity-70">{k.label}</div>
                   <div className="text-xl font-semibold tabular-nums">
                     {k.value}
                   </div>
@@ -147,9 +140,7 @@ export default function PlanSingle({
 
           {/* Popis / štruktúra (vrátane Exercises, lebo ich máš v planNotes) */}
           {planNotes && (
-            <div className="text-xs sm:text-sm opacity-90">
-              {planNotes}
-            </div>
+            <div className="text-xs sm:text-sm opacity-90">{planNotes}</div>
           )}
 
           {/* Real aktivita – zhrnutie */}
@@ -162,9 +153,7 @@ export default function PlanSingle({
 
           {/* Selector + Save */}
           {children && (
-            <div className="pt-2 border-t border-neutral-800">
-              {children}
-            </div>
+            <div className="pt-2 border-t border-neutral-800">{children}</div>
           )}
         </div>
       )}
