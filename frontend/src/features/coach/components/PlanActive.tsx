@@ -1,22 +1,29 @@
+// src/features/coach/components/PlanActive.tsx
 "use client";
 
 import * as React from "react";
-import { CARD } from "@/shared/ui/classes";
+import {
+  CARD,
+  NO_X_OVERFLOW,
+  SURFACE_INLINE,
+  SURFACE_CARD,
+} from "@/shared/ui/classes";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
+import { todayISO, addDays } from "@/features/activity/utils/activity";
+import SportBadge from "@/shared/components/ui/SportBadge";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
-import { todayISO, addDays } from "@/features/activity/utils/activity";
+import Button from "@/shared/components/ui/Button";
 import {
   apiSavePlanReorder,
   type PlanReorderUpdate,
 } from "@/features/coach/api/plan";
-import PlanSingle, {
-  type PlanStatus,
-} from "@/shared/components/PlanSingle";
 
 type AnyObj = Record<string, any>;
 
-/* --- helpers (kopírka z PlanTable / starého PlanActive) --- */
+const MAX_PER_DAY = 2;
+
+/* ---- helpers (rovnaké ako pri pláne) ---- */
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
@@ -31,11 +38,7 @@ function prettySkDate(iso: string) {
 
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
-  if (
-    Array.isArray(hr) &&
-    hr.length === 2 &&
-    hr.every((x) => Number.isFinite(x))
-  ) {
+  if (Array.isArray(hr) && hr.length === 2 && hr.every((x) => Number.isFinite(x))) {
     return `HR ${hr[0]}–${hr[1]}`;
   }
   return null;
@@ -97,6 +100,31 @@ function intervalsToText(main: any): string | null {
   return txt || null;
 }
 
+function normTitle(row: AnyObj, sess: AnyObj) {
+  const sessionTypeId =
+    typeof sess?.session_type === "string"
+      ? sess.session_type
+      : typeof row.session_type === "string"
+      ? row.session_type
+      : null;
+
+  const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
+  return (
+    trainingDef?.label ?? sess?.title ?? sess?.name ?? row?.title ?? "Tréning"
+  );
+}
+function normDuration(row: AnyObj, sess: AnyObj) {
+  const minutes =
+    (typeof sess?.duration_min === "number" && sess.duration_min) ??
+    (typeof row?.duration_min === "number" && row.duration_min) ??
+    (typeof sess?.dur === "number" && sess.dur) ??
+    null;
+  return minutes != null ? `${minutes} min` : null;
+}
+function normIntensity(row: AnyObj, sess: AnyObj) {
+  return sess?.intensity ?? row?.intensity ?? null;
+}
+
 function normNotes(sess: AnyObj) {
   if (sess?.notes) return sess.notes;
 
@@ -143,31 +171,6 @@ function normNotes(sess: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
-function normTitle(row: AnyObj, sess: AnyObj) {
-  const sessionTypeId =
-    typeof sess?.session_type === "string"
-      ? sess.session_type
-      : typeof row.session_type === "string"
-      ? row.session_type
-      : null;
-
-  const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
-  return trainingDef?.label ?? sess?.title ?? sess?.name ?? row?.title ?? "Tréning";
-}
-
-function normDuration(row: AnyObj, sess: AnyObj) {
-  const minutes =
-    (typeof sess?.duration_min === "number" && sess.duration_min) ??
-    (typeof row?.duration_min === "number" && row.duration_min) ??
-    (typeof sess?.dur === "number" && sess.dur) ??
-    null;
-  return minutes != null ? `${minutes} min` : null;
-}
-
-function normIntensity(row: AnyObj, sess: AnyObj) {
-  return sess?.intensity ?? row?.intensity ?? null;
-}
-
 function isRestSession(row: any, sess: AnyObj): boolean {
   const sport = (row as any).sport || detectSport(sess) || "other";
   const duration = sess.duration_min ?? row.duration_min ?? null;
@@ -181,154 +184,163 @@ function isRestSession(row: any, sess: AnyObj): boolean {
   return false;
 }
 
-/* --- typy pre draft --- */
+/* ---- typy pre draft ---- */
 
-type DraftByDay = Record<string, any[]>;
+type DraftSession = {
+  id: number;
+  plan_date: string;
+  session_index: number;
+  raw: AnyObj;
+};
 
-type OriginalPos = Record<
-  number,
-  {
-    plan_date: string;
-    session_index: number;
-  }
->;
-
-/* --- helper na range dní --- */
-
-function buildDayRange(fromIso: string, toIso: string): string[] {
-  const out: string[] = [];
-  const start = new Date(fromIso + "T00:00:00Z");
-  const end = new Date(toIso + "T00:00:00Z");
-
-  for (
-    let d = new Date(start);
-    d.getTime() <= end.getTime();
-    d.setUTCDate(d.getUTCDate() + 1)
-  ) {
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
-
-/* ───────────────────── hlavný komponent ───────────────────── */
+type DraftByDay = Record<string, DraftSession[]>;
 
 export default function PlanActive() {
   const { rows, refresh } = usePlanData();
 
-  const [draftByDay, setDraftByDay] = React.useState<DraftByDay>({});
-  const [originalPos, setOriginalPos] = React.useState<OriginalPos>({});
-  const [selectedDay, setSelectedDay] = React.useState<string | null>(null);
+  const [draft, setDraft] = React.useState<DraftByDay>({});
+  const [originalPos, setOriginalPos] = React.useState<
+    Record<number, { plan_date: string; session_index: number }>
+  >({});
   const [saving, setSaving] = React.useState(false);
 
-  const today = React.useMemo(() => todayISO(), []);
-  const from = React.useMemo(() => addDays(today, -5), [today]);
-  const to = React.useMemo(() => addDays(today, 10), [today]);
+  const today = todayISO();
+  const from = addDays(today, -5);
+  const to = addDays(today, 10);
 
-  // len aktívny plán (má plan_id a je od dnes)
-  const activeRows = React.useMemo(
-    () =>
-      rows.filter(
-        (r: any) =>
-          r.plan_id &&
-          String(r.plan_date).slice(0, 10) >= today
-      ),
-    [rows, today]
-  );
-
-  // init draftu z DB
-  React.useEffect(() => {
-    if (!activeRows.length) {
-      setDraftByDay({});
-      setOriginalPos({});
-      return;
+  // zoznam dní v rozsahu
+  const days: string[] = React.useMemo(() => {
+    const out: string[] = [];
+    let cur = from;
+    while (cur <= to) {
+      out.push(cur);
+      cur = addDays(cur, 1);
     }
+    return out;
+  }, [from, to]);
 
-    const byDay: DraftByDay = {};
-    const orig: OriginalPos = {};
+  // init draftu z planRows
+  React.useEffect(() => {
+    const pos: Record<number, { plan_date: string; session_index: number }> = {};
+    const tmp: DraftByDay = {};
 
-    for (const r of activeRows) {
+    for (const r of rows) {
       const dIso = String(r.plan_date).slice(0, 10);
       if (dIso < from || dIso > to) continue;
 
       const sess: AnyObj = (r as any).payload ?? r;
       if (isRestSession(r, sess)) continue;
 
-      if (!byDay[dIso]) byDay[dIso] = [];
+      if (!tmp[dIso]) tmp[dIso] = [];
 
-      byDay[dIso].push(r);
+      const idx = Number.isFinite(r.session_index)
+        ? Number(r.session_index)
+        : tmp[dIso].length;
+
+      const item: DraftSession = {
+        id: Number(r.id),
+        plan_date: dIso,
+        session_index: idx,
+        raw: r,
+      };
+      tmp[dIso].push(item);
+      pos[item.id] = { plan_date: dIso, session_index: idx };
     }
 
-    Object.keys(byDay).forEach((day) => {
-      byDay[day].sort(
-        (a: any, b: any) =>
-          (a.session_index ?? 0) - (b.session_index ?? 0)
-      );
-      byDay[day].forEach((r: any, idx: number) => {
-        orig[Number(r.id)] = { plan_date: day, session_index: idx };
-      });
+    // sort + reindex
+    Object.keys(tmp).forEach((d) => {
+      tmp[d].sort((a, b) => a.session_index - b.session_index);
+      tmp[d] = tmp[d].map((it, idx) => ({ ...it, session_index: idx }));
     });
 
-    setDraftByDay(byDay);
-    setOriginalPos(orig);
-    setSelectedDay(null);
-  }, [activeRows, from, to]);
+    setDraft(tmp);
+    setOriginalPos(pos);
+  }, [rows, from, to]);
 
-  const days = React.useMemo(() => buildDayRange(from, to), [from, to]);
-
-  const hasChanges = React.useMemo(() => {
-    for (const [dayIso, list] of Object.entries(draftByDay)) {
-      list.forEach((r: any, idx) => {
-        const o = originalPos[Number(r.id)];
-        if (!o) return true;
-        if (o.plan_date !== dayIso || o.session_index !== idx) {
-          // malá finta – keď nájdeme rozdiel, vraciame true cez closure
-          throw true;
-        }
-      });
-    }
-    return false;
-  }, [draftByDay, originalPos]);
-
-  let changed = false;
-  try {
-    changed = hasChanges;
-  } catch {
-    changed = true;
-  }
-
-  const handleDayClick = (dayIso: string) => {
-    // prvý klik – len označ
-    if (!selectedDay || selectedDay === dayIso) {
-      setSelectedDay((prev) => (prev === dayIso ? null : dayIso));
-      return;
-    }
-
-    // máme vybraný iný deň → swap
-    const a = selectedDay;
-    const b = dayIso;
-
-    setDraftByDay((prev) => {
+  // move handler – šípky hore/dole
+  const moveSession = (sessionId: number, dir: "up" | "down") => {
+    setDraft((prev) => {
       const next: DraftByDay = { ...prev };
-      const listA = next[a] ?? [];
-      const listB = next[b] ?? [];
-      next[a] = listB;
-      next[b] = listA;
+      const dayKeys = days;
 
-      // reindex
-      [a, b].forEach((d) => {
-        if (!next[d]) return;
-        next[d] = next[d].map((r: any, idx: number) => ({
-          ...r,
-          session_index: idx,
-        }));
-      });
+      let foundDayIdx = -1;
+      let foundIdx = -1;
 
+      for (let di = 0; di < dayKeys.length; di += 1) {
+        const arr = next[dayKeys[di]] ?? [];
+        const idx = arr.findIndex((s) => s.id === sessionId);
+        if (idx !== -1) {
+          foundDayIdx = di;
+          foundIdx = idx;
+          break;
+        }
+      }
+
+      if (foundDayIdx === -1) return prev;
+
+      const curDay = dayKeys[foundDayIdx];
+      const curArr = [...(next[curDay] ?? [])];
+
+      // pohyb v rámci dňa
+      if (dir === "up") {
+        if (foundIdx > 0) {
+          const [moved] = curArr.splice(foundIdx, 1);
+          curArr.splice(foundIdx - 1, 0, moved);
+          next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
+          return next;
+        }
+        // posun na predchádzajúci deň
+        if (foundDayIdx === 0) return prev;
+        const targetDay = dayKeys[foundDayIdx - 1];
+        const targetArr = [...(next[targetDay] ?? [])];
+        if (targetArr.length >= MAX_PER_DAY) {
+          console.warn("[PlanActive] target day already has max sessions");
+          return prev;
+        }
+        const [moved] = curArr.splice(foundIdx, 1);
+        const movedUpdated: DraftSession = {
+          ...moved,
+          plan_date: targetDay,
+        };
+        targetArr.push(movedUpdated);
+
+        next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
+        next[targetDay] = targetArr.map((s, i) => ({ ...s, session_index: i }));
+        return next;
+      }
+
+      // dir === "down"
+      if (foundIdx < curArr.length - 1) {
+        const [moved] = curArr.splice(foundIdx, 1);
+        curArr.splice(foundIdx + 1, 0, moved);
+        next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
+        return next;
+      }
+
+      if (foundDayIdx === dayKeys.length - 1) return prev;
+      const targetDay = dayKeys[foundDayIdx + 1];
+      const targetArr = [...(next[targetDay] ?? [])];
+      if (targetArr.length >= MAX_PER_DAY) {
+        console.warn("[PlanActive] target day already has max sessions");
+        return prev;
+      }
+      const [moved] = curArr.splice(foundIdx, 1);
+      const movedUpdated: DraftSession = {
+        ...moved,
+        plan_date: targetDay,
+      };
+      // pridaj na začiatok ďalšieho dňa (subjektívne lepší pocit)
+      targetArr.unshift(movedUpdated);
+
+      next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
+      next[targetDay] = targetArr.map((s, i) => ({ ...s, session_index: i }));
       return next;
     });
-    setSelectedDay(null);
   };
 
   const handleReset = () => {
+    setDraft({});
+    setOriginalPos({});
     void refresh(true);
   };
 
@@ -337,15 +349,17 @@ export default function PlanActive() {
     try {
       const updates: PlanReorderUpdate[] = [];
 
-      Object.entries(draftByDay).forEach(([dayIso, list]) => {
-        list.forEach((r: any, idx) => {
-          const id = Number(r.id);
-          const orig = originalPos[id];
-          if (!orig || orig.plan_date !== dayIso || orig.session_index !== idx) {
+      Object.entries(draft).forEach(([dayIso, list]) => {
+        list.forEach((it, idx) => {
+          const orig = originalPos[it.id];
+          const newDate = dayIso;
+          const newIndex = idx;
+
+          if (!orig || orig.plan_date !== newDate || orig.session_index !== newIndex) {
             updates.push({
-              id,
-              plan_date: dayIso,
-              session_index: idx,
+              id: it.id,
+              plan_date: newDate,
+              session_index: newIndex,
             });
           }
         });
@@ -356,11 +370,15 @@ export default function PlanActive() {
         return;
       }
 
-      const res = await apiSavePlanReorder(
-        (activeRows[0] as any)?.user_id ?? 0,
-        updates
-      );
-      console.log("[PlanActive] savePlanReorder", res, updates);
+      const userId = rows[0]?.user_id ? Number(rows[0].user_id) : null;
+      if (!userId) {
+        console.warn("[PlanActive] missing userId for save");
+        setSaving(false);
+        return;
+      }
+
+      const res = await apiSavePlanReorder(userId, updates);
+      console.log("[PlanActive] savePlanReorder result", res, updates);
 
       if (res.success) {
         await refresh(true);
@@ -370,99 +388,145 @@ export default function PlanActive() {
     }
   };
 
+  const hasChanges = React.useMemo(() => {
+    for (const [dayIso, list] of Object.entries(draft)) {
+      list.forEach((it, idx) => {
+        const orig = originalPos[it.id];
+        if (!orig) return true;
+        if (orig.plan_date !== dayIso || orig.session_index !== idx) {
+          // eslint-disable-next-line no-throw-literal
+          throw true;
+        }
+      });
+    }
+    return false;
+  }, [draft, originalPos]);
+
+  let changed = false;
+  try {
+    changed = hasChanges;
+  } catch {
+    changed = true;
+  }
+
   return (
-    <section className={[CARD, "p-3 md:p-4 space-y-4"].join(" ")}>
+    <section className={[CARD, "p-3 md:p-4 space-y-3", NO_X_OVERFLOW].join(" ")}>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-bold">Aktívny plán — editácia</h2>
         <span className="text-xs opacity-70">
-          Klikni na deň A a potom na deň B, tréningy sa medzi sebou vymenia.
+          Klikni na šípky hore/dole pri tréningu. Na okraji týždňa sa šípka
+          posúva tréning na predchádzajúci / nasledujúci deň (max {MAX_PER_DAY} tréningy/deň).
         </span>
 
         <div className="ml-auto flex gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={saving || !changed}
             onClick={handleReset}
-            disabled={saving}
-            className="text-xs px-3 py-1.5 rounded-full border border-white/20 bg-white/5"
           >
             Reset
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             disabled={saving || !changed}
-            className="text-xs px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40"
+            onClick={handleSave}
           >
             {saving ? "Saving…" : "Save changes"}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* dni pod sebou, rovnaký look ako PlanTable + PlanSingle */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {days.map((dIso) => {
-          const list = draftByDay[dIso] ?? [];
-          const isSelected = selectedDay === dIso;
+          const list = draft[dIso] ?? [];
+          const isToday = dIso === today;
 
-          // keď v daný deň nemáme tréningy, ukáž len "žiadny tréning"
           return (
             <div
               key={dIso}
               className={[
-                "rounded-2xl border border-white/10 p-3 md:p-4 space-y-3",
-                isSelected ? "ring-1 ring-emerald-500/70" : "",
+                SURFACE_CARD,
+                "px-3 py-2 space-y-2 border border-white/10",
+                isToday ? "ring-1 ring-emerald-500/60" : "",
               ].join(" ")}
             >
-              <button
-                type="button"
-                onClick={() => handleDayClick(dIso)}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <div className="text-xs font-semibold tracking-tight">
-                    {prettySkDate(dIso)}
-                  </div>
-                  <div className="text-[11px] opacity-70">
-                    {list.length
-                      ? `${list.length} tréning(ov)`
-                      : "Žiadny tréning"}
-                  </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold tracking-tight">
+                  {prettySkDate(dIso)}
                 </div>
-                {isSelected && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
-                    vybraný
+                {isToday && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
+                    Today
                   </span>
                 )}
-              </button>
+              </div>
+
+              {list.length === 0 && (
+                <div className="text-xs opacity-60">Žiadny tréning</div>
+              )}
 
               {list.length > 0 && (
-                <ul className="space-y-3">
-                  {list.map((row: any, idx: number) => {
+                <ul className="space-y-2">
+                  {list.map((it, idx) => {
+                    const row = it.raw;
                     const sess: AnyObj = row.payload ?? row;
                     const sport = row.sport || detectSport(sess) || "other";
-
                     const title = normTitle(row, sess);
                     const dur = normDuration(row, sess);
                     const intensity = normIntensity(row, sess);
                     const target = normTarget(sess);
                     const notes = normNotes(sess);
 
-                    const status: PlanStatus = "planned";
-
                     return (
-                      <li key={`${row.id}-${idx}`}>
-                        <PlanSingle
-                          id={Number(row.id)}
-                          title={title}
-                          dateIso={dIso}
-                          sport={sport}
-                          status={status}
-                          planDur={dur}
-                          planIntensity={intensity}
-                          planTarget={target}
-                          planNotes={notes}
-                          activitySummary={null}
-                        />
+                      <li key={it.id}>
+                        <div
+                          className={[
+                            SURFACE_INLINE,
+                            "px-3 py-2 flex items-start gap-2",
+                          ].join(" ")}
+                        >
+                          <div className="flex flex-col flex-1 gap-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm font-semibold truncate">
+                                {title}
+                              </div>
+                              <SportBadge sport={sport} />
+                            </div>
+
+                            <div className="text-[11px] opacity-80 flex flex-wrap gap-1">
+                              {dur && <span>{dur}</span>}
+                              {intensity && <span>· {intensity}</span>}
+                              {target && <span>· {target}</span>}
+                            </div>
+
+                            {notes && (
+                              <div className="mt-0.5 text-xs opacity-75 line-clamp-3">
+                                {notes}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1 ml-1">
+                            <button
+                              type="button"
+                              className="w-7 h-7 rounded-full border border-white/20 text-xs flex items-center justify-center hover:bg-white/10"
+                              onClick={() => moveSession(it.id, "up")}
+                              aria-label="Move up"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className="w-7 h-7 rounded-full border border-white/20 text-xs flex items-center justify-center hover:bg-white/10"
+                              onClick={() => moveSession(it.id, "down")}
+                              aria-label="Move down"
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
                       </li>
                     );
                   })}
