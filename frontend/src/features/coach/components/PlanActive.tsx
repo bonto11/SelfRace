@@ -20,7 +20,6 @@ import {
 } from "@/features/coach/api/plan";
 
 type AnyObj = Record<string, any>;
-
 const MAX_PER_DAY = 2;
 
 /* ---- helpers (rovnaké ako pri pláne) ---- */
@@ -196,7 +195,9 @@ type DraftSession = {
 type DraftByDay = Record<string, DraftSession[]>;
 
 export default function PlanActive() {
-  const { rows, refresh } = usePlanData();
+  // POZOR: provider vracia planRows, nie rows
+  const { planRows, refresh } = usePlanData();
+  const rows = planRows ?? [];
 
   const [draft, setDraft] = React.useState<DraftByDay>({});
   const [originalPos, setOriginalPos] = React.useState<
@@ -281,8 +282,8 @@ export default function PlanActive() {
       const curDay = dayKeys[foundDayIdx];
       const curArr = [...(next[curDay] ?? [])];
 
-      // pohyb v rámci dňa
       if (dir === "up") {
+        // v rámci dňa
         if (foundIdx > 0) {
           const [moved] = curArr.splice(foundIdx, 1);
           curArr.splice(foundIdx - 1, 0, moved);
@@ -293,10 +294,8 @@ export default function PlanActive() {
         if (foundDayIdx === 0) return prev;
         const targetDay = dayKeys[foundDayIdx - 1];
         const targetArr = [...(next[targetDay] ?? [])];
-        if (targetArr.length >= MAX_PER_DAY) {
-          console.warn("[PlanActive] target day already has max sessions");
-          return prev;
-        }
+        if (targetArr.length >= MAX_PER_DAY) return prev;
+
         const [moved] = curArr.splice(foundIdx, 1);
         const movedUpdated: DraftSession = {
           ...moved,
@@ -320,16 +319,14 @@ export default function PlanActive() {
       if (foundDayIdx === dayKeys.length - 1) return prev;
       const targetDay = dayKeys[foundDayIdx + 1];
       const targetArr = [...(next[targetDay] ?? [])];
-      if (targetArr.length >= MAX_PER_DAY) {
-        console.warn("[PlanActive] target day already has max sessions");
-        return prev;
-      }
+      if (targetArr.length >= MAX_PER_DAY) return prev;
+
       const [moved] = curArr.splice(foundIdx, 1);
       const movedUpdated: DraftSession = {
         ...moved,
         plan_date: targetDay,
       };
-      // pridaj na začiatok ďalšieho dňa (subjektívne lepší pocit)
+      // pridaj na začiatok ďalšieho dňa
       targetArr.unshift(movedUpdated);
 
       next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
@@ -370,7 +367,8 @@ export default function PlanActive() {
         return;
       }
 
-      const userId = rows[0]?.user_id ? Number(rows[0].user_id) : null;
+      const userId =
+        rows[0]?.user_id != null ? Number(rows[0].user_id) : null;
       if (!userId) {
         console.warn("[PlanActive] missing userId for save");
         setSaving(false);
@@ -389,12 +387,17 @@ export default function PlanActive() {
   };
 
   const hasChanges = React.useMemo(() => {
+    // ak draft ešte nie je inicializovaný, nech je false
+    if (!Object.keys(draft).length) return false;
+
     for (const [dayIso, list] of Object.entries(draft)) {
       list.forEach((it, idx) => {
         const orig = originalPos[it.id];
-        if (!orig) return true;
+        if (!orig) {
+          // nový alebo neznámy → zmena
+          throw true;
+        }
         if (orig.plan_date !== dayIso || orig.session_index !== idx) {
-          // eslint-disable-next-line no-throw-literal
           throw true;
         }
       });
@@ -414,8 +417,8 @@ export default function PlanActive() {
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-bold">Aktívny plán — editácia</h2>
         <span className="text-xs opacity-70">
-          Klikni na šípky hore/dole pri tréningu. Na okraji týždňa sa šípka
-          posúva tréning na predchádzajúci / nasledujúci deň (max {MAX_PER_DAY} tréningy/deň).
+          Šípkami hore/dole presúvaš tréningy medzi dňami (max {MAX_PER_DAY} tréningy
+          za deň).
         </span>
 
         <div className="ml-auto flex gap-2">
