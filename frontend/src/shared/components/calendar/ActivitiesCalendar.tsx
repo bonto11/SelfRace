@@ -13,11 +13,10 @@ import {
   CALENDAR_CONTAINER,
   CALENDAR_DAY_CELL,
   NO_X_OVERFLOW,
+  CARD,
 } from "@/shared/ui/classes";
 import ActivitySelector from "@/shared/components/ActivitySelector";
-import PlanSingle, {
-  PlanStatus,
-} from "@/shared/components/PlanSingle";
+import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
 import { savePlanActivityLink } from "@/features/coach/api/plan";
 
 const ActivityTable = dynamic(
@@ -421,9 +420,7 @@ function DayCell({
           })}
 
           {dots.length > 8 && (
-            <span className="text-[10px] opacity-70">
-              +{dots.length - 8}
-            </span>
+            <span className="text-[10px] opacity-70">+{dots.length - 8}</span>
           )}
         </div>
       </div>
@@ -444,8 +441,9 @@ export default function ActivitiesCalendar({
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
-  const [focusedActivityId, setFocusedActivityId] =
-    React.useState<number | null>(null);
+  const [focusedActivityId, setFocusedActivityId] = React.useState<
+    number | null
+  >(null);
   const [draftLinks, setDraftLinks] = React.useState<
     Record<number, number | null>
   >({});
@@ -455,9 +453,7 @@ export default function ActivitiesCalendar({
   const { rows: actRows } = useActivityData();
 
   const inferredUserId: number | null =
-    (planRows[0] as any)?.user_id ??
-    (actRows[0] as any)?.user_id ??
-    null;
+    (planRows[0] as any)?.user_id ?? (actRows[0] as any)?.user_id ?? null;
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -521,12 +517,19 @@ export default function ActivitiesCalendar({
   }, [planRows, selectedIso]);
 
   const selectedDonePlans = React.useMemo(
-    () => selectedPlanRows.filter((p: any) => p.activity_id != null && !Number.isNaN(Number(p.activity_id))),
+    () =>
+      selectedPlanRows.filter(
+        (p: any) =>
+          p.activity_id != null && !Number.isNaN(Number(p.activity_id))
+      ),
     [selectedPlanRows]
   );
 
   const selectedPlans = React.useMemo(
-    () => selectedPlanRows.filter((p: any) => p.activity_id == null || Number.isNaN(Number(p.activity_id))),
+    () =>
+      selectedPlanRows.filter(
+        (p: any) => p.activity_id == null || Number.isNaN(Number(p.activity_id))
+      ),
     [selectedPlanRows]
   );
 
@@ -575,7 +578,7 @@ export default function ActivitiesCalendar({
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
       {/* HLAVIČKA + mriežka */}
-      <div className={[CALENDAR_CONTAINER, "p-3"].join(" ")}>
+      <div className={CALENDAR_CONTAINER}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
           <div className="flex items-center gap-2 translate-y-[2px]">
@@ -677,7 +680,7 @@ export default function ActivitiesCalendar({
           />
 
           {/* plán */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-2">
+          <div className={[CARD, "space-y-2", "p-3 md:p-4"].join(" ")}>
             <div className="flex items-center justify-between mb-1.5">
               <h3 className="text-sm font-semibold">
                 Plán & stav tréningov — {selectedLabel}
@@ -722,10 +725,12 @@ export default function ActivitiesCalendar({
                       .filter(Boolean)
                       .join(" • ");
 
-                    const actId = p.activity_id != null ? Number(p.activity_id) : null;
-                    const act = actId != null && !Number.isNaN(actId)
-                      ? actMap.get(actId)
-                      : null;
+                    const actId =
+                      p.activity_id != null ? Number(p.activity_id) : null;
+                    const act =
+                      actId != null && !Number.isNaN(actId)
+                        ? actMap.get(actId)
+                        : null;
 
                     const actDur = fmtRealDurationMin(
                       act?.moving_time_s ?? act?.moving_time
@@ -807,9 +812,7 @@ export default function ActivitiesCalendar({
                               <Button
                                 variant="primary"
                                 size="xs"
-                                disabled={
-                                  !inferredUserId || savingId === p.id
-                                }
+                                disabled={!inferredUserId || savingId === p.id}
                                 onClick={() => handleSaveLink(p.id)}
                               >
                                 {savingId === p.id ? "Ukladám…" : "Uložiť"}
@@ -892,9 +895,7 @@ export default function ActivitiesCalendar({
                                 dateIso={selectedIso || ""}
                                 sports={[sport]}
                                 deltaDays={2}
-                                value={
-                                  currentDraft == null ? "" : currentDraft
-                                }
+                                value={currentDraft == null ? "" : currentDraft}
                                 onChange={(id) => {
                                   setDraftLinks((prev) => ({
                                     ...prev,
@@ -908,9 +909,7 @@ export default function ActivitiesCalendar({
                             <Button
                               variant="primary"
                               size="xs"
-                              disabled={
-                                !inferredUserId || savingId === p.id
-                              }
+                              disabled={!inferredUserId || savingId === p.id}
                               onClick={() => handleSaveLink(p.id)}
                             >
                               {savingId === p.id ? "Ukladám…" : "Uložiť"}

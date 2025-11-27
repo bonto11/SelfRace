@@ -9,9 +9,7 @@ import Button from "@/shared/components/ui/Button";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
 import { savePlanActivityLink } from "@/features/coach/api/plan";
-import PlanSingle, {
-  PlanStatus,
-} from "@/shared/components/PlanSingle";
+import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
 
 type AnyObj = Record<string, any>;
 
@@ -129,7 +127,8 @@ function normNotes(it: AnyObj) {
   const cd = it?.structure?.cooldown
     ? [
         it.structure.cooldown?.notes
-          ? `CD: ${it.structure.cooldown.notes}` : null,
+          ? `CD: ${it.structure.cooldown.notes}`
+          : null,
         hrToText(it.structure.cooldown?.target?.hr),
         paceToText(it.structure.cooldown?.target?.pace),
         powerToText(it.structure.cooldown?.target?.power),
@@ -195,17 +194,13 @@ export default function PlanTable({ dateIso }: Props) {
   const [savingId, setSavingId] = React.useState<number | null>(null);
 
   const inferredUserId: number | null =
-    (planRows[0] as any)?.user_id ??
-    (actRows[0] as any)?.user_id ??
-    null;
+    (planRows[0] as any)?.user_id ?? (actRows[0] as any)?.user_id ?? null;
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
   const plansForDay = React.useMemo(
     () =>
-      planRows.filter(
-        (p: any) => String(p.plan_date).slice(0, 10) === dateIso
-      ),
+      planRows.filter((p: any) => String(p.plan_date).slice(0, 10) === dateIso),
     [planRows, dateIso]
   );
 
@@ -228,7 +223,9 @@ export default function PlanTable({ dateIso }: Props) {
     return m;
   }, [actRows]);
 
-  const wrapperCls = [CARD, "space-y-3", "p-3 md:p-4"].join(" ");
+  const wrapperCls = [CARD, "space-y-4", "p-3 md:p-4"].join(" ");
+
+  const headerCls = ["flex justify-between items-center", "mb-1"].join(" ");
 
   async function handleSaveLink(sessionId: number) {
     if (!inferredUserId) {
@@ -254,7 +251,7 @@ export default function PlanTable({ dateIso }: Props) {
 
   return (
     <div className={wrapperCls}>
-      <div className="flex justify-between items-center mb-1">
+      <div className={headerCls}>
         <h2 className="text-lg font-bold">
           Plán &amp; stav tréningov — {prettySkDate(dateIso)}
         </h2>
@@ -270,8 +267,7 @@ export default function PlanTable({ dateIso }: Props) {
         <ul className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
           {filteredPlans.map((p: any) => {
             const sess: AnyObj = p.payload ?? p;
-            const sport =
-              (p as any).sport || detectSport(sess) || "other";
+            const sport = (p as any).sport || detectSport(sess) || "other";
 
             const sessionTypeId =
               typeof sess?.session_type === "string"
@@ -284,8 +280,7 @@ export default function PlanTable({ dateIso }: Props) {
               ? findTrainingTypeById(sessionTypeId)
               : null;
 
-            const title =
-              trainingDef?.label || normTitle(sess) || "Tréning";
+            const title = trainingDef?.label || normTitle(sess) || "Tréning";
 
             const baseNotes = normNotes(sess);
             const typeLine = trainingDef?.description || null;
@@ -296,8 +291,7 @@ export default function PlanTable({ dateIso }: Props) {
             const actId = p.activity_id != null ? Number(p.activity_id) : null;
             const isDone = actId != null && !Number.isNaN(actId);
             const isMissed =
-              !isDone &&
-              String(p.plan_date).slice(0, 10) < todayIso;
+              !isDone && String(p.plan_date).slice(0, 10) < todayIso;
             const status: PlanStatus = isDone
               ? "done"
               : isMissed
@@ -346,9 +340,7 @@ export default function PlanTable({ dateIso }: Props) {
                   activitySummary={activitySummary}
                 >
                   <div className="text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
-                    <span className="opacity-70">
-                      Priradiť k aktivite:
-                    </span>
+                    <span className="opacity-70">Priradiť k aktivite:</span>
 
                     <div className="flex-1 max-w-xs">
                       <ActivitySelector
@@ -373,9 +365,7 @@ export default function PlanTable({ dateIso }: Props) {
                     <Button
                       variant="primary"
                       size="xs"
-                      disabled={
-                        !inferredUserId || savingId === p.id
-                      }
+                      disabled={!inferredUserId || savingId === p.id}
                       onClick={() => handleSaveLink(p.id)}
                     >
                       {savingId === p.id ? "Ukladám…" : "Uložiť"}
