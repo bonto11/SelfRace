@@ -10,17 +10,17 @@ import { todayISO } from "@/features/activity/utils/activity";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
-import PlanPreview from "@/features/coach/components/PlanPreview";
+import PlanResult from "@/features/coach/components/PlanResult";
 
 import {
-  apiSaveActivePlan,
-  apiUpdateActivePlan,
-  apiCancelActivePlan,
+  saveActivePlan as apiSaveActivePlan,
+  updateActivePlan as apiUpdateActivePlan,
+  cancelActivePlan as apiCancelActivePlan,
 } from "@/features/coach/api/plan";
-import { apiGetPrefs } from "@/features/coach/api/prefs";
+import { getPrefs as apiGetPrefs } from "@/features/coach/api/prefs";
 import {
-  apiAnalyzeCoach,
-  apiToAnalyzePayloadBE,
+  analyzeCoach as apiAnalyzeCoach,
+  toAnalyzePayloadBE as apiToAnalyzePayloadBE,
 } from "@/features/coach/api/coach";
 
 import {
@@ -165,29 +165,29 @@ export default function CoachPlanActions() {
     Array.isArray(analysis.next_10_days) &&
     analysis.next_10_days.length > 0;
 
-  // AI aktívny plán = budúce riadky zo source === "ai"
+  /* ── aktívny plán z DB (všetky AI riadky) ── */
   const activePlanInfo = useMemo(() => {
     if (!planRows.length) return null;
 
+    const aiAll = planRows.filter((r: any) => r.source === "ai");
+    if (!aiAll.length) return null;
+
+    const sortedAll = [...aiAll].sort((a, b) =>
+      a.plan_date.localeCompare(b.plan_date) ||
+      (a.session_index ?? 0) - (b.session_index ?? 0),
+    );
+
     const today = todayISO();
-    const aiRows = planRows.filter(
-      (r) =>
-        String(r.plan_date) >= today &&
-        (r as any).source === "ai",
-    );
+    const remaining = sortedAll.filter((r) => r.plan_date >= today);
 
-    if (!aiRows.length) return null;
-
-    const sorted = [...aiRows].sort((a, b) =>
-      a.plan_date.localeCompare(b.plan_date),
-    );
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
+    const start = sortedAll[0].plan_date;
+    const end = sortedAll[sortedAll.length - 1].plan_date;
 
     return {
-      plan_id: first.plan_id ?? null,
-      start: first.plan_date,
-      end: last.plan_date,
+      plan_id: sortedAll[0].plan_id ?? null,
+      start,
+      end,
+      remainingCount: remaining.length,
       goal:
         (prefs as any)?.goal_kind ??
         (prefs as any)?.goal ??
@@ -280,6 +280,61 @@ export default function CoachPlanActions() {
       setAnalysis(null);
     }
   }, [userId]);
+
+  /* ── fallback: vyrob analysis z DB riadkov (active plan) ── */
+  const analysisFromPlan = useMemo(() => {
+    if (!planRows.length) return null;
+
+    const today = todayISO();
+    const aiFuture = planRows
+      .filter(
+        (r: any) =>
+          r.source === "ai" &&
+          String(r.plan_date) >= today,
+      )
+      .sort((a, b) =>
+        a.plan_date.localeCompare(b.plan_date) ||
+        (a.session_index ?? 0) - (b.session_index ?? 0),
+      );
+
+    if (!aiFuture.length) return null;
+
+    const byDate: Record<string, any[]> = {};
+    for (const r of aiFuture) {
+      const d = r.plan_date;
+      if (!byDate[d]) byDate[d] = [];
+      byDate[d].push(r);
+    }
+
+    const dates = Object.keys(byDate)
+      .sort()
+      .slice(0, 10);
+
+    const next_10_days = dates.map((day) => ({
+      day,
+      sessions: byDate[day].map((r) => {
+        const payload = (r as any).payload || {};
+        return {
+          ...payload,
+          day,
+          sport: r.sport,
+          title: r.title,
+          duration_min: r.duration_min,
+          intensity: r.intensity,
+          session_type: r.session_type,
+          structure: payload.structure ?? (r as any).structure,
+          notes: payload.notes ?? (r as any).notes,
+        };
+      }),
+    }));
+
+    return {
+      next_10_days,
+      _meta: { next10_start: dates[0] },
+    };
+  }, [planRows]);
+
+  const effectiveAnalysis = analysis ?? analysisFromPlan;
 
   /* Generate plan */
   const handleGenerate = useCallback(async () => {
@@ -397,7 +452,6 @@ export default function CoachPlanActions() {
         throw new Error("Uloženie plánu zlyhalo.");
       }
 
-      // DB je pravda – refetchni plánové riadky
       await refreshPlan(true);
     } catch (e: any) {
       console.error("[coach.actions] handleStart error", e);
@@ -435,7 +489,6 @@ export default function CoachPlanActions() {
 
       await refreshPlan(true);
 
-      // vyčisti preview
       setAnalysis(null);
       setDiag(null);
       if (typeof window !== "undefined") {
@@ -592,11 +645,11 @@ export default function CoachPlanActions() {
         </div>
       )}
 
-      {/* výsledok */}
-      {analysis && (
+      {/* výsledok – buď z AI (analysis), alebo z DB (analysisFromPlan) */}
+      {effectiveAnalysis && (
         <div className="mt-2">
-          <PlanPreview
-            result={{ analysis, narrative: null, model: diag?.model }}
+          <PlanResult
+            result={{ analysis: effectiveAnalysis, narrative: null, model: diag?.model }}
           />
         </div>
       )}
