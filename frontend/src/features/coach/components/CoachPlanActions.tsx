@@ -11,14 +11,14 @@ import PlanPreview from "@/features/coach/components/PlanPreview";
 import PlanActive from "@/features/coach/components/PlanActive";
 
 import {
-  saveActivePlan as apiSaveActivePlan,
-  updateActivePlan as apiUpdateActivePlan,
-  cancelActivePlan as apiCancelActivePlan,
+  apiSaveActivePlan,
+  apiUpdateActivePlan ,
+  apiCancelActivePlan,
 } from "@/features/coach/api/plan";
-import { getPrefs as apiGetPrefs } from "@/features/coach/api/prefs";
+import { apiGetPrefs } from "@/features/coach/api/prefs";
 import {
-  analyzeCoach as apiAnalyzeCoach,
-  toAnalyzePayloadBE as apiToAnalyzePayloadBE,
+  apiAnalyzeCoach,
+  apiToAnalyzePayloadBE,
 } from "@/features/coach/api/coach";
 
 import {

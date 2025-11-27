@@ -7,7 +7,7 @@ type SaveResult = {
   planId?: string | null;
 };
 
-export async function saveActivePlan(
+export async function apiSaveActivePlan(
   userId: number,
   analysis: any,
   meta?: any
@@ -71,7 +71,7 @@ export async function saveActivePlan(
   }
 }
 
-export async function cancelActivePlan(
+export async function apiCancelActivePlan(
   userId: number,
   planId?: string | null
 ): Promise<{
@@ -120,7 +120,7 @@ export async function cancelActivePlan(
 }
 
 // staré load/update si nechaj ako sú, ak ich používaš inde
-export async function updateActivePlan(userId: number) {
+export async function apiUpdateActivePlan(userId: number) {
   if (!API_URL) {
     try {
       const raw = localStorage.getItem("coach.active");
@@ -155,7 +155,7 @@ export async function updateActivePlan(userId: number) {
  */
 // NOVÉ: ručné mapovanie plán ↔ aktivita
 
-export async function savePlanActivityLink(
+export async function apiSavePlanActivityLink(
   userId: number,
   sessionId: number,
   activityId: number | null
@@ -203,7 +203,7 @@ export type PlanReorderUpdate = {
  * - BE endpoint si potom vieš spraviť napr. na: POST /coach-plan-reorder/{user_id}
  * - updates: len zmenené riadky (id + nový plan_date + session_index)
  */
-export async function savePlanReorder(
+export async function apiSavePlanReorder(
   userId: number,
   updates: Array<{ id: number; plan_date: string; session_index: number }>
 ): Promise<{ success: boolean }> {

@@ -17,7 +17,7 @@ import {
 } from "@/shared/ui/classes";
 import ActivitySelector from "@/shared/components/ActivitySelector";
 import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
-import { savePlanActivityLink } from "@/features/coach/api/plan";
+import { apiSavePlanActivityLink } from "@/features/coach/api/plan";
 
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
@@ -563,7 +563,7 @@ export default function ActivitiesCalendar({
 
     setSavingId(sessionId);
     try {
-      const res = await savePlanActivityLink(
+      const res = await apiSavePlanActivityLink(
         inferredUserId,
         sessionId,
         activityId

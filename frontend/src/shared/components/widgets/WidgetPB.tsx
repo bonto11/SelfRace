@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
-import { distanceLabel, getBests, type UserBest } from "@/shared/api/bests";
+import { distanceLabel, apiGetBests, type UserBest } from "@/shared/api/bests";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/shared/utils/time";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
@@ -23,7 +23,7 @@ export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }
     (async () => {
       setLoading(true);
       try {
-        const r = await getBests(userId, "run");
+        const r = await apiGetBests(userId, "run");
         if (alive) setRows(Array.isArray(r) ? r : []);
       } finally {
         if (alive) setLoading(false);

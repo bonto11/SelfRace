@@ -11,8 +11,8 @@ import { readCoachPrefsFromStorage, refreshCoachPrefsFromDB, saveCoachPrefs } fr
 import Button from "@/shared/components/ui/Button";
 import { NO_X, PILL_BUTTON } from "@/shared/ui/classes";
 
-import { fetchUserZonesLatest, saveUserZones } from "@/features/coach/api/zones";
-import { fetchUserThresholdsLatest, saveUserThresholds } from "@/features/coach/api/thresholds";
+import { apiFetchUserZonesLatest, apiSaveUserZones } from "@/features/coach/api/zones";
+import { apiFetchUserThresholdsLatest, apiSaveUserThresholds } from "@/features/coach/api/thresholds";
 
 import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
 import { CoachPersonalitySection } from "@/features/coach/components/prefs/CoachPersonalitySection";
@@ -67,8 +67,8 @@ export default function PrefsForm() {
       try {
         const [p, zones, thrRows] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
-          fetchUserZonesLatest(userId),            // najnovšie zóny (default sport)
-          fetchUserThresholdsLatest(userId),       // surové riadky – použijeme na fallback LTHR
+          apiFetchUserZonesLatest(userId),            // najnovšie zóny (default sport)
+          apiFetchUserThresholdsLatest(userId),       // surové riadky – použijeme na fallback LTHR
         ]);
         if (!alive) return;
 
@@ -166,8 +166,8 @@ export default function PrefsForm() {
     try {
       const [fresh, zones, thrRows] = await Promise.all([
         refreshCoachPrefsFromDB(userId),
-        fetchUserZonesLatest(userId),
-        fetchUserThresholdsLatest(userId),
+        apiFetchUserZonesLatest(userId),
+        apiFetchUserThresholdsLatest(userId),
       ]);
       const next: CoachPrefsExtended = {
         ...(fresh as CoachPrefsExtended),
@@ -207,7 +207,7 @@ export default function PrefsForm() {
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
-      const saved = await saveUserZones(userId, z ?? {});
+      const saved = await apiSaveUserZones(userId, z ?? {});
       setLocal((prev) => ({ ...prev, zones: saved ?? z }));
       toast.success("Zones saved to DB");
     } catch (e) { console.error(e); toast.error("Saving zones failed"); }
@@ -217,7 +217,7 @@ export default function PrefsForm() {
   const handleSaveThresholdsToDB = async (t: any) => {
     if (!userId) return;
     try {
-      const saved = await saveUserThresholds(userId, t ?? {});
+      const saved = await apiSaveUserThresholds(userId, t ?? {});
       setLocal((prev) => ({ ...prev, thresholds: { ...t, ...(saved ?? {}) } }));
       toast.success("Threshold saved to DB");
     } catch (e) { console.error(e); toast.error("Saving threshold failed"); }

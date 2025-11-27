@@ -8,7 +8,7 @@ import ActivitySelector from "@/shared/components/ActivitySelector";
 import Button from "@/shared/components/ui/Button";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
-import { savePlanActivityLink } from "@/features/coach/api/plan";
+import { apiSavePlanActivityLink } from "@/features/coach/api/plan";
 import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
 
 type AnyObj = Record<string, any>;
@@ -237,7 +237,7 @@ export default function PlanTable({ dateIso }: Props) {
 
     setSavingId(sessionId);
     try {
-      const res = await savePlanActivityLink(
+      const res = await apiSavePlanActivityLink(
         inferredUserId,
         sessionId,
         activityId

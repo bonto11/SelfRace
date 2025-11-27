@@ -6,7 +6,7 @@ import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/shared/types/day";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import { InfoPopover } from "../InfoPopover";
+import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

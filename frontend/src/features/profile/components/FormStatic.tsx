@@ -9,7 +9,6 @@ import { Plus, Minus } from "lucide-react";
 import { toast } from "@/shared/components/ui/Toast";
 import { CARD, ICON_BUTTON } from "@/shared/ui/classes";
 import { inputClass, labelClass } from "@/shared/ui";
-import { THEME } from "@/shared/theme/tokens";
 
 type Sex = "M" | "F" | null;
 

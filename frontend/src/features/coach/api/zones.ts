@@ -18,7 +18,7 @@ type ApiOkZones = { success: true; zones: ZonesOut | null };
 type ApiOkMap = { success: true; zones_by_sport: Record<string, ZonesOut> };
 type ApiFail = { success: false; detail?: string };
 
-export async function fetchUserZonesLatest(
+export async function apiFetchUserZonesLatest(
   userId: number,
   sport?: ZoneSport
 ): Promise<ZonesOut | null> {
@@ -30,7 +30,7 @@ export async function fetchUserZonesLatest(
   return (json as ApiOkZones).zones ?? null;
 }
 
-export async function fetchAllLatestZonesBySport(
+export async function apiFetchAllLatestZonesBySport(
   userId: number
 ): Promise<Record<ZoneSport, ZonesOut>> {
   const res = await fetch(`${API_URL}/users/${userId}/zones?all=1`, { cache: "no-store" });
@@ -42,7 +42,7 @@ export async function fetchAllLatestZonesBySport(
 
 export type SaveUserZonesBody = Partial<ZonesOut> & { sport?: ZoneSport };
 
-export async function saveUserZones(
+export async function apiSaveUserZones(
   userId: number,
   body: SaveUserZonesBody
 ): Promise<ZonesOut> {

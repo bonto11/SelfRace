@@ -14,7 +14,7 @@ import {
 import Button from "@/shared/components/ui/Button";
 import SportBadge from "@/shared/components/ui/SportBadge";
 import { todayISO, addDays } from "@/features/activity/utils/activity";
-import { savePlanReorder, type PlanReorderUpdate } from "@/features/coach/api/plan";
+import { apiSavePlanReorder, type PlanReorderUpdate } from "@/features/coach/api/plan";
 
 type AnyObj = Record<string, any>;
 
@@ -343,7 +343,7 @@ export default function PlanActive() {
         });
       });
 
-      const res = await savePlanReorder(userId, updates);
+      const res = await apiSavePlanReorder(userId, updates);
       console.log("[PlanEditable] savePlanReorder result", res, updates);
 
       if (res.success) {

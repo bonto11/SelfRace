@@ -95,9 +95,25 @@ function mapThresholds(t: any | undefined): ThresholdsPayload | undefined {
   };
 }
 
+/* ====================== API calls ====================== */
+
+type AnalyzeOptions = {
+  debugRaw?: boolean;      // adds ?debug_raw=1
+  loose?: boolean;         // adds ?loose=1 (kept for future)
+  explicitModel?: string;  // override model via header
+};
+
+async function robustJson(res: Response) {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return await res.json();
+  const text = await res.text().catch(() => "");
+  return { success: false, detail: text || `HTTP ${res.status}` };
+}
+
+
 /* ====================== Payload builder ====================== */
 
-export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE {
+export function apiToAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE {
   // defaultuj model, ak nie je zvolený žiadny → polarized
   const rawModel =
     prefs.polarized_model ? "polarized" :
@@ -159,22 +175,7 @@ export function toAnalyzePayloadBE(prefs: Partial<CoachPrefs>): AnalyzePayloadBE
   };
 }
 
-/* ====================== API calls ====================== */
-
-type AnalyzeOptions = {
-  debugRaw?: boolean;      // adds ?debug_raw=1
-  loose?: boolean;         // adds ?loose=1 (kept for future)
-  explicitModel?: string;  // override model via header
-};
-
-async function robustJson(res: Response) {
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return await res.json();
-  const text = await res.text().catch(() => "");
-  return { success: false, detail: text || `HTTP ${res.status}` };
-}
-
-export async function analyzeCoach(
+export async function apiAnalyzeCoach(
   userId: number,
   prefsOrPayload: Partial<CoachPrefs> | AnalyzePayloadBE,
   opts: AnalyzeOptions = {}
@@ -182,7 +183,7 @@ export async function analyzeCoach(
   const basePayload: AnalyzePayloadBE =
     "schema_version" in (prefsOrPayload as any)
       ? (prefsOrPayload as AnalyzePayloadBE)
-      : toAnalyzePayloadBE(prefsOrPayload as Partial<CoachPrefs>);
+      : apiToAnalyzePayloadBE(prefsOrPayload as Partial<CoachPrefs>);
 
   const params = new URLSearchParams();
   if (opts.debugRaw) params.set("debug_raw", "1");
@@ -207,7 +208,7 @@ export async function analyzeCoach(
   return json;
 }
 
-export async function sendCoachFeedback(userId: number, body: unknown) {
+export async function apiSendCoachFeedback(userId: number, body: unknown) {
   const res = await fetch(`${API_URL}/coach/feedback/${userId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -17,7 +17,7 @@ type ApiRow = { success: true; thresholds: UserThresholdRow | null };
 type ApiFail = { success: false; detail?: string };
 
 /** ONE latest by sport+type (defaults running/LT2) */
-export async function fetchUserThreshold(
+export async function apiFetchUserThreshold(
   userId: number,
   sport = "running",
   type = "LT2"
@@ -32,7 +32,7 @@ export async function fetchUserThreshold(
 }
 
 /** ALL (desc updated_at) */
-export async function fetchUserThresholdsAll(
+export async function apiFetchUserThresholdsAll(
   userId: number
 ): Promise<UserThresholdRow[]> {
   const res = await fetch(`${API_URL}/users/${userId}/thresholds/all`, {
@@ -44,7 +44,7 @@ export async function fetchUserThresholdsAll(
 }
 
 /** LATEST per (sport,type) */
-export async function fetchUserThresholdsLatest(
+export async function apiFetchUserThresholdsLatest(
   userId: number
 ): Promise<UserThresholdRow[]> {
   const res = await fetch(`${API_URL}/users/${userId}/thresholds/latest`, {
@@ -56,7 +56,7 @@ export async function fetchUserThresholdsLatest(
 }
 
 /** UPSERT by (user_id,sport,threshold_type) -> returns latest row for combo */
-export async function saveUserThresholds(
+export async function apiSaveUserThresholds(
   userId: number,
   t: Partial<UserThresholdRow>
 ): Promise<UserThresholdRow | null> {
@@ -79,7 +79,7 @@ export async function saveUserThresholds(
 }
 
 /** helpers */
-export function reduceLatestByCombo(rows: UserThresholdRow[]): UserThresholdRow[] {
+export function apiReduceLatestByCombo(rows: UserThresholdRow[]): UserThresholdRow[] {
   const map = new Map<string, UserThresholdRow>();
   for (const r of rows ?? []) {
     const key = `${(r.sport ?? "running").toLowerCase()}|${(r.threshold_type ?? "LT2").toUpperCase()}`;
@@ -92,7 +92,7 @@ export function reduceLatestByCombo(rows: UserThresholdRow[]): UserThresholdRow[
   return Array.from(map.values());
 }
 
-export function debugLogLatestThresholds(rows: UserThresholdRow[]) {
+export function apiDebugLogLatestThresholds(rows: UserThresholdRow[]) {
   const out = rows.map(r => ({
     sport: r.sport, type: r.threshold_type,
     HR: r.hr_bpm, pace: r.pace_sec_km, power: r.power_watt, at: r.updated_at

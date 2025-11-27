@@ -15,7 +15,7 @@ function extractValue(j: any): CoachPrefs | null {
 }
 
 /** GET prefs – generická cesta */
-export async function getPrefs(userId: number): Promise<CoachPrefs | null> {
+export async function apiGetPrefs(userId: number): Promise<CoachPrefs | null> {
   try {
     const r = await fetch(
       `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`,
@@ -33,7 +33,7 @@ export async function getPrefs(userId: number): Promise<CoachPrefs | null> {
 }
 
 /** SAVE prefs – generická cesta */
-export async function savePrefs(userId: number, prefs: CoachPrefs): Promise<void> {
+export async function apiSavePrefs(userId: number, prefs: CoachPrefs): Promise<void> {
   try {
     const r = await fetch(
       `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`,

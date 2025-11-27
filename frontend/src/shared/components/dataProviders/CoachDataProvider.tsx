@@ -16,13 +16,13 @@ import { useUserId } from "@/shared/hooks/useUserId";
 
 // API – prefs
 import {
-  getPrefs as apiGetPrefs,
-  savePrefs as apiSavePrefs,
+  apiGetPrefs,
+  apiSavePrefs,
 } from "@/features/coach/api/prefs";
 
 // API – personal bests (RUN)
 import {
-  getBests as apiGetBests,
+  apiGetBests,
   type UserBest,
 } from "@/shared/api/bests";
 

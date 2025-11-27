@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fetchActivitiesAround } from "@/shared/api/activities";
+import { apiFetchActivitiesAround } from "@/shared/api/activities";
 import type { MiniActivity, SportFE } from "@/shared/types/activities";
 import { FIELD_BASE, FIELD_DISABLED, FIELD_HELP } from "@/shared/ui/classes";
 
@@ -48,7 +48,7 @@ export default function ActivitySelector({
 
   async function loadActivities() {
     if (!userId || !dateIso) return [] as MiniActivity[];
-    return await fetchActivitiesAround(userId, { date: dateIso, deltaDays, sports });
+    return await apiFetchActivitiesAround(userId, { date: dateIso, deltaDays, sports });
   }
 
   // fetch po otvorení selectu
