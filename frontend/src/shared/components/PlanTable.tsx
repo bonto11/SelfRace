@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
+import { SURFACE_CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import ActivitySelector from "@/shared/components/ActivitySelector";
@@ -228,7 +228,7 @@ export default function PlanTable({ dateIso }: Props) {
     return m;
   }, [actRows]);
 
-  const wrapperCls = [CARD, "space-y-3", "p-3 md:p-4"].join(" ");
+  const wrapperCls = [SURFACE_CARD, "space-y-3", "p-3 md:p-4"].join(" ");
 
   async function handleSaveLink(sessionId: number) {
     if (!inferredUserId) {
