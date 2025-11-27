@@ -1,50 +1,28 @@
 # Routes_FE/coach_plan_db.py
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
-from datetime import date
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
 
-from Modules.SQL.db_handler import get_client
-from Configs.config import TABLE_COACH_PLANNED_SESSIONS
+from Services.coach_plan_log import (
+    parse_iso_date,
+    get_planned_range_rows,
+    get_planned_sessions_filtered,
+    upsert_ai_plan_for_user,
+    cancel_plan_for_user,
+    link_session_to_activity as service_link_session_to_activity,
+)
 
+# FE router pre /coach-plan/*
 router = APIRouter(prefix="/coach-plan", tags=["coach-plan"])
-supabase = get_client()
 
-
-def _parse_iso_date(s: str) -> date:
-    try:
-        y, m, d = map(int, s.split("-"))
-        return date(y, m, d)
-    except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid date: {s}")
-
-
-def _canonical_sport(sport: Any) -> str:
-    s = str(sport or "").lower()
-    if s in ("bike", "cycling"):
-        return "ride"
-    if s in ("gym",):
-        return "strength"
-    if s not in ("run", "ride", "strength", "swim", "other"):
-        return "other"
-    return s
-
-
-def _hr_zone_text(sess: Dict[str, Any]) -> Optional[str]:
-    hr = sess.get("target_hr_bpm_range")
-    if isinstance(hr, list) and len(hr) == 2:
-        try:
-            low, high = int(hr[0]), int(hr[1])
-            return f"HR {low}–{high}"
-        except Exception:
-            return None
-    return None
+# FE router pre /coach-plan-link/*
+router_link = APIRouter(prefix="/coach-plan-link", tags=["coach-plan"])
 
 
 # ========= RANGE (pre PlanDataProvider) =========
+
 
 @router.get("/range/{user_id}")
 def get_planned_range(
@@ -58,28 +36,18 @@ def get_planned_range(
     Toto je endpoint, ktorý používa PlanDataProvider:
       GET /coach-plan/range/{user_id}?start=YYYY-MM-DD&end=YYYY-MM-DD
     """
-    # validácia dátumov (vyhodí 400, ak sú zlé)
-    _ = _parse_iso_date(start)
-    _ = _parse_iso_date(end)
+    try:
+        # validácia dátumov
+        _ = parse_iso_date(start)
+        _ = parse_iso_date(end)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        q = (
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-            .select("*")
-            .eq("user_id", user_id)
-            .gte("plan_date", start)
-            .lte("plan_date", end)
-            .order("plan_date", desc=False)
-        )
-        try:
-            q = q.order("session_index", desc=False)
-        except Exception:
-            pass
-
-        res = q.execute()
+        rows = get_planned_range_rows(user_id=user_id, start_iso=start, end_iso=end)
         return {
             "success": True,
-            "rows": res.data,  # PlanDataProvider číta data/rows
+            "rows": rows,  # PlanDataProvider číta data/rows
             "range": {"start": start, "end": end},
         }
     except Exception as e:  # noqa: BLE001
@@ -88,6 +56,7 @@ def get_planned_range(
 
 # ========= STARÝ GET (filtre date_from/date_to/plan_id) =========
 
+
 @router.get("/{user_id}")
 def get_planned_sessions(
     user_id: int,
@@ -95,30 +64,24 @@ def get_planned_sessions(
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
     plan_id: Optional[str] = Query(None, description="Filter by plan_id"),
 ):
-    """Načíta plánované tréningy pre užívateľa."""
+    """
+    Načíta plánované tréningy pre užívateľa.
+    Pôvodný endpoint:
+      GET /coach-plan/{user_id}?date_from=...&date_to=...&plan_id=...
+    """
     try:
-        q = (
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-            .select("*")
-            .eq("user_id", user_id)
+        rows = get_planned_sessions_filtered(
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+            plan_id=plan_id,
         )
-        if plan_id:
-            q = q.eq("plan_id", plan_id)
-        if date_from:
-            q = q.gte("plan_date", date_from)
-        if date_to:
-            q = q.lte("plan_date", date_to)
-
-        q = q.order("plan_date", desc=False)
-        try:
-            q = q.order("session_index", desc=False)
-        except Exception:
-            pass
-
-        res = q.execute()
-        return {"success": True, "data": res.data, "plan_id": plan_id}
+        return {"success": True, "data": rows, "plan_id": plan_id}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========= POST – uloženie AI plánu =========
 
 
 @router.post("/{user_id}")
@@ -136,111 +99,37 @@ def upsert_plan(
       "overwrite": true | false
     }
     """
-    print(f"[coach-plan] POST user_id={user_id} payload_keys={list(payload.keys())}")
+    next_10_days = payload.get("next_10_days") or []
+    overwrite = bool(payload.get("overwrite", True))
 
-    days = payload.get("next_10_days") or []
-    if not isinstance(days, list) or not days:
-        raise HTTPException(
-            status_code=400,
-            detail="next_10_days is required and must be a non-empty array",
-        )
-
-    overwrite: bool = bool(payload.get("overwrite", True))
-
-    all_dates: List[date] = []
-    for d in days:
-        if not isinstance(d, dict) or "day" not in d:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid entry in next_10_days (missing 'day')",
-            )
-        all_dates.append(_parse_iso_date(str(d["day"])))
-
-    start_d = min(all_dates)
-    end_d = max(all_dates)
-
-    plan_id = str(uuid4())
-    print(
-        f"[coach-plan] POST plan_id={plan_id} range={start_d.isoformat()}..{end_d.isoformat()} overwrite={overwrite}"
-    )
-
-    if overwrite:
-        try:
-            (
-                supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-                .delete()
-                .eq("user_id", user_id)
-                .gte("plan_date", start_d.isoformat())
-                .lte("plan_date", end_d.isoformat())
-                .execute()
-            )
-            print("[coach-plan] POST cleared existing rows in range", start_d, end_d)
-        except Exception as e:  # noqa: BLE001
-            raise HTTPException(
-                status_code=500, detail=f"Failed to clear existing plan: {e}"
-            )
-
-    rows: List[Dict[str, Any]] = []
-
-    for d in days:
-        day_str = str(d["day"])
-        sessions = d.get("sessions") or []
-        if not isinstance(sessions, list):
-            raise HTTPException(
-                status_code=400, detail=f"Invalid 'sessions' for day {day_str}"
-            )
-
-        for idx, sess in enumerate(sessions):
-            if not isinstance(sess, dict):
-                continue
-
-            sport = _canonical_sport(sess.get("sport"))
-            title = sess.get("title") or None
-            duration = sess.get("duration_min")
-            intensity = sess.get("intensity")
-            session_type = sess.get("session_type") or None
-            notes = sess.get("notes") or None
-            zone_text = _hr_zone_text(sess)
-
-            row: Dict[str, Any] = {
-                "user_id": user_id,
-                "plan_date": day_str,
-                "sport": sport,
-                "title": title,
-                "duration_min": duration,
-                "intensity": intensity,
-                "zone_text": zone_text,
-                "structure": sess.get("structure"),
-                "notes": notes,
-                "source": "ai",
-                "plan_id": plan_id,
-                "session_type": session_type,
-                "session_index": idx,
-                "payload": sess,
-                "activity_id": None,
-            }
-            rows.append(row)
-
-    if not rows:
-        raise HTTPException(status_code=400, detail="No sessions to save")
-
-    print(f"[coach-plan] POST inserting rows={len(rows)}")
     try:
-        res = supabase.table(TABLE_COACH_PLANNED_SESSIONS).insert(rows).execute()
-        inserted = len(res.data or rows)
+        result = upsert_ai_plan_for_user(
+            user_id=user_id,
+            next_10_days=next_10_days,
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        # logická/validačná chyba → 400
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
-        print("[coach-plan] POST insert error:", e)
-        raise HTTPException(status_code=500, detail=f"Insert failed: {e}")
+        # neočakávaná chyba → 500
+        raise HTTPException(status_code=500, detail=str(e))
+
+    start = result["start"]
+    end = result["end"]
 
     return {
         "success": True,
-        "plan_id": plan_id,
-        "inserted": inserted,
+        "plan_id": result["plan_id"],
+        "inserted": result["inserted"],
         "date_range": {
-            "from": start_d.isoformat(),
-            "to": end_d.isoformat(),
+            "from": start.isoformat(),
+            "to": end.isoformat(),
         },
     }
+
+
+# ========= DELETE – zrušenie plánu =========
 
 
 @router.delete("/{user_id}")
@@ -250,31 +139,73 @@ def cancel_plan(
 ):
     """
     Zruší aktívny plán:
-    - ak príde plan_id → zmaže len daný plán
-    - inak zmaže všetky AI planned sessions od dneška vrátane
+      - ak príde plan_id → zmaže len daný plán
+      - inak zmaže všetky AI planned sessions od dneška vrátane
     """
-    plan_id = None
+    plan_id: Optional[str] = None
     if isinstance(payload, dict):
-        plan_id = payload.get("plan_id")
-
-    print(f"[coach-plan] DELETE user_id={user_id} plan_id={plan_id}")
+        raw = payload.get("plan_id")
+        if raw:
+            plan_id = str(raw)
 
     try:
-        q = (
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
-            .delete()
-            .eq("user_id", user_id)
-        )
-        if plan_id:
-            q = q.eq("plan_id", plan_id)
-        else:
-            today_iso = date.today().isoformat()
-            q = q.gte("plan_date", today_iso)
-
-        res = q.execute()
-        deleted = len(res.data or [])
-        print(f"[coach-plan] DELETE deleted={deleted}")
-        return {"success": True, "deleted": deleted}
+        deleted = cancel_plan_for_user(user_id=user_id, plan_id=plan_id)
     except Exception as e:  # noqa: BLE001
-        print("[coach-plan] DELETE error:", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+    return {"success": True, "deleted": deleted}
+
+
+# ========= NOVÉ – /coach-plan-link/{user_id} – manuálne mapovanie plán ↔ aktivita =========
+
+
+@router_link.post("/{user_id}")
+def save_plan_activity_link(
+    user_id: int,  # pre debug/logy; samotný link je cez session_id
+    payload: Dict[str, Any] = Body(...),
+):
+    """
+    Ručné mapovanie planned session ↔ aktivita.
+
+    Body:
+      {
+        "session_id": int,          # id z coach_planned_sessions
+        "activity_id": int | null   # null → odmapovanie
+      }
+    """
+    session_id = payload.get("session_id")
+    if session_id is None:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    try:
+        session_id_int = int(session_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="session_id must be an integer")
+
+    activity_id_raw = payload.get("activity_id", None)
+    if activity_id_raw is None:
+        activity_id: Optional[int] = None
+    else:
+        try:
+            activity_id = int(activity_id_raw)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="activity_id must be an integer or null",
+            )
+
+    try:
+        updated = service_link_session_to_activity(
+            session_id=session_id_int,
+            activity_id=activity_id,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "success": updated > 0,
+        "updated": updated,
+        "user_id": user_id,
+        "session_id": session_id_int,
+        "activity_id": activity_id,
+    }
