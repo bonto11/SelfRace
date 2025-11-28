@@ -22,7 +22,7 @@ import {
 type AnyObj = Record<string, any>;
 const MAX_PER_DAY = 2;
 
-/* ---- helpers (rovnaké ako pri pláne) ---- */
+/* ---------------- helpers (rovnaké ako pri pláne) ---------------- */
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
@@ -183,7 +183,7 @@ function isRestSession(row: any, sess: AnyObj): boolean {
   return false;
 }
 
-/* ---- typy pre draft ---- */
+/* ---------------- lokálne typy ---------------- */
 
 type DraftSession = {
   id: number;
@@ -194,8 +194,9 @@ type DraftSession = {
 
 type DraftByDay = Record<string, DraftSession[]>;
 
+/* ---------------- hlavný komponent ---------------- */
+
 export default function PlanActive() {
-  // POZOR: provider vracia planRows, nie rows
   const { planRows, refresh } = usePlanData();
   const rows = planRows ?? [];
 
@@ -204,10 +205,18 @@ export default function PlanActive() {
     Record<number, { plan_date: string; session_index: number }>
   >({});
   const [saving, setSaving] = React.useState(false);
+  const [fatalError, setFatalError] = React.useState<string | null>(null);
 
   const today = todayISO();
   const from = addDays(today, -5);
   const to = addDays(today, 10);
+
+  // log hneď pri rendri
+  console.log("[PlanActive] render", {
+    planRowsLength: rows.length,
+    from,
+    to,
+  });
 
   // zoznam dní v rozsahu
   const days: string[] = React.useMemo(() => {
@@ -217,49 +226,79 @@ export default function PlanActive() {
       out.push(cur);
       cur = addDays(cur, 1);
     }
+    console.log("[PlanActive] computed days", out);
     return out;
   }, [from, to]);
 
   // init draftu z planRows
   React.useEffect(() => {
-    const pos: Record<number, { plan_date: string; session_index: number }> = {};
-    const tmp: DraftByDay = {};
-
-    for (const r of rows) {
-      const dIso = String(r.plan_date).slice(0, 10);
-      if (dIso < from || dIso > to) continue;
-
-      const sess: AnyObj = (r as any).payload ?? r;
-      if (isRestSession(r, sess)) continue;
-
-      if (!tmp[dIso]) tmp[dIso] = [];
-
-      const idx = Number.isFinite(r.session_index)
-        ? Number(r.session_index)
-        : tmp[dIso].length;
-
-      const item: DraftSession = {
-        id: Number(r.id),
-        plan_date: dIso,
-        session_index: idx,
-        raw: r,
-      };
-      tmp[dIso].push(item);
-      pos[item.id] = { plan_date: dIso, session_index: idx };
-    }
-
-    // sort + reindex
-    Object.keys(tmp).forEach((d) => {
-      tmp[d].sort((a, b) => a.session_index - b.session_index);
-      tmp[d] = tmp[d].map((it, idx) => ({ ...it, session_index: idx }));
+    console.log("[PlanActive] useEffect init draft – start", {
+      rowsLength: rows.length,
     });
 
-    setDraft(tmp);
-    setOriginalPos(pos);
+    try {
+      const pos: Record<number, { plan_date: string; session_index: number }> =
+        {};
+      const tmp: DraftByDay = {};
+
+      for (const r of rows) {
+        if (!r) continue;
+        const dIso = String((r as any).plan_date || "").slice(0, 10);
+        if (!dIso) continue;
+
+        if (dIso < from || dIso > to) continue;
+
+        const sess: AnyObj = (r as any).payload ?? r;
+        if (isRestSession(r, sess)) continue;
+
+        if (!tmp[dIso]) tmp[dIso] = [];
+
+        const idx = Number.isFinite((r as any).session_index)
+          ? Number((r as any).session_index)
+          : tmp[dIso].length;
+
+        const idNum = Number((r as any).id);
+        if (!Number.isFinite(idNum)) continue;
+
+        const item: DraftSession = {
+          id: idNum,
+          plan_date: dIso,
+          session_index: idx,
+          raw: r,
+        };
+        tmp[dIso].push(item);
+        pos[item.id] = { plan_date: dIso, session_index: idx };
+      }
+
+      // sort + reindex
+      Object.keys(tmp).forEach((d) => {
+        tmp[d].sort((a, b) => a.session_index - b.session_index);
+        tmp[d] = tmp[d].map((it, idx) => ({ ...it, session_index: idx }));
+      });
+
+      console.log("[PlanActive] useEffect init draft – built", {
+        days: Object.keys(tmp),
+        totalSessions: Object.values(tmp).reduce(
+          (acc, arr) => acc + arr.length,
+          0
+        ),
+      });
+
+      setDraft(tmp);
+      setOriginalPos(pos);
+      setFatalError(null);
+    } catch (e: any) {
+      console.error("[PlanActive] ERROR while building draft", e);
+      setFatalError(String(e?.message || e));
+      setDraft({});
+      setOriginalPos({});
+    }
   }, [rows, from, to]);
 
   // move handler – šípky hore/dole
   const moveSession = (sessionId: number, dir: "up" | "down") => {
+    console.log("[PlanActive] moveSession", { sessionId, dir });
+
     setDraft((prev) => {
       const next: DraftByDay = { ...prev };
       const dayKeys = days;
@@ -277,14 +316,19 @@ export default function PlanActive() {
         }
       }
 
-      if (foundDayIdx === -1) return prev;
+      if (foundDayIdx === -1) {
+        console.warn("[PlanActive] moveSession – session not found", {
+          sessionId,
+        });
+        return prev;
+      }
 
       const curDay = dayKeys[foundDayIdx];
       const curArr = [...(next[curDay] ?? [])];
 
       if (dir === "up") {
-        // v rámci dňa
         if (foundIdx > 0) {
+          // v rámci dňa
           const [moved] = curArr.splice(foundIdx, 1);
           curArr.splice(foundIdx - 1, 0, moved);
           next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
@@ -294,7 +338,12 @@ export default function PlanActive() {
         if (foundDayIdx === 0) return prev;
         const targetDay = dayKeys[foundDayIdx - 1];
         const targetArr = [...(next[targetDay] ?? [])];
-        if (targetArr.length >= MAX_PER_DAY) return prev;
+        if (targetArr.length >= MAX_PER_DAY) {
+          console.log("[PlanActive] moveSession up – target full", {
+            targetDay,
+          });
+          return prev;
+        }
 
         const [moved] = curArr.splice(foundIdx, 1);
         const movedUpdated: DraftSession = {
@@ -319,14 +368,18 @@ export default function PlanActive() {
       if (foundDayIdx === dayKeys.length - 1) return prev;
       const targetDay = dayKeys[foundDayIdx + 1];
       const targetArr = [...(next[targetDay] ?? [])];
-      if (targetArr.length >= MAX_PER_DAY) return prev;
+      if (targetArr.length >= MAX_PER_DAY) {
+        console.log("[PlanActive] moveSession down – target full", {
+          targetDay,
+        });
+        return prev;
+      }
 
       const [moved] = curArr.splice(foundIdx, 1);
       const movedUpdated: DraftSession = {
         ...moved,
         plan_date: targetDay,
       };
-      // pridaj na začiatok ďalšieho dňa
       targetArr.unshift(movedUpdated);
 
       next[curDay] = curArr.map((s, i) => ({ ...s, session_index: i }));
@@ -336,12 +389,14 @@ export default function PlanActive() {
   };
 
   const handleReset = () => {
+    console.log("[PlanActive] handleReset");
     setDraft({});
     setOriginalPos({});
     void refresh(true);
   };
 
   const handleSave = async () => {
+    console.log("[PlanActive] handleSave – start");
     setSaving(true);
     try {
       const updates: PlanReorderUpdate[] = [];
@@ -362,7 +417,10 @@ export default function PlanActive() {
         });
       });
 
+      console.log("[PlanActive] handleSave – computed updates", updates);
+
       if (!updates.length) {
+        console.log("[PlanActive] handleSave – no changes");
         setSaving(false);
         return;
       }
@@ -370,47 +428,67 @@ export default function PlanActive() {
       const userId =
         rows[0]?.user_id != null ? Number(rows[0].user_id) : null;
       if (!userId) {
-        console.warn("[PlanActive] missing userId for save");
+        console.warn("[PlanActive] handleSave – missing userId");
         setSaving(false);
         return;
       }
 
       const res = await apiSavePlanReorder(userId, updates);
-      console.log("[PlanActive] savePlanReorder result", res, updates);
+      console.log("[PlanActive] savePlanReorder result", res);
 
       if (res.success) {
         await refresh(true);
       }
+    } catch (e) {
+      console.error("[PlanActive] handleSave ERROR", e);
     } finally {
       setSaving(false);
     }
   };
 
   const hasChanges = React.useMemo(() => {
-    // ak draft ešte nie je inicializovaný, nech je false
     if (!Object.keys(draft).length) return false;
 
     for (const [dayIso, list] of Object.entries(draft)) {
       list.forEach((it, idx) => {
         const orig = originalPos[it.id];
         if (!orig) {
-          // nový alebo neznámy → zmena
-          throw true;
+          // nový / neznámy → ber ako zmenu
+          console.log("[PlanActive] hasChanges – new row", { id: it.id });
+          // ale nehadžeme error, len vrátime true
         }
-        if (orig.plan_date !== dayIso || orig.session_index !== idx) {
-          throw true;
+        if (!orig || orig.plan_date !== dayIso || orig.session_index !== idx) {
+          return true;
         }
       });
     }
     return false;
   }, [draft, originalPos]);
 
-  let changed = false;
-  try {
-    changed = hasChanges;
-  } catch {
-    changed = true;
+  const changed = !!hasChanges;
+
+  /* ---------------- rendering guards ---------------- */
+
+  if (!rows.length) {
+    console.log("[PlanActive] no rows – render nothing");
+    return null;
   }
+
+  if (fatalError) {
+    console.warn("[PlanActive] fatalError state – showing fallback UI", {
+      fatalError,
+    });
+    return (
+      <section className={[CARD, "p-3 md:p-4", NO_X_OVERFLOW].join(" ")}>
+        <h2 className="text-lg font-bold mb-1">Aktívny plán — editácia</h2>
+        <p className="text-sm text-red-300">
+          Editácia plánu je dočasne vypnutá kvôli chybe: {fatalError}
+        </p>
+      </section>
+    );
+  }
+
+  /* ---------------- hlavný render ---------------- */
 
   return (
     <section className={[CARD, "p-3 md:p-4 space-y-3", NO_X_OVERFLOW].join(" ")}>
@@ -472,7 +550,7 @@ export default function PlanActive() {
 
               {list.length > 0 && (
                 <ul className="space-y-2">
-                  {list.map((it, idx) => {
+                  {list.map((it) => {
                     const row = it.raw;
                     const sess: AnyObj = row.payload ?? row;
                     const sport = row.sport || detectSport(sess) || "other";
