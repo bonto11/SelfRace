@@ -240,6 +240,9 @@ export default function CoachPlanActions() {
     analysis.next_10_days.length > 0;
 
   const hasActivePlan = activeRows.length > 0;
+  
+  const showPreview = !!analysis && !hasActivePlan;
+  const showActiveBoard = hasActivePlan;
 
   const canRunGenerate = !!userId && !loading && !hasActivePlan;
   const canStart = !!userId && !loading && hasGenerated && !hasActivePlan;
@@ -660,9 +663,8 @@ export default function CoachPlanActions() {
         </div>
       )}
 
-      {/* PREVIEW – používa PlanPreview; analysis môže byť z AI, cache alebo z DB fallbacku */}
-      {/* PREVIEW – AI / DB next_10_days */}
-      {analysis && (
+      {/* PREVIEW – iba ak ešte nemáme aktívny plán */}
+      {showPreview && (
         <div className="mt-2">
           <PlanPreview
             result={{ analysis, narrative: null, model: diag?.model }}
@@ -670,8 +672,8 @@ export default function CoachPlanActions() {
         </div>
       )}
 
-      {/* ACTIVE BOARD – editácia plánu (drag & drop) */}
-      {hasActivePlan && (
+      {/* ACTIVE BOARD – len ak existuje aktívny plán v DB */}
+      {showActiveBoard && (
         <div className="mt-6">
           <PlanActive />
         </div>
