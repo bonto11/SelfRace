@@ -12,7 +12,7 @@ from Services.coach_plan_log import (
     service_cancel_plan_for_user,
     service_link_session_to_activity,
     service_reorder_planned_sessions,
-    service_extend_active_plan,  # ✅ NOVÝ IMPORT
+    service_extend_active_plan,
 )
 
 # JEDEN router pre všetko okolo coach-planu
@@ -256,8 +256,6 @@ def reorder_plan(
 
 
 # ========= EXTEND – doplnenie plánu na min. horizon =========
-
-
 @router.post("/{user_id}/extend")
 def extend_plan(
     user_id: int,
@@ -265,10 +263,6 @@ def extend_plan(
 ):
     """
     Zabezpečí, že aktívny plán má aspoň `min_horizon_days` dopredu.
-    - nájde aktívny plan_id
-    - zistí dokedy je naplánovaný
-    - ak horizon >= min_horizon_days → nič nerobí
-    - inak zavolá service, ktorý dopočíta tréningy a vloží ich do DB
     """
     try:
         result = service_extend_active_plan(
@@ -277,7 +271,6 @@ def extend_plan(
         )
         return {"success": True, **result}
     except ValueError as e:
-        # logická chyba (napr. žiadny aktívny plán)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
