@@ -16,6 +16,8 @@ import {
   apiSaveActivePlan,
   apiUpdateActivePlan,
   apiCancelActivePlan,
+  apiExtendActivePlan,
+  type ExtendPlanResult,
 } from "@/features/coach/api/plan";
 import { apiGetPrefs } from "@/features/coach/api/prefs";
 import {
@@ -223,6 +225,9 @@ export default function CoachPlanActions() {
 
   const [activeMeta, setActiveMeta] = useState<ActiveMeta | null>(null);
 
+  const [extending, setExtending] = useState(false);
+  const [extendInfo, setExtendInfo] = useState<ExtendPlanResult | null>(null);
+
   const cacheKey = useMemo(
     () => (userId && prefs ? makeCacheKey(String(userId), prefs) : undefined),
     [userId, prefs]
@@ -240,7 +245,7 @@ export default function CoachPlanActions() {
     analysis.next_10_days.length > 0;
 
   const hasActivePlan = activeRows.length > 0;
-  
+
   const showPreview = !!analysis && !hasActivePlan;
   const showActiveBoard = hasActivePlan;
 
@@ -248,6 +253,7 @@ export default function CoachPlanActions() {
   const canStart = !!userId && !loading && hasGenerated && !hasActivePlan;
   const canUpdate = !!userId && !loading && hasActivePlan;
   const canCancel = !!userId && !loading && hasActivePlan;
+  const canExtend = !!userId && !loading && !extending && hasActivePlan;
 
   // helpers pre steps (Debug only)
   const resetSteps = useCallback(() => setSteps(makeSteps("idle")), []);
@@ -489,6 +495,29 @@ export default function CoachPlanActions() {
     }
   }, [userId, refreshPlan]);
 
+  // Extend plan (AI doplnenie horizon)
+  const handleExtend = useCallback(async () => {
+    try {
+      if (!userId) throw new Error("Chýba userId.");
+      setErr(null);
+      setExtending(true);
+
+      const res = await apiExtendActivePlan(userId, 10);
+      console.log("[CoachPlanActions] extend result", res);
+
+      if (!res.success) {
+        throw new Error(res.note || "Extend failed");
+      }
+
+      setExtendInfo(res);
+      await refreshPlan(true);
+    } catch (e: any) {
+      setErr(e?.message || "Extend failed");
+    } finally {
+      setExtending(false);
+    }
+  }, [userId, refreshPlan]);
+
   // Cancel plan
   const handleCancel = useCallback(async () => {
     try {
@@ -502,6 +531,7 @@ export default function CoachPlanActions() {
       setActiveMeta(null);
       setAnalysis(null);
       setDiag(null);
+      setExtendInfo(null);
 
       if (typeof window !== "undefined") {
         localStorage.removeItem("coach.active");
@@ -582,6 +612,24 @@ export default function CoachPlanActions() {
             </span>
           </div>
         )}
+
+        {extendInfo && (
+          <div className="mt-1 text-[11px] text-cyan-200">
+            Extended:{" "}
+            <span className="font-semibold">
+              +{extendInfo.extended_days ?? 0} days
+            </span>{" "}
+            · horizon:{" "}
+            <span className="font-semibold">
+              {extendInfo.horizon_days ?? "?"} d
+            </span>{" "}
+            {extendInfo.plan_start && extendInfo.plan_end && (
+              <span className="opacity-80">
+                ({extendInfo.plan_start} → {extendInfo.plan_end})
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* tlačidlá */}
@@ -618,6 +666,22 @@ export default function CoachPlanActions() {
           size="sm"
         >
           Update plan
+        </Button>
+
+        <Button
+          onClick={handleExtend}
+          disabled={!canExtend}
+          variant="secondary"
+          size="sm"
+        >
+          {extending ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="button" />
+              Extending…
+            </span>
+          ) : (
+            "Extend plan (10d)"
+          )}
         </Button>
 
         <Button
