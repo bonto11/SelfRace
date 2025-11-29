@@ -235,55 +235,51 @@ export async function apiSavePlanReorder(
 
 export type ExtendPlanResult = {
   success: boolean;
-  via: "api" | "none";
-  extended_days?: number;
-  plan_start?: string;
-  plan_end?: string;
-  horizon_days?: number;
+  extended_days: number;
+  plan_start: string;
+  plan_end: string;
+  horizon_days: number;
+  inserted_rows?: number;
   note?: string;
 };
 
-/**
- * Zavolá BE endpoint, ktorý udrží aktívny plán minimálne na X dní dopredu.
- * BE: POST /coach-plan/{user_id}/extend?min_horizon_days=10
- */
 export async function apiExtendActivePlan(
   userId: number,
-  minHorizonDays: number = 10
+  minHorizonDays = 10
 ): Promise<ExtendPlanResult> {
   if (!API_URL) {
-    console.warn("[coach.plan] extendActivePlan – missing API_URL", {
-      userId,
-      minHorizonDays,
-    });
-    return { success: false, via: "none" };
+    console.warn("[coach.plan] extendActivePlan – missing API_URL");
+    return {
+      success: false,
+      extended_days: 0,
+      plan_start: "",
+      plan_end: "",
+      horizon_days: 0,
+      note: "missing_api_url",
+    };
   }
 
-  const url = `${API_URL}/coach-plan/${userId}/extend?min_horizon_days=${encodeURIComponent(
-    String(minHorizonDays)
-  )}`;
-
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-  }).catch((err) => {
+  const r = await fetch(
+    `${API_URL}/coach-plan/${userId}/extend?min_horizon_days=${minHorizonDays}`,
+    {
+      method: "POST",
+    }
+  ).catch((err) => {
     console.error("[coach.plan] extendActivePlan fetch error", err);
     return null;
   });
 
   if (r && r.ok) {
     const j = await r.json().catch(() => ({}));
-    console.log("[coach.plan] extendActivePlan response", j);
-    return {
-      success: !!j?.success,
-      via: "api",
-      extended_days: j?.extended_days,
-      plan_start: j?.plan_start,
-      plan_end: j?.plan_end,
-      horizon_days: j?.horizon_days,
-      note: j?.note,
-    };
+    return j as ExtendPlanResult;
   }
 
-  return { success: false, via: "api" };
+  return {
+    success: false,
+    extended_days: 0,
+    plan_start: "",
+    plan_end: "",
+    horizon_days: 0,
+    note: "http_error",
+  };
 }
