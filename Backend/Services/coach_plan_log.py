@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import date, timedelta
+from datetime import date
 
 from Routes_DB.coach_plan_log import (
     db_insert_planned_session,
@@ -16,7 +16,6 @@ from Routes_DB.coach_plan_log import (
     db_link_session_to_activity,
     db_reorder_planned_sessions,
 )
-
 
 # ───────────────────────────── helpers ─────────────────────────────
 
@@ -55,12 +54,32 @@ def service_hr_zone_text(sess: Dict[str, Any]) -> Optional[str]:
 # ───────────────────────────── public service API ─────────────────────────────
 
 
-def service_get_planned_range_rows(user_id: int, start_iso: str, end_iso: str):
-    return db_get_planned_range_rows(user_id=user_id, start_iso=start_iso, end_iso=end_iso)
+def service_get_planned_range_rows(
+    user_id: int,
+    start_iso: str,
+    end_iso: str,
+):
+    """Pre FE endpoint /coach-plan/range – vracia všetky riadky."""
+    return db_get_planned_range_rows(
+        user_id=user_id,
+        start_iso=start_iso,
+        end_iso=end_iso,
+    )
 
 
-def service_get_planned_sessions_filtered(user_id: int, date_from, date_to, plan_id):
-    return db_get_planned_sessions_filtered(user_id, date_from, date_to, plan_id)
+def service_get_planned_sessions_filtered(
+    user_id: int,
+    date_from: Optional[str],
+    date_to: Optional[str],
+    plan_id: Optional[str],
+):
+    """Pôvodný GET /coach-plan/{user_id} – filtre."""
+    return db_get_planned_sessions_filtered(
+        user_id=user_id,
+        date_from=date_from,
+        date_to=date_to,
+        plan_id=plan_id,
+    )
 
 
 def service_fetch_plan_rows_in_range(
@@ -69,6 +88,7 @@ def service_fetch_plan_rows_in_range(
     end_d: date,
     columns: Optional[str] = None,
 ):
+    """Helper pre iné služby (napr. auto-mapovanie)."""
     return db_fetch_plan_rows_in_range(
         user_id=user_id,
         start_iso=start_d.isoformat(),
@@ -96,6 +116,8 @@ def service_upsert_ai_plan_for_user(
 
     all_dates: List[date] = []
     for d in next_10_days:
+        if not isinstance(d, dict) or "day" not in d:
+            raise ValueError("Invalid entry in next_10_days (missing 'day')")
         all_dates.append(service_parse_iso_date(str(d["day"])))
 
     start_d = min(all_dates)
@@ -104,16 +126,26 @@ def service_upsert_ai_plan_for_user(
     plan_id = str(uuid4())
 
     if overwrite:
-        db_clear_range_for_user(user_id, start_d.isoformat(), end_d.isoformat())
+        db_clear_range_for_user(
+            user_id=user_id,
+            start_iso=start_d.isoformat(),
+            end_iso=end_d.isoformat(),
+        )
 
     rows: List[Dict[str, Any]] = []
 
     for d in next_10_days:
-        day_str = d["day"]
+        day_str = str(d["day"])
         sessions = d.get("sessions") or []
+        if not isinstance(sessions, list):
+            raise ValueError(f"Invalid 'sessions' for day {day_str}")
+
         for idx, sess in enumerate(sessions):
+            if not isinstance(sess, dict):
+                continue
+
             sport = service_canonical_sport(sess.get("sport"))
-            row = {
+            row: Dict[str, Any] = {
                 "user_id": user_id,
                 "plan_date": day_str,
                 "sport": sport,
@@ -132,7 +164,16 @@ def service_upsert_ai_plan_for_user(
             }
             rows.append(row)
 
+    if not rows:
+        raise ValueError("No sessions to save")
+
     inserted = db_insert_planned_sessions(rows)
+
+    print(
+        f"[SERVICE-COACH-PLAN] upsert_ai_plan_for_user user={user_id} "
+        f"plan_id={plan_id} inserted={inserted} "
+        f"range={start_d}..{end_d}"
+    )
 
     return {
         "plan_id": plan_id,
@@ -146,27 +187,90 @@ def service_upsert_ai_plan_for_user(
 
 
 def service_cancel_plan_for_user(user_id: int, plan_id: Optional[str]):
+    """
+    Zruší aktívny plán:
+      - ak plan_id → zmaže len daný plán
+      - inak všetky AI planned sessions od dneška (vrátane)
+    """
     from_iso = None if plan_id else date.today().isoformat()
-    return db_delete_plan_for_user(user_id=user_id, plan_id=plan_id, from_iso=from_iso)
+    deleted = db_delete_plan_for_user(
+        user_id=user_id,
+        plan_id=plan_id,
+        from_iso=from_iso,
+    )
+    print(
+        f"[SERVICE-COACH-PLAN] cancel_plan_for_user user={user_id} "
+        f"plan_id={plan_id} from={from_iso} deleted={deleted}"
+    )
+    return deleted
 
 
 def service_link_session_to_activity(session_id: int, activity_id: Optional[int]):
-    return db_link_session_to_activity(session_id=session_id, activity_id=activity_id)
+    """
+    Manuálne / programové mapovanie planned session ↔ aktivita.
+    activity_id=None → odmapovanie.
+    """
+    updated = db_link_session_to_activity(
+        session_id=session_id,
+        activity_id=activity_id,
+    )
+    print(
+        f"[SERVICE-COACH-PLAN] link_session_to_activity session_id={session_id} "
+        f"activity_id={activity_id} updated={updated}"
+    )
+    return updated
 
 
-def service_reorder_planned_sessions(user_id: int, updates: List[Dict[str, Any]]):
+def service_reorder_planned_sessions(
+    user_id: int,
+    updates: List[Dict[str, Any]],
+):
+    """
+    Batch presun tréningov (plan_date + session_index).
+    """
     if not updates:
         return 0
 
-    norm = []
+    norm: List[Dict[str, Any]] = []
     for u in updates:
-        sid = int(u["id"])
-        date_iso = str(u["plan_date"])
-        _ = service_parse_iso_date(date_iso)
-        idx = int(u.get("session_index", 0))
-        norm.append({"id": sid, "plan_date": date_iso, "session_index": idx})
+        if not isinstance(u, dict):
+            continue
+        sid = u.get("id")
+        plan_date_raw = u.get("plan_date")
+        if sid is None or plan_date_raw is None:
+            continue
 
-    return db_reorder_planned_sessions(user_id=user_id, updates=norm)
+        date_iso = str(plan_date_raw)
+        # ak failne → ValueError (400 v routeri)
+        _ = service_parse_iso_date(date_iso)
+
+        try:
+            sid_int = int(sid)
+        except Exception:
+            raise ValueError(f"Invalid id in updates: {sid!r}")
+
+        try:
+            idx_int = int(u.get("session_index", 0))
+        except Exception:
+            raise ValueError(f"Invalid session_index in updates: {u.get('session_index')!r}")
+
+        norm.append(
+            {
+                "id": sid_int,
+                "plan_date": date_iso,
+                "session_index": idx_int,
+            }
+        )
+
+    if not norm:
+        return 0
+
+    updated = db_reorder_planned_sessions(user_id=user_id, updates=norm)
+    print(
+        f"[SERVICE-COACH-PLAN] reorder_planned_sessions user={user_id} "
+        f"updates={len(norm)} updated={updated}"
+    )
+    return updated
 
 
 # ───────────────────────────── ACTIVE PLAN HORIZON ─────────────────────────────
@@ -175,6 +279,12 @@ PlanHorizon = Tuple[str, str, int]  # (start_iso, end_iso, horizon_days)
 
 
 def _detect_active_plan_horizon(user_id: int) -> PlanHorizon:
+    """
+    Nájde aktívny plán (najnovší plan_id podľa max(plan_date)) a vráti:
+      - start_iso: prvý deň plánu
+      - end_iso: posledný deň plánu
+      - horizon_days: (end_iso - today) v dňoch
+    """
     rows = db_get_planned_sessions_filtered(
         user_id=user_id,
         date_from=None,
@@ -187,32 +297,44 @@ def _detect_active_plan_horizon(user_id: int) -> PlanHorizon:
     by_plan: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
         pid = r.get("plan_id")
-        if pid:
-            by_plan.setdefault(pid, []).append(r)
+        if not pid:
+            continue
+        by_plan.setdefault(str(pid), []).append(r)
 
     if not by_plan:
-        raise ValueError("No plan_id found")
+        raise ValueError("No plan_id found for user")
 
-    # vyber najnovší plán podľa max(plan_date)
-    best_pid = None
-    best_last = None
+    best_pid: Optional[str] = None
+    best_last: Optional[str] = None
+
     for pid, lst in by_plan.items():
-        dates = sorted(str(x["plan_date"])[:10] for x in lst)
+        dates = sorted(str(x["plan_date"])[:10] for x in lst if x.get("plan_date"))
+        if not dates:
+            continue
         last = dates[-1]
         if best_last is None or last > best_last:
             best_last = last
             best_pid = pid
 
-    if not best_pid:
+    if not best_pid or not best_last:
         raise ValueError("Cannot determine active plan")
 
-    # active rows
-    act_rows = [r for r in by_plan[best_pid]]
-    dates = sorted(str(x["plan_date"])[:10] for x in act_rows)
+    active_rows = by_plan[best_pid]
+    dates = sorted(str(x["plan_date"])[:10] for x in active_rows if x.get("plan_date"))
+    if not dates:
+        raise ValueError("Active plan has no dates")
+
     start_iso, end_iso = dates[0], dates[-1]
 
     end_d = service_parse_iso_date(end_iso)
-    horizon = (end_d - date.today()).days
+    today_d = date.today()
+    horizon = (end_d - today_d).days
+
+    print(
+        f"[SERVICE-COACH-PLAN] _detect_active_plan_horizon user={user_id} "
+        f"plan_id={best_pid} start={start_iso} end={end_iso} "
+        f"horizon={horizon}"
+    )
 
     return (start_iso, end_iso, horizon)
 
@@ -226,52 +348,28 @@ def service_extend_active_plan(
 ) -> Dict[str, Any]:
     """
     Udrží aktívny plán tak, aby mal min. X dní dopredu.
-    Toto je skeleton — AI doplníme spolu v ďalšom kroku.
+    TERAZ: len spočíta horizont a NEEXENDUJE (skeleton bez AI).
     """
 
     start_iso, end_iso, horizon = _detect_active_plan_horizon(user_id)
 
+    # zatiaľ len no-op, nech endpoint nespadne
     if horizon >= min_horizon_days:
-        return {
-            "extended_days": 0,
-            "plan_start": start_iso,
-            "plan_end": end_iso,
-            "horizon_days": horizon,
-            "note": "already_sufficient",
-        }
+        note = "already_sufficient"
+    else:
+        note = "extend_not_implemented_yet"
 
-    need_days = min_horizon_days - horizon
-    if need_days <= 0:
-        return {
-            "extended_days": 0,
-            "plan_start": start_iso,
-            "plan_end": end_iso,
-            "horizon_days": horizon,
-            "note": "unexpected_no_extend",
-        }
+    result = {
+        "extended_days": 0,
+        "plan_start": start_iso,
+        "plan_end": end_iso,
+        "horizon_days": horizon,
+        "note": note,
+    }
 
-    # 1) stiahni aktívny plán
-    active_rows = db_get_planned_range_rows(
-        user_id=user_id,
-        start_iso=start_iso,
-        end_iso=end_iso,
-    )
-    if not active_rows:
-        raise ValueError("Active plan has no rows")
-
-    plan_id = str(active_rows[0]["plan_id"])
-
-    # 2) TU príde AI — skeleton
-    raise NotImplementedError(
-        "AI extend mode payload tu doplníme — teraz je služba pripravená."
+    print(
+        f"[SERVICE-COACH-PLAN] extend_active_plan user={user_id} "
+        f"min_horizon={min_horizon_days} -> {result}"
     )
 
-    # 3) Insert nových sessions (po doplnení AI)
-    # inserted = db_insert_planned_sessions(new_rows)
-
-    # return {
-    #     "extended_days": inserted_days,
-    #     "plan_start": start_iso,
-    #     "plan_end": new_end_iso,
-    #     "horizon_days": new_horizon,
-    # }
+    return result
