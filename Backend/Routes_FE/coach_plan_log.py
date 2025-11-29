@@ -249,3 +249,28 @@ def reorder_plan(
         "user_id": user_id,
         "count": len(updates),
     }
+    
+@router.post("/{user_id}/extend")
+def extend_plan(
+    user_id: int,
+    min_horizon_days: int = Query(10, ge=1, le=30),
+):
+    """
+    Zabezpečí, že aktívny plán má aspoň `min_horizon_days` dopredu.
+    - nájde aktívny plan_id
+    - zistí dokedy je naplánovaný
+    - ak horizon >= min_horizon_days → nič nerobí
+    - inak zavolá service, ktorý dopočíta tréningy a vloží ich do DB
+    """
+    try:
+        result = extend_active_plan_for_user(
+            user_id=user_id,
+            min_horizon_days=min_horizon_days,
+        )
+        return {"success": True, **result}
+    except ValueError as e:
+        # logická chyba (napr. žiadny aktívny plán)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
