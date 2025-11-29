@@ -1,4 +1,3 @@
-# Routes_FE/coach_plan_log.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -13,6 +12,7 @@ from Services.coach_plan_log import (
     service_cancel_plan_for_user,
     service_link_session_to_activity,
     service_reorder_planned_sessions,
+    service_extend_active_plan,  # ✅ NOVÝ IMPORT
 )
 
 # JEDEN router pre všetko okolo coach-planu
@@ -42,7 +42,11 @@ def get_planned_range(
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        rows = service_get_planned_range_rows(user_id=user_id, start_iso=start, end_iso=end)
+        rows = service_get_planned_range_rows(
+            user_id=user_id,
+            start_iso=start,
+            end_iso=end,
+        )
         return {
             "success": True,
             "rows": rows,  # PlanDataProvider číta data/rows
@@ -117,13 +121,13 @@ def upsert_plan(
     end = result["end"]
 
     return {
-        "success": True,
-        "plan_id": result["plan_id"],
-        "inserted": result["inserted"],
-        "date_range": {
-            "from": start.isoformat(),
-            "to": end.isoformat(),
-        },
+      "success": True,
+      "plan_id": result["plan_id"],
+      "inserted": result["inserted"],
+      "date_range": {
+          "from": start.isoformat(),
+          "to": end.isoformat(),
+      },
     }
 
 
@@ -249,7 +253,11 @@ def reorder_plan(
         "user_id": user_id,
         "count": len(updates),
     }
-    
+
+
+# ========= EXTEND – doplnenie plánu na min. horizon =========
+
+
 @router.post("/{user_id}/extend")
 def extend_plan(
     user_id: int,
@@ -263,7 +271,7 @@ def extend_plan(
     - inak zavolá service, ktorý dopočíta tréningy a vloží ich do DB
     """
     try:
-        result = extend_active_plan_for_user(
+        result = service_extend_active_plan(
             user_id=user_id,
             min_horizon_days=min_horizon_days,
         )
@@ -273,4 +281,3 @@ def extend_plan(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-    
