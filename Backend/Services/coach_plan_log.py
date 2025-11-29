@@ -1,7 +1,8 @@
+# Services/coach_plan_log.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import date
+from datetime import date, timedelta
 
 from Routes_DB.coach_plan_log import (
     db_insert_planned_session,
@@ -272,18 +273,16 @@ def service_reorder_planned_sessions(
     )
     return updated
 
-
-# ───────────────────────────── ACTIVE PLAN HORIZON ─────────────────────────────
-
 PlanHorizon = Tuple[str, str, int]  # (start_iso, end_iso, horizon_days)
 
 
 def _detect_active_plan_horizon(user_id: int) -> PlanHorizon:
     """
-    Nájde aktívny plán (najnovší plan_id podľa max(plan_date)) a vráti:
-      - start_iso: prvý deň plánu
-      - end_iso: posledný deň plánu
-      - horizon_days: (end_iso - today) v dňoch
+    Nájde aktívny plán a vráti:
+      - earliest plan_date (start_iso)
+      - latest plan_date (end_iso)
+      - horizon_days = (end_iso - today)
+    Vyberá posledný plan_id podľa max(plan_date).
     """
     rows = db_get_planned_sessions_filtered(
         user_id=user_id,
@@ -297,13 +296,13 @@ def _detect_active_plan_horizon(user_id: int) -> PlanHorizon:
     by_plan: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
         pid = r.get("plan_id")
-        if not pid:
-            continue
-        by_plan.setdefault(str(pid), []).append(r)
+        if pid:
+            by_plan.setdefault(str(pid), []).append(r)
 
     if not by_plan:
-        raise ValueError("No plan_id found for user")
+        raise ValueError("No plan_id found")
 
+    # vyber najnovší plán podľa max(plan_date)
     best_pid: Optional[str] = None
     best_last: Optional[str] = None
 
@@ -319,27 +318,23 @@ def _detect_active_plan_horizon(user_id: int) -> PlanHorizon:
     if not best_pid or not best_last:
         raise ValueError("Cannot determine active plan")
 
-    active_rows = by_plan[best_pid]
-    dates = sorted(str(x["plan_date"])[:10] for x in active_rows if x.get("plan_date"))
-    if not dates:
-        raise ValueError("Active plan has no dates")
+    act_rows = [r for r in by_plan[best_pid]]
+    if not act_rows:
+        raise ValueError("Active plan has no rows")
 
+    dates = sorted(str(x["plan_date"])[:10] for x in act_rows if x.get("plan_date"))
     start_iso, end_iso = dates[0], dates[-1]
 
     end_d = service_parse_iso_date(end_iso)
-    today_d = date.today()
-    horizon = (end_d - today_d).days
+    horizon = (end_d - date.today()).days
 
     print(
-        f"[SERVICE-COACH-PLAN] _detect_active_plan_horizon user={user_id} "
-        f"plan_id={best_pid} start={start_iso} end={end_iso} "
+        f"[SERVICE-COACH-PLAN] _detect_active_plan_horizon "
+        f"user={user_id} plan_id={best_pid} start={start_iso} end={end_iso} "
         f"horizon={horizon}"
     )
 
     return (start_iso, end_iso, horizon)
-
-
-# ───────────────────────────── EXTEND ACTIVE PLAN ─────────────────────────────
 
 
 def service_extend_active_plan(
@@ -347,29 +342,153 @@ def service_extend_active_plan(
     min_horizon_days: int = 10,
 ) -> Dict[str, Any]:
     """
-    Udrží aktívny plán tak, aby mal min. X dní dopredu.
-    TERAZ: len spočíta horizont a NEEXENDUJE (skeleton bez AI).
+    Udrží aktívny plán tak, aby mal min. `min_horizon_days` dopredu.
+
+    V1 (bez AI):
+      - nájde aktívny plán (najnovší plan_id)
+      - ak už máš horizon >= min_horizon_days → nič nerobí
+      - inak vezme posledných max 7 dní ako pattern
+      - tento pattern skopíruje ďalej do budúcnosti (plan_date),
+        activity_id = None, source = 'ai_extend'
     """
+    if min_horizon_days < 1:
+        min_horizon_days = 1
 
     start_iso, end_iso, horizon = _detect_active_plan_horizon(user_id)
 
-    # zatiaľ len no-op, nech endpoint nespadne
-    if horizon >= min_horizon_days:
-        note = "already_sufficient"
-    else:
-        note = "extend_not_implemented_yet"
+    today_d = date.today()
+    end_d = service_parse_iso_date(end_iso)
 
-    result = {
-        "extended_days": 0,
-        "plan_start": start_iso,
-        "plan_end": end_iso,
-        "horizon_days": horizon,
-        "note": note,
-    }
+    if horizon >= min_horizon_days:
+        return {
+            "extended_days": 0,
+            "plan_start": start_iso,
+            "plan_end": end_iso,
+            "horizon_days": horizon,
+            "note": "already_sufficient",
+        }
+
+    need_days = min_horizon_days - horizon
+    if need_days <= 0:
+        return {
+            "extended_days": 0,
+            "plan_start": start_iso,
+            "plan_end": end_iso,
+            "horizon_days": horizon,
+            "note": "unexpected_no_extend",
+        }
+
+    # 1) načítaj všetky riadky aktívneho plánu v rozsahu
+    active_rows = db_get_planned_range_rows(
+        user_id=user_id,
+        start_iso=start_iso,
+        end_iso=end_iso,
+    )
+    if not active_rows:
+        raise ValueError("Active plan has no rows")
+
+    plan_id = str(active_rows[0].get("plan_id") or "")
+
+    if not plan_id:
+        raise ValueError("Active plan rows have no plan_id")
+
+    # 2) poskladaj pattern podľa dní (posledných max 7 dní)
+    by_date: Dict[str, List[Dict[str, Any]]] = {}
+    for r in active_rows:
+        d_iso = str(r.get("plan_date") or "")[:10]
+        if not d_iso:
+            continue
+        by_date.setdefault(d_iso, []).append(r)
+
+    all_dates_sorted = sorted(by_date.keys())
+    if not all_dates_sorted:
+        raise ValueError("Active plan has no valid dates")
+
+    # pattern = posledných max 7 dní plánu
+    pattern_dates = all_dates_sorted[-7:]
+    pattern_len = len(pattern_dates)
+
+    print(
+      f"[SERVICE-COACH-PLAN] extend_active_plan user={user_id} "
+      f"plan_id={plan_id} pattern_dates={pattern_dates} "
+      f"need_days={need_days}"
+    )
+
+    new_rows: List[Dict[str, Any]] = []
+    # začíname deň po aktuálnom end_d
+    cur = end_d
+
+    # ensure myDays = need_days ale nech nerobíme niečo úplne šialené
+    max_days_safe = max(need_days, 0)
+    if max_days_safe > 60:  # bezpečnostná brzda
+        max_days_safe = 60
+
+    for offset in range(1, max_days_safe + 1):
+        new_d = cur + timedelta(days=offset)
+        new_iso = new_d.isoformat()
+
+        # vyber pattern deň – “cyklovanie” cez pattern_dates
+        pattern_idx = (offset - 1) % pattern_len
+        src_day_iso = pattern_dates[pattern_idx]
+        src_rows = by_date.get(src_day_iso, [])
+
+        # skopíruj všetky sessions z daného pattern dňa
+        for sess in src_rows:
+            # base fields – odstránime veci, ktoré sa nemajú kopírovať
+            new_row: Dict[str, Any] = {
+                "user_id": user_id,
+                "plan_date": new_iso,
+                "sport": sess.get("sport"),
+                "title": sess.get("title"),
+                "duration_min": sess.get("duration_min"),
+                "intensity": sess.get("intensity"),
+                "zone_text": sess.get("zone_text"),
+                "structure": sess.get("structure"),
+                "notes": sess.get("notes"),
+                "source": "ai_extend",
+                "plan_id": plan_id,
+                "session_type": sess.get("session_type"),
+                "session_index": sess.get("session_index") or 0,
+                "payload": sess.get("payload"),
+                "activity_id": None,
+            }
+            new_rows.append(new_row)
+
+    if not new_rows:
+        return {
+            "extended_days": 0,
+            "plan_start": start_iso,
+            "plan_end": end_iso,
+            "horizon_days": horizon,
+            "note": "no_rows_generated",
+        }
+
+    inserted = db_insert_planned_sessions(new_rows)
+
+    # nový end = posledný dátum, ktorý sme pridali
+    new_dates = {r["plan_date"] for r in new_rows if r.get("plan_date")}
+    if new_dates:
+        new_end_iso = max(new_dates)
+    else:
+        new_end_iso = end_iso
+
+    new_end_d = service_parse_iso_date(new_end_iso)
+    new_horizon = (new_end_d - today_d).days
 
     print(
         f"[SERVICE-COACH-PLAN] extend_active_plan user={user_id} "
-        f"min_horizon={min_horizon_days} -> {result}"
+        f"plan_id={plan_id} inserted_rows={inserted} "
+        f"old_end={end_iso} new_end={new_end_iso} new_horizon={new_horizon}"
     )
 
-    return result
+    # extended_days = počet nových unikátnych dní (nie počet riadkov)
+    extended_days = len(new_dates)
+
+    return {
+        "extended_days": extended_days,
+        "plan_start": start_iso,
+        "plan_end": new_end_iso,
+        "horizon_days": new_horizon,
+        "inserted_rows": inserted,
+        "note": "extended_pattern_copy",
+    }
