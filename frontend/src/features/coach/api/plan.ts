@@ -153,8 +153,6 @@ export async function apiUpdateActivePlan(userId: number) {
  * Manuálne prelinkovanie jednej planned session na aktivitu.
  * activityId = null → odmapovanie.
  */
-// NOVÉ: ručné mapovanie plán ↔ aktivita
-
 export async function apiSavePlanActivityLink(
   userId: number,
   sessionId: number,
@@ -194,13 +192,13 @@ export async function apiSavePlanActivityLink(
 // --- BATCH REORDER / PRESUN PLÁNU (drag & drop board) -------------------
 export type PlanReorderUpdate = {
   id: number;
-  plan_date: string;      // "YYYY-MM-DD" – nový deň
-  session_index: number;  // nové poradie v danom dni (0-based)
+  plan_date: string; // "YYYY-MM-DD" – nový deň
+  session_index: number; // nové poradie v danom dni (0-based)
 };
 
 /**
  * Uloží zmeny v pláne (presuny medzi dňami + nové poradie).
- * - BE endpoint si potom vieš spraviť napr. na: POST /coach-plan-reorder/{user_id}
+ * - BE endpoint: POST /coach-plan/{user_id}/reorder
  * - updates: len zmenené riadky (id + nový plan_date + session_index)
  */
 export async function apiSavePlanReorder(
@@ -208,7 +206,10 @@ export async function apiSavePlanReorder(
   updates: Array<{ id: number; plan_date: string; session_index: number }>
 ): Promise<{ success: boolean }> {
   if (!API_URL) {
-    console.warn("[coach.plan] savePlanReorder – missing API_URL", { userId, updates });
+    console.warn("[coach.plan] savePlanReorder – missing API_URL", {
+      userId,
+      updates,
+    });
     return { success: false };
   }
 
@@ -228,4 +229,61 @@ export async function apiSavePlanReorder(
   }
 
   return { success: false };
+}
+
+// --- EXTEND ACTIVE PLAN HORIZON (AI dopĺňanie) -------------------
+
+export type ExtendPlanResult = {
+  success: boolean;
+  via: "api" | "none";
+  extended_days?: number;
+  plan_start?: string;
+  plan_end?: string;
+  horizon_days?: number;
+  note?: string;
+};
+
+/**
+ * Zavolá BE endpoint, ktorý udrží aktívny plán minimálne na X dní dopredu.
+ * BE: POST /coach-plan/{user_id}/extend?min_horizon_days=10
+ */
+export async function apiExtendActivePlan(
+  userId: number,
+  minHorizonDays: number = 10
+): Promise<ExtendPlanResult> {
+  if (!API_URL) {
+    console.warn("[coach.plan] extendActivePlan – missing API_URL", {
+      userId,
+      minHorizonDays,
+    });
+    return { success: false, via: "none" };
+  }
+
+  const url = `${API_URL}/coach-plan/${userId}/extend?min_horizon_days=${encodeURIComponent(
+    String(minHorizonDays)
+  )}`;
+
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  }).catch((err) => {
+    console.error("[coach.plan] extendActivePlan fetch error", err);
+    return null;
+  });
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    console.log("[coach.plan] extendActivePlan response", j);
+    return {
+      success: !!j?.success,
+      via: "api",
+      extended_days: j?.extended_days,
+      plan_start: j?.plan_start,
+      plan_end: j?.plan_end,
+      horizon_days: j?.horizon_days,
+      note: j?.note,
+    };
+  }
+
+  return { success: false, via: "api" };
 }
