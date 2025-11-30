@@ -255,26 +255,58 @@ def reorder_plan(
         "count": len(updates),
     }
 
+
+
 @router.post("/{user_id}/extend")
 def extend_plan(
     user_id: int,
     min_horizon_days: int = Query(10, ge=1, le=30),
 ):
     """
-    Zabezpečí, že aktívny plán má aspoň `min_horizon_days` dní dopredu.
-    - nájde aktívny plan_id
-    - zistí dokedy je naplánovaný
-    - ak horizon >= min_horizon_days → nič nerobí
-    - inak zavolá AI, ktorá doplní tréningy do existujúceho plan_id
+    Rozšíri aktívny plán tak, aby mal aspoň `min_horizon_days` dní dopredu.
+    FE očakáva:
+      {
+        success: bool,
+        extended_days: int,
+        plan_start: str,
+        plan_end: str,
+        horizon_days: int,
+        inserted_rows?: int,
+        note?: str
+      }
     """
     try:
-        result = service_extend_active_plan(
+      # raw result zo service
+        raw = service_extend_active_plan(
             user_id=user_id,
             min_horizon_days=min_horizon_days,
         )
-        return {"success": True, **result}
+        # raw má pravdepodobne tvar:
+        # {
+        #   "plan_id": ...,
+        #   "extended_days": int,
+        #   "inserted_sessions": int,
+        #   "old_end": "YYYY-MM-DD",
+        #   "new_end": "YYYY-MM-DD",
+        #   "horizon_days": int,
+        #   "need_days": int,
+        #   "note": str,
+        # }
+
+        plan_start = raw.get("plan_start") or raw.get("start_iso") or ""
+        plan_end = raw.get("plan_end") or raw.get("new_end") or raw.get("old_end") or ""
+
+        return {
+            "success": True,
+            "extended_days": int(raw.get("extended_days") or 0),
+            "plan_start": plan_start,
+            "plan_end": plan_end,
+            "horizon_days": int(raw.get("horizon_days") or 0),
+            "inserted_rows": int(raw.get("inserted_sessions") or 0),
+            "note": raw.get("note") or "",
+        }
     except ValueError as e:
-        # logická chyba (napr. žiadny aktívny plán)
+        # napr. keď user nemá žiadny aktívny plán
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
