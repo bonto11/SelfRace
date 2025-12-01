@@ -507,7 +507,7 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
-    weeks = int(context_payload.get("weeks") or 6)
+    planned_weeks = max(1, min(int(context_payload.get("weeks") or 6), 12))
     voice_desc = _describe_coach_voice(context_payload.get("voice") or {})
 
     primary_sports_raw = context_payload.get("primary_sports") or []
@@ -559,10 +559,12 @@ def _build_prompts(context_payload: dict, schema_text: str) -> Tuple[str, str]:
         # STRENGTH
         "Strength sessions MUST include `exercises` array (3–8 items). Each exercise: {name, sets, reps OR seconds, rest_sec}. Use only equipment that the athlete has available (see context).",
 
-        # weeks_overview
-        f"Include `weeks_overview` as an array of up to {min(weeks, 12)} short strings.",
-        "Each item in `weeks_overview` should summarize one upcoming training week (e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume').",
-        "Keep every `weeks_overview` item <= 120 characters and very concise.",
+       # weeks_overview
+        f"Include weeks_overview as an array of exactly {planned_weeks} short strings (one per planned training week).",
+        f"You MUST return {planned_weeks} items in weeks_overview – do not skip or omit any week.",
+        "Each item in weeks_overview should summarize that week "
+        "(e.g. 'Week 1: 3 runs, 1 strength, focus on Z2 volume'), "
+        "and must be <= 120 characters and very concise.",
 
         # SESSION TYPE – via katalog
         "Each session MUST include `session_type` (string).",
