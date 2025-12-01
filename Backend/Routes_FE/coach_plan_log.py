@@ -1,3 +1,4 @@
+# Routes_FE/coach_plan_log.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -12,9 +13,9 @@ from Services.coach_plan_log import (
     service_cancel_plan_for_user,
     service_link_session_to_activity,
     service_reorder_planned_sessions,
-    service_extend_active_plan,
 )
-from Services.coach_plan_upgrade import service_extend_active_plan
+from Services.coach_plan_extend import service_extend_active_plan
+from Services.coach_plan_continue import service_continue_active_plan
 
 # JEDEN router pre všetko okolo coach-planu
 router = APIRouter(prefix="/coach-plan", tags=["coach-plan"])
@@ -122,14 +123,45 @@ def upsert_plan(
     end = result["end"]
 
     return {
-      "success": True,
-      "plan_id": result["plan_id"],
-      "inserted": result["inserted"],
-      "date_range": {
-          "from": start.isoformat(),
-          "to": end.isoformat(),
-      },
+        "success": True,
+        "plan_id": result["plan_id"],
+        "inserted": result["inserted"],
+        "date_range": {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+        },
     }
+
+
+# ========= PATCH – CONTINUE (pokračovanie plánu) =========
+
+
+@router.patch("/{user_id}")
+def patch_plan(
+    user_id: int,
+    payload: Dict[str, Any] = Body(...),
+):
+    """
+    UPDATE / CONTINUE plánu.
+    action:
+      - "continue"  → AI pokračuje v existujúcom cykle
+    """
+    action = (payload or {}).get("action") or "continue"
+
+    if action == "continue":
+        min_horizon_days = int(payload.get("min_horizon_days", 10))
+        try:
+            result = service_continue_active_plan(
+                user_id=user_id,
+                min_horizon_days=min_horizon_days,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail=str(e))
+        return result
+
+    raise HTTPException(status_code=400, detail=f"Unknown action '{action}'")
 
 
 # ========= DELETE – zrušenie plánu =========
@@ -256,6 +288,8 @@ def reorder_plan(
     }
 
 
+# ========= EXTEND – doplnenie horizontu (AI) =========
+
 
 @router.post("/{user_id}/extend")
 def extend_plan(
@@ -276,22 +310,10 @@ def extend_plan(
       }
     """
     try:
-      # raw result zo service
         raw = service_extend_active_plan(
             user_id=user_id,
             min_horizon_days=min_horizon_days,
         )
-        # raw má pravdepodobne tvar:
-        # {
-        #   "plan_id": ...,
-        #   "extended_days": int,
-        #   "inserted_sessions": int,
-        #   "old_end": "YYYY-MM-DD",
-        #   "new_end": "YYYY-MM-DD",
-        #   "horizon_days": int,
-        #   "need_days": int,
-        #   "note": str,
-        # }
 
         plan_start = raw.get("plan_start") or raw.get("start_iso") or ""
         plan_end = raw.get("plan_end") or raw.get("new_end") or raw.get("old_end") or ""

@@ -14,9 +14,9 @@ import PlanActive from "@/features/coach/components/PlanActive";
 
 import {
   apiSaveActivePlan,
-  apiUpdateActivePlan,
   apiCancelActivePlan,
   apiExtendActivePlan,
+  apiUpdateActivePlan,
   type ExtendPlanResult,
 } from "@/features/coach/api/plan";
 import { apiGetPrefs } from "@/features/coach/api/prefs";
@@ -481,21 +481,31 @@ export default function CoachPlanActions() {
     }
   }, [userId, analysis, prefs, refreshPlan]);
 
-  // Update plan (BE reconcile)
-  const handleUpdate = useCallback(async () => {
+  // Continue plan (cyklus – AI pokračovanie podľa doterajšieho priebehu)
+  const handleContinue = useCallback(async () => {
     try {
       if (!userId) throw new Error("Chýba userId.");
-      const updated = await apiUpdateActivePlan(userId);
-      if (updated && typeof window !== "undefined") {
-        localStorage.setItem("coach.active", JSON.stringify(updated));
+      setErr(null);
+      setExtending(true);
+
+      const res: any = await apiUpdateActivePlan(userId);
+      console.log("[CoachPlanActions] continue result", res);
+
+      if (!res || res.success === false) {
+        throw new Error(res?.note || "Continue failed");
       }
+
+      // reuse extendInfo aj pre continue – zobrazíme horizont/poznámku, čo BE pošle
+      setExtendInfo(res as ExtendPlanResult);
       await refreshPlan(true);
     } catch (e: any) {
-      setErr(e?.message || "Update failed");
+      setErr(e?.message || "Continue failed");
+    } finally {
+      setExtending(false);
     }
   }, [userId, refreshPlan]);
 
-  // Extend plan (AI doplnenie horizon)
+  // Extend plan (AI doplnenie čistého horizontu)
   const handleExtend = useCallback(async () => {
     try {
       if (!userId) throw new Error("Chýba userId.");
@@ -660,12 +670,19 @@ export default function CoachPlanActions() {
         </Button>
 
         <Button
-          onClick={handleUpdate}
-          disabled={!canUpdate}
-          variant="primary"
+          onClick={handleContinue}
+          disabled={!canUpdate || !canExtend}
+          variant="secondary"
           size="sm"
         >
-          Update plan
+          {extending ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="button" />
+              Continuing…
+            </span>
+          ) : (
+            "Continue plan (10d)"
+          )}
         </Button>
 
         <Button

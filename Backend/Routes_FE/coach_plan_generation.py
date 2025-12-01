@@ -208,9 +208,6 @@ def _best_zones_for_context(norm: dict, ctx: dict) -> dict:
     return {}
 
 # --------- HARD CONSTRAINTS helpers ---------
-def _iso(d) -> str:
-    return time.strftime("%Y-%m-%d", time.gmtime(d))
-
 def _compute_no_sessions_on(
     plan_start_iso: Optional[str],
     weeks: int,

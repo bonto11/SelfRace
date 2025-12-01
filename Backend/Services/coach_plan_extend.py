@@ -18,10 +18,10 @@ from Services.coach_plan_log import (
     service_hr_zone_text,
 )
 
-PlanHorizon = Tuple[str, str, int]  # (start_iso, end_iso, horizon_days)
+PlanHorizon = Tuple[str, str, str, int]  # (plan_id, start_iso, end_iso, horizon_days)
 
 
-def _detect_active_plan_horizon(user_id: int) -> Tuple[str, str, int, str]:
+def _detect_active_plan_horizon(user_id: int) -> PlanHorizon:
     """
     Nájde aktívny plán a vráti:
       - plan_id
@@ -88,12 +88,12 @@ def _detect_active_plan_horizon(user_id: int) -> Tuple[str, str, int, str]:
     horizon_days = max(0, (end_d - today).days)
 
     print(
-        f"[SERVICE-PLAN-UPGRADE] active_plan user={user_id} "
+        f"[SERVICE-PLAN-EXTEND] active_plan user={user_id} "
         f"plan_id={best_pid} start={start_iso} end={end_iso} "
         f"horizon_days={horizon_days}"
     )
 
-    return best_pid, start_iso, end_iso, horizon_days
+    return str(best_pid), str(start_iso), str(end_iso), int(horizon_days)
 
 
 def _compute_no_sessions_on(
@@ -215,7 +215,7 @@ def service_extend_active_plan(
 
     if horizon_days >= min_horizon_days:
         print(
-            f"[SERVICE-PLAN-UPGRADE] already sufficient "
+            f"[SERVICE-PLAN-EXTEND] already sufficient "
             f"user={user_id} plan_id={plan_id} horizon={horizon_days}"
         )
         return {
@@ -242,7 +242,7 @@ def service_extend_active_plan(
     new_start_iso = start_extend_d.isoformat()
 
     print(
-        f"[SERVICE-PLAN-UPGRADE] extend user={user_id} plan_id={plan_id} "
+        f"[SERVICE-PLAN-EXTEND] extend user={user_id} plan_id={plan_id} "
         f"need_days={need_days} new_start={new_start_iso}"
     )
 
@@ -320,7 +320,7 @@ def service_extend_active_plan(
     }
 
     print(
-        f"[SERVICE-PLAN-UPGRADE] calling LLM user={user_id} "
+        f"[SERVICE-PLAN-EXTEND] calling LLM user={user_id} "
         f"model={DEFAULT_MODEL} first_n_days={first_n_days}"
     )
 
@@ -358,7 +358,7 @@ def service_extend_active_plan(
         filtered_days.append({"day": day_iso, "sessions": d.get("sessions") or []})
 
     if not filtered_days:
-        print("[SERVICE-PLAN-UPGRADE] no extend days after filtering, nothing inserted.")
+        print("[SERVICE-PLAN-EXTEND] no extend days after filtering, nothing inserted.")
         return {
             "plan_id": plan_id,
             "extended_days": 0,
@@ -413,7 +413,7 @@ def service_extend_active_plan(
             new_rows.append(row)
 
     if not new_rows:
-        print("[SERVICE-PLAN-UPGRADE] new_rows empty after mapping, nothing inserted.")
+        print("[SERVICE-PLAN-EXTEND] new_rows empty after mapping, nothing inserted.")
         return {
             "plan_id": plan_id,
             "extended_days": 0,
@@ -427,7 +427,7 @@ def service_extend_active_plan(
     inserted = db_insert_planned_sessions(new_rows)
 
     # nový end = max pôvodný end + najnovší z nových dní
-    unique_days = sorted({r["plan_date"] for r in new_rows})
+    unique_days = sorted({str(r["plan_date"]) for r in new_rows})
     new_end_iso = max([end_iso] + unique_days)
 
     try:
@@ -438,7 +438,7 @@ def service_extend_active_plan(
     new_horizon = max(0, (new_end_d - today).days)
 
     print(
-        f"[SERVICE-PLAN-UPGRADE] done user={user_id} plan_id={plan_id} "
+        f"[SERVICE-PLAN-EXTEND] done user={user_id} plan_id={plan_id} "
         f"inserted_rows={inserted} unique_days={len(unique_days)} "
         f"old_end={end_iso} new_end={new_end_iso} new_horizon={new_horizon}"
     )

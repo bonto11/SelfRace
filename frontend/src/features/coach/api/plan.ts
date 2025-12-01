@@ -119,7 +119,8 @@ export async function apiCancelActivePlan(
   }
 }
 
-// staré load/update si nechaj ako sú, ak ich používaš inde
+// --- CONTINUE / UPDATE ACTIVE PLAN ---------------------------------
+
 export async function apiUpdateActivePlan(userId: number) {
   if (!API_URL) {
     try {
@@ -133,12 +134,19 @@ export async function apiUpdateActivePlan(userId: number) {
   const r = await fetch(`${API_URL}/coach-plan/${userId}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action: "reconcile" }),
-  }).catch(() => null);
+    body: JSON.stringify({
+      action: "continue",
+      min_horizon_days: 10, // koľko dní dopredu chceme držať
+    }),
+  }).catch((err) => {
+    console.error("[coach.plan] update/continue fetch error", err);
+    return null;
+  });
 
   if (r && r.ok) {
     const j = await r.json().catch(() => ({}));
-    return j?.plan ?? null;
+    console.log("[coach.plan] update/continue response", j);
+    return j ?? null;
   }
 
   try {

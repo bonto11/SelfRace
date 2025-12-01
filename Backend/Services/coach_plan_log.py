@@ -5,10 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
 from Routes_DB.coach_plan_log import (
-    db_insert_planned_session,
     db_insert_planned_sessions,
-    db_update_planned_session,
-    db_delete_planned_session,
     db_fetch_plan_rows_in_range,
     db_get_planned_range_rows,
     db_get_planned_sessions_filtered,
