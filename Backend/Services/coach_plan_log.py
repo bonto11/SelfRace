@@ -127,6 +127,8 @@ def _build_weekly_rows_for_plan(
          week_index = poradie
          week_start/week_end dopočítame od plan_start
     """
+
+    print("_build_weekly_rows_for_plan weekly_raw",weekly_raw)
     if weekly_raw is None:
         return []
 
@@ -142,6 +144,7 @@ def _build_weekly_rows_for_plan(
         print("[SERVICE-COACH-PLAN] _build_weekly_rows_for_plan unknown weekly_raw format")
         return []
 
+    print("_build_weekly_rows_for_plan weeks_list",weeks_list)
     if not weeks_list:
         return []
 
@@ -312,6 +315,7 @@ def service_upsert_ai_plan_for_user(
     # --- WEEKLY rows (voliteľné) ---
     weekly_rows: List[Dict[str, Any]] = []
     if weekly is not None:
+        print("weekly_weekly",weekly)
         weekly_rows = _build_weekly_rows_for_plan(
             user_id=user_id,
             plan_id=plan_id,

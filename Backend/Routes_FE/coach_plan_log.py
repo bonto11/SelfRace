@@ -107,8 +107,6 @@ def upsert_plan(
     weekly = payload.get("weekly") or payload.get("weeks_overview") or None
     meta = payload.get("meta") or None
 
-    print("weekly",weekly)
-    
     try:
         result = service_upsert_ai_plan_for_user(
             user_id=user_id,
