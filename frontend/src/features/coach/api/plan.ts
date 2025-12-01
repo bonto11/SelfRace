@@ -120,15 +120,20 @@ export async function apiCancelActivePlan(
 }
 
 // --- CONTINUE / UPDATE ACTIVE PLAN ---------------------------------
-
-export async function apiUpdateActivePlan(userId: number) {
+export async function apiContinuePlan(
+  userId: number,
+  minHorizonDays = 10
+): Promise<ExtendPlanResult> {
   if (!API_URL) {
-    try {
-      const raw = localStorage.getItem("coach.active");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+    console.warn("[coach.plan] continueActivePlan – missing API_URL");
+    return {
+      success: false,
+      extended_days: 0,
+      plan_start: "",
+      plan_end: "",
+      horizon_days: 0,
+      note: "missing_api_url",
+    };
   }
 
   const r = await fetch(`${API_URL}/coach-plan/${userId}`, {
@@ -136,25 +141,27 @@ export async function apiUpdateActivePlan(userId: number) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       action: "continue",
-      min_horizon_days: 10, // koľko dní dopredu chceme držať
+      min_horizon_days: minHorizonDays,
     }),
   }).catch((err) => {
-    console.error("[coach.plan] update/continue fetch error", err);
+    console.error("[coach.plan] continueActivePlan fetch error", err);
     return null;
   });
 
   if (r && r.ok) {
     const j = await r.json().catch(() => ({}));
-    console.log("[coach.plan] update/continue response", j);
-    return j ?? null;
+    // BE vráti { success: True, ... } – typovo to sedí na ExtendPlanResult
+    return j as ExtendPlanResult;
   }
 
-  try {
-    const raw = localStorage.getItem("coach.active");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  return {
+    success: false,
+    extended_days: 0,
+    plan_start: "",
+    plan_end: "",
+    horizon_days: 0,
+    note: "http_error",
+  };
 }
 
 /**

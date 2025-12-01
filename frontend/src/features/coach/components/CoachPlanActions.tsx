@@ -16,7 +16,7 @@ import {
   apiSaveActivePlan,
   apiCancelActivePlan,
   apiExtendActivePlan,
-  apiUpdateActivePlan,
+  apiContinuePlan,
   type ExtendPlanResult,
 } from "@/features/coach/api/plan";
 import { apiGetPrefs } from "@/features/coach/api/prefs";
@@ -41,7 +41,7 @@ import { API_URL as RAW_API_URL } from "@/shared/config";
 // ──────────────────────────── konštanty ────────────────────────────
 
 const API_URL: string = RAW_API_URL ?? "";
-const COACH_DEBUG = false;
+const COACH_DEBUG = true;
 
 // ──────────────────────────── typy pre steps ───────────────────────
 
@@ -488,7 +488,7 @@ export default function CoachPlanActions() {
       setErr(null);
       setExtending(true);
 
-      const res: any = await apiUpdateActivePlan(userId);
+      const res: any = await apiContinuePlan(userId);
       console.log("[CoachPlanActions] continue result", res);
 
       if (!res || res.success === false) {
@@ -669,9 +669,10 @@ export default function CoachPlanActions() {
           Start plan
         </Button>
 
+        {/* CONTINUE → používa handleContinue */}
         <Button
           onClick={handleContinue}
-          disabled={!canUpdate || !canExtend}
+          disabled={!canExtend}
           variant="secondary"
           size="sm"
         >
@@ -685,6 +686,7 @@ export default function CoachPlanActions() {
           )}
         </Button>
 
+        {/* EXTEND → používa handleExtend */}
         <Button
           onClick={handleExtend}
           disabled={!canExtend}

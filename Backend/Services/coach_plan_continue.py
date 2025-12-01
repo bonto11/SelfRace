@@ -1,7 +1,7 @@
 # Services/coach_plan_continue.py
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from datetime import date as _date, timedelta
 
 from Configs.config import DEFAULT_MODEL
@@ -22,25 +22,24 @@ from Services.coach_plan_extend import (
     _fix_offdays_and_per_day_limit,
 )
 
-
 def service_continue_active_plan(
     user_id: int,
     min_horizon_days: int = 10,
 ) -> Dict[str, Any]:
     """
     Pokračovanie v aktívnom pláne (AI doplní ďalšie dni tak, aby
-    bol horizon aspoň `min_horizon_days` dní dopredu), ale s vedomím,
-    v ktorom týždni cyklu sa nachádzame.
+    bol horizon aspoň `min_horizon_days` dní dopredu).
+
+    - nájde aktívny plan_id
+    - zistí dokedy je plán
+    - ak horizon >= min_horizon_days → nič nerobí
+    - inak zavolá AI a doplní nové dni do toho istého plan_id
     """
     if min_horizon_days < 1:
         min_horizon_days = 1
 
     # 1) zisti aktívny plán
     plan_id, start_iso, end_iso, horizon_days = _detect_active_plan_horizon(user_id)
-    plan_id = str(plan_id)
-    start_iso = str(start_iso)
-    end_iso = str(end_iso)
-    horizon_days = int(horizon_days)
 
     today = _date.today()
 
@@ -56,6 +55,7 @@ def service_continue_active_plan(
             "old_end": end_iso,
             "new_end": end_iso,
             "horizon_days": horizon_days,
+            "need_days": 0,
             "note": "already_sufficient",
         }
 
@@ -70,6 +70,9 @@ def service_continue_active_plan(
     # začiatok continue bloku – od nasledujúceho dňa po konci plánu, ale min. od dnes
     start_extend_d = max(today, old_end_d + timedelta(days=1))
     new_start_iso = start_extend_d.isoformat()
+
+    # originálny začiatok cyklu (pre info o tom, v ktorom týždni sme)
+    plan_start_iso = start_iso
 
     print(
         f"[SERVICE-PLAN-CONTINUE] continue user={user_id} plan_id={plan_id} "
@@ -112,9 +115,8 @@ def service_continue_active_plan(
         externals=externals,
     )
 
-    # --- v ktorom týždni cyklu sme? ---
-    cycle_week_index = None
-    plan_start_iso = start_iso
+    # --- v ktorom týždni cyklu sme? (podľa pôvodného start_iso) ---
+    cycle_week_index: Optional[int] = None
     try:
         start_d = _date.fromisoformat(plan_start_iso[:10])
         delta_days = (today - start_d).days
@@ -122,9 +124,9 @@ def service_continue_active_plan(
             cycle_week_index = (delta_days // 7) + 1
     except Exception:
         cycle_week_index = None
-    # -----------------------------------
+    # --------------------------------------------------------------
 
-    # 3) vstup pre LLM – podobné ako coach_analyze, ale s "cycle"
+    # 3) vstup pre LLM – podobné ako coach_analyze, ale s info o "cycle"
     first_n_days = max(7, min(10, need_days))
 
     llm_input = {
@@ -141,7 +143,8 @@ def service_continue_active_plan(
         "focus": prefs.get("focus") or {},
         "intensity_model": prefs.get("intensity_model"),
         "blocks": prefs.get("blocks"),
-        "plan_start_date": plan_start_iso,
+        # DÔLEŽITÉ: generuj od new_start_iso, nie od pôvodného začiatku
+        "plan_start_date": new_start_iso,
         "strength_settings": prefs.get("strength_settings"),
         "first_n_days": first_n_days,
         "weeks": weeks,
@@ -207,7 +210,9 @@ def service_continue_active_plan(
         filtered_days.append({"day": day_iso, "sessions": d.get("sessions") or []})
 
     if not filtered_days:
-        print("[SERVICE-PLAN-CONTINUE] no continue days after filtering, nothing inserted.")
+        print(
+            "[SERVICE-PLAN-CONTINUE] no continue days after filtering, nothing inserted."
+        )
         return {
             "plan_id": plan_id,
             "extended_days": 0,
@@ -215,6 +220,7 @@ def service_continue_active_plan(
             "old_end": end_iso,
             "new_end": end_iso,
             "horizon_days": horizon_days,
+            "need_days": need_days,
             "note": "no_new_days_from_ai",
         }
 
@@ -262,7 +268,9 @@ def service_continue_active_plan(
             new_rows.append(row)
 
     if not new_rows:
-        print("[SERVICE-PLAN-CONTINUE] new_rows empty after mapping, nothing inserted.")
+        print(
+            "[SERVICE-PLAN-CONTINUE] new_rows empty after mapping, nothing inserted."
+        )
         return {
             "plan_id": plan_id,
             "extended_days": 0,
@@ -270,13 +278,14 @@ def service_continue_active_plan(
             "old_end": end_iso,
             "new_end": end_iso,
             "horizon_days": horizon_days,
+            "need_days": need_days,
             "note": "no_sessions_after_mapping",
         }
 
     inserted = db_insert_planned_sessions(new_rows)
 
     # nový end = max pôvodný end + najnovší z nových dní
-    unique_days = sorted({str(r["plan_date"]) for r in new_rows})
+    unique_days = sorted({r["plan_date"] for r in new_rows})
     new_end_iso = max([end_iso] + unique_days)
 
     try:

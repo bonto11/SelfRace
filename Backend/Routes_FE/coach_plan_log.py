@@ -142,16 +142,16 @@ def patch_plan(
     payload: Dict[str, Any] = Body(...),
 ):
     """
-    UPDATE / CONTINUE plánu.
-    action:
-      - "continue"  → AI pokračuje v existujúcom cykle
+    Patch pre coach-plan:
+      - action="reconcile" → (staré správanie, ak používaš)
+      - action="continue" → pokračovanie plánu cez AI
     """
-    action = (payload or {}).get("action") or "continue"
+    action = (payload.get("action") or "reconcile").strip()
 
     if action == "continue":
-        min_horizon_days = int(payload.get("min_horizon_days", 10))
+        min_horizon_days = int(payload.get("min_horizon_days") or 10)
         try:
-            result = service_continue_active_plan(
+            raw = service_continue_active_plan(
                 user_id=user_id,
                 min_horizon_days=min_horizon_days,
             )
@@ -159,9 +159,14 @@ def patch_plan(
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:  # noqa: BLE001
             raise HTTPException(status_code=500, detail=str(e))
-        return result
 
-    raise HTTPException(status_code=400, detail=f"Unknown action '{action}'")
+        return {
+            "success": True,
+            **raw,
+        }
+
+    # prípadne tu nechaj pôvodný reconcile branch, ak ho potrebuješ
+    ...
 
 
 # ========= DELETE – zrušenie plánu =========
