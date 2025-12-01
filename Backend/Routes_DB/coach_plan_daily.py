@@ -1,10 +1,10 @@
-# Routes_DB/coach_plan_log.py
+# Routes_DB/coach_plan_daily.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
 from Modules.SQL.db_handler import get_client
-from Configs.config import TABLE_COACH_PLANNED_SESSIONS
+from Configs.config import TABLE_COACH_PLAN_DAILY
 
 supabase = get_client()
 
@@ -17,7 +17,7 @@ def db_insert_planned_session(data: Dict[str, Any]) -> Dict[str, Any]:
     Vloží jeden riadok do coach_planned_sessions.
     """
     res = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .insert(data)
         .execute()
     )
@@ -34,7 +34,7 @@ def db_insert_planned_sessions(rows: List[Dict[str, Any]]) -> int:
         return 0
 
     res = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .insert(rows)
         .execute()
     )
@@ -51,7 +51,7 @@ def db_update_planned_session(session_id: int, data: Dict[str, Any]) -> Dict[str
     Upraví coach_planned_sessions.id = session_id danými dátami.
     """
     res = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .update(data)
         .eq("id", session_id)
         .execute()
@@ -70,7 +70,7 @@ def db_delete_planned_session(session_id: int) -> int:
     Vráti počet zmazaných riadkov.
     """
     res = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .delete()
         .eq("id", session_id)
         .execute()
@@ -103,7 +103,7 @@ def db_fetch_plan_rows_in_range(
     )
 
     rows = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .select(sel)
         .eq("user_id", user_id)
         .gte("plan_date", start_iso)
@@ -127,7 +127,7 @@ def db_get_planned_range_rows(
     Full-select pre /range endpoint – vracia všetky stĺpce.
     """
     rows = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .select("*")
         .eq("user_id", user_id)
         .gte("plan_date", start_iso)
@@ -162,7 +162,7 @@ def db_get_planned_sessions_filtered(
     Pôvodný GET /coach-plan/{user_id} – filtre date_from/date_to/plan_id.
     """
     q = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .select("*")
         .eq("user_id", user_id)
     )
@@ -198,7 +198,7 @@ def db_clear_range_for_user(
     Vymaže všetky planned sessions pre usera v danom rozsahu.
     """
     res = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .delete()
         .eq("user_id", user_id)
         .gte("plan_date", start_iso)
@@ -225,7 +225,7 @@ def db_delete_plan_for_user(
       - inak od from_iso (vrátane).
     """
     q = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .delete()
         .eq("user_id", user_id)
     )
@@ -257,7 +257,7 @@ def db_link_session_to_activity(
     }
 
     res = (
-        supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+        supabase.table(TABLE_COACH_PLAN_DAILY)
         .update(payload)
         .eq("id", session_id)
         .execute()
@@ -301,7 +301,7 @@ def db_reorder_planned_sessions(
             continue
 
         res = (
-            supabase.table(TABLE_COACH_PLANNED_SESSIONS)
+            supabase.table(TABLE_COACH_PLAN_DAILY)
             .update(
                 {
                     "plan_date": plan_date,

@@ -86,8 +86,6 @@ def get_planned_sessions(
 
 
 # ========= POST – uloženie AI plánu =========
-
-
 @router.post("/{user_id}")
 def upsert_plan(
     user_id: int,
@@ -99,11 +97,13 @@ def upsert_plan(
     Payload:
     {
       "next_10_days": [ { "day": "YYYY-MM-DD", "sessions": [...] }, ... ],
-      "meta": { ... }?,           # info o pláne (weeks, goal, start...)
+      "weekly": { "weeks": [...] }?,   # NOVÉ – pre coach_plan_weekly
+      "meta": { ... }?,                # (zatiaľ nepoužívame)
       "overwrite": true | false
     }
     """
     next_10_days = payload.get("next_10_days") or []
+    weekly = payload.get("weekly") or payload.get("weekly_weeks") or None
     overwrite = bool(payload.get("overwrite", True))
 
     try:
@@ -111,12 +111,11 @@ def upsert_plan(
             user_id=user_id,
             next_10_days=next_10_days,
             overwrite=overwrite,
+            weekly=weekly,
         )
     except ValueError as e:
-        # logická/validačná chyba → 400
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
-        # neočakávaná chyba → 500
         raise HTTPException(status_code=500, detail=str(e))
 
     start = result["start"]
@@ -126,12 +125,12 @@ def upsert_plan(
         "success": True,
         "plan_id": result["plan_id"],
         "inserted": result["inserted"],
+        "weekly_inserted": result.get("weekly_inserted", 0),
         "date_range": {
             "from": start.isoformat(),
             "to": end.isoformat(),
         },
     }
-
 
 # ========= PATCH – CONTINUE (pokračovanie plánu) =========
 
@@ -164,10 +163,6 @@ def patch_plan(
             "success": True,
             **raw,
         }
-
-    # prípadne tu nechaj pôvodný reconcile branch, ak ho potrebuješ
-    ...
-
 
 # ========= DELETE – zrušenie plánu =========
 

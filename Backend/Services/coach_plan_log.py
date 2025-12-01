@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
-from Routes_DB.coach_plan_log import (
+from Routes_DB.coach_plan_daily import (
     db_insert_planned_sessions,
     db_fetch_plan_rows_in_range,
     db_get_planned_range_rows,
@@ -15,6 +15,10 @@ from Routes_DB.coach_plan_log import (
     db_reorder_planned_sessions,
 )
 
+from Routes_DB.coach_plan_weekly import (
+    db_insert_weekly_plan_rows,
+    db_clear_weekly_for_user_plan,
+)
 # ───────────────────────────── helpers ─────────────────────────────
 
 
@@ -97,21 +101,116 @@ def service_fetch_plan_rows_in_range(
 
 # ───────────────────────────── AI UPSERT (tvorba plánu) ─────────────────────────────
 
+def _build_weekly_rows_from_ai(
+    user_id: int,
+    plan_id: str,
+    weekly_data: Any,
+) -> List[Dict[str, Any]]:
+    """
+    Preloží AI výstup `weekly` do riadkov pre coach_plan_weekly.
+
+    Očakávaný tvar weekly_data (flexibilný, toleruje aj plain list):
+      {
+        "weeks": [
+          {
+            "week_index": 1,
+            "week_start": "YYYY-MM-DD" | "start" | "from",
+            "week_end":   "YYYY-MM-DD" | "end"   | "to",
+            "goal": "...",
+            "focus": {...} | "...",
+            "load_phase": "intro|build|peak|taper|deload|recovery",
+            "planned_minutes": 180,
+            "planned_km": 40,
+            "notes": "...",
+            ...
+          },
+          ...
+        ]
+      }
+    """
+    if not weekly_data:
+        return []
+
+    if isinstance(weekly_data, dict) and isinstance(weekly_data.get("weeks"), list):
+        weeks_src = weekly_data.get("weeks") or []
+    elif isinstance(weekly_data, list):
+        weeks_src = weekly_data
+    else:
+        return []
+
+    rows: List[Dict[str, Any]] = []
+
+    for idx, w in enumerate(weeks_src, start=1):
+        if not isinstance(w, dict):
+            continue
+
+        week_index_raw = w.get("week_index")
+        try:
+            week_index = int(week_index_raw or idx)
+        except Exception:
+            week_index = idx
+
+        # tolerantné mapovanie názvov
+        ws = (
+            w.get("week_start")
+            or w.get("start")
+            or w.get("from")
+            or w.get("start_iso")
+        )
+        we = (
+            w.get("week_end")
+            or w.get("end")
+            or w.get("to")
+            or w.get("end_iso")
+        )
+
+        if not ws or not we:
+            # ak AI neposlala dátumy, preskočíme ten týždeň
+            continue
+
+        week_start = str(ws)[:10]
+        week_end = str(we)[:10]
+
+        row: Dict[str, Any] = {
+            "user_id": user_id,
+            "plan_id": plan_id,
+            "week_index": week_index,
+            "week_start": week_start,
+            "week_end": week_end,
+            "goal": w.get("goal"),
+            "focus": w.get("focus"),
+            "load_phase": w.get("load_phase"),
+            "planned_km": w.get("planned_km"),
+            "planned_minutes": w.get("planned_minutes"),
+            # completed_* nechávame na neskôr – budú sa dopĺňať zo summary
+            "completed_km": None,
+            "completed_minutes": None,
+            "notes": w.get("notes"),
+            "ai_payload": w,  # celé AI info pre daný týždeň
+        }
+        rows.append(row)
+
+    return rows
 
 def service_upsert_ai_plan_for_user(
     user_id: int,
     next_10_days: List[Dict[str, Any]],
     overwrite: bool = True,
+    weekly: Optional[Any] = None,
 ):
     """
     Vytvorí ÚPLNE NOVÝ plán (nové plan_id).
-    Toto používame iba pri /coach/generate.
+
+    Používa sa pri štarte plánu z AI:
+      - uloží denný plán do coach_plan_daily
+      - ak je k dispozícii weekly prehľad z AI, uloží ho aj do coach_plan_weekly
     """
     if not isinstance(next_10_days, list) or not next_10_days:
         raise ValueError("next_10_days is required and must be non-empty")
 
     from uuid import uuid4
 
+    # --- dátumy z daily časti ---
     all_dates: List[date] = []
     for d in next_10_days:
         if not isinstance(d, dict) or "day" not in d:
@@ -123,6 +222,7 @@ def service_upsert_ai_plan_for_user(
 
     plan_id = str(uuid4())
 
+    # --- daily overwrite (pôvodné správanie) ---
     if overwrite:
         db_clear_range_for_user(
             user_id=user_id,
@@ -130,10 +230,11 @@ def service_upsert_ai_plan_for_user(
             end_iso=end_d.isoformat(),
         )
 
-    rows: List[Dict[str, Any]] = []
+    # --- denné riadky (coach_plan_daily) ---
+    rows_daily: List[Dict[str, Any]] = []
 
     for d in next_10_days:
-        day_str = str(d["day"])
+        day_str = str(d["day"])[:10]
         sessions = d.get("sessions") or []
         if not isinstance(sessions, list):
             raise ValueError(f"Invalid 'sessions' for day {day_str}")
@@ -160,30 +261,40 @@ def service_upsert_ai_plan_for_user(
                 "payload": sess,
                 "activity_id": None,
             }
-            rows.append(row)
+            rows_daily.append(row)
 
-    if not rows:
+    if not rows_daily:
         raise ValueError("No sessions to save")
 
-    inserted = db_insert_planned_sessions(rows)
+    inserted_daily = db_insert_planned_sessions(rows_daily)
+
+    # --- weekly riadky (coach_plan_weekly) – len ak weekly máme ---
+    weekly_rows: List[Dict[str, Any]] = _build_weekly_rows_from_ai(
+        user_id=user_id,
+        plan_id=plan_id,
+        weekly_data=weekly,
+    )
+
+    inserted_weekly = 0
+    if weekly_rows:
+        # pri úplne novom pláne netreba mazať, plan_id je nové
+        inserted_weekly = db_insert_weekly_plan_rows(weekly_rows)
 
     print(
         f"[SERVICE-COACH-PLAN] upsert_ai_plan_for_user user={user_id} "
-        f"plan_id={plan_id} inserted={inserted} "
+        f"plan_id={plan_id} inserted_daily={inserted_daily} "
+        f"inserted_weekly={inserted_weekly} "
         f"range={start_d}..{end_d}"
     )
 
     return {
         "plan_id": plan_id,
-        "inserted": inserted,
+        "inserted": inserted_daily,
         "start": start_d,
         "end": end_d,
+        "weekly_inserted": inserted_weekly,
     }
-
-
 # ───────────────────────────── CANCEL, LINK, REORDER ─────────────────────────────
-
-
 def service_cancel_plan_for_user(user_id: int, plan_id: Optional[str]):
     """
     Zruší aktívny plán:
@@ -191,17 +302,26 @@ def service_cancel_plan_for_user(user_id: int, plan_id: Optional[str]):
       - inak všetky AI planned sessions od dneška (vrátane)
     """
     from_iso = None if plan_id else date.today().isoformat()
-    deleted = db_delete_plan_for_user(
+    deleted_daily = db_delete_plan_for_user(
         user_id=user_id,
         plan_id=plan_id,
         from_iso=from_iso,
     )
+
+    # weekly čistíme len, ak máme konkrétny plan_id
+    deleted_weekly = 0
+    if plan_id:
+        deleted_weekly = db_clear_weekly_for_user_plan(
+            user_id=user_id,
+            plan_id=plan_id,
+        )
+
     print(
         f"[SERVICE-COACH-PLAN] cancel_plan_for_user user={user_id} "
-        f"plan_id={plan_id} from={from_iso} deleted={deleted}"
+        f"plan_id={plan_id} from={from_iso} "
+        f"deleted_daily={deleted_daily} deleted_weekly={deleted_weekly}"
     )
-    return deleted
-
+    return deleted_daily
 
 def service_link_session_to_activity(session_id: int, activity_id: Optional[int]):
     """

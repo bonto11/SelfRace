@@ -30,7 +30,8 @@ TABLE_USERS_BESTS = "users_bests"
 TABLE_USERS_RECOVERY = "users_recovery"
 TABLE_USERS_NOTES = "users_notes"
 TABLE_COACH_FEEDBACK = "coach_feedback"
-TABLE_COACH_PLANNED_SESSIONS = "coach_plan_log"
+TABLE_COACH_PLAN_DAILY = "coach_plan_daily"
+TABLE_COACH_PLAN_WEEKLY = "coach_plan_weekly"
 TABLE_USERS_PREFERENCES = "users_preferences"
 
 SUPABASE_URL: str = env_required("SUPABASE_URL")

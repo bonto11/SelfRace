@@ -9,7 +9,7 @@ from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
 )
 
-from Routes_DB.coach_plan_log import (
+from Routes_DB.coach_plan_daily import (
   db_get_planned_range_rows,
   db_link_session_to_activity,
 )

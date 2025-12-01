@@ -6,7 +6,7 @@ from datetime import date as _date, timedelta
 
 from Configs.config import DEFAULT_MODEL
 
-from Routes_DB.coach_plan_log import (
+from Routes_DB.coach_plan_daily import (
     db_get_planned_sessions_filtered,
     db_insert_planned_sessions,
 )

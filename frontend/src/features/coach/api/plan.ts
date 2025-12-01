@@ -12,8 +12,16 @@ export async function apiSaveActivePlan(
   analysis: any,
   meta?: any
 ): Promise<SaveResult> {
+  // vyber weekly časť z analysis – podporujeme viac názvov
+  const weekly =
+    analysis?.weekly ??
+    analysis?.weekly_weeks ??
+    analysis?.weeks ??
+    null;
+
   const payload = {
     next_10_days: analysis?.next_10_days ?? [],
+    weekly,              // <── NOVÉ: weekly pre coach_plan_weekly
     meta: meta ?? null,
     overwrite: true,
   };
