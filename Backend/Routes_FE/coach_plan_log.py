@@ -92,30 +92,33 @@ def upsert_plan(
     payload: Dict[str, Any] = Body(...),
 ):
     """
-    Uloží AI plán do planned_sessions.
+    Uloží AI plán do planned_sessions (daily) + weekly overview.
 
     Payload:
     {
       "next_10_days": [ { "day": "YYYY-MM-DD", "sessions": [...] }, ... ],
-      "weekly": { "weeks": [...] }?,   # NOVÉ – pre coach_plan_weekly
-      "meta": { ... }?,                # (zatiaľ nepoužívame)
+      "weekly": [ "Week 1: ...", "Week 2: ...", ... ]?,   # <── od FE
+      "meta": { ... }?,           # info o pláne (weeks, goal, start...)
       "overwrite": true | false
     }
     """
     next_10_days = payload.get("next_10_days") or []
-    weekly = payload.get("weekly") or payload.get("weekly_weeks") or None
     overwrite = bool(payload.get("overwrite", True))
+    weekly = payload.get("weekly") or payload.get("weeks_overview") or None
+    meta = payload.get("meta") or None
 
     try:
         result = service_upsert_ai_plan_for_user(
             user_id=user_id,
             next_10_days=next_10_days,
-            overwrite=overwrite,
             weekly=weekly,
+            overwrite=overwrite,
         )
     except ValueError as e:
+        # logická/validačná chyba → 400
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
+        # neočakávaná chyba → 500
         raise HTTPException(status_code=500, detail=str(e))
 
     start = result["start"]
@@ -125,13 +128,11 @@ def upsert_plan(
         "success": True,
         "plan_id": result["plan_id"],
         "inserted": result["inserted"],
-        "weekly_inserted": result.get("weekly_inserted", 0),
         "date_range": {
             "from": start.isoformat(),
             "to": end.isoformat(),
         },
     }
-
 # ========= PATCH – CONTINUE (pokračovanie plánu) =========
 
 

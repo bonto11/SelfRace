@@ -9,8 +9,7 @@ from Configs.config import TABLE_COACH_PLAN_WEEKLY
 
 supabase = get_client()
 
-
-def db_insert_weekly_plan_rows(rows: List[Dict[str, Any]]) -> int:
+def db_insert_weekly_rows(rows: List[Dict[str, Any]]) -> int:
     """
     Vloží viac riadkov do coach_plan_weekly.
     Vráti počet vložených riadkov.
@@ -18,18 +17,13 @@ def db_insert_weekly_plan_rows(rows: List[Dict[str, Any]]) -> int:
     if not rows:
         return 0
 
-    res = (
-        supabase.table(TABLE_COACH_PLAN_WEEKLY)
-        .insert(rows)
-        .execute()
-    )
-    data = res.data or rows
+    res = supabase.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
+    data = res.data or []
     print(
-        f"[DB-COACH-PLAN-WEEKLY] insert_weekly_plan_rows count={len(rows)} "
+        f"[DB-COACH-PLAN-WEEKLY] insert_weekly_rows count={len(rows)} "
         f"db_returned={len(data)}"
     )
     return len(data)
-
 
 def db_clear_weekly_for_user_plan(
     user_id: int,
