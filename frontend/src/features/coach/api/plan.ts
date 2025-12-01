@@ -12,16 +12,29 @@ export async function apiSaveActivePlan(
   analysis: any,
   meta?: any
 ): Promise<SaveResult> {
-  // vyber weekly časť z analysis – podporujeme viac názvov
-  const weekly =
-    analysis?.weekly ??
-    analysis?.weekly_weeks ??
-    analysis?.weeks ??
-    null;
+  // vyber weekly časť z analysis – podporujeme viac názvov a tvarov
+  const weekly = (() => {
+    if (!analysis) return null;
+
+    if (Array.isArray(analysis.weekly)) return analysis.weekly;
+    if (Array.isArray(analysis.weekly_weeks)) return analysis.weekly_weeks;
+    if (Array.isArray(analysis.weeks_overview)) return analysis.weeks_overview;
+
+    // fallback – niektoré verzie to môžu mať uložené v meta
+    if (Array.isArray(analysis.meta?.weeks_overview)) {
+      return analysis.meta.weeks_overview;
+    }
+
+    return null;
+  })();
 
   const payload = {
     next_10_days: analysis?.next_10_days ?? [],
-    weekly,              // <── NOVÉ: weekly pre coach_plan_weekly
+
+    // pre BE:
+    weekly,                 // používaš payload.get("weekly")
+    weeks_overview: weekly, // a zároveň payload.get("weeks_overview")
+
     meta: meta ?? null,
     overwrite: true,
   };
