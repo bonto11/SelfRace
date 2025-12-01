@@ -250,6 +250,7 @@ def service_upsert_ai_plan_for_user(
 
     from uuid import uuid4
 
+    print("weekly2",weekly)
     # --- rozsah plánu podľa dní ---
     all_dates: List[date] = []
     for d in next_10_days:
@@ -318,6 +319,7 @@ def service_upsert_ai_plan_for_user(
             plan_end=end_d,
             weekly_raw=weekly,
         )
+        print("weekly_rows",weekly_rows)
         if weekly_rows:
             # ak by tam náhodou niečo bolo pre rovnaký plan_id, vyčisti
             db_clear_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)

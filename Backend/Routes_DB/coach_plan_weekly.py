@@ -14,6 +14,8 @@ def db_insert_weekly_rows(rows: List[Dict[str, Any]]) -> int:
     Vloží viac riadkov do coach_plan_weekly.
     Vráti počet vložených riadkov.
     """
+
+    print("db_insert_weekly_rows rows",rows)
     if not rows:
         return 0
 
