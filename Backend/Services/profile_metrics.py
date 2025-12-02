@@ -1,15 +1,11 @@
 # Services/profile_metrics.py
 from __future__ import annotations
 
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone, date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from fastapi import HTTPException
 
-from Services.profile import (
-    MetricKey,
-    BatchMetricsPayload,
-    _iso_now,
-)
 from Routes_DB.profile_metrics import (
     db_insert_metric_rows,
     db_get_metric_history,
@@ -22,23 +18,42 @@ from Routes_DB.profile_static import (
     db_get_static_sex_birth,
 )
 
-def apply_user_filter_raw_metrics(q, user_id: int, user_uid: Optional[str]):
-    """
-    Minimal clone _apply_user_filter, ale iba pre DB layer.
-    Ak máš už existujúcu funkciu v Services.profile, môžeš importnúť tú.
-    """
-    if user_uid:
-        return q.eq("user_uid", user_uid)
-    return q.eq("user_id", user_id)
+from Services.common import (
+    iso_now,
+)
 
-# ---------- INSERT METRICS (batch) ----------
+# Povolené metriky (drž v sync s FE)
+MetricKey = Literal[
+    "weight_kg",
+    "body_fat_pct",
+    "HR_max",
+    "VO2Max_measured",
+    "VO2Max_estimated",
+]
 
 
-def service_insert_metrics(user_id: int, payload: BatchMetricsPayload) -> Dict[str, Any]:
+class MetricEntry(BaseModel):
+    metric: MetricKey
+    value_num: float
+    unit: Optional[str] = None
+    measured_at: Optional[datetime] = None
+    source: Optional[str] = None
+    note: Optional[str] = None
+
+
+class BatchMetricsPayload(BaseModel):
+    entries: List[MetricEntry] = Field(default_factory=list)
+    # voliteľne – ak príde, uloží sa spolu s každým riadkom
+    user_uid: Optional[str] = None
+
+
+def service_insert_metrics(
+    user_id: int, payload: BatchMetricsPayload
+) -> Dict[str, Any]:
     if not payload.entries:
         raise HTTPException(status_code=400, detail="No entries provided")
 
-    now_iso = _iso_now()
+    now_iso = iso_now()
     rows: List[Dict[str, Any]] = []
 
     for e in payload.entries:
@@ -135,9 +150,9 @@ def service_get_latest_metrics(
             out["BMI"] = {
                 "value": bmi,
                 "unit": "kg/m²",
-                "updated_at": out["weight_kg"]["updated_at"]
-                if out.get("weight_kg")
-                else None,
+                "updated_at": (
+                    out["weight_kg"]["updated_at"] if out.get("weight_kg") else None
+                ),
             }
         except Exception:  # noqa: BLE001
             out["BMI"] = None
@@ -186,7 +201,8 @@ def service_get_vo2_estimate(
         }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
     """
     Prepočíta vek v rokoch z 'YYYY-MM-DD' alebo full ISO stringu.

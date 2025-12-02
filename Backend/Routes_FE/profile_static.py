@@ -5,10 +5,10 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from Services.profile import StaticPayload
 from Services.profile_static import (
     service_get_static_profile,
     service_upsert_static_profile,
+    StaticPayload,
 )
 
 router = APIRouter(prefix="/profile", tags=["profile-static"])

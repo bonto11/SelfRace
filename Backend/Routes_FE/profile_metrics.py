@@ -5,13 +5,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
-from Services.profile import MetricKey, BatchMetricsPayload
 from Services.profile_metrics import (
     service_insert_metrics,
     service_get_metric_history,
     service_get_latest_metrics,
     service_get_vo2_history,
     service_get_vo2_estimate,
+    BatchMetricsPayload,
+    MetricKey,
 )
 
 router = APIRouter(prefix="/profile", tags=["profile-metrics"])
@@ -40,14 +41,14 @@ def get_metric_history(
     date_to: Optional[str] = Query(None, description="ISO date/datetime"),
     limit: Optional[int] = Query(None, ge=1, le=5000),
 ):
-  return service_get_metric_history(
-      user_id=user_id,
-      metric=metric,
-      user_uid=user_uid,
-      date_from=date_from,
-      date_to=date_to,
-      limit=limit,
-  )
+    return service_get_metric_history(
+        user_id=user_id,
+        metric=metric,
+        user_uid=user_uid,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+    )
 
 
 # ====== METRICS – LATEST (viac metrík + BMI v BE) ======
