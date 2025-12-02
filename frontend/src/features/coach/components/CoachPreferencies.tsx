@@ -94,23 +94,25 @@ export default function CoachPreferencies() {
     let alive = true;
     (async () => {
       try {
-        const [p, zones, thrRows] = await Promise.all([
-          refreshCoachPrefsFromDB(userId),
-          apiFetchUserZonesLatest(userId), // najnovšie zóny (default sport)
-          apiFetchUserThresholdsLatest(userId), // surové riadky – použijeme na fallback LTHR
-        ]);
+            const [p, zones, thrRows] = await Promise.all([
+  refreshCoachPrefsFromDB(userId),
+  apiFetchUserZonesLatest(userId),
+  apiFetchUserThresholdsLatest(userId),
+]);
         if (!alive) return;
 
         console.log("[CoachPrefs]init thresholds_latest", thrRows);
 
-        const draftThr = pickInitialThresholdDraft(p as any, thrRows ?? null);
+    
 
-        const next: CoachPrefsExtended = {
-          ...(p as CoachPrefsExtended),
-          zones: zones ?? (p as any)?.zones ?? null,
-          thresholds: draftThr ?? undefined,
-          thresholds_latest: thrRows ?? null,
-        };
+const draftThr = pickInitialThresholdDraft(p as any, thrRows ?? null);
+
+const next: CoachPrefsExtended = {
+  ...(p as CoachPrefsExtended),
+  zones: zones ?? (p as any)?.zones ?? null,
+  thresholds: draftThr ?? undefined,
+  thresholds_latest: thrRows ?? null,
+};
 
         if (!dirtyRef.current) setLocal(next);
       } catch (e) {
