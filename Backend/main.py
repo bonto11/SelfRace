@@ -6,7 +6,6 @@ from Routes_FE import (
     recovery,
     users,
     activities,
-    profile,
     notes,
     analytics,
     account,
@@ -20,7 +19,9 @@ from Routes_FE import (
     user_thresholds,
     coach_plan_daily,
     coach_plan_weekly,
-    coach_athlete_state
+    coach_athlete_state,
+    profile_static,
+    profile_metrics
 )
 app = FastAPI()
 
@@ -48,7 +49,8 @@ app.add_middleware(
 # -------- Routers --------
 app.include_router(recovery.router)
 app.include_router(users.router)
-app.include_router(profile.router)
+app.include_router(profile_static.router)
+app.include_router(profile_metrics.router)
 app.include_router(user_prefs.router)
 app.include_router(user_bests.router)
 app.include_router(user_zones.router)
