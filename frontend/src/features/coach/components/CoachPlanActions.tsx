@@ -87,7 +87,7 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
   );
 }
 
-type AnalyzeResult = {
+type AthleteStateResult = {
   analysis: any | null; // CoachAthleteState
   input: any | null;    // CoachAnalyzeInput
   model: string | null;
@@ -101,7 +101,7 @@ export default function CoachPlanActions() {
   const { pbRun } = useCoachData();
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
-  const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [result, setResult] = useState<AthleteStateResult | null>(null);
   const [debugPayload, setDebugPayload] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
