@@ -28,9 +28,7 @@ import {
   apiSaveUserThresholds,
 } from "@/features/coach/api/thresholds";
 
-import {
-  pickInitialThresholdDraft,
-} from "@/features/coach/utils/thresholds";
+import { pickInitialThresholdDraft } from "@/features/coach/utils/thresholds";
 
 import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
 import { CoachPersonalitySection } from "@/features/coach/components/prefs/CoachPersonalitySection";
@@ -105,10 +103,7 @@ export default function CoachPreferencies() {
 
         console.log("[CoachPrefs]init thresholds_latest", thrRows);
 
-        const draftThr = pickInitialThresholdDraft(
-          p as any,
-          thrRows ?? null
-        );
+        const draftThr = pickInitialThresholdDraft(p as any, thrRows ?? null);
 
         const next: CoachPrefsExtended = {
           ...(p as CoachPrefsExtended),
@@ -133,8 +128,7 @@ export default function CoachPreferencies() {
       setLocal((p) => ({ ...p, start_date: DEFAULT_PLAN_START() }));
     } else {
       const min = MIN_PLAN_START();
-      if (local.start_date < min)
-        setLocal((p) => ({ ...p, start_date: min }));
+      if (local.start_date < min) setLocal((p) => ({ ...p, start_date: min }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -168,7 +162,8 @@ export default function CoachPreferencies() {
     markDirty();
     const p = prefDefaults(local);
     const next = { ...local, preferences: p };
-    if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
+    if (path.endsWith("days_off"))
+      next.preferences!.days_off = v as DayAbbrev[];
     if (path.endsWith("long_run_days"))
       next.preferences!.long_run_days = v as DayAbbrev[];
     setLocal(next);
@@ -189,50 +184,50 @@ export default function CoachPreferencies() {
             prev.targets?.run?.longest_recent_distance_km ?? null,
           ...patch,
         },
-        ride:
-          prev.targets?.ride ?? {
-            focus: "endurance",
-            weekly_time_target_min: null,
-          },
-        strength:
-          prev.targets?.strength ?? {
-            focus: "general",
-            sessions_per_week: 2,
-          },
+        ride: prev.targets?.ride ?? {
+          focus: "endurance",
+          weekly_time_target_min: null,
+        },
+        strength: prev.targets?.strength ?? {
+          focus: "general",
+          sessions_per_week: 2,
+        },
       },
     }));
   };
 
   // SAVE / REFRESH
-  // src/features/coach/components/prefs/PrefsForm.tsx
-const onSave = async () => {
-  if (!userId) return;
-  try {
-    const activeSecondaries = (local.secondary_mix ?? [])
-      .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
-      .map((x) => x.sport);
-    const primaries = [...(local.main_sport ? [local.main_sport] : []), ...activeSecondaries];
-
-    const minIso = MIN_PLAN_START();
-    const startIso = (local.start_date ?? "").trim();
-    const normalized: CoachPrefsExtended = {
-      ...local,
-      start_date: !startIso || startIso < minIso ? minIso : startIso,
-      primary_sports: primaries.length ? primaries : undefined,
-      // 🔽 TU úprava – ukladáme len nenulové secondary
-      secondary_mix: (local.secondary_mix ?? [])
+  const onSave = async () => {
+    if (!userId) return;
+    try {
+      const activeSecondaries = (local.secondary_mix ?? [])
         .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
-        .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
-    };
+        .map((x) => x.sport);
+      const primaries = [
+        ...(local.main_sport ? [local.main_sport] : []),
+        ...activeSecondaries,
+      ];
 
-    console.log("[CoachPrefs]onSave prefs payload", normalized);
-    await saveCoachPrefs(userId, normalized);
-    toast.success("Preferences saved");
-    dirtyRef.current = false;
-  } catch (e: any) {
-    toast.error(String(e?.message ?? e));
-  }
-};
+      const minIso = MIN_PLAN_START();
+      const startIso = (local.start_date ?? "").trim();
+      const normalized: CoachPrefsExtended = {
+        ...local,
+        start_date: !startIso || startIso < minIso ? minIso : startIso,
+        primary_sports: primaries.length ? primaries : undefined,
+        // 🔽 TU úprava – ukladáme len nenulové secondary
+        secondary_mix: (local.secondary_mix ?? [])
+          .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
+          .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
+      };
+
+      console.log("[CoachPrefs]onSave prefs payload", normalized);
+      await saveCoachPrefs(userId, normalized);
+      toast.success("Preferences saved");
+      dirtyRef.current = false;
+    } catch (e: any) {
+      toast.error(String(e?.message ?? e));
+    }
+  };
 
   const onRefresh = async () => {
     if (!userId) return;
@@ -245,10 +240,7 @@ const onSave = async () => {
 
       console.log("[CoachPrefs]refresh thresholds_latest", thrRows);
 
-      const draftThr = pickInitialThresholdDraft(
-        fresh as any,
-        thrRows ?? null
-      );
+      const draftThr = pickInitialThresholdDraft(fresh as any, thrRows ?? null);
 
       const next: CoachPrefsExtended = {
         ...(fresh as CoachPrefsExtended),
@@ -282,10 +274,7 @@ const onSave = async () => {
     markDirty();
     setLocal((p) => ({ ...p, secondary_mix: mix }));
   };
-  const updateSecondary = (
-    sport: SportKind,
-    patch: Partial<SecondaryMix>
-  ) => {
+  const updateSecondary = (sport: SportKind, patch: Partial<SecondaryMix>) => {
     const next = secondary.map((x) =>
       x.sport === sport ? { ...x, ...patch } : x
     );
@@ -331,8 +320,14 @@ const onSave = async () => {
         const latest = Array.isArray(prev.thresholds_latest)
           ? prev.thresholds_latest
           : [];
-        const keySaved = `${(saved?.sport ?? t.sport ?? "running").toLowerCase()}|${(
-          saved?.threshold_type ?? t.threshold_type ?? "LT2"
+        const keySaved = `${(
+          saved?.sport ??
+          t.sport ??
+          "running"
+        ).toLowerCase()}|${(
+          saved?.threshold_type ??
+          t.threshold_type ??
+          "LT2"
         ).toLowerCase()}`;
 
         const filtered = latest.filter((r: any) => {
