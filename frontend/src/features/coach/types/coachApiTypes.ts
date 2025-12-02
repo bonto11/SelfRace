@@ -81,3 +81,30 @@ export type AnalyzeAthleteStateResponse = {
 
 /** Generický fail z BE (detail je optional). */
 export type ApiFail = { success: false; detail?: string };
+
+// --- Recent load for CoachAnalyzeInput ---
+
+export type RecentLoadWeek = {
+  /** ISO pondelok danej týždňovej periódy */
+  week_start_iso: string;
+  /** ISO nedeľa danej periódy */
+  week_end_iso: string;
+  /** 0 = aktuálny týždeň, -1 = minulý, atď. */
+  week_index_from_now: number;
+  /** celkový tréningový čas za týždeň (min) – všetky športy */
+  total_minutes: number;
+  /** beh minúty */
+  run_minutes: number;
+  /** bike minúty */
+  ride_minutes: number;
+  /** počet silových tréningov za týždeň */
+  strength_sessions: number;
+  /** počet “hard” tréningov (Z3+ / intervaly) – zatiaľ len heuristika */
+  hard_sessions: number;
+};
+
+export type RecentLoad = {
+  window_days: number;
+  weeks: RecentLoadWeek[];
+  schema_version: number;
+};

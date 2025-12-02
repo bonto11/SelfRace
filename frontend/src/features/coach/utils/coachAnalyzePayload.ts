@@ -1,101 +1,178 @@
 // src/features/coach/utils/coachAnalyzePayload.ts
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
-import type {
-  AnalyzePayloadBE,
-  ZonesPayload,
-  ThresholdsPayload,
-} from "@/features/coach/types/coachApiTypes";
+import type { RecentLoad, RecentLoadWeek } from "@/features/coach/types/coachApiTypes";
 
-function mapZones(z: any | undefined): ZonesPayload | undefined {
-  if (!z) return undefined;
+/** Základ payloadu z prefs – nechávam jednoduchý, ako doteraz. */
+export function buildAnalyzePayloadFromPrefs(prefs: CoachPrefs) {
   return {
-    hr_max: z.hr_max ?? null,
-    z1_min: z.z1_min ?? null, z1_max: z.z1_max ?? null,
-    z2_min: z.z2_min ?? null, z2_max: z.z2_max ?? null,
-    z3_min: z.z3_min ?? null, z3_max: z.z3_max ?? null,
-    z4_min: z.z4_min ?? null, z4_max: z.z4_max ?? null,
-    z5_min: z.z5_min ?? null, z5_max: z.z5_max ?? null,
+    schema_version: 1,
+    weeks: typeof prefs.weeks  === "number" ? prefs.weeks : undefined,
+    goal_kind: prefs.goal_kind ?? "improve_overall",
+    plan_start_date: (prefs as any).start_date || undefined,
+    main_sport: (prefs as any).main_sport ?? (prefs.primary_sports?.[0] ?? null),
+    secondary_mix: (prefs as any).secondary_mix ?? [],
+    strength_settings: (prefs as any).strength_settings ?? null,
+    rules: (prefs as any).preferences ?? null,
+
+    blocks: {
+      vo2max: !!(prefs as any).vo2max_training,
+      threshold: !!(prefs as any).threshold_focus,
+      ftp: !!(prefs as any).ftp_training,
+    },
+
+    intensity_model: (prefs as any).polarized_model
+      ? "polarized"
+      : (prefs as any).pyramidal_model
+      ? "pyramidal"
+      : null,
+
+    zones: (prefs as any).zones ?? null,
+    thresholds: (prefs as any).thresholds ?? null,
+
+    legacy: {
+      distance: prefs.distance,
+      current_pace: prefs.current_pace,
+      target_pace: prefs.target_pace,
+    },
   };
 }
 
-function mapThresholds(t: any | undefined): ThresholdsPayload | undefined {
-  if (!t) return undefined;
-  return {
-    sport: t.sport ?? null,
-    hr_bpm: (t.hr_bpm ?? t.HR_bpm) ?? null,
-    pace_sec_km: t.pace_sec_km ?? null,
-    power_watt: t.power_watt ?? null,
-    threshold_type: t.threshold_type ?? null,
-    measurement_type: t.measurement_type ?? null,
-    updated_at: t.updated_at ?? null,
-  };
+/* ------------ Recent load z ActivityDataProvider ------------ */
+
+type ActivityRowLike = {
+  date: string; // ISO
+  moving_time_s?: number | null;
+  moving_time?: number | null;
+  sport?: string | null;
+  sport_type_fe?: string | null;
+};
+
+/** Normalizácia stringu športu na run/ride/strength/other. */
+function normSport(raw: string | null | undefined): "run" | "ride" | "strength" | "other" {
+  const s = (raw || "").toLowerCase();
+  if (s.includes("run")) return "run";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "ride";
+  if (s.includes("strength") || s.includes("gym") || s.includes("workout")) return "strength";
+  return "other";
+}
+
+function startOfIsoWeek(d: Date): Date {
+  // getDay(): 0 = Sun, ..., 6 = Sat → chceme Po=0
+  const dow = (d.getDay() + 6) % 7;
+  const res = new Date(d);
+  res.setHours(0, 0, 0, 0);
+  res.setDate(res.getDate() - dow);
+  return res;
+}
+
+function addDays(d: Date, days: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + days);
+  return r;
 }
 
 /**
- * Z CoachPrefs postaví AnalyzePayloadBE pre AI analyze/athlete_state.
- * Čistý helper – žiadne fetch, žiadne side-effects.
+ * Z aktivity za posledných `windowDays` vyrobíme weekly sumár pre AI.
+ * Používa ActivityDataProvider rows (date, moving_time_s, sport/_type_fe).
  */
-export function buildAnalyzePayloadFromPrefs(
-  prefs: Partial<CoachPrefs>
-): AnalyzePayloadBE {
-  const rawModel =
-    prefs.polarized_model ? "polarized" :
-    prefs.pyramidal_model ? "pyramidal" :
-    null;
-
-  const intensity_model = (rawModel ?? "polarized") as "polarized" | "pyramidal";
-
-  const secondary = (prefs.secondary_mix ?? []).filter(
-    (x) => (x?.share_pct ?? 0) > 0
-  );
-  const primary: string[] = [];
-
-  if (prefs.main_sport) primary.push(prefs.main_sport);
-  for (const sm of secondary) {
-    if (sm?.sport && !primary.includes(sm.sport)) primary.push(sm.sport);
+export function buildRecentLoadFromActivities(
+  rows: ActivityRowLike[],
+  windowDays = 42
+): RecentLoad {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { window_days: windowDays, weeks: [], schema_version: 1, };
   }
-  if (primary.length === 0) primary.push("run", "strength");
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const from = addDays(today, -windowDays + 1);
+
+  type WeekAgg = {
+    week_start: Date;
+    total_minutes: number;
+    run_minutes: number;
+    ride_minutes: number;
+    strength_sessions: number;
+    hard_sessions: number;
+  };
+
+  const map = new Map<string, WeekAgg>();
+
+  for (const r of rows) {
+    if (!r?.date) continue;
+    const d = new Date(r.date);
+    if (Number.isNaN(d.getTime())) continue;
+    if (d < from || d > today) continue;
+
+    const weekStart = startOfIsoWeek(d);
+    const key = weekStart.toISOString().slice(0, 10);
+
+    const agg =
+      map.get(key) ||
+      {
+        week_start: weekStart,
+        total_minutes: 0,
+        run_minutes: 0,
+        ride_minutes: 0,
+        strength_sessions: 0,
+        hard_sessions: 0,
+      };
+
+    const sec =
+      (typeof r.moving_time_s === "number" && r.moving_time_s > 0
+        ? r.moving_time_s
+        : typeof r.moving_time === "number" && r.moving_time > 0
+        ? r.moving_time
+        : 0) || 0;
+    const mins = sec / 60;
+
+    const sport = normSport(r.sport || r.sport_type_fe);
+
+    agg.total_minutes += mins;
+
+    if (sport === "run") {
+      agg.run_minutes += mins;
+      // jednoduchá heuristika: >60 min považuj ako “hard” (dočasne)
+      if (mins >= 60) agg.hard_sessions += 1;
+    } else if (sport === "ride") {
+      agg.ride_minutes += mins;
+    } else if (sport === "strength") {
+      agg.strength_sessions += 1;
+    }
+
+    map.set(key, agg);
+  }
+
+  const weeksSorted = Array.from(map.values()).sort(
+    (a, b) => a.week_start.getTime() - b.week_start.getTime()
+  );
+
+  if (weeksSorted.length === 0) {
+    return { window_days: windowDays, weeks: [], schema_version: 1, };
+  }
+
+  // indexovanie: posledný týždeň = 0, predchádzajúci = -1, atď
+  const weeks: RecentLoadWeek[] = weeksSorted.map((w, idx) => {
+    const week_start_iso = w.week_start.toISOString().slice(0, 10);
+    const week_end = addDays(w.week_start, 6);
+    const week_end_iso = week_end.toISOString().slice(0, 10);
+    const week_index_from_now = idx - (weeksSorted.length - 1);
+
+    return {
+      week_start_iso,
+      week_end_iso,
+      week_index_from_now,
+      total_minutes: Math.round(w.total_minutes),
+      run_minutes: Math.round(w.run_minutes),
+      ride_minutes: Math.round(w.ride_minutes),
+      strength_sessions: w.strength_sessions,
+      hard_sessions: w.hard_sessions,
+    };
+  });
 
   return {
-    schema_version: 2,
-
-    weeks: prefs.weeks ?? undefined,
-    goal_kind: prefs.goal_kind ?? undefined,
-    plan_start_date:
-      (prefs as any).plan_start_date ?? (prefs as any).start_date ?? null,
-
-    primary_sports: primary,
-    main_sport: prefs.main_sport ?? undefined,
-    secondary_mix: secondary as any,
-
-    targets: prefs.targets ?? undefined,
-    rules: prefs.preferences ?? undefined,
-    externals: prefs.external_activities ?? [],
-    injuries: prefs.injuries ?? [],
-    focus: {
-      areas: prefs.focus_areas ?? [],
-      avoid_zones: prefs.avoid_zones ?? [],
-      rehab: prefs.rehab_focus ?? undefined,
-    },
-
-    intensity_model,
-    blocks: {
-      vo2max: !!prefs.vo2max_training,
-      threshold: !!prefs.threshold_focus,
-      ftp: !!prefs.ftp_training,
-    },
-
-    strength_settings: prefs.strength_settings ?? undefined,
-    coach_voice: prefs.coach_voice ?? undefined,
-    coach_tone: prefs.coach_tone ?? undefined,
-
-    zones: prefs.zones,
-    thresholds: prefs.thresholds,
-
-    legacy: {
-      distance: prefs.distance ?? undefined,
-      current_pace: prefs.current_pace ?? undefined,
-      target_pace: prefs.target_pace ?? undefined,
-    },
+    window_days: windowDays,
+    weeks,
+    schema_version: 1,
   };
 }

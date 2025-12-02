@@ -205,6 +205,8 @@ def build_input_from_fe_payload(
     _merge_fe_zones(input_data, fe_payload)
     _merge_fe_thresholds(input_data, fe_payload)
     _merge_fe_bests(input_data, fe_payload)
+    _merge_fe_bests(input_data, fe_payload)
+    _merge_fe_recent_load(input_data, fe_payload)
 
     return input_data
 
@@ -362,3 +364,9 @@ def service_analyze_athlete(
         "input": input_data,
         "model": model,
     }
+
+def _merge_fe_recent_load(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
+  rl = fe.get("recent_load")
+  if not rl or not isinstance(rl, dict):
+      return
+  input_data["recent_load"] = rl
