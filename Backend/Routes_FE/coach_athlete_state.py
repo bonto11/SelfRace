@@ -1,23 +1,29 @@
-# Routes_FE/coach_athlete_analyze.py
+# Routes_FE/coach_athlete_state.py
 from __future__ import annotations
+
 from typing import Any, Dict
+
 from fastapi import APIRouter, Body, HTTPException
+
 from Services.coach_athlete_state import service_analyze_athlete
 
-router = APIRouter(prefix="/coach-athlete-state", tags=["coach-athlete-state"])
+router = APIRouter(
+    prefix="/coach/athlete",
+    tags=["coach-athlete"],
+)
 
 
 @router.post("/analyze/{user_id}")
-def analyze_state(
+def analyze_athlete(
     user_id: int,
     payload: Dict[str, Any] = Body(
         default={},
         description=(
             "Optional config:\n"
             "{\n"
-            '  "model": str (default "coach-analyze-stub"),\n'
-            '  "save_to_db": bool (default True),\n'
-            '  "debug": bool (default False)\n'
+            '  "debug": bool (default false),\n'
+            '  "save_to_db": bool (default true),\n'
+            '  "model": str (default \"coach-analyze-stub\")\n'
             "}"
         ),
     ),
@@ -26,14 +32,24 @@ def analyze_state(
     Spustí AI analýzu formy pre daného užívateľa.
 
     Volá service_analyze_athlete, ktorý:
-      - poskladá AnalyzeInput z DB (zatiaľ STUB)
-      - zavolá LLM / stub a vygeneruje athlete_state
-      - (voliteľne) uloží do coach_athlete_state
-      - vráti: { state_id, state, input, model }
+      - poskladá CoachAnalyzeInput (zatím stub z konstánt + user_id)
+      - zavolá LLM (stub) → CoachAthleteState
+      - voliteľne uloží do coach_athlete_state
+      - vráti:
+          {
+            "success": True,
+            "state_id": int | None,
+            "state": CoachAthleteState,
+            "input": CoachAnalyzeInput,
+            "model": str,
+          }
     """
-    model = payload.get("model") or "coach-analyze-stub"
-    save_to_db = bool(payload.get("save_to_db", True))
-    debug = bool(payload.get("debug", False))
+    debug = bool(payload.get("debug") or False)
+
+    save_to_db_raw = payload.get("save_to_db")
+    save_to_db = True if save_to_db_raw is None else bool(save_to_db_raw)
+
+    model = str(payload.get("model") or "coach-analyze-stub")
 
     try:
         result = service_analyze_athlete(
@@ -42,9 +58,12 @@ def analyze_state(
             save_to_db=save_to_db,
             debug=debug,
         )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return {
+            "success": True,
+            **result,
+        }
+    except HTTPException:
+        # pre prípad, že service niekedy bude hádzať HTTPException
+        raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-
-    return result

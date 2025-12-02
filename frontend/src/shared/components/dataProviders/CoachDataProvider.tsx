@@ -10,21 +10,18 @@ import React, {
   useState,
 } from "react";
 
-import { DEFAULT_PREFS, type CoachPrefs } from "@/features/coach/types/prefsTypes";
-import type { typePB } from "@/features/coach/types/coach";
+import {
+  DEFAULT_PREFS,
+  type CoachPrefs,
+} from "@/features/coach/types/prefsTypes";
+import type { typePB } from "@/features/coach/types/coachTypes";
 import { useUserId } from "@/shared/hooks/useUserId";
 
 // API – prefs
-import {
-  apiGetPrefs,
-  apiSavePrefs,
-} from "@/features/coach/api/prefs";
+import { apiGetPrefs, apiSavePrefs } from "@/features/coach/api/prefs";
 
 // API – personal bests (RUN)
-import {
-  apiGetBests,
-  type UserBest,
-} from "@/shared/api/bests";
+import { apiGetBests, type UserBest } from "@/shared/api/bests";
 
 import { secToHHMMSS } from "@/shared/utils/time";
 
@@ -54,7 +51,8 @@ const CoachDataContext = createContext<CoachCtx | null>(null);
 
 export function useCoachData() {
   const ctx = useContext(CoachDataContext);
-  if (!ctx) throw new Error("useCoachData must be used within <CoachDataProvider>");
+  if (!ctx)
+    throw new Error("useCoachData must be used within <CoachDataProvider>");
   return ctx;
 }
 
@@ -73,7 +71,9 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
     setPrefs(p);
 
     // PB – RUN
-    const runBests: UserBest[] = await apiGetBests(userId, "run").catch(() => []);
+    const runBests: UserBest[] = await apiGetBests(userId, "run").catch(
+      () => []
+    );
     setPbRun(runBests.map(mapRunBest));
   }, [userId]);
 

@@ -1,66 +1,71 @@
 // src/features/coach/api/thresholds.ts
+// src/features/coach/api/thresholds.ts
 import { API_URL } from "@/shared/config";
-
-/** DB row (normalized) */
-export type UserThresholdRow = {
-  sport: string | null;
-  threshold_type: string | null;
-  updated_at: string | null;
-  hr_bpm: number | null;
-  pace_sec_km: number | null;
-  power_watt: number | null;
-  measurement_type: string | null;
-};
+import type { UserThresholdRow } from "@/features/coach/types/thresholdsTypes";
 
 type ApiRows = { success: true; rows: UserThresholdRow[] };
 type ApiRow = { success: true; thresholds: UserThresholdRow | null };
 type ApiFail = { success: false; detail?: string };
 
-/** ONE latest by sport+type (defaults running/LT2) */
+/** ONE latest by (sport, type) – default: running / LT2. */
 export async function apiFetchUserThreshold(
   userId: number,
   sport = "running",
   type = "LT2"
 ): Promise<UserThresholdRow | null> {
-  const u = `${API_URL}/users/${userId}/thresholds?sport=${encodeURIComponent(
+  const url = `${API_URL}/users/${userId}/thresholds?sport=${encodeURIComponent(
     sport
   )}&type=${encodeURIComponent(type)}`;
-  const res = await fetch(u, { cache: "no-store" });
+
+  const res = await fetch(url, { cache: "no-store" });
   const json = (await res.json().catch(() => null)) as ApiRow | ApiFail | null;
-  if (!res.ok || !json || (json as ApiFail).success === false) return null;
+
+  if (!res.ok || !json || json.success === false) return null;
   return (json as ApiRow).thresholds ?? null;
 }
 
-/** ALL (desc updated_at) */
+/** ALL (desc updated_at) – na debug / históriu. */
 export async function apiFetchUserThresholdsAll(
   userId: number
 ): Promise<UserThresholdRow[]> {
-  const res = await fetch(`${API_URL}/users/${userId}/thresholds/all`, {
-    cache: "no-store",
-  });
-  const json = (await res.json().catch(() => null)) as ApiRows | ApiFail | null;
-  if (!res.ok || !json || (json as ApiFail).success === false) return [];
+  const url = `${API_URL}/users/${userId}/thresholds/all`;
+
+  const res = await fetch(url, { cache: "no-store" });
+  const json = (await res.json().catch(() => null)) as
+    | ApiRows
+    | ApiFail
+    | null;
+
+  if (!res.ok || !json || json.success === false) return [];
   return (json as ApiRows).rows ?? [];
 }
 
-/** LATEST per (sport,type) */
+/** LATEST per (sport,type). */
 export async function apiFetchUserThresholdsLatest(
   userId: number
 ): Promise<UserThresholdRow[]> {
-  const res = await fetch(`${API_URL}/users/${userId}/thresholds/latest`, {
-    cache: "no-store",
-  });
-  const json = (await res.json().catch(() => null)) as ApiRows | ApiFail | null;
-  if (!res.ok || !json || (json as ApiFail).success === false) return [];
+  const url = `${API_URL}/users/${userId}/thresholds/latest`;
+
+  const res = await fetch(url, { cache: "no-store" });
+  const json = (await res.json().catch(() => null)) as
+    | ApiRows
+    | ApiFail
+    | null;
+
+  if (!res.ok || !json || json.success === false) return [];
   return (json as ApiRows).rows ?? [];
 }
 
-/** UPSERT by (user_id,sport,threshold_type) -> returns latest row for combo */
+/**
+ * UPSERT by (user_id,sport,threshold_type) -> returns latest row for combo.
+ */
 export async function apiSaveUserThresholds(
   userId: number,
   t: Partial<UserThresholdRow>
 ): Promise<UserThresholdRow | null> {
-  const res = await fetch(`${API_URL}/users/${userId}/thresholds`, {
+  const url = `${API_URL}/users/${userId}/thresholds`;
+
+  const res = await fetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
@@ -73,29 +78,13 @@ export async function apiSaveUserThresholds(
       measurement_type: t.measurement_type ?? "manual",
     }),
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.detail || `HTTP ${res.status}`);
-  return (json?.thresholds ?? null) as UserThresholdRow | null;
-}
 
-/** helpers */
-export function apiReduceLatestByCombo(rows: UserThresholdRow[]): UserThresholdRow[] {
-  const map = new Map<string, UserThresholdRow>();
-  for (const r of rows ?? []) {
-    const key = `${(r.sport ?? "running").toLowerCase()}|${(r.threshold_type ?? "LT2").toUpperCase()}`;
-    const prev = map.get(key);
-    if (!prev) { map.set(key, r); continue; }
-    const a = Date.parse(prev.updated_at ?? "") || 0;
-    const b = Date.parse(r.updated_at ?? "") || 0;
-    if (b >= a) map.set(key, r);
+  const json = await res.json().catch(() => ({} as ApiRow | ApiFail));
+
+  if (!res.ok) {
+    const msg = (json as ApiFail)?.detail || `HTTP ${res.status}`;
+    throw new Error(msg);
   }
-  return Array.from(map.values());
-}
 
-export function apiDebugLogLatestThresholds(rows: UserThresholdRow[]) {
-  const out = rows.map(r => ({
-    sport: r.sport, type: r.threshold_type,
-    HR: r.hr_bpm, pace: r.pace_sec_km, power: r.power_watt, at: r.updated_at
-  }));
-  console.debug("[thresholds.latest]", out);
+  return (json as ApiRow).thresholds ?? null;
 }

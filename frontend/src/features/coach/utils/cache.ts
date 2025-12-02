@@ -1,9 +1,10 @@
+// src/features/coach/utils/cache.ts
+
 // Jednoduchá DEV cache do localStorage s verziovaním podľa userId + prefs hash.
 
-// src/features/coach/utils/cache
 type Cached = {
-  savedAt: string;   // ISO
-  key: string;       // cache kľúč (userId:prefsHash)
+  savedAt: string; // ISO
+  key: string;     // cache kľúč (userId:prefsHash)
   model?: string;
   result: any;
 };
@@ -11,6 +12,7 @@ type Cached = {
 const NS = "coach_result";
 
 /* --- stable stringify + simple hash --- */
+
 function stableStringify(obj: any): string {
   const seen = new WeakSet();
   const walk = (x: any): any => {
@@ -42,7 +44,9 @@ export function makeCacheKey(userId: string, prefs: any) {
 
     main_sport: prefs?.main_sport ?? null,
     secondary_mix: (prefs?.secondary_mix ?? []).map((x: any) => ({
-      sport: x?.sport, role: x?.role, pct: x?.share_pct
+      sport: x?.sport,
+      role: x?.role,
+      pct: x?.share_pct,
     })),
 
     targets: prefs?.targets ?? null,
@@ -59,7 +63,9 @@ export function makeCacheKey(userId: string, prefs: any) {
 
     intensity_model: prefs?.polarized_model
       ? "polarized"
-      : (prefs?.pyramidal_model ? "pyramidal" : null),
+      : prefs?.pyramidal_model
+      ? "pyramidal"
+      : null,
 
     blocks: {
       vo2: !!prefs?.vo2max_training,
@@ -81,7 +87,9 @@ export function loadCachedResult(key?: string): Cached | null {
   try {
     const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as Cached) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function saveCachedResult(key: string, data: any, model?: string) {
@@ -93,10 +101,16 @@ export function saveCachedResult(key: string, data: any, model?: string) {
       result: data,
     };
     localStorage.setItem(key, JSON.stringify(payload));
-  } catch {}
+  } catch {
+    // ignore
+  }
 }
 
 export function clearCachedByKey(key?: string) {
   if (!key) return;
-  try { localStorage.removeItem(key); } catch {}
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
 }

@@ -1,4 +1,7 @@
 // src/features/coach/types/coach.ts
+// Základné typy pre coach modul, ktoré nemajú priame UI prepojenie.
+
+/** Personal best z BE / DB. */
 export type typePB = {
   distance_m: number;
   best_time_s?: number | null;
@@ -7,6 +10,10 @@ export type typePB = {
   date?: string | null;
 };
 
+/**
+ * Pôvodná (legacy) podoba CoachPrefs, používaná v starších verziách.
+ * normalizeCoachPrefs ju mapuje na nový typ CoachPrefs.
+ */
 export type CoachPrefsLegacyLoose = {
   goal_kind?: string;
   goal_distance_km?: number | null;

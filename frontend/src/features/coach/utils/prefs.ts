@@ -1,20 +1,23 @@
+// src/features/coach/utils/prefs.ts
 "use client";
 
-import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
+// Storage + DB helpers pre CoachPrefs + normalizácia legacy tvarov.
+
+import type { CoachPrefs, SportKind } from "@/features/coach/types/prefsTypes";
 import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/shared/api/userPrefs";
-import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coach";
-import type { SportKind } from "@/features/coach/types/prefsTypes";
+import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coachTypes";
 
 /** Kľúče pre DB/LS */
-const KEY = "coach.prefs";
-const LS_KEY = "up:coach.prefs";
+const KEY = "coach.prefs"; // meno preferencie v user_prefs
+const LS_KEY = "up:coach.prefs"; // localStorage cache
 
 /** Interný custom event – na lokálne „live“ aktualizácie */
 const EVT = "coach:prefs-updated";
 
 /* -------------------- helpers -------------------- */
-const SPORT_SET = new Set(["run","ride","strength","mixed","skate"]);
+
+const SPORT_SET = new Set(["run", "ride", "strength", "mixed", "skate"]);
 
 const clampSports = (xs?: string[] | null): SportKind[] | undefined =>
   xs?.filter((s): s is SportKind => SPORT_SET.has(s as SportKind)) || undefined;
@@ -22,60 +25,91 @@ const clampSports = (xs?: string[] | null): SportKind[] | undefined =>
 function lsGet(): CoachPrefs | null {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+    return raw ? (JSON.parse(raw) as CoachPrefs) : null;
+  } catch {
+    return null;
+  }
 }
 function lsSet(p: CoachPrefs) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(p)); } catch {}
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(p));
+  } catch {
+    // ignore
+  }
 }
 function lsClear() {
-  try { localStorage.removeItem(LS_KEY); } catch {}
+  try {
+    localStorage.removeItem(LS_KEY);
+  } catch {
+    // ignore
+  }
 }
 
-/** Odošli custom event o zmene prefs (pre „live“ widgety) */
+/** Odošli custom event o zmene prefs (pre „live“ widgety). */
 function broadcast(prefs: CoachPrefs) {
   try {
     window.dispatchEvent(new CustomEvent(EVT, { detail: prefs }));
-  } catch { /* no-op */ }
+  } catch {
+    // no-op
+  }
 }
 
 /* -------------------- public API -------------------- */
+
 export function readCoachPrefsFromStorage(): CoachPrefs {
   return lsGet() ?? DEFAULT_PREFS;
 }
 
-export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPrefs> {
+export async function refreshCoachPrefsFromDB(
+  userId: number
+): Promise<CoachPrefs> {
   const value = await apiFetchUserPref(userId, KEY);
-  const prefs = value ? (value as CoachPrefs) : DEFAULT_PREFS;
+  const prefs = (value as CoachPrefs | null) ?? DEFAULT_PREFS;
   lsSet(prefs);
-  broadcast(prefs); // <<< dôležité: nech sa widgety hneď refreshnú
+  broadcast(prefs); // nech sa widgety hneď refreshnú
   return prefs;
 }
 
-export async function saveCoachPrefs(userId: number, prefs: CoachPrefs): Promise<void> {
+export async function saveCoachPrefs(
+  userId: number,
+  prefs: CoachPrefs
+): Promise<void> {
   await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
-  broadcast(prefs); // <<< dôležité: zmeny sa prejavia okamžite
+  broadcast(prefs);
 }
 
-export function clearCoachPrefsCache() { lsClear(); }
+export function clearCoachPrefsCache() {
+  lsClear();
+}
 
-/** „Legacy → canonical“ – ostáva kvôli kompatibilite */
-export function normalizeCoachPrefs(input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined): CoachPrefs {
+/**
+ * Legacy → canonical CoachPrefs.
+ * Stará schéma (CoachPrefsLegacyLoose) sa tu premapuje na nový typ.
+ */
+export function normalizeCoachPrefs(
+  input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined
+): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
   // už kanonický tvar
-  if ("targets" in input || "preferences" in input || "primary_sports" in input) {
+  if (
+    "targets" in input ||
+    "preferences" in input ||
+    "primary_sports" in input
+  ) {
     const i = input as CoachPrefs;
     return {
       ...i,
-      primary_sports: (i.primary_sports as SportKind[] | undefined) ?? clampSports(i.sports),
+      primary_sports:
+        (i.primary_sports as SportKind[] | undefined) ??
+        clampSports((i as any).sports),
       preferences: i.preferences ?? {
         days_off: [],
-        avoid_back_to_back_hard: !!i.avoid_back_to_back_hard,
+        avoid_back_to_back_hard: !!(i as any).avoid_back_to_back_hard,
         use_zones: true,
-        avoid_two_a_day: !!i.avoid_two_a_day,
-        long_run_days: i.preferred_long_run_days,
+        avoid_two_a_day: !!(i as any).avoid_two_a_day,
+        long_run_days: (i as any).preferred_long_run_days,
       },
     };
   }
@@ -90,7 +124,12 @@ export function normalizeCoachPrefs(input: CoachPrefs | CoachPrefsLegacyLoose | 
     weeks: l.weeks ?? undefined,
     primary_sports: clampSports(l.sports),
     targets: {
-      run: { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null },
+      run: {
+        race_goal: null,
+        current_best_time: null,
+        target_time: null,
+        longest_recent_distance_km: null,
+      },
       ride: { focus: "endurance", weekly_time_target_min: null },
       strength: { focus: "general", sessions_per_week: 2 },
     },
@@ -105,22 +144,31 @@ export function normalizeCoachPrefs(input: CoachPrefs | CoachPrefsLegacyLoose | 
 }
 
 /* -------------------- live hook helpers -------------------- */
-/** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage) */
-export function subscribeCoachPrefs(cb: (prefs: CoachPrefs) => void): () => void {
+
+/** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage). */
+export function subscribeCoachPrefs(
+  cb: (prefs: CoachPrefs) => void
+): () => void {
   const onEvt = (e: Event) => {
     const ce = e as CustomEvent<CoachPrefs>;
     if (ce?.detail) cb(ce.detail);
   };
   const onStorage = (e: StorageEvent) => {
     if (e.key === LS_KEY && e.newValue) {
-      try { cb(JSON.parse(e.newValue)); } catch {/* ignore */}
+      try {
+        cb(JSON.parse(e.newValue) as CoachPrefs);
+      } catch {
+        /* ignore */
+      }
     }
   };
   window.addEventListener(EVT, onEvt);
   window.addEventListener("storage", onStorage);
+
   // initial push (pre prípad, že niekto subscribe-ne neskôr)
   const cur = readCoachPrefsFromStorage();
   if (cur) setTimeout(() => cb(cur), 0);
+
   return () => {
     window.removeEventListener(EVT, onEvt);
     window.removeEventListener("storage", onStorage);

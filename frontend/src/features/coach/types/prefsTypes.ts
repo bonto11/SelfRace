@@ -1,6 +1,7 @@
+//types/prefsTypes
 import type { DayAbbrev } from "@/shared/types/day";
 
-/** Goals */
+/** Hlavné ciele plánu / tréningu. */
 export type GoalKind =
   | "race_time"
   | "improve_speed"
@@ -8,10 +9,10 @@ export type GoalKind =
   | "improve_overall"
   | "maintain";
 
-/** Sports */
+/** Podporované športy v coach prefs. */
 export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
 
-/** Coach personality (EN) + custom; allow null for "none selected" */
+/** Coach personality (EN) + custom; allow null for "none selected". */
 export type CoachPersona =
   | "drill_sergeant"
   | "motivator"
@@ -20,6 +21,7 @@ export type CoachPersona =
   | "custom";
 
 /* -------- Zones & Thresholds (NEW) -------- */
+
 export type Zones = {
   hr_max?: number | null;
   z1_min?: number | null; z1_max?: number | null;
@@ -35,11 +37,20 @@ export type Thresholds = {
   pace_sec_km?: number | null;
   power_watt?: number | null;
   threshold_type?: "LT1" | "LT2" | "FTP" | "HR_LT2" | "PACE_LT2" | string | null;
-  measurement_type?: "lab test" | "field test" | "estimate garmin" | "estimate strava" | "coach estimate" | "other" | string | null;
+  measurement_type?:
+    | "lab test"
+    | "field test"
+    | "estimate garmin"
+    | "estimate strava"
+    | "coach estimate"
+    | "other"
+    | string
+    | null;
   updated_at?: string | null;
 };
 
 /* -------- Preferences -------- */
+
 export interface Preferences {
   days_off: DayAbbrev[];
   long_run_days?: DayAbbrev[];
@@ -50,24 +61,29 @@ export interface Preferences {
 }
 
 /* -------- Targets -------- */
+
 export interface RunTargets {
   race_goal: "5k" | "10k" | "half" | "marathon" | null;
   current_best_time: string | null;
   target_time: string | null;
   longest_recent_distance_km: number | null;
 }
+
 export interface BikeTargets {
   focus: "endurance" | "ftp" | "vo2";
   weekly_time_target_min: number | null;
 }
+
 export interface StrengthTargets {
   focus: "general" | "hypertrophy" | "max_strength";
   sessions_per_week: number;
 }
 
 /* -------- External / injuries -------- */
+
 export type ExternalSport = "football" | "run" | "ride" | "strength" | "other";
 export type ExternalIntensity = "low" | "moderate" | "high";
+
 export type ExternalActivity = {
   day: DayAbbrev;
   sport: ExternalSport;
@@ -76,10 +92,32 @@ export type ExternalActivity = {
 };
 
 export type InjuryArea =
-  | "foot" | "ankle" | "shin" | "knee" | "hip" | "hamstring" | "calf" | "back" | "shoulder" | "other";
+  | "foot"
+  | "ankle"
+  | "shin"
+  | "knee"
+  | "hip"
+  | "hamstring"
+  | "calf"
+  | "back"
+  | "shoulder"
+  | "other";
+
 export type InjuryType =
-  | "overuse" | "acute" | "tendon" | "stress" | "shin_splints" | "plantar" | "itb" | "other";
-export type Injury = { area: InjuryArea; type: InjuryType; note?: string };
+  | "overuse"
+  | "acute"
+  | "tendon"
+  | "stress"
+  | "shin_splints"
+  | "plantar"
+  | "itb"
+  | "other";
+
+export type Injury = {
+  area: InjuryArea;
+  type: InjuryType;
+  note?: string;
+};
 
 export type RehabFocus = {
   stretching: boolean;
@@ -93,8 +131,18 @@ export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gy
 
 /** voľný slovník, nech vieme poslať AI aj konkrétne kusy náradia */
 export type StrengthEquipmentKey =
-  | "dumbbells" | "barbell" | "kettlebell" | "trx" | "pullup_bar"
-  | "resistance_bands" | "bench" | "medicine_ball" | "sandbag" | "box" | "abwheel" | "other";
+  | "dumbbells"
+  | "barbell"
+  | "kettlebell"
+  | "trx"
+  | "pullup_bar"
+  | "resistance_bands"
+  | "bench"
+  | "medicine_ball"
+  | "sandbag"
+  | "box"
+  | "abwheel"
+  | "other";
 
 export type StrengthSettings = {
   location?: StrengthLocation | null;
@@ -103,6 +151,7 @@ export type StrengthSettings = {
 };
 
 /* -------- Main prefs -------- */
+
 export type CoachPrefs = {
   goal_kind?: GoalKind;
 
@@ -131,7 +180,11 @@ export type CoachPrefs = {
 
   /* ---- Extensions ---- */
   main_sport?: SportKind | null;
-  secondary_mix?: { sport: SportKind; role: "none" | "supplement" | "improve"; share_pct: number }[];
+  secondary_mix?: {
+    sport: SportKind;
+    role: "none" | "supplement" | "improve";
+    share_pct: number;
+  }[];
 
   vo2max_training?: boolean;
   ftp_training?: boolean;
@@ -147,7 +200,13 @@ export type CoachPrefs = {
   rehab_focus?: RehabFocus;
 
   coach_voice?: CoachPersona | null;  // null → none selected
-  coach_tone?: { directness: number; praise: number; challenge: number; emoji: number; explain: number };
+  coach_tone?: {
+    directness: number;
+    praise: number;
+    challenge: number;
+    emoji: number;
+    explain: number;
+  };
 
   /** plán-štart (ISO YYYY-MM-DD); UI default = dnes + 2, min = zajtra */
   start_date?: string | null;
@@ -164,7 +223,12 @@ export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
   primary_sports: ["run", "ride", "strength"],
   targets: {
-    run: { race_goal: null, current_best_time: null, target_time: null, longest_recent_distance_km: null },
+    run: {
+      race_goal: null,
+      current_best_time: null,
+      target_time: null,
+      longest_recent_distance_km: null,
+    },
     ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
   },
@@ -176,5 +240,11 @@ export const DEFAULT_PREFS: CoachPrefs = {
     avoid_two_a_day: true,
   },
   coach_voice: "motivator",
-  coach_tone: { directness: 55, praise: 80, challenge: 60, emoji: 35, explain: 55 },
+  coach_tone: {
+    directness: 55,
+    praise: 80,
+    challenge: 60,
+    emoji: 35,
+    explain: 55,
+  },
 };

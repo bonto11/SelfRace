@@ -1,11 +1,44 @@
-// src/features/coach/api/plan.ts
+// src/features/coach/api/plan_daily.ts
 import { API_URL } from "@/shared/config";
 
-type SaveResult = {
+/* ============ typy ============ */
+
+export type SaveResult = {
   success: boolean;
   via: "api" | "local" | "none";
   planId?: string | null;
 };
+
+export type ExtendPlanResult = {
+  success: boolean;
+  extended_days: number;
+  plan_start: string;
+  plan_end: string;
+  horizon_days: number;
+  inserted_rows?: number;
+  note?: string;
+};
+
+export type PlanReorderUpdate = {
+  id: number;
+  plan_date: string;   // "YYYY-MM-DD"
+  session_index: number; // 0-based
+};
+
+export type DailyWeekGenerateOptions = {
+  week_index: number;      // 1-based index v weekly pláne
+  plan_id?: string | null; // ak null → posledný aktívny plán
+  overwrite?: boolean;
+};
+
+async function robustJson(res: Response) {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return await res.json();
+  const text = await res.text().catch(() => "");
+  return { success: false, detail: text || `HTTP ${res.status}` };
+}
+
+/* ============ SAVE / CANCEL aktívneho plánu (coach-plan) ============ */
 
 export async function apiSaveActivePlan(
   userId: number,
@@ -20,7 +53,6 @@ export async function apiSaveActivePlan(
     if (Array.isArray(analysis.weekly_weeks)) return analysis.weekly_weeks;
     if (Array.isArray(analysis.weeks_overview)) return analysis.weeks_overview;
 
-    // fallback – niektoré verzie to môžu mať uložené v meta
     if (Array.isArray(analysis.meta?.weeks_overview)) {
       return analysis.meta.weeks_overview;
     }
@@ -30,18 +62,15 @@ export async function apiSaveActivePlan(
 
   const payload = {
     next_10_days: analysis?.next_10_days ?? [],
-
-    // pre BE:
-    weekly,                 // používaš payload.get("weekly")
-    weeks_overview: weekly, // a zároveň payload.get("weeks_overview")
-
+    weekly,
+    weeks_overview: weekly,
     meta: meta ?? null,
     overwrite: true,
   };
 
   console.log("[coach.plan] saveActivePlan → payload", payload);
 
-  // ak nemáme API_URL, ulož čisto lokálne
+  // fallback: čisto lokálne
   if (!API_URL) {
     try {
       localStorage.setItem(
@@ -140,7 +169,8 @@ export async function apiCancelActivePlan(
   }
 }
 
-// --- CONTINUE / UPDATE ACTIVE PLAN ---------------------------------
+/* ============ CONTINUE / EXTEND horizont (coach-plan) ============ */
+
 export async function apiContinuePlan(
   userId: number,
   minHorizonDays = 10
@@ -171,7 +201,6 @@ export async function apiContinuePlan(
 
   if (r && r.ok) {
     const j = await r.json().catch(() => ({}));
-    // BE vráti { success: True, ... } – typovo to sedí na ExtendPlanResult
     return j as ExtendPlanResult;
   }
 
@@ -184,6 +213,47 @@ export async function apiContinuePlan(
     note: "http_error",
   };
 }
+
+export async function apiExtendActivePlan(
+  userId: number,
+  minHorizonDays = 10
+): Promise<ExtendPlanResult> {
+  if (!API_URL) {
+    console.warn("[coach.plan] extendActivePlan – missing API_URL");
+    return {
+      success: false,
+      extended_days: 0,
+      plan_start: "",
+      plan_end: "",
+      horizon_days: 0,
+      note: "missing_api_url",
+    };
+  }
+
+  const r = await fetch(
+    `${API_URL}/coach-plan/${userId}/extend?min_horizon_days=${minHorizonDays}`,
+    { method: "POST" }
+  ).catch((err) => {
+    console.error("[coach.plan] extendActivePlan fetch error", err);
+    return null;
+  });
+
+  if (r && r.ok) {
+    const j = await r.json().catch(() => ({}));
+    return j as ExtendPlanResult;
+  }
+
+  return {
+    success: false,
+    extended_days: 0,
+    plan_start: "",
+    plan_end: "",
+    horizon_days: 0,
+    note: "http_error",
+  };
+}
+
+/* ============ LINK / REORDER (coach-plan) ============ */
 
 /**
  * Manuálne prelinkovanie jednej planned session na aktivitu.
@@ -204,7 +274,7 @@ export async function apiSavePlanActivityLink(
 
   const payload = {
     session_id: sessionId,
-    activity_id: activityId, // null = unlink
+    activity_id: activityId,
   };
 
   const r = await fetch(`${API_URL}/coach-plan/${userId}/link`, {
@@ -225,13 +295,6 @@ export async function apiSavePlanActivityLink(
   return { success: false, via: "api" };
 }
 
-// --- BATCH REORDER / PRESUN PLÁNU (drag & drop board) -------------------
-export type PlanReorderUpdate = {
-  id: number;
-  plan_date: string; // "YYYY-MM-DD" – nový deň
-  session_index: number; // nové poradie v danom dni (0-based)
-};
-
 /**
  * Uloží zmeny v pláne (presuny medzi dňami + nové poradie).
  * - BE endpoint: POST /coach-plan/{user_id}/reorder
@@ -239,7 +302,7 @@ export type PlanReorderUpdate = {
  */
 export async function apiSavePlanReorder(
   userId: number,
-  updates: Array<{ id: number; plan_date: string; session_index: number }>
+  updates: Array<PlanReorderUpdate>
 ): Promise<{ success: boolean }> {
   if (!API_URL) {
     console.warn("[coach.plan] savePlanReorder – missing API_URL", {
@@ -267,55 +330,41 @@ export async function apiSavePlanReorder(
   return { success: false };
 }
 
-// --- EXTEND ACTIVE PLAN HORIZON (AI dopĺňanie) -------------------
+/* ============ NOVÝ GENERÁTOR TÝŽDŇA (coach-plan-daily) ============ */
 
-export type ExtendPlanResult = {
-  success: boolean;
-  extended_days: number;
-  plan_start: string;
-  plan_end: string;
-  horizon_days: number;
-  inserted_rows?: number;
-  note?: string;
-};
-
-export async function apiExtendActivePlan(
+/**
+ * Volá BE service_generate_daily_week
+ * POST /coach-plan-daily/generate/{user_id}
+ */
+export async function apiGenerateDailyForWeek(
   userId: number,
-  minHorizonDays = 10
-): Promise<ExtendPlanResult> {
-  if (!API_URL) {
-    console.warn("[coach.plan] extendActivePlan – missing API_URL");
-    return {
-      success: false,
-      extended_days: 0,
-      plan_start: "",
-      plan_end: "",
-      horizon_days: 0,
-      note: "missing_api_url",
-    };
+  opts: DailyWeekGenerateOptions
+): Promise<any> {
+  if (!API_URL) throw new Error("API_URL is not configured");
+  if (!opts || typeof opts.week_index !== "number") {
+    throw new Error("week_index is required for apiGenerateDailyForWeek");
   }
 
-  const r = await fetch(
-    `${API_URL}/coach-plan/${userId}/extend?min_horizon_days=${minHorizonDays}`,
+  const payload = {
+    week_index: opts.week_index,
+    plan_id: opts.plan_id ?? null,
+    overwrite: opts.overwrite ?? true,
+  };
+
+  const res = await fetch(
+    `${API_URL}/coach-plan-daily/generate/${userId}`,
     {
       method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
     }
   ).catch((err) => {
-    console.error("[coach.plan] extendActivePlan fetch error", err);
-    return null;
+    throw new Error(`Network/CORS: ${String(err)}`);
   });
 
-  if (r && r.ok) {
-    const j = await r.json().catch(() => ({}));
-    return j as ExtendPlanResult;
+  const json = await robustJson(res);
+  if (!res.ok) {
+    throw new Error(json?.detail || `HTTP ${res.status}`);
   }
-
-  return {
-    success: false,
-    extended_days: 0,
-    plan_start: "",
-    plan_end: "",
-    horizon_days: 0,
-    note: "http_error",
-  };
+  return json;
 }
