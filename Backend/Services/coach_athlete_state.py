@@ -2,11 +2,98 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
+
+from fastapi import HTTPException
+
+from Services.profile_metrics import service_get_latest_metrics
+from Services.profile_static import service_get_static_profile
+
+def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
+    """
+    birth_date: 'YYYY-MM-DD' alebo ISO 'YYYY-MM-DDTHH:MM:SSZ'
+    """
+    if not birth_date:
+        return None
+    try:
+        d_str = birth_date[:10]
+        year, month, day = map(int, d_str.split("-"))
+        b = date(year, month, day)
+        today = date.today()
+        age = today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+        return max(age, 0)
+    except Exception:
+        return None
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# -------------------- AI USER / RECOVERY z profile_* --------------------
+
+
+def _build_user_profile_for_ai(
+    user_id: int,
+    static_row: Optional[Dict[str, Any]],
+    metrics_data: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Poskladá 'user' blok pre CoachAnalyzeInput z profile_static + metrics.
+    """
+    static_row = static_row or {}
+    metrics_data = metrics_data or {}
+
+    sex = static_row.get("sex")
+    birth_date = static_row.get("birth_date")
+    height_cm = static_row.get("height_cm")
+    age = _compute_age_from_birth_date(birth_date)
+
+    weight_kg: Optional[float] = None
+    m_weight = metrics_data.get("weight_kg")
+    if isinstance(m_weight, dict) and m_weight.get("value") is not None:
+        try:
+            weight_kg = float(m_weight["value"])
+        except Exception:
+            weight_kg = None
+
+    return {
+        "id": user_id,
+        "sex": sex,
+        "age": age,
+        "height_cm": height_cm,
+        "weight_kg": weight_kg,
+        "training_age_years": None,  # neskôr vieš doplniť z vlastnej logiky
+    }
+
+
+def _build_recovery_from_metrics(
+    metrics_data: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Z latest metrík spraví jednoduchý 'recovery' blok.
+    Zatiaľ RHR/HRV nemáme, ale posielame hr_max + vo2max_estimate.
+    """
+    metrics_data = metrics_data or {}
+
+    hr_max_val = None
+    if isinstance(metrics_data.get("HR_max"), dict):
+        hr_max_val = metrics_data["HR_max"].get("value")
+
+    vo2_est = None
+    if isinstance(metrics_data.get("VO2Max_estimated"), dict):
+        vo2_est = metrics_data["VO2Max_estimated"].get("value")
+
+    return {
+        "rhr_bpm": None,
+        "hrv_avg": None,
+        "hrv_trend": None,
+        "sleep_ok": None,
+        "last_illness_days_ago": None,
+        # doplnkové polia pre AI:
+        "hr_max": hr_max_val,
+        "vo2max_estimate": vo2_est,
+    }
 
 
 # -------------------- INPUT BUILDER --------------------
@@ -16,7 +103,7 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
     """
     Základný stub CoachAnalyzeInput.
 
-    Všetko je nulové/prázdne, FE payload sa doplní až v _merge_fe_payload().
+    Všetko je nulové/prázdne, FE payload sa doplní až v _merge_fe_*().
     """
     return {
         "schema_version": 1,
@@ -43,7 +130,7 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
             # kľúče po športoch – zatiaľ len "run"
             "run": {
                 "lthr_bpm": None,
-                "zones": [],  # [{name,min,max}] alebo iný tvar – zatiaľ voľné
+                "zones": [],
             }
         },
         "thresholds": {
@@ -89,7 +176,9 @@ def _merge_fe_prefs(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
         or prefs.get("plan_start_date")
     )
     prefs["main_sport"] = fe.get("main_sport") or prefs.get("main_sport")
-    prefs["secondary_mix"] = fe.get("secondary_mix") or prefs.get("secondary_mix") or []
+    prefs["secondary_mix"] = (
+        fe.get("secondary_mix") or prefs.get("secondary_mix") or []
+    )
 
     # strength settings z FE
     if fe.get("strength_settings") is not None:
@@ -97,7 +186,6 @@ def _merge_fe_prefs(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
 
     # jednoduchý default: max hard tréningy / týždeň podľa blocks/intensity
     blocks = fe.get("blocks") or {}
-    hard_max = 3
     if blocks.get("vo2max") and blocks.get("threshold"):
         hard_max = 3
     elif blocks.get("vo2max") or blocks.get("threshold"):
@@ -119,11 +207,9 @@ def _merge_fe_zones(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
     zones = input_data.setdefault("zones", {})
     run_z = zones.setdefault("run", {"lthr_bpm": None, "zones": []})
 
-    # hr_max prenesieme ako súčasť "zones_raw" + vieme z toho neskôr derivovať
     hr_max = fe_zones.get("hr_max")
     run_z["hr_max"] = hr_max  # neformálne pole, ale praktické
 
-    # prehodenie Z1–Z5 do zoznamu
     out = []
     for name in ["Z1", "Z2", "Z3", "Z4", "Z5"]:
         key = name.lower()
@@ -184,27 +270,32 @@ def _merge_fe_bests(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
         bests["ride"] = bests_fe["ride"]
 
 
+def _merge_fe_recent_load(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
+    rl = fe.get("recent_load")
+    if not rl or not isinstance(rl, dict):
+        return
+    input_data["recent_load"] = rl
+
+
 def build_input_from_fe_payload(
     user_id: int, fe_payload: Optional[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """
     Hlavný builder CoachAnalyzeInput:
       - začneme od čistého stubu
-      - ak máme fe_payload, doplníme prefs/zones/thresholds/bests
-      - zároveň input["fe_payload_raw"] necháme pre debug (nepovinné)
+      - ak máme fe_payload, doplníme prefs/zones/thresholds/bests/recent_load
+      - zároveň input["fe_payload_raw"] necháme pre debug
     """
     input_data = _build_base_input(user_id)
 
     if not fe_payload:
         return input_data
 
-    # ulož raw payload na debug – FE si ho vie zobraziť, ak bude treba
     input_data["fe_payload_raw"] = fe_payload
 
     _merge_fe_prefs(input_data, fe_payload)
     _merge_fe_zones(input_data, fe_payload)
     _merge_fe_thresholds(input_data, fe_payload)
-    _merge_fe_bests(input_data, fe_payload)
     _merge_fe_bests(input_data, fe_payload)
     _merge_fe_recent_load(input_data, fe_payload)
 
@@ -221,19 +312,18 @@ def build_state_from_input(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     prefs = input_data.get("prefs") or {}
     bests = (input_data.get("bests") or {}).get("run") or []
+    recovery = input_data.get("recovery") or {}
 
     main_sport = prefs.get("main_sport") or "run"
     weeks = prefs.get("weeks") or 4
     goal = prefs.get("goal_kind") or "improve_overall"
 
-    # veľmi jednoduché score z PB – čisto na pocit
     fitness_level_run = 5
     for b in bests:
         dist = b.get("distance_m")
         t = b.get("best_time_s") or b.get("time_s")
         if not dist or not t:
             continue
-        # primitívny index – kratšie časy na 5k/10k → vyšší level
         if dist == 5000:
             pace = t / 5000.0
             if pace < 0.24:      # ~4:00/km
@@ -242,13 +332,14 @@ def build_state_from_input(input_data: Dict[str, Any]) -> Dict[str, Any]:
                 fitness_level_run = max(fitness_level_run, 7)
             elif pace < 0.28:    # ~4:40/km
                 fitness_level_run = max(fitness_level_run, 6)
-        # ostatné vzdialenosti zatiaľ ignorujeme
 
     block_kind = "base_aerobic"
     if goal in ("race_time", "improve_speed"):
         block_kind = "threshold_speed"
     elif goal == "improve_endurance":
         block_kind = "base_long"
+
+    vo2_est = recovery.get("vo2max_estimate")
 
     return {
         "schema_version": 1,
@@ -306,7 +397,7 @@ def build_state_from_input(input_data: Dict[str, Any]) -> Dict[str, Any]:
                 "good_general_fitness",
             ],
             "metrics": {
-                "estimated_vo2max": None,
+                "estimated_vo2max": vo2_est,
                 "estimated_5k_time_min": None,
                 "chronic_load_score": None,
                 "acute_load_score": None,
@@ -321,9 +412,8 @@ def build_state_from_input(input_data: Dict[str, Any]) -> Dict[str, Any]:
 def save_state_to_db(user_id: int, state: Dict[str, Any]) -> Optional[int]:
     """
     Stub ukladania – ak už máš implementáciu s DB (tabuľka coach_athlete_state),
-    môžeš ju sem nahradiť. Teraz len vrátime 1, aby FE videl state_id.
+    môžeš ju sem nahradiť. Teraz len vrátime 1.
     """
-    # TODO: nahradiť reálnym INSERT/UPSERT do DB
     return 1
 
 
@@ -341,22 +431,55 @@ def service_analyze_athlete(
     Hlavná service funkcia, ktorú volá router.
 
     - poskladá CoachAnalyzeInput (stub + fe_payload)
-    - vygeneruje CoachAthleteState (zatím heuristický stub)
+    - doplní user + recovery z profile_static + profile_metrics
+    - vygeneruje CoachAthleteState (heuristický stub)
     - voliteľne uloží do DB
-    - vráti dict s kľúčmi: state_id, state, input, model
     """
+    # 1) FE → základný input
     input_data = build_input_from_fe_payload(user_id, fe_payload)
+
+    # 2) doplniť user + recovery z profile services
+    static_row: Optional[Dict[str, Any]] = None
+    metrics_data: Optional[Dict[str, Any]] = None
+
+    # STATIC profil – ak nie je, ignorujeme 404
+    try:
+        static_row = service_get_static_profile(user_id=user_id)
+    except HTTPException as e:
+        if e.status_code != 404:
+            raise
+
+    # METRICS – latest
+    try:
+        latest = service_get_latest_metrics(user_id=user_id)
+        if isinstance(latest, dict):
+            metrics_data = latest.get("data")
+    except HTTPException as e:
+        if e.status_code != 404:
+            raise
+
+    # user blok
+    if static_row or metrics_data:
+        input_data["user"] = _build_user_profile_for_ai(
+            user_id=user_id,
+            static_row=static_row,
+            metrics_data=metrics_data,
+        )
+
+    # recovery blok – aj keď nič nemáš, aspoň tam bude konzistentná štruktúra
+    input_data["recovery"] = _build_recovery_from_metrics(metrics_data)
+
+    # 3) AI stub
     state = build_state_from_input(input_data)
 
+    # 4) uloženie
     state_id: Optional[int] = None
     if save_to_db:
         state_id = save_state_to_db(user_id, state)
 
-    # ak chceš debug, môžeš si sem doplniť logging fe_payload/input_data
     if debug:
-        # jednoduchý print – v produkcii by som dal logging
         print("[coach_athlete_state] debug input:", input_data)  # noqa: T201
-        print("[coach_athlete_state] debug state:", state)        # noqa: T201
+        print("[coach_athlete_state] debug state:", state)      # noqa: T201
 
     return {
         "state_id": state_id,
@@ -364,9 +487,3 @@ def service_analyze_athlete(
         "input": input_data,
         "model": model,
     }
-
-def _merge_fe_recent_load(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
-  rl = fe.get("recent_load")
-  if not rl or not isinstance(rl, dict):
-      return
-  input_data["recent_load"] = rl

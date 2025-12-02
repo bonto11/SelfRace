@@ -8,6 +8,14 @@ from fastapi import HTTPException
 from Services.profile import StaticPayload, _iso_now, _birth_to_iso_date
 from Routes_DB.profile_static import db_fetch_static, db_upsert_static
 
+def _apply_user_filter_raw(q, user_id: int, user_uid: Optional[str]):
+    """
+    Minimal clone _apply_user_filter, ale iba pre DB layer.
+    Ak máš už existujúcu funkciu v Services.profile, môžeš importnúť tú.
+    """
+    if user_uid:
+        return q.eq("user_uid", user_uid)
+    return q.eq("user_id", user_id)
 
 def service_get_static_profile(user_id: int, user_uid: Optional[str] = None) -> Dict[str, Any]:
     """

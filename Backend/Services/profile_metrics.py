@@ -1,9 +1,8 @@
 # Services/profile_metrics.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional
-
 from fastapi import HTTPException
 
 from Services.profile import (
@@ -15,11 +14,22 @@ from Routes_DB.profile_metrics import (
     db_insert_metric_rows,
     db_get_metric_history,
     db_get_latest_metric,
-    db_fetch_static_basic,
     db_get_vo2_measured_history,
+)
+
+from Routes_DB.profile_static import (
+    db_fetch_static_basic,
     db_get_static_sex_birth,
 )
 
+def _apply_user_filter_raw(q, user_id: int, user_uid: Optional[str]):
+    """
+    Minimal clone _apply_user_filter, ale iba pre DB layer.
+    Ak máš už existujúcu funkciu v Services.profile, môžeš importnúť tú.
+    """
+    if user_uid:
+        return q.eq("user_uid", user_uid)
+    return q.eq("user_id", user_id)
 
 # ---------- INSERT METRICS (batch) ----------
 
@@ -176,3 +186,71 @@ def service_get_vo2_estimate(
         }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+    
+def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
+    """
+    Prepočíta vek v rokoch z 'YYYY-MM-DD' alebo full ISO stringu.
+    Ak birth_date chýba alebo je nevalidné, vráti None.
+    """
+    if not birth_date:
+        return None
+    try:
+        # ak príde full ISO '2025-12-02T00:00:00+00:00', vezmeme len dátum
+        d_str = birth_date[:10]
+        year, month, day = map(int, d_str.split("-"))
+        b = date(year, month, day)
+        today = date.today()
+        age = today.year - b.year - ((today.month, today.day) < (b.month, b.day))
+        return max(age, 0)
+    except Exception:
+        return None
+
+
+def service_load_user_profile_for_analysis(
+    user_id: int,
+    user_uid: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Použije STATIC + METRICS na poskladanie user bloku pre CoachAnalyzeInput.user.
+
+    Výstup:
+      {
+        "id": int,
+        "sex": "M" | "F" | None,
+        "age": int | None,
+        "height_cm": float | int | None,
+        "weight_kg": float | None,
+        "training_age_years": float | None,
+      }
+    """
+
+    # STATIC: sex, birth_date, height_cm
+    static = db_fetch_static_basic(user_id=user_id, user_uid=user_uid) or {}
+    sex = static.get("sex")
+    birth_date = static.get("birth_date")
+    height_cm = static.get("height_cm")
+    age = _compute_age_from_birth_date(birth_date)
+
+    # METRIC: posledná váha
+    weight_row = db_get_latest_metric(
+        user_id=user_id,
+        metric="weight_kg",
+        user_uid=user_uid,
+    )
+    if weight_row and weight_row.get("value_num") is not None:
+        try:
+            weight_kg: Optional[float] = float(weight_row["value_num"])
+        except Exception:
+            weight_kg = None
+    else:
+        weight_kg = None
+
+    return {
+        "id": user_id,
+        "sex": sex,
+        "age": age,
+        "height_cm": height_cm,
+        "weight_kg": weight_kg,
+        # zatiaľ nemáš stĺpec, tak nechávame None (neskôr vieme dopočítať z histórie)
+        "training_age_years": None,
+    }
