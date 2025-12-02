@@ -45,12 +45,20 @@ export async function apiFetchUserThresholdsLatest(
   userId: number
 ): Promise<UserThresholdRow[]> {
   const url = `${API_URL}/users/${userId}/thresholds/latest`;
+  console.log("[apiFetchUserThresholdsLatest] GET", url);
 
   const res = await fetch(url, { cache: "no-store" });
   const json = (await res.json().catch(() => null)) as
     | ApiRows
     | ApiFail
     | null;
+
+  console.log(
+    "[apiFetchUserThresholdsLatest] status",
+    res.status,
+    "json",
+    json
+  );
 
   if (!res.ok || !json || json.success === false) return [];
   return (json as ApiRows).rows ?? [];
@@ -64,24 +72,34 @@ export async function apiSaveUserThresholds(
   t: Partial<UserThresholdRow>
 ): Promise<UserThresholdRow | null> {
   const url = `${API_URL}/users/${userId}/thresholds`;
+  const body = {
+    sport: t.sport ?? "running",
+    threshold_type: t.threshold_type ?? "LT2",
+    hr_bpm: t.hr_bpm ?? null,
+    pace_sec_km: t.pace_sec_km ?? null,
+    power_watt: t.power_watt ?? null,
+    measurement_type: t.measurement_type ?? "manual",
+  };
+
+  console.log("[apiSaveUserThresholds] PUT", url, "body", body);
 
   const res = await fetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
-    body: JSON.stringify({
-      sport: t.sport ?? "running",
-      threshold_type: t.threshold_type ?? "LT2",
-      hr_bpm: t.hr_bpm ?? null,
-      pace_sec_km: t.pace_sec_km ?? null,
-      power_watt: t.power_watt ?? null,
-      measurement_type: t.measurement_type ?? "manual",
-    }),
+    body: JSON.stringify(body),
   });
 
-  const json = await res.json().catch(() => ({} as ApiRow | ApiFail));
+  const json = (await res.json().catch(() => null)) as ApiRow | ApiFail | null;
 
-  if (!res.ok) {
+  console.log(
+    "[apiSaveUserThresholds] status",
+    res.status,
+    "json",
+    json
+  );
+
+  if (!res.ok || !json || (json as ApiFail)?.success === false) {
     const msg = (json as ApiFail)?.detail || `HTTP ${res.status}`;
     throw new Error(msg);
   }

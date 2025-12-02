@@ -1,6 +1,6 @@
 "use client";
 
-import PrefsForm from "@/features/coach/components/CoachPreferencies";
+import CoachPreferencies from "@/features/coach/components/CoachPreferencies";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 export default function Page() {
@@ -9,7 +9,7 @@ export default function Page() {
       <ButtonBack title="Coach — Preferences" />
 
       <div className="pt-3 bg-white/5 dark:bg-gray-800 p-4 rounded shadow">
-        <PrefsForm />
+        <CoachPreferencies />
       </div>
     </div>
   );
