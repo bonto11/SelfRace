@@ -1,78 +1,24 @@
-# Services/coach_athlete_analyze.py
+# Services/coach_athlete_state.py
 from __future__ import annotations
 
-from datetime import datetime
-from typing import cast, Any, Dict, Optional
-
-from Schemas.coach_types import (
-    CoachAnalyzeInput,
-    CoachAthleteState,
-)
-from Routes_DB.coach_athlete_state import db_insert_athlete_state
+from typing import Any, Dict, Optional
+from datetime import datetime, timezone
 
 
-# ───────────────────────────── public API ─────────────────────────────
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-def service_analyze_athlete(
-    user_id: int,
-    *,
-    model: str = "coach-analyze-stub",
-    save_to_db: bool = True,
-    debug: bool = False,
-) -> Dict[str, Any]:
+# -------------------- INPUT BUILDER --------------------
+
+
+def _build_base_input(user_id: int) -> Dict[str, Any]:
     """
-    High-level služba: načíta dáta o atlétovi, pošle ich do AI,
-    vráti 'athlete_state' JSON a (voliteľne) ho uloží do DB.
+    Základný stub CoachAnalyzeInput.
 
-    Return:
-      {
-        "state_id": int | None,
-        "state": CoachAthleteState,
-        "input": CoachAnalyzeInput,
-        "model": str,
-      }
+    Všetko je nulové/prázdne, FE payload sa doplní až v _merge_fe_payload().
     """
-    analyze_input: CoachAnalyzeInput = build_analyze_input_from_db(user_id=user_id)
-
-    if debug:
-        print("[COACH-ANALYZE] input:", analyze_input)
-
-    state_json: CoachAthleteState = call_llm_analyze_athlete(
-        analyze_input,
-        model=model,
-        debug=debug,
-    )
-
-    state_id: Optional[int] = None
-    if save_to_db:
-        state_id = save_athlete_state(
-            user_id=user_id,
-            state_json=state_json,
-            model=model,
-        )
-
     return {
-        "state_id": state_id,
-        "state": state_json,
-        "input": analyze_input,
-        "model": model,
-    }
-
-
-# ───────────────────────────── build input (stub) ─────────────────────────────
-
-
-def build_analyze_input_from_db(user_id: int) -> CoachAnalyzeInput:
-    """
-    Poskladá CoachAnalyzeInput.
-
-    Zatiaľ STUB – nedotýka sa DB, aby to bolo bezpečné na spúšťanie.
-    Neskôr doplníme reálne query na users/prefs/zóny/aktivity.
-    """
-    today = datetime.utcnow().date()
-
-    inp: CoachAnalyzeInput = {
         "schema_version": 1,
         "user": {
             "id": user_id,
@@ -83,24 +29,21 @@ def build_analyze_input_from_db(user_id: int) -> CoachAnalyzeInput:
             "training_age_years": None,
         },
         "prefs": {
-            "goal_kind": "improve_overall",
-            "weeks": 6,
-            "plan_start_date": today.isoformat(),
-            "main_sport": "run",
+            "goal_kind": None,
+            "weeks": None,
+            "plan_start_date": None,
+            "main_sport": None,
             "secondary_mix": [],
-            "strength_settings": {
-                "equipment_mode": "minimal",
-                "location": "home",
-                "target_per_week": 2,
-            },
+            "strength_settings": None,
             "weekly_time_budget_min": None,
-            "hard_days_per_week_max": 3,
+            "hard_days_per_week_max": None,
             "notes_for_coach": None,
         },
         "zones": {
+            # kľúče po športoch – zatiaľ len "run"
             "run": {
                 "lthr_bpm": None,
-                "zones": [],
+                "zones": [],  # [{name,min,max}] alebo iný tvar – zatiaľ voľné
             }
         },
         "thresholds": {
@@ -133,51 +76,212 @@ def build_analyze_input_from_db(user_id: int) -> CoachAnalyzeInput:
             "horizon_days": None,
         },
     }
-    return inp
 
 
-# ───────────────────────────── LLM stub ─────────────────────────────
+def _merge_fe_prefs(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
+    prefs = input_data.setdefault("prefs", {})
+
+    prefs["goal_kind"] = fe.get("goal_kind") or prefs.get("goal_kind")
+    prefs["weeks"] = fe.get("weeks") or prefs.get("weeks")
+    prefs["plan_start_date"] = (
+        fe.get("plan_start_date")
+        or fe.get("start_date")
+        or prefs.get("plan_start_date")
+    )
+    prefs["main_sport"] = fe.get("main_sport") or prefs.get("main_sport")
+    prefs["secondary_mix"] = fe.get("secondary_mix") or prefs.get("secondary_mix") or []
+
+    # strength settings z FE
+    if fe.get("strength_settings") is not None:
+        prefs["strength_settings"] = fe["strength_settings"]
+
+    # jednoduchý default: max hard tréningy / týždeň podľa blocks/intensity
+    blocks = fe.get("blocks") or {}
+    hard_max = 3
+    if blocks.get("vo2max") and blocks.get("threshold"):
+        hard_max = 3
+    elif blocks.get("vo2max") or blocks.get("threshold"):
+        hard_max = 2
+    else:
+        hard_max = 1
+    prefs["hard_days_per_week_max"] = hard_max
 
 
-def call_llm_analyze_athlete(
-    payload: CoachAnalyzeInput,
-    *,
-    model: str = "coach-analyze-stub",
-    debug: bool = False,
-) -> CoachAthleteState:
+def _merge_fe_zones(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
     """
-    Tu bude reálny call na LLM (OpenAI / Anthropic / tvoje API).
-
-    Zatiaľ vracia rozumný STUB podľa špecifikácie CoachAthleteState,
-    aby sa dalo testovať UI a flow bez AI.
+    Zoberie top-level fe["zones"] (tvoj LTHR model hr_max + Z1–Z5)
+    a uloží ho pod zones["run"]["zones"] vo forme zoznamu.
     """
-    now_iso = datetime.utcnow().isoformat() + "Z"
+    fe_zones = fe.get("zones")
+    if not fe_zones or not isinstance(fe_zones, dict):
+        return
 
-    state: CoachAthleteState = {
+    zones = input_data.setdefault("zones", {})
+    run_z = zones.setdefault("run", {"lthr_bpm": None, "zones": []})
+
+    # hr_max prenesieme ako súčasť "zones_raw" + vieme z toho neskôr derivovať
+    hr_max = fe_zones.get("hr_max")
+    run_z["hr_max"] = hr_max  # neformálne pole, ale praktické
+
+    # prehodenie Z1–Z5 do zoznamu
+    out = []
+    for name in ["Z1", "Z2", "Z3", "Z4", "Z5"]:
+        key = name.lower()
+        min_k = f"{key}_min"
+        max_k = f"{key}_max"
+        v_min = fe_zones.get(min_k)
+        v_max = fe_zones.get(max_k)
+        if v_min is None and v_max is None:
+            continue
+        out.append(
+            {
+                "name": name,
+                "hr_min": v_min,
+                "hr_max": v_max,
+            }
+        )
+
+    run_z["zones"] = out
+
+
+def _merge_fe_thresholds(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
+    """
+    Zoberie top-level fe["thresholds"] (ak existuje) a uloží do thresholds["run"].
+    """
+    t = fe.get("thresholds")
+    if not t or not isinstance(t, dict):
+        return
+
+    thresholds = input_data.setdefault("thresholds", {})
+    run_t = thresholds.setdefault(
+        "run",
+        {
+            "lthr_bpm": None,
+            "pace_lthr_s_per_km": None,
+            "ftp_power_w": None,
+            "vo2max_estimate": None,
+        },
+    )
+
+    # FE typ: hr_bpm / pace_sec_km / power_watt / ...
+    if t.get("hr_bpm") is not None:
+        run_t["lthr_bpm"] = t["hr_bpm"]
+    if t.get("pace_sec_km") is not None:
+        run_t["pace_lthr_s_per_km"] = t["pace_sec_km"]
+    if t.get("power_watt") is not None:
+        run_t["ftp_power_w"] = t["power_watt"]
+
+
+def _merge_fe_bests(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
+    bests_fe = fe.get("bests")
+    if not bests_fe or not isinstance(bests_fe, dict):
+        return
+
+    bests = input_data.setdefault("bests", {})
+    if "run" in bests_fe:
+        bests["run"] = bests_fe["run"]
+    if "ride" in bests_fe:
+        bests["ride"] = bests_fe["ride"]
+
+
+def build_input_from_fe_payload(
+    user_id: int, fe_payload: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Hlavný builder CoachAnalyzeInput:
+      - začneme od čistého stubu
+      - ak máme fe_payload, doplníme prefs/zones/thresholds/bests
+      - zároveň input["fe_payload_raw"] necháme pre debug (nepovinné)
+    """
+    input_data = _build_base_input(user_id)
+
+    if not fe_payload:
+        return input_data
+
+    # ulož raw payload na debug – FE si ho vie zobraziť, ak bude treba
+    input_data["fe_payload_raw"] = fe_payload
+
+    _merge_fe_prefs(input_data, fe_payload)
+    _merge_fe_zones(input_data, fe_payload)
+    _merge_fe_thresholds(input_data, fe_payload)
+    _merge_fe_bests(input_data, fe_payload)
+
+    return input_data
+
+
+# -------------------- STATE BUILDER (AI stub) --------------------
+
+
+def build_state_from_input(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Stub generovanie CoachAthleteState z inputu.
+    Zatiaľ len jednoduché heuristiky, ale už využíva FE prefs/zones/bests.
+    """
+    prefs = input_data.get("prefs") or {}
+    bests = (input_data.get("bests") or {}).get("run") or []
+
+    main_sport = prefs.get("main_sport") or "run"
+    weeks = prefs.get("weeks") or 4
+    goal = prefs.get("goal_kind") or "improve_overall"
+
+    # veľmi jednoduché score z PB – čisto na pocit
+    fitness_level_run = 5
+    for b in bests:
+        dist = b.get("distance_m")
+        t = b.get("best_time_s") or b.get("time_s")
+        if not dist or not t:
+            continue
+        # primitívny index – kratšie časy na 5k/10k → vyšší level
+        if dist == 5000:
+            pace = t / 5000.0
+            if pace < 0.24:      # ~4:00/km
+                fitness_level_run = max(fitness_level_run, 8)
+            elif pace < 0.26:    # ~4:20/km
+                fitness_level_run = max(fitness_level_run, 7)
+            elif pace < 0.28:    # ~4:40/km
+                fitness_level_run = max(fitness_level_run, 6)
+        # ostatné vzdialenosti zatiaľ ignorujeme
+
+    block_kind = "base_aerobic"
+    if goal in ("race_time", "improve_speed"):
+        block_kind = "threshold_speed"
+    elif goal == "improve_endurance":
+        block_kind = "base_long"
+
+    return {
         "schema_version": 1,
-        "generated_at": now_iso,
-        "model": model,
+        "generated_at": _now_iso(),
+        "model": "coach-analyze-stub",
         "user_summary": {
             "headline": "Formálne: stabilná forma, priestor na väčší Z2 objem.",
             "bullets": [
-                "Posledné týždne máš skôr mierny tréningový objem.",
-                "Nevidno extrémne výkyvy v intenzite ani objeme (stub).",
-                "Na prácu s prahom potrebujeme pravidelnejší týždenný cyklus.",
+                f"Cieľ: {goal}, horizont ~{weeks} týždňov.",
+                f"Hlavný šport: {main_sport}.",
+                "PB dáta sú zatiaľ len orientačne zohľadnené (stub heuristika).",
             ],
             "risks": [
                 "Riziko rýchleho zvyšovania objemu, ak to preženieš.",
             ],
             "suggestions_short": [
                 "Udrž stabilný počet tréningových dní.",
-                "Začni budovať konzistentný Z2 objem.",
-                "1–2 kvalitné intenzívne tréningy týždenne stačia.",
+                "Buduj konzistentný Z2 objem.",
+                "1–2 kvalitné intenzívne tréningy týždenne zvyčajne stačia.",
             ],
         },
         "ai_state": {
             "fitness_level": {
-                "run": {"level_1_to_10": 6, "comment": "slušný základ, ale nie peak"},
-                "ride": {"level_1_to_10": 5, "comment": "udržiavacia úroveň"},
-                "strength": {"level_1_to_10": 5, "comment": "primeraná sila celého tela"},
+                "run": {
+                    "level_1_to_10": fitness_level_run,
+                    "comment": "slušný základ, ale stále je čo ladiť",
+                },
+                "ride": {
+                    "level_1_to_10": 5,
+                    "comment": "udržiavacia úroveň",
+                },
+                "strength": {
+                    "level_1_to_10": 5,
+                    "comment": "primeraná sila celého tela (stub)",
+                },
             },
             "fatigue_level": "moderate",
             "injury_risk": "moderate",
@@ -187,12 +291,18 @@ def call_llm_analyze_athlete(
                 "note": "zvyšovať objem max ~10–15 % medzi týždňami",
             },
             "intensity_tolerance": {
-                "hard_sessions_per_week_max": 3,
-                "comment": "2 hlavné kvalitné tréningy + 1 doplnkový je strop",
+                "hard_sessions_per_week_max": (
+                    input_data.get("prefs", {}).get("hard_days_per_week_max") or 3
+                ),
+                "comment": "2 hlavné kvalitné tréningy + 1 doplnkový je strop (stub).",
             },
-            "suggested_block_kind": "base_aerobic",
-            "key_limitations": ["inconsistent_long_runs"],
-            "key_strengths": ["good_general_fitness"],
+            "suggested_block_kind": block_kind,
+            "key_limitations": [
+                "inconsistent_long_runs",
+            ],
+            "key_strengths": [
+                "good_general_fitness",
+            ],
             "metrics": {
                 "estimated_vo2max": None,
                 "estimated_5k_time_min": None,
@@ -202,34 +312,53 @@ def call_llm_analyze_athlete(
         },
     }
 
-    if debug:
-        print("[COACH-ANALYZE] stub state:", state)
 
-    return state
+# -------------------- STORAGE STUB --------------------
 
 
-# ───────────────────────────── DB persistence ─────────────────────────────
+def save_state_to_db(user_id: int, state: Dict[str, Any]) -> Optional[int]:
+    """
+    Stub ukladania – ak už máš implementáciu s DB (tabuľka coach_athlete_state),
+    môžeš ju sem nahradiť. Teraz len vrátime 1, aby FE videl state_id.
+    """
+    # TODO: nahradiť reálnym INSERT/UPSERT do DB
+    return 1
 
 
-def save_athlete_state(
+# -------------------- PUBLIC SERVICE --------------------
+
+
+def service_analyze_athlete(
     user_id: int,
-    state_json: CoachAthleteState,
-    *,
-    model: Optional[str] = None,
-) -> Optional[int]:
+    model: str = "coach-analyze-stub",
+    save_to_db: bool = True,
+    debug: bool = False,
+    fe_payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
-    Uloží athlete_state pomocou Routes_DB.coach_athlete_state.
+    Hlavná service funkcia, ktorú volá router.
+
+    - poskladá CoachAnalyzeInput (stub + fe_payload)
+    - vygeneruje CoachAthleteState (zatím heuristický stub)
+    - voliteľne uloží do DB
+    - vráti dict s kľúčmi: state_id, state, input, model
     """
-    try:
-        version = int(state_json.get("schema_version", 1))  # type: ignore[arg-type]
-        model_final = model or state_json.get("model")  # type: ignore[arg-type]
-        state_id = db_insert_athlete_state(
-            user_id=user_id,
-            state_json=cast(Dict[str, Any], state_json),
-            model=model_final,
-            version=version,
-        )
-        return state_id
-    except Exception as e:  # noqa: BLE001
-        print("[COACH-ANALYZE] save_athlete_state error:", repr(e))
-        return None
+    input_data = build_input_from_fe_payload(user_id, fe_payload)
+    state = build_state_from_input(input_data)
+
+    state_id: Optional[int] = None
+    if save_to_db:
+        state_id = save_state_to_db(user_id, state)
+
+    # ak chceš debug, môžeš si sem doplniť logging fe_payload/input_data
+    if debug:
+        # jednoduchý print – v produkcii by som dal logging
+        print("[coach_athlete_state] debug input:", input_data)  # noqa: T201
+        print("[coach_athlete_state] debug state:", state)        # noqa: T201
+
+    return {
+        "state_id": state_id,
+        "state": state,
+        "input": input_data,
+        "model": model,
+    }
