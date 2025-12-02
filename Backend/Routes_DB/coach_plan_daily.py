@@ -1,155 +1,58 @@
 # Routes_DB/coach_plan_daily.py
 from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
-
 from Modules.SQL.db_handler import get_client
-from Configs.config import TABLE_COACH_PLAN_DAILY
 
 supabase = get_client()
 
 
-# ───────────────────────────── základné CRUD operácie ─────────────────────────────
-
-
-def db_insert_planned_session(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Vloží jeden riadok do coach_planned_sessions.
-    """
-    res = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .insert(data)
-        .execute()
-    )
-    rows = res.data or []
-    return rows[0] if rows else {}
+# ───────────────────────────── INSERT ─────────────────────────────
 
 
 def db_insert_planned_sessions(rows: List[Dict[str, Any]]) -> int:
     """
-    Vloží viac riadkov naraz.
-    Vráti počet vložených riadkov.
+    Bulk INSERT do coach_plan_daily.
+    Vracia počet vložených riadkov.
     """
     if not rows:
         return 0
 
-    res = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .insert(rows)
-        .execute()
-    )
-    data = res.data or rows
-    print(
-        f"[DB-COACH-PLAN] insert_planned_sessions count={len(rows)} "
-        f"db_returned={len(data)}"
-    )
-    return len(data)
+    try:
+        res = supabase.table("coach_plan_daily").insert(rows).execute()
+        data = res.data or []
+        print("[DB-COACH-DAILY] inserted rows:", len(data))
+        return len(data)
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] insert error:", repr(e))
+        return 0
 
 
-def db_update_planned_session(session_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Upraví coach_planned_sessions.id = session_id danými dátami.
-    """
-    res = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .update(data)
-        .eq("id", session_id)
-        .execute()
-    )
-    rows = res.data or []
-    print(
-        f"[DB-COACH-PLAN] update_planned_session id={session_id} "
-        f"updated={len(rows)}"
-    )
-    return rows[0] if rows else {}
-
-
-def db_delete_planned_session(session_id: int) -> int:
-    """
-    Zmaže jeden riadok podľa id.
-    Vráti počet zmazaných riadkov.
-    """
-    res = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .delete()
-        .eq("id", session_id)
-        .execute()
-    )
-    rows = res.data or []
-    print(
-        f"[DB-COACH-PLAN] delete_planned_session id={session_id} "
-        f"deleted={len(rows)}"
-    )
-    return len(rows)
-
-
-# ───────────────────────── špecializované helpery pre plán ─────────────────────────
-
-
-def db_fetch_plan_rows_in_range(
-    user_id: int,
-    start_iso: str,
-    end_iso: str,
-    columns: Optional[str] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Vráti planned sessions pre usera v rozsahu dátumov (vrátane).
-    Použitelné pre auto-mapovanie a iné služby.
-    """
-    sel = (
-        columns
-        or "id,user_id,plan_date,sport,title,duration_min,intensity,"
-           "plan_id,activity_id,session_type,session_index,payload"
-    )
-
-    rows = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .select(sel)
-        .eq("user_id", user_id)
-        .gte("plan_date", start_iso)
-        .lte("plan_date", end_iso)
-        .execute()
-    )
-    data = rows.data or []
-    print(
-        f"[DB-COACH-PLAN] fetch_plan_rows_in_range user={user_id} "
-        f"range={start_iso}..{end_iso} rows={len(data)}"
-    )
-    return data
+# ───────────────────────────── SELECT ─────────────────────────────
 
 
 def db_get_planned_range_rows(
     user_id: int,
     start_iso: str,
     end_iso: str,
-) -> List[Dict[str, Any]]:
+):
     """
-    Full-select pre /range endpoint – vracia všetky stĺpce.
+    Všetky planned sessions v rozsahu [start, end].
     """
-    rows = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .select("*")
-        .eq("user_id", user_id)
-        .gte("plan_date", start_iso)
-        .lte("plan_date", end_iso)
-        .order("plan_date", desc=False)
-        .execute()
-    )
-    data = rows.data or []
-
-    # best-effort druhé radenie podľa session_index
     try:
-        data.sort(
-            key=lambda r: (r.get("plan_date"), r.get("session_index") or 0)
+        res = (
+            supabase.table("coach_plan_daily")
+            .select("*")
+            .eq("user_id", user_id)
+            .gte("plan_date", start_iso)
+            .lte("plan_date", end_iso)
+            .order("plan_date", desc=False)
+            .order("session_index", desc=False)
+            .execute()
         )
-    except Exception:
-        pass
-
-    print(
-        f"[DB-COACH-PLAN] get_planned_range_rows user={user_id} "
-        f"range={start_iso}..{end_iso} rows={len(data)}"
-    )
-    return data
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] get_range error:", repr(e))
+        return []
 
 
 def db_get_planned_sessions_filtered(
@@ -157,36 +60,59 @@ def db_get_planned_sessions_filtered(
     date_from: Optional[str],
     date_to: Optional[str],
     plan_id: Optional[str],
-) -> List[Dict[str, Any]]:
+):
     """
-    Pôvodný GET /coach-plan/{user_id} – filtre date_from/date_to/plan_id.
+    Starší univerzálny filter – podľa dátumu a/alebo plan_id.
     """
-    q = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .select("*")
-        .eq("user_id", user_id)
-    )
-    if plan_id:
-        q = q.eq("plan_id", plan_id)
-    if date_from:
-        q = q.gte("plan_date", date_from)
-    if date_to:
-        q = q.lte("plan_date", date_to)
-
-    q = q.order("plan_date", desc=False)
     try:
-        q = q.order("session_index", desc=False)
-    except Exception:
-        pass
+        q = supabase.table("coach_plan_daily").select("*").eq("user_id", user_id)
 
-    res = q.execute()
-    data = res.data or []
-    print(
-        f"[DB-COACH-PLAN] get_planned_sessions_filtered user={user_id} "
-        f"rows={len(data)} plan_id={plan_id} "
-        f"from={date_from} to={date_to}"
-    )
-    return data
+        if date_from:
+            q = q.gte("plan_date", date_from)
+        if date_to:
+            q = q.lte("plan_date", date_to)
+        if plan_id:
+            q = q.eq("plan_id", plan_id)
+
+        res = (
+            q.order("plan_date", desc=False)
+            .order("session_index", desc=False)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] get_filtered error:", repr(e))
+        return []
+
+
+def db_fetch_plan_rows_in_range(
+    user_id: int,
+    start_iso: str,
+    end_iso: str,
+    columns: Optional[str] = None,
+):
+    """
+    Helper – výber s možnosťou obmedziť stĺpce (napr. 'id, plan_date, plan_id').
+    """
+    try:
+        sel = columns or "*"
+        res = (
+            supabase.table("coach_plan_daily")
+            .select(sel)
+            .eq("user_id", user_id)
+            .gte("plan_date", start_iso)
+            .lte("plan_date", end_iso)
+            .order("plan_date", desc=False)
+            .order("session_index", desc=False)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] fetch_range error:", repr(e))
+        return []
+
+
+# ───────────────────────────── DELETE ─────────────────────────────
 
 
 def db_clear_range_for_user(
@@ -195,23 +121,29 @@ def db_clear_range_for_user(
     end_iso: str,
 ) -> int:
     """
-    Vymaže všetky planned sessions pre usera v danom rozsahu.
+    Zmaže plán v danom rozsahu (typicky 1 týždeň) pre usera.
     """
-    res = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .delete()
-        .eq("user_id", user_id)
-        .gte("plan_date", start_iso)
-        .lte("plan_date", end_iso)
-        .execute()
-    )
-    rows = res.data or []
-    deleted = len(rows)
-    print(
-        f"[DB-COACH-PLAN] clear_range_for_user user={user_id} "
-        f"range={start_iso}..{end_iso} deleted={deleted}"
-    )
-    return deleted
+    try:
+        res = (
+            supabase.table("coach_plan_daily")
+            .delete()
+            .eq("user_id", user_id)
+            .gte("plan_date", start_iso)
+            .lte("plan_date", end_iso)
+            .execute()
+        )
+        data = res.data or []
+        print(
+            "[DB-COACH-DAILY] clear_range user=%s %s..%s deleted=%s",
+            user_id,
+            start_iso,
+            end_iso,
+            len(data),
+        )
+        return len(data)
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] clear_range error:", repr(e))
+        return 0
 
 
 def db_delete_plan_for_user(
@@ -220,28 +152,34 @@ def db_delete_plan_for_user(
     from_iso: Optional[str],
 ) -> int:
     """
-    Zmazanie planned sessions:
-      - ak plan_id → podľa plan_id,
-      - inak od from_iso (vrátane).
+    Zmaže plán:
+      - ak plan_id je zadaný → všetky riadky daného plánu,
+      - inak všetko od from_iso (vrátane).
     """
-    q = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .delete()
-        .eq("user_id", user_id)
-    )
-    if plan_id:
-        q = q.eq("plan_id", plan_id)
-    elif from_iso:
-        q = q.gte("plan_date", from_iso)
+    try:
+        q = supabase.table("coach_plan_daily").delete().eq("user_id", user_id)
 
-    res = q.execute()
-    rows = res.data or []
-    deleted = len(rows)
-    print(
-        f"[DB-COACH-PLAN] delete_plan_for_user user={user_id} "
-        f"plan_id={plan_id} from={from_iso} deleted={deleted}"
-    )
-    return deleted
+        if plan_id:
+            q = q.eq("plan_id", plan_id)
+        if from_iso:
+            q = q.gte("plan_date", from_iso)
+
+        res = q.execute()
+        data = res.data or []
+        print(
+            "[DB-COACH-DAILY] delete_plan user=%s plan_id=%s from=%s deleted=%s",
+            user_id,
+            plan_id,
+            from_iso,
+            len(data),
+        )
+        return len(data)
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] delete_plan error:", repr(e))
+        return 0
+
+
+# ───────────────────────────── LINK & REORDER ─────────────────────────────
 
 
 def db_link_session_to_activity(
@@ -249,74 +187,55 @@ def db_link_session_to_activity(
     activity_id: Optional[int],
 ) -> int:
     """
-    Nastaví / resetuje väzbu na aktivitu.
-    activity_id=None → odmapovanie.
+    Update activity_id pre 1 session.
+    Vracia 1 pri úspechu, inak 0.
     """
-    payload: Dict[str, Any] = {
-        "activity_id": int(activity_id) if activity_id is not None else None
-    }
+    try:
+        res = (
+            supabase.table("coach_plan_daily")
+            .update({"activity_id": activity_id})
+            .eq("id", session_id)
+            .execute()
+        )
+        data = res.data or []
+        return len(data)
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] link_session error:", repr(e))
+        return 0
 
-    res = (
-        supabase.table(TABLE_COACH_PLAN_DAILY)
-        .update(payload)
-        .eq("id", session_id)
-        .execute()
-    )
-    rows = res.data or []
-    print(
-        f"[DB-COACH-PLAN] link_session_to_activity session_id={session_id} "
-        f"activity_id={activity_id} updated_rows={len(rows)}"
-    )
-    return len(rows)
 
 def db_reorder_planned_sessions(
     user_id: int,
     updates: List[Dict[str, Any]],
 ) -> int:
     """
-    Batch update plan_date + session_index pre viac session_id naraz.
-    Očakáva sa, že každý update má:
-      { "id": int, "plan_date": "YYYY-MM-DD", "session_index": int }
-
-    Pre istotu ešte filtrujem user_id v WHERE, nech si nemôžeš hýbať
-    plánom niekoho iného.
+    Batch update plan_date + session_index pre viac riadkov.
+    Vracia počet riadkov, ktoré update-ol.
     """
-    if not updates:
-        return 0
-
-    total_updated = 0
-
+    updated_total = 0
     for u in updates:
-        sid = u.get("id")
-        plan_date = u.get("plan_date")
-        session_index = u.get("session_index", 0)
-
-        if sid is None or plan_date is None:
-            continue
-
         try:
-            sid_int = int(sid)
-            idx_int = int(session_index)
-        except Exception:
-            continue
-
-        res = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)
-            .update(
-                {
-                    "plan_date": plan_date,
-                    "session_index": idx_int,
-                }
+            sid = int(u["id"])
+            payload = {
+                "plan_date": str(u["plan_date"])[:10],
+                "session_index": int(u["session_index"]),
+            }
+            res = (
+                supabase.table("coach_plan_daily")
+                .update(payload)
+                .eq("user_id", user_id)
+                .eq("id", sid)
+                .execute()
             )
-            .eq("id", sid_int)
-            .eq("user_id", user_id)
-            .execute()
-        )
-        rows = res.data or []
-        total_updated += len(rows)
+            data = res.data or []
+            updated_total += len(data)
+        except Exception as e:  # noqa: BLE001
+            print("[DB-COACH-DAILY] reorder single error:", repr(e), "update:", u)
 
     print(
-        f"[DB-COACH-PLAN] reorder_planned_sessions user={user_id} "
-        f"updates={len(updates)} updated_rows={total_updated}"
+        "[DB-COACH-DAILY] reorder user=%s updates=%s updated=%s",
+        user_id,
+        len(updates),
+        updated_total,
     )
-    return total_updated
+    return updated_total

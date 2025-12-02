@@ -1,10 +1,7 @@
 # Routes_FE/coach-plan-daily.py
 from __future__ import annotations
-
 from typing import Any, Dict, Optional
-
 from fastapi import APIRouter, Body, HTTPException
-
 from Services.coach_plan_daily import service_generate_daily_week
 
 router = APIRouter(prefix="/coach-plan-daily", tags=["coach-plan-daily"])

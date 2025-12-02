@@ -1,17 +1,14 @@
-# Services/coach_state_analyze.py
+# Services/coach_athlete_analyze.py
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
-
-from Modules.SQL.db_handler import get_client
+from typing import cast, Any, Dict, Optional
 
 from Schemas.coach_types import (
     CoachAnalyzeInput,
     CoachAthleteState,
 )
-
-supabase = get_client()
+from Routes_DB.coach_athlete_state import db_insert_athlete_state
 
 
 # ───────────────────────────── public API ─────────────────────────────
@@ -221,26 +218,18 @@ def save_athlete_state(
     model: Optional[str] = None,
 ) -> Optional[int]:
     """
-    Uloží athlete_state do tabuľky coach_athlete_state, ak existuje.
-
-    Ak tabuľka ešte nemáš vytvorenú, funkcia v tichosti vráti None,
-    aby ti to nelámalo backend.
+    Uloží athlete_state pomocou Routes_DB.coach_athlete_state.
     """
     try:
-        res = (
-            supabase.table("coach_athlete_state")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "model": model or state_json.get("model"),
-                    "version": int(state_json.get("schema_version", 1)),
-                    "state_json": state_json,
-                }
-            )
-            .execute()
+        version = int(state_json.get("schema_version", 1))  # type: ignore[arg-type]
+        model_final = model or state_json.get("model")  # type: ignore[arg-type]
+        state_id = db_insert_athlete_state(
+            user_id=user_id,
+            state_json=cast(Dict[str, Any], state_json),
+            model=model_final,
+            version=version,
         )
-        rows = res.data or []
-        return rows[0]["id"] if rows else None
+        return state_id
     except Exception as e:  # noqa: BLE001
         print("[COACH-ANALYZE] save_athlete_state error:", repr(e))
         return None
