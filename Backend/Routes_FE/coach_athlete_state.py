@@ -1,10 +1,10 @@
-# Routes_FE/coach_state.py
+# Routes_FE/coach_athlete_analyze.py
 from __future__ import annotations
 from typing import Any, Dict
 from fastapi import APIRouter, Body, HTTPException
-from Services.coach_athlete_analyze import service_analyze_athlete
+from Services.coach_athlete_state import service_analyze_athlete
 
-router = APIRouter(prefix="/coach-state", tags=["coach-state"])
+router = APIRouter(prefix="/coach-athlete-state", tags=["coach-athlete-state"])
 
 
 @router.post("/analyze/{user_id}")

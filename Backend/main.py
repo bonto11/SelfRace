@@ -18,10 +18,10 @@ from Routes_FE import (
     user_bests,
     user_zones,
     user_thresholds,
-    coach_context,
-    coach_plan_generation,
-    coach_plan_log
+    coach_plan_daily,
+    coach_plan_weekly
 )
+from backend.Routes_FE import coach_athlete_state
 
 app = FastAPI()
 
@@ -64,6 +64,6 @@ app.include_router(analytics_pareto8020.router)
 app.include_router(activities_streams.router)
 app.include_router(notes.router)
 
-app.include_router(coach_context.router)
-app.include_router(coach_plan_generation.router)
-app.include_router(coach_plan_log.router)
+app.include_router(coach_plan_daily.router)
+app.include_router(coach_plan_weekly.router)
+app.include_router(coach_athlete_state.router)
