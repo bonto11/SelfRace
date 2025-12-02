@@ -5,13 +5,16 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from Modules.SQL.db_handler import get_client
 from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
 )
 
-supabase = get_client()
+from Schemas.coach_types import (
+    CoachWeeklyPlanInput,
+    CoachWeeklyPlan,
+    WeeklyWeek,
+)
 
 
 # ───────────────────────────── public API ─────────────────────────────
@@ -29,29 +32,18 @@ def service_generate_weekly_plan(
 ) -> Dict[str, Any]:
     """
     Vygeneruje weekly plán na N týždňov na základe athlete_state + prefs.
-
-    - ak plan_id je None → vytvorí nový uuid
-    - ak save_to_db=True → vymaže staré weekly riadky pre daný plan_id
-                           a vloží nové (coach_plan_weekly).
-
-    Return:
-      {
-        "plan_id": str,
-        "weekly_plan": {...},          # CoachWeeklyPlan JSON
-        "inserted_weeks": int,         # len ak save_to_db=True
-      }
     """
     if plan_id is None:
         plan_id = str(uuid4())
 
-    weekly_input = build_weekly_input(
+    weekly_input: CoachWeeklyPlanInput = build_weekly_input(
         user_id=user_id,
         athlete_state=athlete_state,
         prefs=prefs,
         plan_id=plan_id,
     )
 
-    weekly_plan = call_llm_generate_weekly(
+    weekly_plan: CoachWeeklyPlan = call_llm_generate_weekly(
         weekly_input,
         model=model,
         debug=debug,
@@ -83,7 +75,7 @@ def build_weekly_input(
     athlete_state: Dict[str, Any],
     prefs: Dict[str, Any],
     plan_id: str,
-) -> Dict[str, Any]:
+) -> CoachWeeklyPlanInput:
     """
     Poskladá CoachWeeklyPlanInput.
     Čerpá z athlete_state.ai_state a prefs.
@@ -101,7 +93,7 @@ def build_weekly_input(
         or "run"
     )
 
-    weekly_input = {
+    raw: CoachWeeklyPlanInput = {
         "schema_version": 1,
         "prefs": {
             "goal_kind": prefs.get("goal_kind") or prefs.get("goal") or "improve_overall",
@@ -117,18 +109,18 @@ def build_weekly_input(
             "plan_id": plan_id,
         },
     }
-    return weekly_input
+    return raw
 
 
 # ───────────────────────────── LLM stub ─────────────────────────────
 
 
 def call_llm_generate_weekly(
-    payload: Dict[str, Any],
+    payload: CoachWeeklyPlanInput,
     *,
     model: str = "coach-weekly-stub",
     debug: bool = False,
-) -> Dict[str, Any]:
+) -> CoachWeeklyPlan:
     """
     Tu bude reálny weekly-plán prompt.
 
@@ -139,32 +131,32 @@ def call_llm_generate_weekly(
     start_iso = prefs.get("plan_start_date") or datetime.utcnow().date().isoformat()
     start_date = datetime.fromisoformat(start_iso)
 
-    weeks: List[Dict[str, Any]] = []
+    weeks: List[WeeklyWeek] = []
     for i in range(total_weeks):
         ws = (start_date + timedelta(weeks=i)).date()
         we = ws + timedelta(days=6)
 
         weeks.append(
-            {
-                "week_index": i + 1,
-                "week_start": ws.isoformat(),
-                "week_end": we.isoformat(),
-                "goal": f"Week {i+1}: build consistent training",
-                "focus": "increase base Z2 volume",
-                "load_phase": "build",
-                "planned_km": None,
-                "planned_minutes": 240 + i * 20,
-                "intensity_mix": {
+            WeeklyWeek(
+                week_index=i + 1,
+                week_start=ws.isoformat(),
+                week_end=we.isoformat(),
+                goal=f"Week {i+1}: build consistent training",
+                focus="increase base Z2 volume",
+                load_phase="build",
+                planned_km=None,
+                planned_minutes=240 + i * 20,
+                intensity_mix={
                     "easy_pct": 0.7,
                     "moderate_pct": 0.2,
                     "hard_pct": 0.1,
                 },
-                "sessions_summary": {
+                sessions_summary={
                     "run": {"total": 4, "key_sessions": 2, "long_runs": 1},
                     "ride": {"total": 0, "key_sessions": 0},
                     "strength": {"total": 2},
                 },
-                "key_sessions": [
+                key_sessions=[
                     {
                         "label": "Long run Z2",
                         "type": "run_long_z2",
@@ -176,13 +168,16 @@ def call_llm_generate_weekly(
                         "priority": 1,
                     },
                 ],
-                "notes": None,
-            }
+                notes=None,
+            )
         )
+    if weeks:
+        last_week = weeks[-1]
+        plan_end = last_week.get("week_end") or start_iso
+    else:
+        plan_end = start_iso
 
-    plan_end = weeks[-1]["week_end"] if weeks else start_iso
-
-    weekly_plan = {
+    weekly_plan: CoachWeeklyPlan = {
         "schema_version": 1,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "model": model,
@@ -207,7 +202,7 @@ def call_llm_generate_weekly(
 def weekly_plan_to_db_rows(
     user_id: int,
     plan_id: str,
-    weekly_plan: Dict[str, Any],
+    weekly_plan: CoachWeeklyPlan,
 ) -> List[Dict[str, Any]]:
     """
     Premení CoachWeeklyPlan na riadky pre coach_plan_weekly.

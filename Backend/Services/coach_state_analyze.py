@@ -1,10 +1,15 @@
 # Services/coach_state_analyze.py
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from Modules.SQL.db_handler import get_client
+
+from Schemas.coach_types import (
+    CoachAnalyzeInput,
+    CoachAthleteState,
+)
 
 supabase = get_client()
 
@@ -25,18 +30,18 @@ def service_analyze_athlete(
 
     Return:
       {
-        "state_id": int | None,   # id z DB, ak save_to_db=True
-        "state": {...},           # CoachAthleteState JSON
-        "input": {...},           # AnalyzeInput (na debug)
+        "state_id": int | None,
+        "state": CoachAthleteState,
+        "input": CoachAnalyzeInput,
         "model": str,
       }
     """
-    analyze_input = build_analyze_input_from_db(user_id=user_id)
+    analyze_input: CoachAnalyzeInput = build_analyze_input_from_db(user_id=user_id)
 
     if debug:
         print("[COACH-ANALYZE] input:", analyze_input)
 
-    state_json = call_llm_analyze_athlete(
+    state_json: CoachAthleteState = call_llm_analyze_athlete(
         analyze_input,
         model=model,
         debug=debug,
@@ -44,7 +49,11 @@ def service_analyze_athlete(
 
     state_id: Optional[int] = None
     if save_to_db:
-        state_id = save_athlete_state(user_id=user_id, state_json=state_json, model=model)
+        state_id = save_athlete_state(
+            user_id=user_id,
+            state_json=state_json,
+            model=model,
+        )
 
     return {
         "state_id": state_id,
@@ -57,16 +66,16 @@ def service_analyze_athlete(
 # ───────────────────────────── build input (stub) ─────────────────────────────
 
 
-def build_analyze_input_from_db(user_id: int) -> Dict[str, Any]:
+def build_analyze_input_from_db(user_id: int) -> CoachAnalyzeInput:
     """
     Poskladá CoachAnalyzeInput.
 
     Zatiaľ STUB – nedotýka sa DB, aby to bolo bezpečné na spúšťanie.
-    Pri ďalšom kroku doplníme reálne query na users/prefs/zóny/aktivity.
+    Neskôr doplníme reálne query na users/prefs/zóny/aktivity.
     """
     today = datetime.utcnow().date()
 
-    return {
+    inp: CoachAnalyzeInput = {
         "schema_version": 1,
         "user": {
             "id": user_id,
@@ -127,17 +136,18 @@ def build_analyze_input_from_db(user_id: int) -> Dict[str, Any]:
             "horizon_days": None,
         },
     }
+    return inp
 
 
 # ───────────────────────────── LLM stub ─────────────────────────────
 
 
 def call_llm_analyze_athlete(
-    payload: Dict[str, Any],
+    payload: CoachAnalyzeInput,
     *,
     model: str = "coach-analyze-stub",
     debug: bool = False,
-) -> Dict[str, Any]:
+) -> CoachAthleteState:
     """
     Tu bude reálny call na LLM (OpenAI / Anthropic / tvoje API).
 
@@ -146,7 +156,7 @@ def call_llm_analyze_athlete(
     """
     now_iso = datetime.utcnow().isoformat() + "Z"
 
-    state = {
+    state: CoachAthleteState = {
         "schema_version": 1,
         "generated_at": now_iso,
         "model": model,
@@ -206,7 +216,7 @@ def call_llm_analyze_athlete(
 
 def save_athlete_state(
     user_id: int,
-    state_json: Dict[str, Any],
+    state_json: CoachAthleteState,
     *,
     model: Optional[str] = None,
 ) -> Optional[int]:

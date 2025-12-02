@@ -1,17 +1,25 @@
 # Services/coach_plan_daily.py
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, cast
 
 from Routes_DB.coach_plan_daily import (
     db_insert_planned_sessions,
     db_clear_range_for_user,
 )
-from Services.coach_plan_log import (
+
+from Services.coach_plan_common import (
     service_parse_iso_date,
     service_canonical_sport,
     service_hr_zone_text,
+)
+
+from Schemas.coach_types import (
+    CoachDailyWeekInput,
+    CoachDailyWeekPlan,
+    DailyDay,
+    DailySession,
 )
 
 
@@ -34,21 +42,8 @@ def service_generate_daily_week(
     """
     Vygeneruje detailný plán na 1 týždeň (7 dní) a (voliteľne) uloží
     sessions do coach_plan_daily.
-
-    week_context:
-      - objekt z CoachWeeklyPlan.weeks[i]
-
-    Return:
-      {
-        "plan_id": str,
-        "week_index": int,
-        "start": date,
-        "end": date,
-        "daily_plan": {...},        # CoachDailyWeekPlan JSON
-        "inserted": int,           # počet uložených sessions (ak save_to_db=True)
-      }
     """
-    daily_input = build_daily_week_input(
+    daily_input: CoachDailyWeekInput = build_daily_week_input(
         user_id=user_id,
         plan_id=plan_id,
         week_context=week_context,
@@ -57,13 +52,15 @@ def service_generate_daily_week(
         existing_days=existing_days,
     )
 
-    daily_plan = call_llm_generate_daily_week(
+    daily_plan: CoachDailyWeekPlan = call_llm_generate_daily_week(
         daily_input,
         model=model,
         debug=debug,
     )
 
-    days = daily_plan.get("days") or []
+
+    raw_days = daily_plan.get("days") or []
+    days: List[DailyDay] = cast(List[DailyDay], raw_days)
     if not days:
         return {
             "plan_id": plan_id,
@@ -74,8 +71,23 @@ def service_generate_daily_week(
             "inserted": 0,
         }
 
-    # range týždňa
-    all_dates = [service_parse_iso_date(str(d["day"])) for d in days]
+    # range týždňa – rátaj len dni, ktoré naozaj majú "day"
+    all_dates = []
+    for d in days:
+        day_str = d.get("day")
+        if not day_str:
+            continue
+        all_dates.append(service_parse_iso_date(str(day_str)))
+
+    if not all_dates:
+        return {
+            "plan_id": plan_id,
+            "week_index": int(week_context.get("week_index") or 0),
+            "start": None,
+            "end": None,
+            "daily_plan": daily_plan,
+            "inserted": 0,
+        }
     start_d = min(all_dates)
     end_d = max(all_dates)
 
@@ -115,11 +127,8 @@ def build_daily_week_input(
     athlete_state: Dict[str, Any],
     prefs: Dict[str, Any],
     existing_days: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    """
-    Poskladá CoachDailyWeekInput z weekly week_context + athlete_state + prefs.
-    """
-    return {
+) -> CoachDailyWeekInput:
+    raw: Dict[str, Any] = {
         "schema_version": 1,
         "week": {
             "week_index": week_context.get("week_index"),
@@ -145,17 +154,18 @@ def build_daily_week_input(
             "plan_id": plan_id,
         },
     }
+    return cast(CoachDailyWeekInput, raw)
 
 
 # ───────────────────────────── LLM stub ─────────────────────────────
 
 
 def call_llm_generate_daily_week(
-    payload: Dict[str, Any],
+    payload: CoachDailyWeekInput,
     *,
     model: str = "coach-daily-week-stub",
     debug: bool = False,
-) -> Dict[str, Any]:
+) -> CoachDailyWeekPlan:
     """
     Tu bude reálny daily-week prompt (7 dní).
 
@@ -170,18 +180,21 @@ def call_llm_generate_daily_week(
         # fallback: dnes → +6 dní
         today = datetime.utcnow().date()
         week_start = today.isoformat()
-        week_end = (today.replace() + datetime.timedelta(days=6)).isoformat()
+        week_end = (today + timedelta(days=6)).isoformat()
+    else:
+        if not week_end:
+            start_d_tmp = service_parse_iso_date(week_start)
+            week_end = (start_d_tmp + timedelta(days=6)).isoformat()
 
-    # pre jednoduchosť – 7 dní za sebou z week_start
+    # 7 dní za sebou z week_start
     start_d = service_parse_iso_date(week_start)
-    days: List[Dict[str, Any]] = []
+    days: List[DailyDay] = []
 
     for offset in range(7):
-        d = (start_d + datetime.timedelta(days=offset)).isoformat()
+        d = (start_d + timedelta(days=offset)).isoformat()
 
-        # veľmi jednoduchý pattern len na testovanie UI
         if offset in (0, 3):  # pondelok/štvrtok – sila
-            sessions = [
+            sessions: List[DailySession] = [
                 {
                     "sport": "strength",
                     "title": "Full-body strength",
@@ -247,7 +260,7 @@ def call_llm_generate_daily_week(
             }
         )
 
-    daily_plan = {
+    daily_plan: CoachDailyWeekPlan = {
         "schema_version": 1,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "model": model,
@@ -265,24 +278,24 @@ def call_llm_generate_daily_week(
 
 
 # ───────────────────────────── mapovanie do DB ─────────────────────────────
-
-
 def daily_week_to_db_rows(
     user_id: int,
     plan_id: str,
-    daily_plan: Dict[str, Any],
+    daily_plan: CoachDailyWeekPlan,
 ) -> List[Dict[str, Any]]:
-    """
-    Premení CoachDailyWeekPlan na riadky pre coach_plan_daily.
-    """
     rows: List[Dict[str, Any]] = []
-    days = daily_plan.get("days") or []
+
+    raw_days = daily_plan.get("days") or []
+    days: List[DailyDay] = cast(List[DailyDay], raw_days)
 
     for d in days:
-        day_str = str(d.get("day"))
-        sessions = d.get("sessions") or []
+        day_str = str(d.get("day") or "")
+        sessions_raw = d.get("sessions") or []
+        sessions: List[DailySession] = cast(List[DailySession], sessions_raw)
+
         for idx, sess in enumerate(sessions):
             sport = service_canonical_sport(sess.get("sport"))
+
             row: Dict[str, Any] = {
                 "user_id": user_id,
                 "plan_date": day_str,
@@ -290,14 +303,15 @@ def daily_week_to_db_rows(
                 "title": sess.get("title"),
                 "duration_min": sess.get("duration_min"),
                 "intensity": sess.get("intensity"),
-                "zone_text": service_hr_zone_text(sess),
+                # service_hr_zone_text očakáva Dict[str, Any] → cast
+                "zone_text": service_hr_zone_text(cast(Dict[str, Any], sess)),
                 "structure": sess.get("structure"),
                 "notes": sess.get("notes"),
-                "source": "ai",  # alebo "ai_weekly"
+                "source": "ai",
                 "plan_id": plan_id,
                 "session_type": sess.get("session_type"),
                 "session_index": idx,
-                "payload": sess,
+                "payload": sess,  # ukladáme celý session JSON
                 "activity_id": None,
             }
             rows.append(row)
