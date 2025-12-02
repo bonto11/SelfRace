@@ -28,6 +28,10 @@ import {
   apiSaveUserThresholds,
 } from "@/features/coach/api/thresholds";
 
+import {
+  pickInitialThresholdDraft,
+} from "@/features/coach/utils/thresholds";
+
 import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
 import { CoachPersonalitySection } from "@/features/coach/components/prefs/CoachPersonalitySection";
 import { PlanStartSection } from "@/features/coach/components/prefs/PlanStartSection";
@@ -74,19 +78,6 @@ function isoTodayPlus(days: number): string {
 }
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
 const MIN_PLAN_START = () => isoTodayPlus(1);
-
-// vyber aktuálny draft thresholdu: 1) z prefs.thresholds (ak existuje),
-// 2) inak prvý riadok z latest listu (typicky running/LT2)
-function pickInitialThresholdDraft(
-  prefs: any,
-  latestRows: any[] | null | undefined
-): any | undefined {
-  if (prefs && prefs.thresholds) return prefs.thresholds;
-  if (Array.isArray(latestRows) && latestRows.length > 0) {
-    return latestRows[0];
-  }
-  return undefined;
-}
 
 export default function CoachPreferencies() {
   const { userId } = useUserId();
@@ -213,37 +204,35 @@ export default function CoachPreferencies() {
   };
 
   // SAVE / REFRESH
-  const onSave = async () => {
-    if (!userId) return;
-    try {
-      const activeSecondaries = (local.secondary_mix ?? [])
+  // src/features/coach/components/prefs/PrefsForm.tsx
+const onSave = async () => {
+  if (!userId) return;
+  try {
+    const activeSecondaries = (local.secondary_mix ?? [])
+      .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
+      .map((x) => x.sport);
+    const primaries = [...(local.main_sport ? [local.main_sport] : []), ...activeSecondaries];
+
+    const minIso = MIN_PLAN_START();
+    const startIso = (local.start_date ?? "").trim();
+    const normalized: CoachPrefsExtended = {
+      ...local,
+      start_date: !startIso || startIso < minIso ? minIso : startIso,
+      primary_sports: primaries.length ? primaries : undefined,
+      // 🔽 TU úprava – ukladáme len nenulové secondary
+      secondary_mix: (local.secondary_mix ?? [])
         .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
-        .map((x) => x.sport);
-      const primaries = [
-        ...(local.main_sport ? [local.main_sport] : []),
-        ...activeSecondaries,
-      ];
+        .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
+    };
 
-      const minIso = MIN_PLAN_START();
-      const startIso = (local.start_date ?? "").trim();
-      const normalized: CoachPrefsExtended = {
-        ...local,
-        start_date: !startIso || startIso < minIso ? minIso : startIso,
-        primary_sports: primaries.length ? primaries : undefined,
-        secondary_mix: (local.secondary_mix ?? []).map((x) =>
-          x.role === "none" ? { ...x, share_pct: 0 } : x
-        ),
-      };
-
-      console.log("[CoachPrefs]onSave prefs payload", normalized);
-
-      await saveCoachPrefs(userId, normalized);
-      toast.success("Preferences saved");
-      dirtyRef.current = false;
-    } catch (e: any) {
-      toast.error(String(e?.message ?? e));
-    }
-  };
+    console.log("[CoachPrefs]onSave prefs payload", normalized);
+    await saveCoachPrefs(userId, normalized);
+    toast.success("Preferences saved");
+    dirtyRef.current = false;
+  } catch (e: any) {
+    toast.error(String(e?.message ?? e));
+  }
+};
 
   const onRefresh = async () => {
     if (!userId) return;

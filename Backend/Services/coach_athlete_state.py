@@ -176,15 +176,42 @@ def _merge_fe_prefs(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
         or prefs.get("plan_start_date")
     )
     prefs["main_sport"] = fe.get("main_sport") or prefs.get("main_sport")
-    prefs["secondary_mix"] = (
-        fe.get("secondary_mix") or prefs.get("secondary_mix") or []
-    )
+
+    # ---- sekundárne športy: necháme len zmysluplné ----
+    raw_mix = fe.get("secondary_mix") or []
+    clean_mix = []
+    for item in raw_mix:
+        if not isinstance(item, dict):
+            continue
+        role = (item.get("role") or "none").lower()
+        try:
+            share = float(item.get("share_pct") or 0)
+        except Exception:
+            share = 0
+
+        # preskoč "none" alebo 0 %
+        if role == "none" or share <= 0:
+            continue
+
+        clean_mix.append(
+            {
+                "sport": item.get("sport"),
+                "role": role,
+                "share_pct": share,
+            }
+        )
+
+    prefs["secondary_mix"] = clean_mix
 
     # strength settings z FE
     if fe.get("strength_settings") is not None:
         prefs["strength_settings"] = fe["strength_settings"]
 
-    # jednoduchý default: max hard tréningy / týždeň podľa blocks/intensity
+    # keď FE niekedy pošle budget, preberieme ho
+    if "weekly_time_budget_min" in fe:
+        prefs["weekly_time_budget_min"] = fe.get("weekly_time_budget_min")
+
+    # jednoduchý default: max hard tréningy / týždeň podľa blocks
     blocks = fe.get("blocks") or {}
     if blocks.get("vo2max") and blocks.get("threshold"):
         hard_max = 3
@@ -193,6 +220,9 @@ def _merge_fe_prefs(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
     else:
         hard_max = 1
     prefs["hard_days_per_week_max"] = hard_max
+
+    if fe.get("notes_for_coach"):
+        prefs["notes_for_coach"] = fe.get("notes_for_coach")
 
 
 def _merge_fe_zones(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
