@@ -20,7 +20,6 @@ from Routes_FE import (
     user_thresholds,
     coach_plan_daily,
     coach_plan_weekly
-    coach_athlete_state,
 )
 app = FastAPI()
 
@@ -65,4 +64,3 @@ app.include_router(notes.router)
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)
-app.include_router(coach_athlete_state.router)
