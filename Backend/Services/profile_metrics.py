@@ -22,15 +22,6 @@ from Routes_DB.profile_static import (
     db_get_static_sex_birth,
 )
 
-def _apply_user_filter_raw(q, user_id: int, user_uid: Optional[str]):
-    """
-    Minimal clone _apply_user_filter, ale iba pre DB layer.
-    Ak máš už existujúcu funkciu v Services.profile, môžeš importnúť tú.
-    """
-    if user_uid:
-        return q.eq("user_uid", user_uid)
-    return q.eq("user_id", user_id)
-
 # ---------- INSERT METRICS (batch) ----------
 
 
