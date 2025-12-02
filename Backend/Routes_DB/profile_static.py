@@ -69,3 +69,12 @@ def db_get_static_sex_birth(
     res = q.execute()
     data = res.data or []
     return data[0] if data else None
+
+def db_fetch_user_sex(user_id: int) -> Optional[str]:
+    try:
+        rec = (supabase.table(TABLE_PROFILE_STATIC)
+               .select("sex").eq("user_id", user_id).limit(1).execute())
+        row = (rec.data or [None])[0]
+        return row.get("sex") if row else None
+    except Exception:
+        return None

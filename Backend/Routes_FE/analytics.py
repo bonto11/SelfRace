@@ -14,7 +14,7 @@ from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_PROFILE_STATIC,  # NEW
-    TABLE_PROFILE_METRIC_VALUE,  # NEW
+    TABLE_PROFILE_METRIC,  # NEW
     TABLE_USERS_RECOVERY,  # <- recovery denník (RHR_bpm)
 )
 
@@ -50,7 +50,7 @@ def weekly(user_id: int, weeks: int = 12):
             sex = st.data[0].get("sex")
 
         hrmax_row = (
-            supabase.table(TABLE_PROFILE_METRIC_VALUE)
+            supabase.table(TABLE_PROFILE_METRIC)
             .select("value_num")
             .eq("user_id", user_id)
             .eq("metric", "HR_max")

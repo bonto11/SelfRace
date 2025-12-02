@@ -78,3 +78,18 @@ def db_get_vo2_measured_history(
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
     res = q.execute()
     return res.data or []
+
+def fetch_user_hr_max(user_id: int) -> Optional[float]:
+    try:
+        rec = (supabase.table(TABLE_PROFILE_METRIC)
+               .select("value_num")
+               .eq("user_id", user_id)
+               .eq("metric", "HR_max")
+               .order("measured_at", desc=True)
+               .limit(1)
+               .execute())
+        row = (rec.data or [None])[0]
+        v = float(row.get("value_num") or 0) if row else 0
+        return v if v > 0 else None
+    except Exception:
+        return None
