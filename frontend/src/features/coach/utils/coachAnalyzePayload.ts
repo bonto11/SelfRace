@@ -1,39 +1,85 @@
 // src/features/coach/utils/coachAnalyzePayload.ts
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
-import type { RecentLoad, RecentLoadWeek } from "@/features/coach/types/coachApiTypes";
+import type {
+  AnalyzePayloadBE,
+  RecentLoad,
+  RecentLoadWeek,
+} from "@/features/coach/types/coachApiTypes";
 
-/** Základ payloadu z prefs – nechávam jednoduchý, ako doteraz. */
-export function buildAnalyzePayloadFromPrefs(prefs: CoachPrefs) {
-  return {
-    schema_version: 1,
-    weeks: typeof prefs.weeks  === "number" ? prefs.weeks : undefined,
-    goal_kind: prefs.goal_kind ?? "improve_overall",
-    plan_start_date: (prefs as any).start_date || undefined,
-    main_sport: (prefs as any).main_sport ?? (prefs.primary_sports?.[0] ?? null),
-    secondary_mix: (prefs as any).secondary_mix ?? [],
-    strength_settings: (prefs as any).strength_settings ?? null,
-    rules: (prefs as any).preferences ?? null,
+/** Základ payloadu z prefs – core info pre AI. */
+export function buildAnalyzePayloadFromPrefs(
+  prefs: CoachPrefs
+): AnalyzePayloadBE {
+  const weeks =
+    typeof prefs.weeks === "number" && Number.isFinite(prefs.weeks)
+      ? prefs.weeks
+      : undefined;
 
-    blocks: {
-      vo2max: !!(prefs as any).vo2max_training,
-      threshold: !!(prefs as any).threshold_focus,
-      ftp: !!(prefs as any).ftp_training,
-    },
+  const plan_start_date =
+    (prefs as any).start_date && typeof (prefs as any).start_date === "string"
+      ? (prefs as any).start_date
+      : null;
 
-    intensity_model: (prefs as any).polarized_model
+  const main_sport =
+    (prefs as any).main_sport ??
+    (prefs.primary_sports && prefs.primary_sports.length > 0
+      ? prefs.primary_sports[0]
+      : null);
+
+  const secondary_mix =
+    (prefs as any).secondary_mix ?? ([] as NonNullable<CoachPrefs["secondary_mix"]>);
+
+  const strength_settings = (prefs as any).strength_settings ?? null;
+  const rules = (prefs as any).preferences ?? null;
+
+  const blocks = {
+    vo2max: !!(prefs as any).vo2max_training,
+    threshold: !!(prefs as any).threshold_focus,
+    ftp: !!(prefs as any).ftp_training,
+  };
+
+  const intensity_model: AnalyzePayloadBE["intensity_model"] =
+    (prefs as any).polarized_model
       ? "polarized"
       : (prefs as any).pyramidal_model
       ? "pyramidal"
-      : null,
+      : null;
 
-    zones: (prefs as any).zones ?? null,
-    thresholds: (prefs as any).thresholds ?? null,
+  const zones = (prefs as any).zones ?? null;
+  const thresholds = (prefs as any).thresholds ?? null;
 
+  return {
+    schema_version: 1,
+    weeks,
+    goal_kind: prefs.goal_kind ?? "improve_overall",
+    plan_start_date,
+    primary_sports: prefs.primary_sports,
+    main_sport,
+    secondary_mix,
+    targets: prefs.targets,
+    rules,
+    externals: prefs.external_activities,
+    injuries: prefs.injuries,
+    focus: {
+      areas: prefs.focus_areas,
+      avoid_zones: prefs.avoid_zones,
+      rehab: prefs.rehab_focus,
+    },
+    intensity_model,
+    blocks,
+    strength_settings,
+    coach_voice: prefs.coach_voice,
+    coach_tone: prefs.coach_tone,
+    zones,
+    thresholds,
     legacy: {
       distance: prefs.distance,
       current_pace: prefs.current_pace,
       target_pace: prefs.target_pace,
     },
+    // bests & recent_load doplníme v komponente
+    bests: undefined,
+    recent_load: undefined,
   };
 }
 
@@ -48,11 +94,15 @@ type ActivityRowLike = {
 };
 
 /** Normalizácia stringu športu na run/ride/strength/other. */
-function normSport(raw: string | null | undefined): "run" | "ride" | "strength" | "other" {
+function normSport(
+  raw: string | null | undefined
+): "run" | "ride" | "strength" | "other" {
   const s = (raw || "").toLowerCase();
   if (s.includes("run")) return "run";
-  if (s.includes("ride") || s.includes("bike") || s.includes("cycle")) return "ride";
-  if (s.includes("strength") || s.includes("gym") || s.includes("workout")) return "strength";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle"))
+    return "ride";
+  if (s.includes("strength") || s.includes("gym") || s.includes("workout"))
+    return "strength";
   return "other";
 }
 
@@ -72,7 +122,7 @@ function addDays(d: Date, days: number): Date {
 }
 
 /**
- * Z aktivity za posledných `windowDays` vyrobíme weekly sumár pre AI.
+ * Z aktivít za posledných `windowDays` vyrobíme weekly sumár pre AI.
  * Používa ActivityDataProvider rows (date, moving_time_s, sport/_type_fe).
  */
 export function buildRecentLoadFromActivities(
@@ -80,7 +130,7 @@ export function buildRecentLoadFromActivities(
   windowDays = 42
 ): RecentLoad {
   if (!Array.isArray(rows) || rows.length === 0) {
-    return { window_days: windowDays, weeks: [], schema_version: 1, };
+    return { schema_version: 1, window_days: windowDays, weeks: [] };
   }
 
   const today = new Date();
@@ -108,7 +158,7 @@ export function buildRecentLoadFromActivities(
     const key = weekStart.toISOString().slice(0, 10);
 
     const agg =
-      map.get(key) ||
+      map.get(key) ??
       {
         week_start: weekStart,
         total_minutes: 0,
@@ -148,7 +198,7 @@ export function buildRecentLoadFromActivities(
   );
 
   if (weeksSorted.length === 0) {
-    return { window_days: windowDays, weeks: [], schema_version: 1, };
+    return { schema_version: 1, window_days: windowDays, weeks: [] };
   }
 
   // indexovanie: posledný týždeň = 0, predchádzajúci = -1, atď
@@ -171,8 +221,8 @@ export function buildRecentLoadFromActivities(
   });
 
   return {
+    schema_version: 1,
     window_days: windowDays,
     weeks,
-    schema_version: 1,
   };
 }

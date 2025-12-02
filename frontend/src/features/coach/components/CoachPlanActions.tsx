@@ -1,215 +1,269 @@
-// src/features/coach/utils/coachAnalyzePayload.ts
+// src/features/coach/components/CoachPlanActions.tsx
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { useUserId } from "@/shared/hooks/useUserId";
+import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
-import type {
-  AnalyzePayloadBE,
-  RecentLoad,
-  RecentLoadWeek,
-} from "@/features/coach/types/coachApiTypes";
+import type { AnalyzePayloadBE } from "@/features/coach/types/coachApiTypes";
 
-/** Postaví základ payloadu z CoachPrefs pre /coach/athlete/analyze/:user_id */
-export function buildAnalyzePayloadFromPrefs(prefs: CoachPrefs): AnalyzePayloadBE {
-  const weeks =
-    typeof prefs.weeks === "number" && Number.isFinite(prefs.weeks)
-      ? prefs.weeks
-      : undefined;
+import Button from "@/shared/components/ui/Button";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
-  const plan_start_date =
-    (prefs as any).start_date && (prefs as any).start_date !== ""
-      ? (prefs as any).start_date
-      : undefined;
+import { apiGetPrefs } from "@/features/coach/api/prefs";
+import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
+import {
+  buildAnalyzePayloadFromPrefs,
+  buildRecentLoadFromActivities,
+} from "@/features/coach/utils/coachAnalyzePayload";
 
-  const main_sport =
-    (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? undefined;
+const COACH_DEBUG = true;
 
-  const secondary_mix = (prefs as any).secondary_mix ?? [];
+/* ───────────────────────── helpers ───────────────────────── */
 
-  const strength_settings = (prefs as any).strength_settings ?? null;
-
-  const rules = (prefs as any).preferences ?? null;
-
-  const blocks = {
-    vo2max: !!(prefs as any).vo2max_training,
-    threshold: !!(prefs as any).threshold_focus,
-    ftp: !!(prefs as any).ftp_training,
-  };
-
-  // presný union typ, nie generic string
-  const intensity_model: AnalyzePayloadBE["intensity_model"] =
-    (prefs as any).polarized_model
-      ? "polarized"
-      : (prefs as any).pyramidal_model
-      ? "pyramidal"
-      : null;
-
-  const zones = (prefs as any).zones ?? undefined;
-  const thresholds = (prefs as any).thresholds ?? undefined;
-
-  const legacy = {
-    distance: prefs.distance,
-    current_pace: prefs.current_pace,
-    target_pace: prefs.target_pace,
-  };
-
-  const payload: AnalyzePayloadBE = {
-    schema_version: 1,
-    weeks,
-    goal_kind: prefs.goal_kind ?? "improve_overall",
-    plan_start_date,
-    main_sport,
-    secondary_mix,
-    strength_settings,
-    rules,
-    blocks,
-    intensity_model,
-    zones,
-    thresholds,
-    legacy,
-    // bests + recent_load doplníš až v komponentoch (CoachPlanActions)
-  };
-
-  return payload;
+function readPrefsFromStorage(): CoachPrefs | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const rawUP = localStorage.getItem("up:coach.prefs");
+    if (rawUP) return JSON.parse(rawUP);
+    const raw = localStorage.getItem("coach.prefs");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
-/* ------------ Recent load z ActivityDataProvider ------------ */
+/** Mini summary v hornej kartičke */
+function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
+  if (!prefs)
+    return <div className="text-sm opacity-75">— preferences nenačítané —</div>;
 
-type ActivityRowLike = {
-  date: string; // ISO
-  moving_time_s?: number | null;
-  moving_time?: number | null;
-  sport?: string | null;
-  sport_type_fe?: string | null;
+  const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
+  const sec =
+    (prefs as any).secondary_mix
+      ?.filter((x: any) => Number(x?.share_pct) > 0)
+      .map((x: any) => x.sport)
+      .join(", ") || "—";
+
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+      <div className="opacity-75">Goal</div>
+      <div className="font-semibold truncate">{prefs.goal_kind ?? "—"}</div>
+
+      <div className="opacity-75">Weeks</div>
+      <div className="font-semibold">{prefs.weeks ?? "—"}</div>
+
+      <div className="opacity-75">Plan start</div>
+      <div className="font-semibold">{(prefs as any).start_date ?? "—"}</div>
+
+      <div className="opacity-75">Main</div>
+      <div className="font-semibold">{main}</div>
+
+      <div className="opacity-75">Secondary</div>
+      <div className="font-semibold truncate">{sec}</div>
+
+      <div className="opacity-75">Strength mode</div>
+      <div className="font-semibold">
+        {(prefs as any)?.strength_settings?.equipment_mode ?? "—"} ·{" "}
+        {(prefs as any)?.strength_settings?.location ?? "—"}
+      </div>
+    </div>
+  );
+}
+
+/** Debug JSON blok – v prod móde vypnutý */
+function JsonBlock({ title, data }: { title: string; data: any }) {
+  if (!COACH_DEBUG) return null;
+  if (!data) return null;
+  return (
+    <details
+      className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
+      open
+    >
+      <summary className="cursor-pointer select-none text-sm font-semibold py-1">
+        {title}
+      </summary>
+      <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </details>
+  );
+}
+
+type AnalyzeResult = {
+  analysis: any | null; // CoachAthleteState
+  input: any | null; // CoachAnalyzeInput
+  model: string | null;
+  state_id: number | null;
 };
 
-/** Normalizácia stringu športu na run/ride/strength/other. */
-function normSport(
-  raw: string | null | undefined
-): "run" | "ride" | "strength" | "other" {
-  const s = (raw || "").toLowerCase();
-  if (s.includes("run")) return "run";
-  if (s.includes("ride") || s.includes("bike") || s.includes("cycle"))
-    return "ride";
-  if (s.includes("strength") || s.includes("gym") || s.includes("workout"))
-    return "strength";
-  return "other";
-}
+/* ─────────────────────── hlavný komponent ─────────────────────── */
 
-function startOfIsoWeek(d: Date): Date {
-  // getDay(): 0 = Sun, ..., 6 = Sat → chceme Po=0
-  const dow = (d.getDay() + 6) % 7;
-  const res = new Date(d);
-  res.setHours(0, 0, 0, 0);
-  res.setDate(res.getDate() - dow);
-  return res;
-}
+export default function CoachPlanActions() {
+  const { userId } = useUserId();
+  const { pbRun } = useCoachData();
+  const { rows: activityRows } = useActivityData();
 
-function addDays(d: Date, days: number): Date {
-  const r = new Date(d);
-  r.setDate(r.getDate() + days);
-  return r;
-}
+  const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
+  const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [debugPayload, setDebugPayload] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-/**
- * Z aktivít za posledných `windowDays` vyrobíme weekly sumár pre AI.
- * Používa ActivityDataProvider rows (date, moving_time_s, sport/_type_fe).
- */
-export function buildRecentLoadFromActivities(
-  rows: ActivityRowLike[],
-  windowDays = 42
-): RecentLoad {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return { schema_version: 1, window_days: windowDays, weeks: [] };
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const from = addDays(today, -windowDays + 1);
-
-  type WeekAgg = {
-    week_start: Date;
-    total_minutes: number;
-    run_minutes: number;
-    ride_minutes: number;
-    strength_sessions: number;
-    hard_sessions: number;
-  };
-
-  const map = new Map<string, WeekAgg>();
-
-  for (const r of rows) {
-    if (!r?.date) continue;
-    const d = new Date(r.date);
-    if (Number.isNaN(d.getTime())) continue;
-    if (d < from || d > today) continue;
-
-    const weekStart = startOfIsoWeek(d);
-    const key = weekStart.toISOString().slice(0, 10);
-
-    const agg =
-      map.get(key) ??
-      ({
-        week_start: weekStart,
-        total_minutes: 0,
-        run_minutes: 0,
-        ride_minutes: 0,
-        strength_sessions: 0,
-        hard_sessions: 0,
-      } as WeekAgg);
-
-    const sec =
-      (typeof r.moving_time_s === "number" && r.moving_time_s > 0
-        ? r.moving_time_s
-        : typeof r.moving_time === "number" && r.moving_time > 0
-        ? r.moving_time
-        : 0) || 0;
-    const mins = sec / 60;
-
-    const sport = normSport(r.sport || r.sport_type_fe);
-
-    agg.total_minutes += mins;
-
-    if (sport === "run") {
-      agg.run_minutes += mins;
-      // jednoduchá heuristika: >60 min považuj ako “hard” (dočasne)
-      if (mins >= 60) agg.hard_sessions += 1;
-    } else if (sport === "ride") {
-      agg.ride_minutes += mins;
-    } else if (sport === "strength") {
-      agg.strength_sessions += 1;
-    }
-
-    map.set(key, agg);
-  }
-
-  const weeksSorted = Array.from(map.values()).sort(
-    (a, b) => a.week_start.getTime() - b.week_start.getTime()
+  // recent load prepočítame vždy z aktuálnych activities
+  const recentLoad = useMemo(
+    () => buildRecentLoadFromActivities(activityRows ?? [], 42),
+    [activityRows]
   );
 
-  if (weeksSorted.length === 0) {
-    return { schema_version: 1, window_days: windowDays, weeks: [] };
-  }
+  // načítaj prefs z DB / storage
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      try {
+        const p = await apiGetPrefs(userId).catch(() => null);
+        const eff = p ?? readPrefsFromStorage();
+        setPrefs(eff);
+      } catch {
+        setPrefs(readPrefsFromStorage());
+      }
+    })();
+  }, [userId]);
 
-  // indexovanie: posledný týždeň = 0, predchádzajúci = -1, atď
-  const weeks: RecentLoadWeek[] = weeksSorted.map((w, idx) => {
-    const week_start_iso = w.week_start.toISOString().slice(0, 10);
-    const week_end = addDays(w.week_start, 6);
-    const week_end_iso = week_end.toISOString().slice(0, 10);
-    const week_index_from_now = idx - (weeksSorted.length - 1);
+  const handleAnalyze = useCallback(async () => {
+    if (!userId) return;
+    setErr(null);
+    setLoading(true);
 
-    return {
-      week_start_iso,
-      week_end_iso,
-      week_index_from_now,
-      total_minutes: Math.round(w.total_minutes),
-      run_minutes: Math.round(w.run_minutes),
-      ride_minutes: Math.round(w.ride_minutes),
-      strength_sessions: w.strength_sessions,
-      hard_sessions: w.hard_sessions,
-    };
-  });
+    try {
+      // vždy sa pokús o čerstvé prefs z DB
+      const fresh = await apiGetPrefs(userId).catch(() => null);
+      const effectivePrefs = fresh ?? prefs ?? readPrefsFromStorage();
+      if (!effectivePrefs) {
+        throw new Error("Preferences not found in DB or storage.");
+      }
+      setPrefs(effectivePrefs);
 
-  return {
-    schema_version: 1,
-    window_days: windowDays,
-    weeks,
-  };
+      const base = buildAnalyzePayloadFromPrefs(effectivePrefs);
+      const payload: AnalyzePayloadBE = {
+        ...base,
+        bests: { run: pbRun ?? [] },
+        recent_load: recentLoad,
+      };
+
+      setDebugPayload(payload);
+
+      const json = await apiAnalyzeAthleteState(userId, payload, {
+        debugRaw: true,
+        explicitModel: "coach-analyze-stub",
+      });
+
+      setResult({
+        analysis: json.state ?? null,
+        input: json.input ?? null,
+        model: json.model ?? null,
+        state_id: json.state_id ?? null,
+      });
+
+      // voliteľne uložiť poslednú analýzu do localStorage
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            "coach.athlete_state",
+            JSON.stringify(json.state ?? null)
+          );
+        } catch {
+          // ignore
+        }
+      }
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, prefs, pbRun, recentLoad]);
+
+  const canAnalyze = !!userId && !loading;
+
+  const summary =
+    result?.analysis && typeof result.analysis === "object"
+      ? {
+          generated_at: (result.analysis as any).generated_at ?? null,
+          model: result.model ?? null,
+          state_id: result.state_id ?? null,
+        }
+      : null;
+
+  return (
+    <div className="space-y-4">
+      {/* prefs / basic info */}
+      <div className="rounded-xl border border-white/10 p-3 bg-white/5">
+        <PrefsMini prefs={prefs} />
+        {summary && (
+          <div className="mt-2 text-xs text-emerald-300">
+            Athlete state:&nbsp;
+            <span className="font-semibold">
+              {summary.generated_at ?? "—"}
+            </span>{" "}
+            · model{" "}
+            <span className="font-semibold">
+              {summary.model ?? "—"}
+            </span>
+            {summary.state_id != null && (
+              <>
+                {" "}
+                · state_id{" "}
+                <span className="font-semibold">{summary.state_id}</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* tlačidlo */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          onClick={handleAnalyze}
+          disabled={!canAnalyze}
+          variant="primary"
+          size="sm"
+        >
+          {loading ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="button" />
+              Analyzing…
+            </span>
+          ) : (
+            "Analyze athlete state"
+          )}
+        </Button>
+      </div>
+
+      {err && (
+        <div className="rounded-xl border border-red-600 bg-red-900/30 text-red-100 p-3">
+          <div className="font-semibold mb-0.5">Error</div>
+          <p className="text-sm opacity-90">{err}</p>
+        </div>
+      )}
+
+      {/* debug JSON bloky – čistý raw output z BE */}
+      <div className="space-y-2">
+        <JsonBlock
+          title="Prefs (effective: DB → storage fallback)"
+          data={prefs}
+        />
+        <JsonBlock title="Sent payload (FE→BE)" data={debugPayload} />
+        <JsonBlock
+          title="Athlete state (CoachAthleteState)"
+          data={result?.analysis}
+        />
+        <JsonBlock
+          title="Analyze input (CoachAnalyzeInput)"
+          data={result?.input}
+        />
+      </div>
+    </div>
+  );
 }
