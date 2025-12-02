@@ -8,7 +8,7 @@ import ActivitySelector from "@/shared/components/ActivitySelector";
 import Button from "@/shared/components/ui/Button";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
-import { apiSavePlanActivityLink } from "@/features/coach/api/plan";
+import { apiSavePlanActivityLink } from "@/features/coach/api/coach_plan_link";
 import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
 
 type AnyObj = Record<string, any>;

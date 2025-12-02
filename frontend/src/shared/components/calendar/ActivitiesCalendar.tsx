@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { THEME } from "@/shared/theme/tokens";
@@ -15,14 +16,14 @@ import {
   NO_X_OVERFLOW,
   CARD,
 } from "@/shared/ui/classes";
-import ActivitySelector from "@/shared/components/ActivitySelector";
 import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
-import { apiSavePlanActivityLink } from "@/features/coach/api/plan";
 
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
   { ssr: false }
 );
+
+/* ───────── constants ───────── */
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -303,6 +304,7 @@ function useMonthData(year: number, month0: number) {
 }
 
 /* ───────── Day cell ───────── */
+
 function DayCell({
   cell,
   onSelect,
@@ -444,16 +446,9 @@ export default function ActivitiesCalendar({
   const [focusedActivityId, setFocusedActivityId] = React.useState<
     number | null
   >(null);
-  const [draftLinks, setDraftLinks] = React.useState<
-    Record<number, number | null>
-  >({});
-  const [savingId, setSavingId] = React.useState<number | null>(null);
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
-
-  const inferredUserId: number | null =
-    (planRows[0] as any)?.user_id ?? (actRows[0] as any)?.user_id ?? null;
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -552,28 +547,6 @@ export default function ActivitiesCalendar({
     }
     return m;
   }, [actRows]);
-
-  async function handleSaveLink(sessionId: number) {
-    if (!inferredUserId) {
-      console.warn("[ActivitiesCalendar] missing userId, cannot save link");
-      return;
-    }
-    const draft = draftLinks[sessionId];
-    const activityId = draft == null ? null : Number(draft);
-
-    setSavingId(sessionId);
-    try {
-      const res = await apiSavePlanActivityLink(
-        inferredUserId,
-        sessionId,
-        activityId
-      );
-      console.log("[ActivitiesCalendar] savePlanActivityLink result", res);
-      // prípadný refetch/invalidácia si vieš doplniť neskôr
-    } finally {
-      setSavingId(null);
-    }
-  }
 
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
@@ -747,14 +720,6 @@ export default function ActivitiesCalendar({
                             .join(" · ")
                         : null;
 
-                    const hasDraft = Object.prototype.hasOwnProperty.call(
-                      draftLinks,
-                      p.id
-                    );
-                    const baseVal =
-                      actId != null && !Number.isNaN(actId) ? actId : null;
-                    const currentDraft = hasDraft ? draftLinks[p.id] : baseVal;
-
                     const handleOpenActivity = () => {
                       if (actId != null && !Number.isNaN(actId)) {
                         setFocusedActivityId(actId);
@@ -775,7 +740,7 @@ export default function ActivitiesCalendar({
                           planNotes={combinedNotes || null}
                           activitySummary={activitySummary}
                         >
-                          <div className="text-xs flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                          <div className="text-xs flex flex-row gap-2 items-center">
                             <Button
                               variant="ghost"
                               size="xs"
@@ -784,40 +749,6 @@ export default function ActivitiesCalendar({
                             >
                               Otvoriť aktivitu
                             </Button>
-
-                            <div className="flex flex-1 flex-col gap-1 md:flex-row md:items-center md:gap-2">
-                              <span className="opacity-70">
-                                Priradiť k aktivite:
-                              </span>
-
-                              <div className="flex-1 max-w-xs">
-                                <ActivitySelector
-                                  userId={inferredUserId}
-                                  dateIso={selectedIso || ""}
-                                  sports={[sport]}
-                                  deltaDays={2}
-                                  value={
-                                    currentDraft == null ? "" : currentDraft
-                                  }
-                                  onChange={(id) => {
-                                    setDraftLinks((prev) => ({
-                                      ...prev,
-                                      [p.id]: id === "" ? null : Number(id),
-                                    }));
-                                  }}
-                                  variant="compact"
-                                />
-                              </div>
-
-                              <Button
-                                variant="primary"
-                                size="xs"
-                                disabled={!inferredUserId || savingId === p.id}
-                                onClick={() => handleSaveLink(p.id)}
-                              >
-                                {savingId === p.id ? "Ukladám…" : "Uložiť"}
-                              </Button>
-                            </div>
                           </div>
                         </PlanSingle>
                       </li>
@@ -863,13 +794,6 @@ export default function ActivitiesCalendar({
                     const status: PlanStatus =
                       dIso < todayIso ? "missed" : "planned";
 
-                    const hasDraft = Object.prototype.hasOwnProperty.call(
-                      draftLinks,
-                      p.id
-                    );
-                    const baseVal = null;
-                    const currentDraft = hasDraft ? draftLinks[p.id] : baseVal;
-
                     return (
                       <li key={p.id} className="px-0">
                         <PlanSingle
@@ -884,37 +808,7 @@ export default function ActivitiesCalendar({
                           planNotes={combinedNotes || null}
                           activitySummary={null}
                         >
-                          <div className="text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
-                            <span className="opacity-70">
-                              Priradiť k aktivite:
-                            </span>
-
-                            <div className="flex-1 max-w-xs">
-                              <ActivitySelector
-                                userId={inferredUserId}
-                                dateIso={selectedIso || ""}
-                                sports={[sport]}
-                                deltaDays={2}
-                                value={currentDraft == null ? "" : currentDraft}
-                                onChange={(id) => {
-                                  setDraftLinks((prev) => ({
-                                    ...prev,
-                                    [p.id]: id === "" ? null : Number(id),
-                                  }));
-                                }}
-                                variant="compact"
-                              />
-                            </div>
-
-                            <Button
-                              variant="primary"
-                              size="xs"
-                              disabled={!inferredUserId || savingId === p.id}
-                              onClick={() => handleSaveLink(p.id)}
-                            >
-                              {savingId === p.id ? "Ukladám…" : "Uložiť"}
-                            </Button>
-                          </div>
+                          {/* momentálne žiadne ďalšie akcie – linkovanie riešime neskôr */}
                         </PlanSingle>
                       </li>
                     );
