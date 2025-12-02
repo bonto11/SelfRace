@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_PROFILE_METRIC_VALUE
-from Services.profile_metrics import _apply_user_filter_raw
+from Services.profile_metrics import apply_user_filter_raw_metrics
 
 supabase = get_client()
 
@@ -29,7 +29,7 @@ def db_get_metric_history(
         .eq("metric", metric)
         .order("measured_at", desc=False)
     )
-    q = _apply_user_filter_raw(q, user_id=user_id, user_uid=user_uid)
+    q = apply_user_filter_raw_metrics(q, user_id=user_id, user_uid=user_uid)
     if date_from:
         q = q.gte("measured_at", date_from)
     if date_to:
@@ -52,7 +52,7 @@ def db_get_latest_metric(
         .order("measured_at", desc=True)
         .limit(1)
     )
-    q = _apply_user_filter_raw(q, user_id=user_id, user_uid=user_uid)
+    q = apply_user_filter_raw_metrics(q, user_id=user_id, user_uid=user_uid)
     res = q.execute()
     data = res.data or []
     return data[0] if data else None
@@ -67,6 +67,6 @@ def db_get_vo2_measured_history(
         .eq("metric", "VO2Max_measured")
         .order("measured_at", desc=False)
     )
-    q = _apply_user_filter_raw(q, user_id=user_id, user_uid=user_uid)
+    q = apply_user_filter_raw_metrics(q, user_id=user_id, user_uid=user_uid)
     res = q.execute()
     return res.data or []
