@@ -41,34 +41,43 @@ export type AnalyzePayloadBE = {
     avoid_zones?: string[];
     rehab?: CoachPrefs["rehab_focus"];
   };
-
   intensity_model?: "polarized" | "pyramidal" | null;
   blocks?: { vo2max?: boolean; threshold?: boolean; ftp?: boolean };
-
   strength_settings?: CoachPrefs["strength_settings"];
 
-  // voice (optional)
+  // voice
   coach_voice?: CoachPrefs["coach_voice"];
   coach_tone?: CoachPrefs["coach_tone"];
 
-  // NEW
-  zones?: ZonesPayload;
-  thresholds?: ThresholdsPayload;
+  // zóny + prahy
+  zones?: CoachPrefs["zones"];
+  thresholds?: CoachPrefs["thresholds"];
 
-  // legacy (optional)
+  // legacy (voliteľné)
   legacy?: {
     distance?: CoachPrefs["distance"];
     current_pace?: CoachPrefs["current_pace"];
     target_pace?: CoachPrefs["target_pace"];
   };
 
-  // optionals dopĺňané neskôr
-  goal_structured?: Partial<CoachPrefs>;
+  // dopĺňame vo FE
   bests?: any;
 };
 
+/** Extra flagy k API volaniu. */
 export type AnalyzeOptions = {
-  debugRaw?: boolean;      // ?debug_raw=1
-  loose?: boolean;         // ?loose=1 (do budúcna)
-  explicitModel?: string;  // X-Model header
+  debugRaw?: boolean;      // -> payload.debug
+  explicitModel?: string;  // -> payload.model
 };
+
+/** Očakávaná odpoveď z BE /coach/athlete/analyze/:user_id */
+export type AnalyzeAthleteStateResponse = {
+  success: boolean;
+  state_id: number | null;
+  state: any;   // CoachAthleteState
+  input: any;   // CoachAnalyzeInput
+  model: string;
+};
+
+/** Generický fail z BE (detail je optional). */
+export type ApiFail = { success: false; detail?: string };

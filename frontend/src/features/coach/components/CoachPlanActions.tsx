@@ -5,15 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
-import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
 import Button from "@/shared/components/ui/Button";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
+import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import { apiGetPrefs } from "@/features/coach/api/prefs";
+import { buildAnalyzePayloadFromPrefs } from "@/features/coach/utils/coachAnalyzePayload";
 import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
 
-import { buildAnalyzePayloadFromPrefs} from "@/features/coach/utils/coachAnalyzePayload";
 const COACH_DEBUG = true;
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -89,7 +89,7 @@ function JsonBlock({ title, data }: { title: string; data: any }) {
 
 type AnalyzeResult = {
   analysis: any | null; // CoachAthleteState
-  input: any | null; // CoachAnalyzeInput
+  input: any | null;    // CoachAnalyzeInput
   model: string | null;
   state_id: number | null;
 };
@@ -126,7 +126,7 @@ export default function CoachPlanActions() {
     setLoading(true);
 
     try {
-      // vždy sa pokús o čerstvé prefs z DB
+      // čerstvé prefs z DB (fallback storage)
       const fresh = await apiGetPrefs(userId).catch(() => null);
       const effectivePrefs = fresh ?? prefs ?? readPrefsFromStorage();
       if (!effectivePrefs) {
@@ -144,22 +144,21 @@ export default function CoachPlanActions() {
 
       const json = await apiAnalyzeAthleteState(userId, payload, {
         debugRaw: true,
-        loose: true,
       });
 
+      // POZOR: backend vracia `state`, nie `analysis`
       setResult({
-        analysis: json.analysis ?? null,
+        analysis: json.state ?? null,
         input: json.input ?? null,
         model: json.model ?? null,
         state_id: json.state_id ?? null,
       });
 
-      // voliteľne si môžeš uložiť poslednú analýzu do localStorage
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem(
             "coach.athlete_state",
-            JSON.stringify(json.analysis ?? null)
+            JSON.stringify(json.state ?? null)
           );
         } catch {
           // ignore
@@ -195,7 +194,9 @@ export default function CoachPlanActions() {
               {summary.generated_at ?? "—"}
             </span>{" "}
             · model{" "}
-            <span className="font-semibold">{summary.model ?? "—"}</span>
+            <span className="font-semibold">
+              {summary.model ?? "—"}
+            </span>
             {summary.state_id != null && (
               <>
                 {" "}
@@ -233,7 +234,7 @@ export default function CoachPlanActions() {
         </div>
       )}
 
-      {/* debug JSON bloky – čistý raw output z BE */}
+      {/* debug JSON bloky */}
       <div className="space-y-2">
         <JsonBlock
           title="Prefs (effective: DB → storage fallback)"
@@ -241,7 +242,7 @@ export default function CoachPlanActions() {
         />
         <JsonBlock title="Sent payload (FE→BE)" data={debugPayload} />
         <JsonBlock
-          title="Athlete state (analysis = CoachAthleteState)"
+          title="Athlete state (CoachAthleteState)"
           data={result?.analysis}
         />
         <JsonBlock

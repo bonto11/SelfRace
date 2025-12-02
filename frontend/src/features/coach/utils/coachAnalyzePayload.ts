@@ -32,22 +32,21 @@ function mapThresholds(t: any | undefined): ThresholdsPayload | undefined {
 }
 
 /**
- * Toto je pôvodný apiToAnalyzePayloadBE – len presunutý do utils.
+ * Z CoachPrefs postaví AnalyzePayloadBE pre AI analyze/athlete_state.
+ * Čistý helper – žiadne fetch, žiadne side-effects.
  */
 export function buildAnalyzePayloadFromPrefs(
   prefs: Partial<CoachPrefs>
 ): AnalyzePayloadBE {
   const rawModel =
-    (prefs as any).polarized_model ? "polarized" :
-    (prefs as any).pyramidal_model ? "pyramidal" :
+    prefs.polarized_model ? "polarized" :
+    prefs.pyramidal_model ? "pyramidal" :
     null;
 
-  const intensity_model = (rawModel ?? "polarized") as
-    | "polarized"
-    | "pyramidal";
+  const intensity_model = (rawModel ?? "polarized") as "polarized" | "pyramidal";
 
   const secondary = (prefs.secondary_mix ?? []).filter(
-    (x: any) => (x?.share_pct ?? 0) > 0
+    (x) => (x?.share_pct ?? 0) > 0
   );
   const primary: string[] = [];
 
@@ -90,9 +89,8 @@ export function buildAnalyzePayloadFromPrefs(
     coach_voice: prefs.coach_voice ?? undefined,
     coach_tone: prefs.coach_tone ?? undefined,
 
-    // NEW
-    zones: mapZones((prefs as any).zones),
-    thresholds: mapThresholds((prefs as any).thresholds),
+    zones: prefs.zones,
+    thresholds: prefs.thresholds,
 
     legacy: {
       distance: prefs.distance ?? undefined,
