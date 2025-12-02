@@ -20,9 +20,8 @@ from Routes_FE import (
     user_thresholds,
     coach_plan_daily,
     coach_plan_weekly
+    coach_athlete_state,
 )
-from backend.Routes_FE import coach_athlete_state
-
 app = FastAPI()
 
 # -------- CORS z ENV --------
