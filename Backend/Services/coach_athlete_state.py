@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional
 from Services.profile_metrics import service_load_user_profile_for_analysis
 from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
-
+from Services.user_bests import service_build_bests_block_for_analysis
+from Services.user_recovery import service_build_recovery_block_for_analysis
 # -------------------- LOW-LEVEL HELPERS --------------------
 
 
@@ -299,29 +300,33 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     """
     input_data = _build_base_input(user_id)
 
+     # 1) PROFIL
     user_block = service_load_user_profile_for_analysis(user_id=user_id, user_uid=None)
     if user_block:
         input_data["user"].update(user_block)
 
+    # 2) ZONES
     zones_block = service_build_zones_block_for_analysis(user_id)
     if zones_block:
         input_data["zones"] = zones_block
 
+    # 3) THRESHOLDS
     thresholds_block = service_build_thresholds_block_for_analysis(user_id)
     if thresholds_block:
         input_data["thresholds"] = thresholds_block
 
-    # prefs (zatiaľ prázdne, keď doplníš DB loader, toto sa automaticky naplní)
+    # 4) PREFS
     raw_prefs = _load_prefs_raw_from_db(user_id)
     _merge_prefs_from_raw(input_data, raw_prefs)
 
-    # bests
-    bests_raw = _load_bests_raw_from_db(user_id)
-    input_data["bests"] = _build_bests_block(bests_raw)
+    # 5) BESTS
+    input_data["bests"] = service_build_bests_block_for_analysis(user_id)
 
-    # recent_load
-    recent_raw = _load_recent_load_raw_from_db(user_id)
-    input_data["recent_load"] = _build_recent_load_block(recent_raw)
+    # 6) RECENT LOAD
+    #input_data["recent_load"] = service_build_recent_load_for_analysis(user_id)
+
+    # 7) RECOVERY
+    input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)
 
     return input_data
 

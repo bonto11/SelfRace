@@ -60,7 +60,9 @@ def service_upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str,
             raise ValueError("time_sec must be an integer")
     else:
         time_sec = hhmmss_to_seconds(
-            payload.get("time_str") if isinstance(payload.get("time_str"), str) else None
+            payload.get("time_str")
+            if isinstance(payload.get("time_str"), str)
+            else None
         )
 
     if not time_sec:
@@ -105,3 +107,24 @@ def service_delete_user_best(user_id: int, sport: str, distance_m: int) -> int:
     Tenšia obálka okolo DB delete – kvôli konzistencii service vrstvy.
     """
     return db_delete_user_best(user_id, sport, distance_m)
+
+
+def service_build_bests_block_for_analysis(user_id: int) -> Dict[str, Any]:
+    """
+    Vráti minimalizované PB pre AI:
+      { run: [...], ride: [...] }
+    """
+    out = {"run": [], "ride": []}
+
+    run_rows = db_fetch_user_bests(user_id, "run")
+    for r in run_rows:
+        out["run"].append(
+            {
+                "distance_m": r.get("distance_m"),
+                "best_time_s": r.get("best_time_s"),
+                "time_str": r.get("time_str"),
+                "date": r.get("achieved_at") or r.get("updated_at"),
+            }
+        )
+
+    return out
