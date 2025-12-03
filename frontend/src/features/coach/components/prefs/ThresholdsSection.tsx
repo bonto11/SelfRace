@@ -20,6 +20,7 @@ function normalizePaceInput(v: string): string {
   if (raw.length <= 2) return raw;
   return `${raw.slice(0, 2)}:${raw.slice(2, 4)}`;
 }
+
 function paceToSec(v: string): number | null {
   const t = normalizePaceInput(v);
   if (!t || !t.includes(":")) return null;
@@ -27,6 +28,7 @@ function paceToSec(v: string): number | null {
   if (!Number.isFinite(m) || !Number.isFinite(s)) return null;
   return m * 60 + s;
 }
+
 function secToPace(n: any): string {
   const s = Number(n);
   if (!Number.isFinite(s) || s <= 0) return "";
@@ -37,20 +39,29 @@ function secToPace(n: any): string {
 
 /* ---------- types ---------- */
 type Props = {
-  thresholds: any | undefined;   // aktuálny draft
-  latestList?: any[];            // uložené riadky z DB na preview
+  thresholds: any | undefined; // aktuálny draft
+  latestList?: any[]; // uložené riadky z DB na preview
   onChange: (t: any) => void;
   onSaveToDB?: (t: any) => Promise<void>;
 };
 
+const normalizeSportKey = (s: any): string => {
+  const v = String(s || "").toLowerCase();
+  if (v === "run") return "running"; // zjednotíme názov
+  return v;
+};
+
+const makeComboKey = (sport: any, thrType: any): string =>
+  `${normalizeSportKey(sport)}|${String(thrType || "").toLowerCase()}`;
+
 /* odporúčané športy */
 const THR_SPORTS = [
-  { value: "running",  label: "Running" },
-  { value: "ride",  label: "Ride" },
+  { value: "running", label: "Running" },
+  { value: "ride", label: "Ride" },
   { value: "swimming", label: "Swimming" },
-  { value: "rowing",   label: "Rowing" },
+  { value: "rowing", label: "Rowing" },
   { value: "strength", label: "Strength" },
-  { value: "other",    label: "Other" },
+  { value: "other", label: "Other" },
 ] as const;
 
 export default function ThresholdsSection({
@@ -63,25 +74,29 @@ export default function ThresholdsSection({
   const [open, setOpen] = useState(false);
 
   const [paceStr, setPaceStr] = useState<string>(secToPace(t.pace_sec_km));
-  useEffect(() => { setPaceStr(secToPace(t.pace_sec_km)); }, [t.pace_sec_km]);
+  useEffect(() => {
+    setPaceStr(secToPace(t.pace_sec_km));
+  }, [t.pace_sec_km]);
 
-  /* latest per (sport,type) – očakávame rows zoradené DESC v BE */
+  
+
+  // latestByCombo
   const latestByCombo = useMemo(() => {
     const map = new Map<string, any>();
     for (const r of Array.isArray(latestList) ? latestList : []) {
-      const key = `${(r.sport ?? "").toLowerCase()}|${(r.threshold_type ?? "").toLowerCase()}`;
+      const key = makeComboKey(r.sport, r.threshold_type);
       if (!map.has(key)) map.set(key, r);
     }
     return Array.from(map.values());
   }, [latestList]);
 
-  /* náhľad pre vybraný sport+type (draft fallbackuje na latest) */
+  // preview
   const preview = useMemo(() => {
-    const key = `${(t.sport ?? "running").toLowerCase()}|${(t.threshold_type ?? "LT2").toLowerCase()}`;
+    const key = makeComboKey(t.sport ?? "running", t.threshold_type ?? "LT2");
     const fromLatest = latestByCombo.find(
-      (r) => `${(r.sport ?? "").toLowerCase()}|${(r.threshold_type ?? "").toLowerCase()}` === key
+      (r) => makeComboKey(r.sport, r.threshold_type) === key
     );
-    const src = { ...(fromLatest ?? {}), ...t }; // draft má prednosť
+    const src = { ...(fromLatest ?? {}), ...t }; // draft má stále prednosť
     return {
       sport: src.sport ?? "running",
       type: src.threshold_type ?? "LT2",
@@ -91,6 +106,11 @@ export default function ThresholdsSection({
     };
   }, [t, latestByCombo]);
 
+  console.log("[ThresholdsSection] props", { thresholds, latestList });
+  console.log("[ThresholdsSection] t", t);
+  console.log("[ThresholdsSection] latestByCombo", latestByCombo);
+  console.log("[ThresholdsSection] preview", preview);
+  
   return (
     <section className={SECTION}>
       {/* HEADER */}
@@ -104,13 +124,42 @@ export default function ThresholdsSection({
 
       {/* CLOSED PREVIEW */}
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
+        <div
+          className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(
+            " "
+          )}
+        >
           <div className="flex flex-wrap gap-4 justify-center">
-            <div><span className="opacity-70 mr-1">Sport:</span><span className="font-semibold">{preview.sport}</span></div>
-            <div><span className="opacity-70 mr-1">Type:</span><span className="font-semibold">{preview.type}</span></div>
-            {preview.hr != null && <div><span className="opacity-70 mr-1">HR:</span><span className="font-semibold">{Math.round(preview.hr)} bpm</span></div>}
-            {preview.pace && <div><span className="opacity-70 mr-1">Pace:</span><span className="font-semibold">{preview.pace} /km</span></div>}
-            {preview.pow != null && <div><span className="opacity-70 mr-1">Power:</span><span className="font-semibold">{Math.round(preview.pow)} W</span></div>}
+            <div>
+              <span className="opacity-70 mr-1">Sport:</span>
+              <span className="font-semibold">{preview.sport}</span>
+            </div>
+            <div>
+              <span className="opacity-70 mr-1">Type:</span>
+              <span className="font-semibold">{preview.type}</span>
+            </div>
+            {preview.hr != null && (
+              <div>
+                <span className="opacity-70 mr-1">HR:</span>
+                <span className="font-semibold">
+                  {Math.round(preview.hr)} bpm
+                </span>
+              </div>
+            )}
+            {preview.pace && (
+              <div>
+                <span className="opacity-70 mr-1">Pace:</span>
+                <span className="font-semibold">{preview.pace} /km</span>
+              </div>
+            )}
+            {preview.pow != null && (
+              <div>
+                <span className="opacity-70 mr-1">Power:</span>
+                <span className="font-semibold">
+                  {Math.round(preview.pow)} W
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -132,7 +181,9 @@ export default function ThresholdsSection({
               <SelectField
                 label="Threshold type"
                 value={t.threshold_type ?? "LT2"}
-                onChange={(e) => onChange({ ...t, threshold_type: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...t, threshold_type: e.target.value })
+                }
                 options={[
                   { value: "LT1", label: "LT1 (aerobic)" },
                   { value: "LT2", label: "LT2 (anaerobic)" },
@@ -149,7 +200,13 @@ export default function ThresholdsSection({
                 label="Threshold HR (bpm)"
                 type="number"
                 value={t.hr_bpm ?? ""}
-                onChange={(e) => onChange({ ...t, hr_bpm: e.target.value === "" ? null : Number(e.target.value) })}
+                onChange={(e) =>
+                  onChange({
+                    ...t,
+                    hr_bpm:
+                      e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
               />
             </div>
             <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
@@ -170,7 +227,13 @@ export default function ThresholdsSection({
                 label="Threshold power (W)"
                 type="number"
                 value={t.power_watt ?? ""}
-                onChange={(e) => onChange({ ...t, power_watt: e.target.value === "" ? null : Number(e.target.value) })}
+                onChange={(e) =>
+                  onChange({
+                    ...t,
+                    power_watt:
+                      e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
               />
             </div>
           </div>
@@ -181,7 +244,9 @@ export default function ThresholdsSection({
               <SelectField
                 label="Measurement type"
                 value={t.measurement_type ?? "estimate garmin"}
-                onChange={(e) => onChange({ ...t, measurement_type: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...t, measurement_type: e.target.value })
+                }
                 options={[
                   { value: "lab test", label: "Lab test" },
                   { value: "field test", label: "Field test" },
@@ -201,13 +266,16 @@ export default function ThresholdsSection({
               variant="success"
               className="mt-2"
               onClick={async () => {
-                const hrOk = t.hr_bpm == null || Number.isFinite(Number(t.hr_bpm));
+                const hrOk =
+                  t.hr_bpm == null || Number.isFinite(Number(t.hr_bpm));
                 const paceOk =
                   t.pace_sec_km == null ||
-                  (Number.isFinite(Number(t.pace_sec_km)) && Number(t.pace_sec_km) > 0);
+                  (Number.isFinite(Number(t.pace_sec_km)) &&
+                    Number(t.pace_sec_km) > 0);
                 const powOk =
                   t.power_watt == null ||
-                  (Number.isFinite(Number(t.power_watt)) && Number(t.power_watt) > 0);
+                  (Number.isFinite(Number(t.power_watt)) &&
+                    Number(t.power_watt) > 0);
                 if (!hrOk || !paceOk || !powOk) {
                   toast.error("Invalid threshold values");
                   return;
@@ -222,18 +290,28 @@ export default function ThresholdsSection({
           {/* uložené v DB */}
           {latestByCombo.length > 0 && (
             <div className="mt-3">
-              <div className="text-xs opacity-70 mb-1">Aktuálne uložené v DB</div>
+              <div className="text-xs opacity-70 mb-1">
+                Aktuálne uložené v DB
+              </div>
               <ul className="flex flex-wrap gap-2">
                 {latestByCombo.map((r, i) => (
                   <li
                     key={`${r.sport}-${r.threshold_type}-${i}`}
-                    className={[SURFACE_INLINE, "px-3 py-1.5 text-xs"].join(" ")}
+                    className={[SURFACE_INLINE, "px-3 py-1.5 text-xs"].join(
+                      " "
+                    )}
                   >
                     <span className="font-medium">{r.sport}</span>
                     <span> · {r.threshold_type}</span>
-                    {r.hr_bpm ? <span> · HR {Math.round(r.hr_bpm)}</span> : null}
-                    {r.pace_sec_km ? <span> · {secToPace(r.pace_sec_km)} /km</span> : null}
-                    {r.power_watt ? <span> · {Math.round(r.power_watt)} W</span> : null}
+                    {r.hr_bpm ? (
+                      <span> · HR {Math.round(r.hr_bpm)}</span>
+                    ) : null}
+                    {r.pace_sec_km ? (
+                      <span> · {secToPace(r.pace_sec_km)} /km</span>
+                    ) : null}
+                    {r.power_watt ? (
+                      <span> · {Math.round(r.power_watt)} W</span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
