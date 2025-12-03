@@ -16,13 +16,14 @@ from Routes_FE import (
     user_bests,
     user_zones,
     user_thresholds,
+    user_recovery,
     coach_plan_daily,
     coach_plan_weekly,
     coach_athlete_state,
     profile_static,
-    profile_metrics
+    profile_metrics,
 )
-from backend.Routes_FE import user_recovery
+
 app = FastAPI()
 
 # -------- CORS z ENV --------
