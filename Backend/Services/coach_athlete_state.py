@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
 from Services.user_thresholds import service_build_thresholds_block_for_analysis
@@ -13,9 +13,16 @@ from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.activities_summary_recent_load import (
     service_build_recent_load_block_for_analysis,
 )
+from Routes_DB.coach_athlete_state import (
+    db_insert_athlete_state,
+    db_get_state_by_id,
+    db_get_latest_state_for_user,
+    db_list_states_for_user,
+)
 
 from Routes_AI.analyze_athlete_state import generate_athlete_state_json
 from Configs.config import DEFAULT_MODEL
+
 
 # -------------------- HELPERS --------------------
 def _now_iso() -> str:
@@ -139,20 +146,79 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
 
 
 def service_save_state_to_db(user_id: int, analysis: Dict[str, Any]) -> Optional[int]:
-    """
-    Stub ukladania AI analýzy do DB.
+    model = str(analysis.get("model") or "Trainalyze Coach")
+    version = int(analysis.get("schema_version") or 1)
+    return db_insert_athlete_state(
+        user_id=user_id,
+        model=model,
+        state_json=analysis,
+        version=version,
+    )
 
-    Neskôr tu spravíš reálny INSERT/UPSERT do tabuľky, napr. coach_athlete_state:
-      - user_id
-      - generated_at
-      - model
-      - input_snapshot (JSONB)
-      - analysis (JSONB)
 
-    Aktuálne len vráti 1, aby FE mal nejaké state_id.
+def service_get_athlete_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
     """
-    # TODO: nahradiť reálnym INSERT/UPSERT do DB
-    return 1
+    Načíta konkrétny záznam z coach_athlete_state podľa id
+    a rozbalí state_json do samostatného kľúča "state".
+    """
+    row = db_get_state_by_id(state_id)
+    if not row:
+        return None
+
+    state_json = row.get("state_json") or {}
+
+    return {
+        "id": row.get("id"),
+        "user_id": row.get("user_id"),
+        "model": row.get("model"),
+        "version": row.get("version"),
+        "created_at": row.get("created_at"),
+        "state": state_json,
+    }
+
+
+def service_get_latest_athlete_state(
+    user_id: int,
+    version: Optional[int] = 1,
+) -> Optional[Dict[str, Any]]:
+    """
+    Najnovší stav pre usera (podľa created_at DESC).
+    """
+    row = db_get_latest_state_for_user(user_id=user_id, version=version)
+    if not row:
+        return None
+
+    state_json = row.get("state_json") or {}
+
+    return {
+        "id": row.get("id"),
+        "user_id": row.get("user_id"),
+        "model": row.get("model"),
+        "version": row.get("version"),
+        "created_at": row.get("created_at"),
+        "state": state_json,
+    }
+
+
+def service_list_athlete_states_meta(
+    user_id: int,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """
+    História stavov – len meta info (bez state_json),
+    vhodné na výpis v UI / debug.
+    """
+    rows = db_list_states_for_user(user_id=user_id, limit=limit)
+    return [
+        {
+            "id": r.get("id"),
+            "user_id": r.get("user_id"),
+            "model": r.get("model"),
+            "version": r.get("version"),
+            "created_at": r.get("created_at"),
+        }
+        for r in rows or []
+    ]
 
 
 # -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
@@ -195,8 +261,8 @@ def service_analyze_athlete(
     resp: Dict[str, Any] = {
         "state_id": state_id,
         "model": DEFAULT_MODEL,
-        "input": input_data,  # CoachAnalyzeInput snapshot
         "analysis": analysis,  # čistý výstup z AI (user_summary, ai_state, metrics…)
+        "input": input_data,  # CoachAnalyzeInput snapshot
     }
 
     return resp

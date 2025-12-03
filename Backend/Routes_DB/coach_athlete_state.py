@@ -1,75 +1,100 @@
+# Routes_DB/analyze_athlete_state.py
 from __future__ import annotations
-from typing import Any, Dict, Optional, List
-from Modules.SQL.db_handler import get_client
 
-supabase = get_client()
+from typing import Any, Dict, List, Optional
+
+from Modules.SQL.db_handler import get_client
+from Configs.config import TABLE_COACH_ATHLETE_STATE
+
+sb = get_client()
 
 
 def db_insert_athlete_state(
     user_id: int,
-    *,
+    model: str,
     state_json: Dict[str, Any],
-    model: Optional[str] = None,
     version: int = 1,
 ) -> Optional[int]:
     """
     INSERT do coach_athlete_state.
-    Vracia id nového záznamu alebo None pri chybe.
+
+    Vracia id nového riadku alebo None pri chybe.
     """
+    row = {
+        "user_id": user_id,
+        "model": model,
+        "version": version,
+        "state_json": state_json,
+    }
     try:
-        res = (
-            supabase.table("coach_athlete_state")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "model": model,
-                    "version": version,
-                    "state_json": state_json,
-                }
-            )
-            .execute()
-        )
-        rows = res.data or []
-        return rows[0]["id"] if rows else None
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-ATHLETE-STATE] insert error:", repr(e))
+        res = sb.table(TABLE_COACH_ATHLETE_STATE).insert(row).execute()
+        data = res.data or []
+        if data and isinstance(data, list):
+            return data[0].get("id")  # type: ignore[return-value]
+        return None
+    except Exception:
         return None
 
 
-def db_get_latest_athlete_state(user_id: int) -> Optional[Dict[str, Any]]:
+def db_get_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
     """
-    Posledný (najnovší) athlete_state pre daného užívateľa.
-    """
-    try:
-        res = (
-            supabase.table("coach_athlete_state")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-        rows = res.data or []
-        return rows[0] if rows else None
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-ATHLETE-STATE] latest error:", repr(e))
-        return None
-
-
-def db_get_athlete_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
-    """
-    Athlete_state podľa primárneho id.
+    Načíta konkrétny stav podľa primárneho kľúča id.
     """
     try:
         res = (
-            supabase.table("coach_athlete_state")
-            .select("*")
+            sb.table(TABLE_COACH_ATHLETE_STATE)
+            .select("id,user_id,model,version,state_json,created_at")
             .eq("id", state_id)
             .limit(1)
             .execute()
         )
-        rows = res.data or []
+        rows = list(res.data or [])
         return rows[0] if rows else None
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-ATHLETE-STATE] by_id error:", repr(e))
+    except Exception:
         return None
+
+
+def db_get_latest_state_for_user(
+    user_id: int,
+    version: Optional[int] = 1,
+) -> Optional[Dict[str, Any]]:
+    """
+    Najnovší stav pre daného usera (podľa created_at DESC).
+
+    Ak version je None, nefiltruje podľa verzie.
+    """
+    try:
+        q = (
+            sb.table(TABLE_COACH_ATHLETE_STATE)
+            .select("id,user_id,model,version,state_json,created_at")
+            .eq("user_id", user_id)
+        )
+        if version is not None:
+            q = q.eq("version", version)
+
+        res = q.order("created_at", desc=True).limit(1).execute()
+        rows = list(res.data or [])
+        return rows[0] if rows else None
+    except Exception:
+        return None
+
+
+def db_list_states_for_user(
+    user_id: int,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """
+    História stavov pre usera (bez state_json, len meta – vhodné na prehľad v UI).
+    """
+    try:
+        res = (
+            sb.table(TABLE_COACH_ATHLETE_STATE)
+            .select("id,user_id,model,version,created_at")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception:
+        return []
