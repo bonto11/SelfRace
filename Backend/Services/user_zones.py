@@ -1,8 +1,13 @@
-from typing import Optional, Dict, Any, TypedDict, Literal
-from Modules.SQL.db_handler import get_client
-from Configs.config import TABLE_USERS_ZONES
+# Services/user_zones.py
+from __future__ import annotations
 
-sb = get_client()
+from typing import Any, Dict, List, Optional, TypedDict, Literal
+
+from Routes_DB.user_zones import (
+    db_user_zones_fetch_all,
+    db_user_zones_fetch_latest,
+    db_user_zones_insert_row,
+)
 
 Sport = Literal["running", "cycling", "other"]
 
@@ -23,6 +28,8 @@ class ZonesOut(TypedDict, total=False):
     created_at: Optional[str]
 
 
+# ------------ low-level helpers (len v services) ------------
+
 def _num(v: Any) -> Optional[int]:
     try:
         return None if v is None else int(round(float(v)))
@@ -42,6 +49,10 @@ def _canon_sport(s: Optional[str]) -> Sport:
 
 
 def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
+    """
+    Normalizuje raw DB row (hr_max_bpm, z2_min_bpm, ...) na jednotný ZonesOut.
+    Doplňuje chýbajúce min boundary z predošlej zóny.
+    """
     hr_max = (
         _num(row.get("hr_max_bpm"))
         or _num(row.get("HR_max_bpm"))
@@ -57,6 +68,7 @@ def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
     z4_max = _num(row.get("z4_max_bpm"))
     z5_min = _num(row.get("z5_min_bpm"))
 
+    # dopĺňame spodné hranice, ak chýbajú
     z1_min = 0
     if z2_min is None and z1_max is not None:
         z2_min = z1_max + 1
@@ -85,41 +97,17 @@ def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
     }
 
 
-def load_user_zones(user_id: int, sport: Optional[str] = None) -> Optional[ZonesOut]:
-    q = (
-        sb.table(TABLE_USERS_ZONES)
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-    )
-    if sport:
-        q = q.ilike("sport", _canon_sport(sport))
-    row = (q.limit(1).execute().data or [None])[0]
-    return _normalize_out(row) if row else None
-
-
-def load_user_zones_all_latest(user_id: int) -> Dict[str, ZonesOut]:
-    res = (
-        sb.table(TABLE_USERS_ZONES)
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    out: Dict[str, ZonesOut] = {}
-    for r in res.data or []:
-        s = _canon_sport(r.get("sport"))
-        if s not in out:
-            out[s] = _normalize_out(r)
-    return out
-
-
 def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Z payloadu z FE/AI vyrobí DB row so stĺpcami:
+      user_id, sport, hr_max_bpm, z1_max_bpm, z2_min_bpm, ...
+    """
     hr_max = (
         _num(payload.get("hr_max"))
         or _num(payload.get("hr_max_bpm"))
         or _num(payload.get("z5_max"))
     )
+
     return {
         "user_id": user_id,
         "sport": _canon_sport(payload.get("sport")),
@@ -135,19 +123,55 @@ def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def save_user_zones(user_id: int, payload: Dict[str, Any]) -> ZonesOut:
-    row = _normalize_insert(user_id, payload or {})
-    sb.table(TABLE_USERS_ZONES).insert(row).execute()
-    return load_user_zones(user_id, row["sport"]) or {"sport": row["sport"]}  # type: ignore[return-value]
+# ------------ PUBLIC SERVICES: CRUD/LIST ------------
 
-
-def choose_best_zones(
-    user_id: int, preferred_sport: Optional[str] = None
+def service_load_user_zones(
+    user_id: int,
+    sport: Optional[str] = None,
 ) -> Optional[ZonesOut]:
-    z = load_user_zones(user_id, preferred_sport)
+    """
+    Najnovšie zóny pre daného usera (+voliteľne sport), normalizované na ZonesOut.
+    """
+    sport_filter = _canon_sport(sport) if sport else None
+    row = db_user_zones_fetch_latest(user_id, sport_filter)
+    return _normalize_out(row) if row else None
+
+
+def service_load_user_zones_all_latest(user_id: int) -> Dict[str, ZonesOut]:
+    """
+    Vráti dict { sport -> ZonesOut } – pre každý sport len najnovší záznam.
+    """
+    rows = db_user_zones_fetch_all(user_id)
+    out: Dict[str, ZonesOut] = {}
+    for r in rows:
+        s = _canon_sport(r.get("sport"))
+        if s not in out:  # prvý = najnovší (máme DESC order)
+            out[s] = _normalize_out(r)
+    return out
+
+
+def service_save_user_zones(user_id: int, payload: Dict[str, Any]) -> ZonesOut:
+    """
+    Uloží nové zóny pre usera a vráti normalizovaný posledný stav (ZonesOut).
+    """
+    row = _normalize_insert(user_id, payload or {})
+    db_user_zones_insert_row(row)
+    return service_load_user_zones(user_id, row["sport"]) or {"sport": row["sport"]}  # type: ignore[return-value]
+
+
+def service_choose_best_zones(
+    user_id: int,
+    preferred_sport: Optional[str] = None,
+) -> Optional[ZonesOut]:
+    """
+    Heuristika: skús preferred_sport, potom running, potom hocičo.
+    """
+    z = service_load_user_zones(user_id, preferred_sport)
     if z:
         return z
-    z = load_user_zones(user_id, "running")
+    z = service_load_user_zones(user_id, "running")
     if z:
         return z
-    return load_user_zones(user_id, None)
+    all_latest = service_load_user_zones_all_latest(user_id)
+    # vrátime prvý ak niečo existuje
+    return next(iter(all_latest.values()), None)
