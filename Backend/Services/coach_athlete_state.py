@@ -13,41 +13,18 @@ from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.activities_summary_recent_load import (
     service_build_recent_load_block_for_analysis,
 )
-from Routes_AI.analyze_athlete_state import call_ai_analyze_athlete_state
-
-
-# -------------------- HELPERS --------------------
+from Routes_AI.analyze_athlete_state import generate_athlete_state_json
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def save_state_to_db(user_id: int, state: Dict[str, Any]) -> Optional[int]:
+def _build_base_input(user_id: int) -> Dict[str, Any]:
     """
-    Stub ukladania – ak už máš implementáciu s DB (coach_athlete_state tabuľka),
-    môžeš ju sem nahradiť. Teraz len vrátime 1, aby FE videl state_id.
+    Základný tvar CoachAnalyzeInput – všetko prázdne.
     """
-    # TODO: nahradiť reálnym INSERT/UPSERT do DB
-    return 1
-
-
-# -------------------- INPUT BUILDER (JEDINÁ SKLADAČKA) --------------------
-
-
-def build_input_from_db(user_id: int) -> Dict[str, Any]:
-    """
-    Hlavný builder CoachAnalyzeInput – čistá DB cesta.
-
-    - načíta user profil
-    - prefs
-    - zones
-    - thresholds
-    - bests
-    - recent_load
-    - recovery
-    """
-    input_data: Dict[str, Any] = {
+    return {
         "schema_version": 1,
         "user": {
             "id": user_id,
@@ -68,13 +45,7 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
             "hard_days_per_week_max": None,
             "notes_for_coach": None,
         },
-        "zones": {
-            "run": {
-                "hr_max": None,
-                "lthr_bpm": None,
-                "zones": [],
-            }
-        },
+        "zones": {"run": {"hr_max": None, "lthr_bpm": None, "zones": []}},
         "thresholds": {
             "run": {
                 "lthr_bpm": None,
@@ -83,10 +54,7 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
                 "vo2max_estimate": None,
             }
         },
-        "bests": {
-            "run": [],
-            "ride": [],
-        },
+        "bests": {"run": [], "ride": []},
         "recent_load": {
             "schema_version": 1,
             "window_days": 42,
@@ -107,77 +75,88 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
         },
     }
 
+
+def build_input_from_db(user_id: int) -> Dict[str, Any]:
+    """
+    CoachAnalyzeInput – čistá DB cesta.
+    """
+    input_data = _build_base_input(user_id)
+
     # 1) PROFIL
-    user_block = service_load_user_profile_for_analysis(
-        user_id=user_id,
-        user_uid=None,
+    input_data["user"] = service_load_user_profile_for_analysis(
+        user_id=user_id, user_uid=None
     )
-    if user_block:
-        input_data["user"].update(user_block)
 
-    # 2) PREFS (coach.prefs JSON)
-    prefs_block = service_load_coach_prefs_for_analysis(user_id)
-    if prefs_block:
-        input_data["prefs"] = prefs_block
+    # 2) ZÓNY
+    input_data["zones"] = service_build_zones_block_for_analysis(user_id)
 
-    # 3) ZONES
-    zones_block = service_build_zones_block_for_analysis(user_id)
-    if zones_block:
-        input_data["zones"] = zones_block
+    # 3) PRAHY
+    input_data["thresholds"] = service_build_thresholds_block_for_analysis(user_id)
 
-    # 4) THRESHOLDS
-    thresholds_block = service_build_thresholds_block_for_analysis(user_id)
-    if thresholds_block:
-        input_data["thresholds"] = thresholds_block
+    # 4) PREFS
+    input_data["prefs"] = service_load_coach_prefs_for_analysis(user_id)
 
-    # 5) BESTS
-    bests_block = service_build_bests_block_for_analysis(user_id)
-    if bests_block:
-        input_data["bests"] = bests_block
+    # 5) PB
+    input_data["bests"] = service_build_bests_block_for_analysis(user_id)
 
     # 6) RECENT LOAD
-    recent_block = service_build_recent_load_block_for_analysis(
+    input_data["recent_load"] = service_build_recent_load_block_for_analysis(
         user_id=user_id,
         window_days=42,
     )
-    if recent_block:
-        input_data["recent_load"] = recent_block
 
     # 7) RECOVERY
-    recovery_block = service_build_recovery_block_for_analysis(user_id)
-    if recovery_block:
-        input_data["recovery"] = recovery_block
+    input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)
 
     return input_data
 
 
-# -------------------- PUBLIC SERVICE (VOLÁ RÚTU / AI) --------------------
+def save_state_to_db(user_id: int, state: Dict[str, Any]) -> Optional[int]:
+    """
+    Stub ukladania – zatiaľ len vráti 1.
+    Keď budeš mať coach_athlete_state tabuľku, nahradíš to INSERT/UPSERT-om.
+    """
+    # TODO: reálny INSERT/UPSERT
+    return 1
+
 
 def service_analyze_athlete(
     user_id: int,
-    model: str = "gpt-4.1-mini",  # alebo čo chceš
+    model: str = "gpt-4o-mini",
     save_to_db: bool = True,
     debug: bool = False,
 ) -> Dict[str, Any]:
+    """
+    Hlavná service funkcia, ktorú volá FE / interné volanie.
+
+    - poskladá CoachAnalyzeInput z DB
+    - zavolá OpenAI cez generate_athlete_state_json
+    - uloží state do DB (stub)
+    - vráti {state_id, state, input, model, debug?}
+    """
+    # 1) INPUT
     input_data = build_input_from_db(user_id)
 
-    state = call_ai_analyze_athlete_state(
-        input_data,
+    # 2) AI CALL
+    state, trace = generate_athlete_state_json(
+        context_payload=input_data,
         model=model,
         debug_raw=debug,
     )
 
+    # 3) STORAGE
     state_id: Optional[int] = None
     if save_to_db:
         state_id = save_state_to_db(user_id, state)
 
-    if debug:
-        print("[coach_athlete_state] input:", input_data)
-        print("[coach_athlete_state] state:", state)
-
-    return {
+    # 4) RESPONSE
+    resp: Dict[str, Any] = {
         "state_id": state_id,
         "state": state,
         "input": input_data,
         "model": model,
     }
+    if debug and trace is not None:
+        resp["debug_ai"] = trace
+
+    return resp
