@@ -3,18 +3,16 @@
 import { API_URL } from "@/shared/config";
 import { robustJson } from "@/features/coach/api/_api_utils";
 import type {
-  AnalyzePayloadBE,
   AnalyzeOptions,
   AnalyzeAthleteStateResponse,
 } from "@/features/coach/types/coachApiTypes";
 
 /**
- * Zavolá BE endpoint /coach/athlete/analyze/:user_id
- * a vráti rozparsovanú odpoveď. Žiadna logika okolo prefs.
+ * Zavolá BE endpoint /coach/athlete/analyze/:user_id.
+ * FE neposiela žiadny tréningový payload – BE si všetko skladá z DB.
  */
 export async function apiAnalyzeAthleteState(
   userId: number,
-  payload: AnalyzePayloadBE,
   opts: AnalyzeOptions = {}
 ): Promise<AnalyzeAthleteStateResponse> {
   if (!API_URL) {
@@ -24,7 +22,6 @@ export async function apiAnalyzeAthleteState(
   const url = `${API_URL}/coach/athlete/analyze/${userId}`;
 
   const body = {
-    ...payload,
     debug: !!opts.debugRaw,
     save_to_db: true,
     model: opts.explicitModel ?? "coach-analyze-stub",

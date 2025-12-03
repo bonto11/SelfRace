@@ -1,25 +1,17 @@
 // src/features/coach/components/CoachPlanActions.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useUserId } from "@/shared/hooks/useUserId";
-import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
-import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
-import type { AnalyzePayloadBE } from "@/features/coach/types/coachApiTypes";
 
 import Button from "@/shared/components/ui/Button";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 import { apiGetPrefs } from "@/features/coach/api/prefs";
 import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
-import {
-  buildAnalyzePayloadFromPrefs,
-  buildRecentLoadFromActivities,
-} from "@/features/coach/utils/coachAnalyzePayload";
-
-const COACH_DEBUG = true;
+import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -73,52 +65,17 @@ function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
   );
 }
 
-/** Debug JSON blok – v prod móde vypnutý */
-function JsonBlock({ title, data }: { title: string; data: any }) {
-  if (!COACH_DEBUG) return null;
-  if (!data) return null;
-  return (
-    <details
-      className="rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
-      open
-    >
-      <summary className="cursor-pointer select-none text-sm font-semibold py-1">
-        {title}
-      </summary>
-      <pre className="mt-2 max-h-80 overflow-auto text-xs leading-5">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    </details>
-  );
-}
-
-type AnalyzeResult = {
-  analysis: any | null; // CoachAthleteState
-  input: any | null; // CoachAnalyzeInput
-  model: string | null;
-  state_id: number | null;
-};
-
 /* ─────────────────────── hlavný komponent ─────────────────────── */
 
 export default function CoachPlanActions() {
   const { userId } = useUserId();
-  const { pbRun } = useCoachData();
-  const { rows: activityRows } = useActivityData();
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
-  const [debugPayload, setDebugPayload] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // recent load prepočítame vždy z aktuálnych activities
-  const recentLoad = useMemo(
-    () => buildRecentLoadFromActivities(activityRows ?? [], 42),
-    [activityRows]
-  );
-
-  // načítaj prefs z DB / storage
+  // prefs len na mini-summary (logika analýzy je už komplet v BE)
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -138,36 +95,19 @@ export default function CoachPlanActions() {
     setLoading(true);
 
     try {
-      // vždy sa pokús o čerstvé prefs z DB
-      const fresh = await apiGetPrefs(userId).catch(() => null);
-      const effectivePrefs = fresh ?? prefs ?? readPrefsFromStorage();
-      if (!effectivePrefs) {
-        throw new Error("Preferences not found in DB or storage.");
-      }
-      setPrefs(effectivePrefs);
-
-      const base = buildAnalyzePayloadFromPrefs(effectivePrefs);
-      const payload: AnalyzePayloadBE = {
-        ...base,
-        bests: { run: pbRun ?? [] },
-        recent_load: recentLoad,
-      };
-
-      setDebugPayload(payload);
-
-      const json = await apiAnalyzeAthleteState(userId, payload, {
-        debugRaw: true,
+      // nič neskladáme na FE – BE si všetko načíta z DB podľa usera
+      const json = await apiAnalyzeAthleteState(userId, {
+        debugRaw: false,
         explicitModel: "coach-analyze-stub",
       });
 
       setResult({
         analysis: json.state ?? null,
-        input: json.input ?? null,
         model: json.model ?? null,
         state_id: json.state_id ?? null,
       });
 
-      // voliteľne uložiť poslednú analýzu do localStorage
+      // voliteľne uložiť poslednú analýzu do localStorage (len samotný state)
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem(
@@ -183,7 +123,7 @@ export default function CoachPlanActions() {
     } finally {
       setLoading(false);
     }
-  }, [userId, prefs, pbRun, recentLoad]);
+  }, [userId]);
 
   const canAnalyze = !!userId && !loading;
 
@@ -247,23 +187,6 @@ export default function CoachPlanActions() {
           <p className="text-sm opacity-90">{err}</p>
         </div>
       )}
-
-      {/* debug JSON bloky – čistý raw output z BE */}
-      <div className="space-y-2">
-        <JsonBlock
-          title="Prefs (effective: DB → storage fallback)"
-          data={prefs}
-        />
-        <JsonBlock title="Sent payload (FE→BE)" data={debugPayload} />
-        <JsonBlock
-          title="Athlete state (CoachAthleteState)"
-          data={result?.analysis}
-        />
-        <JsonBlock
-          title="Analyze input (CoachAnalyzeInput)"
-          data={result?.input}
-        />
-      </div>
     </div>
   );
 }
