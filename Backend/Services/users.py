@@ -33,11 +33,6 @@ def service_get_user_uid(user_id: int) -> str:
         raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
     return uid
 
-
-# kompat alias, ak niekde importuješ get_user_uid
-get_user_uid = service_get_user_uid
-
-
 def service_create_user(
     name: str,
     age: int,
