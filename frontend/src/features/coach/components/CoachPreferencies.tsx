@@ -11,7 +11,6 @@ import type { DayAbbrev } from "@/shared/types/day";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { toast } from "@/shared/components/ui/Toast";
 import {
-  readCoachPrefsFromStorage,
   refreshCoachPrefsFromDB,
   saveCoachPrefs,
 } from "@/features/coach/utils/prefs";
@@ -27,8 +26,6 @@ import {
   apiFetchUserThresholdsLatest,
   apiSaveUserThresholds,
 } from "@/features/coach/api/thresholds";
-
-import { pickInitialThresholdDraft } from "@/features/coach/utils/thresholds";
 
 import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
 import { CoachPersonalitySection } from "@/features/coach/components/prefs/CoachPersonalitySection";
@@ -58,9 +55,10 @@ type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
   secondary_mix?: SecondaryMix[];
   coach_voice?: CoachPersona | null;
+  // tieto dve sa už NEUKLADAJÚ do prefs v DB, sú len runtime v React state
   zones?: any;
-  thresholds?: any; // aktuálny draft prahov (jedna kombinácia sport+type)
-  thresholds_latest?: any[] | null; // posledné uložené z BE (na preview/fallback)
+  thresholds?: any; // aktuálny draft jednej kombinácie sport+type
+  thresholds_latest?: any[] | null; // posledné uložené z BE
 };
 
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
@@ -84,36 +82,43 @@ export default function CoachPreferencies() {
     dirtyRef.current = true;
   };
 
-  const [local, setLocal] = useState<CoachPrefsExtended>(
-    () => readCoachPrefsFromStorage() as CoachPrefsExtended
-  );
+  // už žiadne localStorage – len čistý React state, inicializovaný prázdnym objektom
+  const [local, setLocal] = useState<CoachPrefsExtended>({} as CoachPrefsExtended);
 
-  // initial load (prefs + zóny + latest thresholds list)
+  // initial load (prefs + zóny + latest thresholds list) – VŠETKO z DB
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+
     (async () => {
       try {
-        const [p, zones, thrRows] = await Promise.all([
+        const [pRaw, zonesRaw, thrRowsRaw] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
           apiFetchUserZonesLatest(userId),
           apiFetchUserThresholdsLatest(userId),
         ]);
         if (!alive) return;
 
+        // tvrdé casty – nech nás TS neotravuje
+        const p = (pRaw || {}) as CoachPrefsExtended;
+        const zones = (zonesRaw ?? null) as any;
+        const thrRows = (thrRowsRaw ?? []) as any[];
+
         console.log("[CoachPrefs]init thresholds_latest", thrRows);
 
-        const draftThr = pickInitialThresholdDraft(p as any, thrRows ?? null);
+        const draftThr =
+          Array.isArray(thrRows) && thrRows.length > 0
+            ? { ...thrRows[0] }
+            : undefined;
 
         console.log("[CoachPrefs]init draftThr", draftThr);
-        console.log("[CoachPrefs]init thrRows", thrRows);
         console.log("[CoachPrefs]init zones", zones);
 
         const next: CoachPrefsExtended = {
-          ...(p as CoachPrefsExtended),
-          zones: zones ?? (p as any)?.zones ?? null,
+          ...p,
+          zones,
           thresholds: draftThr ?? undefined,
-          thresholds_latest: thrRows ?? null,
+          thresholds_latest: thrRows,
         };
 
         if (!dirtyRef.current) setLocal(next);
@@ -121,20 +126,24 @@ export default function CoachPreferencies() {
         console.error("[CoachPrefs]init error", e);
       }
     })();
+
     return () => {
       alive = false;
     };
   }, [userId]);
 
-  // start_date guard
+  // start_date guard – funguje aj pri prázdnom local
   useEffect(() => {
-    if (!local?.start_date) {
-      setLocal((p) => ({ ...p, start_date: DEFAULT_PLAN_START() }));
-    } else {
-      const min = MIN_PLAN_START();
-      if (local.start_date < min) setLocal((p) => ({ ...p, start_date: min }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLocal((prev) => {
+      const current = { ...prev };
+      if (!current.start_date) {
+        current.start_date = DEFAULT_PLAN_START();
+      } else {
+        const min = MIN_PLAN_START();
+        if (current.start_date < min) current.start_date = min;
+      }
+      return current;
+    });
   }, []);
 
   const prefDefaults = (p: CoachPrefsExtended) =>
@@ -165,7 +174,7 @@ export default function CoachPreferencies() {
   ) => {
     markDirty();
     const p = prefDefaults(local);
-    const next = { ...local, preferences: p };
+    const next: CoachPrefsExtended = { ...local, preferences: p };
     if (path.endsWith("days_off"))
       next.preferences!.days_off = v as DayAbbrev[];
     if (path.endsWith("long_run_days"))
@@ -214,11 +223,14 @@ export default function CoachPreferencies() {
 
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
+
+      // z prefs payloadu odsekni runtime polia zones / thresholds / thresholds_latest
+      const { zones: _z, thresholds: _t, thresholds_latest: _tl, ...rest } = local;
+
       const normalized: CoachPrefsExtended = {
-        ...local,
+        ...rest,
         start_date: !startIso || startIso < minIso ? minIso : startIso,
         primary_sports: primaries.length ? primaries : undefined,
-        // 🔽 TU úprava – ukladáme len nenulové secondary
         secondary_mix: (local.secondary_mix ?? [])
           .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
@@ -236,22 +248,34 @@ export default function CoachPreferencies() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const [fresh, zones, thrRows] = await Promise.all([
-        refreshCoachPrefsFromDB(userId),
-        apiFetchUserZonesLatest(userId),
-        apiFetchUserThresholdsLatest(userId),
-      ]);
+      const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
+          refreshCoachPrefsFromDB(userId),
+          apiFetchUserZonesLatest(userId),
+          apiFetchUserThresholdsLatest(userId),
+        ]);
 
-      console.log("[CoachPrefs]refresh thresholds_latest", thrRows);
+        // tvrdé casty – nech nás TS neotravuje
+        const p = (fresh || {}) as CoachPrefsExtended;
+        const zones = (zonesRaw ?? null) as any;
+        const thrRows = (thrRowsRaw ?? []) as any[];
 
-      const draftThr = pickInitialThresholdDraft(fresh as any, thrRows ?? null);
+        console.log("[CoachPrefs]init thresholds_latest", thrRows);
 
-      const next: CoachPrefsExtended = {
-        ...(fresh as CoachPrefsExtended),
-        zones: zones ?? (fresh as any)?.zones ?? null,
-        thresholds: draftThr ?? undefined,
-        thresholds_latest: thrRows ?? null,
-      };
+        const draftThr =
+          Array.isArray(thrRows) && thrRows.length > 0
+            ? { ...thrRows[0] }
+            : undefined;
+
+        console.log("[CoachPrefs]init draftThr", draftThr);
+        console.log("[CoachPrefs]init zones", zones);
+
+        const next: CoachPrefsExtended = {
+          ...p,
+          zones,
+          thresholds: draftThr ?? undefined,
+          thresholds_latest: thrRows,
+        };
+
       if (!dirtyRef.current) setLocal(next);
       toast.success("Refreshed");
     } catch (e: any) {
@@ -320,7 +344,6 @@ export default function CoachPreferencies() {
       console.log("[CoachPrefs]save thresholds response", saved);
 
       setLocal((prev) => {
-        // doplň aj thresholds_latest, nech sa náhľad a LTHR okamžite aktualizujú
         const latest = Array.isArray(prev.thresholds_latest)
           ? prev.thresholds_latest
           : [];
@@ -357,7 +380,7 @@ export default function CoachPreferencies() {
     }
   };
 
-  // LTHR pre zónový výpočet: uprednostni aktuálny draft; inak posledný uložený LT2 HR
+  // LTHR pre zónový výpočet: uprednostni aktuálny draft; inak posledný uložený LT2 HR z DB
   const lthrBpm: number | null = useMemo(() => {
     const draft = Number(local?.thresholds?.hr_bpm);
     if (Number.isFinite(draft) && draft > 0) return draft;
