@@ -83,7 +83,9 @@ export default function CoachPreferencies() {
   };
 
   // už žiadne localStorage – len čistý React state, inicializovaný prázdnym objektom
-  const [local, setLocal] = useState<CoachPrefsExtended>({} as CoachPrefsExtended);
+  const [local, setLocal] = useState<CoachPrefsExtended>(
+    {} as CoachPrefsExtended
+  );
 
   // initial load (prefs + zóny + latest thresholds list) – VŠETKO z DB
   useEffect(() => {
@@ -181,27 +183,26 @@ export default function CoachPreferencies() {
     patch: Partial<NonNullable<CoachPrefsExtended["targets"]>["run"]>
   ) => {
     markDirty();
-    setLocal((prev) => ({
-      ...prev,
-      targets: {
-        run: {
-          race_goal: prev.targets?.run?.race_goal ?? null,
-          current_best_time: prev.targets?.run?.current_best_time ?? null,
-          target_time: prev.targets?.run?.target_time ?? null,
-          longest_recent_distance_km:
-            prev.targets?.run?.longest_recent_distance_km ?? null,
-          ...patch,
+    setLocal((prev) => {
+      const prevTargets = prev.targets ?? {};
+
+      const nextRun = {
+        race_goal: prevTargets.run?.race_goal ?? null,
+        current_best_time: prevTargets.run?.current_best_time ?? null,
+        target_time: prevTargets.run?.target_time ?? null,
+        longest_recent_distance_km:
+          prevTargets.run?.longest_recent_distance_km ?? null,
+        ...patch,
+      };
+
+      return {
+        ...prev,
+        targets: {
+          ...prevTargets,
+          run: nextRun, // dotkneme sa len run
         },
-        ride: prev.targets?.ride ?? {
-          focus: "endurance",
-          weekly_time_target_min: null,
-        },
-        strength: prev.targets?.strength ?? {
-          focus: "general",
-          sessions_per_week: 2,
-        },
-      },
-    }));
+      };
+    });
   };
 
   // SAVE / REFRESH
@@ -211,6 +212,7 @@ export default function CoachPreferencies() {
       const activeSecondaries = (local.secondary_mix ?? [])
         .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
         .map((x) => x.sport);
+
       const primaries = [
         ...(local.main_sport ? [local.main_sport] : []),
         ...activeSecondaries,
@@ -219,8 +221,13 @@ export default function CoachPreferencies() {
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
 
-      // z prefs payloadu odsekni runtime polia zones / thresholds / thresholds_latest
-      const { zones: _z, thresholds: _t, thresholds_latest: _tl, ...rest } = local;
+      // ❌ tieto polia nechceme v DB v coach.prefs -> runtime iba v Reacte
+      const {
+        zones: _z,
+        thresholds: _t,
+        thresholds_latest: _tl,
+        ...rest
+      } = local;
 
       const normalized: CoachPrefsExtended = {
         ...rest,
@@ -231,7 +238,37 @@ export default function CoachPreferencies() {
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
       };
 
-      console.log("[CoachPrefs]onSave prefs payload", normalized);
+      // 🔍 vyčisti targets – ulož len tie, ktoré majú nejakú informáciu
+      if (normalized.targets) {
+        const t = normalized.targets as any;
+        const cleaned: any = {};
+
+        // run necháme vždy, lebo aj prázdne run ciele majú význam
+        if (t.run) cleaned.run = t.run;
+
+        // ride: ulož iba ak má niečo zmysluplné
+        if (
+          t.ride &&
+          (t.ride.weekly_time_target_min != null ||
+            (t.ride.focus && t.ride.focus !== "endurance"))
+        ) {
+          cleaned.ride = t.ride;
+        }
+
+        // strength: ulož iba ak sa líši od defaultu
+        if (
+          t.strength &&
+          (t.strength.sessions_per_week != null ||
+            (t.strength.focus && t.strength.focus !== "general"))
+        ) {
+          cleaned.strength = t.strength;
+        }
+
+        // ak zostalo úplne prázdne, targets odstránime
+        normalized.targets =
+          Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      }
+
       await saveCoachPrefs(userId, normalized);
       toast.success("Preferences saved");
       dirtyRef.current = false;
@@ -244,27 +281,27 @@ export default function CoachPreferencies() {
     if (!userId) return;
     try {
       const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
-          refreshCoachPrefsFromDB(userId),
-          apiFetchUserZonesLatest(userId),
-          apiFetchUserThresholdsLatest(userId),
-        ]);
+        refreshCoachPrefsFromDB(userId),
+        apiFetchUserZonesLatest(userId),
+        apiFetchUserThresholdsLatest(userId),
+      ]);
 
-        // tvrdé casty – nech nás TS neotravuje
-        const p = (fresh || {}) as CoachPrefsExtended;
-        const zones = (zonesRaw ?? null) as any;
-        const thrRows = (thrRowsRaw ?? []) as any[];
+      // tvrdé casty – nech nás TS neotravuje
+      const p = (fresh || {}) as CoachPrefsExtended;
+      const zones = (zonesRaw ?? null) as any;
+      const thrRows = (thrRowsRaw ?? []) as any[];
 
-        const draftThr =
-          Array.isArray(thrRows) && thrRows.length > 0
-            ? { ...thrRows[0] }
-            : undefined;
+      const draftThr =
+        Array.isArray(thrRows) && thrRows.length > 0
+          ? { ...thrRows[0] }
+          : undefined;
 
-        const next: CoachPrefsExtended = {
-          ...p,
-          zones,
-          thresholds: draftThr ?? undefined,
-          thresholds_latest: thrRows,
-        };
+      const next: CoachPrefsExtended = {
+        ...p,
+        zones,
+        thresholds: draftThr ?? undefined,
+        thresholds_latest: thrRows,
+      };
 
       if (!dirtyRef.current) setLocal(next);
       toast.success("Refreshed");

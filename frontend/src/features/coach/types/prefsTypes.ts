@@ -163,10 +163,11 @@ export type CoachPrefs = {
   sports?: SportKind[];           // legacy
   primary_sports?: SportKind[];
 
+ // všetky 3 sú voliteľné – vieme ukladať iba run, bez prázdneho ride/strength
   targets?: {
-    run: RunTargets;
-    ride: BikeTargets;
-    strength: StrengthTargets;
+    run?: RunTargets;
+    ride?: BikeTargets;
+    strength?: StrengthTargets;
   };
 
   preferences?: Preferences;
@@ -221,7 +222,7 @@ export type CoachPrefs = {
 
 export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
-  primary_sports: ["run", "ride", "strength"],
+  primary_sports: ["run"],  // namiesto ["run", "ride", "strength"]
   targets: {
     run: {
       race_goal: null,
