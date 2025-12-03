@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from Routes_FE import (
     users,
     activities,
-    notes,
     analytics,
     account,
     streams,
@@ -64,7 +63,6 @@ app.include_router(analytics.router)
 app.include_router(activity_zones.router)
 app.include_router(analytics_pareto8020.router)
 app.include_router(activities_streams.router)
-app.include_router(notes.router)
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)
