@@ -86,25 +86,6 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
 # -------------------- LOADERY Z DB (SKELETON) --------------------
 
 
-def _load_user_profile_block(user_id: int) -> Dict[str, Any]:
-    """
-    Použije existujúcu service z profile_metrics a namapuje ju do input["user"].
-    """
-    try:
-        prof = service_load_user_profile_for_analysis(user_id=user_id, user_uid=None)
-    except Exception:
-        return {}
-
-    return {
-        "id": user_id,
-        "sex": prof.get("sex"),
-        "age": prof.get("age"),
-        "height_cm": prof.get("height_cm"),
-        "weight_kg": prof.get("weight_kg"),
-        "training_age_years": prof.get("training_age_years"),
-    }
-
-
 def _load_prefs_raw_from_db(user_id: int) -> Dict[str, Any]:
     """
     TODO: reálne načítanie coach prefs z tvojej key-value tabuľky (coach.prefs).
@@ -436,10 +417,11 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     """
     input_data = _build_base_input(user_id)
 
-    # user profil (static + weight)
-    user_block = _load_user_profile_block(user_id)
-    if user_block:
-        input_data["user"].update({k: v for k, v in user_block.items() if k != "id"})
+        # user profil (static + weight) – priamo z profile_metrics service
+    user_prof = service_load_user_profile_for_analysis(user_id=user_id, user_uid=None)
+    if user_prof:
+        # očakávame: id, sex, age, height_cm, weight_kg
+        input_data["user"].update(user_prof)
 
     # prefs
     raw_prefs = _load_prefs_raw_from_db(user_id)

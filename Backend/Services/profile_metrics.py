@@ -221,7 +221,6 @@ def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
     except Exception:
         return None
 
-
 def service_load_user_profile_for_analysis(
     user_id: int,
     user_uid: Optional[str] = None,
@@ -236,7 +235,6 @@ def service_load_user_profile_for_analysis(
         "age": int | None,
         "height_cm": float | int | None,
         "weight_kg": float | None,
-        "training_age_years": float | None,
       }
     """
 
@@ -267,6 +265,4 @@ def service_load_user_profile_for_analysis(
         "age": age,
         "height_cm": height_cm,
         "weight_kg": weight_kg,
-        # zatiaľ nemáš stĺpec, tak nechávame None (neskôr vieme dopočítať z histórie)
-        "training_age_years": None,
     }
