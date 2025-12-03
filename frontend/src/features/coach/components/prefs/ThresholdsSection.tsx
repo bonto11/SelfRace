@@ -78,8 +78,6 @@ export default function ThresholdsSection({
     setPaceStr(secToPace(t.pace_sec_km));
   }, [t.pace_sec_km]);
 
-  
-
   // latestByCombo
   const latestByCombo = useMemo(() => {
     const map = new Map<string, any>();
@@ -106,11 +104,6 @@ export default function ThresholdsSection({
     };
   }, [t, latestByCombo]);
 
-  console.log("[ThresholdsSection] props", { thresholds, latestList });
-  console.log("[ThresholdsSection] t", t);
-  console.log("[ThresholdsSection] latestByCombo", latestByCombo);
-  console.log("[ThresholdsSection] preview", preview);
-  
   return (
     <section className={SECTION}>
       {/* HEADER */}

@@ -104,15 +104,10 @@ export default function CoachPreferencies() {
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
 
-        console.log("[CoachPrefs]init thresholds_latest", thrRows);
-
         const draftThr =
           Array.isArray(thrRows) && thrRows.length > 0
             ? { ...thrRows[0] }
             : undefined;
-
-        console.log("[CoachPrefs]init draftThr", draftThr);
-        console.log("[CoachPrefs]init zones", zones);
 
         const next: CoachPrefsExtended = {
           ...p,
@@ -259,15 +254,10 @@ export default function CoachPreferencies() {
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
 
-        console.log("[CoachPrefs]init thresholds_latest", thrRows);
-
         const draftThr =
           Array.isArray(thrRows) && thrRows.length > 0
             ? { ...thrRows[0] }
             : undefined;
-
-        console.log("[CoachPrefs]init draftThr", draftThr);
-        console.log("[CoachPrefs]init zones", zones);
 
         const next: CoachPrefsExtended = {
           ...p,
