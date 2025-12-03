@@ -9,6 +9,7 @@ from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
 from Services.user_bests import service_build_bests_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
+from Services.activities_summary_recent_load import service_build_recent_load_block_for_analysis
 # -------------------- LOW-LEVEL HELPERS --------------------
 
 
@@ -323,7 +324,9 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     input_data["bests"] = service_build_bests_block_for_analysis(user_id)
 
     # 6) RECENT LOAD
-    #input_data["recent_load"] = service_build_recent_load_for_analysis(user_id)
+    input_data["recent_load"] = service_build_recent_load_block_for_analysis(
+        user_id = user_id,
+        window_days=42)
 
     # 7) RECOVERY
     input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)

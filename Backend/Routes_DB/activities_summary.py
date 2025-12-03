@@ -1,6 +1,7 @@
 # Services/activities_summary.py
 from __future__ import annotations
 from typing import List, Dict, Any
+
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_ACTIVITIES_SUMMARY
 
@@ -27,3 +28,4 @@ def fetch_summary_since(user_id: int, since_iso: str) -> List[Dict[str, Any]]:
         return rec.data or []
     except Exception:
         return []
+    
