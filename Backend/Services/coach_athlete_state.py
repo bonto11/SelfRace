@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
-
+from Services.user_thresholds import build_thresholds_block_for_analysis
+from Services.user_zones import service_build_zones_block_for_analysis
 
 # -------------------- LOW-LEVEL HELPERS --------------------
 
