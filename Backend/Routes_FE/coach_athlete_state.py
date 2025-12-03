@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, HTTPException
 
 from Services.coach_athlete_state import service_analyze_athlete
 from Schemas.coach_athlete_state import AnalyzeConfig
+from Configs.config import DEFAULT_MODEL
 
 router = APIRouter(
     prefix="/coach/athlete",
@@ -16,7 +17,6 @@ router = APIRouter(
 @router.post("/analyze/{user_id}")
 def analyze_athlete(
     user_id: int,
-    cfg: AnalyzeConfig = Body(default=AnalyzeConfig()),
 ):
     """
     Spustí AI analýzu formy pre daného užívateľa.
@@ -36,10 +36,7 @@ def analyze_athlete(
     """
     try:
         result = service_analyze_athlete(
-            user_id=user_id,
-            model=cfg.model or "coach-analyze-stub",
-            save_to_db=cfg.save_to_db,
-            debug=cfg.debug,
+            user_id=user_id
         )
         return {
             "success": True,

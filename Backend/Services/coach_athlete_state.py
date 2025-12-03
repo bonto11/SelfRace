@@ -13,16 +13,19 @@ from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.activities_summary_recent_load import (
     service_build_recent_load_block_for_analysis,
 )
+
 from Routes_AI.analyze_athlete_state import generate_athlete_state_json
+from Configs.config import DEFAULT_MODEL
 
-
+# -------------------- HELPERS --------------------
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 def _build_base_input(user_id: int) -> Dict[str, Any]:
     """
-    Základný tvar CoachAnalyzeInput – všetko prázdne.
+    Základný CoachAnalyzeInput skeleton.
+    Reálne hodnoty sa doplnia z jednotlivých service_*_for_analysis.
     """
     return {
         "schema_version": 1,
@@ -45,7 +48,13 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
             "hard_days_per_week_max": None,
             "notes_for_coach": None,
         },
-        "zones": {"run": {"hr_max": None, "lthr_bpm": None, "zones": []}},
+        "zones": {
+            "run": {
+                "hr_max": None,
+                "lthr_bpm": None,
+                "zones": [],
+            }
+        },
         "thresholds": {
             "run": {
                 "lthr_bpm": None,
@@ -54,7 +63,10 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
                 "vo2max_estimate": None,
             }
         },
-        "bests": {"run": [], "ride": []},
+        "bests": {
+            "run": [],
+            "ride": [],
+        },
         "recent_load": {
             "schema_version": 1,
             "window_days": 42,
@@ -76,27 +88,39 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
     }
 
 
+# -------------------- INPUT BUILDER: DB → CoachAnalyzeInput --------------------
+
+
 def build_input_from_db(user_id: int) -> Dict[str, Any]:
     """
-    CoachAnalyzeInput – čistá DB cesta.
+    Hlavný builder CoachAnalyzeInput – čistá DB cesta.
+
+    - profil (static + weight)
+    - zóny
+    - prahy
+    - prefs
+    - bests
+    - recent_load
+    - recovery
     """
     input_data = _build_base_input(user_id)
 
     # 1) PROFIL
     input_data["user"] = service_load_user_profile_for_analysis(
-        user_id=user_id, user_uid=None
+        user_id=user_id,
+        user_uid=None,
     )
 
-    # 2) ZÓNY
+    # 2) ZONES
     input_data["zones"] = service_build_zones_block_for_analysis(user_id)
 
-    # 3) PRAHY
+    # 3) THRESHOLDS
     input_data["thresholds"] = service_build_thresholds_block_for_analysis(user_id)
 
     # 4) PREFS
     input_data["prefs"] = service_load_coach_prefs_for_analysis(user_id)
 
-    # 5) PB
+    # 5) BESTS
     input_data["bests"] = service_build_bests_block_for_analysis(user_id)
 
     # 6) RECENT LOAD
@@ -111,52 +135,68 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     return input_data
 
 
-def save_state_to_db(user_id: int, state: Dict[str, Any]) -> Optional[int]:
+# -------------------- STORAGE (stále stub, ale čistý) --------------------
+
+
+def service_save_state_to_db(user_id: int, analysis: Dict[str, Any]) -> Optional[int]:
     """
-    Stub ukladania – zatiaľ len vráti 1.
-    Keď budeš mať coach_athlete_state tabuľku, nahradíš to INSERT/UPSERT-om.
+    Stub ukladania AI analýzy do DB.
+
+    Neskôr tu spravíš reálny INSERT/UPSERT do tabuľky, napr. coach_athlete_state:
+      - user_id
+      - generated_at
+      - model
+      - input_snapshot (JSONB)
+      - analysis (JSONB)
+
+    Aktuálne len vráti 1, aby FE mal nejaké state_id.
     """
-    # TODO: reálny INSERT/UPSERT
+    # TODO: nahradiť reálnym INSERT/UPSERT do DB
     return 1
+
+
+# -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
 
 
 def service_analyze_athlete(
     user_id: int,
-    model: str = "gpt-4o-mini",
-    save_to_db: bool = True,
-    debug: bool = False,
 ) -> Dict[str, Any]:
     """
-    Hlavná service funkcia, ktorú volá FE / interné volanie.
+    Hlavná service funkcia pre AI analýzu atleta.
 
     - poskladá CoachAnalyzeInput z DB
     - zavolá OpenAI cez generate_athlete_state_json
-    - uloží state do DB (stub)
-    - vráti {state_id, state, input, model, debug?}
+    - (voliteľne) uloží analýzu do DB
+    - vráti štruktúru vhodnú pre FE aj pre ďalší backend (plan-weekly)
     """
+
     # 1) INPUT
     input_data = build_input_from_db(user_id)
 
-    # 2) AI CALL
-    state, trace = generate_athlete_state_json(
+    # 2) AI CALL – čistý výstup z AI = "analysis"
+    analysis, trace = generate_athlete_state_json(
         context_payload=input_data,
-        model=model,
-        debug_raw=debug,
+        model=DEFAULT_MODEL,
     )
+
+    if not isinstance(analysis, dict):
+        analysis = {}
+
+    # doplníme meta, ak by ich AI neposlala
+    analysis.setdefault("schema_version", 1)
+    analysis.setdefault("generated_at", _now_iso())
+    analysis.setdefault("model", "Coach BeTY")
 
     # 3) STORAGE
     state_id: Optional[int] = None
-    if save_to_db:
-        state_id = save_state_to_db(user_id, state)
+    state_id = service_save_state_to_db(user_id, analysis)
 
-    # 4) RESPONSE
+    # 4) RESPONSE – jasné oddelenie INPUT vs AI OUTPUT
     resp: Dict[str, Any] = {
         "state_id": state_id,
-        "state": state,
-        "input": input_data,
-        "model": model,
+        "model": DEFAULT_MODEL,
+        "input": input_data,  # CoachAnalyzeInput snapshot
+        "analysis": analysis,  # čistý výstup z AI (user_summary, ai_state, metrics…)
     }
-    if debug and trace is not None:
-        resp["debug_ai"] = trace
 
     return resp
