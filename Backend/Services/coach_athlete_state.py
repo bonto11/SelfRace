@@ -13,6 +13,7 @@ from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.activities_summary_recent_load import (
     service_build_recent_load_block_for_analysis,
 )
+from Routes_AI.analyze_athlete_state import call_ai_analyze_athlete_state
 
 
 # -------------------- HELPERS --------------------
@@ -152,46 +153,31 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
 
 # -------------------- PUBLIC SERVICE (VOLÁ RÚTU / AI) --------------------
 
-
 def service_analyze_athlete(
     user_id: int,
-    model: str = "coach-analyze-stub",
+    model: str = "gpt-4.1-mini",  # alebo čo chceš
     save_to_db: bool = True,
     debug: bool = False,
 ) -> Dict[str, Any]:
-    """
-    - vyskladá CoachAnalyzeInput z DB
-    - pošle ho do AI (zatiaľ len echo → raw)
-    - (neskôr) tu sa bude robiť aj dekódovanie AI výstupu do nášho formátu
-    """
     input_data = build_input_from_db(user_id)
 
-    # TODO: sem príde reálne volanie LLM
-    # napr. ai_raw = call_llm(model=model, payload=input_data)
-    ai_raw: Dict[str, Any] = {
-        "note": "LLM call not implemented yet – this is just echo of input.",
-        "input_echo": input_data,
-    }
-
-    # Minimálny wrapping, aby FE malo generated_at + model
-    state: Dict[str, Any] = {
-        "schema_version": 1,
-        "generated_at": _now_iso(),
-        "model": model,
-        "raw": ai_raw,  # celé AI telo → debug / ďalšie spracovanie
-    }
+    state = call_ai_analyze_athlete_state(
+        input_data,
+        model=model,
+        debug_raw=debug,
+    )
 
     state_id: Optional[int] = None
     if save_to_db:
         state_id = save_state_to_db(user_id, state)
 
     if debug:
-        print("[coach_athlete_state] debug input:", input_data)  # noqa: T201
-        print("[coach_athlete_state] debug state:", state)  # noqa: T201
+        print("[coach_athlete_state] input:", input_data)
+        print("[coach_athlete_state] state:", state)
 
     return {
         "state_id": state_id,
         "state": state,
-        "input": input_data,  # presný payload, ktorý pôjde do AI
+        "input": input_data,
         "model": model,
     }
