@@ -1,7 +1,6 @@
-# Routes/user_thresholds.py
+# Routes_FE/user_thresholds.py
 from typing import Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from Services.user_thresholds import (
     service_load_user_thresholds,
@@ -10,15 +9,9 @@ from Services.user_thresholds import (
     service_list_latest_per_combo,
 )
 
-router = APIRouter(prefix="/users", tags=["users"])
+from Schemas.user_tresholds import ThresholdPayload
 
-class ThresholdPayload(BaseModel):
-    sport: Optional[str] = None
-    threshold_type: Optional[str] = None
-    hr_bpm: Optional[float] = None
-    pace_sec_km: Optional[float] = None
-    power_watt: Optional[float] = None
-    measurement_type: Optional[str] = None
+router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/{user_id}/thresholds")
 def get_user_thresholds(user_id: int, sport: Optional[str] = None, type: Optional[str] = None):

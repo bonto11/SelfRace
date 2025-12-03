@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
 
 from Services.user_zones import (
     service_load_user_zones,
@@ -12,28 +11,9 @@ from Services.user_zones import (
     service_save_user_zones,
 )
 
+from Schemas.user_zones import ZonesPayload
+
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-class ZonesPayload(BaseModel):
-    # voliteľný športový kontext
-    sport: Optional[str] = None
-
-    # HRmax aliasy
-    hr_max: Optional[int] = None
-    hr_max_bpm: Optional[int] = None
-
-    # zóny (FE shape)
-    z1_min: Optional[int] = None
-    z1_max: Optional[int] = None
-    z2_min: Optional[int] = None
-    z2_max: Optional[int] = None
-    z3_min: Optional[int] = None
-    z3_max: Optional[int] = None
-    z4_min: Optional[int] = None
-    z4_max: Optional[int] = None
-    z5_min: Optional[int] = None
-    z5_max: Optional[int] = None  # v DB sa horná hranica Z5 odvádza z HRmax, nechávame kvôli FE
 
 
 @router.get("/{user_id}/zones")

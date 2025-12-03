@@ -1,17 +1,11 @@
 # Routes_FE/users.py
 from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from Services.users import service_resolve_user
+from Schemas.users import ResolveIn
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-class ResolveIn(BaseModel):
-    auth_uid: str | None = None
-    supabase_uid: str | None = None
 
 
 @router.post("/resolve")

@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from Routes_FE import (
-    recovery,
     users,
     activities,
     notes,
@@ -23,6 +22,7 @@ from Routes_FE import (
     profile_static,
     profile_metrics
 )
+from backend.Routes_FE import user_recovery
 app = FastAPI()
 
 # -------- CORS z ENV --------
@@ -47,7 +47,7 @@ app.add_middleware(
 )
 
 # -------- Routers --------
-app.include_router(recovery.router)
+app.include_router(user_recovery.router)
 app.include_router(users.router)
 app.include_router(profile_static.router)
 app.include_router(profile_metrics.router)

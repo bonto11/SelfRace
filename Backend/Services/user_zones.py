@@ -9,24 +9,7 @@ from Routes_DB.user_zones import (
     db_user_zones_insert_row,
 )
 
-Sport = Literal["running", "cycling", "other"]
-
-
-class ZonesOut(TypedDict, total=False):
-    sport: Sport
-    hr_max: Optional[int]
-    z1_min: Optional[int]
-    z1_max: Optional[int]
-    z2_min: Optional[int]
-    z2_max: Optional[int]
-    z3_min: Optional[int]
-    z3_max: Optional[int]
-    z4_min: Optional[int]
-    z4_max: Optional[int]
-    z5_min: Optional[int]
-    z5_max: Optional[int]
-    created_at: Optional[str]
-
+from Schemas.user_zones import (ZonesOut, Sport)
 
 # ------------ low-level helpers (len v services) ------------
 
