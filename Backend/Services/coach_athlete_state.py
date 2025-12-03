@@ -9,7 +9,11 @@ from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
 from Services.user_bests import service_build_bests_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
-from Services.activities_summary_recent_load import service_build_recent_load_block_for_analysis
+from Services.user_prefs import service_load_coach_prefs_for_analysis
+from Services.activities_summary_recent_load import (
+    service_build_recent_load_block_for_analysis,
+)
+
 # -------------------- LOW-LEVEL HELPERS --------------------
 
 
@@ -86,205 +90,6 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
     }
 
 
-# -------------------- LOADERY Z DB (SKELETON) --------------------
-
-
-def _load_prefs_raw_from_db(user_id: int) -> Dict[str, Any]:
-    """
-    TODO: reálne načítanie coach prefs z tvojej key-value tabuľky (coach.prefs).
-
-    Očakávaný tvar je v podstate to, čo teraz posielal FE → BE, napr.:
-
-    {
-      "schema_version": 1,
-      "weeks": 4,
-      "goal_kind": "improve_overall",
-      "plan_start_date": "2025-12-04",
-      "primary_sports": ["run","strength"],
-      "main_sport": "run",
-      "secondary_mix": [...],
-      "targets": {...},
-      "rules": {...},
-      "externals": [...],
-      "blocks": {...},
-      "strength_settings": {...},
-      "coach_voice": "motivator",
-      "coach_tone": {...}
-    }
-    """
-    # TODO: implementuj cez vlastnú service / DB handler
-    return {}
-
-def _load_bests_raw_from_db(user_id: int) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    TODO: načítaj PB z tvojej PB tabuľky / view.
-
-    Očakávaný tvar pre run:
-
-    {
-      "run": [
-        {
-          "distance_m": 5000,
-          "best_time_s": 1393,
-          "time_str": "00:23:13",
-          "event_name": null,
-          "date": "2025-08-04T00:00:00+00:00"
-        },
-        ...
-      ],
-      "ride": [...]
-    }
-    """
-    # TODO: implement
-    return {"run": [], "ride": []}
-
-
-def _load_recent_load_raw_from_db(user_id: int) -> Optional[Dict[str, Any]]:
-    """
-    TODO: načítaj recent_load (weekly summary) – tak ako ho už máš na FE.
-
-    Očakávaný tvar:
-
-    {
-      "schema_version": 1,
-      "window_days": 42,
-      "weeks": [
-        {
-          "week_start_iso": "...",
-          "week_end_iso": "...",
-          "week_index_from_now": -1,
-          "total_minutes": 190,
-          "run_minutes": 102,
-          "ride_minutes": 0,
-          "strength_sessions": 1,
-          "hard_sessions": 1
-        },
-        ...
-      ]
-    }
-    """
-    # TODO: implement
-    return None
-
-
-# -------------------- TRANSFORMÁCIE / ČISTENIE --------------------
-
-
-def _merge_prefs_from_raw(input_data: Dict[str, Any], raw: Dict[str, Any]) -> None:
-    """
-    Zoberie raw prefs z DB a namapuje len to, čo naozaj potrebujeme pre AI.
-    Nechávame minimálnu cestu.
-    """
-    if not raw:
-        return
-
-    prefs = input_data.setdefault("prefs", {})
-
-    prefs["goal_kind"] = raw.get("goal_kind") or prefs.get("goal_kind")
-    prefs["weeks"] = raw.get("weeks") or prefs.get("weeks")
-    prefs["plan_start_date"] = (
-        raw.get("plan_start_date")
-        or raw.get("start_date")
-        or prefs.get("plan_start_date")
-    )
-
-    prefs["main_sport"] = raw.get("main_sport") or prefs.get("main_sport")
-
-    # secondary_mix – len také, ktoré majú share_pct > 0 a role != "none"
-    sec_mix = raw.get("secondary_mix") or []
-    cleaned_sec = [
-        {
-            "sport": s.get("sport"),
-            "role": s.get("role"),
-            "share_pct": float(s.get("share_pct") or 0),
-        }
-        for s in sec_mix
-        if s.get("sport") and s.get("role") != "none" and float(s.get("share_pct") or 0) > 0
-    ]
-    prefs["secondary_mix"] = cleaned_sec
-
-    prefs["strength_settings"] = raw.get("strength_settings") or None
-
-    # jednoduchý default na max hard tréningov podľa blocks
-    blocks = raw.get("blocks") or {}
-    if blocks.get("vo2max") and blocks.get("threshold"):
-        hard_max = 3
-    elif blocks.get("vo2max") or blocks.get("threshold"):
-        hard_max = 2
-    else:
-        hard_max = 1
-    prefs["hard_days_per_week_max"] = hard_max
-
-    # weekly_time_budget_min zatiaľ necháme None – neskôr môžeme dopočítať z recent_load
-    prefs["weekly_time_budget_min"] = prefs.get("weekly_time_budget_min")
-
-def _build_bests_block(raw: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
-    """
-    Bests minimalizované na to, čo chceš:
-      - distance_m
-      - time_str (trvanie)
-      - date
-
-    best_time_s si kľudne necháme vnútri, lebo ho používame v stub heuristike.
-    """
-    out = {"run": [], "ride": []}
-
-    run_raw = raw.get("run") or []
-    for row in run_raw:
-        out["run"].append(
-            {
-                "distance_m": row.get("distance_m"),
-                "time_str": row.get("time_str"),
-                "best_time_s": row.get("best_time_s"),
-                "date": row.get("date"),
-            }
-        )
-
-    # ride PB zatiaľ necháme prázdne – ak neskôr pridáš, pofixujeme tu
-    return out
-
-
-def _build_recent_load_block(raw: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Zoberie raw recent_load a z každého týždňa vyhodí polia s nulou (napr. ride_minutes: 0).
-
-    Nechávame vždy:
-      - week_start_iso, week_end_iso, week_index_from_now
-      - total_minutes
-    Všetko ostatné typu *_minutes / *_sessions len keď > 0.
-    """
-    if not raw:
-        return {
-            "schema_version": 1,
-            "window_days": 42,
-            "weeks": [],
-        }
-
-    weeks_in: List[Dict[str, Any]] = raw.get("weeks") or []
-    weeks_out: List[Dict[str, Any]] = []
-
-    for w in weeks_in:
-        base = {
-            "week_start_iso": w.get("week_start_iso"),
-            "week_end_iso": w.get("week_end_iso"),
-            "week_index_from_now": w.get("week_index_from_now"),
-            "total_minutes": w.get("total_minutes"),
-        }
-        for key, val in w.items():
-            if key in base:
-                continue
-            if isinstance(val, (int, float)) and val <= 0:
-                continue
-            base[key] = val
-        weeks_out.append(base)
-
-    return {
-        "schema_version": raw.get("schema_version") or 1,
-        "window_days": raw.get("window_days") or 42,
-        "weeks": weeks_out,
-    }
-
-
 # -------------------- INPUT BUILDER: DB CESTA --------------------
 
 
@@ -301,32 +106,28 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     """
     input_data = _build_base_input(user_id)
 
-     # 1) PROFIL
-    user_block = service_load_user_profile_for_analysis(user_id=user_id, user_uid=None)
-    if user_block:
-        input_data["user"].update(user_block)
+    # 1) PROFIL
+    input_data["user"] = service_load_user_profile_for_analysis(
+        user_id=user_id, user_uid=None
+    )
 
     # 2) ZONES
-    zones_block = service_build_zones_block_for_analysis(user_id)
-    if zones_block:
-        input_data["zones"] = zones_block
+    input_data["zones"] = service_build_zones_block_for_analysis(user_id)
 
     # 3) THRESHOLDS
-    thresholds_block = service_build_thresholds_block_for_analysis(user_id)
-    if thresholds_block:
-        input_data["thresholds"] = thresholds_block
+
+    input_data["thresholds"] = service_build_thresholds_block_for_analysis(user_id)
 
     # 4) PREFS
-    raw_prefs = _load_prefs_raw_from_db(user_id)
-    _merge_prefs_from_raw(input_data, raw_prefs)
+    input_data["prefs"] = service_load_coach_prefs_for_analysis(user_id)
 
     # 5) BESTS
     input_data["bests"] = service_build_bests_block_for_analysis(user_id)
 
     # 6) RECENT LOAD
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
-        user_id = user_id,
-        window_days=42)
+        user_id=user_id, window_days=42
+    )
 
     # 7) RECOVERY
     input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)
