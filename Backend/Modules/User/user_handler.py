@@ -2,7 +2,6 @@ from typing import Optional
 from Modules.SQL.db_handler import get_service_client
 from Configs.config import (
     TABLE_USERS,
-    TABLE_USERS_PROFILE,
     TABLE_USERS_ZONES,
     TABLE_USERS_THRESHOLDS,
     TABLE_USERS_BESTS,
@@ -60,17 +59,6 @@ def get_or_create_user_id(email: str, *,
         if not user:
             raise RuntimeError("Nepodarilo sa vytvoriť používateľa")
     return user[0]["id"]
-
-# --- USER PROFILE ---
-def insert_or_update_user_profile(user_id: int, **fields):
-    payload = {"user_id": user_id, **fields}
-    resp = supabase.table(TABLE_USERS_PROFILE).upsert(payload).execute()
-    print("✅ user_profile uložené:", resp.data)
-    return resp.data
-
-def get_user_profile(user_id: int):
-    return supabase.table(TABLE_USERS_PROFILE).select("*").eq("user_id", user_id).limit(1).execute().data
-
 
 # --- USER ZONES ---
 def insert_or_update_user_zones(user_id: int, **fields):
