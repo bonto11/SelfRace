@@ -1,9 +1,12 @@
+# Services/coach_athlete_state.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
+
+
 # -------------------- LOW-LEVEL HELPERS --------------------
 
 
@@ -40,6 +43,7 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
         "zones": {
             # kľúče po športoch – zatiaľ len "run"
             "run": {
+                "hr_max": None,
                 "lthr_bpm": None,
                 "zones": [],  # [{name, hr_min, hr_max}]
             }
@@ -105,7 +109,7 @@ def _load_prefs_raw_from_db(user_id: int) -> Dict[str, Any]:
     """
     TODO: reálne načítanie coach prefs z tvojej key-value tabuľky (coach.prefs).
 
-    Očakávaný tvar je v podstate to, čo teraz posiela FE → BE, napr.:
+    Očakávaný tvar je v podstate to, čo teraz posielal FE → BE, napr.:
 
     {
       "schema_version": 1,
@@ -244,7 +248,7 @@ def _merge_prefs_from_raw(input_data: Dict[str, Any], raw: Dict[str, Any]) -> No
 
     prefs["main_sport"] = raw.get("main_sport") or prefs.get("main_sport")
 
-    # secondary_mix – necháme len také, ktoré majú share_pct > 0 a role != "none"
+    # secondary_mix – len také, ktoré majú share_pct > 0 a role != "none"
     sec_mix = raw.get("secondary_mix") or []
     cleaned_sec = [
         {
@@ -259,7 +263,7 @@ def _merge_prefs_from_raw(input_data: Dict[str, Any], raw: Dict[str, Any]) -> No
 
     prefs["strength_settings"] = raw.get("strength_settings") or None
 
-    # jednoduchý default na max hard tréningov podľa blocks (rovnaká logika ako na FE)
+    # jednoduchý default na max hard tréningov podľa blocks
     blocks = raw.get("blocks") or {}
     if blocks.get("vo2max") and blocks.get("threshold"):
         hard_max = 3
@@ -282,7 +286,7 @@ def _merge_zones_from_raw(input_data: Dict[str, Any], raw: Optional[Dict[str, An
         return
 
     zones_root = input_data.setdefault("zones", {})
-    run_z = zones_root.setdefault("run", {"lthr_bpm": None, "zones": []})
+    run_z = zones_root.setdefault("run", {"hr_max": None, "lthr_bpm": None, "zones": []})
 
     hr_max = raw.get("hr_max")
     if hr_max is not None:
@@ -323,7 +327,7 @@ def _merge_thresholds_from_rows(
         },
     )
 
-    # preferuj running + LT2
+    # preferuj running + LT2 / HR_LT2 / PACE_LT2
     best = None
     for r in rows:
         sport = str(r.get("sport") or "").lower()
@@ -347,9 +351,7 @@ def _merge_thresholds_from_rows(
         run_thr["lthr_bpm"] = best["hr_bpm"]
     if best.get("pace_sec_km") is not None:
         run_thr["pace_lthr_s_per_km"] = best["pace_sec_km"]
-    if best.get("power_watt") is not None:
-        # striktne pre bike FTP by sme to riešili v "ride", ale zatiaľ to necháme prázdne
-        pass
+    # power/FTP zatiaľ ignorujeme – nemáme relevantný model
 
 
 def _build_bests_block(raw: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
@@ -408,7 +410,6 @@ def _build_recent_load_block(raw: Optional[Dict[str, Any]]) -> Dict[str, Any]:
             if key in base:
                 continue
             if isinstance(val, (int, float)) and val <= 0:
-                # napr. ride_minutes: 0 → drop
                 continue
             base[key] = val
         weeks_out.append(base)
@@ -423,21 +424,15 @@ def _build_recent_load_block(raw: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 # -------------------- INPUT BUILDER: DB CESTA --------------------
 
 
-def build_input_from_db(
-    user_id: int,
-    fe_payload: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+def build_input_from_db(user_id: int) -> Dict[str, Any]:
     """
-    Hlavný builder CoachAnalyzeInput pre DB cestu.
+    Hlavný builder CoachAnalyzeInput – čistá DB cesta.
 
     - načíta user profil (static + latest weight) → input["user"]
     - načíta coach prefs → input["prefs"]
     - načíta zones + thresholds → input["zones"], input["thresholds"]
     - načíta bests → input["bests"]
     - načíta recent_load → input["recent_load"]
-
-    FE už nemusí posielať žiadny mega JSON – maximálne iba drobné override / debug,
-    ktoré uložíme do input["fe_payload_raw"].
     """
     input_data = _build_base_input(user_id)
 
@@ -465,57 +460,6 @@ def build_input_from_db(
     # recent_load
     recent_raw = _load_recent_load_raw_from_db(user_id)
     input_data["recent_load"] = _build_recent_load_block(recent_raw)
-
-    # optional: raw FE payload len na debug – pre spätné porovnanie FE vs DB
-    if fe_payload:
-        input_data["fe_payload_raw"] = fe_payload
-
-    return input_data
-
-
-# -------------------- STARÁ FE CESTA (NECHÁVAM PRE KOMPATIBILITU) --------------------
-
-
-def _merge_fe_recent_load(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
-    rl = fe.get("recent_load")
-    if not rl or not isinstance(rl, dict):
-        return
-    input_data["recent_load"] = rl
-
-
-def _merge_fe_bests(input_data: Dict[str, Any], fe: Dict[str, Any]) -> None:
-    bests_fe = fe.get("bests")
-    if not bests_fe or not isinstance(bests_fe, dict):
-        return
-
-    bests = input_data.setdefault("bests", {})
-    if "run" in bests_fe:
-        bests["run"] = bests_fe["run"]
-    if "ride" in bests_fe:
-        bests["ride"] = bests_fe["ride"]
-
-
-def build_input_from_fe_payload(
-    user_id: int, fe_payload: Optional[Dict[str, Any]]
-) -> Dict[str, Any]:
-    """
-    Pôvodná FE cesta – nechávam ju kvôli spätnému kompatu.
-    Ak sa rozhodneš, môžeš ju neskôr zmazať a všade používať len DB cestu.
-    """
-    input_data = _build_base_input(user_id)
-
-    if not fe_payload:
-        return input_data
-
-    input_data["fe_payload_raw"] = fe_payload
-
-    # prefs/zones/thresholds/bests/recent_load sa tu dajú doplniť z FE,
-    # ale keď prejdeš úplne na DB, môžeš tieto merge funkcie odstrániť.
-    # _merge_fe_prefs(...)
-    # _merge_fe_zones(...)
-    # _merge_fe_thresholds(...)
-    _merge_fe_bests(input_data, fe_payload)
-    _merge_fe_recent_load(input_data, fe_payload)
 
     return input_data
 
@@ -642,18 +586,13 @@ def service_analyze_athlete(
     model: str = "coach-analyze-stub",
     save_to_db: bool = True,
     debug: bool = False,
-    fe_payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Hlavná service funkcia, ktorú volá router.
 
-    Ak fe_payload je None → plná DB cesta.
-    Ak fe_payload nie je None → používa sa stará FE cesta (pre kompatibilitu).
+    Vždy ide čistá DB cesta – FE neposiela žiadny payload.
     """
-    if fe_payload:
-        input_data = build_input_from_fe_payload(user_id, fe_payload)
-    else:
-        input_data = build_input_from_db(user_id, fe_payload=None)
+    input_data = build_input_from_db(user_id)
 
     state = build_state_from_input(input_data)
 
