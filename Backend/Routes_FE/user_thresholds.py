@@ -4,10 +4,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from Services.user_thresholds import (
-    load_user_thresholds,
-    upsert_user_threshold,
-    list_user_thresholds,
-    list_latest_per_combo,
+    service_load_user_thresholds,
+    service_upsert_user_threshold,
+    service_list_user_thresholds,
+    service_list_latest_per_combo,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -24,7 +24,7 @@ class ThresholdPayload(BaseModel):
 def get_user_thresholds(user_id: int, sport: Optional[str] = None, type: Optional[str] = None):
     """Latest by sport+type (defaults running/LT2)"""
     try:
-        thr = load_user_thresholds(user_id, sport or "running", type or "LT2")
+        thr = service_load_user_thresholds(user_id, sport or "running", type or "LT2")
         return {"success": True, "thresholds": thr}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -32,7 +32,7 @@ def get_user_thresholds(user_id: int, sport: Optional[str] = None, type: Optiona
 @router.get("/{user_id}/thresholds/all")
 def get_user_thresholds_all(user_id: int):
     try:
-        rows = list_user_thresholds(user_id)
+        rows = service_list_user_thresholds(user_id)
         return {"success": True, "rows": rows}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -41,7 +41,7 @@ def get_user_thresholds_all(user_id: int):
 def get_user_thresholds_latest(user_id: int):
     """Latest per (sport,threshold_type)"""
     try:
-        rows = list_latest_per_combo(user_id)
+        rows = service_list_latest_per_combo(user_id)
         return {"success": True, "rows": rows}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -49,7 +49,7 @@ def get_user_thresholds_latest(user_id: int):
 @router.put("/{user_id}/thresholds")
 def put_user_thresholds(user_id: int, payload: ThresholdPayload):
     try:
-        thr = upsert_user_threshold(user_id, payload.dict(exclude_unset=True))
+        thr = service_upsert_user_threshold(user_id, payload.dict(exclude_unset=True))
         return {"success": True, "thresholds": thr}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

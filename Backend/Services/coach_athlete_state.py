@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
-from Services.user_thresholds import build_thresholds_block_for_analysis
+from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
 
 # -------------------- LOW-LEVEL HELPERS --------------------
@@ -113,48 +113,6 @@ def _load_prefs_raw_from_db(user_id: int) -> Dict[str, Any]:
     # TODO: implementuj cez vlastnú service / DB handler
     return {}
 
-
-def _load_zones_raw_from_db(user_id: int) -> Optional[Dict[str, Any]]:
-    """
-    TODO: načítaj najnovšiu HR zónu pre running z tvojej zones tabuľky.
-
-    Očakávaný tvar niečo ako:
-
-    {
-      "sport": "running",
-      "hr_max": 207,
-      "z1_min": 125, "z1_max": 156,
-      "z2_min": 155, "z2_max": 172,
-      "z3_min": 171, "z3_max": 179,
-      "z4_min": 178, "z4_max": 191,
-      "z5_min": 192, "z5_max": 207,
-      "created_at": "2025-11-21T12:04:18.529952+00:00"
-    }
-    """
-    # TODO: implementuj reálne načítanie
-    return None
-
-
-def _load_threshold_rows_from_db(user_id: int) -> List[Dict[str, Any]]:
-    """
-    TODO: načítaj posledné prahy z DB (running LT2 atď).
-
-    Očakávaný tvar riadku:
-
-    {
-      "sport": "running",
-      "threshold_type": "LT2",
-      "hr_bpm": 185,
-      "pace_sec_km": 295,
-      "power_watt": null,
-      "measurement_type": "lab test",
-      "updated_at": "2025-11-21T12:04:13.684Z"
-    }
-    """
-    # TODO: implementuj reálne načítanie
-    return []
-
-
 def _load_bests_raw_from_db(user_id: int) -> Dict[str, List[Dict[str, Any]]]:
     """
     TODO: načítaj PB z tvojej PB tabuľky / view.
@@ -258,84 +216,6 @@ def _merge_prefs_from_raw(input_data: Dict[str, Any], raw: Dict[str, Any]) -> No
     # weekly_time_budget_min zatiaľ necháme None – neskôr môžeme dopočítať z recent_load
     prefs["weekly_time_budget_min"] = prefs.get("weekly_time_budget_min")
 
-
-def _merge_zones_from_raw(input_data: Dict[str, Any], raw: Optional[Dict[str, Any]]) -> None:
-    """
-    Zoberie najnovšie HR zóny pre running a uloží do input["zones"]["run"].
-    Ak nič nemáme, necháme pôvodný prázdny run.zones.
-    """
-    if not raw:
-        return
-
-    zones_root = input_data.setdefault("zones", {})
-    run_z = zones_root.setdefault("run", {"hr_max": None, "lthr_bpm": None, "zones": []})
-
-    hr_max = raw.get("hr_max")
-    if hr_max is not None:
-        run_z["hr_max"] = hr_max
-
-    # Prejdi Z1–Z5 a zober len tie, ktoré majú aspoň nejakú hranicu
-    out: List[Dict[str, Any]] = []
-    for name in ["Z1", "Z2", "Z3", "Z4", "Z5"]:
-        key = name.lower()
-        v_min = raw.get(f"{key}_min")
-        v_max = raw.get(f"{key}_max")
-        if v_min is None and v_max is None:
-            continue
-        out.append({"name": name, "hr_min": v_min, "hr_max": v_max})
-
-    if out:
-        run_z["zones"] = out
-
-
-def _merge_thresholds_from_rows(
-    input_data: Dict[str, Any], rows: List[Dict[str, Any]]
-) -> None:
-    """
-    Zoberie zoznam threshold riadkov z DB a vytiahne hlavne running LT2 pre AI.
-    Žiadne bike FTP, ak tam nič nemáme.
-    """
-    if not rows:
-        return
-
-    thr_root = input_data.setdefault("thresholds", {})
-    run_thr = thr_root.setdefault(
-        "run",
-        {
-            "lthr_bpm": None,
-            "pace_lthr_s_per_km": None,
-            "ftp_power_w": None,
-            "vo2max_estimate": None,
-        },
-    )
-
-    # preferuj running + LT2 / HR_LT2 / PACE_LT2
-    best = None
-    for r in rows:
-        sport = str(r.get("sport") or "").lower()
-        ttype = str(r.get("threshold_type") or "").upper()
-        if sport == "running" and ttype in ("LT2", "HR_LT2", "PACE_LT2"):
-            best = r
-            break
-
-    if not best:
-        # fallback: prvý running riadok
-        for r in rows:
-            sport = str(r.get("sport") or "").lower()
-            if sport == "running":
-                best = r
-                break
-
-    if not best:
-        return
-
-    if best.get("hr_bpm") is not None:
-        run_thr["lthr_bpm"] = best["hr_bpm"]
-    if best.get("pace_sec_km") is not None:
-        run_thr["pace_lthr_s_per_km"] = best["pace_sec_km"]
-    # power/FTP zatiaľ ignorujeme – nemáme relevantný model
-
-
 def _build_bests_block(raw: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
     """
     Bests minimalizované na to, čo chceš:
@@ -410,31 +290,30 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     """
     Hlavný builder CoachAnalyzeInput – čistá DB cesta.
 
-    - načíta user profil (static + latest weight) → input["user"]
-    - načíta coach prefs → input["prefs"]
-    - načíta zones + thresholds → input["zones"], input["thresholds"]
-    - načíta bests → input["bests"]
-    - načíta recent_load → input["recent_load"]
+    - načíta user profil
+    - prefs
+    - zones (cez novú services.user_zones)
+    - thresholds (cez services.user_thresholds)
+    - bests
+    - recent_load
     """
     input_data = _build_base_input(user_id)
 
-        # user profil (static + weight) – priamo z profile_metrics service
-    user_prof = service_load_user_profile_for_analysis(user_id=user_id, user_uid=None)
-    if user_prof:
-        # očakávame: id, sex, age, height_cm, weight_kg
-        input_data["user"].update(user_prof)
+    user_block = service_load_user_profile_for_analysis(user_id=user_id, user_uid=None)
+    if user_block:
+        input_data["user"].update(user_block)
 
-    # prefs
+    zones_block = service_build_zones_block_for_analysis(user_id)
+    if zones_block:
+        input_data["zones"] = zones_block
+
+    thresholds_block = service_build_thresholds_block_for_analysis(user_id)
+    if thresholds_block:
+        input_data["thresholds"] = thresholds_block
+
+    # prefs (zatiaľ prázdne, keď doplníš DB loader, toto sa automaticky naplní)
     raw_prefs = _load_prefs_raw_from_db(user_id)
     _merge_prefs_from_raw(input_data, raw_prefs)
-
-    # zones
-    zones_raw = _load_zones_raw_from_db(user_id)
-    _merge_zones_from_raw(input_data, zones_raw)
-
-    # thresholds
-    thr_rows = _load_threshold_rows_from_db(user_id)
-    _merge_thresholds_from_rows(input_data, thr_rows)
 
     # bests
     bests_raw = _load_bests_raw_from_db(user_id)

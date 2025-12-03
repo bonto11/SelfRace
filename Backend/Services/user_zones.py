@@ -175,3 +175,48 @@ def service_choose_best_zones(
     all_latest = service_load_user_zones_all_latest(user_id)
     # vrátime prvý ak niečo existuje
     return next(iter(all_latest.values()), None)
+
+def service_build_zones_block_for_analysis(
+    user_id: int,
+    preferred_sport: Optional[str] = "running",
+) -> Dict[str, Any]:
+    """
+    Vráti blok pre CoachAnalyzeInput["zones"].
+
+    Aktuálne:
+      - mapujeme len “best” zóny do "run" vetvy
+      - lthr_bpm nechávame None (LT2 pôjde z thresholds)
+    """
+    best = service_choose_best_zones(user_id, preferred_sport)
+    if not best:
+        # prázdny shape – analyzátor si poradí
+        return {
+            "run": {
+                "lthr_bpm": None,
+                "hr_max": None,
+                "zones": [],
+            }
+        }
+
+    zones_list: List[Dict[str, Any]] = []
+    for name in ["Z1", "Z2", "Z3", "Z4", "Z5"]:
+        key = name.lower()
+        lo = best.get(f"{key}_min")
+        hi = best.get(f"{key}_max")
+        if lo is None and hi is None:
+            continue
+        zones_list.append(
+            {
+                "name": name,
+                "hr_min": lo,
+                "hr_max": hi,
+            }
+        )
+
+    return {
+        "run": {
+            "lthr_bpm": None,              # LT2 pôjde z thresholds service
+            "hr_max": best.get("hr_max"),
+            "zones": zones_list,
+        }
+    }

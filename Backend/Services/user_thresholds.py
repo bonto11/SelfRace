@@ -45,7 +45,7 @@ def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
 # ---------- PUBLIC SERVICE FUNKCIE PRE ROUTERY / FE ----------
 
 
-def list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
+def service_list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
     """
     Všetky threshold riadky usera (DESC podľa updated_at),
     normalizované (_row_norm).
@@ -54,11 +54,11 @@ def list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
     return [_row_norm(r) for r in rows]
 
 
-def list_latest_per_combo(user_id: int) -> List[Dict[str, Any]]:
+def service_list_latest_per_combo(user_id: int) -> List[Dict[str, Any]]:
     """
     Najnovší riadok pre každú kombináciu (sport, threshold_type).
     """
-    rows = list_user_thresholds(user_id)  # už DESC
+    rows = service_list_user_thresholds(user_id)  # už DESC
     seen: set[Tuple[str, str]] = set()
     out: List[Dict[str, Any]] = []
     for r in rows:
@@ -73,7 +73,7 @@ def list_latest_per_combo(user_id: int) -> List[Dict[str, Any]]:
     return out
 
 
-def load_user_thresholds(
+def service_load_user_thresholds(
     user_id: int,
     sport: str = "running",
     threshold_type: str = "LT2",
@@ -86,7 +86,7 @@ def load_user_thresholds(
     return _row_norm(row) if row else None
 
 
-def upsert_user_threshold(
+def service_upsert_user_threshold(
     user_id: int,
     payload: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
@@ -110,13 +110,13 @@ def upsert_user_threshold(
 
     db_upsert_user_threshold(user_id, clean)
 
-    return load_user_thresholds(user_id, sport=sport, threshold_type=t_type)
+    return service_load_user_thresholds(user_id, sport=sport, threshold_type=t_type)
 
 
 # ---------- BLOK PRE ANALÝZU (CoachAnalyzeInput.thresholds) ----------
 
 
-def build_thresholds_block_for_analysis(user_id: int) -> Dict[str, Any]:
+def service_build_thresholds_block_for_analysis(user_id: int) -> Dict[str, Any]:
     """
     Vráti blok pre CoachAnalyzeInput["thresholds"].
 
@@ -124,7 +124,7 @@ def build_thresholds_block_for_analysis(user_id: int) -> Dict[str, Any]:
     - fallback: prvý running riadok
     - ak nič nemáme, vráti prázdny blok so správnym tvarom
     """
-    rows = list_user_thresholds(user_id)
+    rows = service_list_user_thresholds(user_id)
 
     if not rows:
         return {
