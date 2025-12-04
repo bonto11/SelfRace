@@ -1,7 +1,8 @@
 # Services/coach_plan_weekly.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
+from uuid import uuid4
 
 from Configs.config import DEFAULT_MODEL
 from Services.coach_athlete_state import build_input_from_db
@@ -10,7 +11,11 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_state_for_user,
 )
 from Routes_AI.generate_plan_weekly import generate_weekly_plan_json
-
+from Routes_DB.coach_plan_weekly import (
+    db_insert_weekly_rows,
+    db_clear_weekly_for_user_plan,
+    db_get_latest_plan_id_for_user,
+)
 
 def _load_athlete_state_for_plan(
     user_id: int,
@@ -53,6 +58,26 @@ def _load_athlete_state_for_plan(
     }
 
 
+def _extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
+  """
+  Z AI výstupu vytiahne list týždňov.
+  Podporujeme:
+    - {"weeks": [ ... ]}
+    - [ { ... }, { ... } ]
+  """
+  if isinstance(weekly_plan, dict):
+      weeks = weekly_plan.get("weeks")
+      if isinstance(weeks, list):
+          return weeks
+      # fallback: ak by AI poslalo rovno list v "plan"
+      if isinstance(weekly_plan.get("plan"), list):
+          return weekly_plan["plan"]
+      return []
+  if isinstance(weekly_plan, list):
+      return weekly_plan
+  return []
+
+
 def service_generate_weekly_plan(
     user_id: int,
     *,
@@ -68,8 +93,9 @@ def service_generate_weekly_plan(
     - načíta CoachAnalyzeInput z DB (build_input_from_db)
     - nájde vhodný coach_athlete_state (podľa state_id alebo latest)
     - poskladá context_payload pre AI
-    - zavolá OpenAI cez Routes_AI.generate_plan_weekly.generate_weekly_plan_json
-    - vráti { weekly_plan, state_meta, debug? }
+    - zavolá OpenAI weekly generátor
+    - uloží výsledok do coach_plan_weekly
+    - vráti { weekly_plan, plan_id, state_id, ... }
     """
     # 1) vstup pre AI (rovnaký ako pre analyze)
     analyze_input = build_input_from_db(user_id)
@@ -89,7 +115,6 @@ def service_generate_weekly_plan(
         "user_id": user_id,
         "weeks": horizon_weeks,
         "overwrite": overwrite,
-        # to isté, čo pri analyze:
         "analyze_input": analyze_input,
         "athlete_state": athlete_state,
         "athlete_state_meta": {
@@ -108,15 +133,65 @@ def service_generate_weekly_plan(
         debug_raw=debug,
     )
 
+    # 3) vyber plan_id (z AI alebo nové)
+    if isinstance(weekly_plan, dict) and weekly_plan.get("plan_id"):
+        plan_id = str(weekly_plan["plan_id"])
+    else:
+        plan_id = str(uuid4())
+
+    # 4) ak overwrite=True, vymaž posledný plán pre usera
+    deleted_rows = 0
+    if overwrite:
+        latest_plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
+        if latest_plan_id:
+            deleted_rows = db_clear_weekly_for_user_plan(
+                user_id=user_id,
+                plan_id=latest_plan_id,
+            )
+
+    # 5) priprav INSERT rows
+    weeks_list = _extract_weeks_payload(weekly_plan)
+    rows: List[Dict[str, Any]] = []
+
+    for idx, w in enumerate(weeks_list, start=1):
+        if not isinstance(w, dict):
+            continue
+
+        week_index = int(w.get("week_index") or idx)
+
+        row: Dict[str, Any] = {
+            "user_id": user_id,
+            "plan_id": plan_id,
+            "week_index": week_index,
+            "week_start": w.get("week_start"),           # "YYYY-MM-DD"
+            "week_end": w.get("week_end"),
+            "goal": w.get("goal"),
+            "focus": w.get("focus"),
+            "load_phase": w.get("load_phase"),
+            "planned_km": w.get("planned_km"),
+            "planned_minutes": w.get("planned_minutes"),
+            "completed_km": None,
+            "completed_minutes": None,
+            "notes": w.get("notes"),
+        }
+
+        row["raw_json"] = w
+
+        rows.append(row)
+
+    inserted_rows = db_insert_weekly_rows(rows)
+
     resp: Dict[str, Any] = {
         "weekly_plan": weekly_plan,
+        "plan_id": plan_id,
         "state_id": used_state_id,
         "model": plan_model,
         "overwrite": overwrite,
         "weeks": horizon_weeks,
+        "inserted_rows": inserted_rows,
+        "deleted_rows": deleted_rows,
     }
     if debug and trace is not None:
         resp["debug"] = trace
 
-    # zápis do DB weekly plánu si doplníme neskôr – teraz len vrátime AI výstup
     return resp
