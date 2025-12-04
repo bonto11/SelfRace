@@ -84,22 +84,8 @@ export type Thresholds = {
 
 /* -------- Targets -------- */
 
-export interface RunTargets {
-  race_goal: RaceDistanceKind | null;
-  custom_distance_km?: number | null;
-  current_best_time: string | null;
-  target_time: string | null;
-  longest_recent_distance_km: number | null;
-  priority?: RacePriority | null;
-  race_type?: RaceType | null;
-  terrain?: RaceTerrain | null;
-  elevation_profile?: RaceElevationProfile | null;
-}
+/* -------- Targets -------- */
 
-/**
- * Jeden konkrétny pretek (key race).
- * Môže ich byť viac (A/B/C), ukladáme ich v RunTargets.races.
- */
 export interface RunRaceTarget {
   /** lokálne ID pre FE (uuid/string) – voliteľné, BE to nemusí riešiť */
   id?: string;
@@ -136,6 +122,42 @@ export interface RunRaceTarget {
 
   /** voliteľne konkrétne stúpanie v metroch (celkové prevýšenie) */
   elevation_gain_m?: number | null;
+}
+
+/**
+ * RunTargets = globálne info pre beh + (do budúcna) zoznam key races.
+ * Teraz používame hlavne top-level polia, ale necháme aj `races` kvôli starým dátam.
+ */
+export interface RunTargets {
+  /** zoznam pretekov (legacy + future) */
+  races?: RunRaceTarget[];
+
+  /** typ cieľovej vzdialenosti (5k/10k/half/marathon/ultra/other) */
+  race_goal: RaceDistanceKind | null;
+
+  /** vlastná dĺžka preteku v km */
+  custom_distance_km?: number | null;
+
+  /** aktuálny osobák na túto vzdialenosť – "hh:mm:ss" */
+  current_best_time: string | null;
+
+  /** cieľový čas – "hh:mm:ss" */
+  target_time: string | null;
+
+  /** najdlhší nedávny beh (napr. posledných 6–8 týždňov) */
+  longest_recent_distance_km: number | null;
+
+  /** dôležitosť preteku (A = hlavný cieľ, B/C doplnkové) */
+  priority?: RacePriority | null;
+
+  /** typ preteku (cesta, trail, dráha, OCR, …) */
+  race_type?: RaceType | null;
+
+  /** charakter terénu (rovina/kopcovitý/hory…) */
+  terrain?: RaceTerrain | null;
+
+  /** hrubé prevýšenie – low/moderate/high */
+  elevation_profile?: RaceElevationProfile | null;
 }
 
 export interface BikeTargets {
@@ -318,6 +340,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
   primary_sports: ["run"],
   targets: {
     run: {
+      races: [],
       race_goal: null,
       custom_distance_km: null,
       current_best_time: null,

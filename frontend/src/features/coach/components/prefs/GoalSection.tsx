@@ -68,7 +68,7 @@ function makeRaceId() {
     try {
       return crypto.randomUUID();
     } catch {
-      /* ignore */
+      // ignore
     }
   }
   return `race_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -107,6 +107,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     local.goal_kind;
 
   const runTargets = (local.targets?.run ?? {}) as any;
+
   const races: any[] = useMemo(
     () => (Array.isArray(runTargets.races) ? runTargets.races : []),
     [runTargets.races]
@@ -117,12 +118,14 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   /* ---------- closed preview ---------- */
 
   const aRace =
-    races.find((r) => r.priority === "A") ?? (races.length > 0 ? races[0] : null);
+    races.find((r) => r.priority === "A") ??
+    (races.length > 0 ? races[0] : null);
 
   const racePreview = aRace
     ? (() => {
         const parts: string[] = [];
         if (aRace.priority) parts.push(`Priority ${aRace.priority}`);
+
         const rg = aRace.race_goal as (typeof RACE_GOALS)[number] | null;
         const customKm = aRace.custom_distance_km as number | null;
         if (rg) {
@@ -132,9 +135,12 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             parts.push(RACE_GOAL_LABEL[rg] ?? rg);
           }
         }
+
         if (aRace.date) parts.push(String(aRace.date));
+
         const rt = aRace.race_type as (typeof RACE_TYPES)[number] | null;
         if (rt) parts.push(RACE_TYPE_LABEL[rt]);
+
         return parts.join(" · ");
       })()
     : null;
@@ -150,17 +156,46 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const previewText =
     previewParts.length > 0 ? previewParts.join(" | ") : "No goal set";
 
-  /* ---------- mutators ---------- */
+  /* ---------- helpers / mutators ---------- */
 
   const updateRunTargets = (patch: any) => {
     upsertRunTargets(patch);
+  };
+
+  const syncMainRaceToTargets = (racesNext: any[]) => {
+    const main =
+      racesNext.find((r) => r.priority === "A") ??
+      (racesNext.length > 0 ? racesNext[0] : null);
+
+    if (!main) {
+      updateRunTargets({
+        races: racesNext,
+        race_goal: null,
+        custom_distance_km: null,
+        target_time: null,
+        race_type: null,
+        terrain: null,
+        elevation_profile: null,
+      });
+      return;
+    }
+
+    updateRunTargets({
+      races: racesNext,
+      race_goal: main.race_goal ?? null,
+      custom_distance_km: main.custom_distance_km ?? null,
+      target_time: main.target_time ?? null,
+      race_type: main.race_type ?? null,
+      terrain: main.terrain ?? null,
+      elevation_profile: main.elevation_profile ?? null,
+    });
   };
 
   const updateRaceAt = (index: number, patch: any) => {
     const cur = Array.isArray(races) ? races : [];
     const next = cur.map((r, i) => (i === index ? { ...r, ...patch } : r));
 
-    // vynúť max jedno "A"
+    // max jedno "A"
     if (patch.priority === "A") {
       for (let i = 0; i < next.length; i += 1) {
         if (i !== index && next[i].priority === "A") {
@@ -169,7 +204,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
       }
     }
 
-    updateRunTargets({ races: next });
+    syncMainRaceToTargets(next);
   };
 
   const addRace = () => {
@@ -180,13 +215,13 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
       ...base,
       priority: hasA ? null : "A",
     };
-    updateRunTargets({ races: [...cur, nextRace] });
+    syncMainRaceToTargets([...cur, nextRace]);
   };
 
   const removeRace = (index: number) => {
     const cur = Array.isArray(races) ? races : [];
     const next = cur.filter((_, i) => i !== index);
-    updateRunTargets({ races: next });
+    syncMainRaceToTargets(next);
   };
 
   const handleRaceGoalClick = (
@@ -237,7 +272,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
       {open && (
         <div className="space-y-5">
-          {/* KEY RACES */}
+          {/* 1. KEY RACES */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-xs font-medium opacity-70">
@@ -380,9 +415,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                                 size="xs"
                                 variant="prefs"
                                 active={raceGoal === rg}
-                                onClick={() =>
-                                  handleRaceGoalClick(index, rg)
-                                }
+                                onClick={() => handleRaceGoalClick(index, rg)}
                               >
                                 {RACE_GOAL_LABEL[rg]}
                               </Button>
@@ -472,7 +505,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
             </div>
           </div>
 
-          {/* OVERALL GOAL */}
+          {/* 2. OVERALL GOAL */}
           <div className="space-y-3">
             <div className="text-xs font-medium opacity-70">
               2. Overall training goal

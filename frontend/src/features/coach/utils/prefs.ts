@@ -2,6 +2,7 @@
 "use client";
 
 // Storage + DB helpers pre CoachPrefs + normalizácia legacy tvarov.
+import type { DayAbbrev } from "@/shared/types/day";
 
 import type {
   CoachPrefs,
@@ -98,21 +99,17 @@ export function normalizeCoachPrefs(
 ): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
-  const anyIn = input as any;
-
-  // -------- už nový (kanonický) CoachPrefs --------
-  if (
-    "targets" in input ||
-    "preferences" in input ||
-    "primary_sports" in input
-  ) {
+  // ak to už vyzerá ako nový tvar → len doplníme primary_sports + preferences
+  if ("targets" in input || "preferences" in input || "primary_sports" in input) {
+    const anyIn = input as any;
     const i = input as CoachPrefs;
 
     const prefs: Preferences = {
       days_off: i.preferences?.days_off ?? [],
       long_run_days:
         i.preferences?.long_run_days ??
-        ((anyIn.preferred_long_run_days as any[] | undefined) ?? []),
+        (anyIn.preferred_long_run_days as DayAbbrev[] | undefined) ??
+        [],
       avoid_back_to_back_hard:
         i.preferences?.avoid_back_to_back_hard ??
         !!anyIn.avoid_back_to_back_hard,
@@ -131,17 +128,15 @@ export function normalizeCoachPrefs(
     };
   }
 
-  // -------- legacy loose -> kanonický --------
+  // ------- legacy loose -> canonical -------
   const l = input as CoachPrefsLegacyLoose;
 
   const legacyPrefs: Preferences = {
     days_off: [],
-    long_run_days:
-      (l.preferred_long_run_days as any[] | undefined) ?? [],
+    long_run_days: [],
     avoid_back_to_back_hard: !!l.avoid_back_to_back_hard,
     use_zones: true,
     avoid_two_a_day: !!l.avoid_two_a_day,
-    include_strides: false,
   };
 
   return {
@@ -151,8 +146,10 @@ export function normalizeCoachPrefs(
     target_pace: l.target_pace ?? undefined,
     weeks: l.weeks ?? undefined,
     primary_sports: clampSports(l.sports),
+
     targets: {
       run: {
+        races: [],
         race_goal: null,
         custom_distance_km: null,
         current_best_time: null,
@@ -166,38 +163,7 @@ export function normalizeCoachPrefs(
       ride: { focus: "endurance", weekly_time_target_min: null },
       strength: { focus: "general", sessions_per_week: 2 },
     },
+
     preferences: legacyPrefs,
-  };
-}
-
-/* -------------------- live hook helpers -------------------- */
-
-/** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage). */
-export function subscribeCoachPrefs(
-  cb: (prefs: CoachPrefs) => void
-): () => void {
-  const onEvt = (e: Event) => {
-    const ce = e as CustomEvent<CoachPrefs>;
-    if (ce?.detail) cb(ce.detail);
-  };
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === LS_KEY && e.newValue) {
-      try {
-        cb(JSON.parse(e.newValue) as CoachPrefs);
-      } catch {
-        /* ignore */
-      }
-    }
-  };
-  window.addEventListener(EVT, onEvt);
-  window.addEventListener("storage", onStorage);
-
-  // initial push (pre prípad, že niekto subscribe-ne neskôr)
-  const cur = readCoachPrefsFromStorage();
-  if (cur) setTimeout(() => cb(cur), 0);
-
-  return () => {
-    window.removeEventListener(EVT, onEvt);
-    window.removeEventListener("storage", onStorage);
   };
 }

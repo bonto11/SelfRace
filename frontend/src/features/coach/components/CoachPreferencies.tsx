@@ -179,39 +179,41 @@ export default function CoachPreferencies() {
   };
 
   const upsertRunTargets = (patch: Partial<RunTargets>) => {
-  markDirty();
-  setLocal((prev) => {
-    const prevTargets = prev.targets ?? {};
+    markDirty();
+    setLocal((prev) => {
+      const prevTargets = prev.targets ?? {};
 
-    // základný default keď ešte nič nie je
-    const baseRun: RunTargets = {
-      race_goal: null,
-      current_best_time: null,
-      target_time: null,
-      longest_recent_distance_km: null,
-      // ostatné polia (custom_distance_km, priority, race_type, terrain, elevation_profile)
-      // sú v type optional, takže ich netreba povinne napĺňať
-    };
+      const baseRun: RunTargets = {
+        races: [],
+        race_goal: null,
+        custom_distance_km: null,
+        current_best_time: null,
+        target_time: null,
+        longest_recent_distance_km: null,
+        priority: null,
+        race_type: null,
+        terrain: null,
+        elevation_profile: null,
+      };
 
-    const prevRun: RunTargets =
-      (prevTargets.run as RunTargets | undefined) ?? baseRun;
+      const prevRun: RunTargets =
+        (prevTargets.run as RunTargets | undefined) ?? baseRun;
 
-    // hotovo – všetko staré + patch
-    const nextRun: RunTargets = {
-      ...baseRun,   // defaulty
-      ...prevRun,   // čo už bolo
-      ...patch,     // čo prichádza z GoalSection
-    };
+      const nextRun: RunTargets = {
+        ...baseRun,
+        ...prevRun,
+        ...patch,
+      };
 
-    return {
-      ...prev,
-      targets: {
-        ...prevTargets,
-        run: nextRun,
-      },
-    };
-  });
-};
+      return {
+        ...prev,
+        targets: {
+          ...prevTargets,
+          run: nextRun,
+        },
+      };
+    });
+  };
 
   // SAVE / REFRESH
   const onSave = async () => {
