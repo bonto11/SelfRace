@@ -9,7 +9,7 @@ import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import Button from "@/shared/components/ui/Button";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
-import { apiGetPrefs } from "@/features/coach/api/prefs";
+import { apiGetCoachPrefs } from "@/features/coach/api/prefs";
 import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
 import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
@@ -84,7 +84,7 @@ export default function CoachPlanActions() {
     if (!userId) return;
     (async () => {
       try {
-        const p = await apiGetPrefs(userId).catch(() => null);
+        const p = await apiGetCoachPrefs(userId).catch(() => null);
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff);
       } catch {
