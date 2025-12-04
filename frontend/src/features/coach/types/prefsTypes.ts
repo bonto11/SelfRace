@@ -1,9 +1,8 @@
-//types/prefsTypes
+// src/features/coach/types/prefsTypes.ts
 import type { DayAbbrev } from "@/shared/types/day";
 
-/** Hlavné ciele plánu / tréningu. */
+/** Hlavné ciele plánu / tréningu (už bez "race_time"). */
 export type GoalKind =
-  | "race_time"
   | "improve_speed"
   | "improve_endurance"
   | "improve_overall"
@@ -25,7 +24,13 @@ export type RacePriority = "A" | "B" | "C";
 /* -------- Race meta pre behy -------- */
 
 /** Štandardizované vzdialenosti + možnosť vlastnej. */
-export type RaceDistanceKind = "5k" | "10k" | "half" | "marathon" | "ultra" | "other";
+export type RaceDistanceKind =
+  | "5k"
+  | "10k"
+  | "half"
+  | "marathon"
+  | "ultra"
+  | "other";
 
 /** Typ behu / preteku. */
 export type RaceType = "road" | "trail" | "track" | "cross" | "ocr" | "other";
@@ -40,19 +45,31 @@ export type RaceElevationProfile = "low" | "moderate" | "high";
 
 export type Zones = {
   hr_max?: number | null;
-  z1_min?: number | null; z1_max?: number | null;
-  z2_min?: number | null; z2_max?: number | null;
-  z3_min?: number | null; z3_max?: number | null;
-  z4_min?: number | null; z4_max?: number | null;
-  z5_min?: number | null; z5_max?: number | null;
+  z1_min?: number | null;
+  z1_max?: number | null;
+  z2_min?: number | null;
+  z2_max?: number | null;
+  z3_min?: number | null;
+  z3_max?: number | null;
+  z4_min?: number | null;
+  z4_max?: number | null;
+  z5_min?: number | null;
+  z5_max?: number | null;
 };
 
 export type Thresholds = {
   sport?: "running" | "cycling" | "other" | string | null;
-  hr_bpm?: number | null;          // normalizované (HR_bpm -> hr_bpm)
+  hr_bpm?: number | null; // normalizované (HR_bpm -> hr_bpm)
   pace_sec_km?: number | null;
   power_watt?: number | null;
-  threshold_type?: "LT1" | "LT2" | "FTP" | "HR_LT2" | "PACE_LT2" | string | null;
+  threshold_type?:
+    | "LT1"
+    | "LT2"
+    | "FTP"
+    | "HR_LT2"
+    | "PACE_LT2"
+    | string
+    | null;
   measurement_type?:
     | "lab test"
     | "field test"
@@ -65,40 +82,36 @@ export type Thresholds = {
   updated_at?: string | null;
 };
 
-/* -------- Preferences -------- */
-
-export interface Preferences {
-  days_off: DayAbbrev[];
-  long_run_days?: DayAbbrev[];
-  avoid_back_to_back_hard: boolean;
-  use_zones: boolean;
-  avoid_two_a_day: boolean;
-  include_strides?: boolean;
-}
-
 /* -------- Targets -------- */
 
-export interface RunTargets {
-  /** typ cieľovej vzdialenosti (5k/10k/half/marathon/ultra/other) */
-  race_goal: RaceDistanceKind | null;
+/**
+ * Jeden konkrétny pretek (key race).
+ * Môže ich byť viac (A/B/C), ukladáme ich v RunTargets.races.
+ */
+export interface RunRaceTarget {
+  /** lokálne ID pre FE (uuid/string) – voliteľné, BE to nemusí riešiť */
+  id?: string;
 
-  /**
-   * Vlastná dĺžka preteku v km (napr. 7.5, 25, 50).
-   * Typicky sa používa keď race_goal === "other" alebo "ultra".
-   */
-  custom_distance_km?: number | null;
+  /** názov preteku (Bratislava marathon, lokálny trail…) */
+  name?: string | null;
 
-  /** aktuálny osobák na túto vzdialenosť – "hh:mm:ss" */
-  current_best_time: string | null;
-
-  /** cieľový čas – "hh:mm:ss" */
-  target_time: string | null;
-
-  /** najdlhší nedávny beh (napr. posledných 6–8 týždňov) */
-  longest_recent_distance_km: number | null;
+  /** dátum preteku (ISO YYYY-MM-DD) */
+  date?: string | null;
 
   /** dôležitosť preteku (A = hlavný cieľ, B/C doplnkové) */
   priority?: RacePriority | null;
+
+  /** typ cieľovej vzdialenosti (5k/10k/half/marathon/ultra/other) */
+  race_goal?: RaceDistanceKind | null;
+
+  /**
+   * Vlastná dĺžka preteku v km (napr. 7.5, 25, 50).
+   * Typicky keď race_goal === "other" alebo "ultra".
+   */
+  custom_distance_km?: number | null;
+
+  /** cieľový čas – "hh:mm:ss" */
+  target_time?: string | null;
 
   /** typ preteku (cesta, trail, dráha, OCR, …) */
   race_type?: RaceType | null;
@@ -108,6 +121,20 @@ export interface RunTargets {
 
   /** hrubé prevýšenie – low/moderate/high */
   elevation_profile?: RaceElevationProfile | null;
+
+  /** voliteľne konkrétne stúpanie v metroch (celkové prevýšenie) */
+  elevation_gain_m?: number | null;
+}
+
+/**
+ * RunTargets teraz = zoznam key races + globálne info.
+ * Žiadny current_best_time – ten berieme z PB tabuľky.
+ */
+export interface RunTargets {
+  races?: RunRaceTarget[];
+
+  /** najdlhší nedávny beh (napr. posledných 6–8 týždňov) */
+  longest_recent_distance_km?: number | null;
 }
 
 export interface BikeTargets {
@@ -175,7 +202,11 @@ export type RehabFocus = {
 };
 
 export type StrengthLocation = "gym" | "home" | "outdoor";
-export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
+export type StrengthEquipmentMode =
+  | "none"
+  | "bodyweight"
+  | "minimal"
+  | "full_gym";
 
 /** voľný slovník, nech vieme poslať AI aj konkrétne kusy náradia */
 export type StrengthEquipmentKey =
@@ -198,17 +229,30 @@ export type StrengthSettings = {
   available?: StrengthEquipmentKey[];
 };
 
+ export interface Preferences{
+    days_off: DayAbbrev[];
+    long_run_days: DayAbbrev[];
+    avoid_back_to_back_hard: boolean;
+    use_zones: boolean;
+    avoid_two_a_day: boolean;
+    include_strides?: boolean;
+  }
+
 /* -------- Main prefs -------- */
 
 export type CoachPrefs = {
+  /** overall goal (speed/endurance/overall/maintain) */
   goal_kind?: GoalKind;
 
+  // legacy pace fields – môžu časom zmiznúť
   distance?: string;
   current_pace?: string;
   target_pace?: string;
 
+  /** default horizon v týždňoch (voliteľné) */
   weeks?: number;
-  sports?: SportKind[];           // legacy
+
+  sports?: SportKind[]; // legacy
   primary_sports?: SportKind[];
 
   // všetky 3 sú voliteľné – vieme ukladať iba run, bez prázdneho ride/strength
@@ -248,7 +292,7 @@ export type CoachPrefs = {
 
   rehab_focus?: RehabFocus;
 
-  coach_voice?: CoachPersona | null;  // null → none selected
+  coach_voice?: CoachPersona | null; // null → none selected
   coach_tone?: {
     directness: number;
     praise: number;
@@ -273,15 +317,8 @@ export const DEFAULT_PREFS: CoachPrefs = {
   primary_sports: ["run"],
   targets: {
     run: {
-      race_goal: null,
-      custom_distance_km: null,
-      current_best_time: null,
-      target_time: null,
+      races: [],
       longest_recent_distance_km: null,
-      priority: null,
-      race_type: null,
-      terrain: null,
-      elevation_profile: null,
     },
     ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
