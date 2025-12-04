@@ -88,6 +88,7 @@ export default function CoachPreferencies() {
   );
 
   // initial load (prefs + zones + latest thresholds) – všetko z DB
+  // 1) vo useEffect po fetchnutí
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -100,6 +101,8 @@ export default function CoachPreferencies() {
           apiFetchUserThresholdsLatest(userId),
         ]);
         if (!alive) return;
+
+        console.log("[PREFS] pRaw from DB:", pRaw); // <--- PRIDAJ TOTO
 
         const p = (pRaw || {}) as CoachPrefsExtended;
         const zones = (zonesRaw ?? null) as any;
@@ -117,10 +120,9 @@ export default function CoachPreferencies() {
           thresholds_latest: thrRows,
         };
 
-        if (!dirtyRef.current) {
-          setLocal(next);
-          console.log("[CoachPreferencies] loaded prefs", next);
-        }
+        console.log("[PREFS] next state before setLocal:", next); // <--- PRIDAJ TOTO
+
+        if (!dirtyRef.current) setLocal(next);
       } catch (e) {
         console.error("[CoachPrefs]init error", e);
       }

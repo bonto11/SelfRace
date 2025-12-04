@@ -67,10 +67,9 @@ export function readCoachPrefsFromStorage(): CoachPrefs {
 export async function refreshCoachPrefsFromDB(
   userId: number
 ): Promise<CoachPrefs> {
-  const raw = await apiGetCoachPrefs(userId);   // <- vytiahne .value z JSONu
-  const prefs = normalizeCoachPrefs(raw);
-  lsSet(prefs);
-  broadcast(prefs);
+  const value = await apiGetCoachPrefs<CoachPrefs>(userId);
+  const prefs = value ?? DEFAULT_PREFS;
+  // ak chceš, kľudne vyhoď lsSet/broadcast, ale už to nemá vplyv na načítanie
   return prefs;
 }
 
