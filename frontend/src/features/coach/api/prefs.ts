@@ -33,6 +33,7 @@ export async function apiGetPrefs(userId: number): Promise<CoachPrefs | null> {
     const j = await r.json().catch(() => ({}));
     if (r.ok) {
       const val = extractValue(j);
+      console.log("j",j);
       if (val) return val;
     }
   } catch {

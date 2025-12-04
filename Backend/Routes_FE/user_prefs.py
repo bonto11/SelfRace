@@ -28,6 +28,7 @@ def get_user_prefs(user_id: int):
 def get_user_pref(user_id: int, key: str):
     try:
         val = service_get_user_pref(user_id, key)
+        print("val",val)
         return {"success": True, "key": key, "value": val}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
