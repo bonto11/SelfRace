@@ -4,8 +4,11 @@
 import { useState } from "react";
 import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
+import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
+
+/* ─────────────────────── constants ─────────────────────── */
 
 const ALL_GOALS = [
   "race_time",
@@ -23,7 +26,6 @@ const GOAL_LABEL: Record<(typeof ALL_GOALS)[number], string> = {
   maintain: "Maintain",
 };
 
-// distance / race meta – musia sedieť s typmi v prefsTypes
 const RACE_GOALS = ["5k", "10k", "half", "marathon", "ultra", "other"] as const;
 const RACE_GOAL_LABEL: Record<(typeof RACE_GOALS)[number], string> = {
   "5k": "5 km",
@@ -61,11 +63,15 @@ const ELEVATION_LABEL: Record<(typeof ELEVATION)[number], string> = {
   high: "High gain",
 };
 
+/* ─────────────────────── types ─────────────────────── */
+
 type Props = {
   local: any;
   setPref: (key: any, value: any) => void;
   upsertRunTargets: (patch: Partial<NonNullable<any["targets"]>["run"]>) => void;
 };
+
+/* ─────────────────────── component ─────────────────────── */
 
 export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const [open, setOpen] = useState(false);
@@ -73,15 +79,35 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   const runTargets = (local.targets?.run ?? {}) as any;
 
-  // ---- closed preview ----
+  /* ---------- closed preview ---------- */
+
   const weeks = local.weeks ? `${local.weeks} weeks` : null;
   const cur = runTargets.current_best_time || null;
   const tgt = runTargets.target_time || null;
-  const raceGoal = runTargets.race_goal as (typeof RACE_GOALS)[number] | undefined;
-  const customKm = runTargets.custom_distance_km as number | null | undefined;
-  const priority = runTargets.priority as "A" | "B" | "C" | undefined;
-  const raceType = runTargets.race_type as string | undefined;
-  const terrain = runTargets.terrain as string | undefined;
+
+  const raceGoal = runTargets.race_goal as
+    | (typeof RACE_GOALS)[number]
+    | undefined;
+  const customKm = runTargets.custom_distance_km as
+    | number
+    | null
+    | undefined;
+
+  const priority = runTargets.priority as "A" | "B" | "C" | null | undefined;
+
+  // tu spravíme normálne union typy – kľúče do mapy
+  const raceType = runTargets.race_type as
+    | (typeof RACE_TYPES)[number]
+    | null
+    | undefined;
+  const terrain = runTargets.terrain as
+    | (typeof TERRAIN)[number]
+    | null
+    | undefined;
+  const elevation = runTargets.elevation_profile as
+    | (typeof ELEVATION)[number]
+    | null
+    | undefined;
 
   const goalLabel = activeGoal ? GOAL_LABEL[activeGoal] : "None";
 
@@ -94,12 +120,13 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const metaBits: string[] = [];
   if (raceGoalLabel) metaBits.push(raceGoalLabel);
   if (priority) metaBits.push(`Priority ${priority}`);
-  if (raceType) metaBits.push(raceType);
-  if (terrain) metaBits.push(terrain);
+  if (raceType) metaBits.push(RACE_TYPE_LABEL[raceType]);
+  if (terrain) metaBits.push(TERRAIN_LABEL[terrain]);
+  if (elevation) metaBits.push(ELEVATION_LABEL[elevation]);
 
   const previewParts = [
     `Goal: ${goalLabel}`,
-    weeks ? `in ${weeks}` : null,
+    weeks ? `Horizon: ${weeks}` : null,
     metaBits.length ? `Race: ${metaBits.join(" · ")}` : null,
     cur || tgt ? `Time: ${cur ?? "—"} → ${tgt ?? "—"}` : null,
   ].filter(Boolean);
@@ -107,18 +134,20 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const previewText =
     previewParts.length > 0 ? previewParts.join(" | ") : "No goal set";
 
+  /* ---------- helpers ---------- */
+
   const handleRaceGoalClick = (g: (typeof RACE_GOALS)[number]) => {
     const next = runTargets.race_goal === g ? null : g;
     const patch: any = { race_goal: next };
-    // ak už nebudeme potrebovať custom km, vyčisti to
     if (next !== "other" && next !== "ultra") {
       patch.custom_distance_km = null;
     }
     upsertRunTargets(patch);
   };
 
-  const showCustomDistance =
-    raceGoal === "other" || raceGoal === "ultra";
+  const showCustomDistance = raceGoal === "other" || raceGoal === "ultra";
+
+  /* ─────────────────────── render ─────────────────────── */
 
   return (
     <section className={SECTION}>
@@ -127,7 +156,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
         <div className="text-sm font-medium opacity-90">Goal</div>
         <div className="flex items-center gap-2">
           <div className="text-xs opacity-70 hidden sm:block">
-            Pick the goal. Click again to clear.
+            High-level goal & race target.
           </div>
           <DisclosureToggle
             open={open}
@@ -151,192 +180,213 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
       )}
 
       {open && (
-        <>
-          {/* High-level goal pills */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {ALL_GOALS.map((g) => (
-              <Button
-                key={g}
-                size="sm"
-                variant="prefs"
-                active={activeGoal === g}
-                onClick={() =>
-                  setPref("goal_kind", activeGoal === g ? undefined : g)
-                }
-              >
-                {GOAL_LABEL[g]}
-              </Button>
-            ))}
-            <Button
-              size="sm"
-              variant="prefs"
-              active={!activeGoal}
-              onClick={() => setPref("goal_kind", undefined)}
-            >
-              None
-            </Button>
-          </div>
-
-          {/* Weeks + race distance */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-            <TextField
-              placeholder="weeks (e.g. 8, 10, 12)"
-              value={local.weeks ?? ""}
-              onChange={(e) =>
-                setPref(
-                  "weeks",
-                  e.currentTarget.value
-                    ? Number(e.currentTarget.value)
-                    : undefined
-                )
-              }
-              inputMode="numeric"
-            />
-
-            {/* Race distance pills (run target) */}
-            <div className="sm:col-span-2 flex flex-wrap gap-1">
-              {RACE_GOALS.map((rg) => (
+        <div className="space-y-4">
+          {/* 1) High-level plan goal */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium opacity-70">
+              1. Overall training goal
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {ALL_GOALS.map((g) => (
                 <Button
-                  key={rg}
-                  size="xs"
+                  key={g}
+                  size="sm"
                   variant="prefs"
-                  active={raceGoal === rg}
-                  onClick={() => handleRaceGoalClick(rg)}
+                  active={activeGoal === g}
+                  onClick={() =>
+                    setPref("goal_kind", activeGoal === g ? undefined : g)
+                  }
                 >
-                  {RACE_GOAL_LABEL[rg]}
+                  {GOAL_LABEL[g]}
                 </Button>
               ))}
+              <Button
+                size="sm"
+                variant="prefs"
+                active={!activeGoal}
+                onClick={() => setPref("goal_kind", undefined)}
+              >
+                None
+              </Button>
             </div>
           </div>
 
-          {/* Custom distance + times */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-            {showCustomDistance && (
+          {/* 2) Horizon + race distance */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium opacity-70">
+              2. Plan horizon & race distance
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <TextField
-                placeholder="custom distance (km)"
-                value={
-                  runTargets.custom_distance_km != null
-                    ? String(runTargets.custom_distance_km)
-                    : ""
+                label="Weeks until goal"
+                placeholder="e.g. 8, 10, 12"
+                value={local.weeks ?? ""}
+                onChange={(e) =>
+                  setPref(
+                    "weeks",
+                    e.currentTarget.value
+                      ? Number(e.currentTarget.value)
+                      : undefined
+                  )
                 }
-                onChange={(e) => {
-                  const v = e.currentTarget.value.trim();
-                  upsertRunTargets({
-                    custom_distance_km: v ? Number(v) || null : null,
-                  });
-                }}
-                inputMode="decimal"
+                inputMode="numeric"
               />
-            )}
 
-            <TextField
-              placeholder="current best (hh:mm:ss)"
-              value={runTargets.current_best_time ?? ""}
-              onChange={(e) =>
-                upsertRunTargets({
-                  current_best_time: e.currentTarget.value || null,
-                })
-              }
-            />
-            <TextField
-              placeholder="target time (hh:mm:ss)"
-              value={runTargets.target_time ?? ""}
-              onChange={(e) =>
-                upsertRunTargets({
-                  target_time: e.currentTarget.value || null,
-                })
-              }
-            />
-          </div>
-
-          {/* Priority + type / terrain / elevation */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-            {/* Priority A/B/C */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">Race priority</span>
-              <div className="flex flex-wrap gap-1">
-                {PRIORITIES.map((p) => (
-                  <Button
-                    key={p}
-                    size="xs"
-                    variant="prefs"
-                    active={runTargets.priority === p}
-                    onClick={() =>
-                      upsertRunTargets({
-                        priority: runTargets.priority === p ? null : p,
-                      })
-                    }
-                  >
-                    {p}
-                  </Button>
-                ))}
+              <div className="sm:col-span-2 space-y-1">
+                <div className="text-xs opacity-70">Target race distance</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {RACE_GOALS.map((rg) => (
+                    <Button
+                      key={rg}
+                      size="xs"
+                      variant="prefs"
+                      active={raceGoal === rg}
+                      onClick={() => handleRaceGoalClick(rg)}
+                    >
+                      {RACE_GOAL_LABEL[rg]}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Race type */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">Race type</span>
-              <select
-                className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs"
-                value={runTargets.race_type ?? ""}
+            {showCustomDistance && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <TextField
+                  label="Custom distance (km)"
+                  placeholder="e.g. 7, 25, 50"
+                  value={
+                    runTargets.custom_distance_km != null
+                      ? String(runTargets.custom_distance_km)
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const v = e.currentTarget.value.trim();
+                    upsertRunTargets({
+                      custom_distance_km: v ? Number(v) || null : null,
+                    });
+                  }}
+                  inputMode="decimal"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 3) Time targets */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium opacity-70">
+              3. Time goals (optional)
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <TextField
+                label="Current best (hh:mm:ss)"
+                placeholder="e.g. 00:20:30"
+                value={runTargets.current_best_time ?? ""}
+                onChange={(e) =>
+                  upsertRunTargets({
+                    current_best_time: e.currentTarget.value || null,
+                  })
+                }
+              />
+              <TextField
+                label="Target time (hh:mm:ss)"
+                placeholder="e.g. 00:19:00"
+                value={runTargets.target_time ?? ""}
+                onChange={(e) =>
+                  upsertRunTargets({
+                    target_time: e.currentTarget.value || null,
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* 4) Race details */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium opacity-70">
+              4. Race details (for planning specificity)
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              {/* priority */}
+              <div>
+                <div className="text-xs opacity-70 mb-1">Race priority</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRIORITIES.map((p) => (
+                    <Button
+                      key={p}
+                      size="xs"
+                      variant="prefs"
+                      active={runTargets.priority === p}
+                      onClick={() =>
+                        upsertRunTargets({
+                          priority: runTargets.priority === p ? null : p,
+                        })
+                      }
+                    >
+                      {p}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* type */}
+              <SelectField
+                label="Race type"
+                value={raceType ?? ""}
                 onChange={(e) =>
                   upsertRunTargets({
                     race_type: e.currentTarget.value || null,
                   })
                 }
-              >
-                <option value="">—</option>
-                {RACE_TYPES.map((rt) => (
-                  <option key={rt} value={rt}>
-                    {RACE_TYPE_LABEL[rt]}
-                  </option>
-                ))}
-              </select>
-            </div>
+                options={[
+                  { value: "", label: "—" },
+                  ...RACE_TYPES.map((rt) => ({
+                    value: rt,
+                    label: RACE_TYPE_LABEL[rt],
+                  })),
+                ]}
+              />
 
-            {/* Terrain */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">Terrain</span>
-              <select
-                className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs"
-                value={runTargets.terrain ?? ""}
+              {/* terrain */}
+              <SelectField
+                label="Terrain"
+                value={terrain ?? ""}
                 onChange={(e) =>
                   upsertRunTargets({
                     terrain: e.currentTarget.value || null,
                   })
                 }
-              >
-                <option value="">—</option>
-                {TERRAIN.map((t) => (
-                  <option key={t} value={t}>
-                    {TERRAIN_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
+                options={[
+                  { value: "", label: "—" },
+                  ...TERRAIN.map((t) => ({
+                    value: t,
+                    label: TERRAIN_LABEL[t],
+                  })),
+                ]}
+              />
 
-            {/* Elevation */}
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">Elevation</span>
-              <select
-                className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs"
-                value={runTargets.elevation_profile ?? ""}
+              {/* elevation */}
+              <SelectField
+                label="Elevation profile"
+                value={elevation ?? ""}
                 onChange={(e) =>
                   upsertRunTargets({
                     elevation_profile: e.currentTarget.value || null,
                   })
                 }
-              >
-                <option value="">—</option>
-                {ELEVATION.map((elev) => (
-                  <option key={elev} value={elev}>
-                    {ELEVATION_LABEL[elev]}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "—" },
+                  ...ELEVATION.map((ev) => ({
+                    value: ev,
+                    label: ELEVATION_LABEL[ev],
+                  })),
+                ]}
+              />
             </div>
           </div>
-        </>
+        </div>
       )}
     </section>
   );
