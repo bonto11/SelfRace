@@ -17,11 +17,11 @@ def service_insert_or_update_recovery(payload: Dict[str, Any]) -> Dict[str, Any]
     Vloží alebo updatuje recovery záznam podľa (user_id, date).
     Vracia nový/aktualizovaný riadok.
     """
-    user_id = str(payload["user_id"])
+    user_id = payload["user_id"]
     date_iso = payload.get("date") or datetime.now().date().isoformat()
 
     # auth_uid pre traceability
-    auth_uid = db_get_user_by_auth_uid(user_id)
+    auth_uid = db_get_user_by_auth_uid(str(user_id))
     if not auth_uid:
         raise RuntimeError("User not found (missing auth_uid)")
 
