@@ -167,3 +167,37 @@ export function normalizeCoachPrefs(
     preferences: legacyPrefs,
   };
 }
+
+/* -------------------- live hook helpers -------------------- */
+
+/** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage). */
+export function subscribeCoachPrefs(
+  cb: (prefs: CoachPrefs) => void
+): () => void {
+  const onEvt = (e: Event) => {
+    const ce = e as CustomEvent<CoachPrefs>;
+    if (ce?.detail) cb(ce.detail);
+  };
+
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === LS_KEY && e.newValue) {
+      try {
+        cb(JSON.parse(e.newValue) as CoachPrefs);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  window.addEventListener(EVT, onEvt);
+  window.addEventListener("storage", onStorage);
+
+  // initial push (keď sa niekto subscribe-ne neskôr)
+  const cur = readCoachPrefsFromStorage();
+  if (cur) setTimeout(() => cb(cur), 0);
+
+  return () => {
+    window.removeEventListener(EVT, onEvt);
+    window.removeEventListener("storage", onStorage);
+  };
+}
