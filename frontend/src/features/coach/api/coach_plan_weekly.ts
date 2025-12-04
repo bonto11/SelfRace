@@ -1,10 +1,10 @@
-// src/features/coach/api/plan_weekly.ts
+// src/features/coach/api/coach_plan_weekly.ts
 import { API_URL } from "@/shared/config";
 
 export type WeeklyPlanGenerateOptions = {
   overwrite?: boolean;
   state_id?: number | null; // id z coach_athlete_state, ak chceš konkrétny
-  weeks?: number | null;    // koľko týždňov plánu
+  weeks?: number | null; // koľko týždňov plánu
 };
 
 async function robustJson(res: Response) {
@@ -30,20 +30,17 @@ export async function apiGenerateWeeklyPlan(
     weeks: opts.weeks ?? null,
   };
 
-  const res = await fetch(
-    `${API_URL}/coach-plan-weekly/generate/${userId}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    }
-  ).catch((err) => {
+  const res = await fetch(`${API_URL}/coach-plan-weekly/generate/${userId}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch((err) => {
     throw new Error(`Network/CORS: ${String(err)}`);
   });
 
   const json = await robustJson(res);
-  if (!res.ok) {
-    throw new Error(json?.detail || `HTTP ${res.status}`);
+  if (!res.ok || json?.success === false) {
+    throw new Error(json?.detail || json?.error || `HTTP ${res.status}`);
   }
   return json;
 }

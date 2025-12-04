@@ -1,4 +1,4 @@
-// src/features/coach/api/plan_daily.ts
+// src/features/coach/api/coach_plan_daily.ts
 import { API_URL } from "@/shared/config";
 
 /* ============ typy ============ */
@@ -21,12 +21,12 @@ export type ExtendPlanResult = {
 
 export type PlanReorderUpdate = {
   id: number;
-  plan_date: string;   // "YYYY-MM-DD"
+  plan_date: string; // "YYYY-MM-DD"
   session_index: number; // 0-based
 };
 
 export type DailyWeekGenerateOptions = {
-  week_index: number;      // 1-based index v weekly pláne
+  week_index: number; // 1-based index v weekly pláne
   plan_id?: string | null; // ak null → posledný aktívny plán
   overwrite?: boolean;
 };
@@ -277,7 +277,7 @@ export async function apiSavePlanActivityLink(
     activity_id: activityId,
   };
 
-  const r = await fetch(`${API_URL}/coach-plan/${userId}/link`, {
+  const r = await fetch(`${API_URL}/coach-plan/${userId}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
@@ -351,20 +351,17 @@ export async function apiGenerateDailyForWeek(
     overwrite: opts.overwrite ?? true,
   };
 
-  const res = await fetch(
-    `${API_URL}/coach-plan-daily/generate/${userId}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    }
-  ).catch((err) => {
+  const res = await fetch(`${API_URL}/coach-plan-daily/generate/${userId}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch((err) => {
     throw new Error(`Network/CORS: ${String(err)}`);
   });
 
   const json = await robustJson(res);
-  if (!res.ok) {
-    throw new Error(json?.detail || `HTTP ${res.status}`);
+  if (!res.ok || json?.success === false) {
+    throw new Error(json?.detail || json?.error || `HTTP ${res.status}`);
   }
   return json;
 }

@@ -11,6 +11,8 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 import { apiGetPrefs } from "@/features/coach/api/prefs";
 import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
+import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
+import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -72,7 +74,9 @@ export default function CoachPlanActions() {
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingKind, setLoadingKind] = useState<
+    "analyze" | "weekly" | "daily" | null
+  >(null);
   const [err, setErr] = useState<string | null>(null);
 
   // prefs len na mini-summary (logika analýzy je už komplet v BE)
@@ -92,10 +96,9 @@ export default function CoachPlanActions() {
   const handleAnalyze = useCallback(async () => {
     if (!userId) return;
     setErr(null);
-    setLoading(true);
+    setLoadingKind("analyze");
 
     try {
-      // nič neskladáme na FE – BE si všetko načíta z DB podľa usera
       const json = await apiAnalyzeAthleteState(userId, {
         debugRaw: false,
         explicitModel: "coach-analyze-stub",
@@ -107,7 +110,6 @@ export default function CoachPlanActions() {
         state_id: json.state_id ?? null,
       });
 
-      // voliteľne uložiť poslednú analýzu do localStorage (len samotný state)
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem(
@@ -121,11 +123,55 @@ export default function CoachPlanActions() {
     } catch (e: any) {
       setErr(e?.message || String(e));
     } finally {
-      setLoading(false);
+      setLoadingKind(null);
     }
   }, [userId]);
 
-  const canAnalyze = !!userId && !loading;
+  const handleGenerateWeekly = useCallback(async () => {
+    if (!userId) return;
+    setErr(null);
+    setLoadingKind("weekly");
+
+    try {
+      const weeks = (prefs as any)?.weeks ?? null;
+      const stateId = result?.state_id ?? null;
+
+      const json = await apiGenerateWeeklyPlan(userId, {
+        overwrite: true,
+        weeks,
+        state_id: stateId,
+      });
+
+      console.log("[coach] weekly plan generated", json);
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+    } finally {
+      setLoadingKind(null);
+    }
+  }, [userId, prefs, result]);
+
+  const handleGenerateDaily = useCallback(async () => {
+    if (!userId) return;
+    setErr(null);
+    setLoadingKind("daily");
+
+    try {
+      const json = await apiGenerateDailyForWeek(userId, {
+        week_index: 1, // 1. týždeň – neskôr vieš spraviť výber
+        plan_id: null, // vezme posledný aktívny plán v BE
+        overwrite: true,
+      });
+
+      console.log("[coach] daily plan generated", json);
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+    } finally {
+      setLoadingKind(null);
+    }
+  }, [userId]);
+
+  const loading = loadingKind !== null;
+  const canActions = !!userId && !loading;
 
   const summary =
     result?.analysis && typeof result.analysis === "object"
@@ -148,9 +194,7 @@ export default function CoachPlanActions() {
               {summary.generated_at ?? "—"}
             </span>{" "}
             · model{" "}
-            <span className="font-semibold">
-              {summary.model ?? "—"}
-            </span>
+            <span className="font-semibold">{summary.model ?? "—"}</span>
             {summary.state_id != null && (
               <>
                 {" "}
@@ -162,21 +206,53 @@ export default function CoachPlanActions() {
         )}
       </div>
 
-      {/* tlačidlo */}
+      {/* tlačidlá */}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           onClick={handleAnalyze}
-          disabled={!canAnalyze}
+          disabled={!canActions}
           variant="primary"
           size="sm"
         >
-          {loading ? (
+          {loadingKind === "analyze" ? (
             <span className="inline-flex items-center gap-2">
               <LoadingSpinner size="button" />
               Analyzing…
             </span>
           ) : (
             "Analyze athlete state"
+          )}
+        </Button>
+
+        <Button
+          onClick={handleGenerateWeekly}
+          disabled={!canActions}
+          variant="secondary"
+          size="sm"
+        >
+          {loadingKind === "weekly" ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="button" />
+              Generating weekly…
+            </span>
+          ) : (
+            "Generate weekly plan"
+          )}
+        </Button>
+
+        <Button
+          onClick={handleGenerateDaily}
+          disabled={!canActions}
+          variant="ghost"
+          size="sm"
+        >
+          {loadingKind === "daily" ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner size="button" />
+              Generating daily…
+            </span>
+          ) : (
+            "Generate daily plan"
           )}
         </Button>
       </div>
