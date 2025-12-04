@@ -6,6 +6,7 @@ import type {
   CoachPrefs,
   SportKind,
   CoachPersona,
+  RunTargets,
 } from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";
 import { useUserId } from "@/shared/hooks/useUserId";
@@ -55,10 +56,10 @@ type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
   secondary_mix?: SecondaryMix[];
   coach_voice?: CoachPersona | null;
-  // tieto dve sa už NEUKLADAJÚ do prefs v DB, sú len runtime v React state
+  // runtime-only – neukladá sa do coach.prefs v DB
   zones?: any;
-  thresholds?: any; // aktuálny draft jednej kombinácie sport+type
-  thresholds_latest?: any[] | null; // posledné uložené z BE
+  thresholds?: any;
+  thresholds_latest?: any[] | null;
 };
 
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
@@ -82,12 +83,11 @@ export default function CoachPreferencies() {
     dirtyRef.current = true;
   };
 
-  // už žiadne localStorage – len čistý React state, inicializovaný prázdnym objektom
   const [local, setLocal] = useState<CoachPrefsExtended>(
     {} as CoachPrefsExtended
   );
 
-  // initial load (prefs + zóny + latest thresholds list) – VŠETKO z DB
+  // initial load (prefs + zones + latest thresholds) – všetko z DB
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -101,7 +101,6 @@ export default function CoachPreferencies() {
         ]);
         if (!alive) return;
 
-        // tvrdé casty – nech nás TS neotravuje
         const p = (pRaw || {}) as CoachPrefsExtended;
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
@@ -129,7 +128,7 @@ export default function CoachPreferencies() {
     };
   }, [userId]);
 
-  // start_date guard – funguje aj pri prázdnom local
+  // start_date guard – min zajtra, default D+2
   useEffect(() => {
     setLocal((prev) => {
       const current = { ...prev };
@@ -179,54 +178,40 @@ export default function CoachPreferencies() {
     setLocal(next);
   };
 
-  const upsertRunTargets = (
-    patch: Partial<NonNullable<CoachPrefsExtended["targets"]>["run"]>
-  ) => {
-    markDirty();
-    setLocal((prev) => {
-      const prevTargets = (prev.targets ?? {}) as CoachPrefsExtended["targets"];
+  const upsertRunTargets = (patch: Partial<RunTargets>) => {
+  markDirty();
+  setLocal((prev) => {
+    const prevTargets = prev.targets ?? {};
 
-      const emptyRun: NonNullable<CoachPrefsExtended["targets"]>["run"] = {
-        race_goal: null,
-        current_best_time: null,
-        target_time: null,
-        longest_recent_distance_km: null,
-        custom_distance_km: null,
-        priority: null,
-        race_type: null,
-        terrain: null,
-        elevation_profile: null,
-      };
+    // základný default keď ešte nič nie je
+    const baseRun: RunTargets = {
+      race_goal: null,
+      current_best_time: null,
+      target_time: null,
+      longest_recent_distance_km: null,
+      // ostatné polia (custom_distance_km, priority, race_type, terrain, elevation_profile)
+      // sú v type optional, takže ich netreba povinne napĺňať
+    };
 
-      const prevRun =
-        (prevTargets?.run as NonNullable<
-          CoachPrefsExtended["targets"]
-        >["run"]) ?? emptyRun;
+    const prevRun: RunTargets =
+      (prevTargets.run as RunTargets | undefined) ?? baseRun;
 
-      const nextRun = {
-        race_goal: prevRun.race_goal,
-        current_best_time: prevRun.current_best_time,
-        target_time: prevRun.target_time,
-        longest_recent_distance_km: prevRun.longest_recent_distance_km,
+    // hotovo – všetko staré + patch
+    const nextRun: RunTargets = {
+      ...baseRun,   // defaulty
+      ...prevRun,   // čo už bolo
+      ...patch,     // čo prichádza z GoalSection
+    };
 
-        custom_distance_km: prevRun.custom_distance_km,
-        priority: prevRun.priority,
-        race_type: prevRun.race_type,
-        terrain: prevRun.terrain,
-        elevation_profile: prevRun.elevation_profile,
-
-        ...patch, // prepíš len to, čo meníme
-      };
-
-      return {
-        ...prev,
-        targets: {
-          ...prevTargets,
-          run: nextRun,
-        },
-      };
-    });
-  };
+    return {
+      ...prev,
+      targets: {
+        ...prevTargets,
+        run: nextRun,
+      },
+    };
+  });
+};
 
   // SAVE / REFRESH
   const onSave = async () => {
@@ -244,7 +229,7 @@ export default function CoachPreferencies() {
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
 
-      // ❌ tieto polia nechceme v DB v coach.prefs -> runtime iba v Reacte
+      // runtime-only polia von z payloadu
       const {
         zones: _z,
         thresholds: _t,
@@ -261,15 +246,15 @@ export default function CoachPreferencies() {
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
       };
 
-      // 🔍 vyčisti targets – ulož len tie, ktoré majú nejakú informáciu
+      // vyčisti targets – ulož iba zmysluplné
       if (normalized.targets) {
         const t = normalized.targets as any;
         const cleaned: any = {};
 
-        // run necháme vždy, lebo aj prázdne run ciele majú význam
+        // run necháme vždy (aj keď je prázdny)
         if (t.run) cleaned.run = t.run;
 
-        // ride: ulož iba ak má niečo zmysluplné
+        // ride len ak má čas/focus
         if (
           t.ride &&
           (t.ride.weekly_time_target_min != null ||
@@ -278,7 +263,7 @@ export default function CoachPreferencies() {
           cleaned.ride = t.ride;
         }
 
-        // strength: ulož iba ak sa líši od defaultu
+        // strength len ak nie je default
         if (
           t.strength &&
           (t.strength.sessions_per_week != null ||
@@ -287,7 +272,6 @@ export default function CoachPreferencies() {
           cleaned.strength = t.strength;
         }
 
-        // ak zostalo úplne prázdne, targets odstránime
         normalized.targets =
           Object.keys(cleaned).length > 0 ? cleaned : undefined;
       }
@@ -309,7 +293,6 @@ export default function CoachPreferencies() {
         apiFetchUserThresholdsLatest(userId),
       ]);
 
-      // tvrdé casty – nech nás TS neotravuje
       const p = (fresh || {}) as CoachPrefsExtended;
       const zones = (zonesRaw ?? null) as any;
       const thrRows = (thrRowsRaw ?? []) as any[];
@@ -372,7 +355,6 @@ export default function CoachPreferencies() {
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
-      console.log("[CoachPrefs]save zones draft", z);
       const saved = await apiSaveUserZones(userId, z ?? {});
       setLocal((prev) => ({ ...prev, zones: saved ?? z }));
       toast.success("Zones saved to DB");
@@ -389,10 +371,7 @@ export default function CoachPreferencies() {
   const handleSaveThresholdsToDB = async (t: any) => {
     if (!userId) return;
     try {
-      console.log("[CoachPrefs]save thresholds draft", t);
       const saved = await apiSaveUserThresholds(userId, t ?? {});
-      console.log("[CoachPrefs]save thresholds response", saved);
-
       setLocal((prev) => {
         const latest = Array.isArray(prev.thresholds_latest)
           ? prev.thresholds_latest
@@ -430,7 +409,7 @@ export default function CoachPreferencies() {
     }
   };
 
-  // LTHR pre zónový výpočet: uprednostni aktuálny draft; inak posledný uložený LT2 HR z DB
+  // LTHR pre výpočet zón – draft > DB
   const lthrBpm: number | null = useMemo(() => {
     const draft = Number(local?.thresholds?.hr_bpm);
     if (Number.isFinite(draft) && draft > 0) return draft;
@@ -448,6 +427,7 @@ export default function CoachPreferencies() {
         setLocal={setLocal}
         markDirty={markDirty}
       />
+
       <GoalSection
         local={local}
         setPref={setPref}
@@ -468,16 +448,19 @@ export default function CoachPreferencies() {
         setLocal={setLocal}
         markDirty={markDirty}
       />
+
       <DaysOffSection
         daysOff={pref.days_off}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
       />
+
       <LongRunDaysSection
         longRunDays={pref.long_run_days}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
       />
+
       <RulesSection
         pref={pref}
         prefDefaults={prefDefaults}
@@ -485,7 +468,6 @@ export default function CoachPreferencies() {
         markDirty={markDirty}
       />
 
-      {/* Zones – s LTHR pre %LTHR režim */}
       <ZonesSection
         zones={local.zones}
         lthrBpm={lthrBpm}
@@ -493,7 +475,6 @@ export default function CoachPreferencies() {
         onSaveZonesToDB={handleSaveZonesToDB}
       />
 
-      {/* Thresholds – samostatne */}
       <ThresholdsSection
         thresholds={local.thresholds}
         latestList={local.thresholds_latest ?? []}

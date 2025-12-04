@@ -84,6 +84,18 @@ export type Thresholds = {
 
 /* -------- Targets -------- */
 
+export interface RunTargets {
+  race_goal: RaceDistanceKind | null;
+  custom_distance_km?: number | null;
+  current_best_time: string | null;
+  target_time: string | null;
+  longest_recent_distance_km: number | null;
+  priority?: RacePriority | null;
+  race_type?: RaceType | null;
+  terrain?: RaceTerrain | null;
+  elevation_profile?: RaceElevationProfile | null;
+}
+
 /**
  * Jeden konkrétny pretek (key race).
  * Môže ich byť viac (A/B/C), ukladáme ich v RunTargets.races.
@@ -130,12 +142,6 @@ export interface RunRaceTarget {
  * RunTargets teraz = zoznam key races + globálne info.
  * Žiadny current_best_time – ten berieme z PB tabuľky.
  */
-export interface RunTargets {
-  races?: RunRaceTarget[];
-
-  /** najdlhší nedávny beh (napr. posledných 6–8 týždňov) */
-  longest_recent_distance_km?: number | null;
-}
 
 export interface BikeTargets {
   focus: "endurance" | "ftp" | "vo2";
@@ -317,8 +323,15 @@ export const DEFAULT_PREFS: CoachPrefs = {
   primary_sports: ["run"],
   targets: {
     run: {
-      races: [],
+      race_goal: null,
+      custom_distance_km: null,
+      current_best_time: null,
+      target_time: null,
       longest_recent_distance_km: null,
+      priority: null,
+      race_type: null,
+      terrain: null,
+      elevation_profile: null,
     },
     ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
