@@ -9,8 +9,6 @@ from Routes_DB.user_recovery import (
     db_update_recovery,
     db_get_recent_recovery,
 )
-from Routes_DB.users import db_get_user_by_auth_uid
-
 
 def service_insert_or_update_recovery(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -20,17 +18,12 @@ def service_insert_or_update_recovery(payload: Dict[str, Any]) -> Dict[str, Any]
     user_id = payload["user_id"]
     date_iso = payload.get("date") or datetime.now().date().isoformat()
 
-    # auth_uid pre traceability
-    auth_uid = db_get_user_by_auth_uid(str(user_id))
-    if not auth_uid:
-        raise RuntimeError("User not found (missing auth_uid)")
-
     # existujúci záznam?
     existing = db_get_recovery_record(user_id, date_iso)
 
     row = payload.copy()
     row["date"] = date_iso
-    row["user_uid"] = auth_uid
+    row["user_id"] = user_id
 
     if existing:
         rec_id = existing["id"]
