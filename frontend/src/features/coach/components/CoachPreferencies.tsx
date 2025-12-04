@@ -61,7 +61,7 @@ type CoachPrefsExtended = CoachPrefs & {
   thresholds_latest?: any[] | null; // posledné uložené z BE
 };
 
-const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
+const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
 
 function isoTodayPlus(days: number): string {
   const d = new Date();
@@ -184,22 +184,45 @@ export default function CoachPreferencies() {
   ) => {
     markDirty();
     setLocal((prev) => {
-      const prevTargets = prev.targets ?? {};
+      const prevTargets = (prev.targets ?? {}) as CoachPrefsExtended["targets"];
+
+      const emptyRun: NonNullable<CoachPrefsExtended["targets"]>["run"] = {
+        race_goal: null,
+        current_best_time: null,
+        target_time: null,
+        longest_recent_distance_km: null,
+        custom_distance_km: null,
+        priority: null,
+        race_type: null,
+        terrain: null,
+        elevation_profile: null,
+      };
+
+      const prevRun =
+        (prevTargets?.run as NonNullable<
+          CoachPrefsExtended["targets"]
+        >["run"]) ?? emptyRun;
 
       const nextRun = {
-        race_goal: prevTargets.run?.race_goal ?? null,
-        current_best_time: prevTargets.run?.current_best_time ?? null,
-        target_time: prevTargets.run?.target_time ?? null,
-        longest_recent_distance_km:
-          prevTargets.run?.longest_recent_distance_km ?? null,
-        ...patch,
+        race_goal: prevRun.race_goal,
+        current_best_time: prevRun.current_best_time,
+        target_time: prevRun.target_time,
+        longest_recent_distance_km: prevRun.longest_recent_distance_km,
+
+        custom_distance_km: prevRun.custom_distance_km,
+        priority: prevRun.priority,
+        race_type: prevRun.race_type,
+        terrain: prevRun.terrain,
+        elevation_profile: prevRun.elevation_profile,
+
+        ...patch, // prepíš len to, čo meníme
       };
 
       return {
         ...prev,
         targets: {
           ...prevTargets,
-          run: nextRun, // dotkneme sa len run
+          run: nextRun,
         },
       };
     });

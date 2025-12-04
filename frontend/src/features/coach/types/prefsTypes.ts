@@ -10,7 +10,7 @@ export type GoalKind =
   | "maintain";
 
 /** Podporované športy v coach prefs. */
-export type SportKind = "run" | "ride" | "strength" | "mixed" | "skate";
+export type SportKind = "run" | "ride" | "strength" | "swim";
 
 /** Coach personality (EN) + custom; allow null for "none selected". */
 export type CoachPersona =
@@ -19,6 +19,22 @@ export type CoachPersona =
   | "analyst"
   | "realist"
   | "custom";
+
+export type RacePriority = "A" | "B" | "C";
+
+/* -------- Race meta pre behy -------- */
+
+/** Štandardizované vzdialenosti + možnosť vlastnej. */
+export type RaceDistanceKind = "5k" | "10k" | "half" | "marathon" | "ultra" | "other";
+
+/** Typ behu / preteku. */
+export type RaceType = "road" | "trail" | "track" | "cross" | "ocr" | "other";
+
+/** Charakter terénu. */
+export type RaceTerrain = "flat" | "rolling" | "hilly" | "mountain";
+
+/** Hrubé kategórie prevýšenia. */
+export type RaceElevationProfile = "low" | "moderate" | "high";
 
 /* -------- Zones & Thresholds (NEW) -------- */
 
@@ -63,10 +79,35 @@ export interface Preferences {
 /* -------- Targets -------- */
 
 export interface RunTargets {
-  race_goal: "5k" | "10k" | "half" | "marathon" | null;
+  /** typ cieľovej vzdialenosti (5k/10k/half/marathon/ultra/other) */
+  race_goal: RaceDistanceKind | null;
+
+  /**
+   * Vlastná dĺžka preteku v km (napr. 7.5, 25, 50).
+   * Typicky sa používa keď race_goal === "other" alebo "ultra".
+   */
+  custom_distance_km?: number | null;
+
+  /** aktuálny osobák na túto vzdialenosť – "hh:mm:ss" */
   current_best_time: string | null;
+
+  /** cieľový čas – "hh:mm:ss" */
   target_time: string | null;
+
+  /** najdlhší nedávny beh (napr. posledných 6–8 týždňov) */
   longest_recent_distance_km: number | null;
+
+  /** dôležitosť preteku (A = hlavný cieľ, B/C doplnkové) */
+  priority?: RacePriority | null;
+
+  /** typ preteku (cesta, trail, dráha, OCR, …) */
+  race_type?: RaceType | null;
+
+  /** charakter terénu (rovina/kopcovitý/hory…) */
+  terrain?: RaceTerrain | null;
+
+  /** hrubé prevýšenie – low/moderate/high */
+  elevation_profile?: RaceElevationProfile | null;
 }
 
 export interface BikeTargets {
@@ -81,7 +122,14 @@ export interface StrengthTargets {
 
 /* -------- External / injuries -------- */
 
-export type ExternalSport = "football" | "run" | "ride" | "strength" | "other";
+export type ExternalSport =
+  | "football"
+  | "run"
+  | "ride"
+  | "strength"
+  | "swim"
+  | "other";
+
 export type ExternalIntensity = "low" | "moderate" | "high";
 
 export type ExternalActivity = {
@@ -163,7 +211,7 @@ export type CoachPrefs = {
   sports?: SportKind[];           // legacy
   primary_sports?: SportKind[];
 
- // všetky 3 sú voliteľné – vieme ukladať iba run, bez prázdneho ride/strength
+  // všetky 3 sú voliteľné – vieme ukladať iba run, bez prázdneho ride/strength
   targets?: {
     run?: RunTargets;
     ride?: BikeTargets;
@@ -222,13 +270,18 @@ export type CoachPrefs = {
 
 export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
-  primary_sports: ["run"],  // namiesto ["run", "ride", "strength"]
+  primary_sports: ["run"],
   targets: {
     run: {
       race_goal: null,
+      custom_distance_km: null,
       current_best_time: null,
       target_time: null,
       longest_recent_distance_km: null,
+      priority: null,
+      race_type: null,
+      terrain: null,
+      elevation_profile: null,
     },
     ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
