@@ -4,14 +4,12 @@
 // Storage + DB helpers pre CoachPrefs + normalizácia legacy tvarov.
 import type { DayAbbrev } from "@/shared/types/day";
 
-import type {
-  CoachPrefs,
-  SportKind,
-  Preferences,
-} from "@/features/coach/types/prefsTypes";
-import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/shared/api/userPrefs";
+"use client";
+
+import type { CoachPrefs, SportKind, Preferences } from "@/features/coach/types/prefsTypes";
 import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coachTypes";
+import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
+import { apiGetCoachPrefs, apiSaveCoachPrefs } from "@/features/coach/api/prefs";
 
 /** Kľúče pre DB/LS */
 const KEY = "coach.prefs"; // meno preferencie v user_prefs
@@ -62,18 +60,17 @@ function broadcast(prefs: CoachPrefs) {
 /* -------------------- public API -------------------- */
 
 export function readCoachPrefsFromStorage(): CoachPrefs {
-  return lsGet() ?? DEFAULT_PREFS;
+  const raw = lsGet();
+  return normalizeCoachPrefs(raw);
 }
 
 export async function refreshCoachPrefsFromDB(
   userId: number
 ): Promise<CoachPrefs> {
-  const value = await apiFetchUserPref(userId, KEY);
-
-  // nenechávame surové, vždy normalizujeme
-  const prefs = normalizeCoachPrefs(value as any);
+  const raw = await apiGetCoachPrefs(userId);   // <- vytiahne .value z JSONu
+  const prefs = normalizeCoachPrefs(raw);
   lsSet(prefs);
-  broadcast(prefs); // nech sa widgety hneď refreshnú
+  broadcast(prefs);
   return prefs;
 }
 
@@ -81,7 +78,7 @@ export async function saveCoachPrefs(
   userId: number,
   prefs: CoachPrefs
 ): Promise<void> {
-  await apiUpsertUserPref(userId, KEY, prefs);
+  await apiSaveCoachPrefs(userId, prefs);
   lsSet(prefs);
   broadcast(prefs);
 }
@@ -99,75 +96,78 @@ export function normalizeCoachPrefs(
 ): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
-  // ak to už vyzerá ako nový tvar → len doplníme primary_sports + preferences
-  if ("targets" in input || "preferences" in input || "primary_sports" in input) {
-    const anyIn = input as any;
-    const i = input as CoachPrefs;
+  const anyIn = input as any;
 
+  // nová schéma (má targets/preferences/primary_sports)
+  const hasNewShape =
+    "targets" in anyIn ||
+    "preferences" in anyIn ||
+    "primary_sports" in anyIn;
+
+  if (hasNewShape) {
     const prefs: Preferences = {
-      days_off: i.preferences?.days_off ?? [],
+      days_off:
+        anyIn.preferences?.days_off ??
+        anyIn.days_off ??
+        DEFAULT_PREFS.preferences!.days_off,
       long_run_days:
-        i.preferences?.long_run_days ??
-        (anyIn.preferred_long_run_days as DayAbbrev[] | undefined) ??
-        [],
+        anyIn.preferences?.long_run_days ??
+        anyIn.preferred_long_run_days ??
+        DEFAULT_PREFS.preferences!.long_run_days,
       avoid_back_to_back_hard:
-        i.preferences?.avoid_back_to_back_hard ??
-        !!anyIn.avoid_back_to_back_hard,
-      use_zones: i.preferences?.use_zones ?? true,
+        anyIn.preferences?.avoid_back_to_back_hard ??
+        anyIn.avoid_back_to_back_hard ??
+        DEFAULT_PREFS.preferences!.avoid_back_to_back_hard,
+      use_zones:
+        anyIn.preferences?.use_zones ??
+        anyIn.use_zones ??
+        DEFAULT_PREFS.preferences!.use_zones,
       avoid_two_a_day:
-        i.preferences?.avoid_two_a_day ?? !!anyIn.avoid_two_a_day,
-      include_strides: i.preferences?.include_strides,
+        anyIn.preferences?.avoid_two_a_day ??
+        anyIn.avoid_two_a_day ??
+        DEFAULT_PREFS.preferences!.avoid_two_a_day,
+      include_strides:
+        anyIn.preferences?.include_strides ??
+        anyIn.include_strides ??
+        DEFAULT_PREFS.preferences!.include_strides,
     };
 
-    return {
-      ...i,
+    const result: CoachPrefs = {
+      ...DEFAULT_PREFS,                  // istota, že máme všetky polia
+      ...(input as CoachPrefs),          // dáta z DB
       primary_sports:
-        (i.primary_sports as SportKind[] | undefined) ??
+        (anyIn.primary_sports as SportKind[] | undefined) ??
         clampSports(anyIn.sports),
       preferences: prefs,
     };
+
+    return result;
   }
 
-  // ------- legacy loose -> canonical -------
+  // ---- legacy → canonical ----
   const l = input as CoachPrefsLegacyLoose;
 
   const legacyPrefs: Preferences = {
     days_off: [],
     long_run_days: [],
-    avoid_back_to_back_hard: !!l.avoid_back_to_back_hard,
+    avoid_back_to_back_hard: false,
     use_zones: true,
-    avoid_two_a_day: !!l.avoid_two_a_day,
+    avoid_two_a_day: true,
   };
 
-  return {
+  const result: CoachPrefs = {
+    ...DEFAULT_PREFS,
     goal_kind: (l.goal_kind ?? "improve_overall") as CoachPrefs["goal_kind"],
     distance: l.goal_distance_km ? String(l.goal_distance_km) : undefined,
     current_pace: l.current_pace ?? undefined,
     target_pace: l.target_pace ?? undefined,
     weeks: l.weeks ?? undefined,
     primary_sports: clampSports(l.sports),
-
-    targets: {
-      run: {
-        races: [],
-        race_goal: null,
-        custom_distance_km: null,
-        current_best_time: null,
-        target_time: null,
-        longest_recent_distance_km: null,
-        priority: null,
-        race_type: null,
-        terrain: null,
-        elevation_profile: null,
-      },
-      ride: { focus: "endurance", weekly_time_target_min: null },
-      strength: { focus: "general", sessions_per_week: 2 },
-    },
-
     preferences: legacyPrefs,
   };
-}
 
+  return result;
+}
 /* -------------------- live hook helpers -------------------- */
 
 /** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage). */

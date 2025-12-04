@@ -117,7 +117,10 @@ export default function CoachPreferencies() {
           thresholds_latest: thrRows,
         };
 
-        if (!dirtyRef.current) setLocal(next);
+        if (!dirtyRef.current) {
+          setLocal(next);
+          console.log("[CoachPreferencies] loaded prefs", next);
+        }
       } catch (e) {
         console.error("[CoachPrefs]init error", e);
       }
