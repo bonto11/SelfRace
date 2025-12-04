@@ -18,7 +18,7 @@ import type { typePB } from "@/features/coach/types/coachTypes";
 import { useUserId } from "@/shared/hooks/useUserId";
 
 // API – prefs
-import { apiGetPrefs, apiSavePrefs } from "@/features/coach/api/prefs";
+import { apiGetCoachPrefs, apiSaveCoachPrefs } from "@/features/coach/api/prefs";
 
 // API – personal bests (RUN)
 import { apiGetBests, type UserBest } from "@/shared/api/bests";
@@ -67,7 +67,7 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
 
     // prefs
-    const p = (await apiGetPrefs(userId).catch(() => null)) ?? DEFAULT_PREFS;
+    const p = (await apiGetCoachPrefs(userId).catch(() => null)) ?? DEFAULT_PREFS;
     setPrefs(p);
 
     // PB – RUN
@@ -80,7 +80,7 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
   const savePrefs = useCallback(
     async (next: CoachPrefs) => {
       if (!userId) return;
-      await apiSavePrefs(userId, next);
+      await apiSaveCoachPrefs(userId, next);
       setPrefs(next);
     },
     [userId]
