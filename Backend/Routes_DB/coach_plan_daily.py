@@ -1,15 +1,21 @@
 # Routes_DB/coach_plan_daily.py
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
+
 from Modules.SQL.db_handler import get_client
 
 supabase = get_client()
+TABLE = "coach_plan_daily"
 
 
 # ───────────────────────────── INSERT ─────────────────────────────
 
 
-def db_insert_planned_sessions(rows: List[Dict[str, Any]]) -> int:
+def db_insert_planned_sessions(
+    rows: List[Dict[str, Any]],
+    table_name: str = TABLE,
+) -> int:
     """
     Bulk INSERT do coach_plan_daily.
     Vracia počet vložených riadkov.
@@ -18,7 +24,7 @@ def db_insert_planned_sessions(rows: List[Dict[str, Any]]) -> int:
         return 0
 
     try:
-        res = supabase.table("coach_plan_daily").insert(rows).execute()
+        res = supabase.table(table_name).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-DAILY] inserted rows:", len(data))
         return len(data)
@@ -34,13 +40,14 @@ def db_get_planned_range_rows(
     user_id: int,
     start_iso: str,
     end_iso: str,
+    table_name: str = TABLE,
 ):
     """
     Všetky planned sessions v rozsahu [start, end].
     """
     try:
         res = (
-            supabase.table("coach_plan_daily")
+            supabase.table(table_name)
             .select("*")
             .eq("user_id", user_id)
             .gte("plan_date", start_iso)
@@ -60,12 +67,13 @@ def db_get_planned_sessions_filtered(
     date_from: Optional[str],
     date_to: Optional[str],
     plan_id: Optional[str],
+    table_name: str = TABLE,
 ):
     """
     Starší univerzálny filter – podľa dátumu a/alebo plan_id.
     """
     try:
-        q = supabase.table("coach_plan_daily").select("*").eq("user_id", user_id)
+        q = supabase.table(table_name).select("*").eq("user_id", user_id)
 
         if date_from:
             q = q.gte("plan_date", date_from)
@@ -90,6 +98,7 @@ def db_fetch_plan_rows_in_range(
     start_iso: str,
     end_iso: str,
     columns: Optional[str] = None,
+    table_name: str = TABLE,
 ):
     """
     Helper – výber s možnosťou obmedziť stĺpce (napr. 'id, plan_date, plan_id').
@@ -97,7 +106,7 @@ def db_fetch_plan_rows_in_range(
     try:
         sel = columns or "*"
         res = (
-            supabase.table("coach_plan_daily")
+            supabase.table(table_name)
             .select(sel)
             .eq("user_id", user_id)
             .gte("plan_date", start_iso)
@@ -119,13 +128,15 @@ def db_clear_range_for_user(
     user_id: int,
     start_iso: str,
     end_iso: str,
+    table_name: str = TABLE,
 ) -> int:
     """
-    Zmaže plán v danom rozsahu (typicky 1 týždeň) pre usera.
+    Zmaže plán v danom rozsahu (typicky 1 týždeň) pre usera – bez ohľadu na plan_id.
+    Vhodné pre staršie použitie.
     """
     try:
         res = (
-            supabase.table("coach_plan_daily")
+            supabase.table(table_name)
             .delete()
             .eq("user_id", user_id)
             .gte("plan_date", start_iso)
@@ -146,10 +157,49 @@ def db_clear_range_for_user(
         return 0
 
 
+def db_clear_range_for_user_plan(
+    user_id: int,
+    plan_id: str,
+    start_iso: str,
+    end_iso: str,
+    table_name: str = TABLE,
+) -> int:
+    """
+    Zmaže plán v danom rozsahu (typicky 1 týždeň) pre usera a konkrétny plan_id.
+
+    Toto je to, čo bude používať nový daily generátor:
+      - user_id + plan_id + [week_start, week_end]
+    """
+    try:
+        res = (
+            supabase.table(table_name)
+            .delete()
+            .eq("user_id", user_id)
+            .eq("plan_id", plan_id)
+            .gte("plan_date", start_iso)
+            .lte("plan_date", end_iso)
+            .execute()
+        )
+        data = res.data or []
+        print(
+            "[DB-COACH-DAILY] clear_range_plan user=%s plan_id=%s %s..%s deleted=%s",
+            user_id,
+            plan_id,
+            start_iso,
+            end_iso,
+            len(data),
+        )
+        return len(data)
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] clear_range_plan error:", repr(e))
+        return 0
+
+
 def db_delete_plan_for_user(
     user_id: int,
     plan_id: Optional[str],
     from_iso: Optional[str],
+    table_name: str = TABLE,
 ) -> int:
     """
     Zmaže plán:
@@ -157,7 +207,7 @@ def db_delete_plan_for_user(
       - inak všetko od from_iso (vrátane).
     """
     try:
-        q = supabase.table("coach_plan_daily").delete().eq("user_id", user_id)
+        q = supabase.table(table_name).delete().eq("user_id", user_id)
 
         if plan_id:
             q = q.eq("plan_id", plan_id)
@@ -185,6 +235,7 @@ def db_delete_plan_for_user(
 def db_link_session_to_activity(
     session_id: int,
     activity_id: Optional[int],
+    table_name: str = TABLE,
 ) -> int:
     """
     Update activity_id pre 1 session.
@@ -192,7 +243,7 @@ def db_link_session_to_activity(
     """
     try:
         res = (
-            supabase.table("coach_plan_daily")
+            supabase.table(table_name)
             .update({"activity_id": activity_id})
             .eq("id", session_id)
             .execute()
@@ -207,6 +258,7 @@ def db_link_session_to_activity(
 def db_reorder_planned_sessions(
     user_id: int,
     updates: List[Dict[str, Any]],
+    table_name: str = TABLE,
 ) -> int:
     """
     Batch update plan_date + session_index pre viac riadkov.
@@ -221,7 +273,7 @@ def db_reorder_planned_sessions(
                 "session_index": int(u["session_index"]),
             }
             res = (
-                supabase.table("coach_plan_daily")
+                supabase.table(table_name)
                 .update(payload)
                 .eq("user_id", user_id)
                 .eq("id", sid)
