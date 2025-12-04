@@ -100,19 +100,19 @@ export function normalizeCoachPrefs(
 
   const anyIn = input as any;
 
-  const isCanonical =
-    "targets" in anyIn || "preferences" in anyIn || "primary_sports" in anyIn;
-
-  /* -------- už nová schéma -------- */
-  if (isCanonical) {
+  // -------- už nový (kanonický) CoachPrefs --------
+  if (
+    "targets" in input ||
+    "preferences" in input ||
+    "primary_sports" in input
+  ) {
     const i = input as CoachPrefs;
 
     const prefs: Preferences = {
       days_off: i.preferences?.days_off ?? [],
       long_run_days:
         i.preferences?.long_run_days ??
-        (anyIn.preferred_long_run_days as Preferences["long_run_days"]) ??
-        [],
+        ((anyIn.preferred_long_run_days as any[] | undefined) ?? []),
       avoid_back_to_back_hard:
         i.preferences?.avoid_back_to_back_hard ??
         !!anyIn.avoid_back_to_back_hard,
@@ -131,16 +131,17 @@ export function normalizeCoachPrefs(
     };
   }
 
-  /* -------- legacy loose → canonical -------- */
-
+  // -------- legacy loose -> kanonický --------
   const l = input as CoachPrefsLegacyLoose;
 
   const legacyPrefs: Preferences = {
     days_off: [],
-    long_run_days: [],
+    long_run_days:
+      (l.preferred_long_run_days as any[] | undefined) ?? [],
     avoid_back_to_back_hard: !!l.avoid_back_to_back_hard,
     use_zones: true,
     avoid_two_a_day: !!l.avoid_two_a_day,
+    include_strides: false,
   };
 
   return {

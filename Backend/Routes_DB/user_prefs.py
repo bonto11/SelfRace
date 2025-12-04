@@ -30,7 +30,6 @@ def db_get_pref_single(user_id: int, key: str) -> Optional[Dict[str, Any]]:
         .limit(1)
         .execute()
     )
-    print("res.data",res.data)
     rows = list(res.data or [])
     return rows[0] if rows else None
 
