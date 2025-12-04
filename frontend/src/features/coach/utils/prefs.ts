@@ -3,7 +3,11 @@
 
 // Storage + DB helpers pre CoachPrefs + normalizácia legacy tvarov.
 
-import type { CoachPrefs, SportKind } from "@/features/coach/types/prefsTypes";
+import type {
+  CoachPrefs,
+  SportKind,
+  Preferences,
+} from "@/features/coach/types/prefsTypes";
 import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/shared/api/userPrefs";
 import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coachTypes";
@@ -17,7 +21,7 @@ const EVT = "coach:prefs-updated";
 
 /* -------------------- helpers -------------------- */
 
-const SPORT_SET = new Set(["run", "ride", "strength", "mixed", "skate"]);
+const SPORT_SET = new Set(["run", "ride", "strength", "mixed", "skate", "swim"]);
 
 const clampSports = (xs?: string[] | null): SportKind[] | undefined =>
   xs?.filter((s): s is SportKind => SPORT_SET.has(s as SportKind)) || undefined;
@@ -64,7 +68,9 @@ export async function refreshCoachPrefsFromDB(
   userId: number
 ): Promise<CoachPrefs> {
   const value = await apiFetchUserPref(userId, KEY);
-  const prefs = (value as CoachPrefs | null) ?? DEFAULT_PREFS;
+
+  // nenechávame surové, vždy normalizujeme
+  const prefs = normalizeCoachPrefs(value as any);
   lsSet(prefs);
   broadcast(prefs); // nech sa widgety hneď refreshnú
   return prefs;
@@ -92,30 +98,51 @@ export function normalizeCoachPrefs(
 ): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
-  // už kanonický tvar
-  if (
-    "targets" in input ||
-    "preferences" in input ||
-    "primary_sports" in input
-  ) {
+  const anyIn = input as any;
+
+  const isCanonical =
+    "targets" in anyIn || "preferences" in anyIn || "primary_sports" in anyIn;
+
+  /* -------- už nová schéma -------- */
+  if (isCanonical) {
     const i = input as CoachPrefs;
+
+    const prefs: Preferences = {
+      days_off: i.preferences?.days_off ?? [],
+      long_run_days:
+        i.preferences?.long_run_days ??
+        (anyIn.preferred_long_run_days as Preferences["long_run_days"]) ??
+        [],
+      avoid_back_to_back_hard:
+        i.preferences?.avoid_back_to_back_hard ??
+        !!anyIn.avoid_back_to_back_hard,
+      use_zones: i.preferences?.use_zones ?? true,
+      avoid_two_a_day:
+        i.preferences?.avoid_two_a_day ?? !!anyIn.avoid_two_a_day,
+      include_strides: i.preferences?.include_strides,
+    };
+
     return {
       ...i,
       primary_sports:
         (i.primary_sports as SportKind[] | undefined) ??
-        clampSports((i as any).sports),
-      preferences: i.preferences ?? {
-        days_off: [],
-        avoid_back_to_back_hard: !!(i as any).avoid_back_to_back_hard,
-        use_zones: true,
-        avoid_two_a_day: !!(i as any).avoid_two_a_day,
-        long_run_days: (i as any).preferred_long_run_days,
-      },
+        clampSports(anyIn.sports),
+      preferences: prefs,
     };
   }
 
-  // legacy loose → canonical
+  /* -------- legacy loose → canonical -------- */
+
   const l = input as CoachPrefsLegacyLoose;
+
+  const legacyPrefs: Preferences = {
+    days_off: [],
+    long_run_days: [],
+    avoid_back_to_back_hard: !!l.avoid_back_to_back_hard,
+    use_zones: true,
+    avoid_two_a_day: !!l.avoid_two_a_day,
+  };
+
   return {
     goal_kind: (l.goal_kind ?? "improve_overall") as CoachPrefs["goal_kind"],
     distance: l.goal_distance_km ? String(l.goal_distance_km) : undefined,
@@ -126,20 +153,19 @@ export function normalizeCoachPrefs(
     targets: {
       run: {
         race_goal: null,
+        custom_distance_km: null,
         current_best_time: null,
         target_time: null,
         longest_recent_distance_km: null,
+        priority: null,
+        race_type: null,
+        terrain: null,
+        elevation_profile: null,
       },
       ride: { focus: "endurance", weekly_time_target_min: null },
       strength: { focus: "general", sessions_per_week: 2 },
     },
-    preferences: {
-      days_off: [],
-      long_run_days: undefined,
-      avoid_back_to_back_hard: false,
-      use_zones: true,
-      avoid_two_a_day: true,
-    },
+    preferences: legacyPrefs,
   };
 }
 

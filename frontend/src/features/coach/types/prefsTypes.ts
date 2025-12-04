@@ -138,11 +138,6 @@ export interface RunRaceTarget {
   elevation_gain_m?: number | null;
 }
 
-/**
- * RunTargets teraz = zoznam key races + globálne info.
- * Žiadny current_best_time – ten berieme z PB tabuľky.
- */
-
 export interface BikeTargets {
   focus: "endurance" | "ftp" | "vo2";
   weekly_time_target_min: number | null;
