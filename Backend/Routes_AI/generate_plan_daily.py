@@ -12,11 +12,14 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
-
+from Schemas.coach_plan_daily import STRENGTH_EXERCISE_CATALOG
 
 # ---------- parsing utils (copy z analyze/weekly) ----------
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
+
+# ----- strength exercise catalog (for AI) -----
+
 
 
 def _strip_codefence(s: str) -> str:
@@ -78,48 +81,56 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 # ---------- prompt builder ----------
 
-
 def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     """
     context_payload typicky:
       {
-        "week": {...},
-        "prefs": { ... flattenuté coach prefs ... },
-        "targets": {
-          "run": {...},
-          "strength": { "focus": "...", "sessions_per_week": 2 }
-        },
-        "athlete_state": { ... analyze_athlete_state output ... },
-        "recent_load": { ... },
+        "week": { ... },            # weekly meta info (goal/focus/load_phase/planned_minutes…)
+        "prefs": { ... },           # coach prefs vrátane targets, days_off, long_run_days…
+        "targets": { ... },         # voliteľne duplicitne ako flatten
+        "athlete_state": { ... },   # výstup z analyze_athlete_state
+        "recent_load": { ... },     # posledné týždne
         "zones": { ... },
         "thresholds": { ... }
       }
     """
     week = context_payload.get("week") or {}
     prefs = context_payload.get("prefs") or {}
-    targets = context_payload.get("targets") or {}
-    ai_state = (context_payload.get("athlete_state") or {}).get("ai_state") or {}
+    targets = context_payload.get("targets") or prefs.get("targets") or {}
 
-    week_index = int(week.get("week_index") or 1)
-    week_start = week.get("week_start") or ""
-    week_end = week.get("week_end") or ""
+    week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
+    week_start = week.get("week_start") or context_payload.get("week_start") or ""
+    week_end = week.get("week_end") or context_payload.get("week_end") or ""
     focus = week.get("focus") or ""
     load_phase = week.get("load_phase") or ""
 
     main_sport = prefs.get("main_sport") or "run"
 
-    pref_core = prefs.get("preferences") or {}
-    days_off = pref_core.get("days_off") or []
-    long_run_days = pref_core.get("long_run_days") or []
-    avoid_two_a_day = bool(pref_core.get("avoid_two_a_day"))
-    avoid_back_to_back_hard = bool(pref_core.get("avoid_back_to_back_hard"))
+    # preferences: days off, long run days, two-a-day rules
+    pref_obj = prefs.get("preferences") or {}
+    days_off = pref_obj.get("days_off") or []
+    long_run_days = pref_obj.get("long_run_days") or []
+    avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
+    avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    strength_target = (
-        (targets.get("strength") or {}).get("sessions_per_week") or 0
+    avoid_two_a_day_str = "- Do NOT schedule two-a-day sessions.\n" if avoid_two_a_day else "- You may schedule two-a-day sessions if needed.\n"
+    avoid_back_to_back_hard_str = "- Do NOT schedule two hard sessions on consecutive days\n" if avoid_back_to_back_hard else "- You may schedule two hard sessions on consecutive days if needed.\n"
+    days_off_str = ", ".join(days_off) if days_off else "none"
+    long_run_str = ", ".join(long_run_days) if long_run_days else "none"
+
+    # strength target
+    strength_target = (targets.get("strength") or {}).get("sessions_per_week")
+    if strength_target:
+        strength_str = f"{strength_target}× týždenne"
+    else:
+        strength_str = "no explicit target"
+
+    # intensity limit z athlete_state
+    ai_state = (context_payload.get("athlete_state") or {}).get("ai_state") or {}
+    hard_max = (
+        (ai_state.get("intensity_tolerance") or {}).get("hard_sessions_per_week_max")
     )
-
-    intensity_tol = ai_state.get("intensity_tolerance") or {}
-    hard_max = intensity_tol.get("hard_sessions_per_week_max")
+    hard_str = f"max {hard_max} hard sessions / week" if hard_max else "not specified"
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -149,11 +160,40 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
           "zone_text": string | null,
           "notes": string | null,
           "structure": {
-            "warmup"?: { "minutes"?: number, "notes"?: string | null },
+            // For endurance sports (run/ride/swim):
+            "warmup"?: {
+              "minutes"?: number,
+              "notes"?: string | null
+            },
             "main"?: [
-              { "reps"?: number, "work_min"?: number, "recover_min"?: number, "notes"?: string | null }
+              {
+                "reps"?: number,
+                "work_min"?: number,
+                "recover_min"?: number,
+                "notes"?: string | null
+              }
             ],
-            "cooldown"?: { "minutes"?: number, "notes"?: string | null }
+            "cooldown"?: {
+              "minutes"?: number,
+              "notes"?: string | null
+            },
+
+            // For strength sessions:
+            "blocks"?: [
+              {
+                "name": string,          // e.g. "Lower body", "Upper body", "Core"
+                "sets": number,          // typical number of sets per exercise block
+                "exercises": [
+                  {
+                    "exercise_id": string,   // must match STRENGTH_EXERCISE_CATALOG.id
+                    "name": string,          // human-readable name
+                    "reps": string,          // e.g. "8-10", "6-8/ noha"
+                    "rest_s": number | null, // rest between sets in seconds
+                    "notes": string | null
+                  }
+                ]
+              }
+            ]
           },
           "targets"?: {
             "hr_bpm"?: [number, number] | null,
@@ -168,12 +208,6 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
 }
 """.strip()
 
-    # krátke zhrnutie pravidiel pre AI (explicitne, aby to neprehliadla v JSONe)
-    days_off_str = ", ".join(days_off) if days_off else "žiadne fixné"
-    long_run_str = ", ".join(long_run_days) if long_run_days else "flexibilné"
-    strength_str = f"{strength_target}×/týždeň" if strength_target else "0×/týždeň"
-    hard_str = f"max {hard_max} ťažké tréningy/týždeň" if hard_max else "rozumný limit ťažkých tréningov"
-
     user_txt = (
         "Generate a DAILY TRAINING PLAN for exactly one calendar week based on the context JSON.\n"
         f"Week index: {week_index}\n"
@@ -186,6 +220,8 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         f"Intensity limit: {hard_str}\n\n"
         "CONTEXT_JSON (this is the only ground truth – use it carefully):\n"
         + json.dumps(context_payload, ensure_ascii=False)
+        + "\n\nSTRENGTH_EXERCISE_CATALOG (use ONLY these exercises for strength sessions):\n"
+        + json.dumps(STRENGTH_EXERCISE_CATALOG, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
@@ -193,16 +229,18 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         "- All free text (title, notes) MUST be in Slovak language.\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array. If it is a rest day, use exactly one session with:\n"
-        "    { \"sport\": \"other\", \"title\": \"Rest day\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n"
-        "- Respect prefs: days_off, long_run_days, and avoid scheduling two hard sessions back-to-back.\n"
-        f"- Do NOT schedule two-a-day sessions when {avoid_two_a_day} is true.\n"
-        f"- Do NOT schedule day-to-day hard sessions when {avoid_back_to_back_hard} is true.\n"
-        "- Use `hard_sessions_per_week_max` from the context (or a reasonable limit) to cap the number of hard/intense sessions.\n"
-        "- If `strength.sessions_per_week` is >= 1, you MUST schedule approximately that many sessions with `sport = 'strength'` "
-        "distributed through the week (for example 1–3 short strength sessions). It is OK to slightly reduce in taper/recovery weeks.\n"
-        "- Keep total weekly load consistent with `volume_tolerance` and recent_load from the context.\n"
+        "    { \"sport\": \"other\", \"title\": \"Deň odpočinku\" | \"Rest day\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n"
+        "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on external high-intensity activity days (e.g. football).\n"
+        f"- {avoid_two_a_day_str} \n"
+        f"- {avoid_back_to_back_hard_str} \n"
+        "- Use `hard_sessions_per_week_max` from the context (or a reasonable limit) to cap the number of hard/intense sessions per week.\n"
+        "- If strength.sessions_per_week is >= 1, you MUST schedule approximately that many strength sessions distributed through the week.\n"
+        "- For strength sessions, you MUST use the STRENGTH_EXERCISE_CATALOG only. Every exercise must have exercise_id, name, reps and rest_s.\n"
+        "- For strength sessions, use sets x reps, NOT minutes-based intervals in `main`. Use the `blocks` structure.\n"
+        "- Keep total weekly load consistent with volume_tolerance and recent_load from the context.\n"
         "- Do NOT invent extreme workloads. Keep all durations and intensities realistic.\n"
     )
+
     return system_txt, user_txt
 
 def _call_openai_raw(
