@@ -18,9 +18,6 @@ from Schemas.coach_plan_daily import STRENGTH_EXERCISE_CATALOG
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
-# ----- strength exercise catalog (for AI) -----
-
-
 
 def _strip_codefence(s: str) -> str:
     m = CODEFENCE_RE.search(s)
@@ -80,7 +77,6 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 # ---------- prompt builder ----------
-
 def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     """
     context_payload typicky:
@@ -113,17 +109,27 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    avoid_two_a_day_str = "- Do NOT schedule two-a-day sessions.\n" if avoid_two_a_day else "- You may schedule two-a-day sessions if needed.\n"
-    avoid_back_to_back_hard_str = "- Do NOT schedule two hard sessions on consecutive days\n" if avoid_back_to_back_hard else "- You may schedule two hard sessions on consecutive days if needed.\n"
     days_off_str = ", ".join(days_off) if days_off else "none"
     long_run_str = ", ".join(long_run_days) if long_run_days else "none"
+    avoid_two_a_day_str = (
+        "- Do NOT schedule two-a-day sessions.\n"
+        if avoid_two_a_day
+        else "- You may schedule two-a-day sessions if needed.\n"
+    )
+    avoid_back_to_back_hard_str = (
+        "- Do NOT schedule two hard sessions on consecutive days.\n"
+        if avoid_back_to_back_hard
+        else "- You may schedule two hard sessions on consecutive days if needed.\n"
+    )
 
     # strength target
-    strength_target = (targets.get("strength") or {}).get("sessions_per_week")
-    if strength_target:
-        strength_str = f"{strength_target}× týždenne"
+    strength_cfg = targets.get("strength") or {}
+    strength_sessions = int(strength_cfg.get("sessions_per_week") or 0)
+    strength_focus = strength_cfg.get("focus") or "general"
+    if strength_sessions > 0:
+        strength_str = f"{strength_sessions}× týždenne, fokus={strength_focus}"
     else:
-        strength_str = "no explicit target"
+        strength_str = "no explicit target (default general full-body)"
 
     # intensity limit z athlete_state
     ai_state = (context_payload.get("athlete_state") or {}).get("ai_state") or {}
@@ -155,12 +161,13 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
           "sport": "run" | "ride" | "strength" | "swim" | "other",
           "title": string,
           "duration_min": number,
-          "intensity": string | null,
-          "session_type": string | null,
-          "zone_text": string | null,
-          "notes": string | null,
+          "intensity": string | null,       // 'easy', 'moderate', 'hard', 'recovery', 'rest', ...
+          "session_type": string | null,    // internal code, e.g. 'run_easy', 'run_intervals_5k', 'strength_fullbody'
+          "zone_text": string | null,       // e.g. 'Z2', 'Z3–Z4', 'Z1–Z2' (for endurance sports)
+          "notes": string | null,           // Slovak
+
           "structure": {
-            // For endurance sports (run/ride/swim):
+            // For ENDURANCE sessions (run/ride/swim/other endurance):
             "warmup"?: {
               "minutes"?: number,
               "notes"?: string | null
@@ -178,29 +185,30 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
               "notes"?: string | null
             },
 
-            // For strength sessions:
-            "blocks"?: [
+            // For STRENGTH sessions:
+            "strength_exercises"?: [
               {
-                "name": string,          // e.g. "Lower body", "Upper body", "Core"
-                "sets": number,          // typical number of sets per exercise block
-                "exercises": [
-                  {
-                    "exercise_id": string,   // must match STRENGTH_EXERCISE_CATALOG.id
-                    "name": string,          // human-readable name
-                    "reps": string,          // e.g. "8-10", "6-8/ noha"
-                    "rest_s": number | null, // rest between sets in seconds
-                    "notes": string | null
-                  }
-                ]
+                "slot": "lower_quad"
+                      | "lower_posterior"
+                      | "core"
+                      | "upper_pull"
+                      | "upper_push"
+                      | "full_body",
+                "sets": number,             // e.g. 3
+                "reps": string,             // e.g. "6-8" or "8-12"
+                "rest_s": number | null,    // e.g. 60–120 (seconds)
+                "notes": string | null      // short coaching cues in Slovak
               }
             ]
           },
-          "targets"?: {
+
+          "targets"?: {                     // optional, if you want to send them
             "hr_bpm"?: [number, number] | null,
             "pace_min_per_km"?: string | null,
             "power_w"?: number | null
           },
-          "payload"?: object | null
+
+          "payload"?: object | null         // optional, any extra internal data
         }
       ]
     }
@@ -220,8 +228,6 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         f"Intensity limit: {hard_str}\n\n"
         "CONTEXT_JSON (this is the only ground truth – use it carefully):\n"
         + json.dumps(context_payload, ensure_ascii=False)
-        + "\n\nSTRENGTH_EXERCISE_CATALOG (use ONLY these exercises for strength sessions):\n"
-        + json.dumps(STRENGTH_EXERCISE_CATALOG, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
@@ -229,20 +235,22 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         "- All free text (title, notes) MUST be in Slovak language.\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array. If it is a rest day, use exactly one session with:\n"
-        "    { \"sport\": \"other\", \"title\": \"Deň odpočinku\" | \"Rest day\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n"
-        "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on external high-intensity activity days (e.g. football).\n"
-        f"- {avoid_two_a_day_str} \n"
-        f"- {avoid_back_to_back_hard_str} \n"
+        "    { \"sport\": \"other\", \"title\": \"Deň odpočinku\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n"
+        "- Respect prefs: `days_off`, `long_run_days`, and avoid scheduling hard run sessions on external high-intensity activity days (e.g. football) from the context JSON.\n"
+        f"{avoid_two_a_day_str}"
+        f"{avoid_back_to_back_hard_str}"
         "- Use `hard_sessions_per_week_max` from the context (or a reasonable limit) to cap the number of hard/intense sessions per week.\n"
-        "- If strength.sessions_per_week is >= 1, you MUST schedule approximately that many strength sessions distributed through the week.\n"
-        "- For strength sessions, you MUST use the STRENGTH_EXERCISE_CATALOG only. Every exercise must have exercise_id, name, reps and rest_s.\n"
-        "- For strength sessions, use sets x reps, NOT minutes-based intervals in `main`. Use the `blocks` structure.\n"
-        "- Keep total weekly load consistent with volume_tolerance and recent_load from the context.\n"
+        "- Use `athlete_state` and `recent_load` to distribute volume and intensity safely.\n"
         "- Do NOT invent extreme workloads. Keep all durations and intensities realistic.\n"
+        "- For STRENGTH sessions, you MUST use `structure.strength_exercises` (do not use warmup/main/cooldown there).\n"
+        "- Do NOT use any pace/tempo fields for strength – only sets, reps and rest_s.\n"
+        "- If `strength.sessions_per_week` <= 1 in the context, create exactly ONE full-body strength session that week with at least 6 exercises in `strength_exercises`.\n"
+        "- If `strength.sessions_per_week` >= 2, create full-body strength distribution across the week, and each strength session must contain 4–6 exercises in `strength_exercises`.\n"
+        "- Across the week, strength sessions together must cover at least: one `lower_quad`, one `lower_posterior`, one `core`, and one `upper_pull` or `upper_push` slot.\n"
+        "- Do NOT output exact exercise names. Use only the `slot` categories; the app will map slots to specific exercises depending on available equipment.\n"
     )
 
     return system_txt, user_txt
-
 def _call_openai_raw(
     client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
 ) -> str:

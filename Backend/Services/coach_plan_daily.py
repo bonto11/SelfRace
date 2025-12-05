@@ -194,7 +194,8 @@ def service_generate_daily_week(
             }
             rows_to_insert.append(row)
 
-    inserted_rows = db_insert_daily_rows(rows_to_insert)
+    #inserted_rows = db_insert_daily_rows(rows_to_insert)
+    inserted_rows = []
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
