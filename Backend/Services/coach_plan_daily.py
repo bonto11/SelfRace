@@ -11,6 +11,7 @@ from Routes_DB.coach_plan_daily import (
     db_insert_daily_rows,
     db_clear_daily_for_user_week,
 )
+from Routes_AI.generate_plan_daily import generate_daily_week_json
 
 
 def _build_daily_rows_from_ai(
@@ -63,7 +64,7 @@ def service_generate_daily_week(
     plan_id: Optional[str] = None,
     overwrite: bool = True,
     model: Optional[str] = None,
-    debug: bool = False,
+    debug: bool = True,
 ) -> Dict[str, Any]:
     """
     Generovanie DAILY plánu pre konkrétny týždeň.
@@ -126,8 +127,6 @@ def service_generate_daily_week(
     }
 
     daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
-
-    from Routes_AI.generate_plan_daily import generate_daily_week_json
 
     daily_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
