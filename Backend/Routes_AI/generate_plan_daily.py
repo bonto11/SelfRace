@@ -5,13 +5,16 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Services.coach_strength_mapper import (
+    enrich_daily_plan_with_strength_exercises,
+)
 
 # ---------- parsing utils (copy z analyze/weekly) ----------
 
@@ -73,6 +76,71 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     if explicit_model and explicit_model not in env_models:
         return [explicit_model] + env_models
     return env_models if not explicit_model else [explicit_model] + env_models
+
+
+def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Vráti orezanú verziu context_payload pre AI:
+    - necháva len to, čo AI reálne potrebuje na plánovanie,
+    - zahadzuje veci typu strength_settings, coach_tone atď.
+    """
+    ctx2: Dict[str, Any] = {}
+
+    # week meta
+    if "week" in ctx:
+        ctx2["week"] = ctx["week"]
+
+    # zones & thresholds & recent_load – sú užitočné pre plánovanie a nie sú obrovské
+    if "zones" in ctx:
+        ctx2["zones"] = ctx["zones"]
+    if "thresholds" in ctx:
+        ctx2["thresholds"] = ctx["thresholds"]
+    if "recent_load" in ctx:
+        ctx2["recent_load"] = ctx["recent_load"]
+
+    # prefs – orezané
+    prefs = ctx.get("prefs") or {}
+    prefs2: Dict[str, Any] = {}
+    prefs2["main_sport"] = prefs.get("main_sport")
+    prefs2["start_date"] = prefs.get("start_date")
+    prefs2["preferences"] = prefs.get("preferences") or {}
+
+    # TARGETS – necháme len to podstatné (vrátane strength.sessions_per_week)
+    targets = (prefs.get("targets") or {}).copy()
+    run_t = targets.get("run") or {}
+    strength_t = targets.get("strength") or {}
+
+    targets2: Dict[str, Any] = {}
+    if run_t:
+        targets2["run"] = {
+            "race_goal": run_t.get("race_goal"),
+            "race_type": run_t.get("race_type"),
+            "target_time": run_t.get("target_time"),
+            "races": run_t.get("races"),  # môže byť užitočné
+        }
+    if strength_t:
+        targets2["strength"] = {
+            "focus": strength_t.get("focus"),
+            "sessions_per_week": strength_t.get("sessions_per_week"),
+        }
+
+    prefs2["targets"] = targets2
+
+    # zahodíme veci, ktoré AI netreba: strength_settings, coach_tone, rehab_focus, secondary_mix, external_activities...
+    ctx2["prefs"] = prefs2
+
+    # athlete_state – necháme len ai_state (volume/intensity tolerance, metrics)
+    athlete_state = ctx.get("athlete_state") or {}
+    ai_state = athlete_state.get("ai_state") or {}
+    ctx2["athlete_state"] = {"ai_state": ai_state}
+
+    # top-level „bezpečné“ polia, ktoré môžu byť užitočné
+    if "user_id" in ctx:
+        ctx2["user_id"] = ctx["user_id"]
+    if "plan_id" in ctx:
+        ctx2["plan_id"] = ctx["plan_id"]
+
+    return ctx2
 
 
 # ---------- prompt builder ----------
@@ -216,6 +284,8 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
 }
 """.strip()
 
+    context_for_ai = _minify_context_for_ai(context_payload)
+
     user_txt = (
         "Generate a DAILY TRAINING PLAN for exactly one calendar week based on the context JSON.\n"
         f"Week index: {week_index}\n"
@@ -229,7 +299,7 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         "STRENGTH SLOTS (concept only, not concrete exercises):\n"
         + strength_slots_desc
         + "\n\nCONTEXT_JSON (this is the only ground truth – use it carefully):\n"
-        + json.dumps(context_payload, ensure_ascii=False)
+        + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
@@ -237,7 +307,7 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         "- All free text (title, notes) MUST be in Slovak language.\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array. If it is a rest day, use exactly one session with:\n"
-        "    { \"sport\": \"other\", \"title\": \"Deň odpočinku\" | \"Rest day\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n"
+        '    { "sport": "other", "title": "Deň odpočinku" | "Rest day", "duration_min": 0, "intensity": "rest", "session_type": "rest_day" }.\n'
         "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on external high-intensity activity days (e.g. football).\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
@@ -306,6 +376,20 @@ def generate_daily_week_json(
     week_start = week.get("week_start") or None
     week_end = week.get("week_end") or None
 
+    # user + equip pre strength enrichment
+    user_id_raw = context_payload.get("user_id")
+    try:
+        user_id = int(user_id_raw) if user_id_raw is not None else 0
+    except Exception:
+        user_id = 0
+
+    prefs = context_payload.get("prefs") or {}
+    strength_settings = prefs.get("strength_settings") or {}
+    available_equipment = strength_settings.get("available") or []
+    today_date: date = datetime.now(timezone.utc).date()
+
+    plan_id_from_ctx = context_payload.get("plan_id")
+
     for m in models:
         for attempt in range(1, retries + 1):
             started = time.time()
@@ -346,6 +430,20 @@ def generate_daily_week_json(
                     parsed["week_end"] = week_end
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
+
+                # plan_id (aby ho videl strength_history mapper)
+                if plan_id_from_ctx and "plan_id" not in parsed:
+                    parsed["plan_id"] = plan_id_from_ctx
+
+                # Enrich strength sessions konkrétnymi cvikmi + zapíš históriu
+                if user_id > 0:
+                    parsed = enrich_daily_plan_with_strength_exercises(
+                        user_id=user_id,
+                        daily_plan=parsed,
+                        available_equipment=available_equipment,
+                        today=today_date,
+                        weeks_back=8,
+                    )
 
                 if debug_raw:
                     trace["raw"] = raw_keep
