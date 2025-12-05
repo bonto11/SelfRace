@@ -5,77 +5,55 @@ from typing import Any, Dict, Optional, List
 
 from Configs.config import DEFAULT_MODEL
 from Services.coach_athlete_state import build_input_from_db
-from Services.coach_plan_weekly import _load_athlete_state_for_plan
-from Routes_DB.coach_plan_weekly import (
-    db_get_week_row_for_plan,
-    db_get_latest_plan_id_for_user,
-)
+from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
+from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Routes_DB.coach_plan_daily import (
     db_insert_daily_rows,
     db_clear_daily_for_user_week,
 )
-from Routes_AI.generate_plan_daily import generate_daily_week_json
 
 
-def _build_week_context(weekly_row: Dict[str, Any]) -> Dict[str, Any]:
+def _build_daily_rows_from_ai(
+    user_id: int,
+    plan_id: Optional[str],
+    daily_plan: Dict[str, Any],
+) -> List[Dict[str, Any]]:
     """
-    Poskladá week objekt pre AI z DB riadku coach_plan_weekly.
-
-    Preferuje raw_json (ak existuje a je dict), ale doplní
-    / prepíše kľúčové polia z DB (week_index, week_start, ...).
+    Preklopí AI výstup (daily_plan JSON) do rows pre coach_plan_daily.
     """
-    week: Dict[str, Any] = {}
+    days = daily_plan.get("days") or []
+    rows: List[Dict[str, Any]] = []
 
-    raw = weekly_row.get("raw_json")
-    if isinstance(raw, dict):
-        week = dict(raw)  # shallow copy
-    else:
-        week = {}
+    for day in days:
+        date_str = day.get("date")
+        sessions = day.get("sessions") or []
+        if not date_str or not isinstance(sessions, list):
+            continue
 
-    # povinné polia z DB
-    for key in [
-        "week_index",
-        "week_start",
-        "week_end",
-        "goal",
-        "focus",
-        "load_phase",
-        "planned_km",
-        "planned_minutes",
-        "notes",
-    ]:
-        if key in weekly_row and weekly_row[key] is not None:
-            week[key] = weekly_row[key]
+        for idx, s in enumerate(sessions):
+            if not isinstance(s, dict):
+                continue
 
-    # fallbacky
-    if "week_index" not in week:
-        week["week_index"] = weekly_row.get("week_index")
-    if "week_start" not in week:
-        week["week_start"] = weekly_row.get("week_start")
-    if "week_end" not in week:
-        week["week_end"] = weekly_row.get("week_end")
+            row: Dict[str, Any] = {
+                "user_id": user_id,
+                "plan_date": date_str,
+                "sport": s.get("sport") or "other",
+                "title": s.get("title"),
+                "duration_min": s.get("duration_min"),
+                "intensity": s.get("intensity"),
+                "zone_text": s.get("zone_text"),
+                "structure": s.get("structure"),
+                "notes": s.get("notes"),
+                "source": "ai_daily_v1",
+                "plan_id": plan_id,
+                "session_type": s.get("session_type"),
+                "session_index": int(s.get("session_index") or idx),
+                "payload": s.get("payload"),
+                "activity_id": None,
+            }
+            rows.append(row)
 
-    return week
-
-
-def _extract_days_payload(daily_plan: Any) -> List[Dict[str, Any]]:
-    """
-    Z AI výstupu vytiahne list dní.
-    Podporujeme:
-      - {"days": [ ... ]}
-      - [ { date: ..., sessions: [...] }, ... ]
-    """
-    if isinstance(daily_plan, dict):
-        days = daily_plan.get("days")
-        if isinstance(days, list):
-            return days
-        # fallback: ak by AI poslalo rovno list v "plan"
-        if isinstance(daily_plan.get("plan"), list):
-            return daily_plan["plan"]
-        return []
-    if isinstance(daily_plan, list):
-        return daily_plan
-    return []
+    return rows
 
 
 def service_generate_daily_week(
@@ -84,169 +62,113 @@ def service_generate_daily_week(
     week_index: int,
     plan_id: Optional[str] = None,
     overwrite: bool = True,
-    state_id: Optional[int] = None,
     model: Optional[str] = None,
     debug: bool = False,
 ) -> Dict[str, Any]:
     """
-    Generovanie DAILY plánu pre konkrétny týždeň + zápis do coach_plan_daily.
+    Generovanie DAILY plánu pre konkrétny týždeň.
 
-    - načíta analyze_input z DB (build_input_from_db)
-    - nájde vhodný coach_athlete_state (rovnako ako weekly)
-    - nájde weekly meta row (coach_plan_weekly) podľa plan_id + week_index
-      - ak plan_id nie je zadaný → vezme latest plan_id pre usera
-    - poskladá context_payload pre AI
-    - zavolá Routes_AI.generate_plan_daily.generate_daily_week_json
-    - podľa potreby vymaže staré daily sessions v DB (overwrite)
-    - uloží nové daily sessions do coach_plan_daily
-    - vráti { daily_plan, plan_id, week_index, inserted_rows, deleted_rows, ... }
+    - načíta analyze_input (prefs, zones, thresholds, recent_load...)
+    - načíta latest athlete_state
+    - ak máme plan_id, vytiahne meta info týždňa z coach_plan_weekly
+    - zavolá AI daily generátor
+    - (ak overwrite) zmaže existujúce daily sessions v danom týždni
+    - uloží nový daily plán do coach_plan_daily
     """
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
-    # 1) resolve plan_id (ak nie je zadaný → najnovší weekly plán)
-    effective_plan_id = plan_id
-    if not effective_plan_id:
-        effective_plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
-    if not effective_plan_id:
-        raise ValueError(
-            "No weekly plan found for this user. "
-            "Generate weekly plan first before calling daily generator."
-        )
-
-    # 2) načítaj weekly row pre daný week_index
-    weekly_row = db_get_week_row_for_plan(
-        user_id=user_id,
-        plan_id=effective_plan_id,
-        week_index=week_index,
-    )
-    if not weekly_row:
-        raise ValueError(
-            f"No weekly row found for plan_id={effective_plan_id}, week_index={week_index}."
-        )
-
-    week_ctx = _build_week_context(weekly_row)
-    week_start = str(week_ctx.get("week_start"))
-    week_end = str(week_ctx.get("week_end"))
-
-    # 3) analyze_input (prefs + zones + thresholds + recent history)
+    # 1) analyze_input = to isté ako pri weekly/analyze
     analyze_input = build_input_from_db(user_id)
     prefs = analyze_input.get("prefs") or {}
     zones = analyze_input.get("zones") or {}
     thresholds = analyze_input.get("thresholds") or {}
-    recent_load = (
-        analyze_input.get("recent_load")
-        or analyze_input.get("history")
-        or analyze_input.get("activities")
-        or {}
-    )
+    recent_load = analyze_input.get("recent_load") or {}
+    targets = analyze_input.get("targets") or {}
 
-    # 4) stav atlétu z analyze (re-use helper z weekly service)
-    state_bundle = _load_athlete_state_for_plan(
-        user_id=user_id,
-        state_id=state_id,
-    )
-    used_state_id = state_bundle["state_id"]
-    athlete_state = state_bundle["state"]
+    # 2) athlete_state (z latest state)
+    state_row = db_get_latest_state_for_user(user_id=user_id, version=1)
+    athlete_state = (state_row or {}).get("state_json") or None
 
-    # 5) context_payload pre AI daily
+    # 3) weekly meta row (ak máme plan_id)
+    week_row = None
+    week_start = None
+    week_end = None
+
+    if plan_id is not None:
+        week_row = db_get_week_row_for_plan(
+            user_id=user_id,
+            plan_id=plan_id,
+            week_index=week_index,
+        )
+        if week_row:
+            week_start = week_row.get("week_start")
+            week_end = week_row.get("week_end")
+
+    # 4) context pre AI
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
         "user_id": user_id,
-        "plan_id": effective_plan_id,
-        "week": week_ctx,
+        "week_index": week_index,
+        "plan_id": plan_id,
+        "overwrite": overwrite,
+        "week": week_row or {
+            "week_index": week_index,
+            "week_start": week_start,
+            "week_end": week_end,
+        },
         "prefs": prefs,
+        "targets": targets,
+        "athlete_state": athlete_state,
+        "recent_load": recent_load,
         "zones": zones,
         "thresholds": thresholds,
-        "recent_load": recent_load,
-        "athlete_state": athlete_state,
-        "athlete_state_meta": {
-            "state_id": used_state_id,
-            "model": state_bundle.get("model"),
-            "version": state_bundle.get("version"),
-            "created_at": state_bundle.get("created_at"),
-        },
-        # pre úplnosť tam môžeš nechať aj celé analyze_input,
-        # ak ho chceš mať v prompt-e
-        "analyze_input": analyze_input,
     }
 
     daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
-    # 6) AI call
+    from Routes_AI.generate_plan_daily import generate_daily_week_json
+
     daily_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
         debug_raw=debug,
     )
 
-    # 7) vyčisti staré daily sessions, ak treba
+    # 5) uloženie do DB
+    week_start_ai = daily_plan.get("week_start") or week_start
+    week_end_ai = daily_plan.get("week_end") or week_end
+
     deleted_rows = 0
-    if overwrite and week_start and week_end:
+    if overwrite and plan_id and week_start_ai and week_end_ai:
         deleted_rows = db_clear_daily_for_user_week(
             user_id=user_id,
-            plan_id=effective_plan_id,
-            week_start=week_start,
-            week_end=week_end,
+            plan_id=plan_id,
+            week_start=week_start_ai,
+            week_end=week_end_ai,
         )
 
-    # 8) priprav insert rows z AI výstupu
-    days_list = _extract_days_payload(daily_plan)
-    rows: List[Dict[str, Any]] = []
-
-    for day in days_list:
-        if not isinstance(day, dict):
-            continue
-        date_str = day.get("date")
-        if not date_str:
-            continue
-
-        sessions = day.get("sessions") or []
-        if not isinstance(sessions, list):
-            continue
-
-        for idx, s in enumerate(sessions, start=1):
-            if not isinstance(s, dict):
-                continue
-
-            sport = s.get("sport") or "other"
-            title = s.get("title") or "Tréning"
-
-            row: Dict[str, Any] = {
-                "user_id": user_id,
-                "plan_id": effective_plan_id,
-                "plan_date": date_str,
-                "sport": sport,
-                "title": title,
-                "duration_min": s.get("duration_min"),
-                "intensity": s.get("intensity"),
-                "zone_text": s.get("zone_text"),
-                "structure": s.get("structure"),
-                "notes": s.get("notes"),
-                "source": s.get("source") or f"ai-daily:{daily_model}",
-                "session_type": s.get("session_type"),
-                "session_index": idx,
-                "payload": s.get("payload"),
-                "activity_id": None,
-            }
-
-            rows.append(row)
-
+    rows = _build_daily_rows_from_ai(
+        user_id=user_id,
+        plan_id=plan_id,
+        daily_plan=daily_plan,
+    )
     inserted_rows = db_insert_daily_rows(rows)
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
-        "plan_id": effective_plan_id,
+        "plan_id": plan_id,
         "week_index": week_index,
-        "week_start": week_start,
-        "week_end": week_end,
-        "state_id": used_state_id,
+        "week_start": week_start_ai,
+        "week_end": week_end_ai,
+        "state_id": (state_row or {}).get("id"),
         "model": daily_model,
         "overwrite": overwrite,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
     }
-    if debug and trace is not None:
+    if debug:
         resp["debug"] = trace
+        resp["context_payload"] = context_payload
 
     return resp

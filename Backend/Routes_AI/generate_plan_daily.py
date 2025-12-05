@@ -1,4 +1,4 @@
-# Routes_AI/coach_plan_daily.py
+# Routes_AI/generate_plan_daily.py
 from __future__ import annotations
 
 import json
@@ -83,25 +83,18 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     """
     context_payload typicky:
       {
-        "week": {
-          "week_index": 1,
-          "week_start": "YYYY-MM-DD",
-          "week_end": "YYYY-MM-DD",
-          "goal": "...",
-          "focus": "...",
-          "load_phase": "...",
-          "planned_minutes": 220,
-          "planned_km": 45
-        },
+        "week": {...},
         "prefs": { ... coach prefs ... },
-        "athlete_state": { ... analyze_athlete_state output ... },
-        "recent_load": { ... },      // voliteľné
-        "zones": { ... },            // voliteľné
-        "thresholds": { ... }        // voliteľné
+        "targets": { ... },
+        "athlete_state": { ... },
+        "recent_load": { ... },
+        "zones": { ... },
+        "thresholds": { ... }
       }
     """
     week = context_payload.get("week") or {}
     prefs = context_payload.get("prefs") or {}
+    targets = context_payload.get("targets") or {}
 
     week_index = int(week.get("week_index") or 1)
     week_start = week.get("week_start") or ""
@@ -109,6 +102,13 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     focus = week.get("focus") or ""
     load_phase = week.get("load_phase") or ""
     main_sport = prefs.get("main_sport") or "run"
+
+    strength_targets = targets.get("strength") or {}
+    strength_sessions = strength_targets.get("sessions_per_week") or 0
+
+    pref_obj = prefs.get("preferences") or {}
+    days_off = pref_obj.get("days_off") or []
+    long_run_days = pref_obj.get("long_run_days") or []
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -133,11 +133,11 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
           "sport": "run" | "ride" | "strength" | "swim" | "other",
           "title": string,
           "duration_min": number,
-          "intensity": string | null,       // napr. 'easy', 'moderate', 'hard', 'recovery', ...
-          "session_type": string | null,    // interný kód, napr. 'run_easy', 'run_intervals_5k', ...
-          "zone_text": string | null,       // napr. 'Z2', 'Z3–Z4', 'Z1–Z2', ...
-          "notes": string | null,           // slovensky
-          "structure": {                    // voliteľné, detail warmup/main/cooldown pre RUN
+          "intensity": string | null,
+          "session_type": string | null,
+          "zone_text": string | null,
+          "notes": string | null,
+          "structure": {
             "warmup"?: {
               "minutes"?: number,
               "notes"?: string | null
@@ -155,12 +155,12 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
               "notes"?: string | null
             }
           },
-          "targets"?: {                     // voliteľné, ak chceš poslať
+          "targets"?: {
             "hr_bpm"?: [number, number] | null,
             "pace_min_per_km"?: string | null,
             "power_w"?: number | null
           },
-          "payload"?: object | null         // ľubovolné doplňujúce dáta (AI interné)
+          "payload"?: object | null
         }
       ]
     }
@@ -173,7 +173,10 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         f"Week index: {week_index}\n"
         f"Week range: {week_start}..{week_end}\n"
         f"Focus: {focus or 'N/A'} | Load phase: {load_phase or 'N/A'}\n"
-        f"Main sport: {main_sport}\n\n"
+        f"Main sport: {main_sport}\n"
+        f"Preferred days off: {', '.join(days_off) if days_off else 'none'}\n"
+        f"Preferred long-run days: {', '.join(long_run_days) if long_run_days else 'none'}\n"
+        f"Target strength sessions per week: {strength_sessions}\n\n"
         "CONTEXT_JSON (this is the only ground truth – use it carefully):\n"
         + json.dumps(context_payload, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
@@ -185,6 +188,8 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         "- For each day, `sessions` MUST be a non-empty array. If it is a rest day, use exactly one session with:\n"
         "    { \"sport\": \"other\", \"title\": \"Rest day\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }\n"
         "- Respect prefs: days_off, long_run_days, max hard sessions per week, etc., from the context JSON.\n"
+        "- If target strength sessions per week > 0, you MUST schedule approximately that many `sport: \"strength\"` sessions, "
+        "unless the week is clearly marked as taper / recovery (load_phase).\n"
         "- Use athlete_state (fitness, fatigue, injury risk) to distribute intensity and volume safely.\n"
         "- Do NOT invent extreme workloads. Keep all durations and intensities realistic.\n"
     )
