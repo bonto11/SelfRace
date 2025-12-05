@@ -6,12 +6,11 @@ from typing import Any, Dict, List, Optional
 from Modules.SQL.db_handler import get_client
 
 supabase = get_client()
-TABLE = "coach_plan_daily"
+from Configs.config import TABLE_COACH_PLAN_WEEKLY
 
 
 def db_insert_daily_rows(
     rows: List[Dict[str, Any]],
-    table_name: str = TABLE,
 ) -> int:
     """
     Bulk INSERT do coach_plan_daily.
@@ -21,7 +20,7 @@ def db_insert_daily_rows(
         return 0
 
     try:
-        res = supabase.table(table_name).insert(rows).execute()
+        res = supabase.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-DAILY] inserted rows:", len(data))
         return len(data)
@@ -35,14 +34,13 @@ def db_clear_daily_for_user_week(
     plan_id: str,
     week_start: str,
     week_end: str,
-    table_name: str = TABLE,
 ) -> int:
     """
     DELETE všetkých daily riadkov pre daný plán + týždeň (interval dátumov).
     """
     try:
         res = (
-            supabase.table(table_name)
+            supabase.table(TABLE_COACH_PLAN_WEEKLY)
             .delete()
             .eq("user_id", user_id)
             .eq("plan_id", plan_id)
@@ -73,7 +71,6 @@ def db_get_planned_range_rows(
     user_id: int,
     date_from: str,
     date_to: str,
-    table_name: str = TABLE,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky plánované sessions pre usera v danom dátumovom rozsahu.
@@ -82,7 +79,7 @@ def db_get_planned_range_rows(
     """
     try:
         res = (
-            supabase.table(table_name)
+            supabase.table(TABLE_COACH_PLAN_WEEKLY)
             .select("*")
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
@@ -100,7 +97,6 @@ def db_get_planned_range_rows(
 def db_link_session_to_activity(
     session_id: int,
     activity_id: int,
-    table_name: str = TABLE,
 ) -> Optional[Dict[str, Any]]:
     """
     Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu
@@ -110,7 +106,7 @@ def db_link_session_to_activity(
     """
     try:
         res = (
-            supabase.table(table_name)
+            supabase.table(TABLE_COACH_PLAN_WEEKLY)
             .update({"activity_id": activity_id})
             .eq("id", session_id)
             .execute()

@@ -33,6 +33,7 @@ TABLE_COACH_FEEDBACK = "coach_feedback"
 TABLE_COACH_ATHLETE_STATE = "coach_athlete_state"
 TABLE_COACH_PLAN_DAILY = "coach_plan_daily"
 TABLE_COACH_PLAN_WEEKLY = "coach_plan_weekly"
+TABLE_COACH_STRENGTH_HISTORY = "coach_strength_history"
 TABLE_USERS_PREFERENCES = "users_preferences"
 
 SUPABASE_URL: str = env_required("SUPABASE_URL")
