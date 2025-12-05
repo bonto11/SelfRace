@@ -18,4 +18,4 @@ class DailyWeekGenerateConfig(BaseModel):
     plan_id: Optional[str] = None
     overwrite: bool = True
     model: Optional[str] = None
-    debug: bool = False
+    debug: bool = True
