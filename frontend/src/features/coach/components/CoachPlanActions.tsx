@@ -16,6 +16,8 @@ import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 
 import AthleteStatePanel from "@/features/coach/components/AthleteStatePanel";
+import WeeklyPlanPanel from "@/features/coach/components/WeeklyPlanPanel";
+import DailyPlanPanel from "@/features/coach/components/DailyPlanPanel";
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -76,6 +78,9 @@ export default function CoachPlanActions() {
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [weeklyPlan, setWeeklyPlan] = useState<any | null>(null);
+  const [dailyPlan, setDailyPlan] = useState<any | null>(null);
+
   const [loadingKind, setLoadingKind] = useState<
     "analyze" | "weekly" | "daily" | null
   >(null);
@@ -144,6 +149,7 @@ export default function CoachPlanActions() {
         state_id: stateId,
       });
 
+      setWeeklyPlan(json);
       console.log("[coach] weekly plan generated", json);
     } catch (e: any) {
       setErr(e?.message || String(e));
@@ -164,6 +170,7 @@ export default function CoachPlanActions() {
         overwrite: true,
       });
 
+      setDailyPlan(json);
       console.log("[coach] daily plan generated", json);
     } catch (e: any) {
       setErr(e?.message || String(e));
@@ -259,11 +266,15 @@ export default function CoachPlanActions() {
         </Button>
       </div>
 
-      {/* hlavný panel s analýzou */}
+      {/* panely */}
       <AthleteStatePanel
         analysis={result?.analysis ?? null}
         model={result?.model ?? null}
       />
+
+      <WeeklyPlanPanel weekly={weeklyPlan} />
+
+      <DailyPlanPanel daily={dailyPlan} />
 
       {err && (
         <div className="rounded-xl border border-red-600 bg-red-900/30 text-red-100 p-3">
