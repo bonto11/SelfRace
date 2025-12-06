@@ -67,6 +67,24 @@ function PrefsMini({ prefs }: { prefs: CoachPrefs | null }) {
   );
 }
 
+function JsonCard({ title, data }: { title: string; data: any }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {!data && (
+          <span className="text-xs opacity-60">— zatiaľ nič nenahraté —</span>
+        )}
+      </div>
+      {data && (
+        <pre className="mt-1 max-h-80 overflow-auto rounded-lg bg-black/60 px-2 py-1 text-xs leading-snug">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────── hlavný komponent ─────────────────────── */
 
 export default function CoachPlanActions() {
@@ -78,6 +96,11 @@ export default function CoachPlanActions() {
     "analyze" | "weekly" | "daily" | null
   >(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // nové debug stavy – raw JSON z BE
+  const [analyzeJson, setAnalyzeJson] = useState<any | null>(null);
+  const [weeklyJson, setWeeklyJson] = useState<any | null>(null);
+  const [dailyJson, setDailyJson] = useState<any | null>(null);
 
   // prefs len na mini-summary (logika analýzy je už komplet v BE)
   useEffect(() => {
@@ -103,6 +126,9 @@ export default function CoachPlanActions() {
         debugRaw: false,
         explicitModel: "coach-analyze-stub",
       });
+
+      // uložíme raw JSON na debug
+      setAnalyzeJson(json);
 
       setResult({
         analysis: json.state ?? null,
@@ -142,6 +168,7 @@ export default function CoachPlanActions() {
         state_id: stateId,
       });
 
+      setWeeklyJson(json);
       console.log("[coach] weekly plan generated", json);
     } catch (e: any) {
       setErr(e?.message || String(e));
@@ -162,6 +189,7 @@ export default function CoachPlanActions() {
         overwrite: true,
       });
 
+      setDailyJson(json);
       console.log("[coach] daily plan generated", json);
     } catch (e: any) {
       setErr(e?.message || String(e));
@@ -263,6 +291,13 @@ export default function CoachPlanActions() {
           <p className="text-sm opacity-90">{err}</p>
         </div>
       )}
+
+      {/* debug JSON výstupy */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <JsonCard title="Analyze athlete state – raw JSON" data={analyzeJson} />
+        <JsonCard title="Weekly plan – raw JSON" data={weeklyJson} />
+        <JsonCard title="Daily plan – raw JSON" data={dailyJson} />
+      </div>
     </div>
   );
 }
