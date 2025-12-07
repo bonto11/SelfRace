@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
+from datetime import date, timedelta
 
 from Configs.config import DEFAULT_MODEL
 from Services.coach_athlete_state import build_input_from_db
@@ -10,6 +11,7 @@ from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Routes_DB.coach_plan_daily import (
     db_insert_daily_rows,
     db_clear_daily_for_user_week,
+    db_list_daily_for_user_horizon,  # ← TOTO SI DOPLŇ V DB VRSTVE
 )
 from Routes_AI.generate_plan_daily import generate_daily_week_json
 
@@ -214,3 +216,83 @@ def service_generate_daily_week(
         resp["context_payload"] = context_payload
 
     return resp
+
+def service_get_daily_overview(
+    user_id: int,
+    horizon_days: int = 7,
+) -> Dict[str, Any]:
+    """
+    Vráti jednoduchý DAILY prehľad pre najbližších N dní.
+
+    Výstup:
+      {
+        "horizon_days": 7,
+        "days": [
+          {
+            "date": "YYYY-MM-DD",
+            "sessions": [
+              {
+                "sport": "run",
+                "title": "...",
+                "duration_min": 45,
+                "intensity": "easy",
+                "zone_text": "Z2",
+                "notes": "...",
+                "session_type": "run_e",
+              },
+              ...
+            ],
+          },
+          ...
+        ],
+      }
+
+    Ak user nemá žiadny plán v horizonte, days bude prázdne.
+    """
+    if horizon_days <= 0:
+        horizon_days = 7
+
+    rows: List[Dict[str, Any]] = db_list_daily_for_user_horizon(
+        user_id=user_id,
+        horizon_days=horizon_days,
+    ) or []
+
+    # zgrupujeme podľa dátumu
+    by_date: Dict[str, List[Dict[str, Any]]] = {}
+
+    for r in rows:
+        d = r.get("plan_date")
+        if not d:
+            continue
+        if d not in by_date:
+            by_date[d] = []
+        by_date[d].append(r)
+
+    days_out: List[Dict[str, Any]] = []
+
+    for date_str, sessions in sorted(by_date.items(), key=lambda kv: kv[0]):
+        sessions_out: List[Dict[str, Any]] = []
+        for s in sorted(sessions, key=lambda x: int(x.get("session_index") or 0)):
+            sessions_out.append(
+                {
+                    "sport": s.get("sport") or "other",
+                    "title": s.get("title"),
+                    "duration_min": s.get("duration_min"),
+                    "intensity": s.get("intensity"),
+                    "zone_text": s.get("zone_text"),
+                    "notes": s.get("notes"),
+                    "session_type": s.get("session_type"),
+                }
+            )
+
+        days_out.append(
+            {
+                "date": date_str,
+                "sessions": sessions_out,
+            }
+        )
+
+    return {
+        "horizon_days": horizon_days,
+        "days": days_out,
+    }
