@@ -15,6 +15,7 @@ from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
     db_get_latest_plan_id_for_user,
+    db_list_weekly_for_user_plan,  # ← TOTO SI DOTVORÍŠ V DB VRSTVE
 )
 
 def _load_athlete_state_for_plan(
@@ -195,3 +196,63 @@ def service_generate_weekly_plan(
         resp["debug"] = trace
 
     return resp
+
+def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).
+
+    Štruktúra:
+      {
+        "plan_id": "...",
+        "weeks": [
+          {
+            "week_index": int,
+            "week_start": "YYYY-MM-DD" | None,
+            "week_end": "YYYY-MM-DD" | None,
+            "goal": str | None,
+            "focus": str | None,
+            "load_phase": str | None,
+            "planned_km": float | None,
+            "planned_minutes": float | None,
+            "completed_km": float | None,
+            "completed_minutes": float | None,
+            "notes": str | None,
+            "raw_json": dict | None,
+          },
+          ...
+        ]
+      }
+    Alebo None, ak user nemá žiadny plán.
+    """
+    plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
+    if not plan_id:
+        return None
+
+    rows = db_list_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
+    if not rows:
+        return None
+
+    # zoradíme podľa week_index
+    weeks: List[Dict[str, Any]] = []
+    for r in sorted(rows, key=lambda x: int(x.get("week_index") or 0)):
+        weeks.append(
+            {
+                "week_index": int(r.get("week_index") or 0),
+                "week_start": r.get("week_start"),
+                "week_end": r.get("week_end"),
+                "goal": r.get("goal"),
+                "focus": r.get("focus"),
+                "load_phase": r.get("load_phase"),
+                "planned_km": r.get("planned_km"),
+                "planned_minutes": r.get("planned_minutes"),
+                "completed_km": r.get("completed_km"),
+                "completed_minutes": r.get("completed_minutes"),
+                "notes": r.get("notes"),
+                "raw_json": r.get("raw_json"),
+            }
+        )
+
+    return {
+        "plan_id": plan_id,
+        "weeks": weeks,
+    }
