@@ -365,3 +365,58 @@ export async function apiGenerateDailyForWeek(
   }
   return json;
 }
+
+/* ============ DAILY OVERVIEW (coach-plan-daily) ============ */
+
+export type DailyPlanSession = {
+  sport: string;
+  title?: string | null;
+  duration_min?: number | null;
+  intensity?: string | null;
+  zone_text?: string | null;
+  notes?: string | null;
+  session_type?: string | null;
+};
+
+export type DailyPlanDay = {
+  date: string; // "YYYY-MM-DD"
+  sessions: DailyPlanSession[];
+};
+
+export type DailyOverview = {
+  horizon_days: number;
+  days: DailyPlanDay[];
+};
+
+type DailyOverviewResponse = {
+  success: boolean;
+  overview: DailyOverview | null;
+};
+
+/**
+ * GET /coach-plan-daily/overview/{user_id}
+ * – jednoduchý prehľad najbližších dní
+ */
+export async function apiGetDailyOverview(
+  userId: number
+): Promise<DailyOverview | null> {
+  if (!API_URL) throw new Error("API_URL is not configured");
+
+  const res = await fetch(`${API_URL}/coach-plan-daily/overview/${userId}`, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+  }).catch((err) => {
+    throw new Error(`Network/CORS: ${String(err)}`);
+  });
+
+  const json = (await robustJson(res)) as DailyOverviewResponse;
+
+  if (!res.ok || json?.success === false) {
+    throw new Error(
+      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`
+    );
+  }
+
+  return json.overview ?? null;
+}
