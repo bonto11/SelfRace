@@ -15,8 +15,14 @@ from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
     db_get_latest_plan_id_for_user,
-    db_get_weekly_for_user_plan,  # ← TOTO SI DOTVORÍŠ V DB VRSTVE
+    db_get_weekly_for_user_plan,
 )
+from Routes_DB.coach_plan_meta import (
+    db_insert_plan_meta_generated,
+    db_archive_user_plans,
+    db_get_latest_plan_meta_for_user,
+)
+
 
 def _load_athlete_state_for_plan(
     user_id: int,
@@ -60,23 +66,23 @@ def _load_athlete_state_for_plan(
 
 
 def _extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
-  """
-  Z AI výstupu vytiahne list týždňov.
-  Podporujeme:
-    - {"weeks": [ ... ]}
-    - [ { ... }, { ... } ]
-  """
-  if isinstance(weekly_plan, dict):
-      weeks = weekly_plan.get("weeks")
-      if isinstance(weeks, list):
-          return weeks
-      # fallback: ak by AI poslalo rovno list v "plan"
-      if isinstance(weekly_plan.get("plan"), list):
-          return weekly_plan["plan"]
-      return []
-  if isinstance(weekly_plan, list):
-      return weekly_plan
-  return []
+    """
+    Z AI výstupu vytiahne list týždňov.
+    Podporujeme:
+      - {"weeks": [ ... ]}
+      - [ { ... }, { ... } ]
+    """
+    if isinstance(weekly_plan, dict):
+        weeks = weekly_plan.get("weeks")
+        if isinstance(weeks, list):
+            return weeks
+        # fallback: ak by AI poslalo rovno list v "plan"
+        if isinstance(weekly_plan.get("plan"), list):
+            return weekly_plan["plan"]
+        return []
+    if isinstance(weekly_plan, list):
+        return weekly_plan
+    return []
 
 
 def service_generate_weekly_plan(
@@ -96,6 +102,7 @@ def service_generate_weekly_plan(
     - poskladá context_payload pre AI
     - zavolá OpenAI weekly generátor
     - uloží výsledok do coach_plan_weekly
+    - založí coach_plan_meta so status='generated'
     - vráti { weekly_plan, plan_id, state_id, ... }
     """
     # 1) vstup pre AI (rovnaký ako pre analyze)
@@ -140,9 +147,14 @@ def service_generate_weekly_plan(
     else:
         plan_id = str(uuid4())
 
-    # 4) ak overwrite=True, vymaž posledný plán pre usera
+    # 4) ak overwrite=True, archivuj staré meta a vymaž posledný weekly plán
     deleted_rows = 0
+    archived_meta = 0
     if overwrite:
+        # meta – archived
+        archived_meta = db_archive_user_plans(user_id)
+
+        # starý weekly plán – podľa doterajšej logiky
         latest_plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
         if latest_plan_id:
             deleted_rows = db_clear_weekly_for_user_plan(
@@ -164,7 +176,7 @@ def service_generate_weekly_plan(
             "user_id": user_id,
             "plan_id": plan_id,
             "week_index": week_index,
-            "week_start": w.get("week_start"),           # "YYYY-MM-DD"
+            "week_start": w.get("week_start"),  # "YYYY-MM-DD"
             "week_end": w.get("week_end"),
             "goal": w.get("goal"),
             "focus": w.get("focus"),
@@ -174,13 +186,44 @@ def service_generate_weekly_plan(
             "completed_km": None,
             "completed_minutes": None,
             "notes": w.get("notes"),
+            "raw_json": w,
         }
-
-        row["raw_json"] = w
 
         rows.append(row)
 
     inserted_rows = db_insert_weekly_rows(rows)
+
+    # 6) založ meta záznam (status='generated')
+    plan_meta_dict = (
+        weekly_plan.get("plan_meta")
+        if isinstance(weekly_plan, dict)
+        else {}
+    ) or {}
+
+    # start/end z meta alebo z prvého/posledného týždňa
+    start_date: Optional[str] = plan_meta_dict.get("start_date") or None
+    end_date: Optional[str] = plan_meta_dict.get("end_date") or None
+
+    if not start_date and weeks_list:
+        start_date = weeks_list[0].get("week_start") or None
+    if not end_date and weeks_list:
+        last_week = weeks_list[-1]
+        end_date = last_week.get("week_end") or last_week.get("week_start") or None
+
+    main_sport = plan_meta_dict.get("main_sport")
+    goal_kind = plan_meta_dict.get("goal_kind")
+
+    meta_row = db_insert_plan_meta_generated(
+        user_id=user_id,
+        plan_id=plan_id,
+        state_id=used_state_id if isinstance(used_state_id, int) else None,
+        weeks_total=len(weeks_list) or horizon_weeks,
+        start_date=start_date,
+        end_date=end_date,
+        main_sport=main_sport,
+        goal_kind=goal_kind,
+        source="ai_weekly_v1",
+    )
 
     resp: Dict[str, Any] = {
         "weekly_plan": weekly_plan,
@@ -191,11 +234,15 @@ def service_generate_weekly_plan(
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
+        "archived_meta": archived_meta,
     }
+    if meta_row is not None:
+        resp["plan_meta"] = meta_row
     if debug and trace is not None:
         resp["debug"] = trace
 
     return resp
+
 
 def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
     """
@@ -204,29 +251,21 @@ def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
     Štruktúra:
       {
         "plan_id": "...",
-        "weeks": [
-          {
-            "week_index": int,
-            "week_start": "YYYY-MM-DD" | None,
-            "week_end": "YYYY-MM-DD" | None,
-            "goal": str | None,
-            "focus": str | None,
-            "load_phase": str | None,
-            "planned_km": float | None,
-            "planned_minutes": float | None,
-            "completed_km": float | None,
-            "completed_minutes": float | None,
-            "notes": str | None,
-            "raw_json": dict | None,
-          },
-          ...
-        ]
+        "weeks": [ ... ]
       }
     Alebo None, ak user nemá žiadny plán.
     """
-    plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
+    # 1) Skús najnovší plan_id z coach_plan_meta
+    meta = db_get_latest_plan_meta_for_user(user_id=user_id)
+    plan_id: Optional[str] = None
+    if meta and isinstance(meta.get("plan_id"), str):
+        plan_id = meta["plan_id"]
+
+    # fallback na starý mechanizmus (pre legacy dáta)
     if not plan_id:
-        return None
+        plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
+        if not plan_id:
+            return None
 
     rows = db_get_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
     if not rows:

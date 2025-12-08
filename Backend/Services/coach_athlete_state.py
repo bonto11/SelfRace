@@ -20,6 +20,10 @@ from Routes_DB.coach_athlete_state import (
     db_list_states_for_user,
 )
 
+from Services.coach_plan_meta import (
+    service_build_active_plan_block_for_analysis,
+)
+
 from Routes_AI.analyze_athlete_state import generate_athlete_state_json
 from Configs.config import DEFAULT_MODEL
 
@@ -97,19 +101,7 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
 
 # -------------------- INPUT BUILDER: DB → CoachAnalyzeInput --------------------
 
-
 def build_input_from_db(user_id: int) -> Dict[str, Any]:
-    """
-    Hlavný builder CoachAnalyzeInput – čistá DB cesta.
-
-    - profil (static + weight)
-    - zóny
-    - prahy
-    - prefs
-    - bests
-    - recent_load
-    - recovery
-    """
     input_data = _build_base_input(user_id)
 
     # 1) PROFIL
@@ -138,6 +130,11 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
 
     # 7) RECOVERY
     input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)
+
+    # 8) ACTIVE PLAN – TU JE NOVÉ
+    input_data["active_plan"] = service_build_active_plan_block_for_analysis(
+        user_id=user_id
+    )
 
     return input_data
 
