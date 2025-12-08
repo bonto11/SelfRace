@@ -54,16 +54,12 @@ function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
 }
 
 function RowAction({
-  title,
-  description,
   onPrimary,
   primaryLabel,
   loading,
   disabled,
   onDetail,
 }: {
-  title: string;
-  description: string;
   onPrimary: () => void;
   primaryLabel: string;
   loading: boolean;
@@ -73,10 +69,6 @@ function RowAction({
   return (
     <div className="flex items-start justify-between gap-2 rounded-lg bg-black/5 dark:bg-white/5 px-2 py-2">
       <div className="flex-1 space-y-0.5">
-        <div className="text-xs font-semibold">{title}</div>
-        <div className="text-[11px] opacity-75 leading-snug">
-          {description}
-        </div>
         <div className="mt-1">
           <Button
             size="xs"
@@ -255,30 +247,24 @@ export default function WidgetCoachPlan() {
       {/* akcie */}
       <div className="mt-3 space-y-2 text-xs">
         <RowAction
-          title="Athlete state"
-          description="AI zhodnotí formu, únavu a riziko zranenia."
           onPrimary={handleAnalyze}
-          primaryLabel={loadingKind === "analyze" ? "Analyzing…" : "Analyze"}
+          primaryLabel={loadingKind === "analyze" ? "Analyzing…" : "Analyze Athlete state"}
           loading={loadingKind === "analyze"}
           disabled={disabled}
           onDetail={() => router.push("/coach/ai/athleteState")}
         />
 
         <RowAction
-          title="Weekly plan"
-          description="Vygeneruje bloky týždňov podľa cieľa a preferencií."
           onPrimary={handleGenerateWeekly}
-          primaryLabel={loadingKind === "weekly" ? "Generating…" : "Weekly AI"}
+          primaryLabel={loadingKind === "weekly" ? "Generating…" : "Generate Weekly plan"}
           loading={loadingKind === "weekly"}
           disabled={disabled}
           onDetail={() => router.push("/coach/ai/weeklyPlan")}
         />
 
         <RowAction
-          title="Daily plan"
-          description="Rozpadne vybraný týždeň na konkrétne tréningy."
           onPrimary={handleGenerateDaily}
-          primaryLabel={loadingKind === "daily" ? "Generating…" : "Daily AI"}
+          primaryLabel={loadingKind === "daily" ? "Generating…" : "Generate Daily plan"}
           loading={loadingKind === "daily"}
           disabled={disabled}
           onDetail={() => router.push("/coach/ai/dailyPlan")}
