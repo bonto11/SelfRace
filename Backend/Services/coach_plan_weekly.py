@@ -15,7 +15,7 @@ from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
     db_get_latest_plan_id_for_user,
-    db_list_weekly_for_user_plan,  # ← TOTO SI DOTVORÍŠ V DB VRSTVE
+    db_get_weekly_for_user_plan,  # ← TOTO SI DOTVORÍŠ V DB VRSTVE
 )
 
 def _load_athlete_state_for_plan(
@@ -228,7 +228,7 @@ def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
     if not plan_id:
         return None
 
-    rows = db_list_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
+    rows = db_get_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
     if not rows:
         return None
 
