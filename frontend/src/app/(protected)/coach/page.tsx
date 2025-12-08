@@ -21,7 +21,7 @@ function ClientPage() {
       {/* existujúce widgety */}
       <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
       <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-      <WidgetCoachPlan onOpenDetail={() => router.push("/coach/plan")} />
+      <WidgetCoachPlan/>
       <WidgetActivitiesCalendar />
 
       {/* nové AI widgety – zatiaľ statické */}
