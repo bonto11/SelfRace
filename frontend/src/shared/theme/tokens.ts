@@ -59,6 +59,12 @@ export const THEME = {
     gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,
 
+    base: "bg-sky-400",
+    build: "bg-violet-400",
+    peak: "bg-emerald-400",
+    recovery: "bg-amber-400",
+    default: "bg-slate-400",
+
     /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
     weeklyPxPerLabel: 56,
 
@@ -109,4 +115,12 @@ export const THEME = {
     swim: 'Swim',
     other: 'Other',
   } as Record<string, string>,
+
+  weekLabels: {
+    base: 'Base (budovanie základu)',
+    build: 'Build (zvyšovanie intenzity)',
+    peak: 'Peak (vrchol / preteky)',
+    recovery: 'Recovery (regenerácia)',
+    default: 'Iné / mix',
+  }
 };

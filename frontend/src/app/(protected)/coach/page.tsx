@@ -26,13 +26,13 @@ function ClientPage() {
 
       {/* nové AI widgety – zatiaľ statické */}
       <WidgetCoachAIAnalyze
-        onOpenDetail={() => router.push("/coach/ai/analysis")}
+        onOpenDetail={() => router.push("/coach/ai/athleteState")}
       />
       <WidgetCoachAIWeekly
-        onOpenDetail={() => router.push("/coach/ai/weekly")}
+        onOpenDetail={() => router.push("/coach/ai/weeklyPlan")}
       />
       <WidgetCoachAIDaily
-        onOpenDetail={() => router.push("/coach/ai/daily")}
+        onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
       />
     </div>
   );
