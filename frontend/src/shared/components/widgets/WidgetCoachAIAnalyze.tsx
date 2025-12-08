@@ -1,8 +1,15 @@
+// src/shared/components/widgets/WidgetCoachAIAnalyze.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
-import { apiGetLatestAthleteState, type AthleteStateRecord } from "@/features/coach/api/coach_athlete_state";
+import WidgetCard from "@/shared/components/ui/WidgetCard";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+import { useUserId } from "@/shared/hooks/useUserId";
+import { THEME } from "@/shared/theme/tokens";
+import {
+  apiGetLatestAthleteState,
+  type AthleteStateRecord,
+} from "@/features/coach/api/coach_athlete_state";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -27,7 +34,6 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
 
   const s: any = row.state;
 
-  // 1) dátum – preferuj generated_at z AI, inak created_at z DB
   const generatedAt: string | undefined = s.generated_at;
   const createdAt: string | undefined = row.created_at;
 
@@ -48,7 +54,6 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
     }
   }
 
-  // 2) fatigue / injury – snažíme sa chytiť rozumné polia, všetko optional
   const fatigueLabel: string | null =
     s?.ai_state?.fatigue?.label ??
     s?.ai_state?.fatigue_level ??
@@ -63,7 +68,6 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
     s?.injury_risk_level ??
     null;
 
-  // 3) krátke summary – headline / short / text
   const summary: string | null =
     s?.user_summary?.headline ??
     s?.user_summary?.short ??
@@ -79,129 +83,95 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
 }
 
 export default function WidgetCoachAIAnalyze({ onOpenDetail }: Props) {
-  const { user } = useCoachData() as any;
-
-  // tu si podľa svojho provideru uprav, ak máš userId inde
-  const userId: number | null =
-    user?.id ?? user?.user_id ?? null;
+  const { userId } = useUserId();
 
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
+    if (!userId) return;
 
-    let cancelled = false;
-
-    async function load() {
-      setIsLoading(true);
+    let alive = true;
+    (async () => {
+      setLoading(true);
       setError(null);
       try {
-        const data = await apiGetLatestAthleteState(userId);
-        if (!cancelled) {
-          setRow(data);
-        }
+        const r = await apiGetLatestAthleteState(userId);
+        if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (!cancelled) {
-          setError(e?.message ?? "Nastala chyba pri načítaní AI analýzy.");
-        }
+        if (alive) setError(e?.message ?? "Chyba pri načítaní AI analýzy.");
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (alive) setLoading(false);
       }
-    }
-
-    load();
+    })();
 
     return () => {
-      cancelled = true;
+      alive = false;
     };
   }, [userId]);
 
   const ui = useMemo(() => extractUiState(row), [row]);
 
-  return (
-    <div className="flex h-full flex-col rounded-xl border border-white/10 bg-white/5 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-slate-400">
-            AI analýza atleta
-          </div>
-          <div className="text-base font-semibold text-slate-50">
-            Stav &amp; fatigue overview
-          </div>
-        </div>
-        <span className="rounded-full border border-emerald-400/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-200">
-          AI
-        </span>
-      </div>
+  const accent =
+    THEME?.chart?.athletes ??
+    THEME?.chart?.run ??
+    THEME?.chart?.neutral ??
+    "#22C55E";
 
-      {/* obsah */}
-      {isLoading ? (
-        <div className="mt-3 space-y-2 text-sm animate-pulse">
-          <div className="h-4 rounded bg-white/10" />
-          <div className="h-4 w-2/3 rounded bg-white/10" />
-          <div className="h-3 w-full rounded bg-white/10" />
+  return (
+    <WidgetCard
+      title="Coach — Athlete state"
+      note={
+        ui.lastAnalysisAt
+          ? `Posledná AI analýza: ${ui.lastAnalysisAt}`
+          : "Spusť AI analýzu pre tohto atleta."
+      }
+      accent={accent}
+      onOpen={onOpenDetail}
+      interactive={!!onOpenDetail}
+      minH={180}
+    >
+      {loading ? (
+        <div className="grid place-items-center py-6">
+          <LoadingSpinner size="widget" />
         </div>
       ) : error ? (
-        <div className="mt-3 text-sm text-red-300">
-          Nepodarilo sa načítať AI analýzu atleta.
+        <div className="text-sm text-red-300">
+          Nepodarilo sa načítať AI analýzu.
           <div className="mt-1 text-xs opacity-70">{error}</div>
         </div>
       ) : !userId ? (
-        <div className="mt-3 text-sm text-slate-300">
-          Chýba userId v CoachDataProvider – skontroluj, čo doň posielaš.
+        <div className="text-sm opacity-80">
+          Chýba userId (useUserId). Skontroluj autentifikáciu.
         </div>
       ) : !row ? (
-        <div className="mt-3 text-sm text-slate-300">
+        <div className="text-sm opacity-80">
           Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a
           widget sa automaticky naplní.
         </div>
       ) : (
         <>
-          <div className="mt-3 space-y-1 text-sm">
-            <div className="flex justify-between text-slate-300">
-              <span>Posledná analýza</span>
-              <span className="font-semibold text-slate-50">
-                {ui.lastAnalysisAt ?? "—"}
-              </span>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <div className="opacity-75">Posledná analýza</div>
+            <div className="font-semibold truncate">
+              {ui.lastAnalysisAt ?? "—"}
             </div>
-            <div className="flex justify-between text-slate-300">
-              <span>Fatigue</span>
-              <span className="font-semibold text-slate-50">
-                {ui.fatigueLabel ?? "—"}
-              </span>
-            </div>
-            <div className="flex justify-between text-slate-300">
-              <span>Injury risk</span>
-              <span className="font-semibold text-slate-50">
-                {ui.injuryLabel ?? "—"}
-              </span>
-            </div>
+
+            <div className="opacity-75">Fatigue</div>
+            <div className="font-semibold">{ui.fatigueLabel ?? "—"}</div>
+
+            <div className="opacity-75">Injury risk</div>
+            <div className="font-semibold">{ui.injuryLabel ?? "—"}</div>
           </div>
 
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="mt-3 text-xs opacity-80">
             {ui.summary
               ? ui.summary
-              : "Tu bude krátke zhrnutie AI analýzy (fitnes, únava, riziká)."}
+              : "Krátke AI zhrnutie únavy, formy a rizík sa zobrazí po najbližšej analýze."}
           </p>
         </>
       )}
-
-      {onOpenDetail && (
-        <button
-          type="button"
-          onClick={onOpenDetail}
-          className="mt-4 inline-flex items-center justify-center rounded-lg bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-50 hover:bg-slate-900"
-        >
-          Otvoriť detail analýzy
-        </button>
-      )}
-    </div>
+    </WidgetCard>
   );
 }
