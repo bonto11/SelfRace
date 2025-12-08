@@ -1,29 +1,288 @@
+// src/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import Pill from "@/shared/components/ui/Pill";
+import Button from "@/shared/components/ui/Button";
+import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
+
+import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
-export default function WidgetCoachPlan({ onOpenDetail }: { onOpenDetail?: () => void }) {
-  const router = useRouter();
+import { apiGetCoachPrefs } from "@/features/coach/api/prefs";
+import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
+import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
+import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
+import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
+import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 
-  // pre nálepky zobrazíme, či už niečo je v storage
-  let hasGenerated = false;
-  try { hasGenerated = !!localStorage.getItem("coach.generated"); } catch {}
+/* ---------- helpers ---------- */
+
+type LoadingKind = "analyze" | "weekly" | "daily" | null;
+
+function readPrefsFromStorage(): CoachPrefs | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const rawUP = localStorage.getItem("up:coach.prefs");
+    if (rawUP) return JSON.parse(rawUP);
+    const raw = localStorage.getItem("coach.prefs");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
+  if (!prefs) {
+    return <span className="text-xs opacity-70">Prefs: —</span>;
+  }
+
+  const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
+  const goal = prefs.goal_kind ?? "—";
+  const weeks = prefs.weeks ?? "—";
+
+  return (
+    <span className="text-[11px] opacity-80">
+      Goal: <span className="font-semibold">{goal}</span>{" "}
+      • Weeks: <span className="font-semibold">{weeks}</span>{" "}
+      • Main: <span className="font-semibold">{main}</span>
+    </span>
+  );
+}
+
+function RowAction({
+  title,
+  description,
+  onPrimary,
+  primaryLabel,
+  loading,
+  disabled,
+  onDetail,
+}: {
+  title: string;
+  description: string;
+  onPrimary: () => void;
+  primaryLabel: string;
+  loading: boolean;
+  disabled: boolean;
+  onDetail: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-2 rounded-lg bg-black/5 dark:bg-white/5 px-2 py-2">
+      <div className="flex-1 space-y-0.5">
+        <div className="text-xs font-semibold">{title}</div>
+        <div className="text-[11px] opacity-75 leading-snug">
+          {description}
+        </div>
+        <div className="mt-1">
+          <Button
+            size="xs"
+            variant="secondary"
+            disabled={disabled}
+            onClick={onPrimary}
+          >
+            {loading ? (
+              <span className="inline-flex items-center gap-1">
+                <LoadingSpinner size="button" />
+                {primaryLabel}
+              </span>
+            ) : (
+              primaryLabel
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onDetail}
+        className="mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/5 dark:bg-white/10 text-xs hover:bg-black/10 dark:hover:bg-white/20"
+      >
+        →
+      </button>
+    </div>
+  );
+}
+
+/* ---------- hlavný widget ---------- */
+
+export default function WidgetCoachPlan() {
+  const router = useRouter();
+  const { userId } = useUserId();
+
+  const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
+  const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+
+  // init prefs + flag generated
+  useEffect(() => {
+    if (!userId) return;
+
+    (async () => {
+      try {
+        const p = await apiGetCoachPrefs(userId).catch(() => null);
+        const eff = p ?? readPrefsFromStorage();
+        setPrefs(eff);
+      } catch {
+        setPrefs(readPrefsFromStorage());
+      }
+    })();
+  }, [userId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      setHasGenerated(!!localStorage.getItem("coach.generated"));
+    } catch {
+      setHasGenerated(false);
+    }
+  }, []);
+
+  const markGenerated = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("coach.generated", "1");
+      setHasGenerated(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!userId) return;
+    setError(null);
+    setLoadingKind("analyze");
+
+    try {
+      const json = await apiAnalyzeAthleteState(userId, {
+        debugRaw: false,
+        explicitModel: "coach-analyze-stub",
+      });
+
+      setResult({
+        analysis: json.state ?? null,
+        model: json.model ?? null,
+        state_id: json.state_id ?? null,
+      });
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setLoadingKind(null);
+    }
+  }, [userId]);
+
+  const handleGenerateWeekly = useCallback(async () => {
+    if (!userId) return;
+    setError(null);
+    setLoadingKind("weekly");
+
+    try {
+      const weeks = (prefs as any)?.weeks ?? null;
+      const stateId = result?.state_id ?? null;
+
+      await apiGenerateWeeklyPlan(userId, {
+        overwrite: true,
+        weeks,
+        state_id: stateId,
+      });
+
+      markGenerated();
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setLoadingKind(null);
+    }
+  }, [userId, prefs, result, markGenerated]);
+
+  const handleGenerateDaily = useCallback(async () => {
+    if (!userId) return;
+    setError(null);
+    setLoadingKind("daily");
+
+    try {
+      await apiGenerateDailyForWeek(userId, {
+        week_index: 1,
+        plan_id: null,
+        overwrite: true,
+      });
+
+      markGenerated();
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setLoadingKind(null);
+    }
+  }, [userId, markGenerated]);
+
+  const loading = loadingKind !== null;
+  const disabled = !userId || loading;
+
+  const accent = THEME?.chart?.athletes ?? THEME?.chart?.run ?? "#22C55E";
 
   return (
     <WidgetCard
       title="Coach — Plan"
-      note="Vygeneruj plán, spusti a priebežne aktualizuj."
-      accent={THEME.chart.athletes}
-      onOpen={onOpenDetail}
-      interactive
-      minH={140}
+      note="Analyzuj stav, vygeneruj weekly a daily plán."
+      accent={accent}
+      interactive={false}
+      minH={170}
     >
-      <div className="flex items-center gap-2 text-xs">
-        <Pill label={hasGenerated ? "generated ✓" : "no plan"} color={hasGenerated ? THEME.chart.good : THEME.chart.neutral} />
-        <span className="opacity-70">Tapni pre detail a akcie</span>
+      {/* status riadok */}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <Pill
+          label={hasGenerated ? "generated ✓" : "no plan"}
+          color={
+            hasGenerated
+              ? THEME?.chart?.good ?? accent
+              : THEME?.chart?.neutral ?? "#64748B"
+          }
+        />
+        <PrefsMiniInline prefs={prefs} />
+      </div>
+
+      {/* ak je chyba, zobraz krátke info */}
+      {error && (
+        <div className="mt-1 text-[11px] text-red-300 line-clamp-2">
+          {error}
+        </div>
+      )}
+
+      {/* akcie */}
+      <div className="mt-3 space-y-2 text-xs">
+        <RowAction
+          title="Athlete state"
+          description="AI zhodnotí formu, únavu a riziko zranenia."
+          onPrimary={handleAnalyze}
+          primaryLabel={loadingKind === "analyze" ? "Analyzing…" : "Analyze"}
+          loading={loadingKind === "analyze"}
+          disabled={disabled}
+          onDetail={() => router.push("/coach/athlete-state")}
+        />
+
+        <RowAction
+          title="Weekly plan"
+          description="Vygeneruje bloky týždňov podľa cieľa a preferencií."
+          onPrimary={handleGenerateWeekly}
+          primaryLabel={loadingKind === "weekly" ? "Generating…" : "Weekly AI"}
+          loading={loadingKind === "weekly"}
+          disabled={disabled}
+          onDetail={() => router.push("/coach/plan-weekly")}
+        />
+
+        <RowAction
+          title="Daily plan"
+          description="Rozpadne vybraný týždeň na konkrétne tréningy."
+          onPrimary={handleGenerateDaily}
+          primaryLabel={loadingKind === "daily" ? "Generating…" : "Daily AI"}
+          loading={loadingKind === "daily"}
+          disabled={disabled}
+          onDetail={() => router.push("/coach/plan-daily")}
+        />
       </div>
     </WidgetCard>
   );
