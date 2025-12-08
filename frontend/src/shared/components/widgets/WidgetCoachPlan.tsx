@@ -261,7 +261,7 @@ export default function WidgetCoachPlan() {
           primaryLabel={loadingKind === "analyze" ? "Analyzing…" : "Analyze"}
           loading={loadingKind === "analyze"}
           disabled={disabled}
-          onDetail={() => router.push("/coach/athlete-state")}
+          onDetail={() => router.push("/coach/ai/athleteState")}
         />
 
         <RowAction
@@ -271,7 +271,7 @@ export default function WidgetCoachPlan() {
           primaryLabel={loadingKind === "weekly" ? "Generating…" : "Weekly AI"}
           loading={loadingKind === "weekly"}
           disabled={disabled}
-          onDetail={() => router.push("/coach/plan-weekly")}
+          onDetail={() => router.push("/coach/ai/weeklyPlan")}
         />
 
         <RowAction
@@ -281,7 +281,7 @@ export default function WidgetCoachPlan() {
           primaryLabel={loadingKind === "daily" ? "Generating…" : "Daily AI"}
           loading={loadingKind === "daily"}
           disabled={disabled}
-          onDetail={() => router.push("/coach/plan-daily")}
+          onDetail={() => router.push("/coach/ai/dailyPlan")}
         />
       </div>
     </WidgetCard>
