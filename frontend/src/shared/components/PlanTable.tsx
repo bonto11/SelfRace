@@ -4,45 +4,44 @@ import * as React from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
+
 import ActivitySelector from "@/shared/components/ActivitySelector";
 import Button from "@/shared/components/ui/Button";
-import { detectSport } from "@/features/coach/utils/plan";
-import { findTrainingTypeById } from "@/shared/types/training";
-import { apiSavePlanActivityLink } from "@/features/coach/api/coach_plan_link";
 import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
 
+import { detectSport } from "@/features/coach/utils/plan";
+import { findTrainingTypeById } from "@/shared/types/training";
+
+// ⭐ NEW API – core endpoint for linking finished Strava/Garmin activity to a session
+import { apiActivePlanLinkActivity } from "@/features/coach/api/coach_plan_active";
+
 type AnyObj = Record<string, any>;
+
+/* ------------------------- small helpers ------------------------- */
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
   const day = d.toLocaleDateString("sk-SK", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric",
+    year: "numeric"
   });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
 
-/* --- helpers (rovnaké ako v kalendári) --- */
-
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
-  if (
-    Array.isArray(hr) &&
-    hr.length === 2 &&
-    hr.every((x) => Number.isFinite(x))
-  ) {
+  if (Array.isArray(hr) && hr.length === 2 && hr.every(x => Number.isFinite(x))) {
     return `HR ${hr[0]}–${hr[1]}`;
   }
   return null;
 }
-function paceToText(p?: any): string | null {
-  return typeof p === "string" && p.trim() ? `pace ${p}` : null;
-}
-function powerToText(w?: any): string | null {
-  return Number.isFinite(w) ? `power ${w}W` : null;
-}
+const paceToText = (p?: any) =>
+  typeof p === "string" && p.trim() ? `pace ${p}` : null;
+
+const powerToText = (w?: any) =>
+  Number.isFinite(w) ? `power ${w}W` : null;
 
 function normTarget(it: AnyObj): string | null {
   const hr = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
@@ -57,18 +56,20 @@ function normTarget(it: AnyObj): string | null {
   const pace2 = pace ?? mainT?.pace ?? null;
   const pow2 = pow ?? mainT?.power ?? null;
 
-  const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(
-    Boolean
-  );
+  const parts = [
+    hrToText(hr2),
+    paceToText(pace2),
+    powerToText(pow2)
+  ].filter(Boolean);
+
   return parts.length ? parts.join(" · ") : null;
 }
 
 function intervalsToText(main: any): string | null {
   const arr = Array.isArray(main)
     ? main
-    : main && Array.isArray(main.sets)
-    ? main.sets
-    : null;
+    : main?.sets ?? null;
+
   if (!arr || !arr.length) return null;
 
   const first = arr[0];
@@ -78,11 +79,12 @@ function intervalsToText(main: any): string | null {
     Number.isFinite(first?.recover_min) && first.recover_min > 0
       ? ` / ${first.recover_min}′ rec`
       : "";
+
   const targ = first?.target
     ? [
         hrToText(first.target.hr),
         paceToText(first.target.pace),
-        powerToText(first.target.power),
+        powerToText(first.target.power)
       ]
         .filter(Boolean)
         .join(" · ")
@@ -91,38 +93,38 @@ function intervalsToText(main: any): string | null {
   const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ]
     .filter(Boolean)
     .join(" ");
+
   return txt || null;
 }
 
-function normTitle(it: AnyObj) {
-  return it?.title ?? it?.name ?? "Session";
-}
-function normDuration(it: AnyObj) {
-  const minutes =
-    (typeof it?.duration_min === "number" && it.duration_min) ??
-    (typeof it?.dur === "number" && it.dur) ??
-    null;
-  return minutes != null ? `${minutes} min` : null;
-}
-function normIntensity(it: AnyObj) {
-  return it?.intensity ?? null;
-}
+const normTitle = (it: AnyObj) => it?.title ?? it?.name ?? "Session";
+
+const normDuration = (it: AnyObj) =>
+  typeof it?.duration_min === "number"
+    ? `${it.duration_min} min`
+    : null;
+
+const normIntensity = (it: AnyObj) => it?.intensity ?? null;
 
 function normNotes(it: AnyObj) {
   if (it?.notes) return it.notes;
 
   const wu = it?.structure?.warmup
     ? [
-        it.structure.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : null,
+        it.structure.warmup?.notes
+          ? `WU: ${it.structure.warmup.notes}`
+          : null,
         hrToText(it.structure.warmup?.target?.hr),
         paceToText(it.structure.warmup?.target?.pace),
-        powerToText(it.structure.warmup?.target?.power),
+        powerToText(it.structure.warmup?.target?.power)
       ]
         .filter(Boolean)
         .join(" · ")
     : "";
 
-  const main = it?.structure?.main ? intervalsToText(it.structure.main) : "";
+  const main = it?.structure?.main
+    ? intervalsToText(it.structure.main)
+    : "";
 
   const cd = it?.structure?.cooldown
     ? [
@@ -131,7 +133,7 @@ function normNotes(it: AnyObj) {
           : null,
         hrToText(it.structure.cooldown?.target?.hr),
         paceToText(it.structure.cooldown?.target?.pace),
-        powerToText(it.structure.cooldown?.target?.power),
+        powerToText(it.structure.cooldown?.target?.power)
       ]
         .filter(Boolean)
         .join(" · ")
@@ -154,57 +156,52 @@ function normNotes(it: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
-function fmtRealDurationMin(seconds?: number | null): string | null {
-  if (
-    typeof seconds !== "number" ||
-    !Number.isFinite(seconds) ||
-    seconds <= 0
-  ) {
-    return null;
-  }
-  const mins = Math.round(seconds / 60);
-  return `${mins} min`;
-}
+const realDur = (s?: number | null) =>
+  typeof s === "number" && s > 0
+    ? `${Math.round(s / 60)} min`
+    : null;
 
 function isRestSession(row: any, sess: AnyObj): boolean {
-  const sport = (row as any).sport || detectSport(sess) || "other";
-  const duration = sess.duration_min ?? row.duration_min ?? null;
   const title = String(
-    sess.title || sess.session_type || row.title || row.session_type || ""
+    sess.title ||
+      sess.session_type ||
+      row.title ||
+      row.session_type ||
+      ""
   );
 
-  if (sport === "other") return true;
-  if (duration === 0) return true;
   if (/rest|volno|off day/i.test(title)) return true;
+  if ((sess.duration_min ?? row.duration_min) === 0) return true;
   return false;
 }
 
-/* ───────── props ───────── */
+/* ------------------------- hlavný komponent ------------------------- */
 
-type Props = {
-  dateIso: string;
-};
+type Props = { dateIso: string };
 
 export default function PlanTable({ dateIso }: Props) {
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
-  const [draftLinks, setDraftLinks] = React.useState<
-    Record<number, number | null>
-  >({});
+
+  const [draftLinks, setDraftLinks] = React.useState<Record<number, number | null>>({});
   const [savingId, setSavingId] = React.useState<number | null>(null);
 
   const inferredUserId: number | null =
-    (planRows[0] as any)?.user_id ?? (actRows[0] as any)?.user_id ?? null;
+    (planRows[0] as any)?.user_id ??
+    (actRows[0] as any)?.user_id ??
+    null;
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
+  /* ---- vyber dna ---- */
   const plansForDay = React.useMemo(
     () =>
-      planRows.filter((p: any) => String(p.plan_date).slice(0, 10) === dateIso),
+      planRows.filter((p: any) =>
+        String(p.plan_date).startsWith(dateIso)
+      ),
     [planRows, dateIso]
   );
 
-  // odfiltrujeme rest day
   const filteredPlans = React.useMemo(
     () =>
       plansForDay.filter((p: any) => {
@@ -214,6 +211,7 @@ export default function PlanTable({ dateIso }: Props) {
     [plansForDay]
   );
 
+  /* ---- activity map podľa activity_id ---- */
   const actMap = React.useMemo(() => {
     const m = new Map<number, any>();
     for (const r of actRows) {
@@ -223,37 +221,34 @@ export default function PlanTable({ dateIso }: Props) {
     return m;
   }, [actRows]);
 
-  const wrapperCls = [CARD, "space-y-4", "p-3 md:p-4"].join(" ");
-
-  const headerCls = ["flex justify-between items-center", "mb-1"].join(" ");
-
+  /* ---- SAVE LINK HANDLER (updated for new API) ---- */
   async function handleSaveLink(sessionId: number) {
     if (!inferredUserId) {
-      console.warn("[PlanTable] missing userId, cannot save link");
+      console.warn("[PlanTable] Missing userId");
       return;
     }
+
     const draft = draftLinks[sessionId];
     const activityId = draft == null ? null : Number(draft);
 
     setSavingId(sessionId);
     try {
-      const res = await apiSavePlanActivityLink(
-        inferredUserId,
-        sessionId,
-        activityId
-      );
-      console.log("[PlanTable] savePlanActivityLink result", res);
-      // tu si potom môžeš spraviť refetch planRows / invalidáciu cache
+      await apiActivePlanLinkActivity(inferredUserId, sessionId, activityId);
+    } catch (e) {
+      console.error("Failed to save link", e);
     } finally {
       setSavingId(null);
     }
   }
 
+  const wrapperCls = [CARD, "space-y-4", "p-3 md:p-4"].join(" ");
+  const headerCls = "flex justify-between items-center mb-1";
+
   return (
     <div className={wrapperCls}>
       <div className={headerCls}>
         <h2 className="text-lg font-bold">
-          Plán &amp; stav tréningov — {prettySkDate(dateIso)}
+          Plán & stav tréningov — {prettySkDate(dateIso)}
         </h2>
       </div>
 
@@ -267,10 +262,12 @@ export default function PlanTable({ dateIso }: Props) {
         <ul className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
           {filteredPlans.map((p: any) => {
             const sess: AnyObj = p.payload ?? p;
-            const sport = (p as any).sport || detectSport(sess) || "other";
+
+            const sport =
+              p.sport || detectSport(sess) || "other";
 
             const sessionTypeId =
-              typeof sess?.session_type === "string"
+              typeof sess.session_type === "string"
                 ? sess.session_type
                 : typeof p.session_type === "string"
                 ? p.session_type
@@ -280,7 +277,7 @@ export default function PlanTable({ dateIso }: Props) {
               ? findTrainingTypeById(sessionTypeId)
               : null;
 
-            const title = trainingDef?.label || normTitle(sess) || "Tréning";
+            const title = trainingDef?.label || normTitle(sess);
 
             const baseNotes = normNotes(sess);
             const typeLine = trainingDef?.description || null;
@@ -288,10 +285,12 @@ export default function PlanTable({ dateIso }: Props) {
               .filter(Boolean)
               .join(" • ");
 
-            const actId = p.activity_id != null ? Number(p.activity_id) : null;
+            const actId =
+              p.activity_id != null ? Number(p.activity_id) : null;
             const isDone = actId != null && !Number.isNaN(actId);
             const isMissed =
               !isDone && String(p.plan_date).slice(0, 10) < todayIso;
+
             const status: PlanStatus = isDone
               ? "done"
               : isMissed
@@ -300,25 +299,22 @@ export default function PlanTable({ dateIso }: Props) {
 
             const act = isDone ? actMap.get(actId) : null;
 
-            const actDur = fmtRealDurationMin(
-              act?.moving_time_s ?? act?.moving_time
-            );
             const distStr =
               act?.distance_m != null
                 ? `${(act.distance_m / 1000).toFixed(2)} km`
                 : null;
 
+            const actDur = realDur(act?.moving_time_s);
+
             const activitySummary = isDone
-              ? [act?.name || "Activity", distStr, actDur]
-                  .filter(Boolean)
-                  .join(" · ")
+              ? [act?.name, distStr, actDur].filter(Boolean).join(" · ")
               : null;
 
-            // správne rozlíšenie medzi “žiadny draft” a “explicitne None”
             const hasDraft = Object.prototype.hasOwnProperty.call(
               draftLinks,
               p.id
             );
+
             const currentDraft = hasDraft
               ? draftLinks[p.id]
               : isDone && actId != null
@@ -330,8 +326,8 @@ export default function PlanTable({ dateIso }: Props) {
                 <PlanSingle
                   id={p.id}
                   title={title}
-                  dateIso={String(p.plan_date).slice(0, 10)}
                   sport={sport}
+                  dateIso={String(p.plan_date).slice(0, 10)}
                   status={status}
                   planDur={normDuration(sess)}
                   planIntensity={normIntensity(sess)}
@@ -339,6 +335,7 @@ export default function PlanTable({ dateIso }: Props) {
                   planNotes={combinedNotes || null}
                   activitySummary={activitySummary}
                 >
+                  {/* Bottom row – Activity linking */}
                   <div className="text-xs flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
                     <span className="opacity-70">Priradiť k aktivite:</span>
 
@@ -349,14 +346,11 @@ export default function PlanTable({ dateIso }: Props) {
                         sports={[sport]}
                         deltaDays={2}
                         value={currentDraft == null ? "" : currentDraft}
-                        onChange={(id) => {
-                          setDraftLinks((prev) => ({
+                        onChange={val => {
+                          setDraftLinks(prev => ({
                             ...prev,
-                            [p.id]: id === "" ? null : Number(id),
+                            [p.id]: val === "" ? null : Number(val)
                           }));
-                        }}
-                        onPicked={() => {
-                          /* len update labelu */
                         }}
                         variant="compact"
                       />
@@ -365,7 +359,7 @@ export default function PlanTable({ dateIso }: Props) {
                     <Button
                       variant="primary"
                       size="xs"
-                      disabled={!inferredUserId || savingId === p.id}
+                      disabled={savingId === p.id}
                       onClick={() => handleSaveLink(p.id)}
                     >
                       {savingId === p.id ? "Ukladám…" : "Uložiť"}
