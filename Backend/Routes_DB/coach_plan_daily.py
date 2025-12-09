@@ -94,8 +94,9 @@ def db_get_planned_range_rows(
 
 
 def db_link_session_to_activity(
+    user_id: int,
     session_id: int,
-    activity_id: int,
+    activity_id: Optional[int],
 ) -> Optional[Dict[str, Any]]:
     """
     Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu

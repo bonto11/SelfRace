@@ -1,122 +1,117 @@
 # Routes/coach_plan_active.py
 from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException
-from typing import Optional, Dict, Any, List
 
 from Services.coach_plan_active import (
     service_save_active_plan,
     service_cancel_active_plan,
     service_continue_active_plan,
     service_extend_active_plan,
-    service_reorder_daily_sessions,
     service_link_activity,
 )
 
 router = APIRouter()
 
-# ----------------------------------------------------
-# POST /coach-plan/{user_id}
-# 1) SAVE ACTIVE PLAN
-# 2) LINK ACTIVITY (session_id + activity_id)
-# ----------------------------------------------------
 
-@router.post("/coach-plan/{user_id}")
-async def save_or_link_active_plan(
+# ----------------------------------------------------
+# POST /coach-plan-active/{user_id}/save
+# ----------------------------------------------------
+@router.post("/coach-plan-active/{user_id}/save")
+async def save_active_plan(
     user_id: int,
     payload: Dict[str, Any],
 ):
     """
-    FE používa tento endpoint dvojmo:
-
-    1) SAVE ACTIVE PLAN (obsahuje weekly/meta/next_10_days)
-    2) LINK ACTIVITY (obsahuje session_id + activity_id)
+    FE posiela prázdny objekt alebo drobné meta – BE si nájde
+    najnovší plan v coach_plan_meta a aktivuje ho.
     """
-    # ---------- CASE 2: LINK ACTIVITY ----------
-    if "session_id" in payload:
-        session_id_raw = payload.get("session_id")
-        activity_id_raw = payload.get("activity_id", None)
-
-    if session_id_raw is None:
-        raise HTTPException(status_code=400,detail="session_id must be provided")
-    
-    # bezpečný casting na int, alebo error
-    try:
-        session_id = int(session_id_raw)
-    except Exception:
-        raise HTTPException(status_code=400, detail="session_id must be int")
-
-    activity_id_raw = payload.get("activity_id")
-
-    # null je povolené → odmapovanie
-    if activity_id_raw is None:
-        activity_id: Optional[int] = None
-    else:
-        try:
-            activity_id = int(activity_id_raw)
-        except Exception:
-            raise HTTPException(status_code=400, detail="activity_id must be int or null")
-
-    ok = service_link_activity(
-        user_id=user_id,
-        session_id=session_id,
-        activity_id=activity_id,
-    )
-
-    return {"success": ok}
-
-    # ---------- CASE 1: SAVE ACTIVE PLAN ----------
     try:
         result = service_save_active_plan(user_id, payload)
         return {
             "success": True,
             "plan_id": result.get("plan_id"),
+            "plan_start": result.get("plan_start"),
+            "plan_end": result.get("plan_end"),
             "weeks": result.get("weeks"),
             "meta": result.get("meta"),
         }
-    except Exception as e:
+    except ValueError as e:
+        # typicky: nemáme žiadny generated plan
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"save_active_plan ERROR: {str(e)}")
 
 
 # ----------------------------------------------------
-# DELETE /coach-plan/{user_id}
+# DELETE /coach-plan-active/{user_id}/cancel
 # ----------------------------------------------------
-@router.delete("/coach-plan/{user_id}")
+@router.delete("/coach-plan-active/{user_id}/cancel")
 async def cancel_active_plan(
     user_id: int,
-    payload: Dict[str, Any]
+    payload: Dict[str, Any],
 ):
-    plan_id = payload.get("plan_id")
+    plan_id: Optional[str] = payload.get("plan_id")
     deleted = service_cancel_active_plan(user_id, plan_id)
     return {"success": True, "deleted": deleted}
 
 
 # ----------------------------------------------------
-# PATCH /coach-plan/{user_id}  (continue)
+# PATCH /coach-plan-active/{user_id}/continue
 # ----------------------------------------------------
-@router.patch("/coach-plan/{user_id}")
-async def continue_plan(user_id: int, payload: Dict[str, Any]):
+@router.patch("/coach-plan-active/{user_id}/continue")
+async def continue_active_plan(
+    user_id: int,
+    payload: Dict[str, Any],
+):
     min_days = int(payload.get("min_horizon_days", 10))
     result = service_continue_active_plan(user_id, min_horizon_days=min_days)
     return result
 
 
 # ----------------------------------------------------
-# POST /coach-plan/{user_id}/extend
+# POST /coach-plan-active/{user_id}/extend
 # ----------------------------------------------------
-@router.post("/coach-plan/{user_id}/extend")
-async def extend_plan(user_id: int, min_horizon_days: int = 10):
+@router.post("/coach-plan-active/{user_id}/extend")
+async def extend_active_plan(
+    user_id: int,
+    min_horizon_days: int = 10,
+):
     result = service_extend_active_plan(user_id, min_horizon_days=min_horizon_days)
     return result
 
-
 # ----------------------------------------------------
-# POST /coach-plan/{user_id}/reorder
+# POST /coach-plan-active/{user_id}/link
 # ----------------------------------------------------
-@router.post("/coach-plan/{user_id}/reorder")
-async def reorder_daily_sessions(
+@router.post("/coach-plan-active/{user_id}/link")
+async def link_activity(
     user_id: int,
     payload: Dict[str, Any],
 ):
-    updates: List[Dict[str, Any]] = payload.get("updates", [])
-    ok = service_reorder_daily_sessions(user_id, updates)
+    session_id_raw = payload.get("session_id")
+    if session_id_raw is None:
+        raise HTTPException(status_code=400, detail="session_id must be provided")
+
+    # safe cast
+    try:
+        session_id = int(session_id_raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="session_id must be int")
+
+    activity_id_raw = payload.get("activity_id", None)
+    activity_id: Optional[int]
+    if activity_id_raw is None:
+        activity_id = None
+    else:
+        try:
+            activity_id = int(activity_id_raw)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="activity_id must be int or null",
+            )
+
+    ok = service_link_activity(user_id, session_id, activity_id)
     return {"success": ok}
