@@ -19,6 +19,7 @@ from Routes_FE import (
     coach_plan_daily,
     coach_plan_weekly,
     coach_athlete_state,
+    coach_plan_active,
     profile_static,
     profile_metrics,
 )
@@ -67,3 +68,4 @@ app.include_router(activities_streams.router)
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)
 app.include_router(coach_athlete_state.router)
+app.include_router(coach_plan_active.router)
