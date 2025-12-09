@@ -76,7 +76,7 @@ function phaseLabel(phase: PhaseKey): string {
     case "build":
       return weekLabels.build ?? "";
     case "peak":
-      return weekLabels.peak ??  "";
+      return weekLabels.peak ?? "";
     case "recovery":
       return weekLabels.recovery ?? "";
     default:
@@ -149,7 +149,7 @@ export default function DetailWeeklyPlan() {
     }
 
     const weeksSorted = [...plan.weeks].sort(
-      (a, b) => (a.week_index || 0) - (b.week_index || 0),
+      (a, b) => (a.week_index || 0) - (b.week_index || 0)
     );
 
     // rozsah dátumov
@@ -237,8 +237,9 @@ export default function DetailWeeklyPlan() {
     return (
       <div className={SURFACE_CARD}>
         <div className="px-4 py-4 text-sm">
-          Zatiaľ nemáš uložený AI weekly plán. Vygeneruj plán v coach sekcii a
-          tu uvidíš rozpis týždňov.
+          Zatiaľ nemáš uložený AI weekly plán v DB. Vygeneruj ho cez widget{" "}
+          <strong>Coach — Plan</strong> (tlačidlo „Generate Weekly plan“) a
+          potom sa tu objaví rozpis týždňov.
         </div>
       </div>
     );
@@ -359,7 +360,8 @@ export default function DetailWeeklyPlan() {
                         className={[
                           "px-2 py-0.5 rounded-full text-[11px] font-medium",
                           phasePillClass(pk),
-                        ].join(" ")}
+                        ].join(" ")
+                      }
                       >
                         {w.load_phase || "phase ?"}
                       </span>

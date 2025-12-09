@@ -7,9 +7,9 @@ import WidgetCoachPrefs from "@/shared/components/widgets/WidgetCoachPrefs";
 import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
 import WidgetCoachPlan from "@/shared/components/widgets/WidgetCoachPlan";
 
-import WidgetCoachAIAnalyze from "@/shared/components/widgets/WidgetCoachAIAnalyze";
-import WidgetCoachAIWeekly from "@/shared/components/widgets/WidgetCoachAIWeekly";
-import WidgetCoachAIDaily from "@/shared/components/widgets/WidgetCoachAIDaily";
+import WidgetCoachAIAnalyze from "@/shared/components/widgets/WidgetCoachAthleteState";
+import WidgetCoachAIWeekly from "@/shared/components/widgets/WidgetCoachWeeklyPlan";
+import WidgetCoachAIDaily from "@/shared/components/widgets/WidgetCoachDailyPlan";
 
 import { CoachDataProvider } from "@/shared/components/dataProviders/CoachDataProvider";
 

@@ -58,20 +58,27 @@ function formatLevelLabel(level?: string | null): string {
   return l;
 }
 
-function pillClass(level?: string | null, kind: "fatigue" | "injury" = "fatigue") {
+function pillClass(
+  level?: string | null,
+  kind: "fatigue" | "injury" = "fatigue",
+) {
   const l = (level || "").toLowerCase();
   if (!l) return "bg-slate-800 text-slate-100 border border-slate-600";
 
   if (kind === "fatigue") {
-    if (l === "low") return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/70";
+    if (l === "low")
+      return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/70";
     if (l === "moderate" || l === "medium")
       return "bg-amber-900/60 text-amber-100 border border-amber-500/70";
-    if (l === "high") return "bg-rose-900/60 text-rose-100 border border-rose-500/70";
+    if (l === "high")
+      return "bg-rose-900/60 text-rose-100 border border-rose-500/70";
   } else {
-    if (l === "low") return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/70";
+    if (l === "low")
+      return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/70";
     if (l === "moderate" || l === "medium")
       return "bg-amber-900/60 text-amber-100 border border-amber-500/70";
-    if (l === "high") return "bg-rose-900/60 text-rose-100 border border-rose-500/70";
+    if (l === "high")
+      return "bg-rose-900/60 text-rose-100 border border-rose-500/70";
   }
 
   return "bg-slate-800 text-slate-100 border border-slate-600";
@@ -86,7 +93,8 @@ function normalizeLevel(level?: number | null): number {
 
 function formatMinutesRange(min?: number | null, max?: number | null): string {
   if (!min && !max) return "—";
-  if (min && max) return `${Math.round(min / 60)}–${Math.round(max / 60)} h / týždeň`;
+  if (min && max)
+    return `${Math.round(min / 60)}–${Math.round(max / 60)} h / týždeň`;
   if (max) return `do ${Math.round(max / 60)} h / týždeň`;
   return `${Math.round((min || 0) / 60)} h / týždeň`;
 }
@@ -158,12 +166,12 @@ export default function DetailAthleteState() {
 
   const runLevel = normalizeLevel(aiState.fitness_level?.run?.level_1_to_10);
   const strengthLevel = normalizeLevel(
-    aiState.fitness_level?.strength?.level_1_to_10
+    aiState.fitness_level?.strength?.level_1_to_10,
   );
 
   const volumeRangeLabel = formatMinutesRange(
     aiState.volume_tolerance?.weekly_minutes_min ?? null,
-    aiState.volume_tolerance?.weekly_minutes_max ?? null
+    aiState.volume_tolerance?.weekly_minutes_max ?? null,
   );
 
   const acute = aiState.metrics?.acute_load_score ?? null;
@@ -206,8 +214,10 @@ export default function DetailAthleteState() {
     return (
       <div className={SURFACE_CARD}>
         <div className="px-4 py-4 text-sm">
-          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť AI analýzu v coach
-          sekcii a tu uvidíš detailný prehľad.
+          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť{" "}
+          <strong>Analyze Athlete state</strong> vo widgete{" "}
+          <strong>Coach — Plan</strong> a po uložení sa tu zobrazí detailný
+          prehľad tvojho stavu.
         </div>
       </div>
     );
@@ -310,7 +320,7 @@ export default function DetailAthleteState() {
               <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-violet-500"
-                  style={{ width: `${(strengthLevel / 10) * 100}%` }}
+                  style={{ width: `${(strengthLevel / 10) * 100}%` }} // ← opravená zátvorka
                 />
               </div>
               {aiState.fitness_level?.strength?.comment && (
@@ -413,7 +423,7 @@ export default function DetailAthleteState() {
                         style={{
                           width: `${Math.min(
                             100,
-                            ((chronic ?? 0) / 400) * 100
+                            ((chronic ?? 0) / 400) * 100,
                           )}%`,
                         }}
                       />
@@ -432,7 +442,7 @@ export default function DetailAthleteState() {
                         style={{
                           width: `${Math.min(
                             100,
-                            ((acute ?? 0) / 400) * 100
+                            ((acute ?? 0) / 400) * 100,
                           )}%`,
                         }}
                       />
@@ -476,7 +486,9 @@ export default function DetailAthleteState() {
           </div>
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">Limitácie / riziká</h4>
+              <h4 className="text-sm font-semibold mb-2">
+                Limitácie / riziká
+              </h4>
               {aiState.key_limitations?.length ? (
                 <ul className="list-disc list-inside text-sm space-y-1 text-amber-100">
                   {aiState.key_limitations.map((s, i) => (

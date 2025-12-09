@@ -26,13 +26,7 @@ import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 
 /* ---------- helpers ---------- */
 
-type LoadingKind =
-  | "analyze"
-  | "weekly"
-  | "daily"
-  | "start"
-  | "cancel"
-  | null;
+type LoadingKind = "analyze" | "weekly" | "daily" | "start" | "cancel" | null;
 
 function readPrefsFromStorage(): CoachPrefs | null {
   if (typeof window === "undefined") return null;
@@ -148,7 +142,7 @@ export default function WidgetCoachPlan() {
     }
   }, []);
 
-  // načítaj active plan id z localStorage (ak existuje)
+  // active plan id z localStorage (jednoduchý stav na FE)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -239,6 +233,11 @@ export default function WidgetCoachPlan() {
     if (!userId) return;
     setError(null);
 
+    // jednoduchá guarda – nech je aspoň 1x AI analýza + vygenerovaný plán
+    if (!result?.state_id) {
+      setError("Najprv spusti AI analýzu atleta.");
+      return;
+    }
     if (!hasGenerated) {
       setError("Najprv vygeneruj weekly aj daily plán.");
       return;
@@ -247,10 +246,10 @@ export default function WidgetCoachPlan() {
     setLoadingKind("start");
 
     try {
-      // BE si podľa nášho návrhu vie nájsť posledný generated plan
+      // payload nechávame prázdny – BE si nájde last generated plán/meta
       const res = await apiActivePlanSave(userId, {});
-
       const pid = res.plan_id ?? null;
+
       setActivePlanId(pid);
 
       if (typeof window !== "undefined" && pid) {
@@ -261,7 +260,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, hasGenerated]);
+  }, [userId, result, hasGenerated]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
@@ -293,7 +292,7 @@ export default function WidgetCoachPlan() {
       note="Analyzuj stav, vygeneruj weekly/daily a spusti aktívny plán."
       accent={accent}
       interactive={false}
-      minH={190}
+      minH={210}
     >
       {/* status riadok */}
       <div className="flex items-center justify-between gap-2 text-xs">
@@ -328,7 +327,7 @@ export default function WidgetCoachPlan() {
         <RowAction
           onPrimary={handleAnalyze}
           primaryLabel={
-            loadingKind === "analyze" ? "Analyzing…" : "Analyze Athlete state"
+            loadingKind === "analyze" ? "Analyzing…" : "Analyze athlete state"
           }
           loading={loadingKind === "analyze"}
           disabled={disabled}
@@ -338,7 +337,7 @@ export default function WidgetCoachPlan() {
         <RowAction
           onPrimary={handleGenerateWeekly}
           primaryLabel={
-            loadingKind === "weekly" ? "Generating…" : "Generate Weekly plan"
+            loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"
           }
           loading={loadingKind === "weekly"}
           disabled={disabled}
@@ -348,7 +347,7 @@ export default function WidgetCoachPlan() {
         <RowAction
           onPrimary={handleGenerateDaily}
           primaryLabel={
-            loadingKind === "daily" ? "Generating…" : "Generate Daily plan"
+            loadingKind === "daily" ? "Generating…" : "Generate daily plan"
           }
           loading={loadingKind === "daily"}
           disabled={disabled}

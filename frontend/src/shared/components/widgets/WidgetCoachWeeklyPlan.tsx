@@ -1,4 +1,4 @@
-// src/shared/components/widgets/WidgetCoachAIWeekly.tsx
+// src/shared/components/widgets/WidgetCoachWeeklyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -76,7 +76,7 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   }
 
   const weeks = [...plan.weeks].sort(
-    (a, b) => (a.week_index || 0) - (b.week_index || 0)
+    (a, b) => (a.week_index || 0) - (b.week_index || 0),
   );
 
   const first = weeks[0];
@@ -102,7 +102,7 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   };
 }
 
-export default function WidgetCoachAIWeekly({ onOpenDetail }: Props) {
+export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
 
   const [plan, setPlan] = useState<WeeklyPlanLatest | null>(null);

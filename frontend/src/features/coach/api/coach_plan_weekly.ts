@@ -1,21 +1,15 @@
+// src/features/coach/api/coach_plan_weekly.ts
 import { API_URL } from "@/shared/config";
+import { robustJson } from "@/features/coach/api/_api_utils";
 
 export type WeeklyPlanGenerateOptions = {
   overwrite?: boolean;
-  state_id?: number | null; // id z coach_athlete_state, ak chceš konkrétny
-  weeks?: number | null; // koľko týždňov plánu
+  state_id?: number | null; // id z coach_athlete_state
+  weeks?: number | null;    // koľko týždňov
 };
 
-async function robustJson(res: Response) {
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return await res.json();
-  const text = await res.text().catch(() => "");
-  return { success: false, detail: text || `HTTP ${res.status}` };
-}
-
 /**
- * Vygeneruje / prepíše weekly plán:
- * volá POST /coach-plan-weekly/generate/{user_id}
+ * POST /coach-plan-weekly/generate/{user_id}
  */
 export async function apiGenerateWeeklyPlan(
   userId: number,
@@ -44,7 +38,7 @@ export async function apiGenerateWeeklyPlan(
   return json;
 }
 
-/* ---------- NOVÉ TYPY + GET API ---------- */
+/* ---------- typy + GET latest ---------- */
 
 export type WeeklyPlanWeek = {
   week_index: number;
@@ -72,8 +66,7 @@ type WeeklyPlanLatestResponse = {
 };
 
 /**
- * Vráti najnovší weekly plán usera,
- * volá GET /coach-plan-weekly/latest/{user_id}
+ * GET /coach-plan-weekly/latest/{user_id}
  */
 export async function apiGetLatestWeeklyPlan(
   userId: number
@@ -91,7 +84,9 @@ export async function apiGetLatestWeeklyPlan(
   const json = (await robustJson(res)) as WeeklyPlanLatestResponse;
 
   if (!res.ok || json?.success === false) {
-    throw new Error((json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`);
+    throw new Error(
+      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`
+    );
   }
 
   return json.plan ?? null;

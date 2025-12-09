@@ -1,4 +1,4 @@
-// src/shared/components/widgets/WidgetCoachAIAnalyze.tsx
+// src/shared/components/widgets/WidgetCoachAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -82,7 +82,7 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
   };
 }
 
-export default function WidgetCoachAIAnalyze({ onOpenDetail }: Props) {
+export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   const { userId } = useUserId();
 
   const [row, setRow] = useState<AthleteStateRecord | null>(null);

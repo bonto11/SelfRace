@@ -1,13 +1,8 @@
+// src/features/coach/api/coach_plan_active.ts
 import { API_URL } from "@/shared/config";
-
+import { robustJson } from "@/features/coach/api/_api_utils";
 /* ========================= HELPERS ========================= */
 
-async function robustJson(res: Response) {
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return await res.json();
-  const text = await res.text().catch(() => "");
-  return { success: false, detail: text || `HTTP ${res.status}` };
-}
 
 /* ========================= TYPES ========================= */
 
@@ -41,7 +36,9 @@ export type ReorderUpdate = {
 };
 
 /* ========================= SAVE ACTIVE PLAN ========================= */
-
+/**
+ * POST /coach-plan-active/{user_id}/save
+ */
 export async function apiActivePlanSave(
   userId: number,
   payload: any
@@ -65,7 +62,9 @@ export async function apiActivePlanSave(
 }
 
 /* ========================= CANCEL ACTIVE PLAN ========================= */
-
+/**
+ * DELETE /coach-plan-active/{user_id}/cancel
+ */
 export async function apiActivePlanCancel(
   userId: number,
   planId?: string | null
@@ -89,7 +88,9 @@ export async function apiActivePlanCancel(
 }
 
 /* ========================= CONTINUE ACTIVE PLAN ========================= */
-
+/**
+ * PATCH /coach-plan-active/{user_id}/continue
+ */
 export async function apiActivePlanContinue(
   userId: number,
   minHorizonDays = 10
@@ -116,7 +117,9 @@ export async function apiActivePlanContinue(
 }
 
 /* ========================= EXTEND ACTIVE PLAN ========================= */
-
+/**
+ * POST /coach-plan-active/{user_id}/extend?min_horizon_days=...
+ */
 export async function apiActivePlanExtend(
   userId: number,
   minHorizonDays = 10
@@ -139,7 +142,9 @@ export async function apiActivePlanExtend(
 }
 
 /* ========================= REORDER DAILY ========================= */
-
+/**
+ * POST /coach-plan-active/{user_id}/reorder
+ */
 export async function apiActivePlanReorder(
   userId: number,
   updates: ReorderUpdate[]
@@ -162,7 +167,9 @@ export async function apiActivePlanReorder(
 }
 
 /* ========================= LINK ACTIVITY ========================= */
-
+/**
+ * POST /coach-plan-active/{user_id}/link
+ */
 export async function apiActivePlanLinkActivity(
   userId: number,
   sessionId: number,

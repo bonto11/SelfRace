@@ -1,5 +1,4 @@
 // src/features/coach/api/coach_athlete_state.ts
-
 import { API_URL } from "@/shared/config";
 import { robustJson } from "@/features/coach/api/_api_utils";
 import type {
@@ -25,8 +24,7 @@ type LatestAthleteStateResponse = {
 };
 
 /**
- * Zavolá BE endpoint /coach/athlete/analyze/:user_id.
- * FE neposiela žiadny tréningový payload – BE si všetko skladá z DB.
+ * POST /coach/athlete/analyze/:user_id
  */
 export async function apiAnalyzeAthleteState(
   userId: number,
@@ -63,8 +61,7 @@ export async function apiAnalyzeAthleteState(
 }
 
 /**
- * Zavolá BE endpoint /coach/athlete/state/latest/:user_id.
- * Vráti posledný uložený stav alebo null.
+ * GET /coach/athlete/state/latest/:user_id
  */
 export async function apiGetLatestAthleteState(
   userId: number
@@ -83,7 +80,7 @@ export async function apiGetLatestAthleteState(
     throw new Error(`Network/CORS: ${String(e)}`);
   });
 
-  const json = await robustJson(res) as LatestAthleteStateResponse;
+  const json = (await robustJson(res)) as LatestAthleteStateResponse;
 
   if (!res.ok || !json?.success) {
     const msg = (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`;
