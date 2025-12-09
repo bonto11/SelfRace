@@ -36,26 +36,33 @@ async def save_or_link_active_plan(
         session_id_raw = payload.get("session_id")
         activity_id_raw = payload.get("activity_id", None)
 
-        # bezpečný casting na int, alebo error
-        try:
-            session_id: int = int(session_id_raw)
-        except Exception:
-            raise HTTPException(status_code=400, detail="session_id must be int")
+    if session_id_raw is None:
+        raise HTTPException(status_code=400,detail="session_id must be provided")
+    
+    # bezpečný casting na int, alebo error
+    try:
+        session_id = int(session_id_raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="session_id must be int")
 
+    activity_id_raw = payload.get("activity_id")
+
+    # null je povolené → odmapovanie
+    if activity_id_raw is None:
+        activity_id: Optional[int] = None
+    else:
         try:
-            activity_id: Optional[int] = (
-                int(activity_id_raw) if activity_id_raw is not None else None
-            )
+            activity_id = int(activity_id_raw)
         except Exception:
             raise HTTPException(status_code=400, detail="activity_id must be int or null")
 
-        ok = service_link_activity(
-            user_id=user_id,
-            session_id=session_id,
-            activity_id=activity_id,
-        )
+    ok = service_link_activity(
+        user_id=user_id,
+        session_id=session_id,
+        activity_id=activity_id,
+    )
 
-        return {"success": ok}
+    return {"success": ok}
 
     # ---------- CASE 1: SAVE ACTIVE PLAN ----------
     try:
@@ -89,7 +96,7 @@ async def cancel_active_plan(
 @router.patch("/coach-plan/{user_id}")
 async def continue_plan(user_id: int, payload: Dict[str, Any]):
     min_days = int(payload.get("min_horizon_days", 10))
-    result = service_continue_active_plan(user_id, min_days=min_days)
+    result = service_continue_active_plan(user_id, min_horizon_days=min_days)
     return result
 
 
