@@ -200,6 +200,8 @@ def service_generate_weekly_plan(
         else {}
     ) or {}
 
+    print("[DB-COACH-WEEKLY] plan_meta_dict:", plan_meta_dict)
+    
     # start/end z meta alebo z prvého/posledného týždňa
     start_date: Optional[str] = plan_meta_dict.get("start_date") or None
     end_date: Optional[str] = plan_meta_dict.get("end_date") or None
@@ -213,6 +215,7 @@ def service_generate_weekly_plan(
     main_sport = plan_meta_dict.get("main_sport")
     goal_kind = plan_meta_dict.get("goal_kind")
 
+    print("[DB-COACH-WEEKLY] plan_id:", plan_id)
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
         plan_id=plan_id,

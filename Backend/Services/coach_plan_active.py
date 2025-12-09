@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+# Services/coach_plan_active.py – relevantná časť
+
 from Routes_DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
     db_archive_user_plans,
@@ -15,7 +17,6 @@ from Routes_DB.coach_plan_daily import (
     db_link_session_to_activity,
 )
 
-
 def _ensure_latest_plan_meta(user_id: int) -> Dict[str, Any]:
     """
     Nájde najnovší záznam v coach_plan_meta pre daného usera.
@@ -27,25 +28,23 @@ def _ensure_latest_plan_meta(user_id: int) -> Dict[str, Any]:
     return meta
 
 
-# ---------------------------------------------------------------------
-# SAVE = označ najnovší plan ako ACTIVE
-# ---------------------------------------------------------------------
 def service_save_active_plan(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Aktivuje najnovší vygenerovaný plán.
 
+    - očakáva, že weekly generátor už založil coach_plan_meta so status='generated'
     - zaarchivuje všetky existujúce plány (generated/active)
     - najnovšiemu nastaví status='active'
     - vráti info pre FE
     """
-    # 1) nájdi najnovší plán
+    # 1) nájdi najnovší plán z meta
     meta = _ensure_latest_plan_meta(user_id)
     plan_id: str = meta["plan_id"]
 
-    # 2) archivuj staré plány
+    # 2) archivuj staré plány (generated + active)
     db_archive_user_plans(user_id)
 
-    # 3) nastav status = active
+    # 3) nastav status = active pre daný plan_id
     updated = db_update_plan_status(user_id, plan_id, "active") or meta
 
     return {
@@ -55,7 +54,6 @@ def service_save_active_plan(user_id: int, payload: Dict[str, Any]) -> Dict[str,
         "weeks": updated.get("weeks_total"),
         "meta": updated,
     }
-
 
 # ---------------------------------------------------------------------
 # CANCEL = zruš aktívny plán
@@ -156,3 +154,7 @@ def service_link_activity(
         return True
     except Exception:
         return False
+    
+
+
+    

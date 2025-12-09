@@ -24,10 +24,6 @@ async def save_active_plan(
     user_id: int,
     payload: Dict[str, Any],
 ):
-    """
-    FE posiela prázdny objekt alebo drobné meta – BE si nájde
-    najnovší plan v coach_plan_meta a aktivuje ho.
-    """
     try:
         result = service_save_active_plan(user_id, payload)
         return {
@@ -39,11 +35,9 @@ async def save_active_plan(
             "meta": result.get("meta"),
         }
     except ValueError as e:
-        # typicky: nemáme žiadny generated plan
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"save_active_plan ERROR: {str(e)}")
-
 
 # ----------------------------------------------------
 # DELETE /coach-plan-active/{user_id}/cancel

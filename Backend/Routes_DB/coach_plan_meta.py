@@ -36,7 +36,7 @@ def db_insert_plan_meta_generated(
         "goal_kind": goal_kind,
         "source": source,
     }
-
+    print("[DB-COACH-META] row:", row)
     try:
         res = supabase.table(TABLE_COACH_PLAN_META).insert(row).execute()
         rows = res.data or []
@@ -144,3 +144,6 @@ def db_update_plan_status(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-META] update_plan_status error:", repr(e))
         return None
+    
+
+    
