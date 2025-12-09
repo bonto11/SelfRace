@@ -195,13 +195,11 @@ def service_generate_weekly_plan(
 
     # 6) založ meta záznam (status='generated')
     plan_meta_dict = (
-        weekly_plan.get("plan_meta")
-        if isinstance(weekly_plan, dict)
-        else {}
+        weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}
     ) or {}
 
     print("[DB-COACH-WEEKLY] plan_meta_dict:", plan_meta_dict)
-    
+
     # start/end z meta alebo z prvého/posledného týždňa
     start_date: Optional[str] = plan_meta_dict.get("start_date") or None
     end_date: Optional[str] = plan_meta_dict.get("end_date") or None
@@ -219,7 +217,7 @@ def service_generate_weekly_plan(
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
         plan_id=plan_id,
-        state_id=used_state_id if isinstance(used_state_id, int) else None,
+        base_state_id=used_state_id if isinstance(used_state_id, int) else None,
         weeks_total=len(weeks_list) or horizon_weeks,
         start_date=start_date,
         end_date=end_date,

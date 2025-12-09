@@ -13,7 +13,7 @@ def db_insert_plan_meta_generated(
     *,
     user_id: int,
     plan_id: str,
-    state_id: Optional[int],
+    base_state_id: Optional[int],
     weeks_total: Optional[int],
     start_date: Optional[str],
     end_date: Optional[str],
@@ -28,7 +28,7 @@ def db_insert_plan_meta_generated(
         "user_id": user_id,
         "plan_id": plan_id,
         "status": "generated",
-        "state_id": state_id,
+        "base_state_id": base_state_id,
         "weeks_total": weeks_total,
         "start_date": start_date,
         "end_date": end_date,
@@ -36,6 +36,7 @@ def db_insert_plan_meta_generated(
         "goal_kind": goal_kind,
         "source": source,
     }
+
     print("[DB-COACH-META] row:", row)
     try:
         res = supabase.table(TABLE_COACH_PLAN_META).insert(row).execute()
@@ -44,7 +45,6 @@ def db_insert_plan_meta_generated(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-META] insert_generated error:", repr(e))
         return None
-
 
 def db_archive_user_plans(
     user_id: int,
