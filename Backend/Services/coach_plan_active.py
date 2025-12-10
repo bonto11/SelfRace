@@ -155,6 +155,27 @@ def service_link_activity(
     except Exception:
         return False
     
+def service_get_active_plan_status(user_id: int) -> Dict[str, Any]:
+    """
+    Zistí, či má user aktívny plán.
 
+    Vráti:
+      {
+        "has_active": bool,
+        "plan_id": Optional[str],
+        "meta": Optional[dict]
+      }
+    """
+    meta = db_get_active_plan_meta_for_user(user_id=user_id)
+    if not meta:
+        return {
+            "has_active": False,
+            "plan_id": None,
+            "meta": None,
+        }
 
-    
+    return {
+        "has_active": True,
+        "plan_id": meta.get("plan_id"),
+        "meta": meta,
+    }

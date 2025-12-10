@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from Services.coach_plan_active import (
     service_save_active_plan,
@@ -11,10 +11,12 @@ from Services.coach_plan_active import (
     service_continue_active_plan,
     service_extend_active_plan,
     service_link_activity,
+    service_get_active_plan_status
 )
 
-router = APIRouter()
+from Routes_DB.coach_plan_daily import db_get_planned_range_rows
 
+router = APIRouter()
 
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/save
@@ -109,3 +111,39 @@ async def link_activity(
 
     ok = service_link_activity(user_id, session_id, activity_id)
     return {"success": ok}
+
+@router.get("/coach-plan/{user_id}")
+def get_plan_range(
+    user_id: int,
+    date_from: str = Query(..., alias="date_from"),
+    date_to: str = Query(..., alias="date_to"),
+) -> Dict[str, Any]:
+    """
+    Vráti všetky plánované sessions (coach_plan_daily) pre usera
+    v danom dátumovom intervale.
+
+    Používa sa v PlanDataProvider na kalendár / detail.
+    """
+    try:
+        rows = db_get_planned_range_rows(user_id=user_id, date_from=date_from, date_to=date_to)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"get_plan_range ERROR: {e}")
+
+    return {
+        "success": True,
+        "rows": rows,
+    }
+
+@router.get("/coach-plan-active/{user_id}/status")
+async def get_active_plan_status(user_id: int) -> Dict[str, Any]:
+    """
+    Vráti info, či má user aktívny plán.
+    """
+    try:
+        status = service_get_active_plan_status(user_id)
+        return {
+            "success": True,
+            **status,
+        }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"get_active_plan_status ERROR: {e}")

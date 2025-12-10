@@ -35,6 +35,14 @@ export type ReorderUpdate = {
   session_index: number;
 };
 
+export type ActivePlanStatus = {
+  success: boolean;
+  has_active: boolean;
+  plan_id: string | null;
+  meta?: any;
+};
+
+
 /* ========================= SAVE ACTIVE PLAN ========================= */
 /**
  * POST /coach-plan-active/{user_id}/save
@@ -190,4 +198,23 @@ export async function apiActivePlanLinkActivity(
 
   const json = await robustJson(r);
   return { success: !!json?.success };
+}
+
+export async function apiActivePlanStatus(userId: number): Promise<ActivePlanStatus> {
+  if (!API_URL) throw new Error("Missing API_URL");
+
+  const r = await fetch(`${API_URL}/coach-plan-active/${userId}/status`, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+  }).catch((e) => {
+    throw new Error(`Network: ${String(e)}`);
+  });
+
+  const json = await robustJson(r);
+  if (!r.ok || json?.success === false) {
+    throw new Error(json?.detail || json?.error || `HTTP ${r.status}`);
+  }
+
+  return json as ActivePlanStatus;
 }

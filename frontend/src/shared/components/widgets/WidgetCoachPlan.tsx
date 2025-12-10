@@ -17,19 +17,27 @@ import {
   apiAnalyzeAthleteState,
   apiGetLatestAthleteState,
 } from "@/features/coach/api/coach_athlete_state";
-import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
-import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 import {
   apiActivePlanSave,
   apiActivePlanCancel,
+  apiActivePlanStatus, // ← nový import
 } from "@/features/coach/api/coach_plan_active";
+import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
+import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 
 /* ---------- helpers ---------- */
 
-type LoadingKind = "analyze" | "weekly" | "daily" | "start" | "cancel" | null;
+type LoadingKind =
+  | "analyze"
+  | "weekly"
+  | "daily"
+  | "start"
+  | "cancel"
+  | "status"
+  | null;
 
 function readPrefsFromStorage(): CoachPrefs | null {
   if (typeof window === "undefined") return null;
@@ -122,7 +130,7 @@ export default function WidgetCoachPlan() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
-  // init prefs
+  /* ---- init prefs ---- */
   useEffect(() => {
     if (!userId) return;
 
@@ -137,7 +145,7 @@ export default function WidgetCoachPlan() {
     })();
   }, [userId]);
 
-  // načítaj, či už je nejaký athlete_state v DB (nezávisle od lokálneho state)
+  /* ---- latest athlete_state z DB (kvôli garde Start plan) ---- */
   useEffect(() => {
     if (!userId) return;
 
@@ -161,7 +169,7 @@ export default function WidgetCoachPlan() {
     };
   }, [userId]);
 
-  // flag "generated" z localStorage
+  /* ---- flag "generated" z localStorage (čisto UX hint) ---- */
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -171,16 +179,43 @@ export default function WidgetCoachPlan() {
     }
   }, []);
 
-  // active plan id z localStorage (jednoduchý stav na FE)
+  /* ---- HYDRATE ACTIVE PLAN Z DB (/status), nie z localStorage ---- */
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const pid = localStorage.getItem("coach.active_plan_id");
-      setActivePlanId(pid ?? null);
-    } catch {
-      setActivePlanId(null);
-    }
-  }, []);
+    if (!userId) return;
+
+    let alive = true;
+    (async () => {
+      setLoadingKind((prev) => prev ?? "status");
+      try {
+        const s = await apiActivePlanStatus(userId);
+        if (!alive) return;
+
+        const pid = s.has_active ? s.plan_id ?? null : null;
+        setActivePlanId(pid);
+
+        if (typeof window !== "undefined") {
+          if (pid) {
+            localStorage.setItem("coach.active_plan_id", String(pid));
+          } else {
+            localStorage.removeItem("coach.active_plan_id");
+          }
+        }
+      } catch (e: any) {
+        if (!alive) return;
+        console.warn(
+          "[CoachPlan] active status error:",
+          e?.message || String(e)
+        );
+      } finally {
+        if (!alive) return;
+        setLoadingKind((prev) => (prev === "status" ? null : prev));
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
 
   const markGenerated = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -191,6 +226,8 @@ export default function WidgetCoachPlan() {
       // ignore
     }
   }, []);
+
+  /* ---- handlers ---- */
 
   const handleAnalyze = useCallback(async () => {
     if (!userId) return;
@@ -209,7 +246,6 @@ export default function WidgetCoachPlan() {
         state_id: json.state_id ?? null,
       });
 
-      // po úspešnej analýze si zapamätaj state_id (pre guardu Start plan)
       const sid =
         (json as any).state_id ??
         (json as any).state?.id ??
@@ -271,7 +307,7 @@ export default function WidgetCoachPlan() {
     if (!userId) return;
     setError(null);
 
-    // tu už nepozeráme na lokálny result, ale na stav v DB
+    // guard: musí existovať nejaký athlete_state v DB + vygenerovaný plán
     if (!latestStateId) {
       setError("Najprv spusti AI analýzu atleta.");
       return;
@@ -318,7 +354,8 @@ export default function WidgetCoachPlan() {
     }
   }, [userId, activePlanId]);
 
-  const loading = loadingKind !== null;
+  // "status" neberieme ako blokujúce loading
+  const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
 
   const accent = THEME?.chart?.athletes ?? THEME?.chart?.run ?? "#22C55E";
@@ -352,7 +389,7 @@ export default function WidgetCoachPlan() {
         <PrefsMiniInline prefs={prefs} />
       </div>
 
-      {/* ak je chyba, zobraz krátke info */}
+      {/* chyba */}
       {error && (
         <div className="mt-1 text-[11px] text-red-300 line-clamp-2">
           {error}
