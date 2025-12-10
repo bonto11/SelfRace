@@ -20,6 +20,7 @@ export type PlanRow = {
   user_id: number;
   plan_date: string; // "YYYY-MM-DD"
   sport: string;
+
   title?: string | null;
   duration_min?: number | null;
   intensity?: string | null;
@@ -28,7 +29,9 @@ export type PlanRow = {
   session_type?: string | null;
   session_index?: number | null;
   payload?: any;
-  source? : string | null
+  source?: string | null;
+
+  // legacy / extra polia z DB nechávame otvorené
   [key: string]: any;
 };
 
@@ -36,11 +39,11 @@ type PlanCtx = {
   rangeStart: string;
   rangeEnd: string;
   rows: PlanRow[];
+  planRows: PlanRow[]; // alias
   loading: boolean;
+  hasAnyPlan: boolean;
   refresh: (force?: boolean) => Promise<void>;
   selectPlanByRange: (start: string, end: string) => PlanRow[];
-  // extra helper – celé pole, aby si ho mohol brať priamo
-  planRows: PlanRow[];
 };
 
 const PlanDataContext = createContext<PlanCtx | null>(null);
@@ -81,27 +84,33 @@ export function PlanDataProvider({
         return;
       }
 
-      const t0 = performance.now();
-      console.debug("[PLAN][provider] fetchRange", {
-        force,
-        userId,
-        rangeStart,
-        rangeEnd,
-      });
+      if (!API_URL) {
+        console.error("[PLAN][provider] Missing API_URL");
+        setRows([]);
+        return;
+      }
+
+      const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+
+      const url = `${API_URL}/coach-plan/${userId}?date_from=${rangeStart}&date_to=${rangeEnd}`;
+      console.debug("[PLAN][fetch] ->", url, { force, userId, rangeStart, rangeEnd });
 
       setLoading(true);
       try {
-        const url = `${API_URL}/coach-plan/${userId}?date_from=${rangeStart}&date_to=${rangeEnd}`;
-        console.debug("[PLAN][fetch] ->", url);
-
         const res = await fetch(url, { cache: "no-store" });
-        const text = await res.text();
+
+        const rawText = await res.text();
         let json: any = {};
         try {
-          json = JSON.parse(text);
+          json = rawText ? JSON.parse(rawText) : {};
         } catch (e) {
-          console.warn("[PLAN][fetch] JSON parse error, raw:", text.slice(0, 400));
+          console.warn("[PLAN][fetch] JSON parse error, raw head:", rawText.slice(0, 400));
           throw e;
+        }
+
+        if (!res.ok) {
+          console.error("[PLAN][fetch] HTTP error", res.status, json);
+          throw new Error(json?.detail || json?.error || `HTTP ${res.status}`);
         }
 
         const list: any[] = Array.isArray(json?.data)
@@ -129,12 +138,15 @@ export function PlanDataProvider({
         setRows(norm);
       } catch (e) {
         console.error("[PLAN][fetch] ERROR", e);
-        if (!force) setRows([]);
+        // pri chybe vynulujeme – nech UI radšej vidí “žiadny plán”
+        setRows([]);
       } finally {
         setLoading(false);
-        console.debug("[PLAN][provider] fetchRange end", {
-          tookMs: Math.round(performance.now() - t0),
-        });
+        if (t0) {
+          console.debug("[PLAN][provider] fetchRange end", {
+            tookMs: Math.round(performance.now() - t0),
+          });
+        }
       }
     },
     [userId, rangeStart, rangeEnd]
@@ -152,10 +164,7 @@ export function PlanDataProvider({
   const selectPlanByRange = useCallback(
     (start: string, end: string): PlanRow[] => {
       if (!rows.length) return [];
-      const out = rows.filter(
-        (r) => r.plan_date >= start && r.plan_date <= end
-      );
-      return out;
+      return rows.filter((r) => r.plan_date >= start && r.plan_date <= end);
     },
     [rows]
   );
@@ -165,10 +174,11 @@ export function PlanDataProvider({
       rangeStart,
       rangeEnd,
       rows,
+      planRows: rows,
       loading,
+      hasAnyPlan: rows.length > 0,
       refresh: fetchRange,
       selectPlanByRange,
-      planRows: rows,
     }),
     [rangeStart, rangeEnd, rows, loading, fetchRange, selectPlanByRange]
   );
