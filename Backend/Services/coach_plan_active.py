@@ -15,7 +15,9 @@ from Routes_DB.coach_plan_meta import (
 from Routes_DB.coach_plan_daily import (
     # ak máš iné názvy, len si uprav importy
     db_link_session_to_activity,
+    db_clear_daily_for_user_plan,
 )
+from Routes_DB.coach_plan_weekly import db_clear_weekly_for_user_plan
 
 def _ensure_latest_plan_meta(user_id: int) -> Dict[str, Any]:
     """
@@ -58,21 +60,34 @@ def service_save_active_plan(user_id: int, payload: Dict[str, Any]) -> Dict[str,
 # ---------------------------------------------------------------------
 # CANCEL = zruš aktívny plán
 # ---------------------------------------------------------------------
-def service_cancel_active_plan(user_id: int, plan_id: Optional[str]) -> int:
-    """
-    Zruší aktívny plán.
+# Services/coach_plan_active.py (príklad)
 
-    - ak je plan_id None -> nájde aktuálny aktívny plán v meta
-    - nastaví status='cancelled'
-    - vráti 1 ak sa niečo zmenilo, inak 0
+def service_cancel_active_plan(user_id: int) -> dict:
+    """
+    Ukončí aktuálny aktívny plán:
+      - nájde active meta
+      - nastaví status='archived'
+      - vymaže všetky weekly + daily riadky daného plan_id
     """
     meta = db_get_active_plan_meta_for_user(user_id)
     if not meta:
-        return 0
+        raise ValueError("User has no active plan to cancel.")
 
-    target_plan_id: str = plan_id or meta["plan_id"]
-    updated = db_update_plan_status(user_id, target_plan_id, "cancelled")
-    return 1 if updated else 0
+    plan_id = meta["plan_id"]
+
+    # 1) meta -> archived
+    updated_meta = db_update_plan_status(user_id, plan_id, "archived") or meta
+
+    # 2) zmaž plán
+    weekly_deleted = db_clear_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
+    daily_deleted = db_clear_daily_for_user_plan(user_id=user_id, plan_id=plan_id)
+
+    return {
+        "plan_id": plan_id,
+        "meta": updated_meta,
+        "weekly_deleted": weekly_deleted,
+        "daily_deleted": daily_deleted,
+    }
 
 
 # ---------------------------------------------------------------------
