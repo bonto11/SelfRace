@@ -22,14 +22,14 @@ import {
   apiActivePlanCancel,
   apiActivePlanStatus,
 } from "@/features/coach/api/coach_plan_active";
-
 import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 
 import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
+import { confirm } from "@/shared/components/ui/Confirm";
 
-/* --------------------------------------------- */
+/* ---------- helpers ---------- */
 
 type LoadingKind =
   | "analyze"
@@ -70,7 +70,19 @@ function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
   );
 }
 
-function RowAction({ onPrimary, primaryLabel, loading, disabled, onDetail }) {
+function RowAction({
+  onPrimary,
+  primaryLabel,
+  loading,
+  disabled,
+  onDetail,
+}: {
+  onPrimary: () => void;
+  primaryLabel: string;
+  loading: boolean;
+  disabled: boolean;
+  onDetail: () => void;
+}) {
   return (
     <div className="flex items-start justify-between gap-2 rounded-lg bg-black/5 dark:bg-white/5 px-2 py-2">
       <div className="flex-1 space-y-0.5">
@@ -102,9 +114,7 @@ function RowAction({ onPrimary, primaryLabel, loading, disabled, onDetail }) {
   );
 }
 
-/* --------------------------------------------- */
-/*                    MAIN                      */
-/* --------------------------------------------- */
+/* ---------- hlavný widget ---------- */
 
 export default function WidgetCoachPlan() {
   const router = useRouter();
@@ -116,11 +126,10 @@ export default function WidgetCoachPlan() {
 
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [hasGenerated, setHasGenerated] = useState(false);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
-  /* ---- Prefs ---- */
+  /* ---- init prefs ---- */
   useEffect(() => {
     if (!userId) return;
 
@@ -135,18 +144,20 @@ export default function WidgetCoachPlan() {
     })();
   }, [userId]);
 
-  /* ---- athlete state ---- */
+  /* ---- latest athlete_state z DB ---- */
   useEffect(() => {
     if (!userId) return;
 
     let alive = true;
-
     (async () => {
       try {
         const row = await apiGetLatestAthleteState(userId);
         if (!alive) return;
-
-        setLatestStateId(row?.id ?? null);
+        if (row && typeof row.id === "number") {
+          setLatestStateId(row.id);
+        } else {
+          setLatestStateId(null);
+        }
       } catch {
         if (alive) setLatestStateId(null);
       }
@@ -157,35 +168,46 @@ export default function WidgetCoachPlan() {
     };
   }, [userId]);
 
-  /* ---- generated flag ---- */
+  /* ---- flag "generated" z localStorage ---- */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setHasGenerated(!!localStorage.getItem("coach.generated"));
+    try {
+      setHasGenerated(!!localStorage.getItem("coach.generated"));
+    } catch {
+      setHasGenerated(false);
+    }
   }, []);
 
-  /* ---- active plan status FROM DB (autorita) ---- */
+  /* ---- active plan status Z DB (autorita) ---- */
   useEffect(() => {
     if (!userId) return;
 
     let alive = true;
-
     (async () => {
       setLoadingKind("status");
       try {
         const s = await apiActivePlanStatus(userId);
         if (!alive) return;
 
-        const pid = s.has_active ? s.plan_id : null;
+        const pid = s.has_active ? s.plan_id ?? null : null;
         setActivePlanId(pid);
 
-        if (pid) {
-          localStorage.setItem("coach.active_plan_id", String(pid));
-        } else {
-          localStorage.removeItem("coach.active_plan_id");
+        if (typeof window !== "undefined") {
+          if (pid) {
+            localStorage.setItem("coach.active_plan_id", String(pid));
+          } else {
+            localStorage.removeItem("coach.active_plan_id");
+          }
         }
-      } catch {}
-      finally {
-        if (alive) setLoadingKind(null);
+      } catch (e: any) {
+        if (!alive) return;
+        console.warn(
+          "[CoachPlan] active status error:",
+          e?.message || String(e)
+        );
+      } finally {
+        if (!alive) return;
+        setLoadingKind(null);
       }
     })();
 
@@ -194,15 +216,22 @@ export default function WidgetCoachPlan() {
     };
   }, [userId]);
 
-  /* --------------------------------------------- */
-  /*                    ACTIONS                    */
-  /* --------------------------------------------- */
+  const markGenerated = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("coach.generated", "1");
+      setHasGenerated(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  /* ---- handlers ---- */
 
   const handleAnalyze = useCallback(async () => {
     if (!userId) return;
-
-    setLoadingKind("analyze");
     setError(null);
+    setLoadingKind("analyze");
 
     try {
       const json = await apiAnalyzeAthleteState(userId, {
@@ -211,14 +240,20 @@ export default function WidgetCoachPlan() {
       });
 
       setResult({
-        analysis: json.state,
-        model: json.model,
-        state_id: json.state_id,
+        analysis: json.state ?? null,
+        model: json.model ?? null,
+        state_id: json.state_id ?? null,
       });
 
-      if (json.state_id) setLatestStateId(json.state_id);
+      const sid =
+        (json as any).state_id ??
+        (json as any).state?.id ??
+        null;
+      if (typeof sid === "number") {
+        setLatestStateId(sid);
+      }
     } catch (e: any) {
-      setError(e?.message || "Error analyzing athlete.");
+      setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
@@ -226,34 +261,31 @@ export default function WidgetCoachPlan() {
 
   const handleGenerateWeekly = useCallback(async () => {
     if (!userId) return;
-
-    setLoadingKind("weekly");
     setError(null);
+    setLoadingKind("weekly");
 
     try {
       const weeks = (prefs as any)?.weeks ?? null;
-      const sid = result?.state_id ?? latestStateId;
+      const stateId = result?.state_id ?? latestStateId ?? null;
 
       await apiGenerateWeeklyPlan(userId, {
         overwrite: true,
         weeks,
-        state_id: sid,
+        state_id: stateId,
       });
 
-      localStorage.setItem("coach.generated", "1");
-      setHasGenerated(true);
+      markGenerated();
     } catch (e: any) {
-      setError(e?.message || "Weekly plan generation failed.");
+      setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, prefs, result, latestStateId]);
+  }, [userId, prefs, result, latestStateId, markGenerated]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId) return;
-
-    setLoadingKind("daily");
     setError(null);
+    setLoadingKind("daily");
 
     try {
       await apiGenerateDailyForWeek(userId, {
@@ -262,17 +294,17 @@ export default function WidgetCoachPlan() {
         overwrite: true,
       });
 
-      localStorage.setItem("coach.generated", "1");
-      setHasGenerated(true);
+      markGenerated();
     } catch (e: any) {
-      setError(e?.message || "Daily plan generation failed.");
+      setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId]);
+  }, [userId, markGenerated]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId) return;
+    setError(null);
 
     if (!latestStateId) {
       setError("Najprv spusti AI analýzu atleta.");
@@ -284,54 +316,63 @@ export default function WidgetCoachPlan() {
     }
 
     setLoadingKind("start");
-    setError(null);
 
     try {
       const res = await apiActivePlanSave(userId, {});
       const pid = res.plan_id ?? null;
 
       setActivePlanId(pid);
-      localStorage.setItem("coach.active_plan_id", String(pid));
+
+      if (typeof window !== "undefined" && pid) {
+        localStorage.setItem("coach.active_plan_id", pid);
+      }
     } catch (e: any) {
-      setError(e?.message || "Unable to start plan.");
+      setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
   }, [userId, latestStateId, hasGenerated]);
 
-  /* ---------- DOUBLE-STEP CANCEL ---------- */
+  // 🚨 TU používame tvoj Confirm popup
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
+    setError(null);
 
-    const ok = window.confirm(
-      "Naozaj chceš ukončiť tento plán?\nTáto akcia je nezvratná."
-    );
+    const ok = await confirm({
+      title: "Ukončiť tréningový plán?",
+      message:
+        "Táto akcia je nezvratná. Weekly aj daily plán budú zrušené a plán sa presunie medzi ukončené.",
+      okText: "Ukončiť plán",
+      cancelText: "Zrušiť",
+      tone: "danger",
+    });
+
     if (!ok) return;
 
     setLoadingKind("cancel");
-    setError(null);
 
     try {
       await apiActivePlanCancel(userId, activePlanId);
 
-      // frontend cleanup
+      // FE cleanup
       setActivePlanId(null);
-      localStorage.removeItem("coach.active_plan_id");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("coach.active_plan_id");
+      }
 
-      // refresh status z DB
+      // pre istotu dotiahneme stav ešte raz zo /status
       try {
         const stat = await apiActivePlanStatus(userId);
-        setActivePlanId(stat.has_active ? stat.plan_id : null);
-      } catch {}
-
+        setActivePlanId(stat.has_active ? stat.plan_id ?? null : null);
+      } catch {
+        // tiché zlyhanie, stav máme už vyčistený
+      }
     } catch (e: any) {
-      setError(e?.message || "Unable to cancel plan.");
+      setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
   }, [userId, activePlanId]);
-
-  /* --------------------------------------------- */
 
   const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
@@ -346,7 +387,7 @@ export default function WidgetCoachPlan() {
       interactive={false}
       minH={210}
     >
-      {/* STATUS */}
+      {/* status riadok */}
       <div className="flex items-center justify-between gap-2 text-xs">
         <Pill
           label={
@@ -358,18 +399,21 @@ export default function WidgetCoachPlan() {
           }
           color={
             activePlanId
-              ? THEME?.chart?.good ?? "#22C55E"
+              ? THEME?.chart?.good ?? accent
               : THEME?.chart?.neutral ?? "#64748B"
           }
         />
         <PrefsMiniInline prefs={prefs} />
       </div>
 
+      {/* chyba */}
       {error && (
-        <div className="mt-1 text-[11px] text-red-300">{error}</div>
+        <div className="mt-1 text-[11px] text-red-300 line-clamp-2">
+          {error}
+        </div>
       )}
 
-      {/* ACTIONS */}
+      {/* akcie */}
       <div className="mt-3 space-y-2 text-xs">
         <RowAction
           onPrimary={handleAnalyze}
@@ -384,9 +428,7 @@ export default function WidgetCoachPlan() {
         <RowAction
           onPrimary={handleGenerateWeekly}
           primaryLabel={
-            loadingKind === "weekly"
-              ? "Generating…"
-              : "Generate weekly plan"
+            loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"
           }
           loading={loadingKind === "weekly"}
           disabled={disabled}
@@ -403,7 +445,7 @@ export default function WidgetCoachPlan() {
           onDetail={() => router.push("/coach/ai/dailyPlan")}
         />
 
-        {/* START + DOUBLE-STEP CANCEL */}
+        {/* START / CANCEL ACTIVE PLAN */}
         <div className="mt-3 flex items-center gap-2">
           <Button
             size="xs"
@@ -412,9 +454,10 @@ export default function WidgetCoachPlan() {
             onClick={handleStartPlan}
           >
             {loadingKind === "start" ? (
-              <>
-                <LoadingSpinner size="button" /> Starting…
-              </>
+              <span className="inline-flex items-center gap-1">
+                <LoadingSpinner size="button" />
+                Starting…
+              </span>
             ) : activePlanId ? (
               "Plan active ✓"
             ) : (
@@ -429,9 +472,10 @@ export default function WidgetCoachPlan() {
             onClick={handleCancelPlan}
           >
             {loadingKind === "cancel" ? (
-              <>
-                <LoadingSpinner size="button" /> Cancelling…
-              </>
+              <span className="inline-flex items-center gap-1">
+                <LoadingSpinner size="button" />
+                Cancelling…
+              </span>
             ) : (
               "Cancel plan"
             )}
