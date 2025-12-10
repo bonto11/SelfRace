@@ -123,30 +123,22 @@ def enrich_daily_plan_with_strength_exercises(
       - pripraví históriu na INSERT do DB,
       - vráti upravený daily_plan.
 
-    Očakávaný vstup (AI):
-      session["structure"]["strength_exercises"] = [
-        { "slot": "core", "sets": 3, "reps": "10-15", "rest_s": 60, "notes": "..." },
-        ...
-      ]
-
-    Výstup (po obohatení):
-      každý item navyše obsahuje "exercise_id" a "exercise_name".
+    Podporované vstupy:
+      session["structure"]["strength_exercises"] = [...]
+      alebo
+      session["strength_exercises"] = [...]
     """
 
-    # Načítaj históriu z DB (napr. posledných 8 týždňov)
     history = db_get_strength_history_for_user(user_id=user_id, weeks_back=weeks_back)
     _normalize_history_dates(history)
 
-    # Pre novú históriu, ktorú uložíme
     new_history_rows: List[Dict[str, Any]] = []
 
     days = daily_plan.get("days") or []
     for day in days:
         date_str = day.get("date")
         try:
-            session_date = (
-                date.fromisoformat(date_str[:10]) if date_str else today
-            )
+            session_date = date.fromisoformat(date_str[:10]) if date_str else today
         except Exception:  # noqa: BLE001
             session_date = today
 
@@ -155,12 +147,21 @@ def enrich_daily_plan_with_strength_exercises(
                 continue
 
             struct = session.get("structure") or {}
-            slots = struct.get("strength_exercises") or []
-            if not isinstance(slots, list):
+
+            # 1) primárne z structure.strength_exercises
+            slots = struct.get("strength_exercises")
+            # 2) fallback: top-level strength_exercises z AI
+            if not isinstance(slots, list) or not slots:
+                slots = session.get("strength_exercises") or []
+
+            if not isinstance(slots, list) or not slots:
                 continue
 
-            enriched_slots = []
+            enriched_slots: List[Dict[str, Any]] = []
             for slot_item in slots:
+                if not isinstance(slot_item, dict):
+                    continue
+
                 slot = slot_item.get("slot")
                 if not slot:
                     continue
@@ -189,7 +190,6 @@ def enrich_daily_plan_with_strength_exercises(
                 }
                 enriched_slots.append(enriched)
 
-                # pridaj do lokálnej histórie (aby sa v tomto behu nevybral znova)
                 history.append(
                     {
                         "user_id": user_id,
@@ -198,7 +198,6 @@ def enrich_daily_plan_with_strength_exercises(
                         "exercise_id": ex["id"],
                     }
                 )
-                # a priprav row na insert do DB
                 new_history_rows.append(
                     {
                         "user_id": user_id,
@@ -210,7 +209,9 @@ def enrich_daily_plan_with_strength_exercises(
                     }
                 )
 
+            # zapíš späť do structure + voliteľne top-level
             session.setdefault("structure", {})["strength_exercises"] = enriched_slots
+            session["strength_exercises"] = enriched_slots
 
     if new_history_rows:
         db_insert_strength_history_rows(new_history_rows)
