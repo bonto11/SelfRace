@@ -10,6 +10,7 @@ import MonoStrainWidget from "@/shared/components/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/shared/components/widgets/WidgetPareto8020";
 import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
 import Button from "@/shared/components/ui/Button";
+import { resetClientCache } from "@/shared/utils/resetClientCache";
 
 export default function ActivitiesPage() {
   const { userId } = useUserId();
@@ -58,6 +59,8 @@ export default function ActivitiesPage() {
               )}
               {syncing ? "Synchronizujem…" : "Sync Strava"}
             </Button>
+
+            <Button onClick={resetClientCache} size="sm"></Button>
           </div>
         </div>
       </div>

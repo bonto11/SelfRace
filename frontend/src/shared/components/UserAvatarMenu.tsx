@@ -6,7 +6,6 @@ import ChangeEmailModal from "@/features/auth/components/ChangeEmailModal";
 import { API_URL } from "@/shared/config";
 // voliteľné: len ak potrebuješ token pre /account/request-delete
 import { supabase } from "@/shared/hooks/supabaseClient";
-import { resetClientCache } from "@/shared/utils/resetClientCache";
 
 import {
   AVATAR_BUTTON,
@@ -130,16 +129,6 @@ export default function UserAvatarMenu({
 
           <button className={DROPDOWN_ITEM_DANGER} onClick={onRequestDelete} role="menuitem">
             Zrušiť účet (hold 30d)
-          </button>
-
-
-
-          <button
-            type="button"
-            onClick={resetClientCache}
-            className="text-[11px] px-2 py-1 rounded border border-red-500/60 text-red-300 hover:bg-red-500/10"
-          >
-            Reset coach cache
           </button>
         </div>
       )}
