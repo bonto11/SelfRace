@@ -161,3 +161,27 @@ def db_list_daily_for_user_horizon(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] db_list_daily_for_user_horizon error:", repr(e))
         return []
+        
+def db_clear_daily_for_user_plan(user_id: int, plan_id: str) -> int:
+    """
+    Delete všetkých daily riadkov pre daný plán (bez ohľadu na dátum).
+    """
+    try:
+        res = (
+            supabase.table(TABLE_COACH_PLAN_DAILY)
+            .delete()
+            .eq("user_id", user_id)
+            .eq("plan_id", plan_id)
+            .execute()
+        )
+        data = res.data or []
+        print(
+            "[DB-COACH-DAILY] clear plan user=%s plan_id=%s deleted=%s",
+            user_id,
+            plan_id,
+            len(data),
+        )
+        return len(data)
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-DAILY] clear_plan error:", repr(e))
+        return 0
