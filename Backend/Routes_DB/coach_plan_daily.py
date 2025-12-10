@@ -3,10 +3,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from datetime import date, timedelta
+
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_COACH_PLAN_DAILY
 
 supabase = get_client()
+
 
 def db_insert_daily_rows(
     rows: List[Dict[str, Any]],
@@ -116,15 +118,19 @@ def db_link_session_to_activity(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] link_session_to_activity error:", repr(e))
         return None
-    
+
+
 def db_list_daily_for_user_horizon(
     user_id: int,
     horizon_days: int,
+    plan_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky daily plánované sessions pre usera
     od dneška po dnes + horizon_days.
 
+    Ak je zadaný plan_id, filtruje len daný plán (active / latest),
+    inak vráti všetky plány usera.
     Používa sa v service_get_daily_overview.
     """
     if horizon_days <= 0:
@@ -133,20 +139,24 @@ def db_list_daily_for_user_horizon(
     today = date.today()
     end_date = today + timedelta(days=horizon_days)
 
-    date_from = today.isoformat()      # "YYYY-MM-DD"
-    date_to = end_date.isoformat()     # "YYYY-MM-DD"
+    date_from = today.isoformat()  # "YYYY-MM-DD"
+    date_to = end_date.isoformat()  # "YYYY-MM-DD"
 
     try:
-        res = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)  # ak máš separátny TABLE_COACH_PLAN_DAILY, daj ho sem
+        query = (
+            supabase.table(TABLE_COACH_PLAN_DAILY)
             .select("*")
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
             .lte("plan_date", date_to)
             .order("plan_date", desc=False)
             .order("session_index", desc=False)
-            .execute()
         )
+
+        if plan_id:
+            query = query.eq("plan_id", plan_id)
+
+        res = query.execute()
         return res.data or []
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] db_list_daily_for_user_horizon error:", repr(e))

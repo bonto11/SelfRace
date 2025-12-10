@@ -13,6 +13,10 @@ from Routes_DB.coach_plan_daily import (
     db_clear_daily_for_user_week,
     db_list_daily_for_user_horizon,
 )
+from Routes_DB.coach_plan_meta import (
+    db_get_active_plan_meta_for_user,
+    db_get_latest_plan_meta_for_user,
+)
 from Routes_AI.generate_plan_daily import generate_daily_week_json
 from Services.coach_strength_mapper import (
     enrich_daily_plan_with_strength_exercises,
@@ -101,6 +105,13 @@ def service_generate_daily_week(
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
+    # 0) vyrieš plan_id – ak z FE nedošlo, skús aktívny / posledný plan z meta
+    plan_id_effective: Optional[str] = plan_id
+    if not plan_id_effective:
+        meta = db_get_active_plan_meta_for_user(user_id) or db_get_latest_plan_meta_for_user(user_id)
+        if meta and isinstance(meta.get("plan_id"), str):
+            plan_id_effective = meta["plan_id"]
+
     # 1) vstup z analyze (rovnaké ako weekly)
     analyze_input = build_input_from_db(user_id)
 
@@ -115,10 +126,10 @@ def service_generate_daily_week(
 
     # 2) weekly meta – ak máme plan_id, skúsime nájsť riadok v coach_plan_weekly
     week_row: Optional[Dict[str, Any]] = None
-    if plan_id:
+    if plan_id_effective:
         week_row = db_get_week_row_for_plan(
             user_id=user_id,
-            plan_id=plan_id,
+            plan_id=plan_id_effective,
             week_index=week_index,
         )
 
@@ -142,7 +153,7 @@ def service_generate_daily_week(
         "schema_version": 1,
         "user_id": user_id,
         "week_index": week_index,
-        "plan_id": plan_id,
+        "plan_id": plan_id_effective,
         "overwrite": overwrite,
         "week": week_meta,
         "prefs": prefs_ai,
@@ -166,7 +177,7 @@ def service_generate_daily_week(
         daily_plan = {}
 
     # priraď plan_id do daily_planu, aby ho videl mapper / história
-    plan_id_out = plan_id
+    plan_id_out = plan_id_effective
     if plan_id_out:
         daily_plan["plan_id"] = plan_id_out
 
@@ -227,13 +238,22 @@ def service_get_daily_overview(
 ) -> Dict[str, Any]:
     """
     Vráti jednoduchý DAILY prehľad pre najbližších N dní.
+    Berie len sessions pre aktívny plán (ak existuje),
+    inak fallback na posledný plán a nakoniec na všetko.
     """
     if horizon_days <= 0:
         horizon_days = 7
 
+    # zisti aktívny / posledný plan_id
+    meta = db_get_active_plan_meta_for_user(user_id) or db_get_latest_plan_meta_for_user(user_id)
+    plan_id: Optional[str] = None
+    if meta and isinstance(meta.get("plan_id"), str):
+        plan_id = meta["plan_id"]
+
     rows: List[Dict[str, Any]] = db_list_daily_for_user_horizon(
         user_id=user_id,
         horizon_days=horizon_days,
+        plan_id=plan_id,
     ) or []
 
     # zgrupujeme podľa dátumu
