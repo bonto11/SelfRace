@@ -13,7 +13,10 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
 import { apiGetCoachPrefs } from "@/features/coach/api/prefs";
-import { apiAnalyzeAthleteState } from "@/features/coach/api/coach_athlete_state";
+import {
+  apiAnalyzeAthleteState,
+  apiGetLatestAthleteState,
+} from "@/features/coach/api/coach_athlete_state";
 import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 import {
@@ -112,6 +115,8 @@ export default function WidgetCoachPlan() {
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [latestStateId, setLatestStateId] = useState<number | null>(null);
+
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -130,6 +135,30 @@ export default function WidgetCoachPlan() {
         setPrefs(readPrefsFromStorage());
       }
     })();
+  }, [userId]);
+
+  // načítaj, či už je nejaký athlete_state v DB (nezávisle od lokálneho state)
+  useEffect(() => {
+    if (!userId) return;
+
+    let alive = true;
+    (async () => {
+      try {
+        const row = await apiGetLatestAthleteState(userId);
+        if (!alive) return;
+        if (row && typeof row.id === "number") {
+          setLatestStateId(row.id);
+        } else {
+          setLatestStateId(null);
+        }
+      } catch {
+        if (alive) setLatestStateId(null);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
   // flag "generated" z localStorage
@@ -179,6 +208,15 @@ export default function WidgetCoachPlan() {
         model: json.model ?? null,
         state_id: json.state_id ?? null,
       });
+
+      // po úspešnej analýze si zapamätaj state_id (pre guardu Start plan)
+      const sid =
+        (json as any).state_id ??
+        (json as any).state?.id ??
+        null;
+      if (typeof sid === "number") {
+        setLatestStateId(sid);
+      }
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -193,7 +231,7 @@ export default function WidgetCoachPlan() {
 
     try {
       const weeks = (prefs as any)?.weeks ?? null;
-      const stateId = result?.state_id ?? null;
+      const stateId = result?.state_id ?? latestStateId ?? null;
 
       await apiGenerateWeeklyPlan(userId, {
         overwrite: true,
@@ -207,7 +245,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, prefs, result, markGenerated]);
+  }, [userId, prefs, result, latestStateId, markGenerated]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId) return;
@@ -233,8 +271,8 @@ export default function WidgetCoachPlan() {
     if (!userId) return;
     setError(null);
 
-    // jednoduchá guarda – nech je aspoň 1x AI analýza + vygenerovaný plán
-    if (!result?.state_id) {
+    // tu už nepozeráme na lokálny result, ale na stav v DB
+    if (!latestStateId) {
       setError("Najprv spusti AI analýzu atleta.");
       return;
     }
@@ -246,7 +284,6 @@ export default function WidgetCoachPlan() {
     setLoadingKind("start");
 
     try {
-      // payload nechávame prázdny – BE si nájde last generated plán/meta
       const res = await apiActivePlanSave(userId, {});
       const pid = res.plan_id ?? null;
 
@@ -260,7 +297,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, result, hasGenerated]);
+  }, [userId, latestStateId, hasGenerated]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
