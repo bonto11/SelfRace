@@ -80,7 +80,7 @@ export async function apiActivePlanCancel(
   if (!API_URL) throw new Error("Missing API_URL");
 
   const r = await fetch(`${API_URL}/coach-plan-active/${userId}/cancel`, {
-    method: "DELETE",
+    method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ plan_id: planId ?? null }),
   }).catch((e) => {
