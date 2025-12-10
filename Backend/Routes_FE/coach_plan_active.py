@@ -44,15 +44,15 @@ async def save_active_plan(
 # ----------------------------------------------------
 # DELETE /coach-plan-active/{user_id}/cancel
 # ----------------------------------------------------
-@router.delete("/coach-plan-active/{user_id}/cancel")
-async def cancel_active_plan(
-    user_id: int,
-    payload: Dict[str, Any],
-):
-    plan_id: Optional[str] = payload.get("plan_id")
-    deleted = service_cancel_active_plan(user_id, plan_id)
-    return {"success": True, "deleted": deleted}
-
+@router.post("/coach-plan-active/{user_id}/cancel")
+async def cancel_active_plan(user_id: int):
+    try:
+        result = service_cancel_active_plan(user_id)
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"cancel_active_plan ERROR: {e}")
 
 # ----------------------------------------------------
 # PATCH /coach-plan-active/{user_id}/continue
