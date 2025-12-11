@@ -173,11 +173,15 @@ export interface StrengthTargets {
 /* -------- External / injuries -------- */
 
 export type ExternalSport =
+  | "badminton"
+  | "floorbal"
   | "football"
+  | "padel"
   | "run"
   | "ride"
   | "strength"
   | "swim"
+  | "tennis"
   | "other";
 
 export type ExternalIntensity = "low" | "moderate" | "high";

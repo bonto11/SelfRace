@@ -95,14 +95,12 @@ function mapActivitiesToEvents(
 
     const title = a.note
       ? `${a.sport} – ${a.note}`
-      : a.sport === "football"
-      ? "Futbal"
       : a.sport;
 
     return {
       user_id: userId,
       title,
-      sport: a.sport === "football" ? "other" : a.sport,
+      sport: a.sport,
       weekday,
       duration_min: null,
       priority,
