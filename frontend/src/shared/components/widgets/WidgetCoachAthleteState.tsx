@@ -124,8 +124,8 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       title="Coach — Athlete state"
       note={
         ui.lastAnalysisAt
-          ? `Posledná AI analýza: ${ui.lastAnalysisAt}`
-          : "Spusť AI analýzu pre tohto atleta."
+          ? ""
+          : "Spusť AI analýzu trénovanosti."
       }
       accent={accent}
       onOpen={onOpenDetail}
