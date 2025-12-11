@@ -6,6 +6,7 @@ import WidgetPB from "@/shared/components/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/shared/components/widgets/WidgetCoachPrefs";
 import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
 import WidgetCoachPlan from "@/shared/components/widgets/WidgetCoachPlan";
+import WidgetExternalEvents from "@/shared/components/widgets/WidgetExternalEvents";
 
 import WidgetCoachAIAnalyze from "@/shared/components/widgets/WidgetCoachAthleteState";
 import WidgetCoachAIWeekly from "@/shared/components/widgets/WidgetCoachWeeklyPlan";
@@ -19,6 +20,7 @@ function ClientPage() {
   return (
     <div className="p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {/* existujúce widgety */}
+      <WidgetExternalEvents/>
       <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
       <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
       <WidgetCoachPlan/>
