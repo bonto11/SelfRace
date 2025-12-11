@@ -35,6 +35,7 @@ TABLE_COACH_PLAN_DAILY = "coach_plan_daily"
 TABLE_COACH_PLAN_WEEKLY = "coach_plan_weekly"
 TABLE_COACH_PLAN_META = "coach_plan_meta"
 TABLE_COACH_STRENGTH_HISTORY = "coach_strength_history"
+TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
 TABLE_USERS_PREFERENCES = "users_preferences"
 
 SUPABASE_URL: str = env_required("SUPABASE_URL")
