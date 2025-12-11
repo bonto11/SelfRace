@@ -1,42 +1,64 @@
+// src/features/coach/components/DetailExternalEvents.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/shared/components/ui/Button";
-import TextField from "@/shared/components/ui/TextField";
 import SelectField from "@/shared/components/ui/SelectField";
+import TextField from "@/shared/components/ui/TextField";
+import DateField from "@/shared/components/ui/DateField";
+import TimeField24 from "@/shared/components/ui/TimeField24";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import type {
-  ExternalActivity,
-  ExternalIntensity,
-  ExternalSport,
-  ExternalEvent,
-} from "@/features/coach/types/externalEvents";
+
 import type { DayAbbrev } from "@/shared/types/day";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
+
 import {
   apiGetExternalEvents,
   apiSaveExternalEvents,
 } from "@/features/coach/api/coach_external_events";
 
+import type {
+  ExternalActivity,
+  ExternalIntensity,
+  ExternalSport,
+  ExternalEvent,
+  ExternalCategory,
+} from "@/features/coach/types/externalEvents";
+
+type Props = {
+  userId?: number;
+};
+
+/* ---------- constants ---------- */
+
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const EXT_SPORTS: ExternalSport[] = [
-  "football",
+
+// športové aktivity
+const SPORT_OPTIONS: ExternalSport[] = [
   "run",
   "ride",
   "strength",
   "swim",
+  "football",
   "badminton",
   "floorbal",
   "padel",
   "tennis",
   "other",
 ];
-const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
-type Props = {
-  userId?: number;
-};
+// eventy / nešportové bloky – tieto typy musíš mať v ExternalSport
+const EVENT_OPTIONS: ExternalSport[] = [
+  "wedding",
+  "party",
+  "travel",
+  "family_event",
+  "work_event",
+  "other",
+];
+
+const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
 const DAY_TO_INT: Record<DayAbbrev, number> = {
   Mon: 1,
@@ -58,14 +80,20 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
   7: "Sun",
 };
 
-/* ---------- mapovanie DB ↔️ FE ---------- */
+const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/* ---------- mapovanie DB ↔ FE ---------- */
+
+function detectCategory(sport: ExternalSport | null): ExternalCategory {
+  if (!sport) return "sport";
+  if (EVENT_OPTIONS.includes(sport)) return "event";
+  return "sport";
+}
 
 function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
   return events
     .map<ExternalActivity | null>((ev) => {
-      const mode =
-        ((ev as any).recurrence_kind as "weekly" | "single" | null) ??
-        "weekly";
+      const mode = (ev.recurrence_kind as "weekly" | "single") ?? "weekly";
 
       let day: DayAbbrev = "Mon";
 
@@ -74,34 +102,27 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
           (ev as any).weekday ?? (ev as any).weekday_int,
         );
         day = INT_TO_DAY[weekdayNum] ?? "Mon";
-      } else if (mode === "single") {
+      } else {
         const iso = (ev as any).single_date as string | null;
         if (!iso) return null;
         const dObj = new Date(iso);
-        const js = dObj.getDay(); // 0=Sun..6=Sat
-        const JS_TO_DAY: DayAbbrev[] = [
-          "Sun",
-          "Mon",
-          "Tue",
-          "Wed",
-          "Thu",
-          "Fri",
-          "Sat",
-        ];
+        const js = dObj.getDay(); // 0–6
         day = JS_TO_DAY[js] ?? "Mon";
       }
 
-      const sport = ((ev as any).sport as ExternalSport) || "other";
+      const sport = (ev.sport as ExternalSport) ?? "other";
 
       let intensity: ExternalIntensity = "moderate";
-      if ((ev as any).priority === "fixed") intensity = "high";
-      if ((ev as any).priority === "optional") intensity = "low";
+      if (ev.priority === "fixed") intensity = "high";
+      if (ev.priority === "optional") intensity = "low";
 
-      const note = (ev as any).notes ?? (ev as any).title ?? undefined;
-      const time = (ev as any).start_time_local ?? null;
-      const singleDate = (ev as any).single_date ?? null;
+      const note = ev.notes ?? ev.title ?? undefined;
+      const time = ev.start_time_local ?? null;
+      const singleDate = (ev.single_date as string | null) ?? null;
+      const category = detectCategory(sport);
 
       return {
+        category,
         day,
         sport,
         intensity,
@@ -120,51 +141,29 @@ function mapActivitiesToEvents(
 ): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
-
-    // 🔑 DB má weekday NOT NULL → aj pri single vypočítame deň v týždni
-    let weekday: number;
-    if (mode === "weekly") {
-      weekday = DAY_TO_INT[a.day] ?? 1;
-    } else {
-      // mode === "single"
-      if (a.date_single) {
-        const d = new Date(a.date_single);
-        const js = d.getDay(); // 0..6
-        const JS_TO_INT: Record<number, number> = {
-          0: 7, // Sun → 7
-          1: 1,
-          2: 2,
-          3: 3,
-          4: 4,
-          5: 5,
-          6: 6,
-        };
-        weekday = JS_TO_INT[js] ?? 1;
-      } else {
-        // fallback – ak náhodou nie je date_single, vezmeme day
-        weekday = DAY_TO_INT[a.day] ?? 1;
-      }
-    }
+    const weekday = mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : null;
 
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const titleBase = a.sport;
-    const title = a.note ? `${titleBase} – ${a.note}` : titleBase;
+    const baseTitle = a.sport;
+    const title = a.note ? `${baseTitle} – ${a.note}` : baseTitle;
 
     return {
+      id: 0 as any, // BE ignoruje, pri inserte si vygeneruje vlastné id
       user_id: userId,
       title,
       sport: a.sport,
-      weekday,                         // 🔥 vždy non-null
+      weekday: (weekday ?? 1) as number,
       recurrence_kind: mode,
-      single_date: mode === "single" ? a.date_single ?? null : null,
+      single_date: mode === "single" ? (a.date_single ?? null) : null,
       start_time_local: a.time ?? null,
       duration_min: null,
       priority,
       notes: a.note ?? null,
       start_date: null,
       end_date: null,
+      created_at: null,
     };
   });
 }
@@ -174,10 +173,10 @@ function mapActivitiesToEvents(
 export function DetailExternalEvents({ userId }: Props) {
   const [open, setOpen] = useState(true);
 
-  // zdroj pravdy pre externé aktivity
   const [list, setList] = useState<ExternalActivity[]>([]);
 
-  const [extDraft, setExtDraft] = useState<ExternalActivity>({
+  const [draft, setDraft] = useState<ExternalActivity>({
+    category: "sport",
     day: "Wed",
     sport: "football",
     intensity: "high",
@@ -192,7 +191,7 @@ export function DetailExternalEvents({ userId }: Props) {
   const [dbError, setDbError] = useState<string | null>(null);
   const [dbInfo, setDbInfo] = useState<string | null>(null);
 
-  // načítaj z DB pri zmene userId
+  // načítanie z DB
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -236,8 +235,8 @@ export function DetailExternalEvents({ userId }: Props) {
 
   const handleAdd = () => {
     const next: ExternalActivity = {
-      ...extDraft,
-      note: extDraft.note?.trim() || undefined,
+      ...draft,
+      note: draft.note?.trim() || undefined,
     };
     setList((cur) => [...cur, next]);
   };
@@ -252,12 +251,7 @@ export function DetailExternalEvents({ userId }: Props) {
     setDbError(null);
     setDbInfo(null);
     try {
-      const cleaned = list.filter(
-        (a) => String(a.sport || "").trim().length > 0,
-      );
-
-      console.debug("[EXT] saving activities ->", cleaned);
-
+      const cleaned = list.filter((a) => String(a.sport || "").trim().length);
       const events = mapActivitiesToEvents(userId, cleaned);
       const resp = await apiSaveExternalEvents(userId, events);
 
@@ -289,10 +283,12 @@ export function DetailExternalEvents({ userId }: Props) {
     }
   };
 
-  const mode = extDraft.mode ?? "weekly";
+  const mode = draft.mode ?? "weekly";
   const isWeekly = mode === "weekly";
+  const category: ExternalCategory = draft.category ?? "sport";
 
-  const disabled = !userId;
+  const sportOptions =
+    category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
 
   return (
     <section className={SECTION}>
@@ -302,26 +298,21 @@ export function DetailExternalEvents({ userId }: Props) {
           External activities & events
         </div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Naplánuj iné športy alebo eventy (napr. futbal, svadba), s ktorými AI počíta pri tvorbe tréningového plánu." />
+          <InfoPopover text="Externé športy aj nešportové udalosti (svadba, cestovanie…), s ktorými plán počíta pri generovaní tréningu." />
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen((o) => !o)}
-            labelWhenOpen="Collapse external activities"
-            labelWhenClosed="Expand external activities"
+            labelWhenOpen="Hide"
+            labelWhenClosed="Show"
           />
         </div>
       </div>
 
-      {/* Info o DB stave */}
-      {userId ? (
+      {userId && (
         <div className="mb-1 text-[11px] opacity-70">
           {loadingDB
             ? "Načítavam externé aktivity z DB…"
             : "Externé aktivity sa ukladajú do samostatnej tabuľky podľa užívateľa."}
-        </div>
-      ) : (
-        <div className="mb-1 text-[11px] text-red-300">
-          Nie si prihlásený – najprv sa prihlás, aby sme vedeli načítať a uložiť eventy.
         </div>
       )}
 
@@ -334,7 +325,7 @@ export function DetailExternalEvents({ userId }: Props) {
         >
           {preview.length === 0 ? (
             <span className="opacity-70">
-              No external activities — click the arrow to add.
+              Žiadne externé aktivity – klikni pre otvorenie detailu.
             </span>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -343,13 +334,12 @@ export function DetailExternalEvents({ userId }: Props) {
                   key={`${a.day}-${a.sport}-${a.intensity}-${idx}`}
                   className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
                   title={
-                    a.note ? a.note : `${a.day} · ${a.sport} · ${a.intensity}`
+                    a.note
+                      ? a.note
+                      : `${a.day} · ${a.sport} · ${a.intensity}`
                   }
                 >
-                  {a.mode === "single"
-                    ? a.date_single ?? a.day
-                    : a.day}{" "}
-                  · {a.sport} · {a.intensity}
+                  {a.day} · {a.sport} · {a.intensity}
                 </span>
               ))}
             </div>
@@ -360,13 +350,33 @@ export function DetailExternalEvents({ userId }: Props) {
       {/* Open body */}
       {open && (
         <>
-          {/* 1. riadok – režim + deň/dátum + šport + intenzita */}
+          {/* 1. riadok – kategória, repeat, deň/dátum, sport/event */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <SelectField
+              label="Type"
+              value={category}
+              onChange={(e) => {
+                const nextCat = e.target.value as ExternalCategory;
+                const defaultSport: ExternalSport =
+                  nextCat === "sport" ? SPORT_OPTIONS[0] : EVENT_OPTIONS[0];
+
+                setDraft((d) => ({
+                  ...d,
+                  category: nextCat,
+                  sport: defaultSport,
+                }));
+              }}
+              options={[
+                { value: "sport", label: "Sport" },
+                { value: "event", label: "Event" },
+              ]}
+            />
+
             <SelectField
               label="Repeat"
               value={mode}
               onChange={(e) =>
-                setExtDraft((d) => ({
+                setDraft((d) => ({
                   ...d,
                   mode: e.target.value as "weekly" | "single",
                 }))
@@ -375,125 +385,120 @@ export function DetailExternalEvents({ userId }: Props) {
                 { value: "weekly", label: "Weekly" },
                 { value: "single", label: "Single date" },
               ]}
-              disabled={disabled}
             />
 
             {isWeekly ? (
               <SelectField
                 label="Day"
-                value={extDraft.day}
+                value={draft.day}
                 onChange={(e) =>
-                  setExtDraft((d) => ({
+                  setDraft((d) => ({
                     ...d,
                     day: e.target.value as DayAbbrev,
                   }))
                 }
                 options={ALL_DAYS.map((d) => ({ value: d, label: d }))}
-                disabled={disabled}
               />
             ) : (
-              <TextField
+              <DateField
                 label="Date"
-                type="date"
-                value={extDraft.date_single ?? ""}
-                onChange={(e) =>
-                  setExtDraft((d) => ({
+                value={draft.date_single ?? ""}
+                onChange={(v) =>
+                  setDraft((d) => ({
                     ...d,
-                    date_single: (e.target as HTMLInputElement).value || null,
+                    date_single: v || null,
                   }))
                 }
-                disabled={disabled}
               />
             )}
 
             <SelectField
-              label="Sport"
-              value={extDraft.sport}
+              label={category === "sport" ? "Sport" : "Event"}
+              value={draft.sport}
               onChange={(e) =>
-                setExtDraft((d) => ({
+                setDraft((d) => ({
                   ...d,
                   sport: e.target.value as ExternalSport,
                 }))
               }
-              options={EXT_SPORTS.map((s) => ({ value: s, label: s }))}
-              disabled={disabled}
+              options={sportOptions.map((s) => ({
+                value: s,
+                label: s,
+              }))}
+            />
+          </div>
+
+          {/* 2. riadok – čas, load, poznámka */}
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+            <TimeField24
+              label="Time"
+              value={draft.time ?? ""}
+              onChange={(v) =>
+                setDraft((d) => ({
+                  ...d,
+                  time: v || null,
+                }))
+              }
             />
 
             <SelectField
-              label="Intensity"
-              value={extDraft.intensity}
+              label="Intensity / load"
+              value={draft.intensity}
               onChange={(e) =>
-                setExtDraft((d) => ({
+                setDraft((d) => ({
                   ...d,
                   intensity: e.target.value as ExternalIntensity,
                 }))
               }
               options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
-              disabled={disabled}
             />
-          </div>
 
-          {/* 2. riadok – čas + poznámka */}
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-            <TextField
-              label="Time"
-              type="time"
-              value={extDraft.time ?? ""}
-              onChange={(e) =>
-                setExtDraft((d) => ({
-                  ...d,
-                  time: (e.target as HTMLInputElement).value || null,
-                }))
-              }
-              disabled={disabled}
-            />
             <TextField
               label="Note"
               placeholder="optional"
-              value={extDraft.note ?? ""}
+              value={draft.note ?? ""}
               onChange={(e) =>
-                setExtDraft((d) => ({
+                setDraft((d) => ({
                   ...d,
                   note: (e.target as HTMLInputElement).value,
                 }))
               }
-              disabled={disabled}
             />
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              onClick={handleAdd}
-              size="sm"
-              variant="success"
-              disabled={disabled}
-            >
+          {/* akcie */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button onClick={handleAdd} size="sm" variant="success">
               Add external
             </Button>
 
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={handleSaveToDB}
-              disabled={disabled || savingDB}
-            >
-              {savingDB ? "Saving to DB…" : "Uložiť do DB"}
-            </Button>
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={handleClearDB}
-              disabled={disabled || savingDB}
-            >
-              Vymazať všetky v DB
-            </Button>
+            {userId && (
+              <>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleSaveToDB}
+                  disabled={savingDB}
+                >
+                  {savingDB ? "Saving to DB…" : "Uložiť do DB"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={handleClearDB}
+                  disabled={savingDB}
+                >
+                  Vymazať všetky v DB
+                </Button>
+              </>
+            )}
           </div>
 
           {list.length > 0 && (
             <ul className="mt-3 space-y-2">
               {list.map((a, idx) => (
                 <li
-                  key={`${idx}-${a.sport}-${a.mode}-${a.date_single ?? a.day}`}
+                  key={`${a.day}-${a.sport}-${idx}`}
                   className={[
                     SURFACE_INLINE,
                     "px-3 py-2 flex items-center justify-between",
@@ -501,9 +506,11 @@ export function DetailExternalEvents({ userId }: Props) {
                 >
                   <span className="text-sm">
                     {(a.mode ?? "weekly") === "weekly"
-                      ? `${a.day}`
-                      : a.date_single || a.day}{" "}
-                    · {a.sport} · {a.intensity}
+                      ? a.day
+                      : a.date_single || a.day}
+                    {" · "}
+                    {a.category === "event" ? "event" : "sport"}{" "}
+                    {a.sport} · {a.intensity}
                     {a.time ? ` · ${a.time}` : ""}
                     {a.note ? ` — ${a.note}` : ""}
                   </span>
@@ -511,7 +518,6 @@ export function DetailExternalEvents({ userId }: Props) {
                     size="sm"
                     variant="danger"
                     onClick={() => handleRemove(idx)}
-                    disabled={disabled}
                   >
                     remove
                   </Button>
@@ -531,3 +537,5 @@ export function DetailExternalEvents({ userId }: Props) {
     </section>
   );
 }
+
+export default DetailExternalEvents;
