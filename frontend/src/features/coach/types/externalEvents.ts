@@ -1,53 +1,61 @@
 import type { DayAbbrev } from "@/shared/types/day";
 
-/* -------- External sports / events -------- */
+/* -------- kategórie -------- */
+
+export type ExternalCategory = "sport" | "event";
 
 export type ExternalSport =
-  | "badminton"
-  | "floorbal"
-  | "football"
-  | "padel"
+  // športy
   | "run"
   | "ride"
   | "strength"
   | "swim"
+  | "football"
+  | "badminton"
+  | "floorbal"
+  | "padel"
   | "tennis"
-  | "other";
+  | "other"
+  // eventy / životné veci
+  | "wedding"
+  | "travel"
+  | "party"
+  | "work"
+  | "family"
+  | "other_event";
 
 export type ExternalIntensity = "low" | "moderate" | "high";
-
 export type ExternalRecurrenceKind = "weekly" | "single";
 
-/**
- * FE reprezentácia – čo edituješ vo formulári.
- */
 export type ExternalActivity = {
-  /** pri weekly – ktorý deň v týždni */
+  /** sport vs event – čisto FE pomocné pole */
+  category?: ExternalCategory;
+  /** deň v týždni (pri weekly) */
   day: DayAbbrev;
   sport: ExternalSport;
   intensity: ExternalIntensity;
   note?: string;
-  mode?: ExternalRecurrenceKind;  // default weekly
-  date_single?: string | null;    // "YYYY-MM-DD" pri single
-  time?: string | null;           // "HH:MM"
+  mode?: ExternalRecurrenceKind; // default = "weekly"
+  date_single?: string | null;   // "YYYY-MM-DD" pri mode === "single"
+  time?: string | null;          // "HH:MM" (24h)
 };
 
-/**
- * DB/BE reprezentácia – shape z tabuľky coach_external_events.
- */
+/** zodpovedá DB tabuľke coach_external_events (+ pár optional fieldov) */
 export type ExternalEvent = {
-  id?: number;                          // z DB (PK)
+  id?: number;
   user_id: number;
   title: string;
   sport: ExternalSport | null;
-  weekday: number;                      // 1–7, v DB je NOT NULL
+  weekday: number;                     // 1–7
   recurrence_kind: "weekly" | "single";
-  single_date?: string | null;          // ISO "YYYY-MM-DD" pre single
-  start_time_local?: string | null;     // "HH:MM"
+  single_date?: string | null;         // ISO "YYYY-MM-DD"
+  start_time_local?: string | null;    // "HH:MM"
   duration_min: number | null;
   priority: "fixed" | "optional";
   notes?: string | null;
   start_date?: string | null;
   end_date?: string | null;
-  created_at?: string | null;           // timestamp z DB
+  created_at?: string | null;
+  /** voliteľne z BE pri window-endpointe */
+  occurrence_date?: string | null;
 };
