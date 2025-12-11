@@ -92,7 +92,7 @@ export default function WidgetExternalEvents() {
       accent={accent}
       interactive
       minH={120}
-      onClick={() => router.push("/coach/external")}
+      onOpen={() => router.push("/coach/external")}
     >
       <div className="flex items-center justify-between gap-2 text-xs">
         <Pill
