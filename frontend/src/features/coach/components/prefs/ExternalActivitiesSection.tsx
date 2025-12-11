@@ -11,13 +11,13 @@ import type {
   ExternalActivity,
   ExternalIntensity,
   ExternalSport,
+  ExternalEvent,
 } from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 import {
   apiGetExternalEvents,
   apiSaveExternalEvents,
-  type ExternalEvent,
 } from "@/features/coach/api/coach_external_events";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -61,11 +61,38 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
   7: "Sun",
 };
 
+/* ---------- mapovanie DB ↔ FE ---------- */
+
 function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
   return events
     .map<ExternalActivity | null>((ev) => {
-      const weekdayNum = Number((ev as any).weekday ?? (ev as any).weekday_int);
-      const day = INT_TO_DAY[weekdayNum] ?? "Mon";
+      const mode =
+        ((ev as any).recurrence_kind as "weekly" | "single" | null) ??
+        "weekly";
+
+      let day: DayAbbrev = "Mon";
+
+      if (mode === "weekly") {
+        const weekdayNum = Number(
+          (ev as any).weekday ?? (ev as any).weekday_int,
+        );
+        day = INT_TO_DAY[weekdayNum] ?? "Mon";
+      } else if (mode === "single") {
+        const iso = (ev as any).single_date as string | null;
+        if (!iso) return null;
+        const dObj = new Date(iso);
+        const js = dObj.getDay(); // 0=Sun..6=Sat
+        const JS_TO_DAY: DayAbbrev[] = [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+        ];
+        day = JS_TO_DAY[js] ?? "Mon";
+      }
 
       const sport = ((ev as any).sport as ExternalSport) || "other";
 
@@ -74,8 +101,18 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
       if ((ev as any).priority === "optional") intensity = "low";
 
       const note = (ev as any).notes ?? (ev as any).title ?? undefined;
+      const time = (ev as any).start_time_local ?? null;
+      const singleDate = (ev as any).single_date ?? null;
 
-      return { day, sport, intensity, note };
+      return {
+        day,
+        sport,
+        intensity,
+        note,
+        mode,
+        date_single: singleDate,
+        time,
+      };
     })
     .filter(Boolean) as ExternalActivity[];
 }
@@ -85,18 +122,25 @@ function mapActivitiesToEvents(
   activities: ExternalActivity[],
 ): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
-    const weekday = DAY_TO_INT[a.day] ?? 1;
+    const mode = a.mode ?? "weekly";
+
+    const weekday =
+      mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : null;
 
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const title = a.note ? `${a.sport} – ${a.note}` : a.sport;
+    const titleBase = a.sport;
+    const title = a.note ? `${titleBase} – ${a.note}` : titleBase;
 
     return {
       user_id: userId,
       title,
       sport: a.sport,
       weekday,
+      recurrence_kind: mode,
+      single_date: mode === "single" ? a.date_single ?? null : null,
+      start_time_local: a.time ?? null,
       duration_min: null,
       priority,
       notes: a.note ?? null,
@@ -106,19 +150,24 @@ function mapActivitiesToEvents(
   });
 }
 
+/* ---------- komponent ---------- */
+
 export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
   const [open, setOpen] = useState(false);
 
-  // 🔑 vlastný state pre list – toto je zdroj pravdy pre SaveToDB
+  // zdroj pravdy pre externé aktivity
   const [list, setList] = useState<ExternalActivity[]>(
     (local.external_activities ?? []) as ExternalActivity[],
   );
 
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
-    day: "Tue",
+    day: "Wed",
     sport: "football",
     intensity: "high",
     note: "",
+    mode: "weekly",
+    date_single: null,
+    time: null,
   });
 
   const [loadingDB, setLoadingDB] = useState(false);
@@ -126,7 +175,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
   const [dbError, setDbError] = useState<string | null>(null);
   const [dbInfo, setDbInfo] = useState<string | null>(null);
 
-  // 🔄 keď sa list zmení, pushni ho späť do parent prefs (local.external_activities)
+  // push list → prefs.local
   useEffect(() => {
     setLocal((prev: any) => ({
       ...prev,
@@ -134,7 +183,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
     }));
   }, [list, setLocal]);
 
-  // ⬇️ načítaj z DB pri mount-e / zmene userId
+  // načítaj z DB pri zmene userId
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -232,6 +281,9 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
     }
   };
 
+  const mode = extDraft.mode ?? "weekly";
+  const isWeekly = mode === "weekly";
+
   return (
     <section className={SECTION}>
       {/* Header */}
@@ -291,18 +343,48 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
       {/* Open body */}
       {open && (
         <>
+          {/* 1. riadok – režim + deň/dátum + šport + intenzita */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <SelectField
-              label="Day"
-              value={extDraft.day}
+              label="Repeat"
+              value={mode}
               onChange={(e) =>
                 setExtDraft((d) => ({
                   ...d,
-                  day: e.target.value as DayAbbrev,
+                  mode: e.target.value as "weekly" | "single",
                 }))
               }
-              options={ALL_DAYS.map((d) => ({ value: d, label: d }))}
+              options={[
+                { value: "weekly", label: "Weekly" },
+                { value: "single", label: "Single date" },
+              ]}
             />
+
+            {isWeekly ? (
+              <SelectField
+                label="Day"
+                value={extDraft.day}
+                onChange={(e) =>
+                  setExtDraft((d) => ({
+                    ...d,
+                    day: e.target.value as DayAbbrev,
+                  }))
+                }
+                options={ALL_DAYS.map((d) => ({ value: d, label: d }))}
+              />
+            ) : (
+              <TextField
+                label="Date"
+                type="date"
+                value={extDraft.date_single ?? ""}
+                onChange={(e) =>
+                  setExtDraft((d) => ({
+                    ...d,
+                    date_single: (e.target as HTMLInputElement).value || null,
+                  }))
+                }
+              />
+            )}
 
             <SelectField
               label="Sport"
@@ -327,7 +409,21 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
               }
               options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
             />
+          </div>
 
+          {/* 2. riadok – čas + poznámka */}
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+            <TextField
+              label="Time"
+              type="time"
+              value={extDraft.time ?? ""}
+              onChange={(e) =>
+                setExtDraft((d) => ({
+                  ...d,
+                  time: (e.target as HTMLInputElement).value || null,
+                }))
+              }
+            />
             <TextField
               label="Note"
               placeholder="optional"
@@ -379,7 +475,11 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                   ].join(" ")}
                 >
                   <span className="text-sm">
-                    {a.day} · {a.sport} · {a.intensity}
+                    {(a.mode ?? "weekly") === "weekly"
+                      ? `${a.day}`
+                      : a.date_single || a.day}{" "}
+                    · {a.sport} · {a.intensity}
+                    {a.time ? ` · ${a.time}` : ""}
                     {a.note ? ` — ${a.note}` : ""}
                   </span>
                   <Button

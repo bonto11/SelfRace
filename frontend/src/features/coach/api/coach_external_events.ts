@@ -1,18 +1,10 @@
 // src/features/coach/api/coach_external_events.ts
 import { API_URL } from "@/shared/config";
+import type {
+  ExternalEvent
+} from "@/features/coach/types/prefsTypes";
 
-export type ExternalEvent = {
-  id?: number;
-  user_id?: number;
-  title: string;
-  sport?: string | null;
-  weekday: number; // 1-7
-  duration_min?: number | null;
-  priority?: "fixed" | "optional";
-  notes?: string | null;
-  start_date?: string | null; // "YYYY-MM-DD"
-  end_date?: string | null;   // "YYYY-MM-DD"
-};
+
 
 type ListResponse = {
   success: boolean;
