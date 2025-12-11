@@ -1,4 +1,3 @@
-// src/features/coach/components/WidgetExternalEvents.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,7 +5,6 @@ import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import Pill from "@/shared/components/ui/Pill";
-import Button from "@/shared/components/ui/Button";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 import { useUserId } from "@/shared/hooks/useUserId";
@@ -14,8 +12,8 @@ import { THEME } from "@/shared/theme/tokens";
 
 import {
   apiGetExternalEvents,
+  type ExternalEvent,
 } from "@/features/coach/api/coach_external_events";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
 
 type Stats = {
   total: number;
@@ -77,7 +75,7 @@ export default function WidgetExternalEvents() {
 
   const accent = THEME?.chart?.other ?? THEME?.chart?.run ?? "#0EA5E9";
 
-  const summaryLabel = (() => {
+  const label = (() => {
     if (!stats) return "No data";
     if (stats.total === 0) return "No external events";
     return `${stats.weekly} weekly · ${stats.singles_upcoming} upcoming singles`;
@@ -88,18 +86,14 @@ export default function WidgetExternalEvents() {
       ? THEME?.chart?.neutral ?? "#64748B"
       : THEME?.chart?.neutral ?? "#64748B";
 
-  const goToDetail = () => {
-    router.push("/coach/external");
-  };
-
   return (
     <WidgetCard
       title="External events"
-      note="Externé športy a udalosti, s ktorými plán počíta."
+      note="Externé športy a časové bloky, s ktorými plán počíta."
       accent={accent}
       interactive
-      minH={140}
-      onOpen={goToDetail}
+      minH={120}
+      onClick={() => router.push("/coach/external")}
     >
       <div className="flex items-center justify-between gap-2 text-xs">
         <Pill
@@ -112,7 +106,7 @@ export default function WidgetExternalEvents() {
           }
           color={pillColor}
         />
-        <span className="text-[11px] opacity-80">{summaryLabel}</span>
+        <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
       {err && (
@@ -121,15 +115,15 @@ export default function WidgetExternalEvents() {
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-end gap-2 text-xs">
-        <Button size="xs" variant="primary" onClick={goToDetail}>
-          Manage external events
-        </Button>
-      </div>
-
       {loading && (
-        <div className="mt-2 text-[11px] opacity-80 inline-flex items-center gap-1">
+        <div className="mt-3 text-[11px] opacity-80 inline-flex items-center gap-1">
           <LoadingSpinner size="button" /> Loading from DB…
+        </div>
+      )}
+
+      {!loading && !err && (!stats || stats.total === 0) && (
+        <div className="mt-3 text-[11px] opacity-70">
+          Tap to add your first external event.
         </div>
       )}
     </WidgetCard>
