@@ -48,15 +48,17 @@ const SPORT_OPTIONS: ExternalSport[] = [
   "other",
 ];
 
-// eventy / nešportové bloky – tieto typy musíš mať v ExternalSport
-const EVENT_OPTIONS: ExternalSport[] = [
+// eventy / nešportové bloky – tieto stringy nemusia všetky sedieť s unionom,
+// preto tu NEnútime typ ExternalSport[], ale použijeme as const + casty.
+const EVENT_OPTIONS = [
   "wedding",
   "party",
   "travel",
   "family_event",
   "work_event",
   "other",
-];
+] as const;
+type EventOptionValue = (typeof EVENT_OPTIONS)[number];
 
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
@@ -86,7 +88,9 @@ const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function detectCategory(sport: ExternalSport | null): ExternalCategory {
   if (!sport) return "sport";
-  if (EVENT_OPTIONS.includes(sport)) return "event";
+  if ((EVENT_OPTIONS as readonly string[]).includes(sport as string)) {
+    return "event";
+  }
   return "sport";
 }
 
@@ -150,7 +154,7 @@ function mapActivitiesToEvents(
     const title = a.note ? `${baseTitle} – ${a.note}` : baseTitle;
 
     return {
-      id: 0 as any, // BE ignoruje, pri inserte si vygeneruje vlastné id
+      id: 0 as any, // BE si vygeneruje vlastné id
       user_id: userId,
       title,
       sport: a.sport,
@@ -164,6 +168,7 @@ function mapActivitiesToEvents(
       start_date: null,
       end_date: null,
       created_at: null,
+      occurrence_date: undefined,
     };
   });
 }
@@ -287,7 +292,7 @@ export function DetailExternalEvents({ userId }: Props) {
   const isWeekly = mode === "weekly";
   const category: ExternalCategory = draft.category ?? "sport";
 
-  const sportOptions =
+  const sportOptions: (ExternalSport | EventOptionValue)[] =
     category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
 
   return (
@@ -357,8 +362,10 @@ export function DetailExternalEvents({ userId }: Props) {
               value={category}
               onChange={(e) => {
                 const nextCat = e.target.value as ExternalCategory;
-                const defaultSport: ExternalSport =
-                  nextCat === "sport" ? SPORT_OPTIONS[0] : EVENT_OPTIONS[0];
+                const defaultSport =
+                  nextCat === "sport"
+                    ? SPORT_OPTIONS[0]
+                    : ((EVENT_OPTIONS[0] as unknown) as ExternalSport);
 
                 setDraft((d) => ({
                   ...d,
@@ -422,8 +429,8 @@ export function DetailExternalEvents({ userId }: Props) {
                 }))
               }
               options={sportOptions.map((s) => ({
-                value: s,
-                label: s,
+                value: (s as unknown) as ExternalSport,
+                label: String(s),
               }))}
             />
           </div>
