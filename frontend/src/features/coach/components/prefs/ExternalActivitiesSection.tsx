@@ -26,6 +26,11 @@ const EXT_SPORTS: ExternalSport[] = [
   "run",
   "ride",
   "strength",
+  "swim",
+  "badminton",
+  "floorbal",
+  "padel",
+  "tennis",
   "other",
 ];
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
@@ -59,25 +64,18 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
 function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
   return events
     .map<ExternalActivity | null>((ev) => {
-      const day = INT_TO_DAY[Number(ev.weekday) || 1];
-      if (!day) return null;
+      const weekdayNum = Number((ev as any).weekday ?? (ev as any).weekday_int);
+      const day = INT_TO_DAY[weekdayNum] ?? "Mon";
 
-      // ak nie je sport, default "other"
-      const sport = (ev.sport as ExternalSport) || "other";
+      const sport = ((ev as any).sport as ExternalSport) || "other";
 
-      // priority → intensity heuristika
       let intensity: ExternalIntensity = "moderate";
-      if (ev.priority === "fixed") intensity = "high";
-      if (ev.priority === "optional") intensity = "low";
+      if ((ev as any).priority === "fixed") intensity = "high";
+      if ((ev as any).priority === "optional") intensity = "low";
 
-      const note = ev.notes ?? ev.title ?? undefined;
+      const note = (ev as any).notes ?? (ev as any).title ?? undefined;
 
-      return {
-        day,
-        sport,
-        intensity,
-        note,
-      };
+      return { day, sport, intensity, note };
     })
     .filter(Boolean) as ExternalActivity[];
 }
@@ -89,13 +87,10 @@ function mapActivitiesToEvents(
   return activities.map<ExternalEvent>((a) => {
     const weekday = DAY_TO_INT[a.day] ?? 1;
 
-    // intensity → priority
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const title = a.note
-      ? `${a.sport} – ${a.note}`
-      : a.sport;
+    const title = a.note ? `${a.sport} – ${a.note}` : a.sport;
 
     return {
       user_id: userId,
@@ -114,6 +109,11 @@ function mapActivitiesToEvents(
 export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
   const [open, setOpen] = useState(false);
 
+  // 🔑 vlastný state pre list – toto je zdroj pravdy pre SaveToDB
+  const [list, setList] = useState<ExternalActivity[]>(
+    (local.external_activities ?? []) as ExternalActivity[],
+  );
+
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
     day: "Tue",
     sport: "football",
@@ -121,14 +121,20 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
     note: "",
   });
 
-  const list = (local.external_activities ?? []) as ExternalActivity[];
-
   const [loadingDB, setLoadingDB] = useState(false);
   const [savingDB, setSavingDB] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [dbInfo, setDbInfo] = useState<string | null>(null);
 
-  // pri mount-e (a zmene userId) načítaj z DB a prepiš external_activities v prefs
+  // 🔄 keď sa list zmení, pushni ho späť do parent prefs (local.external_activities)
+  useEffect(() => {
+    setLocal((prev: any) => ({
+      ...prev,
+      external_activities: list,
+    }));
+  }, [list, setLocal]);
+
+  // ⬇️ načítaj z DB pri mount-e / zmene userId
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -141,11 +147,8 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
         const events = await apiGetExternalEvents(userId);
         if (!alive) return;
 
-        const activities = mapEventsToActivities(events);
-        setLocal((prev: any) => ({
-          ...prev,
-          external_activities: activities,
-        }));
+        const activities = mapEventsToActivities(events ?? []);
+        setList(activities);
       } catch (e: any) {
         if (!alive) return;
         setDbError(
@@ -160,7 +163,8 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId, setLocal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const preview = useMemo(() => {
     const order = Object.fromEntries(ALL_DAYS.map((d, i) => [d, i]));
@@ -174,19 +178,15 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
   }, [list]);
 
   const handleAdd = () => {
-    const next = list.concat([
-      { ...extDraft, note: extDraft.note?.trim() || undefined },
-    ]);
-    setLocal((p: any) => ({ ...p, external_activities: next }));
+    const next: ExternalActivity = {
+      ...extDraft,
+      note: extDraft.note?.trim() || undefined,
+    };
+    setList((cur) => [...cur, next]);
   };
 
   const handleRemove = (idx: number) => {
-    setLocal((p: any) => ({
-      ...p,
-      external_activities: (p.external_activities ?? []).filter(
-        (_: any, i: number) => i !== idx,
-      ),
-    }));
+    setList((cur) => cur.filter((_, i) => i !== idx));
   };
 
   const handleSaveToDB = async () => {
@@ -198,6 +198,9 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
       const cleaned = list.filter(
         (a) => String(a.sport || "").trim().length > 0,
       );
+
+      console.debug("[EXT] saving activities ->", cleaned);
+
       const events = mapActivitiesToEvents(userId, cleaned);
       const resp = await apiSaveExternalEvents(userId, events);
 
@@ -218,8 +221,10 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
     setDbInfo(null);
     try {
       const resp = await apiSaveExternalEvents(userId, []);
-      setLocal((p: any) => ({ ...p, external_activities: [] }));
-      setDbInfo(`Všetky externé aktivity v DB zmazané (deleted=${resp.deleted}).`);
+      setList([]);
+      setDbInfo(
+        `Všetky externé aktivity v DB zmazané (deleted=${resp.deleted}).`,
+      );
     } catch (e: any) {
       setDbError(e?.message ?? "Chyba pri mazaní v DB.");
     } finally {
@@ -341,7 +346,6 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
               Add external
             </Button>
 
-            {/* DB actions */}
             {userId && (
               <>
                 <Button
