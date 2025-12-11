@@ -88,7 +88,6 @@ export default function CoachPreferencies() {
   );
 
   // initial load (prefs + zones + latest thresholds) – všetko z DB
-  // 1) vo useEffect po fetchnutí
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -102,7 +101,7 @@ export default function CoachPreferencies() {
         ]);
         if (!alive) return;
 
-        console.log("[PREFS] pRaw from DB:", pRaw); // <--- PRIDAJ TOTO
+        console.log("[PREFS] pRaw from DB:", pRaw);
 
         const p = (pRaw || {}) as CoachPrefsExtended;
         const zones = (zonesRaw ?? null) as any;
@@ -120,7 +119,7 @@ export default function CoachPreferencies() {
           thresholds_latest: thrRows,
         };
 
-        console.log("[PREFS] next state before setLocal:", next); // <--- PRIDAJ TOTO
+        console.log("[PREFS] next state before setLocal:", next);
 
         if (!dirtyRef.current) setLocal(next);
       } catch (e) {
@@ -513,7 +512,12 @@ export default function CoachPreferencies() {
             setLocal={setLocal}
             setPref={setPref}
           />
-          <ExternalActivitiesSection local={local} setLocal={setLocal} />
+          {/* tu už posielame aj userId kvôli DB sync */}
+          <ExternalActivitiesSection
+            local={local}
+            setLocal={setLocal}
+            userId={userId ?? undefined}
+          />
           <InjuriesSection local={local} setLocal={setLocal} />
           <FocusAvoidSection
             local={local}
