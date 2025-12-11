@@ -39,7 +39,6 @@ import { RulesSection } from "@/features/coach/components/prefs/RulesSection";
 import ZonesSection from "@/features/coach/components/prefs/ZonesSection";
 import ThresholdsSection from "@/features/coach/components/prefs/ThresholdsSection";
 import { IntensityModelsSection } from "@/features/coach/components/prefs/IntensityModelsSection";
-import { ExternalActivitiesSection } from "@/features/coach/components/prefs/ExternalActivitiesSection";
 import { InjuriesSection } from "@/features/coach/components/prefs/InjuriesSection";
 import { FocusAvoidSection } from "@/features/coach/components/prefs/FocusAvoidSection";
 import { RehabSection } from "@/features/coach/components/prefs/RehabSection";
@@ -511,12 +510,6 @@ export default function CoachPreferencies() {
             local={local}
             setLocal={setLocal}
             setPref={setPref}
-          />
-          {/* tu už posielame aj userId kvôli DB sync */}
-          <ExternalActivitiesSection
-            local={local}
-            setLocal={setLocal}
-            userId={userId ?? undefined}
           />
           <InjuriesSection local={local} setLocal={setLocal} />
           <FocusAvoidSection

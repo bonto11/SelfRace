@@ -115,33 +115,7 @@ export interface StrengthTargets {
   sessions_per_week: number;
 }
 
-/* -------- External / injuries -------- */
-
-export type ExternalSport =
-  | "badminton"
-  | "floorbal"
-  | "football"
-  | "padel"
-  | "run"
-  | "ride"
-  | "strength"
-  | "swim"
-  | "tennis"
-  | "other";
-
-export type ExternalIntensity = "low" | "moderate" | "high";
-
-export type ExternalRecurrenceKind = "weekly" | "single";
-
-export type ExternalActivity = {
-  day: DayAbbrev;                    // používa sa pri weekly
-  sport: ExternalSport;
-  intensity: ExternalIntensity;
-  note?: string;
-  mode?: ExternalRecurrenceKind;     // default = "weekly"
-  date_single?: string | null;       // "YYYY-MM-DD" pri mode === "single"
-  time?: string | null;              // "HH:MM" (lokálny čas)
-};
+/* -------- injuries -------- */
 
 export type InjuryArea =
   | "foot"
@@ -250,7 +224,6 @@ export type CoachPrefs = {
   polarized_model?: boolean;
   pyramidal_model?: boolean;
 
-  external_activities?: ExternalActivity[];
   injuries?: Injury[];
   focus_areas?: string[];
   avoid_zones?: string[];
@@ -306,19 +279,4 @@ export const DEFAULT_PREFS: CoachPrefs = {
     emoji: 35,
     explain: 55,
   },
-};
-
-export type ExternalEvent = {
-  user_id: number;
-  title: string;
-  sport: ExternalSport;
-  weekday: number | null;                 // 1–7 pre weekly, null pre single
-  recurrence_kind: "weekly" | "single";
-  single_date?: string | null;           // ISO "YYYY-MM-DD" pre single
-  start_time_local?: string | null;      // "HH:MM"
-  duration_min: number | null;
-  priority: "fixed" | "optional";
-  notes?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
 };

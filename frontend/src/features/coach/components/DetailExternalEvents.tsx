@@ -1,4 +1,3 @@
-// src/features/coach/components/prefs/ExternalActivitiesSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +11,7 @@ import type {
   ExternalIntensity,
   ExternalSport,
   ExternalEvent,
-} from "@/features/coach/types/prefsTypes";
+} from "@/features/coach/types/externalEvents";
 import type { DayAbbrev } from "@/shared/types/day";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 import {
@@ -36,8 +35,6 @@ const EXT_SPORTS: ExternalSport[] = [
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
 type Props = {
-  local: any;
-  setLocal: (fn: (prev: any) => any) => void;
   userId?: number;
 };
 
@@ -61,7 +58,7 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
   7: "Sun",
 };
 
-/* ---------- mapovanie DB ↔ FE ---------- */
+/* ---------- mapovanie DB ↔️ FE ---------- */
 
 function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
   return events
@@ -124,8 +121,30 @@ function mapActivitiesToEvents(
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
 
-    const weekday =
-      mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : null;
+    // 🔑 DB má weekday NOT NULL → aj pri single vypočítame deň v týždni
+    let weekday: number;
+    if (mode === "weekly") {
+      weekday = DAY_TO_INT[a.day] ?? 1;
+    } else {
+      // mode === "single"
+      if (a.date_single) {
+        const d = new Date(a.date_single);
+        const js = d.getDay(); // 0..6
+        const JS_TO_INT: Record<number, number> = {
+          0: 7, // Sun → 7
+          1: 1,
+          2: 2,
+          3: 3,
+          4: 4,
+          5: 5,
+          6: 6,
+        };
+        weekday = JS_TO_INT[js] ?? 1;
+      } else {
+        // fallback – ak náhodou nie je date_single, vezmeme day
+        weekday = DAY_TO_INT[a.day] ?? 1;
+      }
+    }
 
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
@@ -137,7 +156,7 @@ function mapActivitiesToEvents(
       user_id: userId,
       title,
       sport: a.sport,
-      weekday,
+      weekday,                         // 🔥 vždy non-null
       recurrence_kind: mode,
       single_date: mode === "single" ? a.date_single ?? null : null,
       start_time_local: a.time ?? null,
@@ -152,13 +171,11 @@ function mapActivitiesToEvents(
 
 /* ---------- komponent ---------- */
 
-export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
-  const [open, setOpen] = useState(false);
+export function DetailExternalEvents({ userId }: Props) {
+  const [open, setOpen] = useState(true);
 
   // zdroj pravdy pre externé aktivity
-  const [list, setList] = useState<ExternalActivity[]>(
-    (local.external_activities ?? []) as ExternalActivity[],
-  );
+  const [list, setList] = useState<ExternalActivity[]>([]);
 
   const [extDraft, setExtDraft] = useState<ExternalActivity>({
     day: "Wed",
@@ -174,14 +191,6 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
   const [savingDB, setSavingDB] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [dbInfo, setDbInfo] = useState<string | null>(null);
-
-  // push list → prefs.local
-  useEffect(() => {
-    setLocal((prev: any) => ({
-      ...prev,
-      external_activities: list,
-    }));
-  }, [list, setLocal]);
 
   // načítaj z DB pri zmene userId
   useEffect(() => {
@@ -212,7 +221,6 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const preview = useMemo(() => {
@@ -284,15 +292,17 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
   const mode = extDraft.mode ?? "weekly";
   const isWeekly = mode === "weekly";
 
+  const disabled = !userId;
+
   return (
     <section className={SECTION}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">
-          External activities (non-coach)
+          External activities & events
         </div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Naplánuj iné športy (napr. futbal), s ktorými AI počíta pri tvorbe tréningového plánu." />
+          <InfoPopover text="Naplánuj iné športy alebo eventy (napr. futbal, svadba), s ktorými AI počíta pri tvorbe tréningového plánu." />
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen((o) => !o)}
@@ -303,11 +313,15 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
       </div>
 
       {/* Info o DB stave */}
-      {userId && (
+      {userId ? (
         <div className="mb-1 text-[11px] opacity-70">
           {loadingDB
             ? "Načítavam externé aktivity z DB…"
             : "Externé aktivity sa ukladajú do samostatnej tabuľky podľa užívateľa."}
+        </div>
+      ) : (
+        <div className="mb-1 text-[11px] text-red-300">
+          Nie si prihlásený – najprv sa prihlás, aby sme vedeli načítať a uložiť eventy.
         </div>
       )}
 
@@ -332,7 +346,10 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                     a.note ? a.note : `${a.day} · ${a.sport} · ${a.intensity}`
                   }
                 >
-                  {a.day} · {a.sport} · {a.intensity}
+                  {a.mode === "single"
+                    ? a.date_single ?? a.day
+                    : a.day}{" "}
+                  · {a.sport} · {a.intensity}
                 </span>
               ))}
             </div>
@@ -358,6 +375,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                 { value: "weekly", label: "Weekly" },
                 { value: "single", label: "Single date" },
               ]}
+              disabled={disabled}
             />
 
             {isWeekly ? (
@@ -371,6 +389,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                   }))
                 }
                 options={ALL_DAYS.map((d) => ({ value: d, label: d }))}
+                disabled={disabled}
               />
             ) : (
               <TextField
@@ -383,6 +402,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                     date_single: (e.target as HTMLInputElement).value || null,
                   }))
                 }
+                disabled={disabled}
               />
             )}
 
@@ -396,6 +416,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                 }))
               }
               options={EXT_SPORTS.map((s) => ({ value: s, label: s }))}
+              disabled={disabled}
             />
 
             <SelectField
@@ -408,6 +429,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                 }))
               }
               options={EXT_INTENS.map((i) => ({ value: i, label: i }))}
+              disabled={disabled}
             />
           </div>
 
@@ -423,6 +445,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                   time: (e.target as HTMLInputElement).value || null,
                 }))
               }
+              disabled={disabled}
             />
             <TextField
               label="Note"
@@ -434,41 +457,43 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                   note: (e.target as HTMLInputElement).value,
                 }))
               }
+              disabled={disabled}
             />
           </div>
 
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button onClick={handleAdd} size="sm" variant="success">
+            <Button
+              onClick={handleAdd}
+              size="sm"
+              variant="success"
+              disabled={disabled}
+            >
               Add external
             </Button>
 
-            {userId && (
-              <>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleSaveToDB}
-                  disabled={savingDB}
-                >
-                  {savingDB ? "Saving to DB…" : "Uložiť do DB"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={handleClearDB}
-                  disabled={savingDB}
-                >
-                  Vymazať všetky v DB
-                </Button>
-              </>
-            )}
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleSaveToDB}
+              disabled={disabled || savingDB}
+            >
+              {savingDB ? "Saving to DB…" : "Uložiť do DB"}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={handleClearDB}
+              disabled={disabled || savingDB}
+            >
+              Vymazať všetky v DB
+            </Button>
           </div>
 
           {list.length > 0 && (
             <ul className="mt-3 space-y-2">
               {list.map((a, idx) => (
                 <li
-                  key={`${a.day}-${a.sport}-${idx}`}
+                  key={`${idx}-${a.sport}-${a.mode}-${a.date_single ?? a.day}`}
                   className={[
                     SURFACE_INLINE,
                     "px-3 py-2 flex items-center justify-between",
@@ -486,6 +511,7 @@ export function ExternalActivitiesSection({ local, setLocal, userId }: Props) {
                     size="sm"
                     variant="danger"
                     onClick={() => handleRemove(idx)}
+                    disabled={disabled}
                   >
                     remove
                   </Button>
