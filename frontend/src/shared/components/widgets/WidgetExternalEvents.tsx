@@ -1,3 +1,4 @@
+// src/features/coach/components/WidgetExternalEvents.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,12 +6,15 @@ import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import Pill from "@/shared/components/ui/Pill";
+import Button from "@/shared/components/ui/Button";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 
-import { apiGetExternalEvents } from "@/features/coach/api/coach_external_events";
+import {
+  apiGetExternalEvents,
+} from "@/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
 
 type Stats = {
@@ -73,7 +77,7 @@ export default function WidgetExternalEvents() {
 
   const accent = THEME?.chart?.other ?? THEME?.chart?.run ?? "#0EA5E9";
 
-  const label = (() => {
+  const summaryLabel = (() => {
     if (!stats) return "No data";
     if (stats.total === 0) return "No external events";
     return `${stats.weekly} weekly · ${stats.singles_upcoming} upcoming singles`;
@@ -84,50 +88,50 @@ export default function WidgetExternalEvents() {
       ? THEME?.chart?.neutral ?? "#64748B"
       : THEME?.chart?.neutral ?? "#64748B";
 
-  const handleOpenDetail = () => {
+  const goToDetail = () => {
     router.push("/coach/external");
   };
 
   return (
     <WidgetCard
       title="External events"
-      note="Externé športy a časové bloky, s ktorými plán počíta."
+      note="Externé športy a udalosti, s ktorými plán počíta."
       accent={accent}
-      interactive={true}
+      interactive
       minH={140}
-      onOpen={handleOpenDetail}   // 🔥 celý widget klikateľný
+      onClick={goToDetail}
     >
-      <div className="flex flex-col gap-2 text-xs">
-        <div className="flex items-center justify-between gap-2">
-          <Pill
-            label={
-              loading
-                ? "Loading…"
-                : stats
-                ? `${stats.total} saved`
-                : "No data"
-            }
-            color={pillColor}
-          />
-          <span className="text-[11px] opacity-80">{label}</span>
-        </div>
-
-        {err && (
-          <div className="text-[11px] text-red-300 line-clamp-2">
-            {err}
-          </div>
-        )}
-
-        {loading && (
-          <div className="text-[11px] opacity-80 inline-flex items-center gap-1">
-            <LoadingSpinner size="button" /> Loading from DB…
-          </div>
-        )}
-
-        <div className="text-[11px] opacity-70">
-          Klikni kdekoľvek na kartu pre správu externých eventov.
-        </div>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <Pill
+          label={
+            loading
+              ? "Loading…"
+              : stats
+              ? `${stats.total} saved`
+              : "No data"
+          }
+          color={pillColor}
+        />
+        <span className="text-[11px] opacity-80">{summaryLabel}</span>
       </div>
+
+      {err && (
+        <div className="mt-1 text-[11px] text-red-300 line-clamp-2">
+          {err}
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-end gap-2 text-xs">
+        <Button size="xs" variant="primary" onClick={goToDetail}>
+          Manage external events
+        </Button>
+      </div>
+
+      {loading && (
+        <div className="mt-2 text-[11px] opacity-80 inline-flex items-center gap-1">
+          <LoadingSpinner size="button" /> Loading from DB…
+        </div>
+      )}
     </WidgetCard>
   );
 }
