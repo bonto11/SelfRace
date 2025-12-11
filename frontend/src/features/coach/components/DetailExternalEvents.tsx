@@ -1,7 +1,7 @@
-// src/features/coach/components/DetailExternalEvents.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
 import Button from "@/shared/components/ui/Button";
 import SelectField from "@/shared/components/ui/SelectField";
 import TextField from "@/shared/components/ui/TextField";
@@ -34,7 +34,7 @@ type Props = {
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// športové aktivity
+/** športové aktivity */
 const SPORT_OPTIONS: ExternalSport[] = [
   "run",
   "ride",
@@ -48,17 +48,15 @@ const SPORT_OPTIONS: ExternalSport[] = [
   "other",
 ];
 
-// eventy / nešportové bloky – tieto stringy nemusia všetky sedieť s unionom,
-// preto tu NEnútime typ ExternalSport[], ale použijeme as const + casty.
-const EVENT_OPTIONS = [
+/** eventy / životné veci – zosúladené s tvojím ExternalSport unionom */
+const EVENT_OPTIONS: ExternalSport[] = [
   "wedding",
-  "party",
   "travel",
-  "family_event",
-  "work_event",
-  "other",
-] as const;
-type EventOptionValue = (typeof EVENT_OPTIONS)[number];
+  "party",
+  "work",
+  "family",
+  "other_event",
+];
 
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
@@ -84,15 +82,54 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
 
 const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/* ---------- mapovanie DB ↔ FE ---------- */
+/* ---------- helpers ---------- */
 
 function detectCategory(sport: ExternalSport | null): ExternalCategory {
   if (!sport) return "sport";
-  if ((EVENT_OPTIONS as readonly string[]).includes(sport as string)) {
-    return "event";
-  }
+  if (EVENT_OPTIONS.includes(sport)) return "event";
   return "sport";
 }
+
+function niceLabelForSport(s: ExternalSport): string {
+  switch (s) {
+    case "run":
+      return "Run";
+    case "ride":
+      return "Ride";
+    case "strength":
+      return "Strength";
+    case "swim":
+      return "Swim";
+    case "football":
+      return "Football";
+    case "badminton":
+      return "Badminton";
+    case "floorbal":
+      return "Floorball";
+    case "padel":
+      return "Padel";
+    case "tennis":
+      return "Tennis";
+    case "other":
+      return "Other sport";
+    case "wedding":
+      return "Wedding";
+    case "travel":
+      return "Travel";
+    case "party":
+      return "Party";
+    case "work":
+      return "Work event";
+    case "family":
+      return "Family event";
+    case "other_event":
+      return "Other event";
+    default:
+      return String(s);
+  }
+}
+
+/* ---------- mapovanie DB ↔ FE ---------- */
 
 function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
   return events
@@ -110,7 +147,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
         const iso = (ev as any).single_date as string | null;
         if (!iso) return null;
         const dObj = new Date(iso);
-        const js = dObj.getDay(); // 0–6
+        const js = dObj.getDay();
         day = JS_TO_DAY[js] ?? "Mon";
       }
 
@@ -145,20 +182,20 @@ function mapActivitiesToEvents(
 ): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
-    const weekday = mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : null;
+    const weekday = mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : 1; // BE vyžaduje 1–7
 
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const baseTitle = a.sport;
+    const baseTitle = niceLabelForSport(a.sport);
     const title = a.note ? `${baseTitle} – ${a.note}` : baseTitle;
 
     return {
-      id: 0 as any, // BE si vygeneruje vlastné id
+      id: 0 as any, // BE si vygeneruje svoje
       user_id: userId,
       title,
       sport: a.sport,
-      weekday: (weekday ?? 1) as number,
+      weekday,
       recurrence_kind: mode,
       single_date: mode === "single" ? (a.date_single ?? null) : null,
       start_time_local: a.time ?? null,
@@ -292,7 +329,7 @@ export function DetailExternalEvents({ userId }: Props) {
   const isWeekly = mode === "weekly";
   const category: ExternalCategory = draft.category ?? "sport";
 
-  const sportOptions: (ExternalSport | EventOptionValue)[] =
+  const sportOptions: ExternalSport[] =
     category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
 
   return (
@@ -341,10 +378,12 @@ export function DetailExternalEvents({ userId }: Props) {
                   title={
                     a.note
                       ? a.note
-                      : `${a.day} · ${a.sport} · ${a.intensity}`
+                      : `${a.day} · ${niceLabelForSport(a.sport)} · ${
+                          a.intensity
+                        }`
                   }
                 >
-                  {a.day} · {a.sport} · {a.intensity}
+                  {a.day} · {niceLabelForSport(a.sport)} · {a.intensity}
                 </span>
               ))}
             </div>
@@ -355,7 +394,7 @@ export function DetailExternalEvents({ userId }: Props) {
       {/* Open body */}
       {open && (
         <>
-          {/* 1. riadok – kategória, repeat, deň/dátum, sport/event */}
+          {/* 1. riadok – typ, repeat, deň/dátum, sport/event */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <SelectField
               label="Type"
@@ -363,9 +402,7 @@ export function DetailExternalEvents({ userId }: Props) {
               onChange={(e) => {
                 const nextCat = e.target.value as ExternalCategory;
                 const defaultSport =
-                  nextCat === "sport"
-                    ? SPORT_OPTIONS[0]
-                    : ((EVENT_OPTIONS[0] as unknown) as ExternalSport);
+                  nextCat === "sport" ? SPORT_OPTIONS[0] : EVENT_OPTIONS[0];
 
                 setDraft((d) => ({
                   ...d,
@@ -429,8 +466,8 @@ export function DetailExternalEvents({ userId }: Props) {
                 }))
               }
               options={sportOptions.map((s) => ({
-                value: (s as unknown) as ExternalSport,
-                label: String(s),
+                value: s,
+                label: niceLabelForSport(s),
               }))}
             />
           </div>
@@ -516,8 +553,7 @@ export function DetailExternalEvents({ userId }: Props) {
                       ? a.day
                       : a.date_single || a.day}
                     {" · "}
-                    {a.category === "event" ? "event" : "sport"}{" "}
-                    {a.sport} · {a.intensity}
+                    {niceLabelForSport(a.sport)} · {a.intensity}
                     {a.time ? ` · ${a.time}` : ""}
                     {a.note ? ` — ${a.note}` : ""}
                   </span>
