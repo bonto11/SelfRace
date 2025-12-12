@@ -43,24 +43,9 @@ type DayCellData = {
   iso: string;
   inMonth: boolean;
   day: number | null;
-  activities: {
-    id: number;
-    sport: string;
-    name: string;
-  }[];
-  plans: {
-    id: number;
-    sport: string;
-    status: PlanStatus;
-  }[];
-  externals: {
-    id: number;
-    sport: string;
-    title: string;
-    time?: string | null;
-    notes?: string | null;
-    priority?: string | null;
-  }[];
+  activities: { id: number; sport: string; name: string }[];
+  plans: { id: number; sport: string; status: PlanStatus }[];
+  externals: { id: number; sport: string; title: string; time?: string | null; notes?: string | null }[];
 };
 
 function daysInMonth(y: number, m0: number) {
@@ -73,17 +58,19 @@ const iso = (y: number, m0: number, d: number) =>
 const startWeekday = (y: number, m0: number) =>
   (new Date(y, m0, 1).getDay() + 6) % 7;
 
+function safeSportKey(v: any): string {
+  const s = String(v || "").toLowerCase();
+  if (s in SPORT_COLORS) return s;
+  return "other";
+}
+
 /* ───────── helpers pre plán ───────── */
 
 type AnyObj = Record<string, any>;
 
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
-  if (
-    Array.isArray(hr) &&
-    hr.length === 2 &&
-    hr.every((x) => Number.isFinite(x))
-  ) {
+  if (Array.isArray(hr) && hr.length === 2 && hr.every((x) => Number.isFinite(x))) {
     return `HR ${hr[0]}–${hr[1]}`;
   }
   return null;
@@ -108,9 +95,7 @@ function normTarget(it: AnyObj): string | null {
   const pace2 = pace ?? mainT?.pace ?? null;
   const pow2 = pow ?? mainT?.power ?? null;
 
-  const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(
-    Boolean
-  );
+  const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
 
@@ -130,11 +115,7 @@ function intervalsToText(main: any): string | null {
       ? ` / ${first.recover_min}′ rec`
       : "";
   const targ = first?.target
-    ? [
-        hrToText(first.target.hr),
-        paceToText(first.target.pace),
-        powerToText(first.target.power),
-      ]
+    ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
         .filter(Boolean)
         .join(" · ")
     : "";
@@ -177,9 +158,7 @@ function normNotes(it: AnyObj) {
 
   const cd = it?.structure?.cooldown
     ? [
-        it.structure.cooldown?.notes
-          ? `CD: ${it.structure.cooldown.notes}`
-          : null,
+        it.structure.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : null,
         hrToText(it.structure.cooldown?.target?.hr),
         paceToText(it.structure.cooldown?.target?.pace),
         powerToText(it.structure.cooldown?.target?.power),
@@ -205,16 +184,8 @@ function normNotes(it: AnyObj) {
   return parts.length ? parts.join(" • ") : null;
 }
 
-/* reálna dĺžka v minútach */
-
 function fmtRealDurationMin(seconds?: number | null): string | null {
-  if (
-    typeof seconds !== "number" ||
-    !Number.isFinite(seconds) ||
-    seconds <= 0
-  ) {
-    return null;
-  }
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) return null;
   const mins = Math.round(seconds / 60);
   return `${mins} min`;
 }
@@ -222,20 +193,12 @@ function fmtRealDurationMin(seconds?: number | null): string | null {
 function isRestSession(row: any, sess: AnyObj): boolean {
   const sport = (row as any).sport || detectSport(sess) || "other";
   const duration = sess.duration_min ?? row.duration_min ?? null;
-  const title = String(
-    sess.title || sess.session_type || row.title || row.session_type || ""
-  );
+  const title = String(sess.title || sess.session_type || row.title || row.session_type || "");
 
   if (sport === "other") return true;
   if (duration === 0) return true;
   if (/rest|volno|off day/i.test(title)) return true;
   return false;
-}
-
-function safeSportKey(v: any): string {
-  const s = String(v || "").toLowerCase();
-  if (s in SPORT_COLORS) return s;
-  return "other";
 }
 
 /* ───────── mapovanie dát na grid ───────── */
@@ -274,13 +237,12 @@ function useMonthData(
     const lastIso = iso(year, month0, daysInMonth(year, month0));
     const todayIso = new Date().toISOString().slice(0, 10);
 
-    // externé eventy (už expandované na occurrence_date)
+    // externals (expandované cez occurrence_date)
     for (const ev of externalEvents) {
-      const dIso = String((ev as any).occurrence_date || ev.single_date || "")
-        .slice(0, 10)
-        .trim();
+      const dIso = String((ev as any).occurrence_date || ev.single_date || "").slice(0, 10).trim();
       if (!dIso) continue;
       if (dIso < firstIso || dIso > lastIso) continue;
+
       const cell = grid[dIso];
       if (!cell) continue;
 
@@ -290,11 +252,10 @@ function useMonthData(
         title: String(ev.title || "External"),
         time: (ev as any).start_time_local ?? null,
         notes: (ev as any).notes ?? null,
-        priority: (ev as any).priority ?? null,
       });
     }
 
-    // plánované session
+    // plán
     for (const p of planRows) {
       const dIso = String(p.plan_date).slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
@@ -311,18 +272,15 @@ function useMonthData(
           : null;
 
       let status: PlanStatus = "planned";
-      if (actId) {
-        status = "done";
-      } else if (dIso < todayIso) {
-        status = "missed";
-      }
+      if (actId) status = "done";
+      else if (dIso < todayIso) status = "missed";
 
       const cell = grid[dIso];
       if (!cell) continue;
       cell.plans.push({ id: p.id, sport, status });
     }
 
-    // reálne aktivity
+    // aktivity
     for (const r of actRows) {
       const dIso = r.date.slice(0, 10);
       if (dIso < firstIso || dIso > lastIso) continue;
@@ -337,6 +295,20 @@ function useMonthData(
         sport,
         name: r.name || "",
       });
+    }
+
+    // DEDUPE v gride: ak existuje aktivita pre šport S → vyhoď plan/missed + externals pre S
+    for (const k of Object.keys(grid)) {
+      const cell = grid[k];
+      const actSports = new Set(cell.activities.map((a) => a.sport));
+
+      if (actSports.size > 0) {
+        cell.externals = cell.externals.filter((e) => !actSports.has(e.sport));
+        cell.plans = cell.plans.filter((p) => {
+          if (p.status === "done") return true; // done nechaj
+          return !actSports.has(p.sport);
+        });
+      }
     }
 
     setMap(grid);
@@ -358,48 +330,21 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  type DotKind = "activity" | "external" | "plan" | "done" | "missed";
-
-  type Dot = {
-    key: string;
-    sport: string;
-    kind: DotKind;
-  };
+  type DotKind = "external" | "activity" | "plan" | "done" | "missed";
+  type Dot = { key: string; sport: string; kind: DotKind };
 
   const dots: Dot[] = [];
 
-  // 0) externé eventy – plná bodka (ako activity)
   for (const it of cell.externals) {
-    dots.push({
-      key: `e-${it.id}`,
-      sport: it.sport,
-      kind: "external",
-    });
+    dots.push({ key: `e-${it.id}`, sport: it.sport, kind: "external" });
   }
-
-  // 1) reálne aktivity – plná bodka
   for (const it of cell.activities) {
-    dots.push({
-      key: `a-${it.id}`,
-      sport: it.sport,
-      kind: "activity",
-    });
+    dots.push({ key: `a-${it.id}`, sport: it.sport, kind: "activity" });
   }
-
-  // 2) tréningy z plánu – podľa statusu
   for (const it of cell.plans) {
     const kind: DotKind =
-      it.status === "planned"
-        ? "plan"
-        : it.status === "done"
-        ? "done"
-        : "missed";
-
-    dots.push({
-      key: `p-${it.id}`,
-      sport: it.sport,
-      kind,
-    });
+      it.status === "planned" ? "plan" : it.status === "done" ? "done" : "missed";
+    dots.push({ key: `p-${it.id}`, sport: it.sport, kind });
   }
 
   return (
@@ -426,7 +371,6 @@ function DayCell({
             const color = SPORT_COLORS[it.sport] ?? SPORT_COLORS.other;
 
             if (it.kind === "activity" || it.kind === "external") {
-              // plná bodka – activity aj external
               return (
                 <span
                   key={it.key}
@@ -448,22 +392,14 @@ function DayCell({
 
             if (it.kind === "done") {
               return (
-                <span
-                  key={it.key}
-                  className="text-[11px] leading-none"
-                  style={{ color }}
-                >
+                <span key={it.key} className="text-[11px] leading-none" style={{ color }}>
                   ✓
                 </span>
               );
             }
 
             return (
-              <span
-                key={it.key}
-                className="text-[11px] leading-none"
-                style={{ color }}
-              >
+              <span key={it.key} className="text-[11px] leading-none" style={{ color }}>
                 ×
               </span>
             );
@@ -493,9 +429,7 @@ export default function ActivitiesCalendar({
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
-  const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(
-    null
-  );
+  const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(null);
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
@@ -517,7 +451,7 @@ export default function ActivitiesCalendar({
     setFocusedActivityId(null);
   }, [selectedIso]);
 
-  // rozsah pre grid (42 buniek)
+  // rozsah 42 buniek (grid)
   const gridRange = React.useMemo(() => {
     const offset = startWeekday(year, month0);
     const firstCell = new Date(year, month0, 1 - offset);
@@ -529,7 +463,7 @@ export default function ActivitiesCalendar({
     return { fromIso, toIso };
   }, [year, month0]);
 
-  // fetch externých eventov pre viditeľný grid
+  // fetch externals pre grid
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -537,11 +471,7 @@ export default function ActivitiesCalendar({
     (async () => {
       setExtErr(null);
       try {
-        const rows = await apiGetExternalEventsWindow(
-          userId,
-          gridRange.fromIso,
-          gridRange.toIso
-        );
+        const rows = await apiGetExternalEventsWindow(userId, gridRange.fromIso, gridRange.toIso);
         if (!alive) return;
         setExternalRows(Array.isArray(rows) ? rows : []);
       } catch (e: any) {
@@ -593,7 +523,7 @@ export default function ActivitiesCalendar({
     year: "numeric",
   });
 
-  // plánované sessions pre vybraný deň (bez REST)
+  // plán pre vybraný deň (bez REST)
   const selectedPlanRows = React.useMemo(() => {
     if (!selectedIso) return [];
     return planRows.filter((p: any) => {
@@ -607,8 +537,7 @@ export default function ActivitiesCalendar({
   const selectedDonePlans = React.useMemo(
     () =>
       selectedPlanRows.filter(
-        (p: any) =>
-          p.activity_id != null && !Number.isNaN(Number(p.activity_id))
+        (p: any) => p.activity_id != null && !Number.isNaN(Number(p.activity_id))
       ),
     [selectedPlanRows]
   );
@@ -632,21 +561,44 @@ export default function ActivitiesCalendar({
     });
   }, [selectedIso]);
 
+  // aktivity pre vybraný deň → set športov (na dedupe detailov)
+  const selectedActivitySports = React.useMemo(() => {
+    if (!selectedIso) return new Set<string>();
+    const s = new Set<string>();
+    for (const r of actRows) {
+      const dIso = String(r.date).slice(0, 10);
+      if (dIso !== selectedIso) continue;
+      s.add(safeSportKey((r as any).sport || (r as any).sport_type_fe || "other"));
+    }
+    return s;
+  }, [actRows, selectedIso]);
+
+  // externals pre vybraný deň (s dedupe: ak existuje aktivita rovnakého športu → schovaj)
   const selectedExternal = React.useMemo(() => {
     if (!selectedIso) return [];
     return externalRows
       .filter((ev) => {
-        const dIso = String((ev as any).occurrence_date || ev.single_date || "")
-          .slice(0, 10)
-          .trim();
-        return dIso === selectedIso;
+        const dIso = String((ev as any).occurrence_date || ev.single_date || "").slice(0, 10).trim();
+        if (dIso !== selectedIso) return false;
+
+        const sport = safeSportKey(ev.sport);
+        return !selectedActivitySports.has(sport);
       })
       .sort((a, b) => {
         const ta = String((a as any).start_time_local || "");
         const tb = String((b as any).start_time_local || "");
         return ta.localeCompare(tb);
       });
-  }, [externalRows, selectedIso]);
+  }, [externalRows, selectedIso, selectedActivitySports]);
+
+  // plan list dedupe (ak existuje aktivita rovnakého športu → schovaj planned/missed)
+  const selectedPlansDeduped = React.useMemo(() => {
+    return selectedPlans.filter((p: any) => {
+      const sess: AnyObj = p.payload ?? p;
+      const sport = safeSportKey((p as any).sport || detectSport(sess) || "other");
+      return !selectedActivitySports.has(sport);
+    });
+  }, [selectedPlans, selectedActivitySports]);
 
   const actMap = React.useMemo(() => {
     const m = new Map<number, any>();
@@ -663,25 +615,11 @@ export default function ActivitiesCalendar({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
           <div className="flex items-center gap-2 translate-y-[2px]">
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label="Predchádzajúci mesiac"
-              onClick={() => jump(-1)}
-            >
+            <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>
               ‹
             </Button>
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">
-              {label}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label="Nasledujúci mesiac"
-              onClick={() => jump(1)}
-            >
+            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
+            <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>
               ›
             </Button>
           </div>
@@ -690,60 +628,37 @@ export default function ActivitiesCalendar({
         {/* legenda */}
         <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
           <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.other }}
-            />
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: THEME.chart.other }} />
             <span>external</span>
           </div>
           <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.run }}
-            />
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: THEME.chart.run }} />
             <span>aktivita</span>
           </div>
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-2 h-2 rounded-full border"
-              style={{
-                borderColor: THEME.chart.run,
-                backgroundColor: "transparent",
-              }}
+              style={{ borderColor: THEME.chart.run, backgroundColor: "transparent" }}
             />
             <span>plán</span>
           </div>
           <div className="flex items-center gap-1">
-            <span
-              className="text-[9px] leading-none"
-              style={{ color: THEME.chart.run }}
-            >
-              ✓
-            </span>
+            <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>✓</span>
             <span>splnený plán</span>
           </div>
           <div className="flex items-center gap-1">
-            <span
-              className="text-[9px] leading-none"
-              style={{ color: THEME.chart.run }}
-            >
-              ×
-            </span>
+            <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>×</span>
             <span>missed plán</span>
           </div>
         </div>
 
         {extErr && (
-          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">
-            {extErr}
-          </div>
+          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">{extErr}</div>
         )}
 
         <div className="mt-1 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
           {["p", "u", "s", "š", "p", "s", "n"].map((d) => (
-            <div key={d} className="text-center">
-              {d}
-            </div>
+            <div key={d} className="text-center">{d}</div>
           ))}
         </div>
 
@@ -753,47 +668,34 @@ export default function ActivitiesCalendar({
               key={c.iso}
               cell={c}
               isSelected={selectedIso === c.iso}
-              onSelect={(isoVal) =>
-                setSelectedIso((cur) => (cur === isoVal ? null : isoVal))
-              }
+              onSelect={(isoVal) => setSelectedIso((cur) => (cur === isoVal ? null : isoVal))}
             />
           ))}
         </div>
       </div>
 
-      {/* DETAIL pod kalendárom */}
+      {/* DETAIL */}
       {selectedIso && (
         <div className="mt-3 ml-1 space-y-3">
-          {/* external */}
+          {/* externals */}
           <div className={[CARD, "space-y-2", "p-3 md:p-4"].join(" ")}>
             <div className="flex items-center justify-between mb-1.5">
-              <h3 className="text-sm font-semibold">
-                Externé eventy — {selectedLabel}
-              </h3>
+              <h3 className="text-sm font-semibold">Externé eventy — {selectedLabel}</h3>
             </div>
 
             {selectedExternal.length === 0 ? (
-              <p className="text-sm opacity-70">
-                Pre tento deň nemáš žiadne externé eventy.
-              </p>
+              <p className="text-sm opacity-70">Pre tento deň nemáš žiadne externé eventy.</p>
             ) : (
               <ul className="space-y-1.5">
                 {selectedExternal.map((ev, idx) => {
                   const sportKey = safeSportKey(ev.sport);
                   const color = SPORT_COLORS[sportKey] ?? SPORT_COLORS.other;
-
-                  const time = (ev as any).start_time_local
-                    ? String((ev as any).start_time_local)
-                    : null;
-
+                  const time = (ev as any).start_time_local ? String((ev as any).start_time_local) : null;
                   const title = String(ev.title || "External");
                   const note = (ev as any).notes ? String((ev as any).notes) : null;
 
                   return (
-                    <li
-                      key={`${ev.id ?? idx}`}
-                      className="text-sm flex items-start gap-2"
-                    >
+                    <li key={`${ev.id ?? idx}`} className="text-sm flex items-start gap-2">
                       <span
                         className="inline-block w-2 h-2 rounded-full translate-y-[6px]"
                         style={{ backgroundColor: color }}
@@ -801,18 +703,10 @@ export default function ActivitiesCalendar({
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          {time && (
-                            <span className="text-[11px] opacity-70 tabular-nums">
-                              {time}
-                            </span>
-                          )}
+                          {time && <span className="text-[11px] opacity-70 tabular-nums">{time}</span>}
                           <span className="font-medium">{title}</span>
                         </div>
-                        {note && (
-                          <div className="text-[12px] opacity-75 mt-0.5">
-                            {note}
-                          </div>
-                        )}
+                        {note && <div className="text-[12px] opacity-75 mt-0.5">{note}</div>}
                       </div>
                     </li>
                   );
@@ -839,9 +733,7 @@ export default function ActivitiesCalendar({
             </div>
 
             {selectedPlanRows.length === 0 && (
-              <p className="text-sm opacity-70">
-                Pre tento deň nie je vytvorený žiadny plán.
-              </p>
+              <p className="text-sm opacity-70">Pre tento deň nie je vytvorený žiadny plán.</p>
             )}
 
             {/* splnené */}
@@ -853,8 +745,7 @@ export default function ActivitiesCalendar({
                 <ul className="space-y-2">
                   {selectedDonePlans.map((p: any) => {
                     const sess: AnyObj = p.payload ?? p;
-                    const sport =
-                      (p as any).sport || detectSport(sess) || "other";
+                    const sport = (p as any).sport || detectSport(sess) || "other";
 
                     const sessionTypeId =
                       typeof sess?.session_type === "string"
@@ -863,45 +754,28 @@ export default function ActivitiesCalendar({
                         ? p.session_type
                         : null;
 
-                    const trainingDef = sessionTypeId
-                      ? findTrainingTypeById(sessionTypeId)
-                      : null;
-
-                    const title =
-                      trainingDef?.label || normTitle(sess) || "Tréning";
+                    const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
+                    const title = trainingDef?.label || normTitle(sess) || "Tréning";
 
                     const baseNotes = normNotes(sess);
                     const typeLine = trainingDef?.description || null;
-                    const combinedNotes = [typeLine, baseNotes]
-                      .filter(Boolean)
-                      .join(" • ");
+                    const combinedNotes = [typeLine, baseNotes].filter(Boolean).join(" • ");
 
-                    const actId =
-                      p.activity_id != null ? Number(p.activity_id) : null;
+                    const actId = p.activity_id != null ? Number(p.activity_id) : null;
                     const act =
-                      actId != null && !Number.isNaN(actId)
-                        ? actMap.get(actId)
-                        : null;
+                      actId != null && !Number.isNaN(actId) ? actMap.get(actId) : null;
 
-                    const actDur = fmtRealDurationMin(
-                      act?.moving_time_s ?? act?.moving_time
-                    );
+                    const actDur = fmtRealDurationMin(act?.moving_time_s ?? act?.moving_time);
                     const distStr =
-                      act?.distance_m != null
-                        ? `${(act.distance_m / 1000).toFixed(2)} km`
-                        : null;
+                      act?.distance_m != null ? `${(act.distance_m / 1000).toFixed(2)} km` : null;
 
                     const activitySummary =
                       actId != null && !Number.isNaN(actId)
-                        ? [act?.name || "Activity", distStr, actDur]
-                            .filter(Boolean)
-                            .join(" · ")
+                        ? [act?.name || "Activity", distStr, actDur].filter(Boolean).join(" · ")
                         : null;
 
                     const handleOpenActivity = () => {
-                      if (actId != null && !Number.isNaN(actId)) {
-                        setFocusedActivityId(actId);
-                      }
+                      if (actId != null && !Number.isNaN(actId)) setFocusedActivityId(actId);
                     };
 
                     return (
@@ -936,17 +810,16 @@ export default function ActivitiesCalendar({
               </>
             )}
 
-            {/* plánované (bez aktivity / missed/planned) */}
-            {selectedPlans.length > 0 && (
+            {/* plánované (deduped) */}
+            {selectedPlansDeduped.length > 0 && (
               <>
                 <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1 mt-2">
                   Plánované tréningy
                 </div>
                 <ul className="space-y-2">
-                  {selectedPlans.map((p: any) => {
+                  {selectedPlansDeduped.map((p: any) => {
                     const sess: AnyObj = p.payload ?? p;
-                    const sport =
-                      (p as any).sport || detectSport(sess) || "other";
+                    const sport = (p as any).sport || detectSport(sess) || "other";
 
                     const sessionTypeId =
                       typeof sess?.session_type === "string"
@@ -955,22 +828,15 @@ export default function ActivitiesCalendar({
                         ? p.session_type
                         : null;
 
-                    const trainingDef = sessionTypeId
-                      ? findTrainingTypeById(sessionTypeId)
-                      : null;
-
-                    const title =
-                      trainingDef?.label || normTitle(sess) || "Tréning";
+                    const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
+                    const title = trainingDef?.label || normTitle(sess) || "Tréning";
 
                     const baseNotes = normNotes(sess);
                     const typeLine = trainingDef?.description || null;
-                    const combinedNotes = [typeLine, baseNotes]
-                      .filter(Boolean)
-                      .join(" • ");
+                    const combinedNotes = [typeLine, baseNotes].filter(Boolean).join(" • ");
 
                     const dIso = String(p.plan_date).slice(0, 10);
-                    const status: PlanStatus =
-                      dIso < todayIso ? "missed" : "planned";
+                    const status: PlanStatus = dIso < todayIso ? "missed" : "planned";
 
                     return (
                       <li key={p.id} className="px-0">
@@ -985,9 +851,7 @@ export default function ActivitiesCalendar({
                           planTarget={normTarget(sess)}
                           planNotes={combinedNotes || null}
                           activitySummary={null}
-                        >
-                          {/* momentálne žiadne ďalšie akcie – linkovanie riešime neskôr */}
-                        </PlanSingle>
+                        />
                       </li>
                     );
                   })}
