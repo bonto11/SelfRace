@@ -1,4 +1,3 @@
-// src/shared/components/calendar/ActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
@@ -17,6 +16,10 @@ import {
   CARD,
 } from "@/shared/ui/classes";
 import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
+
+import { useUserId } from "@/shared/hooks/useUserId";
+import { apiGetExternalEventsWindow } from "@/features/coach/api/coach_external_events";
+import type { ExternalEvent } from "@/features/coach/types/externalEvents";
 
 const ActivityTable = dynamic(
   () => import("@/shared/components/ActivityTable"),
@@ -49,6 +52,14 @@ type DayCellData = {
     id: number;
     sport: string;
     status: PlanStatus;
+  }[];
+  externals: {
+    id: number;
+    sport: string;
+    title: string;
+    time?: string | null;
+    notes?: string | null;
+    priority?: string | null;
   }[];
 };
 
@@ -221,9 +232,19 @@ function isRestSession(row: any, sess: AnyObj): boolean {
   return false;
 }
 
+function safeSportKey(v: any): string {
+  const s = String(v || "").toLowerCase();
+  if (s in SPORT_COLORS) return s;
+  return "other";
+}
+
 /* ───────── mapovanie dát na grid ───────── */
 
-function useMonthData(year: number, month0: number) {
+function useMonthData(
+  year: number,
+  month0: number,
+  externalEvents: ExternalEvent[]
+) {
   const { rows: actRows } = useActivityData();
   const { rows: planRows } = usePlanData();
   const [map, setMap] = React.useState<Record<string, DayCellData>>({});
@@ -245,12 +266,33 @@ function useMonthData(year: number, month0: number) {
         day: inMonth ? d.getDate() : null,
         activities: [],
         plans: [],
+        externals: [],
       };
     }
 
     const firstIso = iso(year, month0, 1);
     const lastIso = iso(year, month0, daysInMonth(year, month0));
     const todayIso = new Date().toISOString().slice(0, 10);
+
+    // externé eventy (už expandované na occurrence_date)
+    for (const ev of externalEvents) {
+      const dIso = String((ev as any).occurrence_date || ev.single_date || "")
+        .slice(0, 10)
+        .trim();
+      if (!dIso) continue;
+      if (dIso < firstIso || dIso > lastIso) continue;
+      const cell = grid[dIso];
+      if (!cell) continue;
+
+      cell.externals.push({
+        id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
+        sport: safeSportKey(ev.sport),
+        title: String(ev.title || "External"),
+        time: (ev as any).start_time_local ?? null,
+        notes: (ev as any).notes ?? null,
+        priority: (ev as any).priority ?? null,
+      });
+    }
 
     // plánované session
     for (const p of planRows) {
@@ -260,7 +302,7 @@ function useMonthData(year: number, month0: number) {
       const sess: AnyObj = (p as any).payload ?? p;
       if (isRestSession(p, sess)) continue;
 
-      const sport = (p as any).sport || detectSport(sess) || "other";
+      const sport = safeSportKey((p as any).sport || detectSport(sess) || "other");
 
       const actIdRaw = (p as any).activity_id;
       const actId =
@@ -288,7 +330,7 @@ function useMonthData(year: number, month0: number) {
       if (!cell) continue;
 
       const aid = Number(r.activity_id);
-      const sport = (r as any).sport || (r as any).sport_type_fe || "other";
+      const sport = safeSportKey((r as any).sport || (r as any).sport_type_fe || "other");
 
       cell.activities.push({
         id: aid,
@@ -298,7 +340,7 @@ function useMonthData(year: number, month0: number) {
     }
 
     setMap(grid);
-  }, [actRows, planRows, year, month0]);
+  }, [actRows, planRows, externalEvents, year, month0]);
 
   return map;
 }
@@ -316,7 +358,7 @@ function DayCell({
 }) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
-  type DotKind = "activity" | "plan" | "done" | "missed";
+  type DotKind = "activity" | "external" | "plan" | "done" | "missed";
 
   type Dot = {
     key: string;
@@ -326,7 +368,16 @@ function DayCell({
 
   const dots: Dot[] = [];
 
-  // 1) reálne aktivity – plná farebná bodka
+  // 0) externé eventy – plná bodka (ako activity)
+  for (const it of cell.externals) {
+    dots.push({
+      key: `e-${it.id}`,
+      sport: it.sport,
+      kind: "external",
+    });
+  }
+
+  // 1) reálne aktivity – plná bodka
   for (const it of cell.activities) {
     dots.push({
       key: `a-${it.id}`,
@@ -374,8 +425,8 @@ function DayCell({
           {dots.slice(0, 8).map((it) => {
             const color = SPORT_COLORS[it.sport] ?? SPORT_COLORS.other;
 
-            if (it.kind === "activity") {
-              // plná bodka – reálna aktivita
+            if (it.kind === "activity" || it.kind === "external") {
+              // plná bodka – activity aj external
               return (
                 <span
                   key={it.key}
@@ -386,7 +437,6 @@ function DayCell({
             }
 
             if (it.kind === "plan") {
-              // prázdny kruh – plán
               return (
                 <span
                   key={it.key}
@@ -397,7 +447,6 @@ function DayCell({
             }
 
             if (it.kind === "done") {
-              // farebná fajka – splnený tréning
               return (
                 <span
                   key={it.key}
@@ -409,7 +458,6 @@ function DayCell({
               );
             }
 
-            // kind === "missed" → farebné X
             return (
               <span
                 key={it.key}
@@ -439,16 +487,21 @@ export default function ActivitiesCalendar({
   year?: number;
   month?: number;
 }) {
+  const { userId } = useUserId();
+
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
-  const [focusedActivityId, setFocusedActivityId] = React.useState<
-    number | null
-  >(null);
+  const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(
+    null
+  );
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
+
+  const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
+  const [extErr, setExtErr] = React.useState<string | null>(null);
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -464,7 +517,46 @@ export default function ActivitiesCalendar({
     setFocusedActivityId(null);
   }, [selectedIso]);
 
-  const map = useMonthData(year, month0);
+  // rozsah pre grid (42 buniek)
+  const gridRange = React.useMemo(() => {
+    const offset = startWeekday(year, month0);
+    const firstCell = new Date(year, month0, 1 - offset);
+    const lastCell = new Date(firstCell);
+    lastCell.setDate(firstCell.getDate() + 41);
+
+    const fromIso = iso(firstCell.getFullYear(), firstCell.getMonth(), firstCell.getDate());
+    const toIso = iso(lastCell.getFullYear(), lastCell.getMonth(), lastCell.getDate());
+    return { fromIso, toIso };
+  }, [year, month0]);
+
+  // fetch externých eventov pre viditeľný grid
+  React.useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+
+    (async () => {
+      setExtErr(null);
+      try {
+        const rows = await apiGetExternalEventsWindow(
+          userId,
+          gridRange.fromIso,
+          gridRange.toIso
+        );
+        if (!alive) return;
+        setExternalRows(Array.isArray(rows) ? rows : []);
+      } catch (e: any) {
+        if (!alive) return;
+        setExternalRows([]);
+        setExtErr(e?.message ?? "Failed to load external events.");
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [userId, gridRange.fromIso, gridRange.toIso]);
+
+  const map = useMonthData(year, month0, externalRows);
 
   const cells = React.useMemo(() => {
     const out: DayCellData[] = [];
@@ -481,6 +573,7 @@ export default function ActivitiesCalendar({
           day: d.getMonth() === month0 ? d.getDate() : null,
           activities: [],
           plans: [],
+          externals: [],
         }
       );
     }
@@ -539,6 +632,22 @@ export default function ActivitiesCalendar({
     });
   }, [selectedIso]);
 
+  const selectedExternal = React.useMemo(() => {
+    if (!selectedIso) return [];
+    return externalRows
+      .filter((ev) => {
+        const dIso = String((ev as any).occurrence_date || ev.single_date || "")
+          .slice(0, 10)
+          .trim();
+        return dIso === selectedIso;
+      })
+      .sort((a, b) => {
+        const ta = String((a as any).start_time_local || "");
+        const tb = String((b as any).start_time_local || "");
+        return ta.localeCompare(tb);
+      });
+  }, [externalRows, selectedIso]);
+
   const actMap = React.useMemo(() => {
     const m = new Map<number, any>();
     for (const r of actRows) {
@@ -550,7 +659,6 @@ export default function ActivitiesCalendar({
 
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-      {/* HLAVIČKA + mriežka */}
       <div className={CALENDAR_CONTAINER}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
@@ -581,6 +689,13 @@ export default function ActivitiesCalendar({
 
         {/* legenda */}
         <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: THEME.chart.other }}
+            />
+            <span>external</span>
+          </div>
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-2 h-2 rounded-full"
@@ -618,6 +733,12 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
+        {extErr && (
+          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">
+            {extErr}
+          </div>
+        )}
+
         <div className="mt-1 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
           {["p", "u", "s", "š", "p", "s", "n"].map((d) => (
             <div key={d} className="text-center">
@@ -643,6 +764,63 @@ export default function ActivitiesCalendar({
       {/* DETAIL pod kalendárom */}
       {selectedIso && (
         <div className="mt-3 ml-1 space-y-3">
+          {/* external */}
+          <div className={[CARD, "space-y-2", "p-3 md:p-4"].join(" ")}>
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-sm font-semibold">
+                Externé eventy — {selectedLabel}
+              </h3>
+            </div>
+
+            {selectedExternal.length === 0 ? (
+              <p className="text-sm opacity-70">
+                Pre tento deň nemáš žiadne externé eventy.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {selectedExternal.map((ev, idx) => {
+                  const sportKey = safeSportKey(ev.sport);
+                  const color = SPORT_COLORS[sportKey] ?? SPORT_COLORS.other;
+
+                  const time = (ev as any).start_time_local
+                    ? String((ev as any).start_time_local)
+                    : null;
+
+                  const title = String(ev.title || "External");
+                  const note = (ev as any).notes ? String((ev as any).notes) : null;
+
+                  return (
+                    <li
+                      key={`${ev.id ?? idx}`}
+                      className="text-sm flex items-start gap-2"
+                    >
+                      <span
+                        className="inline-block w-2 h-2 rounded-full translate-y-[6px]"
+                        style={{ backgroundColor: color }}
+                        aria-hidden
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {time && (
+                            <span className="text-[11px] opacity-70 tabular-nums">
+                              {time}
+                            </span>
+                          )}
+                          <span className="font-medium">{title}</span>
+                        </div>
+                        {note && (
+                          <div className="text-[12px] opacity-75 mt-0.5">
+                            {note}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
           {/* aktivity */}
           <ActivityTable
             start={selectedIso}
