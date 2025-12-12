@@ -35,10 +35,16 @@ function startOfWeek(date = new Date()) {
   return d;
 }
 
+function safeSportKey(v: any): string {
+  const s = String(v || "").toLowerCase();
+  if (s in SPORT_COLORS) return s;
+  return "other";
+}
+
 type DayItem = {
   id: number;
   sport: string;
-  kind: "activity" | "plan" | "done" | "missed" | "external";
+  kind: "activity" | "external" | "plan" | "done" | "missed";
 };
 
 type Props = {
@@ -46,38 +52,26 @@ type Props = {
   perDayLimit?: number;
 };
 
-function safeSportKey(v: any): string {
-  const s = String(v || "").toLowerCase();
-  // tu môžeš neskôr namapovať eventy na špecifické farby,
-  // zatiaľ všetko neznáme → other
-  if (s in SPORT_COLORS) return s;
-  return "other";
-}
-
 export default function WidgetWeekActivities({
   openHref = "/calendar",
   perDayLimit = 6,
 }: Props) {
   const router = useRouter();
-  const { userId } = useUserId();
   const { selectByRange } = useActivityData();
   const { selectPlanByRange } = usePlanData();
+  const { userId } = useUserId();
 
   const monday = startOfWeek();
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(
-    monday.getFullYear(),
-    monday.getMonth(),
-    monday.getDate()
-  );
+  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
-  const [external, setExternal] = React.useState<ExternalEvent[]>([]);
+  const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
 
-  // 🔥 externé eventy pre tento týždeň (expandované)
+  // fetch externals pre týždeň
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -87,11 +81,11 @@ export default function WidgetWeekActivities({
       try {
         const rows = await apiGetExternalEventsWindow(userId, startIso, endIso);
         if (!alive) return;
-        setExternal(Array.isArray(rows) ? rows : []);
+        setExternalRows(Array.isArray(rows) ? rows : []);
       } catch (e: any) {
         if (!alive) return;
-        setExternal([]);
-        setExtErr(e?.message ?? "Failed to load external events window.");
+        setExternalRows([]);
+        setExtErr(e?.message ?? "Failed to load external events.");
       }
     })();
 
@@ -111,35 +105,33 @@ export default function WidgetWeekActivities({
       map.set(iso(d.getFullYear(), d.getMonth(), d.getDate()), []);
     }
 
-    // 1) externé eventy (z DB, už expandované do occurrence_date)
-    for (const ev of external) {
+    // externals (už expandované cez occurrence_date)
+    for (const ev of externalRows) {
       const k = String((ev as any).occurrence_date || ev.single_date || "")
         .slice(0, 10)
         .trim();
       if (!k || !map.has(k)) continue;
 
-      const arr = map.get(k)!;
-      arr.push({
+      map.get(k)!.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
         sport: safeSportKey(ev.sport),
         kind: "external",
       });
     }
 
-    // 2) reálne aktivity
+    // reálne aktivity
     const actRows = selectByRange(startIso, endIso);
     for (const r of actRows) {
       const k = r.date.slice(0, 10);
       if (!map.has(k)) continue;
-      const arr = map.get(k)!;
-      arr.push({
+      map.get(k)!.push({
         id: r.activity_id,
-        sport: safeSportKey((r as any).sport || (r as any).sport_type_fe),
+        sport: safeSportKey((r as any).sport || (r as any).sport_type_fe || "other"),
         kind: "activity",
       });
     }
 
-    // 3) plán (bez REST) + prepojenie na aktivity, vrátane missed
+    // plán (bez REST) + prepojenie na aktivity, vrátane missed
     const planRows = selectPlanByRange(startIso, endIso);
     for (const p of planRows) {
       const k = String(p.plan_date).slice(0, 10);
@@ -164,18 +156,15 @@ export default function WidgetWeekActivities({
           ? Number(actIdRaw)
           : null;
 
-      // ak má activity_id → nájdi zodpovedajúcu aktivitu a označ ako done
+      // ak má activity_id → označ activity ako done
       if (actId) {
-        const idx = arr.findIndex(
-          (it) => it.kind === "activity" && it.id === actId
-        );
+        const idx = arr.findIndex((it) => it.kind === "activity" && it.id === actId);
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done" };
           continue;
         }
       }
 
-      // čistý plán bez aktivity – ale nie rest day
       if (!isRest) {
         const isPast = k < todayIso;
         arr.push({
@@ -186,18 +175,33 @@ export default function WidgetWeekActivities({
       }
     }
 
+    // DEDUPE: ak existuje activity (alebo done) pre šport S → vyhoď external + plan/missed pre S
+    for (const [k, arr] of map.entries()) {
+      const hasActivitySport = new Set(
+        arr
+          .filter((x) => x.kind === "activity" || x.kind === "done")
+          .map((x) => x.sport)
+      );
+
+      if (hasActivitySport.size === 0) continue;
+
+      map.set(
+        k,
+        arr.filter((x) => {
+          if (x.kind === "plan" || x.kind === "missed" || x.kind === "external") {
+            return !hasActivitySport.has(x.sport);
+          }
+          return true;
+        })
+      );
+    }
+
     return map;
-  }, [external, selectByRange, selectPlanByRange, startIso, endIso, monday]);
+  }, [monday, startIso, endIso, selectByRange, selectPlanByRange, externalRows]);
 
   const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", {
-      month: "short",
-      day: "2-digit",
-    })} – ` +
-    `${sunday.toLocaleDateString("sk-SK", {
-      month: "short",
-      day: "2-digit",
-    })}`;
+    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
+    `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
 
   const handleOpen = () => router.push(openHref);
 
@@ -215,6 +219,10 @@ export default function WidgetWeekActivities({
       minH={160}
       innerClassName={NO_X_OVERFLOW}
     >
+      {extErr && (
+        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">{extErr}</div>
+      )}
+
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
         {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
           <div key={d} className="text-center">
@@ -222,12 +230,6 @@ export default function WidgetWeekActivities({
           </div>
         ))}
       </div>
-
-      {extErr && (
-        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">
-          {extErr}
-        </div>
-      )}
 
       <div
         className="grid grid-cols-7 gap-2 cursor-pointer"
@@ -264,7 +266,6 @@ export default function WidgetWeekActivities({
                     const color = SPORT_COLORS[it.sport] ?? SPORT_COLORS.other;
 
                     if (it.kind === "activity" || it.kind === "external") {
-                      // plná bodka (activity aj external)
                       return (
                         <span
                           key={`${it.kind}-${it.id}`}
