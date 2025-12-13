@@ -1,18 +1,32 @@
-// src/features/coach/components/prefs/PrefsForm.tsx
+// src/features/coach/components/prefs/CoachPreferencies.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CoachPrefs, SportKind, CoachPersona } from "@/features/coach/types/prefsTypes";
+import type {
+  CoachPrefs,
+  SportKind,
+  CoachPersona,
+  RunTargets,
+} from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { toast } from "@/shared/components/ui/Toast";
-import { readCoachPrefsFromStorage, refreshCoachPrefsFromDB, saveCoachPrefs } from "@/features/coach/utils/prefs";
+import {
+  refreshCoachPrefsFromDB,
+  saveCoachPrefs,
+} from "@/features/coach/utils/prefs";
 
 import Button from "@/shared/components/ui/Button";
 import { NO_X, PILL_BUTTON } from "@/shared/ui/classes";
 
-import { fetchUserZonesLatest, saveUserZones } from "@/features/coach/api/zones";
-import { fetchUserThresholdsLatest, saveUserThresholds } from "@/features/coach/api/thresholds";
+import {
+  apiFetchUserZonesLatest,
+  apiSaveUserZones,
+} from "@/features/coach/api/zones";
+import {
+  apiFetchUserThresholdsLatest,
+  apiSaveUserThresholds,
+} from "@/features/coach/api/thresholds";
 
 import { GoalSection } from "@/features/coach/components/prefs/GoalSection";
 import { CoachPersonalitySection } from "@/features/coach/components/prefs/CoachPersonalitySection";
@@ -25,114 +39,183 @@ import { RulesSection } from "@/features/coach/components/prefs/RulesSection";
 import ZonesSection from "@/features/coach/components/prefs/ZonesSection";
 import ThresholdsSection from "@/features/coach/components/prefs/ThresholdsSection";
 import { IntensityModelsSection } from "@/features/coach/components/prefs/IntensityModelsSection";
-import { ExternalActivitiesSection } from "@/features/coach/components/prefs/ExternalActivitiesSection";
 import { InjuriesSection } from "@/features/coach/components/prefs/InjuriesSection";
 import { FocusAvoidSection } from "@/features/coach/components/prefs/FocusAvoidSection";
 import { RehabSection } from "@/features/coach/components/prefs/RehabSection";
 
 /* ---- local DTOs ---- */
 type SecondaryRole = "none" | "supplement" | "improve";
-type SecondaryMix = { sport: SportKind; role: SecondaryRole; share_pct: number; };
+type SecondaryMix = {
+  sport: SportKind;
+  role: SecondaryRole;
+  share_pct: number;
+};
 
 type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
   secondary_mix?: SecondaryMix[];
   coach_voice?: CoachPersona | null;
+  // runtime-only – neukladá sa do coach.prefs v DB
   zones?: any;
-  thresholds?: any;                // aktuálny draft prahov
-  thresholds_latest?: any[] | null; // posledné uložené z BE (na preview/fallback)
+  thresholds?: any;
+  thresholds_latest?: any[] | null;
 };
 
-const ALL_SPORTS: SportKind[] = ["run", "ride", "strength"];
+const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
 
 function isoTodayPlus(days: number): string {
-  const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(d.getDate()).padStart(2, "0")}`;
 }
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
 const MIN_PLAN_START = () => isoTodayPlus(1);
 
-export default function PrefsForm() {
+export default function CoachPreferencies() {
   const { userId } = useUserId();
   const dirtyRef = useRef(false);
-  const markDirty = () => { dirtyRef.current = true; };
+  const markDirty = () => {
+    dirtyRef.current = true;
+  };
 
-  const [local, setLocal] = useState<CoachPrefsExtended>(() => readCoachPrefsFromStorage() as CoachPrefsExtended);
+  const [local, setLocal] = useState<CoachPrefsExtended>(
+    {} as CoachPrefsExtended
+  );
 
-  // initial load (prefs + zóny + latest thresholds list)
+  // initial load (prefs + zones + latest thresholds) – všetko z DB
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+
     (async () => {
       try {
-        const [p, zones, thrRows] = await Promise.all([
+        const [pRaw, zonesRaw, thrRowsRaw] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
-          fetchUserZonesLatest(userId),            // najnovšie zóny (default sport)
-          fetchUserThresholdsLatest(userId),       // surové riadky – použijeme na fallback LTHR
+          apiFetchUserZonesLatest(userId),
+          apiFetchUserThresholdsLatest(userId),
         ]);
         if (!alive) return;
 
+        console.log("[PREFS] pRaw from DB:", pRaw);
+
+        const p = (pRaw || {}) as CoachPrefsExtended;
+        const zones = (zonesRaw ?? null) as any;
+        const thrRows = (thrRowsRaw ?? []) as any[];
+
+        const draftThr =
+          Array.isArray(thrRows) && thrRows.length > 0
+            ? { ...thrRows[0] }
+            : undefined;
+
         const next: CoachPrefsExtended = {
-          ...(p as CoachPrefsExtended),
-          zones: zones ?? (p as any)?.zones ?? null,
-          thresholds: (p as any)?.thresholds ?? undefined,
-          thresholds_latest: thrRows ?? null,
+          ...p,
+          zones,
+          thresholds: draftThr ?? undefined,
+          thresholds_latest: thrRows,
         };
+
+        console.log("[PREFS] next state before setLocal:", next);
 
         if (!dirtyRef.current) setLocal(next);
       } catch (e) {
         console.error("[CoachPrefs]init error", e);
       }
     })();
-    return () => { alive = false; };
+
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
-  // start_date guard
+  // start_date guard – min zajtra, default D+2
   useEffect(() => {
-    if (!local?.start_date) {
-      setLocal((p) => ({ ...p, start_date: DEFAULT_PLAN_START() }));
-    } else {
-      const min = MIN_PLAN_START();
-      if (local.start_date < min) setLocal((p) => ({ ...p, start_date: min }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLocal((prev) => {
+      const current = { ...prev };
+      if (!current.start_date) {
+        current.start_date = DEFAULT_PLAN_START();
+      } else {
+        const min = MIN_PLAN_START();
+        if (current.start_date < min) current.start_date = min;
+      }
+      return current;
+    });
   }, []);
 
   const prefDefaults = (p: CoachPrefsExtended) =>
-    p.preferences ?? { days_off: [], long_run_days: [], avoid_back_to_back_hard: true, use_zones: true, wu_cd_detail: true };
+    p.preferences ?? {
+      days_off: [],
+      long_run_days: [],
+      avoid_back_to_back_hard: true,
+      use_zones: true,
+      avoid_two_a_day: false,
+    };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] =>
-    (arr ?? []).includes(v) ? (arr ?? []).filter((x) => x !== v) : [...(arr ?? []), v];
+    (arr ?? []).includes(v)
+      ? (arr ?? []).filter((x) => x !== v)
+      : [...(arr ?? []), v];
 
-  const setPref = <K extends keyof CoachPrefsExtended>(key: K, val: CoachPrefsExtended[K]) => {
-    markDirty(); setLocal((prev) => ({ ...prev, [key]: val }));
+  const setPref = <K extends keyof CoachPrefsExtended>(
+    key: K,
+    val: CoachPrefsExtended[K]
+  ) => {
+    markDirty();
+    setLocal((prev) => ({ ...prev, [key]: val }));
   };
 
-  const setPrefNested = (path: "preferences.days_off" | "preferences.long_run_days", v: any) => {
+  const setPrefNested = (
+    path: "preferences.days_off" | "preferences.long_run_days",
+    v: any
+  ) => {
     markDirty();
     const p = prefDefaults(local);
-    const next = { ...local, preferences: p };
-    if (path.endsWith("days_off")) next.preferences!.days_off = v as DayAbbrev[];
-    if (path.endsWith("long_run_days")) next.preferences!.long_run_days = v as DayAbbrev[];
+    const next: CoachPrefsExtended = { ...local, preferences: p };
+    if (path.endsWith("days_off"))
+      next.preferences!.days_off = v as DayAbbrev[];
+    if (path.endsWith("long_run_days"))
+      next.preferences!.long_run_days = v as DayAbbrev[];
     setLocal(next);
   };
 
-  const upsertRunTargets = (patch: Partial<NonNullable<CoachPrefsExtended["targets"]>["run"]>) => {
+  const upsertRunTargets = (patch: Partial<RunTargets>) => {
     markDirty();
-    setLocal((prev) => ({
-      ...prev,
-      targets: {
-        run: {
-          race_goal: prev.targets?.run?.race_goal ?? null,
-          current_best_time: prev.targets?.run?.current_best_time ?? null,
-          target_time: prev.targets?.run?.target_time ?? null,
-          longest_recent_distance_km: prev.targets?.run?.longest_recent_distance_km ?? null,
-          ...patch,
+    setLocal((prev) => {
+      const prevTargets = prev.targets ?? {};
+
+      const baseRun: RunTargets = {
+        races: [],
+        race_goal: null,
+        custom_distance_km: null,
+        current_best_time: null,
+        target_time: null,
+        longest_recent_distance_km: null,
+        priority: null,
+        race_type: null,
+        terrain: null,
+        elevation_profile: null,
+      };
+
+      const prevRun: RunTargets =
+        (prevTargets.run as RunTargets | undefined) ?? baseRun;
+
+      const nextRun: RunTargets = {
+        ...baseRun,
+        ...prevRun,
+        ...patch,
+      };
+
+      return {
+        ...prev,
+        targets: {
+          ...prevTargets,
+          run: nextRun,
         },
-        ride: prev.targets?.ride ?? { focus: "endurance", weekly_time_target_min: null },
-        strength: prev.targets?.strength ?? { focus: "general", sessions_per_week: 2 },
-      },
-    }));
+      };
+    });
   };
 
   // SAVE / REFRESH
@@ -142,16 +225,61 @@ export default function PrefsForm() {
       const activeSecondaries = (local.secondary_mix ?? [])
         .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
         .map((x) => x.sport);
-      const primaries = [...(local.main_sport ? [local.main_sport] : []), ...activeSecondaries];
+
+      const primaries = [
+        ...(local.main_sport ? [local.main_sport] : []),
+        ...activeSecondaries,
+      ];
 
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
+
+      // runtime-only polia von z payloadu
+      const {
+        zones: _z,
+        thresholds: _t,
+        thresholds_latest: _tl,
+        ...rest
+      } = local;
+
       const normalized: CoachPrefsExtended = {
-        ...local,
+        ...rest,
         start_date: !startIso || startIso < minIso ? minIso : startIso,
         primary_sports: primaries.length ? primaries : undefined,
-        secondary_mix: (local.secondary_mix ?? []).map((x) => (x.role === "none" ? { ...x, share_pct: 0 } : x)),
+        secondary_mix: (local.secondary_mix ?? [])
+          .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
+          .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
       };
+
+      // vyčisti targets – ulož iba zmysluplné
+      if (normalized.targets) {
+        const t = normalized.targets as any;
+        const cleaned: any = {};
+
+        // run necháme vždy (aj keď je prázdny)
+        if (t.run) cleaned.run = t.run;
+
+        // ride len ak má čas/focus
+        if (
+          t.ride &&
+          (t.ride.weekly_time_target_min != null ||
+            (t.ride.focus && t.ride.focus !== "endurance"))
+        ) {
+          cleaned.ride = t.ride;
+        }
+
+        // strength len ak nie je default
+        if (
+          t.strength &&
+          (t.strength.sessions_per_week != null ||
+            (t.strength.focus && t.strength.focus !== "general"))
+        ) {
+          cleaned.strength = t.strength;
+        }
+
+        normalized.targets =
+          Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      }
 
       await saveCoachPrefs(userId, normalized);
       toast.success("Preferences saved");
@@ -164,16 +292,28 @@ export default function PrefsForm() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const [fresh, zones, thrRows] = await Promise.all([
+      const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
         refreshCoachPrefsFromDB(userId),
-        fetchUserZonesLatest(userId),
-        fetchUserThresholdsLatest(userId),
+        apiFetchUserZonesLatest(userId),
+        apiFetchUserThresholdsLatest(userId),
       ]);
+
+      const p = (fresh || {}) as CoachPrefsExtended;
+      const zones = (zonesRaw ?? null) as any;
+      const thrRows = (thrRowsRaw ?? []) as any[];
+
+      const draftThr =
+        Array.isArray(thrRows) && thrRows.length > 0
+          ? { ...thrRows[0] }
+          : undefined;
+
       const next: CoachPrefsExtended = {
-        ...(fresh as CoachPrefsExtended),
-        zones: zones ?? (fresh as any)?.zones ?? null,
-        thresholds_latest: thrRows ?? null,
+        ...p,
+        zones,
+        thresholds: draftThr ?? undefined,
+        thresholds_latest: thrRows,
       };
+
       if (!dirtyRef.current) setLocal(next);
       toast.success("Refreshed");
     } catch (e: any) {
@@ -188,54 +328,116 @@ export default function PrefsForm() {
   /* -------- Sports (main + secondary) -------- */
   const mainSport: SportKind | "" = (local.main_sport ?? "") as any;
   const secondary: SecondaryMix[] = useMemo(() => {
-    const cur = (local.secondary_mix ?? []).filter((s) => s.sport !== local.main_sport);
+    const cur = (local.secondary_mix ?? []).filter(
+      (s) => s.sport !== local.main_sport
+    );
     const missing = ALL_SPORTS.filter((s) => s !== local.main_sport)
       .filter((s) => !cur.some((x) => x.sport === s))
       .map<SecondaryMix>((s) => ({ sport: s, role: "none", share_pct: 0 }));
     return [...cur, ...missing];
   }, [local.secondary_mix, local.main_sport]);
-  const setSecondary = (mix: SecondaryMix[]) => { markDirty(); setLocal((p) => ({ ...p, secondary_mix: mix })); };
+  const setSecondary = (mix: SecondaryMix[]) => {
+    markDirty();
+    setLocal((p) => ({ ...p, secondary_mix: mix }));
+  };
   const updateSecondary = (sport: SportKind, patch: Partial<SecondaryMix>) => {
-    const next = secondary.map((x) => (x.sport === sport ? { ...x, ...patch } : x));
+    const next = secondary.map((x) =>
+      x.sport === sport ? { ...x, ...patch } : x
+    );
     setSecondary(next);
   };
-  const sumShare = secondary.reduce((a, b) => a + (Number.isFinite(b.share_pct) ? b.share_pct : 0), 0);
+  const sumShare = secondary.reduce(
+    (a, b) => a + (Number.isFinite(b.share_pct) ? b.share_pct : 0),
+    0
+  );
   const shareWarn = sumShare > 100;
 
   /* -------- Zones / Thresholds handlers -------- */
-  const handleZonesChange = (z: any) => { setLocal((prev) => ({ ...prev, zones: z })); markDirty(); };
+  const handleZonesChange = (z: any) => {
+    setLocal((prev) => ({ ...prev, zones: z }));
+    markDirty();
+  };
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
-      const saved = await saveUserZones(userId, z ?? {});
+      const saved = await apiSaveUserZones(userId, z ?? {});
       setLocal((prev) => ({ ...prev, zones: saved ?? z }));
       toast.success("Zones saved to DB");
-    } catch (e) { console.error(e); toast.error("Saving zones failed"); }
+    } catch (e) {
+      console.error(e);
+      toast.error("Saving zones failed");
+    }
   };
 
-  const handleThresholdsChange = (t: any) => { setLocal((prev) => ({ ...prev, thresholds: t })); markDirty(); };
+  const handleThresholdsChange = (t: any) => {
+    setLocal((prev) => ({ ...prev, thresholds: t }));
+    markDirty();
+  };
   const handleSaveThresholdsToDB = async (t: any) => {
     if (!userId) return;
     try {
-      const saved = await saveUserThresholds(userId, t ?? {});
-      setLocal((prev) => ({ ...prev, thresholds: { ...t, ...(saved ?? {}) } }));
+      const saved = await apiSaveUserThresholds(userId, t ?? {});
+      setLocal((prev) => {
+        const latest = Array.isArray(prev.thresholds_latest)
+          ? prev.thresholds_latest
+          : [];
+        const keySaved = `${(
+          saved?.sport ??
+          t.sport ??
+          "running"
+        ).toLowerCase()}|${(
+          saved?.threshold_type ??
+          t.threshold_type ??
+          "LT2"
+        ).toLowerCase()}`;
+
+        const filtered = latest.filter((r: any) => {
+          const k = `${(r.sport ?? "").toLowerCase()}|${(
+            r.threshold_type ?? ""
+          ).toLowerCase()}`;
+          return k !== keySaved;
+        });
+
+        const mergedRow = { ...(t ?? {}), ...(saved ?? {}) };
+
+        return {
+          ...prev,
+          thresholds: mergedRow,
+          thresholds_latest: [mergedRow, ...filtered],
+        };
+      });
+
       toast.success("Threshold saved to DB");
-    } catch (e) { console.error(e); toast.error("Saving threshold failed"); }
+    } catch (e) {
+      console.error(e);
+      toast.error("Saving threshold failed");
+    }
   };
 
-  // LTHR pre zónový výpočet: uprednostni aktuálny draft; inak posledný uložený LT2 HR
+  // LTHR pre výpočet zón – draft > DB
   const lthrBpm: number | null = useMemo(() => {
     const draft = Number(local?.thresholds?.hr_bpm);
     if (Number.isFinite(draft) && draft > 0) return draft;
     const rows = (local.thresholds_latest ?? []) as any[];
-    const lt2 = rows.find((r) => String(r.threshold_type).toUpperCase() === "LT2");
+    const lt2 = rows.find(
+      (r) => String(r.threshold_type).toUpperCase() === "LT2"
+    );
     return lt2?.hr_bpm ?? null;
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
   return (
     <div className={["space-y-4", NO_X].join(" ")}>
-      <PlanStartSection local={local} setLocal={setLocal} markDirty={markDirty} />
-      <GoalSection local={local} setPref={setPref} upsertRunTargets={upsertRunTargets} />
+      <PlanStartSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+
+      <GoalSection
+        local={local}
+        setPref={setPref}
+        upsertRunTargets={upsertRunTargets}
+      />
 
       <SportsSection
         local={local}
@@ -246,12 +448,31 @@ export default function PrefsForm() {
         updateSecondary={updateSecondary}
       />
 
-      <StrengthSection local={local} setLocal={setLocal} markDirty={markDirty} />
-      <DaysOffSection daysOff={pref.days_off} toggleInArray={toggleInArray} setPrefNested={setPrefNested} />
-      <LongRunDaysSection longRunDays={pref.long_run_days} toggleInArray={toggleInArray} setPrefNested={setPrefNested} />
-      <RulesSection pref={pref} prefDefaults={prefDefaults} setLocal={setLocal} markDirty={markDirty} />
+      <StrengthSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
 
-      {/* Zones – s LTHR pre %LTHR režim */}
+      <DaysOffSection
+        daysOff={pref.days_off}
+        toggleInArray={toggleInArray}
+        setPrefNested={setPrefNested}
+      />
+
+      <LongRunDaysSection
+        longRunDays={pref.long_run_days}
+        toggleInArray={toggleInArray}
+        setPrefNested={setPrefNested}
+      />
+
+      <RulesSection
+        pref={pref}
+        prefDefaults={prefDefaults}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+
       <ZonesSection
         zones={local.zones}
         lthrBpm={lthrBpm}
@@ -259,7 +480,6 @@ export default function PrefsForm() {
         onSaveZonesToDB={handleSaveZonesToDB}
       />
 
-      {/* Thresholds – samostatne */}
       <ThresholdsSection
         thresholds={local.thresholds}
         latestList={local.thresholds_latest ?? []}
@@ -267,7 +487,11 @@ export default function PrefsForm() {
         onSaveToDB={handleSaveThresholdsToDB}
       />
 
-      <CoachPersonalitySection local={local} setPref={setPref} markDirty={markDirty} />
+      <CoachPersonalitySection
+        local={local}
+        setPref={setPref}
+        markDirty={markDirty}
+      />
 
       <div className="flex">
         <button
@@ -282,17 +506,28 @@ export default function PrefsForm() {
 
       {showAdv && (
         <>
-          <IntensityModelsSection local={local} setLocal={setLocal} setPref={setPref} />
-          <ExternalActivitiesSection local={local} setLocal={setLocal} />
+          <IntensityModelsSection
+            local={local}
+            setLocal={setLocal}
+            setPref={setPref}
+          />
           <InjuriesSection local={local} setLocal={setLocal} />
-          <FocusAvoidSection local={local} setPref={setPref} toggleInArray={toggleInArray} />
+          <FocusAvoidSection
+            local={local}
+            setPref={setPref}
+            toggleInArray={toggleInArray}
+          />
           <RehabSection local={local} setPref={setPref} />
         </>
       )}
 
       <div className="flex gap-2 pt-1">
-        <Button onClick={onSave} variant="success">Save</Button>
-        <Button onClick={onRefresh} variant="secondary">Refresh</Button>
+        <Button onClick={onSave} variant="success">
+          Save
+        </Button>
+        <Button onClick={onRefresh} variant="secondary">
+          Refresh
+        </Button>
       </div>
     </div>
   );

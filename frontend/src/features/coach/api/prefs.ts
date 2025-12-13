@@ -1,55 +1,65 @@
+// src/features/coach/api/prefs.ts
 import { API_URL } from "@/shared/config";
-import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
 
+// kľúč pre coach prefs
 const KEY = "coach.prefs";
 
-/** Normalizácia rôznych BE odpovedí na samotnú hodnotu prefs */
-function extractValue(j: any): CoachPrefs | null {
-  return (
-    j?.value ??
-    j?.pref?.value ??
-    j?.prefs ??
-    j?.pref ??
-    null
-  ) as CoachPrefs | null;
+type AnyJson = any;
+
+/**
+ * Rozbalí rôzne tvary:
+ * - { value: {...} }
+ * - { value: { value: {...} } }
+ * - { pref: { value: {...} } }
+ * - { prefs: {...} }
+ */
+function extractValue<T = AnyJson>(j: unknown): T | null {
+  const any = j as AnyJson;
+
+  // 1. prvý level
+  let v: AnyJson =
+    any?.value ??
+    any?.pref?.value ??
+    any?.prefs ??
+    any?.pref ??
+    null;
+
+  // 2. ak je tam ešte zanořené "value", rozbaľ aj to
+  if (v && typeof v === "object" && "value" in v) {
+    v = (v as AnyJson).value ?? v;
+  }
+
+  return (v ?? null) as T | null;
 }
 
-/** GET prefs – generická cesta */
-export async function getPrefs(userId: number): Promise<CoachPrefs | null> {
+export async function apiGetCoachPrefs<T = AnyJson>(
+  userId: number,
+): Promise<T | null> {
   try {
-    const r = await fetch(
-      `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`,
-      { cache: "no-store" }
-    );
+    const url = `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`;
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) return null;
+
     const j = await r.json().catch(() => ({}));
-    if (r.ok) {
-      const val = extractValue(j);
-      if (val) return val;
-    }
+    const val = extractValue<T>(j);
+    // na debug:
+    // console.log("userPrefs raw:", j);
+    // console.log("userPrefs extracted:", val);
+    return val;
   } catch {
-    /* ignore */
+    return null;
   }
-  return null;
 }
 
-/** SAVE prefs – generická cesta */
-export async function savePrefs(userId: number, prefs: CoachPrefs): Promise<void> {
-  try {
-    const r = await fetch(
-      `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ value: prefs }),
-      }
-    );
-    if (r.ok) return;
-
-    // skús detail chyby
-    const j = await r.json().catch(() => ({}));
-    if (j?.detail) throw new Error(j.detail);
-  } catch {
-    // swallow – nech caller rieši UI notifikáciu
-  }
+export async function apiSaveCoachPrefs<T = AnyJson>(
+  userId: number,
+  value: T
+): Promise<void> {
+  const url = `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`;
+  await fetch(url, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ value }),
+  });
 }

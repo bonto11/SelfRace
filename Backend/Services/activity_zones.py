@@ -10,8 +10,8 @@ from Configs.config import (
     TABLE_ACTIVITIES_ENRICHMENT,
     TABLE_ACTIVITIES_SUMMARY,
 )
-from Services.Supabase.users import get_user_uid
-from Services.user_zones import load_user_zones, ZonesOut  # typ + loader
+from Services.users import service_get_user_uid
+from Services.user_zones import service_load_user_zones, ZonesOut  # typ + loader
 from Modules.API.Strava.streams import (
     fetch_and_optionally_store_batch,
     cache_streams_for_activities,
@@ -242,7 +242,7 @@ def preview_zones_for_activities(
         s_key = _canon_sport(s)
         if s_key in zones_cache:
             return zones_cache[s_key]
-        z_out = load_user_zones(user_id, s_key)  # ZonesOut | None
+        z_out = service_load_user_zones(user_id, s_key)  # ZonesOut | None
         if z_out:
             zones_cache[s_key] = _zones_out_to_numeric(z_out)
         else:
@@ -304,7 +304,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
 
     s_map = _load_summary_map(user_id, ids)
     now_ts = datetime.now(timezone.utc).isoformat()
-    user_uid = get_user_uid(user_id)
+    user_uid = service_get_user_uid(user_id)
 
     rows: List[dict] = []
     skipped = 0

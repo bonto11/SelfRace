@@ -4,7 +4,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
+import {
+  ActivityRow,
+  ComponentVariant,
+} from "@/features/activity/utils/activity";
 import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 import ActivitySingle from "@/shared/components/ActivitySingle";
@@ -26,8 +29,12 @@ function normSportsList(sel: string | string[] | null | undefined): string[] | n
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const wk  = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
 
@@ -38,8 +45,10 @@ type Props = {
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-  variant?: ComponentVariant; // "activity" | "calendar" | "pb" (tu používame len activity|calendar)
+  variant?: ComponentVariant; // "activity" | "calendar" | "pb"
   suppressItemHeaderIfSingleDay?: boolean;
+  /** ak je zadané, táto aktivita sa otvorí (bez extra highlightu) */
+  autoOpenActivityId?: number;
 };
 
 export default function ActivityTable({
@@ -50,6 +59,7 @@ export default function ActivityTable({
   titleOverride,
   variant = "activity",
   suppressItemHeaderIfSingleDay = false,
+  autoOpenActivityId,
 }: Props) {
   const { selectByRange, rows: allRows } = useActivityData();
   const [rows, setRows] = useState<ActivityRow[]>([]);
@@ -59,7 +69,10 @@ export default function ActivityTable({
 
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
-    if (start && end) return singleDay ? `Aktivity — ${prettySkDate(start)}` : `Týždeň ${start} → ${end}`;
+    if (start && end)
+      return singleDay
+        ? `Aktivity — ${prettySkDate(start)}`
+        : `Týždeň ${start} → ${end}`;
     return "História (vyber rozsah)";
   }, [start, end, titleOverride, singleDay]);
 
@@ -78,11 +91,24 @@ export default function ActivityTable({
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
         : inRange;
 
-    const finalRows = sportList ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r))) : afterWhitelist;
+    const finalRows = sportList
+      ? afterWhitelist.filter((r) => sportList.includes(toEffSport(r)))
+      : afterWhitelist;
 
     setRows(finalRows);
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
+
+  // DEBUG: sledujeme, či vieme nájsť aktivitu na auto-open
+  useEffect(() => {
+    if (autoOpenActivityId == null || rows.length === 0) return;
+    const hit = rows.find(
+      (r) => Number(r.activity_id) === Number(autoOpenActivityId)
+    );
+    // uvidíš v browser konzole
+    // eslint-disable-next-line no-console
+    console.log("[ActivityTable] autoOpenActivityId=", autoOpenActivityId, "hit=", hit?.name);
+  }, [autoOpenActivityId, rows]);
 
   // layout – konzistentné povrchy a paddingy z classes
   const wrapperCls = [
@@ -105,7 +131,9 @@ export default function ActivityTable({
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">Žiadne aktivity v zadanom období.</div>
+        <div className="opacity-70 py-4 text-sm">
+          Žiadne aktivity v zadanom období.
+        </div>
       )}
 
       {!loading && rows.length > 0 && (
@@ -114,11 +142,24 @@ export default function ActivityTable({
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
 
-            const dur  = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
-            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
+            const dur =
+              r.moving_time_s != null
+                ? fmtSecondsHMS(r.moving_time_s)
+                : null;
+            const dist =
+              r.distance_m != null
+                ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
+                : null;
+
+            const isFocused =
+              autoOpenActivityId != null &&
+              Number(r.activity_id) === Number(autoOpenActivityId);
 
             return (
-              <li key={r.activity_id} className="px-0">
+              <li
+                key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}
+                className="px-0"
+              >
                 <ActivitySingle
                   variant={variant === "calendar" ? "calendar" : "activity"}
                   data={{
@@ -131,8 +172,10 @@ export default function ActivityTable({
                     avgHr: r.average_heartrate_bpm ?? null,
                     maxHr: r.max_heartrate_bpm ?? null,
                     activityId: r.activity_id,
-                    singleDayContext: suppressItemHeaderIfSingleDay && singleDay,
+                    singleDayContext:
+                      suppressItemHeaderIfSingleDay && singleDay,
                   }}
+                  defaultOpen={isFocused}
                 />
               </li>
             );

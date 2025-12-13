@@ -54,9 +54,16 @@ export const THEME = {
     lineSecondary: '#FDE047', //zlta
     lineBase: '#4ADE8059',
     bandFill: "rgba(16,185,129,0.15)",
+    missing: "#ef4444", // tailwind red-500
     grid:        '#FFFFFF12',
     gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,
+
+    base: "bg-sky-400",
+    build: "bg-violet-400",
+    peak: "bg-emerald-400",
+    recovery: "bg-amber-400",
+    default: "bg-slate-400",
 
     /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
     weeklyPxPerLabel: 56,
@@ -108,4 +115,12 @@ export const THEME = {
     swim: 'Swim',
     other: 'Other',
   } as Record<string, string>,
+
+  weekLabels: {
+    base: 'Base (budovanie základu)',
+    build: 'Build (zvyšovanie intenzity)',
+    peak: 'Peak (vrchol / preteky)',
+    recovery: 'Recovery (regenerácia)',
+    default: 'Iné / mix',
+  }
 };

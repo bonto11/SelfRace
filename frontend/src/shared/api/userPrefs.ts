@@ -3,7 +3,7 @@ import { API_URL } from "@/shared/config";
 
 export type UserPrefRow = { key: string; value: any };
 
-export async function fetchUserPrefs(userId: number, prefix?: string): Promise<Record<string, any>> {
+export async function apiFetchUserPrefs(userId: number, prefix?: string): Promise<Record<string, any>> {
   const url = new URL(`${API_URL}/users/${userId}/prefs`);
   if (prefix) url.searchParams.set("prefix", prefix);
   const r = await fetch(url.toString(), { cache: "no-store" });
@@ -15,14 +15,14 @@ export async function fetchUserPrefs(userId: number, prefix?: string): Promise<R
   return out;
 }
 
-export async function fetchUserPref(userId: number, key: string): Promise<any | null> {
+export async function apiFetchUserPref(userId: number, key: string): Promise<any | null> {
   const r = await fetch(`${API_URL}/users/${userId}/prefs/${encodeURIComponent(key)}`, { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `pref load failed: ${r.status}`);
   return j?.pref?.value ?? null;
 }
 
-export async function upsertUserPref(userId: number, key: string, value: any): Promise<void> {
+export async function apiUpsertUserPref(userId: number, key: string, value: any): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/prefs/${encodeURIComponent(key)}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
@@ -32,7 +32,7 @@ export async function upsertUserPref(userId: number, key: string, value: any): P
   if (!r.ok) throw new Error(j?.detail ?? `pref save failed: ${r.status}`);
 }
 
-export async function upsertUserPrefs(userId: number, rows: UserPrefRow[]): Promise<void> {
+export async function apiUpsertUserPrefs(userId: number, rows: UserPrefRow[]): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/prefs`, {
     method: "PUT",
     headers: { "content-type": "application/json" },

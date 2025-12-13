@@ -1,7 +1,7 @@
 // src/hooks/useBests.ts
 import { useCallback, useEffect, useState } from "react";
-import type { typePB } from "@/features/coach/types/coach";
-import { getBests, saveBest } from "@/shared/api/bests";
+import type { typePB } from "@/features/coach/types/coachTypes";
+import { apiGetBests, apiSaveBest } from "@/shared/api/bests";
 import { formatHHMMSS } from "@/shared/utils/time";
 
 const CANONICAL_DISTANCES = [400, 1000, 5000, 21097, 42195] as const;
@@ -15,7 +15,7 @@ export function useBests(userId: number) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getBests(userId);
+      const data = await apiGetBests(userId);
       // doplň prázdne záznamy pre všetky vzdialenosti
       const map = new Map<number, typePB>(data.map((b) => [b.distance_m, b]));
       const normalized: typePB[] = CANONICAL_DISTANCES.map((d) => {
@@ -49,7 +49,7 @@ export function useBests(userId: number) {
 
   const save = useCallback(
     async (best: typePB) => {
-      await saveBest(userId, best);
+      await apiSaveBest(userId, best);
       await load();
     },
     [userId, load]

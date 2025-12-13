@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import TableMetrics from "@/features/profile/components/FormMetrics";
-import WidgetBodyFat from "@/features/widgets/WidgetBodyFat";
-import WidgetVO2Max from "@/features/widgets/WidgetVO2Max";
+import WidgetBodyFat from "@/shared/components/widgets/WidgetBodyFat";
+import WidgetVO2Max from "@/shared/components/widgets/WidgetVO2Max";
 import TableStatic from "@/features/profile/components/FormStatic";
 
 export default function Page() {
@@ -12,8 +12,10 @@ export default function Page() {
   return (
     <div className="max-w-screen-lg mx-auto px-3">
       {/* Header */}
-      <div className="sticky top-[max(env(safe-area-inset-top),0px)] z-20 -mx-3 px-3 pt-2 pb-2
-                      bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40">
+      <div
+        className="sticky top-[max(env(safe-area-inset-top),0px)] z-20 -mx-3 px-3 pt-2 pb-2
+                      bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40"
+      >
         <h1 className="text-lg font-semibold">User profile</h1>
       </div>
 

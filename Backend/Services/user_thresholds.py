@@ -1,11 +1,16 @@
 # Services/user_thresholds.py
-from typing import Optional, Dict, Any, List, Tuple
-from Modules.SQL.db_handler import get_client
-from Configs.config import TABLE_USERS_THRESHOLDS
+from __future__ import annotations
 
-sb = get_client()
+from typing import Any, Dict, List, Optional, Tuple
 
-def _num(v):
+from Routes_DB.user_thresholds import (
+    db_list_user_thresholds_raw,
+    db_get_user_threshold_latest,
+    db_upsert_user_threshold,
+)
+
+
+def _num(v: Any) -> Optional[float]:
     try:
         if v is None or v == "":
             return None
@@ -13,13 +18,17 @@ def _num(v):
     except Exception:
         return None
 
+
 def _canon_sport(s: Optional[str]) -> str:
     if not s:
         return "running"
     t = str(s).strip().lower()
-    if t in ("run", "running"): return "running"
-    if t in ("ride", "bike", "cycling"): return "cycling"
-    return t  # nechaj iné hodnoty
+    if t in ("run", "running"):
+        return "running"
+    if t in ("ride", "bike", "cycling"):
+        return "cycling"
+    return t  # nechaj iné hodnoty (swim, rowing, ...)
+
 
 def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
     return {
@@ -32,52 +41,62 @@ def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
         "measurement_type": row.get("measurement_type"),
     }
 
-def list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
-    q = (
-        sb.table(TABLE_USERS_THRESHOLDS)
-        .select("sport,threshold_type,updated_at,hr_bpm,pace_sec_km,power_watt,measurement_type")
-        .eq("user_id", user_id)
-        .order("updated_at", desc=True)
-        .execute()
-    )
-    rows = q.data or []
+
+# ---------- PUBLIC SERVICE FUNKCIE PRE ROUTERY / FE ----------
+
+
+def service_list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
+    """
+    Všetky threshold riadky usera (DESC podľa updated_at),
+    normalizované (_row_norm).
+    """
+    rows = db_list_user_thresholds_raw(user_id)
     return [_row_norm(r) for r in rows]
 
-def list_latest_per_combo(user_id: int) -> List[Dict[str, Any]]:
-    rows = list_user_thresholds(user_id)  # already desc
+
+def service_list_latest_per_combo(user_id: int) -> List[Dict[str, Any]]:
+    """
+    Najnovší riadok pre každú kombináciu (sport, threshold_type).
+    """
+    rows = service_list_user_thresholds(user_id)  # už DESC
     seen: set[Tuple[str, str]] = set()
     out: List[Dict[str, Any]] = []
     for r in rows:
-        key = (str(r.get("sport") or "").lower(), str(r.get("threshold_type") or "").upper())
+        key = (
+            str(r.get("sport") or "").lower(),
+            str(r.get("threshold_type") or "").upper(),
+        )
         if key in seen:
             continue
         seen.add(key)
         out.append(r)
     return out
 
-def load_user_thresholds(
+
+def service_load_user_thresholds(
     user_id: int,
     sport: str = "running",
     threshold_type: str = "LT2",
 ) -> Optional[Dict[str, Any]]:
-    q = (
-        sb.table(TABLE_USERS_THRESHOLDS)
-        .select("*")
-        .eq("user_id", user_id)
-        .eq("sport", _canon_sport(sport))
-        .eq("threshold_type", threshold_type)
-        .order("updated_at", desc=True)
-        .limit(1)
-        .execute()
-    )
-    row = (q.data or [None])[0]
+    """
+    Najnovší threshold pre daný sport+type (default running/LT2).
+    """
+    canon = _canon_sport(sport)
+    row = db_get_user_threshold_latest(user_id, canon, threshold_type)
     return _row_norm(row) if row else None
 
-def upsert_user_threshold(user_id: int, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+def service_upsert_user_threshold(
+    user_id: int,
+    payload: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """
+    Uloží / upsertne threshold a vráti najnovší stav pre daný sport+type.
+    """
     sport = _canon_sport(payload.get("sport"))
     t_type = payload.get("threshold_type") or "LT2"
+
     row = {
-        "user_id": user_id,
         "sport": sport,
         "threshold_type": t_type,
         "hr_bpm": _num(payload.get("hr_bpm")),
@@ -85,7 +104,72 @@ def upsert_user_threshold(user_id: int, payload: Dict[str, Any]) -> Optional[Dic
         "power_watt": _num(payload.get("power_watt")),
         "measurement_type": payload.get("measurement_type") or "manual",
     }
+
+    # vyhoď None, nech do DB nejde bordel
     clean = {k: v for k, v in row.items() if v is not None}
-    # requires unique index on (user_id,sport,threshold_type)
-    sb.table(TABLE_USERS_THRESHOLDS).upsert(clean, on_conflict="user_id,sport,threshold_type").execute()
-    return load_user_thresholds(user_id, sport=sport, threshold_type=t_type)
+
+    db_upsert_user_threshold(user_id, clean)
+
+    return service_load_user_thresholds(user_id, sport=sport, threshold_type=t_type)
+
+
+# ---------- BLOK PRE ANALÝZU (CoachAnalyzeInput.thresholds) ----------
+
+
+def service_build_thresholds_block_for_analysis(user_id: int) -> Dict[str, Any]:
+    """
+    Vráti blok pre CoachAnalyzeInput["thresholds"].
+
+    - preferuje running + LT2 / HR_LT2 / PACE_LT2
+    - fallback: prvý running riadok
+    - ak nič nemáme, vráti prázdny blok so správnym tvarom
+    """
+    rows = service_list_user_thresholds(user_id)
+
+    if not rows:
+        return {
+            "run": {
+                "lthr_bpm": None,
+                "pace_lthr_s_per_km": None,
+                "ftp_power_w": None,
+                "vo2max_estimate": None,
+            }
+        }
+
+    best: Optional[Dict[str, Any]] = None
+
+    # 1) running + LT2 / HR_LT2 / PACE_LT2
+    for r in rows:
+        sport = str(r.get("sport") or "").lower()
+        ttype = str(r.get("threshold_type") or "").upper()
+        if sport == "running" and ttype in ("LT2", "HR_LT2", "PACE_LT2"):
+            best = r
+            break
+
+    # 2) fallback: prvý running
+    if not best:
+        for r in rows:
+            sport = str(r.get("sport") or "").lower()
+            if sport == "running":
+                best = r
+                break
+
+    if not best:
+        # nič použiteľné
+        return {
+            "run": {
+                "lthr_bpm": None,
+                "pace_lthr_s_per_km": None,
+                "ftp_power_w": None,
+                "vo2max_estimate": None,
+            }
+        }
+
+    block_run = {
+        "lthr_bpm": best.get("hr_bpm"),
+        "pace_lthr_s_per_km": best.get("pace_sec_km"),
+        "ftp_power_w": None,        # bike FTP nateraz neriešime
+        "vo2max_estimate": None,    # neskôr môžeš pridať
+    }
+
+    return {"run": block_run}

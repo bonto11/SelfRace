@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { fetchUserPrefs } from "@/shared/api/userPrefs";
+import { apiFetchUserPrefs } from "@/shared/api/userPrefs";
 import { readCoachPrefsFromStorage } from "@/features/coach/utils/prefs";
 
 /**
@@ -21,7 +21,7 @@ export default function UserPrefsBootstrapper() {
     (async () => {
       try {
         // načítaj všetky prefs z DB
-        const prefs = await fetchUserPrefs(userId);
+        const prefs = await apiFetchUserPrefs(userId);
         if (Object.keys(prefs).length > 0) {
           for (const [k, v] of Object.entries(prefs)) {
             localStorage.setItem(`up:${k}`, JSON.stringify(v));

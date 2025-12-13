@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import WidgetRHR from "@/features/widgets/WidgetRHR";
-import WidgetHRV from "@/features/widgets/WidgetHRV";
-import WidgetSleepDuration from "@/features/widgets/WidgetSleepDuration";
-import WidgetSleepStart from "@/features/widgets/WidgetSleepStart";
+import WidgetRHR from "@/shared/components/widgets/WidgetRHR";
+import WidgetHRV from "@/shared/components/widgets/WidgetHRV";
+import WidgetSleepDuration from "@/shared/components/widgets/WidgetSleepDuration";
+import WidgetSleepStart from "@/shared/components/widgets/WidgetSleepStart";
 import InputsCard from "@/features/recovery/components/InputsCard";
 import Button from "@/shared/components/ui/Button";
 import IconRefresh from "@/shared/svg/Refresh";
@@ -51,8 +51,12 @@ export default function RecoveryPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
           <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-          <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
-          <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
+          <WidgetSleepDuration
+            onOpenDetail={() => router.push("/recovery/sleepDuration")}
+          />
+          <WidgetSleepStart
+            onOpenDetail={() => router.push("/recovery/sleepStart")}
+          />
         </div>
       </div>
     </>

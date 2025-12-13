@@ -6,6 +6,8 @@ import HrChart from "@/shared/components/trend/HrChart";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
 import { ComponentVariant } from "@/features/activity/utils/activity";
 import { SURFACE_CARD, SURFACE_INLINE, FLUSH_DETAIL } from "@/shared/ui/classes";
+import {THEME} from "@/shared/theme/tokens";
+import SportBadge from "@/shared/components/ui/SportBadge"
 
 /* ===== Typy vstupu ===== */
 type DataIn = {
@@ -82,14 +84,16 @@ function prettySkDate(iso?: string | null) {
   return `${wk} · ${day}`;
 }
 
-function SportBadge({ kind }: { kind: string }) {
-  const label =
-    kind === "run" ? "Run" :
-    kind === "ride" ? "Ride" :
-    kind === "strength" ? "Strength" :
-    kind === "mixed" ? "Mixed" : "Other";
-  return <span className="text-xs px-2 py-0.5 rounded bg-gray-700">{label}</span>;
-}
+const SPORT_COLORS: Record<string, string> = {
+  run: THEME.chart.run,
+  ride: THEME.chart.ride,
+  swim: THEME.chart.swim,
+  strength: THEME.chart.strength,
+  mixed: THEME.chart.mixed,
+  skate: THEME.chart.skate,
+  walk: THEME.chart.walk,
+  other: THEME.chart.other,
+};
 
 /** vyparsuje km zo stringu typu "6.08 km" (alebo vráti null) */
 function parseKm(s?: string | null): number | null {
@@ -195,7 +199,7 @@ export default function ActivitySingle({
             </button>
           )}
 
-          <SportBadge kind={data.sport} />
+          <SportBadge sport={data.sport} />
 
           <button
             type="button"

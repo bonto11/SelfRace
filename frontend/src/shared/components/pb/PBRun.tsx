@@ -5,9 +5,9 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import {
   distanceOptions,
   distanceLabel,
-  getBests,
-  saveBest,
-  deleteBest,
+  apiGetBests,
+  apiSaveBest,
+  apiDeleteBest,
   type UserBest,
 } from "@/shared/api/bests";
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
@@ -51,7 +51,7 @@ export default function PBRun() {
     if (!userId) return;
     setLoading(true);
     try {
-      setRows(await getBests(userId, "run"));
+      setRows(await apiGetBests(userId, "run"));
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
     } finally {
@@ -89,7 +89,7 @@ export default function PBRun() {
       if (form.achieved_at)
         payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
-      await saveBest(userId, payload);
+      await apiSaveBest(userId, payload);
       toast.success("Personal best saved");
       setForm(EMPTY);
       await refresh();
@@ -110,7 +110,7 @@ export default function PBRun() {
     });
     if (!ok || !userId) return;
     try {
-      await deleteBest(userId, m, "run");
+      await apiDeleteBest(userId, m, "run");
       toast.success("Record deleted");
       await refresh();
     } catch (e: any) {

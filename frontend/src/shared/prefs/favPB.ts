@@ -1,6 +1,6 @@
 "use client";
 
-import { upsertUserPref } from "@/shared/api/userPrefs";
+import { apiUpsertUserPref } from "@/shared/api/userPrefs";
 
 const KEY = "pb.favorite_run_m";      // kľúč v DB
 const LS  = `up:${KEY}`;              // kľúč v localStorage
@@ -22,5 +22,5 @@ export function setFavPBRunLS(m: number | null) {
 export async function setFavPBRunDB(userId: number | null | undefined, m: number | null) {
   setFavPBRunLS(m);
   if (!userId) return;
-  try { await upsertUserPref(userId, KEY, m); } catch {/* ticho */}
+  try { await apiUpsertUserPref(userId, KEY, m); } catch {/* ticho */}
 }

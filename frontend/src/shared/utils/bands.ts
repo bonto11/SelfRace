@@ -17,7 +17,7 @@ export function getVO2Bands(sex: "M" | "F", age: number | null): Band[] {
   return (g?.ranges ?? []) as Band[];
 }
 
-export function getBodyFatBands(sex: "M" | "F"): Band[] {
+export function getBodyFatBands(sex: "M" | "F" | null): Band[] {
   const g = (bodyFatRef as any[]).find((x) => x.sex === sex);
   return (g?.ranges ?? []) as Band[];
 }

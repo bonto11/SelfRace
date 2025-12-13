@@ -4,8 +4,8 @@
 import * as React from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
+
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/shared/utils/bands";
 import { THEME } from "@/shared/theme/tokens";
@@ -13,70 +13,59 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
-ensureChartJSRegistered();
+import type { StaticProfile } from "@/features/profile/types/staticTypes";
+import type { MetricHistoryRow } from "@/features/profile/types/metricsTypes";
+import { apiGetStaticProfile } from "@/features/profile/api/static";
+import { apiGetMetricHistory } from "@/features/profile/api/metrics";
+import {
+  colorForBodyFatBand,
+  hexWithAlpha,
+} from "@/features/profile/utils/chartColors";
 
-type StaticProfile = { sex: "M" | "F" } | null;
-type RowBE = { measured_at: string; value_num: number | null };
+ensureChartJSRegistered();
 
 const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
-function hexA(hex?: string, a = 0.18) {
-  if (!hex) return `rgba(255,255,255,${a})`;
-  const h = hex.replace("#", "");
-  const v =
-    h.length === 3
-      ? parseInt(h.split("").map((c) => c + c).join(""), 16)
-      : parseInt(h, 16);
-  const r = (v >> 16) & 255,
-    g = (v >> 8) & 255,
-    b = v & 255;
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-function colorForBandLabel(labelRaw: string) {
-  const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete")) return THEME.chart.athletes;
-  if (l.includes("fitness")) return THEME.chart.fitness;
-  if (l.includes("average")) return THEME.chart.average;
-  if (l.includes("essential")) return THEME.chart.essential;
-  if (l.includes("obese")) return THEME.chart.obese;
-  return THEME.chart.neutral;
-}
-
 export default function TrendBodyFat() {
-  const { userId } = useUserId();
+  const { userId, userUid } = useUserId() as {
+    userId: number | null;
+    userUid?: string | null;
+  };
+
   const [loading, setLoading] = React.useState(false);
-  const [stat, setStat] = React.useState<StaticProfile>(null);
-  const [hist, setHist] = React.useState<RowBE[]>([]);
+  const [stat, setStat] = React.useState<StaticProfile | null>(null);
+  const [hist, setHist] = React.useState<MetricHistoryRow[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
 
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
+
     (async () => {
       setLoading(true);
       try {
-        const s = await fetch(`${API_URL}/profile/static/${userId}`, { cache: "no-store" })
-          .then((r) => r.json())
-          .catch(() => null);
-        if (alive && s?.success) setStat(s.data as StaticProfile);
-
-        const m = await fetch(`${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`, { cache: "no-store" })
-          .then((r) => r.json())
-          .catch(() => null);
-        const rows: RowBE[] = m?.success && Array.isArray(m?.data) ? m.data : [];
-        if (alive) setHist(rows);
+        const [s, m] = await Promise.all([
+          apiGetStaticProfile(userId, userUid),
+          apiGetMetricHistory(userId, "body_fat_pct", userUid),
+        ]);
+        if (alive) {
+          if (s) setStat(s);
+          setHist(m ?? []);
+        }
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, userUid]);
 
   const lookbackDays = weeks * 7;
-  const cutoffISO = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
+  const cutoffISO = new Date(
+    Date.now() - lookbackDays * 86400000
+  ).toISOString().slice(0, 10);
 
   const samples = (hist || [])
     .map((r) => ({
@@ -85,14 +74,14 @@ export default function TrendBodyFat() {
     }))
     .filter((x) => !!x.dISO && Number.isFinite(x.v))
     .sort((a, b) => (a.dISO < b.dISO ? -1 : a.dISO > b.dISO ? 1 : 0))
-    // nechávame i staršie + posledné merania; ak ich je málo, stále vykreslíme
+    // nechávame aj staršie + posledné merania
     .filter((x) => x.dISO >= cutoffISO || true);
 
   if (samples.length === 0) {
     return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
   }
 
-  // ak je len 1 meranie -> pridáme virtuálny pravý bod (dnes) s rovnakou hodnotou
+  // ak je len 1 meranie -> pridáme bod dnes
   let points: { dISO: string; v: number }[] = [...samples];
   if (samples.length === 1) {
     const todayISO = new Date().toISOString().slice(0, 10);
@@ -102,22 +91,30 @@ export default function TrendBodyFat() {
   }
 
   const labelsISO = points.map((p) => p.dISO);
-  const labels = labelsISO.map((d) => new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"));
+  const labels = labelsISO.map((d) =>
+    new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK")
+  );
   const values = points.map((p) => p.v);
-  const seriesMax = Math.max(0, ...(values.filter(Number.isFinite) as number[]));
+  const seriesMax = Math.max(
+    0,
+    ...((values.filter(Number.isFinite) as number[]) || [0])
+  );
 
-  const bands = stat ? getBodyFatBands(stat.sex) : [];
+  const bands = stat ? getBodyFatBands(stat.sex ?? null) : [];
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
     ...bands.map((b, i) => {
-      const color = colorForBandLabel(b.label || "");
-      const yMax = typeof b.max === "number" ? b.max : Math.max(35, Math.ceil(seriesMax + 1));
+      const color = colorForBodyFatBand(b.label || "");
+      const yMax =
+        typeof b.max === "number"
+          ? b.max
+          : Math.max(35, Math.ceil(seriesMax + 1));
       return {
         type: "line" as const,
         label: b.label,
         data: labels.map(() => yMax),
-        borderColor: hexA(color, 0),
-        backgroundColor: hexA(color, 0.18),
+        borderColor: hexWithAlpha(color, 0),
+        backgroundColor: hexWithAlpha(color, 0.18),
         pointRadius: 0,
         borderWidth: 0,
         fill: i === 0 ? "origin" : "-1",
@@ -150,7 +147,13 @@ export default function TrendBodyFat() {
     plugins: {
       legend: {
         position: THEME.chart.legendPosition,
-        labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 6, boxHeight: 6, padding: 8 },
+        labels: {
+          usePointStyle: true,
+          pointStyle: "circle",
+          boxWidth: 6,
+          boxHeight: 6,
+          padding: 8,
+        },
       },
       tooltip: {
         enabled: true,
@@ -200,8 +203,14 @@ export default function TrendBodyFat() {
       </div>
 
       {/* GRAPH */}
-      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+      <div
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
+        <div
+          className="relative"
+          style={{ height: THEME.chart.weeklyHeight }}
+        >
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

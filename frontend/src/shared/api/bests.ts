@@ -27,12 +27,15 @@ export const RUN_DISTANCES_M = RUN_DISTANCE_OPTIONS.map(d => d.m) as readonly nu
 export function distanceOptions(sport: Sport = "run") {
   return DISTANCE_OPTIONS_BY_SPORT[sport] ?? [];
 }
+
 export function distancesFor(sport: Sport = "run"): number[] {
   return distanceOptions(sport).map(o => o.m);
 }
+
 export function isAllowedDistance(m: number, sport: Sport = "run"): boolean {
   return distanceOptions(sport).some(o => o.m === m);
 }
+
 export function distanceLabel(m: number, sport: Sport = "run"): string {
   const f = distanceOptions(sport).find(x => x.m === m);
   if (f) return f.label;
@@ -71,7 +74,7 @@ function sortBySportOrder(sport: Sport) {
 // ---------- API volania: /users/{id}/bests ----------
 
 /** GET /users/{userId}/bests?sport=run  ->  { success, bests: [...] } */
-export async function getBests(userId: number, sport: Sport = "run"): Promise<UserBest[]> {
+export async function apiGetBests(userId: number, sport: Sport = "run"): Promise<UserBest[]> {
   const r = await fetch(`${API_URL}/users/${userId}/bests?sport=${sport}`, { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `bests load failed: ${r.status}`);
@@ -80,7 +83,7 @@ export async function getBests(userId: number, sport: Sport = "run"): Promise<Us
 }
 
 /** PUT /users/{userId}/bests  (upsert) */
-export async function saveBest(userId: number, best: UserBest): Promise<void> {
+export async function apiSaveBest(userId: number, best: UserBest): Promise<void> {
   const sport = best.sport ?? "run";
 
   const payload: any = {
@@ -113,7 +116,7 @@ export async function saveBest(userId: number, best: UserBest): Promise<void> {
 }
 
 /** DELETE /users/{userId}/bests/{sport}/{distance_m} */
-export async function deleteBest(userId: number, distance_m: number, sport: Sport = "run"): Promise<void> {
+export async function apiDeleteBest(userId: number, distance_m: number, sport: Sport = "run"): Promise<void> {
   const r = await fetch(`${API_URL}/users/${userId}/bests/${sport}/${distance_m}`, { method: "DELETE" });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.detail ?? `delete failed: ${r.status}`);

@@ -39,7 +39,7 @@ type Row = {
 
 export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: ParetoWeekPick) => void }) {
   const { userId } = useUserId();
-  const [lookback, setLookback] = useState<4 | 8 | 12>(12);
+  const [lookback, setLookback] = useState<2 | 4 | 8 | 12>(2);
   const [loading, setLoading] = useState(false);
 
   const [selectedSports, setSelectedSports] = useState<string[]>(Array.from(PARETO_DEFAULT_SET));
@@ -220,6 +220,7 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
               onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
               title="Lookback"
             >
+              <option value={2}>2 týždne</option>
               <option value={4}>4 týždne</option>
               <option value={8}>8 týždňov</option>
               <option value={12}>12 týždňov</option>

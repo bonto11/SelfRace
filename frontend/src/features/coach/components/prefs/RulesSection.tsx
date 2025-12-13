@@ -15,7 +15,7 @@ type Props = {
 };
 
 const RULES: Array<{
-  key: "avoid_back_to_back_hard" | "use_zones" | "wu_cd_detail";
+  key: "avoid_back_to_back_hard" | "use_zones" | "avoid_two_a_day";
   label: string; // tooltip
   short: string; // pill text
 }> = [
@@ -26,9 +26,9 @@ const RULES: Array<{
   },
   { key: "use_zones", label: "Use zones", short: "Use zones" },
   {
-    key: "wu_cd_detail",
-    label: "Include warm-up / cool-down details",
-    short: "WU/CD details",
+    key: "avoid_two_a_day",
+    label: "Avoid two sessions in one day",
+    short: "No 2phase sessions",
   },
 ];
 

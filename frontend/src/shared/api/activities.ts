@@ -1,7 +1,7 @@
 import { API_URL } from "@/shared/config";
 import type { MiniActivity, SportFE } from "@/shared/types/activities";
 
-export async function fetchActivitiesAround(
+export async function apiFetchActivitiesAround(
   userId: number,
   opts: {
     date: string;             // "YYYY-MM-DD"

@@ -1,3 +1,9 @@
+# Services/recent_load_for_analysis.py
+from __future__ import annotations
+from datetime import date, timedelta
+import math, statistics
+from typing import Optional
+
 # Services/analytics.py
 # ČO: analytické helpery pre weekly agregáciu (bucketovanie športov, TRIMP, monotony/strain)
 # POUŽITIE: importuj v Routes/analytics.py:
@@ -17,9 +23,6 @@
 # - Tento modul NEROBÍ žiadne DB query (performance, čitateľnosť). RHR si do neho dodaj ako číslo.
 #   V prípade potreby si vo vrstve routes/services pred-vyber "najbližší RHR" z tvojich “recovery” tabuliek.
 
-from datetime import date, timedelta
-import math, statistics
-from typing import Optional
 
 
 def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
