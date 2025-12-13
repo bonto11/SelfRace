@@ -1,3 +1,4 @@
+// shared/types/activities
 export type SportFE = "run" | "ride" | "swim" | "strength" | "mixed" | string;
 
 export interface MiniActivity {
