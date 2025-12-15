@@ -1,5 +1,7 @@
+// src/shared/components/SessionCard.tsx
 "use client";
 
+import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
@@ -9,10 +11,12 @@ import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
 import { SURFACE_CARD, SURFACE_INLINE, FLUSH_DETAIL } from "@/shared/ui/classes";
 import { ComponentVariant } from "@/features/activity/utils/activity";
 
-/** ========== Common types ========== */
+/** ========== Types ========== */
 
 export type SessionKind = "activity" | "plan" | "external";
 export type PlanStatus = "planned" | "done" | "missed";
+
+export type KPI = { label: string; value: string };
 
 type Base = {
   id: string | number;
@@ -23,15 +27,19 @@ type Base = {
 
   /** UI behavior */
   defaultOpen?: boolean;
-  /** v kalendári často nechceš opakovať dátum vnútri itemu */
   hideDateLine?: boolean;
+
+  /** calendar-friendly */
+  subtitle?: string | null;
+  kpis?: KPI[];
+  notes?: string | null;
 };
 
 export type ActivitySession = Base & {
   kind: "activity";
   activityId: number;
 
-  // rýchle hodnoty (fallback kým nenabehne summary)
+  // fallback values
   timeStr?: string | null;
   distanceStr?: string | null;
   avgHr?: number | null;
@@ -41,7 +49,7 @@ export type ActivitySession = Base & {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
 
-  /** optional CTA */
+  /** optional actions */
   onEdit?: () => void;
   onDelete?: () => void;
 };
@@ -55,17 +63,17 @@ export type PlanSession = Base & {
   planTarget?: string | null;
   planNotes?: string | null;
 
-  /** raw z AI – nech máme do budúcna */
   planRaw?: any;
   planStructure?: any;
-  planExercises?: any[]; // NOTE: array only (no null)
+  /** array only (no null) */
+  planExercises?: any[];
 };
 
 export type ExternalSession = Base & {
   kind: "external";
   time?: string | null;
-  notes?: string | null;
   durationMin?: number | null;
+  notes?: string | null;
 };
 
 export type SessionCardItem = ActivitySession | PlanSession | ExternalSession;
@@ -74,10 +82,7 @@ export type SessionCardProps = {
   variant?: ComponentVariant; // "activity" | "calendar" | "pb" | "plan"
   item: SessionCardItem;
 
-  /** optional CTA (napr z kalendára otvorí detail stránky) */
   onOpenActivity?: (activityId: number) => void;
-
-  /** dočasné: ukáže JSON debug pre plan (default false) */
   showPlanDebug?: boolean;
 };
 
@@ -103,7 +108,6 @@ function statusLabel(status: PlanStatus): string {
   if (status === "missed") return "missed";
   return "planned";
 }
-
 function statusCls(status: PlanStatus): string {
   if (status === "done") return "border-emerald-500/80 text-emerald-300 bg-emerald-500/5";
   if (status === "missed") return "border-orange-500/80 text-orange-300 bg-orange-500/5";
@@ -144,26 +148,32 @@ export default function SessionCard({
     if (item.defaultOpen) setOpened(true);
   }, [item.defaultOpen]);
 
+  // na calendar variante nechceme opakovať dátum vnútri itemu
   const dateLine = item.hideDateLine || variant === "calendar" ? "" : prettySkDate(item.dateIso);
 
   const secondaryLine = useMemo(() => {
+    // calendar chce subtitle (ak existuje) pred ostatným
+    if (variant === "calendar" && item.subtitle) return item.subtitle;
+
     if (item.kind === "activity") {
       const distKm = parseKm(item.distanceStr);
       if (distKm != null && distKm > 0 && item.distanceStr) return `Distance ${item.distanceStr}`;
       if (item.timeStr) return `Time ${item.timeStr}`;
       return null;
     }
+
     if (item.kind === "plan") {
       const bits = [item.planDur ?? "", item.planIntensity ?? "", item.planTarget ?? ""].filter(Boolean);
       return bits.length ? bits.join(" · ") : null;
     }
+
     // external
     const bits = [
       item.time ? item.time : null,
       item.durationMin != null ? `${item.durationMin} min` : null,
     ].filter(Boolean);
     return bits.length ? bits.join(" · ") : null;
-  }, [item]);
+  }, [item, variant]);
 
   return (
     <section className={[SURFACE_CARD, "overflow-hidden", cfg.outerPadding].join(" ")}>
@@ -215,6 +225,7 @@ export default function SessionCard({
       {opened && (
         <div className={FLUSH_DETAIL}>
           <DetailBody
+            variant={variant}
             item={item}
             compactChart={cfg.compactChart}
             onOpenActivity={onOpenActivity}
@@ -226,14 +237,16 @@ export default function SessionCard({
   );
 }
 
-/** ========== Detail render ========== */
+/** ========== Detail ========== */
 
 function DetailBody({
+  variant,
   item,
   compactChart,
   onOpenActivity,
   showPlanDebug,
 }: {
+  variant: ComponentVariant;
   item: SessionCardItem;
   compactChart: boolean;
   onOpenActivity?: (activityId: number) => void;
@@ -241,11 +254,25 @@ function DetailBody({
 }) {
   const { getSummary, getStreams, getDetail } = useActivityData();
 
+  const kpis = Array.isArray(item.kpis) ? item.kpis : [];
+  const hasKpis = kpis.length > 0;
+
+  const kpiBlock = hasKpis ? (
+    <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {kpis.map((k) => (
+        <div key={k.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+          <div className="text-[10px] opacity-70">{k.label}</div>
+          <div className="text-xl font-semibold tabular-nums">{k.value}</div>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   // -------- PLAN --------
   if (item.kind === "plan") {
     const raw = item.planRaw ?? undefined;
     const structure = item.planStructure ?? raw?.structure ?? undefined;
-    const exercises = item.planExercises ?? raw?.exercises ?? [];
+    const exercises = item.planExercises ?? raw?.exercises ?? []; // always array
 
     const wu = structure?.warmup ?? undefined;
     const mn = structure?.main ?? undefined;
@@ -253,21 +280,25 @@ function DetailBody({
 
     return (
       <div>
-        {/* KPI */}
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            item.planDur ? { label: "DURATION", value: item.planDur } : null,
-            item.planIntensity ? { label: "INTENSITY", value: item.planIntensity } : null,
-            item.planTarget ? { label: "TARGET", value: item.planTarget } : null,
-          ]
-            .filter(Boolean)
-            .map((t: any) => (
-              <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[10px] opacity-70">{t.label}</div>
-                <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
-              </div>
-            ))}
-        </div>
+        {kpiBlock}
+
+        {/* fallback KPI pre plan (ak neprídu calendar kpis) */}
+        {!hasKpis && (
+          <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              item.planDur ? { label: "DURATION", value: item.planDur } : null,
+              item.planIntensity ? { label: "INTENSITY", value: item.planIntensity } : null,
+              item.planTarget ? { label: "TARGET", value: item.planTarget } : null,
+            ]
+              .filter(Boolean)
+              .map((t: any) => (
+                <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                  <div className="text-[10px] opacity-70">{t.label}</div>
+                  <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
+                </div>
+              ))}
+          </div>
+        )}
 
         {(wu || mn || cd) && (
           <div className="mt-4 space-y-3">
@@ -314,7 +345,10 @@ function DetailBody({
             <div className="text-[11px] font-semibold opacity-80 mb-1.5">EXERCISES</div>
             <ul className="space-y-1.5">
               {exercises.map((e: any, i: number) => (
-                <li key={`${e?.name ?? "ex"}-${i}`} className="rounded-md border border-white/10 px-3 py-2">
+                <li
+                  key={`${e?.name ?? "ex"}-${i}`}
+                  className="rounded-md border border-white/10 px-3 py-2"
+                >
                   <div className="text-sm font-medium">{e?.name ?? `Exercise ${i + 1}`}</div>
                   <div className="text-xs opacity-85 mt-0.5">
                     {[
@@ -322,7 +356,9 @@ function DetailBody({
                       e?.reps ? `${e.reps} reps` : null,
                       e?.seconds ? `${e.seconds}s` : null,
                       e?.rest_sec ? `rest ${e.rest_sec}s` : null,
-                    ].filter(Boolean).join(" · ") || "—"}
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
                   </div>
                 </li>
               ))}
@@ -330,7 +366,11 @@ function DetailBody({
           </div>
         )}
 
-        {item.planNotes && <div className="mt-3 text-sm opacity-90">{item.planNotes}</div>}
+        {(item.planNotes || item.notes) && (
+          <div className="mt-3 text-sm opacity-90">
+            {(item.planNotes ?? item.notes) as any}
+          </div>
+        )}
 
         {showPlanDebug && (
           <div className="mt-4">
@@ -348,21 +388,25 @@ function DetailBody({
   if (item.kind === "external") {
     return (
       <div>
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            item.time ? { label: "TIME", value: item.time } : null,
-            item.durationMin != null ? { label: "DURATION", value: `${item.durationMin} min` } : null,
-          ]
-            .filter(Boolean)
-            .map((t: any) => (
-              <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[10px] opacity-70">{t.label}</div>
-                <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
-              </div>
-            ))}
-        </div>
+        {kpiBlock}
 
-        {item.notes && <div className="mt-3 text-sm opacity-90">{item.notes}</div>}
+        {!hasKpis && (
+          <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              item.time ? { label: "TIME", value: item.time } : null,
+              item.durationMin != null ? { label: "DURATION", value: `${item.durationMin} min` } : null,
+            ]
+              .filter(Boolean)
+              .map((t: any) => (
+                <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                  <div className="text-[10px] opacity-70">{t.label}</div>
+                  <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {(item.notes ?? null) && <div className="mt-3 text-sm opacity-90">{item.notes}</div>}
       </div>
     );
   }
@@ -409,20 +453,24 @@ function DetailBody({
 
   return (
     <div>
-      {/* KPI */}
-      <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
-        {[
-          { label: "TIME", value: timeTxt },
-          { label: "DISTANCE", value: distTxt },
-          { label: "AVG HR", value: avgTxt },
-          { label: "MAX HR", value: maxTxt },
-        ].map((t) => (
-          <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-            <div className="text-[10px] opacity-70">{t.label}</div>
-            <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
-          </div>
-        ))}
-      </div>
+      {kpiBlock}
+
+      {/* fallback KPI pre activity (ak neprídu calendar kpis) */}
+      {!hasKpis && (
+        <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
+          {[
+            { label: "TIME", value: timeTxt },
+            { label: "DISTANCE", value: distTxt },
+            { label: "AVG HR", value: avgTxt },
+            { label: "MAX HR", value: maxTxt },
+          ].map((t) => (
+            <div key={t.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+              <div className="text-[10px] opacity-70">{t.label}</div>
+              <div className="text-xl font-semibold tabular-nums">{String(t.value)}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* PB actions */}
       {"onEdit" in item && (item.onEdit || item.onDelete || item.onToggleFavorite) && (
@@ -470,6 +518,9 @@ function DetailBody({
         </div>
       )}
 
+      {/* notes (calendar môže poslať item.notes) */}
+      {item.notes && <div className="mt-3 text-sm opacity-90">{item.notes}</div>}
+
       {/* HR priebeh */}
       <div className="mt-3">
         <div className="flex items-center justify-between mb-2">
@@ -509,6 +560,16 @@ function DetailBody({
             ))}
           </ul>
         </>
+      )}
+
+      {/* (voliteľne) debug pre calendar pri potrebe */}
+      {variant === "calendar" && showPlanDebug && (
+        <details className="mt-4">
+          <summary className="text-xs opacity-70 cursor-pointer">Debug JSON</summary>
+          <pre className="mt-2 text-[11px] opacity-90 whitespace-pre-wrap break-words">
+            {JSON.stringify((item as any).raw ?? item, null, 2)}
+          </pre>
+        </details>
       )}
     </div>
   );

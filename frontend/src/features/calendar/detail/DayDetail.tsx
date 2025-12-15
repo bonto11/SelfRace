@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
-import CalendarSessionCard from "@/features/calendar/detail/CalendarSessionCard";
+import SessionCard from "@/shared/components/SessionCard";
 import { buildDayBuckets } from "@/features/calendar/detail/buildDayBuckets";
 
 type Props = {
@@ -15,9 +15,6 @@ type Props = {
   externalRows: ExternalEvent[];
 
   safeSportKey: (v: any) => string;
-
-  // actMap už tu zatiaľ nepotrebujeme (card si ťahá detail cez provider),
-  // ale nechávam to v Props mimo, aby si nemusel meniť caller
   actMap?: Map<number, any>;
 };
 
@@ -53,9 +50,9 @@ export default function DayDetail({
           <div className="text-sm opacity-70">Žiadne položky v minulosti pre tento deň.</div>
         ) : (
           <ul className="space-y-2">
-            {past.map((it) => (
+            {past.map((it: any) => (
               <li key={it.id} className="px-0">
-                <CalendarSessionCard item={it} />
+                <SessionCard variant="calendar" item={it} />
               </li>
             ))}
           </ul>
@@ -72,9 +69,9 @@ export default function DayDetail({
           <div className="text-sm opacity-70">Žiadne plánované položky pre tento deň.</div>
         ) : (
           <ul className="space-y-2">
-            {planned.map((it) => (
+            {planned.map((it: any) => (
               <li key={it.id} className="px-0">
-                <CalendarSessionCard item={it} />
+                <SessionCard variant="calendar" item={it} />
               </li>
             ))}
           </ul>
