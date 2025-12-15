@@ -1,5 +1,10 @@
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
-import type { PlanStatus } from "@/shared/components/PlanSingle";
+
+export type PlanStatus = "planned" | "done" | "missed";
+
+export type CalendarItemStatus = "planned" | "done" | "missed" | "none";
+export type CalendarItemKind = "activity" | "plan" | "external";
+export type CalendarPlanStatus = "planned" | "done" | "missed";
 
 export type SportKey =
   | "run"

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
@@ -44,14 +43,12 @@ export default function ActivitiesCalendar({
   year?: number;
   month?: number;
 }) {
-  const router = useRouter();
   const { userId } = useUserId();
 
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
-  const [focusedActivityId, setFocusedActivityId] = React.useState<number | null>(null);
 
   const { rows: planRows } = usePlanData();
   const { rows: actRows } = useActivityData();
@@ -63,10 +60,6 @@ export default function ActivitiesCalendar({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  React.useEffect(() => {
-    setFocusedActivityId(null);
-  }, [selectedIso]);
 
   const range = React.useMemo(() => gridRange42(year, month0), [year, month0]);
   const externals = useCalendarExternals(userId, range);
@@ -124,9 +117,6 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
-  // (voliteľné) rýchly jump aj bez selectedIso – necháme tu ako util
-  const goExternalBare = () => router.push("/coach/external");
-
   return (
     <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER}>
@@ -134,31 +124,50 @@ export default function ActivitiesCalendar({
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
 
           <div className="flex items-center gap-2 translate-y-[2px]">
-            <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              circle
+              aria-label="Predchádzajúci mesiac"
+              onClick={() => jump(-1)}
+            >
               ‹
             </Button>
 
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
+            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">
+              {label}
+            </div>
 
-            <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              circle
+              aria-label="Nasledujúci mesiac"
+              onClick={() => jump(1)}
+            >
               ›
             </Button>
-
-            {/* ak chceš mať externals dostupné aj bez kliknutého dňa */}
-            {/* <Button variant="ghost" size="sm" circle aria-label="Externé eventy" onClick={goExternalBare}>↻</Button> */}
           </div>
         </div>
 
         {/* legenda */}
         <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
           <div className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: THEME.chart.other }} />
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: THEME.chart.other }}
+            />
             <span>external</span>
           </div>
+
           <div className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: THEME.chart.run }} />
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: THEME.chart.run }}
+            />
             <span>aktivita</span>
           </div>
+
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-2 h-2 rounded-full border"
@@ -166,12 +175,14 @@ export default function ActivitiesCalendar({
             />
             <span>plán</span>
           </div>
+
           <div className="flex items-center gap-1">
             <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>
               ✓
             </span>
             <span>splnený plán</span>
           </div>
+
           <div className="flex items-center gap-1">
             <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>
               ×
@@ -181,7 +192,9 @@ export default function ActivitiesCalendar({
         </div>
 
         {externals.err && (
-          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">{externals.err}</div>
+          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">
+            {externals.err}
+          </div>
         )}
 
         <CalendarGrid
@@ -192,7 +205,7 @@ export default function ActivitiesCalendar({
         />
       </div>
 
-      {/* DETAIL */}
+      {/* DETAIL (holé) */}
       {selectedIso && (
         <DayDetail
           selectedIso={selectedIso}
@@ -201,9 +214,6 @@ export default function ActivitiesCalendar({
           planRowsForDay={selectedPlanRows}
           externalRows={externals.rows as ExternalEvent[]}
           safeSportKey={safeSportKey}
-          sportColors={SPORT_COLORS}
-          focusedActivityId={focusedActivityId}
-          setFocusedActivityId={setFocusedActivityId}
           actMap={actMap}
         />
       )}

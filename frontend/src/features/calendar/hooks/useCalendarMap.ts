@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
-import type { PlanStatus } from "@/shared/components/PlanSingle";
 import { detectSport } from "@/features/coach/utils/plan";
 
-import type { CalendarMapState, DayCellData, SportKey } from "@/features/calendar/types/calendarTypes";
+import type { CalendarMapState, DayCellData, SportKey, PlanStatus } from "@/features/calendar/types/calendarTypes";
 import { daysInMonth, iso, startWeekday } from "@/features/calendar/utils/calendarDates";
 import { isRestSession, planStatusForDate } from "@/features/calendar/utils/calendarFormat";
 

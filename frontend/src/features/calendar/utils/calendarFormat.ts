@@ -1,5 +1,5 @@
 import { detectSport } from "@/features/coach/utils/plan";
-import type { PlanStatus } from "@/shared/components/PlanSingle";
+import type{ PlanStatus } from "@/features/calendar/types/calendarTypes";
 
 type AnyObj = Record<string, any>;
 
