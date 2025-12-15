@@ -80,7 +80,15 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
   7: "Sun",
 };
 
-const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const JS_TO_DAY: DayAbbrev[] = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+];
 
 /* ---------- helpers ---------- */
 
@@ -140,7 +148,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
 
       if (mode === "weekly") {
         const weekdayNum = Number(
-          (ev as any).weekday ?? (ev as any).weekday_int,
+          (ev as any).weekday ?? (ev as any).weekday_int
         );
         day = INT_TO_DAY[weekdayNum] ?? "Mon";
       } else {
@@ -178,7 +186,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
 
 function mapActivitiesToEvents(
   userId: number,
-  activities: ExternalActivity[],
+  activities: ExternalActivity[]
 ): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
@@ -197,7 +205,7 @@ function mapActivitiesToEvents(
       sport: a.sport,
       weekday,
       recurrence_kind: mode,
-      single_date: mode === "single" ? (a.date_single ?? null) : null,
+      single_date: mode === "single" ? a.date_single ?? null : null,
       start_time_local: a.time ?? null,
       duration_min: null,
       priority,
@@ -251,7 +259,7 @@ export function DetailExternalEvents({ userId }: Props) {
       } catch (e: any) {
         if (!alive) return;
         setDbError(
-          e?.message ?? "Nepodarilo sa načítať externé aktivity z DB.",
+          e?.message ?? "Nepodarilo sa načítať externé aktivity z DB."
         );
       } finally {
         if (!alive) return;
@@ -298,7 +306,7 @@ export function DetailExternalEvents({ userId }: Props) {
       const resp = await apiSaveExternalEvents(userId, events);
 
       setDbInfo(
-        `Uložené do DB (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`,
+        `Uložené do DB (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`
       );
     } catch (e: any) {
       setDbError(e?.message ?? "Chyba pri ukladaní do DB.");
@@ -316,7 +324,7 @@ export function DetailExternalEvents({ userId }: Props) {
       const resp = await apiSaveExternalEvents(userId, []);
       setList([]);
       setDbInfo(
-        `Všetky externé aktivity v DB zmazané (deleted=${resp.deleted}).`,
+        `Všetky externé aktivity v DB zmazané (deleted=${resp.deleted}).`
       );
     } catch (e: any) {
       setDbError(e?.message ?? "Chyba pri mazaní v DB.");
@@ -334,65 +342,40 @@ export function DetailExternalEvents({ userId }: Props) {
 
   return (
     <section className={SECTION}>
-      {/* Header */}
+      {/* Header – bez toggle */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">
           External activities & events
         </div>
         <div className="flex items-center gap-2">
           <InfoPopover text="Externé športy aj nešportové udalosti (svadba, cestovanie…), s ktorými plán počíta pri generovaní tréningu." />
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((o) => !o)}
-            labelWhenOpen="Hide"
-            labelWhenClosed="Show"
-          />
         </div>
       </div>
 
+      {/* keď nie si prihlásený, rieši to panel (nie page) */}
+      {!userId && (
+        <div
+          className={[SURFACE_INLINE, "px-3 py-2 text-sm opacity-80"].join(" ")}
+        >
+          Najprv sa prosím prihlás, aby sme vedeli načítať a uložiť externé
+          eventy.
+        </div>
+      )}
+
+      {/* DB info len keď userId existuje */}
       {userId && (
-        <div className="mb-1 text-[11px] opacity-70">
+        <div className="mb-2 text-[11px] opacity-70">
           {loadingDB
             ? "Načítavam externé aktivity z DB…"
             : "Externé aktivity sa ukladajú do samostatnej tabuľky podľa užívateľa."}
         </div>
       )}
 
-      {/* Closed preview */}
-      {!open && (
-        <div
-          className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(
-            " ",
-          )}
-        >
-          {preview.length === 0 ? (
-            <span className="opacity-70">
-              Žiadne externé aktivity – klikni pre otvorenie detailu.
-            </span>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {preview.map((a, idx) => (
-                <span
-                  key={`${a.day}-${a.sport}-${a.intensity}-${idx}`}
-                  className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
-                  title={
-                    a.note
-                      ? a.note
-                      : `${a.day} · ${niceLabelForSport(a.sport)} · ${
-                          a.intensity
-                        }`
-                  }
-                >
-                  {a.day} · {niceLabelForSport(a.sport)} · {a.intensity}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* === tu nechaj tvoje form polia + zoznam + save/clear DB presne ako máš === */}
+      {/* (tvoj existujúci “Open body” obsah ide sem BEZ podmienky open) */}
 
       {/* Open body */}
-      {open && (
+      {
         <>
           {/* 1. riadok – typ, repeat, deň/dátum, sport/event */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -576,7 +559,7 @@ export function DetailExternalEvents({ userId }: Props) {
             <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div>
           )}
         </>
-      )}
+      }
     </section>
   );
 }
