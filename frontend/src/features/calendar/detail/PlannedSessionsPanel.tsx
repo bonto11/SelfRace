@@ -1,67 +1,84 @@
 "use client";
 
 import * as React from "react";
-import PlanSingle, { PlanStatus } from "@/shared/components/PlanSingle";
-import { detectSport } from "@/features/coach/utils/plan";
-import { findTrainingTypeById } from "@/shared/types/training";
-import { normDuration, normIntensity, normNotes, normTarget, normTitle } from "@/features/calendar/utils/calendarFormat";
-
-type AnyObj = Record<string, any>;
+import PlanSingle, { type PlanStatus } from "@/shared/components/PlanSingle";
+import Button from "@/shared/components/ui/Button";
+import { CARD } from "@/shared/ui/classes";
+import type { UnifiedSessionItem } from "@/features/calendar/detail/PastSessionsPanel";
 
 type Props = {
+  selectedIso: string;
+  selectedLabel: string;
+  rows: UnifiedSessionItem[];
+  sportColors: Record<string, string>;
   todayIso: string;
-  plannedRows: any[];
 };
 
-export default function PlannedSessionsPanel({ todayIso, plannedRows }: Props) {
-  if (!plannedRows.length) return null;
+function headerLabel(selectedIso: string, todayIso: string) {
+  if (selectedIso > todayIso) return "Planned";
+  if (selectedIso === todayIso) return "Planned (today)";
+  return "Planned (none)";
+}
+
+export default function PlannedSessionsPanel({
+  selectedIso,
+  selectedLabel,
+  rows,
+  todayIso,
+}: Props) {
+  const label = headerLabel(selectedIso, todayIso);
 
   return (
-    <>
-      <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1 mt-2">
-        Plánované tréningy
+    <div className={[CARD, "space-y-2", "p-3 md:p-4"].join(" ")}>
+      <div className="flex items-center justify-between mb-1.5">
+        <h4 className="text-sm font-semibold">
+          {label} — {selectedLabel}
+        </h4>
       </div>
 
-      <ul className="space-y-2">
-        {plannedRows.map((p: any) => {
-          const sess: AnyObj = p.payload ?? p;
-          const sport = (p as any).sport || detectSport(sess) || "other";
+      {rows.length === 0 ? (
+        <p className="text-sm opacity-70">
+          Žiadne plánované položky pre tento deň.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((it) => {
+            const rightLine =
+              it.kind === "external" ? it.time ?? null : null;
 
-          const sessionTypeId =
-            typeof sess?.session_type === "string"
-              ? sess.session_type
-              : typeof p.session_type === "string"
-              ? p.session_type
-              : null;
+            const notesLine =
+              it.notes && String(it.notes).trim() ? String(it.notes) : null;
 
-          const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
-          const title = trainingDef?.label || normTitle(sess) || "Tréning";
+            // planned items sú vždy planned (alebo done pri externale v minulosti – sem sa nedostane)
+            const status: PlanStatus = it.status;
 
-          const baseNotes = normNotes(sess);
-          const typeLine = trainingDef?.description || null;
-          const combinedNotes = [typeLine, baseNotes].filter(Boolean).join(" • ");
-
-          const dIso = String(p.plan_date).slice(0, 10);
-          const status: PlanStatus = dIso < todayIso ? "missed" : "planned";
-
-          return (
-            <li key={p.id} className="px-0">
-              <PlanSingle
-                id={p.id}
-                title={title}
-                dateIso={dIso}
-                sport={sport}
-                status={status}
-                planDur={normDuration(sess)}
-                planIntensity={normIntensity(sess)}
-                planTarget={normTarget(sess)}
-                planNotes={combinedNotes || null}
-                activitySummary={null}
-              />
-            </li>
-          );
-        })}
-      </ul>
-    </>
+            return (
+              <li key={it.key} className="px-0">
+                <PlanSingle
+                  id={it.id}
+                  title={it.title}
+                  dateIso={it.dateIso}
+                  sport={it.sport}
+                  status={status}
+                  planDur={null}
+                  planIntensity={rightLine}
+                  planTarget={null}
+                  planNotes={notesLine}
+                  activitySummary={null}
+                >
+                  {it.onOpen ? (
+                    <div className="text-xs flex flex-row gap-2 items-center">
+                      <Button variant="ghost" size="xs" onClick={it.onOpen}>
+                        Detail
+                      </Button>
+                    </div>
+                  ) : null}
+                </PlanSingle>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
