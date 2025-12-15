@@ -1,4 +1,3 @@
-// src/shared/components/SessionCard.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,7 +12,6 @@ import { ComponentVariant } from "@/features/activity/utils/activity";
 /** ========== Common types ========== */
 
 export type SessionKind = "activity" | "plan" | "external";
-
 export type PlanStatus = "planned" | "done" | "missed";
 
 type Base = {
@@ -39,8 +37,13 @@ export type ActivitySession = Base & {
   avgHr?: number | null;
   maxHr?: number | null;
 
-  /** napr. v table: ak je to single-day, môžeš potlačiť header (zatiaľ len forward-compat) */
-  singleDayContext?: boolean;
+  /** PB/pinned UI */
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+
+  /** optional CTA */
+  onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 export type PlanSession = Base & {
@@ -55,7 +58,7 @@ export type PlanSession = Base & {
   /** raw z AI – nech máme do budúcna */
   planRaw?: any;
   planStructure?: any;
-  planExercises?: any[];
+  planExercises?: any[]; // NOTE: array only (no null)
 };
 
 export type ExternalSession = Base & {
@@ -70,7 +73,10 @@ export type SessionCardItem = ActivitySession | PlanSession | ExternalSession;
 export type SessionCardProps = {
   variant?: ComponentVariant; // "activity" | "calendar" | "pb" | "plan"
   item: SessionCardItem;
-  onOpenActivity?: (activityId: number) => void; // optional CTA
+
+  /** optional CTA (napr z kalendára otvorí detail stránky) */
+  onOpenActivity?: (activityId: number) => void;
+
   /** dočasné: ukáže JSON debug pre plan (default false) */
   showPlanDebug?: boolean;
 };
@@ -134,7 +140,6 @@ export default function SessionCard({
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
 
-  // keď sa zmení defaultOpen (napr autoOpen v ActivityTable), nech to reaguje
   useEffect(() => {
     if (item.defaultOpen) setOpened(true);
   }, [item.defaultOpen]);
@@ -144,7 +149,7 @@ export default function SessionCard({
   const secondaryLine = useMemo(() => {
     if (item.kind === "activity") {
       const distKm = parseKm(item.distanceStr);
-      if (distKm != null && distKm > 0) return `Distance ${item.distanceStr}`;
+      if (distKm != null && distKm > 0 && item.distanceStr) return `Distance ${item.distanceStr}`;
       if (item.timeStr) return `Time ${item.timeStr}`;
       return null;
     }
@@ -167,6 +172,12 @@ export default function SessionCard({
         <div className="text-sm font-medium truncate">{dateLine}</div>
 
         <div className="flex items-center gap-2">
+          {item.kind === "activity" && item.isFavorite && (
+            <span className="text-[12px] leading-none opacity-90" title="Favorite">
+              ★
+            </span>
+          )}
+
           {item.kind === "plan" && (
             <span
               className={[
@@ -187,12 +198,7 @@ export default function SessionCard({
             title={opened ? "Skryť detail" : "Otvoriť detail"}
             className="h-8 w-8 grid place-items-center rounded-full border border-white/10 bg-white/10 hover:bg-white/20 transition-colors"
           >
-            <span
-              className={[
-                "text-base leading-none select-none transition-transform",
-                opened ? "rotate-180" : "",
-              ].join(" ")}
-            >
+            <span className={["text-base leading-none select-none transition-transform", opened ? "rotate-180" : ""].join(" ")}>
               ▾
             </span>
           </button>
@@ -237,13 +243,13 @@ function DetailBody({
 
   // -------- PLAN --------
   if (item.kind === "plan") {
-    const raw = item.planRaw ?? null;
-    const structure = item.planStructure ?? raw?.structure ?? null;
-    const exercises = item.planExercises ?? raw?.exercises ?? null;
+    const raw = item.planRaw ?? undefined;
+    const structure = item.planStructure ?? raw?.structure ?? undefined;
+    const exercises = item.planExercises ?? raw?.exercises ?? [];
 
-    const wu = structure?.warmup ?? null;
-    const mn = structure?.main ?? null;
-    const cd = structure?.cooldown ?? null;
+    const wu = structure?.warmup ?? undefined;
+    const mn = structure?.main ?? undefined;
+    const cd = structure?.cooldown ?? undefined;
 
     return (
       <div>
@@ -263,7 +269,6 @@ function DetailBody({
             ))}
         </div>
 
-        {/* Structured blocks (WU / MAIN / CD) */}
         {(wu || mn || cd) && (
           <div className="mt-4 space-y-3">
             {wu && (
@@ -304,7 +309,6 @@ function DetailBody({
           </div>
         )}
 
-        {/* Exercises */}
         {Array.isArray(exercises) && exercises.length > 0 && (
           <div className="mt-4">
             <div className="text-[11px] font-semibold opacity-80 mb-1.5">EXERCISES</div>
@@ -316,6 +320,7 @@ function DetailBody({
                     {[
                       e?.sets ? `${e.sets} sets` : null,
                       e?.reps ? `${e.reps} reps` : null,
+                      e?.seconds ? `${e.seconds}s` : null,
                       e?.rest_sec ? `rest ${e.rest_sec}s` : null,
                     ].filter(Boolean).join(" · ") || "—"}
                   </div>
@@ -325,10 +330,8 @@ function DetailBody({
           </div>
         )}
 
-        {/* Notes */}
         {item.planNotes && <div className="mt-3 text-sm opacity-90">{item.planNotes}</div>}
 
-        {/* Optional debug */}
         {showPlanDebug && (
           <div className="mt-4">
             <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">Plan debug</div>
@@ -368,8 +371,7 @@ function DetailBody({
   const s = item.activityId != null ? (getSummary(item.activityId) as any | null) : null;
 
   const distTxt = s ? fmtDistance(s.distance_m ?? null) : item.distanceStr ?? "—";
-  const timeTxt =
-    s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : item.timeStr ?? "—";
+  const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : item.timeStr ?? "—";
   const avgTxt = s ? s.average_heartrate_bpm ?? "—" : item.avgHr ?? "—";
   const maxTxt = s ? s.max_heartrate_bpm ?? "—" : item.maxHr ?? "—";
 
@@ -422,7 +424,40 @@ function DetailBody({
         ))}
       </div>
 
-      {/* CTA (voliteľné, napr z kalendára) */}
+      {/* PB actions */}
+      {"onEdit" in item && (item.onEdit || item.onDelete || item.onToggleFavorite) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {item.onToggleFavorite && (
+            <button
+              type="button"
+              onClick={item.onToggleFavorite}
+              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+            >
+              {item.isFavorite ? "★ Favorite" : "☆ Set favorite"}
+            </button>
+          )}
+          {item.onEdit && (
+            <button
+              type="button"
+              onClick={item.onEdit}
+              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+          {item.onDelete && (
+            <button
+              type="button"
+              onClick={item.onDelete}
+              className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* CTA (napr z kalendára) */}
       {onOpenActivity && (
         <div className="mt-3">
           <button
@@ -443,12 +478,7 @@ function DetailBody({
 
         {streams.time_s.length ? (
           <div className="mb-1">
-            <HrChart
-              xs={streams.time_s}
-              ys={streams.hr}
-              height={compactChart ? 148 : 220}
-              compact={compactChart}
-            />
+            <HrChart xs={streams.time_s} ys={streams.hr} height={compactChart ? 148 : 220} compact={compactChart} />
           </div>
         ) : (
           <div className="opacity-70 text-sm">HR stream nie je k dispozícii.</div>
@@ -461,8 +491,7 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {splits.map((sp: any, idx: number) => (
               <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)},{" "}
-                {fmtSecondsHMS(sp.moving_time_s)}
+                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)}, {fmtSecondsHMS(sp.moving_time_s)}
               </li>
             ))}
           </ul>
@@ -475,8 +504,7 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {laps.map((lap: any, idx: number) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
-                {fmtSecondsHMS(lap.moving_time_s)}
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}
           </ul>
