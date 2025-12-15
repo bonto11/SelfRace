@@ -2,7 +2,7 @@
 "use client";
 
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
-import ActivitySingle from "@/shared/components/ActivitySingle";
+import SessionCard from "@/shared/components/SessionCard";
 import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
 import { detectSport } from "@/features/coach/utils/plan";
 import { findTrainingTypeById } from "@/shared/types/training";
@@ -10,7 +10,7 @@ import { todayISO, addDays } from "@/features/activity/utils/activity";
 
 type AnyObj = Record<string, any>;
 
-/* ───────── helpers – rovnaké ako v PlanPreview ───────── */
+/* ───────── helpers – (zachované z tvojej verzie) ───────── */
 
 function hrToText(hr?: any): string | null {
   if (!hr) return null;
@@ -27,42 +27,40 @@ function powerToText(w?: any): string | null {
 }
 
 function normTarget(it: AnyObj): string | null {
-  const hr   = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
+  const hr = it?.target_hr_bpm_range ?? it?.target_hr ?? null;
   const pace = it?.target_pace_min_per_km ?? null;
-  const pow  = it?.target_power_watts ?? null;
+  const pow = it?.target_power_watts ?? null;
 
   const mainT = Array.isArray(it?.structure?.main)
     ? it.structure.main[0]?.target
     : it?.structure?.main?.target;
 
-  const hr2   = hr   ?? mainT?.hr ?? mainT?.heart_rate ?? null;
+  const hr2 = hr ?? mainT?.hr ?? mainT?.heart_rate ?? null;
   const pace2 = pace ?? mainT?.pace ?? null;
-  const pow2  = pow  ?? mainT?.power ?? null;
+  const pow2 = pow ?? mainT?.power ?? null;
 
   const parts = [hrToText(hr2), paceToText(pace2), powerToText(pow2)].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
 
 function intervalsToText(main: any): string | null {
-  const arr =
-    Array.isArray(main) ? main :
-    (main && Array.isArray(main.sets) ? main.sets : null);
+  const arr = Array.isArray(main) ? main : (main && Array.isArray(main.sets) ? main.sets : null);
   if (!arr || !arr.length) return null;
 
   const first = arr[0];
   const reps = Number.isFinite(first?.reps) ? `${first.reps}×` : "";
   const work = Number.isFinite(first?.work_min) ? `${first.work_min}′` : "";
-  const rec  =
+  const rec =
     Number.isFinite(first?.recover_min) && first.recover_min > 0
       ? ` / ${first.recover_min}′ rec`
       : "";
   const targ = first?.target
     ? [hrToText(first.target.hr), paceToText(first.target.pace), powerToText(first.target.power)]
-        .filter(Boolean).join(" · ")
+        .filter(Boolean)
+        .join(" · ")
     : "";
 
-  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ]
-    .filter(Boolean).join(" ");
+  const txt = [reps && work ? `${reps}${work}` : work || reps, rec, targ].filter(Boolean).join(" ");
   return txt || null;
 }
 
@@ -72,7 +70,8 @@ function normTitle(it: AnyObj) {
 function normDuration(it: AnyObj) {
   const minutes =
     (typeof it?.duration_min === "number" && it.duration_min) ??
-    (typeof it?.dur === "number" && it.dur) ?? null;
+    (typeof it?.dur === "number" && it.dur) ??
+    null;
   return minutes != null ? `${minutes} min` : null;
 }
 function normIntensity(it: AnyObj) {
@@ -88,7 +87,9 @@ function normNotes(it: AnyObj) {
         hrToText(it.structure.warmup?.target?.hr),
         paceToText(it.structure.warmup?.target?.pace),
         powerToText(it.structure.warmup?.target?.power),
-      ].filter(Boolean).join(" · ")
+      ]
+        .filter(Boolean)
+        .join(" · ")
     : "";
 
   const main = it?.structure?.main ? intervalsToText(it.structure.main) : "";
@@ -99,40 +100,36 @@ function normNotes(it: AnyObj) {
         hrToText(it.structure.cooldown?.target?.hr),
         paceToText(it.structure.cooldown?.target?.pace),
         powerToText(it.structure.cooldown?.target?.power),
-      ].filter(Boolean).join(" · ")
+      ]
+        .filter(Boolean)
+        .join(" · ")
     : "";
 
-  const ex = Array.isArray(it?.exercises) && it.exercises.length
-    ? "Exercises: " +
-      it.exercises
-        .map((e: any) => {
-          const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
-          if (e?.seconds) parts.push(`${e.seconds}s`);
-          else if (e?.reps) parts.push(`${e.reps}`);
-          return parts.filter(Boolean).join(" ");
-        })
-        .join(", ")
-    : "";
+  const ex =
+    Array.isArray(it?.exercises) && it.exercises.length
+      ? "Exercises: " +
+        it.exercises
+          .map((e: any) => {
+            const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
+            if (e?.seconds) parts.push(`${e.seconds}s`);
+            else if (e?.reps) parts.push(`${e.reps}`);
+            return parts.filter(Boolean).join(" ");
+          })
+          .join(", ")
+      : "";
 
   const parts = [wu, main, cd, ex].filter(Boolean);
   return parts.length ? parts.join(" • ") : null;
 }
 
-/* ───────── hlavný komponent ───────── */
+/* ───────── component ───────── */
 
 export default function PlanActive() {
   const { planRows: rawPlanRows, rows: legacyRows } = usePlanData() as any;
   const planRows: AnyObj[] = (rawPlanRows ?? legacyRows ?? []) as AnyObj[];
 
   const today = todayISO();
-  const limit = addDays(today, 10); // today + 10 dní (rovnako ako preview)
-
-  console.log("[PlanActive] render", {
-    planRowsLength: planRows.length,
-    today,
-    limit,
-    sampleRow: planRows[0],
-  });
+  const limit = addDays(today, 10); // dnes..(dnes+9)
 
   // byDate: YYYY-MM-DD -> sessions[]
   const byDate: Record<string, AnyObj[]> = {};
@@ -142,7 +139,7 @@ export default function PlanActive() {
 
     const dIso = String(row.plan_date ?? row.day ?? "").slice(0, 10);
     if (!dIso) continue;
-    if (dIso < today || dIso >= limit) continue; // len dnes..(dnes+9)
+    if (dIso < today || dIso >= limit) continue;
 
     const sess: AnyObj =
       row.payload && typeof row.payload === "object"
@@ -162,14 +159,7 @@ export default function PlanActive() {
     byDate[dIso].push(sess);
   }
 
-  // presne 10 dní: today + 0..9
-  const safeDates: string[] = Array.from({ length: 10 }, (_, i) =>
-    addDays(today, i),
-  );
-
-  console.log("[PlanActive] byDate keys", {
-    keys: Object.keys(byDate),
-  });
+  const safeDates: string[] = Array.from({ length: 10 }, (_, i) => addDays(today, i));
 
   return (
     <div className="max-w-screen-lg w-full mx-auto px-3 md:px-4 lg:px-6 space-y-4">
@@ -182,55 +172,53 @@ export default function PlanActive() {
           {safeDates.map((iso) => {
             const sessions = byDate[iso] || [];
 
-            // žiadny tréning v daný deň → placeholder, rovnako ako v Preview
             if (!sessions.length) {
               return (
                 <li key={`active-${iso}-empty`} className="px-0">
-                  <ActivitySingle
+                  <SessionCard
                     variant="plan"
-                    data={{
+                    item={{
                       id: `active-${iso}-empty`,
-                      name: "Žiadny tréning",
+                      kind: "plan",
+                      title: "Žiadny tréning",
                       dateIso: iso,
                       sport: "other",
+                      status: "planned",
                       planDur: null,
                       planIntensity: null,
                       planTarget: null,
                       planNotes: null,
                       planRaw: null,
                       planStructure: null,
-                      planExercises: null,
+                      planExercises: [],
+                      defaultOpen: false,
                     }}
-                    defaultOpen={false}
                   />
                 </li>
               );
             }
 
-            // tréningy v daný deň
             return sessions.map((it: AnyObj, sidx: number) => {
-              const sessionTypeId =
-                typeof it?.session_type === "string" ? it.session_type : null;
-              const trainingDef = sessionTypeId
-                ? findTrainingTypeById(sessionTypeId)
-                : null;
+              const sessionTypeId = typeof it?.session_type === "string" ? it.session_type : null;
+              const trainingDef = sessionTypeId ? findTrainingTypeById(sessionTypeId) : null;
 
               const title = trainingDef?.label || normTitle(it);
+
               const baseNotes = normNotes(it);
               const typeLine = trainingDef?.description || null;
-              const combinedNotes = [typeLine, baseNotes]
-                .filter(Boolean)
-                .join(" • ");
+              const combinedNotes = [typeLine, baseNotes].filter(Boolean).join(" • ");
 
               return (
                 <li key={`active-${iso}-${sidx}`} className="px-0">
-                  <ActivitySingle
+                  <SessionCard
                     variant="plan"
-                    data={{
+                    item={{
                       id: `active-${iso}-${sidx}`,
-                      name: title,
+                      kind: "plan",
+                      title,
                       dateIso: iso,
                       sport: (detectSport(it) as any) ?? "other",
+                      status: "planned",
                       planDur: normDuration(it),
                       planIntensity: normIntensity(it),
                       planTarget: normTarget(it),
@@ -238,8 +226,8 @@ export default function PlanActive() {
                       planRaw: it,
                       planStructure: it?.structure ?? null,
                       planExercises: it?.exercises ?? null,
+                      defaultOpen: false,
                     }}
-                    defaultOpen={false}
                   />
                 </li>
               );
