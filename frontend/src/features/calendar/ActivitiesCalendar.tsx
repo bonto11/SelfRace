@@ -97,7 +97,6 @@ export default function ActivitiesCalendar({
     });
   }, [selectedIso]);
 
-  // plan rows for selected day (bez REST)
   const selectedPlanRows = React.useMemo(() => {
     if (!selectedIso) return [];
     return planRows.filter((p: any) => {
@@ -124,27 +123,13 @@ export default function ActivitiesCalendar({
           <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
 
           <div className="flex items-center gap-2 translate-y-[2px]">
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label="Predchádzajúci mesiac"
-              onClick={() => jump(-1)}
-            >
+            <Button variant="ghost" size="sm" circle aria-label="Predchádzajúci mesiac" onClick={() => jump(-1)}>
               ‹
             </Button>
 
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">
-              {label}
-            </div>
+            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">{label}</div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label="Nasledujúci mesiac"
-              onClick={() => jump(1)}
-            >
+            <Button variant="ghost" size="sm" circle aria-label="Nasledujúci mesiac" onClick={() => jump(1)}>
               ›
             </Button>
           </div>
@@ -153,48 +138,29 @@ export default function ActivitiesCalendar({
         {/* legenda */}
         <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
           <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.other }}
-            />
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: THEME.chart.other }} />
             <span>external</span>
           </div>
-
           <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.run }}
-            />
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: THEME.chart.run }} />
             <span>aktivita</span>
           </div>
-
           <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full border"
-              style={{ borderColor: THEME.chart.run, backgroundColor: "transparent" }}
-            />
+            <span className="inline-block w-2 h-2 rounded-full border" style={{ borderColor: THEME.chart.run, backgroundColor: "transparent" }} />
             <span>plán</span>
           </div>
-
           <div className="flex items-center gap-1">
-            <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>
-              ✓
-            </span>
+            <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>✓</span>
             <span>splnený plán</span>
           </div>
-
           <div className="flex items-center gap-1">
-            <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>
-              ×
-            </span>
+            <span className="text-[9px] leading-none" style={{ color: THEME.chart.run }}>×</span>
             <span>missed plán</span>
           </div>
         </div>
 
         {externals.err && (
-          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">
-            {externals.err}
-          </div>
+          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">{externals.err}</div>
         )}
 
         <CalendarGrid
@@ -205,7 +171,6 @@ export default function ActivitiesCalendar({
         />
       </div>
 
-      {/* DETAIL (holé) */}
       {selectedIso && (
         <DayDetail
           selectedIso={selectedIso}
