@@ -153,7 +153,6 @@ export default function ActivityTable({
 
                     defaultOpen: isFocused,
                     hideDateLine: variant === "calendar", // kalendár = dátum často rieši header mimo itemu
-                    singleDayContext: suppressItemHeaderIfSingleDay && singleDay,
                   }}
                 />
               </li>
