@@ -1,11 +1,6 @@
 // src/features/coach/utils/prefs.ts
 "use client";
 
-// Storage + DB helpers pre CoachPrefs + normalizácia legacy tvarov.
-import type { DayAbbrev } from "@/shared/types/day";
-
-"use client";
-
 import type { CoachPrefs, SportKind, Preferences } from "@/features/coach/types/prefsTypes";
 import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coachTypes";
 import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
