@@ -12,22 +12,18 @@ import type { VolumePrefs } from "@/features/coach/types/prefsTypes";
 type VolumeInputMode = "weekly_hours" | "daily_minutes";
 
 type Props = {
-  volume: VolumePrefs | undefined;
-  // z CoachPreferencies: setPref(key, value)
+  volume: VolumePrefs | null | undefined;
   setPref: (key: any, value: any) => void;
 };
 
 export function VolumeSection({ volume, setPref }: Props) {
   const [open, setOpen] = useState(false);
 
-  const mode: VolumeInputMode = (volume?.mode ?? "weekly_hours") as VolumeInputMode;
+  const mode: VolumeInputMode =
+    (volume?.mode as VolumeInputMode | undefined) ?? "weekly_hours";
 
   const rawValue =
-    typeof volume?.value === "number"
-      ? volume.value
-      : volume?.value
-      ? Number(volume.value)
-      : NaN;
+    volume?.value != null ? Number(volume.value) : NaN;
 
   const safeVal =
     Number.isFinite(rawValue) && rawValue > 0 ? (rawValue as number) : NaN;
@@ -62,21 +58,28 @@ export function VolumeSection({ volume, setPref }: Props) {
 
   const handleModeChange = (nextMode: VolumeInputMode) => {
     const next: VolumePrefs = {
-      ...(volume ?? {}),
       mode: nextMode,
+      value: volume?.value ?? null,
     };
     setPref("volume", next);
   };
 
   const handleValueChange = (v: string) => {
     if (!v) {
-      const next: VolumePrefs = { ...(volume ?? {}), value: null };
+      const next: VolumePrefs = {
+        mode,
+        value: null,
+      };
       setPref("volume", next);
       return;
     }
     const num = Number(v.replace(",", "."));
-    if (Number.isNaN(num)) return;
-    const next: VolumePrefs = { ...(volume ?? {}), value: num };
+    if (Number.isNaN(num) || num < 0) return;
+
+    const next: VolumePrefs = {
+      mode,
+      value: num,
+    };
     setPref("volume", next);
   };
 
