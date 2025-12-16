@@ -7,25 +7,26 @@ import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
+import type { VolumePrefs } from "@/features/coach/types/prefsTypes";
 
 type VolumeInputMode = "weekly_hours" | "daily_minutes";
 
 type Props = {
-  local: any;
+  volume: VolumePrefs | undefined;
+  // z CoachPreferencies: setPref(key, value)
   setPref: (key: any, value: any) => void;
 };
 
-export function VolumeSection({ local, setPref }: Props) {
+export function VolumeSection({ volume, setPref }: Props) {
   const [open, setOpen] = useState(false);
 
-  const mode: VolumeInputMode = (local.volume_input_mode ??
-    "weekly_hours") as VolumeInputMode;
+  const mode: VolumeInputMode = (volume?.mode ?? "weekly_hours") as VolumeInputMode;
 
   const rawValue =
-    typeof local.volume_value === "number"
-      ? local.volume_value
-      : local.volume_value
-      ? Number(local.volume_value)
+    typeof volume?.value === "number"
+      ? volume.value
+      : volume?.value
+      ? Number(volume.value)
       : NaN;
 
   const safeVal =
@@ -33,7 +34,10 @@ export function VolumeSection({ local, setPref }: Props) {
 
   const { weeklyHours, dailyMinutes } = useMemo(() => {
     if (!Number.isFinite(safeVal) || safeVal <= 0) {
-      return { weeklyHours: null as number | null, dailyMinutes: null as number | null };
+      return {
+        weeklyHours: null as number | null,
+        dailyMinutes: null as number | null,
+      };
     }
 
     if (mode === "weekly_hours") {
@@ -41,7 +45,6 @@ export function VolumeSection({ local, setPref }: Props) {
       const dm = (wh * 60) / 7;
       return { weeklyHours: wh, dailyMinutes: dm };
     } else {
-      // daily_minutes
       const dm = safeVal;
       const wh = (dm * 7) / 60;
       return { weeklyHours: wh, dailyMinutes: dm };
@@ -58,23 +61,27 @@ export function VolumeSection({ local, setPref }: Props) {
   }, [weeklyHours, dailyMinutes]);
 
   const handleModeChange = (nextMode: VolumeInputMode) => {
-    setPref("volume_input_mode", nextMode);
+    const next: VolumePrefs = {
+      ...(volume ?? {}),
+      mode: nextMode,
+    };
+    setPref("volume", next);
   };
 
   const handleValueChange = (v: string) => {
     if (!v) {
-      setPref("volume_value", null);
+      const next: VolumePrefs = { ...(volume ?? {}), value: null };
+      setPref("volume", next);
       return;
     }
     const num = Number(v.replace(",", "."));
     if (Number.isNaN(num)) return;
-    setPref("volume_value", num);
+    const next: VolumePrefs = { ...(volume ?? {}), value: num };
+    setPref("volume", next);
   };
 
   const valueLabel =
-    mode === "weekly_hours"
-      ? "Value [h / týždeň]"
-      : "Value [min / deň]";
+    mode === "weekly_hours" ? "Value [h / týždeň]" : "Value [min / deň]";
 
   return (
     <section className={SECTION}>
