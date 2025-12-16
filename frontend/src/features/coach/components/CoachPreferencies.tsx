@@ -42,6 +42,7 @@ import { IntensityModelsSection } from "@/features/coach/components/prefs/Intens
 import { InjuriesSection } from "@/features/coach/components/prefs/InjuriesSection";
 import { FocusAvoidSection } from "@/features/coach/components/prefs/FocusAvoidSection";
 import { RehabSection } from "@/features/coach/components/prefs/RehabSection";
+import { VolumeSection } from "@/features/coach/components/prefs/VolumeSection";
 
 /* ---- local DTOs ---- */
 type SecondaryRole = "none" | "supplement" | "improve";
@@ -447,6 +448,8 @@ export default function CoachPreferencies() {
         setPref={setPref}
         updateSecondary={updateSecondary}
       />
+
+      <VolumeSection volume={local.volume} setPref={setPref} />
 
       <StrengthSection
         local={local}

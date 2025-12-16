@@ -1,5 +1,4 @@
 // src/shared/utils/supabaseServer.ts
-// getSupabaseServer
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";

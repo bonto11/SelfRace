@@ -11,6 +11,14 @@ export type GoalKind =
 /** Podporované športy v coach prefs. */
 export type SportKind = "run" | "ride" | "strength" | "swim";
 
+export type VolumeMode = "weekly_hours" | "daily_minutes";
+
+export type VolumePrefs = {
+
+  mode: VolumeMode;
+  value: number | null;
+}
+
 /** Coach personality (EN) + custom; allow null for "none selected". */
 export type CoachPersona =
   | "drill_sergeant"
@@ -197,6 +205,7 @@ export type CoachPrefs = {
   target_pace?: string;
   weeks?: number;
   sports?: SportKind[];
+  volume?: VolumePrefs;
   primary_sports?: SportKind[];
   targets?: {
     run?: RunTargets;
@@ -248,6 +257,10 @@ export type CoachPrefs = {
 export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
   primary_sports: ["run"],
+  volume: {
+    mode: "weekly_hours",
+    value: null,
+  },
   targets: {
     run: {
       races: [],
