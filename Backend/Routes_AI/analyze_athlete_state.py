@@ -1,6 +1,7 @@
 # Routes_AI/analyze_athlete_state.py
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
 import json
 import os
 import re
@@ -12,9 +13,10 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Services.user_prefs import service_load_user_settings
 
 
-# ---------- parsing utils (zjednodušené) ----------
+# ---------- parsing utils (simplified) ----------
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
@@ -54,7 +56,7 @@ def _sanitize_json_guess(s: str) -> str:
 def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
     Return (parsed_dict or None, cleaned_text, raw_text).
-    Nikdy neháče – keď sa nedá parsovať, parsed je None, ale vrátime cleaned aj raw.
+    Never throws – when parsing fails, parsed is None, but cleaned and raw are returned.
     """
     if not raw:
         return None, "", ""
@@ -79,79 +81,139 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 # ---------- prompt builder ----------
 
 
-def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
+def _build_prompts_for_analyze(
+    context_payload: dict,
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
     """
-    context_payload = CoachAnalyzeInput (to, čo skladáš v build_input_from_db)
+    context_payload = CoachAnalyzeInput (what you build in build_input_from_db)
+
+    EXPECTED BLOCKS (important for the LLM):
+    - user            – profile, age, training history...
+    - zones           – Z1–Z5 based on LTHR/HRmax
+    - thresholds      – lactate / FTP, especially running LT2
+    - bests           – personal bests
+    - recent_load     – volume and intensity of the last weeks
+    - recovery        – HRV, RHR, subjective fatigue...
+    - prefs           – goals, sports, days_off, etc. (including prefs.volume)
+    - external_events – other sports or life events (football, travel, etc.)
+                        that already create fixed load or consume time
+    - active_plan     – if a plan already exists, you can infer additional load
+    - user_settings   – optional block with language / timezone / units, etc.
     """
-    weeks = int((context_payload.get("prefs") or {}).get("weeks") or 4)
-    main_sport = (context_payload.get("prefs") or {}).get("main_sport") or "run"
+    settings = settings or {}
+    lang_code = (settings.get("language") or "sk").lower()
+
+    # human-readable language label for instructions
+    if lang_code.startswith("en"):
+        lang_label = "English"
+    elif lang_code.startswith("cs"):
+        lang_label = "Czech"
+    else:
+        # default = Slovak
+        lang_label = "Slovak"
+
+    # expose settings to the LLM as part of context
+    ctx_for_llm = dict(context_payload)
+    if settings:
+        ctx_for_llm["user_settings"] = settings
+
+    prefs = ctx_for_llm.get("prefs") or {}
+    weeks = int(prefs.get("weeks") or 4)
+    main_sport = prefs.get("main_sport") or "run"
 
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
-        "You receive a structured JSON context about an athlete (profile, zones, thresholds, PBs, "
-        "recent load, recovery, preferences). "
+        "You receive a structured JSON context about an athlete (profile, zones, thresholds, personal bests, "
+        "recent load, recovery, preferences including training volume preferences, external events, "
+        "and optional user_settings like language or timezone). "
+        "External events are non-editable sessions that already create load and must be considered "
+        "when judging fatigue and safe volume. "
         "Your task is to analyze the current training state and return a SINGLE valid JSON object "
         "describing the athlete's current fitness, fatigue, risks and recommended block focus. "
         "Do NOT output any prose or code fences, only JSON."
     )
 
-    schema_text = """
-{
+    schema_text = f"""
+{{
   "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp in UTC",
+  "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
-  "user_summary": {
-    "headline": "short Slovak summary (1 sentence)",
-    "bullets": string[],          // 2–5 krátkych bodov v slovenčine
-    "risks": string[],            // potenciálne riziká (únava, zranenie, objem)
-    "suggestions_short": string[] // 2–5 konkrétnych odporúčaní na najbližšie týždne
-  },
-  "ai_state": {
-    "fitness_level": {
-      "run":      { "level_1_to_10": number, "comment": string | null },
-      "ride":     { "level_1_to_10": number, "comment": string | null } | null,
-      "strength": { "level_1_to_10": number, "comment": string | null } | null
-    },
+  "user_summary": {{
+    "headline": "short summary in {lang_label} (1 sentence)",
+    "bullets": string[],          // 2–5 short bullet points in {lang_label}
+    "risks": string[],            // potential risks (fatigue, injury, volume), in {lang_label}
+    "suggestions_short": string[] // 2–5 concrete short suggestions for the next weeks, in {lang_label}
+  }},
+  "ai_state": {{
+    "fitness_level": {{
+      "run":      {{ "level_1_to_10": number, "comment": string | null }},
+      "ride":     {{ "level_1_to_10": number, "comment": string | null }} | null,
+      "strength": {{ "level_1_to_10": number, "comment": string | null }} | null
+    }},
     "fatigue_level": "low" | "moderate" | "high",
     "injury_risk": "low" | "moderate" | "high",
-    "volume_tolerance": {
+    "volume_tolerance": {{
       "weekly_minutes_min": number | null,
       "weekly_minutes_max": number | null,
-      "note": string | null
-    },
-    "intensity_tolerance": {
+      "note": string | null     // explanation, in {lang_label}
+    }},
+    "intensity_tolerance": {{
       "hard_sessions_per_week_max": number | null,
-      "comment": string | null
-    },
+      "comment": string | null   // explanation, in {lang_label}
+    }},
     "suggested_block_kind": "base_aerobic" | "base_long" | "threshold_speed" | "regeneration" | "race_specific" | string,
-    "key_limitations": string[],
-    "key_strengths": string[],
-    "metrics": {
+    "key_limitations": string[], // in {lang_label}
+    "key_strengths": string[],   // in {lang_label}
+    "metrics": {{
       "estimated_vo2max": number | null,
       "estimated_5k_time_min": number | null,
       "chronic_load_score": number | null,
       "acute_load_score": number | null
-    }
-  }
-}
+    }}
+  }}
+}}
 """.strip()
 
     user_txt = (
         "Analyze the following athlete context JSON and fill the schema below.\n"
-        "The main sport is: " + str(main_sport) + ".\n"
+        f"The main sport is: {main_sport}.\n"
         f"The upcoming planning horizon is about {weeks} weeks.\n\n"
         "CONTEXT_JSON:\n"
-        + json.dumps(context_payload, ensure_ascii=False)
+        + json.dumps(ctx_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
-        "- Always return a single JSON object exactly matching the schema (you may set some numeric fields to null if unknown).\n"
-        "- Keep all text in Slovak language.\n"
-        "- Headline and bullet points should be short and practical, focused on training.\n"
-        "- Use recent_load and recovery data to assess fatigue and injury risk.\n"
-        "- Use bests and thresholds to set fitness_level (run/strength/etc.).\n"
-        "- Do NOT invent impossible numbers (keep everything plausible).\n"
+        "- Always return a single JSON object exactly matching the schema "
+        "(you may set numeric fields to null if unknown).\n"
+        f"- All free text (headline, bullets, risks, suggestions, comments, notes) MUST be written in {lang_label} language.\n"
+        "- Headline and bullet points must be short and practical, focused on training.\n"
+        "- Use recent_load and recovery data to assess fatigue and injury risk realistically.\n"
+        "- Use bests and thresholds to set fitness_level for each sport.\n"
+        "- If prefs.volume is defined (mode = 'weekly_hours' or 'daily_minutes' and value != null),\n"
+        "  set volume_tolerance.weekly_minutes_min and weekly_minutes_max to reflect a safe range around this target.\n"
+        "  As a guideline, think roughly 70–120% of the implied weekly volume, then adjust based on recent_load and recovery.\n"
+        "- If prefs.volume.value is null, infer volume_tolerance only from recent_load, recovery and any existing plans, "
+        "and stay conservative.\n"
+        "- Treat external_events that are sports (team sports, club trainings, etc.) as part of the total training load "
+        "when judging safe volume and fatigue.\n"
+        "\n"
+        "Instructions specifically for external_events:\n"
+        "- If an event has recurrence_kind = 'weekly', treat it as a regular part of every training week.\n"
+        "- In textual recommendations, DO NOT use wording like 'in weeks with football'.\n"
+        "- Instead, use phrases such as 'on the day of football', 'the day before football', "
+        "'the day after football', or 'alongside regular football sessions' (translated to the target language).\n"
+        "- Single events (recurrence_kind = 'single') should be treated as exceptions in a specific week.\n"
+        "- When there is an active_plan, compare its typical weekly load with volume_tolerance; "
+        "if it is consistently above tolerance, highlight the risk clearly in risks and suggestions_short.\n"
+        "- In suggestions_short, do NOT recommend long-term behaviour that would keep weekly volume "
+        "above volume_tolerance.weekly_minutes_max.\n"
+        "- In volume_tolerance.note, briefly explain how you estimated the safe range "
+        "(for example from prefs.volume, recent_load, external_events, recovery).\n"
+        "- Keep all numbers realistic; do not invent extreme values.\n"
     )
+
     return system_txt, user_txt
 
 
@@ -178,13 +240,37 @@ def generate_athlete_state_json(
     debug_raw: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
     """
-    Hlavný AI klient pre ANALYZE ATHLETE STATE.
+    Main AI client for ANALYZE ATHLETE STATE.
 
-    Vždy vráti (state_dict, debug_trace_or_None).
-    Keď AI zlyhá, state_dict bude jednoduchý fallback s informáciou o chybe.
+    Always returns (state_dict, debug_trace_or_None).
+    When AI fails, state_dict is a simple fallback with error info.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
+
+    # ---- user_id + user_settings ----
+    user_block = context_payload.get("user") or {}
+    user_id_raw = user_block.get("id") or context_payload.get("user_id")
+
+    user_id: Optional[int] = None
+    try:
+        if user_id_raw is not None:
+            user_id = int(user_id_raw)
+    except Exception:
+        user_id = None
+
+    settings: Dict[str, Any] = {}
+    if user_id:
+        try:
+            settings = service_load_user_settings(user_id) or {}
+        except Exception:
+            settings = {}
+
+    # build prompts WITH settings (language etc.)
+    system_txt, user_txt = _build_prompts_for_analyze(
+        context_payload,
+        settings=settings,
+    )
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
     timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
@@ -193,12 +279,17 @@ def generate_athlete_state_json(
     models = _llm_models_priority(model)
     token_budgets = [1800, 1500, 1200]
 
-    system_txt, user_txt = _build_prompts_for_analyze(context_payload)
-
     trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
+
+    # timezone for generated_at
+    tz_name = settings.get("timezone") or "Europe/Bratislava"
+    try:
+        tzinfo = ZoneInfo(tz_name)
+    except Exception:
+        tzinfo = timezone.utc
 
     for m in models:
         for attempt in range(1, retries + 1):
@@ -225,11 +316,12 @@ def generate_athlete_state_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                # základná sanity – doplň timestamp/model ak chýbajú
+                # sanity defaults – but use LOCAL time for generated_at
+                now_local = datetime.now(tzinfo)
+
                 if "schema_version" not in parsed:
                     parsed["schema_version"] = 1
-                if "generated_at" not in parsed:
-                    parsed["generated_at"] = datetime.now(timezone.utc).isoformat()
+                parsed["generated_at"] = now_local.isoformat()
                 if "model" not in parsed:
                     parsed["model"] = m
 
@@ -255,10 +347,11 @@ def generate_athlete_state_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback – AI sa nepodarilo
+    # Fallback – AI failed completely
+    now_fallback = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 1,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": now_fallback,
         "model": "analyze-fallback",
         "user_summary": {
             "headline": "Nepodarilo sa získať AI analýzu.",

@@ -5,7 +5,7 @@ import { getSupabaseServer } from "./supabaseServer";
 
 /** Server-only: vráti prihláseného usera (alebo null). */
 export async function getAuthUser() {
-  const supabase = getSupabaseServer();
+  const supabase = await getSupabaseServer();
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;
 }

@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const c = cookies();
-    const idRaw = c.get("sr_id")?.value ?? null;
-    const uuid  = c.get("sr_uuid")?.value ?? null;
+    const cookieStore = await cookies();
+    const idRaw = cookieStore.get("sr_id")?.value ?? null;
+    const uuid  = cookieStore.get("sr_uuid")?.value ?? null;
 
     const idNum = Number.isFinite(Number(idRaw)) ? Number(idRaw) : null;
 

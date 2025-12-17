@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 import { CHART_HR } from "@/shared/ui/classes";
+import type {JSX} from "react";
 
 function zoneColor(hr: number) {
   const [c1, c2, c3, c4] = CHART_HR.zoneCuts;

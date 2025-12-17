@@ -13,7 +13,7 @@ import {
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
-import ActivitySingle from "@/shared/components/ActivitySingle";
+import SessionCard from "@/shared/components/SessionCard";
 import { toast } from "@/shared/components/ui/Toast";
 import { confirm } from "@/shared/components/ui/Confirm";
 import Button from "@/shared/components/ui/Button";
@@ -126,11 +126,15 @@ export default function PBRun() {
       </div>
 
       {/* FORM */}
-      <div className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}>
+      <div
+        className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}
+      >
         <select
           className={[inputClass, "sm:col-span-3"].join(" ")}
           value={form.distance_m}
-          onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, distance_m: e.target.value }))
+          }
         >
           <option value="">— choose distance —</option>
           {distanceOptions("run").map((o) => (
@@ -161,7 +165,9 @@ export default function PBRun() {
             type="date"
             className="absolute inset-0 opacity-0 w-full h-full"
             value={form.achieved_at}
-            onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, achieved_at: e.target.value }))
+            }
             aria-label="Pick date"
           />
         </div>
@@ -194,7 +200,7 @@ export default function PBRun() {
         </div>
       </div>
 
-      {/* LIST – Swipe + ActivitySingle (variant="pb") */}
+      {/* LIST – Swipe + SessionCard (variant="pb") */}
       <ul className={["space-y-2", NO_X].join(" ")}>
         {rows
           .slice()
@@ -229,6 +235,32 @@ export default function PBRun() {
               }
             };
 
+            const card = (
+              <SessionCard
+                variant="pb"
+                item={{
+                  id: b.distance_m,
+                  kind: "activity",
+                  title: dist,
+                  dateIso: isoDateOnly(b.achieved_at),
+                  sport: "run",
+                  activityId: actId ?? 0, // musí byť number; keď nemáš activityId, daj 0
+                  timeStr: timeDB,
+                  distanceStr: dist.replace("— ", ""),
+                  defaultOpen: false,
+
+                  isFavorite: isFav,
+                  onToggleFavorite: toggleFav,
+                  onEdit: doEdit,
+                  onDelete: doDelete,
+                }}
+              />
+            );
+
+            // ak chýba activityId, nech to stále renderuje card, len detail nebude mať streams
+            // (getSummary/getStreams sa pri activityId=0 typicky nič nenájde)
+            // Ak chceš prísnejšie: môžeš vyrobiť kind:"external" pre PB bez activityId.
+
             if (isTouch) {
               return (
                 <SwipeRow
@@ -237,46 +269,14 @@ export default function PBRun() {
                   onEdit={doEdit}
                   onDelete={doDelete}
                 >
-                  <ActivitySingle
-                    variant="pb"
-                    data={{
-                      id: b.distance_m,
-                      name: dist,
-                      dateIso: isoDateOnly(b.achieved_at),
-                      sport: "run",
-                      timeStr: timeDB,
-                      distanceStr: dist.replace("— ", ""),
-                      activityId: actId ?? undefined,
-                    }}
-                    defaultOpen={false}
-                    isFavorite={isFav}
-                    onToggleFavorite={toggleFav}
-                  />
+                  {card}
                 </SwipeRow>
               );
             }
 
-            return (
-              <ActivitySingle
-                key={b.distance_m}
-                variant="pb"
-                data={{
-                  id: b.distance_m,
-                  name: dist,
-                  dateIso: isoDateOnly(b.achieved_at),
-                  sport: "run",
-                  timeStr: timeDB,
-                  distanceStr: dist.replace("— ", ""),
-                  activityId: actId ?? undefined,
-                }}
-                defaultOpen={false}
-                onEdit={doEdit}
-                onDelete={doDelete}
-                isFavorite={isFav}
-                onToggleFavorite={toggleFav}
-              />
-            );
+            return <li key={b.distance_m}>{card}</li>;
           })}
+
         {rows.length === 0 && (
           <li className="text-sm opacity-70">No records yet.</li>
         )}
@@ -307,7 +307,8 @@ function SwipeRow({
   const THRESHOLD = 8;
 
   const clamp = (v: number) => Math.max(SNAP_OPEN, Math.min(SNAP_CLOSED, v));
-  const snap = (v: number) => setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (v: number) =>
+    setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   function onTouchStart(e: React.TouchEvent) {
     if (!enableSwipe) return;
@@ -330,7 +331,9 @@ function SwipeRow({
 
   return (
     <li
-      className={["relative w-full overflow-hidden select-none", NO_X].join(" ")}
+      className={["relative w-full overflow-hidden select-none", NO_X].join(
+        " "
+      )}
       style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -363,7 +366,10 @@ function SwipeRow({
       {/* obsah – posúvaný horizontálne */}
       <div
         className="relative z-10 w-full box-border will-change-transform"
-        style={{ transform: `translateX(${tx}px)`, transition: "transform 160ms ease-out" }}
+        style={{
+          transform: `translateX(${tx}px)`,
+          transition: "transform 160ms ease-out",
+        }}
       >
         {children}
       </div>

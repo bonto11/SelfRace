@@ -1,16 +1,14 @@
-// src/shared/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import {
-  ActivityRow,
-  ComponentVariant,
-} from "@/features/activity/utils/activity";
+import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
 import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
-import ActivitySingle from "@/shared/components/ActivitySingle";
+
+// NEW:
+import SessionCard from "@/shared/components/SessionCard";
 
 /* helpers */
 function normSportsList(sel: string | string[] | null | undefined): string[] | null {
@@ -47,7 +45,6 @@ type Props = {
   titleOverride?: string;
   variant?: ComponentVariant; // "activity" | "calendar" | "pb"
   suppressItemHeaderIfSingleDay?: boolean;
-  /** ak je zadané, táto aktivita sa otvorí (bez extra highlightu) */
   autoOpenActivityId?: number;
 };
 
@@ -86,6 +83,7 @@ export default function ActivityTable({
     setLoading(true);
 
     const inRange = selectByRange(start, end);
+
     const afterWhitelist =
       Array.isArray(allowedSports) && allowedSports.length
         ? inRange.filter((r) => allowedSports.includes(toEffSport(r)))
@@ -98,17 +96,6 @@ export default function ActivityTable({
     setRows(finalRows);
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
-
-  // DEBUG: sledujeme, či vieme nájsť aktivitu na auto-open
-  useEffect(() => {
-    if (autoOpenActivityId == null || rows.length === 0) return;
-    const hit = rows.find(
-      (r) => Number(r.activity_id) === Number(autoOpenActivityId)
-    );
-    // uvidíš v browser konzole
-    // eslint-disable-next-line no-console
-    console.log("[ActivityTable] autoOpenActivityId=", autoOpenActivityId, "hit=", hit?.name);
-  }, [autoOpenActivityId, rows]);
 
   // layout – konzistentné povrchy a paddingy z classes
   const wrapperCls = [
@@ -131,9 +118,7 @@ export default function ActivityTable({
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">
-          Žiadne aktivity v zadanom období.
-        </div>
+        <div className="opacity-70 py-4 text-sm">Žiadne aktivity v zadanom období.</div>
       )}
 
       {!loading && rows.length > 0 && (
@@ -142,40 +127,33 @@ export default function ActivityTable({
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
 
-            const dur =
-              r.moving_time_s != null
-                ? fmtSecondsHMS(r.moving_time_s)
-                : null;
-            const dist =
-              r.distance_m != null
-                ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
-                : null;
+            const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
+            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
 
             const isFocused =
               autoOpenActivityId != null &&
               Number(r.activity_id) === Number(autoOpenActivityId);
 
             return (
-              <li
-                key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}
-                className="px-0"
-              >
-                <ActivitySingle
+              <li key={`${r.activity_id}-${isFocused ? "open" : "closed"}`} className="px-0">
+                <SessionCard
                   variant={variant === "calendar" ? "calendar" : "activity"}
-                  data={{
+                  item={{
                     id: r.activity_id,
-                    name: r.name || "Activity",
+                    kind: "activity",
+                    title: r.name || "Activity",
                     dateIso: iso,
                     sport: eff,
+                    activityId: Number(r.activity_id),
+
                     timeStr: dur,
                     distanceStr: dist,
                     avgHr: r.average_heartrate_bpm ?? null,
                     maxHr: r.max_heartrate_bpm ?? null,
-                    activityId: r.activity_id,
-                    singleDayContext:
-                      suppressItemHeaderIfSingleDay && singleDay,
+
+                    defaultOpen: isFocused,
+                    hideDateLine: variant === "calendar", // kalendár = dátum často rieši header mimo itemu
                   }}
-                  defaultOpen={isFocused}
                 />
               </li>
             );

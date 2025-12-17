@@ -1,7 +1,7 @@
 # Services/coach_athlete_state.py
 from __future__ import annotations
-
-from datetime import datetime, timezone
+import json
+from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
@@ -13,6 +13,10 @@ from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.activities_summary_recent_load import (
     service_build_recent_load_block_for_analysis,
 )
+from Services.coach_external_events import service_list_external_events_window
+from Services.coach_plan_meta import service_build_active_plan_block_for_analysis
+from Routes_AI.analyze_athlete_state import generate_athlete_state_json
+
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,
@@ -20,11 +24,6 @@ from Routes_DB.coach_athlete_state import (
     db_list_states_for_user,
 )
 
-from Services.coach_plan_meta import (
-    service_build_active_plan_block_for_analysis,
-)
-
-from Routes_AI.analyze_athlete_state import generate_athlete_state_json
 from Configs.config import DEFAULT_MODEL
 
 
@@ -96,10 +95,64 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
             "total_weeks": None,
             "horizon_days": None,
         },
+        # external_events doplníme neskôr
     }
 
 
+def service_build_external_events_block_for_analysis(
+    user_id: int,
+    *,
+    days_past: int = 28,
+    days_future: int = 42,
+) -> Dict[str, Any]:
+    """
+    Vráti blok external_events pre analyze/weekly/daily:
+
+    {
+      "schema_version": 1,
+      "window": {
+        "from": "YYYY-MM-DD",
+        "to": "YYYY-MM-DD",
+        "events": [ ... occurrences ... ]
+      }
+    }
+
+    Okno: posledných N dní dozadu + M dní dopredu od dnes.
+    """
+    today = date.today()
+    d_from = today - timedelta(days=days_past)
+    d_to = today + timedelta(days=days_future)
+
+    try:
+        window = service_list_external_events_window(
+            user_id=user_id,
+            from_iso=d_from.isoformat(),
+            to_iso=d_to.isoformat(),
+        )
+        events = window.get("events") or []
+        return {
+            "schema_version": 1,
+            "window": {
+                "from": d_from.isoformat(),
+                "to": d_to.isoformat(),
+                "events": events,
+            },
+        }
+    except Exception as exc:  # noqa: BLE001
+        # nech to nespadne analyze/weekly/daily – len prázdny blok + error text
+        return {
+            "schema_version": 1,
+            "window": {
+                "from": d_from.isoformat(),
+                "to": d_to.isoformat(),
+                "events": [],
+            },
+            "error": f"external_events_load_failed: {exc}",
+        }
+
+
 # -------------------- INPUT BUILDER: DB → CoachAnalyzeInput --------------------
+
 
 def build_input_from_db(user_id: int) -> Dict[str, Any]:
     input_data = _build_base_input(user_id)
@@ -131,8 +184,13 @@ def build_input_from_db(user_id: int) -> Dict[str, Any]:
     # 7) RECOVERY
     input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)
 
-    # 8) ACTIVE PLAN – TU JE NOVÉ
+    # 8) ACTIVE PLAN
     input_data["active_plan"] = service_build_active_plan_block_for_analysis(
+        user_id=user_id
+    )
+
+    # 9) EXTERNAL EVENTS – nové
+    input_data["external_events"] = service_build_external_events_block_for_analysis(
         user_id=user_id
     )
 
@@ -235,6 +293,18 @@ def service_analyze_athlete(
 
     # 1) INPUT
     input_data = build_input_from_db(user_id)
+
+    # 1b) Kontext pre AI – deep copy + drop external_activities z prefs
+    context_for_ai = json.loads(json.dumps(input_data, default=str))
+    try:
+        prefs_block = context_for_ai.get("prefs") or {}
+        if isinstance(prefs_block, dict):
+            prefs_val = prefs_block.get("value")
+            if isinstance(prefs_val, dict):
+                prefs_val.pop("external_activities", None)
+    except Exception:
+        # nech analyze nespadne kvôli blbosti v prefse
+        pass
 
     # 2) AI CALL – čistý výstup z AI = "analysis"
     analysis, trace = generate_athlete_state_json(

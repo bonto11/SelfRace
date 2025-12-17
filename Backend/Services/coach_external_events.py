@@ -204,3 +204,79 @@ def service_save_external_events(
         "inserted": inserted,
         "count": len(norm_rows),
     }
+
+def service_build_external_events_block_for_analysis(
+    user_id: int,
+    *,
+    days_past: int = 28,
+    days_future: int = 42,
+) -> Dict[str, Any]:
+    """
+    Blok external_events pre analyze/weekly/daily – už odľahčený pre AI.
+
+    Štruktúra:
+
+    {
+      "schema_version": 1,
+      "window": {
+        "from": "YYYY-MM-DD",
+        "to": "YYYY-MM-DD",
+        "events": [
+          {
+            "date": "YYYY-MM-DD",
+            "sport": "football" | string | null,
+            "title": string | null,
+            "priority": "fixed" | "soft" | string | null,
+            "duration_min": number | null,
+            "start_time_local": "HH:MM" | null,
+            "weekday": 1–7 | null
+          }
+        ]
+      }
+    }
+    """
+    today = date.today()
+    d_from = today - timedelta(days=days_past)
+    d_to = today + timedelta(days=days_future)
+
+    try:
+        window = service_list_external_events_window(
+            user_id=user_id,
+            from_iso=d_from.isoformat(),
+            to_iso=d_to.isoformat(),
+        )
+
+        raw_events = window.get("events") or []
+        events: List[Dict[str, Any]] = []
+
+        for ev in raw_events:
+            events.append(
+                {
+                    "date": ev.get("occurrence_date"),
+                    "sport": ev.get("sport"),
+                    "title": ev.get("title"),
+                    "priority": ev.get("priority") or "fixed",
+                    "duration_min": ev.get("duration_min"),
+                    "start_time_local": ev.get("start_time_local"),
+                    "weekday": ev.get("weekday"),
+                }
+            )
+
+        return {
+            "schema_version": 1,
+            "window": {
+                "from": d_from.isoformat(),
+                "to": d_to.isoformat(),
+                "events": events,
+            },
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "schema_version": 1,
+            "window": {
+                "from": d_from.isoformat(),
+                "to": d_to.isoformat(),
+                "events": [],
+            },
+            "error": f"external_events_load_failed: {exc}",
+        }

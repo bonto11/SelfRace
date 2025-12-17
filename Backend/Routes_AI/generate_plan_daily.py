@@ -1,6 +1,7 @@
 # Routes_AI/generate_plan_daily.py
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
 import json
 import os
 import re
@@ -12,11 +13,12 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Services.user_prefs import service_load_user_settings
 from Services.coach_strength_mapper import (
     enrich_daily_plan_with_strength_exercises,
 )
 
-# ---------- parsing utils (copy z analyze/weekly) ----------
+# ---------- parsing utils (same as analyze/weekly) ----------
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
@@ -56,7 +58,7 @@ def _sanitize_json_guess(s: str) -> str:
 def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
     Return (parsed_dict or None, cleaned_text, raw_text).
-    Nikdy neháče – keď sa nedá parsovať, parsed je None, ale vrátime cleaned aj raw.
+    Never throws – on failure parsed is None, but cleaned/raw are returned.
     """
     if not raw:
         return None, "", ""
@@ -80,9 +82,10 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Vráti orezanú verziu context_payload pre AI:
-    - necháva len to, čo AI reálne potrebuje na plánovanie,
-    - zahadzuje veci typu strength_settings, coach_tone atď.
+    Return a trimmed-down version of context_payload for the LLM:
+    - keep only what is actually needed for planning,
+    - drop cosmetic things like coach_tone, rehab_focus, secondary_mix etc.,
+    - keep volume prefs and external_events.
     """
     ctx2: Dict[str, Any] = {}
 
@@ -90,7 +93,7 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if "week" in ctx:
         ctx2["week"] = ctx["week"]
 
-    # zones & thresholds & recent_load – sú užitočné pre plánovanie a nie sú obrovské
+    # zones & thresholds & recent_load
     if "zones" in ctx:
         ctx2["zones"] = ctx["zones"]
     if "thresholds" in ctx:
@@ -98,14 +101,33 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if "recent_load" in ctx:
         ctx2["recent_load"] = ctx["recent_load"]
 
-    # prefs – orezané
-    prefs = ctx.get("prefs") or {}
+    # ---- PREFS (flatten .value if present) ----
+    raw_prefs = ctx.get("prefs") or {}
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+        raw_prefs["value"], dict
+    ):
+        prefs = raw_prefs["value"]
+    else:
+        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+
     prefs2: Dict[str, Any] = {}
     prefs2["main_sport"] = prefs.get("main_sport")
     prefs2["start_date"] = prefs.get("start_date")
     prefs2["preferences"] = prefs.get("preferences") or {}
 
-    # TARGETS – necháme len to podstatné (vrátane strength.sessions_per_week)
+    # volume prefs (weekly_hours / daily_minutes)
+    if "volume" in prefs:
+        prefs2["volume"] = prefs.get("volume")
+
+    # weeks (if present)
+    if "weeks" in prefs:
+        prefs2["weeks"] = prefs.get("weeks")
+
+    # strength_settings (for strength mapper, even if LLM does not use it directly)
+    if "strength_settings" in prefs:
+        prefs2["strength_settings"] = prefs.get("strength_settings")
+
+    # TARGETS – keep only essentials (incl. strength.sessions_per_week)
     targets = (prefs.get("targets") or {}).copy()
     run_t = targets.get("run") or {}
     strength_t = targets.get("strength") or {}
@@ -116,7 +138,7 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             "race_goal": run_t.get("race_goal"),
             "race_type": run_t.get("race_type"),
             "target_time": run_t.get("target_time"),
-            "races": run_t.get("races"),  # môže byť užitočné
+            "races": run_t.get("races"),
         }
     if strength_t:
         targets2["strength"] = {
@@ -125,20 +147,26 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     prefs2["targets"] = targets2
-
-    # zahodíme veci, ktoré AI netreba: strength_settings, coach_tone, rehab_focus, secondary_mix, external_activities...
     ctx2["prefs"] = prefs2
 
-    # athlete_state – necháme len ai_state (volume/intensity tolerance, metrics)
+    # athlete_state – keep only ai_state (volume/intensity tolerance, metrics)
     athlete_state = ctx.get("athlete_state") or {}
     ai_state = athlete_state.get("ai_state") or {}
     ctx2["athlete_state"] = {"ai_state": ai_state}
 
-    # top-level „bezpečné“ polia, ktoré môžu byť užitočné
+    # external_events – keep full, LLM will pick relevant days
+    if "external_events" in ctx:
+        ctx2["external_events"] = ctx["external_events"]
+
+    # top-level helper fields
     if "user_id" in ctx:
         ctx2["user_id"] = ctx["user_id"]
     if "plan_id" in ctx:
         ctx2["plan_id"] = ctx["plan_id"]
+
+    # user_settings (if caller added it)
+    if "user_settings" in ctx:
+        ctx2["user_settings"] = ctx["user_settings"]
 
     return ctx2
 
@@ -146,21 +174,46 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
 # ---------- prompt builder ----------
 
 
-def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
+def _build_prompts_for_daily(
+    context_payload: dict,
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
     """
-    context_payload typicky:
+    context_payload typically:
       {
         "week": { ... },            # weekly meta info (goal/focus/load_phase/planned_minutes…)
-        "prefs": { ... },           # coach prefs vrátane targets, days_off, long_run_days…
-        "targets": { ... },         # voliteľne duplicitne ako flatten
-        "athlete_state": { ... },   # výstup z analyze_athlete_state
-        "recent_load": { ... },     # posledné týždne
+        "prefs": { ... },           # coach prefs incl. targets, days_off, long_run_days, volume…
+        "targets": { ... },         # optional duplicate as flatten
+        "athlete_state": { ... },   # output from analyze_athlete_state
+        "recent_load": { ... },     # last weeks
         "zones": { ... },
-        "thresholds": { ... }
+        "thresholds": { ... },
+        "external_events": { ... }, # definitions + occurrences of external events (if any)
+        "user_settings": { ... }    # optional language / timezone / units...
       }
     """
+    settings = settings or {}
+    lang_code = (settings.get("language") or "sk").lower()
+
+    if lang_code.startswith("en"):
+        lang_label = "English"
+    elif lang_code.startswith("cs"):
+        lang_label = "Czech"
+    else:
+        lang_label = "Slovak"
+
     week = context_payload.get("week") or {}
-    prefs = context_payload.get("prefs") or {}
+
+    # ---- PREFS (flatten .value if present) ----
+    raw_prefs = context_payload.get("prefs") or {}
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+        raw_prefs["value"], dict
+    ):
+        prefs = raw_prefs["value"]
+    else:
+        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+
     targets = context_payload.get("targets") or prefs.get("targets") or {}
 
     week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
@@ -168,6 +221,8 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     week_end = week.get("week_end") or context_payload.get("week_end") or ""
     focus = week.get("focus") or ""
     load_phase = week.get("load_phase") or ""
+    planned_minutes = week.get("planned_minutes")
+    planned_km = week.get("planned_km")
 
     main_sport = prefs.get("main_sport") or "run"
 
@@ -178,6 +233,21 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
+    # volume prefs
+    volume_prefs = prefs.get("volume") or {}
+    volume_mode = volume_prefs.get("mode")
+    volume_value = volume_prefs.get("value")
+
+    # intensity & volume tolerance from athlete_state
+    ai_state = (context_payload.get("athlete_state") or {}).get("ai_state") or {}
+    intensity_tol = ai_state.get("intensity_tolerance") or {}
+    hard_max = intensity_tol.get("hard_sessions_per_week_max")
+
+    volume_tol = ai_state.get("volume_tolerance") or {}
+    weekly_min = volume_tol.get("weekly_minutes_min")
+    weekly_max = volume_tol.get("weekly_minutes_max")
+
+    # human-readable strings for prompt
     avoid_two_a_day_str = (
         "- Do NOT schedule two-a-day sessions.\n"
         if avoid_two_a_day
@@ -194,37 +264,65 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
     # strength target
     strength_target = (targets.get("strength") or {}).get("sessions_per_week")
     if strength_target:
-        strength_str = f"{strength_target}× týždenne"
+        strength_str = f"{strength_target}× per week"
     else:
         strength_str = "no explicit target"
 
-    # intensity limit z athlete_state
-    ai_state = (context_payload.get("athlete_state") or {}).get("ai_state") or {}
-    hard_max = (ai_state.get("intensity_tolerance") or {}).get(
-        "hard_sessions_per_week_max"
-    )
-    hard_str = f"max {hard_max} hard sessions / week" if hard_max else "not specified"
+    if hard_max:
+        hard_str = f"max {hard_max} hard sessions / week"
+    else:
+        hard_str = "not specified"
+
+    # volume hints for prompt
+    if isinstance(planned_minutes, (int, float)):
+        weekly_volume_line = (
+            f"- Weekly target from WEEK META: planned_minutes ≈ {planned_minutes} min. "
+            "The sum of duration_min of all sessions in this week should be close to this (±15%).\n"
+        )
+    elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
+        weekly_volume_line = (
+            "- Volume preference: prefs.volume.mode = 'weekly_hours'. "
+            f"Target weekly volume ≈ {volume_value * 60:.0f} min of training. "
+            "Total duration_min in the week should be around this value, while also respecting volume_tolerance.\n"
+        )
+    elif isinstance(volume_value, (int, float)) and volume_mode == "daily_minutes":
+        weekly_volume_line = (
+            "- Volume preference: prefs.volume.mode = 'daily_minutes'. "
+            "Estimated number of training days = 7 - count(prefs.preferences.days_off). "
+            "Target weekly volume ≈ daily_minutes * number_of_training_days. "
+            "Try to keep the weekly sum of duration_min close to this volume and within volume_tolerance.\n"
+        )
+    elif isinstance(weekly_min, (int, float)) or isinstance(weekly_max, (int, float)):
+        weekly_volume_line = (
+            "- Weekly volume tolerance is defined in athlete_state.ai_state.volume_tolerance. "
+            "Keep total weekly duration_min between weekly_minutes_min and weekly_minutes_max whenever possible.\n"
+        )
+    else:
+        weekly_volume_line = (
+            "- Weekly volume is not explicitly specified. Infer it from recent_load and athlete_state, "
+            "and do NOT exceed their typical recent volume by more than ~15–20%.\n"
+        )
 
     system_txt = (
         "You are an endurance coaching assistant. "
-        "You receive structured JSON for ONE training week (meta info, athlete state, prefs, zones, thresholds). "
+        "You receive structured JSON for ONE training week (meta info, athlete state, prefs, zones, thresholds, external events). "
         "Your task is to generate DAY-BY-DAY training sessions for that week. "
         "Return ONE valid JSON object only. No prose, no code fences."
     )
 
-    # Strength slots – vysvetlenie pre AI (bez veľkého katalógu)
+    # Strength slots – conceptual description only (no concrete exercise names)
     strength_slots_desc = """
-- lower_quad: predná strana stehien a gluteály (drepy, výstupy, split squat)
-- lower_posterior: hamstringy a zadná strana nôh (rumunský mŕtvy ťah, single-leg deadlift)
-- core: stred tela (plank, bočný plank, ab wheel)
-- upper_pull: ťahové cviky na chrbát a biceps (príťahy, TRX row, guma)
-- upper_push: tlakové cviky na hrudník a triceps (kliky, tlaky)
+- lower_quad: anterior thighs and glutes (squat-type patterns, step-ups, split squat)
+- lower_posterior: hamstrings and posterior chain (hinge patterns like Romanian deadlift, single-leg deadlift)
+- core: trunk / midsection (plank-type patterns, anti-rotation, ab wheel)
+- upper_pull: pulling patterns for back and biceps (rows, TRX row, band pulls)
+- upper_push: pushing patterns for chest and triceps (push-ups, presses)
 """.strip()
 
     schema_text = """
 {
   "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp in UTC",
+  "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
   "week_index": number,
   "week_start": "YYYY-MM-DD",
@@ -264,10 +362,10 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
             "strength_exercises"?: [
               {
                 "slot": "lower_quad" | "lower_posterior" | "core" | "upper_pull" | "upper_push",
-                "sets": number,          // typical number of sets, e.g. 2–4
-                "reps": string,          // e.g. "6-8", "8-10", "10-15"
-                "rest_s": number,        // rest between sets in seconds
-                "notes": string | null   // short Slovak note what the block should do (tempo, control, range of motion)
+                "sets": number,
+                "reps": string,
+                "rest_s": number,
+                "notes": string | null
               }
             ]
           },
@@ -285,6 +383,27 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
 """.strip()
 
     context_for_ai = _minify_context_for_ai(context_payload)
+    if settings:
+        context_for_ai["user_settings"] = settings
+
+    # Explanation for external_events
+    external_hint = (
+        "- The context may contain an `external_events` block.\n"
+        "  Inside it there is typically a list of concrete occurrences (often under `window.events`)\n"
+        "  with fields like `occurrence_date`, `sport`, `duration_min`, `priority`, `title`.\n"
+        "- For every occurrence whose date lies between `week_start` and `week_end` (inclusive),\n"
+        "  you MUST treat it as an already fixed session that week:\n"
+        "    * create a session that clearly represents this event on the same day with a similar load;\n"
+        "      if the sport is not `run`/`ride`/`strength`/`swim`, then use `sport: \"other\"` and a short title\n"
+        "      based on the event `title` in the target language.\n"
+        "    * avoid scheduling another hard session of the SAME type on that day\n"
+        "      (for example, do not add a hard run interval session on a football day).\n"
+        "- Team sports such as football should usually be treated as high-intensity sessions and\n"
+        "  counted as one hard session in that week.\n"
+        "- If `duration_min` is null, assume a reasonable load (for team sports ~60–90 min;\n"
+        "  for big life events like wedding/travel treat the day mostly as rest with at most very light training).\n"
+        "- Never ignore these external events and always include their load in the total weekly duration.\n"
+    )
 
     user_txt = (
         "Generate a DAILY TRAINING PLAN for exactly one calendar week based on the context JSON.\n"
@@ -295,31 +414,37 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         f"Preferred days off: {days_off_str}\n"
         f"Preferred long run days: {long_run_str}\n"
         f"Strength training target: {strength_str}\n"
-        f"Intensity limit: {hard_str}\n\n"
+        f"Intensity limit: {hard_str}\n"
+        f"{weekly_volume_line}"
         "STRENGTH SLOTS (concept only, not concrete exercises):\n"
         + strength_slots_desc
+        + "\n\nEXTERNAL EVENTS (fixed activities & life events):\n"
+        + external_hint
         + "\n\nCONTEXT_JSON (this is the only ground truth – use it carefully):\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return a single JSON object exactly matching the schema (you may set some fields to null when unknown).\n"
-        "- All free text (title, notes) MUST be in Slovak language.\n"
+        f"- All free text for the athlete (titles, notes, etc.) MUST be written in {lang_label} language.\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
-        "- For each day, `sessions` MUST be a non-empty array. If it is a rest day, use exactly one session with:\n"
-        '    { "sport": "other", "title": "Deň odpočinku" | "Rest day", "duration_min": 0, "intensity": "rest", "session_type": "rest_day" }.\n'
-        "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on external high-intensity activity days (e.g. football).\n"
+        "- For each day, `sessions` MUST be a non-empty array. For a rest day, use exactly one session such as:\n"
+        '    { \"sport\": \"other\", \"title\": \"Rest day\" (or its translation), \"duration_min\": 0, '
+        '\"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n'
+        "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on days with high-intensity external events.\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
-        "- Use `hard_sessions_per_week_max` from the context (or a reasonable limit) to cap the number of hard/intense sessions per week.\n"
+        "- Use `hard_sessions_per_week_max` from athlete_state.ai_state.intensity_tolerance "
+        "to cap the total number of hard/intense sessions per week, INCLUDING high-intensity external events.\n"
         "- If strength.sessions_per_week is >= 1, you MUST schedule approximately that many strength sessions distributed through the week.\n"
         "- For strength sessions, you MUST use only the strength_exercises slot structure. Every item must contain slot, sets, reps, rest_s and notes.\n"
         "- For strength sessions:\n"
-        "    * If strength.sessions_per_week == 1 → use 6–8 strength_exercises covering whole body (lower_quad, lower_posterior, core, upper_pull, upper_push).\n"
+        "    * If strength.sessions_per_week == 1 → use 6–8 strength_exercises covering whole body "
+        "(lower_quad, lower_posterior, core, upper_pull, upper_push).\n"
         "    * If strength.sessions_per_week == 2 → use 4–6 strength_exercises per session, still covering whole body across the week.\n"
         "    * Otherwise (3+ sessions) → 3–5 strength_exercises per session.\n"
         "- Do NOT invent specific exercise names (like 'plank', 'split squat') – only describe slots and intent in notes.\n"
-        "- Keep total weekly load consistent with volume_tolerance and recent_load from the context.\n"
+        "- Keep total weekly load consistent with week.planned_minutes (if provided), volume_tolerance and recent_load.\n"
         "- Do NOT invent extreme workloads. Keep all durations and intensities realistic.\n"
     )
 
@@ -349,13 +474,36 @@ def generate_daily_week_json(
     debug_raw: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
     """
-    AI klient pre DAILY PLÁN jedného týždňa.
+    AI client for DAILY PLAN of a single week.
 
-    Vždy vráti (daily_dict, debug_trace_or_None).
-    Keď AI zlyhá, daily_dict bude fallback s info o chybe + prázdnym days.
+    Always returns (daily_dict, debug_trace_or_None).
+    On failure, daily_dict is a fallback with error info and empty days.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
+
+    # --- load user settings (language + timezone) ---
+    user_block = context_payload.get("user") or {}
+    user_id_raw = user_block.get("id") or context_payload.get("user_id")
+
+    user_id: Optional[int] = None
+    try:
+        if user_id_raw is not None:
+            user_id = int(user_id_raw)
+    except Exception:
+        user_id = None
+
+    settings: Dict[str, Any] = {}
+    if user_id:
+        try:
+            settings = service_load_user_settings(user_id) or {}
+        except Exception:
+            settings = {}
+
+    system_txt, user_txt = _build_prompts_for_daily(
+        context_payload,
+        settings=settings,
+    )
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
     timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
@@ -363,8 +511,6 @@ def generate_daily_week_json(
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
     models = _llm_models_priority(model)
     token_budgets = [2500, 2200, 2000]
-
-    system_txt, user_txt = _build_prompts_for_daily(context_payload)
 
     trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     last_raw: Optional[str] = None
@@ -376,19 +522,21 @@ def generate_daily_week_json(
     week_start = week.get("week_start") or None
     week_end = week.get("week_end") or None
 
-    # user + equip pre strength enrichment
-    user_id_raw = context_payload.get("user_id")
-    try:
-        user_id = int(user_id_raw) if user_id_raw is not None else 0
-    except Exception:
-        user_id = 0
-
+    # user + equipment for strength enrichment
+    # (user_id už máme vyššie)
     prefs = context_payload.get("prefs") or {}
     strength_settings = prefs.get("strength_settings") or {}
     available_equipment = strength_settings.get("available") or []
     today_date: date = datetime.now(timezone.utc).date()
 
     plan_id_from_ctx = context_payload.get("plan_id")
+
+    # timezone for generated_at
+    tz_name = settings.get("timezone") or "Europe/Bratislava"
+    try:
+        tzinfo = ZoneInfo(tz_name)
+    except Exception:
+        tzinfo = timezone.utc
 
     for m in models:
         for attempt in range(1, retries + 1):
@@ -415,11 +563,12 @@ def generate_daily_week_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                # sanity defaults
+                # sanity defaults (LOCAL time)
+                now_local = datetime.now(tzinfo)
+
                 if "schema_version" not in parsed:
                     parsed["schema_version"] = 1
-                if "generated_at" not in parsed:
-                    parsed["generated_at"] = datetime.now(timezone.utc).isoformat()
+                parsed["generated_at"] = now_local.isoformat()
                 if "model" not in parsed:
                     parsed["model"] = m
                 if "week_index" not in parsed:
@@ -431,12 +580,12 @@ def generate_daily_week_json(
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
 
-                # plan_id (aby ho videl strength_history mapper)
+                # plan_id (for strength history mapper)
                 if plan_id_from_ctx and "plan_id" not in parsed:
                     parsed["plan_id"] = plan_id_from_ctx
 
-                # Enrich strength sessions konkrétnymi cvikmi + zapíš históriu
-                if user_id > 0:
+                # Enrich strength sessions with concrete exercises + write history
+                if user_id:
                     parsed = enrich_daily_plan_with_strength_exercises(
                         user_id=user_id,
                         daily_plan=parsed,
@@ -467,11 +616,11 @@ def generate_daily_week_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback – AI sa nepodarilo
-    now_iso = datetime.now(timezone.utc).isoformat()
+    # Fallback – AI failed completely (still use local tz for timestamp)
+    now_fallback = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 1,
-        "generated_at": now_iso,
+        "generated_at": now_fallback,
         "model": "daily-fallback",
         "week_index": week_index,
         "week_start": week_start,
