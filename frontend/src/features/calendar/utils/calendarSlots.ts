@@ -1,16 +1,25 @@
 // src/features/calendar/utils/calendarSlots.ts
 
-export type CalendarItemKind = "activity" | "external" | "plan" | "done" | "missed";
+export type CalendarItemKind =
+  | "activity"
+  | "external"
+  | "plan"
+  | "done"
+  | "missed";
 
 export type CalendarItemBase = {
   sport: string;
   kind: CalendarItemKind;
-  /** ID Strava aktivity, ak nejaký existuje */
+  /** ID Strava aktivity, ak nejaký existuje (napr. pri 'activity' alebo 'done') */
   activityId?: number | null;
 };
 
 /**
  * Robustne vytiahne dátum vo forme YYYY-MM-DD z rôznych event/plan objektov.
+ * Podporuje:
+ * - external events: occurrence_date / single_date
+ * - plánované tréningy: plan_date
+ * - aktivity: date / start_date
  */
 export function eventDateIso(ev: any): string | null {
   const raw =
@@ -29,14 +38,18 @@ export function eventDateIso(ev: any): string | null {
 
 /**
  * Dedupe logika pre jeden deň:
- * - ak existuje DONE s konkrétnym activityId → skry čistú ACTIVITY s rovnakým activityId
- * - ak pre šport existuje ACTIVITY/DONE → skry PLAN/MISSED/EXTERNAL pre ten šport
- * - ak neexistuje ACTIVITY/DONE, ale existuje PLAN/MISSED → skry EXTERNAL pre ten šport
+ *
+ * 1) DONE vs ACTIVITY podľa activityId:
+ *    - ak existuje DONE s konkrétnym activityId → skry čistú ACTIVITY s rovnakým activityId
+ *
+ * 2) Podľa športu:
+ *    - ak pre šport existuje ACTIVITY/DONE → skry PLAN/MISSED/EXTERNAL pre ten šport
+ *    - ak neexistuje ACTIVITY/DONE, ale existuje PLAN/MISSED → skry EXTERNAL pre ten šport
  */
 export function dedupeCalendarItems<T extends CalendarItemBase>(items: T[]): T[] {
   if (!items.length) return items;
 
-  // 1) DONE vs ACTIVITY podľa activityId (aby nebola bodka + ✓ za ten istý workout)
+  // 1) DONE vs ACTIVITY podľa activityId
   const doneIds = new Set<number>();
   for (const it of items) {
     if (
@@ -55,6 +68,7 @@ export function dedupeCalendarItems<T extends CalendarItemBase>(items: T[]): T[]
       !Number.isNaN(Number(it.activityId)) &&
       doneIds.has(Number(it.activityId))
     ) {
+      // máme DONE pre tú istú aktivitu → activity bodku skryjeme
       return false;
     }
     return true;
