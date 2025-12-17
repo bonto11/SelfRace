@@ -1,3 +1,4 @@
+// src/features/calendar/ActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
@@ -9,7 +10,7 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 import Button from "@/shared/components/ui/Button";
 import { CALENDAR_CONTAINER, NO_X_OVERFLOW } from "@/shared/ui/classes";
-
+import { eventDateIso } from "@/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
 
 import CalendarGrid from "@/features/calendar/grid/CalendarGrid";
@@ -34,18 +35,6 @@ function safeSportKey(v: any): string {
   const s = String(v || "").toLowerCase();
   if (s in SPORT_COLORS) return s;
   return "other";
-}
-
-// robustný helper – skúsi viac polí, aby našiel dátum eventu
-function eventDateIso(ev: any): string | null {
-  const raw =
-    ev?.occurrence_date ??
-    ev?.plan_date ??
-    ev?.date ??
-    ev?.start_date ??
-    null;
-  if (!raw) return null;
-  return String(raw).slice(0, 10);
 }
 
 export default function ActivitiesCalendar({
@@ -77,7 +66,9 @@ export default function ActivitiesCalendar({
   const externals = useCalendarExternals(userId, range);
 
   // ─────────────────────────────
-  // 1) pre všetky dni pripravíme sety (date|sportKey), kde už je plán alebo aktivita
+  // 1) sety (date|sportKey), kde už je plán alebo aktivita
+  //    – používame len na globálne odfiltrovanie external events,
+  //      zvyšná dedupe logika (plan vs activity vs done) beží v useCalendarMap
   // ─────────────────────────────
   const planSlots = React.useMemo(() => {
     const slots = new Set<string>();
@@ -114,10 +105,12 @@ export default function ActivitiesCalendar({
     return rows.filter((ev) => {
       const dIso = eventDateIso(ev);
       if (!dIso) return false; // radšej skryť, ak nevieme deň
-      const sportKey = safeSportKey((ev as any).sport ?? (ev as any).sport_type);
+
+      const sportKey = safeSportKey(
+        (ev as any).sport ?? (ev as any).sport_type
+      );
       const key = `${dIso}|${sportKey}`;
 
-      // ak už je v ten deň plán alebo aktivita toho istého športu → external neukazuj
       if (planSlots.has(key)) return false;
       if (activitySlots.has(key)) return false;
 
@@ -126,7 +119,7 @@ export default function ActivitiesCalendar({
   }, [externals.rows, planSlots, activitySlots]);
 
   // ─────────────────────────────
-  // 3) map pre grid – už používa odfiltrované externe eventy
+  // 3) map pre grid – tu už (v hooku) prebehne dedupeCalendarItems
   // ─────────────────────────────
   const map = useCalendarMap({
     year,
