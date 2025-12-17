@@ -10,16 +10,12 @@ export type CalendarItemKind =
 export type CalendarItemBase = {
   sport: string;
   kind: CalendarItemKind;
-  /** ID Strava aktivity, ak nejaký existuje (napr. pri 'activity' alebo 'done') */
+  /** ID Strava aktivity, ak nejaký existuje (pri 'activity' alebo 'done') */
   activityId?: number | null;
 };
 
 /**
  * Robustne vytiahne dátum vo forme YYYY-MM-DD z rôznych event/plan objektov.
- * Podporuje:
- * - external events: occurrence_date / single_date
- * - plánované tréningy: plan_date
- * - aktivity: date / start_date
  */
 export function eventDateIso(ev: any): string | null {
   const raw =
@@ -68,13 +64,13 @@ export function dedupeCalendarItems<T extends CalendarItemBase>(items: T[]): T[]
       !Number.isNaN(Number(it.activityId)) &&
       doneIds.has(Number(it.activityId))
     ) {
-      // máme DONE pre tú istú aktivitu → activity bodku skryjeme
+      // máme DONE pre tú istú aktivitu → bodku skryjeme
       return false;
     }
     return true;
   });
 
-  // 2) športová dedupe logika (rovnaká pre kalendár aj widget)
+  // 2) športová dedupe logika
   const hasActivityOrDone = new Set(
     out
       .filter((x) => x.kind === "activity" || x.kind === "done")
