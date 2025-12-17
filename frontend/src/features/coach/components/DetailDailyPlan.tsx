@@ -1,8 +1,7 @@
-// src/features/coach/components/DetailDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/shared/ui/classes";
+import { SURFACE_CARD } from "@/shared/ui/classes";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
@@ -11,7 +10,8 @@ import {
   type DailyPlanDay,
 } from "@/features/coach/api/coach_plan_daily";
 import SessionCard, {
-  type SessionCardItem,
+  type KPI,
+  type PlanSession,
 } from "@/shared/components/SessionCard";
 
 /* ---------- helpers ---------- */
@@ -39,69 +39,6 @@ function weekdayLabel(value: string | null | undefined): string | null {
   return d.toLocaleDateString(undefined, {
     weekday: "short",
   });
-}
-
-function describeTargets(t: any): string | null {
-  if (!t) return null;
-  const parts: string[] = [];
-
-  if (t.pace_min_per_km) {
-    parts.push(`tempo ${t.pace_min_per_km} min/km`);
-  }
-
-  if (Array.isArray(t.hr_bpm) && t.hr_bpm.length === 2) {
-    const [lo, hi] = t.hr_bpm;
-    if (lo && hi) parts.push(`TF ${lo}–${hi} bpm`);
-  } else if (typeof t.hr_bpm === "number") {
-    parts.push(`TF ${t.hr_bpm} bpm`);
-  }
-
-  if (typeof t.power_w === "number") {
-    parts.push(`výkon ${t.power_w} W`);
-  }
-
-  return parts.length ? parts.join(" · ") : null;
-}
-
-function buildPlanItemFromDailySession(
-  day: DailyPlanDay,
-  s: DailyPlanDay["sessions"][number],
-  index: number
-): SessionCardItem {
-  const sport = (s as any).sport || "other";
-  const targetStr = describeTargets((s as any).targets);
-
-  const kpis = [
-    s.duration_min ? { label: "DURATION", value: `${s.duration_min} min` } : null,
-    s.intensity ? { label: "INTENSITY", value: s.intensity } : null,
-    targetStr ? { label: "TARGET", value: targetStr } : null,
-  ].filter(Boolean) as { label: string; value: string }[];
-
-  const structure = (s as any).structure ?? undefined;
-
-  const item: SessionCardItem = {
-    id: `${day.date ?? "day"}-${index}`,
-    kind: "plan",
-    title: s.title || s.session_type || s.sport || "Session",
-    dateIso: day.date ?? null,
-    sport,
-    hideDateLine: true,
-    subtitle: null,
-    kpis,
-
-    status: "planned",
-    planDur: s.duration_min ? `${s.duration_min} min` : null,
-    planIntensity: s.intensity ?? null,
-    planTarget: targetStr,
-    planNotes: s.notes ?? null,
-    planRaw: s,
-    planStructure: structure,
-    planExercises: Array.isArray(structure?.strength_exercises)
-      ? structure.strength_exercises
-      : [],
-  };
-
-  return item;
 }
 
 type ViewModel = {
@@ -181,8 +118,15 @@ export default function DetailDailyPlan() {
     };
   }, [overview]);
 
-  const { hasPlan, days, daysCount, sessionsCount, horizonDays, startDateLabel, endDateLabel } =
-    view;
+  const {
+    hasPlan,
+    days,
+    daysCount,
+    sessionsCount,
+    horizonDays,
+    startDateLabel,
+    endDateLabel,
+  } = view;
 
   /* ---------- stavy bez usera / loading / error ---------- */
 
@@ -281,51 +225,75 @@ export default function DetailDailyPlan() {
               Denný rozpis tréningov
             </h3>
             <p className="mt-1 text-xs text-slate-400">
-              Každý blok predstavuje jeden deň – pre každý tréning je
-              použitá rovnaká Session card ako v kalendári.
+              Každá karta predstavuje jeden tréning z AI plánu – používa sa
+              rovnaká Session card ako v kalendári.
             </p>
           </header>
 
           <div className="px-4 pb-4 space-y-3">
             {days.map((d) => {
+              const dateIso = d.date ?? null;
               const dateLabel = formatDate(d.date) ?? d.date;
-              const wdLabel = weekdayLabel(d.date);
+              const wd = weekdayLabel(d.date) ?? "";
 
-              return (
-                <div key={d.date} className={SURFACE_SUBCARD}>
-                  <div className="px-3 pt-3 pb-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">
-                          {dateLabel}
-                        </span>
-                        {wdLabel && (
-                          <span className="text-xs text-slate-400 uppercase">
-                            {wdLabel}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              if (!d.sessions || d.sessions.length === 0) {
+                return null;
+              }
 
-                    {d.sessions && d.sessions.length > 0 ? (
-                      <ul className="space-y-2">
-                        {d.sessions.map((s, i) => {
-                          const item = buildPlanItemFromDailySession(d, s, i);
-                          return (
-                            <li key={item.id}>
-                              <SessionCard variant="plan" item={item} />
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-slate-400">
-                        Žiadny tréning – voľno alebo len veľmi ľahký pohyb.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
+              return d.sessions.map((s, idx) => {
+                const kpis: KPI[] = [];
+                if (s.duration_min) {
+                  kpis.push({
+                    label: "DURATION",
+                    value: `${s.duration_min} min`,
+                  });
+                }
+                if (s.intensity) {
+                  kpis.push({
+                    label: "INTENSITY",
+                    value: String(s.intensity),
+                  });
+                }
+                if (s.zone_text) {
+                  kpis.push({
+                    label: "TARGET",
+                    value: String(s.zone_text),
+                  });
+                }
+
+                const item: PlanSession = {
+                  id: `${d.date}-${idx}`,
+                  kind: "plan",
+                  status: "planned",
+                  title:
+                    s.title || s.session_type || s.sport || "Tréning",
+                  dateIso,
+                  sport: s.sport || "other",
+                  subtitle: `${dateLabel ?? ""}${
+                    wd ? ` · ${wd.toUpperCase()}` : ""
+                  }`,
+                  kpis,
+                  notes: s.notes ?? null,
+                  planDur: s.duration_min
+                    ? `${s.duration_min} min`
+                    : null,
+                  planIntensity: s.intensity ?? null,
+                  planTarget: s.zone_text ?? null,
+                  planNotes: s.notes ?? null,
+                  planRaw: s,
+                  planStructure: s.structure ?? null,
+                  planExercises:
+                    (s.structure?.strength_exercises as any[]) ?? [],
+                };
+
+                return (
+                  <SessionCard
+                    key={item.id}
+                    variant="calendar"
+                    item={item}
+                  />
+                );
+              });
             })}
           </div>
 

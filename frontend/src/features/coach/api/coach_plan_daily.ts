@@ -47,15 +47,32 @@ export async function apiGenerateDailyForWeek(
 }
 
 /* ============ DAILY OVERVIEW (coach-plan-daily) ============ */
+export type DailyPlanStructure = {
+  warmup?: {
+    minutes?: number | null;
+    notes?: string | null;
+  } | null;
+  // MAIN je pole blokov (intervaly)
+  main?: any[] | null;
+  cooldown?: {
+    minutes?: number | null;
+    notes?: string | null;
+  } | null;
+  // pre silovku – už po enrichmente z BE
+  strength_exercises?: any[] | null;
+};
 
 export type DailyPlanSession = {
   sport: string;
-  title?: string | null;
-  duration_min?: number | null;
-  intensity?: string | null;
+  title: string | null;
+  duration_min: number | null;
+  intensity: string | null;
+  notes: string | null;
   zone_text?: string | null;
-  notes?: string | null;
   session_type?: string | null;
+
+  // 🔹 toto nám chýbalo
+  structure?: DailyPlanStructure | null;
 };
 
 export type DailyPlanDay = {
