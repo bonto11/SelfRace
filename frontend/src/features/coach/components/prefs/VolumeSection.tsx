@@ -144,22 +144,13 @@ export function VolumeSection({ volume, setPref }: Props) {
             </div>
           </div>
 
-        <div className="md:col-span-1 flex items-end">
-          <div className={[SURFACE_INLINE, "w-full px-3 py-2 text-xs"].join(" ")}>
-            {weeklyMin && weeklyMin > 0 ? (
-              <>
-                ≈ {weeklyHours!.toFixed(1)} h / týždeň • ≈{" "}
-                {Math.round(dailyMin!)} min / deň.
-                <br />
-                Coach sa väčšinou snaží zostať pod týmto objemom (okrem krátkeho
-                peaku pred hlavnými pretekmi).
-              </>
-            ) : (
-              <>
-                Ak necháš prázdne, AI si odhadne objem z histórie. Môže však ísť
-                vyššie, než ti reálne vyhovuje.
-              </>
-            )}
+          <div
+            className={[
+              SURFACE_INLINE,
+              "px-3 py-2 text-xs leading-relaxed opacity-80",
+            ].join(" ")}
+          >
+            {previewText}
           </div>
         </div>
       )}
