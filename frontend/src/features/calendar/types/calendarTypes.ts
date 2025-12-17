@@ -6,6 +6,13 @@ export type CalendarItemStatus = "planned" | "done" | "missed" | "none";
 export type CalendarItemKind = "activity" | "plan" | "external";
 export type CalendarPlanStatus = "planned" | "done" | "missed";
 
+export type DayPlanItem = {
+  id: number;
+  sport: SportKey;
+  status: PlanStatus;
+  activityId?: number | null; // ⬅ doplniť
+};
+
 export type SportKey =
   | "run"
   | "ride"
