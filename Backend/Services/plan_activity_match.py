@@ -374,6 +374,7 @@ def auto_map_plans_for_activities(
         if best_score >= score_threshold:
             try:
                 updated = db_link_session_to_activity(
+                    user_id,
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
                 )
