@@ -14,7 +14,7 @@ from openai import OpenAI
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
 
-# ---------- parsing utils (rovnaké ako pri analyze) ----------
+# ---------- parsing utils (same as analyze) ----------
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
@@ -54,7 +54,7 @@ def _sanitize_json_guess(s: str) -> str:
 def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
     Return (parsed_dict or None, cleaned_text, raw_text).
-    Nikdy neháče – keď sa nedá parsovať, parsed je None, ale vrátime cleaned aj raw.
+    Never throws – on failure parsed is None, but cleaned/raw are returned.
     """
     if not raw:
         return None, "", ""
@@ -81,7 +81,7 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
     """
-    context_payload typicky vyzerá cca takto:
+    context_payload typically looks like:
 
     {
       "schema_version": 1,
@@ -92,19 +92,20 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         "user": {...},
         "zones": {...},
         "thresholds": {...},
-        "prefs": {... alebo { "value": {...skutočné prefs...} }},
+        "prefs": {... or { "value": { ...real prefs... } }},
         "bests": {...},
         "recent_load": {...},
         "recovery": {...},
         "active_plan": {...},
-        "external_events": {...}   // blok s definíciami + výskytmi externých eventov
+        "external_events": {...}   // definitions + calendar occurrences of external events
       },
-      "athlete_state": {...},       // výstup z analyze_athlete_state (ai_state + user_summary)
+      "athlete_state": {...},       // output from analyze_athlete_state (ai_state + user_summary)
       "athlete_state_meta": {...}
     }
     """
     analyze_input = context_payload.get("analyze_input") or {}
-    # prefs môžu byť priamo alebo pod .value (rovnako ako pri daily)
+
+    # prefs can be directly present or under .value (same pattern as daily)
     raw_prefs = analyze_input.get("prefs") or context_payload.get("prefs") or {}
     if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
         raw_prefs["value"], dict
@@ -124,14 +125,13 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
     goal_kind = prefs.get("goal_kind") or "improve_overall"
 
     volume_prefs = prefs.get("volume") or {}
-    external_events = analyze_input.get("external_events") or {}
 
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON with athlete preferences (including volume preferences), "
         "AI analysis state, recent load, thresholds, zones and external events. "
         "External events are fixed activities like football matches, club runs or other regular trainings, "
-        "which already create load and must be counted into total weekly volume. "
+        "which already create load and must be counted into total weekly volume or at least reduce the room for training. "
         "Your task is to design a WEEK-BY-WEEK meta training plan (no daily sessions yet). "
         "You must return ONE valid JSON object only. No prose, no code fences."
     )
@@ -149,21 +149,21 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
   },
   "weeks": [
     {
-      "week_index": number,
-      "week_start": "YYYY-MM-DD",
-      "week_end": "YYYY-MM-DD",
-      "goal": string | null,
-      "focus": string | null,
-      "load_phase": string | null,
-      "planned_km": number | null,
-      "planned_minutes": number | null,
-      "notes": string | null
+      "week_index": number,          // 1-based index within the plan
+      "week_start": "YYYY-MM-DD",    // start of the week (e.g. Monday)
+      "week_end": "YYYY-MM-DD",      // end of the week
+      "goal": string | null,         // short weekly goal (in Slovak)
+      "focus": string | null,        // e.g. 'Z2 objem', 'threshold', 'VO2', 'pretek', 'regenerácia' (in Slovak)
+      "load_phase": string | null,   // e.g. 'base', 'build', 'peak', 'taper', 'recovery'
+      "planned_km": number | null,   // approximate planned distance in km for main sport (if relevant)
+      "planned_minutes": number | null, // approximate planned total training time for all sports (incl. external sports events)
+      "notes": string | null         // short notes in Slovak
     }
   ]
 }
 """.strip()
 
-    # iba popisne vysvetlíme LLM, kde čo je a ako rátať objem
+    # Explain to the LLM how to handle volume and external events
     volume_hint_lines: List[str] = []
 
     volume_mode = volume_prefs.get("mode")
@@ -171,38 +171,40 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
 
     if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
         volume_hint_lines.append(
-            "- V prefs.volume má športovec nastavený cieľový objem ako weekly_hours. "
-            "Prepoočítaj si to na minúty (hodiny * 60) a ber to ako cieľový týždenný objem."
+            "- In prefs.volume the athlete has a target as weekly_hours. "
+            "Convert this to minutes (hours * 60) and treat it as the baseline weekly volume target."
         )
     elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
         volume_hint_lines.append(
-            "- V prefs.volume má športovec nastavený cieľový objem ako daily_minutes. "
-            "Počet tréningových dní si vieš približne odvodiť z preferences.days_off, "
-            "teda tréningové dni ≈ 7 - počet days_off. "
-            "Cieľový týždenný objem ≈ daily_minutes * počet tréningových dní."
+            "- In prefs.volume the athlete has a target as daily_minutes. "
+            "You can approximate the number of training days from prefs.preferences.days_off, "
+            "so training_days ≈ 7 - count(days_off). "
+            "The baseline weekly volume target ≈ daily_minutes * training_days."
         )
     else:
         volume_hint_lines.append(
-            "- prefs.volume.value je null alebo chýba, takže cieľový objem odhadni z recent_load, "
-            "recovery a z ai_state.volume_tolerance, buď radšej konzervatívny."
+            "- prefs.volume.value is null or missing, so estimate the target volume "
+            "from recent_load, recovery and ai_state.volume_tolerance. Be conservative."
         )
 
     volume_hint_lines.append(
-        "- V athlete_state.ai_state.volume_tolerance máš weekly_minutes_min a weekly_minutes_max. "
-        "Pri návrhu plánovaných týždňov sa snaž, aby planned_minutes každého týždňa boli "
-        "spravidla v tomto rozumnom pásme. Krátkodobé odchýlky môžu byť, ale nie extrémne."
+        "- In athlete_state.ai_state.volume_tolerance you have weekly_minutes_min and weekly_minutes_max. "
+        "When designing planned weeks, keep planned_minutes of each week mostly inside this range. "
+        "Short-term deviations are possible but should not be extreme."
     )
 
     volume_hint_lines.append(
-        "- Blok analyze_input.external_events obsahuje externé eventy (definície a ich výskyty v kalendári). "
-        "Tieto eventy ber ako súčasť tréningového objemu ak ide o sportove aktivitu – teda planned_minutes pre daný týždeň "
-        "by mali zahŕňať aj odhadovaný čas z týchto externých eventov."
+        "- The block analyze_input.external_events contains external events (definitions and calendar occurrences). "
+        "Treat sports-type events (football, club trainings, etc.) as part of the training load – "
+        "planned_minutes for a given week should include a reasonable estimate of these sports events. "
+        "For non-sport life events (wedding, long travel, etc.) reduce the available time for training "
+        "and usually lower planned_minutes for that week."
     )
 
     volume_hint_lines.append(
-        "- Použi recent_load a recovery na rozhodnutie o priebehu záťaže: "
-        "skús cyklus 2–3 vyššie záťažové týždne -> 1 ľahší (regeneračný) týždeň, "
-        "pričom nikdy dlhodobo neprekračuj volume_tolerance.weekly_minutes_max."
+        "- Use recent_load and recovery to shape load progression: for example a cycle of "
+        "2–3 higher load weeks followed by 1 lighter recovery week, without chronically exceeding "
+        "volume_tolerance.weekly_minutes_max."
     )
 
     volume_hint = "\n".join(volume_hint_lines)
@@ -214,37 +216,41 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         f"Planning horizon (weeks): {weeks}\n"
         f"Preferred plan start date (if any): {start_date or 'none'}\n\n"
         "The CONTEXT_JSON you receive contains:\n"
-        "- analyze_input.user: základný profil (vek, tréningová história,...)\n"
-        "- analyze_input.zones: tréningové zóny\n"
-        "- analyze_input.thresholds: prahy (najmä running LT2)\n"
-        "- analyze_input.bests: osobné rekordy\n"
-        "- analyze_input.recent_load: objem a intenzita posledných týždňov\n"
-        "- analyze_input.recovery: HRV, RHR, subjektívna únava...\n"
-        "- analyze_input.prefs alebo analyze_input.prefs.value: coach prefs (ciele, days_off, main_sport, volume,...)\n"
-        "- analyze_input.active_plan: ak už existuje starší plán\n"
-        "- analyze_input.external_events: externé eventy, ktoré už samé o sebe vytvárajú tréningovú záťaž alebo len beru cas na trening\n"
-        "- athlete_state: AI analýza (ai_state + user_summary) z predchádzajúceho kroku\n\n"
+        "- analyze_input.user: basic profile (age, history, etc.)\n"
+        "- analyze_input.zones: training zones\n"
+        "- analyze_input.thresholds: thresholds (especially running LT2)\n"
+        "- analyze_input.bests: personal bests\n"
+        "- analyze_input.recent_load: volume and intensity of the last weeks\n"
+        "- analyze_input.recovery: HRV, RHR, subjective fatigue, etc.\n"
+        "- analyze_input.prefs or analyze_input.prefs.value: coach prefs (goals, days_off, main_sport, volume, ...)\n"
+        "- analyze_input.active_plan: previous/active plan if it exists\n"
+        "- analyze_input.external_events: external sports and life events that either create training load\n"
+        "  (team sports, regular trainings) or take away time for training (weddings, long travel, etc.)\n"
+        "- athlete_state: AI analysis from the previous step (ai_state + user_summary)\n\n"
         "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
         + json.dumps(context_payload, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
-        "- Always return a single JSON object exactly matching the schema (you may set some numeric fields to null if unknown).\n"
-        "- All free text (goal, focus, notes) MUST be in Slovak language.\n"
-        "- Make sure week_index starts at 1 and grows consecutively (1, 2, 3, ...).\n"
+        "- Always return a single JSON object exactly matching the schema (you may set numeric fields to null if unknown).\n"
+        "- All free text fields (goal, focus, notes) MUST be written in Slovak language.\n"
+        "- Make sure week_index starts at 1 and increases consecutively (1, 2, 3, ...).\n"
         "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
-        "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance) to decide load_phase and load progression per week.\n"
-        "- Respect the number of weeks requested (context_payload.weeks alebo prefs.weeks) as much as possible.\n"
-        "- Do NOT generate daily sessions here – only weekly summary/meta.\n"
-        "- planned_minutes musia reprezentovať celkový približný tréningový čas za týždeň vrátane externých eventov ktore su brane ako sport a maju nejaku intenzitu.\n"
-        "- Pri návrhu objemu a progresie sa riaď nasledujúcimi pokynmi:\n"
+        "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance)\n"
+        "  to assign load_phase and decide the load progression across weeks.\n"
+        "- Respect as much as possible the requested number of weeks (context_payload.weeks or prefs.weeks).\n"
+        "- Do NOT generate daily sessions here – only the weekly meta information.\n"
+        "- planned_minutes must represent the approximate total training time per week, including sports-type external events\n"
+        "  that carry meaningful intensity. For big non-sport events, reduce planned_minutes because there is less room for training.\n"
+        "- When planning the overall volume and progression, follow these guidelines:\n"
         + volume_hint
         + "\n"
-        "- Ak má athlete_state.ai_state.fatigue_level = 'high' alebo injury_risk = 'high', "
-        "zaraď na začiatok plánu aspoň 1 regeneračný týždeň s planned_minutes blízko weekly_minutes_min.\n"
-        "- Pri peak/race týždňoch neprekračuj volume_tolerance.weekly_minutes_max a radšej zvýš intenzitu než objem.\n"
-        "- Neodporúčaj dlhodobý trend, kde by väčšina týždňov bola výrazne nad weekly_minutes_max.\n"
+        "- If athlete_state.ai_state.fatigue_level = 'high' or injury_risk = 'high', "
+        "make at least the first week a clear recovery week with planned_minutes close to weekly_minutes_min.\n"
+        "- For peak/race weeks do not exceed volume_tolerance.weekly_minutes_max; prefer higher intensity over higher volume.\n"
+        "- Do NOT recommend a long-term trend where most weeks are far above weekly_minutes_max.\n"
     )
+
     return system_txt, user_txt
 
 
@@ -271,10 +277,10 @@ def generate_weekly_plan_json(
     debug_raw: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
     """
-    AI klient pre WEEKLY PLÁN.
+    AI client for WEEKLY PLAN.
 
-    Vždy vráti (weekly_dict, debug_trace_or_None).
-    Keď AI zlyhá, weekly_dict bude jednoduchý fallback s informáciou o chybe.
+    Always returns (weekly_dict, debug_trace_or_None).
+    When AI fails, weekly_dict is a simple fallback with error info.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
@@ -326,7 +332,7 @@ def generate_weekly_plan_json(
                 if "model" not in parsed:
                     parsed["model"] = m
 
-                # doplnenie plan_meta.weeks z kontextu, ak chýba
+                # ensure plan_meta.weeks is set from context if missing
                 plan_meta = parsed.get("plan_meta") or {}
                 if "weeks" not in plan_meta or plan_meta.get("weeks") is None:
                     analyze_input = context_payload.get("analyze_input") or {}
@@ -364,7 +370,7 @@ def generate_weekly_plan_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback – AI sa nepodarilo
+    # Fallback – AI completely failed
     analyze_input_fb = context_payload.get("analyze_input") or {}
     raw_prefs_fb = analyze_input_fb.get("prefs") or context_payload.get("prefs") or {}
     if isinstance(raw_prefs_fb, dict) and "value" in raw_prefs_fb and isinstance(
