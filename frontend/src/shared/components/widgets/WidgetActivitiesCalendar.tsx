@@ -65,7 +65,11 @@ export default function WidgetWeekActivities({
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const startIso = iso(
+    monday.getFullYear(),
+    monday.getMonth(),
+    monday.getDate()
+  );
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
@@ -107,14 +111,16 @@ export default function WidgetWeekActivities({
 
     // externals (už expandované cez occurrence_date)
     for (const ev of externalRows) {
-      const k = String((ev as any).occurrence_date || ev.single_date || "")
+      const k = String(
+        (ev as any).occurrence_date || (ev as any).single_date || ""
+      )
         .slice(0, 10)
         .trim();
       if (!k || !map.has(k)) continue;
 
       map.get(k)!.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
-        sport: safeSportKey(ev.sport),
+        sport: safeSportKey((ev as any).sport),
         kind: "external",
       });
     }
@@ -126,7 +132,9 @@ export default function WidgetWeekActivities({
       if (!map.has(k)) continue;
       map.get(k)!.push({
         id: r.activity_id,
-        sport: safeSportKey((r as any).sport || (r as any).sport_type_fe || "other"),
+        sport: safeSportKey(
+          (r as any).sport || (r as any).sport_type_fe || "other"
+        ),
         kind: "activity",
       });
     }
@@ -158,7 +166,9 @@ export default function WidgetWeekActivities({
 
       // ak má activity_id → označ activity ako done
       if (actId) {
-        const idx = arr.findIndex((it) => it.kind === "activity" && it.id === actId);
+        const idx = arr.findIndex(
+          (it) => it.kind === "activity" && it.id === actId
+        );
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done" };
           continue;
@@ -175,33 +185,53 @@ export default function WidgetWeekActivities({
       }
     }
 
-    // DEDUPE: ak existuje activity (alebo done) pre šport S → vyhoď external + plan/missed pre S
+    // DEDUPE:
+    // - ak existuje activity/done pre šport S → nechaj len activity/done (skry plan/missed/external S)
+    // - ak neexistuje activity/done, ale existuje plan/missed S → skry external S
     for (const [k, arr] of map.entries()) {
-      const hasActivitySport = new Set(
+      const hasActivityOrDone = new Set(
         arr
           .filter((x) => x.kind === "activity" || x.kind === "done")
           .map((x) => x.sport)
       );
 
-      if (hasActivitySport.size === 0) continue;
-
-      map.set(
-        k,
-        arr.filter((x) => {
-          if (x.kind === "plan" || x.kind === "missed" || x.kind === "external") {
-            return !hasActivitySport.has(x.sport);
-          }
-          return true;
-        })
+      const hasPlanOrMissed = new Set(
+        arr
+          .filter((x) => x.kind === "plan" || x.kind === "missed")
+          .map((x) => x.sport)
       );
+
+      if (hasActivityOrDone.size === 0 && hasPlanOrMissed.size === 0) continue;
+
+      const filtered = arr.filter((x) => {
+        // 1) ak je pre daný šport activity/done → zobraz len activity/done
+        if (hasActivityOrDone.has(x.sport)) {
+          return x.kind === "activity" || x.kind === "done";
+        }
+
+        // 2) ak nie je activity/done, ale je plan/missed → skry external
+        if (hasPlanOrMissed.has(x.sport) && x.kind === "external") {
+          return false;
+        }
+
+        return true;
+      });
+
+      map.set(k, filtered);
     }
 
     return map;
   }, [monday, startIso, endIso, selectByRange, selectPlanByRange, externalRows]);
 
   const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
-    `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
+    `${monday.toLocaleDateString("sk-SK", {
+      month: "short",
+      day: "2-digit",
+    })} – ` +
+    `${sunday.toLocaleDateString("sk-SK", {
+      month: "short",
+      day: "2-digit",
+    })}`;
 
   const handleOpen = () => router.push(openHref);
 
@@ -220,7 +250,9 @@ export default function WidgetWeekActivities({
       innerClassName={NO_X_OVERFLOW}
     >
       {extErr && (
-        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">{extErr}</div>
+        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">
+          {extErr}
+        </div>
       )}
 
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
