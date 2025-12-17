@@ -7,6 +7,8 @@ import type {
   SportKind,
   CoachPersona,
   RunTargets,
+  SecondaryRole,
+  SecondaryMix,
 } from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";
 import { useUserId } from "@/shared/hooks/useUserId";
@@ -45,12 +47,8 @@ import { RehabSection } from "@/features/coach/components/prefs/RehabSection";
 import { VolumeSection } from "@/features/coach/components/prefs/VolumeSection";
 
 /* ---- local DTOs ---- */
-type SecondaryRole = "none" | "supplement" | "improve";
-type SecondaryMix = {
-  sport: SportKind;
-  role: SecondaryRole;
-  share_pct: number;
-};
+
+
 
 type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
@@ -103,7 +101,10 @@ export default function CoachPreferencies() {
 
         console.log("[PREFS] pRaw from DB:", pRaw);
 
-        const p = (pRaw || {}) as CoachPrefsExtended;
+        // ⚠️ Dropni staré prefs.external_activities, nech to už v state ani v SAVE neexistuje
+        const pAny = (pRaw || {}) as any;
+        const { external_activities: _ext, ...p } = pAny;
+
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
 
@@ -252,7 +253,7 @@ export default function CoachPreferencies() {
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
       };
 
-      // vyčisti targets – ulož iba zmysluplné
+      // vyčisti targets – ulož iba zmysluplné (vrátane swim)
       if (normalized.targets) {
         const t = normalized.targets as any;
         const cleaned: any = {};
@@ -278,11 +279,32 @@ export default function CoachPreferencies() {
           cleaned.strength = t.strength;
         }
 
+        // NEW: swim – len ak má reálny cieľ
+        if (
+          t.swim &&
+          (t.swim.weekly_time_target_min != null ||
+            (t.swim.sessions_per_week != null &&
+              Number(t.swim.sessions_per_week) > 0) ||
+            (t.swim.focus && t.swim.focus !== "technique"))
+        ) {
+          cleaned.swim = {
+            ...t.swim,
+            sessions_per_week:
+              t.swim.sessions_per_week != null
+                ? Number(t.swim.sessions_per_week)
+                : null,
+          };
+        }
+
         normalized.targets =
           Object.keys(cleaned).length > 0 ? cleaned : undefined;
       }
 
-      await saveCoachPrefs(userId, normalized);
+      // ⚠️ definitívne dropni staré prefs.external_activities z payloadu na BE
+      const { external_activities: _ext2, ...normalizedClean } =
+        normalized as any;
+
+      await saveCoachPrefs(userId, normalizedClean);
       toast.success("Preferences saved");
       dirtyRef.current = false;
     } catch (e: any) {
@@ -299,7 +321,10 @@ export default function CoachPreferencies() {
         apiFetchUserThresholdsLatest(userId),
       ]);
 
-      const p = (fresh || {}) as CoachPrefsExtended;
+      // opäť dropni eventual external_activities zo servera
+      const pAny = (fresh || {}) as any;
+      const { external_activities: _ext, ...p } = pAny;
+
       const zones = (zonesRaw ?? null) as any;
       const thrRows = (thrRowsRaw ?? []) as any[];
 

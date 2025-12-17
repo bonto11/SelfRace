@@ -91,7 +91,7 @@ def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
     - recent_load     – objem a intenzita posledných týždňov
     - recovery        – HRV, RHR, subjektívna únava...
     - prefs           – ciele, športy, days_off, atď. (vrátane prefs.volume)
-    - external_events – futbal, skupinové tréningy, krúžky, atď. ktoré treba brať ako fix / vysokú prioritu
+    - external_events – ine sportove ci osobne aktivity ci uz tréningy, krúžky, atď. ktoré treba brať ako fixne
     - active_plan     – ak už existuje plán, dá sa z neho odhadnúť záťaž
     """
     prefs = context_payload.get("prefs") or {}
@@ -102,7 +102,7 @@ def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
         "You are an endurance coaching assistant for runners and multisport athletes. "
         "You receive a structured JSON context about an athlete (profile, zones, thresholds, PBs, "
         "recent load, recovery, preferences including training volume preferences, and external events). "
-        "External events are non-editable sessions like football matches, group runs or other fixed trainings "
+        "External events are non-editable sessions"
         "that already create load and need to be considered when judging fatigue and safe volume. "
         "Your task is to analyze the current training state and return a SINGLE valid JSON object "
         "describing the athlete's current fitness, fatigue, risks and recommended block focus. "
@@ -169,8 +169,15 @@ def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
         "  nastav volume_tolerance.weekly_minutes_min a weekly_minutes_max tak, aby reálne odrážali bezpečný rozsah okolo tohto cieľa.\n"
         "  Napr. približne 70–120 % z implikovanej týždennej záťaže, upravené podľa recent_load a recovery.\n"
         "- Ak prefs.volume.value je null, odhadni volume_tolerance len z recent_load, recovery a doterajších plánov – buď radšej konzervatívny.\n"
-        "- Použi external_events blok ako existujúce tréningy/aktivity, ktoré už pridávajú záťaž (napr. futbal, krúžky, klubové behy).\n"
-        "  Zohľadni ich pri fatigue_level, injury_risk a pri návrhu suggestions_short (napr. odporuč menej tvrdých behov okolo ťažkých external_events).\n"
+        "EXTERNAL_EVENTS: toto sú externé športy a udalosti (futbal, svadba, cestovanie...),\n"
+        "ktoré ovplyvňujú tréningový plán.\n"
+        "\n"
+        "Inštrukcie pre prácu s external_events:\n"
+        "- Ak má udalosť recurrence_kind = \"weekly\", ber ju ako pravidelnú súčasť každého týždňa.\n"
+        "- V textových odporúčaniach NEPOUŽÍVAJ formulácie typu \"v týždňoch s futbalom\".\n"
+        "- Namiesto toho píš: \"v deň futbalu\", \"deň pred futbalom\", \"deň po futbale\" alebo\n"
+        "  \"popri pravidelnom futbale\".\n"
+        "- Single udalosti (recurrence_kind = \"single\") ber ako výnimky v konkrétnom týždni.\n"
         "- Ak už existuje active_plan, porovnaj jeho týždennú záťaž s volume_tolerance; ak je výrazne nad ňou, upozorni na riziko.\n"
         "- Do suggestions_short nedávaj odporúčania, ktoré dlhodobo prekračujú volume_tolerance.weekly_minutes_max.\n"
         "- Do note v volume_tolerance stručne vysvetli, z čoho si objem odvodil (prefs.volume, recent_load, external_events...).\n"

@@ -99,8 +99,15 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if "recent_load" in ctx:
         ctx2["recent_load"] = ctx["recent_load"]
 
-    # prefs – orezané, ale nechávame volume a základné veci
-    prefs = ctx.get("prefs") or {}
+    # ---- PREFS (flatten .value ak je) ----
+    raw_prefs = ctx.get("prefs") or {}
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+        raw_prefs["value"], dict
+    ):
+        prefs = raw_prefs["value"]
+    else:
+        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+
     prefs2: Dict[str, Any] = {}
     prefs2["main_sport"] = prefs.get("main_sport")
     prefs2["start_date"] = prefs.get("start_date")
@@ -176,7 +183,16 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
       }
     """
     week = context_payload.get("week") or {}
-    prefs = context_payload.get("prefs") or {}
+
+    # ---- PREFS (flatten .value ak je) ----
+    raw_prefs = context_payload.get("prefs") or {}
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+        raw_prefs["value"], dict
+    ):
+        prefs = raw_prefs["value"]
+    else:
+        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+
     targets = context_payload.get("targets") or prefs.get("targets") or {}
 
     week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
@@ -325,10 +341,10 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
             "strength_exercises"?: [
               {
                 "slot": "lower_quad" | "lower_posterior" | "core" | "upper_pull" | "upper_push",
-                "sets": number,          // typical number of sets, e.g. 2–4
-                "reps": string,          // e.g. "6-8", "8-10", "10-15"
-                "rest_s": number,        // rest between sets in seconds
-                "notes": string | null   // short Slovak note what the block should do (tempo, control, range of motion)
+                "sets": number,
+                "reps": string,
+                "rest_s": number,
+                "notes": string | null
               }
             ]
           },
@@ -349,14 +365,21 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
 
     # vysvetlenie external_events
     external_hint = (
-        "- The context may contain an 'external_events' block. "
-        "Inside it there is typically a list of concrete occurrences (often under 'window.events') "
-        "with fields like 'occurrence_date', 'sport', 'duration_min', 'priority', 'title'. "
-        "For every such occurrence whose date lies between week_start and week_end inclusive, "
-        "you MUST treat it as an already fixed session that week:\n"
-        "    * either create a training session that clearly represents this event (same sport and ~duration_min),\n"
-        "    * or, if the event is the only load that day, treat remaining time as rest.\n"
-        "Never ignore these external events and always include their load in total weekly duration_min.\n"
+        "- The context may contain an `external_events` block.\n"
+        "  Inside it there is typically a list of concrete occurrences (often under `window.events`)\n"
+        "  with fields like `occurrence_date`, `sport`, `duration_min`, `priority`, `title`.\n"
+        "- For every occurrence whose date lies between `week_start` and `week_end` (inclusive),\n"
+        "  you MUST treat it as an already fixed session that week:\n"
+        "    * either create a training session that clearly represents this event\n"
+        "      (same day, similar load; if the sport is not `run`/`ride`/`strength`/`swim`,\n"
+        "      then use `sport: \"other\"` and a short Slovak title based on the event `title`),\n"
+        "    * and avoid scheduling another hard session of the SAME type on that day\n"
+        "      (e.g. do not add a hard run interval session on a football day).\n"
+        "- Team sports such as football should usually be treated as high-intensity sessions\n"
+        "  (count them as one hard session in that week).\n"
+        "- If `duration_min` is null, assume a reasonable load (for team sports ~60–90 min;\n"
+        "  for big life events like wedding/travel treat the day mostly as rest with at most very light training).\n"
+        "- Never ignore these external events and always include their load in the total weekly duration.\n"
     )
 
     user_txt = (
@@ -372,9 +395,9 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         f"{weekly_volume_line}\n"
         "STRENGTH SLOTS (concept only, not concrete exercises):\n"
         + strength_slots_desc
-        + "\n\nEXTERNAL EVENTS (fixed activities):\n"
+        + "\n\nEXTERNAL EVENTS (fixed activities & life events):\n"
         + external_hint
-        + "\nCONTEXT_JSON (this is the only ground truth – use it carefully):\n"
+        + "\n\nCONTEXT_JSON (this is the only ground truth – use it carefully):\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
@@ -384,10 +407,11 @@ def _build_prompts_for_daily(context_payload: dict) -> Tuple[str, str]:
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array. If it is a rest day, use exactly one session with:\n"
         '    { \"sport\": \"other\", \"title\": \"Deň odpočinku\" alebo \"Rest day\", \"duration_min\": 0, \"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n'
-        "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on days with high-intensity external events (e.g. football).\n"
+        "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on days with high-intensity external events.\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
-        "- Use `hard_sessions_per_week_max` from athlete_state.ai_state.intensity_tolerance (or a reasonable limit) to cap the number of hard/intense sessions per week.\n"
+        "- Use `hard_sessions_per_week_max` from athlete_state.ai_state.intensity_tolerance "
+        "to cap the total number of hard/intense sessions per week, INCLUDING high-intensity external events "
         "- If strength.sessions_per_week is >= 1, you MUST schedule approximately that many strength sessions distributed through the week.\n"
         "- For strength sessions, you MUST use only the strength_exercises slot structure. Every item must contain slot, sets, reps, rest_s and notes.\n"
         "- For strength sessions:\n"

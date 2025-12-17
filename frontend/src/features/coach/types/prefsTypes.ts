@@ -11,13 +11,19 @@ export type GoalKind =
 /** Podporované športy v coach prefs. */
 export type SportKind = "run" | "ride" | "strength" | "swim";
 
+export type SecondaryRole = "none" | "supplement" | "improve";
+
+export type SecondaryMix = {
+  sport: SportKind;
+  role: SecondaryRole;
+  share_pct: number;
+};
 export type VolumeMode = "weekly_hours" | "daily_minutes";
 
 export type VolumePrefs = {
-
   mode: VolumeMode;
   value: number | null;
-}
+};
 
 /** Coach personality (EN) + custom; allow null for "none selected". */
 export type CoachPersona =
@@ -123,6 +129,16 @@ export interface StrengthTargets {
   sessions_per_week: number;
 }
 
+/** NEW: Swim targets – nech vieme časom generovať swim tréningy */
+export interface SwimTargets {
+  /** Hlavný swim fokus */
+  focus: "technique" | "endurance" | "speed" | "open_water";
+  /** Cieľový týždenný čas v minútach (alebo null, ak nerieši) */
+  weekly_time_target_min: number | null;
+  /** Voliteľne počet swim sessions za týždeň */
+  sessions_per_week?: number | null;
+}
+
 /* -------- injuries -------- */
 
 export type InjuryArea =
@@ -211,6 +227,7 @@ export type CoachPrefs = {
     run?: RunTargets;
     ride?: BikeTargets;
     strength?: StrengthTargets;
+    swim?: SwimTargets; // NEW
   };
   preferences?: Preferences;
 
@@ -276,6 +293,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     },
     ride: { focus: "endurance", weekly_time_target_min: null },
     strength: { focus: "general", sessions_per_week: 2 },
+    swim: { focus: "endurance", weekly_time_target_min: null, sessions_per_week: null },
   },
   preferences: {
     days_off: ["Mon", "Fri"],

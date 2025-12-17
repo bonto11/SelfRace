@@ -149,15 +149,15 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
   },
   "weeks": [
     {
-      "week_index": number,          // 1-based index v rámci plánu
-      "week_start": "YYYY-MM-DD",    // pondelok alebo iný konzistentný začiatok
-      "week_end": "YYYY-MM-DD",      // posledný deň týždňa
-      "goal": string | null,         // krátky slovný cieľ týždňa
-      "focus": string | null,        // napr. 'Z2 objem', 'threshold', 'VO2', 'race', 'regenerácia'
-      "load_phase": string | null,   // napr. 'base', 'build', 'peak', 'taper', 'recovery'
-      "planned_km": number | null,   // približný plánovaný objem v km (pre hlavný šport, ak relevantné)
-      "planned_minutes": number | null, // približný plánovaný čas tréningu všetkých športov (vrátane externých eventov)
-      "notes": string | null         // krátke poznámky (slovensky)
+      "week_index": number,
+      "week_start": "YYYY-MM-DD",
+      "week_end": "YYYY-MM-DD",
+      "goal": string | null,
+      "focus": string | null,
+      "load_phase": string | null,
+      "planned_km": number | null,
+      "planned_minutes": number | null,
+      "notes": string | null
     }
   ]
 }
@@ -195,7 +195,7 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
 
     volume_hint_lines.append(
         "- Blok analyze_input.external_events obsahuje externé eventy (definície a ich výskyty v kalendári). "
-        "Tieto eventy ber ako súčasť tréningového objemu – teda planned_minutes pre daný týždeň "
+        "Tieto eventy ber ako súčasť tréningového objemu ak ide o sportove aktivitu – teda planned_minutes pre daný týždeň "
         "by mali zahŕňať aj odhadovaný čas z týchto externých eventov."
     )
 
@@ -222,7 +222,7 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         "- analyze_input.recovery: HRV, RHR, subjektívna únava...\n"
         "- analyze_input.prefs alebo analyze_input.prefs.value: coach prefs (ciele, days_off, main_sport, volume,...)\n"
         "- analyze_input.active_plan: ak už existuje starší plán\n"
-        "- analyze_input.external_events: externé eventy, ktoré už samé o sebe vytvárajú tréningovú záťaž\n"
+        "- analyze_input.external_events: externé eventy, ktoré už samé o sebe vytvárajú tréningovú záťaž alebo len beru cas na trening\n"
         "- athlete_state: AI analýza (ai_state + user_summary) z predchádzajúceho kroku\n\n"
         "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
         + json.dumps(context_payload, ensure_ascii=False)
@@ -236,7 +236,7 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance) to decide load_phase and load progression per week.\n"
         "- Respect the number of weeks requested (context_payload.weeks alebo prefs.weeks) as much as possible.\n"
         "- Do NOT generate daily sessions here – only weekly summary/meta.\n"
-        "- planned_minutes musia reprezentovať celkový približný tréningový čas za týždeň vrátane externých eventov.\n"
+        "- planned_minutes musia reprezentovať celkový približný tréningový čas za týždeň vrátane externých eventov ktore su brane ako sport a maju nejaku intenzitu.\n"
         "- Pri návrhu objemu a progresie sa riaď nasledujúcimi pokynmi:\n"
         + volume_hint
         + "\n"
