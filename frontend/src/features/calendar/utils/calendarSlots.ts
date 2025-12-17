@@ -1,16 +1,13 @@
 // src/features/calendar/utils/calendarSlots.ts
 
-export type CalendarItemKind =
-  | "activity"
-  | "external"
-  | "plan"
-  | "done"
-  | "missed";
+import type { SportKey, PlanStatus } from "@/features/calendar/types/calendarTypes";
+
+export type CalendarItemKind = "activity" | "external" | "plan" | "done" | "missed";
 
 export type CalendarItemBase = {
-  sport: string;
+  sport: SportKey | string;
   kind: CalendarItemKind;
-  /** ID Strava aktivity, ak nejaký existuje (pri 'activity' alebo 'done') */
+  /** ID Strava aktivity, ak nejaký existuje (pre ACTIVITY/DONE) */
   activityId?: number | null;
 };
 
@@ -34,18 +31,14 @@ export function eventDateIso(ev: any): string | null {
 
 /**
  * Dedupe logika pre jeden deň:
- *
- * 1) DONE vs ACTIVITY podľa activityId:
- *    - ak existuje DONE s konkrétnym activityId → skry čistú ACTIVITY s rovnakým activityId
- *
- * 2) Podľa športu:
- *    - ak pre šport existuje ACTIVITY/DONE → skry PLAN/MISSED/EXTERNAL pre ten šport
- *    - ak neexistuje ACTIVITY/DONE, ale existuje PLAN/MISSED → skry EXTERNAL pre ten šport
+ * - ak existuje DONE s konkrétnym activityId → skry čistú ACTIVITY s rovnakým activityId
+ * - ak pre šport existuje ACTIVITY/DONE → skry PLAN/MISSED/EXTERNAL pre ten šport
+ * - ak neexistuje ACTIVITY/DONE, ale existuje PLAN/MISSED → skry EXTERNAL pre ten šport
  */
 export function dedupeCalendarItems<T extends CalendarItemBase>(items: T[]): T[] {
   if (!items.length) return items;
 
-  // 1) DONE vs ACTIVITY podľa activityId
+  // 1) DONE vs ACTIVITY podľa activityId (aby nebola bodka + ✓ za ten istý workout)
   const doneIds = new Set<number>();
   for (const it of items) {
     if (
@@ -64,13 +57,12 @@ export function dedupeCalendarItems<T extends CalendarItemBase>(items: T[]): T[]
       !Number.isNaN(Number(it.activityId)) &&
       doneIds.has(Number(it.activityId))
     ) {
-      // máme DONE pre tú istú aktivitu → bodku skryjeme
       return false;
     }
     return true;
   });
 
-  // 2) športová dedupe logika
+  // 2) športová dedupe logika (rovnaká pre kalendár aj widget)
   const hasActivityOrDone = new Set(
     out
       .filter((x) => x.kind === "activity" || x.kind === "done")
