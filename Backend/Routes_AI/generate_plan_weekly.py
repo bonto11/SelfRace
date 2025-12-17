@@ -325,12 +325,10 @@ def generate_weekly_plan_json(
                     continue
 
                 # sanity defaults
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
-                if "generated_at" not in parsed:
-                    parsed["generated_at"] = datetime.now(timezone.utc).isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = m
+                now_iso = datetime.now(timezone.utc).isoformat()
+                parsed["schema_version"] = parsed.get("schema_version",1)
+                parsed["generated_at"] = now_iso
+                parsed["model"] = parsed.get("model",m)
 
                 # ensure plan_meta.weeks is set from context if missing
                 plan_meta = parsed.get("plan_meta") or {}

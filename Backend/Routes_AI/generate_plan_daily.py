@@ -516,20 +516,14 @@ def generate_daily_week_json(
                     continue
 
                 # sanity defaults
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
-                if "generated_at" not in parsed:
-                    parsed["generated_at"] = datetime.now(timezone.utc).isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = m
-                if "week_index" not in parsed:
-                    parsed["week_index"] = week_index
-                if "week_start" not in parsed and week_start:
-                    parsed["week_start"] = week_start
-                if "week_end" not in parsed and week_end:
-                    parsed["week_end"] = week_end
-                if "days" not in parsed or not isinstance(parsed["days"], list):
-                    parsed["days"] = []
+                now_iso = datetime.now(timezone.utc).isoformat()
+                parsed["schema_version"] = parsed.get("schema_version",1)
+                parsed["generated_at"] = now_iso
+                parsed["model"] = parsed.get("model",m)
+                parsed["week_index"] = parsed.get("week_index",week_index)
+                parsed["week_start"] = parsed.get("week_start",week_start)
+                parsed["week_end"] = parsed.get("week_end",week_end)
+                parsed["days"] = parsed.get("days",[])
 
                 # plan_id (for strength history mapper)
                 if plan_id_from_ctx and "plan_id" not in parsed:

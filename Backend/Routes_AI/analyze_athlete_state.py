@@ -256,13 +256,10 @@ def generate_athlete_state_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                # basic sanity – fill in timestamp/model if missing
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
-                if "generated_at" not in parsed:
-                    parsed["generated_at"] = datetime.now(timezone.utc).isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = m
+                now_iso = datetime.now(timezone.utc).isoformat()
+                parsed["schema_version"] = parsed.get("schema_version",1)
+                parsed["generated_at"] = now_iso
+                parsed["model"] = parsed.get("model",m)
 
                 if debug_raw:
                     trace["raw"] = raw_keep
