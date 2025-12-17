@@ -1,5 +1,6 @@
 # Routes_AI/coach_plan_weekly.py
 from __future__ import annotations
+
 from zoneinfo import ZoneInfo
 import json
 import os
@@ -12,6 +13,7 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Services.user_prefs import service_load_user_settings
 
 
 # ---------- parsing utils (same as analyze) ----------
@@ -79,7 +81,11 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 # ---------- prompt builder ----------
 
 
-def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
+def _build_prompts_for_weekly(
+    context_payload: dict,
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
     """
     context_payload typically looks like:
 
@@ -103,6 +109,16 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
       "athlete_state_meta": {...}
     }
     """
+    settings = settings or {}
+    lang_code = (settings.get("language") or "sk").lower()
+
+    if lang_code.startswith("en"):
+        lang_label = "English"
+    elif lang_code.startswith("cs"):
+        lang_label = "Czech"
+    else:
+        lang_label = "Slovak"
+
     analyze_input = context_payload.get("analyze_input") or {}
 
     # prefs can be directly present or under .value (same pattern as daily)
@@ -126,6 +142,11 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
 
     volume_prefs = prefs.get("volume") or {}
 
+    # attach user_settings into context so LLM vidí, že existujú
+    if settings:
+        context_payload = dict(context_payload)
+        context_payload["user_settings"] = settings
+
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON with athlete preferences (including volume preferences), "
@@ -139,7 +160,7 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
     schema_text = """
 {
   "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp in UTC",
+  "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
   "plan_meta": {
     "start_date": "YYYY-MM-DD" | null,
@@ -152,12 +173,12 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
       "week_index": number,          // 1-based index within the plan
       "week_start": "YYYY-MM-DD",    // start of the week (e.g. Monday)
       "week_end": "YYYY-MM-DD",      // end of the week
-      "goal": string | null,         // short weekly goal (in Slovak)
-      "focus": string | null,        // e.g. 'Z2 objem', 'threshold', 'VO2', 'pretek', 'regenerácia' (in Slovak)
-      "load_phase": string | null,   // e.g. 'base', 'build', 'peak', 'taper', 'recovery'
+      "goal": string | null,         // short weekly goal (in target language)
+      "focus": string | null,        // e.g. endurance, threshold, VO2, race, recovery (in target language)
+      "load_phase": string | null,   // e.g. base, build, peak, taper, recovery
       "planned_km": number | null,   // approximate planned distance in km for main sport (if relevant)
       "planned_minutes": number | null, // approximate planned total training time for all sports (incl. external sports events)
-      "notes": string | null         // short notes in Slovak
+      "notes": string | null         // short notes in target language
     }
   ]
 }
@@ -214,7 +235,8 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         f"Main sport: {main_sport}\n"
         f"Goal kind: {goal_kind}\n"
         f"Planning horizon (weeks): {weeks}\n"
-        f"Preferred plan start date (if any): {start_date or 'none'}\n\n"
+        f"Preferred plan start date (if any): {start_date or 'none'}\n"
+        f"Target athlete language for all text fields: {lang_label}.\n\n"
         "The CONTEXT_JSON you receive contains:\n"
         "- analyze_input.user: basic profile (age, history, etc.)\n"
         "- analyze_input.zones: training zones\n"
@@ -226,14 +248,15 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         "- analyze_input.active_plan: previous/active plan if it exists\n"
         "- analyze_input.external_events: external sports and life events that either create training load\n"
         "  (team sports, regular trainings) or take away time for training (weddings, long travel, etc.)\n"
-        "- athlete_state: AI analysis from the previous step (ai_state + user_summary)\n\n"
+        "- athlete_state: AI analysis from the previous step (ai_state + user_summary)\n"
+        "- user_settings: optional user settings including language/timezone/units.\n\n"
         "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
         + json.dumps(context_payload, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return a single JSON object exactly matching the schema (you may set numeric fields to null if unknown).\n"
-        "- All free text fields (goal, focus, notes) MUST be written in Slovak language.\n"
+        f"- All free text fields (goal, focus, notes) MUST be written in {lang_label} language.\n"
         "- Make sure week_index starts at 1 and increases consecutively (1, 2, 3, ...).\n"
         "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
         "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance)\n"
@@ -285,6 +308,30 @@ def generate_weekly_plan_json(
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
+    # --- load user settings (language + timezone) ---
+    analyze_input = context_payload.get("analyze_input") or {}
+    user_block = analyze_input.get("user") or {}
+    user_id_raw = user_block.get("id") or context_payload.get("user_id")
+
+    user_id: Optional[int] = None
+    try:
+        if user_id_raw is not None:
+            user_id = int(user_id_raw)
+    except Exception:
+        user_id = None
+
+    settings: Dict[str, Any] = {}
+    if user_id:
+        try:
+            settings = service_load_user_settings(user_id) or {}
+        except Exception:
+            settings = {}
+
+    system_txt, user_txt = _build_prompts_for_weekly(
+        context_payload,
+        settings=settings,
+    )
+
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
     timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
 
@@ -292,7 +339,12 @@ def generate_weekly_plan_json(
     models = _llm_models_priority(model)
     token_budgets = [1800, 1500, 1200]
 
-    system_txt, user_txt = _build_prompts_for_weekly(context_payload)
+    # timezone for generated_at
+    tz_name = settings.get("timezone") or "Europe/Bratislava"
+    try:
+        tzinfo = ZoneInfo(tz_name)
+    except Exception:
+        tzinfo = timezone.utc
 
     trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     last_raw: Optional[str] = None
@@ -324,11 +376,14 @@ def generate_weekly_plan_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                # sanity defaults
-                now_local = datetime.now(ZoneInfo("Europe/Bratislava"))
+                # sanity defaults (LOCAL time)
+                now_local = datetime.now(tzinfo)
+
+                if "schema_version" not in parsed:
+                    parsed["schema_version"] = 1
                 parsed["generated_at"] = now_local.isoformat()
-                parsed["schema_version"] = parsed.get("schema_version",1)
-                parsed["model"] = parsed.get("model",m)
+                if "model" not in parsed:
+                    parsed["model"] = m
 
                 # ensure plan_meta.weeks is set from context if missing
                 plan_meta = parsed.get("plan_meta") or {}
@@ -368,7 +423,7 @@ def generate_weekly_plan_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback – AI completely failed
+    # Fallback – AI completely failed (still use local tz)
     analyze_input_fb = context_payload.get("analyze_input") or {}
     raw_prefs_fb = analyze_input_fb.get("prefs") or context_payload.get("prefs") or {}
     if isinstance(raw_prefs_fb, dict) and "value" in raw_prefs_fb and isinstance(
@@ -378,7 +433,7 @@ def generate_weekly_plan_json(
     else:
         prefs_fb = raw_prefs_fb if isinstance(raw_prefs_fb, dict) else {}
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 1,
         "generated_at": now_iso,

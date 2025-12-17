@@ -15,6 +15,20 @@ from Routes_DB.user_prefs import (
 # kľúč, pod ktorým si ukladáš celé coach prefs (JSON) do KV tabuľky
 COACH_PREFS_KEY = "coach.prefs"
 
+# nový kľúč pre všeobecné user nastavenia (jazyk, timezone, jednotky…)
+USER_SETTINGS_KEY = "user.settings"
+
+# default hodnoty, keď ešte user nič nemá uložené
+DEFAULT_USER_SETTINGS: Dict[str, Any] = {
+    "language": "sk",                # výstup AI + neskôr UI jazyk
+    "timezone": "Europe/Bratislava", # IANA timezone string
+    "time_format_24h": True,
+    "date_format": "yyyy-MM-dd",
+    # do budúcna môžeš pridať:
+    # "units": "metric" / "imperial",
+    # "week_start": "Mon",
+}
+
 
 # ---------- generické helpery nad KV prefs ----------
 
@@ -65,7 +79,6 @@ def service_load_coach_prefs_for_analysis(user_id: int) -> Dict[str, Any]:
         "secondary_mix": [...],
         "targets": {...},
         "rules": {...},
-        "externals": [...],
         "blocks": {...},
         "strength_settings": {...},
         "coach_voice": "...",
@@ -99,3 +112,80 @@ def service_save_coach_prefs(user_id: int, prefs: Dict[str, Any]) -> Dict[str, A
     Použiješ ju napr. pri FE formulári coach preferences.
     """
     return db_upsert_pref_single(user_id, COACH_PREFS_KEY, prefs)
+
+
+# ---------- USER SETTINGS (jazyk, timezone, …) ----------
+
+
+def _parse_json_value(val: Any) -> Dict[str, Any]:
+    """Interný helper na rozumné rozparsovanie JSON/string/dict hodnoty."""
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str):
+        try:
+            parsed = json.loads(val)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def service_load_user_settings(user_id: int) -> Dict[str, Any]:
+    """
+    Načíta user nastavenia spod key="user.settings" a doplní defaulty.
+
+    Výsledok typicky:
+      {
+        "language": "sk",
+        "timezone": "Europe/Bratislava",
+        "time_format_24h": true,
+        "date_format": "yyyy-MM-dd",
+        ...
+      }
+    """
+    row = db_get_pref_single(user_id, USER_SETTINGS_KEY)
+    if not row:
+        # nič v DB -> vráť čisté defaulty
+        return DEFAULT_USER_SETTINGS.copy()
+
+    raw_val = row.get("value")
+    parsed = _parse_json_value(raw_val)
+
+    # merge: DB má prioritu, ale všetky default keys budú vždy prítomné
+    merged = DEFAULT_USER_SETTINGS.copy()
+    merged.update(parsed or {})
+    return merged
+
+
+def service_save_user_settings(user_id: int, settings: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Uloží user nastavenia pod key="user.settings".
+    Nepokúša sa validovať – to si rieš na úrovni FE alebo separátnym validatorom.
+    """
+    # merge s defaultmi, aby sme mali vždy konzistentný shape
+    merged = DEFAULT_USER_SETTINGS.copy()
+    merged.update(settings or {})
+    return db_upsert_pref_single(user_id, USER_SETTINGS_KEY, merged)
+
+
+def service_get_user_language(user_id: int) -> str:
+    """
+    Convenience helper – vráti jazyk usera (napr. 'sk' alebo 'en').
+    """
+    settings = service_load_user_settings(user_id)
+    lang = settings.get("language") or "sk"
+    # pre istotu orez + lower
+    if isinstance(lang, str):
+        return lang.strip().lower() or "sk"
+    return "sk"
+
+
+def service_get_user_timezone(user_id: int) -> str:
+    """
+    Convenience helper – vráti timezone usera (IANA string).
+    """
+    settings = service_load_user_settings(user_id)
+    tz = settings.get("timezone") or "Europe/Bratislava"
+    if isinstance(tz, str):
+        return tz.strip() or "Europe/Bratislava"
+    return "Europe/Bratislava"
