@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 from uuid import uuid4
 
-from Configs.config import DEFAULT_MODEL
+from Configs.config import DEFAULT_MODEL, COACH_PLAN_MIN_WEEKS, COACH_PLAN_DEAFULT_WEEKS, COACH_PLAN_MAX_WEEKS
 from Services.coach_athlete_state import build_input_from_db
 from Routes_DB.coach_athlete_state import (
     db_get_state_by_id,
@@ -130,7 +130,8 @@ def service_generate_weekly_plan(
     athlete_state = state_bundle["state"]
 
     # koľko týždňov – preferuj z payloadu, inak z prefs, fallback 6
-    horizon_weeks = int(weeks or prefs_ai.get("weeks") or 6)
+    raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
+    horizon_weeks = max(COACH_PLAN_MIN_WEEKS,min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,

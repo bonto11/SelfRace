@@ -1,6 +1,6 @@
 # Services/coach_athlete_state.py
 from __future__ import annotations
-
+import json
 from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
 
@@ -293,6 +293,18 @@ def service_analyze_athlete(
 
     # 1) INPUT
     input_data = build_input_from_db(user_id)
+
+    # 1b) Kontext pre AI – deep copy + drop external_activities z prefs
+    context_for_ai = json.loads(json.dumps(input_data, default=str))
+    try:
+        prefs_block = context_for_ai.get("prefs") or {}
+        if isinstance(prefs_block, dict):
+            prefs_val = prefs_block.get("value")
+            if isinstance(prefs_val, dict):
+                prefs_val.pop("external_activities", None)
+    except Exception:
+        # nech analyze nespadne kvôli blbosti v prefse
+        pass
 
     # 2) AI CALL – čistý výstup z AI = "analysis"
     analysis, trace = generate_athlete_state_json(

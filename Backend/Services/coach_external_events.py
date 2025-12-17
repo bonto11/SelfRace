@@ -205,80 +205,78 @@ def service_save_external_events(
         "count": len(norm_rows),
     }
 
-def service_build_external_events_block_for_analysis(user_id: int) -> Dict[str, Any]:
+def service_build_external_events_block_for_analysis(
+    user_id: int,
+    *,
+    days_past: int = 28,
+    days_future: int = 42,
+) -> Dict[str, Any]:
     """
-    Blok pre CoachAnalyzeInput["external_events"].
+    Blok external_events pre analyze/weekly/daily – už odľahčený pre AI.
 
-    Cieľ: dodať LLM jednoduchý prehľad:
-      - pravidelné týždenné eventy (napr. futbal každú stredu 18:30)
-      - jednorazové eventy (single)
+    Štruktúra:
 
-    Dátová štruktúra (príklad):
     {
-      "weekly": [
-        {
-          "id": 1,
-          "title": "Football",
-          "sport": "football",
-          "weekday": 3,              # 1=Mon..7=Sun
-          "duration_min": 90,
-          "priority": "fixed",
-          "intensity": "high",
-          "start_time_local": "18:30",
-          "start_date": "2025-01-01",
-          "end_date": null,
-          "notes": "club training"
-        },
-        ...
-      ],
-      "single": [
-        {
-          "id": 2,
-          "title": "Work trip",
-          "sport": None,
-          "weekday": 4,
-          "duration_min": None,
-          "priority": "fixed",
-          "intensity": None,
-          "single_date": "2025-02-10",
-          "start_time_local": "07:00",
-          "notes": "all day travel"
-        }
-      ]
+      "schema_version": 1,
+      "window": {
+        "from": "YYYY-MM-DD",
+        "to": "YYYY-MM-DD",
+        "events": [
+          {
+            "date": "YYYY-MM-DD",
+            "sport": "football" | string | null,
+            "title": string | null,
+            "priority": "fixed" | "soft" | string | null,
+            "duration_min": number | null,
+            "start_time_local": "HH:MM" | null,
+            "weekday": 1–7 | null
+          }
+        ]
+      }
     }
     """
-    rows = db_list_external_events_for_user(user_id) or []
+    today = date.today()
+    d_from = today - timedelta(days=days_past)
+    d_to = today + timedelta(days=days_future)
 
-    weekly: List[Dict[str, Any]] = []
-    single: List[Dict[str, Any]] = []
+    try:
+        window = service_list_external_events_window(
+            user_id=user_id,
+            from_iso=d_from.isoformat(),
+            to_iso=d_to.isoformat(),
+        )
 
-    for r in rows:
-        kind = str(r.get("recurrence_kind") or "weekly").lower()
+        raw_events = window.get("events") or []
+        events: List[Dict[str, Any]] = []
 
-        base: Dict[str, Any] = {
-            "id": r.get("id"),
-            "title": (r.get("title") or "").strip() or "External event",
-            "sport": r.get("sport"),
-            "weekday": r.get("weekday"),
-            "duration_min": r.get("duration_min"),
-            "priority": r.get("priority") or "fixed",
-            # UI to volá „intensity/load“ – v DB to môže byť rôzne,
-            # preto skúšame viac kľúčov, ale žiadny nie je povinný.
-            "intensity": r.get("intensity") or r.get("load") or None,
-            "start_time_local": r.get("start_time_local"),
-            "notes": r.get("notes"),
-            "start_date": r.get("start_date"),
-            "end_date": r.get("end_date"),
-            "single_date": r.get("single_date"),
-            "recurrence_kind": kind,
+        for ev in raw_events:
+            events.append(
+                {
+                    "date": ev.get("occurrence_date"),
+                    "sport": ev.get("sport"),
+                    "title": ev.get("title"),
+                    "priority": ev.get("priority") or "fixed",
+                    "duration_min": ev.get("duration_min"),
+                    "start_time_local": ev.get("start_time_local"),
+                    "weekday": ev.get("weekday"),
+                }
+            )
+
+        return {
+            "schema_version": 1,
+            "window": {
+                "from": d_from.isoformat(),
+                "to": d_to.isoformat(),
+                "events": events,
+            },
         }
-
-        if kind == "single":
-            single.append(base)
-        else:
-            weekly.append(base)
-
-    return {
-        "weekly": weekly,
-        "single": single,
-    }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "schema_version": 1,
+            "window": {
+                "from": d_from.isoformat(),
+                "to": d_to.isoformat(),
+                "events": [],
+            },
+            "error": f"external_events_load_failed: {exc}",
+        }
