@@ -81,25 +81,57 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
     """
-    context_payload = niečo v štýle:
-      {
-        "prefs": {...},           // coach prefs (weeks, start_date, goal_kind, dni, main_sport...)
-        "athlete_state": {...},   // výstup z analyze_athlete_state (ai_state + user_summary)
-        "recent_load": {...},     // voliteľné, môžeš tam hodiť aj celé analyze input_data
-        ...
-      }
+    context_payload typicky vyzerá cca takto:
 
-    Tu neriešime štruktúru – service si to skladá, my len embedneme do promptu.
+    {
+      "schema_version": 1,
+      "user_id": 123,
+      "weeks": 6,
+      "overwrite": true,
+      "analyze_input": {
+        "user": {...},
+        "zones": {...},
+        "thresholds": {...},
+        "prefs": {... alebo { "value": {...skutočné prefs...} }},
+        "bests": {...},
+        "recent_load": {...},
+        "recovery": {...},
+        "active_plan": {...},
+        "external_events": {...}   // blok s definíciami + výskytmi externých eventov
+      },
+      "athlete_state": {...},       // výstup z analyze_athlete_state (ai_state + user_summary)
+      "athlete_state_meta": {...}
+    }
     """
-    prefs = context_payload.get("prefs") or {}
-    weeks = int(prefs.get("weeks") or 6)
-    start_date = prefs.get("start_date") or prefs.get("plan_start_date") or ""
+    analyze_input = context_payload.get("analyze_input") or {}
+    # prefs môžu byť priamo alebo pod .value (rovnako ako pri daily)
+    raw_prefs = analyze_input.get("prefs") or context_payload.get("prefs") or {}
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+        raw_prefs["value"], dict
+    ):
+        prefs = raw_prefs["value"]
+    else:
+        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+
+    weeks = int(prefs.get("weeks") or context_payload.get("weeks") or 6)
+    start_date = (
+        prefs.get("start_date")
+        or prefs.get("plan_start_date")
+        or (context_payload.get("plan_meta") or {}).get("start_date")
+        or ""
+    )
     main_sport = prefs.get("main_sport") or "run"
     goal_kind = prefs.get("goal_kind") or "improve_overall"
 
+    volume_prefs = prefs.get("volume") or {}
+    external_events = analyze_input.get("external_events") or {}
+
     system_txt = (
         "You are an endurance coaching assistant. "
-        "You receive structured JSON with athlete preferences, analysis state, recent load and thresholds. "
+        "You receive structured JSON with athlete preferences (including volume preferences), "
+        "AI analysis state, recent load, thresholds, zones and external events. "
+        "External events are fixed activities like football matches, club runs or other regular trainings, "
+        "which already create load and must be counted into total weekly volume. "
         "Your task is to design a WEEK-BY-WEEK meta training plan (no daily sessions yet). "
         "You must return ONE valid JSON object only. No prose, no code fences."
     )
@@ -124,12 +156,56 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
       "focus": string | null,        // napr. 'Z2 objem', 'threshold', 'VO2', 'race', 'regenerácia'
       "load_phase": string | null,   // napr. 'base', 'build', 'peak', 'taper', 'recovery'
       "planned_km": number | null,   // približný plánovaný objem v km (pre hlavný šport, ak relevantné)
-      "planned_minutes": number | null, // približný plánovaný čas tréningu všetkých športov
+      "planned_minutes": number | null, // približný plánovaný čas tréningu všetkých športov (vrátane externých eventov)
       "notes": string | null         // krátke poznámky (slovensky)
     }
   ]
 }
 """.strip()
+
+    # iba popisne vysvetlíme LLM, kde čo je a ako rátať objem
+    volume_hint_lines: List[str] = []
+
+    volume_mode = volume_prefs.get("mode")
+    volume_value = volume_prefs.get("value")
+
+    if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
+        volume_hint_lines.append(
+            "- V prefs.volume má športovec nastavený cieľový objem ako weekly_hours. "
+            "Prepoočítaj si to na minúty (hodiny * 60) a ber to ako cieľový týždenný objem."
+        )
+    elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
+        volume_hint_lines.append(
+            "- V prefs.volume má športovec nastavený cieľový objem ako daily_minutes. "
+            "Počet tréningových dní si vieš približne odvodiť z preferences.days_off, "
+            "teda tréningové dni ≈ 7 - počet days_off. "
+            "Cieľový týždenný objem ≈ daily_minutes * počet tréningových dní."
+        )
+    else:
+        volume_hint_lines.append(
+            "- prefs.volume.value je null alebo chýba, takže cieľový objem odhadni z recent_load, "
+            "recovery a z ai_state.volume_tolerance, buď radšej konzervatívny."
+        )
+
+    volume_hint_lines.append(
+        "- V athlete_state.ai_state.volume_tolerance máš weekly_minutes_min a weekly_minutes_max. "
+        "Pri návrhu plánovaných týždňov sa snaž, aby planned_minutes každého týždňa boli "
+        "spravidla v tomto rozumnom pásme. Krátkodobé odchýlky môžu byť, ale nie extrémne."
+    )
+
+    volume_hint_lines.append(
+        "- Blok analyze_input.external_events obsahuje externé eventy (definície a ich výskyty v kalendári). "
+        "Tieto eventy ber ako súčasť tréningového objemu – teda planned_minutes pre daný týždeň "
+        "by mali zahŕňať aj odhadovaný čas z týchto externých eventov."
+    )
+
+    volume_hint_lines.append(
+        "- Použi recent_load a recovery na rozhodnutie o priebehu záťaže: "
+        "skús cyklus 2–3 vyššie záťažové týždne -> 1 ľahší (regeneračný) týždeň, "
+        "pričom nikdy dlhodobo neprekračuj volume_tolerance.weekly_minutes_max."
+    )
+
+    volume_hint = "\n".join(volume_hint_lines)
 
     user_txt = (
         "You will design a WEEKLY meta training plan for the athlete.\n"
@@ -137,6 +213,17 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         f"Goal kind: {goal_kind}\n"
         f"Planning horizon (weeks): {weeks}\n"
         f"Preferred plan start date (if any): {start_date or 'none'}\n\n"
+        "The CONTEXT_JSON you receive contains:\n"
+        "- analyze_input.user: základný profil (vek, tréningová história,...)\n"
+        "- analyze_input.zones: tréningové zóny\n"
+        "- analyze_input.thresholds: prahy (najmä running LT2)\n"
+        "- analyze_input.bests: osobné rekordy\n"
+        "- analyze_input.recent_load: objem a intenzita posledných týždňov\n"
+        "- analyze_input.recovery: HRV, RHR, subjektívna únava...\n"
+        "- analyze_input.prefs alebo analyze_input.prefs.value: coach prefs (ciele, days_off, main_sport, volume,...)\n"
+        "- analyze_input.active_plan: ak už existuje starší plán\n"
+        "- analyze_input.external_events: externé eventy, ktoré už samé o sebe vytvárajú tréningovú záťaž\n"
+        "- athlete_state: AI analýza (ai_state + user_summary) z predchádzajúceho kroku\n\n"
         "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
         + json.dumps(context_payload, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
@@ -146,9 +233,17 @@ def _build_prompts_for_weekly(context_payload: dict) -> Tuple[str, str]:
         "- All free text (goal, focus, notes) MUST be in Slovak language.\n"
         "- Make sure week_index starts at 1 and grows consecutively (1, 2, 3, ...).\n"
         "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
-        "- Use athlete_state (fitness, fatigue, injury risk) to decide load_phase per week.\n"
-        "- Respect the number of weeks requested in prefs as much as possible.\n"
+        "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance) to decide load_phase and load progression per week.\n"
+        "- Respect the number of weeks requested (context_payload.weeks alebo prefs.weeks) as much as possible.\n"
         "- Do NOT generate daily sessions here – only weekly summary/meta.\n"
+        "- planned_minutes musia reprezentovať celkový približný tréningový čas za týždeň vrátane externých eventov.\n"
+        "- Pri návrhu objemu a progresie sa riaď nasledujúcimi pokynmi:\n"
+        + volume_hint
+        + "\n"
+        "- Ak má athlete_state.ai_state.fatigue_level = 'high' alebo injury_risk = 'high', "
+        "zaraď na začiatok plánu aspoň 1 regeneračný týždeň s planned_minutes blízko weekly_minutes_min.\n"
+        "- Pri peak/race týždňoch neprekračuj volume_tolerance.weekly_minutes_max a radšej zvýš intenzitu než objem.\n"
+        "- Neodporúčaj dlhodobý trend, kde by väčšina týždňov bola výrazne nad weekly_minutes_max.\n"
     )
     return system_txt, user_txt
 
@@ -231,11 +326,20 @@ def generate_weekly_plan_json(
                 if "model" not in parsed:
                     parsed["model"] = m
 
+                # doplnenie plan_meta.weeks z kontextu, ak chýba
                 plan_meta = parsed.get("plan_meta") or {}
-                if "weeks" not in plan_meta:
-                    # fallback – zober z kontextu
-                    prefs = context_payload.get("prefs") or {}
-                    plan_meta["weeks"] = int(prefs.get("weeks") or 6)
+                if "weeks" not in plan_meta or plan_meta.get("weeks") is None:
+                    analyze_input = context_payload.get("analyze_input") or {}
+                    raw_prefs = analyze_input.get("prefs") or context_payload.get("prefs") or {}
+                    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+                        raw_prefs["value"], dict
+                    ):
+                        prefs = raw_prefs["value"]
+                    else:
+                        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+                    plan_meta["weeks"] = int(
+                        prefs.get("weeks") or context_payload.get("weeks") or 6
+                    )
                 parsed["plan_meta"] = plan_meta
 
                 if debug_raw:
@@ -261,18 +365,25 @@ def generate_weekly_plan_json(
                 continue
 
     # Fallback – AI sa nepodarilo
+    analyze_input_fb = context_payload.get("analyze_input") or {}
+    raw_prefs_fb = analyze_input_fb.get("prefs") or context_payload.get("prefs") or {}
+    if isinstance(raw_prefs_fb, dict) and "value" in raw_prefs_fb and isinstance(
+        raw_prefs_fb["value"], dict
+    ):
+        prefs_fb = raw_prefs_fb["value"]
+    else:
+        prefs_fb = raw_prefs_fb if isinstance(raw_prefs_fb, dict) else {}
+
     now_iso = datetime.now(timezone.utc).isoformat()
     fallback = {
         "schema_version": 1,
         "generated_at": now_iso,
         "model": "weekly-fallback",
         "plan_meta": {
-            "start_date": None,
-            "weeks": int((context_payload.get("prefs") or {}).get("weeks") or 6),
-            "main_sport": (context_payload.get("prefs") or {}).get("main_sport")
-            or "run",
-            "goal_kind": (context_payload.get("prefs") or {}).get("goal_kind")
-            or "improve_overall",
+            "start_date": prefs_fb.get("start_date") or None,
+            "weeks": int(prefs_fb.get("weeks") or context_payload.get("weeks") or 6),
+            "main_sport": prefs_fb.get("main_sport") or "run",
+            "goal_kind": prefs_fb.get("goal_kind") or "improve_overall",
         },
         "weeks": [],
     }

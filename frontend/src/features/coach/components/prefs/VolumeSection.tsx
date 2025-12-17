@@ -87,9 +87,6 @@ export function VolumeSection({ volume, setPref }: Props) {
               <>
                 ≈ {weeklyHours!.toFixed(1)} h / týždeň • ≈{" "}
                 {Math.round(dailyMin!)} min / deň.
-                <br />
-                Coach sa väčšinou snaží zostať pod týmto objemom (okrem krátkeho
-                peaku pred hlavnými pretekmi).
               </>
             ) : (
               <>

@@ -23,6 +23,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 
+from Services.coach_external_events import (service_build_external_events_block_for_analysis, service_list_external_events_window)
 
 def _load_athlete_state_for_plan(
     user_id: int,
@@ -108,6 +109,20 @@ def service_generate_weekly_plan(
     # 1) vstup pre AI (rovnaký ako pre analyze)
     analyze_input = build_input_from_db(user_id)
 
+    # PREFS – flatten (kvôli tomu, že v prefs môže byť 'value' obal)
+    raw_prefs = analyze_input.get("prefs") or {}
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
+        raw_prefs["value"], dict
+    ):
+        prefs_ai = raw_prefs["value"]
+    elif isinstance(raw_prefs, dict):
+        prefs_ai = raw_prefs
+    else:
+        prefs_ai = {}
+
+    # EXTERNAL EVENTS – blok z analyze_input (horizont okolo dneška)
+    external_events_block = analyze_input.get("external_events")
+
     # 2) stav atlétu z analyze
     state_bundle = _load_athlete_state_for_plan(user_id=user_id, state_id=state_id)
 
@@ -115,14 +130,15 @@ def service_generate_weekly_plan(
     athlete_state = state_bundle["state"]
 
     # koľko týždňov – preferuj z payloadu, inak z prefs, fallback 6
-    prefs = analyze_input.get("prefs") or {}
-    horizon_weeks = int(weeks or prefs.get("weeks") or 6)
+    horizon_weeks = int(weeks or prefs_ai.get("weeks") or 6)
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
         "user_id": user_id,
         "weeks": horizon_weeks,
         "overwrite": overwrite,
+        # pre prompt:
+        "prefs": prefs_ai,
         "analyze_input": analyze_input,
         "athlete_state": athlete_state,
         "athlete_state_meta": {
@@ -132,6 +148,9 @@ def service_generate_weekly_plan(
             "created_at": state_bundle.get("created_at"),
         },
     }
+
+    if external_events_block is not None:
+        context_payload["external_events"] = external_events_block
 
     plan_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
@@ -243,8 +262,6 @@ def service_generate_weekly_plan(
         resp["debug"] = trace
 
     return resp
-
-
 def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
     """
     Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).

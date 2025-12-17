@@ -82,19 +82,34 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
     """
     context_payload = CoachAnalyzeInput (to, čo skladáš v build_input_from_db)
+
+    OČAKÁVANÉ BLOKY (dôležité pre LLM):
+    - user            – profil, vek, tréningová história...
+    - zones           – Z1–Z5 podľa LTHR/HRmax
+    - thresholds      – laktát / FTP, hlavne running LT2
+    - bests           – osobáky, najlepšie výkony
+    - recent_load     – objem a intenzita posledných týždňov
+    - recovery        – HRV, RHR, subjektívna únava...
+    - prefs           – ciele, športy, days_off, atď. (vrátane prefs.volume)
+    - external_events – futbal, skupinové tréningy, krúžky, atď. ktoré treba brať ako fix / vysokú prioritu
+    - active_plan     – ak už existuje plán, dá sa z neho odhadnúť záťaž
     """
-    weeks = int((context_payload.get("prefs") or {}).get("weeks") or 4)
-    main_sport = (context_payload.get("prefs") or {}).get("main_sport") or "run"
+    prefs = context_payload.get("prefs") or {}
+    weeks = int(prefs.get("weeks") or 4)
+    main_sport = prefs.get("main_sport") or "run"
 
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
         "You receive a structured JSON context about an athlete (profile, zones, thresholds, PBs, "
-        "recent load, recovery, preferences). "
+        "recent load, recovery, preferences including training volume preferences, and external events). "
+        "External events are non-editable sessions like football matches, group runs or other fixed trainings "
+        "that already create load and need to be considered when judging fatigue and safe volume. "
         "Your task is to analyze the current training state and return a SINGLE valid JSON object "
         "describing the athlete's current fitness, fatigue, risks and recommended block focus. "
         "Do NOT output any prose or code fences, only JSON."
     )
 
+    # UPDATED – volume + external_events vysvetlené v inštrukciách
     schema_text = """
 {
   "schema_version": 1,
@@ -138,7 +153,7 @@ def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
 
     user_txt = (
         "Analyze the following athlete context JSON and fill the schema below.\n"
-        "The main sport is: " + str(main_sport) + ".\n"
+        f"The main sport is: {main_sport}.\n"
         f"The upcoming planning horizon is about {weeks} weeks.\n\n"
         "CONTEXT_JSON:\n"
         + json.dumps(context_payload, ensure_ascii=False)
@@ -150,6 +165,15 @@ def _build_prompts_for_analyze(context_payload: dict) -> Tuple[str, str]:
         "- Headline and bullet points should be short and practical, focused on training.\n"
         "- Use recent_load and recovery data to assess fatigue and injury risk.\n"
         "- Use bests and thresholds to set fitness_level (run/strength/etc.).\n"
+        "- Ak je v prefs.volume zadaný požadovaný objem (mode = 'weekly_hours' alebo 'daily_minutes' a value != null),\n"
+        "  nastav volume_tolerance.weekly_minutes_min a weekly_minutes_max tak, aby reálne odrážali bezpečný rozsah okolo tohto cieľa.\n"
+        "  Napr. približne 70–120 % z implikovanej týždennej záťaže, upravené podľa recent_load a recovery.\n"
+        "- Ak prefs.volume.value je null, odhadni volume_tolerance len z recent_load, recovery a doterajších plánov – buď radšej konzervatívny.\n"
+        "- Použi external_events blok ako existujúce tréningy/aktivity, ktoré už pridávajú záťaž (napr. futbal, krúžky, klubové behy).\n"
+        "  Zohľadni ich pri fatigue_level, injury_risk a pri návrhu suggestions_short (napr. odporuč menej tvrdých behov okolo ťažkých external_events).\n"
+        "- Ak už existuje active_plan, porovnaj jeho týždennú záťaž s volume_tolerance; ak je výrazne nad ňou, upozorni na riziko.\n"
+        "- Do suggestions_short nedávaj odporúčania, ktoré dlhodobo prekračujú volume_tolerance.weekly_minutes_max.\n"
+        "- Do note v volume_tolerance stručne vysvetli, z čoho si objem odvodil (prefs.volume, recent_load, external_events...).\n"
         "- Do NOT invent impossible numbers (keep everything plausible).\n"
     )
     return system_txt, user_txt

@@ -204,3 +204,81 @@ def service_save_external_events(
         "inserted": inserted,
         "count": len(norm_rows),
     }
+
+def service_build_external_events_block_for_analysis(user_id: int) -> Dict[str, Any]:
+    """
+    Blok pre CoachAnalyzeInput["external_events"].
+
+    Cieľ: dodať LLM jednoduchý prehľad:
+      - pravidelné týždenné eventy (napr. futbal každú stredu 18:30)
+      - jednorazové eventy (single)
+
+    Dátová štruktúra (príklad):
+    {
+      "weekly": [
+        {
+          "id": 1,
+          "title": "Football",
+          "sport": "football",
+          "weekday": 3,              # 1=Mon..7=Sun
+          "duration_min": 90,
+          "priority": "fixed",
+          "intensity": "high",
+          "start_time_local": "18:30",
+          "start_date": "2025-01-01",
+          "end_date": null,
+          "notes": "club training"
+        },
+        ...
+      ],
+      "single": [
+        {
+          "id": 2,
+          "title": "Work trip",
+          "sport": None,
+          "weekday": 4,
+          "duration_min": None,
+          "priority": "fixed",
+          "intensity": None,
+          "single_date": "2025-02-10",
+          "start_time_local": "07:00",
+          "notes": "all day travel"
+        }
+      ]
+    }
+    """
+    rows = db_list_external_events_for_user(user_id) or []
+
+    weekly: List[Dict[str, Any]] = []
+    single: List[Dict[str, Any]] = []
+
+    for r in rows:
+        kind = str(r.get("recurrence_kind") or "weekly").lower()
+
+        base: Dict[str, Any] = {
+            "id": r.get("id"),
+            "title": (r.get("title") or "").strip() or "External event",
+            "sport": r.get("sport"),
+            "weekday": r.get("weekday"),
+            "duration_min": r.get("duration_min"),
+            "priority": r.get("priority") or "fixed",
+            # UI to volá „intensity/load“ – v DB to môže byť rôzne,
+            # preto skúšame viac kľúčov, ale žiadny nie je povinný.
+            "intensity": r.get("intensity") or r.get("load") or None,
+            "start_time_local": r.get("start_time_local"),
+            "notes": r.get("notes"),
+            "start_date": r.get("start_date"),
+            "end_date": r.get("end_date"),
+            "single_date": r.get("single_date"),
+            "recurrence_kind": kind,
+        }
+
+        if kind == "single":
+            single.append(base)
+        else:
+            weekly.append(base)
+
+    return {
+        "weekly": weekly,
+        "single": single,
+    }
