@@ -1,6 +1,7 @@
 # Routes_AI/generate_plan_daily.py
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
 import json
 import os
 import re
@@ -516,9 +517,10 @@ def generate_daily_week_json(
                     continue
 
                 # sanity defaults
-                now_iso = datetime.now(timezone.utc).isoformat()
+               # sanity defaults
+                now_local = datetime.now(ZoneInfo("Europe/Bratislava"))
+                parsed["generated_at"] = now_local.isoformat()
                 parsed["schema_version"] = parsed.get("schema_version",1)
-                parsed["generated_at"] = now_iso
                 parsed["model"] = parsed.get("model",m)
                 parsed["week_index"] = parsed.get("week_index",week_index)
                 parsed["week_start"] = parsed.get("week_start",week_start)

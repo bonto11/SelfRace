@@ -1,6 +1,6 @@
 # Routes_AI/coach_plan_weekly.py
 from __future__ import annotations
-
+from zoneinfo import ZoneInfo
 import json
 import os
 import re
@@ -325,9 +325,9 @@ def generate_weekly_plan_json(
                     continue
 
                 # sanity defaults
-                now_iso = datetime.now(timezone.utc).isoformat()
+                now_local = datetime.now(ZoneInfo("Europe/Bratislava"))
+                parsed["generated_at"] = now_local.isoformat()
                 parsed["schema_version"] = parsed.get("schema_version",1)
-                parsed["generated_at"] = now_iso
                 parsed["model"] = parsed.get("model",m)
 
                 # ensure plan_meta.weeks is set from context if missing

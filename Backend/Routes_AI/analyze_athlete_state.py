@@ -1,6 +1,7 @@
 # Routes_AI/analyze_athlete_state.py
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
 import json
 import os
 import re
@@ -256,9 +257,10 @@ def generate_athlete_state_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                now_iso = datetime.now(timezone.utc).isoformat()
+                # sanity defaults
+                now_local = datetime.now(ZoneInfo("Europe/Bratislava"))
+                parsed["generated_at"] = now_local.isoformat()
                 parsed["schema_version"] = parsed.get("schema_version",1)
-                parsed["generated_at"] = now_iso
                 parsed["model"] = parsed.get("model",m)
 
                 if debug_raw:
