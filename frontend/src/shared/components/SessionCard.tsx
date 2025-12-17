@@ -126,10 +126,34 @@ function fmtMin(m?: number) {
   return typeof m === "number" && m > 0 ? `${m} min` : null;
 }
 
+/** target objekt → ľudský string, podporuje starý aj nový tvar */
 function tgtToStr(t: any): string | null {
   if (!t) return null;
   if (typeof t === "string") return t;
-  const bits = [t?.pace, t?.power, t?.hr].filter(Boolean);
+
+  const bits: string[] = [];
+
+  // starší tvar
+  if (t.pace) bits.push(String(t.pace));
+  if (t.power) bits.push(String(t.power));
+  if (t.hr) bits.push(String(t.hr));
+
+  // nový AI daily tvar
+  if (t.pace_min_per_km) {
+    bits.push(`tempo ${t.pace_min_per_km} min/km`);
+  }
+
+  if (Array.isArray(t.hr_bpm) && t.hr_bpm.length === 2) {
+    const [lo, hi] = t.hr_bpm;
+    if (lo && hi) bits.push(`TF ${lo}–${hi} bpm`);
+  } else if (typeof t.hr_bpm === "number") {
+    bits.push(`TF ${t.hr_bpm} bpm`);
+  }
+
+  if (typeof t.power_w === "number") {
+    bits.push(`výkon ${t.power_w} W`);
+  }
+
   return bits.length ? bits.join(" · ") : null;
 }
 
@@ -182,7 +206,7 @@ export default function SessionCard({
         <div className="text-sm font-medium truncate">{dateLine}</div>
 
         <div className="flex items-center gap-2">
-          {item.kind === "activity" && item.isFavorite && (
+          {item.kind === "activity" && (item as ActivitySession).isFavorite && (
             <span className="text-[12px] leading-none opacity-90" title="Favorite">
               ★
             </span>
@@ -192,10 +216,10 @@ export default function SessionCard({
             <span
               className={[
                 "inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border",
-                statusCls(item.status),
+                statusCls((item as PlanSession).status),
               ].join(" ")}
             >
-              {statusLabel(item.status)}
+              {statusLabel((item as PlanSession).status)}
             </span>
           )}
 
@@ -270,13 +294,27 @@ function DetailBody({
 
   // -------- PLAN --------
   if (item.kind === "plan") {
-    const raw = item.planRaw ?? undefined;
-    const structure = item.planStructure ?? raw?.structure ?? undefined;
-    const exercises = item.planExercises ?? raw?.exercises ?? []; // always array
+    const planItem = item as PlanSession;
+    const raw = planItem.planRaw ?? undefined;
+    const structure = planItem.planStructure ?? raw?.structure ?? undefined;
+
+    // strength – podpor oba tvary: planExercises, structure.strength_exercises, raw.exercises
+    let exercises: any[] = [];
+    if (Array.isArray(planItem.planExercises)) {
+      exercises = planItem.planExercises;
+    } else if (Array.isArray(structure?.strength_exercises)) {
+      exercises = structure.strength_exercises;
+    } else if (Array.isArray(raw?.exercises)) {
+      exercises = raw.exercises;
+    }
 
     const wu = structure?.warmup ?? undefined;
-    const mn = structure?.main ?? undefined;
     const cd = structure?.cooldown ?? undefined;
+    const mainBlocks: any[] = Array.isArray(structure?.main)
+      ? structure.main
+      : structure?.main
+      ? [structure.main]
+      : [];
 
     return (
       <div>
@@ -286,9 +324,9 @@ function DetailBody({
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              item.planDur ? { label: "DURATION", value: item.planDur } : null,
-              item.planIntensity ? { label: "INTENSITY", value: item.planIntensity } : null,
-              item.planTarget ? { label: "TARGET", value: item.planTarget } : null,
+              planItem.planDur ? { label: "DURATION", value: planItem.planDur } : null,
+              planItem.planIntensity ? { label: "INTENSITY", value: planItem.planIntensity } : null,
+              planItem.planTarget ? { label: "TARGET", value: planItem.planTarget } : null,
             ]
               .filter(Boolean)
               .map((t: any) => (
@@ -300,7 +338,7 @@ function DetailBody({
           </div>
         )}
 
-        {(wu || mn || cd) && (
+        {(wu || mainBlocks.length || cd) && (
           <div className="mt-4 space-y-3">
             {wu && (
               <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
@@ -311,20 +349,31 @@ function DetailBody({
               </div>
             )}
 
-            {mn && (
+            {mainBlocks.length > 0 && (
               <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
                 <div className="text-[11px] font-semibold opacity-80">MAIN</div>
-                <div className="text-sm mt-0.5 space-y-0.5">
-                  <div>
-                    {[
-                      mn.reps ? `${mn.reps}×` : null,
-                      fmtMin(mn.work_min),
-                      mn.recover_min ? `rec ${mn.recover_min} min` : null,
-                    ].filter(Boolean).join(" · ") || "—"}
-                  </div>
+                <div className="text-sm mt-0.5 space-y-1">
+                  {mainBlocks.map((mn: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className={idx === 0 ? "" : "border-t border-white/5 pt-0.5 mt-0.5"}
+                    >
+                      <div>
+                        {[
+                          mn.reps ? `${mn.reps}×` : null,
+                          fmtMin(mn.work_min),
+                          mn.recover_min ? `rec ${mn.recover_min} min` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </div>
 
-                  {tgtToStr(mn.target) && <div className="opacity-90">target: {tgtToStr(mn.target)}</div>}
-                  {mn.notes && <div className="opacity-90">{mn.notes}</div>}
+                      {tgtToStr(mn.target) && (
+                        <div className="opacity-90">target: {tgtToStr(mn.target)}</div>
+                      )}
+                      {mn.notes && <div className="opacity-90">{mn.notes}</div>}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -352,29 +401,37 @@ function DetailBody({
                   <div className="text-sm font-medium">{e?.name ?? `Exercise ${i + 1}`}</div>
                   <div className="text-xs opacity-85 mt-0.5">
                     {[
-                      e?.sets ? `${e.sets} sets` : null,
-                      e?.reps ? `${e.reps} reps` : null,
+                      e?.slot ? String(e.slot) : null,
+                      e?.sets ? `${e.sets} série` : null,
+                      e?.reps ? `${e.reps} opak.` : null,
                       e?.seconds ? `${e.seconds}s` : null,
-                      e?.rest_sec ? `rest ${e.rest_sec}s` : null,
+                      e?.rest_s ?? e?.rest_sec
+                        ? `pauza ${e.rest_s ?? e.rest_sec}s`
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </div>
+                  {e?.notes && (
+                    <div className="mt-0.5 text-xs opacity-90">{e.notes}</div>
+                  )}
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {(item.planNotes || item.notes) && (
+        {(planItem.planNotes || planItem.notes) && (
           <div className="mt-3 text-sm opacity-90">
-            {(item.planNotes ?? item.notes) as any}
+            {(planItem.planNotes ?? planItem.notes) as any}
           </div>
         )}
 
         {showPlanDebug && (
           <div className="mt-4">
-            <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">Plan debug</div>
+            <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
+              Plan debug
+            </div>
             <pre className="text-[11px] whitespace-pre-wrap break-words opacity-85">
               {JSON.stringify({ structure, exercises, raw }, null, 2)}
             </pre>
@@ -386,6 +443,8 @@ function DetailBody({
 
   // -------- EXTERNAL --------
   if (item.kind === "external") {
+    const extItem = item as ExternalSession;
+
     return (
       <div>
         {kpiBlock}
@@ -393,8 +452,10 @@ function DetailBody({
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              item.time ? { label: "TIME", value: item.time } : null,
-              item.durationMin != null ? { label: "DURATION", value: `${item.durationMin} min` } : null,
+              extItem.time ? { label: "TIME", value: extItem.time } : null,
+              extItem.durationMin != null
+                ? { label: "DURATION", value: `${extItem.durationMin} min` }
+                : null,
             ]
               .filter(Boolean)
               .map((t: any) => (
@@ -406,18 +467,22 @@ function DetailBody({
           </div>
         )}
 
-        {(item.notes ?? null) && <div className="mt-3 text-sm opacity-90">{item.notes}</div>}
+        {(extItem.notes ?? null) && (
+          <div className="mt-3 text-sm opacity-90">{extItem.notes}</div>
+        )}
       </div>
     );
   }
 
   // -------- ACTIVITY --------
-  const s = item.activityId != null ? (getSummary(item.activityId) as any | null) : null;
+  const actItem = item as ActivitySession;
+  const s = actItem.activityId != null ? (getSummary(actItem.activityId) as any | null) : null;
 
-  const distTxt = s ? fmtDistance(s.distance_m ?? null) : item.distanceStr ?? "—";
-  const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : item.timeStr ?? "—";
-  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : item.avgHr ?? "—";
-  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : item.maxHr ?? "—";
+  const distTxt = s ? fmtDistance(s.distance_m ?? null) : actItem.distanceStr ?? "—";
+  const timeTxt =
+    s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : actItem.timeStr ?? "—";
+  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : actItem.avgHr ?? "—";
+  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : actItem.maxHr ?? "—";
 
   const [streams, setStreams] = useState<{ time_s: number[]; hr: (number | null)[]; duration_s: number }>({
     time_s: [],
@@ -429,12 +494,12 @@ function DetailBody({
 
   useEffect(() => {
     let alive = true;
-    if (!item.activityId) return;
+    if (!actItem.activityId) return;
 
     (async () => {
       try {
-        const st = await getStreams(item.activityId);
-        const dt = await getDetail(item.activityId);
+        const st = await getStreams(actItem.activityId);
+        const dt = await getDetail(actItem.activityId);
         if (!alive) return;
         if (st) setStreams(st as any);
         if (dt) {
@@ -449,7 +514,7 @@ function DetailBody({
     return () => {
       alive = false;
     };
-  }, [item.activityId, getStreams, getDetail]);
+  }, [actItem.activityId, getStreams, getDetail]);
 
   return (
     <div>
@@ -473,44 +538,45 @@ function DetailBody({
       )}
 
       {/* PB actions */}
-      {"onEdit" in item && (item.onEdit || item.onDelete || item.onToggleFavorite) && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {item.onToggleFavorite && (
-            <button
-              type="button"
-              onClick={item.onToggleFavorite}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-            >
-              {item.isFavorite ? "★ Favorite" : "☆ Set favorite"}
-            </button>
-          )}
-          {item.onEdit && (
-            <button
-              type="button"
-              onClick={item.onEdit}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-            >
-              Edit
-            </button>
-          )}
-          {item.onDelete && (
-            <button
-              type="button"
-              onClick={item.onDelete}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      )}
+      {"onEdit" in actItem &&
+        (actItem.onEdit || actItem.onDelete || actItem.onToggleFavorite) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {actItem.onToggleFavorite && (
+              <button
+                type="button"
+                onClick={actItem.onToggleFavorite}
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+              >
+                {actItem.isFavorite ? "★ Favorite" : "☆ Set favorite"}
+              </button>
+            )}
+            {actItem.onEdit && (
+              <button
+                type="button"
+                onClick={actItem.onEdit}
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+              >
+                Edit
+              </button>
+            )}
+            {actItem.onDelete && (
+              <button
+                type="button"
+                onClick={actItem.onDelete}
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        )}
 
       {/* CTA (napr z kalendára) */}
       {onOpenActivity && (
         <div className="mt-3">
           <button
             type="button"
-            onClick={() => onOpenActivity(item.activityId)}
+            onClick={() => onOpenActivity(actItem.activityId)}
             className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
           >
             Otvoriť aktivitu
@@ -518,8 +584,8 @@ function DetailBody({
         </div>
       )}
 
-      {/* notes (calendar môže poslať item.notes) */}
-      {item.notes && <div className="mt-3 text-sm opacity-90">{item.notes}</div>}
+      {/* notes */}
+      {actItem.notes && <div className="mt-3 text-sm opacity-90">{actItem.notes}</div>}
 
       {/* HR priebeh */}
       <div className="mt-3">
@@ -542,7 +608,8 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {splits.map((sp: any, idx: number) => (
               <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)}, {fmtSecondsHMS(sp.moving_time_s)}
+                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)},{" "}
+                {fmtSecondsHMS(sp.moving_time_s)}
               </li>
             ))}
           </ul>
@@ -555,7 +622,8 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {laps.map((lap: any, idx: number) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)}, {fmtSecondsHMS(lap.moving_time_s)}
+                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
+                {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}
           </ul>

@@ -10,6 +10,9 @@ import {
   type DailyOverview,
   type DailyPlanDay,
 } from "@/features/coach/api/coach_plan_daily";
+import SessionCard, {
+  type SessionCardItem,
+} from "@/shared/components/SessionCard";
 
 /* ---------- helpers ---------- */
 
@@ -36,6 +39,69 @@ function weekdayLabel(value: string | null | undefined): string | null {
   return d.toLocaleDateString(undefined, {
     weekday: "short",
   });
+}
+
+function describeTargets(t: any): string | null {
+  if (!t) return null;
+  const parts: string[] = [];
+
+  if (t.pace_min_per_km) {
+    parts.push(`tempo ${t.pace_min_per_km} min/km`);
+  }
+
+  if (Array.isArray(t.hr_bpm) && t.hr_bpm.length === 2) {
+    const [lo, hi] = t.hr_bpm;
+    if (lo && hi) parts.push(`TF ${lo}–${hi} bpm`);
+  } else if (typeof t.hr_bpm === "number") {
+    parts.push(`TF ${t.hr_bpm} bpm`);
+  }
+
+  if (typeof t.power_w === "number") {
+    parts.push(`výkon ${t.power_w} W`);
+  }
+
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function buildPlanItemFromDailySession(
+  day: DailyPlanDay,
+  s: DailyPlanDay["sessions"][number],
+  index: number
+): SessionCardItem {
+  const sport = (s as any).sport || "other";
+  const targetStr = describeTargets((s as any).targets);
+
+  const kpis = [
+    s.duration_min ? { label: "DURATION", value: `${s.duration_min} min` } : null,
+    s.intensity ? { label: "INTENSITY", value: s.intensity } : null,
+    targetStr ? { label: "TARGET", value: targetStr } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  const structure = (s as any).structure ?? undefined;
+
+  const item: SessionCardItem = {
+    id: `${day.date ?? "day"}-${index}`,
+    kind: "plan",
+    title: s.title || s.session_type || s.sport || "Session",
+    dateIso: day.date ?? null,
+    sport,
+    hideDateLine: true,
+    subtitle: null,
+    kpis,
+
+    status: "planned",
+    planDur: s.duration_min ? `${s.duration_min} min` : null,
+    planIntensity: s.intensity ?? null,
+    planTarget: targetStr,
+    planNotes: s.notes ?? null,
+    planRaw: s,
+    planStructure: structure,
+    planExercises: Array.isArray(structure?.strength_exercises)
+      ? structure.strength_exercises
+      : [],
+  };
+
+  return item;
 }
 
 type ViewModel = {
@@ -215,8 +281,8 @@ export default function DetailDailyPlan() {
               Denný rozpis tréningov
             </h3>
             <p className="mt-1 text-xs text-slate-400">
-              Každý blok predstavuje jeden deň – vidíš šport, trvanie,
-              intenzitu a krátke poznámky.
+              Každý blok predstavuje jeden deň – pre každý tréning je
+              použitá rovnaká Session card ako v kalendári.
             </p>
           </header>
 
@@ -226,11 +292,8 @@ export default function DetailDailyPlan() {
               const wdLabel = weekdayLabel(d.date);
 
               return (
-                <div
-                  key={d.date}
-                  className={SURFACE_SUBCARD}
-                >
-                  <div className="px-3 pt-3 pb-3 space-y-2">
+                <div key={d.date} className={SURFACE_SUBCARD}>
+                  <div className="px-3 pt-3 pb-3 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold">
@@ -245,29 +308,15 @@ export default function DetailDailyPlan() {
                     </div>
 
                     {d.sessions && d.sessions.length > 0 ? (
-                      <ul className="space-y-1.5 text-sm">
-                        {d.sessions.map((s, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            <div className="flex-1">
-                              <div className="font-medium">
-                                {s.title || s.session_type || s.sport || "Session"}
-                              </div>
-                              <div className="text-xs text-slate-300">
-                                {[s.duration_min ? `${s.duration_min} min` : null,
-                                  s.intensity || null,
-                                  s.sport || null]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </div>
-                              {s.notes && (
-                                <div className="mt-0.5 text-xs text-slate-400">
-                                  {s.notes}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
+                      <ul className="space-y-2">
+                        {d.sessions.map((s, i) => {
+                          const item = buildPlanItemFromDailySession(d, s, i);
+                          return (
+                            <li key={item.id}>
+                              <SessionCard variant="plan" item={item} />
+                            </li>
+                          );
+                        })}
                       </ul>
                     ) : (
                       <p className="text-xs text-slate-400">
