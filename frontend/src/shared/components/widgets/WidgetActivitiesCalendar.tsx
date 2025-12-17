@@ -12,6 +12,11 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { apiGetExternalEventsWindow } from "@/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
 
+import {
+  dedupeCalendarItems,
+  type CalendarItemKind,
+} from "@/features/calendar/utils/calendarSlots";
+
 const SPORT_COLORS: Record<string, string> = {
   run: (THEME as any)?.sport?.run ?? THEME.chart.run,
   ride: (THEME as any)?.sport?.ride ?? THEME.chart.ride,
@@ -44,7 +49,8 @@ function safeSportKey(v: any): string {
 type DayItem = {
   id: number;
   sport: string;
-  kind: "activity" | "external" | "plan" | "done" | "missed";
+  kind: CalendarItemKind;   // namiesto ručne písaného unionu
+  activityId?: number | null;
 };
 
 type Props = {
@@ -122,6 +128,7 @@ export default function WidgetWeekActivities({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
         sport: safeSportKey((ev as any).sport),
         kind: "external",
+        activityId: null,
       });
     }
 
@@ -136,6 +143,7 @@ export default function WidgetWeekActivities({
           (r as any).sport || (r as any).sport_type_fe || "other"
         ),
         kind: "activity",
+        activityId: r.activity_id,
       });
     }
 
@@ -165,59 +173,41 @@ export default function WidgetWeekActivities({
           : null;
 
       // ak má activity_id → označ activity ako done
+      const actIdRaw = (p as any).activity_id;
+      const actId =
+        actIdRaw != null && !Number.isNaN(Number(actIdRaw))
+          ? Number(actIdRaw)
+          : null;
+      
+      // ak má activity_id → označ activity ako done
       if (actId) {
         const idx = arr.findIndex(
           (it) => it.kind === "activity" && it.id === actId
         );
         if (idx >= 0) {
-          arr[idx] = { ...arr[idx], kind: "done" };
+          arr[idx] = { ...arr[idx], kind: "done", activityId: actId };
           continue;
         }
       }
-
+      
       if (!isRest) {
         const isPast = k < todayIso;
         arr.push({
           id: p.id,
           sport,
           kind: isPast ? "missed" : "plan",
+          activityId: actId,
         });
       }
+
+     
     }
 
     // DEDUPE:
     // - ak existuje activity/done pre šport S → nechaj len activity/done (skry plan/missed/external S)
     // - ak neexistuje activity/done, ale existuje plan/missed S → skry external S
     for (const [k, arr] of map.entries()) {
-      const hasActivityOrDone = new Set(
-        arr
-          .filter((x) => x.kind === "activity" || x.kind === "done")
-          .map((x) => x.sport)
-      );
-
-      const hasPlanOrMissed = new Set(
-        arr
-          .filter((x) => x.kind === "plan" || x.kind === "missed")
-          .map((x) => x.sport)
-      );
-
-      if (hasActivityOrDone.size === 0 && hasPlanOrMissed.size === 0) continue;
-
-      const filtered = arr.filter((x) => {
-        // 1) ak je pre daný šport activity/done → zobraz len activity/done
-        if (hasActivityOrDone.has(x.sport)) {
-          return x.kind === "activity" || x.kind === "done";
-        }
-
-        // 2) ak nie je activity/done, ale je plan/missed → skry external
-        if (hasPlanOrMissed.has(x.sport) && x.kind === "external") {
-          return false;
-        }
-
-        return true;
-      });
-
-      map.set(k, filtered);
+      map.set(k, dedupeCalendarItems(arr));
     }
 
     return map;
