@@ -30,19 +30,21 @@ def enqueue_job(
 ) -> Dict[str, Any]:
     """
     Vytvorí nový async job pre daného usera.
-    FE musí poslať:
-      - kind
-      - input (ľubovoľný JSON)
-      - user_uid (Supabase auth UID)
+
+    FE posiela:
+      - job_type (napr. 'ai_analyze')
+      - payload (ľubovoľný JSON)
+      - voliteľne: dedupe_key, run_after, max_attempts
     """
     try:
         out = service_enqueue_job(
             user_id=user_id,
-            user_uid=payload.user_uid,
-            kind=payload.kind,
-            input=payload.input,
+            job_type=payload.job_type,
+            payload=payload.payload,
+            priority=payload.priority,
             run_after=payload.run_after,
             max_attempts=payload.max_attempts,
+            dedupe_key=payload.dedupe_key,
         )
         return {"success": True, "job": out.get("job"), "note": out.get("note")}
     except ValueError as ve:
@@ -123,12 +125,6 @@ def run_job(
 ) -> Dict[str, Any]:
     """
     Manuálne spracovanie jedného jobu (mini-worker).
-
-    Typický flow pre ai_analyze:
-      1) POST /jobs/enqueue/{user_id}  body: { kind: "ai_analyze", input: {...}, user_uid: "..." }
-      2) FE zoberie z response job.id
-      3) POST /jobs/run/{user_id}/{job_id}
-      4) result + status = 'succeeded' / 'failed' v async_jobs.result
     """
     try:
         out = service_run_job_now(

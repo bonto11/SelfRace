@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
-from uuid import UUID
 
 from Routes_DB.async_jobs import (
     db_insert_job,
@@ -14,7 +13,7 @@ from Routes_DB.async_jobs import (
 
 from Services.coach_athlete_state import service_analyze_athlete
 
-ALLOWED_JOB_KINDS = {
+ALLOWED_JOB_TYPES = {
     "sync",
     "ai_analyze",
     "weekly_generate",
@@ -24,7 +23,7 @@ ALLOWED_JOB_KINDS = {
 }
 
 
-def _safe_kind(value: str) -> str:
+def _safe_job_type(value: str) -> str:
     v = (value or "").strip()
     if not v:
         return "other"
@@ -33,30 +32,35 @@ def _safe_kind(value: str) -> str:
 
 def service_enqueue_job(
     user_id: int,
-    user_uid: UUID,
     *,
-    kind: str,
-    input: Dict[str, Any],
+    job_type: str,
+    payload: Dict[str, Any],
+    priority: int = 100,
     run_after: Optional[str] = None,
     max_attempts: int = 3,
+    dedupe_key: Optional[str] = None,  # zatiaľ nevyužité – do budúcna
 ) -> Dict[str, Any]:
     """
     Vytvorí nový job v async_jobs.
     """
-    job_kind = _safe_kind(kind)
+    jt = _safe_job_type(job_type)
 
-    if job_kind not in ALLOWED_JOB_KINDS:
-        raise ValueError(f"Unsupported job kind: {job_kind}")
+    if jt not in ALLOWED_JOB_TYPES:
+        raise ValueError(f"Unsupported job_type: {jt}")
+
+    # Tu by sa dal spraviť dedupe podľa dedupe_key, keď ho pridáme do tabuľky
 
     row: Dict[str, Any] = {
         "user_id": int(user_id),
-        "user_uid": str(user_uid),
-        "kind": job_kind,
+        # TODO: keď budeš mať v BE k dispozícii Supabase UID, doplň ho sem
+        "user_uid": "00000000-0000-0000-0000-000000000000",
+        "kind": jt,  # mapujeme job_type -> DB stĺpec kind
         "status": "queued",
-        "input": input or {},
+        "input": payload or {},
         "attempts": 0,
         "max_attempts": int(max_attempts or 3),
         "progress": 0,
+        # priority/dedupe_key zatiaľ v DB nemáme – kľudne pridáme neskôr
     }
 
     if run_after:
@@ -87,19 +91,13 @@ def service_run_job_now(
     worker_id: str = "manual",
 ) -> Dict[str, Any]:
     """
-    Spustí konkrétny job (id) pre daného usera.
-
-    Toto je "mini worker" – vhodné na prvé testovanie:
-      1) FE enqueue job (kind=ai_analyze)
-      2) FE zavolá /jobs/run/{user_id}/{job_id}
-      3) job sa spracuje, výsledok ide do async_jobs.result
+    Spustí konkrétny job (id) pre daného usera – mini worker.
     """
     job = db_get_job_by_id(user_id=user_id, job_id=job_id)
     if not job:
         return {"job": None, "error": "job_not_found"}
 
     if int(job.get("user_id") or 0) != int(user_id):
-        # teoreticky by sa nemalo stať, len ochrana
         return {"job": job, "error": "forbidden_for_user"}
 
     status = str(job.get("status") or "")
@@ -115,14 +113,12 @@ def service_run_job_now(
     except Exception:
         attempts = 0
 
-    # označ ako running (len ak bol queued)
     locked = db_mark_job_running(
         job_id=job_id,
         worker_id=worker_id,
         attempts=attempts + 1,
     )
     if not locked:
-        # niekto iný ho možno zobral, alebo už nie je queued
         job_latest = db_get_job_by_id(user_id=user_id, job_id=job_id)
         return {
             "job": job_latest,
@@ -133,11 +129,9 @@ def service_run_job_now(
     result_payload: Optional[Dict[str, Any]] = None
 
     try:
-        # sem budeme postupne dopĺňať ďalšie druhy jobov
+        # sem postupne doplníme ďalšie druhy jobov
         if kind == "ai_analyze":
-            # 1) beží tvoja existujúca AI logika
             result_payload = service_analyze_athlete(user_id=user_id)
-
         else:
             raise ValueError(f"Unsupported job kind for worker: {kind}")
 
