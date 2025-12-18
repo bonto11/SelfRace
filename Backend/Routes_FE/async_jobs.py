@@ -5,10 +5,15 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.Schemas.async_jobs import EnqueueJobPayload, EnqueueJobResponse
+from backend.Schemas.async_jobs import (
+    EnqueueJobPayload,
+    EnqueueJobResponse,
+    RunJobResponse,
+)
 from backend.Services.async_jobs import (
     service_enqueue_job,
     service_list_active_jobs,
+    service_run_job_now,
 )
 from backend.Routes_DB.async_jobs import (
     db_get_recent_jobs,
@@ -25,7 +30,6 @@ def enqueue_job(
 ) -> Dict[str, Any]:
     """
     Vytvorí nový async job pre daného usera.
-
     FE musí poslať:
       - kind
       - input (ľubovoľný JSON)
@@ -65,7 +69,9 @@ def list_active_jobs(
             kinds_list = [k.strip() for k in kinds.split(",") if k.strip()]
 
         rows = service_list_active_jobs(
-            user_id=user_id, kinds=kinds_list, limit=limit
+            user_id=user_id,
+            kinds=kinds_list,
+            limit=limit,
         )
         return {"success": True, "jobs": rows}
     except Exception as e:  # noqa: BLE001
@@ -106,5 +112,34 @@ def get_job(
     try:
         row = db_get_job_by_id(user_id=user_id, job_id=job_id)
         return {"success": True, "job": row}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/run/{user_id}/{job_id}", response_model=RunJobResponse)
+def run_job(
+    user_id: int,
+    job_id: int,
+) -> Dict[str, Any]:
+    """
+    Manuálne spracovanie jedného jobu (mini-worker).
+
+    Typický flow pre ai_analyze:
+      1) POST /jobs/enqueue/{user_id}  body: { kind: "ai_analyze", input: {...}, user_uid: "..." }
+      2) FE zoberie z response job.id
+      3) POST /jobs/run/{user_id}/{job_id}
+      4) result + status = 'succeeded' / 'failed' v async_jobs.result
+    """
+    try:
+        out = service_run_job_now(
+            user_id=user_id,
+            job_id=job_id,
+            worker_id="api_run",
+        )
+        return {
+            "success": out.get("error") is None,
+            "job": out.get("job"),
+            "error": out.get("error"),
+        }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
