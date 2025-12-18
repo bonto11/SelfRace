@@ -254,7 +254,6 @@ def service_generate_daily_week(
 
     return resp
 
-
 def service_get_daily_overview(
     user_id: int,
     horizon_days: int = 7,
@@ -299,7 +298,21 @@ def service_get_daily_overview(
 
     for date_str, sessions in sorted(by_date.items(), key=lambda kv: kv[0]):
         sessions_out: List[Dict[str, Any]] = []
+
         for s in sorted(sessions, key=lambda x: int(x.get("session_index") or 0)):
+            # robustne vytiahni structure
+            payload = s.get("payload") or {}
+            structure = s.get("structure") or payload.get("structure")
+
+            # fallback pre silovku, ak by strength_exercises bolo na roote
+            if structure is None:
+                strength_ex = (
+                    s.get("strength_exercises")
+                    or payload.get("strength_exercises")
+                )
+                if strength_ex:
+                    structure = {"strength_exercises": strength_ex}
+
             sessions_out.append(
                 {
                     "sport": s.get("sport") or "other",
@@ -309,6 +322,8 @@ def service_get_daily_overview(
                     "zone_text": s.get("zone_text"),
                     "notes": s.get("notes"),
                     "session_type": s.get("session_type"),
+                    # 🔹 toto pribudlo – pošleme celé JSON pole/objekt na FE
+                    "structure": structure,
                 }
             )
 

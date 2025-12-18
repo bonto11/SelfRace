@@ -300,15 +300,22 @@ function DetailBody({
     </div>
   ) : null;
 
-  // -------- PLAN --------
-// -------- PLAN --------
+ // -------- PLAN --------
   if (item.kind === "plan") {
     const raw = item.planRaw ?? undefined;
-    // hlavný "structure" objekt – môže prísť buď cez planStructure alebo raw.structure
     const structure = item.planStructure ?? raw?.structure ?? undefined;
 
-    // ===== DEBUG – môžeš zmazať, keď to doladíme =====
-    if (typeof window !== "undefined") {
+    const exercises: any[] =
+      item.planExercises ??
+      structure?.strength_exercises ??
+      raw?.strength_exercises ??
+      raw?.exercises ??
+      [];
+
+    // Debug len v prehliadači a mimo production
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+      // základné info o pláne
+      // eslint-disable-next-line no-console
       console.debug("[SessionCard] PLAN item", {
         title: item.title,
         planDur: item.planDur,
@@ -317,45 +324,26 @@ function DetailBody({
         raw,
         structure,
       });
-    }
-    // ================================================
-
-    // ===== MAIN / WU / CD =====
-    const wu = structure?.warmup ?? structure?.wu ?? undefined;
-
-    const mainBlocks: any[] = [];
-    if (Array.isArray(structure?.main)) {
-      mainBlocks.push(...structure.main);
-    } else if (structure?.main) {
-      mainBlocks.push(structure.main);
-    }
-
-    const cd = structure?.cooldown ?? structure?.cd ?? undefined;
-
-    // ===== STRENGTH EXERCISES =====
-    let exercises: any[] = Array.isArray(item.planExercises)
-      ? item.planExercises
-      : [];
-
-    // ak z calendaru neprišli, skús ich nájsť v structure
-    if (!exercises.length) {
-      if (Array.isArray(structure?.strength_exercises)) {
-        exercises = structure.strength_exercises;
-      } else if (Array.isArray((raw as any)?.strength_exercises)) {
-        exercises = (raw as any).strength_exercises;
-      } else if (Array.isArray((raw as any)?.exercises)) {
-        exercises = (raw as any).exercises;
-      }
-    }
-
-    // sekundárny debug len pre cviky
-    if (typeof window !== "undefined") {
+      // čo sme našli v exercises
+      // eslint-disable-next-line no-console
       console.debug("[SessionCard] PLAN exercises", {
         title: item.title,
-        count: exercises.length,
-        sample: exercises[0],
+        count: Array.isArray(exercises) ? exercises.length : 0,
+        sample: Array.isArray(exercises) ? exercises[0] : undefined,
       });
     }
+
+    const wu = structure?.warmup ?? undefined;
+
+    const mainBlocks: any[] = Array.isArray(structure?.main)
+      ? structure.main
+      : structure?.main
+      ? [structure.main]
+      : [];
+
+    const cd = structure?.cooldown ?? undefined;
+
+    const exerciseList = Array.isArray(exercises) ? exercises : [];
 
     return (
       <div>
@@ -391,135 +379,48 @@ function DetailBody({
         )}
 
         {(wu || mainBlocks.length || cd) && (
-          <div className="mt-4 space-y-3">
-            {wu && (
-              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  WARM-UP
-                </div>
-                <div className="text-sm mt-0.5">
-                  {[fmtMin(wu.minutes), wu.notes]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </div>
-              </div>
-            )}
-
-            {mainBlocks.length > 0 && (
-              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  MAIN
-                </div>
-                <div className="text-sm mt-0.5 space-y-1">
-                  {mainBlocks.map((mn: any, idx: number) => {
-                    const line =
-                      [
-                        mn.reps ? `${mn.reps}×` : null,
-                        fmtMin(mn.work_min),
-                        mn.recover_min ? `rec ${mn.recover_min} min` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "—";
-                    const tgt = tgtToStr(mn.target);
-                    return (
-                      <div
-                        key={idx}
-                        className="border-t border-white/5 pt-1 first:border-t-0 first:pt-0"
-                      >
-                        <div>{line}</div>
-                        {tgt && (
-                          <div className="opacity-90">target: {tgt}</div>
-                        )}
-                        {mn.notes && (
-                          <div className="opacity-90">{mn.notes}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {cd && (
-              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  COOL-DOWN
-                </div>
-                <div className="text-sm mt-0.5">
-                  {[fmtMin(cd.minutes), cd.notes]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* ... tá časť s WARM-UP / MAIN / COOL-DOWN nechaj ako ju máš teraz ... */}
         )}
 
-        {Array.isArray(exercises) && exercises.length > 0 && (
+        {exerciseList.length > 0 && (
           <div className="mt-4">
             <div className="text-[11px] font-semibold opacity-80 mb-1.5">
               EXERCISES
             </div>
             <ul className="space-y-1.5">
-              {exercises.map((e: any, i: number) => {
-                const name =
-                  e?.name ??
-                  e?.exercise_name ??
-                  `Exercise ${i + 1}`;
-                const restSec = e?.rest_sec ?? e?.rest_s ?? null;
-                const seconds = e?.seconds ?? e?.duration_s ?? null;
-
-                const line =
-                  [
-                    e?.sets ? `${e.sets} sets` : null,
-                    e?.reps ? `${e.reps} reps` : null,
-                    seconds ? `${seconds}s` : null,
-                    restSec ? `rest ${restSec}s` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—";
-
-                return (
-                  <li
-                    key={`${name}-${i}`}
-                    className="rounded-md border border-white/10 px-3 py-2"
-                  >
-                    <div className="text-sm font-medium">{name}</div>
-                    <div className="text-xs opacity-85 mt-0.5">
-                      {line}
-                    </div>
-                    {e?.notes && (
-                      <div className="mt-0.5 text-xs opacity-80">
-                        {e.notes}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
+              {exerciseList.map((e: any, i: number) => (
+                <li
+                  key={`${e?.exercise_id ?? e?.name ?? "ex"}-${i}`}
+                  className="rounded-md border border-white/10 px-3 py-2"
+                >
+                  <div className="text-sm font-medium">
+                    {e?.exercise_name ?? e?.name ?? `Exercise ${i + 1}`}
+                  </div>
+                  <div className="text-xs opacity-85 mt-0.5">
+                    {[
+                      e?.sets ? `${e.sets} sets` : null,
+                      e?.reps ? `${e.reps} reps` : null,
+                      e?.seconds ? `${e.seconds}s` : null,
+                      e?.rest_s ? `rest ${e.rest_s}s` : null,
+                      e?.rest_sec ? `rest ${e.rest_sec}s` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </div>
+                  {e?.notes && (
+                    <div className="mt-0.5 text-xs opacity-80">{e.notes}</div>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
         )}
 
-        {(item.planNotes || item.notes) && (
-          <div className="mt-3 text-sm opacity-90">
-            {(item.planNotes ?? item.notes) as any}
-          </div>
-        )}
-
-        {showPlanDebug && (
-          <div className="mt-4">
-            <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
-              Plan debug
-            </div>
-            <pre className="text-[11px] whitespace-pre-wrap break-words opacity-85">
-              {JSON.stringify({ structure, exercises, raw }, null, 2)}
-            </pre>
-          </div>
-        )}
+        {/* zvyšok (planNotes, debug) nechaj tak ako máš */}
       </div>
     );
   }
-  
+
   // -------- EXTERNAL --------
   if (item.kind === "external") {
     return (
