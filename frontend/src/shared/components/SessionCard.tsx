@@ -1,5 +1,4 @@
 // src/shared/components/SessionCard.tsx
-
 "use client";
 
 import * as React from "react";
@@ -17,7 +16,7 @@ import { ComponentVariant } from "@/features/activity/utils/activity";
 export type SessionKind = "activity" | "plan" | "external";
 export type PlanStatus = "planned" | "done" | "missed";
 
-export type KPI = { label: string; value: string };
+export type KPI = { label: string; value: any }; // value môže byť čokoľvek
 
 type Base = {
   id: string | number;
@@ -131,6 +130,18 @@ function parseKm(s?: string | null): number | null {
 
 function fmtMin(m?: number) {
   return typeof m === "number" && m > 0 ? `${m} min` : null;
+}
+
+function safeText(value: any): string {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function tgtToStr(t: any): string | null {
@@ -290,60 +301,51 @@ function DetailBody({
     <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
       {kpis.map((k) => (
         <div
-          key={k.label}
+          key={String(k.label)}
           className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
         >
-          <div className="text-[10px] opacity-70">{k.label}</div>
-          <div className="text-xl font-semibold tabular-nums">{k.value}</div>
+          <div className="text-[10px] opacity-70">{safeText(k.label)}</div>
+          <div className="text-xl font-semibold tabular-nums">
+            {safeText(k.value)}
+          </div>
         </div>
       ))}
     </div>
   ) : null;
 
- // -------- PLAN --------
+  // -------- PLAN --------
   if (item.kind === "plan") {
     const raw = item.planRaw ?? undefined;
     const structure = item.planStructure ?? raw?.structure ?? undefined;
-
-    const exercises: any[] =
+    const exercises =
       item.planExercises ??
-      structure?.strength_exercises ??
-      raw?.strength_exercises ??
-      raw?.exercises ??
+      (structure && Array.isArray(structure.strength_exercises)
+        ? structure.strength_exercises
+        : []) ??
       [];
 
-    // Debug len v prehliadači a mimo production
-    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
-      // základné info o pláne
-      // eslint-disable-next-line no-console
-      console.debug("[SessionCard] PLAN item", {
-        title: item.title,
-        planDur: item.planDur,
-        planIntensity: item.planIntensity,
-        planTarget: item.planTarget,
-        raw,
-        structure,
-      });
-      // čo sme našli v exercises
-      // eslint-disable-next-line no-console
-      console.debug("[SessionCard] PLAN exercises", {
-        title: item.title,
-        count: Array.isArray(exercises) ? exercises.length : 0,
-        sample: Array.isArray(exercises) ? exercises[0] : undefined,
-      });
-    }
-
     const wu = structure?.warmup ?? undefined;
-
     const mainBlocks: any[] = Array.isArray(structure?.main)
       ? structure.main
       : structure?.main
       ? [structure.main]
       : [];
-
     const cd = structure?.cooldown ?? undefined;
 
-    const exerciseList = Array.isArray(exercises) ? exercises : [];
+    // DEBUG – nech vidíš, čo naozaj prichádza z Daily plánu
+    console.log("[SessionCard] PLAN item", {
+      title: item.title,
+      planDur: item.planDur,
+      planIntensity: item.planIntensity,
+      planTarget: item.planTarget,
+      raw,
+      structure,
+    });
+    console.log("[SessionCard] PLAN exercises", {
+      title: item.title,
+      count: Array.isArray(exercises) ? exercises.length : 0,
+      sample: Array.isArray(exercises) && exercises.length > 0 ? exercises[0] : undefined,
+    });
 
     return (
       <div>
@@ -369,9 +371,11 @@ function DetailBody({
                   key={t.label}
                   className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
                 >
-                  <div className="text-[10px] opacity-70">{t.label}</div>
+                  <div className="text-[10px] opacity-70">
+                    {safeText(t.label)}
+                  </div>
                   <div className="text-xl font-semibold tabular-nums">
-                    {String(t.value)}
+                    {safeText(t.value)}
                   </div>
                 </div>
               ))}
@@ -379,44 +383,157 @@ function DetailBody({
         )}
 
         {(wu || mainBlocks.length || cd) && (
-          {/* ... tá časť s WARM-UP / MAIN / COOL-DOWN nechaj ako ju máš teraz ... */}
+          <div className="mt-4 space-y-3">
+            {wu && (
+              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-[11px] font-semibold opacity-80">
+                  WARM-UP
+                </div>
+                <div className="text-sm mt-0.5">
+                  {[
+                    fmtMin(wu.minutes),
+                    typeof wu.notes === "string"
+                      ? wu.notes
+                      : wu.notes != null
+                      ? safeText(wu.notes)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </div>
+              </div>
+            )}
+
+            {mainBlocks.length > 0 && (
+              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-[11px] font-semibold opacity-80">
+                  MAIN
+                </div>
+                <div className="text-sm mt-0.5 space-y-1">
+                  {mainBlocks.map((mn: any, idx: number) => {
+                    const line =
+                      [
+                        mn?.reps ? `${mn.reps}×` : null,
+                        fmtMin(mn?.work_min),
+                        mn?.recover_min ? `rec ${mn.recover_min} min` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "—";
+
+                    const tgt = tgtToStr(mn?.target);
+                    const noteText =
+                      typeof mn?.notes === "string"
+                        ? mn.notes
+                        : mn?.notes != null
+                        ? safeText(mn.notes)
+                        : null;
+
+                    return (
+                      <div
+                        key={idx}
+                        className="border-t border-white/5 pt-1 first:border-t-0 first:pt-0"
+                      >
+                        <div>{line}</div>
+                        {tgt && (
+                          <div className="opacity-90">target: {tgt}</div>
+                        )}
+                        {noteText && (
+                          <div className="opacity-90">{noteText}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {cd && (
+              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-[11px] font-semibold opacity-80">
+                  COOL-DOWN
+                </div>
+                <div className="text-sm mt-0.5">
+                  {[
+                    fmtMin(cd.minutes),
+                    typeof cd.notes === "string"
+                      ? cd.notes
+                      : cd.notes != null
+                      ? safeText(cd.notes)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
-        {exerciseList.length > 0 && (
+        {Array.isArray(exercises) && exercises.length > 0 && (
           <div className="mt-4">
             <div className="text-[11px] font-semibold opacity-80 mb-1.5">
               EXERCISES
             </div>
             <ul className="space-y-1.5">
-              {exerciseList.map((e: any, i: number) => (
-                <li
-                  key={`${e?.exercise_id ?? e?.name ?? "ex"}-${i}`}
-                  className="rounded-md border border-white/10 px-3 py-2"
-                >
-                  <div className="text-sm font-medium">
-                    {e?.exercise_name ?? e?.name ?? `Exercise ${i + 1}`}
-                  </div>
-                  <div className="text-xs opacity-85 mt-0.5">
-                    {[
-                      e?.sets ? `${e.sets} sets` : null,
-                      e?.reps ? `${e.reps} reps` : null,
-                      e?.seconds ? `${e.seconds}s` : null,
-                      e?.rest_s ? `rest ${e.rest_s}s` : null,
-                      e?.rest_sec ? `rest ${e.rest_sec}s` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </div>
-                  {e?.notes && (
-                    <div className="mt-0.5 text-xs opacity-80">{e.notes}</div>
-                  )}
-                </li>
-              ))}
+              {exercises.map((e: any, i: number) => {
+                const name =
+                  e?.exercise_name || e?.name || `Exercise ${i + 1}`;
+
+                const parts = [
+                  e?.sets ? `${e.sets} sets` : null,
+                  e?.reps ? `${e.reps} reps` : null,
+                  e?.seconds ? `${e.seconds}s` : null,
+                  e?.rest_sec
+                    ? `rest ${e.rest_sec}s`
+                    : e?.rest_s
+                    ? `rest ${e.rest_s}s`
+                    : null,
+                ].filter(Boolean);
+
+                const line = parts.length ? parts.join(" · ") : "—";
+
+                const notesText =
+                  typeof e?.notes === "string"
+                    ? e.notes
+                    : e?.notes != null
+                    ? safeText(e.notes)
+                    : null;
+
+                return (
+                  <li
+                    key={`${name}-${i}`}
+                    className="rounded-md border border-white/10 px-3 py-2"
+                  >
+                    <div className="text-sm font-medium">{name}</div>
+                    <div className="text-xs opacity-85 mt-0.5">{line}</div>
+                    {notesText && (
+                      <div className="text-xs opacity-85 mt-0.5">
+                        {notesText}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
 
-        {/* zvyšok (planNotes, debug) nechaj tak ako máš */}
+        {(item.planNotes || item.notes) && (
+          <div className="mt-3 text-sm opacity-90">
+            {safeText(item.planNotes ?? item.notes)}
+          </div>
+        )}
+
+        {showPlanDebug && (
+          <div className="mt-4">
+            <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
+              Plan debug
+            </div>
+            <pre className="text-[11px] whitespace-pre-wrap break-words opacity-85">
+              {safeText({ structure, exercises, raw })}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }
@@ -441,9 +558,11 @@ function DetailBody({
                   key={t.label}
                   className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
                 >
-                  <div className="text-[10px] opacity-70">{t.label}</div>
+                  <div className="text-[10px] opacity-70">
+                    {safeText(t.label)}
+                  </div>
                   <div className="text-xl font-semibold tabular-nums">
-                    {String(t.value)}
+                    {safeText(t.value)}
                   </div>
                 </div>
               ))}
@@ -451,7 +570,9 @@ function DetailBody({
         )}
 
         {(item.notes ?? null) && (
-          <div className="mt-3 text-sm opacity-90">{item.notes}</div>
+          <div className="mt-3 text-sm opacity-90">
+            {safeText(item.notes)}
+          </div>
         )}
       </div>
     );
@@ -526,9 +647,11 @@ function DetailBody({
               key={t.label}
               className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
             >
-              <div className="text-[10px] opacity-70">{t.label}</div>
+              <div className="text-[10px] opacity-70">
+                {safeText(t.label)}
+              </div>
               <div className="text-xl font-semibold tabular-nums">
-                {String(t.value)}
+                {safeText(t.value)}
               </div>
             </div>
           ))}
@@ -584,7 +707,9 @@ function DetailBody({
 
       {/* notes (calendar môže poslať item.notes) */}
       {item.notes && (
-        <div className="mt-3 text-sm opacity-90">{item.notes}</div>
+        <div className="mt-3 text-sm opacity-90">
+          {safeText(item.notes)}
+        </div>
       )}
 
       {/* HR priebeh */}
@@ -644,7 +769,7 @@ function DetailBody({
             Debug JSON
           </summary>
           <pre className="mt-2 text-[11px] opacity-90 whitespace-pre-wrap break-words">
-            {JSON.stringify((item as any).raw ?? item, null, 2)}
+            {safeText((item as any).raw ?? item)}
           </pre>
         </details>
       )}
