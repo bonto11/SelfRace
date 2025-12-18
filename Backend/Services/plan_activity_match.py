@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
-    COACH_PLAN_MIN_HORIZON_DAYS
+    COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 )
 
 from Routes_DB.coach_plan_daily import (
@@ -418,7 +418,7 @@ def auto_map_plans_for_activities(
     try:
         extend_info = service_auto_extend_daily_plan(
             user_id=user_id,
-            min_horizon_days=COACH_PLAN_MIN_HORIZON_DAYS,
+            min_horizon_days=COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
         )
         print(f"[PLAN-MATCH][DAILY-EXTEND] {extend_info}")
     except Exception as e:
