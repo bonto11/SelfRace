@@ -7,7 +7,7 @@ from datetime import date
 from Configs.config import DEFAULT_MODEL
 from Services.coach_athlete_state import build_input_from_db
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
-from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
+from Routes_DB.coach_plan_weekly import (db_get_week_row_for_plan, db_get_weekly_for_user_plan)
 from Routes_DB.coach_plan_daily import (
     db_insert_daily_rows,
     db_clear_daily_for_user_week,
@@ -22,6 +22,9 @@ from Services.coach_strength_mapper import (
     enrich_daily_plan_with_strength_exercises,
 )
 from Services.coach_external_events import service_list_external_events_window
+
+from datetime import timedelta
+from Routes_DB.coach_plan_daily import db_get_planned_range_rows
 
 
 def _build_daily_rows_from_ai(
@@ -337,4 +340,192 @@ def service_get_daily_overview(
     return {
         "horizon_days": horizon_days,
         "days": days_out,
+    }
+
+def service_auto_extend_daily_plan(
+    user_id: int,
+    *,
+    min_horizon_days: int = 6,
+) -> Dict[str, Any]:
+    """
+    Postará sa o to, aby aktívny (alebo posledný) plán mal vždy
+    aspoň `min_horizon_days` naplánovaných dní v coach_plan_daily.
+
+    - pozrie aktívny / posledný plan_id z coach_plan_meta
+    - zistí, dokedy máme daily sessions
+    - ak je dní dopredu málo, podľa coach_plan_weekly vygeneruje
+      ďalší / ďalšie týždne pomocou service_generate_daily_week
+    """
+    if min_horizon_days <= 0:
+        min_horizon_days = 6
+
+    today = date.today()
+
+    # 1) aktívny / posledný plán
+    meta = db_get_active_plan_meta_for_user(
+        user_id
+    ) or db_get_latest_plan_meta_for_user(user_id)
+    plan_id: Optional[str] = None
+    if meta and isinstance(meta.get("plan_id"), str):
+        plan_id = meta["plan_id"]
+
+    if not plan_id:
+        return {
+            "changed": False,
+            "reason": "no_plan",
+        }
+
+    # 2) existujúce daily rows (veľké okno dopredu)
+    daily_rows: List[Dict[str, Any]] = db_list_daily_for_user_horizon(
+        user_id=user_id,
+        horizon_days=365,
+        plan_id=plan_id,
+    ) or []
+
+    if not daily_rows:
+        # nemáme žiadne daily, radšej nič nerobíme – nech to spustí FE manuálne
+        return {
+            "changed": False,
+            "reason": "no_daily_rows",
+        }
+
+    # posledný dátum s daily session
+    last_date_str = max(
+        str(r.get("plan_date"))[:10]
+        for r in daily_rows
+        if r.get("plan_date")
+    )
+    last_date = date.fromisoformat(last_date_str)
+    days_left = (last_date - today).days
+
+    if days_left >= min_horizon_days:
+        return {
+            "changed": False,
+            "reason": "enough_horizon",
+            "days_left": days_left,
+            "last_daily_date": last_date_str,
+        }
+
+    # 3) weekly rows pre rovnaký plan_id
+    weekly_rows: List[Dict[str, Any]] = db_get_weekly_for_user_plan(
+        user_id=user_id,
+        plan_id=plan_id,
+    ) or []
+
+    if not weekly_rows:
+        return {
+            "changed": False,
+            "reason": "no_weekly_rows",
+            "days_left": days_left,
+            "last_daily_date": last_date_str,
+        }
+
+    weekly_sorted = sorted(
+        weekly_rows,
+        key=lambda w: int(w.get("week_index") or 0),
+    )
+
+    # nájdeme current_week_index = týždeň, v ktorom leží last_date
+    current_week_index: Optional[int] = None
+    for w in weekly_sorted:
+        ws_raw = w.get("week_start")
+        we_raw = w.get("week_end") or ws_raw
+
+        # typovo ošetríme – Pyright nechce Any | None → str
+        if not isinstance(ws_raw, str):
+            continue
+        if not isinstance(we_raw, str):
+            continue
+
+        try:
+            ws = date.fromisoformat(ws_raw)
+            we = date.fromisoformat(we_raw)
+        except ValueError:
+            # ak sú divné dáta (napr. zlá ISO string), tento týždeň preskočíme
+            continue
+
+        if ws <= last_date <= we:
+            current_week_index = int(w.get("week_index") or 0)
+            break
+
+    # fallback – najväčší week_index, ktorý začína pred last_date
+    if current_week_index is None:
+        for w in weekly_sorted:
+            ws_raw = w.get("week_start")
+            if not isinstance(ws_raw, str):
+                continue
+            try:
+                ws = date.fromisoformat(ws_raw)
+            except ValueError:
+                continue
+
+            if ws <= last_date:
+                # weekly_sorted je zoradený, takže posledný match bude najväčší index
+                current_week_index = int(w.get("week_index") or 0)
+
+    if current_week_index is None:
+        return {
+            "changed": False,
+            "reason": "cannot_determine_current_week",
+            "days_left": days_left,
+            "last_daily_date": last_date_str,
+        }
+
+    # 4) budúce týždne (week_index > current_week_index)
+    future_weeks = [
+        w for w in weekly_sorted
+        if int(w.get("week_index") or 0) > current_week_index
+    ]
+    if not future_weeks:
+        return {
+            "changed": False,
+            "reason": "no_future_weeks",
+            "current_week_index": current_week_index,
+            "days_left": days_left,
+            "last_daily_date": last_date_str,
+        }
+
+    generated: List[int] = []
+    current_last_date = last_date
+    current_last_str = last_date_str
+
+    # 5) generujeme ďalšie týždne, kým nemáme dosť dní dopredu
+    for w in future_weeks:
+        week_idx = int(w.get("week_index") or 0)
+
+        gen = service_generate_daily_week(
+            user_id=user_id,
+            week_index=week_idx,
+            plan_id=plan_id,
+            overwrite=True,   # prepíše existujúci daily pre daný týždeň
+            model=None,
+            debug=False,
+        )
+        generated.append(week_idx)
+
+        # prepočítaj nový horizon
+        daily_rows = db_list_daily_for_user_horizon(
+            user_id=user_id,
+            horizon_days=365,
+            plan_id=plan_id,
+        ) or []
+
+        current_last_str = max(
+            str(r.get("plan_date"))[:10]
+            for r in daily_rows
+            if r.get("plan_date")
+        )
+        current_last_date = date.fromisoformat(current_last_str)
+        days_left = (current_last_date - today).days
+
+        if days_left >= min_horizon_days:
+            break
+
+    return {
+        "changed": bool(generated),
+        "generated_weeks": generated,
+        "current_week_index": current_week_index,
+        "final_days_left": days_left,
+        "last_daily_date": current_last_str,
+        "plan_id": plan_id,
     }
