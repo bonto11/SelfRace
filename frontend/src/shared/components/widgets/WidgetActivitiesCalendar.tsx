@@ -1,16 +1,30 @@
+// src/shared/components/widgets/WidgetActivitiesCalendar.tsx
 "use client";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+
 import WidgetCard from "@/shared/components/ui/WidgetCard";
-import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
-import { THEME } from "@/shared/theme/tokens";
 import { CALENDAR_DAY_CELL, NO_X_OVERFLOW } from "@/shared/ui/classes";
+import { THEME } from "@/shared/theme/tokens";
 
 import { useUserId } from "@/shared/hooks/useUserId";
+import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
+import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
+
 import { apiGetExternalEventsWindow } from "@/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+
+import {
+  dedupeCalendarItems,
+  eventDateIso,
+  type CalendarItemBase,
+  type CalendarItemKind,
+} from "@/features/calendar/utils/calendarSlots";
+import { isRestSession } from "@/features/calendar/utils/calendarFormat";
+import type { SportKey, PlanStatus } from "@/features/calendar/types/calendarTypes";
+
+/* ---------- helpers ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
   run: (THEME as any)?.sport?.run ?? THEME.chart.run,
@@ -35,16 +49,14 @@ function startOfWeek(date = new Date()) {
   return d;
 }
 
-function safeSportKey(v: any): string {
-  const s = String(v || "").toLowerCase();
+function safeSportKey(v: any): SportKey {
+  const s = String(v || "").toLowerCase() as SportKey;
   if (s in SPORT_COLORS) return s;
   return "other";
 }
 
-type DayItem = {
+type DayItem = CalendarItemBase & {
   id: number;
-  sport: string;
-  kind: "activity" | "external" | "plan" | "done" | "missed";
 };
 
 type Props = {
@@ -52,14 +64,16 @@ type Props = {
   perDayLimit?: number;
 };
 
-export default function WidgetWeekActivities({
+/* ---------- component ---------- */
+
+export default function WidgetActivitiesCalendar({
   openHref = "/calendar",
   perDayLimit = 6,
 }: Props) {
   const router = useRouter();
+  const { userId } = useUserId();
   const { selectByRange } = useActivityData();
   const { selectPlanByRange } = usePlanData();
-  const { userId } = useUserId();
 
   const monday = startOfWeek();
   const sunday = new Date(monday);
@@ -71,7 +85,7 @@ export default function WidgetWeekActivities({
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
 
-  // fetch externals pre týždeň
+  // načítanie externals pre týždeň
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -102,40 +116,49 @@ export default function WidgetWeekActivities({
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      map.set(iso(d.getFullYear(), d.getMonth(), d.getDate()), []);
+      const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
+      map.set(key, []);
     }
 
-    // externals (už expandované cez occurrence_date)
+    // externals (expandované cez occurrence_date / single_date)
     for (const ev of externalRows) {
-      const k = String((ev as any).occurrence_date || ev.single_date || "")
-        .slice(0, 10)
-        .trim();
+      const k = eventDateIso(ev);
       if (!k || !map.has(k)) continue;
+
+      const sport = safeSportKey((ev as any).sport ?? (ev as any).sport_type ?? "other");
 
       map.get(k)!.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
-        sport: safeSportKey(ev.sport),
+        sport,
         kind: "external",
+        activityId: null,
       });
     }
 
     // reálne aktivity
     const actRows = selectByRange(startIso, endIso);
-    for (const r of actRows) {
-      const k = r.date.slice(0, 10);
-      if (!map.has(k)) continue;
+    for (const r of actRows as any[]) {
+      const k = String(r.date ?? "").slice(0, 10);
+      if (!k || !map.has(k)) continue;
+
+      const sport = safeSportKey(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other");
+      const aidRaw = r.activity_id;
+      const activityId =
+        aidRaw != null && !Number.isNaN(Number(aidRaw)) ? Number(aidRaw) : null;
+
       map.get(k)!.push({
-        id: r.activity_id,
-        sport: safeSportKey((r as any).sport || (r as any).sport_type_fe || "other"),
+        id: activityId ?? Math.floor(Math.random() * 1e9),
+        sport,
         kind: "activity",
+        activityId,
       });
     }
 
-    // plán (bez REST) + prepojenie na aktivity, vrátane missed
+    // plán (bez REST) + prepojenie na aktivity, vrátane missed/done
     const planRows = selectPlanByRange(startIso, endIso);
-    for (const p of planRows) {
-      const k = String(p.plan_date).slice(0, 10);
-      if (!map.has(k)) continue;
+    for (const p of planRows as any[]) {
+      const k = String(p.plan_date ?? "").slice(0, 10);
+      if (!k || !map.has(k)) continue;
 
       const title = String(p.title || "").toLowerCase();
       const sType = String(p.session_type || "").toLowerCase();
@@ -151,57 +174,56 @@ export default function WidgetWeekActivities({
       const arr = map.get(k)!;
 
       const actIdRaw = (p as any).activity_id;
-      const actId =
+      const activityId =
         actIdRaw != null && !Number.isNaN(Number(actIdRaw))
           ? Number(actIdRaw)
           : null;
 
-      // ak má activity_id → označ activity ako done
-      if (actId) {
-        const idx = arr.findIndex((it) => it.kind === "activity" && it.id === actId);
+      // ak má activity_id → označ activity ako done (body + check dedupe rieši utils)
+      if (activityId) {
+        const idx = arr.findIndex(
+          (it) => it.kind === "activity" && it.activityId === activityId
+        );
         if (idx >= 0) {
-          arr[idx] = { ...arr[idx], kind: "done" };
+          arr[idx] = {
+            ...arr[idx],
+            kind: "done",
+            activityId,
+          };
           continue;
         }
       }
 
       if (!isRest) {
         const isPast = k < todayIso;
+        const kind: CalendarItemKind = isPast ? "missed" : "plan";
+
         arr.push({
-          id: p.id,
+          id: Number(p.id),
           sport,
-          kind: isPast ? "missed" : "plan",
+          kind,
+          activityId: activityId ?? null,
         });
       }
     }
 
-    // DEDUPE: ak existuje activity (alebo done) pre šport S → vyhoď external + plan/missed pre S
-    for (const [k, arr] of map.entries()) {
-      const hasActivitySport = new Set(
-        arr
-          .filter((x) => x.kind === "activity" || x.kind === "done")
-          .map((x) => x.sport)
-      );
-
-      if (hasActivitySport.size === 0) continue;
-
-      map.set(
-        k,
-        arr.filter((x) => {
-          if (x.kind === "plan" || x.kind === "missed" || x.kind === "external") {
-            return !hasActivitySport.has(x.sport);
-          }
-          return true;
-        })
-      );
+    // DEDUPE pomocou spoločného utils (activity vs done, plan vs external, atď.)
+    for (const [key, arr] of map.entries()) {
+      map.set(key, dedupeCalendarItems<DayItem>(arr));
     }
 
     return map;
   }, [monday, startIso, endIso, selectByRange, selectPlanByRange, externalRows]);
 
   const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
-    `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
+    `${monday.toLocaleDateString("sk-SK", {
+      month: "short",
+      day: "2-digit",
+    })} – ` +
+    `${sunday.toLocaleDateString("sk-SK", {
+      month: "short",
+      day: "2-digit",
+    })}`;
 
   const handleOpen = () => router.push(openHref);
 
@@ -220,7 +242,9 @@ export default function WidgetWeekActivities({
       innerClassName={NO_X_OVERFLOW}
     >
       {extErr && (
-        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">{extErr}</div>
+        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">
+          {extErr}
+        </div>
       )}
 
       <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
@@ -263,7 +287,7 @@ export default function WidgetWeekActivities({
 
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
                   {shown.map((it) => {
-                    const color = SPORT_COLORS[it.sport] ?? SPORT_COLORS.other;
+                    const color = SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
 
                     if (it.kind === "activity" || it.kind === "external") {
                       return (
@@ -300,6 +324,7 @@ export default function WidgetWeekActivities({
                       );
                     }
 
+                    // missed
                     return (
                       <span
                         key={`${it.kind}-${it.id}`}

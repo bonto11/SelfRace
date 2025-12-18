@@ -7,12 +7,15 @@ from datetime import date, timedelta
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
+    COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 )
 
 from Routes_DB.coach_plan_daily import (
   db_get_planned_range_rows,
   db_link_session_to_activity,
 )
+
+from Services.coach_plan_daily import service_auto_extend_daily_plan
 
 supabase = get_client()
 
@@ -243,11 +246,10 @@ def auto_map_plans_for_activities(
     activity_ids: List[int],
     days_window: int = 1,
     score_threshold: float = 0.55,
-) -> Dict[str, int]:
+) -> Dict[str, Any]:
     """
-    Automaticky namapuje aktivity (Strava) na plánované session.
-
-    DB operácie (select/update) sú delegované do Services.coach_plan_log.
+    Automaticky namapuje aktivity (Strava) na plánované session
+    a potom prípadne automaticky rozšíri daily plán dopredu.
     """
     print(
         f"[PLAN-MATCH] start user={user_id} "
@@ -278,7 +280,7 @@ def auto_map_plans_for_activities(
     min_d = str(min(act_dates) - timedelta(days=days_window))
     max_d = str(max(act_dates) + timedelta(days=days_window))
 
-    # 2) plánované session v rozmedzí – cez nový service
+    # 2) plánované session v rozmedzí – cez db_get_planned_range_rows
     plan_rows = db_get_planned_range_rows(user_id, min_d, max_d)
     if not plan_rows:
         print("[PLAN-MATCH] no plan rows in range")
@@ -361,7 +363,7 @@ def auto_map_plans_for_activities(
             if score > best_score:
                 best_score = score
                 best_sess = sess
-            best_detail = detail
+                best_detail = detail
 
         if not best_sess:
             print(
@@ -374,6 +376,7 @@ def auto_map_plans_for_activities(
         if best_score >= score_threshold:
             try:
                 updated = db_link_session_to_activity(
+                    user_id,
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
                 )
@@ -400,6 +403,7 @@ def auto_map_plans_for_activities(
                 f"detail={best_detail}"
             )
 
+    # 6) summary + auto-extend daily plánu
     summary = {
         "processed": len(acts),
         "candidates": int(total_candidates),
@@ -407,4 +411,23 @@ def auto_map_plans_for_activities(
         "skipped": int(skipped),
     }
     print(f"[PLAN-MATCH][SUMMARY] {summary}")
-    return summary
+
+    extend_info: Optional[Dict[str, Any]] = None
+    extend_error: Optional[str] = None
+
+    try:
+        extend_info = service_auto_extend_daily_plan(
+            user_id=user_id,
+            min_horizon_days=COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
+        )
+        print(f"[PLAN-MATCH][DAILY-EXTEND] {extend_info}")
+    except Exception as e:
+        extend_error = str(e)
+        print(f"[PLAN-MATCH][DAILY-EXTEND][ERROR] {e!r}")
+
+    # vrátime pôvodný summary + info o extendovaní
+    return {
+        **summary,
+        "daily_extend": extend_info,
+        "daily_extend_error": extend_error,
+    }

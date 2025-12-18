@@ -4,7 +4,9 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
-
+from Configs.config import (
+   COACH_PLAN_OVERVIEW_HORIZON_DAYS
+)
 from Schemas.coach_plan_daily import DailyWeekGenerateConfig
 from Services.coach_plan_daily import (
     service_generate_daily_week,
@@ -63,7 +65,7 @@ def get_daily_overview(
       }
     """
     try:
-        overview = service_get_daily_overview(user_id=user_id, horizon_days=7)
+        overview = service_get_daily_overview(user_id=user_id, horizon_days=COACH_PLAN_OVERVIEW_HORIZON_DAYS)
         return {
             "success": True,
             "overview": overview,

@@ -1,3 +1,4 @@
+// src/features/calendar/grid/CalendarDayCell.tsx
 "use client";
 
 import * as React from "react";
@@ -11,7 +12,12 @@ type Props = {
   sportColors: Record<string, string>;
 };
 
-export default function CalendarDayCell({ cell, isSelected, onSelect, sportColors }: Props) {
+export default function CalendarDayCell({
+  cell,
+  isSelected,
+  onSelect,
+  sportColors,
+}: Props) {
   const muted = cell.inMonth ? "" : "opacity-40";
 
   type DotKind = "external" | "activity" | "plan" | "done" | "missed";
@@ -19,10 +25,25 @@ export default function CalendarDayCell({ cell, isSelected, onSelect, sportColor
 
   const dots: Dot[] = [];
 
-  for (const it of cell.externals) dots.push({ key: `e-${it.id}`, sport: String(it.sport), kind: "external" });
-  for (const it of cell.activities) dots.push({ key: `a-${it.id}`, sport: String(it.sport), kind: "activity" });
+  for (const it of cell.externals)
+    dots.push({
+      key: `e-${it.id}`,
+      sport: String(it.sport),
+      kind: "external",
+    });
+  for (const it of cell.activities)
+    dots.push({
+      key: `a-${it.id}`,
+      sport: String(it.sport),
+      kind: "activity",
+    });
   for (const it of cell.plans) {
-    const kind: DotKind = it.status === "planned" ? "plan" : it.status === "done" ? "done" : "missed";
+    const kind: DotKind =
+      it.status === "planned"
+        ? "plan"
+        : it.status === "done"
+        ? "done"
+        : "missed";
     dots.push({ key: `p-${it.id}`, sport: String(it.sport), kind });
   }
 
@@ -64,27 +85,42 @@ export default function CalendarDayCell({ cell, isSelected, onSelect, sportColor
                 <span
                   key={it.key}
                   className="inline-block w-1.5 h-1.5 rounded-full border"
-                  style={{ borderColor: color, backgroundColor: "transparent" }}
+                  style={{
+                    borderColor: color,
+                    backgroundColor: "transparent",
+                  }}
                 />
               );
             }
 
             if (it.kind === "done") {
               return (
-                <span key={it.key} className="text-[11px] leading-none" style={{ color }}>
+                <span
+                  key={it.key}
+                  className="text-[11px] leading-none"
+                  style={{ color }}
+                >
                   ✓
                 </span>
               );
             }
 
             return (
-              <span key={it.key} className="text-[11px] leading-none" style={{ color }}>
+              <span
+                key={it.key}
+                className="text-[11px] leading-none"
+                style={{ color }}
+              >
                 ×
               </span>
             );
           })}
 
-          {dots.length > 8 && <span className="text-[10px] opacity-70">+{dots.length - 8}</span>}
+          {dots.length > 8 && (
+            <span className="text-[10px] opacity-70">
+              +{dots.length - 8}
+            </span>
+          )}
         </div>
       </div>
     </button>

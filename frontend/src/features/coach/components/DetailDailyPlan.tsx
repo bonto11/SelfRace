@@ -1,8 +1,7 @@
-// src/features/coach/components/DetailDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/shared/ui/classes";
+import { SURFACE_CARD } from "@/shared/ui/classes";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
@@ -10,6 +9,10 @@ import {
   type DailyOverview,
   type DailyPlanDay,
 } from "@/features/coach/api/coach_plan_daily";
+import SessionCard, {
+  type KPI,
+  type PlanSession,
+} from "@/shared/components/SessionCard";
 
 /* ---------- helpers ---------- */
 
@@ -115,8 +118,15 @@ export default function DetailDailyPlan() {
     };
   }, [overview]);
 
-  const { hasPlan, days, daysCount, sessionsCount, horizonDays, startDateLabel, endDateLabel } =
-    view;
+  const {
+    hasPlan,
+    days,
+    daysCount,
+    sessionsCount,
+    horizonDays,
+    startDateLabel,
+    endDateLabel,
+  } = view;
 
   /* ---------- stavy bez usera / loading / error ---------- */
 
@@ -215,68 +225,75 @@ export default function DetailDailyPlan() {
               Denný rozpis tréningov
             </h3>
             <p className="mt-1 text-xs text-slate-400">
-              Každý blok predstavuje jeden deň – vidíš šport, trvanie,
-              intenzitu a krátke poznámky.
+              Každá karta predstavuje jeden tréning z AI plánu – používa sa
+              rovnaká Session card ako v kalendári.
             </p>
           </header>
 
           <div className="px-4 pb-4 space-y-3">
             {days.map((d) => {
+              const dateIso = d.date ?? null;
               const dateLabel = formatDate(d.date) ?? d.date;
-              const wdLabel = weekdayLabel(d.date);
+              const wd = weekdayLabel(d.date) ?? "";
 
-              return (
-                <div
-                  key={d.date}
-                  className={SURFACE_SUBCARD}
-                >
-                  <div className="px-3 pt-3 pb-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">
-                          {dateLabel}
-                        </span>
-                        {wdLabel && (
-                          <span className="text-xs text-slate-400 uppercase">
-                            {wdLabel}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              if (!d.sessions || d.sessions.length === 0) {
+                return null;
+              }
 
-                    {d.sessions && d.sessions.length > 0 ? (
-                      <ul className="space-y-1.5 text-sm">
-                        {d.sessions.map((s, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            <div className="flex-1">
-                              <div className="font-medium">
-                                {s.title || s.session_type || s.sport || "Session"}
-                              </div>
-                              <div className="text-xs text-slate-300">
-                                {[s.duration_min ? `${s.duration_min} min` : null,
-                                  s.intensity || null,
-                                  s.sport || null]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </div>
-                              {s.notes && (
-                                <div className="mt-0.5 text-xs text-slate-400">
-                                  {s.notes}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-slate-400">
-                        Žiadny tréning – voľno alebo len veľmi ľahký pohyb.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
+              return d.sessions.map((s, idx) => {
+                const kpis: KPI[] = [];
+                if (s.duration_min) {
+                  kpis.push({
+                    label: "DURATION",
+                    value: `${s.duration_min} min`,
+                  });
+                }
+                if (s.intensity) {
+                  kpis.push({
+                    label: "INTENSITY",
+                    value: String(s.intensity),
+                  });
+                }
+                if (s.zone_text) {
+                  kpis.push({
+                    label: "TARGET",
+                    value: String(s.zone_text),
+                  });
+                }
+
+                const item: PlanSession = {
+                  id: `${d.date}-${idx}`,
+                  kind: "plan",
+                  status: "planned",
+                  title:
+                    s.title || s.session_type || s.sport || "Tréning",
+                  dateIso,
+                  sport: s.sport || "other",
+                  subtitle: `${dateLabel ?? ""}${
+                    wd ? ` · ${wd.toUpperCase()}` : ""
+                  }`,
+                  kpis,
+                  notes: s.notes ?? null,
+                  planDur: s.duration_min
+                    ? `${s.duration_min} min`
+                    : null,
+                  planIntensity: s.intensity ?? null,
+                  planTarget: s.zone_text ?? null,
+                  planNotes: s.notes ?? null,
+                  planRaw: s,
+                  planStructure: s.structure ?? null,
+                  planExercises:
+                    (s.structure?.strength_exercises as any[]) ?? [],
+                };
+
+                return (
+                  <SessionCard
+                    key={item.id}
+                    variant="calendar"
+                    item={item}
+                  />
+                );
+              });
             })}
           </div>
 

@@ -131,6 +131,9 @@ def service_generate_weekly_plan(
 
     # koľko týždňov – preferuj z payloadu, inak z prefs, fallback 6
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
+    print("[DB-COACH-WEEKLY] weeks:", weeks)
+    print("[DB-COACH-WEEKLY] prefs_ai.get(\"weeks\"):", prefs_ai.get("weeks"))
+    print("[DB-COACH-WEEKLY] raw_weeks:", raw_weeks)
     horizon_weeks = max(COACH_PLAN_MIN_WEEKS,min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
     context_payload: Dict[str, Any] = {
