@@ -59,7 +59,7 @@ export async function apiAnalyzeAthleteState(
   const enqueueUrl = `${API_URL}/jobs/enqueue/${userId}`;
 
   const enqueueBody = {
-    kind: "ai_analyze", // alebo "kind": "ai_analyze" ak to tak máš v BE
+    job_type: "ai_analyze", // alebo "kind": "ai_analyze" ak to tak máš v BE
     payload: {
       debug: !!opts.debugRaw,
       save_to_db: true,
