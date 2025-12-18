@@ -301,18 +301,61 @@ function DetailBody({
   ) : null;
 
   // -------- PLAN --------
+// -------- PLAN --------
   if (item.kind === "plan") {
     const raw = item.planRaw ?? undefined;
+    // hlavný "structure" objekt – môže prísť buď cez planStructure alebo raw.structure
     const structure = item.planStructure ?? raw?.structure ?? undefined;
-    const exercises = item.planExercises ?? raw?.exercises ?? []; // always array
 
-    const wu = structure?.warmup ?? undefined;
-    const mainBlocks: any[] = Array.isArray(structure?.main)
-      ? structure.main
-      : structure?.main
-      ? [structure.main]
+    // ===== DEBUG – môžeš zmazať, keď to doladíme =====
+    if (typeof window !== "undefined") {
+      console.debug("[SessionCard] PLAN item", {
+        title: item.title,
+        planDur: item.planDur,
+        planIntensity: item.planIntensity,
+        planTarget: item.planTarget,
+        raw,
+        structure,
+      });
+    }
+    // ================================================
+
+    // ===== MAIN / WU / CD =====
+    const wu = structure?.warmup ?? structure?.wu ?? undefined;
+
+    const mainBlocks: any[] = [];
+    if (Array.isArray(structure?.main)) {
+      mainBlocks.push(...structure.main);
+    } else if (structure?.main) {
+      mainBlocks.push(structure.main);
+    }
+
+    const cd = structure?.cooldown ?? structure?.cd ?? undefined;
+
+    // ===== STRENGTH EXERCISES =====
+    let exercises: any[] = Array.isArray(item.planExercises)
+      ? item.planExercises
       : [];
-    const cd = structure?.cooldown ?? undefined;
+
+    // ak z calendaru neprišli, skús ich nájsť v structure
+    if (!exercises.length) {
+      if (Array.isArray(structure?.strength_exercises)) {
+        exercises = structure.strength_exercises;
+      } else if (Array.isArray((raw as any)?.strength_exercises)) {
+        exercises = (raw as any).strength_exercises;
+      } else if (Array.isArray((raw as any)?.exercises)) {
+        exercises = (raw as any).exercises;
+      }
+    }
+
+    // sekundárny debug len pre cviky
+    if (typeof window !== "undefined") {
+      console.debug("[SessionCard] PLAN exercises", {
+        title: item.title,
+        count: exercises.length,
+        sample: exercises[0],
+      });
+    }
 
     return (
       <div>
@@ -418,26 +461,41 @@ function DetailBody({
               EXERCISES
             </div>
             <ul className="space-y-1.5">
-              {exercises.map((e: any, i: number) => (
-                <li
-                  key={`${e?.name ?? "ex"}-${i}`}
-                  className="rounded-md border border-white/10 px-3 py-2"
-                >
-                  <div className="text-sm font-medium">
-                    {e?.name ?? `Exercise ${i + 1}`}
-                  </div>
-                  <div className="text-xs opacity-85 mt-0.5">
-                    {[
-                      e?.sets ? `${e.sets} sets` : null,
-                      e?.reps ? `${e.reps} reps` : null,
-                      e?.seconds ? `${e.seconds}s` : null,
-                      e?.rest_sec ? `rest ${e.rest_sec}s` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </div>
-                </li>
-              ))}
+              {exercises.map((e: any, i: number) => {
+                const name =
+                  e?.name ??
+                  e?.exercise_name ??
+                  `Exercise ${i + 1}`;
+                const restSec = e?.rest_sec ?? e?.rest_s ?? null;
+                const seconds = e?.seconds ?? e?.duration_s ?? null;
+
+                const line =
+                  [
+                    e?.sets ? `${e.sets} sets` : null,
+                    e?.reps ? `${e.reps} reps` : null,
+                    seconds ? `${seconds}s` : null,
+                    restSec ? `rest ${restSec}s` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—";
+
+                return (
+                  <li
+                    key={`${name}-${i}`}
+                    className="rounded-md border border-white/10 px-3 py-2"
+                  >
+                    <div className="text-sm font-medium">{name}</div>
+                    <div className="text-xs opacity-85 mt-0.5">
+                      {line}
+                    </div>
+                    {e?.notes && (
+                      <div className="mt-0.5 text-xs opacity-80">
+                        {e.notes}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
@@ -461,7 +519,7 @@ function DetailBody({
       </div>
     );
   }
-
+  
   // -------- EXTERNAL --------
   if (item.kind === "external") {
     return (
