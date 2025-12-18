@@ -37,6 +37,7 @@ TABLE_COACH_PLAN_META = "coach_plan_meta"
 TABLE_COACH_STRENGTH_HISTORY = "coach_strength_history"
 TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
 TABLE_USERS_PREFERENCES = "users_preferences"
+TABLE_ASYNC_JOBS = "async_jobs"
 
 SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
