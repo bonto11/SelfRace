@@ -19,3 +19,16 @@ def db_upsert_split(row: Dict[str, Any]) -> None:
         row,
         on_conflict="activity_id,split_index",
     ).execute()
+
+def db_get_activity_splits(activity_id: int) -> List[Dict[str, Any]]:
+    """
+    Všetky splits pre danú aktivitu.
+    """
+    res = (
+        supabase.table(TABLE_ACTIVITIES_SPLITS)
+        .select("*")
+        .eq("activity_id", activity_id)
+        .order("split_index", desc=False)
+        .execute()
+    )
+    return res.data or []

@@ -7,7 +7,7 @@ from datetime import datetime, date
 from fastapi import HTTPException
 
 from Routes_DB.profile_static import db_fetch_static, db_upsert_static
-from Services.common import iso_now, birth_to_iso_date
+from Services.time import iso_now, birth_to_iso_date
 
 
 class StaticPayload(BaseModel):
