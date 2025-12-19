@@ -2,12 +2,20 @@
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta, timezone, time, date
 from Modules.SQL.db_handler import get_client
-from Modules.Sync import sync_handler
+from Services.synchronization import service_sync_activities
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
     TABLE_ACTIVITIES_SPLITS,
     TABLE_ACTIVITIES_LAPS,
 )
+from typing import Any, Dict
+
+from Schemas.synchronization import (
+    SyncActivitiesRequest,
+    SyncActivitiesResponse,
+)
+from Services.synchronization import service_sync_activities
+
 
 from Services.time import parse_date_ymd
 
@@ -82,15 +90,28 @@ def get_activity_detail(activity_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# POST: sync – vráti importované/aktualizované/skipnuté
-@router.post("/sync/{user_id}")
-def sync_activities_route(user_id: int):
+@router.post("/sync/{user_id}", response_model=SyncActivitiesResponse)
+def sync_activities_endpoint(
+    user_id: int,
+    payload: SyncActivitiesRequest,
+) -> Dict[str, Any]:
+    """
+    Manuálne spustenie syncu zo Stravy pre daného usera.
+    """
     try:
-        res = sync_handler.sync_activities(user_id, force_last_days=30, fetch_details=True)
-        return {"success": True, **res}
-    except Exception as e:
-        return {"success": False, "detail": str(e)}
-
+        stats = service_sync_activities(
+            user_id=user_id,
+            force_last_days=30,
+            fetch_details=True,
+        )
+        return {
+            "success": True,
+            "stats": stats,
+            "note": None,
+        }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
 @router.get("/range/{user_id}")
 def activities_in_range(user_id: int, start: str, end: str):
