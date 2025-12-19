@@ -8,9 +8,7 @@ from Routes_FE import (
     analytics,
     account,
     streams,
-    activity_zones,
     analytics_pareto8020,
-    activities_streams,
     user_prefs,
     user_bests,
     user_zones,
@@ -63,9 +61,7 @@ app.include_router(account.router)
 app.include_router(activities.router)
 app.include_router(streams.router)
 app.include_router(analytics.router)
-app.include_router(activity_zones.router)
 app.include_router(analytics_pareto8020.router)
-app.include_router(activities_streams.router)
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)
