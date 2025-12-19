@@ -39,6 +39,7 @@ def enqueue_job(
     try:
         out = service_enqueue_job(
             user_id=user_id,
+            user_uid=payload.user_uid,
             job_type=payload.job_type,
             payload=payload.payload,
             priority=payload.priority,
@@ -56,9 +57,9 @@ def enqueue_job(
 @router.get("/active/{user_id}")
 def list_active_jobs(
     user_id: int,
-    kinds: Optional[str] = Query(
+    job_types: Optional[str] = Query(
         default=None,
-        description="Comma-separated kinds, napr. 'sync,ai_analyze'",
+        description="Comma-separated job_types, napr. 'sync,ai_analyze'",
     ),
     limit: int = 50,
 ) -> Dict[str, Any]:
@@ -66,13 +67,13 @@ def list_active_jobs(
     Vráti aktívne joby (status queued/running) pre daného usera.
     """
     try:
-        kinds_list: Optional[List[str]] = None
-        if kinds:
-            kinds_list = [k.strip() for k in kinds.split(",") if k.strip()]
+        job_types_list: Optional[List[str]] = None
+        if job_types:
+            job_types_list = [k.strip() for k in job_types.split(",") if k.strip()]
 
         rows = service_list_active_jobs(
             user_id=user_id,
-            kinds=kinds_list,
+            job_types=job_types_list,
             limit=limit,
         )
         return {"success": True, "jobs": rows}
@@ -83,9 +84,9 @@ def list_active_jobs(
 @router.get("/recent/{user_id}")
 def list_recent_jobs(
     user_id: int,
-    kinds: Optional[str] = Query(
+    job_types: Optional[str] = Query(
         default=None,
-        description="Comma-separated kinds, napr. 'sync,ai_analyze'",
+        description="Comma-separated job_types, napr. 'sync,ai_analyze'",
     ),
     limit: int = 20,
 ) -> Dict[str, Any]:
@@ -93,11 +94,11 @@ def list_recent_jobs(
     Posledné joby (akýkoľvek status) pre daného usera.
     """
     try:
-        kinds_list: Optional[List[str]] = None
-        if kinds:
-            kinds_list = [k.strip() for k in kinds.split(",") if k.strip()]
+        job_types_list: Optional[List[str]] = None
+        if job_types:
+            job_types_list = [k.strip() for k in job_types.split(",") if k.strip()]
 
-        rows = db_get_recent_jobs(user_id=user_id, kinds=kinds_list, limit=limit)
+        rows = db_get_recent_jobs(user_id=user_id, job_types=job_types_list, limit=limit)
         return {"success": True, "jobs": rows}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

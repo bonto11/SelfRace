@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class EnqueueJobPayload(BaseModel):
     # čo posiela FE
     job_type: str = Field(..., min_length=1)
+    user_uid: str
     payload: Dict[str, Any] = Field(default_factory=dict)
 
     priority: int = 100
@@ -16,10 +17,7 @@ class EnqueueJobPayload(BaseModel):
         description="ISO timestamp (timestamptz), napr. '2025-12-18T12:00:00Z'",
     )
     max_attempts: int = Field(default=3, ge=1, le=10)
-    dedupe_key: Optional[str] = None
-
-    # zatiaľ to nepotrebujeme, nechávam len voliteľne do budúcna
-    user_uid: Optional[str] = None
+    dedupe_key: Optional[str] = None 
 
 
 class EnqueueJobResponse(BaseModel):

@@ -29,7 +29,7 @@ def db_insert_job(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def db_get_active_jobs(
     user_id: int,
-    kinds: Optional[List[str]] = None,
+    job_types: Optional[List[str]] = None,
     limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """
@@ -44,8 +44,8 @@ def db_get_active_jobs(
             .order("created_at", desc=True)
             .limit(limit)
         )
-        if kinds:
-            q = q.in_("kind", kinds)
+        if job_types:
+            q = q.in_("job_type", job_types)
 
         res = q.execute()
         return res.data or []
@@ -56,7 +56,7 @@ def db_get_active_jobs(
 
 def db_get_recent_jobs(
     user_id: int,
-    kinds: Optional[List[str]] = None,
+    job_types: Optional[List[str]] = None,
     limit: int = 20,
 ) -> List[Dict[str, Any]]:
     """
@@ -70,8 +70,8 @@ def db_get_recent_jobs(
             .order("created_at", desc=True)
             .limit(limit)
         )
-        if kinds:
-            q = q.in_("kind", kinds)
+        if job_types:
+            q = q.in_("job_type", job_types)
 
         res = q.execute()
         return res.data or []

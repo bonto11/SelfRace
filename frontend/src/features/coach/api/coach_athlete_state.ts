@@ -9,7 +9,7 @@ import type {
 type AsyncJobRow = {
   id: number;
   user_id: number;
-  kind: string;
+  job_type: string;
   status: string;
   progress: number;
   error: string | null;
@@ -49,6 +49,7 @@ type LatestAthleteStateResponse = {
 
 export async function apiAnalyzeAthleteState(
   userId: number,
+  userUuid: string,
   opts: AnalyzeOptions = {}
 ): Promise<AnalyzeAthleteStateResponse> {
   if (!API_URL) {
@@ -59,7 +60,8 @@ export async function apiAnalyzeAthleteState(
   const enqueueUrl = `${API_URL}/jobs/enqueue/${userId}`;
 
   const enqueueBody = {
-    job_type: "ai_analyze", // alebo "kind": "ai_analyze" ak to tak máš v BE
+    job_type: "ai_analyze",
+    user_uuid: userUuid,
     payload: {
       debug: !!opts.debugRaw,
       save_to_db: true,
