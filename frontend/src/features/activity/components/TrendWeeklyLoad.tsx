@@ -15,12 +15,11 @@ import type { WeekPick } from "@/features/activity/utils/activity";
 
 import {
   apiGetWeeklyLoad,
-  type WeeklyLoadRow,
 } from "@/features/activity/api/activities";
 
-ensureChartJSRegistered();
+import {WeeklyLoadRow, Metric, WeeklyLoadApiResponse, WeeklyLoadOptions} from "@/features/activity/types/WeeklyLoad";
 
-type Metric = "km" | "time" | "trimp";
+ensureChartJSRegistered();
 
 type WeekRow = WeeklyLoadRow;
 

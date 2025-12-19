@@ -1,7 +1,7 @@
 // src/features/activities/api/activities.ts
 import { API_URL } from "@/shared/config";
 import { robustJson } from "@/features/coach/api/_api_utils";
-
+import {WeeklyLoadRow,WeeklyLoadApiResponse, WeeklyLoadOptions} from "@/features/activity/types/WeeklyLoad";
 export type SyncActivitiesOptions = {
   forceLastDays?: number | null;
   fetchDetails?: boolean;
@@ -131,40 +131,6 @@ export async function apiGetWeeklyMonoStrain(
 }
 
 /* ───────────────────────── Weekly Load (km / time / TRIMP) ───────────────────────── */
-
-export type WeeklyLoadRow = {
-  week: string;
-  label: string;
-  start: string;
-  end: string;
-  km_run: number;
-  km_ride: number;
-  km_mixed: number;
-  km_skate: number;
-  time_run_min: number;
-  time_ride_min: number;
-  time_strength_min: number;
-  time_mixed_min: number;
-  time_skate_min: number;
-  time_other_min: number;
-  trimp_run: number;
-  trimp_ride: number;
-  trimp_strength: number;
-  trimp_mixed: number;
-  trimp_skate: number;
-  trimp_other: number;
-};
-
-type WeeklyLoadApiResponse = {
-  success?: boolean;
-  weeks?: any[];
-  data?: any[];
-};
-
-export type WeeklyLoadOptions = {
-  weeks?: number;
-  sport?: string;
-};
 
 function wlNum(v: any): number {
   return Number.isFinite(+v) ? +v : 0;
