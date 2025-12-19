@@ -21,7 +21,7 @@ export default function ActivitiesPage() {
     if (!userId || syncing) return;
     setSyncing(true);
     try {
-      const res = await fetch(`${API_URL}/activities/sync/${userId}`, {
+      const res = await fetch(`${API_URL}/sync/activities/${userId}`, {
         method: "POST",
       });
       const json = await res.json().catch(() => ({}));
