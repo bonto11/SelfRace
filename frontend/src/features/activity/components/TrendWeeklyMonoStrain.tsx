@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
@@ -14,18 +13,16 @@ import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 import type { WeekPick } from "@/features/activity/utils/activity";
 
+import {
+  apiGetWeeklyMonoStrain,
+  type WeeklyMonoStrainRow,
+} from "@/features/activity/api/activities";
+
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
 
-type WeekRow = {
-  week: string;
-  label: string;
-  start: string;
-  end: string;
-  monotony: { km?: number; time?: number; trimp?: number };
-  strain: { km?: number; time?: number; trimp?: number };
-};
+type WeekRow = WeeklyMonoStrainRow;
 
 const C = { monotony: THEME.chart.monotony, strain: THEME.chart.strain };
 
@@ -52,32 +49,24 @@ export default function TrendWeeklyMonoStrain({
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+
     (async () => {
       setLoading(true);
       try {
-        const url = `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}&sport=${sport}`;
-        const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const raw: any[] = Array.isArray(json?.weeks)
-          ? json.weeks
-          : Array.isArray(json?.data)
-          ? json.data
-          : [];
+        const rows = await apiGetWeeklyMonoStrain(userId, {
+          weeks: lookback,
+          sport,
+        });
         if (!alive) return;
-        setWeeks(
-          raw.map((w) => ({
-            week: w.week ?? w.iso_week ?? w.label ?? "",
-            label: (w.label ?? w.week ?? "") as string,
-            start: w.start ?? "",
-            end: w.end ?? "",
-            monotony: w.monotony ?? {},
-            strain: w.strain ?? {},
-          }))
-        );
+        setWeeks(rows);
+      } catch (e) {
+        // tu môžeš prípadne dorobiť toast/error log
+        console.error("Weekly mono/strain load failed:", e);
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
@@ -172,8 +161,6 @@ export default function TrendWeeklyMonoStrain({
         });
       },
       scales: {
-        // Obe osi naľavo; y1 je „vonkajšia“, y2 je viac vnútri (grid off),
-        // aby sa nekryli mriežky a texty.
         y1: {
           position: "left",
           weight: 2,
@@ -189,7 +176,7 @@ export default function TrendWeeklyMonoStrain({
           min: 0,
           max: strainMax,
           grid: { drawOnChartArea: false },
-          ticks: { color: C.strain, padding: 36 }, // malý odsadený posun, nech sa netlačí na y1
+          ticks: { color: C.strain, padding: 36 },
           title: { display: true, text: "Strain", color: C.strain },
         },
         x: {
@@ -207,7 +194,6 @@ export default function TrendWeeklyMonoStrain({
     [monoMax, strainMax, weeks, onPickWeek, sport]
   );
 
-  // ↑ výška 2×
   const baseHeight = THEME.chart.weeklyHeightCompact ?? 200;
   const height = Math.round(baseHeight * 2);
   const minWidth = Math.max(

@@ -1,10 +1,10 @@
+// src/features/activity/components/TrendWeeklyLoad.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
-import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { THEME } from "@/shared/theme/tokens";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
@@ -13,21 +13,16 @@ import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 import type { WeekPick } from "@/features/activity/utils/activity";
 
+import {
+  apiGetWeeklyLoad,
+  type WeeklyLoadRow,
+} from "@/features/activity/api/activities";
+
 ensureChartJSRegistered();
 
 type Metric = "km" | "time" | "trimp";
 
-type WeekRow = {
-  week: string;
-  label: string;
-  start: string;
-  end: string;
-  km_run: number; km_ride: number; km_mixed: number; km_skate: number;
-  time_run_min: number; time_ride_min: number; time_strength_min: number;
-  time_mixed_min: number; time_skate_min: number; time_other_min: number;
-  trimp_run: number; trimp_ride: number; trimp_strength: number;
-  trimp_mixed: number; trimp_skate: number; trimp_other: number;
-};
+type WeekRow = WeeklyLoadRow;
 
 const C = {
   run: THEME.chart.run,
@@ -37,14 +32,6 @@ const C = {
   skate: THEME.chart.skate,
   other: THEME.chart.other,
 };
-
-function rangeLabel(start?: string, end?: string) {
-  if (!start || !end) return "";
-  const s = new Date(start), e = new Date(end);
-  const sd = s.getDate(), sm = s.getMonth() + 1;
-  const ed = e.getDate(), em = e.getMonth() + 1;
-  return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
-}
 
 export default function TrendWeeklyLoad({
   onPickWeek,
@@ -62,49 +49,33 @@ export default function TrendWeeklyLoad({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { onSportChange?.(sport); }, [sport, onSportChange]);
+  useEffect(() => {
+    onSportChange?.(sport);
+  }, [sport, onSportChange]);
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+
     (async () => {
       setLoading(true);
       try {
-        const url = `${API_URL}/analytics/weekly/${userId}?weeks=${lookback}&sport=${sport}`;
-        const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const raw: any[] = Array.isArray(json?.weeks) ? json.weeks : Array.isArray(json?.data) ? json.data : [];
-        const num = (v: any) => (Number.isFinite(+v) ? +v : 0);
+        const rows = await apiGetWeeklyLoad(userId, {
+          weeks: lookback,
+          sport,
+        });
         if (!alive) return;
-        setWeeks(
-          raw.map((w) => ({
-            week: w.week ?? w.iso_week ?? w.label ?? "",
-            label: rangeLabel(w.start, w.end) || w.label || w.week || "",
-            start: w.start ?? "",
-            end: w.end ?? "",
-            km_run: num(w.km_run ?? w.run_km),
-            km_ride: num(w.km_ride ?? w.ride_km),
-            km_mixed: num(w.km_mixed),
-            km_skate: num(w.km_skate),
-            time_run_min: num(w.time_run_min ?? w.run_min),
-            time_ride_min: num(w.time_ride_min ?? w.ride_min),
-            time_strength_min: num(w.time_strength_min ?? w.strength_min ?? w.gym_min),
-            time_mixed_min: num(w.time_mixed_min),
-            time_skate_min: num(w.time_skate_min),
-            time_other_min: num(w.time_other_min ?? w.other_min),
-            trimp_run: num(w.trimp_run ?? w.run_trimp),
-            trimp_ride: num(w.trimp_ride ?? w.ride_trimp),
-            trimp_strength: num(w.trimp_strength ?? w.strength_trimp),
-            trimp_mixed: num(w.trimp_mixed),
-            trimp_skate: num(w.trimp_skate),
-            trimp_other: num(w.trimp_other ?? w.other_trimp),
-          }))
-        );
+        setWeeks(rows);
+      } catch (e) {
+        console.error("Weekly load fetch failed:", e);
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+
+    return () => {
+      alive = false;
+    };
   }, [userId, lookback, sport]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
@@ -112,6 +83,7 @@ export default function TrendWeeklyLoad({
   const datasets = useMemo(() => {
     const W = weeks;
     const ds: any[] = [];
+
     const pushBar = (
       key: "run" | "ride" | "strength" | "mixed" | "skate" | "other",
       label: string,
@@ -154,7 +126,10 @@ export default function TrendWeeklyLoad({
     return ds;
   }, [weeks, metric, sport]);
 
-  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
+  const data: ChartData<"bar" | "line", number[], string> = {
+    labels,
+    datasets,
+  };
 
   const options: ChartOptions<"bar" | "line"> = useMemo(
     () => ({
@@ -187,7 +162,12 @@ export default function TrendWeeklyLoad({
         if (idx == null) return;
         const w = weeks[idx];
         if (!w) return;
-        onPickWeek?.({ week: w.week || w.label || w.start || "", start: w.start, end: w.end, sport });
+        onPickWeek?.({
+          week: w.week || w.label || w.start || "",
+          start: w.start,
+          end: w.end,
+          sport,
+        });
       },
       scales: {
         y: {
@@ -196,32 +176,68 @@ export default function TrendWeeklyLoad({
           grid: { color: THEME.chart.grid },
           title: {
             display: true,
-            text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
+            text:
+              metric === "km"
+                ? "km"
+                : metric === "time"
+                ? "min"
+                : "TRIMP",
           },
         },
         x: {
           grid: { color: THEME.chart.gridSoft },
-          ticks: { autoSkip: true, minRotation: 55, maxRotation: 55, padding: 6, font: { size: 10 } },
+          ticks: {
+            autoSkip: true,
+            minRotation: 55,
+            maxRotation: 55,
+            padding: 6,
+            font: { size: 10 },
+          },
         },
       },
     }),
     [metric, weeks, onPickWeek, sport]
   );
 
-  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const minWidth = Math.max(
+    320,
+    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+  );
 
   return (
     <div className={`${CARD} relative`}>
-      {/* HEADER – padding */}
+      {/* HEADER */}
       <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Týždňová záťaž</h2>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>Km</Button>
-            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>Čas</Button>
-            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>TRIMP</Button>
+            <Button
+              size="xs"
+              variant={metric === "km" ? "secondary" : "ghost"}
+              onClick={() => setMetric("km")}
+            >
+              Km
+            </Button>
+            <Button
+              size="xs"
+              variant={metric === "time" ? "secondary" : "ghost"}
+              onClick={() => setMetric("time")}
+            >
+              Čas
+            </Button>
+            <Button
+              size="xs"
+              variant={metric === "trimp" ? "secondary" : "ghost"}
+              onClick={() => setMetric("trimp")}
+            >
+              TRIMP
+            </Button>
           </div>
-          <select value={sport} onChange={(e) => setSport(e.target.value)} className={`${inputClass} h-8 text-xs w-[130px]`}>
+          <select
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+            className={`${inputClass} h-8 text-xs w-[130px]`}
+          >
             <option value="all">Všetko</option>
             <option value="run">Run</option>
             <option value="ride">Ride</option>
@@ -231,7 +247,11 @@ export default function TrendWeeklyLoad({
             <option value="other">Other</option>
           </select>
           {showLookback && (
-            <select value={lookback} onChange={(e) => setLookback(Number(e.target.value))} className={`${inputClass} h-8 text-xs w-[130px]`}>
+            <select
+              value={lookback}
+              onChange={(e) => setLookback(Number(e.target.value))}
+              className={`${inputClass} h-8 text-xs w-[130px]`}
+            >
               <option value={2}>2 týždne</option>
               <option value={4}>4 týždne</option>
               <option value={8}>8 týždňov</option>
@@ -241,9 +261,15 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      {/* BODY – flush + scroll */}
-      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+      {/* BODY */}
+      <div
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
+        <div
+          className="relative"
+          style={{ height: THEME.chart.weeklyHeight }}
+        >
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
