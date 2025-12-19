@@ -16,12 +16,21 @@ from Services.activity_zones import (
 from Services.sport_type import infer_sport_type_fe
 from Services.async_jobs import service_enqueue_job, service_run_job_now
 
-from Routes_DB.synchronization import (
+from Routes_DB.activities_summary import (
     db_upsert_activities_summary,
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
 )
+
+from Routes_DB.activities_laps import (
+            db_delete_laps_for_activity,
+            db_upsert_lap,
+        )
+from Routes_DB.activities_splits import (
+            db_delete_splits_for_activity,
+            db_upsert_split,
+        )
 from Configs.config import STRAVA_BASE
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
@@ -457,12 +466,7 @@ def service_sync_activities(
             limit=MAX_FULL_DETAILS_PER_RUN,
         )
 
-        from Routes_DB.synchronization import (
-            db_delete_laps_for_activity,
-            db_delete_splits_for_activity,
-            db_upsert_lap,
-            db_upsert_split,
-        )
+       
 
         for i, aid in enumerate(ids, start=1):
             try:

@@ -1,4 +1,6 @@
 # backend/Routes/activities.py
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta, timezone, time, date
 from Modules.SQL.db_handler import get_client
@@ -10,16 +12,18 @@ from Configs.config import (
 )
 from typing import Any, Dict
 
+from Services.synchronization import service_sync_activities
 from Schemas.synchronization import (
     SyncActivitiesRequest,
     SyncActivitiesResponse,
 )
-from Services.synchronization import service_sync_activities
 
 
 from Services.time import parse_date_ymd
 
+
 router = APIRouter(prefix="/activities", tags=["activities"])
+
 supabase = get_client()
 
 # -------- endpoints -----------------------------------------------------------
@@ -89,20 +93,22 @@ def get_activity_detail(activity_id: int):
         print("❌ get_activity_detail error:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/sync/{user_id}", response_model=SyncActivitiesResponse)
 def sync_activities_endpoint(
     user_id: int,
     payload: SyncActivitiesRequest,
 ) -> Dict[str, Any]:
     """
-    Manuálne spustenie syncu zo Stravy pre daného usera.
+    Spustí Strava sync pre daného usera.
+    Body:
+      - force_last_days: int | null (default 30)
+      - fetch_details: bool (default True)
     """
     try:
         stats = service_sync_activities(
             user_id=user_id,
-            force_last_days=30,
-            fetch_details=True,
+            force_last_days=payload.force_last_days,
+            fetch_details=payload.fetch_details,
         )
         return {
             "success": True,
@@ -111,7 +117,6 @@ def sync_activities_endpoint(
         }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 @router.get("/range/{user_id}")
 def activities_in_range(user_id: int, start: str, end: str):

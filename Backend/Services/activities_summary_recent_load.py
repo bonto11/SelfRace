@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-from Routes_DB.activities_summary import fetch_summary_since
+from Routes_DB.activities_summary import db_fetch_summary_since
 
 
 def _norm_sport(raw: str | None) -> str:
@@ -64,7 +64,7 @@ def service_build_recent_load_raw(
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=window_days - 1)).isoformat()
 
-    rows = fetch_summary_since(user_id=user_id, since_iso=since)
+    rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
     if not rows:
         return {
             "schema_version": 1,
