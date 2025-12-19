@@ -14,9 +14,12 @@ from Routes_DB.async_jobs import (
 from Services.coach_athlete_state import service_analyze_athlete
 from Services.coach_plan_weekly import service_generate_weekly_plan
 from Services.coach_plan_daily import service_generate_daily_week
+from Services.plan_activity_match import auto_map_plans_for_activities
+from Services.coach_plan_daily import service_auto_extend_daily_plan
 
 ALLOWED_JOB_TYPES = {
     "sync",
+    "uspert_enrichment_zones",
     "ai_analyze",
     "weekly_generate",
     "daily_generate",
@@ -157,6 +160,56 @@ def service_run_job_now(
                 overwrite=bool(input_payload.get("overwrite", True)),
                 model=input_payload.get("model"),
                 debug=bool(input_payload.get("debug", False)),
+            )
+        
+        # 4) AUTO MAP (plan_match)
+        elif job_type == "plan_match":
+            # očakávame, že job.input má tvar:
+            # {
+            #   "activity_ids": [12345, 23456],
+            #   "days_window": 1,          # optional, default 1
+            #   "score_threshold": 0.55    # optional, default 0.55
+            # }
+
+            raw_ids = input_payload.get("activity_ids") or []
+            if not isinstance(raw_ids, list):
+                raise ValueError("plan_match: activity_ids must be a list")
+
+            activity_ids: List[int] = []
+            for v in raw_ids:
+                try:
+                    activity_ids.append(int(v))
+                except Exception:
+                    # ak je nejaká blbosť v poli, len ju preskočíme
+                    continue
+
+            if not activity_ids:
+                raise ValueError("plan_match: no valid activity_ids in job.input")
+
+            days_window_raw = input_payload.get("days_window")
+            if days_window_raw is None:
+                days_window = 1
+            else:
+                days_window = int(days_window_raw)
+
+            score_threshold_raw = input_payload.get("score_threshold")
+            if score_threshold_raw is None:
+                score_threshold = 0.55
+            else:
+                score_threshold = float(score_threshold_raw)
+
+            result_payload = auto_map_plans_for_activities(
+                user_id=user_id,
+                activity_ids=activity_ids,
+                days_window=days_window,
+                score_threshold=score_threshold,
+            )
+
+        # 5) EXTEND DAILY
+        elif job_type == "daily_extend":
+            result_payload = service_auto_extend_daily_plan(
+                user_id=user_id,
+                min_horizon_days = 10,
             )
 
         else:
