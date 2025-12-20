@@ -14,43 +14,12 @@ from Routes_DB.activities_summary import (
     db_get_summary_one,
 )
 
-from Routes_DB.activities_laps import (
-    db_get_activity_laps,
-)
-
-from Routes_DB.activities_splits import (
-    db_get_activity_splits,
-)
-
-from Routes_DB.activites_streams import (
-    db_get_streams_hr_rows,
-)
-
-def service_get_streams_one(activity_id: int) -> List[Dict[str, Any]]:
-    return db_get_streams_hr_rows(activity_id)
-
 def service_get_activities(user_id: int, days: int = 30) -> List[Dict[str, Any]]:
     """
     FE: GET /activities/{user_id}?days=30
     """
     since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
     return db_get_activities_recent(user_id, since_date)
-
-
-def service_get_activity_detail(activity_id: int) -> Dict[str, Any]:
-    """
-    FE: GET /activities/detail/{activity_id}
-    """
-    summary = db_get_activity_summary_one(activity_id)
-    laps = db_get_activity_laps(activity_id)
-    splits = db_get_activity_splits(activity_id)
-
-    return {
-        "summary": summary,
-        "laps": laps or [],
-        "splits": splits or [],
-    }
-
 
 def service_activities_in_range(
     user_id: int,
@@ -131,15 +100,3 @@ def service_get_summary_one(activity_id: int) -> Dict[str, Any]:
     if not row:
         raise ValueError("activity not found")
     return row
-
-
-def service_get_detail_one(activity_id: int) -> Dict[str, Any]:
-    """
-    FE: GET /activities/detail/one/{activity_id}
-    """
-    laps = db_get_activity_laps(activity_id)
-    splits = db_get_activity_splits(activity_id)
-    return {
-        "laps": laps or [],
-        "splits": splits or [],
-    }

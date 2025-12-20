@@ -12,16 +12,20 @@ from Schemas.synchronization import (
 )
 from Services.synchronization import service_sync_activities
 
-# aktivity (summary/detail/range/select/streams-one/detail-one)
 from Services.activities_summary import (
     service_get_activities,
-    service_get_activity_detail,
     service_activities_in_range,
     service_select_activities,
     service_get_summary_one,
+
+)
+
+from Services.analytics import (
+    service_get_activity_detail,
     service_get_detail_one,
     service_get_streams_one,
 )
+
 
 # zóny / enrichment
 from Services.activity_zones import (

@@ -9,7 +9,7 @@ from collections import defaultdict
 from typing import Dict, Optional
 
 from Services.time import week_key, week_bounds
-from Services.analytics import sport_bucket, compute_trimp, monotony_and_strain
+from Services.analytics_MonoStrainTrimp import sport_bucket, compute_trimp, monotony_and_strain
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     TABLE_ACTIVITIES_SUMMARY,
