@@ -390,7 +390,7 @@ export function ActivityDataProvider({
       const cached = loadStreams(activityId);
       if (cached && Array.isArray(cached.time_s)) return cached;
 
-      const url = `${API_URL}/activities/streams/${activityId}?fetch=true&max=400`;
+      const url = `${API_URL}/activities/streams/1/${activityId}?fetch=true&max=400`;
       try {
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
