@@ -1,6 +1,3 @@
-# backend/Routes_DB/activities_streams.py
-from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
 
 from Modules.SQL.db_handler import get_client
@@ -29,7 +26,10 @@ def db_get_streams_one(
     return data[0] if data else None
 
 
-def db_get_streams_ids_present(activity_ids: List[int]) -> List[int]:
+def db_get_streams_ids_present(
+    user_id: int,
+    activity_ids: List[int],
+) -> List[int]:
     """
     Vráti zoznam activity_id, pre ktoré už existuje aspoň jeden stream záznam.
     Používa sa v compute_and_save_enrichment_for_ids na zistenie chýbajúcich.
@@ -40,6 +40,7 @@ def db_get_streams_ids_present(activity_ids: List[int]) -> List[int]:
     res = (
         supabase.table(TABLE_ACTIVITIES_STREAMS)
         .select("activity_id")
+        .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))
         .execute()
     )
