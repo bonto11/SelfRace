@@ -246,3 +246,28 @@ def db_get_summary_one(activity_id: int) -> Optional[Dict[str, Any]]:
     return data[0] if data else None
 
 
+def db_get_summary_for_activities(
+    user_id: int,
+    activity_ids: List[int],
+) -> List[Dict[str, Any]]:
+    """
+    Základný summary payload pre daného usera a zoznam activity_id.
+    Používa sa napr. pri výpočte enrichment (zones), Pareto atď.
+    """
+    if not activity_ids:
+        return []
+
+    res = (
+        supabase.table(TABLE_ACTIVITIES_SUMMARY)
+        .select(
+            "activity_id,"
+            "average_heartrate_bpm,"
+            "moving_time_s,"
+            "distance_m,"
+            "sport_type_fe"
+        )
+        .eq("user_id", user_id)
+        .in_("activity_id", list(set(activity_ids)))
+        .execute()
+    )
+    return res.data or []

@@ -6,7 +6,6 @@ from Routes_FE import (
     users,
     activities,
     analytics,
-    account,
     streams,
     analytics_pareto8020,
     user_prefs,
@@ -57,7 +56,6 @@ app.include_router(user_bests.router)
 app.include_router(user_zones.router)
 app.include_router(user_thresholds.router)
 
-app.include_router(account.router)
 app.include_router(activities.router)
 app.include_router(streams.router)
 app.include_router(analytics.router)

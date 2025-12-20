@@ -16,7 +16,7 @@ from Routes_DB.activities_splits import (
     db_get_activity_splits,
 )
 
-from Routes_DB.activites_streams import (
+from backend.Routes_DB.activities_streams import (
     db_get_streams_hr_rows,
 )
 
