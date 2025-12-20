@@ -252,7 +252,7 @@ def db_get_summary_for_activities(
 ) -> List[Dict[str, Any]]:
     """
     Základný summary payload pre daného usera a zoznam activity_id.
-    Používa sa napr. pri výpočte enrichment (zones), Pareto atď.
+    Používa sa napr. pri enrichment (zones), Pareto, plan-match atď.
     """
     if not activity_ids:
         return []
@@ -261,10 +261,10 @@ def db_get_summary_for_activities(
         supabase.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
             "activity_id,"
-            "average_heartrate_bpm,"
-            "moving_time_s,"
-            "distance_m,"
-            "sport_type_fe"
+            "date,"
+            "name,"
+            "sport_type,sport_type_fe,sport_type_ovrd,"
+            "distance_m,moving_time_s,average_heartrate_bpm"
         )
         .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))

@@ -4,9 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
-from Modules.SQL.db_handler import get_client
 from Configs.config import (
-    TABLE_ACTIVITIES_SUMMARY,
     COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 )
 
@@ -15,9 +13,11 @@ from Routes_DB.coach_plan_daily import (
   db_link_session_to_activity,
 )
 
+from Routes_DB.activities_summary import db_get_summary_for_activities
+
 from Services.coach_plan_daily import service_auto_extend_daily_plan
 
-supabase = get_client()
+from Services.coach_plan_daily import service_auto_extend_daily_plan
 
 
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
@@ -221,23 +221,15 @@ def _compute_match_score(
 
 
 # ───────────────────────────────────────── DB helpers ─────────────────────────────────────────
-
-
 def _load_activities_summary(user_id: int, activity_ids: List[int]) -> List[Dict[str, Any]]:
+    """
+    Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu.
+    """
     if not activity_ids:
         return []
 
-    rows = (
-        supabase.table(TABLE_ACTIVITIES_SUMMARY)
-        .select(
-            "activity_id,date,sport_type,sport_type_fe,moving_time_s,"
-            "distance_m,average_heartrate_bpm,name"
-        )
-        .eq("user_id", user_id)
-        .in_("activity_id", activity_ids)
-        .execute()
-    )
-    data = rows.data or []
+    rows = db_get_summary_for_activities(user_id=user_id, activity_ids=activity_ids)
+    data = rows or []
     print(f"[PLAN-MATCH] loaded activities_summary rows={len(data)} for user={user_id}")
     return data
 
