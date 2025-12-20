@@ -50,7 +50,7 @@ def get_activities(user_id: int, days: int = 30):
 
 
 # GET: detail (summary + laps + splits)
-@router.get("/detail/{activity_id}")
+@router.get("/detail/{user_id}/{activity_id}")
 def get_activity_detail(user_id: int, activity_id: int):
     try:
         payload = service_get_activity_detail(user_id = user_id, activity_id=activity_id)
