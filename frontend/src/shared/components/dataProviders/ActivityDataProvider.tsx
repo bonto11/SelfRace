@@ -21,6 +21,14 @@ import {
   type WeekRow,
 } from "@/features/activity/utils/activity";
 
+import {
+  apiFetchRange,
+  apiFetchDetail,
+  apiFetchStreams,
+  apiFetchParetoWidget,
+  apiFetchParetoTrend,
+} from "@/features/activity/api/activityApi";
+
 /* -------------------- Cache helpers (sessionStorage) -------------------- */
 
 function hasSS() {
@@ -293,34 +301,8 @@ export function ActivityDataProvider({
     start: string,
     end: string
   ): Promise<void> {
-    const url = `${API_URL}/activities/range/${uid}?start=${start}&end=${end}`;
-    console.debug("[ACT][fetch] ->", url);
     try {
-      const res = await fetch(url, { cache: "no-store" });
-      const text = await res.text();
-      let json: any = {};
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        console.warn("[ACT][fetch] JSON parse error, raw:", text.slice(0, 400));
-        throw e;
-      }
-
-      const list: any[] = Array.isArray(json?.data)
-        ? json.data
-        : Array.isArray(json?.rows)
-        ? json.rows
-        : [];
-      const norm = (list as any[])
-        .map(normalizeActivityRow)
-        .filter(Boolean) as ActivityRow[];
-      norm.sort((a, b) => a.date.localeCompare(b.date));
-
-      console.debug("[ACT][fetch] normalized", {
-        count: norm.length,
-        first: norm[0],
-        last: norm[norm.length - 1],
-      });
+      const norm = await apiFetchRange(uid, start, end);
       setRows(norm);
       saveRange(uid, start, end, norm);
     } catch (e) {
@@ -361,20 +343,16 @@ export function ActivityDataProvider({
 
   const getDetail = useCallback(
     async (activityId: number): Promise<ActivityDetailExtra> => {
+      if (userId == null) return { laps: [], splits: [] };
+
       const cached = loadDetail(activityId);
       if (cached) {
         console.debug("[ACT][detail] cache hit", { activityId });
         return cached;
       }
-      const url = `${API_URL}/activities/detail/${activityId}`;
-      console.debug("[ACT][detail] fetch", { url });
+
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const extra: ActivityDetailExtra = {
-          laps: Array.isArray(json?.laps) ? json.laps : [],
-          splits: Array.isArray(json?.splits) ? json.splits : [],
-        };
+        const extra = await apiFetchDetail(userId, activityId);
         saveDetail(activityId, extra);
         return extra;
       } catch (e) {
@@ -382,30 +360,29 @@ export function ActivityDataProvider({
         return { laps: [], splits: [] };
       }
     },
-    []
+    [userId]
   );
 
   const getStreams = useCallback(
     async (activityId: number): Promise<StreamsData> => {
+      if (userId == null) return { time_s: [], hr: [], duration_s: 0 };
+
       const cached = loadStreams(activityId);
       if (cached && Array.isArray(cached.time_s)) return cached;
 
-      const url = `${API_URL}/activities/streams/1/${activityId}?fetch=true&max=400`;
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const data: StreamsData = {
-          time_s: Array.isArray(json?.time_s) ? json.time_s : [],
-          hr: Array.isArray(json?.hr) ? json.hr : [],
-          duration_s: Number(json?.duration_s) || 0,
-        };
+        const data = await apiFetchStreams(userId, activityId, {
+          fetch: true,
+          max: 400,
+        });
         saveStreams(activityId, data);
         return data;
-      } catch {
+      } catch (e) {
+        console.error("[ACT][streams] fetch ERROR", e);
         return { time_s: [], hr: [], duration_s: 0 };
       }
     },
-    []
+    [userId]
   );
 
   /* --------- Rolling 7 dní (z ActivityRow, nie z WeekRow!) --------- */
@@ -500,16 +477,7 @@ export function ActivityDataProvider({
         }
       }
 
-      const q = new URLSearchParams({ days: String(daysParam) });
-      if (sportCsv) q.set("sport", sportCsv);
-
-      const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
-      console.debug("[PARETO][provider][widget] ->", { url });
-
-      const res = await fetch(url, { cache: "no-store" });
-      const js = await res.json().catch(() => ({}));
-      const data = js?.data ?? null;
-
+      const data = await apiFetchParetoWidget(userId, daysParam, sportCsv);
       if (data && hasSS()) sessionStorage.setItem(key, JSON.stringify(data));
       return data;
     },
@@ -533,15 +501,7 @@ export function ActivityDataProvider({
         }
       }
 
-      const q = new URLSearchParams({ weeks: String(weeksParam) });
-      if (sportCsv) q.set("sport", sportCsv);
-
-      const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
-      console.debug("[PARETO][provider][trend] ->", { url });
-
-      const res = await fetch(url, { cache: "no-store" });
-      const js = await res.json().catch(() => ({}));
-      const rws = Array.isArray(js?.data) ? js.data : [];
+      const rws = await apiFetchParetoTrend(userId, weeksParam, sportCsv);
       if (hasSS()) sessionStorage.setItem(key, JSON.stringify(rws));
       return rws;
     },

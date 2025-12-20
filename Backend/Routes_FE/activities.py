@@ -51,9 +51,9 @@ def get_activities(user_id: int, days: int = 30):
 
 # GET: detail (summary + laps + splits)
 @router.get("/detail/{activity_id}")
-def get_activity_detail(activity_id: int):
+def get_activity_detail(user_id: int, activity_id: int):
     try:
-        payload = service_get_activity_detail(activity_id=activity_id)
+        payload = service_get_activity_detail(user_id = user_id, activity_id=activity_id)
         return {
             "success": True,
             **payload,
@@ -166,10 +166,11 @@ def get_streams_one(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/detail/one/{activity_id}")
-def get_detail_one(activity_id: int):
+@router.get("/detail/one/{user_id}/{activity_id}")
+def get_detail_one(user_id: int,
+                   activity_id: int):
     try:
-        payload = service_get_detail_one(activity_id=activity_id)
+        payload = service_get_detail_one(user_id = user_id, activity_id=activity_id)
         return {"success": True, **payload}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

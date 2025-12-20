@@ -33,13 +33,13 @@ def service_get_streams_one(
         return {"time_s": [], "heartrate_bpm": []}
     return row
 
-def service_get_activity_detail(activity_id: int) -> Dict[str, Any]:
+def service_get_activity_detail(user_id: int, activity_id: int) -> Dict[str, Any]:
     """
     FE: GET /activities/detail/{activity_id}
     """
     summary = db_get_activity_summary_one(activity_id)
-    laps = db_get_activity_laps(activity_id)
-    splits = db_get_activity_splits(activity_id)
+    laps = db_get_activity_laps(user_id, activity_id)
+    splits = db_get_activity_splits(user_id, activity_id)
 
     return {
         "summary": summary,
@@ -48,12 +48,13 @@ def service_get_activity_detail(activity_id: int) -> Dict[str, Any]:
     }
 
 
-def service_get_detail_one(activity_id: int) -> Dict[str, Any]:
+def service_get_detail_one(user_id: int,
+                           activity_id: int) -> Dict[str, Any]:
     """
     FE: GET /activities/detail/one/{activity_id}
     """
-    laps = db_get_activity_laps(activity_id)
-    splits = db_get_activity_splits(activity_id)
+    laps = db_get_activity_laps(user_id, activity_id)
+    splits = db_get_activity_splits(user_id, activity_id)
     return {
         "laps": laps or [],
         "splits": splits or [],

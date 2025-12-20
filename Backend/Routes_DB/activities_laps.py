@@ -20,7 +20,7 @@ def db_upsert_lap(row: Dict[str, Any]) -> None:
         on_conflict="activity_id,lap_index",
     ).execute()
 
-def db_get_activity_laps(activity_id: int) -> List[Dict[str, Any]]:
+def db_get_activity_laps(user_id: int, activity_id: int) -> List[Dict[str, Any]]:
     """
     Všetky laps pre danú aktivitu.
     """

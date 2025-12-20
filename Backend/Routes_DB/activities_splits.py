@@ -20,7 +20,7 @@ def db_upsert_split(row: Dict[str, Any]) -> None:
         on_conflict="activity_id,split_index",
     ).execute()
 
-def db_get_activity_splits(activity_id: int) -> List[Dict[str, Any]]:
+def db_get_activity_splits(user_id: int, activity_id: int) -> List[Dict[str, Any]]:
     """
     Všetky splits pre danú aktivitu.
     """
