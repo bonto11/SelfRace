@@ -9,17 +9,24 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
   addDays,
   todayISO,
-  normalizeActivityRow,
-  type ActivityRow,
-  type ActivityDetailExtra,
   aggregateWeeks,
-  type WeekRow,
 } from "@/features/activity/utils/activity";
+
+import {
+  ActivityRow,
+  ActivityDetailExtra,
+  WeekRow,
+  StreamsData,
+  Metric,
+} from "@/features/activity/types/activities";
+
+import {
+  Rolling7
+} from "@/features/activity/types/MonoStrain";
 
 import {
   apiFetchRange,
@@ -27,17 +34,12 @@ import {
   apiFetchStreams,
   apiFetchParetoWidget,
   apiFetchParetoTrend,
-} from "@/features/activity/api/activityApi";
+} from "@/features/activity/api/activities_summary";
 
-/* -------------------- Cache helpers (sessionStorage) -------------------- */
+import {
+  hasSesssioStorage
+} from "@/shared/utils/common";
 
-function hasSS() {
-  try {
-    return typeof window !== "undefined" && !!window.sessionStorage;
-  } catch {
-    return false;
-  }
-}
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
 }
@@ -71,6 +73,7 @@ function paretoWidgetKey(
 ) {
   return `PARETO:W:${userId}:${days}:${sportCsv ?? "all"}`;
 }
+
 function paretoTrendKey(
   userId: number,
   weeks: number,
@@ -85,7 +88,7 @@ function saveRange(
   end: string,
   rows: ActivityRow[]
 ) {
-  if (!hasSS()) return;
+  if (!hasSesssioStorage()) return;
   try {
     const key = rangeKey(userId, start, end);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), rows }));
@@ -99,7 +102,7 @@ function loadRange(
   start: string,
   end: string
 ): ActivityRow[] | null {
-  if (!hasSS()) return null;
+  if (!hasSesssioStorage()) return null;
   try {
     const key = rangeKey(userId, start, end);
     const raw = sessionStorage.getItem(key);
@@ -119,7 +122,7 @@ function loadRange(
   }
 }
 function saveDetail(activityId: number, extra: ActivityDetailExtra) {
-  if (!hasSS()) return;
+  if (!hasSesssioStorage()) return;
   try {
     const key = detailKey(activityId);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), ...extra }));
@@ -133,7 +136,7 @@ function saveDetail(activityId: number, extra: ActivityDetailExtra) {
   }
 }
 function loadDetail(activityId: number): ActivityDetailExtra | null {
-  if (!hasSS()) return null;
+  if (!hasSesssioStorage()) return null;
   try {
     const key = detailKey(activityId);
     const raw = sessionStorage.getItem(key);
@@ -149,22 +152,19 @@ function loadDetail(activityId: number): ActivityDetailExtra | null {
 }
 
 // --- streams cache (HR) ---
-type StreamsData = {
-  time_s: number[];
-  hr: (number | null)[];
-  duration_s: number;
-};
 function streamsKey(activityId: number) {
   return `ACT:STREAMS:${activityId}`;
 }
+
 function saveStreams(activityId: number, data: StreamsData) {
-  if (!hasSS()) return;
+  if (!hasSesssioStorage()) return;
   try {
     sessionStorage.setItem(streamsKey(activityId), JSON.stringify(data));
   } catch {}
 }
+
 function loadStreams(activityId: number): StreamsData | null {
-  if (!hasSS()) return null;
+  if (!hasSesssioStorage()) return null;
   try {
     const raw = sessionStorage.getItem(streamsKey(activityId));
     return raw ? JSON.parse(raw) : null;
@@ -174,24 +174,6 @@ function loadStreams(activityId: number): StreamsData | null {
 }
 
 /* ------------------------------ Context ------------------------------ */
-
-type RollingMetric = "time" | "km" | "trimp";
-type Rolling7 = {
-  last: {
-    sum: number;
-    mono: number | null;
-    strain: number | null;
-    daily: number[];
-    range: { start: string; end: string };
-  };
-  prev: {
-    sum: number;
-    mono: number | null;
-    strain: number | null;
-    daily: number[];
-    range: { start: string; end: string };
-  };
-};
 
 type Ctx = {
   rangeStart: string;
@@ -204,7 +186,7 @@ type Ctx = {
   getSummary: (activityId: number) => ActivityRow | null;
   getDetail: (activityId: number) => Promise<ActivityDetailExtra>;
   getStreams: (activityId: number) => Promise<StreamsData>;
-  rolling7: (metric: RollingMetric) => Rolling7;
+  rolling7: (metric: Metric) => Rolling7;
 
   // 80/20
   getParetoWidget: (
@@ -388,7 +370,7 @@ export function ActivityDataProvider({
   /* --------- Rolling 7 dní (z ActivityRow, nie z WeekRow!) --------- */
 
   const rolling7 = useCallback(
-    (metric: RollingMetric): Rolling7 => {
+    (metric: Metric): Rolling7 => {
       const endLast = todayISO();
       const startPrev = addDays(endLast, -13);
       const dayKeys: string[] = [];
@@ -467,7 +449,7 @@ export function ActivityDataProvider({
       const sportCsv = toCsvSportParam(sportSel);
       const key = paretoWidgetKey(userId, daysParam, sportCsv);
 
-      if (hasSS()) {
+      if (hasSesssioStorage()) {
         const raw = sessionStorage.getItem(key);
         if (raw) {
           try {
@@ -478,7 +460,7 @@ export function ActivityDataProvider({
       }
 
       const data = await apiFetchParetoWidget(userId, daysParam, sportCsv);
-      if (data && hasSS()) sessionStorage.setItem(key, JSON.stringify(data));
+      if (data && hasSesssioStorage()) sessionStorage.setItem(key, JSON.stringify(data));
       return data;
     },
     [userId]
@@ -491,7 +473,7 @@ export function ActivityDataProvider({
       const sportCsv = toCsvSportParam(sportSel);
       const key = paretoTrendKey(userId, weeksParam, sportCsv);
 
-      if (hasSS()) {
+      if (hasSesssioStorage()) {
         const raw = sessionStorage.getItem(key);
         if (raw) {
           try {
@@ -502,7 +484,7 @@ export function ActivityDataProvider({
       }
 
       const rws = await apiFetchParetoTrend(userId, weeksParam, sportCsv);
-      if (hasSS()) sessionStorage.setItem(key, JSON.stringify(rws));
+      if (hasSesssioStorage()) sessionStorage.setItem(key, JSON.stringify(rws));
       return rws;
     },
     [userId]

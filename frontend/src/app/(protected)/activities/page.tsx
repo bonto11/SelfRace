@@ -15,7 +15,7 @@ import { resetClientCache } from "@/shared/utils/resetClientCache";
 import {
   apiSyncActivities,
   type SyncActivitiesStats,
-} from "@/features/activity/api/activities";
+} from "@/features/activity/api/analytics_activities";
 
 export default function ActivitiesPage() {
   const { userId } = useUserId();

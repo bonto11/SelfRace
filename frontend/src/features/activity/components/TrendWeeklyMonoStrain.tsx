@@ -11,18 +11,17 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
-import type { WeekPick } from "@/features/activity/utils/activity";
+import { WeekPick, Metric } from "@/features/activity/types/activities";
 
 import {
   apiGetWeeklyMonoStrain,
-  type WeeklyMonoStrainRow,
-} from "@/features/activity/api/activities";
+} from "@/features/activity/api/analytics_activities";
+
+import {
+  WeekRow
+} from "@/features/activity/types/MonoStrain";
 
 ensureChartJSRegistered();
-
-type Metric = "km" | "time" | "trimp";
-
-type WeekRow = WeeklyMonoStrainRow;
 
 const C = { monotony: THEME.chart.monotony, strain: THEME.chart.strain };
 

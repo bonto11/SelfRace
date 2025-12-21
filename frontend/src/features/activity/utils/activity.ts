@@ -2,60 +2,8 @@
 "use client";
 
 import { isoDate } from "@/shared/utils/recovery";
+import { ActivityRow, EffSport, WeekRow, Metric } from "@/features/activity/types/activities";
 
-/** Ľahký rad pre listy/grafy (90d range) */
-export interface ActivityRow {
-  activity_id: number;
-  name: string;
-  date: string; // ISO (YYYY-MM-DD)
-  sport_type?: string | null;
-  sport_type_fe?: string | null;
-  sport_type_ovrd?: string | null;
-  distance_m: number | null;
-  moving_time_s: number | null;
-  average_heartrate_bpm: number | null;
-  max_heartrate_bpm: number | null;
-  // voliteľne – ak by API niekde malo TRIMP (ak nie, nechávame null)
-  trimp: number | null;
-}
-
-/** Extra detail (doťahuje sa len na klik) */
-export interface ActivityDetailExtra {
-  laps: any[];
-  splits: any[];
-}
-
-
-/** Týždenná agregácia pre grafy a summary */
-export type Metric = "km" | "time" | "trimp";
-export interface WeekRow {
-  week: string; // "YYYY-Www"
-  label: string; // napr. "1.–7.10."
-  start: string; // ISO
-  end: string; // ISO
-  // km
-  km_run: number;
-  km_ride: number;
-  km_mixed: number;
-  km_skate: number;
-  // time (min)
-  time_run_min: number;
-  time_ride_min: number;
-  time_strength_min: number;
-  time_mixed_min: number;
-  time_skate_min: number;
-  time_other_min: number;
-  // trimp (ak nemáme, bude 0)
-  trimp_run: number;
-  trimp_ride: number;
-  trimp_strength: number;
-  trimp_mixed: number;
-  trimp_skate: number;
-  trimp_other: number;
-  // monotony/strain pre každý metric
-  monotony: { km?: number; time?: number; trimp?: number };
-  strain: { km?: number; time?: number; trimp?: number };
-}
 
 /* --------------------- normalizácia range payloadu --------------------- */
 export function normalizeActivityRow(r: any): ActivityRow | null {
@@ -76,7 +24,7 @@ export function normalizeActivityRow(r: any): ActivityRow | null {
   };
 }
 
-function numOrNull(v: any): number | null {
+export function numOrNull(v: any): number | null {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -114,7 +62,7 @@ export function isoWeekInfo(iso: string) {
   return { weekKey, start, end, label };
 }
 
-function isoWeekNumber(d: Date): number {
+export function isoWeekNumber(d: Date): number {
   const date = new Date(
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
   );
@@ -139,13 +87,8 @@ export function rangeLabel(startISO?: string, endISO?: string) {
 }
 
 /* --------------------- kategorizácia športu --------------------- */
-export type EffSport =
-  | "run"
-  | "ride"
-  | "strength"
-  | "mixed"
-  | "skate"
-  | "other";
+
+
 export function toEffSportKey(
   row: Pick<ActivityRow, "sport_type" | "sport_type_fe" | "sport_type_ovrd">
 ): EffSport {
@@ -323,7 +266,7 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
   return out;
 }
 
-function monotony(vals: number[]): number | undefined {
+export function monotony(vals: number[]): number | undefined {
   if (!vals.length) return undefined;
   const m = mean(vals);
   const s = stddev(vals, m);
@@ -339,7 +282,38 @@ function stddev(a: number[], m: number) {
 }
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
-export type ComponentVariant = "activity" | "calendar" | "pb" | "plan";
 
-export type WeekPick = { week: string; start: string; end: string; sport: string };
+export function parseJsonSafe(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.warn("[activityApi] JSON parse error, raw:", text.slice(0, 400));
+    throw e;
+  }
+}
 
+
+export function normSportsList(sel: string | string[] | null | undefined): string[] | null {
+  if (sel == null) return null;
+  if (Array.isArray(sel)) {
+    const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+    if (arr.length === 0) return null;
+    if (arr.length === 1 && arr[0] === "all") return null;
+    return Array.from(new Set(arr));
+  }
+  const raw = String(sel).trim().toLowerCase();
+  if (!raw || raw === "all") return null;
+  const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return arr.length ? Array.from(new Set(arr)) : null;
+}
+
+export function prettySkDate(iso: string) {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  return `${wk} · ${day}`;
+}

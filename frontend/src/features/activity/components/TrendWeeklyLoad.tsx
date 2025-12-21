@@ -11,17 +11,15 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
-import type { WeekPick } from "@/features/activity/utils/activity";
+import { WeekPick, Metric } from "@/features/activity/types/activities";
+
+import { apiGetWeeklyLoad } from "@/features/activity/api/analytics_activities";
 
 import {
-  apiGetWeeklyLoad,
-} from "@/features/activity/api/activities";
-
-import {WeeklyLoadRow, Metric, WeeklyLoadApiResponse, WeeklyLoadOptions} from "@/features/activity/types/WeeklyLoad";
+  WeekRow
+} from "@/features/activity/types/WeeklyLoad";
 
 ensureChartJSRegistered();
-
-type WeekRow = WeeklyLoadRow;
 
 const C = {
   run: THEME.chart.run,
@@ -102,24 +100,88 @@ export default function TrendWeeklyLoad({
     };
 
     if (metric === "km") {
-      pushBar("run", "Km (run)", W.map((w) => w.km_run));
-      pushBar("ride", "Km (ride)", W.map((w) => w.km_ride));
-      pushBar("mixed", "Km (mixed)", W.map((w) => w.km_mixed));
-      pushBar("skate", "Km (skate)", W.map((w) => w.km_skate));
+      pushBar(
+        "run",
+        "Km (run)",
+        W.map((w) => w.km_run)
+      );
+      pushBar(
+        "ride",
+        "Km (ride)",
+        W.map((w) => w.km_ride)
+      );
+      pushBar(
+        "mixed",
+        "Km (mixed)",
+        W.map((w) => w.km_mixed)
+      );
+      pushBar(
+        "skate",
+        "Km (skate)",
+        W.map((w) => w.km_skate)
+      );
     } else if (metric === "time") {
-      pushBar("run", "Run", W.map((w) => w.time_run_min));
-      pushBar("ride", "Ride", W.map((w) => w.time_ride_min));
-      pushBar("strength", "Strength", W.map((w) => w.time_strength_min));
-      pushBar("mixed", "Mixed", W.map((w) => w.time_mixed_min));
-      pushBar("skate", "Skate", W.map((w) => w.time_skate_min));
-      pushBar("other", "Other", W.map((w) => w.time_other_min));
+      pushBar(
+        "run",
+        "Run",
+        W.map((w) => w.time_run_min)
+      );
+      pushBar(
+        "ride",
+        "Ride",
+        W.map((w) => w.time_ride_min)
+      );
+      pushBar(
+        "strength",
+        "Strength",
+        W.map((w) => w.time_strength_min)
+      );
+      pushBar(
+        "mixed",
+        "Mixed",
+        W.map((w) => w.time_mixed_min)
+      );
+      pushBar(
+        "skate",
+        "Skate",
+        W.map((w) => w.time_skate_min)
+      );
+      pushBar(
+        "other",
+        "Other",
+        W.map((w) => w.time_other_min)
+      );
     } else {
-      pushBar("run", "TRIMP (run)", W.map((w) => w.trimp_run));
-      pushBar("ride", "TRIMP (ride)", W.map((w) => w.trimp_ride));
-      pushBar("strength", "TRIMP (strength)", W.map((w) => w.trimp_strength));
-      pushBar("mixed", "TRIMP (mixed)", W.map((w) => w.trimp_mixed));
-      pushBar("skate", "TRIMP (skate)", W.map((w) => w.trimp_skate));
-      pushBar("other", "TRIMP (other)", W.map((w) => w.trimp_other));
+      pushBar(
+        "run",
+        "TRIMP (run)",
+        W.map((w) => w.trimp_run)
+      );
+      pushBar(
+        "ride",
+        "TRIMP (ride)",
+        W.map((w) => w.trimp_ride)
+      );
+      pushBar(
+        "strength",
+        "TRIMP (strength)",
+        W.map((w) => w.trimp_strength)
+      );
+      pushBar(
+        "mixed",
+        "TRIMP (mixed)",
+        W.map((w) => w.trimp_mixed)
+      );
+      pushBar(
+        "skate",
+        "TRIMP (skate)",
+        W.map((w) => w.trimp_skate)
+      );
+      pushBar(
+        "other",
+        "TRIMP (other)",
+        W.map((w) => w.trimp_other)
+      );
     }
 
     return ds;
@@ -175,12 +237,7 @@ export default function TrendWeeklyLoad({
           grid: { color: THEME.chart.grid },
           title: {
             display: true,
-            text:
-              metric === "km"
-                ? "km"
-                : metric === "time"
-                ? "min"
-                : "TRIMP",
+            text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
           },
         },
         x: {
@@ -265,10 +322,7 @@ export default function TrendWeeklyLoad({
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div
-          className="relative"
-          style={{ height: THEME.chart.weeklyHeight }}
-        >
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

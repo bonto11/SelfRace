@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from Routes_FE import (
     users,
     activities,
+    activities_streams,
     analytics,
     analytics_pareto8020,
     user_prefs,
@@ -56,6 +57,7 @@ app.include_router(user_zones.router)
 app.include_router(user_thresholds.router)
 
 app.include_router(activities.router)
+app.include_router(activities_streams.router)
 app.include_router(analytics.router)
 app.include_router(analytics_pareto8020.router)
 

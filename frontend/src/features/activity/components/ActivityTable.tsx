@@ -3,38 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { ActivityRow, ComponentVariant } from "@/features/activity/utils/activity";
+import { ActivityRow, ComponentVariant } from "@/features/activity/types/activities";
+import { prettySkDate, normSportsList } from "@/features/activity/utils/activity";
 import { toEffSport } from "@/features/activity/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 
-// NEW:
 import SessionCard from "@/shared/components/SessionCard";
-
-/* helpers */
-function normSportsList(sel: string | string[] | null | undefined): string[] | null {
-  if (sel == null) return null;
-  if (Array.isArray(sel)) {
-    const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
-    if (arr.length === 0) return null;
-    if (arr.length === 1 && arr[0] === "all") return null;
-    return Array.from(new Set(arr));
-  }
-  const raw = String(sel).trim().toLowerCase();
-  if (!raw || raw === "all") return null;
-  const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
-  return arr.length ? Array.from(new Set(arr)) : null;
-}
-
-function prettySkDate(iso: string) {
-  const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
-  return `${wk} · ${day}`;
-}
 
 /* props */
 type Props = {

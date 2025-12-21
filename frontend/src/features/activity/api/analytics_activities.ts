@@ -2,79 +2,9 @@
 import { API_URL } from "@/shared/config";
 import { robustJson } from "@/features/coach/api/_api_utils";
 import {WeeklyLoadRow,WeeklyLoadApiResponse, WeeklyLoadOptions} from "@/features/activity/types/WeeklyLoad";
-export type SyncActivitiesOptions = {
-  forceLastDays?: number | null;
-  fetchDetails?: boolean;
-};
 
-export type SyncActivitiesStats = {
-  imported: number;
-  updated: number;
-  skipped: number;
-  fetched: number;
-};
-
-type SyncActivitiesResponse = {
-  success: boolean;
-  stats: SyncActivitiesStats;
-  note?: string | null;
-};
-
-export async function apiSyncActivities(
-  userId: number,
-  opts: SyncActivitiesOptions = {}
-): Promise<SyncActivitiesStats> {
-  if (!API_URL) throw new Error("Missing API_URL for apiSyncActivities");
-
-  const body = {
-    force_last_days: opts.forceLastDays ?? 30,
-    fetch_details: opts.fetchDetails ?? true,
-  };
-
-  const res = await fetch(`${API_URL}/activities/sync/${userId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(body),
-  }).catch((e) => {
-    throw new Error(`Network/CORS: ${String(e)}`);
-  });
-
-  const json = (await robustJson(res)) as SyncActivitiesResponse;
-
-  if (!res.ok || !json?.success) {
-    const msg =
-      (json as any)?.detail ||
-      (json as any)?.error ||
-      json?.note ||
-      `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-
-  return json.stats;
-}
-
-/* ───────────────────────── Weekly Monotony & Strain ───────────────────────── */
-
-export type WeeklyMonoStrainRow = {
-  week: string;
-  label: string;
-  start: string;
-  end: string;
-  monotony: { km?: number; time?: number; trimp?: number };
-  strain: { km?: number; time?: number; trimp?: number };
-};
-
-type WeeklyMonoStrainApiResponse = {
-  success?: boolean;
-  weeks?: any[];
-  data?: any[];
-};
-
-export type WeeklyMonoStrainOptions = {
-  weeks?: number;
-  sport?: string;
-};
+import { WeeklyMonoStrainOptions, WeeklyMonoStrainRow, WeeklyMonoStrainApiResponse } from "@/features/activity/types/MonoStrain";
+import { ActivityDetailExtra } from "@/features/activity/types/activities";
 
 /**
  * GET /analytics/weekly/{user_id}?weeks=&sport=
@@ -217,4 +147,71 @@ export async function apiGetWeeklyLoad(
     trimp_skate: wlNum(w.trimp_skate),
     trimp_other: wlNum(w.trimp_other ?? w.other_trimp),
   }));
+}
+
+
+// 4) PARETO WIDGET
+export async function apiFetchParetoWidget(
+  userId: number,
+  days: number,
+  sportCsv: string | null
+): Promise<{
+  easy_min: number;
+  hard_min: number;
+  total_min: number;
+  days: number;
+} | null> {
+  const q = new URLSearchParams({ days: String(days) });
+  if (sportCsv) q.set("sport", sportCsv);
+
+  const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
+  console.debug("[activityApi][paretoWidget] ->", url);
+
+  const res = await fetch(url, { cache: "no-store" });
+  const js = await res.json().catch(() => ({}));
+  return js?.data ?? null;
+}
+
+// 5) PARETO TREND
+export async function apiFetchParetoTrend(
+  userId: number,
+  weeks: number,
+  sportCsv: string | null
+): Promise<
+  Array<{
+    label: string;
+    easy_min: number;
+    hard_min: number;
+    easy_pct: number;
+    hard_pct: number;
+    start?: string;
+    end?: string;
+  }>
+> {
+  const q = new URLSearchParams({ weeks: String(weeks) });
+  if (sportCsv) q.set("sport", sportCsv);
+
+  const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
+  console.debug("[activityApi][paretoTrend] ->", url);
+
+  const res = await fetch(url, { cache: "no-store" });
+  const js = await res.json().catch(() => ({}));
+  const rws = Array.isArray(js?.data) ? js.data : [];
+  return rws;
+}
+
+// 2) DETAIL (laps + splits)
+export async function apiFetchDetail(
+  userId: number,
+  activityId: number
+): Promise<ActivityDetailExtra> {
+  const url = `${API_URL}/activities/detail/${userId}/${activityId}`;
+
+  const res = await fetch(url, { cache: "no-store" });
+  const json = await res.json().catch(() => ({}));
+
+  return {
+    laps: Array.isArray(json?.laps) ? json.laps : [],
+    splits: Array.isArray(json?.splits) ? json.splits : [],
+  };
 }

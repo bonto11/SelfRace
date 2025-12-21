@@ -19,6 +19,9 @@ export type WeeklyLoadRow = {
   trimp_mixed: number;
   trimp_skate: number;
   trimp_other: number;
+
+  monotony?: { km?: number; time?: number; trimp?: number };
+  strain?: { km?: number; time?: number; trimp?: number };
 };
 
 export type WeeklyLoadApiResponse = {
@@ -32,4 +35,4 @@ export type WeeklyLoadOptions = {
   sport?: string;
 };
 
-export type Metric = "km" | "time" | "trimp";
+export type WeekRow = WeeklyLoadRow;
