@@ -1,8 +1,8 @@
 // src/app/coach/external/page.tsx
 "use client";
 
-import ButtonBack from "@/shared/components/ui/ButtonBack";
-import { useUserId } from "@/shared/hooks/useUserId";
+import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import { useUserId } from "@/app/shared/hooks/useUserId";
 import DetailExternalEvents from "@/features/coach/components/DetailExternalEvents";
 
 export default function Page() {

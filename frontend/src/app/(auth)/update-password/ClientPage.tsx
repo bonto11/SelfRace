@@ -3,9 +3,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import { inputClass, labelClass, hintClass } from "@/shared/ui";
-import Button from "@/shared/components/ui/Button";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import { inputClass, labelClass, hintClass } from "@/app/shared/ui";
+import Button from "@/app/shared/components/ui/Button";
 
 type Phase = "boot" | "ready" | "saving" | "done";
 
@@ -29,15 +29,25 @@ export default function ClientPage() {
       const type = sp.get("type");
       const em = sp.get("email");
       if (token && type === "recovery" && em) {
-        const { error } = await sb.auth.verifyOtp({ type: "recovery", email: em, token });
-        if (error) { if (mounted) setErr(error.message); return; }
+        const { error } = await sb.auth.verifyOtp({
+          type: "recovery",
+          email: em,
+          token,
+        });
+        if (error) {
+          if (mounted) setErr(error.message);
+          return;
+        }
         try {
           const { data } = await sb.auth.getSession();
           if (data.session) {
             await fetch("/api/auth/set-session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
+              body: JSON.stringify({
+                event: "SIGNED_IN",
+                session: data.session,
+              }),
             });
           }
         } catch {}
@@ -47,11 +57,29 @@ export default function ClientPage() {
       const code = sp.get("code");
       if (code) {
         let ok = false;
-        try { /* @ts-ignore */ const r1 = await sb.auth.exchangeCodeForSession(code); ok = !r1?.error; } catch {}
-        if (!ok) { try { /* @ts-ignore */ const r2 = await sb.auth.exchangeCodeForSession({ code }); ok = !r2?.error; } catch {} }
+        try {
+          /* @ts-ignore */ const r1 = await sb.auth.exchangeCodeForSession(
+            code
+          );
+          ok = !r1?.error;
+        } catch {}
         if (!ok) {
-          const { error } = await sb.auth.verifyOtp({ type: "recovery", token_hash: code } as any);
-          if (error) { if (mounted) setErr(error.message); return; }
+          try {
+            /* @ts-ignore */ const r2 = await sb.auth.exchangeCodeForSession({
+              code,
+            });
+            ok = !r2?.error;
+          } catch {}
+        }
+        if (!ok) {
+          const { error } = await sb.auth.verifyOtp({
+            type: "recovery",
+            token_hash: code,
+          } as any);
+          if (error) {
+            if (mounted) setErr(error.message);
+            return;
+          }
         }
         try {
           const { data } = await sb.auth.getSession();
@@ -59,7 +87,10 @@ export default function ClientPage() {
             await fetch("/api/auth/set-session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
+              body: JSON.stringify({
+                event: "SIGNED_IN",
+                session: data.session,
+              }),
             });
           }
         } catch {}
@@ -67,11 +98,18 @@ export default function ClientPage() {
         return;
       }
       const { data } = await sb.auth.getSession();
-      if (data.session) { if (mounted) setPhase("ready"); return; }
-      const sub = sb.auth.onAuthStateChange((_e, session) => { if (session && mounted) setPhase("ready"); });
+      if (data.session) {
+        if (mounted) setPhase("ready");
+        return;
+      }
+      const sub = sb.auth.onAuthStateChange((_e, session) => {
+        if (session && mounted) setPhase("ready");
+      });
       return () => sub.data.subscription.unsubscribe();
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [sb, sp]);
 
   const strength = useMemo(() => scorePassword(pwd1, email), [pwd1, email]);
@@ -81,10 +119,17 @@ export default function ClientPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!canSubmit) { setErr(!match ? "Heslá sa nezhodujú." : "Heslo je príliš slabé."); return; }
+    if (!canSubmit) {
+      setErr(!match ? "Heslá sa nezhodujú." : "Heslo je príliš slabé.");
+      return;
+    }
     setPhase("saving");
     const { error } = await sb.auth.updateUser({ password: pwd1 });
-    if (error) { setErr(error.message); setPhase("ready"); return; }
+    if (error) {
+      setErr(error.message);
+      setPhase("ready");
+      return;
+    }
     setPhase("done");
     setTimeout(() => router.replace("/dashboard"), 600);
   }
@@ -93,7 +138,9 @@ export default function ClientPage() {
     return (
       <div className="max-w-sm mx-auto p-6 text-text">
         <h1 className="text-2xl font-semibold mb-3">Zmeniť heslo</h1>
-        <p className="opacity-90">O chvíľu ťa prihlásime a zobrazíme formulár…</p>
+        <p className="opacity-90">
+          O chvíľu ťa prihlásime a zobrazíme formulár…
+        </p>
         {err && <p className="text-danger text-sm mt-2">{err}</p>}
       </div>
     );
@@ -125,7 +172,7 @@ export default function ClientPage() {
             />
             <button
               type="button"
-              onClick={() => setShow(s => !s)}
+              onClick={() => setShow((s) => !s)}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text"
               aria-label={show ? "Skryť heslo" : "Zobraziť heslo"}
               title={show ? "Skryť heslo" : "Zobraziť heslo"}
@@ -166,7 +213,9 @@ export default function ClientPage() {
           {phase === "saving" ? "Ukladám…" : "Uložiť"}
         </Button>
 
-        <p className={hintClass + " mt-2"}>Po uložení ťa automaticky prihlásime.</p>
+        <p className={hintClass + " mt-2"}>
+          Po uložení ťa automaticky prihlásime.
+        </p>
       </form>
     </div>
   );
@@ -175,7 +224,11 @@ export default function ClientPage() {
 /* -------- zvyšok súboru ponechaný bez zmeny (PasswordStrengthMeter, RequirementsList, scorePassword) -------- */
 /* -------- Pomocné komponenty a heuristika -------- */
 
-function PasswordStrengthMeter({ strength }: { strength: ReturnType<typeof scorePassword>; }) {
+function PasswordStrengthMeter({
+  strength,
+}: {
+  strength: ReturnType<typeof scorePassword>;
+}) {
   const steps = 5; // 0..4
   return (
     <div className="mt-1">
@@ -186,14 +239,17 @@ function PasswordStrengthMeter({ strength }: { strength: ReturnType<typeof score
             className={[
               "h-1.5 flex-1 rounded",
               i < strength.score ? "bg-success" : "bg-surface",
-              "border border-border"
+              "border border-border",
             ].join(" ")}
           />
         ))}
       </div>
       <div className="mt-1 text-xs text-muted">
-        Sila hesla: <span className="text-text font-medium">{strength.label}</span>
-        {strength.hint && <span className="opacity-80"> — {strength.hint}</span>}
+        Sila hesla:{" "}
+        <span className="text-text font-medium">{strength.label}</span>
+        {strength.hint && (
+          <span className="opacity-80"> — {strength.hint}</span>
+        )}
       </div>
     </div>
   );
@@ -206,7 +262,12 @@ function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
     { ok: /[A-Z]/.test(pwd), text: "aspoň jedno veľké písmeno" },
     { ok: /[0-9]/.test(pwd), text: "aspoň jedna číslica" },
     { ok: /[^A-Za-z0-9]/.test(pwd), text: "aspoň jeden špeciálny znak" },
-    { ok: email ? !pwd.toLowerCase().includes(email.split("@")[0]!.toLowerCase()) : true, text: "neobsahuje tvoje meno/e-mail" },
+    {
+      ok: email
+        ? !pwd.toLowerCase().includes(email.split("@")[0]!.toLowerCase())
+        : true,
+      text: "neobsahuje tvoje meno/e-mail",
+    },
   ];
   return (
     <ul className="mt-1 text-xs">
@@ -233,7 +294,9 @@ function scorePassword(pwd: string, email?: string) {
   if (/^(1234|qwer|asdf|zxcv)/i.test(pwd)) score = Math.max(0, score - 1);
   if (/^([a-zA-Z0-9])\1+$/.test(pwd)) score = Math.max(0, score - 2);
   score = Math.max(0, Math.min(4, score));
-  const label = ["veľmi slabé", "slabé", "stredné", "silné", "veľmi silné"][score];
+  const label = ["veľmi slabé", "slabé", "stredné", "silné", "veľmi silné"][
+    score
+  ];
   let hint = "";
   if (score < 3) {
     const tips: string[] = [];

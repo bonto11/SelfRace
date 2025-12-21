@@ -1,7 +1,7 @@
 "use client";
 
 import ActivitiesCalendar from "@/features/calendar/ActivitiesCalendar";
-import ButtonBack from "@/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/ButtonBack";
 
 export default function CalendarPage() {
   return (

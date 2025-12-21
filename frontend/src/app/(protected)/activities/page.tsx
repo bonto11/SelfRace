@@ -4,16 +4,16 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useUserId } from "@/shared/hooks/useUserId";
-import { resetClientCache } from "@/shared/utils/resetClientCache";
-import { toast } from "@/shared/components/ui/Toast";
-import Button from "@/shared/components/ui/Button";
-import { apiSyncActivities } from "@/features/activities/api/synchronization";
-import { SyncActivitiesStats } from "@/features/activities/types/synchronization";
-import WeeklyLoadWidget from "@/shared/components/widgets/WidgetWeeklyLoad";
-import MonoStrainWidget from "@/shared/components/widgets/WidgetMonoStrain";
-import WidgetPareto8020 from "@/shared/components/widgets/WidgetPareto8020";
-import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
+import { useUserId } from "@/app/shared/hooks/useUserId";
+import { resetClientCache } from "@/app/shared/utils/resetClientCache";
+import { toast } from "@/app/shared/components/ui/Toast";
+import Button from "@/app/shared/components/ui/Button";
+import { apiSyncActivities } from "@/app/features/activities/api/synchronization";
+import { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
+import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
+import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
+import WidgetPareto8020 from "@/app/shared/components/widgets/WidgetPareto8020";
+import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActivitiesCalendar";
 
 export default function ActivitiesPage() {
   const { userId } = useUserId();

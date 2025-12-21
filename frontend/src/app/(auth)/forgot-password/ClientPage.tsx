@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import Button from "@/shared/components/ui/Button";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import Button from "@/app/shared/components/ui/Button";
 
 export default function ForgotPasswordPage() {
   const sb = getSupabaseBrowser();
@@ -24,9 +24,13 @@ export default function ForgotPasswordPage() {
     try {
       const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const redirectTo = `${origin}/update-password`;
-      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
       if (error) throw error;
-      setMsg("Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.");
+      setMsg(
+        "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla."
+      );
     } catch (e: any) {
       setErr(e?.message || "Nepodarilo sa odoslať e-mail.");
     } finally {

@@ -1,14 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import WidgetRHR from "@/shared/components/widgets/WidgetRHR";
-import WidgetHRV from "@/shared/components/widgets/WidgetHRV";
-import WidgetSleepDuration from "@/shared/components/widgets/WidgetSleepDuration";
-import WidgetSleepStart from "@/shared/components/widgets/WidgetSleepStart";
-import InputsCard from "@/features/recovery/components/InputsCard";
-import Button from "@/shared/components/ui/Button";
-import IconRefresh from "@/shared/svg/Refresh";
+import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
+import WidgetRHR from "@/app/shared/components/widgets/WidgetRHR";
+import WidgetHRV from "@/app/shared/components/widgets/WidgetHRV";
+import WidgetSleepDuration from "@/app/shared/components/widgets/WidgetSleepDuration";
+import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
+import InputsCard from "@/app/features/recovery/components/InputsCard";
+import Button from "@/app/shared/components/ui/Button";
+import IconRefresh from "@/app/shared/svg/Refresh";
 
 function RefreshIconBtn() {
   const { refresh, loading } = useRecoveryData();

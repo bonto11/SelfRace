@@ -1,7 +1,7 @@
 // src/app/coach/ai/weekly/page.tsx  (alebo tvoja aktuálna cesta)
 "use client";
 
-import ButtonBack from "@/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/ButtonBack";
 import DetailWeeklyPlan from "@/features/coach/components/DetailWeeklyPlan";
 
 export default function Page() {

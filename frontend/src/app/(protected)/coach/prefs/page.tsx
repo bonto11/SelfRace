@@ -1,7 +1,7 @@
 "use client";
 
 import CoachPreferencies from "@/features/coach/components/CoachPreferencies";
-import ButtonBack from "@/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/ButtonBack";
 
 export default function Page() {
   return (

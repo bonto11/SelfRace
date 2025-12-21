@@ -3,8 +3,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { getSupabaseBrowser } from "@/shared/utils/supabaseBrowser";
-import Button from "@/shared/components/ui/Button";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import Button from "@/app/shared/components/ui/Button";
 
 export default function ClientPage() {
   const sb = getSupabaseBrowser();
