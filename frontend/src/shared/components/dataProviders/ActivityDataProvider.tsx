@@ -14,7 +14,7 @@ import {
   addDays,
   todayISO,
   aggregateWeeks,
-} from "@/features/activity/utils/activity";
+} from "@/features/activities/utils/activity";
 
 import {
   ActivityRow,
@@ -22,34 +22,21 @@ import {
   WeekRow,
   StreamsData,
   Metric,
-} from "@/features/activity/types/activities";
+} from "@/features/activities/types/activities";
 
-import {
-  Rolling7
-} from "@/features/activity/types/MonoStrain";
+import { Rolling7 } from "@/features/activities/types/MonoStrain";
 
 import {
   apiFetchDetail,
   apiFetchParetoWidget,
   apiFetchParetoTrend,
-} from "@/features/activity/api/analytics_activities";
+} from "@/features/activities/api/analytics_activities";
 
-import {
-  apiFetchStreams,
-} from "@/features/activity/api/activities_streams";
+import { apiFetchStreams } from "@/features/activities/api/activities_streams";
 
+import { apiFetchRange } from "@/features/activities/api/activities_summary";
 
-
-import {
-  apiFetchRange,
-} from "@/features/activity/api/activities_summary";
-
-
-
-
-import {
-  hasSesssioStorage
-} from "@/shared/utils/common";
+import { hasSesssioStorage } from "@/shared/utils/common";
 
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
@@ -471,7 +458,8 @@ export function ActivityDataProvider({
       }
 
       const data = await apiFetchParetoWidget(userId, daysParam, sportCsv);
-      if (data && hasSesssioStorage()) sessionStorage.setItem(key, JSON.stringify(data));
+      if (data && hasSesssioStorage())
+        sessionStorage.setItem(key, JSON.stringify(data));
       return data;
     },
     [userId]

@@ -1,10 +1,18 @@
 // src/features/activities/api/activities.ts
 import { API_URL } from "@/shared/config";
 import { robustJson } from "@/features/coach/api/_api_utils";
-import {WeeklyLoadRow,WeeklyLoadApiResponse, WeeklyLoadOptions} from "@/features/activity/types/WeeklyLoad";
+import {
+  WeeklyLoadRow,
+  WeeklyLoadApiResponse,
+  WeeklyLoadOptions,
+} from "@/features/activities/types/WeeklyLoad";
 
-import { WeeklyMonoStrainOptions, WeeklyMonoStrainRow, WeeklyMonoStrainApiResponse } from "@/features/activity/types/MonoStrain";
-import { ActivityDetailExtra } from "@/features/activity/types/activities";
+import {
+  WeeklyMonoStrainOptions,
+  WeeklyMonoStrainRow,
+  WeeklyMonoStrainApiResponse,
+} from "@/features/activities/types/MonoStrain";
+import { ActivityDetailExtra } from "@/features/activities/types/activities";
 
 /**
  * GET /analytics/weekly/{user_id}?weeks=&sport=
@@ -38,9 +46,7 @@ export async function apiGetWeeklyMonoStrain(
 
   if (!res.ok) {
     const msg =
-      (json as any)?.detail ||
-      (json as any)?.error ||
-      `HTTP ${res.status}`;
+      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`;
     throw new Error(msg);
   }
 
@@ -109,9 +115,7 @@ export async function apiGetWeeklyLoad(
 
   if (!res.ok) {
     const msg =
-      (json as any)?.detail ||
-      (json as any)?.error ||
-      `HTTP ${res.status}`;
+      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`;
     throw new Error(msg);
   }
 
@@ -123,9 +127,7 @@ export async function apiGetWeeklyLoad(
 
   return raw.map((w) => ({
     week: w.week ?? w.iso_week ?? w.label ?? "",
-    label:
-      wlRangeLabel(w.start, w.end) ||
-      (w.label ?? w.week ?? ""),
+    label: wlRangeLabel(w.start, w.end) || (w.label ?? w.week ?? ""),
     start: w.start ?? "",
     end: w.end ?? "",
     km_run: wlNum(w.km_run ?? w.run_km),
@@ -148,7 +150,6 @@ export async function apiGetWeeklyLoad(
     trimp_other: wlNum(w.trimp_other ?? w.other_trimp),
   }));
 }
-
 
 // 4) PARETO WIDGET
 export async function apiFetchParetoWidget(

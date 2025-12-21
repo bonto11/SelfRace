@@ -8,8 +8,12 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import HrChart from "@/shared/components/trend/HrChart";
 import SportBadge from "@/shared/components/ui/SportBadge";
 import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
-import { SURFACE_CARD, SURFACE_INLINE, FLUSH_DETAIL } from "@/shared/ui/classes";
-import { ComponentVariant } from "@/features/activity/utils/activity";
+import {
+  SURFACE_CARD,
+  SURFACE_INLINE,
+  FLUSH_DETAIL,
+} from "@/shared/ui/classes";
+import { ComponentVariant } from "@/features/activities/types/activities";
 
 /** ========== Types ========== */
 
@@ -86,7 +90,10 @@ export type SessionCardProps = {
   showPlanDebug?: boolean;
 };
 
-const PRESET: Record<ComponentVariant, { outerPadding: string; compactChart: boolean }> = {
+const PRESET: Record<
+  ComponentVariant,
+  { outerPadding: string; compactChart: boolean }
+> = {
   activity: { outerPadding: "px-5 py-4", compactChart: false },
   calendar: { outerPadding: "px-5 py-4", compactChart: true },
   pb: { outerPadding: "px-5 py-4", compactChart: true },
@@ -134,7 +141,11 @@ function fmtMin(m?: number) {
 
 function safeText(value: any): string {
   if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return String(value);
   }
   try {
@@ -344,7 +355,10 @@ function DetailBody({
     console.log("[SessionCard] PLAN exercises", {
       title: item.title,
       count: Array.isArray(exercises) ? exercises.length : 0,
-      sample: Array.isArray(exercises) && exercises.length > 0 ? exercises[0] : undefined,
+      sample:
+        Array.isArray(exercises) && exercises.length > 0
+          ? exercises[0]
+          : undefined,
     });
 
     return (
@@ -355,9 +369,7 @@ function DetailBody({
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              item.planDur
-                ? { label: "DURATION", value: item.planDur }
-                : null,
+              item.planDur ? { label: "DURATION", value: item.planDur } : null,
               item.planIntensity
                 ? { label: "INTENSITY", value: item.planIntensity }
                 : null,
@@ -406,9 +418,7 @@ function DetailBody({
 
             {mainBlocks.length > 0 && (
               <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  MAIN
-                </div>
+                <div className="text-[11px] font-semibold opacity-80">MAIN</div>
                 <div className="text-sm mt-0.5 space-y-1">
                   {mainBlocks.map((mn: any, idx: number) => {
                     const line =
@@ -434,9 +444,7 @@ function DetailBody({
                         className="border-t border-white/5 pt-1 first:border-t-0 first:pt-0"
                       >
                         <div>{line}</div>
-                        {tgt && (
-                          <div className="opacity-90">target: {tgt}</div>
-                        )}
+                        {tgt && <div className="opacity-90">target: {tgt}</div>}
                         {noteText && (
                           <div className="opacity-90">{noteText}</div>
                         )}
@@ -476,8 +484,7 @@ function DetailBody({
             </div>
             <ul className="space-y-1.5">
               {exercises.map((e: any, i: number) => {
-                const name =
-                  e?.exercise_name || e?.name || `Exercise ${i + 1}`;
+                const name = e?.exercise_name || e?.name || `Exercise ${i + 1}`;
 
                 const parts = [
                   e?.sets ? `${e.sets} sets` : null,
@@ -570,9 +577,7 @@ function DetailBody({
         )}
 
         {(item.notes ?? null) && (
-          <div className="mt-3 text-sm opacity-90">
-            {safeText(item.notes)}
-          </div>
+          <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
         )}
       </div>
     );
@@ -581,7 +586,7 @@ function DetailBody({
   // -------- ACTIVITY --------
   const s =
     item.activityId != null
-      ? ((getSummary(item.activityId) as any) || null)
+      ? (getSummary(item.activityId) as any) || null
       : null;
 
   const distTxt = s
@@ -647,9 +652,7 @@ function DetailBody({
               key={t.label}
               className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
             >
-              <div className="text-[10px] opacity-70">
-                {safeText(t.label)}
-              </div>
+              <div className="text-[10px] opacity-70">{safeText(t.label)}</div>
               <div className="text-xl font-semibold tabular-nums">
                 {safeText(t.value)}
               </div>
@@ -707,9 +710,7 @@ function DetailBody({
 
       {/* notes (calendar môže poslať item.notes) */}
       {item.notes && (
-        <div className="mt-3 text-sm opacity-90">
-          {safeText(item.notes)}
-        </div>
+        <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
       )}
 
       {/* HR priebeh */}

@@ -2,13 +2,13 @@
 import { API_URL } from "@/shared/config";
 import {
   normalizeActivityRow,
-  parseJsonSafe
-} from "@/features/activity/utils/activity";
+  parseJsonSafe,
+} from "@/features/activities/utils/activity";
 
 import {
   StreamsData,
   ActivityRow,
-} from "@/features/activity/types/activities";
+} from "@/features/activities/types/activities";
 
 // 1) RANGE
 export async function apiFetchRange(

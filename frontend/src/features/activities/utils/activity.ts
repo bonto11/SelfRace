@@ -2,8 +2,12 @@
 "use client";
 
 import { isoDate } from "@/shared/utils/recovery";
-import { ActivityRow, EffSport, WeekRow, Metric } from "@/features/activity/types/activities";
-
+import {
+  ActivityRow,
+  EffSport,
+  WeekRow,
+  Metric,
+} from "@/features/activities/types/activities";
 
 /* --------------------- normalizácia range payloadu --------------------- */
 export function normalizeActivityRow(r: any): ActivityRow | null {
@@ -87,7 +91,6 @@ export function rangeLabel(startISO?: string, endISO?: string) {
 }
 
 /* --------------------- kategorizácia športu --------------------- */
-
 
 export function toEffSportKey(
   row: Pick<ActivityRow, "sport_type" | "sport_type_fe" | "sport_type_ovrd">
@@ -282,7 +285,6 @@ function stddev(a: number[], m: number) {
 }
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
-
 export function parseJsonSafe(text: string): any {
   try {
     return JSON.parse(text);
@@ -292,8 +294,9 @@ export function parseJsonSafe(text: string): any {
   }
 }
 
-
-export function normSportsList(sel: string | string[] | null | undefined): string[] | null {
+export function normSportsList(
+  sel: string | string[] | null | undefined
+): string[] | null {
   if (sel == null) return null;
   if (Array.isArray(sel)) {
     const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
@@ -303,7 +306,10 @@ export function normSportsList(sel: string | string[] | null | undefined): strin
   }
   const raw = String(sel).trim().toLowerCase();
   if (!raw || raw === "all") return null;
-  const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const arr = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return arr.length ? Array.from(new Set(arr)) : null;
 }
 

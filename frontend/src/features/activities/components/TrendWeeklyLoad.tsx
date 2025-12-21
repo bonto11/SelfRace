@@ -11,13 +11,11 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import Button from "@/shared/components/ui/Button";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
-import { WeekPick, Metric } from "@/features/activity/types/activities";
+import { WeekPick, Metric } from "@/features/activities/types/activities";
 
-import { apiGetWeeklyLoad } from "@/features/activity/api/analytics_activities";
+import { apiGetWeeklyLoad } from "@/features/activities/api/analytics_activities";
 
-import {
-  WeekRow
-} from "@/features/activity/types/WeeklyLoad";
+import { WeekRow } from "@/features/activities/types/WeeklyLoad";
 
 ensureChartJSRegistered();
 

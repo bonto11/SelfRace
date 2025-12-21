@@ -5,13 +5,9 @@ import { useMemo } from "react";
 import { SUBCARD } from "@/shared/ui/classes";
 import { THEME } from "@/shared/theme/tokens";
 
-import {
-  WeekRow,
-} from "@/features/activity/types/WeeklyLoad";
+import { WeekRow } from "@/features/activities/types/WeeklyLoad";
 
-import {
-  Metric
-} from "@/features/activity/types/activities";
+import { Metric } from "@/features/activities/types/activities";
 
 type Props = {
   weeks: WeekRow[];
@@ -54,7 +50,11 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
   // Výpočty podľa zvolenej metriky
   const rows = useMemo(() => {
     if (metric === "km") {
-      const total = (w.km_run || 0) + (w.km_ride || 0) + (w.km_mixed || 0) + (w.km_skate || 0);
+      const total =
+        (w.km_run || 0) +
+        (w.km_ride || 0) +
+        (w.km_mixed || 0) +
+        (w.km_skate || 0);
       return {
         title: "Kilometre (súčet)",
         totalLabel: fmtKm(total),
@@ -144,11 +144,15 @@ export default function WeeklySummary({ weeks, metric, selectedWeek }: Props) {
       <div className="mt-2 flex items-center gap-4 opacity-90">
         <div style={{ color: THEME.chart.monotony }}>
           Monotony:{" "}
-          <strong>{rows.mono == null ? "—" : Number(rows.mono).toFixed(2)}</strong>
+          <strong>
+            {rows.mono == null ? "—" : Number(rows.mono).toFixed(2)}
+          </strong>
         </div>
         <div style={{ color: THEME.chart.strain }}>
           Strain:{" "}
-          <strong>{rows.strain == null ? "—" : Math.round(Number(rows.strain))}</strong>
+          <strong>
+            {rows.strain == null ? "—" : Math.round(Number(rows.strain))}
+          </strong>
         </div>
       </div>
     </div>

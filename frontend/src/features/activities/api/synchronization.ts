@@ -1,7 +1,11 @@
 // src/features/activities/api/activities.ts
 import { API_URL } from "@/shared/config";
 import { robustJson } from "@/features/coach/api/_api_utils";
-import { SyncActivitiesOptions, SyncActivitiesStats, SyncActivitiesResponse } from "@/features/activity/types/synchronization";
+import {
+  SyncActivitiesOptions,
+  SyncActivitiesStats,
+  SyncActivitiesResponse,
+} from "@/features/activities/types/synchronization";
 
 export async function apiSyncActivities(
   userId: number,

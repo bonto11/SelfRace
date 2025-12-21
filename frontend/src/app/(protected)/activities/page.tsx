@@ -12,13 +12,9 @@ import WidgetPareto8020 from "@/shared/components/widgets/WidgetPareto8020";
 import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
 import Button from "@/shared/components/ui/Button";
 import { resetClientCache } from "@/shared/utils/resetClientCache";
-import {
-  apiSyncActivities,
-} from "@/features/activity/api/synchronization";
+import { apiSyncActivities } from "@/features/activities/api/synchronization";
 
-import {
-  SyncActivitiesStats,
-} from "@/features/activity/types/synchronization";
+import { SyncActivitiesStats } from "@/features/activities/types/synchronization";
 
 export default function ActivitiesPage() {
   const { userId } = useUserId();

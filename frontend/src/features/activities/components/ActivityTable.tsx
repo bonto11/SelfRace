@@ -3,9 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { CARD, NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { ActivityRow, ComponentVariant } from "@/features/activity/types/activities";
-import { prettySkDate, normSportsList } from "@/features/activity/utils/activity";
-import { toEffSport } from "@/features/activity/utils/sport";
+import {
+  ActivityRow,
+  ComponentVariant,
+} from "@/features/activities/types/activities";
+import {
+  prettySkDate,
+  normSportsList,
+} from "@/features/activities/utils/activity";
+import { toEffSport } from "@/features/activities/utils/sport";
 import { fmtSecondsHMS } from "@/shared/utils/format";
 
 import SessionCard from "@/shared/components/SessionCard";
@@ -92,7 +98,9 @@ export default function ActivityTable({
       {loading && <div className="opacity-70 py-4">Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">Žiadne aktivity v zadanom období.</div>
+        <div className="opacity-70 py-4 text-sm">
+          Žiadne aktivity v zadanom období.
+        </div>
       )}
 
       {!loading && rows.length > 0 && (
@@ -101,15 +109,22 @@ export default function ActivityTable({
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
 
-            const dur = r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
-            const dist = r.distance_m != null ? `${((r.distance_m || 0) / 1000).toFixed(2)} km` : null;
+            const dur =
+              r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
+            const dist =
+              r.distance_m != null
+                ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
+                : null;
 
             const isFocused =
               autoOpenActivityId != null &&
               Number(r.activity_id) === Number(autoOpenActivityId);
 
             return (
-              <li key={`${r.activity_id}-${isFocused ? "open" : "closed"}`} className="px-0">
+              <li
+                key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}
+                className="px-0"
+              >
                 <SessionCard
                   variant={variant === "calendar" ? "calendar" : "activity"}
                   item={{
