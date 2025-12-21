@@ -185,7 +185,6 @@ class ZonesReq(BaseModel):
 
 # POST – JSON body s ids, fetch; aliasujeme aj starú cestu /streams/zones/{user_id}
 @router.post("/zones/{user_id}")
-@router.post("/streams/zones/{user_id}")
 def zones_preview_post(user_id: int, body: ZonesReq):
     """
     POST /activities/zones/{user_id}
@@ -205,7 +204,6 @@ def zones_preview_post(user_id: int, body: ZonesReq):
 
 # GET – query ids, fetch, save; alias pre starý path
 @router.get("/zones/{user_id}")
-@router.get("/streams/zones/{user_id}")
 def zones_preview_get(
     user_id: int,
     ids: str = Query(..., description="CSV activity_id (napr. 161...,101...)"),
