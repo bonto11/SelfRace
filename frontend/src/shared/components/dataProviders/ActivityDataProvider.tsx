@@ -81,9 +81,7 @@ function saveRange(
   try {
     const key = rangeKey(userId, start, end);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), rows }));
-    console.debug("[ACT][cache] saveRange", { key, count: rows.length });
   } catch (e) {
-    console.warn("[ACT][cache] saveRange error:", e);
   }
 }
 function loadRange(
@@ -103,7 +101,7 @@ function loadRange(
     const rows = Array.isArray(parsed?.rows)
       ? (parsed.rows as ActivityRow[])
       : [];
-    console.debug("[ACT][cache] loadRange hit", { key, count: rows.length });
+
     return rows;
   } catch (e) {
     console.warn("[ACT][cache] loadRange error:", e);
@@ -115,11 +113,7 @@ function saveDetail(activityId: number, extra: ActivityDetailExtra) {
   try {
     const key = detailKey(activityId);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), ...extra }));
-    console.debug("[ACT][cache] saveDetail", {
-      key,
-      laps: extra.laps?.length ?? 0,
-      splits: extra.splits?.length ?? 0,
-    });
+   
   } catch (e) {
     console.warn("[ACT][cache] saveDetail error:", e);
   }
@@ -238,12 +232,6 @@ export function ActivityDataProvider({
         return;
       }
       const t0 = performance.now();
-      console.debug("[ACT][provider] fetchRange", {
-        force,
-        userId,
-        rangeStart,
-        rangeEnd,
-      });
 
       setLoading(true);
       try {
@@ -259,9 +247,6 @@ export function ActivityDataProvider({
         await doFetch(userId, rangeStart, rangeEnd);
       } finally {
         setLoading(false);
-        console.debug("[ACT][provider] fetchRange end", {
-          tookMs: Math.round(performance.now() - t0),
-        });
       }
     },
     [userId, rangeStart, rangeEnd]
@@ -294,7 +279,6 @@ export function ActivityDataProvider({
 
   const weeks = useMemo(() => {
     const w = aggregateWeeks(rows);
-    console.debug("[ACT][weeks] computed", { count: w.length });
     return w;
   }, [rows]);
 

@@ -7,6 +7,7 @@ from Routes_FE import (
     activities_streams,
     activities_summary,
     analytics,
+    synchronization,
     user_prefs,
     user_bests,
     user_zones,
@@ -58,6 +59,8 @@ app.include_router(user_thresholds.router)
 app.include_router(activities_summary.router)
 app.include_router(activities_streams.router)
 app.include_router(analytics.router)
+app.include_router(synchronization.router)
+
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)

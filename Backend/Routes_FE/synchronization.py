@@ -13,7 +13,6 @@ from Services.synchronization import service_sync_activities
 
 router = APIRouter(prefix="/synchronization", tags=["synchronization"])
 
-
 @router.post("/{user_id}", response_model=SyncActivitiesResponse)
 def sync_activities_endpoint(
     user_id: int,
