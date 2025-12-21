@@ -1,4 +1,4 @@
-import rawFile from "@/data/training_types.json";
+import rawFile from "@/app/data/training_types.json";
 
 /**
  * Jeden session_type z katalógu.

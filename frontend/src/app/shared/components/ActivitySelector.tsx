@@ -2,11 +2,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetchActivitiesAround } from "@/features/activities/api/activities_summary";
+import { apiFetchActivitiesAround } from "@/app/features/activities/api/activities_summary";
 import type {
   MiniActivity,
   SportFE,
-} from "@/features/activities/types/activities";
+} from "@/app/features/activities/types/activities";
 import {
   FIELD_BASE,
   FIELD_DISABLED,

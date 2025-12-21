@@ -12,21 +12,21 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 
-import { apiGetCoachPrefs } from "@/features/coach/api/prefs";
+import { apiGetCoachPrefs } from "@/app/features/coach/api/prefs";
 import {
   apiAnalyzeAthleteState,
   apiGetLatestAthleteState,
-} from "@/features/coach/api/coach_athlete_state";
+} from "@/app/features/coach/api/coach_athlete_state";
 import {
   apiActivePlanSave,
   apiActivePlanCancel,
   apiActivePlanStatus,
-} from "@/features/coach/api/coach_plan_active";
-import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
-import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
+} from "@/app/features/coach/api/coach_plan_active";
+import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
+import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 
-import type { CoachPrefs } from "@/features/prefs/types/prefs";
-import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
+import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
+import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
 import { confirm } from "@/app/shared/components/ui/Confirm";
 
 /* ---------- helpers ---------- */

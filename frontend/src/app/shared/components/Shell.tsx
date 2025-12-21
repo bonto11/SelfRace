@@ -5,9 +5,9 @@ import { ReactNode } from "react";
 import {
   useSidebar,
   SidebarProvider,
-} from "@/features/Toolbars/hooks/useSidebar";
-import Sidebar from "@/features/Toolbars/components/Sidebar";
-import MobileTopbar from "@/features/Toolbars/components/MobileTopbar";
+} from "@/app/features/Toolbars/hooks/useSidebar";
+import Sidebar from "@/app/features/Toolbars/components/Sidebar";
+import MobileTopbar from "@/app/features/Toolbars/components/MobileTopbar";
 import {
   SHELL_BG,
   SHELL_GRID,

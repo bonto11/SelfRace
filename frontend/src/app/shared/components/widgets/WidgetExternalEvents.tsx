@@ -10,8 +10,8 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 
-import { apiGetExternalEvents } from "@/features/coach/api/coach_external_events";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_events";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 type Stats = {
   total: number;

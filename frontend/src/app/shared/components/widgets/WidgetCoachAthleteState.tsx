@@ -9,7 +9,7 @@ import { THEME } from "@/app/shared/theme/tokens";
 import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
-} from "@/features/coach/api/coach_athlete_state";
+} from "@/app/features/coach/api/coach_athlete_state";
 
 type Props = {
   onOpenDetail?: () => void;

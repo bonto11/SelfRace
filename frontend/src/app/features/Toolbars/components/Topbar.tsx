@@ -1,8 +1,8 @@
 // src/features/Toolbars/Topbar.tsx
 "use client";
 
-import HeaderToggle from "@/features/Toolbars/components/HeaderToggle";
-import UserMenu from "@/features/auth/components/UserMenu";
+import HeaderToggle from "@/app/features/Toolbars/components/HeaderToggle";
+import UserMenu from "@/app/features/auth/components/UserMenu";
 
 type TopbarUser = { email?: string | null } | null;
 

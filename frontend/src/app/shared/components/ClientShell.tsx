@@ -1,12 +1,12 @@
 "use client";
 
 import { ReactNode } from "react";
-import Sidebar from "@/features/Toolbars/components/Sidebar";
-import UserMenu from "@/features/auth/components/UserMenu";
+import Sidebar from "@/app/features/Toolbars/components/Sidebar";
+import UserMenu from "@/app/features/auth/components/UserMenu";
 import {
   SidebarProvider,
   useSidebar,
-} from "@/features/Toolbars/hooks/useSidebar";
+} from "@/app/features/Toolbars/hooks/useSidebar";
 import {
   SHELL_BG,
   TOPBAR_MOBILE,

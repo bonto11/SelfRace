@@ -1,7 +1,7 @@
 // src/features/Toolbars/HeaderToggle.tsx
 "use client";
 
-import { useSidebar } from "@/features/Toolbars/hooks/useSidebar";
+import { useSidebar } from "@/app/features/Toolbars/hooks/useSidebar";
 
 export default function HeaderToggle() {
   const { toggle } = useSidebar();

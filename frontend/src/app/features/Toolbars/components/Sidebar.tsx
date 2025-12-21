@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useSidebar } from "@/features/Toolbars/hooks/useSidebar";
-import { useBodyScrollLock } from "@/features/Toolbars/hooks/useBodyScrollLock";
+import { useSidebar } from "@/app/features/Toolbars/hooks/useSidebar";
+import { useBodyScrollLock } from "@/app/features/Toolbars/hooks/useBodyScrollLock";
 import NavLink from "./NavLink";
 
 export default function Sidebar() {

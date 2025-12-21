@@ -13,7 +13,7 @@ import {
   SURFACE_INLINE,
   FLUSH_DETAIL,
 } from "@/app/shared/ui/classes";
-import { ComponentVariant } from "@/features/activities/types/activities";
+import { ComponentVariant } from "@/app/features/activities/types/activities";
 
 /** ========== Types ========== */
 

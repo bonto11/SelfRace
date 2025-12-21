@@ -12,16 +12,16 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
-import { apiGetExternalEventsWindow } from "@/features/coach/api/coach_external_events";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 import {
   dedupeCalendarItems,
   eventDateIso,
   type CalendarItemBase,
   type CalendarItemKind,
-} from "@/features/calendar/utils/calendarSlots";
-import type { SportKey } from "@/features/calendar/types/calendarTypes";
+} from "@/app/features/calendar/utils/calendarSlots";
+import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
 
 /* ---------- helpers ---------- */
 

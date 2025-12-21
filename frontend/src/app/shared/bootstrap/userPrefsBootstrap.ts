@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchUserPrefs } from "@/features/prefs/api/prefs";
-import { readCoachPrefsFromStorage } from "@/features/coach/utils/prefs";
+import { apiFetchUserPrefs } from "@/app/features/prefs/api/prefs";
+import { readCoachPrefsFromStorage } from "@/app/features/coach/utils/prefs";
 
 /**
  * Po prihlásení:

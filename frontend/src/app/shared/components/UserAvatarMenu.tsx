@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
-import ChangeEmailModal from "@/features/auth/components/ChangeEmailModal";
+import ChangePasswordModal from "@/app/features/auth/components/ChangePasswordModal";
+import ChangeEmailModal from "@/app/features/auth/components/ChangeEmailModal";
 import { API_URL } from "@/app/shared/config";
 // voliteľné: len ak potrebuješ token pre /account/request-delete
 import { supabase } from "@/app/shared/hooks/supabaseClient";

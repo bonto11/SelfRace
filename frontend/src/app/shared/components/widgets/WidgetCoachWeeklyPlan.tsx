@@ -10,7 +10,7 @@ import {
   apiGetLatestWeeklyPlan,
   type WeeklyPlanLatest,
   type WeeklyPlanWeek,
-} from "@/features/coach/api/coach_plan_weekly";
+} from "@/app/features/coach/api/coach_plan_weekly";
 import { formatDate, toDate } from "@/app/shared/utils/time";
 
 type Props = {
