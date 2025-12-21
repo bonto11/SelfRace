@@ -6,8 +6,8 @@ import Button from "@/app/shared/components/ui/Button";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { SURFACE_INLINE, SECTION } from "@/app/shared/ui/classes";
-import type { SportKind } from "@/features/prefs/types/prefs";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import type { SportKind } from "@/app/features/prefs/types/prefs";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
 

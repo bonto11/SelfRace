@@ -4,12 +4,12 @@ import type {
   ActivityRow,
   MiniActivity,
   SportFE,
-} from "@/features/activities/types/activities";
+} from "@/app/features/activities/types/activities";
 
 import {
   normalizeActivityRow,
   parseJsonSafe,
-} from "@/features/activities/utils/activity";
+} from "@/app/features/activities/utils/activity";
 
 // 1) RANGE
 export async function apiFetchRange(

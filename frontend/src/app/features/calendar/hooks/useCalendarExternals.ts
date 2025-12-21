@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { apiGetExternalEventsWindow } from "@/features/coach/api/coach_external_events";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
-import type { CalendarExternalState, CalendarGridRange } from "@/features/calendar//types/calendarTypes";
+import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
+import type { CalendarExternalState, CalendarGridRange } from "@/app/features/calendar//types/calendarTypes";
 
 export function useCalendarExternals(
   userId: number | null | undefined,

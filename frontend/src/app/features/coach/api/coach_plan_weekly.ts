@@ -1,6 +1,6 @@
 // src/features/coach/api/coach_plan_weekly.ts
 import { API_URL } from "@/app/shared/config";
-import { robustJson } from "@/features/coach/api/_api_utils";
+import { robustJson } from "@/app/features/coach/api/_api_utils";
 
 /* ---------- spoločné typy pre async_jobs (rovnaké ako pri analyze) ---------- */
 

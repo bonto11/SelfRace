@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import type { DayCellData } from "@/features/calendar/types/calendarTypes";
-import CalendarDayCell from "@/features/calendar/grid/CalendarDayCell";
+import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
+import CalendarDayCell from "@/app/features/calendar/grid/CalendarDayCell";
 
 type Props = {
   cells: DayCellData[];

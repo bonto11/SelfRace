@@ -10,8 +10,8 @@ import type {
   Injury,
   InjuryArea,
   InjuryType,
-} from "@/features/prefs/types/prefs";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+} from "@/app/features/prefs/types/prefs";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 const INJ_AREAS: InjuryArea[] = [
   "foot",

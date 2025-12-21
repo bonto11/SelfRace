@@ -5,7 +5,7 @@ import { useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 type Props = {
   pref: any;

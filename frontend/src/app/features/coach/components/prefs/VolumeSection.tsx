@@ -5,9 +5,9 @@ import { useState, useMemo } from "react";
 import TextField from "@/app/shared/components/ui/TextField";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
-import type { VolumePrefs } from "@/features/prefs/types/prefs";
+import type { VolumePrefs } from "@/app/features/prefs/types/prefs";
 
 type VolumeInputMode = "weekly_hours" | "daily_minutes";
 

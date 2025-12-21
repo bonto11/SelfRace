@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import type { DayCellData } from "@/features/calendar/types/calendarTypes";
+import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
 import { CALENDAR_DAY_CELL } from "@/app/shared/ui/classes";
 
 type Props = {

@@ -1,6 +1,6 @@
 // src/features/coach/api/zones.ts
 import { API_URL } from "@/app/shared/config";
-import type { ZoneSport, ZonesOut } from "@/features/coach/types/zonesTypes";
+import type { ZoneSport, ZonesOut } from "@/app/features/coach/types/zonesTypes";
 
 type ApiOkZones = { success: true; zones: ZonesOut | null };
 type ApiOkMap = { success: true; zones_by_sport: Record<string, ZonesOut> };

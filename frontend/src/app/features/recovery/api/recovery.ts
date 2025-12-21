@@ -1,7 +1,7 @@
 // src/features/recovery/api/recovery.ts
 import { API_URL } from "@/app/shared/config";
 import { isoDate } from "@/app/shared/utils/time";
-import { RecoveryRow } from "@/features/recovery/types/recovery";
+import { RecoveryRow } from "@/app/features/recovery/types/recovery";
 
 /**
  * Čistý BE fetch + normalizácia na RecoveryRow[]

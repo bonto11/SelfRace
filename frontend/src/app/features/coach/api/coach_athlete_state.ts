@@ -1,10 +1,10 @@
 // src/features/coach/api/coach_athlete_state.ts
 import { API_URL } from "@/app/shared/config";
-import { robustJson } from "@/features/coach/api/_api_utils";
+import { robustJson } from "@/app/features/coach/api/_api_utils";
 import type {
   AnalyzeOptions,
   AnalyzeAthleteStateResponse,
-} from "@/features/coach/types/coachApiTypes";
+} from "@/app/features/coach/types/coachApiTypes";
 
 type AsyncJobRow = {
   id: number;

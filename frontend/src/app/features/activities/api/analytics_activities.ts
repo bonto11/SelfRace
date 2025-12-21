@@ -1,18 +1,18 @@
 // src/features/activities/api/activities.ts
 import { API_URL } from "@/app/shared/config";
-import { robustJson } from "@/features/coach/api/_api_utils";
+import { robustJson } from "@/app/features/coach/api/_api_utils";
 import {
   WeeklyLoadRow,
   WeeklyLoadApiResponse,
   WeeklyLoadOptions,
-} from "@/features/activities/types/WeeklyLoad";
+} from "@/app/features/activities/types/WeeklyLoad";
 
 import {
   WeeklyMonoStrainOptions,
   WeeklyMonoStrainRow,
   WeeklyMonoStrainApiResponse,
-} from "@/features/activities/types/MonoStrain";
-import { ActivityDetailExtra } from "@/features/activities/types/activities";
+} from "@/app/features/activities/types/MonoStrain";
+import { ActivityDetailExtra } from "@/app/features/activities/types/activities";
 
 /**
  * GET /analytics/weekly/{user_id}?weeks=&sport=

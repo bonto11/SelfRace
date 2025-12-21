@@ -6,7 +6,7 @@ import SportBadge from "@/app/shared/components/ui/SportBadge";
 import type {
   CalendarItemKind,
   CalendarPlanStatus,
-} from "@/features/calendar/types/calendarTypes";
+} from "@/app/features/calendar/types/calendarTypes";
 
 type Props = {
   kind: CalendarItemKind;

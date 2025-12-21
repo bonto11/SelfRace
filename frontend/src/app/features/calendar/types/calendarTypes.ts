@@ -1,4 +1,4 @@
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 export type PlanStatus = "planned" | "done" | "missed";
 

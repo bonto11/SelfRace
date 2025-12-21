@@ -1,6 +1,6 @@
 // src/features/coach/api/coach_external_events.ts
 import { API_URL } from "@/app/shared/config";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 type ListResponse = {
   success: boolean;

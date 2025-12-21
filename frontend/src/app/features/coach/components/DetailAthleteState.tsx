@@ -8,7 +8,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
-} from "@/features/coach/api/coach_athlete_state";
+} from "@/app/features/coach/api/coach_athlete_state";
 
 /* ---------- helper typy ---------- */
 

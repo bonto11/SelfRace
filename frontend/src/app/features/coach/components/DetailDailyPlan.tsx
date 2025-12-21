@@ -8,7 +8,7 @@ import {
   apiGetDailyOverview,
   type DailyOverview,
   type DailyPlanDay,
-} from "@/features/coach/api/coach_plan_daily";
+} from "@/app/features/coach/api/coach_plan_daily";
 import SessionCard, {
   type KPI,
   type PlanSession,

@@ -1,6 +1,6 @@
 "use client";
 
-import { apiUpsertUserPref } from "@/features/prefs/api/prefs";
+import { apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
 const KEY = "pb.favorite_run_m"; // kľúč v DB
 const LS = `up:${KEY}`; // kľúč v localStorage

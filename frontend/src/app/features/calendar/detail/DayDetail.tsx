@@ -2,9 +2,9 @@
 "use client";
 
 import * as React from "react";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import SessionCard from "@/app/shared/components/SessionCard";
-import { buildDayBuckets } from "@/features/calendar/detail/buildDayBuckets";
+import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
 
 type Props = {
   selectedIso: string;

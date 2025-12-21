@@ -6,11 +6,11 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import {
   ActivityRow,
   ComponentVariant,
-} from "@/features/activities/types/activities";
+} from "@/app/features/activities/types/activities";
 import {
   normSportsList,
   toEffSport,
-} from "@/features/activities/utils/activity";
+} from "@/app/features/activities/utils/activity";
 import { prettySkDate, fmtSecondsHMS } from "@/app/shared/utils/time";
 
 import SessionCard from "@/app/shared/components/SessionCard";

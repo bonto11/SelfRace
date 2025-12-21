@@ -7,7 +7,7 @@ import {
   SportFE,
   WeekRow,
   Metric,
-} from "@/features/activities/types/activities";
+} from "@/app/features/activities/types/activities";
 
 /* --------------------- normalizácia range payloadu --------------------- */
 export function normalizeActivityRow(r: any): ActivityRow | null {

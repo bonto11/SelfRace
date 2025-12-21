@@ -1,6 +1,6 @@
 // src/features/calendar/utils/calendarSlots.ts
 
-import type { SportKey, PlanStatus } from "@/features/calendar/types/calendarTypes";
+import type { SportKey, PlanStatus } from "@/app/features/calendar/types/calendarTypes";
 
 export type CalendarItemKind = "activity" | "external" | "plan" | "done" | "missed";
 

@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import TextField from "@/app/shared/components/ui/TextField";

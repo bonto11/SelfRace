@@ -1,7 +1,7 @@
 // src/features/coach/api/thresholds.ts
 // src/features/coach/api/thresholds.ts
 import { API_URL } from "@/app/shared/config";
-import type { UserThresholdRow } from "@/features/coach/types/thresholdsTypes";
+import type { UserThresholdRow } from "@/app/features/coach/types/thresholdsTypes";
 
 type ApiRows = { success: true; rows: UserThresholdRow[] };
 type ApiRow = { success: true; thresholds: UserThresholdRow | null };

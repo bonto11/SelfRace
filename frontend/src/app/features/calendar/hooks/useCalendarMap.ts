@@ -2,30 +2,30 @@
 "use client";
 
 import * as React from "react";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
-import { detectSport } from "@/features/coach/utils/plan";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
+import { detectSport } from "@/app/features/coach/utils/plan";
 
 import type {
   CalendarMapState,
   DayCellData,
   SportKey,
   PlanStatus,
-} from "@/features/calendar/types/calendarTypes";
+} from "@/app/features/calendar/types/calendarTypes";
 import {
   daysInMonth,
   iso,
   startWeekday,
-} from "@/features/calendar/utils/calendarDates";
+} from "@/app/features/calendar/utils/calendarDates";
 import {
   isRestSession,
   planStatusForDate,
-} from "@/features/calendar/utils/calendarFormat";
+} from "@/app/features/calendar/utils/calendarFormat";
 import {
   dedupeCalendarItems,
   eventDateIso,
   type CalendarItemBase,
   type CalendarItemKind,
-} from "@/features/calendar/utils/calendarSlots";
+} from "@/app/features/calendar/utils/calendarSlots";
 
 type AnyObj = Record<string, any>;
 

@@ -7,16 +7,15 @@ import SelectField from "@/app/shared/components/ui/SelectField";
 import TextField from "@/app/shared/components/ui/TextField";
 import DateField from "@/app/shared/components/ui/DateField";
 import TimeField24 from "@/app/shared/components/ui/TimeField24";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
 
 import type { DayAbbrev } from "@/app/shared/types/day";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 import {
   apiGetExternalEvents,
   apiSaveExternalEvents,
-} from "@/features/coach/api/coach_external_events";
+} from "@/app/features/coach/api/coach_external_events";
 
 import type {
   ExternalActivity,
@@ -24,7 +23,7 @@ import type {
   ExternalSport,
   ExternalEvent,
   ExternalCategory,
-} from "@/features/coach/types/externalEvents";
+} from "@/app/features/coach/types/externalEvents";
 
 type Props = {
   userId?: number;

@@ -4,8 +4,8 @@
 import { useMemo } from "react";
 import { SUBCARD } from "@/app/shared/ui/classes";
 import { THEME } from "@/app/shared/theme/tokens";
-import { WeekRow } from "@/features/activities/types/WeeklyLoad";
-import { Metric } from "@/features/activities/types/activities";
+import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
+import { Metric } from "@/app/features/activities/types/activities";
 
 type Props = {
   weeks: WeekRow[];

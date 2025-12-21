@@ -9,9 +9,9 @@ import {
   SURFACE_INSET,
   SURFACE_INLINE,
 } from "@/app/shared/ui/classes";
-import { clamp01, PERSONA_TONES } from "@/features/coach/utils/persona";
-import type { CoachPersona } from "@/features/prefs/types/prefs";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import { clamp01, PERSONA_TONES } from "@/app/features/coach/utils/persona";
+import type { CoachPersona } from "@/app/features/prefs/types/prefs";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 type CoachPersonalitySectionProps = {
   local: any;

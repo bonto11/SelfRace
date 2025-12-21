@@ -10,15 +10,15 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import Button from "@/app/shared/components/ui/Button";
 import { CALENDAR_CONTAINER, NO_X_OVERFLOW } from "@/app/shared/ui/classes";
-import { eventDateIso } from "@/features/calendar/utils/calendarSlots";
-import type { ExternalEvent } from "@/features/coach/types/externalEvents";
+import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
-import CalendarGrid from "@/features/calendar/grid/CalendarGrid";
-import DayDetail from "@/features/calendar/detail/DayDetail";
-import { useCalendarExternals } from "@/features/calendar/hooks/useCalendarExternals";
-import { useCalendarMap } from "@/features/calendar/hooks/useCalendarMap";
-import { gridRange42 } from "@/features/calendar/utils/calendarDates";
-import { isRestSession } from "@/features/calendar/utils/calendarFormat";
+import CalendarGrid from "@/app/features/calendar/grid/CalendarGrid";
+import DayDetail from "@/app/features/calendar/detail/DayDetail";
+import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarExternals";
+import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
+import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
+import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,

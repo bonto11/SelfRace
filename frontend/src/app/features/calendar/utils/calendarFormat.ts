@@ -1,5 +1,5 @@
-import { detectSport } from "@/features/coach/utils/plan";
-import type{ PlanStatus } from "@/features/calendar/types/calendarTypes";
+import { detectSport } from "@/app/features/coach/utils/plan";
+import type{ PlanStatus } from "@/app/features/calendar/types/calendarTypes";
 
 type AnyObj = Record<string, any>;
 

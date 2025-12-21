@@ -5,9 +5,9 @@ import { useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { InfoPopover } from "@/features/coach/components/InfoPopover";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
-import type { RehabFocus } from "@/features/prefs/types/prefs";
+import type { RehabFocus } from "@/app/features/prefs/types/prefs";
 
 type Props = {
   local: any;

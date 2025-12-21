@@ -1,6 +1,6 @@
 // src/features/activities/api/activities_streams.ts
 import { API_URL } from "@/app/shared/config";
-import type { StreamsData } from "@/features/activities/types/activities";
+import type { StreamsData } from "@/app/features/activities/types/activities";
 
 export async function apiFetchStreams(
   userId: number,
