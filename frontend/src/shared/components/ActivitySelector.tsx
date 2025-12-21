@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetchActivitiesAround } from "@/shared/api/activities";
+import { apiFetchActivitiesAround } from "@/features/activities/api/activities_summary";
 import type { MiniActivity, SportFE } from "@/features/activities/types/activities";
 import { FIELD_BASE, FIELD_DISABLED, FIELD_HELP } from "@/shared/ui/classes";
 import { fmtShortDate } from "@/shared/utils/time"
