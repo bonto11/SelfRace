@@ -1,6 +1,6 @@
 // src/app/(auth)/signin/page.tsx
 import { Suspense } from "react";
-import SignInForm from "@/features/auth/components/SignInForm";
+import SignInForm from "@/app/features/auth/components/SignInForm";
 
 export const dynamic = "force-dynamic"; // bezpečne vypne prerender
 

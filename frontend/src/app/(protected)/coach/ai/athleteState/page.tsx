@@ -2,7 +2,7 @@
 "use client";
 
 import ButtonBack from "@/app/shared/components/ui/ButtonBack";
-import DetailAthleteState from "@/features/coach/components/DetailAthleteState";
+import DetailAthleteState from "@/app/features/coach/components/DetailAthleteState";
 
 export default function Page() {
   return (

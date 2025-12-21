@@ -2,7 +2,7 @@
 "use client";
 
 import ButtonBack from "@/app/shared/components/ui/ButtonBack";
-import DetailDailyPlan from "@/features/coach/components/DetailDailyPlan";
+import DetailDailyPlan from "@/app/features/coach/components/DetailDailyPlan";
 
 export default function Page() {
   return (

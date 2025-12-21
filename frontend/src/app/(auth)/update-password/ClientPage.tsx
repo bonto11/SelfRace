@@ -63,11 +63,12 @@ export default function ClientPage() {
           );
           ok = !r1?.error;
         } catch {}
+
         if (!ok) {
           try {
-            /* @ts-ignore */ const r2 = await sb.auth.exchangeCodeForSession({
-              code,
-            });
+            /* @ts-ignore */ const r2 = await sb.auth.exchangeCodeForSession(
+              code
+            );
             ok = !r2?.error;
           } catch {}
         }

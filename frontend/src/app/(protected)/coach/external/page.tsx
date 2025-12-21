@@ -3,7 +3,7 @@
 
 import ButtonBack from "@/app/shared/components/ui/ButtonBack";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import DetailExternalEvents from "@/features/coach/components/DetailExternalEvents";
+import DetailExternalEvents from "@/app/features/coach/components/DetailExternalEvents";
 
 export default function Page() {
   const { userId } = useUserId();
