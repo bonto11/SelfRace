@@ -24,7 +24,7 @@ export default function UserMenu() {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/features/auth/api/me", {
+        const r = await fetch("/api/auth/me", {
           credentials: "include",
           cache: "no-store",
         });

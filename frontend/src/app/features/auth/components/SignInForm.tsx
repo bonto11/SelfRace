@@ -42,7 +42,7 @@ export default function SignInForm() {
 
     if (data?.session) {
       try {
-        await fetch("/features/auth/api/set-session", {
+        await fetch("/api/auth/set-session", {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "include",
