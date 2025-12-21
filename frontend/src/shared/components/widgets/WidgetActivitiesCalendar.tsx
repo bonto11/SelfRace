@@ -10,7 +10,7 @@ import { THEME } from "@/shared/theme/tokens";
 
 import { useUserId } from "@/shared/hooks/useUserId";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
+import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 
 import { apiGetExternalEventsWindow } from "@/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/features/coach/types/externalEvents";
@@ -21,7 +21,7 @@ import {
   type CalendarItemBase,
   type CalendarItemKind,
 } from "@/features/calendar/utils/calendarSlots";
-import type { SportKey, PlanStatus } from "@/features/calendar/types/calendarTypes";
+import type { SportKey } from "@/features/calendar/types/calendarTypes";
 
 /* ---------- helpers ---------- */
 
@@ -72,13 +72,20 @@ export default function WidgetActivitiesCalendar({
   const router = useRouter();
   const { userId } = useUserId();
   const { selectByRange } = useActivityData();
-  const { selectPlanByRange } = usePlanData();
+
+  // NOVÉ: plán z CoachDataProvideru
+  const { plan } = useCoachData();
+  const { selectPlanByRange } = plan;
 
   const monday = startOfWeek();
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const startIso = iso(
+    monday.getFullYear(),
+    monday.getMonth(),
+    monday.getDate()
+  );
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
@@ -119,12 +126,14 @@ export default function WidgetActivitiesCalendar({
       map.set(key, []);
     }
 
-    // externals (expandované cez occurrence_date / single_date)
+    // externals
     for (const ev of externalRows) {
       const k = eventDateIso(ev);
       if (!k || !map.has(k)) continue;
 
-      const sport = safeSportKey((ev as any).sport ?? (ev as any).sport_type ?? "other");
+      const sport = safeSportKey(
+        (ev as any).sport ?? (ev as any).sport_type ?? "other"
+      );
 
       map.get(k)!.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
@@ -140,7 +149,9 @@ export default function WidgetActivitiesCalendar({
       const k = String(r.date ?? "").slice(0, 10);
       if (!k || !map.has(k)) continue;
 
-      const sport = safeSportKey(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other");
+      const sport = safeSportKey(
+        r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other"
+      );
       const aidRaw = r.activity_id;
       const activityId =
         aidRaw != null && !Number.isNaN(Number(aidRaw)) ? Number(aidRaw) : null;
@@ -178,7 +189,6 @@ export default function WidgetActivitiesCalendar({
           ? Number(actIdRaw)
           : null;
 
-      // ak má activity_id → označ activity ako done (body + check dedupe rieši utils)
       if (activityId) {
         const idx = arr.findIndex(
           (it) => it.kind === "activity" && it.activityId === activityId
@@ -206,13 +216,19 @@ export default function WidgetActivitiesCalendar({
       }
     }
 
-    // DEDUPE pomocou spoločného utils (activity vs done, plan vs external, atď.)
     for (const [key, arr] of map.entries()) {
       map.set(key, dedupeCalendarItems<DayItem>(arr));
     }
 
     return map;
-  }, [monday, startIso, endIso, selectByRange, selectPlanByRange, externalRows]);
+  }, [
+    monday,
+    startIso,
+    endIso,
+    selectByRange,
+    selectPlanByRange,
+    externalRows,
+  ]);
 
   const weekLabel =
     `${monday.toLocaleDateString("sk-SK", {
@@ -286,7 +302,8 @@ export default function WidgetActivitiesCalendar({
 
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
                   {shown.map((it) => {
-                    const color = SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
+                    const color =
+                      SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
 
                     if (it.kind === "activity" || it.kind === "external") {
                       return (

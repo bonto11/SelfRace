@@ -4,7 +4,7 @@
 import * as React from "react";
 
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { usePlanData } from "@/shared/components/dataProviders/PlanDataProvider";
+import { useCoachData } from "@/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/shared/hooks/useUserId";
 
 import { THEME } from "@/shared/theme/tokens";
@@ -51,7 +51,10 @@ export default function ActivitiesCalendar({
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
-  const { rows: planRows } = usePlanData();
+  // === NOVÉ: plán ide z CoachDataProvideru ===
+  const { plan } = useCoachData();
+  const { rows: planRows } = plan;
+
   const { rows: actRows } = useActivityData();
 
   React.useEffect(() => {
@@ -67,8 +70,6 @@ export default function ActivitiesCalendar({
 
   // ─────────────────────────────
   // 1) sety (date|sportKey), kde už je plán alebo aktivita
-  //    – používame len na globálne odfiltrovanie external events,
-  //      zvyšná dedupe logika (plan vs activity vs done) beží v useCalendarMap
   // ─────────────────────────────
   const planSlots = React.useMemo(() => {
     const slots = new Set<string>();
@@ -96,7 +97,6 @@ export default function ActivitiesCalendar({
 
   // ─────────────────────────────
   // 2) globálne odfiltrujeme external events
-  //    - ak v daný deň a športe už existuje plán alebo aktivita, external skryjeme
   // ─────────────────────────────
   const filteredExternalRows = React.useMemo(() => {
     const rows = (externals.rows ?? []) as ExternalEvent[];
@@ -104,7 +104,7 @@ export default function ActivitiesCalendar({
 
     return rows.filter((ev) => {
       const dIso = eventDateIso(ev);
-      if (!dIso) return false; // radšej skryť, ak nevieme deň
+      if (!dIso) return false;
 
       const sportKey = safeSportKey(
         (ev as any).sport ?? (ev as any).sport_type
@@ -125,7 +125,7 @@ export default function ActivitiesCalendar({
     year,
     month0,
     actRows,
-    planRows,
+    planRows: planRows as any[],
     externalRows: filteredExternalRows,
     safeSportKey,
   });
@@ -156,7 +156,7 @@ export default function ActivitiesCalendar({
 
   const selectedPlanRows = React.useMemo(() => {
     if (!selectedIso) return [];
-    return planRows.filter((p: any) => {
+    return (planRows as any[]).filter((p: any) => {
       const dIso = String(p.plan_date).slice(0, 10);
       if (dIso !== selectedIso) return false;
       const sess: any = p.payload ?? p;
@@ -164,7 +164,6 @@ export default function ActivitiesCalendar({
     });
   }, [planRows, selectedIso]);
 
-  // externé eventy len pre vybraný deň (už po odfiltrovaní)
   const selectedExternalRows = React.useMemo(() => {
     if (!selectedIso) return [];
     return (filteredExternalRows as ExternalEvent[]).filter((ev) => {
