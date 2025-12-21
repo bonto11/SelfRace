@@ -93,12 +93,6 @@ export function PlanDataProvider({
       const t0 = typeof performance !== "undefined" ? performance.now() : 0;
 
       const url = `${API_URL}/coach-plan/${userId}?date_from=${rangeStart}&date_to=${rangeEnd}`;
-      console.debug("[PLAN][fetch] ->", url, {
-        force,
-        userId,
-        rangeStart,
-        rangeEnd,
-      });
 
       setLoading(true);
       try {
@@ -137,12 +131,6 @@ export function PlanDataProvider({
           }))
           .sort((a, b) => a.plan_date.localeCompare(b.plan_date));
 
-        console.debug("[PLAN][fetch] normalized", {
-          count: norm.length,
-          first: norm[0],
-          last: norm[norm.length - 1],
-        });
-
         setRows(norm);
       } catch (e) {
         console.error("[PLAN][fetch] ERROR", e);
@@ -150,11 +138,6 @@ export function PlanDataProvider({
         setRows([]);
       } finally {
         setLoading(false);
-        if (t0) {
-          console.debug("[PLAN][provider] fetchRange end", {
-            tookMs: Math.round(performance.now() - t0),
-          });
-        }
       }
     },
     [userId, rangeStart, rangeEnd]
