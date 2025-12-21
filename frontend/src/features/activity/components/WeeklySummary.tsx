@@ -7,8 +7,11 @@ import { THEME } from "@/shared/theme/tokens";
 
 import {
   WeekRow,
-  Metric
 } from "@/features/activity/types/WeeklyLoad";
+
+import {
+  Metric
+} from "@/features/activity/types/activities";
 
 type Props = {
   weeks: WeekRow[];

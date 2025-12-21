@@ -14,8 +14,11 @@ import Button from "@/shared/components/ui/Button";
 import { resetClientCache } from "@/shared/utils/resetClientCache";
 import {
   apiSyncActivities,
-  type SyncActivitiesStats,
-} from "@/features/activity/api/analytics_activities";
+} from "@/features/activity/api/synchronization";
+
+import {
+  SyncActivitiesStats,
+} from "@/features/activity/types/synchronization";
 
 export default function ActivitiesPage() {
   const { userId } = useUserId();

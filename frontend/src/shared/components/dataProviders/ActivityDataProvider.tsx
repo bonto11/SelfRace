@@ -29,12 +29,23 @@ import {
 } from "@/features/activity/types/MonoStrain";
 
 import {
-  apiFetchRange,
   apiFetchDetail,
-  apiFetchStreams,
   apiFetchParetoWidget,
   apiFetchParetoTrend,
+} from "@/features/activity/api/analytics_activities";
+
+import {
+  apiFetchStreams,
+} from "@/features/activity/api/activities_streams";
+
+
+
+import {
+  apiFetchRange,
 } from "@/features/activity/api/activities_summary";
+
+
+
 
 import {
   hasSesssioStorage
