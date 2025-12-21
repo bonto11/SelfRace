@@ -22,7 +22,7 @@ import { inputClass } from "@/shared/ui";
 import { NO_X, SURFACE_INLINE } from "@/shared/ui/classes";
 import { useIsTouch } from "@/shared/utils/detection";
 import type { PBRunFormState } from "@/shared/types/pb";
-import type { MiniActivity } from "@/shared/types/activities";
+import type { MiniActivity } from "@/features/activities/types/activities";
 
 const EMPTY: PBRunFormState = {
   distance_m: "",

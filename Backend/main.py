@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from Routes_FE import (
     users,
     activities_streams,
+    activities_summary,
     analytics,
     user_prefs,
     user_bests,
@@ -20,7 +21,6 @@ from Routes_FE import (
     profile_metrics,
     async_jobs,
 )
-from backend.Routes_FE import activities_summary
 
 app = FastAPI()
 
