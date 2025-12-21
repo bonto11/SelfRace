@@ -1,8 +1,7 @@
-// src/features/activity/api/activityApi.ts
+// src/features/activities/api/activities_streams.ts
 import { API_URL } from "@/shared/config";
 import { StreamsData } from "@/features/activities/types/activities";
 
-// 3) STREAMS (HR)
 export async function apiFetchStreams(
   userId: number,
   activityId: number,
@@ -16,11 +15,29 @@ export async function apiFetchStreams(
   const url = `${API_URL}/activities_streams/${userId}/${activityId}?${q.toString()}`;
 
   const res = await fetch(url, { cache: "no-store" });
-  const json = await res.json().catch(() => ({}));
+  const json = await res.json().catch(() => ({} as any));
 
-  return {
-    time_s: Array.isArray(json?.time_s) ? json.time_s : [],
-    hr: Array.isArray(json?.hr) ? json.hr : [],
-    duration_s: Number(json?.duration_s) || 0,
-  };
+  // backend vracia { success, streams: {...} } → rozbalíme
+  const payload = json?.streams ?? json ?? {};
+
+  const time_s = Array.isArray(payload.time_s)
+    ? payload.time_s
+    : Array.isArray(payload.time)
+    ? payload.time
+    : [];
+
+  const hr = Array.isArray(payload.hr)
+    ? payload.hr
+    : Array.isArray(payload.heartrate_bpm)
+    ? payload.heartrate_bpm
+    : [];
+
+  const duration_s =
+    typeof payload.duration_s === "number"
+      ? payload.duration_s
+      : time_s.length
+      ? Number(time_s[time_s.length - 1]) || 0
+      : 0;
+
+  return { time_s, hr, duration_s };
 }

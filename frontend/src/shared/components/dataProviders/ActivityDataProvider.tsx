@@ -335,27 +335,29 @@ export function ActivityDataProvider({
   );
 
   const getStreams = useCallback(
-    async (activityId: number): Promise<StreamsData> => {
-      if (userId == null) return { time_s: [], hr: [], duration_s: 0 };
+  async (activityId: number): Promise<StreamsData> => {
+    if (userId == null) return { time_s: [], hr: [], duration_s: 0 };
 
-      const cached = loadStreams(activityId);
-      if (cached && Array.isArray(cached.time_s)) return cached;
+    const cached = loadStreams(activityId);
+    if (cached && Array.isArray(cached.time_s) && cached.time_s.length > 0) {
+      return cached;
+    }
 
-      try {
-        const data = await apiFetchStreams(userId, activityId, {
-          fetch: true,
-          max: 400,
-        });
-        console.log("[apiFetchStreams] streams data",data);
-        saveStreams(activityId, data);
-        return data;
-      } catch (e) {
-        console.error("[ACT][streams] fetch ERROR", e);
-        return { time_s: [], hr: [], duration_s: 0 };
-      }
-    },
-    [userId]
-  );
+    try {
+      const data = await apiFetchStreams(userId, activityId, {
+        fetch: true,
+        max: 400,
+      });
+      console.log("[apiFetchStreams] streams data", activityId, data);
+      saveStreams(activityId, data);
+      return data;
+    } catch (e) {
+      console.error("[ACT][streams] fetch ERROR", e);
+      return { time_s: [], hr: [], duration_s: 0 };
+    }
+  },
+  [userId]
+);
 
   /* --------- Rolling 7 dní (z ActivityRow, nie z WeekRow!) --------- */
 
