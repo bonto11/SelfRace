@@ -1,6 +1,6 @@
 // src/features/activities/api/activities_streams.ts
 import { API_URL } from "@/shared/config";
-import { StreamsData } from "@/features/activities/types/activities";
+import type { StreamsData } from "@/features/activities/types/activities";
 
 export async function apiFetchStreams(
   userId: number,
@@ -15,24 +15,28 @@ export async function apiFetchStreams(
   const url = `${API_URL}/activities_streams/${userId}/${activityId}?${q.toString()}`;
 
   const res = await fetch(url, { cache: "no-store" });
-  const json = await res.json().catch(() => ({} as any));
+  if (!res.ok) {
+    console.error("[apiFetchStreams] HTTP error", res.status);
+    return { time_s: [], hr: [], duration_s: 0 };
+  }
 
-  // backend vracia { success, streams: {...} } → rozbalíme
+  const json: any = await res.json().catch(() => ({}));
+
   const payload = json?.streams ?? json ?? {};
 
-  const time_s = Array.isArray(payload.time_s)
+  const time_s: number[] = Array.isArray(payload.time_s)
     ? payload.time_s
     : Array.isArray(payload.time)
     ? payload.time
     : [];
 
-  const hr = Array.isArray(payload.hr)
+  const hr: (number | null)[] = Array.isArray(payload.hr)
     ? payload.hr
     : Array.isArray(payload.heartrate_bpm)
     ? payload.heartrate_bpm
     : [];
 
-  const duration_s =
+  const duration_s: number =
     typeof payload.duration_s === "number"
       ? payload.duration_s
       : time_s.length

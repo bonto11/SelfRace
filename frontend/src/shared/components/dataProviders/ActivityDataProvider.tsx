@@ -1,7 +1,8 @@
 // src/features/activity/data/ActivityDataProvider.tsx
 "use client";
 
-import React, {
+import React,
+{
   createContext,
   useCallback,
   useContext,
@@ -9,9 +10,11 @@ import React, {
   useMemo,
   useState,
 } from "react";
+
 import { useUserId } from "@/shared/hooks/useUserId";
 import { aggregateWeeks } from "@/features/activities/utils/activity";
 import { addDays, todayISO } from "@/shared/utils/time";
+
 import {
   ActivityRow,
   ActivityDetailExtra,
@@ -20,6 +23,7 @@ import {
   Metric,
 } from "@/features/activities/types/activities";
 import { Rolling7 } from "@/features/activities/types/MonoStrain";
+
 import {
   apiFetchDetail,
   apiFetchParetoWidget,
@@ -28,6 +32,8 @@ import {
 import { apiFetchStreams } from "@/features/activities/api/activities_streams";
 import { apiFetchRange } from "@/features/activities/api/activities_summary";
 import { hasSesssioStorage } from "@/shared/utils/sessionStorage";
+
+/* ------------------------------ cache helpers ------------------------------ */
 
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
@@ -82,8 +88,10 @@ function saveRange(
     const key = rangeKey(userId, start, end);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), rows }));
   } catch (e) {
+    console.warn("[ACT][cache] saveRange error:", e);
   }
 }
+
 function loadRange(
   userId: number,
   start: string,
@@ -94,30 +102,30 @@ function loadRange(
     const key = rangeKey(userId, start, end);
     const raw = sessionStorage.getItem(key);
     if (!raw) {
-      console.debug("[ACT][cache] loadRange miss", { key });
+      console.warn("[ACT][cache] loadRange miss", { key });
       return null;
     }
     const parsed = JSON.parse(raw);
     const rows = Array.isArray(parsed?.rows)
       ? (parsed.rows as ActivityRow[])
       : [];
-
     return rows;
   } catch (e) {
     console.warn("[ACT][cache] loadRange error:", e);
     return null;
   }
 }
+
 function saveDetail(activityId: number, extra: ActivityDetailExtra) {
   if (!hasSesssioStorage()) return;
   try {
     const key = detailKey(activityId);
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), ...extra }));
-   
   } catch (e) {
     console.warn("[ACT][cache] saveDetail error:", e);
   }
 }
+
 function loadDetail(activityId: number): ActivityDetailExtra | null {
   if (!hasSesssioStorage()) return null;
   try {
@@ -143,7 +151,9 @@ function saveStreams(activityId: number, data: StreamsData) {
   if (!hasSesssioStorage()) return;
   try {
     sessionStorage.setItem(streamsKey(activityId), JSON.stringify(data));
-  } catch {}
+  } catch {
+    // swallow
+  }
 }
 
 function loadStreams(activityId: number): StreamsData | null {
@@ -198,6 +208,7 @@ type Ctx = {
 };
 
 const ActivityDataContext = createContext<Ctx | null>(null);
+
 export function useActivityData() {
   const ctx = useContext(ActivityDataContext);
   if (!ctx)
@@ -231,20 +242,22 @@ export function ActivityDataProvider({
         setRows([]);
         return;
       }
-      const t0 = performance.now();
+
+      // najprv skús cache (iba ak nie force)
+      if (!force) {
+        const cached = loadRange(userId, rangeStart, rangeEnd);
+        if (cached) {
+          setRows(cached);
+        }
+      }
 
       setLoading(true);
       try {
-        if (!force) {
-          const cached = loadRange(userId, rangeStart, rangeEnd);
-          if (cached) {
-            setRows(cached);
-            setLoading(false);
-          }
-          await doFetch(userId, rangeStart, rangeEnd);
-          return;
-        }
-        await doFetch(userId, rangeStart, rangeEnd);
+        const norm = await apiFetchRange(userId, rangeStart, rangeEnd);
+        setRows(norm);
+        saveRange(userId, rangeStart, rangeEnd, norm);
+      } catch (e) {
+        console.error("[ACT][fetchRange] ERROR", e);
       } finally {
         setLoading(false);
       }
@@ -252,29 +265,13 @@ export function ActivityDataProvider({
     [userId, rangeStart, rangeEnd]
   );
 
-  async function doFetch(
-    uid: number,
-    start: string,
-    end: string
-  ): Promise<void> {
-    try {
-      const norm = await apiFetchRange(uid, start, end);
-      setRows(norm);
-      saveRange(uid, start, end, norm);
-    } catch (e) {
-      console.error("[ACT][fetch] ERROR", e);
-    }
-  }
-
-  // init: cache + tichý refresh
+  // init + refresh pri zmene usera / range
   useEffect(() => {
     if (userId == null) {
       setRows([]);
       return;
     }
-    const cached = loadRange(userId, rangeStart, rangeEnd);
-    if (cached) setRows(cached);
-    void fetchRange(true);
+    void fetchRange(false);
   }, [userId, rangeStart, rangeEnd, fetchRange]);
 
   const weeks = useMemo(() => {
@@ -302,7 +299,6 @@ export function ActivityDataProvider({
 
       const cached = loadDetail(activityId);
       if (cached) {
-        console.debug("[ACT][detail] cache hit", { activityId });
         return cached;
       }
 
@@ -319,29 +315,34 @@ export function ActivityDataProvider({
   );
 
   const getStreams = useCallback(
-  async (activityId: number): Promise<StreamsData> => {
-    if (userId == null) return { time_s: [], hr: [], duration_s: 0 };
+    async (activityId: number): Promise<StreamsData> => {
+      if (userId == null) return { time_s: [], hr: [], duration_s: 0 };
 
-    const cached = loadStreams(activityId);
-    if (cached && Array.isArray(cached.time_s) && cached.time_s.length > 0) {
-      return cached;
-    }
+      const cached = loadStreams(activityId);
+      if (cached && Array.isArray(cached.time_s) && cached.time_s.length > 0) {
+        return cached;
+      }
 
-    try {
-      const data = await apiFetchStreams(userId, activityId, {
-        fetch: true,
-        max: 400,
-      });
-      console.log("[apiFetchStreams] streams data", activityId, data);
-      saveStreams(activityId, data);
-      return data;
-    } catch (e) {
-      console.error("[ACT][streams] fetch ERROR", e);
-      return { time_s: [], hr: [], duration_s: 0 };
-    }
-  },
-  [userId]
-);
+      try {
+        const data = await apiFetchStreams(userId, activityId, {
+          fetch: true,
+          max: 400,
+        });
+
+        // základná sanity check – ak je to úplne prázdne, necacheujeme
+        if (Array.isArray(data.time_s) && data.time_s.length > 0) {
+          saveStreams(activityId, data);
+          return data;
+        }
+
+        return { time_s: [], hr: [], duration_s: 0 };
+      } catch (e) {
+        console.error("[ACT][streams] fetch ERROR", e);
+        return { time_s: [], hr: [], duration_s: 0 };
+      }
+    },
+    [userId]
+  );
 
   /* --------- Rolling 7 dní (z ActivityRow, nie z WeekRow!) --------- */
 
@@ -431,7 +432,9 @@ export function ActivityDataProvider({
           try {
             const parsed = JSON.parse(raw);
             if (parsed && Number.isFinite(parsed.easy_min)) return parsed;
-          } catch {}
+          } catch {
+            // ignore
+          }
         }
       }
 
@@ -456,7 +459,9 @@ export function ActivityDataProvider({
           try {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) return parsed;
-          } catch {}
+          } catch {
+            // ignore
+          }
         }
       }
 
