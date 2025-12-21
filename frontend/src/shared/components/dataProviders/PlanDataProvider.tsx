@@ -11,7 +11,7 @@ import React, {
 } from "react";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { todayISO, addDays } from "@/features/activities/utils/activity";
+import { todayISO, addDays } from "@/shared/utils/time";
 
 /* ----------------- Typy ----------------- */
 

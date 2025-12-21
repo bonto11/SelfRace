@@ -14,6 +14,7 @@ import {
   apiGetExternalEvents,
 } from "@/features/coach/api/coach_external_events";
 import type {ExternalEvent} from "@/features/coach/types/externalEvents";
+
 type Stats = {
   total: number;
   weekly: number;

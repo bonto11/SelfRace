@@ -10,15 +10,8 @@ import React, {
   useState,
 } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
-import {
-  aggregateWeeks,
-} from "@/features/activities/utils/activity";
-
-import {
-  addDays,
-  todayISO,
-} from "@/shared/utils/time";
-
+import { aggregateWeeks } from "@/features/activities/utils/activity";
+import { addDays, todayISO } from "@/shared/utils/time";
 import {
   ActivityRow,
   ActivityDetailExtra,
@@ -26,19 +19,14 @@ import {
   StreamsData,
   Metric,
 } from "@/features/activities/types/activities";
-
 import { Rolling7 } from "@/features/activities/types/MonoStrain";
-
 import {
   apiFetchDetail,
   apiFetchParetoWidget,
   apiFetchParetoTrend,
 } from "@/features/activities/api/analytics_activities";
-
 import { apiFetchStreams } from "@/features/activities/api/activities_streams";
-
 import { apiFetchRange } from "@/features/activities/api/activities_summary";
-
 import { hasSesssioStorage } from "@/shared/utils/sessionStorage";
 
 function rangeKey(userId: number, start: string, end: string) {

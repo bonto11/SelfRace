@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
-import { fmtMinutes } from "@/shared/utils/distance";
+import { fmtMinutes } from "@/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/configs/config_sports";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 

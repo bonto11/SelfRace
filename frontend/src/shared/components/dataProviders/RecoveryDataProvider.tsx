@@ -11,19 +11,12 @@ import React, {
 
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { isoDate } from "@/shared/utils/recovery";
+import { isoDate } from "@/shared/utils/time";
+import { RecoveryRow } from "@/features/recovery/types/recovery";
 
 /* ---------- Typy ---------- */
 
-export type RecoveryRow = {
-  date: string;
-  RHR_bpm: number | null;
-  HRV_avg_ms: number | null;
-  HRV_max_ms: number | null;
-  sleep_start_time: string | null;
-  sleep_duration_min: number | null;
-  comments: string | null;
-};
+
 
 type CtxValue = {
   rows: RecoveryRow[];

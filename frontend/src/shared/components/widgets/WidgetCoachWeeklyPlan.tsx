@@ -11,6 +11,7 @@ import {
   type WeeklyPlanLatest,
   type WeeklyPlanWeek,
 } from "@/features/coach/api/coach_plan_weekly";
+import { formatDate, toDate } from "@/shared/utils/time";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -23,23 +24,6 @@ type UiState = {
   currentWeekLoad: string | null;
   lastPlanRange: string | null;
 };
-
-function toDate(value: string | null | undefined): Date | null {
-  if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
-}
-
-function formatDate(value: string | null | undefined): string | null {
-  const d = toDate(value);
-  if (!d) return null;
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
 
 function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
   if (!weeks.length) return null;

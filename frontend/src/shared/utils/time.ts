@@ -261,3 +261,54 @@ export function fmtShortDate(s: string) {
     month: "2-digit",
   });
 }
+
+// denné ISO labely
+export function iso(d: Date) {
+  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  return z.toISOString().slice(0, 10);
+}
+
+export function dateSeq(startISO: string, endISO: string): string[] {
+  const out: string[] = [];
+  const start = new Date(startISO + "T00:00:00");
+  const end = new Date(endISO + "T00:00:00");
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
+  return out;
+}
+
+export function minToHM(totalMin: number) {
+  const h = Math.floor(totalMin / 60);
+  const m = Math.round(totalMin % 60);
+  return { h, m };
+}
+export function fmtRange(s: string, e: string) {
+  const sd = new Date(s), ed = new Date(e);
+  if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) return "—";
+  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
+  const edD = ed.getDate(), edM = ed.getMonth() + 1;
+  return sdM === edM
+    ? `${sdD}–${edD}.${edM}.`
+    : `${sdD}.${sdM}.–${edD}.${edM}.`;
+}
+
+export function fmtDate(d?: string | null) {
+  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
+}
+
+
+export function toDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+export function formatDate(value: string | null | undefined): string | null {
+  const d = toDate(value);
+  if (!d) return null;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}

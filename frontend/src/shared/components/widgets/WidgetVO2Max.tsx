@@ -9,6 +9,7 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/shared/theme/tokens";
 import { NO_X_OVERFLOW } from "@/shared/ui/classes";
+import { fmtDate } from "@/shared/utils/time";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -25,10 +26,6 @@ function levelColor(label: string) {
   if (l.includes("fair") || l.includes("average"))    return (THEME as any)?.chart?.fair      ?? "#F59E0B";
   if (l.includes("poor"))                             return (THEME as any)?.chart?.poor      ?? "#F43F5E";
   return (THEME as any)?.chart?.neutral ?? "#64748B";
-}
-
-function fmtDate(d?: string | null) {
-  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
 }
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {

@@ -5,10 +5,11 @@ import { useMemo } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import {
   checkRecoveryFreshness,
-  HHMMToMinutes,
-  minutesToHHMM,
   compareTimeToBaselineMinutes,
 } from "@/shared/utils/recovery";
+import {
+  HHMMToMinutes,minutesToHHMM,
+} from "@/shared/utils/time";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
