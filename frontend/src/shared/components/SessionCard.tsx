@@ -619,14 +619,49 @@ function DetailBody({
       try {
         const st = await getStreams(item.activityId);
         const dt = await getDetail(item.activityId);
+
         if (!alive) return;
-        if (st) setStreams(st as any);
-        if (dt) {
-          setLaps((dt as any).laps || []);
-          setSplits((dt as any).splits || []);
+
+        // DEBUG – uvidíš presný tvar z BE
+        console.log("[SessionCard] streams raw", item.activityId, st);
+
+        if (st) {
+          const raw: any = st;
+
+          const time_s: number[] = Array.isArray(raw.time_s)
+            ? raw.time_s
+            : Array.isArray(raw.time)
+            ? raw.time
+            : [];
+
+          const hr: (number | null)[] = Array.isArray(raw.hr)
+            ? raw.hr
+            : Array.isArray(raw.heartrate_bpm)
+            ? raw.heartrate_bpm
+            : [];
+
+          const duration_s: number =
+            typeof raw.duration_s === "number"
+              ? raw.duration_s
+              : time_s.length
+              ? Number(time_s[time_s.length - 1]) || 0
+              : 0;
+
+          setStreams({ time_s, hr, duration_s });
+        } else {
+          console.log("[SessionCard] no streams for", item.activityId);
+          setStreams({ time_s: [], hr: [], duration_s: 0 });
         }
-      } catch {
-        // ticho
+
+        if (dt) {
+          const anyDt: any = dt;
+          setLaps(anyDt.laps || []);
+          setSplits(anyDt.splits || []);
+        }
+      } catch (err) {
+        console.error("[SessionCard] getStreams/getDetail error", err);
+        // nechaj default prázdne
+        setStreams({ time_s: [], hr: [], duration_s: 0 });
       }
     })();
 
