@@ -9,14 +9,11 @@ import React, {
   useState,
 } from "react";
 
-import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { isoDate } from "@/shared/utils/time";
 import { RecoveryRow } from "@/features/recovery/types/recovery";
+import { fetchRecoveryApi } from "@/features/recovery/api/recovery";
 
 /* ---------- Typy ---------- */
-
-
 
 type CtxValue = {
   rows: RecoveryRow[];
@@ -27,14 +24,11 @@ type CtxValue = {
 /* ---------- Pomocné funkcie (cache) ---------- */
 
 function hasSessionStorage() {
-  const ok = typeof window !== "undefined" && !!window.sessionStorage;
-  if (!ok) console.warn("[REC][cache] sessionStorage not available (SSR alebo blokované).");
-  return ok;
+  return typeof window !== "undefined" && !!window.sessionStorage;
 }
 
 function cacheKey(userId: string, days: number) {
-  const key = `RECOVERY:${userId}:${days}`;
-  return key;
+  return `RECOVERY:${userId}:${days}`;
 }
 
 function saveCache(userId: string, days: number, rows: RecoveryRow[]) {
@@ -47,7 +41,7 @@ function saveCache(userId: string, days: number, rows: RecoveryRow[]) {
     });
     sessionStorage.setItem(key, payload);
   } catch (e) {
-    console.warn("[REC][cache] save error:", e);
+    console.error("[REC][cache] save error:", e);
   }
 }
 
@@ -56,62 +50,14 @@ function loadCache(userId: string, days: number): RecoveryRow[] {
   try {
     const key = cacheKey(userId, days);
     const raw = sessionStorage.getItem(key);
-    if (!raw) {
-      console.warn("[REC][cache] no entry", { key });
-      return [];
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    const rows = Array.isArray(parsed?.rows) ? (parsed.rows as RecoveryRow[]) : [];
+    const rows = Array.isArray(parsed?.rows)
+      ? (parsed.rows as RecoveryRow[])
+      : [];
     return rows;
   } catch (e) {
-    console.warn("[REC][cache] load error:", e);
-    return [];
-  }
-}
-
-/* ---------- Fetch + normalizácia ---------- */
-
-async function fetchRecovery(userId: string, days = 90): Promise<RecoveryRow[]> {
-  const url = `${API_URL}/recovery/${userId}?days=${days}`;
-  const started = performance.now();
-
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      credentials: "include",
-      // ak je API za inou doménou a treba CORS cookies, uisti sa, že server povoľuje
-      // Access-Control-Allow-Credentials a správne originy.
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
-
-    const text = await res.text();
-    // skúšam parse ručne, nech vieme v logu vidieť raw body pri chybe
-    let json: any = {};
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      console.warn("[REC][fetch] JSON parse error, raw body:", text.slice(0, 500));
-      throw e;
-    }
-
-    const arr: any[] = Array.isArray(json?.data) ? json.data : [];
-
-    const normalized = arr
-      .map((r) => ({
-        date: isoDate(r?.date),
-        RHR_bpm: r?.RHR_bpm ?? null,
-        HRV_avg_ms: r?.HRV_avg_ms ?? null,
-        HRV_max_ms: r?.HRV_max_ms ?? null,
-        sleep_start_time: r?.sleep_start_time ?? null,
-        sleep_duration_min: r?.sleep_duration_min ?? null,
-        comments: r?.comments ?? null,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    return normalized;
-  } catch (e) {
-    console.error("[REC][fetch] ERROR", e);
+    console.error("[REC][cache] load error:", e);
     return [];
   }
 }
@@ -122,7 +68,9 @@ const RecoveryDataContext = createContext<CtxValue | null>(null);
 
 export function useRecoveryData(): CtxValue {
   const ctx = useContext(RecoveryDataContext);
-  if (!ctx) throw new Error("useRecoveryData must be used within RecoveryDataProvider");
+  if (!ctx) {
+    throw new Error("useRecoveryData must be used within RecoveryDataProvider");
+  }
   return ctx;
 }
 
@@ -135,28 +83,22 @@ export function RecoveryDataProvider({
   children: React.ReactNode;
   days?: number;
 }) {
-  const { userId } = useUserId(); // číta sr_id z cookies (client)
+  const { userId } = useUserId();
 
-  // userId v projekte býva number => bezpečne ho zreťazím na string pre kľúče/cache/fetch
-  const userIdStr = useMemo(() => {
-    const val = userId == null ? "" : String(userId);
-    return val;
-  }, [userId]);
+  const userIdStr = useMemo(
+    () => (userId == null ? "" : String(userId)),
+    [userId]
+  );
 
   const [rows, setRows] = useState<RecoveryRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(
     async (force = false) => {
-      if (!userIdStr) {
-        console.warn("[REC][refresh] no userIdStr -> skipping");
-        return;
-      }
-      const t0 = performance.now();
+      if (!userIdStr) return;
 
       setLoading(true);
       try {
-        // Najprv skús cache (ak nie je force)
         if (!force) {
           const cached = loadCache(userIdStr, days);
           if (cached.length) {
@@ -164,21 +106,25 @@ export function RecoveryDataProvider({
             setLoading(false);
           }
 
-          // Tichý fetch na pozadí pre aktualizáciu
-          fetchRecovery(userIdStr, days)
+          // tichý update z API
+          fetchRecoveryApi(userIdStr, days)
             .then((fresh) => {
               setRows(fresh);
               saveCache(userIdStr, days, fresh);
             })
-            .catch((e) => console.error("[REC][refresh] background fetch ERROR", e));
+            .catch((e) =>
+              console.error("[REC][refresh] background fetch ERROR", e)
+            );
 
           return;
         }
 
-        // Force fetch – okamžite ťahaj z API
-        const fresh = await fetchRecovery(userIdStr, days);
+        // force fetch – rovno z API
+        const fresh = await fetchRecoveryApi(userIdStr, days);
         setRows(fresh);
         saveCache(userIdStr, days, fresh);
+      } catch (e) {
+        console.error("[REC][refresh] ERROR", e);
       } finally {
         setLoading(false);
       }
@@ -186,7 +132,7 @@ export function RecoveryDataProvider({
     [userIdStr, days]
   );
 
-  // Init: načítaj cache a spusti tichý refresh
+  // Init: načítaj cache + sprav force refresh
   useEffect(() => {
     if (!userIdStr) return;
 
@@ -194,9 +140,10 @@ export function RecoveryDataProvider({
     if (cached.length) {
       setRows(cached);
     }
-    // prvé načítanie: nech je to deterministické -> spravíme force,
-    // nech hneď dostaneme najnovšie dáta (a aj ich uložíme do cache)
-    refresh(true).catch((e) => console.error("[REC][effect] refresh(true) ERROR", e));
+
+    refresh(true).catch((e) =>
+      console.error("[REC][effect] refresh(true) ERROR", e)
+    );
   }, [userIdStr, days, refresh]);
 
   const value = useMemo<CtxValue>(

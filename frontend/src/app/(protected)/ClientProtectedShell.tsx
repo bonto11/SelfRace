@@ -15,7 +15,6 @@ import ConfirmHost from "@/shared/components/ui/Confirm";
 import { CoachDataProvider } from "@/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/shared/components/dataProviders/RecoveryDataProvider";
-import { PlanDataProvider } from "@/shared/components/dataProviders/PlanDataProvider";
 
 export default function ClientProtectedShell({ children }: { children: ReactNode }) {
   return (
@@ -28,7 +27,6 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
         {/* dátové providery – stable defaults pre dashboard */}
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
-            <PlanDataProvider pastDays={120} futureDays={15}>
               <RecoveryDataProvider days={90}>
                 <div className="min-h-dvh grid lg:grid-cols-[280px_1fr] bg-neutral-950 text-neutral-100">
                   {/* SIDEBAR (desktop aj off-canvas kontajner) */}
@@ -49,7 +47,6 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
                   </div>
                 </div>
               </RecoveryDataProvider>
-            </PlanDataProvider>
           </ActivityDataProvider>
         </CoachDataProvider>
       </SidebarProvider>

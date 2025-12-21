@@ -21,10 +21,11 @@ import {
   apiSaveCoachPrefs,
 } from "@/features/coach/api/prefs";
 import { apiGetBests, type UserBest } from "@/shared/api/bests";
+import { secToHHMMSS, todayISO, addDays } from "@/shared/utils/time";
+import { fetchPlanRangeApi } from "@/features/coach/api/planApi";
 
-import { secToHHMMSS } from "@/shared/utils/time";
+/* ----------------- PB mapovanie ----------------- */
 
-// ---------- mapovanie: UserBest (BE) -> Best (pre coach UI) ----------
 function mapRunBest(b: UserBest): typePB {
   return {
     distance_m: b.distance_m,
@@ -32,18 +33,53 @@ function mapRunBest(b: UserBest): typePB {
     time_str:
       b.time_str ??
       (b.best_time_s != null ? secToHHMMSS(b.best_time_s) ?? null : null),
-    // BE zatiaľ neposiela názov eventu -> necháme null
     event_name: null,
     date: b.achieved_at ?? null,
   };
 }
 
-// ---------- typ kontextu ----------
+/* ----------------- Typy pre plán ----------------- */
+
+export type PlanRow = {
+  id: number;
+  user_id: number;
+  plan_date: string; // "YYYY-MM-DD"
+  sport: string;
+
+  title?: string | null;
+  duration_min?: number | null;
+  intensity?: string | null;
+  plan_id?: string | null;
+  activity_id?: number | null;
+  session_type?: string | null;
+  session_index?: number | null;
+  payload?: any;
+  source?: string | null;
+
+  [key: string]: any;
+};
+
+type PlanSubCtx = {
+  rangeStart: string;
+  rangeEnd: string;
+  rows: PlanRow[];
+  loading: boolean;
+  hasAnyPlan: boolean;
+  refresh: (force?: boolean) => Promise<void>;
+  selectPlanByRange: (start: string, end: string) => PlanRow[];
+};
+
+/* ----------------- Typ kontextu ----------------- */
+
 type CoachCtx = {
+  // coach prefs + PB (existujúce)
   prefs: CoachPrefs;
   pbRun: typePB[];
   refresh: () => Promise<void>;
   savePrefs: (next: CoachPrefs) => Promise<void>;
+
+  // nový blok: plán
+  plan: PlanSubCtx;
 };
 
 const CoachDataContext = createContext<CoachCtx | null>(null);
@@ -55,14 +91,24 @@ export function useCoachData() {
   return ctx;
 }
 
-// ---------- provider ----------
-export function CoachDataProvider({ children }: { children: React.ReactNode }) {
+/* ----------------- Provider ----------------- */
+
+export function CoachDataProvider({
+  children,
+  pastDays = 90,
+  futureDays = 15,
+}: {
+  children: React.ReactNode;
+  pastDays?: number;
+  futureDays?: number;
+}) {
   const { userId } = useUserId();
 
+  // -------- prefs + PB --------
   const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
   const [pbRun, setPbRun] = useState<typePB[]>([]);
 
-  const refresh = useCallback(async () => {
+  const refreshCoachCore = useCallback(async () => {
     if (!userId) return;
 
     // prefs
@@ -86,13 +132,90 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
     [userId]
   );
 
+  // -------- plán --------
+  const [planRows, setPlanRows] = useState<PlanRow[]>([]);
+  const [planLoading, setPlanLoading] = useState(false);
+
+  const today = todayISO();
+  const rangeStart = addDays(today, -(pastDays - 1));
+  const rangeEnd = addDays(today, futureDays);
+
+  const refreshPlan = useCallback(
+    async (force = false): Promise<void> => {
+      if (userId == null) {
+        setPlanRows([]);
+        return;
+      }
+
+      // force tu zatiaľ nerozlišujeme – nechávame parameter kvôli budúcnosti
+      setPlanLoading(true);
+      try {
+        const norm = await fetchPlanRangeApi(userId, rangeStart, rangeEnd);
+        setPlanRows(norm as PlanRow[]);
+      } catch (e) {
+        console.error("[PLAN][provider] fetchRange ERROR", e);
+        setPlanRows([]);
+      } finally {
+        setPlanLoading(false);
+      }
+    },
+    [userId, rangeStart, rangeEnd]
+  );
+
+  const selectPlanByRange = useCallback(
+    (start: string, end: string): PlanRow[] => {
+      if (!planRows.length) return [];
+      return planRows.filter(
+        (r) => r.plan_date >= start && r.plan_date <= end
+      );
+    },
+    [planRows]
+  );
+
+  // -------- spoločný refresh --------
+  const refresh = useCallback(async () => {
+    await Promise.all([refreshCoachCore(), refreshPlan(true)]);
+  }, [refreshCoachCore, refreshPlan]);
+
+  // init / zmena usera alebo rozsahu
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!userId) {
+      setPrefs(DEFAULT_PREFS);
+      setPbRun([]);
+      setPlanRows([]);
+      return;
+    }
+    void refresh();
+  }, [userId, refresh]);
 
   const value = useMemo<CoachCtx>(
-    () => ({ prefs, pbRun, refresh, savePrefs }),
-    [prefs, pbRun, refresh, savePrefs]
+    () => ({
+      prefs,
+      pbRun,
+      refresh,
+      savePrefs,
+      plan: {
+        rangeStart,
+        rangeEnd,
+        rows: planRows,
+        loading: planLoading,
+        hasAnyPlan: planRows.length > 0,
+        refresh: refreshPlan,
+        selectPlanByRange,
+      },
+    }),
+    [
+      prefs,
+      pbRun,
+      refresh,
+      savePrefs,
+      rangeStart,
+      rangeEnd,
+      planRows,
+      planLoading,
+      refreshPlan,
+      selectPlanByRange,
+    ]
   );
 
   return (
