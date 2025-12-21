@@ -1,15 +1,15 @@
-# backend/Routes_FE/activities.py
+# Routes_FE/activities.py
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
-from Services.analytics import (
+from Services.activities_streams import (
     service_get_streams_one,
 )
 
 router = APIRouter(prefix="/activities_streams", tags=["activities_streams"])
 
-@router.get("/one/{user_id}/{activity_id}")
+@router.get("/{user_id}/{activity_id}")
 def get_streams_one(
     activity_id: int,
     user_id: int,

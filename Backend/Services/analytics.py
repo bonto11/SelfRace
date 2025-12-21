@@ -16,23 +16,6 @@ from Routes_DB.activities_splits import (
     db_get_activity_splits,
 )
 
-from Routes_DB.activities_streams import (
-    db_get_streams_one,
-)
-
-def service_get_streams_one(
-    user_id: int,
-    activity_id: int,
-) -> Dict[str, Any]:
-    """
-    Vrátime vždy dict – ak v DB nič nie je,
-    dostane FE prázdne polia.
-    """
-    row = db_get_streams_one(user_id=user_id, activity_id=activity_id)
-    if not row:
-        return {"time_s": [], "heartrate_bpm": []}
-    return row
-
 def service_get_activity_detail(user_id: int, activity_id: int) -> Dict[str, Any]:
     """
     FE: GET /activities/detail/{activity_id}

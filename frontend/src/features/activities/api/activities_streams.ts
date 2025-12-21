@@ -13,7 +13,7 @@ export async function apiFetchStreams(
   if (opts.max != null) q.set("max", String(opts.max));
   if (userId != null) q.set("user_id", String(userId));
 
-  const url = `${API_URL}/activities_streams/one/${userId}/${activityId}?${q.toString()}`;
+  const url = `${API_URL}/activities_streams/${userId}/${activityId}?${q.toString()}`;
 
   const res = await fetch(url, { cache: "no-store" });
   const json = await res.json().catch(() => ({}));

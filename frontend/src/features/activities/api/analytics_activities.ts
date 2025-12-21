@@ -66,8 +66,6 @@ export async function apiGetWeeklyMonoStrain(
   }));
 }
 
-/* ───────────────────────── Weekly Load (km / time / TRIMP) ───────────────────────── */
-
 function wlNum(v: any): number {
   return Number.isFinite(+v) ? +v : 0;
 }
@@ -206,7 +204,7 @@ export async function apiFetchDetail(
   userId: number,
   activityId: number
 ): Promise<ActivityDetailExtra> {
-  const url = `${API_URL}/activities/detail/${userId}/${activityId}`;
+  const url = `${API_URL}/analytics/activitiesDetail/${userId}/${activityId}`;
 
   const res = await fetch(url, { cache: "no-store" });
   const json = await res.json().catch(() => ({}));

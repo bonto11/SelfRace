@@ -1,14 +1,30 @@
 # backend/Routes_FE/analytics_weekly.py
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
-from typing import Any, Dict
+from fastapi import APIRouter, HTTPException, Query
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
 
 from Services.analytics_weekly import service_weekly_analytics
+from Services.analytics_pareto8020 import (
+    service_pareto_source,
+    service_pareto_widget,
+    service_pareto_trend,
+)
+
+from Services.analytics import (
+    service_get_activity_detail,
+)
+
+from Services.activity_zones import (
+    preview_zones_for_activities,
+    upsert_enrichment_minutes,
+    backfill_enrichment_for_period,
+)
+
 from Schemas.analytics import WeeklyAnalyticsResponse
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
-
 
 @router.get("/weekly/{user_id}", response_model=WeeklyAnalyticsResponse,)
 def weekly(
@@ -28,3 +44,165 @@ def weekly(
     except Exception as e:  # noqa: BLE001
         print(f"[ANALYTICS] weekly failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --------------------------- SOURCE -----------------------------
+@router.get("/pareto8020/source/{user_id}")
+def pareto_source(
+    user_id: int,
+    months: int = 3,
+    count_no_hr_as_easy: bool = True,
+) -> Dict[str, Any]:
+    """
+    Public endpoint pre veľký dataset (na SESSION).
+    Zachováva starý tvar response (bez success wrappera).
+    """
+    try:
+        res = service_pareto_source(
+            user_id=user_id,
+            months=months,
+            count_no_hr_as_easy=count_no_hr_as_easy,
+        )
+        return res
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --------------------------- WIDGET -----------------------------
+@router.get("/pareto8020/widget/{user_id}")
+def pareto_widget(
+    user_id: int,
+    days: int = 14,
+    sport: str = "all",
+) -> Dict[str, Any]:
+    """
+    Sumár za posledné `days` (číta iba enrichment).
+    - ak sport='all' => default PARETO_DEFAULT_SET
+    - ak sport='run' alebo 'run,ride' => filtruje tieto športy
+    Response shape ostáva:
+      { "success": true, "data": { easy_min, hard_min, total_min, days } }
+    """
+    try:
+        data = service_pareto_widget(
+            user_id=user_id,
+            days=days,
+            sport=sport,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------- TREND -----------------------------
+@router.get("/pareto8020/{user_id}")
+def pareto_trend(
+    user_id: int,
+    weeks: int = 8,
+    sport: str = "all",
+) -> Dict[str, Any]:
+    """
+    Trend po týždňoch (posledných `weeks` týždňov) s doplnením prázdnych týždňov nulami.
+    Response shape ostáva:
+      { "success": true, "data": [ ... ] }
+    """
+    try:
+        rows = service_pareto_trend(
+            user_id=user_id,
+            weeks=weeks,
+            sport=sport,
+        )
+        return {
+            "success": True,
+            "data": rows,
+        }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# GET: detail (summary + laps + splits)
+@router.get("/activitiesDetail/{user_id}/{activity_id}")
+def get_activity_detail(user_id: int, activity_id: int):
+    try:
+        payload = service_get_activity_detail(user_id = user_id, activity_id=activity_id)
+        return {
+            "success": True,
+            **payload,
+        }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ZonesReq(BaseModel):
+    ids: List[int]
+    fetch: Optional[bool] = True
+
+
+# POST – JSON body s ids, fetch; aliasujeme aj starú cestu /streams/zones/{user_id}
+@router.post("/zones/{user_id}")
+def zones_preview_post(user_id: int, body: ZonesReq):
+    """
+    POST /activities/zones/{user_id}
+    """
+    res = preview_zones_for_activities(
+        user_id, body.ids or [], fetch_if_missing=bool(body.fetch)
+    )
+    return res
+
+
+# GET – query ids, fetch, save; alias pre starý path
+@router.get("/zones/{user_id}")
+def zones_preview_get(
+    user_id: int,
+    ids: str = Query(..., description="CSV activity_id (napr. 161...,101...)"),
+    fetch: int = 0,  # 1 = dotiahni chýbajúce streams zo Stravy a ulož do activities_streams
+    save: int = 0,  # 1 = zapíš minúty do activities_enrichment
+):
+    """
+    GET /activities/zones/{user_id}
+    (alias: /activities/streams/zones/{user_id})
+
+    ids = 'aid1,aid2,...'
+    fetch=1  -> ak chýbajú streamy v DB, dotiahne ich zo Stravy a uloží do activities_streams
+    save=1   -> po výpočte minút uloží aj do activities_enrichment
+    """
+    try:
+        activity_ids = [int(x) for x in ids.split(",") if x.strip()]
+        print(f"[zones] user={user_id} ids={activity_ids} fetch={fetch} save={save}")
+
+        preview = preview_zones_for_activities(
+            user_id=user_id,
+            activity_ids=activity_ids,
+            fetch_if_missing=bool(fetch),
+        )
+
+        saved = 0
+        if save and preview.get("items"):
+            res = upsert_enrichment_minutes(user_id, preview["items"])
+            saved = int(res.get("saved", 0))
+            print(f"[zones] saved rows={saved}")
+
+        return {**preview, "saved": saved}
+    except Exception as e:
+        print("[zones] error:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/zones/backfill/{user_id}")
+def backfill_zones_route(
+    user_id: int,
+    months: int = 3,
+    fetch: int = 1,  # 1 = dotiahni chýbajúce streamy zo Stravy
+    save: int = 1,  # 1 = ulož do activities_enrichment
+    batch: int = 25,
+):
+    """
+    GET /activities/zones/backfill/{user_id}
+    """
+    res = backfill_enrichment_for_period(
+        user_id=user_id,
+        months=months,
+        fetch_if_missing=bool(fetch),
+        save=bool(save),
+        batch=batch,
+    )
+    return res

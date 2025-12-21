@@ -430,7 +430,7 @@ def compute_and_save_enrichment_for_ids(
         return {"saved": 0, "count": 0}
 
     # 1) zisti, ktoré ids už majú streamy
-    have_ids = db_get_streams_ids_present(ids)
+    have_ids = db_get_streams_ids_present(user_id, ids)
     have_set = set(have_ids)
     missing = [aid for aid in ids if aid not in have_set]
 
