@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { getFavPBRunFromLS, setFavPBRunDB } from "@/shared/prefs/favPB";
+import { getFavPBRunFromLS, setFavPBRunDB } from "@/features/prefs/utils/favPB";
 
 export function useFavoritePBRun() {
   const { userId } = useUserId();

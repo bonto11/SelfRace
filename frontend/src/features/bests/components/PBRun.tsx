@@ -11,7 +11,7 @@ import {
   type UserBest,
 } from "@/features/bests/api/bests";
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
-import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
+import { useFavoritePBRun } from "@/features/bests/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";
 import SessionCard from "@/shared/components/SessionCard";
 import { toast } from "@/shared/components/ui/Toast";
@@ -21,7 +21,7 @@ import TextField from "@/shared/components/ui/TextField";
 import { inputClass } from "@/shared/ui";
 import { NO_X, SURFACE_INLINE } from "@/shared/ui/classes";
 import { useIsTouch } from "@/shared/utils/detection";
-import type { PBRunFormState } from "@/shared/types/pb";
+import type { PBRunFormState } from "@/features/prefs/types/pb";
 import type { MiniActivity } from "@/features/activities/types/activities";
 
 const EMPTY: PBRunFormState = {

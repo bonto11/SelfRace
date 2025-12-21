@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
-import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
+import { useFavoritePBRun } from "@/features/bests/hooks/useFavoritePBRun";
 import {
   distanceLabel,
   apiGetBests,

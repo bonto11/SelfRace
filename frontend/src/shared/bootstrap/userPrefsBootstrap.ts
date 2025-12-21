@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { apiFetchUserPrefs } from "@/shared/api/userPrefs";
+import { apiFetchUserPrefs } from "@/features/prefs/api/prefs";
 import { readCoachPrefsFromStorage } from "@/features/coach/utils/prefs";
 
 /**
