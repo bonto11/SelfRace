@@ -10,8 +10,8 @@ import React, {
 } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { RecoveryRow } from "@/features/recovery/types/recovery";
-import { fetchRecoveryApi } from "@/features/recovery/api/recovery";
+import { RecoveryRow } from "@/app/features/recovery/types/recovery";
+import { fetchRecoveryApi } from "@/app/features/recovery/api/recovery";
 
 /* ---------- Typy ---------- */
 

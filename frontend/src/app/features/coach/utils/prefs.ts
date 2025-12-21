@@ -5,13 +5,13 @@ import type {
   CoachPrefs,
   SportKind,
   Preferences,
-} from "@/features/prefs/types/prefs";
-import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coachTypes";
-import { DEFAULT_PREFS } from "@/features/prefs/types/prefs";
+} from "@/app/features/prefs/types/prefs";
+import type { CoachPrefsLegacyLoose } from "@/app/features/coach/types/coachTypes";
+import { DEFAULT_PREFS } from "@/app/features/prefs/types/prefs";
 import {
   apiGetCoachPrefs,
   apiSaveCoachPrefs,
-} from "@/features/coach/api/prefs";
+} from "@/app/features/coach/api/prefs";
 
 /** Kľúče pre DB/LS */
 const KEY = "coach.prefs"; // meno preferencie v user_prefs

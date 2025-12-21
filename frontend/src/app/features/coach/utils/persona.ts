@@ -1,6 +1,6 @@
 // Konfigurácia "osobností" coach-a + pomocná funkcia clamp01.
 
-import type { CoachPersona } from "@/features/prefs/types/prefs";
+import type { CoachPersona } from "@/app/features/prefs/types/prefs";
 
 /**
  * Default nastavenia tónu pre jednotlivé persony.

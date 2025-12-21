@@ -6,7 +6,7 @@ import {
   type DayKey,
   type DailyItem,
   type DailyPlan,
-} from "@/features/coach/types/planTypes";
+} from "@/app/features/coach/types/planTypes";
 
 /**
  * Z AI/JSON objektu, ktorý má kľúče monday..sunday, vyrobí
