@@ -3,9 +3,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetchActivitiesAround } from "@/shared/api/activities";
-import type { MiniActivity, SportFE } from "@/shared/types/activities";
+import type { MiniActivity, SportFE } from "@/features/activities/types/activities";
 import { FIELD_BASE, FIELD_DISABLED, FIELD_HELP } from "@/shared/ui/classes";
-
+import { fmtShortDate } from "@/shared/utils/time"
 type Props = {
   userId: number | null;
   dateIso: string | "";
@@ -18,16 +18,6 @@ type Props = {
   variant?: "default" | "compact";
 };
 
-function fmtShortDate(s: string) {
-  if (!s) return "";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("sk-SK", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-  });
-}
 
 export default function ActivitySelector({
   userId,

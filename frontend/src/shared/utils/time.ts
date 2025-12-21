@@ -250,3 +250,14 @@ export function rangeLabel(startISO?: string, endISO?: string) {
     em = e.getUTCMonth() + 1;
   return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
+
+export function fmtShortDate(s: string) {
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("sk-SK", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}

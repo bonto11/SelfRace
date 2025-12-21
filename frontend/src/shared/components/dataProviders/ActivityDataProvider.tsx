@@ -39,7 +39,7 @@ import { apiFetchStreams } from "@/features/activities/api/activities_streams";
 
 import { apiFetchRange } from "@/features/activities/api/activities_summary";
 
-import { hasSesssioStorage } from "@/shared/utils/common";
+import { hasSesssioStorage } from "@/shared/utils/sessionStorage";
 
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
