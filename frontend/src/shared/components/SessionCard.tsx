@@ -319,17 +319,16 @@ function DetailBody({
     const raw = plan.planRaw ?? undefined;
     const structure = plan.planStructure ?? raw?.structure ?? undefined;
 
-    // ⬇⬇⬇ TU JE FIX – pridali sme fallback aj na raw.strength_exercises
+    // FIX: preferuj neprázdne planExercises, inak structure.strength_exercises, inak raw.strength_exercises
     const exercises =
-      plan.planExercises ??
-      (structure &&
-      Array.isArray((structure as any).strength_exercises)
+      Array.isArray(plan.planExercises) && plan.planExercises.length > 0
+        ? plan.planExercises
+        : Array.isArray((structure as any)?.strength_exercises) &&
+          (structure as any).strength_exercises.length > 0
         ? (structure as any).strength_exercises
-        : null) ??
-      (Array.isArray((raw as any)?.strength_exercises)
+        : Array.isArray((raw as any)?.strength_exercises)
         ? (raw as any).strength_exercises
-        : []) ??
-      [];
+        : [];
 
     const wu = (structure as any)?.warmup ?? undefined;
     const mainBlocks: any[] = Array.isArray((structure as any)?.main)
@@ -355,188 +354,6 @@ function DetailBody({
           ? exercises[0]
           : undefined,
     });
-
-    return (
-      <div>
-        {kpiBlock}
-
-        {!hasKpis && (
-          <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              plan.planDur ? { label: "DURATION", value: plan.planDur } : null,
-              plan.planIntensity
-                ? { label: "INTENSITY", value: plan.planIntensity }
-                : null,
-              plan.planTarget
-                ? { label: "TARGET", value: plan.planTarget }
-                : null,
-            ]
-              .filter(Boolean)
-              .map((t: any) => (
-                <div
-                  key={t.label}
-                  className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-                >
-                  <div className="text-[10px] opacity-70">
-                    {safeText(t.label)}
-                  </div>
-                  <div className="text-xl font-semibold tabular-nums">
-                    {safeText(t.value)}
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-
-        {(wu || mainBlocks.length || cd) && (
-          <div className="mt-4 space-y-3">
-            {wu && (
-              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  WARM-UP
-                </div>
-                <div className="text-sm mt-0.5">
-                  {[
-                    fmtMin((wu as any).minutes),
-                    typeof (wu as any).notes === "string"
-                      ? (wu as any).notes
-                      : (wu as any).notes != null
-                      ? safeText((wu as any).notes)
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </div>
-              </div>
-            )}
-
-            {mainBlocks.length > 0 && (
-              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">MAIN</div>
-                <div className="text-sm mt-0.5 space-y-1">
-                  {mainBlocks.map((mn: any, idx: number) => {
-                    const line =
-                      [
-                        mn?.reps ? `${mn.reps}×` : null,
-                        fmtMin(mn?.work_min),
-                        mn?.recover_min ? `rec ${mn.recover_min} min` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "—";
-
-                    const tgt = tgtToStr(mn?.target);
-                    const noteText =
-                      typeof mn?.notes === "string"
-                        ? mn.notes
-                        : mn?.notes != null
-                        ? safeText(mn.notes)
-                        : null;
-
-                    return (
-                      <div
-                        key={idx}
-                        className="border-t border-white/5 pt-1 first:border-t-0 first:pt-0"
-                      >
-                        <div>{line}</div>
-                        {tgt && <div className="opacity-90">target: {tgt}</div>}
-                        {noteText && (
-                          <div className="opacity-90">{noteText}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {cd && (
-              <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  COOL-DOWN
-                </div>
-                <div className="text-sm mt-0.5">
-                  {[
-                    fmtMin((cd as any).minutes),
-                    typeof (cd as any).notes === "string"
-                      ? (cd as any).notes
-                      : (cd as any).notes != null
-                      ? safeText((cd as any).notes)
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {Array.isArray(exercises) && exercises.length > 0 && (
-          <div className="mt-4">
-            <div className="text-[11px] font-semibold opacity-80 mb-1.5">
-              EXERCISES
-            </div>
-            <ul className="space-y-1.5">
-              {exercises.map((e: any, i: number) => {
-                const name = e?.exercise_name || e?.name || `Exercise ${i + 1}`;
-
-                const parts = [
-                  e?.sets ? `${e.sets} sets` : null,
-                  e?.reps ? `${e.reps} reps` : null,
-                  e?.seconds ? `${e.seconds}s` : null,
-                  e?.rest_sec
-                    ? `rest ${e.rest_sec}s`
-                    : e?.rest_s
-                    ? `rest ${e.rest_s}s`
-                    : null,
-                ].filter(Boolean);
-
-                const line = parts.length ? parts.join(" · ") : "—";
-
-                const notesText =
-                  typeof e?.notes === "string"
-                    ? e.notes
-                    : e?.notes != null
-                    ? safeText(e.notes)
-                    : null;
-
-                return (
-                  <li
-                    key={`${name}-${i}`}
-                    className="rounded-md border border-white/10 px-3 py-2"
-                  >
-                    <div className="text-sm font-medium">{name}</div>
-                    <div className="text-xs opacity-85 mt-0.5">{line}</div>
-                    {notesText && (
-                      <div className="text-xs opacity-85 mt-0.5">
-                        {notesText}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-
-        {(plan.planNotes || plan.notes) && (
-          <div className="mt-3 text-sm opacity-90">
-            {safeText(plan.planNotes ?? plan.notes)}
-          </div>
-        )}
-
-        {showPlanDebug && (
-          <div className="mt-4">
-            <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
-              Plan debug
-            </div>
-            <pre className="text-[11px] whitespace-pre-wrap break-words opacity-85">
-              {safeText({ structure, exercises, raw })}
-            </pre>
-          </div>
-        )}
-      </div>
-    );
   }
 
   // -------- EXTERNAL --------
