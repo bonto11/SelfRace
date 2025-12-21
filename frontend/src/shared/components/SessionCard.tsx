@@ -20,7 +20,7 @@ import { ComponentVariant } from "@/features/activities/types/activities";
 export type SessionKind = "activity" | "plan" | "external";
 export type PlanStatus = "planned" | "done" | "missed";
 
-export type KPI = { label: string; value: any }; // value môže byť čokoľvek
+export type KPI = { label: string; value: any };
 
 type Base = {
   id: string | number;
@@ -29,11 +29,9 @@ type Base = {
   dateIso?: string | null;
   sport: string;
 
-  /** UI behavior */
   defaultOpen?: boolean;
   hideDateLine?: boolean;
 
-  /** calendar-friendly */
   subtitle?: string | null;
   kpis?: KPI[];
   notes?: string | null;
@@ -43,17 +41,13 @@ export type ActivitySession = Base & {
   kind: "activity";
   activityId: number;
 
-  // fallback values
   timeStr?: string | null;
   distanceStr?: string | null;
   avgHr?: number | null;
   maxHr?: number | null;
 
-  /** PB/pinned UI */
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
-
-  /** optional actions */
   onEdit?: () => void;
   onDelete?: () => void;
 };
@@ -69,7 +63,6 @@ export type PlanSession = Base & {
 
   planRaw?: any;
   planStructure?: any;
-  /** array only (no null) */
   planExercises?: any[];
 };
 
@@ -85,7 +78,6 @@ export type SessionCardItem = ActivitySession | PlanSession | ExternalSession;
 export type SessionCardProps = {
   variant?: ComponentVariant; // "activity" | "calendar" | "pb" | "plan"
   item: SessionCardItem;
-
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
 };
@@ -127,7 +119,6 @@ function statusCls(status: PlanStatus): string {
   return "border-slate-500/80 text-slate-200 bg-slate-500/5";
 }
 
-/** vyparsuje km zo stringu typu "6.08 km" */
 function parseKm(s?: string | null): number | null {
   if (!s) return null;
   const m = s.match(/(-?\d+(?:[.,]\d+)?)\s*km/i);
@@ -177,14 +168,12 @@ export default function SessionCard({
     if (item.defaultOpen) setOpened(true);
   }, [item.defaultOpen]);
 
-  // na calendar variante nechceme opakovať dátum vnútri itemu
   const dateLine =
     item.hideDateLine || variant === "calendar"
       ? ""
       : prettySkDate(item.dateIso);
 
   const secondaryLine = useMemo(() => {
-    // calendar chce subtitle (ak existuje) pred ostatným
     if (variant === "calendar" && item.subtitle) return item.subtitle;
 
     if (item.kind === "activity") {
@@ -204,7 +193,6 @@ export default function SessionCard({
       return bits.length ? bits.join(" · ") : null;
     }
 
-    // external
     const bits = [
       item.time ? item.time : null,
       item.durationMin != null ? `${item.durationMin} min` : null,
@@ -221,7 +209,7 @@ export default function SessionCard({
         <div className="text-sm font-medium truncate">{dateLine}</div>
 
         <div className="flex items-center gap-2">
-          {item.kind === "activity" && item.isFavorite && (
+          {item.kind === "activity" && (item as ActivitySession).isFavorite && (
             <span
               className="text-[12px] leading-none opacity-90"
               title="Favorite"
@@ -234,10 +222,10 @@ export default function SessionCard({
             <span
               className={[
                 "inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border",
-                statusCls(item.status),
+                statusCls((item as PlanSession).status),
               ].join(" ")}
             >
-              {statusLabel(item.status)}
+              {statusLabel((item as PlanSession).status)}
             </span>
           )}
 
@@ -326,34 +314,41 @@ function DetailBody({
 
   // -------- PLAN --------
   if (item.kind === "plan") {
-    const raw = item.planRaw ?? undefined;
-    const structure = item.planStructure ?? raw?.structure ?? undefined;
+    const plan = item as PlanSession;
+
+    const raw = plan.planRaw ?? undefined;
+    const structure = plan.planStructure ?? raw?.structure ?? undefined;
+
+    // ⬇⬇⬇ TU JE FIX – pridali sme fallback aj na raw.strength_exercises
     const exercises =
-      item.planExercises ??
-      (structure && Array.isArray(structure.strength_exercises)
-        ? structure.strength_exercises
+      plan.planExercises ??
+      (structure &&
+      Array.isArray((structure as any).strength_exercises)
+        ? (structure as any).strength_exercises
+        : null) ??
+      (Array.isArray((raw as any)?.strength_exercises)
+        ? (raw as any).strength_exercises
         : []) ??
       [];
 
-    const wu = structure?.warmup ?? undefined;
-    const mainBlocks: any[] = Array.isArray(structure?.main)
-      ? structure.main
-      : structure?.main
-      ? [structure.main]
+    const wu = (structure as any)?.warmup ?? undefined;
+    const mainBlocks: any[] = Array.isArray((structure as any)?.main)
+      ? (structure as any).main
+      : (structure as any)?.main
+      ? [(structure as any).main]
       : [];
-    const cd = structure?.cooldown ?? undefined;
+    const cd = (structure as any)?.cooldown ?? undefined;
 
-    // DEBUG – nech vidíš, čo naozaj prichádza z Daily plánu
     console.log("[SessionCard] PLAN item", {
-      title: item.title,
-      planDur: item.planDur,
-      planIntensity: item.planIntensity,
-      planTarget: item.planTarget,
+      title: plan.title,
+      planDur: plan.planDur,
+      planIntensity: plan.planIntensity,
+      planTarget: plan.planTarget,
       raw,
       structure,
     });
     console.log("[SessionCard] PLAN exercises", {
-      title: item.title,
+      title: plan.title,
       count: Array.isArray(exercises) ? exercises.length : 0,
       sample:
         Array.isArray(exercises) && exercises.length > 0
@@ -365,16 +360,15 @@ function DetailBody({
       <div>
         {kpiBlock}
 
-        {/* fallback KPI pre plan (ak neprídu calendar kpis) */}
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              item.planDur ? { label: "DURATION", value: item.planDur } : null,
-              item.planIntensity
-                ? { label: "INTENSITY", value: item.planIntensity }
+              plan.planDur ? { label: "DURATION", value: plan.planDur } : null,
+              plan.planIntensity
+                ? { label: "INTENSITY", value: plan.planIntensity }
                 : null,
-              item.planTarget
-                ? { label: "TARGET", value: item.planTarget }
+              plan.planTarget
+                ? { label: "TARGET", value: plan.planTarget }
                 : null,
             ]
               .filter(Boolean)
@@ -403,11 +397,11 @@ function DetailBody({
                 </div>
                 <div className="text-sm mt-0.5">
                   {[
-                    fmtMin(wu.minutes),
-                    typeof wu.notes === "string"
-                      ? wu.notes
-                      : wu.notes != null
-                      ? safeText(wu.notes)
+                    fmtMin((wu as any).minutes),
+                    typeof (wu as any).notes === "string"
+                      ? (wu as any).notes
+                      : (wu as any).notes != null
+                      ? safeText((wu as any).notes)
                       : null,
                   ]
                     .filter(Boolean)
@@ -462,11 +456,11 @@ function DetailBody({
                 </div>
                 <div className="text-sm mt-0.5">
                   {[
-                    fmtMin(cd.minutes),
-                    typeof cd.notes === "string"
-                      ? cd.notes
-                      : cd.notes != null
-                      ? safeText(cd.notes)
+                    fmtMin((cd as any).minutes),
+                    typeof (cd as any).notes === "string"
+                      ? (cd as any).notes
+                      : (cd as any).notes != null
+                      ? safeText((cd as any).notes)
                       : null,
                   ]
                     .filter(Boolean)
@@ -525,9 +519,9 @@ function DetailBody({
           </div>
         )}
 
-        {(item.planNotes || item.notes) && (
+        {(plan.planNotes || plan.notes) && (
           <div className="mt-3 text-sm opacity-90">
-            {safeText(item.planNotes ?? item.notes)}
+            {safeText(plan.planNotes ?? plan.notes)}
           </div>
         )}
 
@@ -547,6 +541,7 @@ function DetailBody({
 
   // -------- EXTERNAL --------
   if (item.kind === "external") {
+    const ext = item as ExternalSession;
     return (
       <div>
         {kpiBlock}
@@ -554,9 +549,9 @@ function DetailBody({
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              item.time ? { label: "TIME", value: item.time } : null,
-              item.durationMin != null
-                ? { label: "DURATION", value: `${item.durationMin} min` }
+              ext.time ? { label: "TIME", value: ext.time } : null,
+              ext.durationMin != null
+                ? { label: "DURATION", value: `${ext.durationMin} min` }
                 : null,
             ]
               .filter(Boolean)
@@ -576,28 +571,32 @@ function DetailBody({
           </div>
         )}
 
-        {(item.notes ?? null) && (
-          <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
+        {(ext.notes ?? null) && (
+          <div className="mt-3 text-sm opacity-90">
+            {safeText(ext.notes)}
+          </div>
         )}
       </div>
     );
   }
 
   // -------- ACTIVITY --------
+  const act = item as ActivitySession;
+
   const s =
-    item.activityId != null
-      ? (getSummary(item.activityId) as any) || null
+    act.activityId != null
+      ? (getSummary(act.activityId) as any) || null
       : null;
 
   const distTxt = s
     ? formatDistance(s.distance_m ?? null)
-    : item.distanceStr ?? "—";
+    : act.distanceStr ?? "—";
   const timeTxt =
     s && s.moving_time_s != null
       ? fmtSecondsHMS(s.moving_time_s)
-      : item.timeStr ?? "—";
-  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : item.avgHr ?? "—";
-  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : item.maxHr ?? "—";
+      : act.timeStr ?? "—";
+  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
+  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
 
   const [streams, setStreams] = useState<{
     time_s: number[];
@@ -613,18 +612,17 @@ function DetailBody({
 
   useEffect(() => {
     let alive = true;
-    if (!item.activityId) return;
+    if (!act.activityId) return;
 
     (async () => {
       try {
-        const st = await getStreams(item.activityId);
-        const dt = await getDetail(item.activityId);
+        const st = await getStreams(act.activityId);
+        const dt = await getDetail(act.activityId);
 
         if (!alive) return;
 
-        // DEBUG – uvidíš presný tvar z BE
-        console.log("[SessionCard] streams raw", item.activityId, st);
-        console.log("[SessionCard] detail raw", item.activityId, dt);
+        console.log("[SessionCard] streams raw", act.activityId, st);
+        console.log("[SessionCard] detail raw", act.activityId, dt);
 
         if (st) {
           const raw: any = st;
@@ -650,7 +648,7 @@ function DetailBody({
 
           setStreams({ time_s, hr, duration_s });
         } else {
-          console.log("[SessionCard] no streams for", item.activityId);
+          console.log("[SessionCard] no streams for", act.activityId);
           setStreams({ time_s: [], hr: [], duration_s: 0 });
         }
 
@@ -661,7 +659,6 @@ function DetailBody({
         }
       } catch (err) {
         console.error("[SessionCard] getStreams/getDetail error", err);
-        // nechaj default prázdne
         setStreams({ time_s: [], hr: [], duration_s: 0 });
       }
     })();
@@ -669,13 +666,12 @@ function DetailBody({
     return () => {
       alive = false;
     };
-  }, [item.activityId, getStreams, getDetail]);
+  }, [act.activityId, getStreams, getDetail]);
 
   return (
     <div>
       {kpiBlock}
 
-      {/* fallback KPI pre activity (ak neprídu calendar kpis) */}
       {!hasKpis && (
         <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
           {[
@@ -697,32 +693,31 @@ function DetailBody({
         </div>
       )}
 
-      {/* PB actions */}
-      {"onEdit" in item &&
-        (item.onEdit || item.onDelete || item.onToggleFavorite) && (
+      {"onEdit" in act &&
+        (act.onEdit || act.onDelete || act.onToggleFavorite) && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {item.onToggleFavorite && (
+            {act.onToggleFavorite && (
               <button
                 type="button"
-                onClick={item.onToggleFavorite}
+                onClick={act.onToggleFavorite}
                 className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
               >
-                {item.isFavorite ? "★ Favorite" : "☆ Set favorite"}
+                {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
               </button>
             )}
-            {item.onEdit && (
+            {act.onEdit && (
               <button
                 type="button"
-                onClick={item.onEdit}
+                onClick={act.onEdit}
                 className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
               >
                 Edit
               </button>
             )}
-            {item.onDelete && (
+            {act.onDelete && (
               <button
                 type="button"
-                onClick={item.onDelete}
+                onClick={act.onDelete}
                 className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
               >
                 Delete
@@ -731,12 +726,11 @@ function DetailBody({
           </div>
         )}
 
-      {/* CTA (napr z kalendára) */}
       {onOpenActivity && (
         <div className="mt-3">
           <button
             type="button"
-            onClick={() => onOpenActivity(item.activityId)}
+            onClick={() => onOpenActivity(act.activityId)}
             className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
           >
             Otvoriť aktivitu
@@ -744,7 +738,6 @@ function DetailBody({
         </div>
       )}
 
-      {/* notes (calendar môže poslať item.notes) */}
       {item.notes && (
         <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
       )}
@@ -799,7 +792,6 @@ function DetailBody({
         </>
       )}
 
-      {/* (voliteľne) debug pre calendar pri potrebe */}
       {variant === "calendar" && showPlanDebug && (
         <details className="mt-4">
           <summary className="text-xs opacity-70 cursor-pointer">
