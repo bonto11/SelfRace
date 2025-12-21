@@ -11,13 +11,13 @@ import React, {
 } from "react";
 
 import { DEFAULT_PREFS, type CoachPrefs } from "@/features/prefs/types/prefs";
-import type { typePB } from "@/features/coach/types/coachTypes";
+import { typePB, UserBest } from "@/features/bests/types/bests";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
   apiGetCoachPrefs,
   apiSaveCoachPrefs,
 } from "@/features/coach/api/prefs";
-import { apiGetBests, type UserBest } from "@/features/bests/api/bests";
+import { apiGetBests } from "@/features/bests/api/bests";
 import { secToHHMMSS, todayISO, addDays } from "@/shared/utils/time";
 import { fetchPlanRangeApi } from "@/features/coach/api/planApi";
 
