@@ -1,7 +1,7 @@
 # Routes_FE/user_zones.py
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, Query
 

@@ -6,7 +6,9 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { minutesToHHMM, wrapToLines, HHMMToMinutes } from "@/shared/utils/recovery";
+import { wrapToLines } from "@/shared/utils/recovery";
+import { minutesToHHMM, HHMMToMinutes, dateSeq, iso } from "@/shared/utils/time";
+import { hexToRgba } from "@/shared/utils/color";
 import { buildRecoveryLineOptions } from "@/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
@@ -14,28 +16,6 @@ import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
 ensureChartJSRegistered();
-
-// util: HEX -> rgba s alfou (lokálne)
-function hexToRgba(hex?: string, alpha = 0.15) {
-  if (!hex) return `rgba(255,255,255,${alpha})`;
-  const h = hex.replace("#", "");
-  const v = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
-  const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-// denné ISO labely
-function iso(d: Date) {
-  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  return z.toISOString().slice(0, 10);
-}
-function dateSeq(startISO: string, endISO: string): string[] {
-  const out: string[] = [];
-  const start = new Date(startISO + "T00:00:00");
-  const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
-  return out;
-}
 
 export default function DetailSleepStart() {
   const { rows: all } = useRecoveryData();

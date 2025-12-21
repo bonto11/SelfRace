@@ -16,11 +16,10 @@ import {
 } from "@/features/coach/types/prefsTypes";
 import type { typePB } from "@/features/coach/types/coachTypes";
 import { useUserId } from "@/shared/hooks/useUserId";
-
-// API – prefs
-import { apiGetCoachPrefs, apiSaveCoachPrefs } from "@/features/coach/api/prefs";
-
-// API – personal bests (RUN)
+import {
+  apiGetCoachPrefs,
+  apiSaveCoachPrefs,
+} from "@/features/coach/api/prefs";
 import { apiGetBests, type UserBest } from "@/shared/api/bests";
 
 import { secToHHMMSS } from "@/shared/utils/time";
@@ -67,7 +66,8 @@ export function CoachDataProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
 
     // prefs
-    const p = (await apiGetCoachPrefs(userId).catch(() => null)) ?? DEFAULT_PREFS;
+    const p =
+      (await apiGetCoachPrefs(userId).catch(() => null)) ?? DEFAULT_PREFS;
     setPrefs(p);
 
     // PB – RUN

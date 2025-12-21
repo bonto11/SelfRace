@@ -86,6 +86,23 @@ export function useCalendarMap({
     const lastIso = iso(year, month0, daysInMonth(year, month0));
     const todayIso = new Date().toISOString().slice(0, 10);
 
+    // --- precompute activityIdsByDate (len aktivity v rozsahu mesiaca) ---
+    const activityIdsByDate = new Map<string, Set<number>>();
+    for (const r of actRows as any[]) {
+      const dIso = String(r.date ?? "").slice(0, 10);
+      if (!dIso || dIso < firstIso || dIso > lastIso) continue;
+
+      const aid = Number((r as any).activity_id);
+      if (Number.isNaN(aid)) continue;
+
+      let set = activityIdsByDate.get(dIso);
+      if (!set) {
+        set = new Set<number>();
+        activityIdsByDate.set(dIso, set);
+      }
+      set.add(aid);
+    }
+
     // externals (expandované cez occurrence_date / single_date atď.)
     for (const ev of externalRows) {
       const dIso = eventDateIso(ev);
@@ -97,7 +114,7 @@ export function useCalendarMap({
 
       cell.externals.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
-        sport: safeSportKey(ev.sport),
+        sport: safeSportKey((ev as any).sport ?? (ev as any).sport_type),
         title: String(ev.title || "External"),
         time: (ev as any).start_time_local ?? null,
         notes: (ev as any).notes ?? null,
@@ -105,24 +122,35 @@ export function useCalendarMap({
     }
 
     // plan rows
-    for (const p of planRows) {
-      const dIso = String(p.plan_date).slice(0, 10);
-      if (dIso < firstIso || dIso > lastIso) continue;
+    for (const p of planRows as any[]) {
+      const dIso = String(p.plan_date ?? "").slice(0, 10);
+      if (!dIso || dIso < firstIso || dIso > lastIso) continue;
 
-      const sess: AnyObj = (p as any).payload ?? p;
+      const sess: AnyObj = p.payload ?? p;
       if (isRestSession(p, sess)) continue;
 
-      const sport = safeSportKey(
-        (p as any).sport || detectSport(sess) || "other",
+      const sport = safeSportKey(p.sport || detectSport(sess) || "other");
+
+      const rawActId = (p as any).activity_id;
+      let actIdForStatus: number | null = null;
+      let actIdForPlan: number | null = null;
+
+      if (rawActId != null && !Number.isNaN(Number(rawActId))) {
+        const num = Number(rawActId);
+        actIdForPlan = num;
+
+        // DÔLEŽITÉ: ber ako "done" len ak existuje activity v TEN ISTÝ DEŇ
+        const set = activityIdsByDate.get(dIso);
+        if (set && set.has(num)) {
+          actIdForStatus = num;
+        }
+      }
+
+      const status: PlanStatus = planStatusForDate(
+        dIso,
+        todayIso,
+        actIdForStatus,
       );
-
-      const actIdRaw = (p as any).activity_id;
-      const actId =
-        actIdRaw != null && !Number.isNaN(Number(actIdRaw))
-          ? Number(actIdRaw)
-          : null;
-
-      const status: PlanStatus = planStatusForDate(dIso, todayIso, actId);
 
       const cell = byIso[dIso];
       if (!cell) continue;
@@ -131,34 +159,31 @@ export function useCalendarMap({
         id: p.id,
         sport,
         status,
-        // voliteľné – použijeme v dedupe (done vs activity)
-        activityId: actId ?? undefined,
+        activityId: actIdForPlan ?? undefined,
       } as any);
     }
 
-    // activities
-    for (const r of actRows) {
-      const dIso = String(r.date).slice(0, 10);
-      if (dIso < firstIso || dIso > lastIso) continue;
+    // activities (už len fyzicky vložiť do buniek)
+    for (const r of actRows as any[]) {
+      const dIso = String(r.date ?? "").slice(0, 10);
+      if (!dIso || dIso < firstIso || dIso > lastIso) continue;
 
       const cell = byIso[dIso];
       if (!cell) continue;
 
-      const aid = Number(r.activity_id);
+      const aid = Number((r as any).activity_id);
       const sport = safeSportKey(
-        (r as any).sport || (r as any).sport_type_fe || "other",
+        (r as any).sport || (r as any).sport_type_fe || (r as any).sport_type,
       );
 
       cell.activities.push({
         id: aid,
         sport,
-        name: r.name || "",
+        name: (r as any).name || "",
       });
     }
 
-    // DEDUPE v gride cez shared util:
-    // - DONE vs ACTIVITY podľa activityId (žiadna bodka + fajka za ten istý workout)
-    // - podľa športu: activity/done má prioritu pred plan/missed/external, plan/missed pred external
+    // DEDUPE v gride cez shared util
     for (const k of Object.keys(byIso)) {
       const cell = byIso[k];
 
@@ -186,7 +211,7 @@ export function useCalendarMap({
         });
       });
 
-      // plans (planned / done / missed) – berieme aj activityId z plánu
+      // plans (planned / done / missed)
       cell.plans.forEach((p: any, idx) => {
         const kind: CalendarItemKind =
           p.status === "planned"

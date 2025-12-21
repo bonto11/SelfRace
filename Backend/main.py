@@ -4,13 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from Routes_FE import (
     users,
-    activities,
-    analytics,
-    account,
-    streams,
-    activity_zones,
-    analytics_pareto8020,
     activities_streams,
+    activities_summary,
+    analytics,
+    synchronization,
     user_prefs,
     user_bests,
     user_zones,
@@ -23,6 +20,7 @@ from Routes_FE import (
     coach_external_events,
     profile_static,
     profile_metrics,
+    async_jobs,
 )
 
 app = FastAPI()
@@ -58,16 +56,15 @@ app.include_router(user_bests.router)
 app.include_router(user_zones.router)
 app.include_router(user_thresholds.router)
 
-app.include_router(account.router)
-app.include_router(activities.router)
-app.include_router(streams.router)
-app.include_router(analytics.router)
-app.include_router(activity_zones.router)
-app.include_router(analytics_pareto8020.router)
+app.include_router(activities_summary.router)
 app.include_router(activities_streams.router)
+app.include_router(analytics.router)
+app.include_router(synchronization.router)
+
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)
 app.include_router(coach_athlete_state.router)
 app.include_router(coach_plan_active.router)
 app.include_router(coach_external_events.router)
+app.include_router(async_jobs.router)

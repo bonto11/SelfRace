@@ -11,19 +11,12 @@ import React, {
 
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { isoDate } from "@/shared/utils/recovery";
+import { isoDate } from "@/shared/utils/time";
+import { RecoveryRow } from "@/features/recovery/types/recovery";
 
 /* ---------- Typy ---------- */
 
-export type RecoveryRow = {
-  date: string;
-  RHR_bpm: number | null;
-  HRV_avg_ms: number | null;
-  HRV_max_ms: number | null;
-  sleep_start_time: string | null;
-  sleep_duration_min: number | null;
-  comments: string | null;
-};
+
 
 type CtxValue = {
   rows: RecoveryRow[];
@@ -35,7 +28,7 @@ type CtxValue = {
 
 function hasSessionStorage() {
   const ok = typeof window !== "undefined" && !!window.sessionStorage;
-  if (!ok) console.debug("[REC][cache] sessionStorage not available (SSR alebo blokované).");
+  if (!ok) console.warn("[REC][cache] sessionStorage not available (SSR alebo blokované).");
   return ok;
 }
 
@@ -53,7 +46,6 @@ function saveCache(userId: string, days: number, rows: RecoveryRow[]) {
       rows,
     });
     sessionStorage.setItem(key, payload);
-    console.debug("[REC][cache] save", { key, count: rows.length });
   } catch (e) {
     console.warn("[REC][cache] save error:", e);
   }
@@ -65,12 +57,11 @@ function loadCache(userId: string, days: number): RecoveryRow[] {
     const key = cacheKey(userId, days);
     const raw = sessionStorage.getItem(key);
     if (!raw) {
-      console.debug("[REC][cache] no entry", { key });
+      console.warn("[REC][cache] no entry", { key });
       return [];
     }
     const parsed = JSON.parse(raw);
     const rows = Array.isArray(parsed?.rows) ? (parsed.rows as RecoveryRow[]) : [];
-    console.debug("[REC][cache] load", { key, count: rows.length, savedAt: parsed?.savedAt });
     return rows;
   } catch (e) {
     console.warn("[REC][cache] load error:", e);
@@ -83,7 +74,6 @@ function loadCache(userId: string, days: number): RecoveryRow[] {
 async function fetchRecovery(userId: string, days = 90): Promise<RecoveryRow[]> {
   const url = `${API_URL}/recovery/${userId}?days=${days}`;
   const started = performance.now();
-  console.debug("[REC][fetch] ->", { url, userId, days });
 
   try {
     const res = await fetch(url, {
@@ -94,8 +84,6 @@ async function fetchRecovery(userId: string, days = 90): Promise<RecoveryRow[]> 
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
-
-    console.debug("[REC][fetch] status", { status: res.status, ok: res.ok });
 
     const text = await res.text();
     // skúšam parse ručne, nech vieme v logu vidieť raw body pri chybe
@@ -108,13 +96,6 @@ async function fetchRecovery(userId: string, days = 90): Promise<RecoveryRow[]> 
     }
 
     const arr: any[] = Array.isArray(json?.data) ? json.data : [];
-    console.debug("[REC][fetch] payload", {
-      keys: Object.keys(json || {}),
-      dataIsArray: Array.isArray(json?.data),
-      dataLen: arr.length,
-      sample: arr[0] ? Object.keys(arr[0]) : null,
-      tookMs: Math.round(performance.now() - started),
-    });
 
     const normalized = arr
       .map((r) => ({
@@ -127,12 +108,6 @@ async function fetchRecovery(userId: string, days = 90): Promise<RecoveryRow[]> 
         comments: r?.comments ?? null,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
-
-    console.debug("[REC][fetch] normalized", {
-      count: normalized.length,
-      first: normalized[0],
-      last: normalized[normalized.length - 1],
-    });
 
     return normalized;
   } catch (e) {
@@ -161,12 +136,10 @@ export function RecoveryDataProvider({
   days?: number;
 }) {
   const { userId } = useUserId(); // číta sr_id z cookies (client)
-  console.debug("[REC][provider] mount, useUserId()", { userId });
 
   // userId v projekte býva number => bezpečne ho zreťazím na string pre kľúče/cache/fetch
   const userIdStr = useMemo(() => {
     const val = userId == null ? "" : String(userId);
-    console.debug("[REC][provider] userIdStr", { userId, userIdStr: val });
     return val;
   }, [userId]);
 
@@ -180,7 +153,6 @@ export function RecoveryDataProvider({
         return;
       }
       const t0 = performance.now();
-      console.debug("[REC][refresh] start", { force, days, userIdStr });
 
       setLoading(true);
       try {
@@ -188,34 +160,27 @@ export function RecoveryDataProvider({
         if (!force) {
           const cached = loadCache(userIdStr, days);
           if (cached.length) {
-            console.debug("[REC][refresh] cache-hit -> setRows(cached)", { count: cached.length });
             setRows(cached);
             setLoading(false);
-          } else {
-            console.debug("[REC][refresh] cache-miss");
           }
 
           // Tichý fetch na pozadí pre aktualizáciu
           fetchRecovery(userIdStr, days)
             .then((fresh) => {
-              console.debug("[REC][refresh] background fetch done", { freshCount: fresh.length });
               setRows(fresh);
               saveCache(userIdStr, days, fresh);
             })
             .catch((e) => console.error("[REC][refresh] background fetch ERROR", e));
 
-          console.debug("[REC][refresh] end (non-force)", { tookMs: Math.round(performance.now() - t0) });
           return;
         }
 
         // Force fetch – okamžite ťahaj z API
         const fresh = await fetchRecovery(userIdStr, days);
-        console.debug("[REC][refresh] force fetch done", { freshCount: fresh.length });
         setRows(fresh);
         saveCache(userIdStr, days, fresh);
       } finally {
         setLoading(false);
-        console.debug("[REC][refresh] end", { tookMs: Math.round(performance.now() - t0) });
       }
     },
     [userIdStr, days]
@@ -223,12 +188,10 @@ export function RecoveryDataProvider({
 
   // Init: načítaj cache a spusti tichý refresh
   useEffect(() => {
-    console.debug("[REC][effect] init", { userIdStr, days });
     if (!userIdStr) return;
 
     const cached = loadCache(userIdStr, days);
     if (cached.length) {
-      console.debug("[REC][effect] setRows(cached)", { count: cached.length });
       setRows(cached);
     }
     // prvé načítanie: nech je to deterministické -> spravíme force,

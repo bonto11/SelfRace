@@ -5,7 +5,7 @@
 
 import type { ChartOptions } from "chart.js";
 import { THEME } from "@/shared/theme/tokens";
-import { isMonday, formatWeekRange } from "@/shared/utils/recovery";
+import { isMonday, formatWeekRange } from "@/shared/utils/time";
 
 type RecoveryLineOptsParams = {
   labelsISO: string[];                    // "YYYY-MM-DD" pre každý DEŇ v grafe (x-os zobrazuje len týždne)

@@ -2,12 +2,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import TrendWeeklyMonoStrain from "@/features/activity/components/TrendWeeklyMonoStrain";
-import ActivityTable from "@/features/activity/components/ActivityTable";
+import TrendWeeklyMonoStrain from "@/features/activities/components/TrendWeeklyMonoStrain";
+import ActivityTable from "@/features/activities/components/ActivityTable";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
-import type { WeekPick } from "@/features/activity/utils/activity";
-
-type Range = { start?: string; end?: string };
+import type { WeekPick, Range } from "@/features/activities/types/activities";
 
 export default function Page() {
   const [range, setRange] = useState<Range>({});
@@ -20,10 +18,8 @@ export default function Page() {
 
   return (
     <>
-      {/* Sticky header s Back */}
       <ButtonBack title="Monotomy & Strain trend" />
 
-      {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">
         <div className="mt-3">
           <TrendWeeklyMonoStrain

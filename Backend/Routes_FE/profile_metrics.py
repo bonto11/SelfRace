@@ -11,6 +11,9 @@ from Services.profile_metrics import (
     service_get_latest_metrics,
     service_get_vo2_history,
     service_get_vo2_estimate,
+)
+
+from Schemas.profile_metrics import (
     BatchMetricsPayload,
     MetricKey,
 )

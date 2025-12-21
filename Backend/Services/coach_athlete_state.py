@@ -10,7 +10,7 @@ from Services.user_zones import service_build_zones_block_for_analysis
 from Services.user_bests import service_build_bests_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
 from Services.user_prefs import service_load_coach_prefs_for_analysis
-from Services.activities_summary_recent_load import (
+from Services.analytics_RecentLoad import (
     service_build_recent_load_block_for_analysis,
 )
 from Services.coach_external_events import service_list_external_events_window

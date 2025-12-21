@@ -1,21 +1,13 @@
 # Services/profile_static.py
 from __future__ import annotations
 
-from pydantic import BaseModel
 from typing import List, Optional, Literal, Dict, Any, Union
-from datetime import datetime, date
 from fastapi import HTTPException
 
 from Routes_DB.profile_static import db_fetch_static, db_upsert_static
-from Services.common import iso_now, birth_to_iso_date
+from Services.time import iso_now, birth_to_iso_date
+from Schemas.profile_static import StaticPayload
 
-
-class StaticPayload(BaseModel):
-    sex: Optional[Literal["M", "F"]] = None
-    birth_date: Optional[Union[str, date, datetime]] = None
-    height_cm: Optional[float] = None
-    # voliteľne – keď pošleš, upsert pôjde cez user_uid
-    user_uid: Optional[str] = None
 
 
 def service_get_static_profile(

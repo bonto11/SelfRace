@@ -9,16 +9,13 @@ import { useUserId } from "@/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/shared/utils/bands";
 import { THEME } from "@/shared/theme/tokens";
 import { NO_X_OVERFLOW } from "@/shared/ui/classes";
+import { fmtDate } from "@/shared/utils/time";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 type StaticProfile = { sex: "M" | "F" };
 
 type MetricRowBE = { measured_at: string; value_num: number | null };
 type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
-
-function fmtDate(d?: string | null) {
-  return d ? new Date(d).toLocaleDateString("sk-SK") : "—";
-}
 
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();

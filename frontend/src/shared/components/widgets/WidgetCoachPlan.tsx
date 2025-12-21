@@ -118,7 +118,7 @@ function RowAction({
 
 export default function WidgetCoachPlan() {
   const router = useRouter();
-  const { userId } = useUserId();
+  const { userId, userUuid } = useUserId();
 
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
@@ -229,12 +229,12 @@ export default function WidgetCoachPlan() {
   /* ---- handlers ---- */
 
   const handleAnalyze = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !userUuid) return;
     setError(null);
     setLoadingKind("analyze");
 
     try {
-      const json = await apiAnalyzeAthleteState(userId, {
+      const json = await apiAnalyzeAthleteState(userId, userUuid, {
         debugRaw: false,
         explicitModel: "coach-analyze-stub",
       });
@@ -257,10 +257,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId]);
+  }, [userId, userUuid]);
 
   const handleGenerateWeekly = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !userUuid) return;
     setError(null);
     setLoadingKind("weekly");
 
@@ -268,7 +268,7 @@ export default function WidgetCoachPlan() {
       const weeks = (prefs as any)?.weeks ?? null;
       const stateId = result?.state_id ?? latestStateId ?? null;
 
-      await apiGenerateWeeklyPlan(userId, {
+      await apiGenerateWeeklyPlan(userId, userUuid, {
         overwrite: true,
         weeks,
         state_id: stateId,
@@ -280,15 +280,15 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, prefs, result, latestStateId, markGenerated]);
+  }, [userId, userUuid, prefs, result, latestStateId, markGenerated]);
 
   const handleGenerateDaily = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || !userUuid) return;
     setError(null);
     setLoadingKind("daily");
 
     try {
-      await apiGenerateDailyForWeek(userId, {
+      await apiGenerateDailyForWeek(userId,userUuid, {
         week_index: 1,
         plan_id: null,
         overwrite: true,
@@ -300,7 +300,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, markGenerated]);
+  }, [userId, userUuid, markGenerated]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId) return;

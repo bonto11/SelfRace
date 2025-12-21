@@ -6,7 +6,7 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
-import { addDaysIso, handleTimeInput } from "@/shared/utils/recovery";
+import { addDaysIso, handleTimeInput } from "@/shared/utils/time";
 import { toast } from "@/shared/components/ui/Toast";
 
 import {

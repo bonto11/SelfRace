@@ -1,22 +1,26 @@
 // src/shared/components/SessionCard.tsx
 "use client";
 
-import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import HrChart from "@/shared/components/trend/HrChart";
 import SportBadge from "@/shared/components/ui/SportBadge";
-import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
-import { SURFACE_CARD, SURFACE_INLINE, FLUSH_DETAIL } from "@/shared/ui/classes";
-import { ComponentVariant } from "@/features/activity/utils/activity";
+import { formatDistance } from "@/shared/utils/distance";
+import { fmtSecondsHMS } from "@/shared/utils/time";
+import {
+  SURFACE_CARD,
+  SURFACE_INLINE,
+  FLUSH_DETAIL,
+} from "@/shared/ui/classes";
+import { ComponentVariant } from "@/features/activities/types/activities";
 
 /** ========== Types ========== */
 
 export type SessionKind = "activity" | "plan" | "external";
 export type PlanStatus = "planned" | "done" | "missed";
 
-export type KPI = { label: string; value: any }; // value môže byť čokoľvek
+export type KPI = { label: string; value: any };
 
 type Base = {
   id: string | number;
@@ -25,11 +29,9 @@ type Base = {
   dateIso?: string | null;
   sport: string;
 
-  /** UI behavior */
   defaultOpen?: boolean;
   hideDateLine?: boolean;
 
-  /** calendar-friendly */
   subtitle?: string | null;
   kpis?: KPI[];
   notes?: string | null;
@@ -39,17 +41,13 @@ export type ActivitySession = Base & {
   kind: "activity";
   activityId: number;
 
-  // fallback values
   timeStr?: string | null;
   distanceStr?: string | null;
   avgHr?: number | null;
   maxHr?: number | null;
 
-  /** PB/pinned UI */
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
-
-  /** optional actions */
   onEdit?: () => void;
   onDelete?: () => void;
 };
@@ -65,7 +63,6 @@ export type PlanSession = Base & {
 
   planRaw?: any;
   planStructure?: any;
-  /** array only (no null) */
   planExercises?: any[];
 };
 
@@ -81,12 +78,14 @@ export type SessionCardItem = ActivitySession | PlanSession | ExternalSession;
 export type SessionCardProps = {
   variant?: ComponentVariant; // "activity" | "calendar" | "pb" | "plan"
   item: SessionCardItem;
-
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
 };
 
-const PRESET: Record<ComponentVariant, { outerPadding: string; compactChart: boolean }> = {
+const PRESET: Record<
+  ComponentVariant,
+  { outerPadding: string; compactChart: boolean }
+> = {
   activity: { outerPadding: "px-5 py-4", compactChart: false },
   calendar: { outerPadding: "px-5 py-4", compactChart: true },
   pb: { outerPadding: "px-5 py-4", compactChart: true },
@@ -120,7 +119,6 @@ function statusCls(status: PlanStatus): string {
   return "border-slate-500/80 text-slate-200 bg-slate-500/5";
 }
 
-/** vyparsuje km zo stringu typu "6.08 km" */
 function parseKm(s?: string | null): number | null {
   if (!s) return null;
   const m = s.match(/(-?\d+(?:[.,]\d+)?)\s*km/i);
@@ -134,7 +132,11 @@ function fmtMin(m?: number) {
 
 function safeText(value: any): string {
   if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return String(value);
   }
   try {
@@ -166,37 +168,37 @@ export default function SessionCard({
     if (item.defaultOpen) setOpened(true);
   }, [item.defaultOpen]);
 
-  // na calendar variante nechceme opakovať dátum vnútri itemu
   const dateLine =
     item.hideDateLine || variant === "calendar"
       ? ""
       : prettySkDate(item.dateIso);
 
   const secondaryLine = useMemo(() => {
-    // calendar chce subtitle (ak existuje) pred ostatným
     if (variant === "calendar" && item.subtitle) return item.subtitle;
 
     if (item.kind === "activity") {
-      const distKm = parseKm(item.distanceStr);
-      if (distKm != null && distKm > 0 && item.distanceStr)
-        return `Distance ${item.distanceStr}`;
-      if (item.timeStr) return `Time ${item.timeStr}`;
+      const act = item as ActivitySession;
+      const distKm = parseKm(act.distanceStr);
+      if (distKm != null && distKm > 0 && act.distanceStr)
+        return `Distance ${act.distanceStr}`;
+      if (act.timeStr) return `Time ${act.timeStr}`;
       return null;
     }
 
     if (item.kind === "plan") {
+      const plan = item as PlanSession;
       const bits = [
-        item.planDur ?? "",
-        item.planIntensity ?? "",
-        item.planTarget ?? "",
+        plan.planDur ?? "",
+        plan.planIntensity ?? "",
+        plan.planTarget ?? "",
       ].filter(Boolean);
       return bits.length ? bits.join(" · ") : null;
     }
 
-    // external
+    const ext = item as ExternalSession;
     const bits = [
-      item.time ? item.time : null,
-      item.durationMin != null ? `${item.durationMin} min` : null,
+      ext.time ? ext.time : null,
+      ext.durationMin != null ? `${ext.durationMin} min` : null,
     ].filter(Boolean);
     return bits.length ? bits.join(" · ") : null;
   }, [item, variant]);
@@ -210,7 +212,7 @@ export default function SessionCard({
         <div className="text-sm font-medium truncate">{dateLine}</div>
 
         <div className="flex items-center gap-2">
-          {item.kind === "activity" && item.isFavorite && (
+          {item.kind === "activity" && (item as ActivitySession).isFavorite && (
             <span
               className="text-[12px] leading-none opacity-90"
               title="Favorite"
@@ -223,10 +225,10 @@ export default function SessionCard({
             <span
               className={[
                 "inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border",
-                statusCls(item.status),
+                statusCls((item as PlanSession).status),
               ].join(" ")}
             >
-              {statusLabel(item.status)}
+              {statusLabel((item as PlanSession).status)}
             </span>
           )}
 
@@ -315,36 +317,45 @@ function DetailBody({
 
   // -------- PLAN --------
   if (item.kind === "plan") {
-    const raw = item.planRaw ?? undefined;
-    const structure = item.planStructure ?? raw?.structure ?? undefined;
+    const plan = item as PlanSession;
+
+    const raw = plan.planRaw ?? undefined;
+    const structure = plan.planStructure ?? raw?.structure ?? undefined;
+
+    // preferuj: plan.planExercises → structure.strength_exercises → raw.strength_exercises
     const exercises =
-      item.planExercises ??
-      (structure && Array.isArray(structure.strength_exercises)
-        ? structure.strength_exercises
-        : []) ??
-      [];
+      Array.isArray(plan.planExercises) && plan.planExercises.length > 0
+        ? plan.planExercises
+        : Array.isArray((structure as any)?.strength_exercises) &&
+          (structure as any).strength_exercises.length > 0
+        ? (structure as any).strength_exercises
+        : Array.isArray((raw as any)?.strength_exercises)
+        ? (raw as any).strength_exercises
+        : [];
 
-    const wu = structure?.warmup ?? undefined;
-    const mainBlocks: any[] = Array.isArray(structure?.main)
-      ? structure.main
-      : structure?.main
-      ? [structure.main]
+    const wu = (structure as any)?.warmup ?? undefined;
+    const mainBlocks: any[] = Array.isArray((structure as any)?.main)
+      ? (structure as any).main
+      : (structure as any)?.main
+      ? [(structure as any).main]
       : [];
-    const cd = structure?.cooldown ?? undefined;
+    const cd = (structure as any)?.cooldown ?? undefined;
 
-    // DEBUG – nech vidíš, čo naozaj prichádza z Daily plánu
     console.log("[SessionCard] PLAN item", {
-      title: item.title,
-      planDur: item.planDur,
-      planIntensity: item.planIntensity,
-      planTarget: item.planTarget,
+      title: plan.title,
+      planDur: plan.planDur,
+      planIntensity: plan.planIntensity,
+      planTarget: plan.planTarget,
       raw,
       structure,
     });
     console.log("[SessionCard] PLAN exercises", {
-      title: item.title,
+      title: plan.title,
       count: Array.isArray(exercises) ? exercises.length : 0,
-      sample: Array.isArray(exercises) && exercises.length > 0 ? exercises[0] : undefined,
+      sample:
+        Array.isArray(exercises) && exercises.length > 0
+          ? exercises[0]
+          : undefined,
     });
 
     return (
@@ -355,14 +366,12 @@ function DetailBody({
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              item.planDur
-                ? { label: "DURATION", value: item.planDur }
+              plan.planDur ? { label: "DURATION", value: plan.planDur } : null,
+              plan.planIntensity
+                ? { label: "INTENSITY", value: plan.planIntensity }
                 : null,
-              item.planIntensity
-                ? { label: "INTENSITY", value: item.planIntensity }
-                : null,
-              item.planTarget
-                ? { label: "TARGET", value: item.planTarget }
+              plan.planTarget
+                ? { label: "TARGET", value: plan.planTarget }
                 : null,
             ]
               .filter(Boolean)
@@ -391,11 +400,11 @@ function DetailBody({
                 </div>
                 <div className="text-sm mt-0.5">
                   {[
-                    fmtMin(wu.minutes),
-                    typeof wu.notes === "string"
-                      ? wu.notes
-                      : wu.notes != null
-                      ? safeText(wu.notes)
+                    fmtMin((wu as any).minutes),
+                    typeof (wu as any).notes === "string"
+                      ? (wu as any).notes
+                      : (wu as any).notes != null
+                      ? safeText((wu as any).notes)
                       : null,
                   ]
                     .filter(Boolean)
@@ -406,9 +415,7 @@ function DetailBody({
 
             {mainBlocks.length > 0 && (
               <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-[11px] font-semibold opacity-80">
-                  MAIN
-                </div>
+                <div className="text-[11px] font-semibold opacity-80">MAIN</div>
                 <div className="text-sm mt-0.5 space-y-1">
                   {mainBlocks.map((mn: any, idx: number) => {
                     const line =
@@ -434,9 +441,7 @@ function DetailBody({
                         className="border-t border-white/5 pt-1 first:border-t-0 first:pt-0"
                       >
                         <div>{line}</div>
-                        {tgt && (
-                          <div className="opacity-90">target: {tgt}</div>
-                        )}
+                        {tgt && <div className="opacity-90">target: {tgt}</div>}
                         {noteText && (
                           <div className="opacity-90">{noteText}</div>
                         )}
@@ -454,11 +459,11 @@ function DetailBody({
                 </div>
                 <div className="text-sm mt-0.5">
                   {[
-                    fmtMin(cd.minutes),
-                    typeof cd.notes === "string"
-                      ? cd.notes
-                      : cd.notes != null
-                      ? safeText(cd.notes)
+                    fmtMin((cd as any).minutes),
+                    typeof (cd as any).notes === "string"
+                      ? (cd as any).notes
+                      : (cd as any).notes != null
+                      ? safeText((cd as any).notes)
                       : null,
                   ]
                     .filter(Boolean)
@@ -518,9 +523,9 @@ function DetailBody({
           </div>
         )}
 
-        {(item.planNotes || item.notes) && (
+        {(plan.planNotes || plan.notes) && (
           <div className="mt-3 text-sm opacity-90">
-            {safeText(item.planNotes ?? item.notes)}
+            {safeText(plan.planNotes ?? plan.notes)}
           </div>
         )}
 
@@ -540,6 +545,7 @@ function DetailBody({
 
   // -------- EXTERNAL --------
   if (item.kind === "external") {
+    const ext = item as ExternalSession;
     return (
       <div>
         {kpiBlock}
@@ -547,9 +553,9 @@ function DetailBody({
         {!hasKpis && (
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              item.time ? { label: "TIME", value: item.time } : null,
-              item.durationMin != null
-                ? { label: "DURATION", value: `${item.durationMin} min` }
+              ext.time ? { label: "TIME", value: ext.time } : null,
+              ext.durationMin != null
+                ? { label: "DURATION", value: `${ext.durationMin} min` }
                 : null,
             ]
               .filter(Boolean)
@@ -569,9 +575,9 @@ function DetailBody({
           </div>
         )}
 
-        {(item.notes ?? null) && (
+        {(ext.notes ?? null) && (
           <div className="mt-3 text-sm opacity-90">
-            {safeText(item.notes)}
+            {safeText(ext.notes)}
           </div>
         )}
       </div>
@@ -579,20 +585,22 @@ function DetailBody({
   }
 
   // -------- ACTIVITY --------
+  const act = item as ActivitySession;
+
   const s =
-    item.activityId != null
-      ? ((getSummary(item.activityId) as any) || null)
+    act.activityId != null
+      ? (getSummary(act.activityId) as any) || null
       : null;
 
   const distTxt = s
-    ? fmtDistance(s.distance_m ?? null)
-    : item.distanceStr ?? "—";
+    ? formatDistance(s.distance_m ?? null)
+    : act.distanceStr ?? "—";
   const timeTxt =
     s && s.moving_time_s != null
       ? fmtSecondsHMS(s.moving_time_s)
-      : item.timeStr ?? "—";
-  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : item.avgHr ?? "—";
-  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : item.maxHr ?? "—";
+      : act.timeStr ?? "—";
+  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
+  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
 
   const [streams, setStreams] = useState<{
     time_s: number[];
@@ -608,33 +616,66 @@ function DetailBody({
 
   useEffect(() => {
     let alive = true;
-    if (!item.activityId) return;
+    if (!act.activityId) return;
 
     (async () => {
       try {
-        const st = await getStreams(item.activityId);
-        const dt = await getDetail(item.activityId);
+        const st = await getStreams(act.activityId);
+        const dt = await getDetail(act.activityId);
+
         if (!alive) return;
-        if (st) setStreams(st as any);
-        if (dt) {
-          setLaps((dt as any).laps || []);
-          setSplits((dt as any).splits || []);
+
+        console.log("[SessionCard] streams raw", act.activityId, st);
+        console.log("[SessionCard] detail raw", act.activityId, dt);
+
+        if (st) {
+          const raw: any = st;
+
+          const time_s: number[] = Array.isArray(raw.time_s)
+            ? raw.time_s
+            : Array.isArray(raw.time)
+            ? raw.time
+            : [];
+
+          const hr: (number | null)[] = Array.isArray(raw.hr)
+            ? raw.hr
+            : Array.isArray(raw.heartrate_bpm)
+            ? raw.heartrate_bpm
+            : [];
+
+          const duration_s: number =
+            typeof raw.duration_s === "number"
+              ? raw.duration_s
+              : time_s.length
+              ? Number(time_s[time_s.length - 1]) || 0
+              : 0;
+
+          setStreams({ time_s, hr, duration_s });
+        } else {
+          console.log("[SessionCard] no streams for", act.activityId);
+          setStreams({ time_s: [], hr: [], duration_s: 0 });
         }
-      } catch {
-        // ticho
+
+        if (dt) {
+          const anyDt: any = dt;
+          setLaps(anyDt.laps || []);
+          setSplits(anyDt.splits || []);
+        }
+      } catch (err) {
+        console.error("[SessionCard] getStreams/getDetail error", err);
+        setStreams({ time_s: [], hr: [], duration_s: 0 });
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [item.activityId, getStreams, getDetail]);
+  }, [act.activityId, getStreams, getDetail]);
 
   return (
     <div>
       {kpiBlock}
 
-      {/* fallback KPI pre activity (ak neprídu calendar kpis) */}
       {!hasKpis && (
         <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
           {[
@@ -647,9 +688,7 @@ function DetailBody({
               key={t.label}
               className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
             >
-              <div className="text-[10px] opacity-70">
-                {safeText(t.label)}
-              </div>
+              <div className="text-[10px] opacity-70">{safeText(t.label)}</div>
               <div className="text-xl font-semibold tabular-nums">
                 {safeText(t.value)}
               </div>
@@ -658,32 +697,31 @@ function DetailBody({
         </div>
       )}
 
-      {/* PB actions */}
-      {"onEdit" in item &&
-        (item.onEdit || item.onDelete || item.onToggleFavorite) && (
+      {"onEdit" in act &&
+        (act.onEdit || act.onDelete || act.onToggleFavorite) && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {item.onToggleFavorite && (
+            {act.onToggleFavorite && (
               <button
                 type="button"
-                onClick={item.onToggleFavorite}
+                onClick={act.onToggleFavorite}
                 className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
               >
-                {item.isFavorite ? "★ Favorite" : "☆ Set favorite"}
+                {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
               </button>
             )}
-            {item.onEdit && (
+            {act.onEdit && (
               <button
                 type="button"
-                onClick={item.onEdit}
+                onClick={act.onEdit}
                 className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
               >
                 Edit
               </button>
             )}
-            {item.onDelete && (
+            {act.onDelete && (
               <button
                 type="button"
-                onClick={item.onDelete}
+                onClick={act.onDelete}
                 className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
               >
                 Delete
@@ -692,12 +730,11 @@ function DetailBody({
           </div>
         )}
 
-      {/* CTA (napr z kalendára) */}
       {onOpenActivity && (
         <div className="mt-3">
           <button
             type="button"
-            onClick={() => onOpenActivity(item.activityId)}
+            onClick={() => onOpenActivity(act.activityId)}
             className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
           >
             Otvoriť aktivitu
@@ -705,11 +742,8 @@ function DetailBody({
         </div>
       )}
 
-      {/* notes (calendar môže poslať item.notes) */}
       {item.notes && (
-        <div className="mt-3 text-sm opacity-90">
-          {safeText(item.notes)}
-        </div>
+        <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
       )}
 
       {/* HR priebeh */}
@@ -740,7 +774,7 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {splits.map((sp: any, idx: number) => (
               <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)},{" "}
+                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},{" "}
                 {fmtSecondsHMS(sp.moving_time_s)}
               </li>
             ))}
@@ -754,7 +788,7 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {laps.map((lap: any, idx: number) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
+                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},{" "}
                 {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}
@@ -762,7 +796,6 @@ function DetailBody({
         </>
       )}
 
-      {/* (voliteľne) debug pre calendar pri potrebe */}
       {variant === "calendar" && showPlanDebug && (
         <details className="mt-4">
           <summary className="text-xs opacity-70 cursor-pointer">

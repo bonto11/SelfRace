@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/shared/theme/tokens";
-import { fmtMinutes } from "@/shared/utils/format";
+import { fmtMinutes } from "@/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/configs/config_sports";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 
@@ -18,8 +18,8 @@ type Props = {
 
 const colEasy80 = THEME.chart.easy80;
 const colHard20 = THEME.chart.hard20;
-const colTrack  = THEME.chart.track;
-const colTick   = THEME.chart.tick;
+const colTrack = THEME.chart.track;
+const colTick = THEME.chart.tick;
 
 export default function WidgetPareto8020({
   onOpenTrend,
@@ -33,12 +33,20 @@ export default function WidgetPareto8020({
     if (Array.isArray(sport)) return sportsToCSV(sport);
     const s = String(sport).trim();
     if (!s || s.toLowerCase() === "all") return "all";
-    const list = s.split(",").map((x) => x.trim()).filter(Boolean);
+    const list = s
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
     return sportsToCSV(normalizeSportList(list));
   }, [sport]);
 
   const [loading, setLoading] = useState<boolean>(false);
-  const [data,   setData]    = useState<{ easy_min: number; hard_min: number; total_min: number; days: number } | null>(null);
+  const [data, setData] = useState<{
+    easy_min: number;
+    hard_min: number;
+    total_min: number;
+    days: number;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -47,12 +55,16 @@ export default function WidgetPareto8020({
       try {
         const d = await getParetoWidget(7 * weeks, sportParam);
         if (!alive) return;
-        setData(d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks });
+        setData(
+          d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks }
+        );
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [getParetoWidget, weeks, sportParam]);
 
   const E = Math.max(0, Number(data?.easy_min ?? 0));
@@ -62,30 +74,33 @@ export default function WidgetPareto8020({
   const easyPct = T ? Math.round((E / T) * 100) : 0;
   const hardPct = T ? 100 - easyPct : 0;
   const targetEasy = 0.8 * T;
-  const deltaEasy  = Math.round(targetEasy - E);
+  const deltaEasy = Math.round(targetEasy - E);
 
   // Dynamický accent podľa odchýlky od 80/20 (len pri T>0)
   // <=5% off => zelená, 5–10% => jantár, >10% => červená, inak neutrál
   const deviation = T ? Math.abs(E - targetEasy) / T : 1;
   const accent =
-    T === 0            ? "bg-slate-700" :
-    deviation <= 0.05  ? "bg-emerald-600" :
-    deviation <= 0.10  ? "bg-amber-500" :
-                         "bg-red-600";
+    T === 0
+      ? "bg-slate-700"
+      : deviation <= 0.05
+      ? "bg-emerald-600"
+      : deviation <= 0.1
+      ? "bg-amber-500"
+      : "bg-red-600";
 
   // --- SVG prstenec ---
   const size = 150;
   const stroke = 22;
-  const r  = (size - stroke) / 2;
+  const r = (size - stroke) / 2;
   const cx = size / 2;
   const cy = size / 2;
-  const C  = 2 * Math.PI * r;
+  const C = 2 * Math.PI * r;
   const easyLen = (easyPct / 100) * C;
   const hardLen = C - easyLen;
   const startAtTop = `rotate(-90 ${cx} ${cy})`;
 
   // 80/20 tick (20% hard)
-  const theta  = -Math.PI / 2 + 2 * Math.PI * 0.2;
+  const theta = -Math.PI / 2 + 2 * Math.PI * 0.2;
   const outerR = r + stroke / 2 + 5;
   const innerR = r - stroke / 2 - 5;
   const x1 = cx + outerR * Math.cos(theta);
@@ -117,35 +132,79 @@ export default function WidgetPareto8020({
       ) : (
         <>
           <div className="w-full flex items-center justify-center">
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="80/20 prstenec">
-              <circle cx={cx} cy={cy} r={r} stroke={colTrack} strokeWidth={stroke} fill="none" transform={startAtTop} />
+            <svg
+              width={size}
+              height={size}
+              viewBox={`0 0 ${size} ${size}`}
+              role="img"
+              aria-label="80/20 prstenec"
+            >
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                stroke={colTrack}
+                strokeWidth={stroke}
+                fill="none"
+                transform={startAtTop}
+              />
               {/* HARD segment (20%) */}
               <circle
-                cx={cx} cy={cy} r={r} fill="none"
-                stroke={colHard20} strokeWidth={stroke}
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={colHard20}
+                strokeWidth={stroke}
                 strokeDasharray={`${hardLen} ${C - hardLen}`}
                 strokeDashoffset={0}
                 transform={startAtTop}
               />
               {/* EASY segment (80%) */}
               <circle
-                cx={cx} cy={cy} r={r} fill="none"
-                stroke={colEasy80} strokeWidth={stroke}
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={colEasy80}
+                strokeWidth={stroke}
                 strokeDasharray={`${easyLen} ${C - easyLen}`}
                 strokeDashoffset={easyLen}
                 transform={startAtTop}
               />
               {/* cieľová 80/20 ryska */}
-              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={colTick} strokeWidth={6} strokeLinecap="round" />
-              <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="18" fontWeight={800}>
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={colTick}
+                strokeWidth={6}
+                strokeLinecap="round"
+              />
+              <text
+                x={cx}
+                y={cy}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill="#fff"
+                fontSize="18"
+                fontWeight={800}
+              >
                 {T ? `${easyPct}% / ${hardPct}%` : "0% / 0%"}
               </text>
             </svg>
           </div>
 
           <div className="mt-3 text-xs opacity-85">
-            Easy: {fmtMinutes(E)} ({easyPct}%){' \u00B7 '}Hard: {fmtMinutes(H)} ({hardPct}%)
-            {T ? <> {' \u00B7 '} {fmtMinutes(T)} spolu</> : null}
+            Easy: {fmtMinutes(E)} ({easyPct}%){" \u00B7 "}Hard: {fmtMinutes(H)}{" "}
+            ({hardPct}%)
+            {T ? (
+              <>
+                {" "}
+                {" \u00B7 "} {fmtMinutes(T)} spolu
+              </>
+            ) : null}
           </div>
           {note && <div className="mt-1 text-xs opacity-70">{note}</div>}
         </>

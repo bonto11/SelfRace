@@ -6,21 +6,7 @@ import { useActivityData } from "@/shared/components/dataProviders/ActivityDataP
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { THEME } from "@/shared/theme/tokens";
-
-function minToHM(totalMin: number) {
-  const h = Math.floor(totalMin / 60);
-  const m = Math.round(totalMin % 60);
-  return { h, m };
-}
-function fmtRange(s: string, e: string) {
-  const sd = new Date(s), ed = new Date(e);
-  if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) return "—";
-  const sdD = sd.getDate(), sdM = sd.getMonth() + 1;
-  const edD = ed.getDate(), edM = ed.getMonth() + 1;
-  return sdM === edM
-    ? `${sdD}–${edD}.${edM}.`
-    : `${sdD}.${sdM}.–${edD}.${edM}.`;
-}
+import { minToHM, fmtRange } from "@/shared/utils/time";
 
 export default function WeeklyLoadWidget({
   title = "Záťaž – posledných 7 dní",

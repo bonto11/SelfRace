@@ -21,7 +21,6 @@ import {
   type CalendarItemBase,
   type CalendarItemKind,
 } from "@/features/calendar/utils/calendarSlots";
-import { isRestSession } from "@/features/calendar/utils/calendarFormat";
 import type { SportKey, PlanStatus } from "@/features/calendar/types/calendarTypes";
 
 /* ---------- helpers ---------- */

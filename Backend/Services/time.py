@@ -1,6 +1,9 @@
 # Services/time.py
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone, date, time
 from fastapi import HTTPException
+from typing import Optional, Union
 
 def hhmmss_to_seconds(s: str | None) -> int | None:
     if not s:
@@ -16,7 +19,6 @@ def hhmmss_to_seconds(s: str | None) -> int | None:
         return h * 3600 + m * 60 + sec
     except Exception:
         return None
-
 
 def seconds_to_hhmmss(sec: int | None) -> str | None:
     if sec is None:
@@ -108,3 +110,18 @@ def parse_date_ymd(s: str) -> date:
         return datetime.strptime(s, "%Y-%m-%d").date()
     except Exception:
         raise HTTPException(status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD")
+
+def iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def birth_to_iso_date(val: Optional[Union[str, date, datetime]]) -> Optional[str]:
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val  # očakávame "YYYY-MM-DD"
+    if isinstance(val, date) and not isinstance(val, datetime):
+        return val.isoformat()
+    if isinstance(val, datetime):
+        return val.date().isoformat()
+    return None
