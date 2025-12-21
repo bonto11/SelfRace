@@ -16,16 +16,19 @@ import {
 import type {
   LatestMetricsMap,
   MetricKey,
-  EditableMetricKey
-} from "@/features/profile/types/metricsTypes";
+  EditableMetricKey,
+  MetricState,
+  DirtyMap
+} from "@/features/profile/types/profile";
 import {
   buildMetricPlaceholders,
   formatBmiFromLatest,
-  formatMetricDate,
-} from "@/features/profile/utils/metrics";
+} from "@/features/profile/utils/profile";
 
-type MetricState = Record<EditableMetricKey, number | null>;
-type DirtyMap = Record<EditableMetricKey, boolean>;
+import {
+  formatMetricDate,
+} from "@/shared/utils/time";
+
 
 function SummaryRow({ k, v, extra }: { k: string; v: string; extra?: string }) {
   return (
@@ -244,9 +247,7 @@ export default function FormMetrics() {
               inputMode="decimal"
               value={m.body_fat_pct ?? ""}
               placeholder={ph.body_fat_pct}
-              onChange={(e) =>
-                onChangeNumber("body_fat_pct", e.target.value)
-              }
+              onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
               className={`${inputClass} h-9 text-sm text-center`}
             />
           </div>
@@ -267,8 +268,7 @@ export default function FormMetrics() {
 
           <div>
             <label className={`${labelClass} block mb-1`}>
-              VO₂Max (measured){" "}
-              <span className="opacity-60">(mL/kg/min)</span>
+              VO₂Max (measured) <span className="opacity-60">(mL/kg/min)</span>
             </label>
             <input
               type="number"
@@ -284,8 +284,7 @@ export default function FormMetrics() {
 
           <div>
             <label className={`${labelClass} block mb-1`}>
-              VO₂Max (estimated){" "}
-              <span className="opacity-60">(mL/kg/min)</span>
+              VO₂Max (estimated) <span className="opacity-60">(mL/kg/min)</span>
             </label>
             <input
               type="number"

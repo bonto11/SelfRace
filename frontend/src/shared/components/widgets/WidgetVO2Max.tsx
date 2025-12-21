@@ -10,23 +10,12 @@ import vo2Ref from "@/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/shared/theme/tokens";
 import { NO_X_OVERFLOW } from "@/shared/ui/classes";
 import { fmtDate } from "@/shared/utils/time";
+import { HistoryRow, EstRow, Group, Range} from "@/features/profile/types/profile";
+import { levelColor } from "@/features/profile/utils/profile";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
-type HistoryRow = { VO2Max: number | null; updated_at: string };
-type EstRow = { value?: number | null; updated_at?: string | null; success?: boolean };
-type Range = { label: string; min: number | null; max: number | null };
-type Group = { sex: "M" | "F"; age_min: number; age_max: number; ranges: Range[] };
 
-function levelColor(label: string) {
-  const l = label.toLowerCase();
-  if (l.includes("excellent") || l.includes("elite")) return (THEME as any)?.chart?.excellent ?? "#10B981";
-  if (l.includes("superior"))                         return (THEME as any)?.chart?.superior  ?? "#14B8A6";
-  if (l.includes("good"))                             return (THEME as any)?.chart?.good      ?? "#22D3EE";
-  if (l.includes("fair") || l.includes("average"))    return (THEME as any)?.chart?.fair      ?? "#F59E0B";
-  if (l.includes("poor"))                             return (THEME as any)?.chart?.poor      ?? "#F43F5E";
-  return (THEME as any)?.chart?.neutral ?? "#64748B";
-}
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;

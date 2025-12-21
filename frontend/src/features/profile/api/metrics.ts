@@ -7,7 +7,7 @@ import type {
   SaveMetricsSuccess,
   MetricsApiFail,
   MetricHistoryRow,
-} from "@/features/profile/types/metricsTypes";
+} from "@/features/profile/types/profile";
 
 /** GET latest metrics */
 export async function apiGetLatestMetrics(
@@ -74,7 +74,12 @@ export async function apiGetMetricHistory(
   const res = await fetch(url, { cache: "no-store" });
   const json = await res.json().catch(() => null);
 
-  if (!res.ok || !json || json?.success === false || !Array.isArray(json.data)) {
+  if (
+    !res.ok ||
+    !json ||
+    json?.success === false ||
+    !Array.isArray(json.data)
+  ) {
     return null;
   }
 

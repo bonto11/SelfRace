@@ -1,4 +1,6 @@
 // src/utils/time.ts
+import { THEME } from "@/shared/theme/tokens";
+
 export function parseHHMMSS(s?: string | null): number | null {
   if (!s) return null;
   const parts = s.trim().split(":").map(Number);
@@ -311,4 +313,11 @@ export function formatDate(value: string | null | undefined): string | null {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+
+/** Lokalizovaný dátum pre summary. */
+export function formatMetricDate(d?: string | null): string {
+  const loc = THEME.i18n?.dateLocale ?? "sk-SK";
+  return d ? new Date(d).toLocaleDateString(loc) : "—";
 }

@@ -9,7 +9,7 @@ import {
   apiSaveBest,
   apiDeleteBest,
   type UserBest,
-} from "@/shared/api/bests";
+} from "@/features/bests/api/bests";
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";

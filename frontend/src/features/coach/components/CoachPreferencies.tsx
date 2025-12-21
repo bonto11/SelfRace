@@ -7,7 +7,6 @@ import type {
   SportKind,
   CoachPersona,
   RunTargets,
-  SecondaryRole,
   SecondaryMix,
 } from "@/features/coach/types/prefsTypes";
 import type { DayAbbrev } from "@/shared/types/day";

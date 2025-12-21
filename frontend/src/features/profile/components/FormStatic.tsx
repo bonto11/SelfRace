@@ -13,11 +13,8 @@ import {
   apiGetStaticProfile,
   apiSaveStaticProfile,
 } from "@/features/profile/api/static";
-import type {
-  Sex,
-  StaticProfile,
-} from "@/features/profile/types/staticTypes";
-import { summarizeStaticProfile } from "@/features/profile/utils/static";
+import type { Sex, StaticProfile } from "@/features/profile/types/profile";
+import { summarizeStaticProfile } from "@/features/profile/utils/profile";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (

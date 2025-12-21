@@ -39,7 +39,7 @@ export default function SignInForm() {
 
     if (data?.session) {
       try {
-        await fetch("/api/auth/set-session", {
+        await fetch("/features/auth/api/set-session", {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "include",
@@ -48,7 +48,7 @@ export default function SignInForm() {
       } catch {/* ignore */}
     }
 
-    router.replace("/dashboard");
+    router.replace("/activities");
   }
 
   return (

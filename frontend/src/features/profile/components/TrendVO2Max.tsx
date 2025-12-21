@@ -13,23 +13,17 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
-import type { StaticProfile } from "@/features/profile/types/staticTypes";
-import type { MetricHistoryRow } from "@/features/profile/types/metricsTypes";
+import type { StaticProfile, MetricHistoryRow, Group } from "@/features/profile/types/profile";
 import { apiGetStaticProfile } from "@/features/profile/api/static";
 import { apiGetMetricHistory } from "@/features/profile/api/metrics";
 import {
   colorForVo2RangeLabel,
   hexWithAlpha,
-} from "@/features/profile/utils/chartColors";
+} from "@/features/profile/utils/profile";
 
 ensureChartJSRegistered();
 
-type Group = {
-  sex: "M" | "F";
-  age_min: number;
-  age_max: number;
-  ranges: { label: string; min: number | null; max: number | null }[];
-};
+
 
 const DAY = 24 * 3600 * 1000;
 const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
@@ -137,8 +131,7 @@ export default function TrendVO2Max() {
   const birthDate = stat?.birth_date || "";
   const age = birthDate
     ? Math.floor(
-        (Date.now() - new Date(birthDate).getTime()) /
-          (365.25 * 86400 * 1000)
+        (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)
       )
     : 0;
 
@@ -154,9 +147,7 @@ export default function TrendVO2Max() {
   const finiteVals = [...seriesEst, ...seriesMeas].filter(
     Number.isFinite
   ) as number[];
-  const rangeMaxes = ranges.map((r) =>
-    typeof r.max === "number" ? r.max : 0
-  );
+  const rangeMaxes = ranges.map((r) => (typeof r.max === "number" ? r.max : 0));
   const suggestedTop = Math.max(
     60,
     Math.ceil(
@@ -317,10 +308,7 @@ export default function TrendVO2Max() {
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div
-          className="relative"
-          style={{ height: THEME.chart.weeklyHeight }}
-        >
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

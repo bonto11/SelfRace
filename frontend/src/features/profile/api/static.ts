@@ -5,7 +5,7 @@ import type {
   StaticProfile,
   StaticProfileSuccess,
   StaticApiFail,
-} from "@/features/profile/types/staticTypes";
+} from "@/features/profile/types/profile";
 
 /** GET /profile/static/:user_id */
 export async function apiGetStaticProfile(

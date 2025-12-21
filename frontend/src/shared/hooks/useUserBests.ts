@@ -1,10 +1,9 @@
 // src/hooks/useBests.ts
 import { useCallback, useEffect, useState } from "react";
-import type { typePB } from "@/features/coach/types/coachTypes";
-import { apiGetBests, apiSaveBest } from "@/shared/api/bests";
+import type { typePB } from "@/features/bests/types/bests";
+import { apiGetBests, apiSaveBest } from "@/features/bests/api/bests";
+import { CANONICAL_DISTANCES } from "@/features/bests/utils/bests";
 import { formatHHMMSS } from "@/shared/utils/time";
-
-const CANONICAL_DISTANCES = [400, 1000, 5000, 21097, 42195] as const;
 
 export function useBests(userId: number) {
   const [bests, setBests] = useState<typePB[]>([]);

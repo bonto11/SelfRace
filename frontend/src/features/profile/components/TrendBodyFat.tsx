@@ -13,14 +13,13 @@ import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { CARD, SCROLL_X } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 
-import type { StaticProfile } from "@/features/profile/types/staticTypes";
-import type { MetricHistoryRow } from "@/features/profile/types/metricsTypes";
+import type { StaticProfile, MetricHistoryRow } from "@/features/profile/types/profile";
 import { apiGetStaticProfile } from "@/features/profile/api/static";
 import { apiGetMetricHistory } from "@/features/profile/api/metrics";
 import {
   colorForBodyFatBand,
   hexWithAlpha,
-} from "@/features/profile/utils/chartColors";
+} from "@/features/profile/utils/profile";
 
 ensureChartJSRegistered();
 
@@ -63,9 +62,9 @@ export default function TrendBodyFat() {
   }, [userId, userUid]);
 
   const lookbackDays = weeks * 7;
-  const cutoffISO = new Date(
-    Date.now() - lookbackDays * 86400000
-  ).toISOString().slice(0, 10);
+  const cutoffISO = new Date(Date.now() - lookbackDays * 86400000)
+    .toISOString()
+    .slice(0, 10);
 
   const samples = (hist || [])
     .map((r) => ({
@@ -207,10 +206,7 @@ export default function TrendBodyFat() {
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div
-          className="relative"
-          style={{ height: THEME.chart.weeklyHeight }}
-        >
+        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

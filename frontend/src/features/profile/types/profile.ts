@@ -1,4 +1,33 @@
-// src/features/profile/types/metricsTypes.ts
+export type HistoryRow = { VO2Max: number | null; updated_at: string };
+export type EstRow = {
+  value?: number | null;
+  updated_at?: string | null;
+  success?: boolean;
+};
+export type Range = { label: string; min: number | null; max: number | null };
+export type Group = {
+  sex: Sex;
+  age_min: number;
+  age_max: number;
+  ranges: { label: string; min: number | null; max: number | null }[];
+};
+export type Sex = "M" | "F" | null;
+
+export type StaticProfile = {
+  sex: Sex;
+  birth_date: string | null;
+  height_cm: number | null;
+};
+
+export type StaticProfileSuccess = {
+  success: true;
+  data: StaticProfile;
+};
+
+export type StaticApiFail = {
+  success: false;
+  detail?: string;
+};
 
 /** Kľúče metrík, ktoré eviduješ v profile/metrics. */
 export type MetricKey =
@@ -8,6 +37,13 @@ export type MetricKey =
   | "VO2Max_measured"
   | "VO2Max_estimated"
   | "BMI";
+
+export type EditableMetricKey =
+  | "weight_kg"
+  | "body_fat_pct"
+  | "HR_max"
+  | "VO2Max_measured"
+  | "VO2Max_estimated";
 
 /** Jeden latest záznam (summary) pre metriku. */
 export type LatestMetric = {
@@ -52,14 +88,11 @@ export type MetricsApiFail = {
   detail?: string;
 };
 
-export type EditableMetricKey =
-  | "weight_kg"
-  | "body_fat_pct"
-  | "HR_max"
-  | "VO2Max_measured"
-  | "VO2Max_estimated";
 
 export type MetricHistoryRow = {
   measured_at: string; // ISO datetime
   value_num: number | null;
 };
+
+export type MetricState = Record<EditableMetricKey, number | null>;
+export type DirtyMap = Record<EditableMetricKey, boolean>;

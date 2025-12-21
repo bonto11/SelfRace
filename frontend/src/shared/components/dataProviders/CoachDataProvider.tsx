@@ -20,7 +20,7 @@ import {
   apiGetCoachPrefs,
   apiSaveCoachPrefs,
 } from "@/features/coach/api/prefs";
-import { apiGetBests, type UserBest } from "@/shared/api/bests";
+import { apiGetBests, type UserBest } from "@/features/bests/api/bests";
 import { secToHHMMSS, todayISO, addDays } from "@/shared/utils/time";
 import { fetchPlanRangeApi } from "@/features/coach/api/planApi";
 
@@ -165,9 +165,7 @@ export function CoachDataProvider({
   const selectPlanByRange = useCallback(
     (start: string, end: string): PlanRow[] => {
       if (!planRows.length) return [];
-      return planRows.filter(
-        (r) => r.plan_date >= start && r.plan_date <= end
-      );
+      return planRows.filter((r) => r.plan_date >= start && r.plan_date <= end);
     },
     [planRows]
   );

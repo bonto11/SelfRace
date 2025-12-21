@@ -2,15 +2,6 @@
 // Základné typy pre coach modul, ktoré nemajú priame UI prepojenie.
 import type { DayAbbrev } from "@/shared/types/day";
 
-/** Personal best z BE / DB. */
-export type typePB = {
-  distance_m: number;
-  best_time_s?: number | null;
-  time_str?: string | null;
-  event_name?: string | null;
-  date?: string | null;
-};
-
 /**
  * Pôvodná (legacy) podoba CoachPrefs, používaná v starších verziách.
  * normalizeCoachPrefs ju mapuje na nový typ CoachPrefs.

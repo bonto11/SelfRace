@@ -10,7 +10,7 @@ let cached: WhoAmI | null = null;
 let inflight: Promise<WhoAmI> | null = null;
 
 async function fetchWhoAmI(): Promise<WhoAmI> {
-  const res = await fetch("/api/auth/whoami", {
+  const res = await fetch("/features/auth/api/whoami", {
     credentials: "include",
     cache: "no-store",
   });

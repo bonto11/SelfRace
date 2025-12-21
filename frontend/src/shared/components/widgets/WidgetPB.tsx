@@ -4,13 +4,21 @@
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useFavoritePBRun } from "@/shared/hooks/useFavoritePBRun";
-import { distanceLabel, apiGetBests, type UserBest } from "@/shared/api/bests";
+import {
+  distanceLabel,
+  apiGetBests,
+  type UserBest,
+} from "@/features/bests/api/bests";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/shared/utils/time";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";
 import { THEME } from "@/shared/theme/tokens";
 
-export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetPB({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { userId } = useUserId();
   const { favM } = useFavoritePBRun();
 
@@ -29,10 +37,15 @@ export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
-  const fav = useMemo(() => (favM ? rows.find(r => r.distance_m === favM) ?? null : null), [rows, favM]);
+  const fav = useMemo(
+    () => (favM ? rows.find((r) => r.distance_m === favM) ?? null : null),
+    [rows, favM]
+  );
 
   const main =
     fav?.best_time_s != null
@@ -42,10 +55,7 @@ export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }
   const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
   // farby z témy (fallback na neutrál, ak by chýbali tokens)
-  const accent =
-    THEME?.chart?.run ??
-    THEME?.chart?.positive ??
-    "#10B981";
+  const accent = THEME?.chart?.run ?? THEME?.chart?.positive ?? "#10B981";
 
   return (
     <WidgetCard
