@@ -132,6 +132,7 @@ def get_activity_detail(user_id: int, activity_id: int):
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
+'''
 class ZonesReq(BaseModel):
     ids: List[int]
     fetch: Optional[bool] = True
@@ -206,3 +207,4 @@ def backfill_zones_route(
         batch=batch,
     )
     return res
+'''
