@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { fmtSecondsHMS } from "@/shared/utils/format";
+import { fmtSecondsHMS } from "@/shared/utils/time";
 import { CHART_HR } from "@/shared/ui/classes";
 import type {JSX} from "react";
 

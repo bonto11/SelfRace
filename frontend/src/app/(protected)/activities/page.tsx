@@ -5,16 +5,15 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useUserId } from "@/shared/hooks/useUserId";
+import { resetClientCache } from "@/shared/utils/resetClientCache";
 import { toast } from "@/shared/components/ui/Toast";
+import Button from "@/shared/components/ui/Button";
+import { apiSyncActivities } from "@/features/activities/api/synchronization";
+import { SyncActivitiesStats } from "@/features/activities/types/synchronization";
 import WeeklyLoadWidget from "@/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/shared/components/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/shared/components/widgets/WidgetPareto8020";
 import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
-import Button from "@/shared/components/ui/Button";
-import { resetClientCache } from "@/shared/utils/resetClientCache";
-import { apiSyncActivities } from "@/features/activities/api/synchronization";
-
-import { SyncActivitiesStats } from "@/features/activities/types/synchronization";
 
 export default function ActivitiesPage() {
   const { userId } = useUserId();

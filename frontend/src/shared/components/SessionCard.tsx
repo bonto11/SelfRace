@@ -1,13 +1,13 @@
 // src/shared/components/SessionCard.tsx
 "use client";
 
-import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
 import HrChart from "@/shared/components/trend/HrChart";
 import SportBadge from "@/shared/components/ui/SportBadge";
-import { fmtDistance, fmtSecondsHMS } from "@/shared/utils/format";
+import { formatDistance } from "@/shared/utils/distance";
+import { fmtSecondsHMS } from "@/shared/utils/time";
 import {
   SURFACE_CARD,
   SURFACE_INLINE,
@@ -590,7 +590,7 @@ function DetailBody({
       : null;
 
   const distTxt = s
-    ? fmtDistance(s.distance_m ?? null)
+    ? formatDistance(s.distance_m ?? null)
     : item.distanceStr ?? "—";
   const timeTxt =
     s && s.moving_time_s != null
@@ -741,7 +741,7 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {splits.map((sp: any, idx: number) => (
               <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {fmtDistance(sp.distance_m)},{" "}
+                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},{" "}
                 {fmtSecondsHMS(sp.moving_time_s)}
               </li>
             ))}
@@ -755,7 +755,7 @@ function DetailBody({
           <ul className="list-disc pl-5">
             {laps.map((lap: any, idx: number) => (
               <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {fmtDistance(lap.distance_m)},{" "}
+                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},{" "}
                 {fmtSecondsHMS(lap.moving_time_s)}
               </li>
             ))}

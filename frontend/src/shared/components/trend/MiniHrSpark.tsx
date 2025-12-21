@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useActivityData } from "@/shared/components/dataProviders/ActivityDataProvider";
-import { fmtSecondsHMS } from "@/shared/utils/format";
+import { fmtSecondsHMS } from "@/shared/utils/time";
 import { CHART_SPARK } from "@/shared/ui/classes";
 
 type Props = { activityId: number; height?: number };
@@ -22,7 +22,9 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
       setYs(s.hr || []);
       setDur(s.duration_s || 0);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [activityId, getStreams]);
 
   const [minHR, maxHR] = useMemo(() => {
@@ -57,7 +59,11 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
   }, [xs, ys, minHR, maxHR, height]);
 
   if (!xs.length || !ys.length) {
-    return <div className={CHART_SPARK.emptyTextClass}>HR stream nie je k dispozícii.</div>;
+    return (
+      <div className={CHART_SPARK.emptyTextClass}>
+        HR stream nie je k dispozícii.
+      </div>
+    );
   }
 
   return (
@@ -97,7 +103,9 @@ export default function MiniHrSpark({ activityId, height = 64 }: Props) {
       </svg>
 
       <div className={CHART_SPARK.infoTextClass}>
-        <div>HR: {minHR}–{maxHR} bpm</div>
+        <div>
+          HR: {minHR}–{maxHR} bpm
+        </div>
         <div>Čas: {fmtSecondsHMS(dur)}</div>
       </div>
     </div>

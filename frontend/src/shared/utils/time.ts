@@ -64,3 +64,32 @@ export function secToHHMMSS(sec?: number | null): string {
   const ss = s % 60;
   return `${h}:${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
+
+export function fmtSecondsHMS(v?: number | null): string {
+  const sTot = Number(v);
+  if (!Number.isFinite(sTot) || sTot < 0) return "—";
+
+  const h = Math.floor(sTot / 3600);
+  const m = Math.floor((sTot % 3600) / 60);
+  const s = Math.round(sTot % 60);
+
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// minúty (float) -> "5h 30m" / "4m" / "0m"
+export function fmtMinutes(v?: number | null): string {
+  const min = Number(v);
+  if (!Number.isFinite(min) || min < 0) return "—";
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// minúty (float) -> celé minúty: "123 min" / "—"
+export function fmtMinutesWhole(v?: number | null): string {
+  const min = Number(v);
+  if (!Number.isFinite(min) || min < 0) return "—";
+  return `${Math.round(min)} min`;
+}

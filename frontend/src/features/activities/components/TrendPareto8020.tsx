@@ -6,7 +6,7 @@ import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/shared/charts/register";
 import { THEME } from "@/shared/theme/tokens";
-import { fmtSecondsHMS } from "@/shared/utils/format";
+import { fmtSecondsHMS } from "@/shared/utils/time";
 import { API_URL } from "@/shared/config";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
@@ -22,30 +22,31 @@ import Button from "@/shared/components/ui/Button";
 import { CARD } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 import { SCROLL_X } from "@/shared/ui/classes";
+import {
+  ParetoWeekPick,
+  ParetoRow,
+} from "@/features/activities/types/pareto";
 
 ensureChartJSRegistered();
 
-export type ParetoWeekPick = { start?: string; end?: string; sport: string };
-
-type Row = {
-  label: string;
-  easy_min: number;
-  hard_min: number;
-  easy_pct: number;
-  hard_pct: number;
-  start?: string;
-  end?: string;
-};
-
-export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: ParetoWeekPick) => void }) {
+export default function TrendPareto8020({
+  onPickWeek,
+}: {
+  onPickWeek?: (w: ParetoWeekPick) => void;
+}) {
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<2 | 4 | 8 | 12>(2);
   const [loading, setLoading] = useState(false);
 
-  const [selectedSports, setSelectedSports] = useState<string[]>(Array.from(PARETO_DEFAULT_SET));
-  const sportParam = useMemo(() => sportsToCSV(selectedSports), [selectedSports]);
+  const [selectedSports, setSelectedSports] = useState<string[]>(
+    Array.from(PARETO_DEFAULT_SET)
+  );
+  const sportParam = useMemo(
+    () => sportsToCSV(selectedSports),
+    [selectedSports]
+  );
 
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<ParetoRow[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
       try {
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
-        const data: Row[] = Array.isArray(json?.data) ? json.data : [];
+        const data: ParetoRow[] = Array.isArray(json?.data) ? json.data : [];
         if (!alive) return;
         setRows(data);
         setPickedIdx(null);
@@ -73,7 +74,9 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId, lookback, sportParam]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
@@ -161,7 +164,9 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+              return `Easy ${fmtSecondsHMS(
+                r.easy_min || 0
+              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
         },
@@ -174,7 +179,10 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
           grid: { color: THEME.chart.grid, drawBorder: false },
           ticks: { padding: 6 },
         },
-        x: { ticks: { maxRotation: 0, padding: 6 }, grid: { color: THEME.chart.gridSoft, drawBorder: false } },
+        x: {
+          ticks: { maxRotation: 0, padding: 6 },
+          grid: { color: THEME.chart.gridSoft, drawBorder: false },
+        },
       },
       onClick: (_evt, elements) => {
         const idx = elements?.[0]?.index;
@@ -182,14 +190,21 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
         setPickedIdx(idx);
         const r = rows[idx];
         if (!r) return;
-        onPickWeek?.({ start: r.start, end: r.end, sport: sportsToCSV(selectedSports) });
+        onPickWeek?.({
+          start: r.start,
+          end: r.end,
+          sport: sportsToCSV(selectedSports),
+        });
       },
     }),
     [rows, selectedSports, onPickWeek]
   );
 
   // rovnaký scroll pattern ako TrendWeeklyLoad
-  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const minWidth = Math.max(
+    320,
+    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+  );
   const heightPx = THEME.chart.weeklyHeightCompact ?? 200;
 
   const toggleSport = (s: string) => {
@@ -204,7 +219,8 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
   };
 
   useEffect(() => {
-    if (selectedSports.length === 0) setSelectedSports(Array.from(PARETO_DEFAULT_SET));
+    if (selectedSports.length === 0)
+      setSelectedSports(Array.from(PARETO_DEFAULT_SET));
   }, [selectedSports.length]);
 
   return (
@@ -217,7 +233,9 @@ export default function TrendPareto8020({ onPickWeek }: { onPickWeek?: (w: Paret
             <select
               className={`${inputClass} h-8 text-xs w-[130px]`}
               value={lookback}
-              onChange={(e) => setLookback(Number(e.target.value) as 4 | 8 | 12)}
+              onChange={(e) =>
+                setLookback(Number(e.target.value) as 4 | 8 | 12)
+              }
               title="Lookback"
             >
               <option value={2}>2 týždne</option>

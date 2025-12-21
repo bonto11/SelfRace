@@ -4,16 +4,30 @@ export type StreamsData = {
   duration_s: number;
 };
 
-export type EffSport =
+export type SportFE =
   | "run"
   | "ride"
   | "strength"
   | "mixed"
   | "skate"
-  | "other";
+  | "swim"
+  | "other"
+  | string;
+
+export type Range = { start?: string; end?: string };
+
 
 export type ComponentVariant = "activity" | "calendar" | "pb" | "plan";
 export type Metric = "km" | "time" | "trimp";
+
+export interface MiniActivity {
+  id: number;                 // activity_id
+  name: string;               // napr. "Evening Run"
+  start_date: string;         // ISO "YYYY-MM-DDTHH:mm:ssZ" (alebo "YYYY-MM-DD")
+  sport: SportFE;             // z DB: sport_type_fe
+  distance_km?: number | null;
+  duration_min?: number | null;
+}
 
 export type WeekPick = { week: string; start: string; end: string; sport: string };
 

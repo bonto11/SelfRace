@@ -12,7 +12,7 @@ import {
   normSportsList,
 } from "@/features/activities/utils/activity";
 import { toEffSport } from "@/features/activities/utils/sport";
-import { fmtSecondsHMS } from "@/shared/utils/format";
+import { fmtSecondsHMS } from "@/shared/utils/time";
 
 import SessionCard from "@/shared/components/SessionCard";
 

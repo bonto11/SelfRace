@@ -5,9 +5,7 @@ import { useCallback, useState } from "react";
 import TrendWeeklyMonoStrain from "@/features/activities/components/TrendWeeklyMonoStrain";
 import ActivityTable from "@/features/activities/components/ActivityTable";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
-import type { WeekPick } from "@/features/activities/types/activities";
-
-type Range = { start?: string; end?: string };
+import type { WeekPick, Range } from "@/features/activities/types/activities";
 
 export default function Page() {
   const [range, setRange] = useState<Range>({});
