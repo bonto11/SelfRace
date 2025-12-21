@@ -4,11 +4,11 @@
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/shared/components/ui/WidgetCard";
 import { useFavoritePBRun } from "@/features/bests/hooks/useFavoritePBRun";
-import {
-  distanceLabel,
-  apiGetBests,
-  type UserBest,
-} from "@/features/bests/api/bests";
+import { apiGetBests } from "@/features/bests/api/bests";
+
+import { distanceLabel } from "@/features/bests/utils/bests";
+
+import { type UserBest } from "@/features/bests/types/bests";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/shared/utils/time";
 import LoadingSpinner from "@/shared/components/ui/LoadingSpinner";

@@ -3,13 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
-  distanceOptions,
-  distanceLabel,
   apiGetBests,
   apiSaveBest,
   apiDeleteBest,
-  type UserBest,
 } from "@/features/bests/api/bests";
+
+import {
+  distanceOptions,
+  distanceLabel,
+} from "@/features/bests/utils/bests";
+
+import {
+  type UserBest,
+} from "@/features/bests/types/bests";
+
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/shared/utils/time";
 import { useFavoritePBRun } from "@/features/bests/hooks/useFavoritePBRun";
 import ActivitySelector from "@/shared/components/ActivitySelector";

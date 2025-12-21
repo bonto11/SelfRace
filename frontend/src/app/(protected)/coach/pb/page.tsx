@@ -1,6 +1,6 @@
 "use client";
 
-import AccordionBests from "@/shared/components/pb/AccordionBests";
+import AccordionBests from "@/features/bests/components/AccordionBests";
 import ButtonBack from "@/shared/components/ui/ButtonBack";
 
 export default function Page() {

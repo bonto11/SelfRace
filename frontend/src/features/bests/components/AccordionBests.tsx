@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { SURFACE_CARD, SURFACE_SUBCARD } from "@/shared/ui/classes";
 
 // lazy import – nech sa PBRun nenačítava zbytočne
-const PBRun = dynamic(() => import("./PBRun"), { ssr: false });
+const PBRun = dynamic(() => import("@/features/bests/components/PBRun"), { ssr: false });
 
 export default function AccordionBests() {
   const [openRun, setOpenRun] = useState(true);
