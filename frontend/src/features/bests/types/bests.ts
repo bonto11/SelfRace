@@ -17,3 +17,21 @@ export type typePB = {
   event_name?: string | null;
   date?: string | null;
 };
+
+export type PBRow = {
+  distanceKm: number;
+  best: string;
+  activityId?: number | null;
+  date?: string | null;
+};
+
+// jeden typ pre položku
+export type DistanceOption = { m: number; label: string };
+
+export type PBRunFormState = {
+  distance_m: string;
+  time_str: string; // hh:mm:ss
+  achieved_at: string; // YYYY-MM-DD
+  activity_id: string; // "" alebo číslo v texte
+  activity_name?: string;
+};

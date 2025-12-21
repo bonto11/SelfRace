@@ -7,7 +7,7 @@ import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import type { VolumePrefs } from "@/features/coach/types/prefsTypes";
+import type { VolumePrefs } from "@/features/prefs/types/prefs";
 
 type VolumeInputMode = "weekly_hours" | "daily_minutes";
 
@@ -22,8 +22,7 @@ export function VolumeSection({ volume, setPref }: Props) {
   const mode: VolumeInputMode =
     (volume?.mode as VolumeInputMode | undefined) ?? "weekly_hours";
 
-  const rawValue =
-    volume?.value != null ? Number(volume.value) : NaN;
+  const rawValue = volume?.value != null ? Number(volume.value) : NaN;
 
   const safeVal =
     Number.isFinite(rawValue) && rawValue > 0 ? (rawValue as number) : NaN;

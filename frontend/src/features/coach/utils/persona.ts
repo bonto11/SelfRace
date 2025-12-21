@@ -1,6 +1,6 @@
 // Konfigurácia "osobností" coach-a + pomocná funkcia clamp01.
 
-import type { CoachPersona } from "@/features/coach/types/prefsTypes";
+import type { CoachPersona } from "@/features/prefs/types/prefs";
 
 /**
  * Default nastavenia tónu pre jednotlivé persony.
@@ -16,10 +16,34 @@ export const PERSONA_TONES: Record<
     explain: number;
   }
 > = {
-  drill_sergeant: { directness: 85, praise: 15, challenge: 90, emoji: 5, explain: 40 },
-  motivator: { directness: 55, praise: 80, challenge: 60, emoji: 35, explain: 55 },
-  analyst: { directness: 65, praise: 35, challenge: 55, emoji: 10, explain: 90 },
-  realist: { directness: 70, praise: 40, challenge: 65, emoji: 10, explain: 60 },
+  drill_sergeant: {
+    directness: 85,
+    praise: 15,
+    challenge: 90,
+    emoji: 5,
+    explain: 40,
+  },
+  motivator: {
+    directness: 55,
+    praise: 80,
+    challenge: 60,
+    emoji: 35,
+    explain: 55,
+  },
+  analyst: {
+    directness: 65,
+    praise: 35,
+    challenge: 55,
+    emoji: 10,
+    explain: 90,
+  },
+  realist: {
+    directness: 70,
+    praise: 40,
+    challenge: 65,
+    emoji: 10,
+    explain: 60,
+  },
 };
 
 /** Clamp + zaokrúhlenie na 0–100 (bez NaN/Inf bordelu). */

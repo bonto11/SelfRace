@@ -6,14 +6,34 @@ import Button from "@/shared/components/ui/Button";
 import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import type { Injury, InjuryArea, InjuryType } from "@/features/coach/types/prefsTypes";
+import type {
+  Injury,
+  InjuryArea,
+  InjuryType,
+} from "@/features/prefs/types/prefs";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const INJ_AREAS: InjuryArea[] = [
-  "foot","ankle","shin","knee","hip","hamstring","calf","back","shoulder","other",
+  "foot",
+  "ankle",
+  "shin",
+  "knee",
+  "hip",
+  "hamstring",
+  "calf",
+  "back",
+  "shoulder",
+  "other",
 ];
 const INJ_TYPES: InjuryType[] = [
-  "overuse","acute","tendon","stress","shin_splints","plantar","itb","other",
+  "overuse",
+  "acute",
+  "tendon",
+  "stress",
+  "shin_splints",
+  "plantar",
+  "itb",
+  "other",
 ];
 
 type Props = {
@@ -32,13 +52,18 @@ export function InjuriesSection({ local, setLocal }: Props) {
 
   const list = (local.injuries ?? []) as Injury[];
 
-  const preview = useMemo(() => list.map((i) => `${i.area} — ${i.type}`), [list]);
+  const preview = useMemo(
+    () => list.map((i) => `${i.area} — ${i.type}`),
+    [list]
+  );
 
   return (
     <section className={SECTION}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Injuries / limitations</div>
+        <div className="text-sm font-medium opacity-90">
+          Injuries / limitations
+        </div>
         <div className="flex items-center gap-2">
           <InfoPopover text="Planner reduces risky elements and adds compensations." />
           <DisclosureToggle
@@ -52,7 +77,11 @@ export function InjuriesSection({ local, setLocal }: Props) {
 
       {/* Closed preview */}
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(" ")}>
+        <div
+          className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(
+            " "
+          )}
+        >
           {preview.length === 0 ? (
             <span className="opacity-70">No injuries recorded</span>
           ) : (
@@ -127,7 +156,10 @@ export function InjuriesSection({ local, setLocal }: Props) {
                 placeholder="e.g., foot pain after long runs"
                 value={injDraft.note ?? ""}
                 onChange={(e) =>
-                  setInjDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))
+                  setInjDraft((d) => ({
+                    ...d,
+                    note: (e.target as HTMLInputElement).value,
+                  }))
                 }
               />
             </div>
@@ -156,9 +188,10 @@ export function InjuriesSection({ local, setLocal }: Props) {
               {list.map((it, idx) => (
                 <li
                   key={`${it.area}-${it.type}-${idx}`}
-                  className={[SURFACE_INLINE, "px-3 py-2 flex items-center justify-between"].join(
-                    " "
-                  )}
+                  className={[
+                    SURFACE_INLINE,
+                    "px-3 py-2 flex items-center justify-between",
+                  ].join(" ")}
                 >
                   <span className="text-sm">
                     {it.area} · {it.type}
@@ -170,7 +203,9 @@ export function InjuriesSection({ local, setLocal }: Props) {
                     onClick={() =>
                       setLocal((p: any) => ({
                         ...p,
-                        injuries: (p.injuries ?? []).filter((_: any, i: number) => i !== idx),
+                        injuries: (p.injuries ?? []).filter(
+                          (_: any, i: number) => i !== idx
+                        ),
                       }))
                     }
                   >

@@ -10,10 +10,7 @@ import React, {
   useState,
 } from "react";
 
-import {
-  DEFAULT_PREFS,
-  type CoachPrefs,
-} from "@/features/coach/types/prefsTypes";
+import { DEFAULT_PREFS, type CoachPrefs } from "@/features/prefs/types/prefs";
 import type { typePB } from "@/features/coach/types/coachTypes";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {

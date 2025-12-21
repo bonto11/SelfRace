@@ -6,7 +6,7 @@ import Button from "@/shared/components/ui/Button";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INSET, SURFACE_INLINE } from "@/shared/ui/classes";
 import { clamp01, PERSONA_TONES } from "@/features/coach/utils/persona";
-import type { CoachPersona } from "@/features/coach/types/prefsTypes";
+import type { CoachPersona } from "@/features/prefs/types/prefs";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 type CoachPersonalitySectionProps = {

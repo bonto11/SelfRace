@@ -1,10 +1,17 @@
 // src/features/coach/utils/prefs.ts
 "use client";
 
-import type { CoachPrefs, SportKind, Preferences } from "@/features/coach/types/prefsTypes";
+import type {
+  CoachPrefs,
+  SportKind,
+  Preferences,
+} from "@/features/prefs/types/prefs";
 import type { CoachPrefsLegacyLoose } from "@/features/coach/types/coachTypes";
-import { DEFAULT_PREFS } from "@/features/coach/types/prefsTypes";
-import { apiGetCoachPrefs, apiSaveCoachPrefs } from "@/features/coach/api/prefs";
+import { DEFAULT_PREFS } from "@/features/prefs/types/prefs";
+import {
+  apiGetCoachPrefs,
+  apiSaveCoachPrefs,
+} from "@/features/coach/api/prefs";
 
 /** Kľúče pre DB/LS */
 const KEY = "coach.prefs"; // meno preferencie v user_prefs
@@ -15,7 +22,14 @@ const EVT = "coach:prefs-updated";
 
 /* -------------------- helpers -------------------- */
 
-const SPORT_SET = new Set(["run", "ride", "strength", "mixed", "skate", "swim"]);
+const SPORT_SET = new Set([
+  "run",
+  "ride",
+  "strength",
+  "mixed",
+  "skate",
+  "swim",
+]);
 
 const clampSports = (xs?: string[] | null): SportKind[] | undefined =>
   xs?.filter((s): s is SportKind => SPORT_SET.has(s as SportKind)) || undefined;
@@ -94,9 +108,7 @@ export function normalizeCoachPrefs(
 
   // nová schéma (má targets/preferences/primary_sports)
   const hasNewShape =
-    "targets" in anyIn ||
-    "preferences" in anyIn ||
-    "primary_sports" in anyIn;
+    "targets" in anyIn || "preferences" in anyIn || "primary_sports" in anyIn;
 
   if (hasNewShape) {
     const prefs: Preferences = {
@@ -127,8 +139,8 @@ export function normalizeCoachPrefs(
     };
 
     const result: CoachPrefs = {
-      ...DEFAULT_PREFS,                  // istota, že máme všetky polia
-      ...(input as CoachPrefs),          // dáta z DB
+      ...DEFAULT_PREFS, // istota, že máme všetky polia
+      ...(input as CoachPrefs), // dáta z DB
       primary_sports:
         (anyIn.primary_sports as SportKind[] | undefined) ??
         clampSports(anyIn.sports),

@@ -7,7 +7,7 @@ import TextField from "@/shared/components/ui/TextField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 import { SECTION, SURFACE_INLINE } from "@/shared/ui/classes";
-import type { RehabFocus } from "@/features/coach/types/prefsTypes";
+import type { RehabFocus } from "@/features/prefs/types/prefs";
 
 type Props = {
   local: any;
@@ -54,8 +54,14 @@ export function RehabSection({ local, setPref }: Props) {
 
       {/* Closed preview */}
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-70 select-none"].join(" ")}>
-          Focuses: {selectedCount} · Protocol: {rf.recovery_protocol ? "set" : "—"}
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-70 select-none",
+          ].join(" ")}
+        >
+          Focuses: {selectedCount} · Protocol:{" "}
+          {rf.recovery_protocol ? "set" : "—"}
         </div>
       )}
 
@@ -107,7 +113,8 @@ export function RehabSection({ local, setPref }: Props) {
               value={rf.recovery_protocol ?? ""}
               onChange={(e) =>
                 setRehab({
-                  recovery_protocol: (e.target as HTMLInputElement).value || null,
+                  recovery_protocol:
+                    (e.target as HTMLInputElement).value || null,
                 })
               }
             />

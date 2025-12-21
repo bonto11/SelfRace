@@ -25,7 +25,7 @@ import {
 import { apiGenerateWeeklyPlan } from "@/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/features/coach/api/coach_plan_daily";
 
-import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
+import type { CoachPrefs } from "@/features/prefs/types/prefs";
 import type { AnalyzeResult } from "@/features/coach/types/coachApiTypes";
 import { confirm } from "@/shared/components/ui/Confirm";
 
@@ -63,9 +63,9 @@ function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
 
   return (
     <span className="text-[11px] opacity-80">
-      Goal: <span className="font-semibold">{goal}</span>{" "}
-      • Weeks: <span className="font-semibold">{weeks}</span>{" "}
-      • Main: <span className="font-semibold">{main}</span>
+      Goal: <span className="font-semibold">{goal}</span> • Weeks:{" "}
+      <span className="font-semibold">{weeks}</span> • Main:{" "}
+      <span className="font-semibold">{main}</span>
     </span>
   );
 }
@@ -245,10 +245,7 @@ export default function WidgetCoachPlan() {
         state_id: json.state_id ?? null,
       });
 
-      const sid =
-        (json as any).state_id ??
-        (json as any).state?.id ??
-        null;
+      const sid = (json as any).state_id ?? (json as any).state?.id ?? null;
       if (typeof sid === "number") {
         setLatestStateId(sid);
       }
@@ -288,7 +285,7 @@ export default function WidgetCoachPlan() {
     setLoadingKind("daily");
 
     try {
-      await apiGenerateDailyForWeek(userId,userUuid, {
+      await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: 1,
         plan_id: null,
         overwrite: true,

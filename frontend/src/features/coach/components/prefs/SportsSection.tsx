@@ -6,7 +6,7 @@ import Button from "@/shared/components/ui/Button";
 import SelectField from "@/shared/components/ui/SelectField";
 import DisclosureToggle from "@/shared/components/ui/DisclosureToggle";
 import { SURFACE_INLINE, SECTION } from "@/shared/ui/classes";
-import type { SportKind } from "@/features/coach/types/prefsTypes";
+import type { SportKind } from "@/features/prefs/types/prefs";
 import { InfoPopover } from "@/features/coach/components/InfoPopover";
 
 const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
@@ -149,8 +149,8 @@ export function SportsSection({
 
             <div className="sm:col-span-2 text-xs opacity-70 flex items-end">
               Ak používaš len beh, ostatné nechaj na &quot;none&quot;. Pri ride
-              / swim nastav prioritu (2nd / 3rd / 4th) a rolu podľa toho,
-              ako veľmi ich chceš mať v pláne.
+              / swim nastav prioritu (2nd / 3rd / 4th) a rolu podľa toho, ako
+              veľmi ich chceš mať v pláne.
             </div>
           </div>
 
@@ -200,45 +200,41 @@ export function SportsSection({
 
                     {/* role buttons */}
                     <div className="inline-flex items-center gap-1">
-                      {(["none", "supplement", "improve"] as const).map(
-                        (r) => {
-                          const active = sec.role === r;
-                          return (
-                            <Button
-                              key={r}
-                              type="button"
-                              size="xs"
-                              variant="prefs"
-                              active={active}
-                              onClick={() => {
-                                if (r === "none") {
-                                  // úplne vypni šport
-                                  updateSecondary(sec.sport, {
-                                    role: "none",
-                                    share_pct: 0,
-                                  });
-                                } else {
-                                  // keď zapíname rolu a share je nula -> daj default 4th
-                                  const currPr = priorityFromShare(
-                                    sec.share_pct
-                                  );
-                                  const newShare =
-                                    currPr === "none"
-                                      ? shareFromPriority("fourth")
-                                      : sec.share_pct;
-                                  updateSecondary(sec.sport, {
-                                    role: r,
-                                    share_pct: newShare,
-                                  });
-                                }
-                              }}
-                              title={r}
-                            >
-                              {r}
-                            </Button>
-                          );
-                        }
-                      )}
+                      {(["none", "supplement", "improve"] as const).map((r) => {
+                        const active = sec.role === r;
+                        return (
+                          <Button
+                            key={r}
+                            type="button"
+                            size="xs"
+                            variant="prefs"
+                            active={active}
+                            onClick={() => {
+                              if (r === "none") {
+                                // úplne vypni šport
+                                updateSecondary(sec.sport, {
+                                  role: "none",
+                                  share_pct: 0,
+                                });
+                              } else {
+                                // keď zapíname rolu a share je nula -> daj default 4th
+                                const currPr = priorityFromShare(sec.share_pct);
+                                const newShare =
+                                  currPr === "none"
+                                    ? shareFromPriority("fourth")
+                                    : sec.share_pct;
+                                updateSecondary(sec.sport, {
+                                  role: r,
+                                  share_pct: newShare,
+                                });
+                              }
+                            }}
+                            title={r}
+                          >
+                            {r}
+                          </Button>
+                        );
+                      })}
                     </div>
 
                     {isOff && (

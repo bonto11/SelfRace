@@ -4,7 +4,7 @@
 // Jednoduchý „live“ hook: číta prefs z localStorage a reaguje na zmeny.
 
 import { useEffect, useState } from "react";
-import type { CoachPrefs } from "@/features/coach/types/prefsTypes";
+import type { CoachPrefs } from "@/features/prefs/types/prefs";
 import {
   readCoachPrefsFromStorage,
   subscribeCoachPrefs,

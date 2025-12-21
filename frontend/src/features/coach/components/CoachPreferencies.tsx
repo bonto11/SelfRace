@@ -8,7 +8,7 @@ import type {
   CoachPersona,
   RunTargets,
   SecondaryMix,
-} from "@/features/coach/types/prefsTypes";
+} from "@/features/prefs/types/prefs";
 import type { DayAbbrev } from "@/shared/types/day";
 import { useUserId } from "@/shared/hooks/useUserId";
 import { toast } from "@/shared/components/ui/Toast";
@@ -46,8 +46,6 @@ import { RehabSection } from "@/features/coach/components/prefs/RehabSection";
 import { VolumeSection } from "@/features/coach/components/prefs/VolumeSection";
 
 /* ---- local DTOs ---- */
-
-
 
 type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
