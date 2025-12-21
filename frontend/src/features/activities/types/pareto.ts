@@ -9,3 +9,5 @@ export type ParetoRow = {
   start?: string;
   end?: string;
 };
+
+export const PARETO_SPORTS_DEFAULT = ["run", "ride", "mixed", "skate"] as const;

@@ -22,10 +22,7 @@ import Button from "@/shared/components/ui/Button";
 import { CARD } from "@/shared/ui/classes";
 import { inputClass } from "@/shared/ui";
 import { SCROLL_X } from "@/shared/ui/classes";
-import {
-  ParetoWeekPick,
-  ParetoRow,
-} from "@/features/activities/types/pareto";
+import { ParetoWeekPick, ParetoRow } from "@/features/activities/types/pareto";
 
 ensureChartJSRegistered();
 

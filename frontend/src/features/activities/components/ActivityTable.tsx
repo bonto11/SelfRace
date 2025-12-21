@@ -7,12 +7,8 @@ import {
   ActivityRow,
   ComponentVariant,
 } from "@/features/activities/types/activities";
-import {
-  prettySkDate,
-  normSportsList,
-} from "@/features/activities/utils/activity";
-import { toEffSport } from "@/features/activities/utils/sport";
-import { fmtSecondsHMS } from "@/shared/utils/time";
+import { normSportsList, toEffSport } from "@/features/activities/utils/activity";
+import { prettySkDate, fmtSecondsHMS } from "@/shared/utils/time";
 
 import SessionCard from "@/shared/components/SessionCard";
 

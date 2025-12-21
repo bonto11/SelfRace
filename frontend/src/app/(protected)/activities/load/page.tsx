@@ -18,10 +18,8 @@ export default function Page() {
 
   return (
     <>
-      {/* Sticky header s Back */}
-      <ButtonBack title="Load trend" />
+      <ButtonBack title="Weekly Load trend" />
 
-      {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">
         <div className="mt-3">
           <TrendWeeklyLoad

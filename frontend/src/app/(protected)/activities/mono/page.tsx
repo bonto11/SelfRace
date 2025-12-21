@@ -18,10 +18,8 @@ export default function Page() {
 
   return (
     <>
-      {/* Sticky header s Back */}
       <ButtonBack title="Monotomy & Strain trend" />
 
-      {/* obsah */}
       <div className="max-w-screen-lg mx-auto px-3">
         <div className="mt-3">
           <TrendWeeklyMonoStrain

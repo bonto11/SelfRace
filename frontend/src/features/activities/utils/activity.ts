@@ -1,10 +1,10 @@
 // src/features/activity/utils/activity.ts
 "use client";
-
-import { isoDate } from "@/shared/utils/recovery";
+import { THEME } from "@/shared/theme/tokens";
+import { isoDate, isoWeekInfo } from "@/shared/utils/time";
 import {
   ActivityRow,
-  EffSport,
+  SportFE,
   WeekRow,
   Metric,
 } from "@/features/activities/types/activities";
@@ -33,68 +33,11 @@ export function numOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/* --------------------- dátumové utily --------------------- */
-export function addDays(iso: string, d: number): string {
-  const dt = new Date(iso + "T00:00:00");
-  dt.setUTCDate(dt.getUTCDate() + d);
-  return dt.toISOString().slice(0, 10);
-}
-
-export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-/** ISO týždeň (Po–Ne) vo formáte YYYY-Www + start/end tohto týždňa. */
-export function isoWeekInfo(iso: string) {
-  const dt = new Date(iso + "T00:00:00Z");
-  // dostať sa na najbližší pondelok (Mon=1)
-  const day = dt.getUTCDay() || 7; // Sun=0 -> 7
-  const mon = new Date(dt);
-  mon.setUTCDate(dt.getUTCDate() - day + 1);
-  const sun = new Date(mon);
-  sun.setUTCDate(mon.getUTCDate() + 6);
-
-  const start = mon.toISOString().slice(0, 10);
-  const end = sun.toISOString().slice(0, 10);
-
-  // číslo týždňa
-  const year = mon.getUTCFullYear();
-  const week = isoWeekNumber(mon);
-  const weekKey = `${year}-W${String(week).padStart(2, "0")}`;
-
-  const label = rangeLabel(start, end);
-  return { weekKey, start, end, label };
-}
-
-export function isoWeekNumber(d: Date): number {
-  const date = new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-  );
-  // Thursday in current week decides the year.
-  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(
-    ((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
-  );
-  return weekNo;
-}
-
-export function rangeLabel(startISO?: string, endISO?: string) {
-  if (!startISO || !endISO) return "";
-  const s = new Date(startISO);
-  const e = new Date(endISO);
-  const sd = s.getUTCDate(),
-    sm = s.getUTCMonth() + 1;
-  const ed = e.getUTCDate(),
-    em = e.getUTCMonth() + 1;
-  return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
-}
-
 /* --------------------- kategorizácia športu --------------------- */
 
 export function toEffSportKey(
   row: Pick<ActivityRow, "sport_type" | "sport_type_fe" | "sport_type_ovrd">
-): EffSport {
+): SportFE {
   const s = (
     row.sport_type_ovrd ??
     row.sport_type_fe ??
@@ -119,7 +62,7 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
       km: number;
       time: number;
       trimp: number;
-      bySport: Record<EffSport, { km: number; min: number; trimp: number }>;
+      bySport: Record<SportFE, { km: number; min: number; trimp: number }>;
     }
   >();
   const ensure = (iso: string) => {
@@ -166,9 +109,9 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
       end: string;
       label: string;
       // súčty
-      bySportKm: Record<EffSport, number>;
-      bySportMin: Record<EffSport, number>;
-      bySportTrimp: Record<EffSport, number>;
+      bySportKm: Record<SportFE, number>;
+      bySportMin: Record<SportFE, number>;
+      bySportTrimp: Record<SportFE, number>;
     }
   >();
 
@@ -210,7 +153,7 @@ export function aggregateWeeks(rows: ActivityRow[]): WeekRow[] {
     wk.days.push(iso);
 
     const d = daily.get(iso)!;
-    (Object.keys(wk.bySportKm) as EffSport[]).forEach((sp) => {
+    (Object.keys(wk.bySportKm) as SportFE[]).forEach((sp) => {
       wk.bySportKm[sp] += d.bySport[sp].km;
       wk.bySportMin[sp] += d.bySport[sp].min;
       wk.bySportTrimp[sp] += d.bySport[sp].trimp;
@@ -313,13 +256,31 @@ export function normSportsList(
   return arr.length ? Array.from(new Set(arr)) : null;
 }
 
-export function prettySkDate(iso: string) {
-  const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
-  return `${wk} · ${day}`;
+
+export function toEffSport(row: {
+  sport_type?: string | null;
+  sport_type_fe?: string | null;
+  sport_type_ovrd?: string | null;
+}): string {
+  const s = (row.sport_type_ovrd ?? row.sport_type_fe ?? row.sport_type ?? "")
+    .toString()
+    .toLowerCase();
+
+  if (!s) return "other";
+  if (s.includes("run")) return "run";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle"))
+    return "ride";
+  if (s.includes("strength") || s.includes("weight") || s.includes("gym"))
+    return "strength";
+  if (s.includes("skate")) return "skate";
+  if (s.includes("mix")) return "mixed";
+  if (s.includes("walk")) return "walk";
+  if (s.includes("hike")) return "hike";
+  if (s.includes("swim")) return "swim";
+  return s;
+}
+
+export function sportUiLabel(s: string): string {
+  const L = THEME.sportLabels;
+  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

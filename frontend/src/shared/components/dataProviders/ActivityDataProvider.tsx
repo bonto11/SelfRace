@@ -11,10 +11,13 @@ import React, {
 } from "react";
 import { useUserId } from "@/shared/hooks/useUserId";
 import {
-  addDays,
-  todayISO,
   aggregateWeeks,
 } from "@/features/activities/utils/activity";
+
+import {
+  addDays,
+  todayISO,
+} from "@/shared/utils/time";
 
 import {
   ActivityRow,
