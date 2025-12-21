@@ -624,6 +624,7 @@ function DetailBody({
 
         // DEBUG – uvidíš presný tvar z BE
         console.log("[SessionCard] streams raw", item.activityId, st);
+        console.log("[SessionCard] detail raw", item.activityId, dt);
 
         if (st) {
           const raw: any = st;

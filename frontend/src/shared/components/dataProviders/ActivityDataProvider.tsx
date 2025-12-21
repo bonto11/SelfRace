@@ -346,6 +346,7 @@ export function ActivityDataProvider({
           fetch: true,
           max: 400,
         });
+        console.log("[apiFetchStreams] streams data",data);
         saveStreams(activityId, data);
         return data;
       } catch (e) {
