@@ -11,31 +11,9 @@ from Services.activities_summary import (
     service_get_summary_one,
 )
 
-
 router = APIRouter(prefix="/activities_summary", tags=["activities_summary"])
 
 # ───────────────────────────── Activities – basic list/detail ─────────────────────────────
-
-
-# GET: posledných X dní (default 30)
-@router.get("/multiple/{user_id}")
-def get_activities(user_id: int, days: int = 30):
-    try:
-        data = service_get_activities(user_id=user_id, days=days)
-        return {"success": True, "data": data}
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/single/{activity_id}")
-def get_summary_one(activity_id: int):
-    try:
-        summary = service_get_summary_one(activity_id=activity_id)
-        return {"success": True, "summary": summary}
-    except ValueError:
-        raise HTTPException(status_code=404, detail="activity not found")
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
-
 #MBP USED 
 @router.get("/range/{user_id}")
 def activities_in_range(user_id: int, start: str, end: str):
@@ -83,3 +61,24 @@ def select_activities(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+'''
+# GET: posledných X dní (default 30)
+@router.get("/multiple/{user_id}")
+def get_activities(user_id: int, days: int = 30):
+    try:
+        data = service_get_activities(user_id=user_id, days=days)
+        return {"success": True, "data": data}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/single/{activity_id}")
+def get_summary_one(activity_id: int):
+    try:
+        summary = service_get_summary_one(activity_id=activity_id)
+        return {"success": True, "summary": summary}
+    except ValueError:
+        raise HTTPException(status_code=404, detail="activity not found")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+'''

@@ -6,6 +6,7 @@ import { apiFetchActivitiesAround } from "@/features/activities/api/activities_s
 import type { MiniActivity, SportFE } from "@/features/activities/types/activities";
 import { FIELD_BASE, FIELD_DISABLED, FIELD_HELP } from "@/shared/ui/classes";
 import { fmtShortDate } from "@/shared/utils/time"
+
 type Props = {
   userId: number | null;
   dateIso: string | "";
