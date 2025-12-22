@@ -12,7 +12,12 @@ import {
   DROPDOWN_ITEM_DANGER,
 } from "@/app/shared/ui/classes";
 
-type LocalUser = { email: string; name: string; avatarUrl: string | null };
+type LocalUser = {
+  email: string;
+  name: string;
+  displayName?: string | null;
+  avatarUrl: string | null;
+};
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -43,12 +48,19 @@ export default function UserMenu() {
   }, []);
 
   const initials = useMemo(() => {
-    const n = (me?.name || me?.email || "").trim();
-    const parts = n.split(/\s+/).filter(Boolean);
+    const base =
+      (me?.displayName && me.displayName.trim()) ||
+      (me?.name && me.name.trim()) ||
+      (me?.email && me.email.trim()) ||
+      "";
+
+    if (!base) return "U";
+
+    const parts = base.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "U";
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [me?.name, me?.email]);
+  }, [me?.displayName, me?.name, me?.email]);
 
   // close on outside/Esc
   useEffect(() => {
@@ -101,7 +113,9 @@ export default function UserMenu() {
           <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
             {/* header sekcia */}
             <div className="px-3 py-2 text-sm border-b border-white/10">
-              <div className="font-medium">{me?.name || "User"}</div>
+              <div className="font-medium">
+                {me?.displayName || me?.name || "User"}
+              </div>
               <div className="opacity-70 truncate">{me?.email}</div>
             </div>
 
