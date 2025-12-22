@@ -30,7 +30,9 @@ export default function UserMenu() {
         });
         const j = await r.json();
         if (!alive) return;
-        if (j?.ok) setMe(j.user as LocalUser);
+        if (j?.ok && j.user) {
+          setMe(j.user as LocalUser);
+        }
       } catch {
         /* ignore */
       }
@@ -39,6 +41,14 @@ export default function UserMenu() {
       alive = false;
     };
   }, []);
+
+  const initials = useMemo(() => {
+    const n = (me?.name || me?.email || "").trim();
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "U";
+    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }, [me?.name, me?.email]);
 
   // close on outside/Esc
   useEffect(() => {
@@ -54,14 +64,6 @@ export default function UserMenu() {
       document.removeEventListener("keydown", onEsc);
     };
   }, []);
-
-  const initials = useMemo(() => {
-    const n = (me?.name || me?.email || "").trim();
-    const parts = n.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "U";
-    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [me?.name, me?.email]);
 
   async function handleSignOut() {
     setBusy("signout");

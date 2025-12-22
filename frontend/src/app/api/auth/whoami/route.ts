@@ -22,7 +22,6 @@ export async function GET() {
     });
 
     const payload = { id: idNum, uuid };
-    console.log("[WHOAMI][srv] respond ->", payload);
 
     return NextResponse.json(payload, {
       status: 200,
