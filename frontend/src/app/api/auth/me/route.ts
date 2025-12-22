@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const cookieStore = cookies();
+    // DÔLEŽITÉ: await cookies()
+    const cookieStore = await cookies();
     const idRaw = cookieStore.get("sr_id")?.value ?? null;
     const uuidCookie = cookieStore.get("sr_uuid")?.value ?? null;
 
@@ -63,14 +64,17 @@ export async function GET() {
       id: idNum,
       uuid: uuidCookie,
       email,
-      name,         // celé meno (napr. "Patrik Mbontar")
-      displayName,  // prezývka / skratka (napr. "Bonto")
+      name,        // celé meno
+      displayName, // prezývka / skratka
       avatarUrl,
     };
 
     return NextResponse.json(
       { ok: true, user },
-      { status: 200, headers: { "cache-control": "no-store" } }
+      {
+        status: 200,
+        headers: { "cache-control": "no-store" },
+      }
     );
   } catch (e: any) {
     console.error("[ME][srv] ERROR:", e?.message ?? e);
