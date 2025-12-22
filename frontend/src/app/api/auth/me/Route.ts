@@ -1,4 +1,4 @@
-// src/app/api/auth/me/route.ts
+// src/app/api/auth/me/route.ts  ← pozor na malé "r"
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -19,7 +19,8 @@ type DbUserRow = {
 
 export async function GET() {
   try {
-    const cookieStore = cookies();
+    // 🔴 TU BOL PROBLÉM – treba await
+    const cookieStore = await cookies();
     const idRaw = cookieStore.get("sr_id")?.value ?? null;
     const uuidCookie = cookieStore.get("sr_uuid")?.value ?? null;
 
@@ -27,7 +28,7 @@ export async function GET() {
 
     let profile: DbUserRow | null = null;
 
-    // 1) users podľa user_uid z cookie (preferované)
+    // 1) users podľa user_uid
     if (uuidCookie) {
       const { data, error } = await sb
         .from("users")
@@ -44,7 +45,7 @@ export async function GET() {
       }
     }
 
-    // 2) fallback: users podľa číselného id z cookie
+    // 2) fallback: users podľa id
     if (!profile && idRaw && Number.isFinite(Number(idRaw))) {
       const idNum = Number(idRaw);
       const { data, error } = await sb
@@ -62,7 +63,7 @@ export async function GET() {
       }
     }
 
-    // 3) fallback: auth.getUser (napr. ak users nemá záznam)
+    // 3) fallback: auth.getUser
     if (!profile) {
       const { data: authData, error: authError } = await sb.auth.getUser();
       if (authError) {
@@ -98,21 +99,22 @@ export async function GET() {
     const email = profile.email ?? profile.mail_address ?? null;
     const avatarUrl = profile.avatar_url ?? null;
 
-    const payload = {
-      ok: true,
-      user: {
-        id: profile.id,
-        uuid: profile.user_uid ?? uuidCookie ?? null,
-        email,
-        name,
-        avatarUrl,
+    return NextResponse.json(
+      {
+        ok: true,
+        user: {
+          id: profile.id,
+          uuid: profile.user_uid ?? uuidCookie ?? null,
+          email,
+          name,
+          avatarUrl,
+        },
       },
-    };
-
-    return NextResponse.json(payload, {
-      status: 200,
-      headers: { "cache-control": "no-store" },
-    });
+      {
+        status: 200,
+        headers: { "cache-control": "no-store" },
+      }
+    );
   } catch (e: any) {
     console.error("[ME] server ERROR:", e?.message ?? e);
     return NextResponse.json(
