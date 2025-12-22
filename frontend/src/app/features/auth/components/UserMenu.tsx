@@ -20,23 +20,51 @@ export default function UserMenu() {
   const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
+  // načítanie aktuálneho usera
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
-        const r = await fetch("/api/auth/me", {
+        const r = await fetch("/api/auth/whoami", {
           credentials: "include",
           cache: "no-store",
         });
+
+        if (!r.ok) {
+          console.error("[UserMenu] /api/auth/whoami HTTP", r.status);
+          return;
+        }
+
         const j = await r.json();
         if (!alive) return;
-        if (j?.ok && j.user) {
-          setMe(j.user as LocalUser);
-        }
-      } catch {
-        /* ignore */
+
+        // route môže vrátiť { ok, user: {...} } alebo priamo user objekt
+        const rawUser = j?.user ?? j;
+        if (!rawUser) return;
+
+        const email = String(rawUser.email ?? "").trim();
+        const name =
+          (rawUser.name as string | undefined) ??
+          (rawUser.display_name as string | undefined) ??
+          email ??
+          "User";
+
+        const avatarUrl =
+          (rawUser.avatarUrl as string | null | undefined) ??
+          (rawUser.avatar_url as string | null | undefined) ??
+          null;
+
+        setMe({
+          email,
+          name,
+          avatarUrl,
+        });
+      } catch (e) {
+        console.error("[UserMenu] whoami fetch error", e);
       }
     })();
+
     return () => {
       alive = false;
     };
@@ -105,10 +133,10 @@ export default function UserMenu() {
               <div className="opacity-70 truncate">{me?.email}</div>
             </div>
 
-            {/* položky menu – vertikálne pod sebou */}
+            {/* položky menu */}
             <nav className="py-1 flex flex-col gap-1">
               <a
-                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                className="block w-full px-3 py-2 text-sm hover:bg.white/10"
                 href="/forgot-password"
               >
                 Zmeniť heslo (e-mailom)
