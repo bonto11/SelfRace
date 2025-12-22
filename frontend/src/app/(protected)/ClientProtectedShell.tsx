@@ -11,7 +11,6 @@ import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
 import ToastHost from "@/app/shared/components/ui/Toast";
 import ConfirmHost from "@/app/shared/components/ui/Confirm";
 
-// dátové providery (globálne pre protected sekciu)
 import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
@@ -23,33 +22,32 @@ export default function ClientProtectedShell({
 }) {
   return (
     <>
-      {/* bootstrap preferencií po prihlásení (client) */}
       <UserPrefsBootstrapper />
 
-      {/* UI provider (no-op wrapper kvôli kompatibilite) */}
       <SidebarProvider>
-        {/* dátové providery – stable defaults pre dashboard */}
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
-              <div className="min-h-dvh grid lg:grid-cols-[280px_1fr] bg-neutral-950 text-neutral-100">
-                {/* SIDEBAR (desktop aj off-canvas kontajner) */}
-                <Sidebar />
-
-                {/* CONTENT */}
-                <div className="min-h-dvh flex flex-col">
-                  {/* TOPBAR */}
-                  <header className="sticky top-0 z-30 h-14 border-b border-neutral-800 flex items-center justify-between px-3 lg:px-4 gap-3 bg-neutral-950/90 backdrop-blur [padding-top:env(safe-area-inset-top)]">
-                    <div className="flex items-center gap-2">
-                      <HeaderToggle />
-                      <div className="font-semibold hidden sm:block">
-                        SelfRace
-                      </div>
+              {/* ROOT – už nie grid, ale flex-col */}
+              <div className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
+                {/* TOPBAR – úplne hore, mimo gridu so sidebarom */}
+                <header className="sticky top-0 z-30 h-14 border-b border-neutral-800 flex items-center justify-between px-3 lg:px-4 gap-3 bg-neutral-950/90 backdrop-blur [padding-top:env(safe-area-inset-top)]">
+                  <div className="flex items-center gap-2">
+                    <HeaderToggle />
+                    <div className="font-semibold hidden sm:block">
+                      SelfRace
                     </div>
-                    <UserMenu />
-                  </header>
+                  </div>
+                  <UserMenu />
+                </header>
 
-                  <main className="flex-1 p-3 lg:p-4">{children}</main>
+                {/* GRID so sidebarom + obsahom, scrolluje sa len toto */}
+                <div className="flex-1 grid lg:grid-cols-[280px_1fr]">
+                  <Sidebar />
+
+                  <div className="min-h-dvh flex flex-col">
+                    <main className="flex-1 p-3 lg:p-4">{children}</main>
+                  </div>
                 </div>
               </div>
             </RecoveryDataProvider>
@@ -57,7 +55,6 @@ export default function ClientProtectedShell({
         </CoachDataProvider>
       </SidebarProvider>
 
-      {/* Globálny toast/confirm pre protected sekciu */}
       <ToastHost />
       <ConfirmHost />
     </>
