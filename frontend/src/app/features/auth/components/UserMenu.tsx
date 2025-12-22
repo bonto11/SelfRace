@@ -49,19 +49,19 @@ export default function UserMenu() {
 
   const initials = useMemo(() => {
     const base =
-      (me?.displayName && me.displayName.trim()) ||
-      (me?.name && me.name.trim()) ||
-      (me?.email && me.email.trim()) ||
+      (me?.name && me.name.trim()) ||          // 1) celé meno
+      (me?.displayName && me.displayName.trim()) || // 2) prezývka
+      (me?.email && me.email.trim()) ||        // 3) email
       "";
-
+  
     if (!base) return "U";
-
+  
     const parts = base.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "U";
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [me?.displayName, me?.name, me?.email]);
-
+  }, [me?.name, me?.displayName, me?.email]);
+    
   // close on outside/Esc
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
