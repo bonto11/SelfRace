@@ -27,62 +27,58 @@ const STROKE_WIDTH = 1.9;
 function ActivityIcon({ active }: { active: boolean }) {
   const color = active ? "#000000" : "#ffffff";
 
+  // jednoduchší, väčší bežec
   return (
     <svg
       viewBox="0 0 24 24"
-      width={20}
-      height={20}
+      width={22}
+      height={22}
       aria-hidden="true"
       fill="none"
     >
-      {/* hlava – väčšia a viac v strede */}
+      {/* hlava */}
       <circle
-        cx={9}
+        cx={8}
         cy={7}
-        r={2.1}
+        r={2.3}
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
       {/* trup */}
       <path
-        d="M9 9.8L11.5 11.7"
+        d="M8.2 9.8L11 12"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
       {/* predná noha */}
       <path
-        d="M11.5 11.7L14.5 14.2"
+        d="M11 12L14.5 14.5"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
       {/* zadná noha */}
       <path
-        d="M11.5 11.7L9.5 15.5"
+        d="M11 12L9 16"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
-      {/* predná ruka */}
+      {/* ruka dopredu */}
       <path
-        d="M9.7 9.4L12.8 10.1"
+        d="M8.8 9.6L12 10.4"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
-      {/* zadná ruka */}
+      {/* ruka dozadu */}
       <path
-        d="M7.1 9.6L9.1 10.9"
+        d="M6.3 9.7L8.3 11"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </svg>
   );
@@ -255,18 +251,25 @@ function BottomNavItem({ id, href, label }: ItemDef) {
       className="flex-1 flex justify-center min-w-0"
       aria-label={label}
     >
-      <div
-        className={[
-          "flex items-center justify-center gap-1.5 px-3 py-1.5",
-          "rounded-full transition-colors",
-          "text-[11px] font-medium",
-          isActive
-            ? "bg-emerald-400 text-black"
-            : "text-neutral-200/80 hover:text-white",
-        ].join(" ")}
-      >
-        <Icon id={id} active={isActive} />
-        <span className="leading-none truncate">{label}</span>
+      <div className="flex flex-col items-center justify-center min-w-[60px]">
+        {/* squircle podklad iba keď je aktívny */}
+        <div
+          className={[
+            "flex items-center justify-center rounded-2xl w-16 h-9",
+            "transition-colors",
+            isActive ? "bg-emerald-400 text-black" : "bg-transparent text-white",
+          ].join(" ")}
+        >
+          <Icon id={id} active={isActive} />
+        </div>
+        <span
+          className={[
+            "mt-1 text-[11px] leading-none truncate",
+            isActive ? "text-white" : "text-neutral-300",
+          ].join(" ")}
+        >
+          {label}
+        </span>
       </div>
     </Link>
   );
@@ -284,13 +287,10 @@ export default function MobileBottomBar() {
       ].join(" ")}
       aria-label="Hlavná mobilná navigácia"
     >
-      <div className="max-w-screen-sm mx-auto px-3">
-        {/* veľká pilula ako v GitHube */}
-        <div className="h-14 rounded-full bg-slate-900/80 border border-white/10 flex items-center gap-1 px-1">
-          {ITEMS.map((item) => (
-            <BottomNavItem key={item.id} {...item} />
-          ))}
-        </div>
+      <div className="max-w-screen-sm mx-auto px-3 h-full flex items-center gap-2">
+        {ITEMS.map((item) => (
+          <BottomNavItem key={item.id} {...item} />
+        ))}
       </div>
     </nav>
   );
