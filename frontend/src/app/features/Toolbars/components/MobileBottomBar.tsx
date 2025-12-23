@@ -22,11 +22,10 @@ const ITEMS: ItemDef[] = [
 
 // ---------- IKONY – jednotný štýl ----------
 
-const STROKE_WIDTH = 1.9;
+const STROKE_WIDTH = 2.2; // kludne si daj naspäť 1.9 ak chceš tenšiu
 
 function ActivityIcon({ active }: { active: boolean }) {
   const color = active ? "#000000" : "#ffffff";
-  const laneStroke = 1.2;
 
   return (
     <svg
@@ -36,56 +35,59 @@ function ActivityIcon({ active }: { active: boolean }) {
       aria-hidden="true"
       fill="none"
     >
-      {/* trate */}
-      <path
-        d="M3 5H21M3 12H21M3 19H21"
-        stroke={color}
-        strokeWidth={laneStroke}
-        strokeLinecap="round"
-      />
       {/* hlava */}
       <circle
-        cx={9}
-        cy={8}
+        cx={14}
+        cy={6}
         r={2.4}
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
-      {/* trup */}
+
+      {/* trup – mierne zahnutý dopredu */}
       <path
-        d="M9.5 10.5L12.3 12.7"
+        d="M8 9.5C10 8.5 11.5 9.5 13 11"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      {/* predná noha */}
+
+      {/* predná ruka dopredu */}
       <path
-        d="M12.3 12.7L15.3 16.3"
+        d="M13 11L17 11"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      {/* zadná noha */}
+
+      {/* zadná ruka dozadu */}
       <path
-        d="M12.3 12.7L9.8 17"
+        d="M9 9.5L6.5 11"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      {/* predná ruka */}
+
+      {/* predná noha (dopredu dole) */}
       <path
-        d="M11 10.3L15 10.3"
+        d="M13 11L15.5 16"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      {/* zadná ruka */}
+
+      {/* zadná noha (dozadu) */}
       <path
-        d="M7.2 10.1L9.2 11.4"
+        d="M13 11L9 16"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
