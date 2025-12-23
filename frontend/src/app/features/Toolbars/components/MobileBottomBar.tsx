@@ -33,42 +33,50 @@ function ActivityIcon({ active }: { active: boolean }) {
       fill="none"
       aria-hidden="true"
     >
-      {/* hlava */}
+      {/* hlava – väčšia a viac v strede */}
       <circle
-        cx={14}
-        cy={6}
-        r={1.6}
+        cx={8}
+        cy={6.5}
+        r={2.1}
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
-      {/* trup + ruka */}
+      {/* trup */}
       <path
-        d="M10 11L13 9.5L15.5 11.5"
+        d="M8 8.8L11 11"
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* pravá noha */}
+      {/* predná noha */}
       <path
-        d="M12.5 12.5L14.5 16.5"
+        d="M11 11L14.2 13.8"
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* ľavá noha */}
+      {/* zadná noha */}
       <path
-        d="M10.5 12.5L8 17"
+        d="M11 11L9 15"
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* ruka dozadu */}
+      {/* predná ruka */}
       <path
-        d="M11.5 10.5L9.5 9"
+        d="M9.3 8.9L12.3 9.8"
+        stroke={stroke}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* zadná ruka */}
+      <path
+        d="M6.3 9.2L8.6 10.6"
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
