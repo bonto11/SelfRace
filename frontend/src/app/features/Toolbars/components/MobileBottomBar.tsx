@@ -35,50 +35,61 @@ function ActivityIcon({ active }: { active: boolean }) {
       aria-hidden="true"
       fill="none"
     >
-      {/* hlava */}
-      <circle
-        cx={11}
-        cy={6}
-        r={2.4}
+      {/* ľavý malý kotúč */}
+      <rect
+        x={3.2}
+        y={9.5}
+        width={1.6}
+        height={5}
+        rx={0.8}
+        ry={0.8}
         stroke={color}
         strokeWidth={STROKE_WIDTH}
-        fill="none"
+      />
+      {/* ľavý veľký kotúč */}
+      <rect
+        x={5}
+        y={8.5}
+        width={3}
+        height={7}
+        rx={1.2}
+        ry={1.2}
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
       />
 
-      {/* natiahnutá ruka dopredu hore */}
-      <path
-        d="M3 8L9.5 7.5"
+      {/* pravý veľký kotúč */}
+      <rect
+        x={16}
+        y={8.5}
+        width={3}
+        height={7}
+        rx={1.2}
+        ry={1.2}
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+      />
+      {/* pravý malý kotúč */}
+      <rect
+        x={19.2}
+        y={9.5}
+        width={1.6}
+        height={5}
+        rx={0.8}
+        ry={0.8}
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+      />
+
+      {/* hriadeľ činky */}
+      <line
+        x1={8}
+        y1={12}
+        x2={16}
+        y2={12}
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* trup smerom dozadu k nohe */}
-      <path
-        d="M9.5 7.5C11.5 9 13.2 10.3 15.2 11.2"
-        stroke={color}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* zdvihnutá noha dozadu hore */}
-      <path
-        d="M15.2 11.2L20 7"
-        stroke={color}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* stojaca noha dole */}
-      <path
-        d="M15.2 11.2L16.3 20"
-        stroke={color}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </svg>
   );
