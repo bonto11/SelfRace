@@ -8,7 +8,6 @@ type Item = {
   label: string;
 };
 
-// poradie podľa tvojho zadania: Aktivity, Coach, Profil, Recovery, Kalendár
 const ITEMS: Item[] = [
   { href: "/activities", label: "Aktivity" },
   { href: "/coach", label: "Coach" },
@@ -31,7 +30,8 @@ export default function MobileBottomBar() {
       "
       aria-label="Hlavná navigácia"
     >
-      <ul className="flex">
+      {/* h-16 => cca 64px, 2× vyššie ako predtým */}
+      <ul className="flex h-16">
         {ITEMS.map((item) => {
           const active =
             pathname === item.href ||
@@ -42,11 +42,11 @@ export default function MobileBottomBar() {
               <Link
                 href={item.href}
                 className={[
-                  "flex flex-col items-center justify-center gap-0.5",
-                  "py-2 text-xs",
+                  "flex h-full flex-col items-center justify-center gap-1",
+                  "px-1 text-xs", // môžeš dať text-sm, ak chceš väčšie
                   "border-r border-neutral-800 last:border-r-0",
                   active
-                    ? "bg-neutral-800/80 text-white"
+                    ? "bg-neutral-800/85 text-white"
                     : "text-neutral-300 hover:bg-neutral-900",
                 ].join(" ")}
               >
