@@ -22,7 +22,7 @@ const ITEMS: ItemDef[] = [
 
 // ---------- IKONY – jednotný štýl ----------
 
-const STROKE_WIDTH = 2.2; // kludne si daj naspäť 1.9 ak chceš tenšiu
+const STROKE_WIDTH = 2.1;
 
 function ActivityIcon({ active }: { active: boolean }) {
   const color = active ? "#000000" : "#ffffff";
@@ -37,7 +37,7 @@ function ActivityIcon({ active }: { active: boolean }) {
     >
       {/* hlava */}
       <circle
-        cx={14}
+        cx={11}
         cy={6}
         r={2.4}
         stroke={color}
@@ -45,45 +45,36 @@ function ActivityIcon({ active }: { active: boolean }) {
         fill="none"
       />
 
-      {/* trup – mierne zahnutý dopredu */}
+      {/* natiahnutá ruka dopredu hore */}
       <path
-        d="M8 9.5C10 8.5 11.5 9.5 13 11"
+        d="M3 8L9.5 7.5"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      {/* predná ruka dopredu */}
+      {/* trup smerom dozadu k nohe */}
       <path
-        d="M13 11L17 11"
+        d="M9.5 7.5C11.5 9 13.2 10.3 15.2 11.2"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      {/* zadná ruka dozadu */}
+      {/* zdvihnutá noha dozadu hore */}
       <path
-        d="M9 9.5L6.5 11"
+        d="M15.2 11.2L20 7"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      {/* predná noha (dopredu dole) */}
+      {/* stojaca noha dole */}
       <path
-        d="M13 11L15.5 16"
-        stroke={color}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* zadná noha (dozadu) */}
-      <path
-        d="M13 11L9 16"
+        d="M15.2 11.2L16.3 20"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
