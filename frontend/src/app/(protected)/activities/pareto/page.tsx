@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ParetoWeekPick } from "@/features/activities/types/pareto";
-import TrendPareto8020 from "@/features/activities/components/TrendPareto8020";
+import { ParetoWeekPick } from "@/app/features/activities/types/pareto";
+import TrendPareto8020 from "@/app/features/activities/components/TrendPareto8020";
 
-import ActivityTable from "@/features/activities/components/ActivityTable";
-import ButtonBack from "@/shared/components/ui/ButtonBack";
-import type { Range } from "@/features/activities/types/activities";
+import ActivityTable from "@/app/features/activities/components/ActivityTable";
+import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import type { Range } from "@/app/features/activities/types/activities";
 
 export default function ParetoPage() {
   const [range, setRange] = useState<Range>({});

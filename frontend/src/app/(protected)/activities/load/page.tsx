@@ -2,10 +2,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import TrendWeeklyLoad from "@/features/activities/components/TrendWeeklyLoad";
-import ActivityTable from "@/features/activities/components/ActivityTable";
-import ButtonBack from "@/shared/components/ui/ButtonBack";
-import type { WeekPick, Range } from "@/features/activities/types/activities";
+import TrendWeeklyLoad from "@/app/features/activities/components/TrendWeeklyLoad";
+import ActivityTable from "@/app/features/activities/components/ActivityTable";
+import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import type { WeekPick, Range } from "@/app/features/activities/types/activities";
 
 export default function Page() {
   const [range, setRange] = useState<Range>({});

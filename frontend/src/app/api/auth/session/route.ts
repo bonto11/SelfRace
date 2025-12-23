@@ -1,6 +1,6 @@
 // src/app/api/auth/session/route.ts
 import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/shared/utils/supabaseServer";
+import { getSupabaseServer } from "@/app/shared/utils/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,10 @@ export async function GET() {
 
     if (error) {
       console.error("[SB][session] error:", error.message);
-      return NextResponse.json({ user: null, error: error.message }, { status: 401 });
+      return NextResponse.json(
+        { user: null, error: error.message },
+        { status: 401 }
+      );
     }
 
     if (!data?.user) {

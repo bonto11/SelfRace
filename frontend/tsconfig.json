@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "lib": [
-      "es2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -17,31 +13,10 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "types": [
-      "@types/node",
-      "@types/react",
-      "@types/react-dom"
-    ],
+    "types": ["@types/node", "@types/react", "@types/react-dom"],
     "baseUrl": "src",
     "paths": {
-      "@/*": [
-        "*"
-      ],
-      "@shared/*": [
-        "../shared/*"
-      ],
-      "@/shared/*": [
-        "shared/*"
-      ],
-      "@/features/*": [
-        "features/*"
-      ],
-      "@/components/*": [
-        "components/*"
-      ],
-      "@/lib/*": [
-        "lib/*"
-      ]
+      "@/*": ["*"],
     },
     "plugins": [
       {
@@ -57,10 +32,8 @@
     "tools/rewire-imports.cjs",
     "tools/import-map.cjs",
     "next.config.mjs",
-    "src/shared/bootstrap",
+    "src/app/shared/bootstrap",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

@@ -2,17 +2,17 @@
 
 import { useRouter } from "next/navigation";
 
-import WidgetPB from "@/shared/components/widgets/WidgetPB";
-import WidgetCoachPrefs from "@/shared/components/widgets/WidgetCoachPrefs";
-import WidgetActivitiesCalendar from "@/shared/components/widgets/WidgetActivitiesCalendar";
-import WidgetCoachPlan from "@/shared/components/widgets/WidgetCoachPlan";
-import WidgetExternalEvents from "@/shared/components/widgets/WidgetExternalEvents";
+import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
+import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
+import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActivitiesCalendar";
+import WidgetCoachPlan from "@/app/shared/components/widgets/WidgetCoachPlan";
+import WidgetExternalEvents from "@/app/shared/components/widgets/WidgetExternalEvents";
 
-import WidgetCoachAIAnalyze from "@/shared/components/widgets/WidgetCoachAthleteState";
-import WidgetCoachAIWeekly from "@/shared/components/widgets/WidgetCoachWeeklyPlan";
-import WidgetCoachAIDaily from "@/shared/components/widgets/WidgetCoachDailyPlan";
+import WidgetCoachAIAnalyze from "@/app/shared/components/widgets/WidgetCoachAthleteState";
+import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeeklyPlan";
+import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
 
-import { CoachDataProvider } from "@/shared/components/dataProviders/CoachDataProvider";
+import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 function ClientPage() {
   const router = useRouter();
@@ -20,10 +20,10 @@ function ClientPage() {
   return (
     <div className="p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {/* existujúce widgety */}
-      <WidgetExternalEvents/>
+      <WidgetExternalEvents />
       <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
       <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-      <WidgetCoachPlan/>
+      <WidgetCoachPlan />
       <WidgetActivitiesCalendar />
 
       {/* nové AI widgety – zatiaľ statické */}
