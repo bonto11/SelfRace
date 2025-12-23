@@ -1,14 +1,20 @@
-// src/features/Toolbars/MobileBottomBar.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const items = [
+type Item = {
+  href: string;
+  label: string;
+};
+
+// poradie podľa tvojho zadania: Aktivity, Coach, Profil, Recovery, Kalendár
+const ITEMS: Item[] = [
   { href: "/activities", label: "Aktivity" },
   { href: "/coach", label: "Coach" },
+  { href: "/profile", label: "Profil" },
   { href: "/recovery", label: "Recovery" },
-  // { href: "/profile", label: "Profil" }, // môžeš pridať neskôr
+  { href: "/calendar", label: "Kalendár" },
 ];
 
 export default function MobileBottomBar() {
@@ -17,38 +23,39 @@ export default function MobileBottomBar() {
   return (
     <nav
       className="
-        lg:hidden
-        fixed bottom-0 inset-x-0 z-[60]
+        fixed bottom-0 left-0 right-0 z-[60]
         border-t border-neutral-800
-        bg-neutral-950/95 backdrop-blur
-        pb-[env(safe-area-inset-bottom)]
+        bg-neutral-950/95 backdrop-blur-md
+        lg:hidden
+        [padding-bottom:env(safe-area-inset-bottom)]
       "
-      aria-label="Hlavná spodná navigácia"
+      aria-label="Hlavná navigácia"
     >
-      <div className="flex h-14 items-stretch justify-around">
-        {items.map((item) => {
+      <ul className="flex">
+        {ITEMS.map((item) => {
           const active =
             pathname === item.href ||
-            pathname?.startsWith(item.href + "/");
+            pathname.startsWith(item.href + "/");
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={[
-                "flex-1 flex flex-col items-center justify-center text-xs",
-                "transition-colors",
-                active
-                  ? "font-semibold text-sky-400"
-                  : "text-neutral-300"
-              ].join(" ")}
-            >
-              {/* neskôr môžeš doplniť ikonky */}
-              <span>{item.label}</span>
-            </Link>
+            <li key={item.href} className="flex-1">
+              <Link
+                href={item.href}
+                className={[
+                  "flex flex-col items-center justify-center gap-0.5",
+                  "py-2 text-xs",
+                  "border-r border-neutral-800 last:border-r-0",
+                  active
+                    ? "bg-neutral-800/80 text-white"
+                    : "text-neutral-300 hover:bg-neutral-900",
+                ].join(" ")}
+              >
+                <span>{item.label}</span>
+              </Link>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </nav>
   );
 }
