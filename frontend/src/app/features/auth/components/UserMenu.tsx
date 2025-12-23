@@ -9,9 +9,11 @@ import {
 } from "@/app/shared/ui/classes";
 
 type LocalUser = {
-  email: string;
-  name: string;
-  displayName?: string | null;
+  id: number | null;
+  uuid: string | null;
+  email: string | null;
+  name: string | null;
+  displayName: string | null;
   avatarUrl: string | null;
 };
 
@@ -21,6 +23,7 @@ export default function UserMenu() {
   const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
+  // načítanie /api/auth/me
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -43,28 +46,27 @@ export default function UserMenu() {
     };
   }, []);
 
-  const initials = useMemo(() => {
-    const base =
+  // text, ktorý ukazujeme vedľa avatara
+  const label = useMemo(
+    () =>
       me?.displayName ||
       me?.name ||
       me?.email ||
-      "";
-    const n = base.trim();
-    const parts = n.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "U";
+      "",
+    [me?.displayName, me?.name, me?.email]
+  );
+
+  // iniciálky do kruhu – prefer name -> displayName -> email
+  const initials = useMemo(() => {
+    const raw = (me?.name || me?.displayName || me?.email || "").trim();
+    if (!raw) return "";
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "";
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [me?.displayName, me?.name, me?.email]);
+  }, [me?.name, me?.displayName, me?.email]);
 
-  const primaryLabel =
-    me?.displayName || me?.name || me?.email || "";
-
-  const secondaryLabel =
-    me?.displayName && me?.name && me.name !== me.displayName
-      ? me.name
-      : null;
-
-  // close on outside/Esc
+  // close on outside / Esc
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
       if (!boxRef.current) return;
@@ -89,20 +91,7 @@ export default function UserMenu() {
   }
 
   return (
-    <div ref={boxRef} className="relative flex items-center gap-2">
-      {/* text vedľa avatara, zarovnaný doprava */}
-      {me && (
-        <div className="hidden sm:flex flex-col items-end text-xs leading-tight mr-1 max-w-[140px]">
-          <span className="font-medium truncate">{primaryLabel}</span>
-          {secondaryLabel && (
-            <span className="text-[11px] text-neutral-400 truncate">
-              {secondaryLabel}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* avatar = button, ktorý otvára menu */}
+    <div ref={boxRef} className="relative">
       <button
         className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10"
         onClick={() => setOpen((v) => !v)}
@@ -112,26 +101,45 @@ export default function UserMenu() {
         {me?.avatarUrl ? (
           <Image
             src={me.avatarUrl}
-            alt="avatar"
+            alt={label || "User avatar"}
             width={28}
             height={28}
             className="rounded-full"
           />
-        ) : (
+        ) : initials ? (
           <div className={AVATAR_BUTTON}>{initials}</div>
+        ) : (
+          <div className={AVATAR_BUTTON} aria-hidden="true">
+            {/* jednoduchý user SVG fallback */}
+            <svg viewBox="0 0 24 24" width={18} height={18}>
+              <path
+                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Zm0 2c-3.33 0-6 2.02-6 4.5V20h12v-1.5C18 16.02 15.33 14 12 14Z"
+                fill="currentColor"
+              />
+            </svg>
+          </div>
         )}
+
+        {/* label vedľa avatara – displayName / name / email */}
+        <span className="text-sm hidden sm:block max-w-[140px] truncate">
+          {label}
+        </span>
       </button>
 
       {open && (
         <div className="absolute right-0 mt-2 w-64 z-50">
           <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
-            {/* header sekcia */}
+            {/* header v menu */}
             <div className="px-3 py-2 text-sm border-b border-white/10">
-              <div className="font-medium">{primaryLabel || "User"}</div>
-              <div className="opacity-70 truncate">{me?.email}</div>
+              <div className="font-medium">
+                {me?.displayName || me?.name || "User"}
+              </div>
+              <div className="opacity-70 truncate">
+                {me?.email || me?.name || ""}
+              </div>
             </div>
 
-            {/* položky menu – vertikálne pod sebou */}
+            {/* položky menu */}
             <nav className="py-1 flex flex-col gap-1">
               <a
                 className="block w-full px-3 py-2 text-sm hover:bg-white/10"
@@ -143,14 +151,14 @@ export default function UserMenu() {
                 className="block w-full px-3 py-2 text-sm hover:bg-white/10"
                 href="/profile"
               >
-                Change email
+                Zmeniť e-mail / profil
               </a>
               <button
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
                 onClick={handleSignOut}
                 disabled={busy === "signout"}
               >
-                {busy === "signout" ? "Signing out…" : "Sign out"}
+                {busy === "signout" ? "Odhlasujem…" : "Odhlásiť sa"}
               </button>
             </nav>
           </div>
