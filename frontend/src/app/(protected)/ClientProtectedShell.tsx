@@ -7,7 +7,7 @@ import Sidebar from "@/app/features/Toolbars/components/Sidebar";
 import UserMenu from "@/app/features/auth/components/UserMenu";
 import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
 import HeaderToggle from "@/app/features/Toolbars/components/HeaderToggle";
-import MobileBottomBar from "@/app/features/Toolbars/MobileBottomBar";
+import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
 
 import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
 import ToastHost from "@/app/shared/components/ui/Toast";
