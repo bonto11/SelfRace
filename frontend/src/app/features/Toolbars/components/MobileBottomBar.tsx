@@ -1,3 +1,4 @@
+// src/app/features/Toolbars/components/MobileBottomBar.tsx
 "use client";
 
 import Link from "next/link";
@@ -24,60 +25,61 @@ const ITEMS: ItemDef[] = [
 const STROKE_WIDTH = 1.9;
 
 function ActivityIcon({ active }: { active: boolean }) {
-  const stroke = active ? "#000000" : "#ffffff";
+  const color = active ? "#000000" : "#ffffff";
+
   return (
     <svg
       viewBox="0 0 24 24"
       width={20}
       height={20}
-      fill="none"
       aria-hidden="true"
+      fill="none"
     >
       {/* hlava – väčšia a viac v strede */}
       <circle
-        cx={8}
-        cy={6.5}
+        cx={9}
+        cy={7}
         r={2.1}
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
       {/* trup */}
       <path
-        d="M8 8.8L11 11"
-        stroke={stroke}
+        d="M9 9.8L11.5 11.7"
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       {/* predná noha */}
       <path
-        d="M11 11L14.2 13.8"
-        stroke={stroke}
+        d="M11.5 11.7L14.5 14.2"
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       {/* zadná noha */}
       <path
-        d="M11 11L9 15"
-        stroke={stroke}
+        d="M11.5 11.7L9.5 15.5"
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       {/* predná ruka */}
       <path
-        d="M9.3 8.9L12.3 9.8"
-        stroke={stroke}
+        d="M9.7 9.4L12.8 10.1"
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       {/* zadná ruka */}
       <path
-        d="M6.3 9.2L8.6 10.6"
-        stroke={stroke}
+        d="M7.1 9.6L9.1 10.9"
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -87,33 +89,31 @@ function ActivityIcon({ active }: { active: boolean }) {
 }
 
 function CoachIcon({ active }: { active: boolean }) {
-  const stroke = active ? "#000000" : "#ffffff";
+  const color = active ? "#000000" : "#ffffff";
+
   return (
     <svg
       viewBox="0 0 24 24"
       width={20}
       height={20}
-      fill="none"
       aria-hidden="true"
+      fill="none"
     >
-      {/* telo / plášť */}
       <path
         d="M10.09 1.5h3.83a2.87 2.87 0 0 1 2.87 2.87v4.78A4.78 4.78 0 0 1 12 13.93 4.78 4.78 0 0 1 7.22 9.15V4.37A2.87 2.87 0 0 1 10.09 1.5Z"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeMiterlimit={10}
       />
-      {/* límec */}
       <path
         d="M7.22 5.33h9.57a2.87 2.87 0 0 1-2.88 2.87h-3.82A2.87 2.87 0 0 1 7.22 5.33Z"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeMiterlimit={10}
       />
-      {/* spodná časť / zavesený stetoskop */}
       <path
         d="M3.39 23.5v-1A8.62 8.62 0 0 1 12 13.93a8.62 8.62 0 0 1 8.61 8.61v1"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeMiterlimit={10}
       />
@@ -121,7 +121,7 @@ function CoachIcon({ active }: { active: boolean }) {
         cx={12}
         cy={20.63}
         r={0.96}
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeMiterlimit={10}
       />
@@ -130,13 +130,13 @@ function CoachIcon({ active }: { active: boolean }) {
         y1={23.5}
         x2={12.96}
         y2={20.63}
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeMiterlimit={10}
       />
       <polyline
         points="7.22 13.94 12 19.67 16.78 13.94"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeMiterlimit={10}
         fill="none"
@@ -146,28 +146,27 @@ function CoachIcon({ active }: { active: boolean }) {
 }
 
 function ProfileIcon({ active }: { active: boolean }) {
-  const stroke = active ? "#000000" : "#ffffff";
+  const color = active ? "#000000" : "#ffffff";
+
   return (
     <svg
       viewBox="0 0 24 24"
       width={20}
       height={20}
-      fill="none"
       aria-hidden="true"
+      fill="none"
     >
-      {/* hlava – mierne menšia, presne v strede */}
       <circle
         cx={12}
         cy={8}
         r={2.6}
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
-      {/* ramená / hrudník – symetrická „miska“ */}
       <path
         d="M6.5 19c.5-3.2 2.8-5.5 5.5-5.5s5 2.3 5.5 5.5"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -177,27 +176,26 @@ function ProfileIcon({ active }: { active: boolean }) {
 }
 
 function RecoveryIcon({ active }: { active: boolean }) {
-  const stroke = active ? "#000000" : "#ffffff";
+  const color = active ? "#000000" : "#ffffff";
+
   return (
     <svg
       viewBox="0 0 24 24"
       width={20}
       height={20}
-      fill="none"
       aria-hidden="true"
+      fill="none"
     >
-      {/* heartbeat */}
       <path
         d="M15.5 11.5H14.5L13 14.5L11 8.5L9.5 11.5H8.5"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* heart obrys */}
       <path
         d="M11.9932 5.13581C9.9938 2.7984 6.65975 2.16964 4.15469 4.31001C1.64964 6.45038 1.29697 10.029 3.2642 12.5604C4.75009 14.4724 8.97129 18.311 10.948 20.0749C11.3114 20.3991 11.4931 20.5613 11.7058 20.6251C11.8905 20.6805 12.0958 20.6805 12.2805 20.6251C12.4932 20.5613 12.6749 20.3991 13.0383 20.0749C15.015 18.311 19.2362 14.4724 20.7221 12.5604C22.6893 10.029 22.3797 6.42787 19.8316 4.31001C17.2835 2.19216 13.9925 2.7984 11.9932 5.13581Z"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -207,18 +205,19 @@ function RecoveryIcon({ active }: { active: boolean }) {
 }
 
 function CalendarIcon({ active }: { active: boolean }) {
-  const stroke = active ? "#000000" : "#ffffff";
+  const color = active ? "#000000" : "#ffffff";
+
   return (
     <svg
       viewBox="0 0 24 24"
       width={20}
       height={20}
-      fill="none"
       aria-hidden="true"
+      fill="none"
     >
       <path
         d="M3 9H21M7 3V5M17 3V5M6 13H8M6 17H8M11 13H13M11 17H13M16 13H18M16 17H18M6.2 21H17.8C18.9201 21 19.4802 21 19.908 20.782C20.2843 20.5903 20.5903 20.2843 20.782 19.908C21 19.4802 21 18.9201 21 17.8V8.2C21 7.07989 21 6.51984 20.782 6.09202C20.5903 5.71569 20.2843 5.40973 19.908 5.21799C19.4802 5 18.9201 5 17.8 5H6.2C5.0799 5 4.51984 5 4.09202 5.21799C3.71569 5.40973 3.40973 5.71569 3.21799 6.09202C3 6.51984 3 7.07989 3 8.2V17.8C3 18.9201 3 19.4802 3.21799 19.908C3.40973 20.2843 3.71569 20.5903 4.09202 20.782C4.51984 21 5.07989 21 6.2 21Z"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -253,24 +252,22 @@ function BottomNavItem({ id, href, label }: ItemDef) {
   return (
     <Link
       href={href}
-      className={[
-        "flex flex-col items-center justify-center flex-1",
-        "text-[11px] font-medium transition-colors",
-        isActive ? "text-white" : "text-neutral-400",
-      ].join(" ")}
+      className="flex-1 flex justify-center min-w-0"
+      aria-label={label}
     >
       <div
         className={[
-          "flex items-center justify-center rounded-full mb-1 w-10 h-10 border",
+          "flex items-center justify-center gap-1.5 px-3 py-1.5",
+          "rounded-full transition-colors",
+          "text-[11px] font-medium",
           isActive
-            ? "bg-emerald-400 border-black"
-            : // tmavo-modrý „glass“ efekt
-              "bg-slate-900/80 border-white/40 backdrop-blur-sm",
+            ? "bg-emerald-400 text-black"
+            : "text-neutral-200/80 hover:text-white",
         ].join(" ")}
       >
         <Icon id={id} active={isActive} />
+        <span className="leading-none truncate">{label}</span>
       </div>
-      <span className="leading-none">{label}</span>
     </Link>
   );
 }
@@ -281,17 +278,19 @@ export default function MobileBottomBar() {
       className={[
         "lg:hidden",
         "fixed bottom-0 inset-x-0 z-40",
-        "border-t border-neutral-800",
-        // tmavý glass podklad celého baru
-        "bg-slate-950/95 backdrop-blur",
-        "h-20 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))]",
+        "border-t border-slate-800/60",
+        "bg-slate-950/90 backdrop-blur",
+        "pb-[calc(10px+env(safe-area-inset-bottom))] pt-2",
       ].join(" ")}
       aria-label="Hlavná mobilná navigácia"
     >
-      <div className="max-w-screen-sm mx-auto px-2 h-full flex items-stretch gap-1">
-        {ITEMS.map((item) => (
-          <BottomNavItem key={item.id} {...item} />
-        ))}
+      <div className="max-w-screen-sm mx-auto px-3">
+        {/* veľká pilula ako v GitHube */}
+        <div className="h-14 rounded-full bg-slate-900/80 border border-white/10 flex items-center gap-1 px-1">
+          {ITEMS.map((item) => (
+            <BottomNavItem key={item.id} {...item} />
+          ))}
+        </div>
       </div>
     </nav>
   );
