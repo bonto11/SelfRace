@@ -19,8 +19,6 @@ const ITEMS: ItemDef[] = [
   { id: "calendar", href: "/calendar", label: "Kalendár" },
 ];
 
-
-
 // ---------- IKONY – jednotný štýl ----------
 
 const STROKE_WIDTH = 1.9;
@@ -149,18 +147,18 @@ function ProfileIcon({ active }: { active: boolean }) {
       fill="none"
       aria-hidden="true"
     >
-      {/* hlava */}
+      {/* hlava – mierne menšia, presne v strede */}
       <circle
         cx={12}
         cy={8}
-        r={3}
+        r={2.6}
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
-      {/* ramená / hrudník */}
+      {/* ramená / hrudník – symetrická „miska“ */}
       <path
-        d="M6 19c0-3.3137 2.6863-6 6-6s6 2.6863 6 6"
+        d="M6.5 19c.5-3.2 2.8-5.5 5.5-5.5s5 2.3 5.5 5.5"
         stroke={stroke}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
@@ -258,7 +256,8 @@ function BottomNavItem({ id, href, label }: ItemDef) {
           "flex items-center justify-center rounded-full mb-1 w-10 h-10 border",
           isActive
             ? "bg-emerald-400 border-black"
-            : "bg-neutral-700 border-white/70",
+            : // tmavo-modrý „glass“ efekt
+              "bg-slate-900/80 border-white/40 backdrop-blur-sm",
         ].join(" ")}
       >
         <Icon id={id} active={isActive} />
@@ -275,7 +274,8 @@ export default function MobileBottomBar() {
         "lg:hidden",
         "fixed bottom-0 inset-x-0 z-40",
         "border-t border-neutral-800",
-        "bg-neutral-950/95 backdrop-blur",
+        // tmavý glass podklad celého baru
+        "bg-slate-950/95 backdrop-blur",
         "h-20 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))]",
       ].join(" ")}
       aria-label="Hlavná mobilná navigácia"
