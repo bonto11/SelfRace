@@ -6,10 +6,6 @@ import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
 import {
   AVATAR_BUTTON,
-  DROPDOWN_PANEL,
-  DROPDOWN_DIVIDER,
-  DROPDOWN_ITEM,
-  DROPDOWN_ITEM_DANGER,
 } from "@/app/shared/ui/classes";
 
 type LocalUser = {
@@ -49,19 +45,25 @@ export default function UserMenu() {
 
   const initials = useMemo(() => {
     const base =
-      (me?.name && me.name.trim()) ||          // 1) celé meno
-      (me?.displayName && me.displayName.trim()) || // 2) prezývka
-      (me?.email && me.email.trim()) ||        // 3) email
+      me?.displayName ||
+      me?.name ||
+      me?.email ||
       "";
-  
-    if (!base) return "U";
-  
-    const parts = base.split(/\s+/).filter(Boolean);
+    const n = base.trim();
+    const parts = n.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "U";
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [me?.name, me?.displayName, me?.email]);
-    
+  }, [me?.displayName, me?.name, me?.email]);
+
+  const primaryLabel =
+    me?.displayName || me?.name || me?.email || "";
+
+  const secondaryLabel =
+    me?.displayName && me?.name && me.name !== me.displayName
+      ? me.name
+      : null;
+
   // close on outside/Esc
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
@@ -87,7 +89,20 @@ export default function UserMenu() {
   }
 
   return (
-    <div ref={boxRef} className="relative">
+    <div ref={boxRef} className="relative flex items-center gap-2">
+      {/* text vedľa avatara, zarovnaný doprava */}
+      {me && (
+        <div className="hidden sm:flex flex-col items-end text-xs leading-tight mr-1 max-w-[140px]">
+          <span className="font-medium truncate">{primaryLabel}</span>
+          {secondaryLabel && (
+            <span className="text-[11px] text-neutral-400 truncate">
+              {secondaryLabel}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* avatar = button, ktorý otvára menu */}
       <button
         className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10"
         onClick={() => setOpen((v) => !v)}
@@ -105,7 +120,6 @@ export default function UserMenu() {
         ) : (
           <div className={AVATAR_BUTTON}>{initials}</div>
         )}
-        <span className="text-sm hidden sm:block">{me?.email ?? ""}</span>
       </button>
 
       {open && (
@@ -113,9 +127,7 @@ export default function UserMenu() {
           <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
             {/* header sekcia */}
             <div className="px-3 py-2 text-sm border-b border-white/10">
-              <div className="font-medium">
-                {me?.displayName || me?.name || "User"}
-              </div>
+              <div className="font-medium">{primaryLabel || "User"}</div>
               <div className="opacity-70 truncate">{me?.email}</div>
             </div>
 
