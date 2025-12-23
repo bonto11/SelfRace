@@ -21,10 +21,17 @@ const ITEMS: ItemDef[] = [
 
 function BottomNavItem({ href, label, iconSrc }: ItemDef) {
   const pathname = usePathname();
-  const isActive =
-    pathname === href || pathname.startsWith(href + "/");
-
+  const isActive = pathname === href || pathname.startsWith(href + "/");
   const [iconBroken, setIconBroken] = useState(false);
+
+  const circleClass = [
+    "flex items-center justify-center",
+    "rounded-full mb-1",
+    "w-9 h-9 border", // border = stroke
+    isActive
+      ? "bg-green-500 border-black" // aktívny: zelená výplň + čierny stroke
+      : "bg-neutral-800 border-white/60", // neaktívny: šedá výplň + biely stroke
+  ].join(" ");
 
   return (
     <Link
@@ -36,16 +43,8 @@ function BottomNavItem({ href, label, iconSrc }: ItemDef) {
         isActive ? "text-white" : "text-neutral-400",
       ].join(" ")}
     >
-      <div
-        className={[
-          "flex items-center justify-center",
-          "rounded-full mb-1",
-          "w-9 h-9", // fixná veľkosť ikon kruhu
-          isActive ? "bg-blue-600" : "bg-neutral-800",
-        ].join(" ")}
-      >
+      <div className={circleClass}>
         {iconSrc && !iconBroken ? (
-          // SVG z /public – ak je 404, spadne na fallback
           <img
             src={iconSrc}
             alt={label}
@@ -53,7 +52,6 @@ function BottomNavItem({ href, label, iconSrc }: ItemDef) {
             onError={() => setIconBroken(true)}
           />
         ) : (
-          // Fallback – jednoduchý znak / monogram
           <span className="text-xs">
             {label.slice(0, 2).toUpperCase()}
           </span>
@@ -69,11 +67,9 @@ export default function MobileBottomBar() {
     <nav
       className={[
         "lg:hidden",
-        // FIXED bar na spodku
         "fixed bottom-0 inset-x-0 z-40",
         "border-t border-neutral-800",
         "bg-neutral-950/95 backdrop-blur",
-        // výška + safe-area
         "h-20 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))]",
       ].join(" ")}
       aria-label="Hlavná mobilná navigácia"
