@@ -50,9 +50,9 @@ export default function ClientProtectedShell({
 
                   <div className="min-h-dvh flex flex-col">
                     {/* padding dole kvôli bottom baru na mobile */}
-                    <main className="flex-1 p-3 lg:p-4 pb-20 lg:pb-4">
-                      {children}
-                    </main>
+                  <main className="flex-1 p-3 lg:p-4 pb-24 lg:pb-4">
+                    {children}
+                  </main>
                   </div>
                 </div>
 
