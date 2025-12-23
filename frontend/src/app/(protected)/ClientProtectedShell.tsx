@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import Sidebar from "@/app/features/Toolbars/components/Sidebar";
 import UserMenu from "@/app/features/auth/components/UserMenu";
 import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
-import HeaderToggle from "@/app/features/Toolbars/components/HeaderToggle";
 import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
 
 import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
@@ -36,22 +35,27 @@ export default function ClientProtectedShell({
                 {/* TOPBAR – stále hore, sticky */}
                 <header className="sticky top-0 z-30 h-14 border-b border-neutral-800 flex items-center justify-between px-3 lg:px-4 gap-3 bg-neutral-950/90 backdrop-blur [padding-top:env(safe-area-inset-top)]">
                   <div className="flex items-center gap-2">
-                    <HeaderToggle />
-                    <div className="font-semibold hidden sm:block">
-                      SelfRace
-                    </div>
+                    <div className="font-semibold">SelfRace</div>
                   </div>
                   <UserMenu />
                 </header>
 
-                {/* GRID – sidebar + obsah, scrolluje sa len toto */}
-                <div className="flex-1 grid lg:grid-cols-[280px_1fr]">
-                  <Sidebar />
+                {/* LAYOUT OBSAHU */}
+                <div className="flex-1">
+                  {/* Desktop: sidebar + obsah v gride */}
+                  <div className="hidden lg:grid lg:grid-cols-[280px_1fr] h-full">
+                    <Sidebar />
+                    <div className="min-h-dvh flex flex-col">
+                      <main className="flex-1 p-3 lg:p-4 pb-4">
+                        {children}
+                      </main>
+                    </div>
+                  </div>
 
-                  <div className="min-h-dvh flex flex-col">
+                  {/* Mobile: len obsah, bez sidebaru */}
+                  <div className="lg:hidden min-h-dvh flex flex-col">
                     {/* padding dole kvôli bottom baru na mobile */}
-                    
-                    <main className="flex-1 p-3 lg:p-4 pb-24 lg:pb-4">
+                    <main className="flex-1 p-3 pb-20">
                       {children}
                     </main>
                   </div>
