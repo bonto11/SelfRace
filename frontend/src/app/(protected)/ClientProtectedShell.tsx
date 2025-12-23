@@ -1,72 +1,145 @@
-// src/app/(protected)/ClientProtectedShell.tsx
+// src/app/features/Toolbars/components/MobileBottomBar.tsx
 "use client";
 
-import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 
-import Sidebar from "@/app/features/Toolbars/components/Sidebar";
-import UserMenu from "@/app/features/auth/components/UserMenu";
-import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
-import HeaderToggle from "@/app/features/Toolbars/components/HeaderToggle";
-import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
+type NavKey = "activities" | "coach" | "profile" | "recovery" | "calendar";
 
-import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
-import ToastHost from "@/app/shared/components/ui/Toast";
-import ConfirmHost from "@/app/shared/components/ui/Confirm";
+type NavItem = {
+  key: NavKey;
+  href: string;
+  label: string;
+  iconSrc: string; // cesta do /public
+};
 
-import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
+const NAV_ITEMS: NavItem[] = [
+  {
+    key: "activities",
+    href: "/activities",
+    label: "Aktivity",
+    iconSrc: "/activityIcon.svg",
+  },
+  {
+    key: "coach",
+    href: "/coach",
+    label: "Coach",
+    iconSrc: "/coachIcon.svg",
+  },
+  {
+    key: "profile",
+    href: "/profile",
+    label: "Profil",
+    iconSrc: "/profileIcon.svg",
+  },
+  {
+    key: "recovery",
+    href: "/recovery",
+    label: "Recovery",
+    iconSrc: "/recoveryIcon.svg",
+  },
+  {
+    key: "calendar",
+    href: "/calendar",
+    label: "Kalendár",
+    iconSrc: "/calendarIcon.svg",
+  },
+];
 
-export default function ClientProtectedShell({
-  children,
+function IconWithFallback({
+  src,
+  label,
+  active,
 }: {
-  children: ReactNode;
+  src: string;
+  label: string;
+  active: boolean;
 }) {
+  const [useImg, setUseImg] = useState(true);
+
+  const iconTone = active ? "opacity-100" : "opacity-75";
+
   return (
-    <>
-      {/* bootstrap preferencií po prihlásení (client) */}
-      <UserPrefsBootstrapper />
+    <div className="flex flex-col items-center gap-0.5">
+      {useImg ? (
+        <img
+          src={src}
+          alt=""
+          className={`w-5 h-5 ${iconTone}`}
+          onError={() => setUseImg(false)}
+        />
+      ) : (
+        // 1. fallback – jednoduchá vstavaná ikona (krúžok)
+        <span
+          className={`inline-flex items-center justify-center w-5 h-5 rounded-full border border-neutral-500 text-[10px] ${iconTone}`}
+        >
+          {label[0] ?? "·"}
+        </span>
+      )}
 
-      <SidebarProvider>
-        <CoachDataProvider>
-          <ActivityDataProvider days={120}>
-            <RecoveryDataProvider days={90}>
-              {/* ROOT – flex kolóna, hore topbar, dole bottom bar (len mobile) */}
-              <div className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
-                {/* TOPBAR – stále hore, sticky */}
-                <header className="sticky top-0 z-30 h-14 border-b border-neutral-800 flex items-center justify-between px-3 lg:px-4 gap-3 bg-neutral-950/90 backdrop-blur [padding-top:env(safe-area-inset-top)]">
-                  <div className="flex items-center gap-2">
-                    <HeaderToggle />
-                    <div className="font-semibold hidden sm:block">
-                      SelfRace
-                    </div>
-                  </div>
-                  <UserMenu />
-                </header>
+      {/* 2. fallback / label – text je vždy, aj keď je ikona OK */}
+      <span
+        className={`text-[11px] ${
+          active ? "text-white" : "text-neutral-300"
+        }`}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
 
-                {/* GRID – sidebar + obsah, scrolluje sa len toto */}
-                <div className="flex-1 grid lg:grid-cols-[280px_1fr]">
-                  <Sidebar />
+export default function MobileBottomBar() {
+  const pathname = usePathname();
 
-                  <div className="min-h-dvh flex flex-col">
-                    {/* padding dole kvôli bottom baru na mobile */}
-                  <main className="flex-1 p-3 lg:p-4 pb-24 lg:pb-4">
-                    {children}
-                  </main>
-                  </div>
-                </div>
+  return (
+    <nav
+      className="
+        lg:hidden
+        sticky bottom-0 z-40
+        border-t border-neutral-800
+        bg-neutral-950/95 backdrop-blur
+        [padding-bottom:env(safe-area-inset-bottom)]
+        h-16
+      "
+      aria-label="Dolná navigácia"
+    >
+      <div className="max-w-screen-md mx-auto h-full flex items-center justify-around px-1">
+        {NAV_ITEMS.map((item) => {
+          const isActive =
+            pathname === item.href ||
+            (pathname?.startsWith(item.href + "/") ?? false);
 
-                {/* spodná navigácia – len mobile */}
-                <MobileBottomBar />
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              className={`
+                flex-1 h-full flex items-center justify-center
+              `}
+            >
+              <div
+                className={`
+                  inline-flex flex-col items-center justify-center gap-1
+                  px-1
+                  ${
+                    isActive
+                      ? "text-white"
+                      : "text-neutral-400 hover:text-neutral-100"
+                  }
+                `}
+              >
+                <IconWithFallback
+                  src={item.iconSrc}
+                  label={item.label}
+                  active={isActive}
+                />
               </div>
-            </RecoveryDataProvider>
-          </ActivityDataProvider>
-        </CoachDataProvider>
-      </SidebarProvider>
-
-      {/* Globálny toast/confirm pre protected sekciu */}
-      <ToastHost />
-      <ConfirmHost />
-    </>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
