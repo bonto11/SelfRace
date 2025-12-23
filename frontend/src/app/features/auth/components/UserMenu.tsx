@@ -4,9 +4,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
-import {
-  AVATAR_BUTTON,
-} from "@/app/shared/ui/classes";
+import { AVATAR_BUTTON } from "@/app/shared/ui/classes";
 
 type LocalUser = {
   id: number | null;
@@ -23,7 +21,6 @@ export default function UserMenu() {
   const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // načítanie /api/auth/me
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -34,9 +31,7 @@ export default function UserMenu() {
         });
         const j = await r.json();
         if (!alive) return;
-        if (j?.ok && j.user) {
-          setMe(j.user as LocalUser);
-        }
+        if (j?.ok && j.user) setMe(j.user as LocalUser);
       } catch {
         /* ignore */
       }
@@ -46,17 +41,11 @@ export default function UserMenu() {
     };
   }, []);
 
-  // text, ktorý ukazujeme vedľa avatara
   const label = useMemo(
-    () =>
-      me?.displayName ||
-      me?.name ||
-      me?.email ||
-      "",
+    () => me?.displayName || me?.name || me?.email || "",
     [me?.displayName, me?.name, me?.email]
   );
 
-  // iniciálky do kruhu – prefer name -> displayName -> email
   const initials = useMemo(() => {
     const raw = (me?.name || me?.displayName || me?.email || "").trim();
     if (!raw) return "";
@@ -66,7 +55,6 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.displayName, me?.email]);
 
-  // close on outside / Esc
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
       if (!boxRef.current) return;
@@ -98,6 +86,12 @@ export default function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
       >
+        {/* label VEDĽA avatara – naľavo */}
+        <span className="text-sm max-w-[140px] truncate text-right">
+          {label}
+        </span>
+
+        {/* avatar / iniciálky / fallback ikona */}
         {me?.avatarUrl ? (
           <Image
             src={me.avatarUrl}
@@ -110,7 +104,6 @@ export default function UserMenu() {
           <div className={AVATAR_BUTTON}>{initials}</div>
         ) : (
           <div className={AVATAR_BUTTON} aria-hidden="true">
-            {/* jednoduchý user SVG fallback */}
             <svg viewBox="0 0 24 24" width={18} height={18}>
               <path
                 d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Zm0 2c-3.33 0-6 2.02-6 4.5V20h12v-1.5C18 16.02 15.33 14 12 14Z"
@@ -119,17 +112,11 @@ export default function UserMenu() {
             </svg>
           </div>
         )}
-
-        {/* label vedľa avatara – displayName / name / email */}
-        <span className="text-sm hidden sm:block max-w-[140px] truncate">
-          {label}
-        </span>
       </button>
 
       {open && (
         <div className="absolute right-0 mt-2 w-64 z-50">
           <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
-            {/* header v menu */}
             <div className="px-3 py-2 text-sm border-b border-white/10">
               <div className="font-medium">
                 {me?.displayName || me?.name || "User"}
@@ -139,7 +126,6 @@ export default function UserMenu() {
               </div>
             </div>
 
-            {/* položky menu */}
             <nav className="py-1 flex flex-col gap-1">
               <a
                 className="block w-full px-3 py-2 text-sm hover:bg-white/10"
