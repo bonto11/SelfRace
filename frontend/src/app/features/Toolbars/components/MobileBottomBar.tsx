@@ -279,8 +279,8 @@ export default function MobileBottomBar() {
       aria-label="Hlavná mobilná navigácia"
     >
       <div className="max-w-screen-sm w-full px-3 flex justify-center">
-        {/* HLAVNÁ PILULA – užšia + mierne vyššie (mb-[3px]) */}
-        <div className="mb-[3px] flex items-center gap-2 px-[9px] py-2 rounded-full bg-slate-950/92 border border-slate-700/70 backdrop-blur-sm shadow-lg">
+        {/* HLAVNÁ PILULA – ešte trošku užšia + mierne vyššie */}
+        <div className="mb-[3px] flex items-center gap-1 px-[4px] py-2 rounded-full bg-slate-950/92 border border-slate-700/70 backdrop-blur-sm shadow-lg">
           {ITEMS.map((item) => (
             <BottomNavItem key={item.id} {...item} />
           ))}
