@@ -27,12 +27,12 @@ const STROKE_WIDTH = 1.9;
 function ActivityIcon({ active }: { active: boolean }) {
   const color = active ? "#000000" : "#ffffff";
 
-  // jednoduchší, väčší bežec
+  // väčší, jednoduchý bežec
   return (
     <svg
       viewBox="0 0 24 24"
-      width={22}
-      height={22}
+      width={24}
+      height={24}
       aria-hidden="true"
       fill="none"
     >
@@ -40,42 +40,42 @@ function ActivityIcon({ active }: { active: boolean }) {
       <circle
         cx={8}
         cy={7}
-        r={2.3}
+        r={2.6}
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         fill="none"
       />
       {/* trup */}
       <path
-        d="M8.2 9.8L11 12"
+        d="M8.3 9.9L11.2 12.1"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
       />
       {/* predná noha */}
       <path
-        d="M11 12L14.5 14.5"
+        d="M11.2 12.1L15 14.7"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
       />
       {/* zadná noha */}
       <path
-        d="M11 12L9 16"
+        d="M11.2 12.1L9 16.4"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
       />
       {/* ruka dopredu */}
       <path
-        d="M8.8 9.6L12 10.4"
+        d="M8.9 9.6L12.3 10.5"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
       />
       {/* ruka dozadu */}
       <path
-        d="M6.3 9.7L8.3 11"
+        d="M6.1 9.8L8.4 11.3"
         stroke={color}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
@@ -252,10 +252,10 @@ function BottomNavItem({ id, href, label }: ItemDef) {
       aria-label={label}
     >
       <div className="flex flex-col items-center justify-center min-w-[60px]">
-        {/* squircle podklad iba keď je aktívny */}
+        {/* squircle iba pri aktívnom */}
         <div
           className={[
-            "flex items-center justify-center rounded-2xl w-16 h-9",
+            "flex items-center justify-center rounded-2xl w-[70px] h-9",
             "transition-colors",
             isActive ? "bg-emerald-400 text-black" : "bg-transparent text-white",
           ].join(" ")}
@@ -281,16 +281,19 @@ export default function MobileBottomBar() {
       className={[
         "lg:hidden",
         "fixed bottom-0 inset-x-0 z-40",
-        "border-t border-slate-800/60",
-        "bg-slate-950/90 backdrop-blur",
-        "pb-[calc(10px+env(safe-area-inset-bottom))] pt-2",
+        // žiadny plný obdĺžnik – len trochu priestoru na spodku
+        "pb-[calc(12px+env(safe-area-inset-bottom))] pt-2",
+        "flex justify-center",
       ].join(" ")}
       aria-label="Hlavná mobilná navigácia"
     >
-      <div className="max-w-screen-sm mx-auto px-3 h-full flex items-center gap-2">
-        {ITEMS.map((item) => (
-          <BottomNavItem key={item.id} {...item} />
-        ))}
+      <div className="max-w-screen-sm w-full px-3 flex justify-center">
+        {/* veľká pilula s navigáciou */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-950/92 border border-slate-700/70 backdrop-blur-sm shadow-lg">
+          {ITEMS.map((item) => (
+            <BottomNavItem key={item.id} {...item} />
+          ))}
+        </div>
       </div>
     </nav>
   );
