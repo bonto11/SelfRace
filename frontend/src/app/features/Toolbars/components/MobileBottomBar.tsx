@@ -21,7 +21,7 @@ const ITEMS: ItemDef[] = [
 ];
 
 // ---------- IKONY – jednotný štýl ----------
-
+/*
 const STROKE_WIDTH = 2.1;
 
 function ActivityIcon({ active }: { active: boolean }) {
@@ -35,7 +35,7 @@ function ActivityIcon({ active }: { active: boolean }) {
       aria-hidden="true"
       fill="none"
     >
-      {/* ľavý malý kotúč */}
+      // ľavý malý kotúč
       <rect
         x={3.2}
         y={9.5}
@@ -46,7 +46,7 @@ function ActivityIcon({ active }: { active: boolean }) {
         stroke={color}
         strokeWidth={STROKE_WIDTH}
       />
-      {/* ľavý veľký kotúč */}
+      // ľavý veľký kotúč 
       <rect
         x={5}
         y={8.5}
@@ -58,7 +58,7 @@ function ActivityIcon({ active }: { active: boolean }) {
         strokeWidth={STROKE_WIDTH}
       />
 
-      {/* pravý veľký kotúč */}
+      // pravý veľký kotúč
       <rect
         x={16}
         y={8.5}
@@ -69,7 +69,7 @@ function ActivityIcon({ active }: { active: boolean }) {
         stroke={color}
         strokeWidth={STROKE_WIDTH}
       />
-      {/* pravý malý kotúč */}
+      // pravý malý kotúč
       <rect
         x={19.2}
         y={9.5}
@@ -81,7 +81,7 @@ function ActivityIcon({ active }: { active: boolean }) {
         strokeWidth={STROKE_WIDTH}
       />
 
-      {/* hriadeľ činky */}
+      // hriadeľ činky
       <line
         x1={8}
         y1={12}
@@ -91,6 +91,55 @@ function ActivityIcon({ active }: { active: boolean }) {
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+*/
+const STROKE_WIDTH = 1.9;
+
+function ActivityIcon({ active }: { active: boolean }) {
+  const color = active ? "#000000" : "#ffffff";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={20}
+      height={20}
+      aria-hidden="true"
+      fill="none"
+    >
+      {/* horné tlačidlo */}
+      <path
+        d="M10 3h4"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+      />
+      <path
+        d="M11 2h2"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+      />
+
+      {/* telo stopiek */}
+      <circle
+        cx={12}
+        cy={13}
+        r={6}
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        fill="none"
+      />
+
+      {/* ručičky */}
+      <path
+        d="M12 13L15 11"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+      />
+      <circle cx={12} cy={13} r={0.7} fill={color} />
     </svg>
   );
 }
