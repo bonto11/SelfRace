@@ -271,7 +271,14 @@ def build_input_from_db(
 # -------------------- STORAGE --------------------
 
 
-def service_save_state_to_db(user_id: int, analysis: Dict[str, Any]) -> Optional[int]:
+def service_save_state_to_db(
+    user_id: int,
+    analysis: Dict[str, Any],
+    user_jwt: Optional[str] = None,
+) -> Optional[int]:
+    """
+    Uloží AI stav atleta do coach_athlete_state pod user JWT (ak je zadaný).
+    """
     model = str(analysis.get("model") or "Trainalyze Coach")
     version = int(analysis.get("schema_version") or 1)
     return db_insert_athlete_state(
@@ -279,15 +286,20 @@ def service_save_state_to_db(user_id: int, analysis: Dict[str, Any]) -> Optional
         model=model,
         state_json=analysis,
         version=version,
+        user_jwt=user_jwt,
     )
 
 
-def service_get_athlete_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
+def service_get_athlete_state_by_id(
+    state_id: int,
+    user_jwt: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny záznam z coach_athlete_state podľa id
     a rozbalí state_json do samostatného kľúča "state".
+    Beží pod user JWT, ak je zadaný.
     """
-    row = db_get_state_by_id(state_id)
+    row = db_get_state_by_id(state_id, user_jwt=user_jwt)
     if not row:
         return None
 
@@ -306,11 +318,16 @@ def service_get_athlete_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
 def service_get_latest_athlete_state(
     user_id: int,
     version: Optional[int] = 1,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší stav pre usera (podľa created_at DESC).
     """
-    row = db_get_latest_state_for_user(user_id=user_id, version=version)
+    row = db_get_latest_state_for_user(
+        user_id=user_id,
+        version=version,
+        user_jwt=user_jwt,
+    )
     if not row:
         return None
 
@@ -329,12 +346,17 @@ def service_get_latest_athlete_state(
 def service_list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     História stavov – len meta info (bez state_json),
     vhodné na výpis v UI / debug.
     """
-    rows = db_list_states_for_user(user_id=user_id, limit=limit)
+    rows = db_list_states_for_user(
+        user_id=user_id,
+        limit=limit,
+        user_jwt=user_jwt,
+    )
     return [
         {
             "id": r.get("id"),
@@ -400,7 +422,11 @@ def service_analyze_athlete(
     # 3) STORAGE (voliteľné)
     state_id: Optional[int] = None
     if save_to_db:
-        state_id = service_save_state_to_db(user_id, analysis)
+        state_id = service_save_state_to_db(
+            user_id=user_id,
+            analysis=analysis,
+            user_jwt=user_jwt,
+        )
 
     # 4) RESPONSE – jasné oddelenie INPUT vs AI OUTPUT
     resp: Dict[str, Any] = {
