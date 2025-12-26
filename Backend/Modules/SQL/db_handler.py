@@ -2,83 +2,51 @@
 
 from typing import Optional
 
-from contextvars import ContextVar
 from supabase import create_client
 
 from Configs.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE, SUPABASE_ANON_KEY
 
 
 # ------------------------------------------------------------------
-# Context: aktuálny user JWT (nastavíš ho v middleware/dependency)
+# SERVICE CLIENT – obchádza RLS (SERVICE_ROLE key)
 # ------------------------------------------------------------------
 
-_current_user_jwt: ContextVar[Optional[str]] = ContextVar(
-    "current_user_jwt",
-    default=None,
-)
-
-
-def set_current_user_jwt(jwt: Optional[str]) -> None:
-    """
-    Nastav JWT aktuálneho používateľa pre tento request/thread.
-
-    Použitie (FastAPI príklad):
-
-        from fastapi import Depends, Request
-        from Modules.SQL.db_handler import set_current_user_jwt
-
-        async def inject_user_jwt(request: Request):
-            token = extrahuj_jwt_z_headeru_aleho_cookies(...)
-            set_current_user_jwt(token)
-    """
-    _current_user_jwt.set(jwt)
-
-
-# ------------------------------------------------------------------
-# Service client (mimo RLS) – používa SERVICE_ROLE key
-# ------------------------------------------------------------------
-
-_service_client = None  # lazy init, 1 instance
+_service_client = None  # lazy init, zdieľaný v rámci procesu
 
 
 def get_service_client():
-    """
-    Supabase client so SERVICE_ROLE kľúčom – úplne obchádza RLS.
-    Používaj IBA TAM, kde vedome chceš admin prístup (batch joby, migrácie, atď.).
-    """
-    global _service_client
-    if _service_client is None:
-        _service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-    return _service_client
+  """
+  Supabase client so SERVICE_ROLE kľúčom – úplne obchádza RLS.
+
+  Používaj ho:
+    - v existujúcich servisoch (sync, worker, webhooks, migrácie),
+    - tam, kde ešte nemáš JWT / RLS pripravené.
+
+  NEpoužívaj ho tam, kde očakávaš, že RLS má chrániť user dáta.
+  """
+  global _service_client
+  if _service_client is None:
+      _service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+  return _service_client
 
 
 # ------------------------------------------------------------------
-# User client (RLS) – používa ANON key + JWT cez postgrest.auth()
+# USER CLIENT – RLS (ANON key + JWT)
 # ------------------------------------------------------------------
 
-def get_user_client(user_jwt: Optional[str] = None):
-    """
-    Vráti Supabase client s RLS, autentifikovaný ako konkrétny používateľ.
+def get_user_client(user_jwt: str):
+  """
+  Vráti Supabase client s RLS, autentifikovaný ako konkrétny používateľ.
 
-    - vytvára nový client s ANON kľúčom
-    - nastaví JWT na PostgREST vrstve, aby RLS videlo usera
+  - používa ANON kľúč
+  - nastaví JWT cez postgrest.auth(), takže RLS vie, kto je user (auth.uid()).
+  """
+  if not user_jwt:
+      raise RuntimeError("get_user_client() vyžaduje ne-prázdny user_jwt")
 
-    Ak user_jwt nie je dodaný, skúsime zobrať hodnotu z contextvar
-    (set_current_user_jwt). Ak ani tam nič nie je, hodíme RuntimeError.
-    """
-    if user_jwt is None:
-        user_jwt = _current_user_jwt.get()
-
-    if not user_jwt:
-        raise RuntimeError(
-            "get_user_client() vyžaduje user_jwt alebo set_current_user_jwt() "
-            "pred volaním get_client()."
-        )
-
-    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    # nastavíme JWT pre PostgREST (RLS)
-    client.postgrest.auth(user_jwt)
-    return client
+  client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+  client.postgrest.auth(user_jwt)
+  return client
 
 
 # ------------------------------------------------------------------
@@ -86,34 +54,39 @@ def get_user_client(user_jwt: Optional[str] = None):
 # ------------------------------------------------------------------
 
 def get_client(
-    user_jwt: Optional[str] = None,
-    *,
-    service: bool = False,
+  user_jwt: Optional[str] = None,
+  *,
+  service: bool = False,
 ):
-    """
-    Unified helper:
+  """
+  Unified helper:
 
-    - get_client(service=True)      → SERVICE_ROLE (mimo RLS)
-    - get_client(user_jwt="...")    → RLS user client
-    - get_client()                  → skúsi RLS z contextvar (set_current_user_jwt),
-                                      ak nič nie je, spadne na service client
-                                      (spätná kompatibilita, ale mimo RLS!)
-    """
+    get_client(service=True)
+      → SERVICE_ROLE client (mimo RLS).
 
-    # 1) explicitne service mód
-    if service:
-        return get_service_client()
+    get_client(user_jwt="...")
+      → RLS client pre konkrétneho používateľa.
 
-    # 2) ak sme dostali user_jwt priamo ako argument → user client (RLS)
-    if user_jwt is not None:
-        return get_user_client(user_jwt)
+    get_client()
+      → BEZ parametrov → SERVICE_ROLE client
+         (spätná kompatibilita – všetok starý kód ide cez service role).
 
-    # 3) skúsiť contextvar (set_current_user_jwt)
-    ctx_jwt = _current_user_jwt.get()
-    if ctx_jwt:
-        return get_user_client(ctx_jwt)
+  V praxi:
+    - starý kód nechaj len `get_client()` → stále používa service role.
+    - nový/prechodný kód môže začať používať:
+        sb = get_client(user_jwt=jwt)          # RLS
+      alebo
+        sb = get_client(service=True)          # explicitný service
+  """
 
-    # 4) posledný fallback kvôli spätnému kompatibilnému správaniu:
-    #    bez JWT padneme na service client (mimo RLS).
-    #    Ideálne sem už časom vôbec nedochádzať.
-    return get_service_client()
+  # 1) explicitný service mód
+  if service:
+      return get_service_client()
+
+  # 2) ak máme user_jwt → RLS klient
+  if user_jwt is not None:
+      return get_user_client(user_jwt)
+
+  # 3) default (bez parametrov) → SERVICE_ROLE
+  #    = presne tvoje doterajšie správanie
+  return get_service_client()
