@@ -6,21 +6,23 @@ from typing import Any, Dict, List, Optional
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_COACH_PLAN_WEEKLY
 
-supabase = get_client()
-
 
 def db_insert_weekly_rows(
     rows: List[Dict[str, Any]],
+    *,
+    user_jwt: str,
 ) -> int:
     """
-    Bulk INSERT do coach_plan_weekly.
+    Bulk INSERT do coach_plan_weekly cez RLS (user_jwt).
     Vracia počet vložených riadkov.
     """
     if not rows:
         return 0
 
+    sb = get_client(user_jwt=user_jwt)
+
     try:
-        res = supabase.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
+        res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-WEEKLY] inserted rows:", len(data))
         return len(data)
@@ -32,13 +34,17 @@ def db_insert_weekly_rows(
 def db_clear_weekly_for_user_plan(
     user_id: int,
     plan_id: str,
+    *,
+    user_jwt: str,
 ) -> int:
     """
-    DELETE všetkých weekly riadkov daného plánu pre usera.
+    DELETE všetkých weekly riadkov daného plánu pre usera (cez RLS).
     """
+    sb = get_client(user_jwt=user_jwt)
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_WEEKLY)
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
             .delete()
             .eq("user_id", user_id)
             .eq("plan_id", plan_id)
@@ -60,13 +66,17 @@ def db_clear_weekly_for_user_plan(
 def db_get_weekly_for_user_plan(
     user_id: int,
     plan_id: str,
+    *,
+    user_jwt: str,
 ) -> List[Dict[str, Any]]:
     """
-    Načítanie weekly riadkov pre konkrétny plan_id.
+    Načítanie weekly riadkov pre konkrétny plan_id (cez RLS).
     """
+    sb = get_client(user_jwt=user_jwt)
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_WEEKLY)
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
             .select("*")
             .eq("user_id", user_id)
             .eq("plan_id", plan_id)
@@ -83,14 +93,18 @@ def db_get_week_row_for_plan(
     user_id: int,
     plan_id: str,
     week_index: int,
+    *,
+    user_jwt: str,
 ) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny týždeň (1 riadok) pre daný plan_id + week_index.
     Vhodné pre daily generátor, ak chceš z weekly zistiť week_start/week_end.
     """
+    sb = get_client(user_jwt=user_jwt)
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_WEEKLY)
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
             .select("*")
             .eq("user_id", user_id)
             .eq("plan_id", plan_id)
@@ -107,13 +121,17 @@ def db_get_week_row_for_plan(
 
 def db_get_latest_plan_id_for_user(
     user_id: int,
+    *,
+    user_jwt: str,
 ) -> Optional[str]:
     """
-    Vracia posledný použitý plan_id pre usera (podľa created_at).
+    Vracia posledný použitý plan_id pre usera (podľa created_at, cez RLS).
     """
+    sb = get_client(user_jwt=user_jwt)
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_WEEKLY)
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
             .select("plan_id, created_at")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
