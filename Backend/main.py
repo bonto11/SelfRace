@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from Modules.API.Strava.webhook_strava import router
 from Routes_FE import (
     users,
     activities_streams,
@@ -68,3 +69,5 @@ app.include_router(coach_athlete_state.router)
 app.include_router(coach_plan_active.router)
 app.include_router(coach_external_events.router)
 app.include_router(async_jobs.router)
+
+app.include_router(webhook_strava.router)
