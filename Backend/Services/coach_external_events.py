@@ -145,9 +145,10 @@ def service_list_external_events_window(
     *,
     from_iso: str,
     to_iso: str,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
-    Vráti externé eventy expandované na konkrétne dni v zadanom okne.
+    Vráti externé eventy expandované na konkrétne dni v zadanom okne (RLS).
     """
     try:
         d_from = date.fromisoformat(from_iso)
@@ -158,7 +159,10 @@ def service_list_external_events_window(
     if d_to < d_from:
         raise ValueError("to must be >= from")
 
-    base_rows = db_list_external_events_for_user(user_id)
+    base_rows = db_list_external_events_for_user(
+        user_id,
+        user_jwt=user_jwt,
+    )
     occurrences = _expand_events_to_window(base_rows, d_from, d_to)
 
     return {
@@ -167,11 +171,18 @@ def service_list_external_events_window(
     }
 
 
-def service_list_external_events(user_id: int) -> Dict[str, Any]:
+def service_list_external_events(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> Dict[str, Any]:
     """
     Vráti zoznam externých eventov pre usera (holé definície, bez expandovania).
     """
-    rows = db_list_external_events_for_user(user_id)
+    rows = db_list_external_events_for_user(
+        user_id,
+        user_jwt=user_jwt,
+    )
     return {
         "success": True,
         "events": rows,
@@ -182,21 +193,29 @@ def service_save_external_events(
     user_id: int,
     *,
     events: List[Dict[str, Any]],
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Overwrite save:
       - zmaže všetky existujúce eventy usera
       - vloží nové podľa payloadu
+    (všetko cez RLS, user_jwt).
     """
     norm_rows: List[Dict[str, Any]] = []
     for raw in events:
         norm_rows.append(_normalize_event_input(user_id, raw))
 
     # vyčisti existujúce eventy
-    deleted = db_clear_external_events_for_user(user_id)
+    deleted = db_clear_external_events_for_user(
+        user_id,
+        user_jwt=user_jwt,
+    )
 
     # insert new
-    inserted = db_insert_external_events(norm_rows)
+    inserted = db_insert_external_events(
+        norm_rows,
+        user_jwt=user_jwt,
+    )
 
     return {
         "success": True,
@@ -205,11 +224,13 @@ def service_save_external_events(
         "count": len(norm_rows),
     }
 
+
 def service_build_external_events_block_for_analysis(
     user_id: int,
     *,
     days_past: int = 28,
     days_future: int = 42,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Blok external_events pre analyze/weekly/daily – už odľahčený pre AI.
@@ -244,6 +265,7 @@ def service_build_external_events_block_for_analysis(
             user_id=user_id,
             from_iso=d_from.isoformat(),
             to_iso=d_to.isoformat(),
+            user_jwt=user_jwt,
         )
 
         raw_events = window.get("events") or []
