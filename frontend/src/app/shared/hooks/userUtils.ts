@@ -1,13 +1,18 @@
 // src/lib/userUtils.ts
+"use client";
+
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+
+const supabase = getSupabaseBrowser();
 
 /**
  * Zabezpečí, že user existuje v tabuľke `users`.
  * Ak neexistuje, vloží ho. Vráti jeho numerické id.
  */
-export async function ensureUserExists(authUid: string, email: string): Promise<number | null> {
-
-  const supabase = getSupabaseBrowser();
+export async function ensureUserExists(
+  authUid: string,
+  email: string
+): Promise<number | null> {
   // Skús nájsť užívateľa
   const { data: existing, error: selError } = await supabase
     .from("users")
@@ -19,7 +24,7 @@ export async function ensureUserExists(authUid: string, email: string): Promise<
     console.error("❌ Chyba pri hľadaní usera:", selError);
     return null;
   }
-  
+
   if (existing && existing.length > 0) {
     return existing[0].id;
   }
