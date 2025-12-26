@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "./supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { useRouter } from "next/navigation";
 
 export function useUser(redirectToLogin: boolean = false) {
   const [user, setUser] = useState<any>(null); // user bude auth user (UUID)
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const supabase = getSupabaseBrowser();
 
   useEffect(() => {
     async function loadUser() {
