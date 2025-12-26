@@ -591,3 +591,194 @@ def service_sync_activities(
         "skipped": int(skipped),
         "fetched": int(fetched),
     }
+    
+# -----------------------------------------------------------------------------
+# Single-activity sync – používané z webhooku
+# -----------------------------------------------------------------------------
+def service_sync_single_activity(
+    user_id: int,
+    strava_activity_id: int,
+    fetch_details: bool = True,
+) -> Dict[str, int]:
+    """
+    Sync JEDNEJ Strava aktivity:
+      - detail (/activities/{id})
+      - upsert do activities_summary
+      - laps/splits
+      - streams + enrichment zón
+      - plan_match job len pre túto aktivitu
+
+    Používa tie isté helpery ako service_sync_activities.
+    """
+    ses = _get_session()
+
+    imported = 0
+    updated = 0
+    skipped = 0
+    fetched = 0
+
+    aid = int(strava_activity_id)
+
+    # ---------- 1) DETAIL AKTIVITY ----------
+    try:
+        rd = ses.get(f"{STRAVA_BASE}/activities/{aid}", timeout=30)
+        rd.raise_for_status()
+        detail = rd.json() or {}
+        fetched += 1
+    except Exception as e:
+        print(f"[SYNC:single] failed to fetch activity id={aid}: {e}")
+        return {
+            "imported": 0,
+            "updated": 0,
+            "skipped": 1,
+            "fetched": 0,
+        }
+
+    # summary row
+    row = _normalize_summary(user_id, detail)
+    if not row.get("activity_id"):
+        print(f"[SYNC:single] missing activity_id for id={aid}")
+        return {
+            "imported": 0,
+            "updated": 0,
+            "skipped": 1,
+            "fetched": 0,
+        }
+
+    # zisti, či existuje
+    existing_ids = db_get_existing_activity_ids_since(
+        user_id=user_id,
+        since_iso_date="1970-01-01",  # bezpečné, chceme len check, či existuje
+    )
+
+    if aid in existing_ids:
+        updated += 1
+    else:
+        imported += 1
+
+    db_upsert_activities_summary([row])
+
+    # ---------- 2) LAPS / SPLITS ----------
+    if fetch_details:
+        try:
+            rl = ses.get(f"{STRAVA_BASE}/activities/{aid}/laps", timeout=30)
+            rl.raise_for_status()
+            laps_raw = rl.json() or []
+        except Exception as e:
+            print(f"[SYNC:single] laps failed id={aid}: {e}")
+            laps_raw = []
+
+        splits_raw = detail.get("splits_metric") or []
+
+        mode = _decide_laps_or_splits(laps_raw, splits_raw)
+
+        try:
+            if mode == "splits":
+                db_delete_laps_for_activity(aid)
+            elif mode == "laps":
+                db_delete_splits_for_activity(aid)
+
+            if mode == "splits":
+                for idx, S in enumerate(splits_raw, start=1):
+                    row_s = _normalize_split(S, user_id, aid, idx)
+                    db_upsert_split(row_s)
+            elif mode == "laps":
+                for L in laps_raw:
+                    row_l = _normalize_lap(L, user_id, aid)
+                    db_upsert_lap(row_l)
+            else:
+                # nič – nemáme použiteľné laps ani splits
+                pass
+        except Exception as e:
+            print(f"[SYNC:single] laps/splits upsert failed id={aid}: {e}")
+            skipped += 1
+
+    # ---------- 3) STREAMS + ZÓNY ----------
+    try:
+        ids_recent = [aid]
+
+        print(f"[SYNC:single] streams: fetching & storing for id={aid} …")
+        streams_res = fetch_and_optionally_store_batch(
+            user_id,
+            ids_recent,
+            store=True,
+        )
+        print(
+            f"[SYNC:single] streams: stored={streams_res.get('stored')} / "
+            f"total={streams_res.get('count')}"
+        )
+
+        print("[SYNC:single] zones: computing minutes from cached streams …")
+        prev = preview_zones_for_activities(
+            user_id,
+            ids_recent,
+            fetch_if_missing=False,
+        )
+
+        to_save = [
+            it
+            for it in (prev.get("items") or [])
+            if it.get("ok") and it.get("minutes")
+        ]
+        saved = upsert_enrichment_minutes(user_id, to_save)
+        print(
+            f"[SYNC:single] zones: enrichment upsert saved rows = "
+            f"{saved.get('saved', 0)}"
+        )
+
+        # ---------- 4) plan_match job len pre túto aktivitu ----------
+        try:
+            enqueue = service_enqueue_job(
+                user_id=user_id,
+                user_uid="",  # ak chceš, môžeš sem neskôr dať user_uid
+                job_type="plan_match",
+                payload={
+                    "activity_ids": ids_recent,
+                    "days_window": 1,
+                    "score_threshold": 0.55,
+                },
+                priority=90,
+                max_attempts=1,
+                dedupe_key=None,
+            )
+
+            job = (enqueue or {}).get("job")
+            if not job:
+                print("[SYNC:single] plan auto-mapping: enqueue_failed")
+            else:
+                run = service_run_job_now(
+                    user_id=user_id,
+                    job_id=int(job["id"]),
+                    worker_id="sync_auto_map_single",
+                )
+
+                job_row = run.get("job") or {}
+                result = job_row.get("result") or {}
+
+                print(
+                    "[SYNC:single] plan auto-mapping (job): "
+                    f"candidates={result.get('candidates')} "
+                    f"mapped={result.get('mapped')} "
+                    f"skipped={result.get('skipped')} "
+                    f"processed={result.get('processed')} "
+                    f"error={run.get('error')}"
+                )
+
+        except Exception as e:
+            print(f"[SYNC:single] plan auto-mapping via job failed: {e}")
+
+    except Exception as e:
+        print(f"[SYNC:single] zones enrichment failed id={aid}: {e}")
+
+    print(
+        f"[SYNC:single] done id={aid}: imported={imported} "
+        f"updated={updated} skipped={skipped} fetched={fetched}"
+    )
+
+    return {
+        "imported": int(imported),
+        "updated": int(updated),
+        "skipped": int(skipped),
+        "fetched": int(fetched),
+    }
+    
