@@ -15,7 +15,7 @@ from Services.coach_plan_active import (
 )
 
 from Routes_DB.coach_plan_daily import db_get_planned_range_rows
-from Modules.Auth.deps import require_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter()
 
