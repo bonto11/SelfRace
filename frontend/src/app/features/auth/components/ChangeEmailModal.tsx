@@ -15,7 +15,7 @@ export default function ChangeEmailModal({ open, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const supabase = getSupabaseServer();
+  const supabase = getSupabaseBrowser();
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
