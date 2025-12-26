@@ -14,23 +14,24 @@ supabase = get_client()
 def db_delete_laps_for_activity(activity_id: int) -> None:
     supabase.table(TABLE_ACTIVITIES_LAPS).delete().eq("activity_id", activity_id).execute()
 
+
 def db_upsert_lap(row: Dict[str, Any]) -> None:
     supabase.table(TABLE_ACTIVITIES_LAPS).upsert(
         row,
         on_conflict="activity_id,lap_index",
     ).execute()
 
+
 def db_get_activity_laps(user_id: int, activity_id: int) -> List[Dict[str, Any]]:
     """
-    Všetky laps pre danú aktivitu.
+    Všetky laps pre danú aktivitu daného usera.
     """
     res = (
         supabase.table(TABLE_ACTIVITIES_LAPS)
         .select("*")
+        .eq("user_id", user_id)
         .eq("activity_id", activity_id)
         .order("lap_index", desc=False)
         .execute()
     )
     return res.data or []
-
-
