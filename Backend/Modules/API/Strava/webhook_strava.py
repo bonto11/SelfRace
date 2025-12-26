@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from Modules.API.Strava.webhook_models import StravaWebhookEventIn
 from Modules.SQL.db_handler import get_service_client
-from Modules.API.Strava.webhook_processor import _process_single_event
+from Modules.API.Strava.webhook_strava_processor import _process_single_event
 
 # Supabase client – service role (mimo RLS, admin veci)
 supabase = get_service_client()
