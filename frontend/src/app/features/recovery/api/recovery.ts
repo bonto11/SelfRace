@@ -1,44 +1,26 @@
 // src/features/recovery/api/recovery.ts
-import { API_URL } from "@/app/shared/config";
 import { isoDate } from "@/app/shared/utils/time";
 import { RecoveryRow } from "@/app/features/recovery/types/recovery";
+import { callBackend } from "@/app/shared/utils/callBackend";
 
 /**
  * Čistý BE fetch + normalizácia na RecoveryRow[]
  * Žiadna cache, žiadne React veci.
  */
 export async function fetchRecoveryApi(
-  userId: string,
+  userId: string | number,
   days: number = 90
 ): Promise<RecoveryRow[]> {
   if (!userId) return [];
 
-  const url = `${API_URL}/recovery/${userId}?days=${days}`;
+  const path = `/recovery/${encodeURIComponent(String(userId))}?days=${days}`;
+  console.debug("[REC][api] ->", path);
 
   try {
-    const res = await fetch(url, {
+    const json = await callBackend<any>(path, {
       method: "GET",
-      credentials: "include",
-      headers: { Accept: "application/json" },
       cache: "no-store",
     });
-
-    if (!res.ok) {
-      console.error("[REC][api] HTTP error", {
-        url,
-        status: res.status,
-        statusText: res.statusText,
-      });
-      return [];
-    }
-
-    let json: any;
-    try {
-      json = await res.json();
-    } catch (e) {
-      console.error("[REC][api] JSON parse error", e);
-      return [];
-    }
 
     const arr: any[] = Array.isArray(json?.data) ? json.data : [];
 
