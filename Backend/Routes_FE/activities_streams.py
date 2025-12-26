@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from Services.activities_streams import (
     service_get_streams_one,
 )
-from Modules.Auth.deps import require_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(prefix="/activities_streams", tags=["activities_streams"])
 
