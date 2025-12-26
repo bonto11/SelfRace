@@ -122,26 +122,27 @@ async def strava_webhook_handler(
     # INSERT cez Supabase
     # payload ukladáme ako JSON (dict) – v DB musí byť json/jsonb
     resp = (
-        supabase.table("strava_webhook_events")
-        .insert(
-            {
-                "subscription_id": event.subscription_id,
-                "object_type": event.object_type,
-                "object_id": event.object_id,
-                "aspect_type": event.aspect_type,
-                "owner_id": event.owner_id,
-                "event_time": dt,
-                "payload": data,
-            }
-        )
-        .execute()
+    supabase.table("strava_webhook_events")
+    .insert(
+        {
+            "subscription_id": event.subscription_id,
+            "object_type": event.object_type,
+            "object_id": event.object_id,
+            "aspect_type": event.aspect_type,
+            "owner_id": event.owner_id,
+            "event_time": dt,
+            "payload": data,
+        }
+    )
+    .execute()
     )
 
-    if getattr(resp, "error", None):
-        # nech to vidíš v logoch, ale Strave aj tak pošleme 2xx
-        print("[STRAVA WEBHOOK] insert error:", resp.error)
+    # Bezpečnejšie – nevadí, či resp je dict alebo objekt
+    err = getattr(resp, "error", None)
+    if err:
+        print("[STRAVA WEBHOOK] insert error:", err)
 
-    return JSONResponse({"ok": True})
+        return JSONResponse({"ok": True})
 
 
 @router.post("/webhook/process-pending")
