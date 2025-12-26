@@ -6,13 +6,18 @@ from typing import Any, Dict, List, Optional
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_USERS_THRESHOLDS
 
-sb = get_client()
 
-
-def db_list_user_thresholds_raw(user_id: int) -> List[Dict[str, Any]]:
+def db_list_user_thresholds_raw(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> List[Dict[str, Any]]:
     """
     Vráti všetky threshold riadky daného usera, zoradené DESC podľa updated_at.
+    RLS: používa Supabase client autentifikovaný cez user_jwt.
     """
+    sb = get_client(user_jwt=user_jwt)
+
     try:
         res = (
             sb.table(TABLE_USERS_THRESHOLDS)
@@ -33,10 +38,14 @@ def db_get_user_threshold_latest(
     user_id: int,
     sport: str,
     threshold_type: str,
+    *,
+    user_jwt: str,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší riadok pre danú kombináciu (user, sport, threshold_type).
     """
+    sb = get_client(user_jwt=user_jwt)
+
     try:
         res = (
             sb.table(TABLE_USERS_THRESHOLDS)
@@ -60,6 +69,8 @@ def db_get_user_threshold_latest(
 def db_upsert_user_threshold(
     user_id: int,
     row: Dict[str, Any],
+    *,
+    user_jwt: str,
 ) -> None:
     """
     Zapíše / upsertne threshold riadok.
@@ -67,6 +78,8 @@ def db_upsert_user_threshold(
     Očakáva dict BEZ user_id, ten sa doplní tu.
     Vyžaduje unique index na (user_id,sport,threshold_type).
     """
+    sb = get_client(user_jwt=user_jwt)
+
     payload = {
         "user_id": user_id,
         **row,
@@ -78,5 +91,9 @@ def db_upsert_user_threshold(
 
 
 # alias na starý názov, ak ho máš niekde použítý
-def fetch_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
-    return db_list_user_thresholds_raw(user_id)
+def fetch_user_thresholds(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> List[Dict[str, Any]]:
+    return db_list_user_thresholds_raw(user_id, user_jwt=user_jwt)
