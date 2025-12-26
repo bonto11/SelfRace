@@ -1,21 +1,25 @@
 # Routes_DB/coach_external_events.py
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_COACH_EXTERNAL_EVENTS
 
-supabase = get_client()
 
-
-def db_list_external_events_for_user(user_id: int) -> List[Dict[str, Any]]:
+def db_list_external_events_for_user(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> List[Dict[str, Any]]:
     """
     Vráti všetky externé eventy pre daného usera, zoradené podľa weekday a created_at.
+    Ide cez RLS (user_jwt).
     """
     try:
+        sb = get_client(user_jwt=user_jwt)
         res = (
-            supabase.table(TABLE_COACH_EXTERNAL_EVENTS)
+            sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .select("*")
             .eq("user_id", user_id)
             .order("weekday", desc=False)
@@ -28,14 +32,20 @@ def db_list_external_events_for_user(user_id: int) -> List[Dict[str, Any]]:
         return []
 
 
-def db_clear_external_events_for_user(user_id: int) -> int:
+def db_clear_external_events_for_user(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> int:
     """
     Zmaže všetky externé eventy pre daného usera.
     Používame pri "overwrite" save.
+    Ide cez RLS (user_jwt).
     """
     try:
+        sb = get_client(user_jwt=user_jwt)
         res = (
-            supabase.table(TABLE_COACH_EXTERNAL_EVENTS)
+            sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .delete()
             .eq("user_id", user_id)
             .execute()
@@ -48,15 +58,20 @@ def db_clear_external_events_for_user(user_id: int) -> int:
         return 0
 
 
-def db_insert_external_events(rows: List[Dict[str, Any]]) -> int:
+def db_insert_external_events(
+    rows: List[Dict[str, Any]],
+    *,
+    user_jwt: str,
+) -> int:
     """
-    Bulk INSERT externých eventov.
+    Bulk INSERT externých eventov (RLS – user_jwt).
     """
     if not rows:
         return 0
 
     try:
-        res = supabase.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
+        sb = get_client(user_jwt=user_jwt)
+        res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-EXT] inserted rows:", len(data))
         return len(data)
