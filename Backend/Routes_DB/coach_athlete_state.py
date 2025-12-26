@@ -1,12 +1,10 @@
-# Routes_DB/analyze_athlete_state.py
+# Routes_DB/coach_athlete_state.py  (pôvodne analyze_athlete_state.py)
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client_for_user
 from Configs.config import TABLE_COACH_ATHLETE_STATE
-
-sb = get_client()
 
 
 def db_insert_athlete_state(
@@ -14,12 +12,15 @@ def db_insert_athlete_state(
     model: str,
     state_json: Dict[str, Any],
     version: int = 1,
+    user_jwt: Optional[str] = None,
 ) -> Optional[int]:
     """
-    INSERT do coach_athlete_state.
+    INSERT do coach_athlete_state cez user JWT klienta.
 
     Vracia id nového riadku alebo None pri chybe.
     """
+    sb = get_client_for_user(user_jwt)
+
     row = {
         "user_id": user_id,
         "model": model,
@@ -36,10 +37,16 @@ def db_insert_athlete_state(
         return None
 
 
-def db_get_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
+def db_get_state_by_id(
+    state_id: int,
+    user_jwt: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny stav podľa primárneho kľúča id.
+    Beží pod user JWT, takže RLS ešte stále stráži, či user môže daný riadok čítať.
     """
+    sb = get_client_for_user(user_jwt)
+
     try:
         res = (
             sb.table(TABLE_COACH_ATHLETE_STATE)
@@ -57,12 +64,15 @@ def db_get_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
 def db_get_latest_state_for_user(
     user_id: int,
     version: Optional[int] = 1,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší stav pre daného usera (podľa created_at DESC).
 
     Ak version je None, nefiltruje podľa verzie.
     """
+    sb = get_client_for_user(user_jwt)
+
     try:
         q = (
             sb.table(TABLE_COACH_ATHLETE_STATE)
@@ -82,10 +92,13 @@ def db_get_latest_state_for_user(
 def db_list_states_for_user(
     user_id: int,
     limit: int = 20,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     História stavov pre usera (bez state_json, len meta – vhodné na prehľad v UI).
     """
+    sb = get_client_for_user(user_jwt)
+
     try:
         res = (
             sb.table(TABLE_COACH_ATHLETE_STATE)
