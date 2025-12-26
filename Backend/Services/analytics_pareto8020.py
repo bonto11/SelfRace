@@ -98,14 +98,18 @@ def service_pareto_source(
     user_id: int,
     months: int = 3,
     count_no_hr_as_easy: bool = True,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Proxy na veľký dataset pre session (zachováva pôvodné správanie).
+    Ak príde user_jwt, forwardujeme ho do get_pareto_source → RLS.
     """
     return get_pareto_source(
         user_id=user_id,
         months=months,
         count_no_hr_as_easy=count_no_hr_as_easy,
+        user_jwt=user_jwt,
     )
 
 
@@ -114,6 +118,8 @@ def service_pareto_widget(
     user_id: int,
     days: int = 14,
     sport: str = "all",
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Sumár za posledné `days` – vracia iba payload `data` bez `success`.
@@ -124,8 +130,18 @@ def service_pareto_widget(
     since_dt = datetime.now(timezone.utc) - timedelta(days=days)
     since_iso = _iso(since_dt)
 
-    # Activities summary cez DB helper
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+    # Activities summary cez DB helper (s JWT, ak je)
+    if user_jwt is not None:
+        try:
+            rows = db_fetch_summary_since(
+                user_id=user_id,
+                since_iso=since_iso,
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+    else:
+        rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
 
     # filter podľa športu
     if sports is None:
@@ -157,7 +173,24 @@ def service_pareto_widget(
             "days": days,
         }
 
-    enr = db_get_enrichment_for_activities(user_id=user_id, activity_ids=ids)
+    # enrichment s JWT, ak je
+    if user_jwt is not None:
+        try:
+            enr = db_get_enrichment_for_activities(
+                user_id=user_id,
+                activity_ids=ids,
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            enr = db_get_enrichment_for_activities(
+                user_id=user_id,
+                activity_ids=ids,
+            )
+    else:
+        enr = db_get_enrichment_for_activities(
+            user_id=user_id,
+            activity_ids=ids,
+        )
 
     easy = sum(_easy(r) for r in enr)
     hard = sum(_hard(r) for r in enr)
@@ -176,6 +209,8 @@ def service_pareto_trend(
     user_id: int,
     weeks: int = 8,
     sport: str = "all",
+    *,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Trend po týždňoch (posledných `weeks` týždňov) s doplnením prázdnych týždňov nulami.
@@ -189,7 +224,18 @@ def service_pareto_trend(
     since_iso = _iso(since)
 
     # Activities summary cez DB helper
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+    if user_jwt is not None:
+        try:
+            rows = db_fetch_summary_since(
+                user_id=user_id,
+                since_iso=since_iso,
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+    else:
+        rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+
     rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
 
     # filter podľa športu
@@ -223,20 +269,68 @@ def service_pareto_trend(
                 "end": wb["end"],
             }
 
-    # recompute missing enrichment – necháme pôvodnú logiku
+    # recompute missing enrichment – necháme pôvodnú logiku, len doplníme JWT
     all_ids: List[int] = [aid for ids in aid_by_week.values() for aid in ids]
     if all_ids:
-        prev = preview_zones_for_activities(
-            user_id, list(set(all_ids)), fetch_if_missing=True
-        )
+        if user_jwt is not None:
+            try:
+                prev = preview_zones_for_activities(
+                    user_id,
+                    list(set(all_ids)),
+                    fetch_if_missing=True,
+                    user_jwt=user_jwt,  # type: ignore[arg-type]
+                )
+            except TypeError:
+                prev = preview_zones_for_activities(
+                    user_id,
+                    list(set(all_ids)),
+                    fetch_if_missing=True,
+                )
+        else:
+            prev = preview_zones_for_activities(
+                user_id,
+                list(set(all_ids)),
+                fetch_if_missing=True,
+            )
+
         if prev.get("ok"):
-            upsert_enrichment_minutes(user_id, prev.get("items") or [])
+            if user_jwt is not None:
+                try:
+                    upsert_enrichment_minutes(
+                        user_id,
+                        prev.get("items") or [],
+                        user_jwt=user_jwt,  # type: ignore[arg-type]
+                    )
+                except TypeError:
+                    upsert_enrichment_minutes(
+                        user_id,
+                        prev.get("items") or [],
+                    )
+            else:
+                upsert_enrichment_minutes(
+                    user_id,
+                    prev.get("items") or [],
+                )
 
     # načítaj enrichment z DB vrstvy
-    enr = db_get_enrichment_for_activities(
-        user_id=user_id,
-        activity_ids=list(set(all_ids)),
-    )
+    if user_jwt is not None:
+        try:
+            enr = db_get_enrichment_for_activities(
+                user_id=user_id,
+                activity_ids=list(set(all_ids)),
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            enr = db_get_enrichment_for_activities(
+                user_id=user_id,
+                activity_ids=list(set(all_ids)),
+            )
+    else:
+        enr = db_get_enrichment_for_activities(
+            user_id=user_id,
+            activity_ids=list(set(all_ids)),
+        )
+
     emap = {
         int(e["activity_id"]): (_easy(e), _hard(e))
         for e in enr
