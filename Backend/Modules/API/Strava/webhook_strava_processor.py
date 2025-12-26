@@ -1,17 +1,19 @@
-# app/strava/webhook_processor.py  (alebo pridaj na koniec webhook_routes.py)
+# app/strava/webhook_processor.py
 
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from app.db import get_db  # adaptuj na svoj DB layer (asyncpg, SQLAlchemy, ...)
+from Services.synchronization import service_sync_single_activity
 
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
 
-# ---------- HOOK: TU DOPLŇ SVOJ EXISTUJÚCI SYNC PIPELINE ----------
+# ---------- HOOK: napojenie na tvoj existujúci sync pipeline ----------
 
 async def sync_activity_from_strava(
     db: Any,
@@ -21,20 +23,23 @@ async def sync_activity_from_strava(
     strava_activity_id: int,
 ) -> None:
     """
-    HOOK: Sem zavolaj svoje existujúce funkcie, ktoré používaš pri manuálnom SYNC tlačidle.
-
-    Napr. niečo ako:
-      - fetch_detailed_activity(...)
-      - fetch_streams(...)
-      - upsert_activity(...)
-      - upsert_streams(...)
-      - recompute_time_in_zones(...)
-      - recompute_recovery_metrics(...)
-
-    Teraz len placeholder, aby kód kompiloval.
+    Wrapper okolo Services.synchronization.service_sync_single_activity
+    – spustený v thread poole, aby neblokoval event loop.
+    Parametre:
+      - user_id         → tvoj interný user (bigint)
+      - athlete_id      → Strava athlete_id (teraz nepotrebujeme, ale nechávame do budúcna)
+      - strava_activity_id → raw Strava activity id (rovná sa tvojmu activity_id v summary)
     """
-    # TODO: implementuj podľa svojho existujúceho sync flow
-    raise NotImplementedError("sync_activity_from_strava() nie je ešte implementovaná")
+    loop = asyncio.get_running_loop()
+
+    # db sa zatiaľ nepoužíva, sync ide cez tvoje existujúce DB helpery
+    await loop.run_in_executor(
+        None,
+        service_sync_single_activity,
+        int(user_id),
+        int(strava_activity_id),
+        True,  # fetch_details = True
+    )
 
 
 # ---------- LOW-LEVEL SPRACOVANIE 1 EVENTU ----------
@@ -50,7 +55,13 @@ async def _process_single_event(db: Any, row: Mapping[str, Any]) -> None:
     object_type = row["object_type"]
     aspect_type = row["aspect_type"]
     owner_id = row["owner_id"]
-    object_id = row["object_id"]
+    object_id_raw = row["object_id"]
+
+    # pre istotu pretypuj na int
+    try:
+        object_id = int(object_id_raw)
+    except Exception:
+        object_id = object_id_raw
 
     # 1) Ak to nie je activity, zatiaľ len ignorujeme
     if object_type != "activity":
@@ -95,13 +106,15 @@ async def _process_single_event(db: Any, row: Mapping[str, Any]) -> None:
 
     # 3) DELETE → označ activity ako deleted (ak to riešiš)
     if aspect_type == "delete":
-        # ak máš v activities napr. column deleted_at / is_deleted, doplň TU
+        # Ak máš iný názov tabuľky/column, uprav si to:
+        # - activities_summary = tvoja hlavná tabuľka s aktivity summary
+        # - activity_id        = Strava activity id (mapuješ tam v _normalize_summary)
         await db.execute(
             """
-            update activities
+            update activities_summary
                set deleted_at = now()
-             where user_id = $1
-               and strava_activity_id = $2
+             where user_id     = $1
+               and activity_id = $2
             """,
             user_id,
             object_id,
@@ -118,7 +131,7 @@ async def _process_single_event(db: Any, row: Mapping[str, Any]) -> None:
         )
         return
 
-    # 4) CREATE / UPDATE → spusti sync pipeline
+    # 4) CREATE / UPDATE → spusti sync pipeline (single-activity sync)
     try:
         await sync_activity_from_strava(
             db,
@@ -126,20 +139,6 @@ async def _process_single_event(db: Any, row: Mapping[str, Any]) -> None:
             athlete_id=athlete_id,
             strava_activity_id=object_id,
         )
-    except NotImplementedError:
-        # zatiaľ len označíme ako error, kým nedoplníš implementáciu
-        await db.execute(
-            """
-            update strava_webhook_events
-               set processed_at = now(),
-                   status       = 'error',
-                   last_error   = 'sync_activity_from_strava not implemented'
-             where id = $1
-            """,
-            event_id,
-        )
-        # pre debug to radšej vyhodíme von
-        raise
     except Exception as e:
         # nech nezdochne celý worker kvôli jednej chybe
         await db.execute(
