@@ -2,9 +2,7 @@
 "use client";
 
 import { getSupabaseBrowser } from "./supabaseBrowser";
-
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+import { API_URL } from "@/app/shared/config";
 
 export async function callBackend<TResponse = any>(
   path: string,
@@ -23,7 +21,7 @@ export async function callBackend<TResponse = any>(
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${BACKEND_BASE_URL}${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers,
     credentials: "include",
