@@ -11,7 +11,7 @@ from Services.coach_plan_daily import (
     service_generate_daily_week,
     service_get_daily_overview,
 )
-from Modules.Auth.deps import require_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(
     prefix="/coach-plan-daily",
