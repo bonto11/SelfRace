@@ -58,35 +58,15 @@ def get_client(
     *,
     service: bool = False,
 ):
-    """
-    Unified helper:
-
-      get_client(service=True)
-        → SERVICE_ROLE client (mimo RLS).
-
-      get_client(user_jwt="...")
-        → RLS client pre konkrétneho používateľa.
-
-      get_client()
-        → BEZ parametrov → SERVICE_ROLE client
-           (spätná kompatibilita – všetok starý kód ide cez service role).
-
-    V praxi:
-      - starý kód nechaj len `get_client()` → stále používa service role.
-      - nový/prechodný kód môže začať používať:
-          sb = get_client(user_jwt=jwt)          # RLS
-        alebo
-          sb = get_client(service=True)          # explicitný service
-    """
-
-    # 1) explicitný service mód
     if service:
+        # vedomý admin prístup – sync, webhooks, batch joby
         return get_service_client()
 
-    # 2) ak máme user_jwt → RLS klient
-    if user_jwt is not None:
-        return get_user_client(user_jwt)
+    if not user_jwt:
+        # žiadny tichý fallback – radšej to rozbiješ a vidíš kde chýba JWT
+        raise RuntimeError(
+            "get_client(user_jwt=...) vyžaduje JWT; "
+            "pre admin použij get_client(service=True)."
+        )
 
-    # 3) default (bez parametrov) → SERVICE_ROLE
-    #    = presne tvoje doterajšie správanie
-    return get_service_client()
+    return get_user_client(user_jwt)

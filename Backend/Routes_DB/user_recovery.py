@@ -6,19 +6,6 @@ from typing import Any, Dict, Optional, List
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_USERS_RECOVERY
 
-
-def _get_sb(user_jwt: Optional[str] = None):
-    """
-    Ak máme JWT → použijeme RLS klienta.
-    Ak nie → SERVICE_ROLE (admin, ako doteraz).
-    """
-    if user_jwt:
-        # RLS cesta – ANON key + JWT
-        return get_client(user_jwt=user_jwt)
-    # fallback / worker / skripty → service role
-    return get_client(service=True)
-
-
 def db_get_recovery_record(
     user_id: int,
     date_iso: str,
@@ -28,7 +15,7 @@ def db_get_recovery_record(
     """
     Vráti {"id": ...} ak existuje recovery pre daný deň, inak None.
     """
-    sb = _get_sb(user_jwt)
+    sb = get_client(user_jwt=user_jwt)
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -48,7 +35,7 @@ def db_insert_recovery(
     *,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    sb = _get_sb(user_jwt)
+    sb = get_client(user_jwt=user_jwt)
 
     res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
     rows: List[Dict[str, Any]] = res.data or []
@@ -61,7 +48,7 @@ def db_update_recovery(
     *,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    sb = _get_sb(user_jwt)
+    sb = get_client(user_jwt=user_jwt)
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -80,7 +67,7 @@ def db_get_recent_recovery(
     *,
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    sb = _get_sb(user_jwt)
+    sb = get_client(user_jwt=user_jwt)
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -92,5 +79,4 @@ def db_get_recent_recovery(
     )
 
     rows: List[Dict[str, Any]] = res.data or []
-    print("[db_get_recent_recovery] err=", getattr(res, "error", None), "rows=", len(rows))
     return rows
