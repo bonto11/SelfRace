@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/app/shared/hooks/supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { CARD } from "@/app/shared/ui/classes";
@@ -14,6 +14,9 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // client-only Supabase
+  const supabase = getSupabaseBrowser();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -23,11 +26,13 @@ export default function LoginForm() {
       email,
       password,
     });
+
     if (error) {
       setError(error.message);
     } else {
       window.location.assign("/dashboard");
     }
+
     setLoading(false);
   };
 
