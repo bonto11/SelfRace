@@ -1,4 +1,3 @@
-# backend/Routes_FE/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -33,7 +32,7 @@ def enqueue_job(
 
     FE posiela:
       - job_type (napr. 'ai_analyze')
-      - payload (ľubovoľný JSON)
+      - payload (ľubovoľný JSON – tu môže byť aj user_jwt)
       - voliteľne: dedupe_key, run_after, max_attempts
     """
     try:
@@ -78,7 +77,7 @@ def list_active_jobs(
         )
         return {"success": True, "jobs": rows}
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail:str(e))
 
 
 @router.get("/recent/{user_id}")
@@ -101,7 +100,7 @@ def list_recent_jobs(
         rows = db_get_recent_jobs(user_id=user_id, job_types=job_types_list, limit=limit)
         return {"success": True, "jobs": rows}
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail:str(e))
 
 
 @router.get("/{user_id}/{job_id}")
@@ -116,7 +115,7 @@ def get_job(
         row = db_get_job_by_id(user_id=user_id, job_id=job_id)
         return {"success": True, "job": row}
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail:str(e))
 
 
 @router.post("/run/{user_id}/{job_id}", response_model=RunJobResponse)
@@ -139,4 +138,4 @@ def run_job(
             "error": out.get("error"),
         }
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail:str(e))
