@@ -1,17 +1,26 @@
 # Services/user_zones.py
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TypedDict, Literal
+from typing import Any, Dict, List, Optional
+
+from fastapi import HTTPException
 
 from Routes_DB.user_zones import (
     db_user_zones_fetch_all,
     db_user_zones_fetch_latest,
     db_user_zones_insert_row,
 )
+from Schemas.user_zones import ZonesOut, Sport
 
-from Schemas.user_zones import (ZonesOut, Sport)
 
-# ------------ low-level helpers (len v services) ------------
+# ------------ helpers ------------
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    if not user_jwt:
+        # tu garantujeme, že všetky zóny idú cez RLS
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
+
 
 def _num(v: Any) -> Optional[int]:
     try:
@@ -111,20 +120,35 @@ def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 def service_load_user_zones(
     user_id: int,
     sport: Optional[str] = None,
+    user_jwt: Optional[str] = None,
 ) -> Optional[ZonesOut]:
     """
     Najnovšie zóny pre daného usera (+voliteľne sport), normalizované na ZonesOut.
     """
+    user_jwt = _require_jwt(user_jwt)
+
     sport_filter = _canon_sport(sport) if sport else None
-    row = db_user_zones_fetch_latest(user_id, sport_filter)
+    row = db_user_zones_fetch_latest(
+        user_id,
+        sport_filter,
+        user_jwt=user_jwt,
+    )
     return _normalize_out(row) if row else None
 
 
-def service_load_user_zones_all_latest(user_id: int) -> Dict[str, ZonesOut]:
+def service_load_user_zones_all_latest(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, ZonesOut]:
     """
     Vráti dict { sport -> ZonesOut } – pre každý sport len najnovší záznam.
     """
-    rows = db_user_zones_fetch_all(user_id)
+    user_jwt = _require_jwt(user_jwt)
+
+    rows = db_user_zones_fetch_all(
+        user_id,
+        user_jwt=user_jwt,
+    )
     out: Dict[str, ZonesOut] = {}
     for r in rows:
         s = _canon_sport(r.get("sport"))
@@ -133,35 +157,65 @@ def service_load_user_zones_all_latest(user_id: int) -> Dict[str, ZonesOut]:
     return out
 
 
-def service_save_user_zones(user_id: int, payload: Dict[str, Any]) -> ZonesOut:
+def service_save_user_zones(
+    user_id: int,
+    payload: Dict[str, Any],
+    user_jwt: Optional[str] = None,
+) -> ZonesOut:
     """
     Uloží nové zóny pre usera a vráti normalizovaný posledný stav (ZonesOut).
     """
+    user_jwt = _require_jwt(user_jwt)
+
     row = _normalize_insert(user_id, payload or {})
-    db_user_zones_insert_row(row)
-    return service_load_user_zones(user_id, row["sport"]) or {"sport": row["sport"]}  # type: ignore[return-value]
+    db_user_zones_insert_row(
+        row,
+        user_jwt=user_jwt,
+    )
+    return service_load_user_zones(
+        user_id,
+        row["sport"],
+        user_jwt=user_jwt,
+    ) or {"sport": row["sport"]}  # type: ignore[return-value]
 
 
 def service_choose_best_zones(
     user_id: int,
     preferred_sport: Optional[str] = None,
+    user_jwt: Optional[str] = None,
 ) -> Optional[ZonesOut]:
     """
     Heuristika: skús preferred_sport, potom running, potom hocičo.
     """
-    z = service_load_user_zones(user_id, preferred_sport)
+    user_jwt = _require_jwt(user_jwt)
+
+    z = service_load_user_zones(
+        user_id,
+        preferred_sport,
+        user_jwt=user_jwt,
+    )
     if z:
         return z
-    z = service_load_user_zones(user_id, "running")
+
+    z = service_load_user_zones(
+        user_id,
+        "running",
+        user_jwt=user_jwt,
+    )
     if z:
         return z
-    all_latest = service_load_user_zones_all_latest(user_id)
-    # vrátime prvý ak niečo existuje
+
+    all_latest = service_load_user_zones_all_latest(
+        user_id,
+        user_jwt=user_jwt,
+    )
     return next(iter(all_latest.values()), None)
+
 
 def service_build_zones_block_for_analysis(
     user_id: int,
     preferred_sport: Optional[str] = "running",
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Vráti blok pre CoachAnalyzeInput["zones"].
@@ -170,9 +224,14 @@ def service_build_zones_block_for_analysis(
       - mapujeme len “best” zóny do "run" vetvy
       - lthr_bpm nechávame None (LT2 pôjde z thresholds)
     """
-    best = service_choose_best_zones(user_id, preferred_sport)
+    user_jwt = _require_jwt(user_jwt)
+
+    best = service_choose_best_zones(
+        user_id,
+        preferred_sport,
+        user_jwt=user_jwt,
+    )
     if not best:
-        # prázdny shape – analyzátor si poradí
         return {
             "run": {
                 "lthr_bpm": None,
@@ -198,7 +257,7 @@ def service_build_zones_block_for_analysis(
 
     return {
         "run": {
-            "lthr_bpm": None,              # LT2 pôjde z thresholds service
+            "lthr_bpm": None,  # LT2 pôjde z thresholds service
             "hr_max": best.get("hr_max"),
             "zones": zones_list,
         }
