@@ -1,38 +1,54 @@
-// src/shared/utils/callBackend.ts
+// src/app/shared/utils/callBackend.ts
 "use client";
 
-import { getSupabaseBrowser } from "./supabaseBrowser";
 import { API_URL } from "@/app/shared/config";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
-export async function callBackend<TResponse = any>(
+export type BackendInit = RequestInit;
+
+export async function callBackend<T = any>(
   path: string,
-  init: RequestInit = {}
-): Promise<TResponse> {
+  init: BackendInit = {}
+): Promise<T> {
   const supabase = getSupabaseBrowser();
-  const { data } = await supabase.auth.getSession();
-  const jwt = data.session?.access_token;
+
+  // zoberieme aktuálnu session (access_token je v localStorage)
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    console.warn("[callBackend] getSession error:", error.message);
+  }
+
+  const token = data?.session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
-  if (jwt) {
-    headers.set("Authorization", `Bearer ${jwt}`);
-  }
-  // ak posielaš JSON
-  if (!headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+  headers.set("Accept", "application/json");
+
+  // ak máme token → pridáme Authorization
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers,
-    credentials: "include",
   });
 
-  if (!res.ok) {
-    // tu si môžeš spraviť jednotnú error logiku
-    const text = await res.text().catch(() => "");
-    throw new Error(`BE error ${res.status}: ${text || res.statusText}`);
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // necháme json = null
   }
 
-  // ak niekde nemáš JSON, vieš si to rozvetviť podľa init alebo res.headers
-  return (await res.json()) as TResponse;
+  if (!res.ok) {
+    console.error("[callBackend] HTTP error", {
+      path,
+      status: res.status,
+      body: json ?? text,
+    });
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return (json ?? {}) as T;
 }

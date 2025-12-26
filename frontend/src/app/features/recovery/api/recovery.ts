@@ -14,7 +14,7 @@ export async function fetchRecoveryApi(
   if (!userId) return [];
 
   const path = `/recovery/${encodeURIComponent(String(userId))}?days=${days}`;
-  console.debug("[REC][api] ->", path);
+  console.debug("[RECovery][api] ->", path);
 
   try {
     const json = await callBackend<any>(path, {
