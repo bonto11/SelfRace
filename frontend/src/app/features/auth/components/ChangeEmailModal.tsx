@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/app/shared/utils/supabaseBrowser";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 // UI systém
 import Button from "@/app/shared/components/ui/Button";
