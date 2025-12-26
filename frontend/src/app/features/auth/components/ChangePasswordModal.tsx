@@ -3,8 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/app/shared/hooks/supabaseClient";
-
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 // UI systém
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
@@ -27,7 +26,7 @@ export default function ChangePasswordModal({ open, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [hasSession, setHasSession] = useState(false);
-
+  const supabase = getSupabaseBrowser();
   const ref = useRef<HTMLDivElement>(null);
 
   // zisti session
