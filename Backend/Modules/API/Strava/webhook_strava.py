@@ -1,3 +1,4 @@
+# Modules/API/Strava/webhook_strava_routes.py
 import os
 import hmac
 import hashlib
@@ -16,7 +17,6 @@ from Modules.API.Strava.webhook_strava_processor import _process_single_event
 supabase = get_service_client()
 
 router = APIRouter(prefix="/api/strava", tags=["strava"])
-
 
 def get_verify_token() -> str:
     token = os.getenv("STRAVA_VERIFY_TOKEN")
