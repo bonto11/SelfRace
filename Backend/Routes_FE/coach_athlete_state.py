@@ -9,7 +9,7 @@ from Services.coach_athlete_state import (
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
 from Configs.config import DEFAULT_MODEL
-from Modules.Auth.deps import require_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(
     prefix="/coach/athlete",
