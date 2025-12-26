@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from Routes_DB.activities_summary import db_fetch_summary_since
 
@@ -33,6 +33,8 @@ def _start_of_iso_week(d: datetime) -> datetime:
 def service_build_recent_load_raw(
     user_id: int,
     window_days: int = 42,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Vypočíta weekly recent_load z tabuľky activities_summary.
@@ -42,6 +44,7 @@ def service_build_recent_load_raw(
       - moving_time_s
       - sport_type / sport_type_fe / sport_type_ovrd
 
+    Ak príde user_jwt → DB volanie ide cez RLS/JWT variant (ak ju funkcia podporuje).
     Výstup:
       {
         "schema_version": 1,
@@ -64,7 +67,20 @@ def service_build_recent_load_raw(
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=window_days - 1)).isoformat()
 
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
+    # activities_summary cez helper – s JWT ak je k dispozícii
+    if user_jwt is not None:
+        try:
+            rows: List[Dict[str, Any]] = db_fetch_summary_since(
+                user_id=user_id,
+                since_iso=since,
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            # fallback ak DB funkcia ešte nepodporuje user_jwt
+            rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
+    else:
+        rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
+
     if not rows:
         return {
             "schema_version": 1,
@@ -201,12 +217,18 @@ def _prune_recent_load_for_ai(raw: Dict[str, Any]) -> Dict[str, Any]:
 def service_build_recent_load_block_for_analysis(
     user_id: int,
     window_days: int = 42,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     High-level blok pre AI (coach_athlete_state):
-      - natiahne summary z DB,
+      - natiahne summary z DB (s JWT → RLS),
       - spočíta weekly recent_load,
       - oseká nulové polia.
     """
-    raw = service_build_recent_load_raw(user_id=user_id, window_days=window_days)
+    raw = service_build_recent_load_raw(
+        user_id=user_id,
+        window_days=window_days,
+        user_jwt=user_jwt,
+    )
     return _prune_recent_load_for_ai(raw)
