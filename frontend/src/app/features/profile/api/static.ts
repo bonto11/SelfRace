@@ -1,55 +1,81 @@
 // src/features/profile/api/static.ts
 
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   StaticProfile,
   StaticProfileSuccess,
   StaticApiFail,
 } from "@/app/features/profile/types/profile";
 
-/** GET /profile/static/:user_id */
+/**
+ * GET /profile/static/:user_id
+ * - user sa identifikuje cez JWT + path user_id
+ */
 export async function apiGetStaticProfile(
-  userId: number,
-  userUid?: string | null
+  userId: number
 ): Promise<StaticProfile | null> {
-  const qs = userUid ? `?user_uid=${encodeURIComponent(userUid)}` : "";
-  const url = `${API_URL}/profile/static/${userId}${qs}`;
+  if (!userId) return null;
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as
-    | StaticProfileSuccess
-    | StaticApiFail
-    | null;
+  const path = `/profile/static/${encodeURIComponent(String(userId))}`;
+  console.debug("[PROFILE][apiGetStaticProfile] ->", path);
 
-  if (!res.ok || !json || (json as StaticApiFail).success === false) {
+  try {
+    const json = await callBackend<StaticProfileSuccess | StaticApiFail | null>(
+      path,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    if (!json || (json as StaticApiFail).success === false) {
+      return null;
+    }
+
+    return (json as StaticProfileSuccess).data ?? null;
+  } catch (e) {
+    console.error("[PROFILE][apiGetStaticProfile] ERROR", e);
     return null;
   }
-  return (json as StaticProfileSuccess).data ?? null;
 }
 
-/** POST /profile/static/:user_id */
+/**
+ * POST /profile/static/:user_id
+ * - telo = čisté StaticProfile
+ * - user_uid už neposielame, BE si usera nájde z JWT
+ */
 export async function apiSaveStaticProfile(
   userId: number,
-  data: StaticProfile,
-  userUid?: string | null
+  data: StaticProfile
 ): Promise<StaticProfile> {
-  const url = `${API_URL}/profile/static/${userId}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_uid: userUid ?? undefined, ...data }),
-  });
-
-  const json = (await res.json().catch(() => null)) as
-    | StaticProfileSuccess
-    | StaticApiFail
-    | null;
-
-  if (!res.ok || !json || (json as StaticApiFail).success === false) {
-    const msg = (json as StaticApiFail)?.detail || `HTTP ${res.status}`;
-    throw new Error(msg);
+  if (!userId) {
+    throw new Error("Missing userId in apiSaveStaticProfile");
   }
 
-  return (json as StaticProfileSuccess).data;
+  const path = `/profile/static/${encodeURIComponent(String(userId))}`;
+  console.debug("[PROFILE][apiSaveStaticProfile] ->", path, "payload:", data);
+
+  try {
+    const json = await callBackend<StaticProfileSuccess | StaticApiFail | null>(
+      path,
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!json || (json as StaticApiFail).success === false) {
+      const msg =
+        (json as StaticApiFail)?.detail ||
+        "[PROFILE] apiSaveStaticProfile failed";
+      throw new Error(msg);
+    }
+
+    return (json as StaticProfileSuccess).data;
+  } catch (e) {
+    console.error("[PROFILE][apiSaveStaticProfile] ERROR", e);
+    throw e;
+  }
 }
