@@ -129,3 +129,57 @@ async def strava_webhook_handler(
 
     # Strava očakáva 2xx – telo im je v zásade jedno
     return JSONResponse({"ok": True})
+    
+@router.post("/webhook/process-pending")
+async def process_pending_events(
+    limit: int = 20,
+    db: Any = Depends(get_db),
+):
+    """
+    Stiahne prvých N 'pending' eventov zo strava_webhook_events
+    a postupne ich spracuje.
+    - limit default 20 (môžeš upraviť podľa výkonu)
+    - používa FOR UPDATE SKIP LOCKED (bez race conditions pri viacerých workerkoch)
+    """
+    # Zoberieme batoh eventov
+    rows: Sequence[Mapping[str, Any]] = await db.fetch(
+        """
+        with cte as (
+            select id
+              from strava_webhook_events
+             where processed_at is null
+             order by id
+             limit $1
+             for update skip locked
+        )
+        select e.*
+          from strava_webhook_events e
+          join cte on cte.id = e.id
+        """,
+        limit,
+    )
+
+    processed = 0
+    errors = 0
+    ignored = 0
+
+    for row in rows:
+        try:
+            await _process_single_event(db, row)
+            processed += 1
+        except HTTPException:
+            # nechceme hádzať von, len započítať ako error
+            errors += 1
+        except Exception:
+            errors += 1
+
+    # sumarizácia pre teba
+    return JSONResponse(
+        {
+            "ok": True,
+            "fetched": len(rows),
+            "processed": processed,
+            "errors": errors,
+        }
+    )
+    
