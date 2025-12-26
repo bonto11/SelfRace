@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ChangePasswordModal from "@/app/features/auth/components/ChangePasswordModal";
 import ChangeEmailModal from "@/app/features/auth/components/ChangeEmailModal";
 import { API_URL } from "@/app/shared/config";
-// voliteľné: len ak potrebuješ token pre /account/request-delete
-import { supabase } from "@/app/shared/hooks/supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 import {
   AVATAR_BUTTON,
@@ -29,6 +28,7 @@ export default function UserAvatarMenu({
   const [pwdOpen, setPwdOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const supabase = getSupabaseBrowser();
 
   // zatváranie pri kliknutí mimo
   useEffect(() => {
