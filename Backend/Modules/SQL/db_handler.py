@@ -56,7 +56,7 @@ def get_user_client(user_jwt: str):
 def get_client(
   user_jwt: Optional[str] = None,
   *,
-  service: bool = False,
+  service: bool = True,
 ):
   """
   Unified helper:
