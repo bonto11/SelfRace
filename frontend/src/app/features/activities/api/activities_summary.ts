@@ -1,4 +1,4 @@
-// src/features/activity/api/activityApi.ts
+// src/features/activity/api/activities_summary.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   ActivityRow,
