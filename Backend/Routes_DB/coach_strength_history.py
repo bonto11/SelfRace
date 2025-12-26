@@ -7,14 +7,15 @@ from typing import Any, Dict, List
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_COACH_STRENGTH_HISTORY
 
-supabase = get_client()
-
 
 def db_insert_strength_history_rows(
     rows: List[Dict[str, Any]],
+    *,
+    user_jwt: str,
 ) -> int:
     """
-    Bulk INSERT do coach_strength_history.
+    Bulk INSERT do coach_strength_history (RLS, cez user JWT).
+
     Očakávaný input:
       rows = [
         {
@@ -33,6 +34,8 @@ def db_insert_strength_history_rows(
     if not rows:
         return 0
 
+    sb = get_client(user_jwt=user_jwt)
+
     # pre istotu normalizuj session_date na string (Supabase si s date poradí,
     # ale nech to máme konzistentné)
     normalized: List[Dict[str, Any]] = []
@@ -44,7 +47,7 @@ def db_insert_strength_history_rows(
         normalized.append(r2)
 
     try:
-        res = supabase.table(TABLE_COACH_STRENGTH_HISTORY).insert(normalized).execute()
+        res = sb.table(TABLE_COACH_STRENGTH_HISTORY).insert(normalized).execute()
         data = res.data or []
         print("[DB-COACH-STRENGTH] inserted rows:", len(data))
         return len(data)
@@ -57,9 +60,10 @@ def db_get_strength_history_for_user(
     user_id: int,
     *,
     weeks_back: int = 8,
+    user_jwt: str,
 ) -> List[Dict[str, Any]]:
     """
-    Načíta históriu silových cvikov pre usera za posledných weeks_back týždňov.
+    Načíta históriu silových cvikov pre usera za posledných weeks_back týždňov (RLS).
 
     Výstup je list dictov:
       {
@@ -73,12 +77,14 @@ def db_get_strength_history_for_user(
         "created_at": "timestamp",
       }
     """
+    sb = get_client(user_jwt=user_jwt)
+
     today = date.today()
     start_date = today - timedelta(weeks=weeks_back)
 
     try:
         res = (
-            supabase.table(TABLE_COACH_STRENGTH_HISTORY)
+            sb.table(TABLE_COACH_STRENGTH_HISTORY)
             .select("*")
             .eq("user_id", user_id)
             .gte("session_date", start_date.isoformat())
