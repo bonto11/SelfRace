@@ -1,5 +1,5 @@
 // src/lib/userUtils.ts
-import { supabase } from "./supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 /**
  * Zabezpečí, že user existuje v tabuľke `users`.
@@ -7,6 +7,7 @@ import { supabase } from "./supabaseClient";
  */
 export async function ensureUserExists(authUid: string, email: string): Promise<number | null> {
 
+  const supabase = getSupabaseBrowser();
   // Skús nájsť užívateľa
   const { data: existing, error: selError } = await supabase
     .from("users")
