@@ -10,12 +10,12 @@ from Configs.config import (
 )
 from Configs.config_sport import DEBUG_PARETO
 
-sb = get_client()
 
 # ---------------------------- helpers ----------------------------
 def _log(*a):
     if DEBUG_PARETO:
         print("[PARETO:SOURCE]", *a)
+
 
 def _as_int(x: Any) -> Optional[int]:
     try:
@@ -25,10 +25,12 @@ def _as_int(x: Any) -> Optional[int]:
     except Exception:
         return None
 
+
 def _as_str(x: Any) -> Optional[str]:
     if x is None:
         return None
     return str(x)
+
 
 def _as_float(x: Any) -> Optional[float]:
     try:
@@ -38,11 +40,13 @@ def _as_float(x: Any) -> Optional[float]:
     except Exception:
         return None
 
+
 def _to_num(x: Any) -> float:
     try:
         return float(x)
     except Exception:
         return 0.0
+
 
 def _chunked(seq: Iterable[Any], n: int = 1000) -> Iterable[List[Any]]:
     buf: List[Any] = []
@@ -53,6 +57,7 @@ def _chunked(seq: Iterable[Any], n: int = 1000) -> Iterable[List[Any]]:
             buf = []
     if buf:
         yield buf
+
 
 def _row_easy_hard(row: Dict[str, Any], count_no_hr_as_easy: bool = True) -> Tuple[float, float]:
     """
@@ -72,8 +77,29 @@ def _row_easy_hard(row: Dict[str, Any], count_no_hr_as_easy: bool = True) -> Tup
             easy = mt_min
     return easy, hard
 
+
+def _get_client_for_user(user_jwt: Optional[str] = None):
+    """
+    Vráti Supabase client.
+    - ak príde user_jwt → použije sa RLS klient via JWT
+    - inak fallback na pôvodný get_client() (service role), kým budeme všade 100 % na JWT
+    """
+    try:
+        return get_client(user_jwt=user_jwt)
+    except TypeError:
+        # fallback ak máš ešte staršiu signatúru get_client()
+        return get_client()
+
+
 # ------------------------ data loaders ---------------------------
-def _activity_ids_in_range(user_id: int, start_iso: str, end_iso: str) -> List[Tuple[int, str]]:
+def _activity_ids_in_range(
+    user_id: int,
+    start_iso: str,
+    end_iso: str,
+    *,
+    user_jwt: Optional[str] = None,
+) -> List[Tuple[int, str]]:
+    sb = _get_client_for_user(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("activity_id,date")
@@ -94,10 +120,19 @@ def _activity_ids_in_range(user_id: int, start_iso: str, end_iso: str) -> List[T
                 pass
     return out
 
-def _load_enrichment_for_ids(user_id: int, ids: List[int]) -> List[Dict[str, Any]]:
+
+def _load_enrichment_for_ids(
+    user_id: int,
+    ids: List[int],
+    *,
+    user_jwt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     if not ids:
         return out
+
+    sb = _get_client_for_user(user_jwt)
+
     for chunk in _chunked(ids, 1000):
         r = (
             sb.table(TABLE_ACTIVITIES_ENRICHMENT)
@@ -112,22 +147,32 @@ def _load_enrichment_for_ids(user_id: int, ids: List[int]) -> List[Dict[str, Any
         out.extend(r.data or [])
     return out
 
+
 # -------------------------- public API ---------------------------
 def get_pareto_source(
     user_id: int,
     months: int = 3,
     count_no_hr_as_easy: bool = True,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Kompletný výstrel dát za posledné `months` mesiacov (SUMMARY + ENRICHMENT),
     vrátane easy/hard/total. FE si to drží v SESSION a filtruje lokálne.
+
+    Ak príde user_jwt, všetky dotazy idú cez RLS/JWT klienta.
     """
     months = max(1, int(months))
     start_dt = datetime.now(timezone.utc) - timedelta(days=months * 31)
     start_iso = start_dt.strftime("%Y-%m-%d")
     end_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    id_rows = _activity_ids_in_range(user_id, start_iso, end_iso)
+    id_rows = _activity_ids_in_range(
+        user_id=user_id,
+        start_iso=start_iso,
+        end_iso=end_iso,
+        user_jwt=user_jwt,
+    )
     if not id_rows:
         return {"success": True, "data": [], "months": months}
 
@@ -142,7 +187,11 @@ def get_pareto_source(
     if not ids:
         return {"success": True, "data": [], "months": months}
 
-    enr = _load_enrichment_for_ids(user_id, ids)
+    enr = _load_enrichment_for_ids(
+        user_id=user_id,
+        ids=ids,
+        user_jwt=user_jwt,
+    )
 
     out: List[Dict[str, Any]] = []
     seen_ids: set[int] = set()
@@ -153,38 +202,48 @@ def get_pareto_source(
             continue
         seen_ids.add(aid)
         easy, hard = _row_easy_hard(r, count_no_hr_as_easy)
-        out.append({
-            "activity_id": aid,
-            "date": aid_to_date.get(aid),
-            "sport_type_fe": r.get("sport_type_fe"),
-            "moving_time_s": _as_int(r.get("moving_time_s")),
-            "avg_hr_bpm": _as_int(r.get("avg_hr_bpm")),
-            "distance_m": _as_float(r.get("distance_m")),
-            "z1_min": _as_float(r.get("z1_min")),
-            "z2_min": _as_float(r.get("z2_min")),
-            "z3_min": _as_float(r.get("z3_min")),
-            "z4_min": _as_float(r.get("z4_min")),
-            "z5_min": _as_float(r.get("z5_min")),
-            "easy_min": float(easy),
-            "hard_min": float(hard),
-            "total_min": float(easy + hard),
-        })
+        out.append(
+            {
+                "activity_id": aid,
+                "date": aid_to_date.get(aid),
+                "sport_type_fe": r.get("sport_type_fe"),
+                "moving_time_s": _as_int(r.get("moving_time_s")),
+                "avg_hr_bpm": _as_int(r.get("avg_hr_bpm")),
+                "distance_m": _as_float(r.get("distance_m")),
+                "z1_min": _as_float(r.get("z1_min")),
+                "z2_min": _as_float(r.get("z2_min")),
+                "z3_min": _as_float(r.get("z3_min")),
+                "z4_min": _as_float(r.get("z4_min")),
+                "z5_min": _as_float(r.get("z5_min")),
+                "easy_min": float(easy),
+                "hard_min": float(hard),
+                "total_min": float(easy + hard),
+            }
+        )
 
     # doplň aktivity bez enrichmentu
     for aid_raw, date_raw in id_rows:
         aid = _as_int(aid_raw)
         if aid is None or aid in seen_ids:
             continue
-        out.append({
-            "activity_id": aid,
-            "date": _as_str(date_raw),
-            "sport_type_fe": None,
-            "moving_time_s": None,
-            "avg_hr_bpm": None,
-            "distance_m": None,
-            "z1_min": None, "z2_min": None, "z3_min": None, "z4_min": None, "z5_min": None,
-            "easy_min": 0.0, "hard_min": 0.0, "total_min": 0.0,
-        })
+        out.append(
+            {
+                "activity_id": aid,
+                "date": _as_str(date_raw),
+                "sport_type_fe": None,
+                "moving_time_s": None,
+                "avg_hr_bpm": None,
+                "distance_m": None,
+                "z1_min": None,
+                "z2_min": None,
+                "z3_min": None,
+                "z4_min": None,
+                "z5_min": None,
+                "easy_min": 0.0,
+                "hard_min": 0.0,
+                "total_min": 0.0,
+            }
+        )
 
     out.sort(key=lambda x: str(x.get("date") or ""), reverse=True)
 
