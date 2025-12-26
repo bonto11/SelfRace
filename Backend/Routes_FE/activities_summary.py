@@ -11,7 +11,7 @@ from Services.activities_summary import (
     service_get_summary_one,
 )
 
-from Modules.Auth.deps import require_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(prefix="/activities_summary", tags=["activities_summary"])
 
