@@ -1,15 +1,12 @@
 // src/features/activity/api/activityApi.ts
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   ActivityRow,
   MiniActivity,
   SportFE,
 } from "@/app/features/activities/types/activities";
 
-import {
-  normalizeActivityRow,
-  parseJsonSafe,
-} from "@/app/features/activities/utils/activity";
+import { normalizeActivityRow } from "@/app/features/activities/utils/activity";
 
 // 1) RANGE
 export async function apiFetchRange(
@@ -17,12 +14,17 @@ export async function apiFetchRange(
   start: string,
   end: string
 ): Promise<ActivityRow[]> {
-  const url = `${API_URL}/activities_summary/range/${userId}?start=${start}&end=${end}`;
-  console.debug("[activityApi][range] ->", url);
+  const path = `/activities_summary/range/${userId}?start=${encodeURIComponent(
+    start
+  )}&end=${encodeURIComponent(end)}`;
 
-  const res = await fetch(url, { cache: "no-store" });
-  const text = await res.text();
-  const json = parseJsonSafe(text);
+  console.debug("[activityApi][range] ->", path);
+
+  // callBackend pridá JWT + base URL, my len riešime payload
+  const json = await callBackend<any>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
 
   const list: any[] = Array.isArray(json?.data)
     ? json.data
@@ -48,14 +50,19 @@ export async function apiFetchActivitiesAround(
 ): Promise<MiniActivity[]> {
   const delta = opts.deltaDays ?? 1;
   const sports = (opts.sports ?? ["run", "mixed"]).join(",");
-  const url =
-    `${API_URL}/activities_summary/select/${userId}` +
-    `?date=${encodeURIComponent(
-      opts.date
-    )}&delta_days=${delta}&sports=${encodeURIComponent(sports)}`;
 
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`fetchActivitiesAround failed: ${r.status}`);
-  const j = await r.json().catch(() => ({}));
+  const path =
+    `/activities_summary/select/${userId}` +
+    `?date=${encodeURIComponent(opts.date)}` +
+    `&delta_days=${delta}` +
+    `&sports=${encodeURIComponent(sports)}`;
+
+  console.debug("[activityApi][around] ->", path);
+
+  const j = await callBackend<{ items?: MiniActivity[] }>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
+
   return (j?.items ?? []) as MiniActivity[];
 }
