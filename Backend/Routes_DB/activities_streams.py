@@ -1,21 +1,26 @@
+from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
 
 from Modules.SQL.db_handler import get_client
 from Configs.config import TABLE_ACTIVITIES_STREAMS
 
-supabase = get_client()
-
 
 def db_get_streams_one(
     user_id: int,
     activity_id: int,
+    *,
+    user_jwt: str,
 ) -> Optional[Dict[str, Any]]:
     """
     Jedna row so streamami pre danú aktivitu:
       { time_s: [...], heartrate_bpm: [...] }
+
+    RLS: číta sa cez user_jwt (ANON client + auth).
     """
+    sb = get_client(user_jwt=user_jwt)
     res = (
-        supabase.table(TABLE_ACTIVITIES_STREAMS)
+        sb.table(TABLE_ACTIVITIES_STREAMS)
         .select("time_s,heartrate_bpm")
         .eq("user_id", user_id)
         .eq("activity_id", activity_id)
@@ -32,13 +37,16 @@ def db_get_streams_ids_present(
 ) -> List[int]:
     """
     Vráti zoznam activity_id, pre ktoré už existuje aspoň jeden stream záznam.
+
     Používa sa v compute_and_save_enrichment_for_ids na zistenie chýbajúcich.
+    Toto je typicky sync / worker → SERVICE ROLE.
     """
     if not activity_ids:
         return []
 
+    sb = get_client(service=True)
     res = (
-        supabase.table(TABLE_ACTIVITIES_STREAMS)
+        sb.table(TABLE_ACTIVITIES_STREAMS)
         .select("activity_id")
         .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))
