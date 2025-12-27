@@ -1,4 +1,3 @@
-# backend/Routes_FE/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -33,7 +32,7 @@ def enqueue_job(
 
     FE posiela:
       - job_type (napr. 'ai_analyze')
-      - payload (ľubovoľný JSON)
+      - payload (ľubovoľný JSON – tu môže byť aj user_jwt)
       - voliteľne: dedupe_key, run_after, max_attempts
     """
     try:

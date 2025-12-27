@@ -1,7 +1,10 @@
 # Services/user_bests.py
 from __future__ import annotations
-from typing import Any, Dict, List
+
+from typing import Any, Dict, List, Optional
 from datetime import datetime
+
+from fastapi import HTTPException
 
 from Services.time import hhmmss_to_seconds, seconds_to_hhmmss
 from Routes_DB.user_bests import (
@@ -18,26 +21,43 @@ STD_DISTANCES_BY_SPORT: dict[str, list[int]] = {
 }
 
 
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
+
+
 def allowed_distances(sport: str) -> List[int]:
     return STD_DISTANCES_BY_SPORT.get(sport, [])
 
 
-def service_fetch_user_bests(user_id: int, sport: str = "run") -> List[Dict[str, Any]]:
+def service_fetch_user_bests(
+    user_id: int,
+    sport: str = "run",
+    user_jwt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     Vysoko-úrovňový fetch:
       - zavolá DB vrstvu
       - dopočíta time_str z best_time_s
     """
-    rows = db_fetch_user_bests(user_id, sport)
+    user_jwt = _require_jwt(user_jwt)
+    rows = db_fetch_user_bests(user_id, sport, user_jwt=user_jwt)
     for r in rows:
         r["time_str"] = seconds_to_hhmmss(r.get("best_time_s"))
     return rows
 
 
-def service_upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+def service_upsert_user_best(
+    user_id: int,
+    payload: Dict[str, Any],
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Validácia + normalizácia payloadu a následný UPSERT do DB.
     """
+    user_jwt = _require_jwt(user_jwt)
+
     sport = str(payload.get("sport") or "run").lower()
 
     # --- distance ---
@@ -94,7 +114,7 @@ def service_upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str,
     if ach != "__MISSING__":
         row["achieved_at"] = ach if (isinstance(ach, str) and ach.strip()) else None
 
-    saved = db_upsert_user_best(row)
+    saved = db_upsert_user_best(row, user_jwt=user_jwt)
 
     best_time_s = saved.get("best_time_s") or row["best_time_s"]
     saved["time_str"] = seconds_to_hhmmss(best_time_s)
@@ -102,29 +122,43 @@ def service_upsert_user_best(user_id: int, payload: Dict[str, Any]) -> Dict[str,
     return saved
 
 
-def service_delete_user_best(user_id: int, sport: str, distance_m: int) -> int:
+def service_delete_user_best(
+    user_id: int,
+    sport: str,
+    distance_m: int,
+    user_jwt: Optional[str] = None,
+) -> int:
     """
     Tenšia obálka okolo DB delete – kvôli konzistencii service vrstvy.
     """
-    return db_delete_user_best(user_id, sport, distance_m)
+    user_jwt = _require_jwt(user_jwt)
+    return db_delete_user_best(user_id, sport, distance_m, user_jwt=user_jwt)
 
 
-def service_build_bests_block_for_analysis(user_id: int) -> Dict[str, Any]:
+def service_build_bests_block_for_analysis(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Vráti minimalizované PB pre AI:
       { run: [...], ride: [...] }
     """
-    out = {"run": [], "ride": []}
+    user_jwt = _require_jwt(user_jwt)
 
-    run_rows = db_fetch_user_bests(user_id, "run")
+    out: Dict[str, List[Dict[str, Any]]] = {"run": [], "ride": []}
+
+    run_rows = db_fetch_user_bests(user_id, "run", user_jwt=user_jwt)
     for r in run_rows:
         out["run"].append(
             {
                 "distance_m": r.get("distance_m"),
                 "best_time_s": r.get("best_time_s"),
-                "time_str": r.get("time_str"),
+                "time_str": r.get("time_str")
+                or seconds_to_hhmmss(r.get("best_time_s")),
                 "date": r.get("achieved_at") or r.get("updated_at"),
             }
         )
+
+    # ak neskôr pridáš bike, môžeš doplniť fetch pre "ride"
 
     return out

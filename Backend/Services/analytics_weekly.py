@@ -22,6 +22,8 @@ from Routes_DB.profile_metrics import fetch_user_hr_max
 def service_weekly_analytics(
     user_id: int,
     weeks: int = 12,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Týždenná agregácia za posledných N týždňov.
@@ -34,11 +36,23 @@ def service_weekly_analytics(
         * RHR (denné)    -> users_recovery.RHR_bpm (db_get_recent_recovery),
                             v kóde si spravíme mapu date -> rhr
                             a fallback o 1–2 dni dozadu, inak Edwards TRIMP.
+
+    Ak príde user_jwt, všetky DB volania idú cez RLS/JWT varianty (ak sú dostupné).
     """
 
     # ---------------- HR parametre (sex, HR_max) ----------------
-    sex: Optional[str] = db_fetch_user_sex(user_id)  # môže byť None
-    hr_max: Optional[float] = fetch_user_hr_max(user_id)  # môže byť None
+    if user_jwt is not None:
+        try:
+            sex: Optional[str] = db_fetch_user_sex(user_id, user_jwt=user_jwt)  # type: ignore[arg-type]
+        except TypeError:
+            sex = db_fetch_user_sex(user_id)
+        try:
+            hr_max: Optional[float] = fetch_user_hr_max(user_id, user_jwt=user_jwt)  # type: ignore[arg-type]
+        except TypeError:
+            hr_max = fetch_user_hr_max(user_id)
+    else:
+        sex = db_fetch_user_sex(user_id)
+        hr_max = fetch_user_hr_max(user_id)
 
     # ---------------- časové okno ----------------
     # berieme o týždeň viac, aby sme mali buffer pre monotóniu / strain
@@ -48,10 +62,23 @@ def service_weekly_analytics(
     # ---------------- Recovery RHR (date -> RHR_bpm) ----------------
     # máme funkciu "posledných N dní", tak zoberieme weeks*7 + buffer
     days_window = (weeks + 1) * 7
-    recovery_rows: List[Dict[str, Any]] = db_get_recent_recovery(
-        user_id=user_id,
-        days=days_window,
-    )
+    if user_jwt is not None:
+        try:
+            recovery_rows: List[Dict[str, Any]] = db_get_recent_recovery(
+                user_id=user_id,
+                days=days_window,
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            recovery_rows = db_get_recent_recovery(
+                user_id=user_id,
+                days=days_window,
+            )
+    else:
+        recovery_rows = db_get_recent_recovery(
+            user_id=user_id,
+            days=days_window,
+        )
 
     rhr_by_date: Dict[str, float] = {}
     for rr in recovery_rows or []:
@@ -86,11 +113,23 @@ def service_weekly_analytics(
         return None
 
     # ---------------- Aktivity za okno (summary) ----------------
-    # použijeme existujúci helper – ten už filteruje cez stĺpec 'date'
-    rows: List[Dict[str, Any]] = db_fetch_summary_since(
-        user_id=user_id,
-        since_iso=since_iso,
-    )
+    if user_jwt is not None:
+        try:
+            rows: List[Dict[str, Any]] = db_fetch_summary_since(
+                user_id=user_id,
+                since_iso=since_iso,
+                user_jwt=user_jwt,  # type: ignore[arg-type]
+            )
+        except TypeError:
+            rows = db_fetch_summary_since(
+                user_id=user_id,
+                since_iso=since_iso,
+            )
+    else:
+        rows = db_fetch_summary_since(
+            user_id=user_id,
+            since_iso=since_iso,
+        )
 
     def new_week() -> Dict[str, Any]:
         return {

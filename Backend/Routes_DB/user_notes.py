@@ -1,18 +1,30 @@
 # Services/notes.py
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List
 
 from Modules.SQL.db_handler import get_client
-from Configs.config import (
-    TABLE_USERS_NOTES,
-)
-supabase = get_client()
+from Configs.config import TABLE_USERS_NOTES
 
-def fetch_recent_notes(user_id: int, days: int = 28):
+
+def fetch_recent_notes(
+    user_id: int,
+    days: int = 28,
+    *,
+    user_jwt: str,
+) -> List[Dict[str, Any]]:
+    """
+    Načíta poznámky usera za posledných N dní cez RLS (user_jwt).
+
+    - user_jwt = Supabase access token aktuálneho usera
+      (posielaš z FE v Authorization: Bearer ... alebo inak dopravíš do BE).
+    """
     try:
+        sb = get_client(user_jwt=user_jwt)
+
         since_dt = datetime.now(timezone.utc) - timedelta(days=days)
         res = (
-            supabase.table(TABLE_USERS_NOTES)
+            sb.table(TABLE_USERS_NOTES)
             .select("activity_id,feeling,created_at")
             .eq("user_id", user_id)
             .gte("created_at", since_dt.isoformat())

@@ -3,11 +3,22 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from fastapi import HTTPException
+
 from Routes_DB.user_thresholds import (
     db_list_user_thresholds_raw,
     db_get_user_threshold_latest,
     db_upsert_user_threshold,
 )
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Všetky threshold operácie chceme cez RLS → JWT je povinné.
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def _num(v: Any) -> Optional[float]:
@@ -45,20 +56,27 @@ def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
 # ---------- PUBLIC SERVICE FUNKCIE PRE ROUTERY / FE ----------
 
 
-def service_list_user_thresholds(user_id: int) -> List[Dict[str, Any]]:
+def service_list_user_thresholds(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     Všetky threshold riadky usera (DESC podľa updated_at),
     normalizované (_row_norm).
     """
-    rows = db_list_user_thresholds_raw(user_id)
+    user_jwt = _require_jwt(user_jwt)
+    rows = db_list_user_thresholds_raw(user_id, user_jwt=user_jwt)
     return [_row_norm(r) for r in rows]
 
 
-def service_list_latest_per_combo(user_id: int) -> List[Dict[str, Any]]:
+def service_list_latest_per_combo(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     Najnovší riadok pre každú kombináciu (sport, threshold_type).
     """
-    rows = service_list_user_thresholds(user_id)  # už DESC
+    rows = service_list_user_thresholds(user_id, user_jwt=user_jwt)  # už DESC
     seen: set[Tuple[str, str]] = set()
     out: List[Dict[str, Any]] = []
     for r in rows:
@@ -77,22 +95,32 @@ def service_load_user_thresholds(
     user_id: int,
     sport: str = "running",
     threshold_type: str = "LT2",
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší threshold pre daný sport+type (default running/LT2).
     """
+    user_jwt = _require_jwt(user_jwt)
     canon = _canon_sport(sport)
-    row = db_get_user_threshold_latest(user_id, canon, threshold_type)
+    row = db_get_user_threshold_latest(
+        user_id,
+        canon,
+        threshold_type,
+        user_jwt=user_jwt,
+    )
     return _row_norm(row) if row else None
 
 
 def service_upsert_user_threshold(
     user_id: int,
     payload: Dict[str, Any],
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Uloží / upsertne threshold a vráti najnovší stav pre daný sport+type.
     """
+    user_jwt = _require_jwt(user_jwt)
+
     sport = _canon_sport(payload.get("sport"))
     t_type = payload.get("threshold_type") or "LT2"
 
@@ -108,15 +136,27 @@ def service_upsert_user_threshold(
     # vyhoď None, nech do DB nejde bordel
     clean = {k: v for k, v in row.items() if v is not None}
 
-    db_upsert_user_threshold(user_id, clean)
+    db_upsert_user_threshold(
+        user_id,
+        clean,
+        user_jwt=user_jwt,
+    )
 
-    return service_load_user_thresholds(user_id, sport=sport, threshold_type=t_type)
+    return service_load_user_thresholds(
+        user_id,
+        sport=sport,
+        threshold_type=t_type,
+        user_jwt=user_jwt,
+    )
 
 
 # ---------- BLOK PRE ANALÝZU (CoachAnalyzeInput.thresholds) ----------
 
 
-def service_build_thresholds_block_for_analysis(user_id: int) -> Dict[str, Any]:
+def service_build_thresholds_block_for_analysis(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Vráti blok pre CoachAnalyzeInput["thresholds"].
 
@@ -124,7 +164,12 @@ def service_build_thresholds_block_for_analysis(user_id: int) -> Dict[str, Any]:
     - fallback: prvý running riadok
     - ak nič nemáme, vráti prázdny blok so správnym tvarom
     """
-    rows = service_list_user_thresholds(user_id)
+    user_jwt = _require_jwt(user_jwt)
+
+    rows = service_list_user_thresholds(
+        user_id,
+        user_jwt=user_jwt,
+    )
 
     if not rows:
         return {

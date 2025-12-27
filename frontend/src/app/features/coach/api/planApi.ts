@@ -1,5 +1,5 @@
 // src/features/plan/api/planApi.ts
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 
 /**
  * Stiahne plán z BE pre daného usera a dátumový rozsah
@@ -13,32 +13,22 @@ export async function fetchPlanRangeApi(
 ): Promise<any[]> {
   if (userId == null) return [];
 
-  if (!API_URL) {
-    console.error("[PLAN][api] Missing API_URL");
-    return [];
-  }
+  const params = new URLSearchParams({
+    date_from: rangeStart,
+    date_to: rangeEnd,
+  });
 
-  const url = `${API_URL}/coach-plan/${userId}?date_from=${rangeStart}&date_to=${rangeEnd}`;
+  const path = `/coach-plan/${encodeURIComponent(
+    String(userId)
+  )}?${params.toString()}`;
+
+  console.debug("[PLAN][api] ->", path);
 
   try {
-    const res = await fetch(url, { cache: "no-store" });
-
-    const rawText = await res.text();
-    let json: any = {};
-    try {
-      json = rawText ? JSON.parse(rawText) : {};
-    } catch (e) {
-      console.error("[PLAN][api] JSON parse error", e);
-      return [];
-    }
-
-    if (!res.ok) {
-      console.error("[PLAN][api] HTTP error", {
-        status: res.status,
-        body: json,
-      });
-      return [];
-    }
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
     const list: any[] = Array.isArray(json?.data)
       ? json.data
@@ -47,7 +37,6 @@ export async function fetchPlanRangeApi(
       : [];
 
     const norm = (list as any[])
-
       .map((r, idx) => ({
         ...r,
         id: Number(r.id ?? idx),

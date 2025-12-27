@@ -1,4 +1,3 @@
-# backend/Services/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -77,6 +76,7 @@ def service_list_active_jobs(
     """
     return db_get_active_jobs(user_id=user_id, job_types=job_types, limit=limit)
 
+
 def service_run_job_now(
     user_id: int,
     job_id: int,
@@ -126,14 +126,26 @@ def service_run_job_now(
     result_payload: Optional[Dict[str, Any]] = None
 
     try:
-        # 1) ANALYZE ATHLETE
+        # 1) ANALYZE ATHLETE (už s podporou user_jwt)
         if job_type == "ai_analyze":
+            # očakávaný shape inputu:
+            # {
+            #   "user_jwt": "...",      # voliteľné – ak je, analyze pôjde cez RLS
+            #   "debug": bool,
+            #   "save_to_db": bool,
+            #   "model": "..." | null
+            # }
+            user_jwt = input_payload.get("user_jwt")
+            debug_flag = bool(input_payload.get("debug", False))
+            save_flag = bool(input_payload.get("save_to_db", True))
+            model_override = input_payload.get("model")
+
             result_payload = service_analyze_athlete(
                 user_id=user_id,
-                # ak máš v signatúre tieto voľby, inak ich vyhoď
-                # debug/input options berieme z job.input
-                # ak tvoja service_analyze_athlete berie len user_id,
-                # pokojne ich ignoruj
+                user_jwt=user_jwt,
+                debug=debug_flag,
+                save_to_db=save_flag,
+                model=model_override,
             )
 
         # 2) WEEKLY GENERATE
@@ -161,7 +173,7 @@ def service_run_job_now(
                 model=input_payload.get("model"),
                 debug=bool(input_payload.get("debug", False)),
             )
-        
+
         # 4) AUTO MAP (plan_match)
         elif job_type == "plan_match":
             # očakávame, že job.input má tvar:
@@ -180,7 +192,6 @@ def service_run_job_now(
                 try:
                     activity_ids.append(int(v))
                 except Exception:
-                    # ak je nejaká blbosť v poli, len ju preskočíme
                     continue
 
             if not activity_ids:
@@ -209,7 +220,7 @@ def service_run_job_now(
         elif job_type == "daily_extend":
             result_payload = service_auto_extend_daily_plan(
                 user_id=user_id,
-                min_horizon_days = 10,
+                min_horizon_days=10,
             )
 
         else:

@@ -24,13 +24,13 @@ from Routes_DB.activities_summary import (
 )
 
 from Routes_DB.activities_laps import (
-            db_delete_laps_for_activity,
-            db_upsert_lap,
-        )
+    db_delete_laps_for_activity,
+    db_upsert_lap,
+)
 from Routes_DB.activities_splits import (
-            db_delete_splits_for_activity,
-            db_upsert_split,
-        )
+    db_delete_splits_for_activity,
+    db_upsert_split,
+)
 from Configs.config import STRAVA_BASE
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
@@ -385,6 +385,7 @@ def service_sync_activities(
     user_id: int,
     force_last_days: Optional[int] = 30,
     fetch_details: bool = True,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, int]:
     """
     Stiahne aktivity zo Stravy a uloží do Supabase (cez Routes_DB).
@@ -392,13 +393,16 @@ def service_sync_activities(
       - dotiahne detaily (laps/splits),
       - napočíta HR zóny z cached streams,
       - spustí plan_match job na auto-mapping.
+
+    Ak príde user_jwt, všetky DB volania idú cez RLS/JWT klienta.
     """
     ses = _get_session()
 
     # AFTER (epoch)
     after_epoch = 0
     since_iso_for_scan = "1970-01-01"
-    last_dt = db_get_last_activity_start(user_id)
+
+    last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
     if last_dt:
         after_epoch = int(last_dt.timestamp())
         since_iso_for_scan = last_dt.strftime("%Y-%m-%d")
@@ -407,7 +411,11 @@ def service_sync_activities(
         after_epoch = int(after_dt.timestamp())
         since_iso_for_scan = after_dt.strftime("%Y-%m-%d")
 
-    existing = db_get_existing_activity_ids_since(user_id, since_iso_for_scan)
+    existing = db_get_existing_activity_ids_since(
+        user_id,
+        since_iso_for_scan,
+        user_jwt=user_jwt,
+    )
 
     imported = updated = skipped = fetched = 0
     to_upsert: List[Dict[str, Any]] = []
@@ -446,7 +454,7 @@ def service_sync_activities(
 
         # dávkuj upserty
         if len(to_upsert) >= 200:
-            db_upsert_activities_summary(to_upsert)
+            db_upsert_activities_summary(to_upsert, user_jwt=user_jwt)
             print(f"[SYNC] upsert batch summary rows={len(to_upsert)}")
             to_upsert.clear()
 
@@ -454,7 +462,7 @@ def service_sync_activities(
         time.sleep(0.1)  # šetrenie
 
     if to_upsert:
-        db_upsert_activities_summary(to_upsert)
+        db_upsert_activities_summary(to_upsert, user_jwt=user_jwt)
         print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
         to_upsert.clear()
 
@@ -464,9 +472,8 @@ def service_sync_activities(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=MAX_FULL_DETAILS_PER_RUN,
+            user_jwt=user_jwt,
         )
-
-       
 
         for i, aid in enumerate(ids, start=1):
             try:
@@ -482,18 +489,18 @@ def service_sync_activities(
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
                 if mode == "splits":
-                    db_delete_laps_for_activity(aid)
+                    db_delete_laps_for_activity(aid, user_jwt=user_jwt)
                 elif mode == "laps":
-                    db_delete_splits_for_activity(aid)
+                    db_delete_splits_for_activity(aid, user_jwt=user_jwt)
 
                 if mode == "splits":
                     for idx, S in enumerate(splits_raw, start=1):
                         row = _normalize_split(S, user_id, aid, idx)
-                        db_upsert_split(row)
+                        db_upsert_split(row, user_jwt=user_jwt)
                 elif mode == "laps":
                     for L in laps_raw:
                         row = _normalize_lap(L, user_id, aid)
-                        db_upsert_lap(row)
+                        db_upsert_lap(row, user_jwt=user_jwt)
                 else:
                     pass
 
@@ -509,6 +516,7 @@ def service_sync_activities(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=500,
+            user_jwt=user_jwt,
         )
 
         print(f"[SYNC] streams: fetching & storing for {len(ids_recent)} ids …")
@@ -516,6 +524,7 @@ def service_sync_activities(
             user_id,
             ids_recent,
             store=True,
+            user_jwt=user_jwt,
         )
         print(
             f"[SYNC] streams: stored={streams_res.get('stored')} / "
@@ -527,6 +536,7 @@ def service_sync_activities(
             user_id,
             ids_recent,
             fetch_if_missing=False,
+            user_jwt=user_jwt,
         )
 
         to_save = [
@@ -534,7 +544,7 @@ def service_sync_activities(
             for it in (prev.get("items") or [])
             if it.get("ok") and it.get("minutes")
         ]
-        saved = upsert_enrichment_minutes(user_id, to_save)
+        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
 
         # auto-mapping aktivít na plán cez async job plan_match
@@ -551,6 +561,7 @@ def service_sync_activities(
                 priority=90,
                 max_attempts=1,
                 dedupe_key=None,
+                user_jwt=user_jwt,
             )
 
             job = (enqueue or {}).get("job")
@@ -561,6 +572,7 @@ def service_sync_activities(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map",
+                    user_jwt=user_jwt,
                 )
 
                 job_row = run.get("job") or {}
@@ -591,7 +603,8 @@ def service_sync_activities(
         "skipped": int(skipped),
         "fetched": int(fetched),
     }
-    
+
+
 # -----------------------------------------------------------------------------
 # Single-activity sync – používané z webhooku
 # -----------------------------------------------------------------------------
@@ -599,6 +612,7 @@ def service_sync_single_activity(
     user_id: int,
     strava_activity_id: int,
     fetch_details: bool = True,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, int]:
     """
     Sync JEDNEJ Strava aktivity:
@@ -608,7 +622,7 @@ def service_sync_single_activity(
       - streams + enrichment zón
       - plan_match job len pre túto aktivitu
 
-    Používa tie isté helpery ako service_sync_activities.
+    Ak príde user_jwt, ide to celé cez RLS.
     """
     ses = _get_session()
 
@@ -649,6 +663,7 @@ def service_sync_single_activity(
     existing_ids = db_get_existing_activity_ids_since(
         user_id=user_id,
         since_iso_date="1970-01-01",  # bezpečné, chceme len check, či existuje
+        user_jwt=user_jwt,
     )
 
     if aid in existing_ids:
@@ -656,7 +671,7 @@ def service_sync_single_activity(
     else:
         imported += 1
 
-    db_upsert_activities_summary([row])
+    db_upsert_activities_summary([row], user_jwt=user_jwt)
 
     # ---------- 2) LAPS / SPLITS ----------
     if fetch_details:
@@ -674,18 +689,18 @@ def service_sync_single_activity(
 
         try:
             if mode == "splits":
-                db_delete_laps_for_activity(aid)
+                db_delete_laps_for_activity(aid, user_jwt=user_jwt)
             elif mode == "laps":
-                db_delete_splits_for_activity(aid)
+                db_delete_splits_for_activity(aid, user_jwt=user_jwt)
 
             if mode == "splits":
                 for idx, S in enumerate(splits_raw, start=1):
                     row_s = _normalize_split(S, user_id, aid, idx)
-                    db_upsert_split(row_s)
+                    db_upsert_split(row_s, user_jwt=user_jwt)
             elif mode == "laps":
                 for L in laps_raw:
                     row_l = _normalize_lap(L, user_id, aid)
-                    db_upsert_lap(row_l)
+                    db_upsert_lap(row_l, user_jwt=user_jwt)
             else:
                 # nič – nemáme použiteľné laps ani splits
                 pass
@@ -702,6 +717,7 @@ def service_sync_single_activity(
             user_id,
             ids_recent,
             store=True,
+            user_jwt=user_jwt,
         )
         print(
             f"[SYNC:single] streams: stored={streams_res.get('stored')} / "
@@ -713,6 +729,7 @@ def service_sync_single_activity(
             user_id,
             ids_recent,
             fetch_if_missing=False,
+            user_jwt=user_jwt,
         )
 
         to_save = [
@@ -720,7 +737,7 @@ def service_sync_single_activity(
             for it in (prev.get("items") or [])
             if it.get("ok") and it.get("minutes")
         ]
-        saved = upsert_enrichment_minutes(user_id, to_save)
+        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
         print(
             f"[SYNC:single] zones: enrichment upsert saved rows = "
             f"{saved.get('saved', 0)}"
@@ -740,6 +757,7 @@ def service_sync_single_activity(
                 priority=90,
                 max_attempts=1,
                 dedupe_key=None,
+                user_jwt=user_jwt,
             )
 
             job = (enqueue or {}).get("job")
@@ -750,6 +768,7 @@ def service_sync_single_activity(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map_single",
+                    user_jwt=user_jwt,
                 )
 
                 job_row = run.get("job") or {}
@@ -781,4 +800,3 @@ def service_sync_single_activity(
         "skipped": int(skipped),
         "fetched": int(fetched),
     }
-    

@@ -1,5 +1,5 @@
 // src/features/coach/api/prefs.ts
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 
 // kľúč pre coach prefs
 const KEY = "coach.prefs";
@@ -31,18 +31,26 @@ function extractValue<T = AnyJson>(j: unknown): T | null {
 export async function apiGetCoachPrefs<T = AnyJson>(
   userId: number
 ): Promise<T | null> {
-  try {
-    const url = `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`;
-    const r = await fetch(url, { cache: "no-store" });
-    if (!r.ok) return null;
+  if (!userId) return null;
 
-    const j = await r.json().catch(() => ({}));
-    const val = extractValue<T>(j);
-    // na debug:
-    // console.log("userPrefs raw:", j);
-    // console.log("userPrefs extracted:", val);
+  const path = `/users/${encodeURIComponent(
+    String(userId)
+  )}/prefs/${encodeURIComponent(KEY)}`;
+  console.debug("[COACH][prefs][GET] ->", path);
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    const val = extractValue<T>(json);
+    // debug ak treba:
+    // console.log("[COACH][prefs] raw:", json);
+    // console.log("[COACH][prefs] extracted:", val);
     return val;
-  } catch {
+  } catch (e) {
+    console.error("[COACH][prefs][GET] error", e);
     return null;
   }
 }
@@ -51,11 +59,20 @@ export async function apiSaveCoachPrefs<T = AnyJson>(
   userId: number,
   value: T
 ): Promise<void> {
-  const url = `${API_URL}/users/${userId}/prefs/${encodeURIComponent(KEY)}`;
-  await fetch(url, {
+  if (!userId) throw new Error("Missing userId for apiSaveCoachPrefs");
+
+  const path = `/users/${encodeURIComponent(
+    String(userId)
+  )}/prefs/${encodeURIComponent(KEY)}`;
+  console.debug("[COACH][prefs][PUT] ->", path);
+
+  await callBackend<any>(path, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     cache: "no-store",
     body: JSON.stringify({ value }),
+  }).catch((e) => {
+    console.error("[COACH][prefs][PUT] error", e);
+    throw e;
   });
 }

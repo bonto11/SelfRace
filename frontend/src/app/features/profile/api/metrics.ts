@@ -1,5 +1,5 @@
 // src/features/profile/api/metrics.ts
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   LatestMetricsMap,
   LatestMetricsResponse,
@@ -9,79 +9,107 @@ import type {
   MetricHistoryRow,
 } from "@/app/features/profile/types/profile";
 
-/** GET latest metrics */
+/**
+ * GET latest metrics
+ * - BE identifikuje usera cez JWT + path param user_id
+ * - žiadny user_uid už netreba
+ */
 export async function apiGetLatestMetrics(
-  userId: number,
-  userUid?: string | null
+  userId: number
 ): Promise<LatestMetricsMap | null> {
-  const qs = userUid ? `?user_uid=${encodeURIComponent(userUid)}` : "";
-  const url = `${API_URL}/profile/metrics/latest/${userId}${qs}`;
+  if (!userId) return null;
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as
-    | LatestMetricsResponse
-    | MetricsApiFail
-    | null;
+  const path = `/profile/metrics/latest/${encodeURIComponent(String(userId))}`;
+  console.debug("[METRICS][apiGetLatestMetrics] ->", path);
 
-  if (!res.ok || !json || (json as MetricsApiFail).success === false) {
+  try {
+    const json = await callBackend<LatestMetricsResponse | MetricsApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!json || (json as MetricsApiFail).success === false) {
+      return null;
+    }
+
+    return (json as LatestMetricsResponse).data ?? null;
+  } catch (e) {
+    console.error("[METRICS][apiGetLatestMetrics] ERROR", e);
     return null;
   }
-
-  return (json as LatestMetricsResponse).data ?? null;
 }
 
-/** POST save metrics */
+/**
+ * POST save metrics
+ * - telo: { entries: [...] }
+ * - user_uid už neposielame, BE si user identifikuje z JWT
+ */
 export async function apiSaveMetrics(
   userId: number,
-  entries: MetricEntryInput[],
-  userUid?: string | null
+  entries: MetricEntryInput[]
 ): Promise<SaveMetricsSuccess> {
-  const url = `${API_URL}/profile/metrics/${userId}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_uid: userUid ?? undefined,
-      entries,
-    }),
-  });
-
-  const json = (await res.json().catch(() => null)) as
-    | SaveMetricsSuccess
-    | MetricsApiFail
-    | null;
-
-  if (!res.ok || !json || (json as MetricsApiFail).success === false) {
-    const msg = (json as MetricsApiFail)?.detail || `HTTP ${res.status}`;
-    throw new Error(msg);
+  if (!userId) {
+    throw new Error("Missing userId in apiSaveMetrics");
   }
 
-  return json as SaveMetricsSuccess;
+  const path = `/profile/metrics/${encodeURIComponent(String(userId))}`;
+  console.debug("[METRICS][apiSaveMetrics] ->", path, "entries:", entries?.length);
+
+  try {
+    const json = await callBackend<SaveMetricsSuccess | MetricsApiFail>(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        entries,
+      }),
+    });
+
+    if (!json || (json as MetricsApiFail).success === false) {
+      const msg =
+        (json as MetricsApiFail)?.detail || "[METRICS] apiSaveMetrics failed";
+      throw new Error(msg);
+    }
+
+    return json as SaveMetricsSuccess;
+  } catch (e) {
+    console.error("[METRICS][apiSaveMetrics] ERROR", e);
+    throw e;
+  }
 }
 
-/** GET history of metric */
+/**
+ * GET history of metric
+ * - query: ?metric=...
+ * - user_uid už nie, JWT + user_id stačia
+ */
 export async function apiGetMetricHistory(
   userId: number,
-  metric: string,
-  userUid?: string | null
+  metric: string
 ): Promise<MetricHistoryRow[] | null> {
-  const qsUser = userUid ? `&user_uid=${encodeURIComponent(userUid)}` : "";
-  const url = `${API_URL}/profile/metrics/history/${userId}?metric=${encodeURIComponent(
-    metric
-  )}${qsUser}`;
+  if (!userId || !metric) return null;
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = await res.json().catch(() => null);
+  const path = `/profile/metrics/history/${encodeURIComponent(
+    String(userId)
+  )}?metric=${encodeURIComponent(metric)}`;
 
-  if (
-    !res.ok ||
-    !json ||
-    json?.success === false ||
-    !Array.isArray(json.data)
-  ) {
+  console.debug("[METRICS][apiGetMetricHistory] ->", path);
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!json || json?.success === false || !Array.isArray(json.data)) {
+      return null;
+    }
+
+    return json.data as MetricHistoryRow[];
+  } catch (e) {
+    console.error("[METRICS][apiGetMetricHistory] ERROR", e);
     return null;
   }
-
-  return json.data as MetricHistoryRow[];
 }

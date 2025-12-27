@@ -1,6 +1,5 @@
 // src/features/coach/api/coach_athlete_state.ts
-import { API_URL } from "@/app/shared/config";
-import { robustJson } from "@/app/features/coach/api/_api_utils";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   AnalyzeOptions,
   AnalyzeAthleteStateResponse,
@@ -23,11 +22,14 @@ type EnqueueJobResponse = {
   success: boolean;
   job: AsyncJobRow | null;
   note?: string | null;
+  detail?: string | null;
+  error?: string | null;
 };
 
 type RunJobResponse = {
   success: boolean;
   job: AsyncJobRow | null;
+  error?: string | null;
 };
 
 /**
@@ -45,6 +47,8 @@ export type AthleteStateRecord = {
 type LatestAthleteStateResponse = {
   success: boolean;
   state: AthleteStateRecord | null;
+  detail?: string | null;
+  error?: string | null;
 };
 
 export async function apiAnalyzeAthleteState(
@@ -52,12 +56,11 @@ export async function apiAnalyzeAthleteState(
   userUuid: string,
   opts: AnalyzeOptions = {}
 ): Promise<AnalyzeAthleteStateResponse> {
-  if (!API_URL) {
-    throw new Error("Missing API_URL for apiAnalyzeAthleteState");
-  }
+  if (!userId) throw new Error("Missing userId in apiAnalyzeAthleteState");
+  if (!userUuid) throw new Error("Missing userUuid in apiAnalyzeAthleteState");
 
   // 1) ENQUEUE JOB
-  const enqueueUrl = `${API_URL}/jobs/enqueue/${userId}`;
+  const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
 
   const enqueueBody = {
     job_type: "ai_analyze",
@@ -72,46 +75,53 @@ export async function apiAnalyzeAthleteState(
     dedupe_key: "ai_analyze_latest",
   };
 
-  const enqueueRes = await fetch(enqueueUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(enqueueBody),
-  }).catch((e) => {
-    throw new Error(`Network/CORS (enqueue): ${String(e)}`);
-  });
+  let enqueueJson: EnqueueJobResponse;
+  try {
+    enqueueJson = await callBackend<EnqueueJobResponse>(enqueuePath, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(enqueueBody),
+    });
+  } catch (e: any) {
+    console.error("[Coach][apiAnalyzeAthleteState] enqueue ERROR", e);
+    throw e instanceof Error
+      ? e
+      : new Error(`Network/BE error (enqueue): ${String(e)}`);
+  }
 
-  const enqueueJson = (await robustJson(enqueueRes)) as EnqueueJobResponse;
-
-  if (!enqueueRes.ok || !enqueueJson?.success || !enqueueJson.job) {
+  if (!enqueueJson?.success || !enqueueJson.job) {
     const msg =
-      (enqueueJson as any)?.detail ||
-      (enqueueJson as any)?.error ||
-      enqueueJson?.note ||
-      `HTTP ${enqueueRes.status}`;
+      enqueueJson.detail ||
+      enqueueJson.error ||
+      enqueueJson.note ||
+      "Failed to enqueue ai_analyze job";
     throw new Error(msg);
   }
 
   const jobId = enqueueJson.job.id;
 
   // 2) RUN JOB TERAZ (sync worker endpoint)
-  const runUrl = `${API_URL}/jobs/run/${userId}/${jobId}`;
+  const runPath = `/jobs/run/${encodeURIComponent(
+    String(userId)
+  )}/${encodeURIComponent(String(jobId))}`;
 
-  const runRes = await fetch(runUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-  }).catch((e) => {
-    throw new Error(`Network/CORS (run): ${String(e)}`);
-  });
+  let runJson: RunJobResponse;
+  try {
+    runJson = await callBackend<RunJobResponse>(runPath, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (e: any) {
+    console.error("[Coach][apiAnalyzeAthleteState] run ERROR", e);
+    throw e instanceof Error
+      ? e
+      : new Error(`Network/BE error (run): ${String(e)}`);
+  }
 
-  const runJson = (await robustJson(runRes)) as RunJobResponse;
-
-  if (!runRes.ok || !runJson?.success || !runJson.job) {
-    const msg =
-      (runJson as any)?.detail ||
-      (runJson as any)?.error ||
-      `HTTP ${runRes.status}`;
+  if (!runJson?.success || !runJson.job) {
+    const msg = runJson?.error || "Job run failed";
     throw new Error(msg);
   }
 
@@ -121,7 +131,7 @@ export async function apiAnalyzeAthleteState(
     throw new Error("Job finished but result payload is empty or invalid");
   }
 
-  // 3) ZABALÍME RESULT DO FORMÁTU, KTORÝ UI ČAKÁ
+  // 3) Výstup presne v tvare, ktorý UI čaká
   const out: AnalyzeAthleteStateResponse = {
     success: true,
     ...(result as any),
@@ -131,70 +141,32 @@ export async function apiAnalyzeAthleteState(
 }
 
 /**
- * POST /coach/athlete/analyze/:user_id
- */
-
-/*
-export async function apiAnalyzeAthleteState(
-  userId: number,
-  opts: AnalyzeOptions = {}
-): Promise<AnalyzeAthleteStateResponse> {
-  if (!API_URL) {
-    throw new Error("Missing API_URL for apiAnalyzeAthleteState");
-  }
-
-  const url = `${API_URL}/coach/athlete/analyze/${userId}`;
-
-  const body = {
-    debug: !!opts.debugRaw,
-    save_to_db: true,
-    model: opts.explicitModel ?? "coach-analyze-stub",
-  };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(body),
-  }).catch((e) => {
-    throw new Error(`Network/CORS: ${String(e)}`);
-  });
-
-  const json = await robustJson(res);
-  if (!res.ok || !json?.success) {
-    const msg = json?.detail || json?.error || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-
-  return json as AnalyzeAthleteStateResponse;
-}
-*/
-
-/**
  * GET /coach/athlete/state/latest/:user_id
  */
 export async function apiGetLatestAthleteState(
   userId: number
 ): Promise<AthleteStateRecord | null> {
-  if (!API_URL) {
-    throw new Error("Missing API_URL for apiGetLatestAthleteState");
+  if (!userId) throw new Error("Missing userId in apiGetLatestAthleteState");
+
+  const path = `/coach/athlete/state/latest/${encodeURIComponent(
+    String(userId)
+  )}`;
+
+  let json: LatestAthleteStateResponse;
+  try {
+    json = await callBackend<LatestAthleteStateResponse>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    console.error("[Coach][apiGetLatestAthleteState] ERROR", e);
+    throw e instanceof Error
+      ? e
+      : new Error(`Network/BE error (latest state): ${String(e)}`);
   }
 
-  const url = `${API_URL}/coach/athlete/state/latest/${userId}`;
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-  }).catch((e) => {
-    throw new Error(`Network/CORS: ${String(e)}`);
-  });
-
-  const json = (await robustJson(res)) as LatestAthleteStateResponse;
-
-  if (!res.ok || !json?.success) {
-    const msg =
-      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`;
+  if (!json?.success) {
+    const msg = json.detail || json.error || "Failed to load latest athlete state";
     throw new Error(msg);
   }
 

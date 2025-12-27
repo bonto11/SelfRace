@@ -4,7 +4,12 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 from uuid import uuid4
 
-from Configs.config import DEFAULT_MODEL, COACH_PLAN_MIN_WEEKS, COACH_PLAN_DEAFULT_WEEKS, COACH_PLAN_MAX_WEEKS
+from Configs.config import (
+    DEFAULT_MODEL,
+    COACH_PLAN_MIN_WEEKS,
+    COACH_PLAN_DEAFULT_WEEKS,
+    COACH_PLAN_MAX_WEEKS,
+)
 from Services.coach_athlete_state import build_input_from_db
 from Routes_DB.coach_athlete_state import (
     db_get_state_by_id,
@@ -23,11 +28,17 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 
-from Services.coach_external_events import (service_build_external_events_block_for_analysis, service_list_external_events_window)
+from Services.coach_external_events import (
+    service_build_external_events_block_for_analysis,
+    service_list_external_events_window,
+)
+
 
 def _load_athlete_state_for_plan(
     user_id: int,
     state_id: Optional[int],
+    *,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Nájde vhodný coach_athlete_state pre plánovanie.
@@ -41,10 +52,10 @@ def _load_athlete_state_for_plan(
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
-        row = db_get_state_by_id(state_id)
+        row = db_get_state_by_id(state_id, user_jwt=user_jwt)
 
     if not row:
-        row = db_get_latest_state_for_user(user_id=user_id, version=1)
+        row = db_get_latest_state_for_user(user_id=user_id, version=1, user_jwt=user_jwt)
 
     if not row:
         raise ValueError(
@@ -89,6 +100,7 @@ def _extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
 def service_generate_weekly_plan(
     user_id: int,
     *,
+    user_jwt: str,
     overwrite: bool = True,
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
@@ -98,16 +110,16 @@ def service_generate_weekly_plan(
     """
     Hlavná service pre weekly plán.
 
-    - načíta CoachAnalyzeInput z DB (build_input_from_db)
-    - nájde vhodný coach_athlete_state (podľa state_id alebo latest)
+    - načíta CoachAnalyzeInput z DB (build_input_from_db, RLS cez user_jwt)
+    - nájde vhodný coach_athlete_state (podľa state_id alebo latest, cez RLS)
     - poskladá context_payload pre AI
     - zavolá OpenAI weekly generátor
-    - uloží výsledok do coach_plan_weekly
+    - uloží výsledok do coach_plan_weekly (RLS)
     - založí coach_plan_meta so status='generated'
     - vráti { weekly_plan, plan_id, state_id, ... }
     """
     # 1) vstup pre AI (rovnaký ako pre analyze)
-    analyze_input = build_input_from_db(user_id)
+    analyze_input = build_input_from_db(user_id, user_jwt=user_jwt)
 
     # PREFS – flatten (kvôli tomu, že v prefs môže byť 'value' obal)
     raw_prefs = analyze_input.get("prefs") or {}
@@ -120,21 +132,36 @@ def service_generate_weekly_plan(
     else:
         prefs_ai = {}
 
-    # EXTERNAL EVENTS – blok z analyze_input (horizont okolo dneška)
+    # EXTERNAL EVENTS – už by mali byť v analyze_input, ale pre istotu:
     external_events_block = analyze_input.get("external_events")
+    if external_events_block is None:
+        try:
+            external_events_block = service_build_external_events_block_for_analysis(
+                user_id=user_id,
+                user_jwt=user_jwt,
+            )
+        except Exception:
+            external_events_block = None
 
     # 2) stav atlétu z analyze
-    state_bundle = _load_athlete_state_for_plan(user_id=user_id, state_id=state_id)
+    state_bundle = _load_athlete_state_for_plan(
+        user_id=user_id,
+        state_id=state_id,
+        user_jwt=user_jwt,
+    )
 
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
 
-    # koľko týždňov – preferuj z payloadu, inak z prefs, fallback 6
+    # koľko týždňov – preferuj z payloadu, inak z prefs, fallback default
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
-    print("[DB-COACH-WEEKLY] weeks:", weeks)
-    print("[DB-COACH-WEEKLY] prefs_ai.get(\"weeks\"):", prefs_ai.get("weeks"))
+    print("[DB-COACH-WEEKLY] weeks (payload):", weeks)
+    print("[DB-COACH-WEEKLY] prefs_ai.get('weeks'):", prefs_ai.get("weeks"))
     print("[DB-COACH-WEEKLY] raw_weeks:", raw_weeks)
-    horizon_weeks = max(COACH_PLAN_MIN_WEEKS,min(raw_weeks, COACH_PLAN_MAX_WEEKS))
+    horizon_weeks = max(
+        COACH_PLAN_MIN_WEEKS,
+        min(raw_weeks, COACH_PLAN_MAX_WEEKS),
+    )
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
@@ -174,15 +201,19 @@ def service_generate_weekly_plan(
     deleted_rows = 0
     archived_meta = 0
     if overwrite:
-        # meta – archived
+        # meta – archived (toto zatiaľ ide cez service-role v DB vrstve)
         archived_meta = db_archive_user_plans(user_id)
 
         # starý weekly plán – podľa doterajšej logiky
-        latest_plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
+        latest_plan_id = db_get_latest_plan_id_for_user(
+            user_id=user_id,
+            user_jwt=user_jwt,
+        )
         if latest_plan_id:
             deleted_rows = db_clear_weekly_for_user_plan(
                 user_id=user_id,
                 plan_id=latest_plan_id,
+                user_jwt=user_jwt,
             )
 
     # 5) priprav INSERT rows
@@ -214,7 +245,7 @@ def service_generate_weekly_plan(
 
         rows.append(row)
 
-    inserted_rows = db_insert_weekly_rows(rows)
+    inserted_rows = db_insert_weekly_rows(rows, user_jwt=user_jwt)
 
     # 6) založ meta záznam (status='generated')
     plan_meta_dict = (
@@ -266,7 +297,13 @@ def service_generate_weekly_plan(
         resp["debug"] = trace
 
     return resp
-def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
+
+
+def service_get_latest_weekly_plan(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> Optional[Dict[str, Any]]:
     """
     Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).
 
@@ -277,19 +314,23 @@ def service_get_latest_weekly_plan(user_id: int) -> Optional[Dict[str, Any]]:
       }
     Alebo None, ak user nemá žiadny plán.
     """
-    # 1) Skús najnovší plan_id z coach_plan_meta
+    # 1) Skús najnovší plan_id z coach_plan_meta (tá DB vrstva zatiaľ môže ísť cez service-role)
     meta = db_get_latest_plan_meta_for_user(user_id=user_id)
     plan_id: Optional[str] = None
     if meta and isinstance(meta.get("plan_id"), str):
         plan_id = meta["plan_id"]
 
-    # fallback na starý mechanizmus (pre legacy dáta)
+    # fallback na weekly tabuľku (cez RLS)
     if not plan_id:
-        plan_id = db_get_latest_plan_id_for_user(user_id=user_id)
+        plan_id = db_get_latest_plan_id_for_user(user_id=user_id, user_jwt=user_jwt)
         if not plan_id:
             return None
 
-    rows = db_get_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
+    rows = db_get_weekly_for_user_plan(
+        user_id=user_id,
+        plan_id=plan_id,
+        user_jwt=user_jwt,
+    )
     if not rows:
         return None
 

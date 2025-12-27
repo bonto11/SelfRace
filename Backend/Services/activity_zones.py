@@ -66,12 +66,20 @@ def _canon_sport(s: Optional[str]) -> str:
 
 # -------------------- DB loaders (summary/streams) --------------------
 
-def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
+def _load_activity_ids_since(
+    user_id: int,
+    since_iso_date: str,
+    user_jwt: Optional[str] = None,
+) -> List[int]:
     """
     IDs všetkých aktivít od daného dátumu.
     (Číta z DB vrstvy summary, nie priamo z tabuľky.)
     """
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso_date)
+    rows = db_fetch_summary_since(
+        user_id=user_id,
+        since_iso=since_iso_date,
+        user_jwt=user_jwt,
+    )
     out: List[int] = []
     for r in rows:
         aid = _to_int(r.get("activity_id"))
@@ -80,14 +88,22 @@ def _load_activity_ids_since(user_id: int, since_iso_date: str) -> List[int]:
     return out
 
 
-def _load_summary_map(user_id: int, ids: List[int]) -> dict[int, dict]:
+def _load_summary_map(
+    user_id: int,
+    ids: List[int],
+    user_jwt: Optional[str] = None,
+) -> dict[int, dict]:
     """
     Mapovanie activity_id -> základné summary (avg_hr, moving_time, distance, sport).
     """
     if not ids:
         return {}
 
-    rows = db_get_summary_for_activities(user_id=user_id, activity_ids=ids)
+    rows = db_get_summary_for_activities(
+        user_id=user_id,
+        activity_ids=ids,
+        user_jwt=user_jwt,
+    )
     mp: dict[int, dict] = {}
     for r in rows:
         try:
@@ -103,13 +119,21 @@ def _load_summary_map(user_id: int, ids: List[int]) -> dict[int, dict]:
     return mp
 
 
-def _load_streams_row(user_id: int, activity_id: int) -> Optional[Dict[str, Any]]:
+def _load_streams_row(
+    user_id: int,
+    activity_id: int,
+    user_jwt: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Jedna row so streamami: očakáva sa shape:
       { "time_s": [...], "heartrate_bpm": [...] }
     z DB vrstvy activities_streams.
     """
-    return db_get_streams_one(user_id=user_id, activity_id=activity_id)
+    return db_get_streams_one(
+        user_id=user_id,
+        activity_id=activity_id,
+        user_jwt=user_jwt,
+    )
 
 
 # -------------------- zónové helpery --------------------
@@ -202,6 +226,7 @@ def _zone_of(hr: Optional[int], Z: Dict[str, int]) -> str:
 # -------------------- fetch ak chýba --------------------
 
 def _fetch_and_store_if_missing(user_id: int, activity_ids: List[int]) -> None:
+    # Strava + service-role klient – tu JWT nedáva zmysel
     fetch_and_optionally_store_batch(user_id, activity_ids, store=True)
 
 
@@ -248,11 +273,16 @@ def _compute_minutes_for_streams(
 # -------------------- public API --------------------
 
 def preview_zones_for_activities(
-    user_id: int, activity_ids: List[int], fetch_if_missing: bool = True
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    fetch_if_missing: bool = True,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Hlavný výpočet minút v zónach pre daný zoznam aktivít.
     Nepíše do DB, iba počíta; DB write rieši upsert_enrichment_minutes().
+    Všetky DB čítania idú cez JWT, ak je k dispozícii.
     """
     # per-sport cache + fallback (running -> latest any)
     zones_cache: dict[str, Optional[Dict[str, int]]] = {}
@@ -261,7 +291,10 @@ def preview_zones_for_activities(
         s_key = _canon_sport(s)
         if s_key in zones_cache:
             return zones_cache[s_key]
-        z_out = service_load_user_zones(user_id, s_key)  # ZonesOut | None
+        if user_jwt is not None:
+            z_out = service_load_user_zones(user_id, s_key, user_jwt=user_jwt)
+        else:
+            z_out = service_load_user_zones(user_id, s_key)
         if z_out:
             zones_cache[s_key] = _zones_out_to_numeric(z_out)
         else:
@@ -275,7 +308,7 @@ def preview_zones_for_activities(
     # ktoré aktivity nemajú streamy
     missing: List[int] = []
     for aid in activity_ids:
-        row = _load_streams_row(user_id, int(aid))
+        row = _load_streams_row(user_id, int(aid), user_jwt=user_jwt)
         if not row or not (row.get("time_s") or []):
             missing.append(int(aid))
 
@@ -283,14 +316,18 @@ def preview_zones_for_activities(
         _fetch_and_store_if_missing(user_id, missing)
 
     # summary pre mapping activity_id -> sport
-    s_map = _load_summary_map(user_id, [int(x) for x in activity_ids])
+    s_map = _load_summary_map(
+        user_id,
+        [int(x) for x in activity_ids],
+        user_jwt=user_jwt,
+    )
 
     # výpočet s per-sport zónami
     items: List[dict] = []
     have = 0
     for aid in activity_ids:
         aid_i = int(aid)
-        row = _load_streams_row(user_id, aid_i)
+        row = _load_streams_row(user_id, aid_i, user_jwt=user_jwt)
         if not row or not (row.get("time_s") or []):
             items.append(
                 {"activity_id": aid_i, "ok": False, "reason": "no_streams"}
@@ -310,12 +347,23 @@ def preview_zones_for_activities(
         items.append({"activity_id": aid_i, "ok": True, "minutes": mins})
         have += 1
 
-    return {"ok": True, "user_id": user_id, "zones": default_z, "items": items}
+    return {
+        "ok": True,
+        "user_id": user_id,
+        "zones": default_z,
+        "items": items,
+    }
 
 
-def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
+def upsert_enrichment_minutes(
+    user_id: int,
+    items: list[dict],
+    *,
+    user_jwt: Optional[str] = None,
+) -> dict:
     """
     Vytvorí rows pre TABLE_ACTIVITIES_ENRICHMENT a pošle ich do DB vrstvy.
+    Zápis ide cez JWT klient, ak je dostupný.
     """
     if not items:
         return {"saved": 0, "skipped": 0}
@@ -328,7 +376,7 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
             except Exception:
                 pass
 
-    s_map = _load_summary_map(user_id, ids)
+    s_map = _load_summary_map(user_id, ids, user_jwt=user_jwt)
     now_ts = datetime.now(timezone.utc).isoformat()
     user_uid = service_get_user_uid(user_id)
 
@@ -367,23 +415,26 @@ def upsert_enrichment_minutes(user_id: int, items: list[dict]) -> dict:
     if not rows:
         return {"saved": 0, "skipped": skipped}
 
-    saved = db_upsert_enrichment_rows(rows)
+    saved = db_upsert_enrichment_rows(rows, user_jwt=user_jwt)
     return {"saved": saved, "skipped": skipped}
 
 
 def backfill_enrichment_for_period(
     user_id: int,
     months: int = 3,
+    *,
     fetch_if_missing: bool = True,
     save: bool = True,
     batch: int = 25,
+    user_jwt: Optional[str] = None,
 ) -> dict:
     """
     Prejde všetky aktivity za posledné `months` a dopočíta enrichment.
+    Všetky DB operácie idú cez JWT, ak je poslaný.
     """
     since_iso = _iso_utc_months_ago(months)
 
-    ids = _load_activity_ids_since(user_id, since_iso)
+    ids = _load_activity_ids_since(user_id, since_iso, user_jwt=user_jwt)
     total = len(ids)
     saved = 0
     preview_count = 0
@@ -396,13 +447,20 @@ def backfill_enrichment_for_period(
         logs.append(f"[backfill] chunk {i//batch+1}: {len(chunk)} ids")
 
         res = preview_zones_for_activities(
-            user_id, chunk, fetch_if_missing=fetch_if_missing
+            user_id,
+            chunk,
+            fetch_if_missing=fetch_if_missing,
+            user_jwt=user_jwt,
         )
         items = res.get("items") or []
         preview_count += len(items)
 
         if save and items:
-            u = upsert_enrichment_minutes(user_id, items)
+            u = upsert_enrichment_minutes(
+                user_id,
+                items,
+                user_jwt=user_jwt,
+            )
             saved += int(u.get("saved") or 0)
 
     return {
@@ -420,30 +478,45 @@ def backfill_enrichment_for_period(
 
 
 def compute_and_save_enrichment_for_ids(
-    user_id: int, ids: list[int]
+    user_id: int,
+    ids: list[int],
+    *,
+    user_jwt: Optional[str] = None,
 ) -> dict:
     """
     Shortcut: dopočítaj enrichment pre konkrétne IDs (napr. po synce).
+    Načítanie streamov a enrichment ide cez JWT všade, kde to je DB read/write.
     """
     ids = [int(x) for x in ids if x]
     if not ids:
         return {"saved": 0, "count": 0}
 
     # 1) zisti, ktoré ids už majú streamy
-    have_ids = db_get_streams_ids_present(user_id, ids)
+    have_ids = db_get_streams_ids_present(
+        user_id,
+        ids,
+        user_jwt=user_jwt,
+    )
     have_set = set(have_ids)
     missing = [aid for aid in ids if aid not in have_set]
 
-    # 2) dotiahni chýbajúce streamy
+    # 2) dotiahni chýbajúce streamy (Strava + service-role, bez JWT)
     if missing:
         cache_streams_for_activities(user_id, missing)
 
-    # 3) výpočet
+    # 3) výpočet (už cez JWT)
     prev = preview_zones_for_activities(
-        user_id, ids, fetch_if_missing=False
+        user_id,
+        ids,
+        fetch_if_missing=False,
+        user_jwt=user_jwt,
     )
     items = prev.get("items") or []
 
     # 4) uloženie
-    saved = upsert_enrichment_minutes(user_id, items).get("saved", 0)
+    saved = upsert_enrichment_minutes(
+        user_id,
+        items,
+        user_jwt=user_jwt,
+    ).get("saved", 0)
     return {"saved": int(saved), "count": len(ids)}
