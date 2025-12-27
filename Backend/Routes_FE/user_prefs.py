@@ -14,10 +14,10 @@ from Services.user_prefs import (
 )
 from Modules.HTTP.auth_deps import inject_user_jwt
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/prefs", tags=["prefs"])
 
 
-@router.get("/{user_id}/prefs")
+@router.get("/{user_id}")
 def get_user_prefs(
     user_id: int,
     user_jwt: Optional[str] = Depends(inject_user_jwt),
@@ -29,7 +29,7 @@ def get_user_prefs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{user_id}/prefs/{key}")
+@router.get("/{user_id}/key/{key}")
 def get_user_pref(
     user_id: int,
     key: str,
@@ -42,7 +42,7 @@ def get_user_pref(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/{user_id}/prefs/{key}")
+@router.put("/{user_id}/key/{key}")
 def put_user_pref(
     user_id: int,
     key: str,
@@ -61,7 +61,7 @@ def put_user_pref(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/{user_id}/prefs")
+@router.put("/{user_id}")
 def put_user_prefs(
     user_id: int,
     payload: Dict[str, Any] = Body(...),
@@ -78,7 +78,7 @@ def put_user_prefs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{user_id}/prefs/{key}")
+@router.delete("/{user_id}/key/{key}")
 def del_user_pref(
     user_id: int,
     key: str,

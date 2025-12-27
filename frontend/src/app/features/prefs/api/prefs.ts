@@ -11,7 +11,7 @@ export async function apiFetchUserPrefs(
   if (!userId) return {};
 
   const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : "";
-  const path = `/users/${encodeURIComponent(String(userId))}/prefs${qs}`;
+  const path = `/prefs/${encodeURIComponent(String(userId))}${qs}`;
   console.debug("[UserPrefs][apiFetchUserPrefs] ->", path);
 
   try {
@@ -43,9 +43,9 @@ export async function apiFetchUserPref(
 ): Promise<any | null> {
   if (!userId || !key) return null;
 
-  const path = `/users/${encodeURIComponent(
+  const path = `/prefs/${encodeURIComponent(
     String(userId)
-  )}/prefs/${encodeURIComponent(key)}`;
+  )}/key/${encodeURIComponent(key)}`;
   console.debug("[UserPrefs][apiFetchUserPref] ->", path);
 
   try {
@@ -75,9 +75,9 @@ export async function apiUpsertUserPref(
     throw new Error("Missing userId or key in apiUpsertUserPref");
   }
 
-  const path = `/users/${encodeURIComponent(
+  const path = `/prefs/${encodeURIComponent(
     String(userId)
-  )}/prefs/${encodeURIComponent(key)}`;
+  )}/key/${encodeURIComponent(key)}`;
   console.debug("[UserPrefs][apiUpsertUserPref] ->", path, "value:", value);
 
   try {
@@ -103,7 +103,7 @@ export async function apiUpsertUserPrefs(
     throw new Error("Missing userId in apiUpsertUserPrefs");
   }
 
-  const path = `/users/${encodeURIComponent(String(userId))}/prefs`;
+  const path = `/prefs/${encodeURIComponent(String(userId))}`;
   console.debug("[UserPrefs][apiUpsertUserPrefs] ->", path, "rows:", rows);
 
   try {
