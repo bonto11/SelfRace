@@ -1,7 +1,7 @@
 # Routes_FE/user_prefs.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
@@ -60,7 +60,6 @@ def put_user_pref(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.put("/{user_id}")
 def put_user_prefs(
     user_id: int,
@@ -68,12 +67,26 @@ def put_user_prefs(
     user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     try:
+        prefs_list: List[Dict[str, Any]] = payload.get("prefs") or []
+        if not isinstance(prefs_list, list):
+            raise HTTPException(status_code=400, detail="Invalid payload: 'prefs' must be a list")
+
+        kv: Dict[str, Any] = {}
+        for row in prefs_list:
+            if not isinstance(row, dict) or "key" not in row:
+                continue
+            k = str(row["key"])
+            kv[k] = row.get("value")
+
         n = service_save_user_prefs_bulk(
             user_id,
-            payload or {},
+            kv,
             user_jwt=user_jwt,
         )
         return {"success": True, "count": n}
+    except HTTPException:
+        # nechaj HTTPException prejsť so svojím status kódom
+        raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 

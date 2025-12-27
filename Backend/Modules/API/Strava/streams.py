@@ -1,4 +1,6 @@
 # Modules/API/Strava/streams.py
+
+'''
 from __future__ import annotations
 import time
 import requests
@@ -150,3 +152,4 @@ def cache_streams_for_activities(user_id: int, activity_ids: List[int]) -> dict:
             print(f"[streams] save failed id={aid}: {e}")
             failed += 1
     return {"saved": saved, "failed": failed, "total": len(activity_ids)}
+    '''

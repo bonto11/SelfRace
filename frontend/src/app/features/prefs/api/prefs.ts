@@ -49,15 +49,20 @@ export async function apiFetchUserPref(
   console.debug("[UserPrefs][apiFetchUserPref] ->", path);
 
   try {
-    const json = await callBackend<{ pref?: { value: any }; detail?: string }>(
-      path,
-      {
-        method: "GET",
-        cache: "no-store",
-      }
-    );
+    const json = await callBackend<{
+      pref?: { value: any };
+      key?: string;
+      value?: any;
+      detail?: string;
+    }>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-    return json?.pref?.value ?? null;
+    // podpora starého aj nového tvaru odpovede
+    if (json?.pref && "value" in json.pref) return json.pref.value;
+    if (typeof json?.value !== "undefined") return json.value;
+    return null;
   } catch (e: any) {
     console.error("[UserPrefs][apiFetchUserPref] ERROR", e);
     const msg =
