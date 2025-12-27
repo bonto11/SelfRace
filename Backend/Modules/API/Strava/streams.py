@@ -1,14 +1,29 @@
 # Modules/API/Strava/streams.py
 
 from __future__ import annotations
+
 import time
 import requests
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
+
 from Modules.API.Strava.auth import get_access_token
 from Modules.SQL.db_handler import get_client
-from Configs.config import STRAVA_BASE, TABLE_ACTIVITIES_STREAMS, TABLE_USERS, TABLE_ACTIVITIES_SUMMARY
+from Configs.config import (
+    STRAVA_BASE,
+    TABLE_ACTIVITIES_STREAMS,
+    TABLE_USERS,
+    TABLE_ACTIVITIES_SUMMARY,
+)
 
-sb = get_client()
+# -------------------------------------------------------------------
+# DB client helper – ak je user_jwt, ideš cez RLS, inak service role
+# -------------------------------------------------------------------
+def _get_sb(user_jwt: Optional[str] = None):
+    if user_jwt:
+        return get_client(user_jwt=user_jwt)
+    # fallback pre webhook/worker bez JWT
+    return get_client(service=True)
+
 
 # ------- low-level Strava session -------
 def _session() -> requests.Session:
@@ -19,35 +34,67 @@ def _session() -> requests.Session:
     s.headers.update({"Authorization": f"Bearer {tok}"})
     return s
 
+
 def _arr(j: Dict[str, Any], key: str):
     return (j.get(key) or {}).get("data") or []
 
-def _get_user_uid(user_id: int) -> str:
-    r = sb.table(TABLE_USERS).select("auth_uid").eq("id", user_id).limit(1).execute()
+
+def _get_user_uid(
+    user_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+) -> str:
+    sb = _get_sb(user_jwt)
+    r = (
+        sb.table(TABLE_USERS)
+        .select("auth_uid")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
     if not r.data:
         raise RuntimeError(f"user_id {user_id} not found in users")
     return r.data[0]["auth_uid"]
 
-def _get_sport_fe_or_default(user_id: int, activity_id: int) -> str:
+
+def _get_sport_fe_or_default(
+    user_id: int,
+    activity_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+) -> str:
     # len ak by si to niekedy chcel využiť; inak toto nepoužijeme
-    r = sb.table(TABLE_ACTIVITIES_SUMMARY)\
-          .select("sport_type_fe")\
-          .eq("user_id", user_id).eq("activity_id", activity_id)\
-          .limit(1).execute()
+    sb = _get_sb(user_jwt)
+    r = (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+        .select("sport_type_fe")
+        .eq("user_id", user_id)
+        .eq("activity_id", activity_id)
+        .limit(1)
+        .execute()
+    )
     v = (r.data or [{}])[0].get("sport_type_fe") or "other"
     return str(v).lower()
 
+
 # ------- ukladanie do activities_streams (ARRAY stĺpce) -------
-def store_streams(user_id: int, activity_id: int, streams_json: Dict[str, Any]) -> Tuple[bool, str]:
+def store_streams(
+    user_id: int,
+    activity_id: int,
+    streams_json: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+) -> Tuple[bool, str]:
     """
     Uloží streamy cez SQL RPC tak, aby sa user_uid a sport_type_fe dotiahli zo summary.
     """
+    sb = _get_sb(user_jwt)
     try:
         times = _arr(streams_json, "time")
-        hr    = _arr(streams_json, "heartrate")
-        cad   = _arr(streams_json, "cadence")
-        poww  = _arr(streams_json, "watts")
-        dist  = _arr(streams_json, "distance")
+        hr = _arr(streams_json, "heartrate")
+        cad = _arr(streams_json, "cadence")
+        poww = _arr(streams_json, "watts")
+        dist = _arr(streams_json, "distance")
 
         params = {
             "p_user_id": int(user_id),
@@ -63,17 +110,31 @@ def store_streams(user_id: int, activity_id: int, streams_json: Dict[str, Any]) 
     except Exception as e:
         return False, str(e)
 
+
 # ------- batch helper -------
-def fetch_and_optionally_store_batch(user_id: int, activity_ids: List[int], store: bool = False) -> Dict[str, Any]:
+def fetch_and_optionally_store_batch(
+    user_id: int,
+    activity_ids: List[int],
+    store: bool = False,
+    *,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
     sess = _session()
     out = {"ok": True, "count": len(activity_ids), "stored": 0, "items": []}
     for i, aid in enumerate(activity_ids, start=1):
         try:
-            # ⬇️ FIX: volaj internú verziu so session
             res = _fetch_streams_with_session(sess, int(aid))
             if not res.get("ok"):
-                out["items"].append({"activity_id": aid, "ok": False, "error": res.get("error"), "status": res.get("status")})
+                out["items"].append(
+                    {
+                        "activity_id": aid,
+                        "ok": False,
+                        "error": res.get("error"),
+                        "status": res.get("status"),
+                    }
+                )
                 continue
+
             j = res["json"]
             sizes = {
                 "time": len(_arr(j, "time")),
@@ -88,7 +149,12 @@ def fetch_and_optionally_store_batch(user_id: int, activity_ids: List[int], stor
             item = {"activity_id": aid, "ok": True, "sizes": sizes}
 
             if store:
-                ok, err = store_streams(user_id, int(aid), j)
+                ok, err = store_streams(
+                    user_id,
+                    int(aid),
+                    j,
+                    user_jwt=user_jwt,
+                )
                 item["stored"] = ok
                 if not ok:
                     item["error"] = err
@@ -98,19 +164,28 @@ def fetch_and_optionally_store_batch(user_id: int, activity_ids: List[int], stor
             out["items"].append(item)
             time.sleep(0.1)  # gentle rate-limit
         except Exception as e:
-            out["items"].append({"activity_id": aid, "ok": False, "error": str(e)})
+            out["items"].append(
+                {"activity_id": aid, "ok": False, "error": str(e)}
+            )
     return out
+
 
 def fetch_streams_for_activity(activity_id: int) -> Dict[str, Any]:
     s = _session()
     return _fetch_streams_with_session(s, activity_id)
 
-def _fetch_streams_with_session(s: requests.Session, activity_id: int) -> Dict[str, Any]:
+
+def _fetch_streams_with_session(
+    s: requests.Session,
+    activity_id: int,
+) -> Dict[str, Any]:
     # time, hr, distance, altitude, velocity_smooth, cadence, watts, latlng
     r = s.get(
         f"{STRAVA_BASE}/activities/{activity_id}/streams",
-        params={"keys": "time,heartrate,distance,altitude,velocity_smooth,cadence,watts,latlng",
-                "key_by_type": "true"},
+        params={
+            "keys": "time,heartrate,distance,altitude,velocity_smooth,cadence,watts,latlng",
+            "key_by_type": "true",
+        },
         timeout=30,
     )
     if r.status_code in (403, 404):
@@ -119,23 +194,39 @@ def _fetch_streams_with_session(s: requests.Session, activity_id: int) -> Dict[s
     j = r.json() or {}
     return {"ok": True, "activity_id": activity_id, "json": j}
 
-def _store_stream_arrays(user_id: int, activity_id: int, j: Dict[str, Any]) -> None:
-    # upsert do activities_streams (arrays)
+
+def _store_stream_arrays(
+    user_id: int,
+    activity_id: int,
+    j: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+) -> None:
+    sb = _get_sb(user_jwt)
     row = {
         "activity_id": int(activity_id),
         "user_id": int(user_id),
         # user_uid necháme NULL – RLS pre streams to nepotrebuje
         "user_uid": None,
         "sport_type_fe": "other",
-        "time_s":         _arr(j, "time"),
-        "heartrate_bpm":  _arr(j, "heartrate") or None,
-        "cadence_rpm":    _arr(j, "cadence") or None,
-        "power_w":        _arr(j, "watts") or None,
-        "distance_m":     _arr(j, "distance") or None,
+        "time_s": _arr(j, "time"),
+        "heartrate_bpm": _arr(j, "heartrate") or None,
+        "cadence_rpm": _arr(j, "cadence") or None,
+        "power_w": _arr(j, "watts") or None,
+        "distance_m": _arr(j, "distance") or None,
     }
-    sb.table(TABLE_ACTIVITIES_STREAMS).upsert(row, on_conflict="activity_id").execute()
+    sb.table(TABLE_ACTIVITIES_STREAMS).upsert(
+        row,
+        on_conflict="activity_id",
+    ).execute()
 
-def cache_streams_for_activities(user_id: int, activity_ids: List[int]) -> dict:
+
+def cache_streams_for_activities(
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    user_jwt: Optional[str] = None,
+) -> dict:
     s = _session()
     saved = 0
     failed = 0
@@ -145,7 +236,12 @@ def cache_streams_for_activities(user_id: int, activity_ids: List[int]) -> dict:
             if not res.get("ok"):
                 failed += 1
                 continue
-            _store_stream_arrays(user_id, int(aid), res["json"])
+            _store_stream_arrays(
+                user_id,
+                int(aid),
+                res["json"],
+                user_jwt=user_jwt,
+            )
             saved += 1
         except Exception as e:
             print(f"[streams] save failed id={aid}: {e}")
