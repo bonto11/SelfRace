@@ -3,7 +3,7 @@ from __future__ import annotations
 import statistics
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import requests
 
@@ -104,7 +104,9 @@ def _num(v) -> float:
         return 0.0
 
 
-def _extract_dt_pairs_from_laps(laps_raw: List[Dict[str, Any]]) -> List[tuple[float, float]]:
+def _extract_dt_pairs_from_laps(
+    laps_raw: List[Dict[str, Any]]
+) -> List[tuple[float, float]]:
     out: List[tuple[float, float]] = []
     for L in laps_raw:
         d = _num(L.get("distance") or L.get("distance_m"))
@@ -114,7 +116,9 @@ def _extract_dt_pairs_from_laps(laps_raw: List[Dict[str, Any]]) -> List[tuple[fl
     return out
 
 
-def _extract_dt_pairs_from_splits(splits_raw: List[Dict[str, Any]]) -> List[tuple[float, float]]:
+def _extract_dt_pairs_from_splits(
+    splits_raw: List[Dict[str, Any]]
+) -> List[tuple[float, float]]:
     out: List[tuple[float, float]] = []
     for S in splits_raw:
         d = _num(S.get("distance") or S.get("distance_m"))
@@ -394,15 +398,21 @@ def service_sync_activities(
       - napočíta HR zóny z cached streams,
       - spustí plan_match job na auto-mapping.
 
-    Ak príde user_jwt, všetky DB volania idú cez RLS/JWT klienta.
+    Manuálny sync z FE → JWT je povinné (RLS).
     """
+    if not user_jwt:
+        raise RuntimeError(
+            "service_sync_activities: missing user_jwt (RLS/JWT required)"
+        )
+    jwt = cast(str, user_jwt)
+
     ses = _get_session()
 
     # AFTER (epoch)
     after_epoch = 0
     since_iso_for_scan = "1970-01-01"
 
-    last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
+    last_dt = db_get_last_activity_start(user_id, user_jwt=jwt)
     if last_dt:
         after_epoch = int(last_dt.timestamp())
         since_iso_for_scan = last_dt.strftime("%Y-%m-%d")
@@ -414,13 +424,16 @@ def service_sync_activities(
     existing = db_get_existing_activity_ids_since(
         user_id,
         since_iso_for_scan,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     imported = updated = skipped = fetched = 0
     to_upsert: List[Dict[str, Any]] = []
 
-    print(f"[SYNC] user={user_id} after_epoch={after_epoch} (since={since_iso_for_scan})")
+    print(
+        f"[SYNC] user={user_id} after_epoch={after_epoch} "
+        f"(since={since_iso_for_scan})"
+    )
 
     page = 1
     while True:
@@ -454,7 +467,7 @@ def service_sync_activities(
 
         # dávkuj upserty
         if len(to_upsert) >= 200:
-            db_upsert_activities_summary(to_upsert, user_jwt=user_jwt)
+            db_upsert_activities_summary(to_upsert, user_jwt=jwt)
             print(f"[SYNC] upsert batch summary rows={len(to_upsert)}")
             to_upsert.clear()
 
@@ -462,7 +475,7 @@ def service_sync_activities(
         time.sleep(0.1)  # šetrenie
 
     if to_upsert:
-        db_upsert_activities_summary(to_upsert, user_jwt=user_jwt)
+        db_upsert_activities_summary(to_upsert, user_jwt=jwt)
         print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
         to_upsert.clear()
 
@@ -472,7 +485,7 @@ def service_sync_activities(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=MAX_FULL_DETAILS_PER_RUN,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
         for i, aid in enumerate(ids, start=1):
@@ -489,18 +502,18 @@ def service_sync_activities(
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
                 if mode == "splits":
-                    db_delete_laps_for_activity(aid, user_jwt=user_jwt)
+                    db_delete_laps_for_activity(aid, user_jwt=jwt)
                 elif mode == "laps":
-                    db_delete_splits_for_activity(aid, user_jwt=user_jwt)
+                    db_delete_splits_for_activity(aid, user_jwt=jwt)
 
                 if mode == "splits":
                     for idx, S in enumerate(splits_raw, start=1):
                         row = _normalize_split(S, user_id, aid, idx)
-                        db_upsert_split(row, user_jwt=user_jwt)
+                        db_upsert_split(row, user_jwt=jwt)
                 elif mode == "laps":
                     for L in laps_raw:
                         row = _normalize_lap(L, user_id, aid)
-                        db_upsert_lap(row, user_jwt=user_jwt)
+                        db_upsert_lap(row, user_jwt=jwt)
                 else:
                     pass
 
@@ -516,7 +529,7 @@ def service_sync_activities(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=500,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
         print(f"[SYNC] streams: fetching & storing for {len(ids_recent)} ids …")
@@ -524,7 +537,7 @@ def service_sync_activities(
             user_id,
             ids_recent,
             store=True,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
         print(
             f"[SYNC] streams: stored={streams_res.get('stored')} / "
@@ -536,7 +549,7 @@ def service_sync_activities(
             user_id,
             ids_recent,
             fetch_if_missing=False,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
         to_save = [
@@ -544,7 +557,7 @@ def service_sync_activities(
             for it in (prev.get("items") or [])
             if it.get("ok") and it.get("minutes")
         ]
-        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
+        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=jwt)
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
 
         # auto-mapping aktivít na plán cez async job plan_match
@@ -561,7 +574,7 @@ def service_sync_activities(
                 priority=90,
                 max_attempts=1,
                 dedupe_key=None,
-                user_jwt=user_jwt,
+                user_jwt=jwt,
             )
 
             job = (enqueue or {}).get("job")
@@ -572,7 +585,7 @@ def service_sync_activities(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map",
-                    user_jwt=user_jwt,
+                    user_jwt=jwt,
                 )
 
                 job_row = run.get("job") or {}
@@ -606,7 +619,7 @@ def service_sync_activities(
 
 
 # -----------------------------------------------------------------------------
-# Single-activity sync – používané z webhooku
+# Single-activity sync – používané z webhooku alebo manuálne
 # -----------------------------------------------------------------------------
 def service_sync_single_activity(
     user_id: int,
@@ -622,8 +635,14 @@ def service_sync_single_activity(
       - streams + enrichment zón
       - plan_match job len pre túto aktivitu
 
-    Ak príde user_jwt, ide to celé cez RLS.
+    Aktuálne aj tu vyžadujeme JWT, aby to šlo cez RLS.
     """
+    if not user_jwt:
+        raise RuntimeError(
+            "service_sync_single_activity: missing user_jwt (RLS/JWT required)"
+        )
+    jwt = cast(str, user_jwt)
+
     ses = _get_session()
 
     imported = 0
@@ -663,7 +682,7 @@ def service_sync_single_activity(
     existing_ids = db_get_existing_activity_ids_since(
         user_id=user_id,
         since_iso_date="1970-01-01",  # bezpečné, chceme len check, či existuje
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     if aid in existing_ids:
@@ -671,7 +690,7 @@ def service_sync_single_activity(
     else:
         imported += 1
 
-    db_upsert_activities_summary([row], user_jwt=user_jwt)
+    db_upsert_activities_summary([row], user_jwt=jwt)
 
     # ---------- 2) LAPS / SPLITS ----------
     if fetch_details:
@@ -689,18 +708,18 @@ def service_sync_single_activity(
 
         try:
             if mode == "splits":
-                db_delete_laps_for_activity(aid, user_jwt=user_jwt)
+                db_delete_laps_for_activity(aid, user_jwt=jwt)
             elif mode == "laps":
-                db_delete_splits_for_activity(aid, user_jwt=user_jwt)
+                db_delete_splits_for_activity(aid, user_jwt=jwt)
 
             if mode == "splits":
                 for idx, S in enumerate(splits_raw, start=1):
                     row_s = _normalize_split(S, user_id, aid, idx)
-                    db_upsert_split(row_s, user_jwt=user_jwt)
+                    db_upsert_split(row_s, user_jwt=jwt)
             elif mode == "laps":
                 for L in laps_raw:
                     row_l = _normalize_lap(L, user_id, aid)
-                    db_upsert_lap(row_l, user_jwt=user_jwt)
+                    db_upsert_lap(row_l, user_jwt=jwt)
             else:
                 # nič – nemáme použiteľné laps ani splits
                 pass
@@ -717,7 +736,7 @@ def service_sync_single_activity(
             user_id,
             ids_recent,
             store=True,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
         print(
             f"[SYNC:single] streams: stored={streams_res.get('stored')} / "
@@ -729,7 +748,7 @@ def service_sync_single_activity(
             user_id,
             ids_recent,
             fetch_if_missing=False,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
         to_save = [
@@ -737,7 +756,7 @@ def service_sync_single_activity(
             for it in (prev.get("items") or [])
             if it.get("ok") and it.get("minutes")
         ]
-        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
+        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=jwt)
         print(
             f"[SYNC:single] zones: enrichment upsert saved rows = "
             f"{saved.get('saved', 0)}"
@@ -757,7 +776,7 @@ def service_sync_single_activity(
                 priority=90,
                 max_attempts=1,
                 dedupe_key=None,
-                user_jwt=user_jwt,
+                user_jwt=jwt,
             )
 
             job = (enqueue or {}).get("job")
@@ -768,7 +787,7 @@ def service_sync_single_activity(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map_single",
-                    user_jwt=user_jwt,
+                    user_jwt=jwt,
                 )
 
                 job_row = run.get("job") or {}

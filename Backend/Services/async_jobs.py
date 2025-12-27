@@ -37,6 +37,7 @@ def service_enqueue_job(
     run_after: Optional[str] = None,
     max_attempts: int = 3,
     dedupe_key: Optional[str] = None,  # zatiaľ nevyužité – do budúcna
+    user_jwt: Optional[str] = None,    # ak chceš, môžeš JWT pridať aj do payloadu
 ) -> Dict[str, Any]:
     """
     Vytvorí nový job v async_jobs.
@@ -82,6 +83,7 @@ def service_run_job_now(
     job_id: int,
     *,
     worker_id: str = "manual",
+    user_jwt: Optional[str] = None,  # aktuálne sa nepoužíva, ale nech prijíma
 ) -> Dict[str, Any]:
     """
     Spustí konkrétny job (id) pre daného usera – mini worker.
@@ -123,26 +125,28 @@ def service_run_job_now(
     if not isinstance(input_payload, dict):
         input_payload = {}
 
+    # jedna spoločná premenná – väčšina service_* teraz očakáva user_jwt
+    payload_jwt: Optional[str] = input_payload.get("user_jwt")
+
     result_payload: Optional[Dict[str, Any]] = None
 
     try:
-        # 1) ANALYZE ATHLETE (už s podporou user_jwt)
+        # 1) ANALYZE ATHLETE
         if job_type == "ai_analyze":
             # očakávaný shape inputu:
             # {
-            #   "user_jwt": "...",      # voliteľné – ak je, analyze pôjde cez RLS
+            #   "user_jwt": "...",
             #   "debug": bool,
             #   "save_to_db": bool,
             #   "model": "..." | null
             # }
-            user_jwt = input_payload.get("user_jwt")
             debug_flag = bool(input_payload.get("debug", False))
             save_flag = bool(input_payload.get("save_to_db", True))
             model_override = input_payload.get("model")
 
             result_payload = service_analyze_athlete(
                 user_id=user_id,
-                user_jwt=user_jwt,
+                user_jwt=payload_jwt,
                 debug=debug_flag,
                 save_to_db=save_flag,
                 model=model_override,
@@ -152,6 +156,7 @@ def service_run_job_now(
         elif job_type == "weekly_generate":
             result_payload = service_generate_weekly_plan(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 overwrite=bool(input_payload.get("overwrite", True)),
                 state_id=input_payload.get("state_id"),
                 weeks=input_payload.get("weeks"),
@@ -167,6 +172,7 @@ def service_run_job_now(
 
             result_payload = service_generate_daily_week(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 week_index=int(week_index),
                 plan_id=input_payload.get("plan_id"),
                 overwrite=bool(input_payload.get("overwrite", True)),
@@ -211,6 +217,7 @@ def service_run_job_now(
 
             result_payload = auto_map_plans_for_activities(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 activity_ids=activity_ids,
                 days_window=days_window,
                 score_threshold=score_threshold,
@@ -220,6 +227,7 @@ def service_run_job_now(
         elif job_type == "daily_extend":
             result_payload = service_auto_extend_daily_plan(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 min_horizon_days=10,
             )
 

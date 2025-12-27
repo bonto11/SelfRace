@@ -1,4 +1,3 @@
-# Routes_DB/activities_summary.py
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -8,7 +7,7 @@ from Configs.config import TABLE_ACTIVITIES_SUMMARY
 
 # Poznámka:
 # - funkcie, ktoré číta FE/AI → user_jwt, RLS klient
-# - sync/import (upsert, last_start, existing_ids...) → service=True
+# - sync/import (upsert) – zatiaľ voláme z manuálneho syncu tiež s JWT
 
 
 FIELDS = (
@@ -45,27 +44,35 @@ def db_fetch_summary_since(
         return []
 
 
-def db_upsert_activities_summary(rows: List[Dict[str, Any]]) -> None:
+def db_upsert_activities_summary(
+    rows: List[Dict[str, Any]],
+    *,
+    user_jwt: str,
+) -> None:
     """
     Upsert batch do activities_summary podľa activity_id.
-
-    Toto je typicky používané zo sync workerov → SERVICE ROLE.
+    Zatiaľ používané z manuálneho syncu → RLS klient.
+    (Keď spravíme worker, urobíme separátnu SERVICE verziu.)
     """
     if not rows:
         return
-    sb = get_client(service=True)
+    sb = get_client(user_jwt=user_jwt)
     sb.table(TABLE_ACTIVITIES_SUMMARY).upsert(
         rows,
         on_conflict="activity_id",
     ).execute()
 
 
-def db_get_last_activity_start(user_id: int) -> Optional[datetime]:
+def db_get_last_activity_start(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> Optional[datetime]:
     """
     Najnovší dátum uložený v summary (ako aware-UTC datetime).
-    Používa sa v sync logike → SERVICE ROLE.
+    Používa sa v sync logike – zatiaľ RLS/JWT.
     """
-    sb = get_client(service=True)
+    sb = get_client(user_jwt=user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("date")
@@ -99,13 +106,14 @@ def db_get_last_activity_start(user_id: int) -> Optional[datetime]:
 def db_get_existing_activity_ids_since(
     user_id: int,
     since_iso_date: str,
+    *,
+    user_jwt: str,
 ) -> Set[int]:
     """
     ID už uložených aktivít od 'since_iso_date' (YYYY-MM-DD).
-
-    Sync helper → SERVICE ROLE.
+    Sync helper – RLS.
     """
-    sb = get_client(service=True)
+    sb = get_client(user_jwt=user_jwt)
     out: Set[int] = set()
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
@@ -126,14 +134,15 @@ def db_get_recent_activity_ids(
     user_id: int,
     since_iso_date: str,
     limit: int,
+    *,
+    user_jwt: str,
 ) -> List[int]:
     """
     Posledné aktivity pre daného usera od dátumu (YYYY-MM-DD),
     vráti len zoznam activity_id.
-
-    Sync helper → SERVICE ROLE.
+    Sync helper – RLS.
     """
-    sb = get_client(service=True)
+    sb = get_client(user_jwt=user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("activity_id")
