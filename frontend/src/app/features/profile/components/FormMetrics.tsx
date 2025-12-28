@@ -47,9 +47,9 @@ const UNIT_MAP: Record<EditableMetricKey, string> = {
 };
 
 export default function FormMetrics() {
-  const { userId, userUid } = useUserId() as {
+  // userUid už nevyužívame – BE ide cez JWT + userId
+  const { userId } = useUserId() as {
     userId: number | null;
-    userUid?: string | null;
   };
 
   const [open, setOpen] = useState(false);
@@ -80,7 +80,8 @@ export default function FormMetrics() {
     (async () => {
       setLoading(true);
       try {
-        const data = await apiGetLatestMetrics(userId, userUid);
+        // ⬇⬇ len userId
+        const data = await apiGetLatestMetrics(userId);
         if (alive) setLatest(data);
       } finally {
         if (alive) setLoading(false);
@@ -90,7 +91,7 @@ export default function FormMetrics() {
     return () => {
       alive = false;
     };
-  }, [userId, userUid]);
+  }, [userId]);
 
   const ph = useMemo(() => buildMetricPlaceholders(latest), [latest]);
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
@@ -121,11 +122,12 @@ export default function FormMetrics() {
 
     try {
       setLoading(true);
-      const res = await apiSaveMetrics(userId, entries, userUid);
+      // ⬇⬇ len userId + entries
+      const res = await apiSaveMetrics(userId, entries);
       toast.success(`✅ Uložené${res.inserted ? ` (${res.inserted})` : ""}`);
 
       // refetch latest summary
-      const data = await apiGetLatestMetrics(userId, userUid);
+      const data = await apiGetLatestMetrics(userId);
       setLatest(data);
 
       // reset form

@@ -32,9 +32,9 @@ const EMPTY_STATIC: StaticProfile = {
 };
 
 export default function FormStatic() {
-  const { userId, userUid } = useUserId() as {
+  // userUid už nepotrebujeme – BE ide cez JWT + userId
+  const { userId } = useUserId() as {
     userId: number | null;
-    userUid?: string | null;
   };
 
   const [open, setOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function FormStatic() {
     (async () => {
       setLoading(true);
       try {
-        const data = await apiGetStaticProfile(userId, userUid);
+        const data = await apiGetStaticProfile(userId); // ⬅ len userId
         if (alive && data) setStaticData(data);
       } finally {
         if (alive) setLoading(false);
@@ -59,13 +59,13 @@ export default function FormStatic() {
     return () => {
       alive = false;
     };
-  }, [userId, userUid]);
+  }, [userId]);
 
   async function handleSave() {
     if (!userId) return;
     try {
       setLoading(true);
-      const saved = await apiSaveStaticProfile(userId, staticData, userUid);
+      const saved = await apiSaveStaticProfile(userId, staticData); // ⬅ len userId
       setStaticData(saved);
       toast.success("✅ Static profile uložený");
       setOpen(false);

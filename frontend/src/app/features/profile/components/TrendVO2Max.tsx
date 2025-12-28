@@ -31,9 +31,8 @@ const DAY = 24 * 3600 * 1000;
 const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
 export default function TrendVO2Max() {
-  const { userId, userUid } = useUserId() as {
+  const { userId} = useUserId() as {
     userId: number | null;
-    userUid?: string | null;
   };
 
   const [loading, setLoading] = React.useState(false);
@@ -50,9 +49,9 @@ export default function TrendVO2Max() {
       setLoading(true);
       try {
         const [s, est, meas] = await Promise.all([
-          apiGetStaticProfile(userId, userUid),
-          apiGetMetricHistory(userId, "VO2Max_estimated", userUid),
-          apiGetMetricHistory(userId, "VO2Max_measured", userUid),
+          apiGetStaticProfile(userId),
+          apiGetMetricHistory(userId, "VO2Max_estimated"),
+          apiGetMetricHistory(userId, "VO2Max_measured"),
         ]);
         if (alive) {
           if (s) setStat(s);
@@ -67,7 +66,7 @@ export default function TrendVO2Max() {
     return () => {
       alive = false;
     };
-  }, [userId, userUid]);
+  }, [userId]);
 
   const lookbackDays = weeks * 7;
 

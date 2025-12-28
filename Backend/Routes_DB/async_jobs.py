@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_service_client
 from Configs.config import TABLE_ASYNC_JOBS
 
-sb = get_client()
+# service client – ide mimo RLS, používa service key
+sb = get_service_client()
 
 
 def _now_iso() -> str:
