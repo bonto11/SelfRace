@@ -1,6 +1,8 @@
 # Routes_FE/user_recovery.py
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from Services.user_recovery import (
@@ -16,7 +18,7 @@ router = APIRouter(prefix="/recovery", tags=["recovery"])
 @router.post("")
 def post_recovery(
     payload: RecoveryIn,
-    user_jwt: str | None = Depends(inject_user_jwt),
+    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Insert alebo update recovery.
@@ -29,8 +31,9 @@ def post_recovery(
         )
         return {"success": True, "data": res}
     except HTTPException:
+        # nech 401 z _require_jwt a pod. prejde von
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -38,7 +41,7 @@ def post_recovery(
 def get_recovery(
     user_id: int,
     days: int = 14,
-    user_jwt: str | None = Depends(inject_user_jwt),
+    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Vráti posledné N dní recovery záznamov.
@@ -52,5 +55,5 @@ def get_recovery(
         return {"success": True, "data": data}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
