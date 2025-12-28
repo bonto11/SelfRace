@@ -22,6 +22,7 @@ def db_get_prefs_all(
         .order("key", desc=False)
         .execute()
     )
+    print("db_get_prefs_all",res.data)
     return list(res.data or [])
 
 
@@ -42,6 +43,7 @@ def db_get_pref_single(
         .execute()
     )
     rows = list(res.data or [])
+    print("db_get_prefs_all",rows)
     return rows[0] if rows else None
 
 
@@ -64,6 +66,7 @@ def db_upsert_pref_single(
         rec,
         on_conflict="user_id,key",
     ).execute()
+    print("db_get_prefs_all",rec)
     return rec
 
 
