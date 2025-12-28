@@ -29,9 +29,8 @@ ensureChartJSRegistered();
 const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
 export default function TrendBodyFat() {
-  const { userId, userUid } = useUserId() as {
+  const { userId } = useUserId() as {
     userId: number | null;
-    userUid?: string | null;
   };
 
   const [loading, setLoading] = React.useState(false);
@@ -47,8 +46,8 @@ export default function TrendBodyFat() {
       setLoading(true);
       try {
         const [s, m] = await Promise.all([
-          apiGetStaticProfile(userId, userUid),
-          apiGetMetricHistory(userId, "body_fat_pct", userUid),
+          apiGetStaticProfile(userId),
+          apiGetMetricHistory(userId, "body_fat_pct"),
         ]);
         if (alive) {
           if (s) setStat(s);
@@ -62,7 +61,7 @@ export default function TrendBodyFat() {
     return () => {
       alive = false;
     };
-  }, [userId, userUid]);
+  }, [userId]);
 
   const lookbackDays = weeks * 7;
   const cutoffISO = new Date(Date.now() - lookbackDays * 86400000)
