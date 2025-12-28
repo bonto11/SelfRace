@@ -11,7 +11,7 @@ import React, {
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { RecoveryRow } from "@/app/features/recovery/types/recovery";
-import { fetchRecoveryApi } from "@/app/features/recovery/api/recovery";
+import { apiFetchRecovery } from "@/app/features/recovery/api/recovery";
 
 /* ---------- Typy ---------- */
 
@@ -107,7 +107,7 @@ export function RecoveryDataProvider({
           }
 
           // tichý update z API
-          fetchRecoveryApi(userIdStr, days)
+          apiFetchRecovery(userIdStr, days)
             .then((fresh) => {
               setRows(fresh);
               saveCache(userIdStr, days, fresh);
@@ -120,7 +120,7 @@ export function RecoveryDataProvider({
         }
 
         // force fetch – rovno z API
-        const fresh = await fetchRecoveryApi(userIdStr, days);
+        const fresh = await apiFetchRecovery(userIdStr, days);
         setRows(fresh);
         saveCache(userIdStr, days, fresh);
       } catch (e) {

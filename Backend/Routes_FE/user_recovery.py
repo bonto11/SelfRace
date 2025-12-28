@@ -20,10 +20,8 @@ def post_recovery(
     payload: RecoveryIn,
     user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
-    """
-    Insert alebo update recovery.
-    Flexibilné: ak existuje user_id+date → update, inak insert.
-    """
+    print("[post_recovery] jwt_present =", bool(user_jwt))
+
     try:
         res = service_insert_or_update_recovery(
             payload.model_dump(),
@@ -31,7 +29,6 @@ def post_recovery(
         )
         return {"success": True, "data": res}
     except HTTPException:
-        # nech 401 z _require_jwt a pod. prejde von
         raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -43,9 +40,8 @@ def get_recovery(
     days: int = 14,
     user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
-    """
-    Vráti posledné N dní recovery záznamov.
-    """
+    print("[get_recovery] jwt_present =", bool(user_jwt))
+
     try:
         data = service_get_recovery(
             user_id,

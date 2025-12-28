@@ -3,53 +3,48 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, Request, status, Depends
 
 
 async def inject_user_jwt(
+    request: Request,
     authorization: Optional[str] = Header(default=None),
 ) -> Optional[str]:
     """
-    Vyextrahuje JWT z hlavičky Authorization: Bearer <token>
-    a vráti samotný token (alebo None).
+    Získa JWT buď z Authorization: Bearer <token>, alebo z cookie (napr. 'jwe').
 
-    ŽIADNA validácia, len parsovanie hlavičky.
-    Použitie v routeroch:
-
-        @router.get("/something")
-        def handler(
-            user_jwt: Optional[str] = Depends(inject_user_jwt),
-        ):
-            sb = get_client(user_jwt=user_jwt)  # RLS
+    Použi vo všetkých routeroch ako:
+        user_jwt: Optional[str] = Depends(inject_user_jwt)
     """
-    if not authorization:
-        return None
+    token: Optional[str] = None
 
-    parts = authorization.split()
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        return parts[1]
+    # 1) skúsiť Authorization header (to používa callBackend)
+    if authorization:
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1]
 
-    # divná hlavička → radšej vrátime None
-    return None
-    
+    # 2) fallback – cookie (ak by si niekde posielal len cookies)
+    if not token:
+        token = request.cookies.get("jwe")
+
+    print(
+        "[inject_user_jwt]",
+        "path=", request.url.path,
+        "jwt_present=", bool(token),
+    )
+    return token
+
 
 async def require_user_jwt(
-    authorization: Optional[str] = Header(default=None),
+    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ) -> str:
     """
-    Kompatibilná verzia require_user_jwt pre staré routre.
-
-    Použitie v routeroch:
-        user_jwt: str = Depends(require_user_jwt)
+    Kompatibilné pre staršie routy, ktoré používajú Depends(require_user_jwt).
     """
-
-    token = await inject_user_jwt(authorization=authorization)
-
-    if not token:
-        # tu môžeš neskôr doplniť sofistikovanejšiu logiku / validáciu
+    if not user_jwt:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Authorization header",
+            detail="Missing Authorization JWT",
         )
-
-    return token
+    return user_jwt

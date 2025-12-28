@@ -7,7 +7,7 @@ import { callBackend } from "@/app/shared/utils/callBackend";
  * Čistý BE fetch + normalizácia na RecoveryRow[]
  * Žiadna cache, žiadne React veci.
  */
-export async function fetchRecoveryApi(
+export async function apiFetchRecovery(
   userId: string | number,
   days: number = 90
 ): Promise<RecoveryRow[]> {
@@ -41,4 +41,22 @@ export async function fetchRecoveryApi(
     console.error("[REC][api] fetch ERROR", e);
     return [];
   }
+}
+
+export async function apiSaveRecovery(
+  userId: number,
+  row: RecoveryRow
+): Promise<void> {
+  const path = `/recovery`;
+  console.debug("[REC][api] POST ->", path, row);
+
+  await callBackend<any>(path, {
+    method: "POST",
+    cache: "no-store",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      ...row,
+      user_id: userId,
+    }),
+  });
 }
