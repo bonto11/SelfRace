@@ -6,27 +6,60 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
+function tryReadTokenFromLocalStorage(): string | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    // Supabase si štandardne ukladá key v tvare "sb-...-auth-token"
+    const keys = Object.keys(window.localStorage);
+    const key = keys.find(
+      (k) => k.startsWith("sb-") && k.endsWith("-auth-token")
+    );
+    if (!key) return null;
+
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    return parsed?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function callBackend<T = any>(
   path: string,
   init: BackendInit = {}
 ): Promise<T> {
-  const headers = new Headers(init.headers || {});
-  headers.set("Accept", "application/json");
+  const supabase = getSupabaseBrowser();
 
-  // 1) pokus o Supabase access token (do budúcna, keď prejdeš na full Supabase auth)
   let token: string | null = null;
+
+  // 1) pokus cez Supabase API
   try {
-    const supabase = getSupabaseBrowser();
     const { data, error } = await supabase.auth.getSession();
     if (error) {
       console.warn("[callBackend] getSession error:", error.message);
     }
     token = data?.session?.access_token ?? null;
-  } catch (err) {
-    console.warn("[callBackend] getSession threw:", err);
+  } catch (e) {
+    console.warn("[callBackend] getSession threw:", e);
   }
 
-  // 2) ak token máme → daj ho do Authorization
+  // 2) fallback – ak Supabase vrátilo null, skús priamo Local Storage
+  if (!token) {
+    const lsToken = tryReadTokenFromLocalStorage();
+    if (lsToken) {
+      console.debug("[callBackend] using token from localStorage fallback");
+      token = lsToken;
+    } else {
+      console.debug("[callBackend] no token available");
+    }
+  }
+
+  const headers = new Headers(init.headers || {});
+  headers.set("Accept", "application/json");
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -34,8 +67,6 @@ export async function callBackend<T = any>(
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers,
-    // DÔLEŽITÉ: pošli aj jwe cookie na api-dev.*
-    credentials: "include",
   });
 
   const text = await res.text();
@@ -43,7 +74,7 @@ export async function callBackend<T = any>(
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // nechaj json = null
+    // necháme json = null
   }
 
   if (!res.ok) {
