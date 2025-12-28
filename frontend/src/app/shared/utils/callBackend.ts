@@ -19,6 +19,7 @@ export async function callBackend<T = any>(
   }
 
   const token = data?.session?.access_token ?? null;
+  console.log("[callBackend] session", { token, error });
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
