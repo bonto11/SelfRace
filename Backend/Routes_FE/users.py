@@ -1,20 +1,26 @@
-# Routes_FE/users.py
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException
+
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Depends
 
 from Services.users import service_resolve_user
 from Schemas.users import ResolveIn
+from Modules.HTTP.auth_deps import inject_user_jwt
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/resolve")
-async def resolve_user(payload: ResolveIn):
+async def resolve_user(
+    payload: ResolveIn,
+    user_jwt: Optional[str] = Depends(inject_user_jwt),
+):
     """
     POST /users/resolve
     Body: { "auth_uid": "..."} alebo { "supabase_uid": "..." }
 
-    Response (rovnaké ako doteraz):
+    Response:
       - { "success": false, "error": "User not found in DB" }
       - { "success": true, "user_id": <int> }
     """
@@ -22,7 +28,7 @@ async def resolve_user(payload: ResolveIn):
     if not uid:
         raise HTTPException(status_code=400, detail="Missing auth_uid")
 
-    user_id = service_resolve_user(uid)
+    user_id = service_resolve_user(uid, user_jwt=user_jwt)
     if user_id is None:
         return {"success": False, "error": "User not found in DB"}
 
