@@ -12,7 +12,10 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 
-import { apiGetCoachPrefs } from "@/app/features/coach/api/prefs";
+import {
+  apiFetchUserPref,
+} from "@/app/features/prefs/api/prefs";
+
 import {
   apiAnalyzeAthleteState,
   apiGetLatestAthleteState,
@@ -135,7 +138,7 @@ export default function WidgetCoachPlan() {
 
     (async () => {
       try {
-        const p = await apiGetCoachPrefs(userId).catch(() => null);
+        const p = await apiFetchUserPref(userId,"coach.prefs").catch(() => null);
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff);
       } catch {

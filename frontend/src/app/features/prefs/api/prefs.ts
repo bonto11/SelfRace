@@ -1,4 +1,4 @@
-// src/shared/api/userPrefs.ts
+// src/features/prefs/api/prefs.ts
 
 import { callBackend } from "@/app/shared/utils/callBackend";
 

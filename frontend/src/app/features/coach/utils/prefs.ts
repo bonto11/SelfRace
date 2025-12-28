@@ -9,12 +9,12 @@ import type {
 import type { CoachPrefsLegacyLoose } from "@/app/features/coach/types/coachTypes";
 import { DEFAULT_PREFS } from "@/app/features/prefs/types/prefs";
 import {
-  apiGetCoachPrefs,
-  apiSaveCoachPrefs,
-} from "@/app/features/coach/api/prefs";
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 
 /** Kľúče pre DB/LS */
-const KEY = "coach.prefs"; // meno preferencie v user_prefs
+const KEY = "coach.prefs"; // názov preferencie v user_prefs
 const LS_KEY = "up:coach.prefs"; // localStorage cache
 
 /** Interný custom event – na lokálne „live“ aktualizácie */
@@ -76,9 +76,16 @@ export function readCoachPrefsFromStorage(): CoachPrefs {
 export async function refreshCoachPrefsFromDB(
   userId: number
 ): Promise<CoachPrefs> {
-  const value = await apiGetCoachPrefs<CoachPrefs>(userId);
-  const prefs = value ?? DEFAULT_PREFS;
-  // ak chceš, kľudne vyhoď lsSet/broadcast, ale už to nemá vplyv na načítanie
+  // apiFetchUserPref nie je generický → bez <CoachPrefs>
+  const raw = await apiFetchUserPref(userId, KEY);
+  const prefs = normalizeCoachPrefs(
+    raw as CoachPrefs | CoachPrefsLegacyLoose | null
+  );
+
+  // voliteľné – ale necháme ako predtým
+  lsSet(prefs);
+  broadcast(prefs);
+
   return prefs;
 }
 
@@ -86,7 +93,8 @@ export async function saveCoachPrefs(
   userId: number,
   prefs: CoachPrefs
 ): Promise<void> {
-  await apiSaveCoachPrefs(userId, prefs);
+  // správne poradie: (userId, key, value)
+  await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
   broadcast(prefs);
 }
@@ -174,6 +182,7 @@ export function normalizeCoachPrefs(
 
   return result;
 }
+
 /* -------------------- live hook helpers -------------------- */
 
 /** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage). */
