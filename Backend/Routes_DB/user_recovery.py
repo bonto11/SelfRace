@@ -27,7 +27,7 @@ def db_get_recovery_record(
     )
 
     rows: List[Dict[str, Any]] = res.data or []
-    print("db_get_recovery_record",rows)
+
     return rows[0] if rows else None
 
 
@@ -40,7 +40,7 @@ def db_insert_recovery(
 
     res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
     rows: List[Dict[str, Any]] = res.data or []
-    print("db_insert_recovery",rows)
+
     return rows[0] if rows else {}
 
 
@@ -61,7 +61,6 @@ def db_update_recovery(
 
     rows: List[Dict[str, Any]] = res.data or []
 
-    print("db_update_recovery",rows)
     return rows[0] if rows else {}
 
 
@@ -84,5 +83,4 @@ def db_get_recent_recovery(
 
     rows: List[Dict[str, Any]] = res.data or []
 
-    print("db_get_recent_recovery",rows)
     return rows
