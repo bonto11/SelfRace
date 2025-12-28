@@ -225,6 +225,7 @@ def service_generate_daily_week(
         available_equipment=available_equipment,
         today=date.today(),
         weeks_back=8,
+        user_jwt = user_jwt,
     )
 
     # 7) zápis do DB (coach_plan_daily) – RLS
