@@ -29,11 +29,15 @@ export default function LoginForm() {
 
     if (error) {
       setError(error.message);
-    } else {
-      window.location.assign("/dashboard");
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    // debug – môžeš nechať/odstrániť
+    const { data } = await supabase.auth.getSession();
+    console.log("[Login] session after login:", data?.session);
+
+    window.location.assign("/activities");
   };
 
   return (
