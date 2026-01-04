@@ -126,6 +126,13 @@ def service_generate_daily_week(
     prefs_ai = _flatten_prefs_for_ai(analyze_input)
     targets_ai = _extract_targets_from_prefs(prefs_ai)
 
+    # ⬇️ weekly_template vytiahneme z coach.prefs
+    weekly_template = {}
+    if isinstance(prefs_ai, dict):
+        wt = prefs_ai.get("weekly_template")
+        if isinstance(wt, dict):
+            weekly_template = wt
+
     recent_load = analyze_input.get("recent_load") or {}
     zones = analyze_input.get("zones") or {}
     thresholds = analyze_input.get("thresholds") or {}
@@ -193,6 +200,8 @@ def service_generate_daily_week(
         "recent_load": recent_load,
         "zones": zones,
         "thresholds": thresholds,
+        # ⬇️ weekly template explicitne pridáme aj na top-level
+        "weekly_template": weekly_template,
     }
     if external_block is not None:
         context_payload["external_events"] = external_block
@@ -225,7 +234,7 @@ def service_generate_daily_week(
         available_equipment=available_equipment,
         today=date.today(),
         weeks_back=8,
-        user_jwt = user_jwt,
+        user_jwt=user_jwt,
     )
 
     # 7) zápis do DB (coach_plan_daily) – RLS
@@ -271,7 +280,6 @@ def service_generate_daily_week(
         resp["context_payload"] = context_payload
 
     return resp
-
 
 def service_get_daily_overview(
     user_id: int,

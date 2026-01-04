@@ -6,17 +6,13 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
-from Services.user_prefs import service_load_user_settings
-from Services.coach_strength_mapper import (
-    enrich_daily_plan_with_strength_exercises,
-)
 
 # ---------- parsing utils (same as analyze/weekly) ----------
 
@@ -85,7 +81,7 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     Return a trimmed-down version of context_payload for the LLM:
     - keep only what is actually needed for planning,
     - drop cosmetic things like coach_tone, rehab_focus, secondary_mix etc.,
-    - keep volume prefs and external_events.
+    - keep volume prefs, weekly_template and external_events.
     """
     ctx2: Dict[str, Any] = {}
 
@@ -147,6 +143,12 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     prefs2["targets"] = targets2
+
+    # weekly_template – necháme ju v prefs2 (advanced štruktúra)
+    wt = prefs.get("weekly_template")
+    if isinstance(wt, dict):
+        prefs2["weekly_template"] = wt
+
     ctx2["prefs"] = prefs2
 
     # athlete_state – keep only ai_state (volume/intensity tolerance, metrics)
@@ -167,6 +169,10 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     # user_settings (if caller added it)
     if "user_settings" in ctx:
         ctx2["user_settings"] = ctx["user_settings"]
+
+    # weekly_template aj na top-level, ak tam prišlo
+    if "weekly_template" in ctx and isinstance(ctx["weekly_template"], dict):
+        ctx2["weekly_template"] = ctx["weekly_template"]
 
     return ctx2
 
@@ -232,6 +238,49 @@ def _build_prompts_for_daily(
     long_run_days = pref_obj.get("long_run_days") or []
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
+
+    # --- WEEKLY TEMPLATE (advanced structure) ---
+    weekly_template = prefs.get("weekly_template") or {}
+    wt_mode = weekly_template.get("mode") or "off"
+    wt_days = weekly_template.get("days") or []
+
+    def _summarize_weekly_template(days: List[Dict[str, Any]]) -> str:
+        if not isinstance(days, list) or not days:
+            return "empty"
+        parts: List[str] = []
+        for d in days:
+            day = d.get("day")
+            slots = d.get("slots") or []
+            if not day or not isinstance(slots, list) or not slots:
+                continue
+            slot_descs: List[str] = []
+            for s in slots:
+                if not isinstance(s, dict):
+                    continue
+                sport = s.get("sport") or "?"
+                kind = s.get("kind") or "?"
+                priority = s.get("priority")
+                txt = f"{sport}:{kind}"
+                if priority:
+                    txt += f"({priority})"
+                slot_descs.append(txt)
+            if slot_descs:
+                parts.append(f"{day}={'+'.join(slot_descs)}")
+        return ", ".join(parts) if parts else "empty"
+
+    wt_summary = _summarize_weekly_template(wt_days)
+
+    if wt_mode == "off" or wt_summary == "empty":
+        weekly_template_line = (
+            "- Weekly template: mode='off' (no strict advanced template; "
+            "use only prefs.days_off and long_run_days).\n"
+        )
+    else:
+        weekly_template_line = (
+            f"- Weekly template mode: '{wt_mode}'. High-level slots per day: {wt_summary}.\n"
+            "  Try to follow this structure as long as it does not conflict "
+            "with external events, volume or intensity limits.\n"
+        )
 
     # volume prefs
     volume_prefs = prefs.get("volume") or {}
@@ -413,6 +462,7 @@ def _build_prompts_for_daily(
         f"Main sport: {main_sport}\n"
         f"Preferred days off: {days_off_str}\n"
         f"Preferred long run days: {long_run_str}\n"
+        f"{weekly_template_line}"
         f"Strength training target: {strength_str}\n"
         f"Intensity limit: {hard_str}\n"
         f"{weekly_volume_line}"
@@ -482,23 +532,9 @@ def generate_daily_week_json(
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
-    # --- load user settings (language + timezone) ---
-    user_block = context_payload.get("user") or {}
-    user_id_raw = user_block.get("id") or context_payload.get("user_id")
-
-    user_id: Optional[int] = None
-    try:
-        if user_id_raw is not None:
-            user_id = int(user_id_raw)
-    except Exception:
-        user_id = None
-
-    settings: Dict[str, Any] = {}
-    if user_id:
-        try:
-            settings = service_load_user_settings(user_id) or {}
-        except Exception:
-            settings = {}
+    # --- user settings (language/timezone) – ak sú v konte, použijeme ich ---
+    raw_settings = context_payload.get("user_settings") or {}
+    settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
 
     system_txt, user_txt = _build_prompts_for_daily(
         context_payload,
@@ -521,13 +557,6 @@ def generate_daily_week_json(
     week_index = int(week.get("week_index") or 1)
     week_start = week.get("week_start") or None
     week_end = week.get("week_end") or None
-
-    # user + equipment for strength enrichment
-    # (user_id už máme vyššie)
-    prefs = context_payload.get("prefs") or {}
-    strength_settings = prefs.get("strength_settings") or {}
-    available_equipment = strength_settings.get("available") or []
-    today_date: date = datetime.now(timezone.utc).date()
 
     plan_id_from_ctx = context_payload.get("plan_id")
 
@@ -580,19 +609,9 @@ def generate_daily_week_json(
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
 
-                # plan_id (for strength history mapper)
+                # plan_id – len na debug, DB zápis rieši service vrstva
                 if plan_id_from_ctx and "plan_id" not in parsed:
                     parsed["plan_id"] = plan_id_from_ctx
-
-                # Enrich strength sessions with concrete exercises + write history
-                if user_id:
-                    parsed = enrich_daily_plan_with_strength_exercises(
-                        user_id=user_id,
-                        daily_plan=parsed,
-                        available_equipment=available_equipment,
-                        today=today_date,
-                        weeks_back=8,
-                    )
 
                 if debug_raw:
                     trace["raw"] = raw_keep
