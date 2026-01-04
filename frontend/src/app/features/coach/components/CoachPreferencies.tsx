@@ -9,6 +9,7 @@ import type {
   RunTargets,
   SecondaryMix,
   Preferences,
+  WeeklyTemplate,
 } from "@/app/features/prefs/types/prefs";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -100,7 +101,7 @@ export default function CoachPreferencies() {
 
         console.log("[PREFS] pRaw from DB:", pRaw);
 
-        // ⚠️ Dropni staré prefs.external_activities, nech to už v state ani v SAVE neexistuje
+        // Dropni staré prefs.external_activities, nech to už v state ani v SAVE neexistuje
         const pAny = (pRaw || {}) as any;
         const { external_activities: _ext, ...p } = pAny;
 
@@ -153,10 +154,7 @@ export default function CoachPreferencies() {
       avoid_back_to_back_hard: true,
       use_zones: true,
       avoid_two_a_day: false,
-      weekly_template: {
-        mode: "off",
-        days: [],
-      },
+      include_strides: false,
     };
 
     const incoming = (p.preferences ?? {}) as Partial<Preferences>;
@@ -164,8 +162,8 @@ export default function CoachPreferencies() {
     return {
       ...base,
       ...incoming,
-      weekly_template:
-        incoming.weekly_template ?? base.weekly_template,
+      days_off: incoming.days_off ?? base.days_off,
+      long_run_days: incoming.long_run_days ?? base.long_run_days,
     };
   };
 
@@ -196,16 +194,21 @@ export default function CoachPreferencies() {
     setLocal(next);
   };
 
-  const setWeeklyTemplate = (nextTemplate: any) => {
+  // --- weekly template top-level na CoachPrefs ---
+  const weeklyTemplate: WeeklyTemplate = useMemo(
+    () =>
+      (local.weekly_template as WeeklyTemplate | null | undefined) ?? {
+        mode: "off",
+        days: [],
+      },
+    [local.weekly_template]
+  );
+
+  const setWeeklyTemplate = (nextTemplate: WeeklyTemplate) => {
     markDirty();
-    const currentPrefs = prefDefaults(local);
-    const nextPrefs: Preferences = {
-      ...currentPrefs,
-      weekly_template: nextTemplate,
-    };
     setLocal((prev) => ({
       ...prev,
-      preferences: nextPrefs,
+      weekly_template: nextTemplate,
     }));
   };
 
@@ -277,6 +280,7 @@ export default function CoachPreferencies() {
         secondary_mix: (local.secondary_mix ?? [])
           .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
+        weekly_template : weeklyTemplate
       };
 
       // vyčisti targets – ulož iba zmysluplné (vrátane swim)
@@ -305,7 +309,7 @@ export default function CoachPreferencies() {
           cleaned.strength = t.strength;
         }
 
-        // NEW: swim – len ak má reálny cieľ
+        // swim – len ak má reálny cieľ
         if (
           t.swim &&
           (t.swim.weekly_time_target_min != null ||
@@ -326,7 +330,7 @@ export default function CoachPreferencies() {
           Object.keys(cleaned).length > 0 ? cleaned : undefined;
       }
 
-      // ⚠️ definitívne dropni staré prefs.external_activities z payloadu na BE
+      // dropni staré prefs.external_activities z payloadu na BE
       const { external_activities: _ext2, ...normalizedClean } =
         normalized as any;
 
@@ -561,7 +565,7 @@ export default function CoachPreferencies() {
       {showAdv && (
         <>
           <WeeklyTemplateSection
-            template={pref.weekly_template!}
+            template={weeklyTemplate}
             onChange={setWeeklyTemplate}
           />
 
