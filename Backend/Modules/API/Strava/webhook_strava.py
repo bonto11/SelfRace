@@ -1,4 +1,4 @@
-# Modules/API/Strava/webhook_strava_routes.py
+# Modules/API/Strava/webhook_strava.py
 import os
 import hmac
 import hashlib
@@ -24,11 +24,13 @@ def get_verify_token() -> str:
         raise RuntimeError("STRAVA_VERIFY_TOKEN is not set")
     return token
 
-
 def get_webhook_secret() -> str:
-    secret = os.getenv("STRAVA_WEBHOOK_SECRET")
+    """
+    Strava signuje webhooks pomocou client_secret.
+    """
+    secret = os.getenv("STRAVA_CLIENT_SECRET")
     if not secret:
-        raise RuntimeError("STRAVA_WEBHOOK_SECRET is not set")
+        raise RuntimeError("STRAVA_CLIENT_SECRET is not set")
     return secret
 
 
@@ -98,12 +100,6 @@ async def strava_webhook_handler(
     request: Request,
     secret: str = Depends(get_webhook_secret),
 ):
-    """
-    Strava POST webhook:
-    - overí podpis
-    - naparsuje payload
-    - uloží do strava_webhook_events (queue)
-    """
     raw_body = await verify_strava_signature(request, secret)
 
     try:
@@ -116,34 +112,30 @@ async def strava_webhook_handler(
 
     event = StravaWebhookEventIn(**data)
 
-    # event_time (epoch -> timestamptz ISO string)
     dt = datetime.fromtimestamp(event.event_time, tz=timezone.utc).isoformat()
 
-    # INSERT cez Supabase
-    # payload ukladáme ako JSON (dict) – v DB musí byť json/jsonb
     resp = (
-    supabase.table("strava_webhook_events")
-    .insert(
-        {
-            "subscription_id": event.subscription_id,
-            "object_type": event.object_type,
-            "object_id": event.object_id,
-            "aspect_type": event.aspect_type,
-            "owner_id": event.owner_id,
-            "event_time": dt,
-            "payload": data,
-        }
-    )
-    .execute()
+        supabase.table("strava_webhook_events")
+        .insert(
+            {
+                "subscription_id": event.subscription_id,
+                "object_type": event.object_type,
+                "object_id": event.object_id,
+                "aspect_type": event.aspect_type,
+                "owner_id": event.owner_id,
+                "event_time": dt,
+                "payload": data,
+            }
+        )
+        .execute()
     )
 
-    # Bezpečnejšie – nevadí, či resp je dict alebo objekt
     err = getattr(resp, "error", None)
     if err:
         print("[STRAVA WEBHOOK] insert error:", err)
 
-        return JSONResponse({"ok": True})
-
+    # Strava očakáva len 2xx – vždy vráť OK
+    return JSONResponse({"ok": True})
 
 @router.post("/webhook/process-pending")
 async def process_pending_events(
