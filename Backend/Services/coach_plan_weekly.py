@@ -202,7 +202,7 @@ def service_generate_weekly_plan(
     archived_meta = 0
     if overwrite:
         # meta – archived (toto zatiaľ ide cez service-role v DB vrstve)
-        archived_meta = db_archive_user_plans(user_id)
+        archived_meta = db_archive_user_plans(user_id,user_jwt=user_jwt)
 
         # starý weekly plán – podľa doterajšej logiky
         latest_plan_id = db_get_latest_plan_id_for_user(
@@ -270,6 +270,7 @@ def service_generate_weekly_plan(
     print("[DB-COACH-WEEKLY] plan_id:", plan_id)
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
+        user_jwt=user_jwt,
         plan_id=plan_id,
         base_state_id=used_state_id if isinstance(used_state_id, int) else None,
         weeks_total=len(weeks_list) or horizon_weeks,
@@ -277,7 +278,7 @@ def service_generate_weekly_plan(
         end_date=end_date,
         main_sport=main_sport,
         goal_kind=goal_kind,
-        source="ai_weekly_v1",
+        source="ai_weekly_v1",   
     )
 
     resp: Dict[str, Any] = {
@@ -315,7 +316,7 @@ def service_get_latest_weekly_plan(
     Alebo None, ak user nemá žiadny plán.
     """
     # 1) Skús najnovší plan_id z coach_plan_meta (tá DB vrstva zatiaľ môže ísť cez service-role)
-    meta = db_get_latest_plan_meta_for_user(user_id=user_id)
+    meta = db_get_latest_plan_meta_for_user(user_id=user_id, user_jwt=user_jwt)
     plan_id: Optional[str] = None
     if meta and isinstance(meta.get("plan_id"), str):
         plan_id = meta["plan_id"]

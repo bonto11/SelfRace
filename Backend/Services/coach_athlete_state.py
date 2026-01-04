@@ -132,12 +132,6 @@ def service_build_external_events_block_for_analysis(
                 to_iso=d_to.isoformat(),
                 user_jwt=user_jwt,  # nová JWT RLS cesta
             )
-        else:
-            window = service_list_external_events_window(
-                user_id=user_id,
-                from_iso=d_from.isoformat(),
-                to_iso=d_to.isoformat(),
-            )
 
         events = window.get("events") or []
         return {
@@ -253,10 +247,6 @@ def build_input_from_db(
         input_data["active_plan"] = service_build_active_plan_block_for_analysis(
             user_id=user_id,
             user_jwt=user_jwt,
-        )
-    else:
-        input_data["active_plan"] = service_build_active_plan_block_for_analysis(
-            user_id=user_id
         )
 
     # 9) EXTERNAL EVENTS – nové (s podporou JWT)

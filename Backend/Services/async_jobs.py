@@ -1,3 +1,4 @@
+# Services/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -36,12 +37,15 @@ def service_enqueue_job(
     priority: int = 100,
     run_after: Optional[str] = None,
     max_attempts: int = 3,
-    dedupe_key: Optional[str] = None,  # zatiaľ nevyužité – do budúcna
-    user_jwt: Optional[str] = None,    # ak príde, uložíme ho do input payloadu
+    dedupe_key: Optional[str] = None,
+    user_jwt: Optional[str] = None,    # ⬅️ sem ho budeme posielať z routera
 ) -> Dict[str, Any]:
     """
     Vytvorí nový job v async_jobs.
     """
+
+    if job_type not in ALLOWED_JOB_TYPES:
+        raise ValueError(f"Unsupported job_type: {job_type}")
 
     # payload normalizuj a doplň user_jwt (ak je)
     clean_payload: Dict[str, Any] = dict(payload or {})
@@ -69,7 +73,6 @@ def service_enqueue_job(
         return {"job": None, "note": "enqueue_failed"}
 
     return {"job": created, "note": "enqueued"}
-
 
 def service_list_active_jobs(
     user_id: int,
