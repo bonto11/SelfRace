@@ -210,7 +210,51 @@ export interface Preferences {
   use_zones: boolean;
   avoid_two_a_day: boolean;
   include_strides?: boolean;
+  weekly_template?: WeeklyTemplate;
 }
+
+// --- Advanced weekly template --------------------------------
+
+export type WeeklyTemplateMode = "off" | "loose" | "strict";
+
+export type TemplateSportKind = SportKind | "other";
+
+export type RunTemplateKind =
+  | "easy"
+  | "long"
+  | "tempo"
+  | "threshold"
+  | "intervals"
+  | "vo2max"
+  | "hills"
+  | "recovery";
+
+export type StrengthTemplateKind =
+  | "upper"
+  | "lower"
+  | "full"
+  | "core"
+  | "hiit";
+
+export type SessionPriority = "key" | "support" | "optional";
+
+export type SessionTemplate = {
+  sport: TemplateSportKind;
+  kind: RunTemplateKind | StrengthTemplateKind | "other";
+  priority: SessionPriority;
+  /** či smie coach posunúť tréning na iný deň (hlavne v `loose` mode) */
+  ai_can_move?: boolean;
+};
+
+export type DayTemplate = {
+  day: DayAbbrev; // "Mon" | "Tue" | ... – už máš typ
+  slots: SessionTemplate[]; // max 0–2
+};
+
+export type WeeklyTemplate = {
+  mode: WeeklyTemplateMode;
+  days: DayTemplate[];
+};
 
 /* -------- Main prefs -------- */
 
@@ -305,6 +349,10 @@ export const DEFAULT_PREFS: CoachPrefs = {
     avoid_back_to_back_hard: true,
     use_zones: true,
     avoid_two_a_day: true,
+    weekly_template: {
+      mode : "off",
+      days : [],
+    },
   },
   coach_voice: "motivator",
   coach_tone: {

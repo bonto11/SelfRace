@@ -8,6 +8,7 @@ import type {
   CoachPersona,
   RunTargets,
   SecondaryMix,
+  Preferences,
 } from "@/app/features/prefs/types/prefs";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -44,6 +45,7 @@ import { InjuriesSection } from "@/app/features/coach/components/prefs/InjuriesS
 import { FocusAvoidSection } from "@/app/features/coach/components/prefs/FocusAvoidSection";
 import { RehabSection } from "@/app/features/coach/components/prefs/RehabSection";
 import { VolumeSection } from "@/app/features/coach/components/prefs/VolumeSection";
+import WeeklyTemplateSection from "@/app/features/coach/components/prefs/WeeklyTemplateSection";
 
 /* ---- local DTOs ---- */
 
@@ -144,14 +146,28 @@ export default function CoachPreferencies() {
     });
   }, []);
 
-  const prefDefaults = (p: CoachPrefsExtended) =>
-    p.preferences ?? {
+  const prefDefaults = (p: CoachPrefsExtended): Preferences => {
+    const base: Preferences = {
       days_off: [],
       long_run_days: [],
       avoid_back_to_back_hard: true,
       use_zones: true,
       avoid_two_a_day: false,
+      weekly_template: {
+        mode: "off",
+        days: [],
+      },
     };
+
+    const incoming = (p.preferences ?? {}) as Partial<Preferences>;
+
+    return {
+      ...base,
+      ...incoming,
+      weekly_template:
+        incoming.weekly_template ?? base.weekly_template,
+    };
+  };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] =>
     (arr ?? []).includes(v)
@@ -178,6 +194,19 @@ export default function CoachPreferencies() {
     if (path.endsWith("long_run_days"))
       next.preferences!.long_run_days = v as DayAbbrev[];
     setLocal(next);
+  };
+
+  const setWeeklyTemplate = (nextTemplate: any) => {
+    markDirty();
+    const currentPrefs = prefDefaults(local);
+    const nextPrefs: Preferences = {
+      ...currentPrefs,
+      weekly_template: nextTemplate,
+    };
+    setLocal((prev) => ({
+      ...prev,
+      preferences: nextPrefs,
+    }));
   };
 
   const upsertRunTargets = (patch: Partial<RunTargets>) => {
@@ -531,6 +560,11 @@ export default function CoachPreferencies() {
 
       {showAdv && (
         <>
+          <WeeklyTemplateSection
+            template={pref.weekly_template!}
+            onChange={setWeeklyTemplate}
+          />
+
           <IntensityModelsSection
             local={local}
             setLocal={setLocal}

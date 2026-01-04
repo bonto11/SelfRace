@@ -10,9 +10,7 @@ from Modules.API.Strava.auth import get_access_token
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
     STRAVA_BASE,
-    TABLE_ACTIVITIES_STREAMS,
-    TABLE_USERS,
-    TABLE_ACTIVITIES_SUMMARY,
+    TABLE_ACTIVITIES_STREAMS
 )
 
 # -------------------------------------------------------------------
@@ -37,45 +35,6 @@ def _session() -> requests.Session:
 
 def _arr(j: Dict[str, Any], key: str):
     return (j.get(key) or {}).get("data") or []
-
-
-def _get_user_uid(
-    user_id: int,
-    *,
-    user_jwt: Optional[str] = None,
-) -> str:
-    sb = _get_sb(user_jwt)
-    r = (
-        sb.table(TABLE_USERS)
-        .select("auth_uid")
-        .eq("id", user_id)
-        .limit(1)
-        .execute()
-    )
-    if not r.data:
-        raise RuntimeError(f"user_id {user_id} not found in users")
-    return r.data[0]["auth_uid"]
-
-
-def _get_sport_fe_or_default(
-    user_id: int,
-    activity_id: int,
-    *,
-    user_jwt: Optional[str] = None,
-) -> str:
-    # len ak by si to niekedy chcel využiť; inak toto nepoužijeme
-    sb = _get_sb(user_jwt)
-    r = (
-        sb.table(TABLE_ACTIVITIES_SUMMARY)
-        .select("sport_type_fe")
-        .eq("user_id", user_id)
-        .eq("activity_id", activity_id)
-        .limit(1)
-        .execute()
-    )
-    v = (r.data or [{}])[0].get("sport_type_fe") or "other"
-    return str(v).lower()
-
 
 # ------- ukladanie do activities_streams (ARRAY stĺpce) -------
 def store_streams(
@@ -168,12 +127,6 @@ def fetch_and_optionally_store_batch(
                 {"activity_id": aid, "ok": False, "error": str(e)}
             )
     return out
-
-
-def fetch_streams_for_activity(activity_id: int) -> Dict[str, Any]:
-    s = _session()
-    return _fetch_streams_with_session(s, activity_id)
-
 
 def _fetch_streams_with_session(
     s: requests.Session,
