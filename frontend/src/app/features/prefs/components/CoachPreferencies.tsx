@@ -31,22 +31,22 @@ import {
   apiSaveUserThresholds,
 } from "@/app/features/coach/api/thresholds";
 
-import { GoalSection } from "@/app/features/coach/components/prefs/GoalSection";
-import { CoachPersonalitySection } from "@/app/features/coach/components/prefs/CoachPersonalitySection";
-import { PlanStartSection } from "@/app/features/coach/components/prefs/PlanStartSection";
-import { SportsSection } from "@/app/features/coach/components/prefs/SportsSection";
-import { StrengthSection } from "@/app/features/coach/components/prefs/StrengthSection";
-import { DaysOffSection } from "@/app/features/coach/components/prefs/DaysOffSection";
-import { LongRunDaysSection } from "@/app/features/coach/components/prefs/LongRunDaysSection";
-import { RulesSection } from "@/app/features/coach/components/prefs/RulesSection";
-import ZonesSection from "@/app/features/coach/components/prefs/ZonesSection";
-import ThresholdsSection from "@/app/features/coach/components/prefs/ThresholdsSection";
-import { IntensityModelsSection } from "@/app/features/coach/components/prefs/IntensityModelsSection";
-import { InjuriesSection } from "@/app/features/coach/components/prefs/InjuriesSection";
-import { FocusAvoidSection } from "@/app/features/coach/components/prefs/FocusAvoidSection";
-import { RehabSection } from "@/app/features/coach/components/prefs/RehabSection";
-import { VolumeSection } from "@/app/features/coach/components/prefs/VolumeSection";
-import WeeklyTemplateSection from "@/app/features/coach/components/prefs/WeeklyTemplateSection";
+import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
+import { CoachPersonalitySection } from "@/app/features/prefs/components/sections/CoachPersonalitySection";
+import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
+import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
+import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
+import { DaysOffSection } from "@/app/features/prefs/components/sections/DaysOffSection";
+import { LongRunDaysSection } from "@/app/features/prefs/components/sections/LongRunDaysSection";
+import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
+import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
+import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
+import { IntensityModelsSection } from "@/app/features/prefs/components/sections/IntensityModelsSection";
+import { InjuriesSection } from "@/app/features/prefs/components/sections/InjuriesSection";
+import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
+import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
+import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+import WeeklyTemplateSection from "@/app/features/prefs/components/sections/WeeklyTemplateSection";
 
 /* ---- local DTOs ---- */
 
