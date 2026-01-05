@@ -4,6 +4,10 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
 import { AVATAR_BUTTON } from "@/app/shared/ui/classes";
+import { resetClientCache } from "@/app/shared/utils/resetClientCache";
+import { toast } from "@/app/shared/components/ui/Toast";
+import { apiSyncActivities } from "@/app/features/activities/api/synchronization";
+import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 
 type LocalUser = {
   id: number | null;
@@ -18,7 +22,7 @@ const STRAVA_API_BASE = "https://api-dev.patrikmbontar.eu";
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<"reset" | "signout" | null>(null);
+  const [busy, setBusy] = useState<"reload" | "import" | "signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,6 +83,51 @@ export default function UserMenu() {
     setBusy("signout");
     try {
       await signOut("/signin");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleReloadData() {
+    if (busy) return;
+    setBusy("reload");
+    try {
+      resetClientCache();
+      toast.success("Reloaded data.");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to reload data.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleImportFromStrava() {
+    if (!me?.id) {
+      toast.error("Missing user id.");
+      return;
+    }
+    if (busy) return;
+
+    setBusy("import");
+    try {
+      const stats: SyncActivitiesStats = await apiSyncActivities(me.id, {
+        forceLastDays: 30,
+        fetchDetails: true,
+      });
+
+      const imp = stats.imported ?? 0;
+      const upd = stats.updated ?? 0;
+      const skp = stats.skipped ?? 0;
+
+      toast.success(
+        `Import from Strava OK • imported: ${imp} • updated: ${upd} • skipped: ${skp}`
+      );
+
+      resetClientCache();
+    } catch (e: any) {
+      toast.error(
+        e?.message || "Import from Strava failed."
+      );
     } finally {
       setBusy(null);
     }
@@ -152,6 +201,26 @@ export default function UserMenu() {
                   Pripojiť Strava
                 </a>
               )}
+
+              {/* Import from Strava */}
+              {me?.id && (
+                <button
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+                  onClick={handleImportFromStrava}
+                  disabled={busy === "import"}
+                >
+                  {busy === "import" ? "Importujem…" : "Import from Strava"}
+                </button>
+              )}
+
+              {/* Reload data */}
+              <button
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+                onClick={handleReloadData}
+                disabled={busy === "reload"}
+              >
+                {busy === "reload" ? "Reloading…" : "Reload data"}
+              </button>
 
               <button
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
