@@ -1,0 +1,19 @@
+name: Cleanup deleted activities
+
+on:
+  schedule:
+    # každý deň o 02:15 UTC (u nás cca 03:15/04:15 podľa času)
+    - cron: "15 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call maintenance cleanup endpoint
+        run: |
+          curl -X POST "https://api-dev.patrikmbontar.eu/maintenance/cleanup-deleted-activities" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.MAINTENANCE_API_KEY }}" \
+            --data '{"cutoff_days": 30}'

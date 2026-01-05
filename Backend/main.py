@@ -22,6 +22,7 @@ from Routes_FE import (
     profile_static,
     profile_metrics,
     async_jobs,
+    maintenance
 )
 
 app = FastAPI()
@@ -70,5 +71,6 @@ app.include_router(coach_athlete_state.router)
 app.include_router(coach_plan_active.router)
 app.include_router(coach_external_events.router)
 app.include_router(async_jobs.router)
+app.include_router(maintenance.router)
 
 app.include_router(webhook_strava.router)

@@ -673,6 +673,9 @@ def service_sync_single_activity(
             "skipped": 1,
             "fetched": 0,
         }
+    
+     # ak už bola niekedy soft-deleted, sync ju má "oživiť"
+    row["deleted_at"] = None
 
     # zisti, či už existuje (user_id + activity_id)
     try:
