@@ -1,4 +1,3 @@
-# Modules/API/Strava/webhook_strava.py
 from __future__ import annotations
 
 import os
@@ -6,7 +5,7 @@ import hmac
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence, Optional
+from typing import Any, Mapping, Sequence, Optional, List
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -21,6 +20,13 @@ supabase = get_service_client()
 
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
+# --- KONŠTANTY PRE URL (bez ENV, ako si chcel) ---
+API_BASE_URL = "https://api-dev.patrikmbontar.eu"
+FRONTEND_URL = "https://dev.patrikmbontar.eu"  # kam po úspešnom / neúspešnom pripojení
+
+# =================================================
+# HELPERY NA ENV (ID/SECRET/TOKEN nechaj v ENV)
+# =================================================
 
 def _get_env(name: str) -> str:
     v = os.getenv(name)
@@ -44,8 +50,9 @@ def get_strava_client_id() -> str:
     return _get_env("STRAVA_CLIENT_ID")
 
 
-# ---------- 1) VERIFICATION (GET) ----------
-
+# =================================================
+# 1) WEBHOOK – VERIFY
+# =================================================
 
 @router.get("/webhook")
 async def strava_webhook_verify(
@@ -85,8 +92,9 @@ async def strava_webhook_test_options() -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
-# ---------- 2) SIGNATURE HELPER ----------
-
+# =================================================
+# 2) SIGNATURE HELPER
+# =================================================
 
 async def verify_strava_signature(
     request: Request,
@@ -153,8 +161,9 @@ def _insert_event_from_dict(data: dict) -> None:
         raise RuntimeError(str(err))
 
 
-# ---------- 3) OSTRÝ WEBHOOK (s podpisom) ----------
-
+# =================================================
+# 3) OSTRÝ WEBHOOK (s podpisom)
+# =================================================
 
 @router.post("/webhook")
 async def strava_webhook_handler(
@@ -188,8 +197,9 @@ async def strava_webhook_handler(
     return JSONResponse({"ok": True})
 
 
-# ---------- 4) TEST WEBHOOK (BEZ PODPISU – LEN PRE TEBE) ----------
-
+# =================================================
+# 4) TEST WEBHOOK (bez podpisu – pre teba)
+# =================================================
 
 @router.post("/webhook/test")
 async def strava_webhook_test(request: Request):
@@ -220,8 +230,9 @@ async def strava_webhook_test(request: Request):
     return JSONResponse({"ok": True, "mode": "test"})
 
 
-# ---------- 5) PROCESSOR TRIGGER ----------
-
+# =================================================
+# 5) PROCESSOR TRIGGER
+# =================================================
 
 @router.post("/webhook/process-pending")
 async def process_pending_events(
@@ -266,40 +277,37 @@ async def process_pending_events(
     )
 
 
-# ================================================================
-# 6) OAUTH FLOW: CONNECT + CALLBACK (uloženie do strava_accounts)
-# ================================================================
+# =================================================
+# 6) OAUTH FLOW: CONNECT + CALLBACK
+# =================================================
 
 @router.get("/oauth/start")
 async def strava_oauth_start(
-    request: Request,
     user_id: int = Query(..., description="SelfRace user_id"),
 ):
     """
     Step 1: redirect na Strava /oauth/authorize.
 
-    FE môže spraviť link:
+    FE spraví link:
       /api/strava/oauth/start?user_id=1
 
-    `state` = user_id (stačí na dev; neskôr môžeme pridať anti-CSRF token).
+    `state` = user_id (stačí na dev).
     """
     client_id = get_strava_client_id()
 
-    # redirect_uri = callback endpoint na tomto API
-    callback_url = str(request.url_for("strava_oauth_callback"))
+    # NEPOUŽÍVAME request.url_for kvôli http/https mixu – natvrdo https:
+    callback_url = f"{API_BASE_URL}/api/strava/oauth/callback"
+
+    from urllib.parse import urlencode
 
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
         "response_type": "code",
         "approval_prompt": "auto",
-        # scopes: môžeš doladiť podľa toho, čo potrebuješ
         "scope": "read,activity:read_all,profile:read_all",
         "state": str(user_id),
     }
-
-    # manuálne poskladáme URL
-    from urllib.parse import urlencode
 
     url = "https://www.strava.com/oauth/authorize?" + urlencode(params)
     return RedirectResponse(url, status_code=302)
@@ -317,12 +325,15 @@ async def strava_oauth_callback(
     - ak user povolil prístup → máme `code` + `state`
     - vymeníme `code` za access/refresh token
     - uložíme/aktualizujeme `strava_accounts`
-    - redirect späť na FE (napr. /coach?strava=ok)
+    - redirect späť na FE
     """
     if error:
-        # user klikol "Deny" alebo niečo zlyhalo na Strave
         print("[STRAVA OAUTH] error param:", error)
-        return RedirectResponse("api-dev.patrikmbontar.eu?strava=error", status_code=302)
+        # presmeruj na FE s chybou
+        return RedirectResponse(
+            f"{FRONTEND_URL}/coach?strava=error",
+            status_code=302,
+        )
 
     if not code or not state:
         raise HTTPException(status_code=400, detail="missing code or state")
@@ -350,3 +361,69 @@ async def strava_oauth_callback(
     except Exception as e:  # noqa: BLE001
         print("[STRAVA OAUTH] token exchange error:", e)
         raise HTTPException(status_code=502, detail="token_exchange_failed")
+
+    if resp.status_code != 200:
+        print("[STRAVA OAUTH] token exchange bad status:", resp.status_code, resp.text)
+        raise HTTPException(status_code=502, detail="token_exchange_bad_status")
+
+    token_data = resp.json()
+    print("[STRAVA OAUTH] token response:", token_data)
+
+    access_token = token_data.get("access_token")
+    refresh_token = token_data.get("refresh_token")
+    expires_at_ts = token_data.get("expires_at")
+    athlete = token_data.get("athlete") or {}
+    athlete_id = athlete.get("id")
+
+    scope_raw = token_data.get("scope") or ""
+    scopes: List[str]
+    if isinstance(scope_raw, str):
+        scopes = [s.strip() for s in scope_raw.split(",") if s.strip()]
+    elif isinstance(scope_raw, list):
+        scopes = [str(s) for s in scope_raw]
+    else:
+        scopes = []
+
+    if not access_token or not refresh_token or not athlete_id:
+        raise HTTPException(status_code=502, detail="invalid_token_response")
+
+    expires_at_iso = None
+    if isinstance(expires_at_ts, (int, float)):
+        expires_at_iso = datetime.fromtimestamp(
+            expires_at_ts, tz=timezone.utc
+        ).isoformat()
+
+    # ---- UPSERT DO strava_accounts ----
+    upsert_row = {
+        "user_id": user_id,
+        "athlete_id": int(athlete_id),
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_at": expires_at_iso,
+        "scope": scopes,
+        "deauthorized_at": None,
+    }
+
+    try:
+        upsert_resp = (
+            supabase.table("strava_accounts")
+            .upsert(upsert_row, on_conflict="user_id")
+            .execute()
+        )
+        print(
+            "[STRAVA OAUTH] upsert data:",
+            getattr(upsert_resp, "data", None),
+        )
+        print(
+            "[STRAVA OAUTH] upsert error:",
+            getattr(upsert_resp, "error", None),
+        )
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA OAUTH] upsert error:", e)
+        raise HTTPException(status_code=500, detail="upsert_failed")
+
+    # Finálny redirect na FE
+    return RedirectResponse(
+        f"{FRONTEND_URL}/coach?strava=ok",
+        status_code=302,
+    )
