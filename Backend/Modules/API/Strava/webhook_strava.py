@@ -169,15 +169,17 @@ def _insert_event_from_dict(data: dict) -> None:
 @router.post("/webhook")
 async def strava_webhook_handler(
     request: Request,
-    secret: str = Depends(get_webhook_secret),
 ):
     """
-    Strava POST webhook (ostrý):
-    - overí podpis
+    Strava POST webhook (ostrý, dočasne BEZ kontroly podpisu – kvôli debugu):
+    - prečíta raw body
     - naparsuje payload
     - uloží do strava_webhook_events (queue)
     """
-    raw_body = await verify_strava_signature(request, secret)
+    # DOČASNE: bez verify_strava_signature, len logujeme hlavičky
+    raw_body = await request.body()
+    print("[STRAVA] incoming headers:", dict(request.headers))
+    print("[STRAVA] raw body:", raw_body.decode("utf-8", "ignore"))
 
     try:
         data = json.loads(raw_body.decode("utf-8"))
@@ -193,6 +195,7 @@ async def strava_webhook_handler(
     try:
         _insert_event_from_dict(data)
     except Exception as e:  # noqa: BLE001
+        print("[STRAVA] insert error:", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     return JSONResponse({"ok": True})
