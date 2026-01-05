@@ -1,4 +1,5 @@
-# Modules/API/Strava/webhook_strava_processor.py
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -7,6 +8,7 @@ import asyncio
 from Modules.SQL.db_handler import get_service_client
 from Services.synchronization import service_sync_single_activity
 
+# Supabase client – service role (admin prístup)
 supabase = get_service_client()
 
 
@@ -16,6 +18,10 @@ async def sync_activity_from_strava(
     athlete_id: int,
     strava_activity_id: int,
 ) -> None:
+    """
+    Wrapper okolo Services.synchronization.service_sync_single_activity
+    – spustený v thread poole, aby neblokoval event loop.
+    """
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(
         None,
@@ -27,6 +33,9 @@ async def sync_activity_from_strava(
 
 
 async def _process_single_event(row: Mapping[str, Any]) -> None:
+    """
+    Spracuje JEDEN záznam zo strava_webhook_events.
+    """
     event_id = row["id"]
     object_type = row["object_type"]
     aspect_type = row["aspect_type"]
@@ -40,7 +49,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
     except Exception:
         object_id = object_id_raw
 
-    # 1) ne-activity: ignorujeme
+    # 1) ak to nie je activity, ignorujeme
     if object_type != "activity":
         supabase.table("strava_webhook_events").update(
             {
@@ -51,12 +60,12 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         ).eq("id", event_id).execute()
         return
 
-    # 2) nájsť strava_accounts → user_id
+    # 2) nájdeme strava_account → user_id
     acc_resp = (
         supabase.table("strava_accounts")
         .select("user_id, athlete_id")
         .eq("athlete_id", owner_id)
-        .is_("deauthorized_at", None)  # ⬅️ podľa tvojej schémy
+        .is_("deauthorized_at", None)  # aktívny účet
         .limit(1)
         .execute()
     )
@@ -68,7 +77,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
             {
                 "processed_at": now_iso,
                 "status": "orphan",
-                "error": "no_strava_account_for_athlete",
+                "error": "no matching strava_account",
             }
         ).eq("id", event_id).execute()
         return
@@ -76,7 +85,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
     user_id = account["user_id"]
     athlete_id = account["athlete_id"]
 
-    # 3) DELETE → označiť ako deleted
+    # 3) DELETE → označ activity ako deleted
     if aspect_type == "delete":
         supabase.table("activities_summary").update(
             {"deleted_at": now_iso}
@@ -91,14 +100,14 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         ).eq("id", event_id).execute()
         return
 
-    # 4) CREATE/UPDATE → sync
+    # 4) CREATE / UPDATE → spusti sync pipeline
     try:
         await sync_activity_from_strava(
             user_id=user_id,
             athlete_id=athlete_id,
             strava_activity_id=object_id,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         supabase.table("strava_webhook_events").update(
             {
                 "processed_at": now_iso,
