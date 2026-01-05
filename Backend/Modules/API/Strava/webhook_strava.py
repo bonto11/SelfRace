@@ -73,6 +73,11 @@ async def strava_webhook_verify(
 async def strava_webhook_options() -> JSONResponse:
     return JSONResponse({"ok": True})
 
+# OPTIONS na /webhook – nech preflight nepadá na 400
+@router.options("/webhook/test")
+async def strava_webhook_test_options() -> JSONResponse:
+    return JSONResponse({"ok": True})
+
 
 # ---------- 2) SIGNATURE HELPER ----------
 
