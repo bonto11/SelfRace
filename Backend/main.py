@@ -37,6 +37,7 @@ if not origins:
         "https://www.patrikmbontar.eu",
         "https://dev.patrikmbontar.eu",
         "http://localhost:3000",
+        "https://hoppscotch.io",
     ]
 
 app.add_middleware(
