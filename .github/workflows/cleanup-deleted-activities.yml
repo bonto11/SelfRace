@@ -1,19 +1,21 @@
 name: Cleanup deleted activities
 
 on:
+  # manuálne spustenie z VS Code / GitHub UI
+  workflow_dispatch:
+  # denný cron – 03:00 UTC (u nás ~04:00 v zime, 05:00 v lete)
   schedule:
-    # každý deň o 02:15 UTC (u nás cca 03:15/04:15 podľa času)
-    - cron: "15 2 * * *"
-  workflow_dispatch: {}
+    - cron: "0 3 * * *"
 
 jobs:
   run-cleanup:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call maintenance cleanup endpoint
+      - name: Call maintenance endpoint
         run: |
-          curl -X POST "https://api-dev.patrikmbontar.eu/maintenance/cleanup-deleted-activities" \
+          curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${{ secrets.MAINTENANCE_API_KEY }}" \
-            --data '{"cutoff_days": 30}'
+            -d '{"cutoff_days": 1}' \
+            https://api-dev.patrikmbontar.eu/maintenance/cleanup-deleted-activities
