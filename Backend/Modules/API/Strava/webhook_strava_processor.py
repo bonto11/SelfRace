@@ -29,9 +29,8 @@ async def sync_activity_from_strava(
         int(strava_activity_id),
         True,    # fetch_details
         None,    # user_jwt
-        True,    # use_service_role
     )
-
+  
 async def _process_single_event(row: Mapping[str, Any]) -> None:
     """
     Spracuje JEDEN záznam zo strava_webhook_events.

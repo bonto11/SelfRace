@@ -9,6 +9,7 @@ import requests
 
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch
 from Modules.API.Strava.auth import get_access_token
+from Modules.SQL.db_handler import get_service_client
 from Services.activity_zones import (
     preview_zones_for_activities,
     upsert_enrichment_minutes,
@@ -621,37 +622,23 @@ def service_sync_activities(
 # -----------------------------------------------------------------------------
 # Single-activity sync – používané z webhooku alebo manuálne
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# Single-activity sync – používané z webhooku alebo manuálne
-# -----------------------------------------------------------------------------
 def service_sync_single_activity(
     user_id: int,
     strava_activity_id: int,
     fetch_details: bool = True,
-    user_jwt: Optional[str] = None,
-    use_service_role: bool = False,
+    user_jwt: Optional[str] = None,  # ponecháme v signatúre, ale NEPOUŽÍVAME
 ) -> Dict[str, int]:
     """
-    Sync JEDNEJ Strava aktivity:
-      - detail (/activities/{id})
-      - upsert do activities_summary
-      - laps/splits
-      - streams + enrichment zón
-      - plan_match job len pre túto aktivitu
+    Sync JEDNEJ Strava aktivity – verzia pre webhook (bez JWT, cez service klienta).
 
-    Režimy:
-      - manuálny sync z FE  -> use_service_role=False, user_jwt povinné (RLS)
-      - webhook / backend   -> use_service_role=True, user_jwt môže byť None
+    - detail (/activities/{id})
+    - upsert do activities_summary
+    - laps/splits do activities_laps / activities_splits
+
+    Zóny + async job nechávame zatiaľ na manuálny sync, aby sme neriešili RLS
+    v ďalších servisných vrstvách. Dôležité je, že aktivita + laps/splits sú v DB.
     """
-    if not user_jwt and not use_service_role:
-        raise RuntimeError(
-            "service_sync_single_activity: missing user_jwt (RLS/JWT required; "
-            "or set use_service_role=True for service role)"
-        )
-
-    # Pylance hack – Routes_DB očakávajú str, ale pri service role posielame None
-    jwt: Any = user_jwt if user_jwt is not None else None
-
+    supabase = get_service_client()  # service role, obchádza RLS
     ses = _get_session()
 
     imported = 0
@@ -667,7 +654,7 @@ def service_sync_single_activity(
         rd.raise_for_status()
         detail = rd.json() or {}
         fetched += 1
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] failed to fetch activity id={aid}: {e}")
         return {
             "imported": 0,
@@ -676,7 +663,7 @@ def service_sync_single_activity(
             "fetched": 0,
         }
 
-    # summary row
+    # ---------- 2) SUMMARY ROW ----------
     row = _normalize_summary(user_id, detail)
     if not row.get("activity_id"):
         print(f"[SYNC:single] missing activity_id for id={aid}")
@@ -687,135 +674,100 @@ def service_sync_single_activity(
             "fetched": 0,
         }
 
-    # zisti, či existuje
-    existing_ids = db_get_existing_activity_ids_since(
-        user_id=user_id,
-        since_iso_date="1970-01-01",  # len check, či existuje
-        user_jwt=jwt,
-    )
+    # zisti, či už existuje (user_id + activity_id)
+    try:
+        exists_resp = (
+            supabase.table("activities_summary")
+            .select("activity_id")
+            .eq("user_id", user_id)
+            .eq("activity_id", aid)
+            .limit(1)
+            .execute()
+        )
+        exists = bool(getattr(exists_resp, "data", None))
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] check existing failed id={aid}: {e}")
+        exists = False
 
-    if aid in existing_ids:
-        updated += 1
-    else:
-        imported += 1
+    try:
+        upsert_resp = (
+            supabase.table("activities_summary")
+            .upsert(row)
+            .execute()
+        )
+        print(
+            "[SYNC:single] summary upsert resp.data:",
+            getattr(upsert_resp, "data", None),
+        )
+        print(
+            "[SYNC:single] summary upsert resp.error:",
+            getattr(upsert_resp, "error", None),
+        )
+        if exists:
+            updated += 1
+        else:
+            imported += 1
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] summary upsert failed id={aid}: {e}")
+        return {
+            "imported": 0,
+            "updated": 0,
+            "skipped": 1,
+            "fetched": fetched,
+        }
 
-    db_upsert_activities_summary([row], user_jwt=jwt)
-
-    # ---------- 2) LAPS / SPLITS ----------
+    # ---------- 3) LAPS / SPLITS (voliteľné) ----------
     if fetch_details:
         try:
             rl = ses.get(f"{STRAVA_BASE}/activities/{aid}/laps", timeout=30)
             rl.raise_for_status()
             laps_raw = rl.json() or []
-        except Exception as e:
-            print(f"[SYNC:single] laps failed id={aid}: {e}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[SYNC:single] laps fetch failed id={aid}: {e}")
             laps_raw = []
 
         splits_raw = detail.get("splits_metric") or []
-
         mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
         try:
             if mode == "splits":
-                db_delete_laps_for_activity(aid, user_jwt=jwt)
-            elif mode == "laps":
-                db_delete_splits_for_activity(aid, user_jwt=jwt)
+                # zmaž staré SPLITS
+                (
+                    supabase.table("activities_splits")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .eq("activity_id", aid)
+                    .execute()
+                )
 
-            if mode == "splits":
-                for idx, S in enumerate(splits_raw, start=1):
-                    row_s = _normalize_split(S, user_id, aid, idx)
-                    db_upsert_split(row_s, user_jwt=jwt)
+                split_rows = [
+                    _normalize_split(S, user_id, aid, idx)
+                    for idx, S in enumerate(splits_raw, start=1)
+                ]
+                if split_rows:
+                    supabase.table("activities_splits").upsert(split_rows).execute()
+
             elif mode == "laps":
-                for L in laps_raw:
-                    row_l = _normalize_lap(L, user_id, aid)
-                    db_upsert_lap(row_l, user_jwt=jwt)
+                # zmaž staré LAPS
+                (
+                    supabase.table("activities_laps")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .eq("activity_id", aid)
+                    .execute()
+                )
+
+                lap_rows = [
+                    _normalize_lap(L, user_id, aid)
+                    for L in laps_raw
+                ]
+                if lap_rows:
+                    supabase.table("activities_laps").upsert(lap_rows).execute()
             else:
-                # nič – nemáme použiteľné laps ani splits
-                pass
-        except Exception as e:
+                print(f"[SYNC:single] no usable laps/splits for id={aid}")
+        except Exception as e:  # noqa: BLE001
             print(f"[SYNC:single] laps/splits upsert failed id={aid}: {e}")
             skipped += 1
-
-    # ---------- 3) STREAMS + ZÓNY ----------
-    try:
-        ids_recent = [aid]
-
-        print(f"[SYNC:single] streams: fetching & storing for id={aid} …")
-        streams_res = fetch_and_optionally_store_batch(
-            user_id,
-            ids_recent,
-            store=True,
-            user_jwt=jwt,
-        )
-        print(
-            f"[SYNC:single] streams: stored={streams_res.get('stored')} / "
-            f"total={streams_res.get('count')}"
-        )
-
-        print("[SYNC:single] zones: computing minutes from cached streams …")
-        prev = preview_zones_for_activities(
-            user_id,
-            ids_recent,
-            fetch_if_missing=False,
-            user_jwt=jwt,
-        )
-
-        to_save = [
-            it
-            for it in (prev.get("items") or [])
-            if it.get("ok") and it.get("minutes")
-        ]
-        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=jwt)
-        print(
-            f"[SYNC:single] zones: enrichment upsert saved rows = "
-            f"{saved.get('saved', 0)}"
-        )
-
-        # ---------- 4) plan_match job len pre túto aktivitu ----------
-        try:
-            enqueue = service_enqueue_job(
-                user_id=user_id,
-                user_uid="",  # ak chceš, môžeš sem neskôr dať user_uid
-                job_type="plan_match",
-                payload={
-                    "activity_ids": ids_recent,
-                    "days_window": 1,
-                    "score_threshold": 0.55,
-                },
-                priority=90,
-                max_attempts=1,
-                dedupe_key=None,
-                user_jwt=jwt,
-            )
-
-            job = (enqueue or {}).get("job")
-            if not job:
-                print("[SYNC:single] plan auto-mapping: enqueue_failed")
-            else:
-                run = service_run_job_now(
-                    user_id=user_id,
-                    job_id=int(job["id"]),
-                    worker_id="sync_auto_map_single",
-                    user_jwt=jwt,
-                )
-
-                job_row = run.get("job") or {}
-                result = job_row.get("result") or {}
-
-                print(
-                    "[SYNC:single] plan auto-mapping (job): "
-                    f"candidates={result.get('candidates')} "
-                    f"mapped={result.get('mapped')} "
-                    f"skipped={result.get('skipped')} "
-                    f"processed={result.get('processed')} "
-                    f"error={run.get('error')}"
-                )
-
-        except Exception as e:
-            print(f"[SYNC:single] plan auto-mapping via job failed: {e}")
-
-    except Exception as e:
-        print(f"[SYNC:single] zones enrichment failed id={aid}: {e}")
 
     print(
         f"[SYNC:single] done id={aid}: imported={imported} "
