@@ -1,4 +1,5 @@
-# Modules/API/Strava/webhook_strava_processor.py
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
@@ -10,27 +11,28 @@ from Services.synchronization import service_sync_single_activity
 supabase = get_service_client()
 
 
-from Services.synchronization import service_sync_single_activity
-import asyncio
-
 async def sync_activity_from_strava(
     *,
     user_id: int,
     athlete_id: int,
     strava_activity_id: int,
 ) -> None:
+    """
+    Spustí service_sync_single_activity v thread executore.
+    Beží v "service" režime (user_jwt=None, t.j. service role).
+    """
     loop = asyncio.get_running_loop()
 
-    # service režim – bez JWT, obchádza RLS cez service role
     await loop.run_in_executor(
         None,
         service_sync_single_activity,
         int(user_id),
         int(strava_activity_id),
-        True,    # fetch_details
-        None,    # user_jwt
+        True,  # fetch_details
+        None,  # user_jwt (service mode)
     )
-  
+
+
 async def _process_single_event(row: Mapping[str, Any]) -> None:
     """
     Spracuje JEDEN záznam zo strava_webhook_events.
@@ -64,7 +66,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         supabase.table("strava_accounts")
         .select("user_id, athlete_id")
         .eq("athlete_id", owner_id)
-        .is_("deauthorized_at", None)      # <-- dôležité, sedí s DB
+        .is_("deauthorized_at", None)
         .limit(1)
         .execute()
     )

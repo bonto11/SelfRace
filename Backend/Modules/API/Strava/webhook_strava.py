@@ -4,11 +4,12 @@ import os
 import hmac
 import hashlib
 import json
+import asyncio
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence, Optional, List
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from Modules.API.Strava.webhook_models import StravaWebhookEventIn
@@ -28,6 +29,7 @@ FRONTEND_URL = "https://dev.patrikmbontar.eu"  # kam po úspešnom / neúspešno
 # =================================================
 # HELPERY NA ENV (ID/SECRET/TOKEN nechaj v ENV)
 # =================================================
+
 
 def _get_env(name: str) -> str:
     v = os.getenv(name)
@@ -55,6 +57,7 @@ def get_strava_client_id() -> str:
 # 1) WEBHOOK – VERIFY
 # =================================================
 
+
 @router.get("/webhook")
 async def strava_webhook_verify(
     hub_mode: str = Query(..., alias="hub.mode"),
@@ -69,13 +72,13 @@ async def strava_webhook_verify(
     """
     if hub_mode != "subscribe":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail="invalid mode",
         )
 
     if hub_verify_token != verify_token:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="invalid verify_token",
         )
 
@@ -87,9 +90,11 @@ async def strava_webhook_verify(
 async def strava_webhook_options() -> JSONResponse:
     return JSONResponse({"ok": True})
 
+
 # =================================================
 # 2) SIGNATURE HELPER
 # =================================================
+
 
 async def verify_strava_signature(
     request: Request,
@@ -103,7 +108,7 @@ async def verify_strava_signature(
     sent_signature = request.headers.get("X-Strava-Signature")
     if not sent_signature:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail="missing signature",
         )
 
@@ -115,21 +120,21 @@ async def verify_strava_signature(
 
     if not hmac.compare_digest(computed, sent_signature):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="invalid signature",
         )
 
     return raw_body
 
 
-def _insert_event_from_dict(data: dict) -> None:
+def _insert_event_from_dict(data: dict) -> dict:
     """
     Spoločná logika: validácia payloadu + insert do strava_webhook_events.
-    Používa sa v ostrom webhooku aj v test webhooku.
+
+    Vracia vložený riadok (dict).
     """
     event = StravaWebhookEventIn(**data)
 
-    # event_time (epoch -> timestamptz ISO string)
     dt = datetime.fromtimestamp(event.event_time, tz=timezone.utc).isoformat()
 
     resp = (
@@ -143,67 +148,32 @@ def _insert_event_from_dict(data: dict) -> None:
                 "owner_id": event.owner_id,
                 "event_time": dt,
                 "payload": data,
+                "status": "pending",
+                "error": None,
+                "processed_at": None,
             }
         )
         .execute()
     )
 
+    rows = getattr(resp, "data", None) or []
     err = getattr(resp, "error", None)
-    if err:
-        raise RuntimeError(str(err))
+
+    print("[STRAVA] insert resp.data:", rows)
+    print("[STRAVA] insert resp.error:", err)
+
+    if err or not rows:
+        raise RuntimeError(str(err or "insert failed"))
+
+    return rows[0]
 
 
 # =================================================
-# 3) OSTRÝ WEBHOOK (s podpisom)
+# 3) PROCESSOR CORE (shared: background + manuálna route)
 # =================================================
 
-@router.post("/webhook")
-async def strava_webhook_handler(
-    request: Request,
-):
-    """
-    Strava POST webhook (ostrý, dočasne BEZ kontroly podpisu – kvôli debugu):
-    - prečíta raw body
-    - naparsuje payload
-    - uloží do strava_webhook_events (queue)
-    """
-    # DOČASNE: bez verify_strava_signature, len logujeme hlavičky
-    raw_body = await request.body()
 
-    #print("[STRAVA] incoming headers:", dict(request.headers))
-    #print("[STRAVA] raw body:", raw_body.decode("utf-8", "ignore"))
-
-    try:
-        data = json.loads(raw_body.decode("utf-8"))
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA] invalid json:", e)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="invalid json",
-        )
-
-    #print("[STRAVA] parsed payload:", data)
-
-    try:
-        _insert_event_from_dict(data)
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA] insert error:", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-    return JSONResponse({"ok": True})
-
-# =================================================
-# 5) PROCESSOR TRIGGER
-# =================================================
-
-@router.post("/webhook/process-pending")
-async def process_pending_events(
-    limit: int = 20,
-):
-    """
-    Stiahne prvých N 'pending' eventov zo strava_webhook_events
-    a postupne ich spracuje.
-    """
+async def _process_pending_events_core(limit: int = 20) -> dict:
     resp = (
         supabase.table("strava_webhook_events")
         .select("*")
@@ -229,19 +199,86 @@ async def process_pending_events(
             print(f"[STRAVA] Chyba pri spracovaní eventu {row.get('id')}: {e}")
             errors += 1
 
-    return JSONResponse(
-        {
-            "ok": True,
-            "fetched": len(rows),
-            "processed": processed,
-            "errors": errors,
-        }
-    )
+    return {
+        "ok": True,
+        "fetched": len(rows),
+        "processed": processed,
+        "errors": errors,
+    }
+
+
+# =================================================
+# 4) OSTRÝ WEBHOOK (s podpisom)
+# =================================================
+
+
+@router.post("/webhook")
+async def strava_webhook_handler(
+    request: Request,
+    secret: str = Depends(get_webhook_secret),
+):
+    """
+    Strava POST webhook (ostrý):
+    - overí podpis
+    - naparsuje payload
+    - uloží do strava_webhook_events (queue)
+    - NA POZADÍ spustí spracovanie pending eventov
+    """
+    raw_body = await verify_strava_signature(request, secret)
+
+    try:
+        data = json.loads(raw_body.decode("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA] invalid json:", e)
+        raise HTTPException(
+            status_code=400,
+            detail="invalid json",
+        )
+
+    print("[STRAVA] parsed payload:", data)
+
+    try:
+        _insert_event_from_dict(data)
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA] insert failed:", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+    # ***** background spracovanie – neblokuje Stravu *****
+    async def _bg():
+        try:
+            res = await _process_pending_events_core(limit=5)
+            print("[STRAVA] bg process_pending result:", res)
+        except Exception as e:  # noqa: BLE001
+            print("[STRAVA] bg process_pending failed:", e)
+
+    asyncio.create_task(_bg())
+    # *****************************************************
+
+    return JSONResponse({"ok": True})
+
+
+# =================================================
+# 5) MANUÁLNY PROCESSOR TRIGGER (fallback)
+# =================================================
+
+
+@router.post("/webhook/process-pending")
+async def process_pending_events(
+    limit: int = 20,
+):
+    """
+    Manuálna route:
+    Stiahne prvých N 'pending' eventov zo strava_webhook_events
+    a postupne ich spracuje.
+    """
+    result = await _process_pending_events_core(limit=limit)
+    return JSONResponse(result)
 
 
 # =================================================
 # 6) OAUTH FLOW: CONNECT + CALLBACK
 # =================================================
+
 
 @router.get("/oauth/start")
 async def strava_oauth_start(
