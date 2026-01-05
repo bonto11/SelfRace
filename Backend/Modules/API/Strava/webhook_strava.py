@@ -20,9 +20,10 @@ supabase = get_service_client()
 
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
-# --- KONŠTANTY PRE URL (bez ENV, ako si chcel) ---
+# --- KONŠTANTY PRE URL (všetko HTTPS) ---
 API_BASE_URL = "https://api-dev.patrikmbontar.eu"
 FRONTEND_URL = "https://dev.patrikmbontar.eu"  # kam po úspešnom / neúspešnom pripojení
+
 
 # =================================================
 # HELPERY NA ENV (ID/SECRET/TOKEN nechaj v ENV)
@@ -295,8 +296,9 @@ async def strava_oauth_start(
     """
     client_id = get_strava_client_id()
 
-    # NEPOUŽÍVAME request.url_for kvôli http/https mixu – natvrdo https:
+    # Natvrdo HTTPS callback (žiadne http):
     callback_url = f"{API_BASE_URL}/api/strava/oauth/callback"
+    print("[STRAVA OAUTH] using callback_url:", callback_url)
 
     from urllib.parse import urlencode
 
@@ -329,7 +331,6 @@ async def strava_oauth_callback(
     """
     if error:
         print("[STRAVA OAUTH] error param:", error)
-        # presmeruj na FE s chybou
         return RedirectResponse(
             f"{FRONTEND_URL}/coach?strava=error",
             status_code=302,
@@ -422,7 +423,6 @@ async def strava_oauth_callback(
         print("[STRAVA OAUTH] upsert error:", e)
         raise HTTPException(status_code=500, detail="upsert_failed")
 
-    # Finálny redirect na FE
     return RedirectResponse(
         f"{FRONTEND_URL}/coach?strava=ok",
         status_code=302,

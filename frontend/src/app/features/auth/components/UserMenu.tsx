@@ -1,4 +1,3 @@
-// src/features/auth/components/UserMenu.tsx
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -14,6 +13,8 @@ type LocalUser = {
   displayName: string | null;
   avatarUrl: string | null;
 };
+
+const STRAVA_API_BASE = "https://api-dev.patrikmbontar.eu";
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -55,12 +56,9 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.displayName, me?.email]);
 
-  // URL na Strava OAuth start – len keď máme numeric user_id
   const stravaConnectUrl = useMemo(() => {
     if (!me?.id) return null;
-    const base =
-      process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-dev.patrikmbontar.eu";
-    return `${base}/api/strava/oauth/start?user_id=${me.id}`;
+    return `${STRAVA_API_BASE}/api/strava/oauth/start?user_id=${me.id}`;
   }, [me?.id]);
 
   useEffect(() => {
@@ -94,12 +92,10 @@ export default function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {/* label VEDĽA avatara – naľavo */}
         <span className="text-sm max-w-[140px] truncate text-right">
           {label}
         </span>
 
-        {/* avatar / iniciálky / fallback ikona */}
         {me?.avatarUrl ? (
           <Image
             src={me.avatarUrl}
@@ -136,7 +132,7 @@ export default function UserMenu() {
 
             <nav className="py-1 flex flex-col gap-1">
               <a
-                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                className="block w-full px-3 py-2 text-sm hover:bg:white/10 hover:bg-white/10"
                 href="/forgot-password"
               >
                 Zmeniť heslo (e-mailom)
