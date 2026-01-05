@@ -87,12 +87,6 @@ async def strava_webhook_verify(
 async def strava_webhook_options() -> JSONResponse:
     return JSONResponse({"ok": True})
 
-
-@router.options("/webhook/test")
-async def strava_webhook_test_options() -> JSONResponse:
-    return JSONResponse({"ok": True})
-
-
 # =================================================
 # 2) SIGNATURE HELPER
 # =================================================
@@ -154,9 +148,6 @@ def _insert_event_from_dict(data: dict) -> None:
         .execute()
     )
 
-    print("[STRAVA] insert resp.data:", getattr(resp, "data", None))
-    print("[STRAVA] insert resp.error:", getattr(resp, "error", None))
-
     err = getattr(resp, "error", None)
     if err:
         raise RuntimeError(str(err))
@@ -178,8 +169,9 @@ async def strava_webhook_handler(
     """
     # DOČASNE: bez verify_strava_signature, len logujeme hlavičky
     raw_body = await request.body()
-    print("[STRAVA] incoming headers:", dict(request.headers))
-    print("[STRAVA] raw body:", raw_body.decode("utf-8", "ignore"))
+
+    #print("[STRAVA] incoming headers:", dict(request.headers))
+    #print("[STRAVA] raw body:", raw_body.decode("utf-8", "ignore"))
 
     try:
         data = json.loads(raw_body.decode("utf-8"))
@@ -190,7 +182,7 @@ async def strava_webhook_handler(
             detail="invalid json",
         )
 
-    print("[STRAVA] parsed payload:", data)
+    #print("[STRAVA] parsed payload:", data)
 
     try:
         _insert_event_from_dict(data)
@@ -199,40 +191,6 @@ async def strava_webhook_handler(
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     return JSONResponse({"ok": True})
-
-
-# =================================================
-# 4) TEST WEBHOOK (bez podpisu – pre teba)
-# =================================================
-
-@router.post("/webhook/test")
-async def strava_webhook_test(request: Request):
-    """
-    Test endpoint na ručné testovanie z Hoppscotch:
-    - NEKONTROLUJE podpis
-    - očakáva rovnaký JSON ako Strava
-    - uloží do strava_webhook_events
-    """
-    raw_body = await request.body()
-
-    try:
-        data = json.loads(raw_body.decode("utf-8"))
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA TEST] invalid json:", e)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="invalid json",
-        )
-
-    print("[STRAVA TEST] parsed payload:", data)
-
-    try:
-        _insert_event_from_dict(data)
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-    return JSONResponse({"ok": True, "mode": "test"})
-
 
 # =================================================
 # 5) PROCESSOR TRIGGER

@@ -621,11 +621,15 @@ def service_sync_activities(
 # -----------------------------------------------------------------------------
 # Single-activity sync – používané z webhooku alebo manuálne
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Single-activity sync – používané z webhooku alebo manuálne
+# -----------------------------------------------------------------------------
 def service_sync_single_activity(
     user_id: int,
     strava_activity_id: int,
     fetch_details: bool = True,
     user_jwt: Optional[str] = None,
+    use_service_role: bool = False,
 ) -> Dict[str, int]:
     """
     Sync JEDNEJ Strava aktivity:
@@ -635,13 +639,18 @@ def service_sync_single_activity(
       - streams + enrichment zón
       - plan_match job len pre túto aktivitu
 
-    Aktuálne aj tu vyžadujeme JWT, aby to šlo cez RLS.
+    Režimy:
+      - manuálny sync z FE  -> use_service_role=False, user_jwt povinné (RLS)
+      - webhook / backend   -> use_service_role=True, user_jwt môže byť None
     """
-    if not user_jwt:
+    if not user_jwt and not use_service_role:
         raise RuntimeError(
-            "service_sync_single_activity: missing user_jwt (RLS/JWT required)"
+            "service_sync_single_activity: missing user_jwt (RLS/JWT required; "
+            "or set use_service_role=True for service role)"
         )
-    jwt = cast(str, user_jwt)
+
+    # Pylance hack – Routes_DB očakávajú str, ale pri service role posielame None
+    jwt: Any = user_jwt if user_jwt is not None else None
 
     ses = _get_session()
 
@@ -681,7 +690,7 @@ def service_sync_single_activity(
     # zisti, či existuje
     existing_ids = db_get_existing_activity_ids_since(
         user_id=user_id,
-        since_iso_date="1970-01-01",  # bezpečné, chceme len check, či existuje
+        since_iso_date="1970-01-01",  # len check, či existuje
         user_jwt=jwt,
     )
 

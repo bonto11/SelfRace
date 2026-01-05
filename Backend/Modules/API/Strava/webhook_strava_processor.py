@@ -10,24 +10,27 @@ from Services.synchronization import service_sync_single_activity
 supabase = get_service_client()
 
 
+from Services.synchronization import service_sync_single_activity
+import asyncio
+
 async def sync_activity_from_strava(
     *,
     user_id: int,
     athlete_id: int,
     strava_activity_id: int,
 ) -> None:
-    """
-    Wrapper okolo existing pipeline service_sync_single_activity.
-    """
     loop = asyncio.get_running_loop()
+
+    # service režim – bez JWT, obchádza RLS cez service role
     await loop.run_in_executor(
         None,
         service_sync_single_activity,
         int(user_id),
         int(strava_activity_id),
-        True,  # fetch_details = True
+        True,    # fetch_details
+        None,    # user_jwt
+        True,    # use_service_role
     )
-
 
 async def _process_single_event(row: Mapping[str, Any]) -> None:
     """
