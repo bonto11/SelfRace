@@ -1,3 +1,4 @@
+# Modules/API/Strava/webhook_strava.py
 from __future__ import annotations
 
 import os
@@ -5,10 +6,11 @@ import hmac
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Optional
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from Modules.API.Strava.webhook_models import StravaWebhookEventIn
 from Modules.SQL.db_handler import get_service_client
@@ -20,22 +22,26 @@ supabase = get_service_client()
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
 
+def _get_env(name: str) -> str:
+    v = os.getenv(name)
+    if not v:
+        raise RuntimeError(f"{name} is not set")
+    return v
+
+
 def get_verify_token() -> str:
-    token = os.getenv("STRAVA_VERIFY_TOKEN")
-    if not token:
-        raise RuntimeError("STRAVA_VERIFY_TOKEN is not set")
-    return token
+    return _get_env("STRAVA_VERIFY_TOKEN")
 
 
 def get_webhook_secret() -> str:
     """
-    Strava podľa dokumentácie podpisuje webhooky pomocou CLIENT_SECRET.
-    Takže žiadny extra WEBHOOK_SECRET nepotrebujeme – použijeme STRAVA_CLIENT_SECRET.
+    Strava podpisuje webhooky pomocou CLIENT_SECRET.
     """
-    secret = os.getenv("STRAVA_CLIENT_SECRET")
-    if not secret:
-        raise RuntimeError("STRAVA_CLIENT_SECRET is not set")
-    return secret
+    return _get_env("STRAVA_CLIENT_SECRET")
+
+
+def get_strava_client_id() -> str:
+    return _get_env("STRAVA_CLIENT_ID")
 
 
 # ---------- 1) VERIFICATION (GET) ----------
@@ -73,7 +79,7 @@ async def strava_webhook_verify(
 async def strava_webhook_options() -> JSONResponse:
     return JSONResponse({"ok": True})
 
-# OPTIONS na /webhook – nech preflight nepadá na 400
+
 @router.options("/webhook/test")
 async def strava_webhook_test_options() -> JSONResponse:
     return JSONResponse({"ok": True})
@@ -258,3 +264,89 @@ async def process_pending_events(
             "errors": errors,
         }
     )
+
+
+# ================================================================
+# 6) OAUTH FLOW: CONNECT + CALLBACK (uloženie do strava_accounts)
+# ================================================================
+
+@router.get("/oauth/start")
+async def strava_oauth_start(
+    request: Request,
+    user_id: int = Query(..., description="SelfRace user_id"),
+):
+    """
+    Step 1: redirect na Strava /oauth/authorize.
+
+    FE môže spraviť link:
+      /api/strava/oauth/start?user_id=1
+
+    `state` = user_id (stačí na dev; neskôr môžeme pridať anti-CSRF token).
+    """
+    client_id = get_strava_client_id()
+
+    # redirect_uri = callback endpoint na tomto API
+    callback_url = str(request.url_for("strava_oauth_callback"))
+
+    params = {
+        "client_id": client_id,
+        "redirect_uri": callback_url,
+        "response_type": "code",
+        "approval_prompt": "auto",
+        # scopes: môžeš doladiť podľa toho, čo potrebuješ
+        "scope": "read,activity:read_all,profile:read_all",
+        "state": str(user_id),
+    }
+
+    # manuálne poskladáme URL
+    from urllib.parse import urlencode
+
+    url = "https://www.strava.com/oauth/authorize?" + urlencode(params)
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/oauth/callback", name="strava_oauth_callback")
+async def strava_oauth_callback(
+    code: Optional[str] = Query(default=None),
+    state: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+):
+    """
+    Step 2: callback zo Stravy.
+
+    - ak user povolil prístup → máme `code` + `state`
+    - vymeníme `code` za access/refresh token
+    - uložíme/aktualizujeme `strava_accounts`
+    - redirect späť na FE (napr. /coach?strava=ok)
+    """
+    if error:
+        # user klikol "Deny" alebo niečo zlyhalo na Strave
+        print("[STRAVA OAUTH] error param:", error)
+        return RedirectResponse("api-dev.patrikmbontar.eu?strava=error", status_code=302)
+
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="missing code or state")
+
+    try:
+        user_id = int(state)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid state")
+
+    client_id = get_strava_client_id()
+    client_secret = get_webhook_secret()  # = STRAVA_CLIENT_SECRET
+
+    # ---- EXCHANGE CODE -> TOKENS ----
+    try:
+        resp = requests.post(
+            "https://www.strava.com/oauth/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+            },
+            timeout=15,
+        )
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA OAUTH] token exchange error:", e)
+        raise HTTPException(status_code=502, detail="token_exchange_failed")

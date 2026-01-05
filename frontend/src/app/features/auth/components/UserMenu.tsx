@@ -55,6 +55,14 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.displayName, me?.email]);
 
+  // URL na Strava OAuth start – len keď máme numeric user_id
+  const stravaConnectUrl = useMemo(() => {
+    if (!me?.id) return null;
+    const base =
+      process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-dev.patrikmbontar.eu";
+    return `${base}/api/strava/oauth/start?user_id=${me.id}`;
+  }, [me?.id]);
+
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
       if (!boxRef.current) return;
@@ -139,6 +147,16 @@ export default function UserMenu() {
               >
                 Zmeniť e-mail / profil
               </a>
+
+              {stravaConnectUrl && (
+                <a
+                  className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                  href={stravaConnectUrl}
+                >
+                  Pripojiť Strava
+                </a>
+              )}
+
               <button
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
                 onClick={handleSignOut}
