@@ -2,13 +2,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_ACTIVITIES_SUMMARY
 
 # Poznámka:
-# - funkcie, ktoré číta FE/AI → user_jwt, RLS klient
-# - sync/import (upsert) – zatiaľ voláme z manuálneho syncu tiež s JWT
-
+# - ak je user_jwt zadané → RLS klient (typicky FE / AI / manuálny sync)
+# - ak user_jwt nie je → service klient (webhooky, worker, cron, interné servisy)
 
 FIELDS = (
     "activity_id,name,"
@@ -17,20 +16,31 @@ FIELDS = (
     "date"
 )
 
+
+def _get_sb(user_jwt: Optional[str]):
+    """
+    Vyberie správneho Supabase klienta podľa toho, či máme user_jwt.
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    return get_service_client()
+
+
 # ───────────────────────────── basic summary helpers ─────────────────────────────
 
 def db_fetch_summary_since(
     user_id: int,
     since_iso: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Číta z activities_summary od since_iso (filter cez 'date').
-    RLS: vyžaduje user_jwt.
+    - s user_jwt: RLS klient (štandardný FE/AI read)
+    - bez user_jwt: service klient (worker, webhook, cron)
     """
     try:
-        sb = get_client(user_jwt=user_jwt)
+        sb = _get_sb(user_jwt)
         rec = (
             sb.table(TABLE_ACTIVITIES_SUMMARY)
             .select(FIELDS)
@@ -47,16 +57,17 @@ def db_fetch_summary_since(
 def db_upsert_activities_summary(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> None:
     """
     Upsert batch do activities_summary podľa activity_id.
-    Zatiaľ používané z manuálneho syncu → RLS klient.
-    (Keď spravíme worker, urobíme separátnu SERVICE verziu.)
+
+    - s user_jwt: používa sa napr. z manuálneho syncu cez FE (RLS)
+    - bez user_jwt: môžeš volať z workerov / webhookov cez service klienta
     """
     if not rows:
         return
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     sb.table(TABLE_ACTIVITIES_SUMMARY).upsert(
         rows,
         on_conflict="activity_id",
@@ -66,13 +77,16 @@ def db_upsert_activities_summary(
 def db_get_last_activity_start(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Optional[datetime]:
     """
     Najnovší dátum uložený v summary (ako aware-UTC datetime).
-    Používa sa v sync logike – zatiaľ RLS/JWT.
+    Používa sa v sync logike.
+
+    - s user_jwt: FE/AI sync (via RLS)
+    - bez user_jwt: interné servisy (service-role)
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("date")
@@ -107,13 +121,13 @@ def db_get_existing_activity_ids_since(
     user_id: int,
     since_iso_date: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Set[int]:
     """
     ID už uložených aktivít od 'since_iso_date' (YYYY-MM-DD).
-    Sync helper – RLS.
+    Sync helper – môže ísť cez RLS alebo service klienta.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     out: Set[int] = set()
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
@@ -135,14 +149,14 @@ def db_get_recent_activity_ids(
     since_iso_date: str,
     limit: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[int]:
     """
     Posledné aktivity pre daného usera od dátumu (YYYY-MM-DD),
     vráti len zoznam activity_id.
-    Sync helper – RLS.
+    Sync helper – RLS (ak je JWT) alebo service klient.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("activity_id")
@@ -167,13 +181,15 @@ def db_get_activities_recent(
     user_id: int,
     since_iso_date: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Aktivity od since_iso_date (YYYY-MM-DD) – payload pre FE list / range.
-    RLS only.
+
+    Typický use-case: FE → vždy s user_jwt.
+    Ale ponechávame optional pre interné servisy, ktoré chcú rovnaký payload.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -192,13 +208,15 @@ def db_get_activities_recent(
 def db_get_activity_summary_one(
     activity_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Kompletný summary riadok pre jednu aktivitu.
-    RLS: vyfiltruje len tvoje activity_id podľa policies.
+
+    - s user_jwt: RLS ťa pustí len k vlastnej aktivite
+    - bez user_jwt: service klient (napr. interné AI/worker veci)
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("*")
@@ -215,12 +233,12 @@ def db_get_activities_in_range_basic(
     start_ts_iso: str,
     end_ts_iso: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Aktivity v rozsahu [start_ts_iso, end_ts_iso) podľa 'date'.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -242,14 +260,14 @@ def db_select_activities_window_basic(
     date_from: str,
     date_to: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
     sports: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Aktivity v okne [date_from, date_to] vrátane (stringy YYYY-MM-DD / ISO),
     filtrované podľa sport_type_fe.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     q = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -273,12 +291,12 @@ def db_select_activities_window_basic(
 def db_get_summary_one(
     activity_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Minimal summary payload pre /summary/one endpoint.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -299,7 +317,7 @@ def db_get_summary_for_activities(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Základný summary payload pre daného usera a zoznam activity_id.
@@ -308,7 +326,7 @@ def db_get_summary_for_activities(
     if not activity_ids:
         return []
 
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
