@@ -1,14 +1,12 @@
-# Services/activities_summary.py
-
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, time, date
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from Services.time import parse_date_ymd
 from Routes_DB.activities_summary import (
     db_get_activities_recent,
-    db_get_activity_summary_one,
+    db_get_activity_summary_one,  # (ak ho niekde použiješ neskôr)
     db_get_activities_in_range_basic,
     db_select_activities_window_basic,
     db_get_summary_one,
@@ -19,10 +17,13 @@ def service_get_activities(
     user_id: int,
     days: int = 30,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     FE: GET /activities_summary/multiple/{user_id}?days=30
+
+    - FE route by mala poslať user_jwt (RLS)
+    - teoretický worker/debug môže volať s user_jwt=None → service klient
     """
     since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
     return db_get_activities_recent(
@@ -37,7 +38,7 @@ def service_activities_in_range(
     start: str,
     end: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     FE: GET /activities_summary/range/{user_id}?start=YYYY-MM-DD&end=YYYY-MM-DD
@@ -72,7 +73,7 @@ def service_select_activities(
     delta_days: int,
     sports_csv: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     FE: GET /activities_summary/select/{user_id}
@@ -118,7 +119,7 @@ def service_select_activities(
 def service_get_summary_one(
     activity_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     FE: GET /activities_summary/summary/one/{activity_id}

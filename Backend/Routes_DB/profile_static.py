@@ -1,10 +1,25 @@
-# Routes_DB/profile_static.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_PROFILE_STATIC
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError("profile_static: missing user_jwt or service=True in DB helper")
 
 
 def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
@@ -20,12 +35,13 @@ def db_fetch_static(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Vytiahne static profil – preferuje user_uid, inak user_id.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     q = sb.table(TABLE_PROFILE_STATIC).select("*").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -39,12 +55,13 @@ def db_upsert_static(
     data: Dict[str, Any],
     conflict_col: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Upsert static profilu, vracia uložený riadok.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     res = (
         sb.table(TABLE_PROFILE_STATIC)
@@ -60,9 +77,10 @@ def db_fetch_static_basic(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date,height_cm").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -75,9 +93,10 @@ def db_get_static_sex_birth(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -89,12 +108,13 @@ def db_get_static_sex_birth(
 def db_fetch_user_sex(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[str]:
     """
-    Jednoduchý helper na zistenie pohlavia usera (pod RLS).
+    Jednoduchý helper na zistenie pohlavia usera (pod RLS alebo service).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         rec = (

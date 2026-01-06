@@ -4,16 +4,26 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_USERS_PREFERENCES
+
+
+def _get_sb(user_jwt: Optional[str] = None):
+    """
+    - ak máme user_jwt → RLS klient (FE / AI)
+    - ak user_jwt=None → service klient (worker / admin skripty)
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    return get_service_client()
 
 
 def db_get_prefs_all(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
@@ -30,9 +40,9 @@ def db_get_pref_single(
     user_id: int,
     key: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
@@ -52,9 +62,9 @@ def db_upsert_pref_single(
     key: str,
     value: Any,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     rec = {
         "user_id": user_id,
@@ -74,9 +84,9 @@ def db_upsert_many(
     user_id: int,
     kv: Dict[str, Any],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> int:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     rows = [
         {
@@ -101,9 +111,9 @@ def db_delete_pref_single(
     user_id: int,
     key: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> int:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)

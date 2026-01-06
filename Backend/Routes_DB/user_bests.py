@@ -1,23 +1,39 @@
-# Routes_DB/user_bests.py
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_USERS_BESTS
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError("user_bests: missing user_jwt or service=True in DB helper")
 
 
 def db_fetch_user_bests(
     user_id: int,
     sport: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Low-level SELECT pre users_bests.
     Nerieši time_str ani validáciu.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     res = (
         sb.table(TABLE_USERS_BESTS)
@@ -38,12 +54,13 @@ def db_fetch_user_bests(
 def db_upsert_user_best(
     row: Dict[str, Any],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Low-level UPSERT. Predpokladá už zvalidované a normalizované pole `row`.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     res = (
         sb.table(TABLE_USERS_BESTS)
@@ -61,12 +78,13 @@ def db_delete_user_best(
     sport: str,
     distance_m: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     Hard delete; vráti počet zmazaných riadkov.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     res = (
         sb.table(TABLE_USERS_BESTS)

@@ -1,4 +1,3 @@
-# Services/notes.py
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
@@ -15,9 +14,6 @@ def fetch_recent_notes(
 ) -> List[Dict[str, Any]]:
     """
     Načíta poznámky usera za posledných N dní cez RLS (user_jwt).
-
-    - user_jwt = Supabase access token aktuálneho usera
-      (posielaš z FE v Authorization: Bearer ... alebo inak dopravíš do BE).
     """
     try:
         sb = get_client(user_jwt=user_jwt)

@@ -1,26 +1,44 @@
-# Routes_DB/coach_plan_daily.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from datetime import date, timedelta
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_COACH_PLAN_DAILY
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError(
+        "coach_plan_daily: missing user_jwt or service=True in DB helper"
+    )
 
 
 def db_insert_daily_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
-    Bulk INSERT do coach_plan_daily cez RLS (user_jwt).
+    Bulk INSERT do coach_plan_daily.
     Vracia počet vložených riadkov.
     """
     if not rows:
         return 0
 
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
@@ -38,12 +56,13 @@ def db_clear_daily_for_user_week(
     week_start: str,
     week_end: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     DELETE všetkých daily riadkov pre daný plán + týždeň (interval dátumov).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -79,14 +98,13 @@ def db_get_planned_range_rows(
     date_from: str,
     date_to: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky plánované sessions pre usera v danom dátumovom rozsahu.
-
-    Používa sa v Services/plan_activity_match.py na porovnanie plánu s aktivitami.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -110,15 +128,14 @@ def db_link_session_to_activity(
     session_id: int,
     activity_id: Optional[int],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu
     – zapíše activity_id.
-
-    Vracia aktualizovaný riadok, alebo None pri chybe.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -138,16 +155,13 @@ def db_list_daily_for_user_horizon(
     user_id: int,
     horizon_days: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
     plan_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky daily plánované sessions pre usera
     od dneška po dnes + horizon_days.
-
-    Ak je zadaný plan_id, filtruje len daný plán,
-    inak vráti všetky plány usera.
-    Používa sa v service_get_daily_overview a auto_extend.
     """
     if horizon_days <= 0:
         horizon_days = 7
@@ -158,7 +172,7 @@ def db_list_daily_for_user_horizon(
     date_from = today.isoformat()
     date_to = end_date.isoformat()
 
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         query = (
@@ -185,12 +199,13 @@ def db_clear_daily_for_user_plan(
     user_id: int,
     plan_id: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     Delete všetkých daily riadkov pre daný plán (bez ohľadu na dátum).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (

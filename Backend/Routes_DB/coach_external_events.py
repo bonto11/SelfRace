@@ -1,23 +1,42 @@
-# Routes_DB/coach_external_events.py
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_COACH_EXTERNAL_EVENTS
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient (worker / cron / admin tooling)
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError(
+        "coach_external_events: missing user_jwt or service=True in DB helper"
+    )
 
 
 def db_list_external_events_for_user(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky externé eventy pre daného usera, zoradené podľa weekday a created_at.
-    Ide cez RLS (user_jwt).
+    - bežne cez RLS (user_jwt)
+    - prípadne service=True pre interné nástroje
     """
     try:
-        sb = get_client(user_jwt=user_jwt)
+        sb = _get_sb(user_jwt=user_jwt, service=service)
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .select("*")
@@ -35,15 +54,15 @@ def db_list_external_events_for_user(
 def db_clear_external_events_for_user(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     Zmaže všetky externé eventy pre daného usera.
     Používame pri "overwrite" save.
-    Ide cez RLS (user_jwt).
     """
     try:
-        sb = get_client(user_jwt=user_jwt)
+        sb = _get_sb(user_jwt=user_jwt, service=service)
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .delete()
@@ -61,16 +80,19 @@ def db_clear_external_events_for_user(
 def db_insert_external_events(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
-    Bulk INSERT externých eventov (RLS – user_jwt).
+    Bulk INSERT externých eventov.
+    - typicky cez RLS (user_jwt)
+    - môžeš použiť aj service=True z workerov
     """
     if not rows:
         return 0
 
     try:
-        sb = get_client(user_jwt=user_jwt)
+        sb = _get_sb(user_jwt=user_jwt, service=service)
         res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-EXT] inserted rows:", len(data))

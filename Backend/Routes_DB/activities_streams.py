@@ -6,29 +6,39 @@ from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_ACTIVITIES_STREAMS
 
 
-def _get_sb(user_jwt: Optional[str] = None):
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
     """
-    - s user_jwt → RLS klient (anon + auth)
-    - bez user_jwt → service role (worker/webhook)
+    - service=True      → service-role klient (worker/webhook)
+    - user_jwt != None  → RLS klient (FE/AI)
     """
+    if service:
+        return get_service_client()
     if user_jwt is not None:
         return get_client(user_jwt=user_jwt)
-    return get_service_client()
+    raise RuntimeError(
+        "activities_streams: missing user_jwt or service=True in DB helper"
+    )
 
 
 def db_get_streams_one(
     user_id: int,
     activity_id: int,
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Jedna row so streamami pre danú aktivitu:
       { time_s: [...], heartrate_bpm: [...] }
 
-    - s user_jwt: RLS čítanie pre FE/AI
-    - bez user_jwt: service role pre worker/webhook
+    - FE/AI:    db_get_streams_one(..., user_jwt=jwt)
+    - worker:   db_get_streams_one(..., service=True)
     """
-    sb = _get_sb(user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select("time_s,heartrate_bpm")
@@ -44,18 +54,21 @@ def db_get_streams_one(
 def db_get_streams_ids_present(
     user_id: int,
     activity_ids: List[int],
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[int]:
     """
     Vráti zoznam activity_id, pre ktoré už existuje aspoň jeden stream záznam.
 
-    - typicky sync/worker → user_jwt=None (service role)
-    - pre FE debug môže ísť aj s user_jwt
+    - typicky sync/worker: service=True
+    - prípadne RLS:        user_jwt=jwt
     """
     if not activity_ids:
         return []
 
-    sb = _get_sb(user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
+
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select("activity_id")
@@ -83,14 +96,16 @@ def db_upsert_streams_with_sport(
     power: List[int],
     distance: List[float],
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> None:
     """
     Volá SQL funkciu upsert_streams_with_sport(...) cez RPC.
 
-    Používa sa pri 'rich' variante ukladania, kde si DB sama vytiahne
-    sport_type_fe a user_uid zo summary.
+    - FE/AI proces:   user_jwt=jwt
+    - worker/webhook: service=True
     """
-    sb = _get_sb(user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
+
     params = {
         "p_user_id": int(user_id),
         "p_activity_id": int(activity_id),
@@ -113,19 +128,20 @@ def db_upsert_stream_arrays(
     power_w: Optional[List[int]] = None,
     distance_m: Optional[List[float]] = None,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> None:
     """
     Jednoduchý upsert priamo do TABLE_ACTIVITIES_STREAMS (bez RPC).
 
-    Používa sa v cache_streams_for_activities ako "light" verzia.
+    Použitie:
+    - cache / worker: service=True
+    - teoreticky aj FE debug: user_jwt=jwt
     """
-    sb = _get_sb(user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     row = {
         "activity_id": int(activity_id),
         "user_id": int(user_id),
-        # user_uid a sport_type_fe môžeš doplniť neskôr cez worker,
-        # tu ich necháme jednoduché/default:
         "user_uid": None,
         "sport_type_fe": "other",
         "time_s": [int(x) for x in time_s],

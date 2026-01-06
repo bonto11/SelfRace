@@ -118,6 +118,10 @@ def save_streams_with_sport_to_db(
     - dotiahne user_uid a sport_type_fe zo summary (logika v DB)
     - používa db_upsert_streams_with_sport
     - NEROBÍ žiadny HTTP request na Stravu
+
+    RLS vs service:
+      - ak user_jwt nie je None → ideš cez RLS klienta
+      - ak user_jwt=None       → service role (worker/webhook)
     """
     try:
         times = _arr(streams_json, "time")
@@ -180,14 +184,15 @@ def service_get_streams_one(
     user_id: int,
     activity_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Čítanie streamov z DB pre FE/AI.
 
-    - vždy vráti dict
-    - ak v DB nič nie je, vráti prázdne polia:
-      { "time_s": [], "heartrate_bpm": [] }
+    - ak user_jwt je zadaný → RLS klient (bežný FE request)
+    - ak user_jwt=None      → service klient (teoreticky worker; moc to nechceš v UI)
+
+    Vždy vráti dict.
     """
     row = db_get_streams_one(
         user_id=user_id,
@@ -216,6 +221,10 @@ def fetch_and_optionally_store_batch(
 
     - Strava fetch: fetch_streams_batch_from_strava()
     - DB write (ak store=True): save_streams_with_sport_to_db()
+
+    RLS vs service:
+      - FE sync:   pass user_jwt (RLS)
+      - worker:    user_jwt=None → service role
 
     Výstup:
     {
@@ -300,10 +309,10 @@ def cache_streams_for_activities(
 
     - Strava fetch pre každé activity_id
     - zápis do DB cez save_streams_arrays_to_db()
-    - typicky worker / service role (user_jwt=None)
 
-    Výstup:
-      { "saved": X, "failed": Y, "total": N }
+    Typicky:
+      - worker / cron / webhook  → user_jwt=None (service role)
+      - ak by si to volal z FE (skôr debug) → pass user_jwt
     """
     fetch_res = fetch_streams_batch_from_strava(activity_ids)
     items_in = fetch_res.get("items") or []

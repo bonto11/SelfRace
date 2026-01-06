@@ -1,10 +1,27 @@
-# Routes_DB/coach_plan_meta.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_COACH_PLAN_META
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError(
+        "coach_plan_meta: missing user_jwt or service=True in DB helper"
+    )
 
 
 def db_insert_plan_meta_generated(
@@ -18,12 +35,13 @@ def db_insert_plan_meta_generated(
     main_sport: Optional[str],
     goal_kind: Optional[str],
     source: Optional[str] = "ai_weekly_v1",
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
-    Vloží riadok do coach_plan_meta so status='generated' cez RLS (user_jwt).
+    Vloží riadok do coach_plan_meta so status='generated'.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     row = {
         "user_id": user_id,
@@ -51,14 +69,15 @@ def db_insert_plan_meta_generated(
 def db_archive_user_plans(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
     statuses: Optional[List[str]] = None,
 ) -> int:
     """
     Nastaví status='archived' pre všetky meta plány usera
-    s daným statusom (default: generated + active) – cez RLS.
+    s daným statusom (default: generated + active).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
     st = statuses or ["generated", "active"]
 
     try:
@@ -84,13 +103,14 @@ def db_archive_user_plans(
 def db_get_latest_plan_meta_for_user(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší meta záznam (bez ohľadu na status).
     Použiteľné na zistenie last plan_id.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -111,12 +131,13 @@ def db_get_latest_plan_meta_for_user(
 def db_get_active_plan_meta_for_user(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti aktuálne aktívny plán (status='active'), alebo None.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -140,12 +161,13 @@ def db_update_plan_status(
     plan_id: str,
     new_status: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Zmení status konkrétneho plánu (napr. generated → active alebo → cancelled).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (

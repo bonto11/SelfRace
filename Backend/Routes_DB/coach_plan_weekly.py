@@ -1,25 +1,43 @@
-# Routes_DB/coach_plan_weekly.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_COACH_PLAN_WEEKLY
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError(
+        "coach_plan_weekly: missing user_jwt or service=True in DB helper"
+    )
 
 
 def db_insert_weekly_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
-    Bulk INSERT do coach_plan_weekly cez RLS (user_jwt).
+    Bulk INSERT do coach_plan_weekly.
     Vracia počet vložených riadkov.
     """
     if not rows:
         return 0
 
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
@@ -35,12 +53,13 @@ def db_clear_weekly_for_user_plan(
     user_id: int,
     plan_id: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
-    DELETE všetkých weekly riadkov daného plánu pre usera (cez RLS).
+    DELETE všetkých weekly riadkov daného plánu pre usera.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -67,12 +86,13 @@ def db_get_weekly_for_user_plan(
     user_id: int,
     plan_id: str,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Načítanie weekly riadkov pre konkrétny plan_id (cez RLS).
+    Načítanie weekly riadkov pre konkrétny plan_id.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -94,13 +114,13 @@ def db_get_week_row_for_plan(
     plan_id: str,
     week_index: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny týždeň (1 riadok) pre daný plan_id + week_index.
-    Vhodné pre daily generátor, ak chceš z weekly zistiť week_start/week_end.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (
@@ -122,12 +142,13 @@ def db_get_week_row_for_plan(
 def db_get_latest_plan_id_for_user(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[str]:
     """
-    Vracia posledný použitý plan_id pre usera (podľa created_at, cez RLS).
+    Vracia posledný použitý plan_id pre usera (podľa created_at).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         res = (

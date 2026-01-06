@@ -3,20 +3,30 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_USERS_ZONES
+
+
+def _get_sb(user_jwt: Optional[str] = None):
+    """
+    - user_jwt → RLS klient
+    - None     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    return get_service_client()
 
 
 def db_user_zones_fetch_all(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Vráti VŠETKY riadky z users_zones pre daného usera, zoradené od najnovšieho.
-    Čistý DB layer – používa Supabase client s RLS (user_jwt).
+    Čistý DB layer – používa Supabase client (RLS alebo service).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     try:
         res = (
@@ -35,12 +45,12 @@ def db_user_zones_fetch_latest(
     user_id: int,
     sport_raw: Optional[str] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti najnovší riadok podľa user_id (+ voliteľne sport) alebo None.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     try:
         q = (
@@ -62,14 +72,14 @@ def db_user_zones_fetch_latest(
 def db_user_zones_insert_row(
     row: Dict[str, Any],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Insert jedného riadku do users_zones.
     Očakáva už normalizované DB stĺpce:
       user_id, sport, hr_max_bpm, z1_max_bpm, z2_min_bpm, ...
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = sb.table(TABLE_USERS_ZONES).insert(row).execute()
     return (res.data or [{}])[0]
@@ -78,7 +88,7 @@ def db_user_zones_insert_row(
 def db_user_zones_fetch_all_desc(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Alias na fetch_all – keď Service potrebuje prejsť všetky

@@ -3,8 +3,19 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_USERS_RECOVERY
+
+
+def _get_sb(user_jwt: Optional[str] = None):
+    """
+    - user_jwt → RLS klient
+    - None     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    return get_service_client()
+
 
 def db_get_recovery_record(
     user_id: int,
@@ -15,7 +26,7 @@ def db_get_recovery_record(
     """
     Vráti {"id": ...} ak existuje recovery pre daný deň, inak None.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -36,7 +47,7 @@ def db_insert_recovery(
     *,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
     rows: List[Dict[str, Any]] = res.data or []
@@ -50,7 +61,7 @@ def db_update_recovery(
     *,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -70,7 +81,7 @@ def db_get_recent_recovery(
     *,
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)

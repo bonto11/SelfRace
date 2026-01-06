@@ -36,10 +36,6 @@ def _to_int(v: Any) -> Optional[int]:
             return None
 
 
-def _rows(resp) -> List[Dict[str, Any]]:
-    return cast(List[Dict[str, Any]], resp.data or [])
-
-
 def _iso_utc_months_ago(months: int) -> str:
     now = datetime.now(timezone.utc)
     dt = now - timedelta(days=30 * max(1, months))
@@ -73,7 +69,10 @@ def _load_activity_ids_since(
 ) -> List[int]:
     """
     IDs všetkých aktivít od daného dátumu.
-    (Číta z DB vrstvy summary, nie priamo z tabuľky.)
+
+    Číta cez Routes_DB.activities_summary.db_fetch_summary_since:
+      - ak user_jwt != None → RLS klient
+      - ak user_jwt == None → service klient (cron/worker)
     """
     rows = db_fetch_summary_since(
         user_id=user_id,
@@ -95,6 +94,10 @@ def _load_summary_map(
 ) -> dict[int, dict]:
     """
     Mapovanie activity_id -> základné summary (avg_hr, moving_time, distance, sport).
+
+    DB vrstva opäť rešpektuje:
+      - user_jwt != None → RLS
+      - user_jwt == None → service role
     """
     if not ids:
         return {}
@@ -125,9 +128,11 @@ def _load_streams_row(
     user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Jedna row so streamami: očakáva sa shape:
+    Jedna row so streamami: očakáva shape:
       { "time_s": [...], "heartrate_bpm": [...] }
-    z DB vrstvy activities_streams.
+
+    Číta cez Routes_DB.activities_streams.db_get_streams_one,
+    ktorý už interne volí RLS / service klienta podľa user_jwt.
     """
     return db_get_streams_one(
         user_id=user_id,
@@ -232,8 +237,10 @@ def _fetch_and_store_if_missing(
 ) -> None:
     """
     Dotiahne chýbajúce streamy zo Stravy a uloží ich.
-    Použije helper z Modules.API.Strava.streams, ktorý vie pracovať
-    s RLS alebo service-role podľa implementácie a user_jwt.
+
+    Použije Services.activities_streams.fetch_and_optionally_store_batch:
+      - user_jwt != None → RLS (užívateľský sync)
+      - user_jwt == None → service role (worker / cron)
     """
     fetch_and_optionally_store_batch(
         user_id,
@@ -294,8 +301,12 @@ def preview_zones_for_activities(
 ) -> Dict[str, Any]:
     """
     Hlavný výpočet minút v zónach pre daný zoznam aktivít.
-    Nepíše do DB, iba počíta; DB write rieši upsert_enrichment_minutes().
-    Všetky DB čítania idú cez JWT, ak je k dispozícii.
+
+    - DB čítanie summary/streams → Routes_DB (ktoré rešpektuje user_jwt)
+    - zóny → Services.user_zones.service_load_user_zones
+      - ak user_jwt != None → RLS
+      - ak user_jwt == None → service fallback (podľa implementácie)
+    - nepíše do DB; zápis rieši upsert_enrichment_minutes()
     """
     # per-sport cache + fallback (running -> latest any)
     zones_cache: dict[str, Optional[Dict[str, int]]] = {}
@@ -307,6 +318,8 @@ def preview_zones_for_activities(
         if user_jwt is not None:
             z_out = service_load_user_zones(user_id, s_key, user_jwt=user_jwt)
         else:
+            # worker / service-call varianta – očakáva, že service_load_user_zones
+            # vie pracovať aj bez JWT (napr. cez service client / default šport)
             z_out = service_load_user_zones(user_id, s_key)
         if z_out:
             zones_cache[s_key] = _zones_out_to_numeric(z_out)
@@ -380,7 +393,9 @@ def upsert_enrichment_minutes(
 ) -> dict:
     """
     Vytvorí rows pre TABLE_ACTIVITIES_ENRICHMENT a pošle ich do DB vrstvy.
-    Zápis ide cez JWT klient, ak je dostupný.
+
+    - ak user_jwt != None → zápis cez RLS klienta (typicky FE-trigger)
+    - ak user_jwt == None → zápis cez service klienta (worker / webhook)
     """
     if not items:
         return {"saved": 0, "skipped": 0}
@@ -395,6 +410,8 @@ def upsert_enrichment_minutes(
 
     s_map = _load_summary_map(user_id, ids, user_jwt=user_jwt)
     now_ts = datetime.now(timezone.utc).isoformat()
+    # service_get_user_uid by ideálne tiež vedieť pracovať s user_jwt,
+    # ale API už máš nastavené len na user_id → nechávam tak.
     user_uid = service_get_user_uid(user_id)
 
     rows: List[dict] = []
@@ -447,7 +464,10 @@ def backfill_enrichment_for_period(
 ) -> dict:
     """
     Prejde všetky aktivity za posledné `months` a dopočíta enrichment.
-    Všetky DB operácie idú cez JWT, ak je poslaný.
+
+    Scenáre:
+      - FE-trigger (user klikne "recompute") → posielaš user_jwt (RLS)
+      - cron/worker (no-user-context)        → user_jwt=None (service role)
     """
     since_iso = _iso_utc_months_ago(months)
 
@@ -502,7 +522,9 @@ def compute_and_save_enrichment_for_ids(
 ) -> dict:
     """
     Shortcut: dopočítaj enrichment pre konkrétne IDs (napr. po synce).
-    Načítanie streamov a enrichment ide cez JWT všade, kde to je DB read/write.
+
+    - DB layer (streams + summary + enrichment) už rešpektuje user_jwt
+      → RLS pre FE, service role pre worker/webhook.
     """
     ids = [int(x) for x in ids if x]
     if not ids:
@@ -525,7 +547,7 @@ def compute_and_save_enrichment_for_ids(
             user_jwt=user_jwt,
         )
 
-    # 3) výpočet (už cez JWT)
+    # 3) výpočet (už cez JWT/service klienta v DB vrstve)
     prev = preview_zones_for_activities(
         user_id,
         ids,

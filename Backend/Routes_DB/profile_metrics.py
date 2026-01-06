@@ -1,10 +1,25 @@
-# Routes_DB/profile_metrics.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_PROFILE_METRIC
+
+
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
+    """
+    - user_jwt != None → RLS klient
+    - service=True     → service klient
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+    raise RuntimeError("profile_metrics: missing user_jwt or service=True in DB helper")
 
 
 def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
@@ -20,9 +35,10 @@ def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
 def db_insert_metric_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     res = sb.table(TABLE_PROFILE_METRIC).insert(rows).execute()
     return res.data or rows
@@ -37,9 +53,10 @@ def db_get_metric_history(
     date_to: Optional[str] = None,
     limit: Optional[int] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -65,9 +82,10 @@ def db_get_latest_metric(
     metric: str,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -87,9 +105,10 @@ def db_get_vo2_measured_history(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -105,12 +124,13 @@ def db_get_vo2_measured_history(
 def fetch_user_hr_max(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[float]:
     """
     Helper na vytiahnutie HR_max z profile_metric.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     try:
         rec = (

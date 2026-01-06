@@ -6,33 +6,43 @@ from Modules.SQL.db_handler import get_client, get_service_client
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
 
 
-def _get_sb(user_jwt: Optional[str]):
+def _get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+):
     """
-    Vyberie správneho Supabase klienta podľa toho, či máme user_jwt.
-    - s user_jwt → RLS klient (get_client)
-    - bez user_jwt → service klient (get_service_client)
+    - service=True      → service-role klient (worker/webhook/cron)
+    - user_jwt != None  → RLS klient (FE/AI)
     """
+    if service:
+        return get_service_client()
     if user_jwt is not None:
         return get_client(user_jwt=user_jwt)
-    return get_service_client()
+    raise RuntimeError(
+        "activities_enrichment: missing user_jwt or service=True in DB helper"
+    )
 
 
 def db_get_enrichment_for_activities(
     user_id: int,
     activity_ids: List[int],
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Načíta enrichment pre daného usera a zoznam activity_id.
     Vráti len polia potrebné pre Pareto: z1–z5_min.
 
-    - s user_jwt: štandardný FE/AI read cez RLS
-    - bez user_jwt: interné servisy / worker cez service klienta
+    Použitie:
+    - FE/AI:      db_get_enrichment_for_activities(..., user_jwt=jwt)
+    - worker/cron db_get_enrichment_for_activities(..., service=True)
     """
     if not activity_ids:
         return []
 
-    sb = _get_sb(user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
@@ -46,18 +56,21 @@ def db_get_enrichment_for_activities(
 
 def db_upsert_enrichment_rows(
     rows: List[Dict[str, Any]],
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     Batch upsert do activities_enrichment podľa activity_id (+ user_id).
 
-    - s user_jwt: môžeš volať z FE-driven procesov, ktoré zapisujú enrichment
-    - bez user_jwt: worker / webhook / cron cez service klienta
+    Použitie:
+    - FE-driven zapis: db_upsert_enrichment_rows(..., user_jwt=jwt)
+    - worker/webhook:  db_upsert_enrichment_rows(..., service=True)
     """
     if not rows:
         return 0
 
-    sb = _get_sb(user_jwt)
+    sb = _get_sb(user_jwt=user_jwt, service=service)
 
     saved = 0
     BATCH = 200
@@ -65,7 +78,8 @@ def db_upsert_enrichment_rows(
         chunk = rows[i : i + BATCH]
         sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
             chunk,
-            on_conflict="activity_id",  # ak chceš byť ultra-striktný, môžeš zmeniť na "user_id,activity_id"
+            # keby si chcel byť prísnejší: "user_id,activity_id"
+            on_conflict="activity_id",
         ).execute()
         saved += len(chunk)
 
