@@ -1,5 +1,3 @@
-# Modules/API/Strava/streams.py
-
 from __future__ import annotations
 
 import time
@@ -7,23 +5,15 @@ import requests
 from typing import Dict, Any, List, Tuple, Optional
 
 from Modules.API.Strava.auth import get_access_token
-from Modules.SQL.db_handler import get_client
-from Configs.config import (
-    STRAVA_BASE,
-    TABLE_ACTIVITIES_STREAMS
+from Configs.config import STRAVA_BASE
+from Routes_DB.activities_streams import (
+    db_upsert_streams_with_sport,
+    db_upsert_stream_arrays,
 )
 
-# -------------------------------------------------------------------
-# DB client helper – ak je user_jwt, ideš cez RLS, inak service role
-# -------------------------------------------------------------------
-def _get_sb(user_jwt: Optional[str] = None):
-    if user_jwt:
-        return get_client(user_jwt=user_jwt)
-    # fallback pre webhook/worker bez JWT
-    return get_client(service=True)
-
-
 # ------- low-level Strava session -------
+
+
 def _session() -> requests.Session:
     tok = get_access_token()
     if not tok:
@@ -36,7 +26,10 @@ def _session() -> requests.Session:
 def _arr(j: Dict[str, Any], key: str):
     return (j.get(key) or {}).get("data") or []
 
+
 # ------- ukladanie do activities_streams (ARRAY stĺpce) -------
+
+
 def store_streams(
     user_id: int,
     activity_id: int,
@@ -46,8 +39,8 @@ def store_streams(
 ) -> Tuple[bool, str]:
     """
     Uloží streamy cez SQL RPC tak, aby sa user_uid a sport_type_fe dotiahli zo summary.
+    Celá DB logika ide cez Routes_DB.activities_streams.
     """
-    sb = _get_sb(user_jwt)
     try:
         times = _arr(streams_json, "time")
         hr = _arr(streams_json, "heartrate")
@@ -55,22 +48,25 @@ def store_streams(
         poww = _arr(streams_json, "watts")
         dist = _arr(streams_json, "distance")
 
-        params = {
-            "p_user_id": int(user_id),
-            "p_activity_id": int(activity_id),
-            "p_time_s": [int(x) for x in times],
-            "p_heartrate": [int(x) for x in hr] if hr else [],
-            "p_cadence": [int(x) for x in cad] if cad else [],
-            "p_power": [int(x) for x in poww] if poww else [],
-            "p_distance": [float(x) for x in dist] if dist else [],
-        }
-        sb.rpc("upsert_streams_with_sport", params).execute()
+        db_upsert_streams_with_sport(
+            user_id=int(user_id),
+            activity_id=int(activity_id),
+            time_s=[int(x) for x in times],
+            heartrate=[int(x) for x in hr] if hr else [],
+            cadence=[int(x) for x in cad] if cad else [],
+            power=[int(x) for x in poww] if poww else [],
+            distance=[float(x) for x in dist] if dist else [],
+            user_jwt=user_jwt,
+        )
+
         return True, ""
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return False, str(e)
 
 
 # ------- batch helper -------
+
+
 def fetch_and_optionally_store_batch(
     user_id: int,
     activity_ids: List[int],
@@ -79,7 +75,12 @@ def fetch_and_optionally_store_batch(
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     sess = _session()
-    out = {"ok": True, "count": len(activity_ids), "stored": 0, "items": []}
+    out: Dict[str, Any] = {
+        "ok": True,
+        "count": len(activity_ids),
+        "stored": 0,
+        "items": [],
+    }
     for i, aid in enumerate(activity_ids, start=1):
         try:
             res = _fetch_streams_with_session(sess, int(aid))
@@ -105,7 +106,7 @@ def fetch_and_optionally_store_batch(
                 "watts": len(_arr(j, "watts")),
                 "latlng": len(_arr(j, "latlng")),
             }
-            item = {"activity_id": aid, "ok": True, "sizes": sizes}
+            item: Dict[str, Any] = {"activity_id": aid, "ok": True, "sizes": sizes}
 
             if store:
                 ok, err = store_streams(
@@ -122,11 +123,12 @@ def fetch_and_optionally_store_batch(
 
             out["items"].append(item)
             time.sleep(0.1)  # gentle rate-limit
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             out["items"].append(
                 {"activity_id": aid, "ok": False, "error": str(e)}
             )
     return out
+
 
 def _fetch_streams_with_session(
     s: requests.Session,
@@ -155,23 +157,26 @@ def _store_stream_arrays(
     *,
     user_jwt: Optional[str] = None,
 ) -> None:
-    sb = _get_sb(user_jwt)
-    row = {
-        "activity_id": int(activity_id),
-        "user_id": int(user_id),
-        # user_uid necháme NULL – RLS pre streams to nepotrebuje
-        "user_uid": None,
-        "sport_type_fe": "other",
-        "time_s": _arr(j, "time"),
-        "heartrate_bpm": _arr(j, "heartrate") or None,
-        "cadence_rpm": _arr(j, "cadence") or None,
-        "power_w": _arr(j, "watts") or None,
-        "distance_m": _arr(j, "distance") or None,
-    }
-    sb.table(TABLE_ACTIVITIES_STREAMS).upsert(
-        row,
-        on_conflict="activity_id",
-    ).execute()
+    """
+    Jednoduchšie uloženie streamov priamo do TABLE_ACTIVITIES_STREAMS
+    cez Route_DB helper (bez RPC).
+    """
+    times = _arr(j, "time")
+    hr = _arr(j, "heartrate")
+    cad = _arr(j, "cadence")
+    poww = _arr(j, "watts")
+    dist = _arr(j, "distance")
+
+    db_upsert_stream_arrays(
+        user_id=int(user_id),
+        activity_id=int(activity_id),
+        time_s=[int(x) for x in times],
+        heartrate_bpm=[int(x) for x in hr] if hr else None,
+        cadence_rpm=[int(x) for x in cad] if cad else None,
+        power_w=[int(x) for x in poww] if poww else None,
+        distance_m=[float(x) for x in dist] if dist else None,
+        user_jwt=user_jwt,
+    )
 
 
 def cache_streams_for_activities(
@@ -180,6 +185,10 @@ def cache_streams_for_activities(
     *,
     user_jwt: Optional[str] = None,
 ) -> dict:
+    """
+    Ľahká cache varianta – používa priamy upsert do TABLE_ACTIVITIES_STREAMS.
+    Typicky sa volá zo workerov (user_jwt=None → service role).
+    """
     s = _session()
     saved = 0
     failed = 0
@@ -196,7 +205,7 @@ def cache_streams_for_activities(
                 user_jwt=user_jwt,
             )
             saved += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"[streams] save failed id={aid}: {e}")
             failed += 1
     return {"saved": saved, "failed": failed, "total": len(activity_ids)}
