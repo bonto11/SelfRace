@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
-from Configs.config import (
-    TABLE_ACTIVITIES_SPLITS,
-)
+from Modules.SQL.db_handler import get_client, get_service_client
+from Configs.config import TABLE_ACTIVITIES_SPLITS
+
+
+def _get_sb(user_jwt: Optional[str]):
+    """
+    Vyberie správneho Supabase klienta:
+    - ak máme user_jwt → RLS klient (get_client)
+    - ak user_jwt=None → service klient (get_service_client)
+    """
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    return get_service_client()
 
 
 def db_delete_splits_for_activity(
@@ -15,9 +23,8 @@ def db_delete_splits_for_activity(
 ) -> None:
     """
     Delete všetkých splits pre danú aktivitu.
-    Vždy ide cez get_client(user_jwt=...).
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     sb.table(TABLE_ACTIVITIES_SPLITS).delete().eq("activity_id", activity_id).execute()
 
 
@@ -28,7 +35,7 @@ def db_upsert_split(
     """
     Upsert jedného splitu pre aktivitu.
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
     sb.table(TABLE_ACTIVITIES_SPLITS).upsert(
         row,
         on_conflict="activity_id,split_index",
@@ -43,10 +50,10 @@ def db_get_activity_splits(
     """
     Všetky splits pre danú aktivitu daného usera.
 
-    - ak príde user_jwt → RLS (row-level security)
-    - ak user_jwt=None → použije default klienta z get_client
+    - s user_jwt: RLS (row-level security) klient
+    - bez user_jwt: service role klient (webhook/worker)
     """
-    sb = get_client(user_jwt=user_jwt)
+    sb = _get_sb(user_jwt)
 
     res = (
         sb.table(TABLE_ACTIVITIES_SPLITS)
