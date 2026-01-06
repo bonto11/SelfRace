@@ -68,21 +68,29 @@ def service_enqueue_job(
     if run_after:
         row["run_after"] = run_after
 
-    created = db_insert_job(row)
+    created = db_insert_job(row, user_jwt=user_jwt)
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
     return {"job": created, "note": "enqueued"}
 
+
 def service_list_active_jobs(
     user_id: int,
     job_types: Optional[List[str]] = None,
     limit: int = 50,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Jednoduchý wrapper pre FE/worker – aktívne joby.
     """
-    return db_get_active_jobs(user_id=user_id, job_types=job_types, limit=limit)
+    return db_get_active_jobs(
+        user_id=user_id,
+        job_types=job_types,
+        limit=limit,
+        user_jwt=user_jwt,
+    )
 
 
 def service_run_job_now(
@@ -90,12 +98,16 @@ def service_run_job_now(
     job_id: int,
     *,
     worker_id: str = "manual",
-    user_jwt: Optional[str] = None,  # aktuálne sa nepoužíva, ale nech prijíma
+    user_jwt: Optional[str] = None,  # môže byť None, keď job beží "service-role"
 ) -> Dict[str, Any]:
     """
     Spustí konkrétny job (id) pre daného usera – mini worker.
     """
-    job = db_get_job_by_id(user_id=user_id, job_id=job_id)
+    job = db_get_job_by_id(
+        user_id=user_id,
+        job_id=job_id,
+        user_jwt=user_jwt,
+    )
     if not job:
         return {"job": None, "error": "job_not_found"}
 
@@ -119,9 +131,14 @@ def service_run_job_now(
         job_id=job_id,
         worker_id=worker_id,
         attempts=attempts + 1,
+        user_jwt=user_jwt,
     )
     if not locked:
-        job_latest = db_get_job_by_id(user_id=user_id, job_id=job_id)
+        job_latest = db_get_job_by_id(
+            user_id=user_id,
+            job_id=job_id,
+            user_jwt=user_jwt,
+        )
         return {
             "job": job_latest,
             "error": "job_not_queued_or_already_running",
@@ -134,6 +151,10 @@ def service_run_job_now(
 
     # jedna spoločná premenná – väčšina service_* teraz očakáva user_jwt
     payload_jwt: Optional[str] = input_payload.get("user_jwt")
+    if payload_jwt is None:
+        # fallback – ak by job nemal user_jwt v inpute, použijeme ten,
+        # ktorý dostal worker (napr. interný runner)
+        payload_jwt = user_jwt
 
     result_payload: Optional[Dict[str, Any]] = None
 
@@ -255,6 +276,7 @@ def service_run_job_now(
             result=result_payload,
             error=None,
             progress=100,
+            user_jwt=user_jwt,
         )
         return {"job": finished, "error": None}
 
@@ -265,5 +287,6 @@ def service_run_job_now(
             result=None,
             error=str(e),
             progress=100,
+            user_jwt=user_jwt,
         )
         return {"job": finished, "error": str(e)}
