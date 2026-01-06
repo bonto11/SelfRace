@@ -384,29 +384,25 @@ def _decide_laps_or_splits(
 
 
 # -----------------------------------------------------------------------------
-# Hlavná service funkcia
+# Core: import aktivity zo Stravy (summary + detaily)
 # -----------------------------------------------------------------------------
-def service_sync_activities(
+def _import_activities_from_strava(
     user_id: int,
+    *,
+    user_jwt: str,
     force_last_days: Optional[int] = 30,
     fetch_details: bool = True,
-    user_jwt: Optional[str] = None,
-) -> Dict[str, int]:
+) -> tuple[Dict[str, int], str]:
     """
-    Stiahne aktivity zo Stravy a uloží do Supabase (cez Routes_DB).
-    Potom:
-      - dotiahne detaily (laps/splits),
-      - napočíta HR zóny z cached streams,
-      - spustí plan_match job na auto-mapping.
+    Čisto import aktivity zo Stravy:
+      - /athlete/activities (summary)
+      - laps/splits pre posledné aktivity
 
-    Manuálny sync z FE → JWT je povinné (RLS).
+    Vracia:
+      - stats dict (imported/updated/skipped/fetched)
+      - since_iso_for_scan (odkiaľ ďalej počítať streams/zóny)
     """
-    if not user_jwt:
-        raise RuntimeError(
-            "service_sync_activities: missing user_jwt (RLS/JWT required)"
-        )
-    jwt = cast(str, user_jwt)
-
+    jwt = user_jwt
     ses = _get_session()
 
     # AFTER (epoch)
@@ -524,7 +520,34 @@ def service_sync_activities(
 
             time.sleep(0.1)
 
-    # -------- streams + enrichment zón + plan_match job --------
+    stats = {
+        "imported": int(imported),
+        "updated": int(updated),
+        "skipped": int(skipped),
+        "fetched": int(fetched),
+    }
+
+    print(
+        f"[SYNC] import done: imported={imported} "
+        f"updated={updated} skipped={skipped} fetched={fetched}"
+    )
+
+    return stats, since_iso_for_scan
+
+
+def _enrich_activities_after_import(
+    user_id: int,
+    since_iso_for_scan: str,
+    *,
+    user_jwt: str,
+) -> None:
+    """
+    Spoločná enrichment logika po importe:
+      - streams
+      - HR zóny
+      - plan_match job
+    """
+    jwt = user_jwt
     try:
         ids_recent = db_get_recent_activity_ids(
             user_id=user_id,
@@ -532,6 +555,10 @@ def service_sync_activities(
             limit=500,
             user_jwt=jwt,
         )
+
+        if not ids_recent:
+            print("[SYNC] enrich: no recent activity ids, skipping")
+            return
 
         print(f"[SYNC] streams: fetching & storing for {len(ids_recent)} ids …")
         streams_res = fetch_and_optionally_store_batch(
@@ -607,16 +634,48 @@ def service_sync_activities(
     except Exception as e:
         print(f"[SYNC] zones enrichment failed: {e}")
 
-    print(
-        f"[SYNC] done: imported={imported} updated={updated} "
-        f"skipped={skipped} fetched={fetched}"
+
+# -----------------------------------------------------------------------------
+# Hlavná service funkcia – manuálny import z FE (initial/delta)
+# -----------------------------------------------------------------------------
+def service_sync_activities(
+    user_id: int,
+    force_last_days: Optional[int] = 30,
+    fetch_details: bool = True,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, int]:
+    """
+    Manuálny sync z FE (import zo Stravy):
+
+    - Stiahne aktivity zo Stravy a uloží do Supabase (cez Routes_DB).
+    - Dotiahne detaily (laps/splits).
+    - Napočíta HR zóny z cached streams.
+    - Spustí plan_match job na auto-mapping.
+
+    JWT je povinné (RLS).
+    """
+    if not user_jwt:
+        raise RuntimeError(
+            "service_sync_activities: missing user_jwt (RLS/JWT required)"
+        )
+    jwt = cast(str, user_jwt)
+
+    # 1) čistý import (summary + detaily)
+    stats, since_iso_for_scan = _import_activities_from_strava(
+        user_id=user_id,
+        user_jwt=jwt,
+        force_last_days=force_last_days,
+        fetch_details=fetch_details,
     )
-    return {
-        "imported": int(imported),
-        "updated": int(updated),
-        "skipped": int(skipped),
-        "fetched": int(fetched),
-    }
+
+    # 2) enrichment (streams + zóny + plan_match)
+    _enrich_activities_after_import(
+        user_id=user_id,
+        since_iso_for_scan=since_iso_for_scan,
+        user_jwt=jwt,
+    )
+
+    return stats
 
 
 # -----------------------------------------------------------------------------
@@ -635,8 +694,7 @@ def service_sync_single_activity(
     - upsert do activities_summary
     - laps/splits do activities_laps / activities_splits
 
-    Zóny + async job nechávame zatiaľ na manuálny sync, aby sme neriešili RLS
-    v ďalších servisných vrstvách. Dôležité je, že aktivita + laps/splits sú v DB.
+    Zóny + plan_match zatiaľ neriešime tu – robí ich manuálny import.
     """
     supabase = get_service_client()  # service role, obchádza RLS
     ses = _get_session()
@@ -673,8 +731,8 @@ def service_sync_single_activity(
             "skipped": 1,
             "fetched": 0,
         }
-    
-     # ak už bola niekedy soft-deleted, sync ju má "oživiť"
+
+    # ak už bola niekedy soft-deleted, sync ju má "oživiť"
     row["deleted_at"] = None
 
     # zisti, či už existuje (user_id + activity_id)
