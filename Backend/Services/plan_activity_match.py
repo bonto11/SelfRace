@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
+from fastapi import HTTPException
+
 from Configs.config import (
     COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
 )
@@ -15,6 +17,17 @@ from Routes_DB.coach_plan_daily import (
 from Routes_DB.activities_summary import db_get_summary_for_activities
 
 from Services.coach_plan_daily import service_auto_extend_daily_plan
+
+
+# ───────────────────────────────────────── helpers: common ─────────────────────────────────────────
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Celý plan-match robíme striktne cez RLS → JWT je povinné.
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
@@ -115,8 +128,8 @@ def _name_hint_score(plan_title: str, act_name: str) -> float:
     # kľúčové slová (možnosť pridávať)
     groups = [
         ["interval", "repeats", "repeat", "interv"],
-        ["vo2", "vO2"],
-        ["hill", "hills", "climb"],
+        ["vo2"],
+        ["hill", "hills, climb"],
         ["tempo"],
         ["threshold", "thr"],
         ["easy", "recovery", "regen"],
@@ -223,7 +236,7 @@ def _load_activities_summary(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
+    user_jwt: str,
 ) -> List[Dict[str, Any]]:
     """
     Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu (RLS/JWT).
@@ -247,14 +260,16 @@ def auto_map_plans_for_activities(
     days_window: int = 1,
     score_threshold: float = 0.55,
     *,
-    user_jwt: Optional[str] = None,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Automaticky namapuje aktivity (Strava) na plánované session
     a potom prípadne automaticky rozšíri daily plán dopredu.
 
-    Ak príde user_jwt, všetky DB volania idú cez RLS/JWT klienta.
+    Všetko beží striktne pod user JWT → RLS.
     """
+    user_jwt = _require_jwt(user_jwt)
+
     print(
         f"[PLAN-MATCH] start user={user_id} "
         f"activity_ids={activity_ids} days_window={days_window} "
@@ -266,7 +281,11 @@ def auto_map_plans_for_activities(
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
 
     # 1) aktivity
-    acts = _load_activities_summary(user_id, activity_ids, user_jwt=user_jwt)
+    acts = _load_activities_summary(
+        user_id=user_id,
+        activity_ids=activity_ids,
+        user_jwt=user_jwt,
+    )
     if not acts:
         print("[PLAN-MATCH] no activities_summary rows loaded")
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
@@ -279,7 +298,7 @@ def auto_map_plans_for_activities(
             act_dates.append(d)
     if not act_dates:
         print("[PLAN-MATCH] no valid dates in activities")
-        return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
+        return {"processed": len(acts), "candidates": 0, "mapped": 0, "skipped": 0}
 
     min_d = str(min(act_dates) - timedelta(days=days_window))
     max_d = str(max(act_dates) + timedelta(days=days_window))

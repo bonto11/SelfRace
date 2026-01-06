@@ -72,7 +72,7 @@ def service_enqueue_job(
     if run_after:
         row["run_after"] = run_after
 
-    # ❗ TU NEMÁ BYŤ user_jwt=user_jwt
+    # DB vrstva beží na service role – sem user_jwt neposielame
     created = db_insert_job(row)
     if not created:
         return {"job": None, "note": "enqueue_failed"}

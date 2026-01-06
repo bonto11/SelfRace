@@ -15,9 +15,13 @@ from Schemas.user_zones import ZonesOut, Sport
 
 # ------------ helpers ------------
 
+
 def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Zabezpečí, že zóny vždy idú cez RLS (auth usera).
+    Ak JWT chýba, končíme 401 – použiteľné len z FE / auth rout.
+    """
     if not user_jwt:
-        # tu garantujeme, že všetky zóny idú cez RLS
         raise HTTPException(status_code=401, detail="Missing Authorization JWT")
     return user_jwt
 
@@ -43,7 +47,7 @@ def _canon_sport(s: Optional[str]) -> Sport:
 def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
     """
     Normalizuje raw DB row (hr_max_bpm, z2_min_bpm, ...) na jednotný ZonesOut.
-    Doplňuje chýbajúce min boundary z predošlej zóny.
+    Doplňuje chýbajúce spodné hranice z predchádzajúcej zóny.
     """
     hr_max = (
         _num(row.get("hr_max_bpm"))
@@ -117,6 +121,7 @@ def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 # ------------ PUBLIC SERVICES: CRUD/LIST ------------
 
+
 def service_load_user_zones(
     user_id: int,
     sport: Optional[str] = None,
@@ -124,6 +129,7 @@ def service_load_user_zones(
 ) -> Optional[ZonesOut]:
     """
     Najnovšie zóny pre daného usera (+voliteľne sport), normalizované na ZonesOut.
+    Vyžaduje user_jwt (RLS).
     """
     user_jwt = _require_jwt(user_jwt)
 
@@ -142,6 +148,7 @@ def service_load_user_zones_all_latest(
 ) -> Dict[str, ZonesOut]:
     """
     Vráti dict { sport -> ZonesOut } – pre každý sport len najnovší záznam.
+    Vyžaduje user_jwt (RLS).
     """
     user_jwt = _require_jwt(user_jwt)
 
@@ -152,7 +159,8 @@ def service_load_user_zones_all_latest(
     out: Dict[str, ZonesOut] = {}
     for r in rows:
         s = _canon_sport(r.get("sport"))
-        if s not in out:  # prvý = najnovší (máme DESC order)
+        # prvý je najnovší (DESC order v DB vrstve)
+        if s not in out:
             out[s] = _normalize_out(r)
     return out
 
@@ -164,6 +172,7 @@ def service_save_user_zones(
 ) -> ZonesOut:
     """
     Uloží nové zóny pre usera a vráti normalizovaný posledný stav (ZonesOut).
+    Vyžaduje user_jwt (RLS).
     """
     user_jwt = _require_jwt(user_jwt)
 
@@ -172,11 +181,14 @@ def service_save_user_zones(
         row,
         user_jwt=user_jwt,
     )
-    return service_load_user_zones(
-        user_id,
-        row["sport"],
-        user_jwt=user_jwt,
-    ) or {"sport": row["sport"]}  # type: ignore[return-value]
+    return (
+        service_load_user_zones(
+            user_id,
+            row["sport"],
+            user_jwt=user_jwt,
+        )
+        or {"sport": row["sport"]}  # type: ignore[return-value]
+    )
 
 
 def service_choose_best_zones(
@@ -186,6 +198,7 @@ def service_choose_best_zones(
 ) -> Optional[ZonesOut]:
     """
     Heuristika: skús preferred_sport, potom running, potom hocičo.
+    Vyžaduje user_jwt (RLS).
     """
     user_jwt = _require_jwt(user_jwt)
 
@@ -221,8 +234,9 @@ def service_build_zones_block_for_analysis(
     Vráti blok pre CoachAnalyzeInput["zones"].
 
     Aktuálne:
-      - mapujeme len “best” zóny do "run" vetvy
+      - mapujeme “best” zóny do "run" vetvy
       - lthr_bpm nechávame None (LT2 pôjde z thresholds)
+    Vyžaduje user_jwt (RLS).
     """
     user_jwt = _require_jwt(user_jwt)
 
@@ -257,7 +271,7 @@ def service_build_zones_block_for_analysis(
 
     return {
         "run": {
-            "lthr_bpm": None,  # LT2 pôjde z thresholds service
+            "lthr_bpm": None,
             "hr_max": best.get("hr_max"),
             "zones": zones_list,
         }

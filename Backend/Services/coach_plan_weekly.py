@@ -1,8 +1,9 @@
-# Services/coach_plan_weekly.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 from uuid import uuid4
+
+from fastapi import HTTPException
 
 from Configs.config import (
     DEFAULT_MODEL,
@@ -30,8 +31,16 @@ from Routes_DB.coach_plan_meta import (
 
 from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
-    service_list_external_events_window,
 )
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Všetky coach_plan_weekly operácie chceme striktne cez RLS/JWT.
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def _load_athlete_state_for_plan(
@@ -49,13 +58,19 @@ def _load_athlete_state_for_plan(
 
     Keď nič nenájdeme → ValueError (FE dostane 400).
     """
+    jwt = _require_jwt(user_jwt)
+
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
-        row = db_get_state_by_id(state_id, user_jwt=user_jwt)
+        row = db_get_state_by_id(state_id, user_jwt=jwt)
 
     if not row:
-        row = db_get_latest_state_for_user(user_id=user_id, version=1, user_jwt=user_jwt)
+        row = db_get_latest_state_for_user(
+            user_id=user_id,
+            version=1,
+            user_jwt=jwt,
+        )
 
     if not row:
         raise ValueError(
@@ -118,8 +133,13 @@ def service_generate_weekly_plan(
     - založí coach_plan_meta so status='generated'
     - vráti { weekly_plan, plan_id, state_id, ... }
     """
+    jwt = _require_jwt(user_jwt)
+
     # 1) vstup pre AI (rovnaký ako pre analyze)
-    analyze_input = build_input_from_db(user_id, user_jwt=user_jwt)
+    analyze_input = build_input_from_db(
+        user_id,
+        user_jwt=jwt,
+    )
 
     # PREFS – flatten (kvôli tomu, že v prefs môže byť 'value' obal)
     raw_prefs = analyze_input.get("prefs") or {}
@@ -138,7 +158,7 @@ def service_generate_weekly_plan(
         try:
             external_events_block = service_build_external_events_block_for_analysis(
                 user_id=user_id,
-                user_jwt=user_jwt,
+                user_jwt=jwt,
             )
         except Exception:
             external_events_block = None
@@ -147,7 +167,7 @@ def service_generate_weekly_plan(
     state_bundle = _load_athlete_state_for_plan(
         user_id=user_id,
         state_id=state_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     used_state_id = state_bundle["state_id"]
@@ -201,19 +221,22 @@ def service_generate_weekly_plan(
     deleted_rows = 0
     archived_meta = 0
     if overwrite:
-        # meta – archived (toto zatiaľ ide cez service-role v DB vrstve)
-        archived_meta = db_archive_user_plans(user_id,user_jwt=user_jwt)
+        # meta – archived (už cez RLS/JWT v DB vrstve)
+        archived_meta = db_archive_user_plans(
+            user_id,
+            user_jwt=jwt,
+        )
 
         # starý weekly plán – podľa doterajšej logiky
         latest_plan_id = db_get_latest_plan_id_for_user(
             user_id=user_id,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
         if latest_plan_id:
             deleted_rows = db_clear_weekly_for_user_plan(
                 user_id=user_id,
                 plan_id=latest_plan_id,
-                user_jwt=user_jwt,
+                user_jwt=jwt,
             )
 
     # 5) priprav INSERT rows
@@ -245,7 +268,10 @@ def service_generate_weekly_plan(
 
         rows.append(row)
 
-    inserted_rows = db_insert_weekly_rows(rows, user_jwt=user_jwt)
+    inserted_rows = db_insert_weekly_rows(
+        rows,
+        user_jwt=jwt,
+    )
 
     # 6) založ meta záznam (status='generated')
     plan_meta_dict = (
@@ -270,7 +296,7 @@ def service_generate_weekly_plan(
     print("[DB-COACH-WEEKLY] plan_id:", plan_id)
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
         plan_id=plan_id,
         base_state_id=used_state_id if isinstance(used_state_id, int) else None,
         weeks_total=len(weeks_list) or horizon_weeks,
@@ -278,7 +304,7 @@ def service_generate_weekly_plan(
         end_date=end_date,
         main_sport=main_sport,
         goal_kind=goal_kind,
-        source="ai_weekly_v1",   
+        source="ai_weekly_v1",
     )
 
     resp: Dict[str, Any] = {
@@ -315,22 +341,30 @@ def service_get_latest_weekly_plan(
       }
     Alebo None, ak user nemá žiadny plán.
     """
-    # 1) Skús najnovší plan_id z coach_plan_meta (tá DB vrstva zatiaľ môže ísť cez service-role)
-    meta = db_get_latest_plan_meta_for_user(user_id=user_id, user_jwt=user_jwt)
+    jwt = _require_jwt(user_jwt)
+
+    # 1) Skús najnovší plan_id z coach_plan_meta
+    meta = db_get_latest_plan_meta_for_user(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
     plan_id: Optional[str] = None
     if meta and isinstance(meta.get("plan_id"), str):
         plan_id = meta["plan_id"]
 
     # fallback na weekly tabuľku (cez RLS)
     if not plan_id:
-        plan_id = db_get_latest_plan_id_for_user(user_id=user_id, user_jwt=user_jwt)
+        plan_id = db_get_latest_plan_id_for_user(
+            user_id=user_id,
+            user_jwt=jwt,
+        )
         if not plan_id:
             return None
 
     rows = db_get_weekly_for_user_plan(
         user_id=user_id,
         plan_id=plan_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
     if not rows:
         return None

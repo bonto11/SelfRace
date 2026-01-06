@@ -1,7 +1,8 @@
-# backend/Services/pareto_source.py
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple, Iterable, Optional
+
+from fastapi import HTTPException
 
 from Modules.SQL.db_handler import get_client
 from Configs.config import (
@@ -15,6 +16,15 @@ from Configs.config_sport import DEBUG_PARETO
 def _log(*a):
     if DEBUG_PARETO:
         print("[PARETO:SOURCE]", *a)
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Pareto zdroj chceme ťahať striktne pod user JWT (RLS).
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def _as_int(x: Any) -> Optional[int]:
@@ -82,7 +92,7 @@ def _get_client_for_user(user_jwt: Optional[str] = None):
     """
     Vráti Supabase client.
     - ak príde user_jwt → použije sa RLS klient via JWT
-    - inak fallback na pôvodný get_client() (service role), kým budeme všade 100 % na JWT
+    - fallback len na rozdielnu signatúru get_client(), nie na anonymný prístup
     """
     try:
         return get_client(user_jwt=user_jwt)
@@ -99,7 +109,7 @@ def _activity_ids_in_range(
     *,
     user_jwt: Optional[str] = None,
 ) -> List[Tuple[int, str]]:
-    sb = _get_client_for_user(user_jwt)
+    sb = _get_client_for_user(user_jwt=user_jwt)
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("activity_id,date")
@@ -131,7 +141,7 @@ def _load_enrichment_for_ids(
     if not ids:
         return out
 
-    sb = _get_client_for_user(user_jwt)
+    sb = _get_client_for_user(user_jwt=user_jwt)
 
     for chunk in _chunked(ids, 1000):
         r = (
@@ -154,14 +164,16 @@ def get_pareto_source(
     months: int = 3,
     count_no_hr_as_easy: bool = True,
     *,
-    user_jwt: Optional[str] = None,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Kompletný výstrel dát za posledné `months` mesiacov (SUMMARY + ENRICHMENT),
     vrátane easy/hard/total. FE si to drží v SESSION a filtruje lokálne.
 
-    Ak príde user_jwt, všetky dotazy idú cez RLS/JWT klienta.
+    Musí prísť user_jwt – všetky dotazy cez RLS klienta.
     """
+    jwt = _require_jwt(user_jwt)
+
     months = max(1, int(months))
     start_dt = datetime.now(timezone.utc) - timedelta(days=months * 31)
     start_iso = start_dt.strftime("%Y-%m-%d")
@@ -171,7 +183,7 @@ def get_pareto_source(
         user_id=user_id,
         start_iso=start_iso,
         end_iso=end_iso,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
     if not id_rows:
         return {"success": True, "data": [], "months": months}
@@ -190,7 +202,7 @@ def get_pareto_source(
     enr = _load_enrichment_for_ids(
         user_id=user_id,
         ids=ids,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     out: List[Dict[str, Any]] = []

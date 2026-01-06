@@ -1,8 +1,9 @@
-# Services/coach_plan_daily.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 from datetime import date, timedelta
+
+from fastapi import HTTPException
 
 from Configs.config import DEFAULT_MODEL
 from Services.coach_athlete_state import build_input_from_db
@@ -24,6 +25,15 @@ from Routes_DB.coach_plan_meta import (
 from Routes_AI.generate_plan_daily import generate_daily_week_json
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.coach_external_events import service_list_external_events_window
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Všetky coach_plan_daily operácie chceme striktne cez RLS/JWT.
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def _build_daily_rows_from_ai(
@@ -100,6 +110,8 @@ def service_generate_daily_week(
     """
     Generovanie DAILY plánu pre konkrétny týždeň + zápis do DB (RLS/JWT).
     """
+    jwt = _require_jwt(user_jwt)
+
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
@@ -108,10 +120,10 @@ def service_generate_daily_week(
     if not plan_id_effective:
         meta = db_get_active_plan_meta_for_user(
             user_id=user_id,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         ) or db_get_latest_plan_meta_for_user(
             user_id=user_id,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
@@ -119,7 +131,7 @@ def service_generate_daily_week(
     # 1) vstup z analyze (rovnaké ako weekly) – už s JWT
     analyze_input = build_input_from_db(
         user_id=user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     # prefs + targets pre AI
@@ -144,7 +156,7 @@ def service_generate_daily_week(
             user_id=user_id,
             plan_id=plan_id_effective,
             week_index=week_index,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
     week_meta: Dict[str, Any] = {
@@ -166,7 +178,7 @@ def service_generate_daily_week(
                 user_id=user_id,
                 from_iso=week_meta["week_start"],
                 to_iso=week_meta["week_end"],
-                user_jwt=user_jwt,
+                user_jwt=jwt,
             )
             external_block = {
                 "window": {
@@ -182,7 +194,7 @@ def service_generate_daily_week(
     state_row = db_get_latest_state_for_user(
         user_id=user_id,
         version=1,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
     athlete_state_json = (state_row or {}).get("state_json") or None
 
@@ -234,7 +246,7 @@ def service_generate_daily_week(
         available_equipment=available_equipment,
         today=date.today(),
         weeks_back=8,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     # 7) zápis do DB (coach_plan_daily) – RLS
@@ -245,7 +257,7 @@ def service_generate_daily_week(
             plan_id=plan_id_out,
             week_start=week_meta["week_start"],
             week_end=week_meta["week_end"],
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
     rows_to_insert: List[Dict[str, Any]] = _build_daily_rows_from_ai(
@@ -257,7 +269,7 @@ def service_generate_daily_week(
     inserted_rows = (
         db_insert_daily_rows(
             rows_to_insert,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
         if rows_to_insert
         else 0
@@ -281,6 +293,7 @@ def service_generate_daily_week(
 
     return resp
 
+
 def service_get_daily_overview(
     user_id: int,
     horizon_days: int = 7,
@@ -290,15 +303,17 @@ def service_get_daily_overview(
     """
     Vráti jednoduchý DAILY prehľad pre najbližších N dní (RLS).
     """
+    jwt = _require_jwt(user_jwt)
+
     if horizon_days <= 0:
         horizon_days = 7
 
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     ) or db_get_latest_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     plan_id: Optional[str] = None
@@ -309,7 +324,7 @@ def service_get_daily_overview(
         user_id=user_id,
         horizon_days=horizon_days,
         plan_id=plan_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     ) or []
 
     by_date: Dict[str, List[Dict[str, Any]]] = {}
@@ -372,6 +387,8 @@ def service_auto_extend_daily_plan(
     Postará sa o to, aby aktívny (alebo posledný) plán mal vždy
     aspoň `min_horizon_days` naplánovaných dní v coach_plan_daily.
     """
+    jwt = _require_jwt(user_jwt)
+
     if min_horizon_days <= 0:
         min_horizon_days = 6
 
@@ -379,10 +396,10 @@ def service_auto_extend_daily_plan(
 
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     ) or db_get_latest_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     plan_id: Optional[str] = None
@@ -400,7 +417,7 @@ def service_auto_extend_daily_plan(
         user_id=user_id,
         horizon_days=365,
         plan_id=plan_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     ) or []
 
     if not daily_rows:
@@ -428,7 +445,7 @@ def service_auto_extend_daily_plan(
     weekly_rows: List[Dict[str, Any]] = db_get_weekly_for_user_plan(
         user_id=user_id,
         plan_id=plan_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     ) or []
 
     if not weekly_rows:
@@ -511,7 +528,7 @@ def service_auto_extend_daily_plan(
             overwrite=True,
             model=None,
             debug=False,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
         generated.append(week_idx)
 
@@ -519,7 +536,7 @@ def service_auto_extend_daily_plan(
             user_id=user_id,
             horizon_days=365,
             plan_id=plan_id,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         ) or []
 
         current_last_str = max(

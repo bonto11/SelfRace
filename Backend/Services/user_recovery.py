@@ -16,7 +16,7 @@ from Routes_DB.user_recovery import (
 
 def _require_jwt(user_jwt: Optional[str]) -> str:
     if not user_jwt:
-        # tu máš istotu, že bez JWT sa recovery vôbec nespustí
+        # recovery vždy cez RLS
         raise HTTPException(status_code=401, detail="Missing Authorization JWT")
     return user_jwt
 
@@ -94,6 +94,9 @@ def service_build_recovery_block_for_analysis(
     user_id: int,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """
+    Blok pre CoachAnalyzeInput["recovery"].
+    """
     user_jwt = _require_jwt(user_jwt)
 
     rows = db_get_recent_recovery(

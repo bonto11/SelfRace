@@ -44,7 +44,8 @@ def service_fetch_user_bests(
     user_jwt = _require_jwt(user_jwt)
     rows = db_fetch_user_bests(user_id, sport, user_jwt=user_jwt)
     for r in rows:
-        r["time_str"] = seconds_to_hhmmss(r.get("best_time_s"))
+        best_time_s = r.get("best_time_s") or 0
+        r["time_str"] = seconds_to_hhmmss(best_time_s)
     return rows
 
 
@@ -140,25 +141,28 @@ def service_build_bests_block_for_analysis(
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Vráti minimalizované PB pre AI:
-      { run: [...], ride: [...] }
+    Minimalizované PB pre AI:
+      { run: [...], ride: [...] } – zatiaľ len run.
     """
     user_jwt = _require_jwt(user_jwt)
 
     out: Dict[str, List[Dict[str, Any]]] = {"run": [], "ride": []}
 
+    # použijeme priamo DB vrstvu + dopočítame time_str, nech je to lacné
     run_rows = db_fetch_user_bests(user_id, "run", user_jwt=user_jwt)
     for r in run_rows:
+        best_time_s = r.get("best_time_s") or 0
+        time_str = seconds_to_hhmmss(best_time_s)
+
         out["run"].append(
             {
                 "distance_m": r.get("distance_m"),
-                "best_time_s": r.get("best_time_s"),
-                "time_str": r.get("time_str")
-                or seconds_to_hhmmss(r.get("best_time_s")),
+                "best_time_s": best_time_s,
+                "time_str": time_str,
                 "date": r.get("achieved_at") or r.get("updated_at"),
             }
         )
 
-    # ak neskôr pridáš bike, môžeš doplniť fetch pre "ride"
+    # ak neskôr pridáš bike, doplníš aj "ride"
 
     return out

@@ -44,7 +44,10 @@ def service_build_recent_load_raw(
       - moving_time_s
       - sport_type / sport_type_fe / sport_type_ovrd
 
-    Ak príde user_jwt → DB volanie ide cez RLS/JWT variant (ak ju funkcia podporuje).
+    user_jwt sa len forwarduje do DB vrstvy:
+      - user_jwt != None → Supabase RLS klient
+      - user_jwt == None → service klient (cron/worker)
+
     Výstup:
       {
         "schema_version": 1,
@@ -67,19 +70,12 @@ def service_build_recent_load_raw(
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=window_days - 1)).isoformat()
 
-    # activities_summary cez helper – s JWT ak je k dispozícii
-    if user_jwt is not None:
-        try:
-            rows: List[Dict[str, Any]] = db_fetch_summary_since(
-                user_id=user_id,
-                since_iso=since,
-                user_jwt=user_jwt,  # type: ignore[arg-type]
-            )
-        except TypeError:
-            # fallback ak DB funkcia ešte nepodporuje user_jwt
-            rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
-    else:
-        rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
+    # activities_summary cez helper – DB vrstva si sama vyberie klienta
+    rows: List[Dict[str, Any]] = db_fetch_summary_since(
+        user_id=user_id,
+        since_iso=since,
+        user_jwt=user_jwt,
+    )
 
     if not rows:
         return {
@@ -222,7 +218,7 @@ def service_build_recent_load_block_for_analysis(
 ) -> Dict[str, Any]:
     """
     High-level blok pre AI (coach_athlete_state):
-      - natiahne summary z DB (s JWT → RLS),
+      - natiahne summary z DB (s JWT → RLS / bez JWT → service),
       - spočíta weekly recent_load,
       - oseká nulové polia.
     """

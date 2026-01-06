@@ -18,6 +18,7 @@ def service_resolve_user(
 ) -> Optional[int]:
     """
     Resolve /users/resolve – nájde user_id podľa auth_uid.
+    DB vrstva sama rieši RLS vs service-role podľa user_jwt.
     """
     row = db_get_user_by_auth_uid(auth_uid, user_jwt=user_jwt)
     if not row:
@@ -31,7 +32,6 @@ def service_get_user_uid(
 ) -> str:
     """
     Vráti auth_uid pre dané user_id, alebo hodí RuntimeError ak chýba.
-    (Kompatibilita s pôvodným get_user_uid.)
     """
     uid = db_get_user_uid(user_id, user_jwt=user_jwt)
     if not uid:
@@ -48,7 +48,8 @@ def service_create_user(
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Nahrádza pôvodné create_user z user_handler.
+    Vytvorí usera, ak daný e-mail ešte v DB nie je.
+    Môže bežať pod RLS (JWT) aj pod service rolou (bez JWT).
     """
     existing = db_get_user_by_email(mail_address, user_jwt=user_jwt)
     if existing:
@@ -111,7 +112,7 @@ def service_get_or_create_user_id(
     user_jwt: Optional[str] = None,
 ) -> int:
     """
-    Nahrádza pôvodné get_or_create_user_id z user_handler.
+    get_or_create user podľa e-mailu – funguje aj pod RLS, aj pod service role.
     """
     user = db_get_user_by_email(email, user_jwt=user_jwt)
     if not user:

@@ -27,14 +27,14 @@ DEFAULT_USER_SETTINGS: Dict[str, Any] = {
     "time_format_24h": True,
     "date_format": "yyyy-MM-dd",
     # do budúcna môžeš pridať:
-    # "units": "metric" / "imperial",
+    # "units": "metric",
     # "week_start": "Mon",
 }
 
 
 def _require_jwt(user_jwt: Optional[str]) -> str:
     """
-    Všetky user_prefs operácie chceme cez RLS → JWT je povinné.
+    Všetky user_prefs operácie idú cez RLS → JWT je povinné.
     """
     if not user_jwt:
         raise HTTPException(status_code=401, detail="Missing Authorization JWT")
@@ -101,7 +101,7 @@ def service_delete_user_pref(
     return db_delete_pref_single(user_id, key, user_jwt=user_jwt)
 
 
-# ---------- špecificky pre COACH prefs / AI analýzu ----------
+# ---------- COACH prefs / AI analýza ----------
 
 
 def service_load_coach_prefs_for_analysis(
@@ -149,7 +149,7 @@ def service_save_coach_prefs(
 
 
 def _parse_json_value(val: Any) -> Dict[str, Any]:
-    """Interný helper na rozumné rozparsovanie JSON/string/dict hodnoty."""
+    """Rozumné rozparsovanie JSON/string/dict hodnoty."""
     if isinstance(val, dict):
         return val
     if isinstance(val, str):
@@ -172,13 +172,11 @@ def service_load_user_settings(
 
     row = db_get_pref_single(user_id, USER_SETTINGS_KEY, user_jwt=user_jwt)
     if not row:
-        # nič v DB -> vráť čisté defaulty
         return DEFAULT_USER_SETTINGS.copy()
 
     raw_val = row.get("value")
     parsed = _parse_json_value(raw_val)
 
-    # merge: DB má prioritu, ale všetky default keys budú vždy prítomné
     merged = DEFAULT_USER_SETTINGS.copy()
     merged.update(parsed or {})
     return merged
@@ -194,7 +192,6 @@ def service_save_user_settings(
     """
     user_jwt = _require_jwt(user_jwt)
 
-    # merge s defaultmi, aby sme mali vždy konzistentný shape
     merged = DEFAULT_USER_SETTINGS.copy()
     merged.update(settings or {})
     return db_upsert_pref_single(

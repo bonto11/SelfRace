@@ -1,8 +1,8 @@
-# Services/profile_metrics.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional
+
 from fastapi import HTTPException
 
 from Routes_DB.profile_metrics import (
@@ -221,7 +221,8 @@ def service_get_vo2_estimate(
             "updated_at": row.get("measured_at") if row else None,
         }
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(statuscode=500, detail=str(e))  # (malý typo v pôvodnom kóde)
+        # TU bol typo: statuscode -> status_code
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:

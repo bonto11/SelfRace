@@ -115,13 +115,27 @@ def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+from typing import Optional, Union  # už tam máš, len nech zostane
+
 def birth_to_iso_date(val: Optional[Union[str, date, datetime]]) -> Optional[str]:
+    """
+    Normalizuje vstup na 'YYYY-MM-DD'.
+
+    - str: zoberie prvých 10 znakov (kvôli 'YYYY-MM-DDTHH:MM:SSZ' apod.)
+    - date: použije .isoformat()
+    - datetime: vezme .date().isoformat()
+    """
     if val is None:
         return None
+
     if isinstance(val, str):
-        return val  # očakávame "YYYY-MM-DD"
-    if isinstance(val, date) and not isinstance(val, datetime):
-        return val.isoformat()
+        # safe orez – aj keď FE pošle full ISO, nespôsobí to bordel
+        return val[:10]
+
     if isinstance(val, datetime):
         return val.date().isoformat()
+
+    if isinstance(val, date):
+        return val.isoformat()
+
     return None

@@ -1,4 +1,3 @@
-# Services/profile_static.py
 from __future__ import annotations
 
 from typing import Optional, Dict, Any

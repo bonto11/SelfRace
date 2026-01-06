@@ -1,10 +1,11 @@
-# Services/synchronization.py
 from __future__ import annotations
 
 import statistics
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
+
+from fastapi import HTTPException
 
 from Services.activities_streams import fetch_and_optionally_store_batch
 from Modules.API.Strava.activities import StravaActivitiesClient
@@ -34,6 +35,16 @@ from Routes_DB.activities_splits import (
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Synchronizácia spúšťaná z FE musí ísť cez user JWT (RLS).
+    Webhook / interný CRON môže volať iné služby bez JWT (service-role).
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 # -----------------------------------------------------------------------------
@@ -645,11 +656,7 @@ def service_sync_activities(
 
     Tu JWT vyžadujeme – ide o RLS klienta.
     """
-    if not user_jwt:
-        raise RuntimeError(
-            "service_sync_activities: missing user_jwt (RLS/JWT required)"
-        )
-    jwt = cast(str, user_jwt)
+    jwt = _require_jwt(user_jwt)
 
     # 1) čistý import (summary + detaily)
     stats, since_iso_for_scan = _import_activities_from_strava(

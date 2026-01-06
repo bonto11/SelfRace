@@ -1,8 +1,9 @@
-# Services/coach_strength_mapper.py
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Dict, List, Tuple, Optional
+
+from fastapi import HTTPException
 
 from Schemas.coach_plan_daily import STRENGTH_EXERCISE_CATALOG
 from Routes_DB.coach_strength_history import (
@@ -19,6 +20,12 @@ SLOT_TO_EXERCISES: Dict[str, List[str]] = {
     "upper_pull": ["trx_row", "band_row"],
     "upper_push": ["pushup"],
 }
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def _has_equipment(ex: Dict[str, Any], available_equipment: List[str]) -> bool:
@@ -127,12 +134,13 @@ def enrich_daily_plan_with_strength_exercises(
     RLS:
       - čítanie aj zápis coach_strength_history ide cez user_jwt.
     """
+    jwt = _require_jwt(user_jwt)
 
     # 1) vytiahneme históriu cez RLS
     history = db_get_strength_history_for_user(
         user_id=user_id,
         weeks_back=weeks_back,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
     _normalize_history_dates(history)
 
@@ -220,7 +228,7 @@ def enrich_daily_plan_with_strength_exercises(
     if new_history_rows:
         db_insert_strength_history_rows(
             new_history_rows,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
     return daily_plan

@@ -14,7 +14,7 @@ from Routes_DB.user_thresholds import (
 
 def _require_jwt(user_jwt: Optional[str]) -> str:
     """
-    Všetky threshold operácie chceme cez RLS → JWT je povinné.
+    Všetky threshold operácie idú cez RLS → JWT je povinné.
     """
     if not user_jwt:
         raise HTTPException(status_code=401, detail="Missing Authorization JWT")
@@ -61,8 +61,7 @@ def service_list_user_thresholds(
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Všetky threshold riadky usera (DESC podľa updated_at),
-    normalizované (_row_norm).
+    Všetky threshold riadky usera (DESC podľa updated_at), normalizované.
     """
     user_jwt = _require_jwt(user_jwt)
     rows = db_list_user_thresholds_raw(user_id, user_jwt=user_jwt)
@@ -133,7 +132,7 @@ def service_upsert_user_threshold(
         "measurement_type": payload.get("measurement_type") or "manual",
     }
 
-    # vyhoď None, nech do DB nejde bordel
+    # vyhoď None – nech do DB nejde bordel
     clean = {k: v for k, v in row.items() if v is not None}
 
     db_upsert_user_threshold(
@@ -158,11 +157,7 @@ def service_build_thresholds_block_for_analysis(
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Vráti blok pre CoachAnalyzeInput["thresholds"].
-
-    - preferuje running + LT2 / HR_LT2 / PACE_LT2
-    - fallback: prvý running riadok
-    - ak nič nemáme, vráti prázdny blok so správnym tvarom
+    Blok pre CoachAnalyzeInput["thresholds"] – fokus na running LT2.
     """
     user_jwt = _require_jwt(user_jwt)
 
@@ -200,7 +195,6 @@ def service_build_thresholds_block_for_analysis(
                 break
 
     if not best:
-        # nič použiteľné
         return {
             "run": {
                 "lthr_bpm": None,
@@ -214,7 +208,7 @@ def service_build_thresholds_block_for_analysis(
         "lthr_bpm": best.get("hr_bpm"),
         "pace_lthr_s_per_km": best.get("pace_sec_km"),
         "ftp_power_w": None,        # bike FTP nateraz neriešime
-        "vo2max_estimate": None,    # neskôr môžeš pridať
+        "vo2max_estimate": None,    # môžeš doplniť neskôr
     }
 
     return {"run": block_run}

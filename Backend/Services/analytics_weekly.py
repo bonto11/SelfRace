@@ -1,9 +1,11 @@
-# backend/Services/analytics_weekly.py
+# Services/analytics_weekly.py
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 from typing import Any, Dict, Optional, List
+
+from fastapi import HTTPException
 
 from Services.time import week_key, week_bounds
 from Services.analytics_MonoStrainTrimp import (
@@ -17,6 +19,15 @@ from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.user_recovery import db_get_recent_recovery
 from Routes_DB.profile_static import db_fetch_user_sex
 from Routes_DB.profile_metrics import fetch_user_hr_max
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Weekly analytics sú striktne user-scoped → vždy cez RLS/JWT.
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def service_weekly_analytics(
@@ -36,23 +47,12 @@ def service_weekly_analytics(
         * RHR (denné)    -> users_recovery.RHR_bpm (db_get_recent_recovery),
                             v kóde si spravíme mapu date -> rhr
                             a fallback o 1–2 dni dozadu, inak Edwards TRIMP.
-
-    Ak príde user_jwt, všetky DB volania idú cez RLS/JWT varianty (ak sú dostupné).
     """
+    jwt = _require_jwt(user_jwt)
 
     # ---------------- HR parametre (sex, HR_max) ----------------
-    if user_jwt is not None:
-        try:
-            sex: Optional[str] = db_fetch_user_sex(user_id, user_jwt=user_jwt)  # type: ignore[arg-type]
-        except TypeError:
-            sex = db_fetch_user_sex(user_id)
-        try:
-            hr_max: Optional[float] = fetch_user_hr_max(user_id, user_jwt=user_jwt)  # type: ignore[arg-type]
-        except TypeError:
-            hr_max = fetch_user_hr_max(user_id)
-    else:
-        sex = db_fetch_user_sex(user_id)
-        hr_max = fetch_user_hr_max(user_id)
+    sex: Optional[str] = db_fetch_user_sex(user_id, user_jwt=jwt)
+    hr_max: Optional[float] = fetch_user_hr_max(user_id, user_jwt=jwt)
 
     # ---------------- časové okno ----------------
     # berieme o týždeň viac, aby sme mali buffer pre monotóniu / strain
@@ -62,23 +62,11 @@ def service_weekly_analytics(
     # ---------------- Recovery RHR (date -> RHR_bpm) ----------------
     # máme funkciu "posledných N dní", tak zoberieme weeks*7 + buffer
     days_window = (weeks + 1) * 7
-    if user_jwt is not None:
-        try:
-            recovery_rows: List[Dict[str, Any]] = db_get_recent_recovery(
-                user_id=user_id,
-                days=days_window,
-                user_jwt=user_jwt,  # type: ignore[arg-type]
-            )
-        except TypeError:
-            recovery_rows = db_get_recent_recovery(
-                user_id=user_id,
-                days=days_window,
-            )
-    else:
-        recovery_rows = db_get_recent_recovery(
-            user_id=user_id,
-            days=days_window,
-        )
+    recovery_rows: List[Dict[str, Any]] = db_get_recent_recovery(
+        user_id=user_id,
+        days=days_window,
+        user_jwt=jwt,
+    )
 
     rhr_by_date: Dict[str, float] = {}
     for rr in recovery_rows or []:
@@ -113,23 +101,11 @@ def service_weekly_analytics(
         return None
 
     # ---------------- Aktivity za okno (summary) ----------------
-    if user_jwt is not None:
-        try:
-            rows: List[Dict[str, Any]] = db_fetch_summary_since(
-                user_id=user_id,
-                since_iso=since_iso,
-                user_jwt=user_jwt,  # type: ignore[arg-type]
-            )
-        except TypeError:
-            rows = db_fetch_summary_since(
-                user_id=user_id,
-                since_iso=since_iso,
-            )
-    else:
-        rows = db_fetch_summary_since(
-            user_id=user_id,
-            since_iso=since_iso,
-        )
+    rows: List[Dict[str, Any]] = db_fetch_summary_since(
+        user_id=user_id,
+        since_iso=since_iso,
+        user_jwt=jwt,
+    )
 
     def new_week() -> Dict[str, Any]:
         return {
