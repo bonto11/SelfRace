@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from Services.users import service_resolve_user
 from Schemas.users import ResolveIn
-from Modules.HTTP.auth_deps import inject_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.post("/resolve")
 async def resolve_user(
     payload: ResolveIn,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     POST /users/resolve
