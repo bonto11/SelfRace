@@ -1,9 +1,10 @@
-# backend/Services/analytics_pareto8020.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 from collections import defaultdict
+
+from fastapi import HTTPException
 
 from Configs.config_sport import (
     DEBUG_PARETO,
@@ -23,6 +24,15 @@ from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 def _log(*a: Any) -> None:
     if DEBUG_PARETO:
         print("[PARETO:SERVICE]", *a)
+
+
+def _require_jwt(user_jwt: Optional[str]) -> str:
+    """
+    Pareto analytics sú user-scoped → vždy očakávame RLS/JWT klienta.
+    """
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 # ----------------------- interné helpers ------------------------
@@ -105,11 +115,13 @@ def service_pareto_source(
     Proxy na veľký dataset pre session.
     Jediná zodpovednosť: forwardnúť user_jwt ďalej (RLS vs service role).
     """
+    jwt = _require_jwt(user_jwt)
+
     return get_pareto_source(
         user_id=user_id,
         months=months,
         count_no_hr_as_easy=count_no_hr_as_easy,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
 
@@ -124,6 +136,8 @@ def service_pareto_widget(
     """
     Sumár za posledné `days` – vracia iba payload `data` bez `success`.
     """
+    jwt = _require_jwt(user_jwt)
+
     days = int(days)
     sports = _parse_sport_query(sport)  # None => použi default set
 
@@ -134,7 +148,7 @@ def service_pareto_widget(
     rows = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since_iso,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     # filter podľa športu
@@ -171,7 +185,7 @@ def service_pareto_widget(
     enr = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=ids,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     easy = sum(_easy(r) for r in enr)
@@ -199,6 +213,8 @@ def service_pareto_trend(
     Podporuje multi-sport query (?sport=run,ride).
     Vracia zoznam radkov (bez success wrappera).
     """
+    jwt = _require_jwt(user_jwt)
+
     weeks = max(1, int(weeks))
     sports = _parse_sport_query(sport)  # None => default set
 
@@ -209,7 +225,7 @@ def service_pareto_trend(
     rows = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since_iso,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
@@ -257,21 +273,21 @@ def service_pareto_trend(
             user_id,
             list(set(all_ids)),
             fetch_if_missing=True,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
         )
 
         if prev.get("ok"):
             upsert_enrichment_minutes(
                 user_id,
                 prev.get("items") or [],
-                user_jwt=user_jwt,
+                user_jwt=jwt,
             )
 
     # načítaj enrichment z DB vrstvy
     enr = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=list(set(all_ids)),
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     )
 
     emap = {
