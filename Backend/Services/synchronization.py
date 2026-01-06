@@ -1,3 +1,4 @@
+# Services/synchronization.py
 from __future__ import annotations
 
 import statistics
@@ -5,10 +6,8 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, cast
 
-import requests
-
-from Modules.API.Strava.streams import fetch_and_optionally_store_batch
-from Modules.API.Strava.auth import get_access_token
+from Services.activities_streams import fetch_and_optionally_store_batch
+from Modules.API.Strava.activities import StravaActivitiesClient
 from Services.activity_zones import (
     preview_zones_for_activities,
     upsert_enrichment_minutes,
@@ -21,7 +20,7 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
-    db_get_activity_summary_one,  # predpoklad: user_jwt je voliteľné
+    db_get_activity_summary_one,  # predpoklad: má voliteľné user_jwt
 )
 
 from Routes_DB.activities_laps import (
@@ -32,7 +31,6 @@ from Routes_DB.activities_splits import (
     db_delete_splits_for_activity,
     db_upsert_split,
 )
-from Configs.config import STRAVA_BASE
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
@@ -82,7 +80,7 @@ def to_str(v, default: str = "") -> str:
 def iso_to_timestamptz_str(iso: Optional[str]) -> Optional[str]:
     """
     "2025-09-06T20:03:35Z"        -> "2025-09-06 20:03:35+00"
-    "2025-09-06T20:03:35+01:00"   -> "2025-09-06 19:03:35+00" (UTC)
+    "2025-09-06T20:03:35+01:00"   -> "2025-09-06 19:03:35+00" (prevedené do UTC)
     """
     if not iso:
         return None
@@ -171,24 +169,6 @@ def _median_dist(laps_dt: List[tuple[float, float]]) -> Optional[float]:
         return float(statistics.median([d for (d, _) in laps_dt]))
     except Exception:
         return None
-
-
-# -----------------------------------------------------------------------------
-# Strava session
-# -----------------------------------------------------------------------------
-def _get_session() -> requests.Session:
-    """
-    Číta access token z Modules.API.Strava.auth.get_access_token().
-    Ak expirovaný, tento modul si ho má sám refreshnúť.
-    """
-    token = get_access_token()
-    if not token:
-        raise RuntimeError(
-            "Chýba Strava access token. Spusť autorizáciu a /exchange_token."
-        )
-    s = requests.Session()
-    s.headers.update({"Authorization": f"Bearer {token}"})
-    return s
 
 
 # -----------------------------------------------------------------------------
@@ -402,7 +382,7 @@ def _import_activities_from_strava(
       - stats dict (imported/updated/skipped/fetched)
       - since_iso_for_scan (odkiaľ ďalej počítať streams/zóny)
     """
-    ses = _get_session()
+    client = StravaActivitiesClient()
 
     # AFTER (epoch)
     after_epoch = 0
@@ -433,13 +413,11 @@ def _import_activities_from_strava(
 
     page = 1
     while True:
-        r = ses.get(
-            f"{STRAVA_BASE}/athlete/activities",
-            params={"after": after_epoch, "per_page": 100, "page": page},
-            timeout=30,
+        items: List[Dict[str, Any]] = client.fetch_athlete_activities_page(
+            after_epoch=after_epoch,
+            page=page,
+            per_page=100,
         )
-        r.raise_for_status()
-        items: List[Dict[str, Any]] = r.json() or []
         if not items:
             break
 
@@ -486,13 +464,8 @@ def _import_activities_from_strava(
 
         for i, aid in enumerate(ids, start=1):
             try:
-                rl = ses.get(f"{STRAVA_BASE}/activities/{aid}/laps", timeout=30)
-                rl.raise_for_status()
-                laps_raw = rl.json() or []
-
-                rd = ses.get(f"{STRAVA_BASE}/activities/{aid}", timeout=30)
-                rd.raise_for_status()
-                detail = rd.json() or {}
+                laps_raw = client.fetch_activity_laps(aid)
+                detail = client.fetch_activity_detail(aid)
                 splits_raw = detail.get("splits_metric") or []
 
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
@@ -714,7 +687,7 @@ def service_sync_single_activity(
     - laps/splits do activities_laps / activities_splits
     - enrichment (streams + zóny + plan_match) pre konkrétnu aktivitu
     """
-    ses = _get_session()
+    client = StravaActivitiesClient()
 
     imported = 0
     updated = 0
@@ -725,9 +698,7 @@ def service_sync_single_activity(
 
     # ---------- 1) DETAIL AKTIVITY ----------
     try:
-        rd = ses.get(f"{STRAVA_BASE}/activities/{aid}", timeout=30)
-        rd.raise_for_status()
-        detail = rd.json() or {}
+        detail = client.fetch_activity_detail(aid)
         fetched += 1
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] failed to fetch activity id={aid}: {e}")
@@ -752,7 +723,7 @@ def service_sync_single_activity(
     # ak už bola niekedy soft-deleted, sync ju má "oživiť"
     row["deleted_at"] = None
 
-    # zisti, či už existuje
+    # zisti, či už existuje (user_id + activity_id)
     try:
         existing_row = db_get_activity_summary_one(
             activity_id=aid,
@@ -781,9 +752,7 @@ def service_sync_single_activity(
     # ---------- 3) LAPS / SPLITS (voliteľné) ----------
     if fetch_details:
         try:
-            rl = ses.get(f"{STRAVA_BASE}/activities/{aid}/laps", timeout=30)
-            rl.raise_for_status()
-            laps_raw = rl.json() or []
+            laps_raw = client.fetch_activity_laps(aid)
         except Exception as e:  # noqa: BLE001
             print(f"[SYNC:single] laps fetch failed id={aid}: {e}")
             laps_raw = []

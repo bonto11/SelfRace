@@ -1,4 +1,4 @@
-# backend/Services/activity_zones.py
+# Services/activity_zones.py
 from __future__ import annotations
 
 from typing import Dict, Any, List, Optional, cast
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from Services.users import service_get_user_uid
 from Services.user_zones import service_load_user_zones, ZonesOut
-from Modules.API.Strava.streams import (
+from Services.activities_streams import (
     fetch_and_optionally_store_batch,
     cache_streams_for_activities,
 )

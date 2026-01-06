@@ -6,13 +6,13 @@ import hashlib
 import json
 import asyncio
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence, Optional, List
+from typing import Any, Mapping, Sequence, Optional, List, Dict, Literal
+from pydantic import BaseModel, Field
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from Modules.API.Strava.webhook_models import StravaWebhookEventIn
 from Modules.SQL.db_handler import get_service_client
 from Modules.API.Strava.webhook_strava_processor import _process_single_event
 
@@ -26,6 +26,14 @@ API_BASE_URL = "https://api-dev.patrikmbontar.eu"
 FRONTEND_URL = "https://dev.patrikmbontar.eu"  # kam po úspešnom / neúspešnom pripojení
 
 
+class StravaWebhookEventIn(BaseModel):
+    aspect_type: Literal["create", "update", "delete"]
+    event_time: int
+    object_id: int
+    object_type: Literal["activity", "athlete"]
+    owner_id: int
+    subscription_id: Optional[int] = None
+    updates: Dict[str, Any] = Field(default_factory=dict)
 # =================================================
 # HELPERY NA ENV (ID/SECRET/TOKEN nechaj v ENV)
 # =================================================
