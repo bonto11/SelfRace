@@ -225,9 +225,22 @@ def _zone_of(hr: Optional[int], Z: Dict[str, int]) -> str:
 
 # -------------------- fetch ak chýba --------------------
 
-def _fetch_and_store_if_missing(user_id: int, activity_ids: List[int]) -> None:
-    # Strava + service-role klient – tu JWT nedáva zmysel
-    fetch_and_optionally_store_batch(user_id, activity_ids, store=True)
+def _fetch_and_store_if_missing(
+    user_id: int,
+    activity_ids: List[int],
+    user_jwt: Optional[str] = None,
+) -> None:
+    """
+    Dotiahne chýbajúce streamy zo Stravy a uloží ich.
+    Použije helper z Modules.API.Strava.streams, ktorý vie pracovať
+    s RLS alebo service-role podľa implementácie a user_jwt.
+    """
+    fetch_and_optionally_store_batch(
+        user_id,
+        activity_ids,
+        store=True,
+        user_jwt=user_jwt,
+    )
 
 
 # -------------------- výpočet minút --------------------
@@ -313,7 +326,11 @@ def preview_zones_for_activities(
             missing.append(int(aid))
 
     if missing and fetch_if_missing:
-        _fetch_and_store_if_missing(user_id, missing)
+        _fetch_and_store_if_missing(
+            user_id,
+            missing,
+            user_jwt=user_jwt,
+        )
 
     # summary pre mapping activity_id -> sport
     s_map = _load_summary_map(
@@ -443,7 +460,7 @@ def backfill_enrichment_for_period(
     ]
 
     for i in range(0, total, max(1, batch)):
-        chunk = ids[i : i + batch]
+        chunk = ids[i: i + batch]
         logs.append(f"[backfill] chunk {i//batch+1}: {len(chunk)} ids")
 
         res = preview_zones_for_activities(
@@ -500,9 +517,13 @@ def compute_and_save_enrichment_for_ids(
     have_set = set(have_ids)
     missing = [aid for aid in ids if aid not in have_set]
 
-    # 2) dotiahni chýbajúce streamy (Strava + service-role, bez JWT)
+    # 2) dotiahni chýbajúce streamy (Strava + helper, ktorý vie pracovať s user_jwt)
     if missing:
-        cache_streams_for_activities(user_id, missing)
+        cache_streams_for_activities(
+            user_id,
+            missing,
+            user_jwt=user_jwt,
+        )
 
     # 3) výpočet (už cez JWT)
     prev = preview_zones_for_activities(
