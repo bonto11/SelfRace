@@ -1,4 +1,3 @@
-# Routes_FE/user_zones.py
 from __future__ import annotations
 
 from typing import Optional
@@ -11,7 +10,7 @@ from Services.user_zones import (
     service_load_user_zones_all_latest,
     service_save_user_zones,
 )
-from Modules.HTTP.auth_deps import inject_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -21,7 +20,7 @@ def get_user_zones(
     user_id: int,
     sport: Optional[str] = Query(None, description="napr. running/cycling"),
     all: bool = Query(False, description="vráť najnovšie podľa každého športu"),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     GET /users/{user_id}/zones?sport=running
@@ -53,7 +52,7 @@ def get_user_zones(
 def put_user_zones(
     user_id: int,
     payload: ZonesPayload,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     PUT /users/{user_id}/zones
