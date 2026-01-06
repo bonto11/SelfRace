@@ -21,7 +21,7 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
-    db_get_activity_summary_one,  # predpoklad: má voliteľné user_jwt
+    db_get_activity_summary_one,  # predpoklad: user_jwt je voliteľné
 )
 
 from Routes_DB.activities_laps import (
@@ -82,7 +82,7 @@ def to_str(v, default: str = "") -> str:
 def iso_to_timestamptz_str(iso: Optional[str]) -> Optional[str]:
     """
     "2025-09-06T20:03:35Z"        -> "2025-09-06 20:03:35+00"
-    "2025-09-06T20:03:35+01:00"   -> "2025-09-06 19:03:35+00" (prevedené do UTC)
+    "2025-09-06T20:03:35+01:00"   -> "2025-09-06 19:03:35+00" (UTC)
     """
     if not iso:
         return None
@@ -752,7 +752,7 @@ def service_sync_single_activity(
     # ak už bola niekedy soft-deleted, sync ju má "oživiť"
     row["deleted_at"] = None
 
-    # zisti, či už existuje (user_id + activity_id)
+    # zisti, či už existuje
     try:
         existing_row = db_get_activity_summary_one(
             activity_id=aid,
