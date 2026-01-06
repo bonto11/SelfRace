@@ -1,7 +1,6 @@
-# Services/analytics.py
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
 
@@ -41,10 +40,11 @@ def service_get_activity_detail(
     """
     jwt = _require_jwt(user_jwt)
 
+    # ✅ summary už ide len podľa activity_id + JWT (bez user_id)
     summary = db_get_activity_summary_one(
-        user_id=user_id,
         activity_id=activity_id,
         user_jwt=jwt,
+        # service=False → RLS klient (default)
     )
 
     laps = db_get_activity_laps(
