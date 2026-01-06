@@ -17,6 +17,7 @@ from Services.coach_plan_daily import service_generate_daily_week
 from Services.plan_activity_match import auto_map_plans_for_activities
 from Services.coach_plan_daily import service_auto_extend_daily_plan
 
+# typy jobov, ktoré worker vie spracovať
 ALLOWED_JOB_TYPES = {
     "sync",
     "uspert_enrichment_zones",
@@ -38,10 +39,13 @@ def service_enqueue_job(
     run_after: Optional[str] = None,
     max_attempts: int = 3,
     dedupe_key: Optional[str] = None,
-    user_jwt: Optional[str] = None,    # ⬅️ sem ho budeme posielať z routera
+    user_jwt: Optional[str] = None,  # posielame z routera, ide len do payloadu
 ) -> Dict[str, Any]:
     """
     Vytvorí nový job v async_jobs.
+
+    Pozor: DB vrstva (Routes_DB.async_jobs) používa service klient,
+    nijaké user_jwt sa tam neposiela. JWT dávame len do job.input.
     """
 
     if job_type not in ALLOWED_JOB_TYPES:
@@ -68,7 +72,8 @@ def service_enqueue_job(
     if run_after:
         row["run_after"] = run_after
 
-    created = db_insert_job(row, user_jwt=user_jwt)
+    # ❗ TU NEMÁ BYŤ user_jwt=user_jwt
+    created = db_insert_job(row)
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
@@ -79,18 +84,12 @@ def service_list_active_jobs(
     user_id: int,
     job_types: Optional[List[str]] = None,
     limit: int = 50,
-    *,
-    user_jwt: Optional[str] = None,
+    user_jwt: Optional[str] = None,  # zatiaľ nepoužívame, nechávame pre budúcnosť
 ) -> List[Dict[str, Any]]:
     """
     Jednoduchý wrapper pre FE/worker – aktívne joby.
     """
-    return db_get_active_jobs(
-        user_id=user_id,
-        job_types=job_types,
-        limit=limit,
-        user_jwt=user_jwt,
-    )
+    return db_get_active_jobs(user_id=user_id, job_types=job_types, limit=limit)
 
 
 def service_run_job_now(
@@ -98,16 +97,12 @@ def service_run_job_now(
     job_id: int,
     *,
     worker_id: str = "manual",
-    user_jwt: Optional[str] = None,  # môže byť None, keď job beží "service-role"
+    user_jwt: Optional[str] = None,  # JWT berieme z job.input, nie z tohto argumentu
 ) -> Dict[str, Any]:
     """
     Spustí konkrétny job (id) pre daného usera – mini worker.
     """
-    job = db_get_job_by_id(
-        user_id=user_id,
-        job_id=job_id,
-        user_jwt=user_jwt,
-    )
+    job = db_get_job_by_id(user_id=user_id, job_id=job_id)
     if not job:
         return {"job": None, "error": "job_not_found"}
 
@@ -131,14 +126,9 @@ def service_run_job_now(
         job_id=job_id,
         worker_id=worker_id,
         attempts=attempts + 1,
-        user_jwt=user_jwt,
     )
     if not locked:
-        job_latest = db_get_job_by_id(
-            user_id=user_id,
-            job_id=job_id,
-            user_jwt=user_jwt,
-        )
+        job_latest = db_get_job_by_id(user_id=user_id, job_id=job_id)
         return {
             "job": job_latest,
             "error": "job_not_queued_or_already_running",
@@ -151,10 +141,6 @@ def service_run_job_now(
 
     # jedna spoločná premenná – väčšina service_* teraz očakáva user_jwt
     payload_jwt: Optional[str] = input_payload.get("user_jwt")
-    if payload_jwt is None:
-        # fallback – ak by job nemal user_jwt v inpute, použijeme ten,
-        # ktorý dostal worker (napr. interný runner)
-        payload_jwt = user_jwt
 
     result_payload: Optional[Dict[str, Any]] = None
 
@@ -215,13 +201,6 @@ def service_run_job_now(
             if payload_jwt is None:
                 raise ValueError("plan_match: job.input.user_jwt is required")
 
-            # očakávame, že job.input má tvar:
-            # {
-            #   "activity_ids": [12345, 23456],
-            #   "days_window": 1,          # optional, default 1
-            #   "score_threshold": 0.55    # optional, default 0.55
-            # }
-
             raw_ids = input_payload.get("activity_ids") or []
             if not isinstance(raw_ids, list):
                 raise ValueError("plan_match: activity_ids must be a list")
@@ -276,7 +255,6 @@ def service_run_job_now(
             result=result_payload,
             error=None,
             progress=100,
-            user_jwt=user_jwt,
         )
         return {"job": finished, "error": None}
 
@@ -287,6 +265,5 @@ def service_run_job_now(
             result=None,
             error=str(e),
             progress=100,
-            user_jwt=user_jwt,
         )
         return {"job": finished, "error": str(e)}
