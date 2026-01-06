@@ -3,13 +3,12 @@ from __future__ import annotations
 import statistics
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import requests
 
 from Modules.API.Strava.streams import fetch_and_optionally_store_batch
 from Modules.API.Strava.auth import get_access_token
-from Modules.SQL.db_handler import get_service_client
 from Services.activity_zones import (
     preview_zones_for_activities,
     upsert_enrichment_minutes,
@@ -22,6 +21,7 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
+    db_get_activity_summary_one,  # predpoklad: má voliteľné user_jwt
 )
 
 from Routes_DB.activities_laps import (
@@ -389,7 +389,7 @@ def _decide_laps_or_splits(
 def _import_activities_from_strava(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
     force_last_days: Optional[int] = 30,
     fetch_details: bool = True,
 ) -> tuple[Dict[str, int], str]:
@@ -402,14 +402,13 @@ def _import_activities_from_strava(
       - stats dict (imported/updated/skipped/fetched)
       - since_iso_for_scan (odkiaľ ďalej počítať streams/zóny)
     """
-    jwt = user_jwt
     ses = _get_session()
 
     # AFTER (epoch)
     after_epoch = 0
     since_iso_for_scan = "1970-01-01"
 
-    last_dt = db_get_last_activity_start(user_id, user_jwt=jwt)
+    last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
     if last_dt:
         after_epoch = int(last_dt.timestamp())
         since_iso_for_scan = last_dt.strftime("%Y-%m-%d")
@@ -421,7 +420,7 @@ def _import_activities_from_strava(
     existing = db_get_existing_activity_ids_since(
         user_id,
         since_iso_for_scan,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
     )
 
     imported = updated = skipped = fetched = 0
@@ -464,7 +463,7 @@ def _import_activities_from_strava(
 
         # dávkuj upserty
         if len(to_upsert) >= 200:
-            db_upsert_activities_summary(to_upsert, user_jwt=jwt)
+            db_upsert_activities_summary(to_upsert, user_jwt=user_jwt)
             print(f"[SYNC] upsert batch summary rows={len(to_upsert)}")
             to_upsert.clear()
 
@@ -472,7 +471,7 @@ def _import_activities_from_strava(
         time.sleep(0.1)  # šetrenie
 
     if to_upsert:
-        db_upsert_activities_summary(to_upsert, user_jwt=jwt)
+        db_upsert_activities_summary(to_upsert, user_jwt=user_jwt)
         print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
         to_upsert.clear()
 
@@ -482,7 +481,7 @@ def _import_activities_from_strava(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=MAX_FULL_DETAILS_PER_RUN,
-            user_jwt=jwt,
+            user_jwt=user_jwt,
         )
 
         for i, aid in enumerate(ids, start=1):
@@ -499,18 +498,18 @@ def _import_activities_from_strava(
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
                 if mode == "splits":
-                    db_delete_laps_for_activity(aid, user_jwt=jwt)
+                    db_delete_laps_for_activity(aid, user_jwt=user_jwt)
                 elif mode == "laps":
-                    db_delete_splits_for_activity(aid, user_jwt=jwt)
+                    db_delete_splits_for_activity(aid, user_jwt=user_jwt)
 
                 if mode == "splits":
                     for idx, S in enumerate(splits_raw, start=1):
                         row = _normalize_split(S, user_id, aid, idx)
-                        db_upsert_split(row, user_jwt=jwt)
+                        db_upsert_split(row, user_jwt=user_jwt)
                 elif mode == "laps":
                     for L in laps_raw:
                         row = _normalize_lap(L, user_id, aid)
-                        db_upsert_lap(row, user_jwt=jwt)
+                        db_upsert_lap(row, user_jwt=user_jwt)
                 else:
                     pass
 
@@ -535,37 +534,26 @@ def _import_activities_from_strava(
     return stats, since_iso_for_scan
 
 
-def _enrich_activities_after_import(
+# -----------------------------------------------------------------------------
+# Spoločná enrichment logika (streams + zóny + plan_match)
+# -----------------------------------------------------------------------------
+def _enrich_activities_for_ids(
     user_id: int,
-    since_iso_for_scan: str,
+    activity_ids: List[int],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
 ) -> None:
-    """
-    Spoločná enrichment logika po importe:
-      - streams
-      - HR zóny
-      - plan_match job
-    """
-    jwt = user_jwt
+    if not activity_ids:
+        print("[SYNC] enrich: no activity ids, skipping")
+        return
+
     try:
-        ids_recent = db_get_recent_activity_ids(
-            user_id=user_id,
-            since_iso_date=since_iso_for_scan,
-            limit=500,
-            user_jwt=jwt,
-        )
-
-        if not ids_recent:
-            print("[SYNC] enrich: no recent activity ids, skipping")
-            return
-
-        print(f"[SYNC] streams: fetching & storing for {len(ids_recent)} ids …")
+        print(f"[SYNC] streams: fetching & storing for {len(activity_ids)} ids …")
         streams_res = fetch_and_optionally_store_batch(
             user_id,
-            ids_recent,
+            activity_ids,
             store=True,
-            user_jwt=jwt,
+            user_jwt=user_jwt,
         )
         print(
             f"[SYNC] streams: stored={streams_res.get('stored')} / "
@@ -575,9 +563,9 @@ def _enrich_activities_after_import(
         print("[SYNC] zones: computing minutes from cached streams …")
         prev = preview_zones_for_activities(
             user_id,
-            ids_recent,
+            activity_ids,
             fetch_if_missing=False,
-            user_jwt=jwt,
+            user_jwt=user_jwt,
         )
 
         to_save = [
@@ -585,7 +573,7 @@ def _enrich_activities_after_import(
             for it in (prev.get("items") or [])
             if it.get("ok") and it.get("minutes")
         ]
-        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=jwt)
+        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
 
         # auto-mapping aktivít na plán cez async job plan_match
@@ -595,14 +583,14 @@ def _enrich_activities_after_import(
                 user_uid="",  # v synci nemáš UID, nechávame placeholder
                 job_type="plan_match",
                 payload={
-                    "activity_ids": ids_recent,
+                    "activity_ids": activity_ids,
                     "days_window": 1,
                     "score_threshold": 0.55,
                 },
                 priority=90,
                 max_attempts=1,
                 dedupe_key=None,
-                user_jwt=jwt,
+                user_jwt=user_jwt,
             )
 
             job = (enqueue or {}).get("job")
@@ -613,7 +601,7 @@ def _enrich_activities_after_import(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map",
-                    user_jwt=jwt,
+                    user_jwt=user_jwt,
                 )
 
                 job_row = run.get("job") or {}
@@ -635,6 +623,36 @@ def _enrich_activities_after_import(
         print(f"[SYNC] zones enrichment failed: {e}")
 
 
+def _enrich_activities_after_import(
+    user_id: int,
+    since_iso_for_scan: str,
+    *,
+    user_jwt: Optional[str] = None,
+) -> None:
+    """
+    Wrapper: vyberie recent IDs od since_iso_for_scan a pustí enrichment.
+    """
+    try:
+        ids_recent = db_get_recent_activity_ids(
+            user_id=user_id,
+            since_iso_date=since_iso_for_scan,
+            limit=500,
+            user_jwt=user_jwt,
+        )
+
+        if not ids_recent:
+            print("[SYNC] enrich: no recent activity ids, skipping")
+            return
+
+        _enrich_activities_for_ids(
+            user_id=user_id,
+            activity_ids=ids_recent,
+            user_jwt=user_jwt,
+        )
+    except Exception as e:
+        print(f"[SYNC] enrich wrapper failed: {e}")
+
+
 # -----------------------------------------------------------------------------
 # Hlavná service funkcia – manuálny import z FE (initial/delta)
 # -----------------------------------------------------------------------------
@@ -652,7 +670,7 @@ def service_sync_activities(
     - Napočíta HR zóny z cached streams.
     - Spustí plan_match job na auto-mapping.
 
-    JWT je povinné (RLS).
+    Tu JWT vyžadujeme – ide o RLS klienta.
     """
     if not user_jwt:
         raise RuntimeError(
@@ -685,18 +703,17 @@ def service_sync_single_activity(
     user_id: int,
     strava_activity_id: int,
     fetch_details: bool = True,
-    user_jwt: Optional[str] = None,  # ponecháme v signatúre, ale NEPOUŽÍVAME
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, int]:
     """
-    Sync JEDNEJ Strava aktivity – verzia pre webhook (bez JWT, cez service klienta).
+    Sync JEDNEJ Strava aktivity – pre webhook (user_jwt=None → service client)
+    aj manuálne použitie (user_jwt != None → RLS).
 
     - detail (/activities/{id})
     - upsert do activities_summary
     - laps/splits do activities_laps / activities_splits
-
-    Zóny + plan_match zatiaľ neriešime tu – robí ich manuálny import.
+    - enrichment (streams + zóny + plan_match) pre konkrétnu aktivitu
     """
-    supabase = get_service_client()  # service role, obchádza RLS
     ses = _get_session()
 
     imported = 0
@@ -737,33 +754,17 @@ def service_sync_single_activity(
 
     # zisti, či už existuje (user_id + activity_id)
     try:
-        exists_resp = (
-            supabase.table("activities_summary")
-            .select("activity_id")
-            .eq("user_id", user_id)
-            .eq("activity_id", aid)
-            .limit(1)
-            .execute()
+        existing_row = db_get_activity_summary_one(
+            activity_id=aid,
+            user_jwt=user_jwt,
         )
-        exists = bool(getattr(exists_resp, "data", None))
+        exists = bool(existing_row)
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] check existing failed id={aid}: {e}")
         exists = False
 
     try:
-        upsert_resp = (
-            supabase.table("activities_summary")
-            .upsert(row)
-            .execute()
-        )
-        print(
-            "[SYNC:single] summary upsert resp.data:",
-            getattr(upsert_resp, "data", None),
-        )
-        print(
-            "[SYNC:single] summary upsert resp.error:",
-            getattr(upsert_resp, "error", None),
-        )
+        db_upsert_activities_summary([row], user_jwt=user_jwt)
         if exists:
             updated += 1
         else:
@@ -792,43 +793,41 @@ def service_sync_single_activity(
 
         try:
             if mode == "splits":
-                # zmaž staré SPLITS
-                (
-                    supabase.table("activities_splits")
-                    .delete()
-                    .eq("user_id", user_id)
-                    .eq("activity_id", aid)
-                    .execute()
-                )
+                # zmaž staré LAPS (keď preferujeme splits)
+                db_delete_laps_for_activity(aid, user_jwt=user_jwt)
 
                 split_rows = [
                     _normalize_split(S, user_id, aid, idx)
                     for idx, S in enumerate(splits_raw, start=1)
                 ]
-                if split_rows:
-                    supabase.table("activities_splits").upsert(split_rows).execute()
+                for row in split_rows:
+                    db_upsert_split(row, user_jwt=user_jwt)
 
             elif mode == "laps":
-                # zmaž staré LAPS
-                (
-                    supabase.table("activities_laps")
-                    .delete()
-                    .eq("user_id", user_id)
-                    .eq("activity_id", aid)
-                    .execute()
-                )
+                # zmaž staré SPLITS (keď preferujeme laps)
+                db_delete_splits_for_activity(aid, user_jwt=user_jwt)
 
                 lap_rows = [
                     _normalize_lap(L, user_id, aid)
                     for L in laps_raw
                 ]
-                if lap_rows:
-                    supabase.table("activities_laps").upsert(lap_rows).execute()
+                for row in lap_rows:
+                    db_upsert_lap(row, user_jwt=user_jwt)
             else:
                 print(f"[SYNC:single] no usable laps/splits for id={aid}")
         except Exception as e:  # noqa: BLE001
             print(f"[SYNC:single] laps/splits upsert failed id={aid}: {e}")
             skipped += 1
+
+    # ---------- 4) ENRICHMENT pre túto jednu aktivitu ----------
+    try:
+        _enrich_activities_for_ids(
+            user_id=user_id,
+            activity_ids=[aid],
+            user_jwt=user_jwt,
+        )
+    except Exception as e:
+        print(f"[SYNC:single] enrichment failed id={aid}: {e}")
 
     print(
         f"[SYNC:single] done id={aid}: imported={imported} "
