@@ -1,17 +1,17 @@
-# Routes_DB/coach_plan_daily.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from datetime import date, timedelta
 
-from Modules.SQL.db_handler import get_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_PLAN_DAILY
-
-supabase = get_client()
 
 
 def db_insert_daily_rows(
     rows: List[Dict[str, Any]],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     Bulk INSERT do coach_plan_daily.
@@ -20,8 +20,10 @@ def db_insert_daily_rows(
     if not rows:
         return 0
 
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+
     try:
-        res = supabase.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
+        res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-DAILY] inserted rows:", len(data))
         return len(data)
@@ -35,13 +37,18 @@ def db_clear_daily_for_user_week(
     plan_id: str,
     week_start: str,
     week_end: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
     """
     DELETE všetkých daily riadkov pre daný plán + týždeň (interval dátumov).
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)
+            sb.table(TABLE_COACH_PLAN_DAILY)
             .delete()
             .eq("user_id", user_id)
             .eq("plan_id", plan_id)
@@ -65,22 +72,26 @@ def db_clear_daily_for_user_week(
 
 
 # ---------------------------------------------------------------------------
-#  DVE FUNKCIE, KTORÉ POUŽÍVA plan_activity_match.py
+#  FUNKCIE, KTORÉ POUŽÍVA plan_activity_match.py
 # ---------------------------------------------------------------------------
+
 
 def db_get_planned_range_rows(
     user_id: int,
     date_from: str,
     date_to: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky plánované sessions pre usera v danom dátumovom rozsahu.
-
-    Používa sa v Services/plan_activity_match.py na porovnanie plánu s aktivitami.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)
+            sb.table(TABLE_COACH_PLAN_DAILY)
             .select("*")
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
@@ -99,16 +110,19 @@ def db_link_session_to_activity(
     user_id: int,
     session_id: int,
     activity_id: Optional[int],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu
-    v tabuľke activities_summary (alebo podobnej) – zapíše activity_id.
-
-    Vracia aktualizovaný riadok, alebo None pri chybe.
+    – zapíše activity_id.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)
+            sb.table(TABLE_COACH_PLAN_DAILY)
             .update({"activity_id": activity_id})
             .eq("id", session_id)
             .execute()
@@ -123,15 +137,14 @@ def db_link_session_to_activity(
 def db_list_daily_for_user_horizon(
     user_id: int,
     horizon_days: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
     plan_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky daily plánované sessions pre usera
     od dneška po dnes + horizon_days.
-
-    Ak je zadaný plan_id, filtruje len daný plán (active / latest),
-    inak vráti všetky plány usera.
-    Používa sa v service_get_daily_overview.
     """
     if horizon_days <= 0:
         horizon_days = 7
@@ -139,12 +152,14 @@ def db_list_daily_for_user_horizon(
     today = date.today()
     end_date = today + timedelta(days=horizon_days)
 
-    date_from = today.isoformat()  # "YYYY-MM-DD"
-    date_to = end_date.isoformat()  # "YYYY-MM-DD"
+    date_from = today.isoformat()
+    date_to = end_date.isoformat()
+
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         query = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)
+            sb.table(TABLE_COACH_PLAN_DAILY)
             .select("*")
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
@@ -161,14 +176,23 @@ def db_list_daily_for_user_horizon(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] db_list_daily_for_user_horizon error:", repr(e))
         return []
-        
-def db_clear_daily_for_user_plan(user_id: int, plan_id: str) -> int:
+
+
+def db_clear_daily_for_user_plan(
+    user_id: int,
+    plan_id: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> int:
     """
     Delete všetkých daily riadkov pre daný plán (bez ohľadu na dátum).
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+
     try:
         res = (
-            supabase.table(TABLE_COACH_PLAN_DAILY)
+            sb.table(TABLE_COACH_PLAN_DAILY)
             .delete()
             .eq("user_id", user_id)
             .eq("plan_id", plan_id)

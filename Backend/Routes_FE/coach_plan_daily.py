@@ -3,15 +3,16 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException
-from Configs.config import (
-   COACH_PLAN_OVERVIEW_HORIZON_DAYS
-)
+from fastapi import APIRouter, HTTPException, Depends
+
+from Configs.config import COACH_PLAN_OVERVIEW_HORIZON_DAYS
 from Schemas.coach_plan_daily import DailyWeekGenerateConfig
 from Services.coach_plan_daily import (
     service_generate_daily_week,
-    service_get_daily_overview,  # ← PRIDANÉ
+    service_get_daily_overview,
 )
+from Modules.HTTP.auth_deps import require_user_jwt
+
 router = APIRouter(
     prefix="/coach-plan-daily",
     tags=["coach-plan-daily"],
@@ -22,11 +23,10 @@ router = APIRouter(
 def generate_daily_for_week(
     user_id: int,
     payload: DailyWeekGenerateConfig,
+    user_jwt: str = Depends(require_user_jwt),
 ) -> Dict[str, Any]:
     """
     Vygeneruje / prepíše daily plán pre konkrétny týždeň.
-
-    Volá Services.coach_plan_daily.service_generate_daily_week.
     """
     try:
         result = service_generate_daily_week(
@@ -36,6 +36,7 @@ def generate_daily_for_week(
             overwrite=payload.overwrite,
             model=payload.model,
             debug=payload.debug,
+            user_jwt=user_jwt,
         )
         return {"success": True, **result}
     except ValueError as ve:
@@ -44,28 +45,22 @@ def generate_daily_for_week(
         raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-        
+
+
 @router.get("/overview/{user_id}")
 def get_daily_overview(
     user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
 ) -> Dict[str, Any]:
     """
     Vráti jednoduchý prehľad daily plánu pre najbližšie dni.
-
-    Response:
-      {
-        "success": true,
-        "overview": {
-          "horizon_days": 7,
-          "days": [
-            { "date": "YYYY-MM-DD", "sessions": [ ... ] },
-            ...
-          ]
-        }
-      }
     """
     try:
-        overview = service_get_daily_overview(user_id=user_id, horizon_days=COACH_PLAN_OVERVIEW_HORIZON_DAYS)
+        overview = service_get_daily_overview(
+            user_id=user_id,
+            horizon_days=COACH_PLAN_OVERVIEW_HORIZON_DAYS,
+            user_jwt=user_jwt,
+        )
         return {
             "success": True,
             "overview": overview,

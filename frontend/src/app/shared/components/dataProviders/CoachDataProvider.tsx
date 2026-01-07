@@ -14,9 +14,9 @@ import { DEFAULT_PREFS, type CoachPrefs } from "@/app/features/prefs/types/prefs
 import { typePB, UserBest } from "@/app/features/bests/types/bests";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
-  apiGetCoachPrefs,
-  apiSaveCoachPrefs,
-} from "@/app/features/coach/api/prefs";
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 import { apiGetBests } from "@/app/features/bests/api/bests";
 import { secToHHMMSS, todayISO, addDays } from "@/app/shared/utils/time";
 import { fetchPlanRangeApi } from "@/app/features/coach/api/planApi";
@@ -110,7 +110,7 @@ export function CoachDataProvider({
 
     // prefs
     const p =
-      (await apiGetCoachPrefs(userId).catch(() => null)) ?? DEFAULT_PREFS;
+      (await apiFetchUserPref(userId, "coach.prefs").catch(() => null)) ?? DEFAULT_PREFS;
     setPrefs(p);
 
     // PB – RUN
@@ -123,7 +123,7 @@ export function CoachDataProvider({
   const savePrefs = useCallback(
     async (next: CoachPrefs) => {
       if (!userId) return;
-      await apiSaveCoachPrefs(userId, next);
+      await apiUpsertUserPref(userId, "coach.prefs", next);
       setPrefs(next);
     },
     [userId]

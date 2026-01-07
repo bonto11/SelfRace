@@ -1,8 +1,8 @@
-# Services/profile_metrics.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, date
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Optional
+
 from fastapi import HTTPException
 
 from Routes_DB.profile_metrics import (
@@ -16,16 +16,19 @@ from Routes_DB.profile_static import (
     db_fetch_static_basic,
     db_get_static_sex_birth,
 )
+from Services.users import require_jwt
 
-from Services.time import (
-    iso_now,
-)
+from Services.time import iso_now
+from Schemas.profile_metrics import BatchMetricsPayload, MetricKey
 
-from Schemas.profile_metrics import (BatchMetricsPayload, MetricKey)
 
 def service_insert_metrics(
-    user_id: int, payload: BatchMetricsPayload
+    user_id: int,
+    payload: BatchMetricsPayload,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
+    user_jwt = require_jwt(user_jwt)
+
     if not payload.entries:
         raise HTTPException(status_code=400, detail="No entries provided")
 
@@ -57,7 +60,7 @@ def service_insert_metrics(
         )
 
     try:
-        data = db_insert_metric_rows(rows)
+        data = db_insert_metric_rows(rows, user_jwt=user_jwt)
         return {"success": True, "inserted": len(data or []), "data": data}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -73,7 +76,10 @@ def service_get_metric_history(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     limit: Optional[int] = None,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
+    user_jwt = require_jwt(user_jwt)
+
     data = db_get_metric_history(
         user_id=user_id,
         metric=str(metric),
@@ -81,6 +87,7 @@ def service_get_metric_history(
         date_from=date_from,
         date_to=date_to,
         limit=limit,
+        user_jwt=user_jwt,
     )
     return {"success": True, "metric": metric, "data": data}
 
@@ -89,8 +96,12 @@ def service_get_metric_history(
 
 
 def service_get_latest_metrics(
-    user_id: int, user_uid: Optional[str] = None
+    user_id: int,
+    user_uid: Optional[str] = None,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
+    user_jwt = require_jwt(user_jwt)
+
     out: Dict[str, Any] = {}
     targets: List[str] = [
         "weight_kg",
@@ -101,7 +112,12 @@ def service_get_latest_metrics(
     ]
 
     for key in targets:
-        row = db_get_latest_metric(user_id=user_id, metric=key, user_uid=user_uid)
+        row = db_get_latest_metric(
+            user_id=user_id,
+            metric=key,
+            user_uid=user_uid,
+            user_jwt=user_jwt,
+        )
         out[key] = (
             {
                 "value": row.get("value_num"),
@@ -113,7 +129,15 @@ def service_get_latest_metrics(
         )
 
     # BMI = posledná váha + výška zo static
-    static = db_fetch_static_basic(user_id=user_id, user_uid=user_uid) or {}
+    static = (
+        db_fetch_static_basic(
+            user_id=user_id,
+            user_uid=user_uid,
+            user_jwt=user_jwt,
+        )
+        or {}
+    )
+
     height_cm = static.get("height_cm")
     last_weight = (
         out.get("weight_kg", {}).get("value") if out.get("weight_kg") else None
@@ -142,11 +166,26 @@ def service_get_latest_metrics(
 
 
 def service_get_vo2_history(
-    user_id: int, user_uid: Optional[str] = None
+    user_id: int,
+    user_uid: Optional[str] = None,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
+    user_jwt = require_jwt(user_jwt)
+
     try:
-        hist = db_get_vo2_measured_history(user_id=user_id, user_uid=user_uid)
-        stat = db_get_static_sex_birth(user_id=user_id, user_uid=user_uid) or {}
+        hist = db_get_vo2_measured_history(
+            user_id=user_id,
+            user_uid=user_uid,
+            user_jwt=user_jwt,
+        )
+        stat = (
+            db_get_static_sex_birth(
+                user_id=user_id,
+                user_uid=user_uid,
+                user_jwt=user_jwt,
+            )
+            or {}
+        )
 
         history = [
             {"VO2Max": row["value_num"], "updated_at": row["measured_at"]}
@@ -164,11 +203,18 @@ def service_get_vo2_history(
 
 
 def service_get_vo2_estimate(
-    user_id: int, user_uid: Optional[str] = None
+    user_id: int,
+    user_uid: Optional[str] = None,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
+    user_jwt = require_jwt(user_jwt)
+
     try:
         row = db_get_latest_metric(
-            user_id=user_id, metric="VO2Max_estimated", user_uid=user_uid
+            user_id=user_id,
+            metric="VO2Max_estimated",
+            user_uid=user_uid,
+            user_jwt=user_jwt,
         )
         return {
             "success": True,
@@ -176,6 +222,7 @@ def service_get_vo2_estimate(
             "updated_at": row.get("measured_at") if row else None,
         }
     except Exception as e:  # noqa: BLE001
+        # TU bol typo: statuscode -> status_code
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -187,7 +234,6 @@ def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
     if not birth_date:
         return None
     try:
-        # ak príde full ISO '2025-12-02T00:00:00+00:00', vezmeme len dátum
         d_str = birth_date[:10]
         year, month, day = map(int, d_str.split("-"))
         b = date(year, month, day)
@@ -197,9 +243,11 @@ def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
     except Exception:
         return None
 
+
 def service_load_user_profile_for_analysis(
     user_id: int,
     user_uid: Optional[str] = None,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Použije STATIC + METRICS na poskladanie user bloku pre CoachAnalyzeInput.user.
@@ -213,9 +261,18 @@ def service_load_user_profile_for_analysis(
         "weight_kg": float | None,
       }
     """
+    user_jwt = require_jwt(user_jwt)
 
     # STATIC: sex, birth_date, height_cm
-    static = db_fetch_static_basic(user_id=user_id, user_uid=user_uid) or {}
+    static = (
+        db_fetch_static_basic(
+            user_id=user_id,
+            user_uid=user_uid,
+            user_jwt=user_jwt,
+        )
+        or {}
+    )
+
     sex = static.get("sex")
     birth_date = static.get("birth_date")
     height_cm = static.get("height_cm")
@@ -226,6 +283,7 @@ def service_load_user_profile_for_analysis(
         user_id=user_id,
         metric="weight_kg",
         user_uid=user_uid,
+        user_jwt=user_jwt,
     )
     if weight_row and weight_row.get("value_num") is not None:
         try:

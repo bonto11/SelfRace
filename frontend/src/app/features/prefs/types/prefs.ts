@@ -1,4 +1,4 @@
-// src/features/coach/types/prefsTypes.ts
+// src/features/prefs/types/prefs.ts
 import type { DayAbbrev } from "@/app/shared/types/day";
 
 /** Hlavné ciele plánu / tréningu (už bez "race_time"). */
@@ -18,6 +18,7 @@ export type SecondaryMix = {
   role: SecondaryRole;
   share_pct: number;
 };
+
 export type VolumeMode = "weekly_hours" | "daily_minutes";
 
 export type VolumePrefs = {
@@ -212,6 +213,49 @@ export interface Preferences {
   include_strides?: boolean;
 }
 
+// --- Advanced weekly template --------------------------------
+
+export type WeeklyTemplateMode = "off" | "loose" | "strict";
+
+export type TemplateSportKind = SportKind | "other";
+
+export type RunTemplateKind =
+  | "easy"
+  | "long"
+  | "tempo"
+  | "threshold"
+  | "intervals"
+  | "vo2max"
+  | "hills"
+  | "recovery";
+
+export type StrengthTemplateKind =
+  | "upper"
+  | "lower"
+  | "full"
+  | "core"
+  | "hiit";
+
+export type SessionPriority = "key" | "support" | "optional";
+
+export type SessionTemplate = {
+  sport: TemplateSportKind;
+  kind: RunTemplateKind | StrengthTemplateKind | "other";
+  priority: SessionPriority;
+  /** či smie coach posunúť tréning na iný deň (hlavne v `loose` mode) */
+  ai_can_move?: boolean;
+};
+
+export type DayTemplate = {
+  day: DayAbbrev;
+  slots: SessionTemplate[]; // max 0–2
+};
+
+export type WeeklyTemplate = {
+  mode: WeeklyTemplateMode;
+  days: DayTemplate[];
+};
+
 /* -------- Main prefs -------- */
 
 export type CoachPrefs = {
@@ -227,7 +271,7 @@ export type CoachPrefs = {
     run?: RunTargets;
     ride?: BikeTargets;
     strength?: StrengthTargets;
-    swim?: SwimTargets; // NEW
+    swim?: SwimTargets;
   };
   preferences?: Preferences;
 
@@ -269,6 +313,9 @@ export type CoachPrefs = {
   strength_settings?: StrengthSettings | null;
   zones?: Zones;
   thresholds?: Thresholds;
+
+  /** NEW: celý weekly template je top-level pole v prefs */
+  weekly_template?: WeeklyTemplate | null;
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
@@ -305,6 +352,10 @@ export const DEFAULT_PREFS: CoachPrefs = {
     avoid_back_to_back_hard: true,
     use_zones: true,
     avoid_two_a_day: true,
+  },
+  weekly_template: {
+    mode: "off",
+    days: [],
   },
   coach_voice: "motivator",
   coach_tone: {

@@ -4,17 +4,25 @@ import * as React from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Pill from "@/app/shared/components/ui/Pill";
-import { API_URL } from "@/app/shared/config";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { THEME } from "@/app/shared/theme/tokens";
 import { NO_X_OVERFLOW } from "@/app/shared/ui/classes";
 import { fmtDate } from "@/app/shared/utils/time";
 
-type Props = { onOpen?: () => void; onOpenDetail?: () => void };
-type StaticProfile = { sex: "M" | "F" };
+import {
+  apiGetStaticProfile,
+} from "@/app/features/profile/api/static";
+import {
+  apiGetMetricHistory,
+} from "@/app/features/profile/api/metrics";
+import type {
+  StaticProfile,
+  MetricHistoryRow,
+} from "@/app/features/profile/types/profile";
 
-type MetricRowBE = { measured_at: string; value_num: number | null };
+type Props = { onOpen?: () => void; onOpenDetail?: () => void };
+
 type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 
 function colorForLevel(labelRaw: string) {
@@ -49,28 +57,29 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
   React.useEffect(() => {
     if (!userId) return;
+
     let alive = true;
+
     (async () => {
       try {
         setLoading(true);
 
-        // static
-        try {
-          const r0 = await fetch(`${API_URL}/profile/static/${userId}`, {
-            cache: "no-store",
-          });
-          const js0 = await r0.json().catch(() => ({}));
-          if (alive && js0?.success) setStat(js0.data as StaticProfile);
-        } catch {}
+        const [staticProfile, history] = await Promise.all([
+          apiGetStaticProfile(userId),
+          apiGetMetricHistory(userId, "body_fat_pct"),
+        ]);
 
-        // posledná hodnota BF
-        const r1 = await fetch(
-          `${API_URL}/profile/metrics/history/${userId}?metric=body_fat_pct`,
-          { cache: "no-store" }
-        );
-        const js1 = await r1.json().catch(() => ({}));
-        const rowsBE: MetricRowBE[] = Array.isArray(js1?.data) ? js1.data : [];
-        const lastBE = rowsBE.slice(-1)[0];
+        if (!alive) return;
+
+        if (staticProfile) {
+          setStat(staticProfile);
+        } else {
+          setStat(null);
+        }
+
+        const rowsBE: MetricHistoryRow[] = Array.isArray(history) ? history : [];
+        const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
+
         const last: MetricsRowFE | null = lastBE
           ? {
               updated_at: lastBE.measured_at,
@@ -79,11 +88,12 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
             }
           : null;
 
-        if (alive) setLatest(last);
+        setLatest(last);
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };

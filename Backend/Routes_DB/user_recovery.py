@@ -1,15 +1,24 @@
 # Routes_DB/user_recovery.py
 from __future__ import annotations
+
 from typing import Any, Dict, Optional, List
-from Modules.SQL.db_handler import get_client
+
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS_RECOVERY
 
-sb = get_client()
 
-def db_get_recovery_record(user_id: str, date_iso: str) -> Optional[Dict[str, Any]]:
+def db_get_recovery_record(
+    user_id: int,
+    date_iso: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
     """
     Vráti {"id": ...} ak existuje recovery pre daný deň, inak None.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
+
     res = (
         sb.table(TABLE_USERS_RECOVERY)
         .select("id")
@@ -20,17 +29,33 @@ def db_get_recovery_record(user_id: str, date_iso: str) -> Optional[Dict[str, An
     )
 
     rows: List[Dict[str, Any]] = res.data or []
+
     return rows[0] if rows else None
 
 
-def db_insert_recovery(row: Dict[str, Any]) -> Dict[str, Any]:
-    res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
+def db_insert_recovery(
+    row: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Dict[str, Any]:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
 
+    res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
     rows: List[Dict[str, Any]] = res.data or []
+
     return rows[0] if rows else {}
 
 
-def db_update_recovery(rec_id: int, row: Dict[str, Any]) -> Dict[str, Any]:
+def db_update_recovery(
+    rec_id: int,
+    row: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Dict[str, Any]:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
+
     res = (
         sb.table(TABLE_USERS_RECOVERY)
         .update(row)
@@ -39,10 +64,19 @@ def db_update_recovery(rec_id: int, row: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     rows: List[Dict[str, Any]] = res.data or []
+
     return rows[0] if rows else {}
 
 
-def db_get_recent_recovery(user_id: int, days: int) -> List[Dict[str, Any]]:
+def db_get_recent_recovery(
+    user_id: int,
+    days: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> List[Dict[str, Any]]:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
+
     res = (
         sb.table(TABLE_USERS_RECOVERY)
         .select("*")
@@ -53,4 +87,5 @@ def db_get_recent_recovery(user_id: int, days: int) -> List[Dict[str, Any]]:
     )
 
     rows: List[Dict[str, Any]] = res.data or []
+
     return rows

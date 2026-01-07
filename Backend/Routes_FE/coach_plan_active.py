@@ -1,9 +1,9 @@
 # Routes/coach_plan_active.py
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 
 from Services.coach_plan_active import (
     service_save_active_plan,
@@ -11,12 +11,14 @@ from Services.coach_plan_active import (
     service_continue_active_plan,
     service_extend_active_plan,
     service_link_activity,
-    service_get_active_plan_status
+    service_get_active_plan_status,
 )
 
 from Routes_DB.coach_plan_daily import db_get_planned_range_rows
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter()
+
 
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/save
@@ -25,9 +27,10 @@ router = APIRouter()
 async def save_active_plan(
     user_id: int,
     payload: Dict[str, Any],
+    user_jwt: str = Depends(require_user_jwt),
 ):
     try:
-        result = service_save_active_plan(user_id, payload)
+        result = service_save_active_plan(user_id=user_id, payload=payload, user_jwt=user_jwt)
         return {
             "success": True,
             "plan_id": result.get("plan_id"),
@@ -38,21 +41,26 @@ async def save_active_plan(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"save_active_plan ERROR: {str(e)}")
 
+
 # ----------------------------------------------------
-# DELETE /coach-plan-active/{user_id}/cancel
+# POST /coach-plan-active/{user_id}/cancel
 # ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/cancel")
-async def cancel_active_plan(user_id: int):
+async def cancel_active_plan(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
+):
     try:
-        result = service_cancel_active_plan(user_id)
+        result = service_cancel_active_plan(user_id=user_id, user_jwt=user_jwt)
         return {"success": True, **result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"cancel_active_plan ERROR: {e}")
+
 
 # ----------------------------------------------------
 # PATCH /coach-plan-active/{user_id}/continue
@@ -61,9 +69,14 @@ async def cancel_active_plan(user_id: int):
 async def continue_active_plan(
     user_id: int,
     payload: Dict[str, Any],
+    user_jwt: str = Depends(require_user_jwt),
 ):
     min_days = int(payload.get("min_horizon_days", 10))
-    result = service_continue_active_plan(user_id, min_horizon_days=min_days)
+    result = service_continue_active_plan(
+        user_id=user_id,
+        min_horizon_days=min_days,
+        user_jwt=user_jwt,
+    )
     return result
 
 
@@ -74,9 +87,15 @@ async def continue_active_plan(
 async def extend_active_plan(
     user_id: int,
     min_horizon_days: int = 10,
+    user_jwt: str = Depends(require_user_jwt),
 ):
-    result = service_extend_active_plan(user_id, min_horizon_days=min_horizon_days)
+    result = service_extend_active_plan(
+        user_id=user_id,
+        min_horizon_days=min_horizon_days,
+        user_jwt=user_jwt,
+    )
     return result
+
 
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/link
@@ -85,6 +104,7 @@ async def extend_active_plan(
 async def link_activity(
     user_id: int,
     payload: Dict[str, Any],
+    user_jwt: str = Depends(require_user_jwt),
 ):
     session_id_raw = payload.get("session_id")
     if session_id_raw is None:
@@ -109,23 +129,33 @@ async def link_activity(
                 detail="activity_id must be int or null",
             )
 
-    ok = service_link_activity(user_id, session_id, activity_id)
+    ok = service_link_activity(
+        user_id=user_id,
+        session_id=session_id,
+        activity_id=activity_id,
+        user_jwt=user_jwt,
+    )
     return {"success": ok}
+
 
 @router.get("/coach-plan/{user_id}")
 def get_plan_range(
     user_id: int,
     date_from: str = Query(..., alias="date_from"),
     date_to: str = Query(..., alias="date_to"),
+    user_jwt: str = Depends(require_user_jwt),
 ) -> Dict[str, Any]:
     """
     Vráti všetky plánované sessions (coach_plan_daily) pre usera
     v danom dátumovom intervale.
-
-    Používa sa v PlanDataProvider na kalendár / detail.
     """
     try:
-        rows = db_get_planned_range_rows(user_id=user_id, date_from=date_from, date_to=date_to)
+        rows = db_get_planned_range_rows(
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+            user_jwt=user_jwt,
+        )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"get_plan_range ERROR: {e}")
 
@@ -134,13 +164,17 @@ def get_plan_range(
         "rows": rows,
     }
 
+
 @router.get("/coach-plan-active/{user_id}/status")
-async def get_active_plan_status(user_id: int) -> Dict[str, Any]:
+async def get_active_plan_status(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
+) -> Dict[str, Any]:
     """
     Vráti info, či má user aktívny plán.
     """
     try:
-        status = service_get_active_plan_status(user_id)
+        status = service_get_active_plan_status(user_id=user_id, user_jwt=user_jwt)
         return {
             "success": True,
             **status,

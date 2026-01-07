@@ -1,6 +1,5 @@
 // src/features/coach/api/coach_plan_daily.ts
-import { API_URL } from "@/app/shared/config";
-import { robustJson } from "@/app/features/coach/api/_api_utils";
+import { callBackend } from "@/app/shared/utils/callBackend";
 
 /* ============ spoločné typy pre async_jobs (rovnaké ako inde) ============ */
 
@@ -21,11 +20,15 @@ type EnqueueJobResponse = {
   success: boolean;
   job: AsyncJobRow | null;
   note?: string | null;
+  detail?: string | null;
+  error?: string | null;
 };
 
 type RunJobResponse = {
   success: boolean;
   job: AsyncJobRow | null;
+  detail?: string | null;
+  error?: string | null;
 };
 
 /* ============ typy ============ */
@@ -39,15 +42,15 @@ export type DailyWeekGenerateOptions = {
 /* ============ GENERATE WEEK (coach-plan-daily) ============ */
 
 /**
- * POST /coach-plan-daily/generate/{user_id}
- * NOVO: ide cez async_jobs (job_type = "daily_generate")
+ * POST /jobs/enqueue/{user_id} (daily_generate)
+ * POST /jobs/run/{user_id}/{job_id}
  */
 export async function apiGenerateDailyForWeek(
   userId: number,
   userUuid: string,
   opts: DailyWeekGenerateOptions
 ): Promise<any> {
-  if (!API_URL) throw new Error("API_URL is not configured");
+  if (!userId) throw new Error("userId is required in apiGenerateDailyForWeek");
   if (!opts || typeof opts.week_index !== "number") {
     throw new Error("week_index is required for apiGenerateDailyForWeek");
   }
@@ -59,7 +62,7 @@ export async function apiGenerateDailyForWeek(
   };
 
   // 1) ENQUEUE JOB
-  const enqueueUrl = `${API_URL}/jobs/enqueue/${userId}`;
+  const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
 
   const enqueueBody = {
     job_type: "daily_generate",
@@ -70,46 +73,56 @@ export async function apiGenerateDailyForWeek(
     dedupe_key: `daily_generate_week_${opts.week_index}`,
   };
 
-  const enqueueRes = await fetch(enqueueUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(enqueueBody),
-  }).catch((err) => {
-    throw new Error(`Network/CORS (enqueue daily): ${String(err)}`);
-  });
+  let enqueueJson: EnqueueJobResponse;
+  try {
+    enqueueJson = await callBackend<EnqueueJobResponse>(enqueuePath, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(enqueueBody),
+    });
+  } catch (err: any) {
+    console.error("[Coach][apiGenerateDailyForWeek][enqueue] ERROR", err);
+    throw err instanceof Error
+      ? err
+      : new Error(`Network/BE error (enqueue daily): ${String(err)}`);
+  }
 
-  const enqueueJson = (await robustJson(enqueueRes)) as EnqueueJobResponse;
-
-  if (!enqueueRes.ok || !enqueueJson?.success || !enqueueJson.job) {
+  if (!enqueueJson?.success || !enqueueJson.job) {
     const msg =
-      (enqueueJson as any)?.detail ||
-      (enqueueJson as any)?.error ||
-      enqueueJson?.note ||
-      `HTTP ${enqueueRes.status}`;
+      enqueueJson.detail ||
+      enqueueJson.error ||
+      enqueueJson.note ||
+      "Failed to enqueue daily_generate job";
     throw new Error(msg);
   }
 
   const jobId = enqueueJson.job.id;
 
   // 2) RUN JOB TERAZ
-  const runUrl = `${API_URL}/jobs/run/${userId}/${jobId}`;
+  const runPath = `/jobs/run/${encodeURIComponent(
+    String(userId)
+  )}/${encodeURIComponent(String(jobId))}`;
 
-  const runRes = await fetch(runUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-  }).catch((err) => {
-    throw new Error(`Network/CORS (run daily): ${String(err)}`);
-  });
+  let runJson: RunJobResponse;
+  try {
+    runJson = await callBackend<RunJobResponse>(runPath, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+  } catch (err: any) {
+    console.error("[Coach][apiGenerateDailyForWeek][run] ERROR", err);
+    throw err instanceof Error
+      ? err
+      : new Error(`Network/BE error (run daily): ${String(err)}`);
+  }
 
-  const runJson = (await robustJson(runRes)) as RunJobResponse;
-
-  if (!runRes.ok || !runJson?.success || !runJson.job) {
+  if (!runJson?.success || !runJson.job) {
     const msg =
-      (runJson as any)?.detail ||
-      (runJson as any)?.error ||
-      `HTTP ${runRes.status}`;
+      runJson.detail ||
+      runJson.error ||
+      "Daily_generate job failed or has no job payload";
     throw new Error(msg);
   }
 
@@ -127,51 +140,23 @@ export async function apiGenerateDailyForWeek(
   };
 }
 
-/* ---- STARÁ priama verzia (ponechaná ako komentár) ----
-export async function apiGenerateDailyForWeek(
-  userId: number,
-  opts: DailyWeekGenerateOptions
-): Promise<any> {
-  if (!API_URL) throw new Error("API_URL is not configured");
-  if (!opts || typeof opts.week_index !== "number") {
-    throw new Error("week_index is required for apiGenerateDailyForWeek");
-  }
-
-  const payload = {
-    week_index: opts.week_index,
-    plan_id: opts.plan_id ?? null,
-    overwrite: opts.overwrite ?? true,
-  };
-
-  const res = await fetch(`${API_URL}/coach-plan-daily/generate/${userId}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  }).catch((err) => {
-    throw new Error(`Network/CORS: ${String(err)}`);
-  });
-
-  const json = await robustJson(res);
-  if (!res.ok || json?.success === false) {
-    throw new Error(json?.detail || json?.error || `HTTP ${res.status}`);
-  }
-  return json;
-}
-*/
-
-/* ============ DAILY OVERVIEW (coach-plan-daily) – BEZ ZMENY ============ */
+/* ============ DAILY OVERVIEW (coach-plan-daily) ============ */
 
 export type DailyPlanStructure = {
-  warmup?: {
-    minutes?: number | null;
-    notes?: string | null;
-  } | null;
+  warmup?:
+    | {
+        minutes?: number | null;
+        notes?: string | null;
+      }
+    | null;
   // MAIN je pole blokov (intervaly)
   main?: any[] | null;
-  cooldown?: {
-    minutes?: number | null;
-    notes?: string | null;
-  } | null;
+  cooldown?:
+    | {
+        minutes?: number | null;
+        notes?: string | null;
+      }
+    | null;
   // pre silovku – už po enrichmente z BE
   strength_exercises?: any[] | null;
 };
@@ -200,6 +185,8 @@ export type DailyOverview = {
 type DailyOverviewResponse = {
   success: boolean;
   overview: DailyOverview | null;
+  detail?: string | null;
+  error?: string | null;
 };
 
 /**
@@ -208,21 +195,29 @@ type DailyOverviewResponse = {
 export async function apiGetDailyOverview(
   userId: number
 ): Promise<DailyOverview | null> {
-  if (!API_URL) throw new Error("API_URL is not configured");
+  if (!userId) throw new Error("userId is required in apiGetDailyOverview");
 
-  const res = await fetch(`${API_URL}/coach-plan-daily/overview/${userId}`, {
-    method: "GET",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-  }).catch((err) => {
-    throw new Error(`Network/CORS: ${String(err)}`);
-  });
+  const path = `/coach-plan-daily/overview/${encodeURIComponent(
+    String(userId)
+  )}`;
 
-  const json = (await robustJson(res)) as DailyOverviewResponse;
+  let json: DailyOverviewResponse;
+  try {
+    json = await callBackend<DailyOverviewResponse>(path, {
+      method: "GET",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+  } catch (err: any) {
+    console.error("[Coach][apiGetDailyOverview] ERROR", err);
+    throw err instanceof Error
+      ? err
+      : new Error(`Network/BE error (daily overview): ${String(err)}`);
+  }
 
-  if (!res.ok || json?.success === false) {
+  if (!json?.success) {
     throw new Error(
-      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`
+      json.detail || json.error || "Failed to load daily overview"
     );
   }
 

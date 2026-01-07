@@ -1,8 +1,7 @@
 # Routes_FE/coach_athlete_state.py
 from __future__ import annotations
 
-
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Depends
 
 from Services.coach_athlete_state import (
     service_analyze_athlete,
@@ -11,6 +10,7 @@ from Services.coach_athlete_state import (
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
 from Configs.config import DEFAULT_MODEL
+from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(
     prefix="/coach/athlete",
@@ -21,65 +21,79 @@ router = APIRouter(
 @router.post("/analyze/{user_id}")
 def analyze_athlete(
     user_id: int,
+    payload: AnalyzeConfig | None = Body(None),
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     Spustí AI analýzu formy pre daného užívateľa.
-
-    FE neposiela žiadny payload (prefs/zones/bests/...).
-    Všetko si BE natiahne z DB podľa user_id.
-
-    Request body (voliteľný):
-      {
-        "debug": bool,            // default false
-        "save_to_db": bool,       // default true
-        "model": "coach-analyze-stub" | ...
-      }
-
-    Response:
-      { "success": true, "state_id": ..., "state": ..., "input": ..., "model": ... }
     """
     try:
+        debug = bool(payload.debug) if payload and payload.debug is not None else False
+        save_to_db = (
+            True
+            if not payload or payload.save_to_db is None
+            else bool(payload.save_to_db)
+        )
+        # jasnejšia verzia – bez operator precedence mindfucku
+        model = DEFAULT_MODEL
+        if payload and payload.model:
+            model = payload.model
+
         result = service_analyze_athlete(
-            user_id=user_id
+            user_id=user_id,
+            user_jwt=user_jwt,
+            debug=debug,
+            save_to_db=save_to_db,
+            model=model,
+        )
+        return {"success": True, **result}
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/state/latest/{user_id}")
+def get_latest_athlete_state(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
+):
+    """
+    Vráti najnovší uložený AI stav atleta pre daného užívateľa.
+    Ide cez RLS/JWT.
+    """
+    try:
+        row = service_get_latest_athlete_state(
+            user_id=user_id,
+            version=1,
+            user_jwt=user_jwt,
         )
         return {
             "success": True,
-            **result,
+            "state": row,
         }
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/state/latest/{user_id}")
-def get_latest_athlete_state(user_id: int):
-    """
-    Vráti najnovší uložený AI stav atleta pre daného užívateľa.
 
-    Response:
-      {
-        "success": true,
-        "state": {
-          "id": ...,
-          "user_id": ...,
-          "model": "...",
-          "version": 1,
-          "created_at": "...",
-          "state": { ... AI analysis JSON ... }
-        }
-      }
+@router.get("/state/history/{user_id}")
+def list_athlete_states_meta(
+    user_id: int,
+    limit: int = 20,
+    user_jwt: str = Depends(require_user_jwt),
+):
+    """
+    História AI stavov – len meta info (bez state_json).
     """
     try:
-        row = service_get_latest_athlete_state(user_id=user_id, version=1)
-        if not row:
-            return {
-                "success": True,
-                "state": None,
-            }
-        return {
-            "success": True,
-            "state": row,
-        }
+        rows = service_list_athlete_states_meta(
+            user_id=user_id,
+            limit=limit,
+            user_jwt=user_jwt,
+        )
+        return {"success": True, "items": rows}
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001

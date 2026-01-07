@@ -1,14 +1,15 @@
-# Services/coach_strength_mapper.py
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from datetime import date, timedelta
+from typing import Any, Dict, List, Tuple, Optional
+
 
 from Schemas.coach_plan_daily import STRENGTH_EXERCISE_CATALOG
 from Routes_DB.coach_strength_history import (
-    db_get_strength_history_for_user,   # -> List[Dict]
-    db_insert_strength_history_rows,    # -> int
+    db_get_strength_history_for_user,  # -> List[Dict]
+    db_insert_strength_history_rows,  # -> int
 )
+from Services.users import require_jwt
 
 
 # Slot -> kandidátne exercise_id z katalógu
@@ -116,6 +117,7 @@ def enrich_daily_plan_with_strength_exercises(
     available_equipment: List[str],
     today: date,
     weeks_back: int = 8,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Vezme AI daily_plan so strength_exercises slotmi a:
@@ -123,13 +125,17 @@ def enrich_daily_plan_with_strength_exercises(
       - pripraví históriu na INSERT do DB,
       - vráti upravený daily_plan.
 
-    Podporované vstupy:
-      session["structure"]["strength_exercises"] = [...]
-      alebo
-      session["strength_exercises"] = [...]
+    RLS:
+      - čítanie aj zápis coach_strength_history ide cez user_jwt.
     """
+    jwt = require_jwt(user_jwt)
 
-    history = db_get_strength_history_for_user(user_id=user_id, weeks_back=weeks_back)
+    # 1) vytiahneme históriu cez RLS
+    history = db_get_strength_history_for_user(
+        user_id=user_id,
+        weeks_back=weeks_back,
+        user_jwt=jwt,
+    )
     _normalize_history_dates(history)
 
     new_history_rows: List[Dict[str, Any]] = []
@@ -214,6 +220,9 @@ def enrich_daily_plan_with_strength_exercises(
             session["strength_exercises"] = enriched_slots
 
     if new_history_rows:
-        db_insert_strength_history_rows(new_history_rows)
+        db_insert_strength_history_rows(
+            new_history_rows,
+            user_jwt=jwt,
+        )
 
     return daily_plan

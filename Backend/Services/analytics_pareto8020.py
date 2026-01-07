@@ -1,12 +1,9 @@
-# backend/Services/analytics_pareto8020.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
-from collections import defaultdict
 
 from Configs.config_sport import (
-    DEBUG_PARETO,
     normalize_sport,
     normalize_sport_list,
     PARETO_DEFAULT_SET,
@@ -18,11 +15,7 @@ from Services.activity_zones import (
 )
 from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-
-
-def _log(*a: Any) -> None:
-    if DEBUG_PARETO:
-        print("[PARETO:SERVICE]", *a)
+from Services.users import require_jwt
 
 
 # ----------------------- interné helpers ------------------------
@@ -52,9 +45,7 @@ def _to_dt(s: str) -> datetime:
     try:
         dt = datetime.fromisoformat(x)
     except Exception:
-        dt = datetime.strptime(x[:19], "%Y-%m-%dT%H:%M:%S").replace(
-            tzinfo=timezone.utc
-        )
+        dt = datetime.strptime(x[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
@@ -98,14 +89,20 @@ def service_pareto_source(
     user_id: int,
     months: int = 3,
     count_no_hr_as_easy: bool = True,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Proxy na veľký dataset pre session (zachováva pôvodné správanie).
+    Proxy na veľký dataset pre session.
+    Jediná zodpovednosť: forwardnúť user_jwt ďalej (RLS vs service role).
     """
+    jwt = require_jwt(user_jwt)
+
     return get_pareto_source(
         user_id=user_id,
         months=months,
         count_no_hr_as_easy=count_no_hr_as_easy,
+        user_jwt=jwt,
     )
 
 
@@ -114,18 +111,26 @@ def service_pareto_widget(
     user_id: int,
     days: int = 14,
     sport: str = "all",
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Sumár za posledné `days` – vracia iba payload `data` bez `success`.
     """
+    jwt = require_jwt(user_jwt)
+
     days = int(days)
     sports = _parse_sport_query(sport)  # None => použi default set
 
     since_dt = datetime.now(timezone.utc) - timedelta(days=days)
     since_iso = _iso(since_dt)
 
-    # Activities summary cez DB helper
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+    # Activities summary cez DB helper (DB vrstva sama rozhoduje RLS vs service)
+    rows = db_fetch_summary_since(
+        user_id=user_id,
+        since_iso=since_iso,
+        user_jwt=jwt,
+    )
 
     # filter podľa športu
     if sports is None:
@@ -138,17 +143,6 @@ def service_pareto_widget(
 
     ids = [int(r["activity_id"]) for r in rows if r.get("activity_id")]
 
-    _log(
-        "WIDGET",
-        {
-            "user": user_id,
-            "days": days,
-            "sport": sport,
-            "sports_used": list(sports_used),
-            "ids": len(ids),
-        },
-    )
-
     if not ids:
         return {
             "easy_min": 0,
@@ -157,7 +151,12 @@ def service_pareto_widget(
             "days": days,
         }
 
-    enr = db_get_enrichment_for_activities(user_id=user_id, activity_ids=ids)
+    # enrichment cez DB helper (opäť s user_jwt)
+    enr = db_get_enrichment_for_activities(
+        user_id=user_id,
+        activity_ids=ids,
+        user_jwt=jwt,
+    )
 
     easy = sum(_easy(r) for r in enr)
     hard = sum(_hard(r) for r in enr)
@@ -176,20 +175,29 @@ def service_pareto_trend(
     user_id: int,
     weeks: int = 8,
     sport: str = "all",
+    *,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Trend po týždňoch (posledných `weeks` týždňov) s doplnením prázdnych týždňov nulami.
     Podporuje multi-sport query (?sport=run,ride).
     Vracia zoznam radkov (bez success wrappera).
     """
+    jwt = require_jwt(user_jwt)
+
     weeks = max(1, int(weeks))
     sports = _parse_sport_query(sport)  # None => default set
 
     since = datetime.now(timezone.utc) - timedelta(weeks=weeks + 1)
     since_iso = _iso(since)
 
-    # Activities summary cez DB helper
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso)
+    # Activities summary cez DB helper (DB vrstva sama rieši RLS vs service)
+    rows = db_fetch_summary_since(
+        user_id=user_id,
+        since_iso=since_iso,
+        user_jwt=jwt,
+    )
+
     rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
 
     # filter podľa športu
@@ -202,10 +210,6 @@ def service_pareto_trend(
         sports_used = sports
 
     if not rows:
-        _log(
-            "TREND_EMPTY",
-            {"user": user_id, "weeks": weeks, "sport": sport, "sports_used": list(sports_used)},
-        )
         return []
 
     # map na týždne
@@ -223,20 +227,30 @@ def service_pareto_trend(
                 "end": wb["end"],
             }
 
-    # recompute missing enrichment – necháme pôvodnú logiku
+    # recompute missing enrichment (preview + upsert) – s user_jwt, ak je
     all_ids: List[int] = [aid for ids in aid_by_week.values() for aid in ids]
     if all_ids:
         prev = preview_zones_for_activities(
-            user_id, list(set(all_ids)), fetch_if_missing=True
+            user_id,
+            list(set(all_ids)),
+            fetch_if_missing=True,
+            user_jwt=jwt,
         )
+
         if prev.get("ok"):
-            upsert_enrichment_minutes(user_id, prev.get("items") or [])
+            upsert_enrichment_minutes(
+                user_id,
+                prev.get("items") or [],
+                user_jwt=jwt,
+            )
 
     # načítaj enrichment z DB vrstvy
     enr = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=list(set(all_ids)),
+        user_jwt=jwt,
     )
+
     emap = {
         int(e["activity_id"]): (_easy(e), _hard(e))
         for e in enr
@@ -283,13 +297,4 @@ def service_pareto_trend(
             }
         )
 
-    _log(
-        "TREND",
-        {
-            "user": user_id,
-            "weeks": weeks,
-            "sport": sport,
-            "sports_used": list(sports_used),
-        },
-    )
     return out

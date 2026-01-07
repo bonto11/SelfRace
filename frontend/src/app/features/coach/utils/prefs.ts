@@ -9,12 +9,12 @@ import type {
 import type { CoachPrefsLegacyLoose } from "@/app/features/coach/types/coachTypes";
 import { DEFAULT_PREFS } from "@/app/features/prefs/types/prefs";
 import {
-  apiGetCoachPrefs,
-  apiSaveCoachPrefs,
-} from "@/app/features/coach/api/prefs";
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 
 /** Kľúče pre DB/LS */
-const KEY = "coach.prefs"; // meno preferencie v user_prefs
+const KEY = "coach.prefs"; // názov preferencie v user_prefs
 const LS_KEY = "up:coach.prefs"; // localStorage cache
 
 /** Interný custom event – na lokálne „live“ aktualizácie */
@@ -42,6 +42,7 @@ function lsGet(): CoachPrefs | null {
     return null;
   }
 }
+
 function lsSet(p: CoachPrefs) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(p));
@@ -49,6 +50,7 @@ function lsSet(p: CoachPrefs) {
     // ignore
   }
 }
+
 function lsClear() {
   try {
     localStorage.removeItem(LS_KEY);
@@ -76,9 +78,27 @@ export function readCoachPrefsFromStorage(): CoachPrefs {
 export async function refreshCoachPrefsFromDB(
   userId: number
 ): Promise<CoachPrefs> {
-  const value = await apiGetCoachPrefs<CoachPrefs>(userId);
-  const prefs = value ?? DEFAULT_PREFS;
-  // ak chceš, kľudne vyhoď lsSet/broadcast, ale už to nemá vplyv na načítanie
+  const raw = await apiFetchUserPref(userId, KEY);
+
+  let value: any = raw;
+
+  // keby niekedy prišlo { success, key, value }, odstripuj obal
+  if (
+    value &&
+    typeof value === "object" &&
+    "value" in value &&
+    !("goal_kind" in value)
+  ) {
+    value = (value as any).value;
+  }
+
+  const prefs = normalizeCoachPrefs(
+    value as CoachPrefs | CoachPrefsLegacyLoose | null
+  );
+
+  lsSet(prefs);
+  broadcast(prefs);
+
   return prefs;
 }
 
@@ -86,7 +106,7 @@ export async function saveCoachPrefs(
   userId: number,
   prefs: CoachPrefs
 ): Promise<void> {
-  await apiSaveCoachPrefs(userId, prefs);
+  await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
   broadcast(prefs);
 }
@@ -104,11 +124,22 @@ export function normalizeCoachPrefs(
 ): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
-  const anyIn = input as any;
+  // povolíme aj string z DB (ak by value bolo text)
+  let anyIn: any = input;
+  if (typeof anyIn === "string") {
+    try {
+      anyIn = JSON.parse(anyIn);
+    } catch {
+      return DEFAULT_PREFS;
+    }
+  }
+  if (!anyIn || typeof anyIn !== "object") return DEFAULT_PREFS;
 
-  // nová schéma (má targets/preferences/primary_sports)
   const hasNewShape =
-    "targets" in anyIn || "preferences" in anyIn || "primary_sports" in anyIn;
+    "targets" in anyIn ||
+    "preferences" in anyIn ||
+    "primary_sports" in anyIn ||
+    "weekly_template" in anyIn;
 
   if (hasNewShape) {
     const prefs: Preferences = {
@@ -139,19 +170,24 @@ export function normalizeCoachPrefs(
     };
 
     const result: CoachPrefs = {
-      ...DEFAULT_PREFS, // istota, že máme všetky polia
-      ...(input as CoachPrefs), // dáta z DB
+      ...(DEFAULT_PREFS as any),
+      ...(anyIn as any), // tu sa prenesie aj weekly_template z DB
       primary_sports:
         (anyIn.primary_sports as SportKind[] | undefined) ??
         clampSports(anyIn.sports),
       preferences: prefs,
     };
 
+    // ak weekly_template chýba, doplň default
+    if (!result.weekly_template) {
+      result.weekly_template = DEFAULT_PREFS.weekly_template;
+    }
+
     return result;
   }
 
   // ---- legacy → canonical ----
-  const l = input as CoachPrefsLegacyLoose;
+  const l = anyIn as CoachPrefsLegacyLoose;
 
   const legacyPrefs: Preferences = {
     days_off: [],
@@ -172,8 +208,10 @@ export function normalizeCoachPrefs(
     preferences: legacyPrefs,
   };
 
+  // legacy weekly template nerieši → necháme default
   return result;
 }
+
 /* -------------------- live hook helpers -------------------- */
 
 /** Subscribe na lokálne zmeny prefs (CustomEvent + cross-tab storage). */

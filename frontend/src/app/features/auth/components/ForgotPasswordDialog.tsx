@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/app/shared/hooks/supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { CARD, SIDEBAR_OVERLAY } from "@/app/shared/ui/classes";
@@ -16,7 +16,7 @@ export default function ForgotPasswordDialog({ open, onClose }: Props) {
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
+  const supabase = getSupabaseBrowser();
   if (!open) return null;
 
   async function handleSend(e: React.FormEvent) {

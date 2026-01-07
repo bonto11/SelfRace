@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from Routes_DB.activities_summary import db_fetch_summary_since
 
@@ -33,6 +33,8 @@ def _start_of_iso_week(d: datetime) -> datetime:
 def service_build_recent_load_raw(
     user_id: int,
     window_days: int = 42,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Vypočíta weekly recent_load z tabuľky activities_summary.
@@ -41,6 +43,10 @@ def service_build_recent_load_raw(
       - date
       - moving_time_s
       - sport_type / sport_type_fe / sport_type_ovrd
+
+    user_jwt sa len forwarduje do DB vrstvy:
+      - user_jwt != None → Supabase RLS klient
+      - user_jwt == None → service klient (cron/worker)
 
     Výstup:
       {
@@ -64,7 +70,13 @@ def service_build_recent_load_raw(
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=window_days - 1)).isoformat()
 
-    rows = db_fetch_summary_since(user_id=user_id, since_iso=since)
+    # activities_summary cez helper – DB vrstva si sama vyberie klienta
+    rows: List[Dict[str, Any]] = db_fetch_summary_since(
+        user_id=user_id,
+        since_iso=since,
+        user_jwt=user_jwt,
+    )
+
     if not rows:
         return {
             "schema_version": 1,
@@ -201,12 +213,18 @@ def _prune_recent_load_for_ai(raw: Dict[str, Any]) -> Dict[str, Any]:
 def service_build_recent_load_block_for_analysis(
     user_id: int,
     window_days: int = 42,
+    *,
+    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     High-level blok pre AI (coach_athlete_state):
-      - natiahne summary z DB,
+      - natiahne summary z DB (s JWT → RLS / bez JWT → service),
       - spočíta weekly recent_load,
       - oseká nulové polia.
     """
-    raw = service_build_recent_load_raw(user_id=user_id, window_days=window_days)
+    raw = service_build_recent_load_raw(
+        user_id=user_id,
+        window_days=window_days,
+        user_jwt=user_jwt,
+    )
     return _prune_recent_load_for_ai(raw)

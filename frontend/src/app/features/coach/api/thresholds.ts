@@ -1,6 +1,5 @@
 // src/features/coach/api/thresholds.ts
-// src/features/coach/api/thresholds.ts
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import type { UserThresholdRow } from "@/app/features/coach/types/thresholdsTypes";
 
 type ApiRows = { success: true; rows: UserThresholdRow[] };
@@ -13,49 +12,82 @@ export async function apiFetchUserThreshold(
   sport = "running",
   type = "LT2"
 ): Promise<UserThresholdRow | null> {
-  const url = `${API_URL}/users/${userId}/thresholds?sport=${encodeURIComponent(
-    sport
-  )}&type=${encodeURIComponent(type)}`;
+  if (!userId) return null;
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as ApiRow | ApiFail | null;
+  const path = `/users/${encodeURIComponent(
+    String(userId)
+  )}/thresholds?sport=${encodeURIComponent(sport)}&type=${encodeURIComponent(
+    type
+  )}`;
 
-  if (!res.ok || !json || json.success === false) return null;
-  return (json as ApiRow).thresholds ?? null;
+  console.debug("[thresholds][GET one] ->", path);
+
+  try {
+    const json = (await callBackend<ApiRow | ApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    })) as ApiRow | ApiFail | null;
+
+    if (!json || (json as ApiFail).success === false) return null;
+    return (json as ApiRow).thresholds ?? null;
+  } catch (e) {
+    console.error("[thresholds][GET one] error", e);
+    return null;
+  }
 }
 
 /** ALL (desc updated_at) – na debug / históriu. */
 export async function apiFetchUserThresholdsAll(
   userId: number
 ): Promise<UserThresholdRow[]> {
-  const url = `${API_URL}/users/${userId}/thresholds/all`;
+  if (!userId) return [];
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as ApiRows | ApiFail | null;
+  const path = `/users/${encodeURIComponent(
+    String(userId)
+  )}/thresholds/all`;
 
-  if (!res.ok || !json || json.success === false) return [];
-  return (json as ApiRows).rows ?? [];
+  console.debug("[thresholds][GET all] ->", path);
+
+  try {
+    const json = (await callBackend<ApiRows | ApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    })) as ApiRows | ApiFail | null;
+
+    if (!json || (json as ApiFail).success === false) return [];
+    return (json as ApiRows).rows ?? [];
+  } catch (e) {
+    console.error("[thresholds][GET all] error", e);
+    return [];
+  }
 }
 
 /** LATEST per (sport,type). */
 export async function apiFetchUserThresholdsLatest(
   userId: number
 ): Promise<UserThresholdRow[]> {
-  const url = `${API_URL}/users/${userId}/thresholds/latest`;
-  console.log("[apiFetchUserThresholdsLatest] GET", url);
+  if (!userId) return [];
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = (await res.json().catch(() => null)) as ApiRows | ApiFail | null;
+  const path = `/users/${encodeURIComponent(
+    String(userId)
+  )}/thresholds/latest`;
 
-  console.log(
-    "[apiFetchUserThresholdsLatest] status",
-    res.status,
-    "json",
-    json
-  );
+  console.debug("[thresholds][GET latest] ->", path);
 
-  if (!res.ok || !json || json.success === false) return [];
-  return (json as ApiRows).rows ?? [];
+  try {
+    const json = (await callBackend<ApiRows | ApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    })) as ApiRows | ApiFail | null;
+
+    console.debug("[thresholds][GET latest] json =", json);
+
+    if (!json || (json as ApiFail).success === false) return [];
+    return (json as ApiRows).rows ?? [];
+  } catch (e) {
+    console.error("[thresholds][GET latest] error", e);
+    return [];
+  }
 }
 
 /**
@@ -65,7 +97,10 @@ export async function apiSaveUserThresholds(
   userId: number,
   t: Partial<UserThresholdRow>
 ): Promise<UserThresholdRow | null> {
-  const url = `${API_URL}/users/${userId}/thresholds`;
+  if (!userId) throw new Error("Missing userId for apiSaveUserThresholds");
+
+  const path = `/users/${encodeURIComponent(String(userId))}/thresholds`;
+
   const body = {
     sport: t.sport ?? "running",
     threshold_type: t.threshold_type ?? "LT2",
@@ -75,21 +110,22 @@ export async function apiSaveUserThresholds(
     measurement_type: t.measurement_type ?? "manual",
   };
 
-  console.log("[apiSaveUserThresholds] PUT", url, "body", body);
+  console.debug("[thresholds][PUT] ->", path, "body", body);
 
-  const res = await fetch(url, {
+  const json = (await callBackend<ApiRow | ApiFail>(path, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
     body: JSON.stringify(body),
-  });
+  }).catch((e) => {
+    console.error("[thresholds][PUT] error", e);
+    throw e;
+  })) as ApiRow | ApiFail | null;
 
-  const json = (await res.json().catch(() => null)) as ApiRow | ApiFail | null;
+  console.debug("[thresholds][PUT] response =", json);
 
-  console.log("[apiSaveUserThresholds] status", res.status, "json", json);
-
-  if (!res.ok || !json || (json as ApiFail)?.success === false) {
-    const msg = (json as ApiFail)?.detail || `HTTP ${res.status}`;
+  if (!json || (json as ApiFail).success === false) {
+    const msg = (json as ApiFail)?.detail || "Threshold save failed";
     throw new Error(msg);
   }
 

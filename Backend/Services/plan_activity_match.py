@@ -1,26 +1,19 @@
-# Services/plan_activity_match.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
-from Configs.config import (
-    COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
-)
+from Services.users import require_jwt
 
 from Routes_DB.coach_plan_daily import (
-  db_get_planned_range_rows,
-  db_link_session_to_activity,
+    db_get_planned_range_rows,
+    db_link_session_to_activity,
 )
 
 from Routes_DB.activities_summary import db_get_summary_for_activities
 
-from Services.coach_plan_daily import service_auto_extend_daily_plan
-
-from Services.coach_plan_daily import service_auto_extend_daily_plan
-
-
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
+
 
 def _date_from_ts(ts: Any) -> Optional[date]:
     """
@@ -91,6 +84,7 @@ def _sport_compat(plan_sport: str, act_sport: str) -> float:
 
 # ───────────────────────────────────────── helpers: scoring ─────────────────────────────────────────
 
+
 def _ratio_score(a: Optional[float], b: Optional[float]) -> float:
     """
     Vráti číslo 0..1 podľa pomeru (min/max) – ak jeden chýba → 0.
@@ -118,8 +112,8 @@ def _name_hint_score(plan_title: str, act_name: str) -> float:
     # kľúčové slová (možnosť pridávať)
     groups = [
         ["interval", "repeats", "repeat", "interv"],
-        ["vo2", "vO2"],
-        ["hill", "hills", "climb"],
+        ["vo2"],
+        ["hill", "hills, climb"],
         ["tempo"],
         ["threshold", "thr"],
         ["easy", "recovery", "regen"],
@@ -174,7 +168,9 @@ def _compute_match_score(
 
     # šport
     plan_sg = _sport_group_from_plan(sess.get("sport"))
-    act_sg = _sport_group_from_activity(act.get("sport_type_fe") or act.get("sport_type"))
+    act_sg = _sport_group_from_activity(
+        act.get("sport_type_fe") or act.get("sport_type")
+    )
     sport_score = _sport_compat(plan_sg, act_sg)
 
     # trvanie
@@ -201,10 +197,7 @@ def _compute_match_score(
     )
 
     score = (
-        0.35 * date_score
-        + 0.25 * sport_score
-        + 0.25 * dur_score
-        + 0.15 * name_score
+        0.35 * date_score + 0.25 * sport_score + 0.25 * dur_score + 0.15 * name_score
     )
 
     detail = {
@@ -221,28 +214,46 @@ def _compute_match_score(
 
 
 # ───────────────────────────────────────── DB helpers ─────────────────────────────────────────
-def _load_activities_summary(user_id: int, activity_ids: List[int]) -> List[Dict[str, Any]]:
+
+
+def _load_activities_summary(
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    user_jwt: str,
+) -> List[Dict[str, Any]]:
     """
-    Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu.
+    Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu (RLS/JWT).
     """
     if not activity_ids:
         return []
 
-    rows = db_get_summary_for_activities(user_id=user_id, activity_ids=activity_ids)
+    rows = db_get_summary_for_activities(
+        user_id=user_id,
+        activity_ids=activity_ids,
+        user_jwt=user_jwt,
+    )
     data = rows or []
     print(f"[PLAN-MATCH] loaded activities_summary rows={len(data)} for user={user_id}")
     return data
+
 
 def auto_map_plans_for_activities(
     user_id: int,
     activity_ids: List[int],
     days_window: int = 1,
     score_threshold: float = 0.55,
+    *,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Automaticky namapuje aktivity (Strava) na plánované session
     a potom prípadne automaticky rozšíri daily plán dopredu.
+
+    Všetko beží striktne pod user JWT → RLS.
     """
+    user_jwt = require_jwt(user_jwt)
+
     print(
         f"[PLAN-MATCH] start user={user_id} "
         f"activity_ids={activity_ids} days_window={days_window} "
@@ -254,7 +265,11 @@ def auto_map_plans_for_activities(
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
 
     # 1) aktivity
-    acts = _load_activities_summary(user_id, activity_ids)
+    acts = _load_activities_summary(
+        user_id=user_id,
+        activity_ids=activity_ids,
+        user_jwt=user_jwt,
+    )
     if not acts:
         print("[PLAN-MATCH] no activities_summary rows loaded")
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
@@ -267,13 +282,18 @@ def auto_map_plans_for_activities(
             act_dates.append(d)
     if not act_dates:
         print("[PLAN-MATCH] no valid dates in activities")
-        return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
+        return {"processed": len(acts), "candidates": 0, "mapped": 0, "skipped": 0}
 
     min_d = str(min(act_dates) - timedelta(days=days_window))
     max_d = str(max(act_dates) + timedelta(days=days_window))
 
-    # 2) plánované session v rozmedzí – cez db_get_planned_range_rows
-    plan_rows = db_get_planned_range_rows(user_id, min_d, max_d)
+    # 2) plánované session v rozmedzí – cez db_get_planned_range_rows (RLS)
+    plan_rows = db_get_planned_range_rows(
+        user_id=user_id,
+        date_from=min_d,
+        date_to=max_d,
+        user_jwt=user_jwt,
+    )
     if not plan_rows:
         print("[PLAN-MATCH] no plan rows in range")
         return {"processed": len(acts), "candidates": 0, "mapped": 0, "skipped": 0}
@@ -318,9 +338,7 @@ def auto_map_plans_for_activities(
                 for sess in plan_by_date[d]:
                     candidates.append((sess, delta))
 
-        print(
-            f"[PLAN-MATCH][ACT] aid={aid} candidates_found={len(candidates)}"
-        )
+        print(f"[PLAN-MATCH][ACT] aid={aid} candidates_found={len(candidates)}")
         total_candidates += len(candidates)
 
         if not candidates:
@@ -368,9 +386,10 @@ def auto_map_plans_for_activities(
         if best_score >= score_threshold:
             try:
                 updated = db_link_session_to_activity(
-                    user_id,
+                    user_id=user_id,
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
+                    user_jwt=user_jwt,
                 )
                 mapped += 1
                 print(
@@ -395,7 +414,7 @@ def auto_map_plans_for_activities(
                 f"detail={best_detail}"
             )
 
-    # 6) summary + auto-extend daily plánu
+    # 6) summary
     summary = {
         "processed": len(acts),
         "candidates": int(total_candidates),
@@ -404,22 +423,4 @@ def auto_map_plans_for_activities(
     }
     print(f"[PLAN-MATCH][SUMMARY] {summary}")
 
-    extend_info: Optional[Dict[str, Any]] = None
-    extend_error: Optional[str] = None
-
-    try:
-        extend_info = service_auto_extend_daily_plan(
-            user_id=user_id,
-            min_horizon_days=COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
-        )
-        print(f"[PLAN-MATCH][DAILY-EXTEND] {extend_info}")
-    except Exception as e:
-        extend_error = str(e)
-        print(f"[PLAN-MATCH][DAILY-EXTEND][ERROR] {e!r}")
-
-    # vrátime pôvodný summary + info o extendovaní
-    return {
-        **summary,
-        "daily_extend": extend_info,
-        "daily_extend_error": extend_error,
-    }
+    return summary

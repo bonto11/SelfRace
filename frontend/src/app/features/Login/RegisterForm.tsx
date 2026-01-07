@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/app/shared/hooks/supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { CARD } from "@/app/shared/ui/classes";
@@ -14,17 +14,21 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const supabase = getSupabaseBrowser();
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     const { error } = await supabase.auth.signUp({ email, password });
+
     if (error) {
       setError(error.message);
     } else {
       window.location.assign("/dashboard");
     }
+
     setLoading(false);
   };
 

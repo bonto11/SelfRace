@@ -2,9 +2,6 @@
 from __future__ import annotations
 from typing import Dict, Optional, Set, Iterable
 
-# Zapni/vypni debug logy pre Pareto/Weekly
-DEBUG_PARETO = True
-
 # Alias mapa FE -> DB (aj opačné normalizačné prípady)
 SPORT_ALIAS: Dict[str, Optional[str]] = {
     # špeciálne

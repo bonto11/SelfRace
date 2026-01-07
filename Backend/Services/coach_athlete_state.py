@@ -1,8 +1,9 @@
-# Services/coach_athlete_state.py
 from __future__ import annotations
 import json
-from datetime import datetime, timezone, timedelta, date
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
+
+from fastapi import HTTPException
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
 from Services.user_thresholds import service_build_thresholds_block_for_analysis
@@ -13,7 +14,9 @@ from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.analytics_RecentLoad import (
     service_build_recent_load_block_for_analysis,
 )
-from Services.coach_external_events import service_list_external_events_window
+from Services.coach_external_events import (
+    service_build_external_events_block_for_analysis,
+)
 from Services.coach_plan_meta import service_build_active_plan_block_for_analysis
 from Routes_AI.analyze_athlete_state import generate_athlete_state_json
 
@@ -23,6 +26,7 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_state_for_user,
     db_list_states_for_user,
 )
+from Services.users import require_jwt
 
 from Configs.config import DEFAULT_MODEL
 
@@ -99,108 +103,94 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
     }
 
 
-def service_build_external_events_block_for_analysis(
-    user_id: int,
-    *,
-    days_past: int = 28,
-    days_future: int = 42,
-) -> Dict[str, Any]:
-    """
-    Vráti blok external_events pre analyze/weekly/daily:
-
-    {
-      "schema_version": 1,
-      "window": {
-        "from": "YYYY-MM-DD",
-        "to": "YYYY-MM-DD",
-        "events": [ ... occurrences ... ]
-      }
-    }
-
-    Okno: posledných N dní dozadu + M dní dopredu od dnes.
-    """
-    today = date.today()
-    d_from = today - timedelta(days=days_past)
-    d_to = today + timedelta(days=days_future)
-
-    try:
-        window = service_list_external_events_window(
-            user_id=user_id,
-            from_iso=d_from.isoformat(),
-            to_iso=d_to.isoformat(),
-        )
-        events = window.get("events") or []
-        return {
-            "schema_version": 1,
-            "window": {
-                "from": d_from.isoformat(),
-                "to": d_to.isoformat(),
-                "events": events,
-            },
-        }
-    except Exception as exc:  # noqa: BLE001
-        # nech to nespadne analyze/weekly/daily – len prázdny blok + error text
-        return {
-            "schema_version": 1,
-            "window": {
-                "from": d_from.isoformat(),
-                "to": d_to.isoformat(),
-                "events": [],
-            },
-            "error": f"external_events_load_failed: {exc}",
-        }
-
-
 # -------------------- INPUT BUILDER: DB → CoachAnalyzeInput --------------------
 
 
-def build_input_from_db(user_id: int) -> Dict[str, Any]:
+def build_input_from_db(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Poskladá CoachAnalyzeInput z DB.
+
+    - vyžaduje user_jwt → všetky user-data služby idú cez RLS/JWT
+    """
+    jwt = require_jwt(user_jwt)
+
     input_data = _build_base_input(user_id)
 
     # 1) PROFIL
     input_data["user"] = service_load_user_profile_for_analysis(
         user_id=user_id,
         user_uid=None,
+        user_jwt=jwt,
     )
 
     # 2) ZONES
-    input_data["zones"] = service_build_zones_block_for_analysis(user_id)
+    input_data["zones"] = service_build_zones_block_for_analysis(
+        user_id,
+        user_jwt=jwt,
+    )
 
     # 3) THRESHOLDS
-    input_data["thresholds"] = service_build_thresholds_block_for_analysis(user_id)
+    input_data["thresholds"] = service_build_thresholds_block_for_analysis(
+        user_id,
+        user_jwt=jwt,
+    )
 
     # 4) PREFS
-    input_data["prefs"] = service_load_coach_prefs_for_analysis(user_id)
+    input_data["prefs"] = service_load_coach_prefs_for_analysis(
+        user_id,
+        user_jwt=jwt,
+    )
 
     # 5) BESTS
-    input_data["bests"] = service_build_bests_block_for_analysis(user_id)
+    input_data["bests"] = service_build_bests_block_for_analysis(
+        user_id,
+        user_jwt=jwt,
+    )
 
     # 6) RECENT LOAD
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
         user_id=user_id,
         window_days=42,
+        user_jwt=jwt,
     )
 
     # 7) RECOVERY
-    input_data["recovery"] = service_build_recovery_block_for_analysis(user_id)
+    input_data["recovery"] = service_build_recovery_block_for_analysis(
+        user_id,
+        user_jwt=jwt,
+    )
 
     # 8) ACTIVE PLAN
     input_data["active_plan"] = service_build_active_plan_block_for_analysis(
-        user_id=user_id
+        user_id=user_id,
+        user_jwt=jwt,
     )
 
-    # 9) EXTERNAL EVENTS – nové
+    # 9) EXTERNAL EVENTS – už z coach_external_events service
     input_data["external_events"] = service_build_external_events_block_for_analysis(
-        user_id=user_id
+        user_id=user_id,
+        user_jwt=jwt,
     )
 
     return input_data
 
 
-# -------------------- STORAGE (stále stub, ale čistý) --------------------
+# -------------------- STORAGE --------------------
 
 
-def service_save_state_to_db(user_id: int, analysis: Dict[str, Any]) -> Optional[int]:
+def service_save_state_to_db(
+    user_id: int,
+    analysis: Dict[str, Any],
+    user_jwt: Optional[str] = None,
+) -> Optional[int]:
+    """
+    Uloží AI stav atleta do coach_athlete_state pod user JWT (RLS).
+    """
+    jwt = require_jwt(user_jwt)
+
     model = str(analysis.get("model") or "Trainalyze Coach")
     version = int(analysis.get("schema_version") or 1)
     return db_insert_athlete_state(
@@ -208,15 +198,21 @@ def service_save_state_to_db(user_id: int, analysis: Dict[str, Any]) -> Optional
         model=model,
         state_json=analysis,
         version=version,
+        user_jwt=jwt,
     )
 
 
-def service_get_athlete_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
+def service_get_athlete_state_by_id(
+    state_id: int,
+    user_jwt: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny záznam z coach_athlete_state podľa id
     a rozbalí state_json do samostatného kľúča "state".
     """
-    row = db_get_state_by_id(state_id)
+    jwt = require_jwt(user_jwt)
+
+    row = db_get_state_by_id(state_id, user_jwt=jwt)
     if not row:
         return None
 
@@ -235,11 +231,18 @@ def service_get_athlete_state_by_id(state_id: int) -> Optional[Dict[str, Any]]:
 def service_get_latest_athlete_state(
     user_id: int,
     version: Optional[int] = 1,
+    user_jwt: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší stav pre usera (podľa created_at DESC).
     """
-    row = db_get_latest_state_for_user(user_id=user_id, version=version)
+    jwt = require_jwt(user_jwt)
+
+    row = db_get_latest_state_for_user(
+        user_id=user_id,
+        version=version,
+        user_jwt=jwt,
+    )
     if not row:
         return None
 
@@ -258,12 +261,19 @@ def service_get_latest_athlete_state(
 def service_list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
+    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     História stavov – len meta info (bez state_json),
     vhodné na výpis v UI / debug.
     """
-    rows = db_list_states_for_user(user_id=user_id, limit=limit)
+    jwt = require_jwt(user_jwt)
+
+    rows = db_list_states_for_user(
+        user_id=user_id,
+        limit=limit,
+        user_jwt=jwt,
+    )
     return [
         {
             "id": r.get("id"),
@@ -281,20 +291,26 @@ def service_list_athlete_states_meta(
 
 def service_analyze_athlete(
     user_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+    debug: bool = False,
+    save_to_db: bool = True,
+    model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Hlavná service funkcia pre AI analýzu atleta.
 
-    - poskladá CoachAnalyzeInput z DB
+    - poskladá CoachAnalyzeInput z DB (RLS, require JWT)
     - zavolá OpenAI cez generate_athlete_state_json
     - (voliteľne) uloží analýzu do DB
     - vráti štruktúru vhodnú pre FE aj pre ďalší backend (plan-weekly)
     """
+    jwt = require_jwt(user_jwt)
 
     # 1) INPUT
-    input_data = build_input_from_db(user_id)
+    input_data = build_input_from_db(user_id, user_jwt=jwt)
 
-    # 1b) Kontext pre AI – deep copy + drop external_activities z prefs
+    # 1b) Kontext pre AI – deep copy + drop external_activities z prefs (ak sú)
     context_for_ai = json.loads(json.dumps(input_data, default=str))
     try:
         prefs_block = context_for_ai.get("prefs") or {}
@@ -307,9 +323,10 @@ def service_analyze_athlete(
         pass
 
     # 2) AI CALL – čistý výstup z AI = "analysis"
+    model_to_use = model or DEFAULT_MODEL
     analysis, trace = generate_athlete_state_json(
-        context_payload=input_data,
-        model=DEFAULT_MODEL,
+        context_payload=input_data,  # ak chceš používať odfiltrovaný context_for_ai, vieme prehodiť
+        model=model_to_use,
     )
 
     if not isinstance(analysis, dict):
@@ -320,16 +337,23 @@ def service_analyze_athlete(
     analysis.setdefault("generated_at", _now_iso())
     analysis.setdefault("model", "Coach BeTY")
 
-    # 3) STORAGE
+    # 3) STORAGE (voliteľné)
     state_id: Optional[int] = None
-    state_id = service_save_state_to_db(user_id, analysis)
+    if save_to_db:
+        state_id = service_save_state_to_db(
+            user_id=user_id,
+            analysis=analysis,
+            user_jwt=jwt,
+        )
 
     # 4) RESPONSE – jasné oddelenie INPUT vs AI OUTPUT
     resp: Dict[str, Any] = {
         "state_id": state_id,
-        "model": DEFAULT_MODEL,
+        "model": model_to_use,
         "analysis": analysis,  # čistý výstup z AI (user_summary, ai_state, metrics…)
         "input": input_data,  # CoachAnalyzeInput snapshot
     }
+    if debug:
+        resp["debug_trace"] = trace
 
     return resp

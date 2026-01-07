@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/app/shared/hooks/supabaseClient";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { API_URL } from "@/app/shared/config";
 import Button from "@/app/shared/components/ui/Button";
 import { CARD, SIDEBAR_OVERLAY } from "@/app/shared/ui/classes";
@@ -18,6 +18,7 @@ export default function DeleteAccountModal({
   const [userId, setUserId] = useState<number | null>(null); // ak nepoužívaš, pokojne nechaj null
   const [userUid, setUserUid] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const supabase = getSupabaseBrowser();
 
   useEffect(() => {
     (async () => {

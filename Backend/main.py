@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from Modules.Strava import webhook_strava
 from Routes_FE import (
     users,
     activities_streams,
@@ -21,6 +22,7 @@ from Routes_FE import (
     profile_static,
     profile_metrics,
     async_jobs,
+    maintenance
 )
 
 app = FastAPI()
@@ -36,6 +38,7 @@ if not origins:
         "https://www.patrikmbontar.eu",
         "https://dev.patrikmbontar.eu",
         "http://localhost:3000",
+        "https://hoppscotch.io",
     ]
 
 app.add_middleware(
@@ -68,3 +71,6 @@ app.include_router(coach_athlete_state.router)
 app.include_router(coach_plan_active.router)
 app.include_router(coach_external_events.router)
 app.include_router(async_jobs.router)
+app.include_router(maintenance.router)
+
+app.include_router(webhook_strava.router)

@@ -1,10 +1,10 @@
+// src/features/recovery/components/InputsCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
-import { API_URL } from "@/app/shared/config";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/components/ui/Toast";
@@ -20,6 +20,8 @@ import {
   PILL_BUTTON,
   TEXTAREA_BASE,
 } from "@/app/shared/ui/classes";
+
+import { apiSaveRecovery } from "@/app/features/recovery/api/recovery";
 
 export default function InputsCard() {
   const { userId } = useUserId();
@@ -43,16 +45,20 @@ export default function InputsCard() {
     setDate((prev) => addDaysIso(prev, deltaDays));
 
   async function handleSave() {
-    if (!userId) return alert("❌ Užívateľ neznámy");
+    if (!userId) {
+      toast.error("❌ Užívateľ neznámy");
+      return;
+    }
 
     let sleepMinutes: number | null = null;
     if (sleepDuration) {
       const [h, m] = sleepDuration.split(":").map(Number);
-      if (Number.isFinite(h) && Number.isFinite(m)) sleepMinutes = h * 60 + m;
+      if (Number.isFinite(h) && Number.isFinite(m)) {
+        sleepMinutes = h * 60 + m;
+      }
     }
 
     const payload = {
-      user_id: userId,
       date,
       RHR_bpm: rhr ? Number(rhr) : null,
       HRV_avg_ms: hrvAvg ? Number(hrvAvg) : null,
@@ -63,18 +69,12 @@ export default function InputsCard() {
       caffeine_8h: lateCaffeine,
       alcohol_volume_ml: alcoholVolume ? Number(alcoholVolume) : null,
       alcohol_type_pct: alcoholType ? Number(alcoholType) : null,
-      comments,
+      comments: comments || null,
     };
 
     try {
       setSaving(true);
-      const res = await fetch(`${API_URL}/recovery`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Unknown error");
+      await apiSaveRecovery(userId, payload as any);
       toast.success("✅ Recovery uložené");
     } catch (e: any) {
       toast.error("❌ Chyba: " + (e?.message ?? e));

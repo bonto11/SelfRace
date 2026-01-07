@@ -1,17 +1,23 @@
-# Routes_DB/user_bests.py
 from __future__ import annotations
-from typing import Any, Dict, List
-from Modules.SQL.db_handler import get_client
+
+from typing import Any, Dict, List, Optional
+
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS_BESTS
 
-sb = get_client()
-
-
-def db_fetch_user_bests(user_id: int, sport: str) -> List[Dict[str, Any]]:
+def db_fetch_user_bests(
+    user_id: int,
+    sport: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> List[Dict[str, Any]]:
     """
     Low-level SELECT pre users_bests.
     Nerieši time_str ani validáciu.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
+
     res = (
         sb.table(TABLE_USERS_BESTS)
         .select(
@@ -28,10 +34,17 @@ def db_fetch_user_bests(user_id: int, sport: str) -> List[Dict[str, Any]]:
     return rows
 
 
-def db_upsert_user_best(row: Dict[str, Any]) -> Dict[str, Any]:
+def db_upsert_user_best(
+    row: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Dict[str, Any]:
     """
     Low-level UPSERT. Predpokladá už zvalidované a normalizované pole `row`.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
+
     res = (
         sb.table(TABLE_USERS_BESTS)
         .upsert(row, on_conflict="user_id,sport,distance_m")
@@ -43,10 +56,19 @@ def db_upsert_user_best(row: Dict[str, Any]) -> Dict[str, Any]:
     return rows[0] if rows else row
 
 
-def db_delete_user_best(user_id: int, sport: str, distance_m: int) -> int:
+def db_delete_user_best(
+    user_id: int,
+    sport: str,
+    distance_m: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> int:
     """
     Hard delete; vráti počet zmazaných riadkov.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
+
     res = (
         sb.table(TABLE_USERS_BESTS)
         .delete()

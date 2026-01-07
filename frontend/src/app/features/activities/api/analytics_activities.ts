@@ -1,6 +1,5 @@
 // src/features/activities/api/activities.ts
-import { API_URL } from "@/app/shared/config";
-import { robustJson } from "@/app/features/coach/api/_api_utils";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import {
   WeeklyLoadRow,
   WeeklyLoadApiResponse,
@@ -22,38 +21,27 @@ export async function apiGetWeeklyMonoStrain(
   userId: number,
   opts: WeeklyMonoStrainOptions = {}
 ): Promise<WeeklyMonoStrainRow[]> {
-  if (!API_URL) {
-    throw new Error("Missing API_URL for apiGetWeeklyMonoStrain");
+  if (!userId) {
+    return [];
   }
 
   const params = new URLSearchParams();
   if (opts.weeks != null) params.set("weeks", String(opts.weeks));
   if (opts.sport) params.set("sport", opts.sport);
 
-  const url = `${API_URL}/analytics/weekly/${userId}${
+  const path = `/analytics/weekly/${encodeURIComponent(String(userId))}${
     params.toString() ? `?${params.toString()}` : ""
   }`;
 
-  const res = await fetch(url, {
+  const json = await callBackend<WeeklyMonoStrainApiResponse>(path, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
     cache: "no-store",
-  }).catch((e) => {
-    throw new Error(`Network/CORS: ${String(e)}`);
   });
-
-  const json = (await robustJson(res)) as WeeklyMonoStrainApiResponse;
-
-  if (!res.ok) {
-    const msg =
-      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
 
   const raw: any[] = Array.isArray(json?.weeks)
     ? json.weeks
-    : Array.isArray(json?.data)
-    ? json.data
+    : Array.isArray((json as any)?.data)
+    ? (json as any).data
     : [];
 
   return raw.map((w) => ({
@@ -89,38 +77,27 @@ export async function apiGetWeeklyLoad(
   userId: number,
   opts: WeeklyLoadOptions = {}
 ): Promise<WeeklyLoadRow[]> {
-  if (!API_URL) {
-    throw new Error("Missing API_URL for apiGetWeeklyLoad");
+  if (!userId) {
+    return [];
   }
 
   const params = new URLSearchParams();
   if (opts.weeks != null) params.set("weeks", String(opts.weeks));
   if (opts.sport) params.set("sport", opts.sport);
 
-  const url = `${API_URL}/analytics/weekly/${userId}${
+  const path = `/analytics/weekly/${encodeURIComponent(String(userId))}${
     params.toString() ? `?${params.toString()}` : ""
   }`;
 
-  const res = await fetch(url, {
+  const json = await callBackend<WeeklyLoadApiResponse>(path, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
     cache: "no-store",
-  }).catch((e) => {
-    throw new Error(`Network/CORS: ${String(e)}`);
   });
-
-  const json = (await robustJson(res)) as WeeklyLoadApiResponse;
-
-  if (!res.ok) {
-    const msg =
-      (json as any)?.detail || (json as any)?.error || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
 
   const raw: any[] = Array.isArray(json?.weeks)
     ? json.weeks
-    : Array.isArray(json?.data)
-    ? json.data
+    : Array.isArray((json as any)?.data)
+    ? (json as any).data
     : [];
 
   return raw.map((w) => ({
@@ -160,14 +137,21 @@ export async function apiFetchParetoWidget(
   total_min: number;
   days: number;
 } | null> {
+  if (!userId) return null;
+
   const q = new URLSearchParams({ days: String(days) });
   if (sportCsv) q.set("sport", sportCsv);
 
-  const url = `${API_URL}/analytics/pareto8020/widget/${userId}?${q.toString()}`;
-  console.debug("[activityApi][paretoWidget] ->", url);
+  const path = `/analytics/pareto8020/widget/${encodeURIComponent(
+    String(userId)
+  )}?${q.toString()}`;
+  console.debug("[activityApi][paretoWidget] ->", path);
 
-  const res = await fetch(url, { cache: "no-store" });
-  const js = await res.json().catch(() => ({}));
+  const js = await callBackend<any>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
+
   return js?.data ?? null;
 }
 
@@ -187,14 +171,21 @@ export async function apiFetchParetoTrend(
     end?: string;
   }>
 > {
+  if (!userId) return [];
+
   const q = new URLSearchParams({ weeks: String(weeks) });
   if (sportCsv) q.set("sport", sportCsv);
 
-  const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
-  console.debug("[activityApi][paretoTrend] ->", url);
+  const path = `/analytics/pareto8020/${encodeURIComponent(
+    String(userId)
+  )}?${q.toString()}`;
+  console.debug("[activityApi][paretoTrend] ->", path);
 
-  const res = await fetch(url, { cache: "no-store" });
-  const js = await res.json().catch(() => ({}));
+  const js = await callBackend<any>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
+
   const rws = Array.isArray(js?.data) ? js.data : [];
   return rws;
 }
@@ -204,10 +195,18 @@ export async function apiFetchDetail(
   userId: number,
   activityId: number
 ): Promise<ActivityDetailExtra> {
-  const url = `${API_URL}/analytics/activitiesDetail/${userId}/${activityId}`;
+  if (!userId || !activityId) {
+    return { laps: [], splits: [] };
+  }
 
-  const res = await fetch(url, { cache: "no-store" });
-  const json = await res.json().catch(() => ({}));
+  const path = `/analytics/activitiesDetail/${encodeURIComponent(
+    String(userId)
+  )}/${encodeURIComponent(String(activityId))}`;
+
+  const json = await callBackend<any>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
 
   return {
     laps: Array.isArray(json?.laps) ? json.laps : [],

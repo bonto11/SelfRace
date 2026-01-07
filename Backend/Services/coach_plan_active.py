@@ -1,36 +1,47 @@
-# Services/coach_plan_active.py
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
-# Services/coach_plan_active.py – relevantná časť
+from typing import Any, Dict, Optional
 
 from Routes_DB.coach_plan_meta import (
-    db_insert_plan_meta_generated,
     db_archive_user_plans,
     db_get_latest_plan_meta_for_user,
     db_get_active_plan_meta_for_user,
     db_update_plan_status,
 )
 from Routes_DB.coach_plan_daily import (
-    # ak máš iné názvy, len si uprav importy
     db_link_session_to_activity,
     db_clear_daily_for_user_plan,
 )
 from Routes_DB.coach_plan_weekly import db_clear_weekly_for_user_plan
+from Services.users import require_jwt
 
-def _ensure_latest_plan_meta(user_id: int) -> Dict[str, Any]:
+
+def _ensure_latest_plan_meta(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> Dict[str, Any]:
     """
     Nájde najnovší záznam v coach_plan_meta pre daného usera.
     Ak nič nie je, hodí ValueError.
     """
-    meta = db_get_latest_plan_meta_for_user(user_id)
+    jwt = require_jwt(user_jwt)
+
+    meta = db_get_latest_plan_meta_for_user(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
     if not meta:
         raise ValueError("No generated plan meta found for this user.")
     return meta
 
 
-def service_save_active_plan(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+def service_save_active_plan(
+    user_id: int,
+    payload: Dict[str, Any],
+    *,
+    user_jwt: str,
+) -> Dict[str, Any]:
     """
     Aktivuje najnovší vygenerovaný plán.
 
@@ -39,15 +50,28 @@ def service_save_active_plan(user_id: int, payload: Dict[str, Any]) -> Dict[str,
     - najnovšiemu nastaví status='active'
     - vráti info pre FE
     """
+    jwt = require_jwt(user_jwt)
+
     # 1) nájdi najnovší plán z meta
-    meta = _ensure_latest_plan_meta(user_id)
+    meta = _ensure_latest_plan_meta(user_id=user_id, user_jwt=jwt)
     plan_id: str = meta["plan_id"]
 
     # 2) archivuj staré plány (generated + active)
-    db_archive_user_plans(user_id)
+    db_archive_user_plans(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
 
     # 3) nastav status = active pre daný plan_id
-    updated = db_update_plan_status(user_id, plan_id, "active") or meta
+    updated = (
+        db_update_plan_status(
+            user_id=user_id,
+            plan_id=plan_id,
+            new_status="active",
+            user_jwt=jwt,
+        )
+        or meta
+    )
 
     return {
         "plan_id": plan_id,
@@ -57,30 +81,51 @@ def service_save_active_plan(user_id: int, payload: Dict[str, Any]) -> Dict[str,
         "meta": updated,
     }
 
-# ---------------------------------------------------------------------
-# CANCEL = zruš aktívny plán
-# ---------------------------------------------------------------------
-# Services/coach_plan_active.py (príklad)
 
-def service_cancel_active_plan(user_id: int) -> dict:
+def service_cancel_active_plan(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> Dict[str, Any]:
     """
     Ukončí aktuálny aktívny plán:
       - nájde active meta
       - nastaví status='archived'
       - vymaže všetky weekly + daily riadky daného plan_id
     """
-    meta = db_get_active_plan_meta_for_user(user_id)
+    jwt = require_jwt(user_jwt)
+
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
     if not meta:
         raise ValueError("User has no active plan to cancel.")
 
     plan_id = meta["plan_id"]
 
     # 1) meta -> archived
-    updated_meta = db_update_plan_status(user_id, plan_id, "archived") or meta
+    updated_meta = (
+        db_update_plan_status(
+            user_id=user_id,
+            plan_id=plan_id,
+            new_status="archived",
+            user_jwt=jwt,
+        )
+        or meta
+    )
 
     # 2) zmaž plán
-    weekly_deleted = db_clear_weekly_for_user_plan(user_id=user_id, plan_id=plan_id)
-    daily_deleted = db_clear_daily_for_user_plan(user_id=user_id, plan_id=plan_id)
+    weekly_deleted = db_clear_weekly_for_user_plan(
+        user_id=user_id,
+        plan_id=plan_id,
+        user_jwt=jwt,
+    )
+    daily_deleted = db_clear_daily_for_user_plan(
+        user_id=user_id,
+        plan_id=plan_id,
+        user_jwt=jwt,
+    )
 
     return {
         "plan_id": plan_id,
@@ -90,18 +135,21 @@ def service_cancel_active_plan(user_id: int) -> dict:
     }
 
 
-# ---------------------------------------------------------------------
-# CONTINUE = jednoduchý stub (len vráti meta info)
-# ---------------------------------------------------------------------
 def service_continue_active_plan(
     user_id: int,
     min_horizon_days: int,
+    *,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
     Zatiaľ len stub – vráti info o aktuálnom aktívnom pláne.
-    Neskôr sem vieš doplniť reálnu logiku predĺženia.
     """
-    meta = db_get_active_plan_meta_for_user(user_id)
+    jwt = require_jwt(user_jwt)
+
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
     if not meta:
         return {
             "success": False,
@@ -122,18 +170,22 @@ def service_continue_active_plan(
     }
 
 
-# ---------------------------------------------------------------------
-# EXTEND = ďalší stub
-# ---------------------------------------------------------------------
 def service_extend_active_plan(
     user_id: int,
     min_horizon_days: int,
+    *,
+    user_jwt: str,
 ) -> Dict[str, Any]:
     """
-    Stub pre extend – v tejto verzii nič nemení, len vráti info,
+    Stub pre extend – zatiaľ nič nemení, len vráti info,
     aby FE nepadal.
     """
-    meta = db_get_active_plan_meta_for_user(user_id)
+    jwt = require_jwt(user_jwt)
+
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
     if not meta:
         return {
             "success": False,
@@ -153,35 +205,45 @@ def service_extend_active_plan(
         "note": "extend_active_plan stub – not implemented yet",
     }
 
-# ---------------------------------------------------------------------
-# LINK ACTIVITY
-# ---------------------------------------------------------------------
+
 def service_link_activity(
     user_id: int,
     session_id: int,
     activity_id: Optional[int],
+    *,
+    user_jwt: str,
 ) -> bool:
     """
     Prelinkovanie planned session -> activity_id.
     """
+    jwt = require_jwt(user_jwt)
+
     try:
-        db_link_session_to_activity(user_id, session_id, activity_id)
+        db_link_session_to_activity(
+            user_id=user_id,
+            session_id=session_id,
+            activity_id=activity_id,
+            user_jwt=jwt,
+        )
         return True
     except Exception:
         return False
-    
-def service_get_active_plan_status(user_id: int) -> Dict[str, Any]:
+
+
+def service_get_active_plan_status(
+    user_id: int,
+    *,
+    user_jwt: str,
+) -> Dict[str, Any]:
     """
     Zistí, či má user aktívny plán.
-
-    Vráti:
-      {
-        "has_active": bool,
-        "plan_id": Optional[str],
-        "meta": Optional[dict]
-      }
     """
-    meta = db_get_active_plan_meta_for_user(user_id=user_id)
+    jwt = require_jwt(user_jwt)
+
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
     if not meta:
         return {
             "has_active": False,

@@ -1,9 +1,8 @@
-# backend/Routes_FE/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 
 from Schemas.async_jobs import (
     EnqueueJobPayload,
@@ -19,6 +18,7 @@ from Routes_DB.async_jobs import (
     db_get_recent_jobs,
     db_get_job_by_id,
 )
+from Modules.HTTP.auth_deps import require_user_jwt  # ⬅️ JWT z FE
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -27,13 +27,14 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 def enqueue_job(
     user_id: int,
     payload: EnqueueJobPayload,
+    user_jwt: str = Depends(require_user_jwt),   # ⬅️ vezmeme JWT z hlavičky
 ) -> Dict[str, Any]:
     """
     Vytvorí nový async job pre daného usera.
 
     FE posiela:
       - job_type (napr. 'ai_analyze')
-      - payload (ľubovoľný JSON)
+      - payload (ľubovoľný JSON – sem nebudeme veriť user_jwt z FE)
       - voliteľne: dedupe_key, run_after, max_attempts
     """
     try:
@@ -46,6 +47,7 @@ def enqueue_job(
             run_after=payload.run_after,
             max_attempts=payload.max_attempts,
             dedupe_key=payload.dedupe_key,
+            user_jwt=user_jwt,  # ⬅️ toto je kľúčové
         )
         return {"success": True, "job": out.get("job"), "note": out.get("note")}
     except ValueError as ve:
@@ -98,7 +100,11 @@ def list_recent_jobs(
         if job_types:
             job_types_list = [k.strip() for k in job_types.split(",") if k.strip()]
 
-        rows = db_get_recent_jobs(user_id=user_id, job_types=job_types_list, limit=limit)
+        rows = db_get_recent_jobs(
+            user_id=user_id,
+            job_types=job_types_list,
+            limit=limit,
+        )
         return {"success": True, "jobs": rows}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -123,6 +129,7 @@ def get_job(
 def run_job(
     user_id: int,
     job_id: int,
+    user_jwt: str = Depends(require_user_jwt),  # ⬅️ JWT z FE
 ) -> Dict[str, Any]:
     """
     Manuálne spracovanie jedného jobu (mini-worker).
@@ -132,6 +139,7 @@ def run_job(
             user_id=user_id,
             job_id=job_id,
             worker_id="api_run",
+            user_jwt=user_jwt,  # ⬅️ POSIELAME ĎALEJ
         )
         return {
             "success": out.get("error") is None,

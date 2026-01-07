@@ -1,7 +1,8 @@
 # Services/user_recovery.py
 from __future__ import annotations
+
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from Routes_DB.user_recovery import (
     db_get_recovery_record,
@@ -9,17 +10,35 @@ from Routes_DB.user_recovery import (
     db_update_recovery,
     db_get_recent_recovery,
 )
+from Services.users import require_jwt
 
-def service_insert_or_update_recovery(payload: Dict[str, Any]) -> Dict[str, Any]:
+
+def service_insert_or_update_recovery(
+    payload: Dict[str, Any],
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Vloží alebo updatuje recovery záznam podľa (user_id, date).
     Vracia nový/aktualizovaný riadok.
     """
+    user_jwt = require_jwt(user_jwt)
+
     user_id = payload["user_id"]
     date_iso = payload.get("date") or datetime.now().date().isoformat()
 
-    # existujúci záznam?
-    existing = db_get_recovery_record(user_id, date_iso)
+    print(
+        "[service_insert_or_update_recovery]",
+        "user_id=",
+        user_id,
+        "jwt_present=",
+        bool(user_jwt),
+    )
+
+    existing = db_get_recovery_record(
+        user_id,
+        date_iso,
+        user_jwt=user_jwt,
+    )
 
     row = payload.copy()
     row["date"] = date_iso
@@ -27,16 +46,60 @@ def service_insert_or_update_recovery(payload: Dict[str, Any]) -> Dict[str, Any]
 
     if existing:
         rec_id = existing["id"]
-        return {"updated": True, "row": db_update_recovery(rec_id, row)}
+        return {
+            "updated": True,
+            "row": db_update_recovery(
+                rec_id,
+                row,
+                user_jwt=user_jwt,
+            ),
+        }
     else:
-        return {"updated": False, "row": db_insert_recovery(row)}
+        return {
+            "updated": False,
+            "row": db_insert_recovery(
+                row,
+                user_jwt=user_jwt,
+            ),
+        }
 
 
-def service_get_recovery(user_id: int, days: int = 14) -> List[Dict[str, Any]]:
-    return db_get_recent_recovery(user_id, days)
+def service_get_recovery(
+    user_id: int,
+    days: int = 14,
+    user_jwt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    user_jwt = require_jwt(user_jwt)
 
-def service_build_recovery_block_for_analysis(user_id: int) -> Dict[str, Any]:
-    rows = db_get_recent_recovery(user_id, days=21)
+    print(
+        "[service_get_recovery]",
+        "user_id=",
+        user_id,
+        "jwt_present=",
+        bool(user_jwt),
+    )
+
+    return db_get_recent_recovery(
+        user_id,
+        days,
+        user_jwt=user_jwt,
+    )
+
+
+def service_build_recovery_block_for_analysis(
+    user_id: int,
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Blok pre CoachAnalyzeInput["recovery"].
+    """
+    user_jwt = require_jwt(user_jwt)
+
+    rows = db_get_recent_recovery(
+        user_id,
+        days=21,
+        user_jwt=user_jwt,
+    )
     if not rows:
         return {
             "rhr_bpm": None,
@@ -46,14 +109,13 @@ def service_build_recovery_block_for_analysis(user_id: int) -> Dict[str, Any]:
             "last_illness_days_ago": None,
         }
 
-    # --- Najnovší záznam ---
     latest = rows[0]
 
     rhr = latest.get("RHR_bpm")
     hrv = latest.get("HRV_avg_ms")
     sleep = latest.get("sleep_duration_min")
 
-    # --- HRV TREND: posledných 7 dní, len validné čísla ---
+    # HRV TREND: posledných 7 dní
     raw_vals = [r.get("HRV_avg_ms") for r in rows[:7]]
     hrv_vals = [v for v in raw_vals if isinstance(v, (int, float)) and v > 0]
 

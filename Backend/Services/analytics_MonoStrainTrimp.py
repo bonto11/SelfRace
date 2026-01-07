@@ -24,7 +24,6 @@ from typing import Optional
 #   V prípade potreby si vo vrstve routes/services pred-vyber "najbližší RHR" z tvojich “recovery” tabuliek.
 
 
-
 def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
     """
     Koše: run, ride, strength, skate, mixed, other
@@ -42,7 +41,9 @@ def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
         return "run"
 
     # bicykel
-    if any(k in s for k in ("ride", "bike", "cycle", "cycling", "virtual_ride", "ebike")):
+    if any(
+        k in s for k in ("ride", "bike", "cycle", "cycling", "virtual_ride", "ebike")
+    ):
         return "ride"
 
     # sila
@@ -50,11 +51,23 @@ def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
         return "strength"
 
     # korčule
-    if any(k in s for k in ("skate", "inlineskate", "inline", "roller", "rollerskate", "rollerblade")):
+    if any(
+        k in s
+        for k in (
+            "skate",
+            "inlineskate",
+            "inline",
+            "roller",
+            "rollerskate",
+            "rollerblade",
+        )
+    ):
         return "skate"
 
     # mixované tréningy
-    if any(k in s for k in ("workout", "cross", "mixed", "brick", "duathlon", "triathlon")):
+    if any(
+        k in s for k in ("workout", "cross", "mixed", "brick", "duathlon", "triathlon")
+    ):
         return "mixed" if (distance_m or 0) > 0 else "other"
 
     # fallback – nech sa km nestratia
@@ -64,13 +77,15 @@ def sport_bucket(s: str, distance_m: Optional[float] = None) -> str:
     return "other"
 
 
-def _trimp_banister(avg_hr: float, dur_min: float, hr_max: float, rhr: float, sex: Optional[str]) -> float:
+def _trimp_banister(
+    avg_hr: float, dur_min: float, hr_max: float, rhr: float, sex: Optional[str]
+) -> float:
     """
     Banister TRIMP (sex-špecifické koeficienty).
     TRIMP = duration_min * HRr * k * exp(c * HRr)
     kde HRr = (HRavg - HRrest) / (HRmax - HRrest)
     """
-    denom = (hr_max - rhr)
+    denom = hr_max - rhr
     if denom <= 0:
         return 0.0
     hrr = (avg_hr - rhr) / denom
@@ -106,11 +121,13 @@ def _trimp_edwards(avg_hr: float, dur_min: float, hr_max: float) -> float:
     return float(w * dur_min)
 
 
-def compute_trimp(avg_hr: Optional[float],
-                  dur_min: float,
-                  hr_max: Optional[float],
-                  rhr: Optional[float],
-                  sex: Optional[str]) -> float:
+def compute_trimp(
+    avg_hr: Optional[float],
+    dur_min: float,
+    hr_max: Optional[float],
+    rhr: Optional[float],
+    sex: Optional[str],
+) -> float:
     """
     Hybrid TRIMP:
       - Ak máme avg_hr, hr_max a rhr -> Banister (presnejší).
@@ -122,20 +139,25 @@ def compute_trimp(avg_hr: Optional[float],
             return 0.0
         if rhr is None or rhr <= 0 or rhr >= hr_max:
             return _trimp_edwards(float(avg_hr), float(dur_min), float(hr_max))
-        return _trimp_banister(float(avg_hr), float(dur_min), float(hr_max), float(rhr), sex)
+        return _trimp_banister(
+            float(avg_hr), float(dur_min), float(hr_max), float(rhr), sex
+        )
     except Exception:
         return 0.0
 
 
-def monotony_and_strain(day_dict: dict[str, float],
-                        week_start: date,
-                        week_total: float) -> tuple[float, float]:
+def monotony_and_strain(
+    day_dict: dict[str, float], week_start: date, week_total: float
+) -> tuple[float, float]:
     """
     Foster:
       monotony = mean/SD zo 7 dní (vrátane nulových),
       strain   = total * monotony
     """
-    vals = [float(day_dict.get((week_start + timedelta(days=i)).isoformat(), 0.0)) for i in range(7)]
+    vals = [
+        float(day_dict.get((week_start + timedelta(days=i)).isoformat(), 0.0))
+        for i in range(7)
+    ]
     mean = statistics.fmean(vals) if vals else 0.0
     sd = statistics.pstdev(vals) if len(vals) > 1 else 0.0
     mono = (mean / sd) if sd > 0 else 0.0

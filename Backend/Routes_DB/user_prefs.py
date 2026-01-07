@@ -4,13 +4,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS_PREFERENCES
 
-sb = get_client()
 
+def db_get_prefs_all(
+    user_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> List[Dict[str, Any]]:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
 
-def db_get_prefs_all(user_id: int) -> List[Dict[str, Any]]:
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
         .select("key,value,updated_at")
@@ -18,10 +23,19 @@ def db_get_prefs_all(user_id: int) -> List[Dict[str, Any]]:
         .order("key", desc=False)
         .execute()
     )
+
     return list(res.data or [])
 
 
-def db_get_pref_single(user_id: int, key: str) -> Optional[Dict[str, Any]]:
+def db_get_pref_single(
+    user_id: int,
+    key: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
         .select("key,value,updated_at")
@@ -31,10 +45,20 @@ def db_get_pref_single(user_id: int, key: str) -> Optional[Dict[str, Any]]:
         .execute()
     )
     rows = list(res.data or [])
+
     return rows[0] if rows else None
 
 
-def db_upsert_pref_single(user_id: int, key: str, value: Any) -> Dict[str, Any]:
+def db_upsert_pref_single(
+    user_id: int,
+    key: str,
+    value: Any,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Dict[str, Any]:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+
     rec = {
         "user_id": user_id,
         "key": key,
@@ -45,10 +69,19 @@ def db_upsert_pref_single(user_id: int, key: str, value: Any) -> Dict[str, Any]:
         rec,
         on_conflict="user_id,key",
     ).execute()
+
     return rec
 
 
-def db_upsert_many(user_id: int, kv: Dict[str, Any]) -> int:
+def db_upsert_many(
+    user_id: int,
+    kv: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> int:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+
     rows = [
         {
             "user_id": user_id,
@@ -68,7 +101,15 @@ def db_upsert_many(user_id: int, kv: Dict[str, Any]) -> int:
     return len(rows)
 
 
-def db_delete_pref_single(user_id: int, key: str) -> int:
+def db_delete_pref_single(
+    user_id: int,
+    key: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> int:
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
         .delete()

@@ -1,8 +1,9 @@
-# backend/Services/async_jobs.py
+# Services/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 
+from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 from Routes_DB.async_jobs import (
     db_insert_job,
     db_get_active_jobs,
@@ -12,11 +13,19 @@ from Routes_DB.async_jobs import (
 )
 
 from Services.coach_athlete_state import service_analyze_athlete
+    # ai_analyze
 from Services.coach_plan_weekly import service_generate_weekly_plan
-from Services.coach_plan_daily import service_generate_daily_week
+    # weekly_generate
+from Services.coach_plan_daily import (
+    service_generate_daily_week,
+    service_auto_extend_daily_plan,
+)
+    # daily_generate, daily_extend
 from Services.plan_activity_match import auto_map_plans_for_activities
-from Services.coach_plan_daily import service_auto_extend_daily_plan
+    # plan_match
 
+
+# typy jobov, ktoré worker vie spracovať
 ALLOWED_JOB_TYPES = {
     "sync",
     "uspert_enrichment_zones",
@@ -37,20 +46,30 @@ def service_enqueue_job(
     priority: int = 100,
     run_after: Optional[str] = None,
     max_attempts: int = 3,
-    dedupe_key: Optional[str] = None,  # zatiaľ nevyužité – do budúcna
+    dedupe_key: Optional[str] = None,
+    user_jwt: Optional[str] = None,  # posielame z routera, ide len do payloadu
 ) -> Dict[str, Any]:
     """
     Vytvorí nový job v async_jobs.
-    """
 
-    # Tu by sa dal spraviť dedupe podľa dedupe_key, keď ho pridáme do tabuľky
+    Pozor: DB vrstva (Routes_DB.async_jobs) používa service klient,
+    nijaké user_jwt sa tam neposiela. JWT dávame len do job.input.
+    """
+    if job_type not in ALLOWED_JOB_TYPES:
+        raise ValueError(f"Unsupported job_type: {job_type}")
+
+    # payload normalizuj a doplň user_jwt (ak je)
+    clean_payload: Dict[str, Any] = dict(payload or {})
+    if user_jwt is not None:
+        # ak ho caller dal priamo do payloadu, necháme jeho hodnotu
+        clean_payload.setdefault("user_jwt", user_jwt)
 
     row: Dict[str, Any] = {
         "user_id": int(user_id),
         "user_uid": user_uid or "00000000-0000-0000-0000-000000000000",
         "job_type": job_type,
         "status": "queued",
-        "input": payload or {},
+        "input": clean_payload,
         "attempts": 0,
         "max_attempts": int(max_attempts or 3),
         "progress": 0,
@@ -60,6 +79,7 @@ def service_enqueue_job(
     if run_after:
         row["run_after"] = run_after
 
+    # DB vrstva beží na service role – sem user_jwt neposielame
     created = db_insert_job(row)
     if not created:
         return {"job": None, "note": "enqueue_failed"}
@@ -71,17 +91,20 @@ def service_list_active_jobs(
     user_id: int,
     job_types: Optional[List[str]] = None,
     limit: int = 50,
+    user_jwt: Optional[str] = None,  # zatiaľ nepoužívame, nechávame pre budúcnosť
 ) -> List[Dict[str, Any]]:
     """
     Jednoduchý wrapper pre FE/worker – aktívne joby.
     """
     return db_get_active_jobs(user_id=user_id, job_types=job_types, limit=limit)
 
+
 def service_run_job_now(
     user_id: int,
     job_id: int,
     *,
     worker_id: str = "manual",
+    user_jwt: Optional[str] = None,  # JWT berieme z job.input, nie z tohto argumentu
 ) -> Dict[str, Any]:
     """
     Spustí konkrétny job (id) pre daného usera – mini worker.
@@ -123,23 +146,37 @@ def service_run_job_now(
     if not isinstance(input_payload, dict):
         input_payload = {}
 
+    # jedna spoločná premenná – väčšina service_* teraz očakáva user_jwt
+    payload_jwt: Optional[str] = input_payload.get("user_jwt")
+
     result_payload: Optional[Dict[str, Any]] = None
 
     try:
         # 1) ANALYZE ATHLETE
         if job_type == "ai_analyze":
+            if payload_jwt is None:
+                raise ValueError("ai_analyze: job.input.user_jwt is required")
+
+            debug_flag = bool(input_payload.get("debug", False))
+            save_flag = bool(input_payload.get("save_to_db", True))
+            model_override = input_payload.get("model")
+
             result_payload = service_analyze_athlete(
                 user_id=user_id,
-                # ak máš v signatúre tieto voľby, inak ich vyhoď
-                # debug/input options berieme z job.input
-                # ak tvoja service_analyze_athlete berie len user_id,
-                # pokojne ich ignoruj
+                user_jwt=payload_jwt,
+                debug=debug_flag,
+                save_to_db=save_flag,
+                model=model_override,
             )
 
         # 2) WEEKLY GENERATE
         elif job_type == "weekly_generate":
+            if payload_jwt is None:
+                raise ValueError("weekly_generate: job.input.user_jwt is required")
+
             result_payload = service_generate_weekly_plan(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 overwrite=bool(input_payload.get("overwrite", True)),
                 state_id=input_payload.get("state_id"),
                 weeks=input_payload.get("weeks"),
@@ -149,27 +186,27 @@ def service_run_job_now(
 
         # 3) DAILY GENERATE (konkrétny týždeň)
         elif job_type == "daily_generate":
+            if payload_jwt is None:
+                raise ValueError("daily_generate: job.input.user_jwt is required")
+
             week_index = input_payload.get("week_index")
             if week_index is None:
                 raise ValueError("daily_generate: week_index is required in job.input")
 
             result_payload = service_generate_daily_week(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 week_index=int(week_index),
                 plan_id=input_payload.get("plan_id"),
                 overwrite=bool(input_payload.get("overwrite", True)),
                 model=input_payload.get("model"),
                 debug=bool(input_payload.get("debug", False)),
             )
-        
+
         # 4) AUTO MAP (plan_match)
         elif job_type == "plan_match":
-            # očakávame, že job.input má tvar:
-            # {
-            #   "activity_ids": [12345, 23456],
-            #   "days_window": 1,          # optional, default 1
-            #   "score_threshold": 0.55    # optional, default 0.55
-            # }
+            if payload_jwt is None:
+                raise ValueError("plan_match: job.input.user_jwt is required")
 
             raw_ids = input_payload.get("activity_ids") or []
             if not isinstance(raw_ids, list):
@@ -180,7 +217,6 @@ def service_run_job_now(
                 try:
                     activity_ids.append(int(v))
                 except Exception:
-                    # ak je nejaká blbosť v poli, len ju preskočíme
                     continue
 
             if not activity_ids:
@@ -198,18 +234,48 @@ def service_run_job_now(
             else:
                 score_threshold = float(score_threshold_raw)
 
+            # 4a) samotné matchovanie plán ↔ aktivity
             result_payload = auto_map_plans_for_activities(
                 user_id=user_id,
+                user_jwt=payload_jwt,
                 activity_ids=activity_ids,
                 days_window=days_window,
                 score_threshold=score_threshold,
             )
 
+            # 4b) enqueue follow-up job typu "daily_extend",
+            # aby bol horizont aspoň COACH_PLAN_GENERATE_MIN_HORIZON_DAYS dní
+            try:
+                extend_job = service_enqueue_job(
+                    user_id=user_id,
+                    user_uid=str(job.get("user_uid") or ""),
+                    job_type="daily_extend",
+                    payload={
+                        "min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
+                    },
+                    user_jwt=payload_jwt,
+                )
+                if isinstance(result_payload, dict):
+                    result_payload["daily_extend_job"] = extend_job.get("job")
+            except Exception as e:
+                if isinstance(result_payload, dict):
+                    result_payload["daily_extend_job_error"] = str(e)
+
         # 5) EXTEND DAILY
         elif job_type == "daily_extend":
+            if payload_jwt is None:
+                raise ValueError("daily_extend: job.input.user_jwt is required")
+
+            min_horizon_raw = input_payload.get("min_horizon_days")
+            if min_horizon_raw is None:
+                min_horizon_days = COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
+            else:
+                min_horizon_days = int(min_horizon_raw)
+
             result_payload = service_auto_extend_daily_plan(
                 user_id=user_id,
-                min_horizon_days = 10,
+                user_jwt=payload_jwt,
+                min_horizon_days=min_horizon_days,
             )
 
         else:
