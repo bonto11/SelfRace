@@ -6,7 +6,7 @@ from typing import Any, Mapping, Sequence
 import asyncio
 
 from Modules.SQL.db_handler import get_service_client
-from Services.synchronization import service_sync_single_activity
+from backend.Services.synchronization_single import service_sync_single_activity
 
 supabase = get_service_client()
 

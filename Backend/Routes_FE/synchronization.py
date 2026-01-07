@@ -8,7 +8,7 @@ from Schemas.synchronization import (
     SyncActivitiesRequest,
     SyncActivitiesResponse,
 )
-from Services.synchronization import service_sync_activities
+from backend.Services.synchronization_bulk import service_sync_activities
 from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(prefix="/synchronization", tags=["synchronization"])
