@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from Modules.API.Strava import webhook_strava
+from Modules.Strava import webhook_strava
 from Routes_FE import (
     users,
     activities_streams,
