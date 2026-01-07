@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
-from Modules.API.Strava.activities import StravaActivitiesClient
+from Modules.Strava.activities import StravaActivitiesClient
 from Services.activities_streams import fetch_and_optionally_store_batch
 from Services.activity_zones import (
     preview_zones_for_activities,
