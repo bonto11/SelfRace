@@ -1,9 +1,8 @@
 name: Weekly athlete state
 
 on:
-  # manuálne spustenie z VS Code / GitHub UI
   workflow_dispatch:
-  # týždenný cron – nedeľa 04:00 UTC (u nás cca 05:00 / 06:00)
+  # napr. každú stredu 20:00 UTC = 21:00 Bratislava (zima)
   schedule:
     - cron: "0 20 * * 3"
 
@@ -12,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call maintenance endpoint (weekly athlete state)
+      - name: Call weekly athlete state endpoint
         run: |
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${{ secrets.MAINTENANCE_API_KEY }}" \
-            -d '{}' \
-            https://api-dev.patrikmbontar.eu/maintenance/weekly-athlete-state
+            -d '{"max_users": 5}' \
+            https://api-dev.patrikmbontar.eu/maintenance/weekly-athlete-state-refresh
