@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-from Modules.SQL.db_handler import get_client, get_service_client
+from Modules.Supabase.client import get_client, get_service_client
 from Configs.config import TABLE_ACTIVITIES_SUMMARY
 
 FIELDS = (

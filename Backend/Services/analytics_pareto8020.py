@@ -7,7 +7,6 @@ from collections import defaultdict
 from fastapi import HTTPException
 
 from Configs.config_sport import (
-    DEBUG_PARETO,
     normalize_sport,
     normalize_sport_list,
     PARETO_DEFAULT_SET,
@@ -20,10 +19,6 @@ from Services.activity_zones import (
 from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
-
-def _log(*a: Any) -> None:
-    if DEBUG_PARETO:
-        print("[PARETO:SERVICE]", *a)
 
 
 def _require_jwt(user_jwt: Optional[str]) -> str:
@@ -162,17 +157,6 @@ def service_pareto_widget(
 
     ids = [int(r["activity_id"]) for r in rows if r.get("activity_id")]
 
-    _log(
-        "WIDGET",
-        {
-            "user": user_id,
-            "days": days,
-            "sport": sport,
-            "sports_used": list(sports_used),
-            "ids": len(ids),
-        },
-    )
-
     if not ids:
         return {
             "easy_min": 0,
@@ -240,15 +224,6 @@ def service_pareto_trend(
         sports_used = sports
 
     if not rows:
-        _log(
-            "TREND_EMPTY",
-            {
-                "user": user_id,
-                "weeks": weeks,
-                "sport": sport,
-                "sports_used": list(sports_used),
-            },
-        )
         return []
 
     # map na týždne
@@ -336,13 +311,4 @@ def service_pareto_trend(
             }
         )
 
-    _log(
-        "TREND",
-        {
-            "user": user_id,
-            "weeks": weeks,
-            "sport": sport,
-            "sports_used": list(sports_used),
-        },
-    )
     return out

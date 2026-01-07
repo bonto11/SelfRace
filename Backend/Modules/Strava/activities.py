@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 import requests
 
-from Modules.API.Strava.auth import get_access_token
+from Modules.Strava.auth import get_access_token
 from Configs.config import STRAVA_BASE
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from Modules.SQL.db_handler import get_service_client
+from Modules.Supabase.client import get_service_client
 
 # maintenance ide vždy ako admin → service client (bez RLS/JWT)
 supabase = get_service_client()

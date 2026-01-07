@@ -4,20 +4,15 @@ from typing import Any, Dict, List, Tuple, Iterable, Optional
 
 from fastapi import HTTPException
 
-from Modules.SQL.db_handler import get_client
-from Configs.config import (
-    TABLE_ACTIVITIES_SUMMARY,
-    TABLE_ACTIVITIES_ENRICHMENT,
+from Routes_DB.activities_summary import (
+    db_select_activities_window_basic,
 )
-from Configs.config_sport import DEBUG_PARETO
 
+from Routes_DB.activities_enrichment import (
+    db_get_enrichment_for_activities,
+)
 
 # ---------------------------- helpers ----------------------------
-def _log(*a):
-    if DEBUG_PARETO:
-        print("[PARETO:SOURCE]", *a)
-
-
 def _require_jwt(user_jwt: Optional[str]) -> str:
     """
     Pareto zdroj chceme ťahať striktne pod user JWT (RLS).
@@ -45,6 +40,7 @@ def _as_str(x: Any) -> Optional[str]:
 def _as_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
+        # noqa: E701
             return None
         return float(x)
     except Exception:
@@ -88,20 +84,8 @@ def _row_easy_hard(row: Dict[str, Any], count_no_hr_as_easy: bool = True) -> Tup
     return easy, hard
 
 
-def _get_client_for_user(user_jwt: Optional[str] = None):
-    """
-    Vráti Supabase client.
-    - ak príde user_jwt → použije sa RLS klient via JWT
-    - fallback len na rozdielnu signatúru get_client(), nie na anonymný prístup
-    """
-    try:
-        return get_client(user_jwt=user_jwt)
-    except TypeError:
-        # fallback ak máš ešte staršiu signatúru get_client()
-        return get_client()
-
-
 # ------------------------ data loaders ---------------------------
+
 def _activity_ids_in_range(
     user_id: int,
     start_iso: str,
@@ -109,18 +93,22 @@ def _activity_ids_in_range(
     *,
     user_jwt: Optional[str] = None,
 ) -> List[Tuple[int, str]]:
-    sb = _get_client_for_user(user_jwt=user_jwt)
-    res = (
-        sb.table(TABLE_ACTIVITIES_SUMMARY)
-        .select("activity_id,date")
-        .eq("user_id", user_id)
-        .gte("date", start_iso)
-        .lte("date", end_iso)
-        .order("date", desc=True)
-        .execute()
+    """
+    Vytiahne (activity_id, date) pre usera v okne [start_iso, end_iso] vrátane.
+
+    Interné – opiera sa o DB helper z activities_summary.
+    """
+    rows = db_select_activities_window_basic(
+        user_id=user_id,
+        date_from=start_iso,
+        date_to=end_iso,
+        user_jwt=user_jwt,
+        service=False,
+        sports=None,  # všetky športy, filtruje až FE
     )
+
     out: List[Tuple[int, str]] = []
-    for row in res.data or []:
+    for row in rows or []:
         aid = row.get("activity_id")
         dt = row.get("date")
         if aid is not None and dt is not None:
@@ -137,28 +125,22 @@ def _load_enrichment_for_ids(
     *,
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+    """
+    Načíta enrichment pre daného usera a dané activity_ids cez DB helper.
+    """
     if not ids:
-        return out
+        return []
 
-    sb = _get_client_for_user(user_jwt=user_jwt)
-
-    for chunk in _chunked(ids, 1000):
-        r = (
-            sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-            .select(
-                "activity_id,z1_min,z2_min,z3_min,z4_min,z5_min,"
-                "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m"
-            )
-            .eq("user_id", user_id)
-            .in_("activity_id", chunk)
-            .execute()
-        )
-        out.extend(r.data or [])
-    return out
+    return db_get_enrichment_for_activities(
+        user_id=user_id,
+        activity_ids=ids,
+        user_jwt=user_jwt,
+        service=False,
+    )
 
 
 # -------------------------- public API ---------------------------
+
 def get_pareto_source(
     user_id: int,
     months: int = 3,
@@ -179,6 +161,7 @@ def get_pareto_source(
     start_iso = start_dt.strftime("%Y-%m-%d")
     end_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # 1) nájdeme aktivity v rozsahu (id + dátum)
     id_rows = _activity_ids_in_range(
         user_id=user_id,
         start_iso=start_iso,
@@ -199,6 +182,7 @@ def get_pareto_source(
     if not ids:
         return {"success": True, "data": [], "months": months}
 
+    # 2) enrichment (zóny + pomocné polia) z activities_enrichment
     enr = _load_enrichment_for_ids(
         user_id=user_id,
         ids=ids,
@@ -233,7 +217,7 @@ def get_pareto_source(
             }
         )
 
-    # doplň aktivity bez enrichmentu
+    # 3) doplň aktivity bez enrichmentu (aby FE videlo "dierky")
     for aid_raw, date_raw in id_rows:
         aid = _as_int(aid_raw)
         if aid is None or aid in seen_ids:
@@ -259,5 +243,4 @@ def get_pareto_source(
 
     out.sort(key=lambda x: str(x.get("date") or ""), reverse=True)
 
-    _log("SOURCE built", {"user": user_id, "months": months, "rows": len(out)})
     return {"success": True, "data": out, "months": months}

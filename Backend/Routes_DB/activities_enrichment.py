@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.SQL.db_handler import get_client, get_service_client
+from Modules.Supabase.client import get_client, get_service_client
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
 
 
@@ -33,7 +33,14 @@ def db_get_enrichment_for_activities(
 ) -> List[Dict[str, Any]]:
     """
     Načíta enrichment pre daného usera a zoznam activity_id.
-    Vráti len polia potrebné pre Pareto: z1–z5_min.
+
+    Vráti polia potrebné pre Pareto aj ďalšie analytiky:
+      - activity_id
+      - z1_min .. z5_min
+      - sport_type_fe
+      - avg_hr_bpm
+      - moving_time_s
+      - distance_m
 
     Použitie:
     - FE/AI:      db_get_enrichment_for_activities(..., user_jwt=jwt)
@@ -46,7 +53,11 @@ def db_get_enrichment_for_activities(
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-        .select("activity_id,z1_min,z2_min,z3_min,z4_min,z5_min")
+        .select(
+            "activity_id,"
+            "z1_min,z2_min,z3_min,z4_min,z5_min,"
+            "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m"
+        )
         .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))
         .execute()
@@ -62,10 +73,6 @@ def db_upsert_enrichment_rows(
 ) -> int:
     """
     Batch upsert do activities_enrichment podľa activity_id (+ user_id).
-
-    Použitie:
-    - FE-driven zapis: db_upsert_enrichment_rows(..., user_jwt=jwt)
-    - worker/webhook:  db_upsert_enrichment_rows(..., service=True)
     """
     if not rows:
         return 0
@@ -78,8 +85,7 @@ def db_upsert_enrichment_rows(
         chunk = rows[i : i + BATCH]
         sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
             chunk,
-            # keby si chcel byť prísnejší: "user_id,activity_id"
-            on_conflict="activity_id",
+            on_conflict="activity_id",  # ak chceš, môžeš zmeniť na "user_id,activity_id"
         ).execute()
         saved += len(chunk)
 

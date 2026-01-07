@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-from Modules.SQL.db_handler import get_client
+from Modules.Supabase.client import get_client
 from Configs.config import TABLE_USERS_NOTES
 
 
