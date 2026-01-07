@@ -39,20 +39,18 @@ async def sync_activity_from_strava(
 
 async def _run_coach_autoadjust_service(user_id: int) -> dict:
     """
-    Spustí coach auto-adjust v service režime (user_jwt=None) v thread executore.
+    Spustí coach auto-adjust v SERVICE režime (bez JWT) v thread executore.
 
-    V tomto režime:
-      - používa sa len BE heuristika nad recent_load,
-      - AI sa nevolá,
-      - weekly/daily plány sa nemenia,
-      - vracia sa JSON s be_flags, aby sa dal logovať/debuggovať.
+    - recent_load + recovery (BE),
+    - ak BE flagy sú červené → AI analyze + weekly/daily replan cez service klienta.
     """
     loop = asyncio.get_running_loop()
 
     fn = partial(
         service_coach_autoadjust_after_update,
         user_id=user_id,
-        user_jwt=None,  # service / webhook režim – BE-only, bez RLS
+        user_jwt=None,
+        service=True,  # ⬅️ kritické – celé ide cez service režim
     )
 
     return await loop.run_in_executor(None, fn)
@@ -100,7 +98,6 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
     account = rows[0] if rows else None
 
     if not account:
-        # nemáme prepojenie Strava -> user
         supabase.table("strava_webhook_events").update(
             {
                 "processed_at": now_iso,
@@ -128,7 +125,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         ).eq("id", event_id).execute()
         return
 
-    # 4) CREATE/UPDATE → spusti single-activity sync + BE auto-adjust (service režim)
+    # 4) CREATE/UPDATE → sync + auto-adjust
     try:
         await sync_activity_from_strava(
             user_id=user_id,
@@ -136,7 +133,6 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
             strava_activity_id=object_id,
         )
 
-        # 4b) Po úspešnom syncu skús auto-adjust coach plánu (BE-only, bez AI)
         try:
             auto_res = await _run_coach_autoadjust_service(user_id=user_id)
             print(
@@ -149,9 +145,10 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
                 auto_res.get("reason"),
                 "be_flags=",
                 auto_res.get("be_flags"),
+                "recovery_debug=",
+                auto_res.get("recovery_debug"),
             )
         except Exception as e:
-            # nech error v coach logike nezabije spracovanie webhooku
             print(
                 "[COACH-AUTOADJUST][service] error for user",
                 user_id,

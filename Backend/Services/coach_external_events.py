@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from datetime import date, timedelta
 
 from Routes_DB.coach_external_events import (
@@ -41,7 +41,7 @@ def _normalize_event_input(
             raise ValueError(f"Invalid single_date: {single_date}") from exc
 
     start_time_local = ev.get("start_time_local") or None
-    # (tu by sa dala riešiť validácia "HH:MM", ale zatiaľ soft)
+    # (možná validácia "HH:MM", ale zatiaľ soft)
 
     return {
         "user_id": user_id,
@@ -144,10 +144,14 @@ def service_list_external_events_window(
     *,
     from_iso: str,
     to_iso: str,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
-    Vráti externé eventy expandované na konkrétne dni v zadanom okne (RLS).
+    Vráti externé eventy expandované na konkrétne dni v zadanom okne.
+
+    - RLS režim: service=False, user_jwt nie je None
+    - service/webhook: service=True, user_jwt môže byť None
     """
     try:
         d_from = date.fromisoformat(from_iso)
@@ -161,6 +165,7 @@ def service_list_external_events_window(
     base_rows = db_list_external_events_for_user(
         user_id,
         user_jwt=user_jwt,
+        service=service,
     )
     occurrences = _expand_events_to_window(base_rows, d_from, d_to)
 
@@ -177,10 +182,12 @@ def service_list_external_events(
 ) -> Dict[str, Any]:
     """
     Vráti zoznam externých eventov pre usera (holé definície, bez expandovania).
+    Čisto RLS/FE use-case.
     """
     rows = db_list_external_events_for_user(
         user_id,
         user_jwt=user_jwt,
+        service=False,
     )
     return {
         "success": True,
@@ -198,7 +205,7 @@ def service_save_external_events(
     Overwrite save:
       - zmaže všetky existujúce eventy usera
       - vloží nové podľa payloadu
-    (všetko cez RLS, user_jwt).
+    (všetko cez RLS, user_jwt, bez service režimu).
     """
     norm_rows: List[Dict[str, Any]] = []
     for raw in events:
@@ -208,12 +215,14 @@ def service_save_external_events(
     deleted = db_clear_external_events_for_user(
         user_id,
         user_jwt=user_jwt,
+        service=False,
     )
 
     # insert new
     inserted = db_insert_external_events(
         norm_rows,
         user_jwt=user_jwt,
+        service=False,
     )
 
     return {
@@ -229,31 +238,15 @@ def service_build_external_events_block_for_analysis(
     *,
     days_past: int = 28,
     days_future: int = 42,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Blok external_events pre analyze/weekly/daily – už odľahčený pre AI.
 
-    Štruktúra:
-
-    {
-      "schema_version": 1,
-      "window": {
-        "from": "YYYY-MM-DD",
-        "to": "YYYY-MM-DD",
-        "events": [
-          {
-            "date": "YYYY-MM-DD",
-            "sport": "football" | string | null,
-            "title": string | null,
-            "priority": "fixed" | "soft" | string | null,
-            "duration_min": number | null,
-            "start_time_local": "HH:MM" | null,
-            "weekday": 1–7 | null
-          }
-        ]
-      }
-    }
+    Použitie:
+      - FE / RLS: service=False, user_jwt=JWT
+      - service / webhook: service=True, user_jwt môže byť None
     """
     today = date.today()
     d_from = today - timedelta(days=days_past)
@@ -265,6 +258,7 @@ def service_build_external_events_block_for_analysis(
             from_iso=d_from.isoformat(),
             to_iso=d_to.isoformat(),
             user_jwt=user_jwt,
+            service=service,
         )
 
         raw_events = window.get("events") or []

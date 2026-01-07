@@ -1,4 +1,3 @@
-# Services/analytics_RecentLoad.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -35,6 +34,7 @@ def service_build_recent_load_raw(
     window_days: int = 42,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Vypočíta weekly recent_load z tabuľky activities_summary.
@@ -44,37 +44,20 @@ def service_build_recent_load_raw(
       - moving_time_s
       - sport_type / sport_type_fe / sport_type_ovrd
 
-    user_jwt sa len forwarduje do DB vrstvy:
-      - user_jwt != None → Supabase RLS klient
-      - user_jwt == None → service klient (cron/worker)
+    Klient:
+      - ak service = False a user_jwt nie je None → RLS klient,
+      - ak service = True alebo user_jwt je None → service klient (cron/worker).
 
-    Výstup:
-      {
-        "schema_version": 1,
-        "window_days": window_days,
-        "weeks": [
-          {
-            "week_start_iso": "...",
-            "week_end_iso": "...",
-            "week_index_from_now": 0 | -1 | -2 | ...,
-            "total_minutes": int,
-            "run_minutes": int,
-            "ride_minutes": int,
-            "strength_sessions": int,
-            "hard_sessions": int,
-          },
-          ...
-        ]
-      }
+    (Reálna voľba klienta je v DB vrstve – sem len forwardujeme.)
     """
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=window_days - 1)).isoformat()
 
-    # activities_summary cez helper – DB vrstva si sama vyberie klienta
     rows: List[Dict[str, Any]] = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since,
         user_jwt=user_jwt,
+        service=service,
     )
 
     if not rows:
@@ -215,10 +198,11 @@ def service_build_recent_load_block_for_analysis(
     window_days: int = 42,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     High-level blok pre AI (coach_athlete_state):
-      - natiahne summary z DB (s JWT → RLS / bez JWT → service),
+      - natiahne summary z DB (RLS alebo service),
       - spočíta weekly recent_load,
       - oseká nulové polia.
     """
@@ -226,5 +210,6 @@ def service_build_recent_load_block_for_analysis(
         user_id=user_id,
         window_days=window_days,
         user_jwt=user_jwt,
+        service=service,
     )
     return _prune_recent_load_for_ai(raw)

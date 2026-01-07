@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any, Dict, Optional, List
-from statistics import mean  # ⬅️ na výpočet priemerov
+from statistics import mean
 
 from Services.users import require_jwt
 from Services.coach_athlete_state import service_analyze_athlete
@@ -17,7 +17,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
-from Routes_DB.user_recovery import db_get_recent_recovery  # ⬅️ na HRV/RHR záznamy
+from Routes_DB.user_recovery import db_get_recent_recovery
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
 
@@ -91,19 +91,11 @@ def _compute_be_flags_recent_load(
     Používame weekly agregáty:
       - total_minutes
       - week_index_from_now (0 = aktuálny týždeň, -1 = minulý, ...)
-
-    Princíp:
-      - porovnáme current_week vs. priemer posledných 2–3 týždňov
-      - rozhodneme, či je to:
-          * normálne,
-          * mierny spike (skôr softenie daily),
-          * veľký spike (skôr weekly replan).
     """
-    # recent_load vie fungovať aj so service klientom, takže user_jwt tu nie je povinný
     rl = service_build_recent_load_raw(
         user_id=user_id,
         window_days=window_days,
-        user_jwt=user_jwt,
+        user_jwt=user_jwt,  # v service režime = None → service client (podľa DB implementácie)
     )
 
     weeks: List[Dict[str, Any]] = rl.get("weeks") or []
@@ -154,7 +146,6 @@ def _compute_be_flags_recent_load(
 
     ratio = curr_min / baseline if baseline > 0 else 1.0
 
-    # hard_sessions – ak sú vo weekly
     hard_current = int(current.get("hard_sessions") or 0)
 
     if baseline <= 0 and curr_min <= 0:
@@ -195,7 +186,6 @@ def _compute_be_flags_recent_load(
             "hard_sessions": hard_current,
         }
 
-    # všetko OK → nevolaj AI
     return {
         "has_data": True,
         "should_trigger_ai": False,
@@ -211,14 +201,16 @@ def _compute_be_flags_recent_load(
 def _compute_recovery_debug(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str],
     days: int = 21,
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """
-    Debug infá z user_recovery – priemery HRV, posledný záznam, spánok...
+    Debug dáta z user_recovery – priemer HRV, posledné RHR atď.
+    Volá sa len v režime s RLS (user_jwt nie je None).
+    """
+    if not user_jwt:
+        return None
 
-    Volá sa len v RLS režime (user_jwt != None), nie zo service/webhooku.
-    """
     rows = db_get_recent_recovery(
         user_id,
         days,
@@ -267,37 +259,30 @@ def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Hlavný orchestratór po nových dátach (activity sync / recovery update).
 
-    Kroky:
-      0) BE heuristika (recent_load) → rozhodne, či vôbec volať AI:
-         - ak load OK → AI sa NEvolá, plán sa nemení,
-         - ak load podozrivý → pokračujeme (ak máme user_jwt).
+    - Ak `service=True` alebo `user_jwt is None` → beží v SERVICE režime (webhook, cron):
+        * recent_load + recovery (len BE / service),
+        * podľa BE flagov prípadne zavolá AI analyze + weekly/daily replan
+          cez service Supabase klienta (bez RLS).
 
-      1) ak máme user_jwt (RLS context):
-         - spraví analyze_athlete → vznikne nový coach_athlete_state s plan_adjustment,
-         - načíta aktívny (alebo posledný) plán,
-         - podľa plan_adjustment:
-             * ak should_replan_weekly a plán nie je čerstvý → weekly re-plan + auto_extend_daily,
-             * inak ak soften_next_days.should_soften → regen DAILY pre aktuálny týždeň,
-             * inak nič nemení.
-
-      2) ak user_jwt NIE je zadaný (service/webhook režim):
-         - spraví iba BE heuristiku (recent_load),
-         - NEvolá AI a NEmodifikuje plán,
-         - vráti JSON s be_flags, aby si to vedel logovať / debuggovať.
+    - Ak máme `user_jwt` a `service=False` → beží v RLS režime (volané z FE):
+        * recent_load + recovery cez RLS,
+        * AI analyze,
+        * weekly/daily replan cez RLS.
     """
     today = date.today()
+    service_mode = service or (user_jwt is None)
 
-    # --- 0) BE heuristika nad recent_load (funguje aj bez JWT – vie použiť service klienta) ---
+    # --- 0) BE heuristika recent_load (vždy service / bez RLS, aby mala plné dáta) ---
     be_flags = _compute_be_flags_recent_load(
         user_id=user_id,
-        user_jwt=None,  # recent_load berie všetky aktivity (service režim)
+        user_jwt=None,  # recent_load počítame vždy zo service summary
     )
 
-    # základný debug log – vidíš current vs baseline, ratio, atď.
     print(
         "[COACH-AUTOADJUST][BE]",
         "user_id=",
@@ -306,54 +291,36 @@ def service_coach_autoadjust_after_update(
         be_flags,
     )
 
-    # --- 0a) Webhook / čisto service režim (bez JWT) → iba BE analýza, žiadne AI, žiadne zásahy ---
-    if not user_jwt:
-        return {
-            "changed": False,
-            "mode": "service_be_only",
-            "reason": be_flags.get("reason"),
-            "be_flags": be_flags,
-            "recovery_debug": None,
-            "analyze_state_id": None,
-            "plan_adjustment": None,
-        }
-
-    # --- 0b) Máme user_jwt → RLS + môžeme ísť na AI a re-plany ---
-    jwt = require_jwt(user_jwt)
-
-    # Recovery debug (HRV priemery, RHR, spánok) – čisto pre logy / FE
+    # Recovery debug – len v RLS režime (user_jwt != None)
+    jwt_rls: Optional[str] = None
+    if not service_mode:
+        jwt_rls = require_jwt(user_jwt)
     recovery_debug = _compute_recovery_debug(
         user_id=user_id,
-        user_jwt=jwt,
-    )
-
-    print(
-        "[COACH-AUTOADJUST][RECOVERY]",
-        "user_id=",
-        user_id,
-        "recovery_debug=",
-        recovery_debug,
+        user_jwt=jwt_rls,
     )
 
     if not be_flags.get("should_trigger_ai"):
-        # load je v norme → AI sa nevolá, plán sa nemení
+        # load je v norme → žiadne AI, žiadny re-plan, ale logy sú
         return {
             "changed": False,
-            "mode": "no_adjustment_needed",
+            "mode": "no_adjustment_needed_service" if service_mode else "no_adjustment_needed",
             "reason": be_flags.get("reason", "load_within_normal_range"),
+            "service_mode": service_mode,
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": None,
             "plan_adjustment": None,
         }
 
-    # 1) AI analyze (už s plan_adjustment, ktorý sme pridali v analyze_athlete)
+    # --- 1) AI analyze – v service_mode aj RLS mode, ale prístup k DB musí podporovať service ---
     analyze_resp = service_analyze_athlete(
         user_id=user_id,
-        user_jwt=jwt,
+        user_jwt=jwt_rls,      # v service_mode typicky None
         debug=False,
         save_to_db=True,
         model=None,
+        service=service_mode,  # ⬅️ TOTO musíš doplniť v implementácii service_analyze_athlete
     )
     state_id = analyze_resp.get("state_id")
     analysis = analyze_resp.get("analysis") or {}
@@ -368,21 +335,23 @@ def service_coach_autoadjust_after_update(
     weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
     weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
-    # 2) nájdeme aktívny / posledný plán
+    # --- 2) nájdeme aktívny / posledný plán (support service režim) ---
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=jwt,
+        user_jwt=jwt_rls,
+        service=service_mode,  # ⬅️ musíš mať arg `service: bool = False` aj v DB funkcii
     ) or db_get_latest_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=jwt,
+        user_jwt=jwt_rls,
+        service=service_mode,
     )
 
     if not meta or not isinstance(meta.get("plan_id"), str):
-        # už máme analyze, ale neexistuje plán – nie je čo upravovať
         return {
             "changed": False,
             "mode": "no_plan",
             "reason": "no_plan_meta",
+            "service_mode": service_mode,
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
@@ -391,43 +360,42 @@ def service_coach_autoadjust_after_update(
 
     plan_id = meta["plan_id"]
 
-    # koľko dní je plán starý – aby sme ho nereplanovali každú chvíľu
+    # koľko dní je weekly plán starý
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
     weekly_age_days: Optional[int] = None
     if meta_created:
         weekly_age_days = (today - meta_created).days
 
-    # 3) rozhodovanie logiky
-
-    # --- 3a) WEEKLY REPLAN (väčší zásah) ---
+    # --- 3a) WEEKLY REPLAN ---
     if weekly_replan_should:
-        # strážime cooldown – nepreplánuj každé 2 hodiny
         if weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
-            # príliš čerstvý plán, necháme to zatiaľ iba na daily (nižšie)
+            # príliš čerstvý weekly, padáme do daily softening logiky
             pass
         else:
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
-                user_jwt=jwt,
+                user_jwt=jwt_rls,
                 overwrite=True,
                 state_id=state_id,
                 weeks=None,
                 model=None,
                 debug=False,
+                service=service_mode,  # ⬅️ doplň parameter v implementácii
             )
 
-            # po weekly repláne chceme mať aspoň X dní dopredu aj daily
             daily_extend = service_auto_extend_daily_plan(
                 user_id=user_id,
                 min_horizon_days=MIN_DAILY_HORIZON_AFTER_WEEKLY,
-                user_jwt=jwt,
+                user_jwt=jwt_rls,
+                service=service_mode,  # ⬅️ doplň parameter v implementácii
             )
 
             return {
                 "changed": True,
-                "mode": "weekly_replan",
+                "mode": "weekly_replan_service" if service_mode else "weekly_replan",
                 "reason": weekly_replan_reason
                 or "weekly plan re-generated based on load & recovery",
+                "service_mode": service_mode,
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -439,13 +407,14 @@ def service_coach_autoadjust_after_update(
                 "daily_extend": daily_extend,
             }
 
-    # --- 3b) SOFTEN DAILY (bez menenia weekly meta) ---
+    # --- 3b) SOFTEN DAILY ---
     if soften_should and soften_days > 0:
         weekly_rows = (
             db_get_weekly_for_user_plan(
                 user_id=user_id,
                 plan_id=plan_id,
-                user_jwt=jwt,
+                user_jwt=jwt_rls,
+                service=service_mode,  # ⬅️ doplň param aj v DB vrstve
             )
             or []
         )
@@ -455,6 +424,7 @@ def service_coach_autoadjust_after_update(
                 "changed": False,
                 "mode": "no_weekly_rows",
                 "reason": "no_weekly_rows_for_plan",
+                "service_mode": service_mode,
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -471,6 +441,7 @@ def service_coach_autoadjust_after_update(
                 "changed": False,
                 "mode": "cannot_determine_current_week",
                 "reason": "cannot_determine_current_week",
+                "service_mode": service_mode,
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -484,14 +455,16 @@ def service_coach_autoadjust_after_update(
             overwrite=True,
             model=None,
             debug=False,
-            user_jwt=jwt,
+            user_jwt=jwt_rls,
+            service=service_mode,  # ⬅️ doplň param v implementácii
         )
 
         return {
             "changed": True,
-            "mode": "daily_soften",
+            "mode": "daily_soften_service" if service_mode else "daily_soften",
             "reason": soften_reason
             or f"softening next days (week_index={current_week_index}) based on load & recovery",
+            "service_mode": service_mode,
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
@@ -505,11 +478,12 @@ def service_coach_autoadjust_after_update(
             },
         }
 
-    # --- 3c) Žiadna zmena – plán vyzerá OK (ale AI sa už zavolalo, lebo BE flagy boli červené) ---
+    # --- 3c) AI síce zafungovalo, ale nič nechce meniť ---
     return {
         "changed": False,
-        "mode": "no_adjustment",
+        "mode": "no_adjustment_service" if service_mode else "no_adjustment",
         "reason": "plan_adjustment does not request changes",
+        "service_mode": service_mode,
         "be_flags": be_flags,
         "recovery_debug": recovery_debug,
         "analyze_state_id": state_id,

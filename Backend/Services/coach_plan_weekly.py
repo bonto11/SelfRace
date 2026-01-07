@@ -37,7 +37,8 @@ def _load_athlete_state_for_plan(
     user_id: int,
     state_id: Optional[int],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str],
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Nájde vhodný coach_athlete_state pre plánovanie.
@@ -46,20 +47,28 @@ def _load_athlete_state_for_plan(
       1) explicitný state_id (ak existuje),
       2) najnovší stav pre usera (version=1).
 
-    Keď nič nenájdeme → ValueError (FE dostane 400).
+    Volajúci zodpovedá za to, či ide o RLS (jwt + service=False)
+    alebo service režim (service=True, user_jwt môže byť None).
     """
-    jwt = require_jwt(user_jwt)
+    # v RLS režime tu typicky príde require_jwt(user_jwt),
+    # v service režime môže byť None – DB vrstva použije service klienta.
+    jwt = user_jwt
 
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
-        row = db_get_state_by_id(state_id, user_jwt=jwt)
+        row = db_get_state_by_id(
+            state_id,
+            user_jwt=jwt,
+            service=service,
+        )
 
     if not row:
         row = db_get_latest_state_for_user(
             user_id=user_id,
             version=1,
             user_jwt=jwt,
+            service=service,
         )
 
     if not row:
@@ -105,7 +114,8 @@ def _extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
 def service_generate_weekly_plan(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
     overwrite: bool = True,
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
@@ -115,20 +125,32 @@ def service_generate_weekly_plan(
     """
     Hlavná service pre weekly plán.
 
-    - načíta CoachAnalyzeInput z DB (build_input_from_db, RLS cez user_jwt)
-    - nájde vhodný coach_athlete_state (podľa state_id alebo latest, cez RLS)
-    - poskladá context_payload pre AI
-    - zavolá OpenAI weekly generátor
-    - uloží výsledok do coach_plan_weekly (RLS)
-    - založí coach_plan_meta so status='generated'
-    - vráti { weekly_plan, plan_id, state_id, ... }
+    - FE / RLS:
+        service=False, user_jwt povinný → require_jwt
+    - service / webhook:
+        service=True, user_jwt môže byť None → DB vrstvy používajú service klienta
+
+    Kroky:
+      - načíta CoachAnalyzeInput z DB (build_input_from_db)
+      - nájde vhodný coach_athlete_state (podľa state_id alebo latest)
+      - poskladá context_payload pre AI
+      - zavolá OpenAI weekly generátor
+      - uloží výsledok do coach_plan_weekly
+      - založí coach_plan_meta so status='generated'
+      - vráti { weekly_plan, plan_id, state_id, ... }
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        # service režim – jwt je len pasovaný ďalej, DB vrstvy použijú service klienta
+        jwt = user_jwt
+    else:
+        # RLS režim – vyžadujeme user_jwt
+        jwt = require_jwt(user_jwt)
 
     # 1) vstup pre AI (rovnaký ako pre analyze)
     analyze_input = build_input_from_db(
-        user_id,
+        user_id=user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     # PREFS – flatten (kvôli tomu, že v prefs môže byť 'value' obal)
@@ -151,6 +173,7 @@ def service_generate_weekly_plan(
             external_events_block = service_build_external_events_block_for_analysis(
                 user_id=user_id,
                 user_jwt=jwt,
+                service=service,
             )
         except Exception:
             external_events_block = None
@@ -160,6 +183,7 @@ def service_generate_weekly_plan(
         user_id=user_id,
         state_id=state_id,
         user_jwt=jwt,
+        service=service,
     )
 
     used_state_id = state_bundle["state_id"]
@@ -213,22 +237,25 @@ def service_generate_weekly_plan(
     deleted_rows = 0
     archived_meta = 0
     if overwrite:
-        # meta – archived (už cez RLS/JWT v DB vrstve)
+        # meta – archived
         archived_meta = db_archive_user_plans(
             user_id,
             user_jwt=jwt,
+            service=service,
         )
 
         # starý weekly plán – podľa doterajšej logiky
         latest_plan_id = db_get_latest_plan_id_for_user(
             user_id=user_id,
             user_jwt=jwt,
+            service=service,
         )
         if latest_plan_id:
             deleted_rows = db_clear_weekly_for_user_plan(
                 user_id=user_id,
                 plan_id=latest_plan_id,
                 user_jwt=jwt,
+                service=service,
             )
 
     # 5) priprav INSERT rows
@@ -263,6 +290,7 @@ def service_generate_weekly_plan(
     inserted_rows = db_insert_weekly_rows(
         rows,
         user_jwt=jwt,
+        service=service,
     )
 
     # 6) založ meta záznam (status='generated')
@@ -297,6 +325,7 @@ def service_generate_weekly_plan(
         main_sport=main_sport,
         goal_kind=goal_kind,
         source="ai_weekly_v1",
+        service=service,
     )
 
     resp: Dict[str, Any] = {
@@ -332,6 +361,8 @@ def service_get_latest_weekly_plan(
         "weeks": [ ... ]
       }
     Alebo None, ak user nemá žiadny plán.
+
+    Toto nechávame čisto RLS/FE (žiadny service režim).
     """
     jwt = require_jwt(user_jwt)
 

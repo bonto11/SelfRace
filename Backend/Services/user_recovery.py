@@ -1,4 +1,3 @@
-# Services/user_recovery.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -89,16 +88,25 @@ def service_get_recovery(
 def service_build_recovery_block_for_analysis(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Blok pre CoachAnalyzeInput["recovery"].
+
+    Režimy:
+      - service=False: RLS klient (require_jwt).
+      - service=True: service klient (user_jwt forward, bez require_jwt).
     """
-    user_jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
 
     rows = db_get_recent_recovery(
         user_id,
         days=21,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
     if not rows:
         return {

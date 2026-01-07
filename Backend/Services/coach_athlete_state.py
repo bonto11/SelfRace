@@ -1,9 +1,10 @@
-# Services/coach_athlete_state.py
 from __future__ import annotations
+
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
 from statistics import mean
+
 from Services.profile_metrics import service_load_user_profile_for_analysis
 from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
@@ -111,6 +112,7 @@ def _build_base_input(user_id: int) -> Dict[str, Any]:
         "last_activities": [],
     }
 
+
 def _compute_plan_adjustment_signals(
     analyze_input: Dict[str, Any],
     analysis: Dict[str, Any],
@@ -121,17 +123,6 @@ def _compute_plan_adjustment_signals(
     Vstup:
       - analyze_input: CoachAnalyzeInput (profil, recent_load, recovery, ...)
       - analysis: AI výstup z analyze_athlete_state (ai_state obsahuje tolerancie)
-
-    Výstup:
-      {
-        "soften_next_days": {
-          "should_soften": bool,
-          "days": int | None,
-          "reason": str | None,
-        },
-        "should_replan_weekly": bool,
-        "weekly_replan_reason": str | None,
-    }
     """
     recent_load = analyze_input.get("recent_load") or {}
     recovery = analyze_input.get("recovery") or {}
@@ -148,7 +139,6 @@ def _compute_plan_adjustment_signals(
     acwr: Optional[float] = None
 
     if isinstance(weeks, list) and len(weeks) >= 2:
-        # weeks sú už zoradené podľa týždňov v raw funkcii → ešte raz zosortujeme pre istotu
         weeks_sorted = sorted(
             weeks,
             key=lambda w: str(w.get("week_start_iso") or ""),
@@ -157,7 +147,7 @@ def _compute_plan_adjustment_signals(
         prev_weeks = weeks_sorted[:-1]
 
         acute_minutes = float(last_week.get("total_minutes") or 0.0)
-        # vezmeme max 3 predchádzajúce týždne na "chronic"
+
         prev_tail = prev_weeks[-3:]
         prev_vals = [
             float(w.get("total_minutes") or 0.0)
@@ -185,16 +175,13 @@ def _compute_plan_adjustment_signals(
         soften_days = max(soften_days, 1)
         soften_reasons.append("nedostatočný spánok")
 
-    # RHR nemáme baseline → zatiaľ len veľmi opatrná heuristika
     if isinstance(rhr, (int, float)) and rhr >= 70:
-        # vysoký RHR = možná únava / stres, ale nechceme prepalovať
         soften_days = max(soften_days, 1)
         soften_reasons.append("zvýšený pokojový tep")
 
     # --- 3) Weekly load spike podľa ACWR ---
     if acwr is not None:
         if acwr >= 1.6:
-            # veľký spike → určite zjemniť + zvážiť replan
             soften_days = max(soften_days, 3)
             soften_reasons.append(
                 "prudký nárast týždennej záťaže (viac než ~60 % nad priemerom)"
@@ -217,7 +204,6 @@ def _compute_plan_adjustment_signals(
 
     last_week_hard_sessions: Optional[int] = None
     if isinstance(weeks, list) and weeks:
-        # posledný týždeň (rovnaká logika ako vyššie)
         weeks_sorted2 = sorted(
             weeks, key=lambda w: str(w.get("week_start_iso") or "")
         )
@@ -265,6 +251,7 @@ def _compute_plan_adjustment_signals(
         "weekly_replan_reason": weekly_replan_reason,
     }
 
+
 def _to_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
@@ -291,19 +278,15 @@ def _canonical_sport(s: Any) -> str:
         return "other"
     v = str(s).lower()
 
-    # beh
     if v.startswith("run") or "run" in v or v in ("trail", "trail_run"):
         return "run"
 
-    # bicykel
     if v.startswith("ride") or v.startswith("cycle") or v.startswith("bike"):
         return "ride"
 
-    # posilka / silový
     if v.startswith("str") or "strength" in v or "gym" in v or "weights" in v:
         return "strength"
 
-    # plávanie
     if "swim" in v:
         return "swim"
 
@@ -313,35 +296,26 @@ def _canonical_sport(s: Any) -> str:
 def _build_last_activities_block_for_analysis(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str],
+    service: bool = False,
     limit: int = 6,
 ) -> List[Dict[str, Any]]:
     """
     Vytiahne posledných N aktivít (summary + zóny z enrichment)
     a preloží ich do jednoduchého listu pre AI.
 
-    Formát prvku:
-      {
-        "activity_id": int,
-        "date": "YYYY-MM-DD",
-        "sport": "run" | "ride" | "strength" | "swim" | "other",
-        "name": str | null,
-        "duration_min": float | null,
-        "distance_km": float | null,
-        "avg_hr": int | null,
-        "z1_min": float | null,
-        "z2_min": float | null,
-        "z3_min": float | null,
-        "z4_min": float | null,
-        "z5_min": float | null
-      }
+    - service=False → RLS klient (require_jwt),
+    - service=True  → service klient (DB vrstva podľa `service=True`).
     """
-    jwt = require_jwt(user_jwt)
+    # RLS klient používame len keď NIE sme v service režime
+    if service:
+        jwt = user_jwt  # typicky None – DB/Routes funkcie musia vedieť použiť service klient
+    else:
+        jwt = require_jwt(user_jwt)
 
     if limit <= 0:
         limit = 4
 
-    # chceme posledné N, takže since dáme relatívne ďaleko dozadu (napr. 60 dní)
     since_iso = (
         datetime.now(timezone.utc) - timedelta(days=60)
     ).date().isoformat()
@@ -352,6 +326,7 @@ def _build_last_activities_block_for_analysis(
         since_iso_date=since_iso,
         limit=limit,
         user_jwt=jwt,
+        service=service,
     )
     if not ids:
         return []
@@ -361,6 +336,7 @@ def _build_last_activities_block_for_analysis(
         user_id=user_id,
         activity_ids=ids,
         user_jwt=jwt,
+        service=service,
     ) or []
 
     if not summary_rows:
@@ -371,6 +347,7 @@ def _build_last_activities_block_for_analysis(
         user_id=user_id,
         activity_ids=ids,
         user_jwt=jwt,
+        service=service,
     ) or []
     enr_by_id: Dict[int, Dict[str, Any]] = {}
     for r in enr_rows:
@@ -384,7 +361,6 @@ def _build_last_activities_block_for_analysis(
 
     out: List[Dict[str, Any]] = []
 
-    # id-čka berieme ako set, ale summary_rows už obsahujú len tie, ktoré existujú v summary
     for r in sorted(summary_rows, key=_date_key, reverse=True):
         aid = _to_int(r.get("activity_id"))
         if aid is None:
@@ -431,13 +407,19 @@ def _build_last_activities_block_for_analysis(
 def build_input_from_db(
     user_id: int,
     user_jwt: Optional[str] = None,
+    *,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Poskladá CoachAnalyzeInput z DB.
 
-    - vyžaduje user_jwt → všetky user-data služby idú cez RLS/JWT
+    - ak service=False → všetko ide cez RLS (vyžaduje user_jwt),
+    - ak service=True  → používa sa service klient (user_jwt sa len forwarduje).
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt  # pri service režime RLS neriešime, DB vrstvy rozhodujú podľa `service`
+    else:
+        jwt = require_jwt(user_jwt)
 
     input_data = _build_base_input(user_id)
 
@@ -446,30 +428,35 @@ def build_input_from_db(
         user_id=user_id,
         user_uid=None,
         user_jwt=jwt,
+        service=service,
     )
 
     # 2) ZONES
     input_data["zones"] = service_build_zones_block_for_analysis(
         user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     # 3) THRESHOLDS
     input_data["thresholds"] = service_build_thresholds_block_for_analysis(
         user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     # 4) PREFS
     input_data["prefs"] = service_load_coach_prefs_for_analysis(
         user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     # 5) BESTS
     input_data["bests"] = service_build_bests_block_for_analysis(
         user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     # 6) RECENT LOAD
@@ -477,31 +464,36 @@ def build_input_from_db(
         user_id=user_id,
         window_days=42,
         user_jwt=jwt,
+        service=service,
     )
 
     # 7) RECOVERY
     input_data["recovery"] = service_build_recovery_block_for_analysis(
         user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     # 8) ACTIVE PLAN
     input_data["active_plan"] = service_build_active_plan_block_for_analysis(
         user_id=user_id,
         user_jwt=jwt,
+        service=service,
     )
 
-    # 9) EXTERNAL EVENTS – už z coach_external_events service
+    # 9) EXTERNAL EVENTS
     input_data["external_events"] = service_build_external_events_block_for_analysis(
         user_id=user_id,
         user_jwt=jwt,
+        service=service,
     )
 
-    # 10) LAST ACTIVITIES – nové: posledné reálne tréningy (beh + ostatné)
+    # 10) LAST ACTIVITIES
     input_data["last_activities"] = _build_last_activities_block_for_analysis(
         user_id=user_id,
         user_jwt=jwt,
-        limit=6,  # pokojne zmeníme na 4, ak chceš menší context
+        service=service,
+        limit=6,
     )
 
     return input_data
@@ -514,11 +506,19 @@ def service_save_state_to_db(
     user_id: int,
     analysis: Dict[str, Any],
     user_jwt: Optional[str] = None,
+    *,
+    service: bool = False,
 ) -> Optional[int]:
     """
-    Uloží AI stav atleta do coach_athlete_state pod user JWT (RLS).
+    Uloží AI stav atleta do coach_athlete_state.
+
+    - RLS režim:  service=False → vyžaduje user_jwt,
+    - service režim: service=True → použije service klienta (user_jwt ignoruje).
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
 
     model = str(analysis.get("model") or "Trainalyze Coach")
     version = int(analysis.get("schema_version") or 1)
@@ -528,6 +528,7 @@ def service_save_state_to_db(
         state_json=analysis,
         version=version,
         user_jwt=jwt,
+        service=service,
     )
 
 
@@ -538,6 +539,7 @@ def service_get_athlete_state_by_id(
     """
     Načíta konkrétny záznam z coach_athlete_state podľa id
     a rozbalí state_json do samostatného kľúča "state".
+    (RLS len – FE only.)
     """
     jwt = require_jwt(user_jwt)
 
@@ -564,6 +566,7 @@ def service_get_latest_athlete_state(
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší stav pre usera (podľa created_at DESC).
+    (RLS len – FE only.)
     """
     jwt = require_jwt(user_jwt)
 
@@ -595,6 +598,7 @@ def service_list_athlete_states_meta(
     """
     História stavov – len meta info (bez state_json),
     vhodné na výpis v UI / debug.
+    (RLS len – FE only.)
     """
     jwt = require_jwt(user_jwt)
 
@@ -617,10 +621,12 @@ def service_list_athlete_states_meta(
 
 # -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
 
+
 def service_analyze_athlete(
     user_id: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
     debug: bool = False,
     save_to_db: bool = True,
     model: Optional[str] = None,
@@ -628,52 +634,57 @@ def service_analyze_athlete(
     """
     Hlavná service funkcia pre AI analýzu atleta.
 
-    - poskladá CoachAnalyzeInput z DB (RLS, require JWT)
-    - zavolá OpenAI cez generate_athlete_state_json
-    - doplní deterministic plan_adjustment podľa recent_load + recovery
-    - (voliteľne) uloží analýzu do DB
-    - vráti štruktúru vhodnú pre FE aj pre ďalší backend (plan-weekly/daily)
+    - RLS režim (FE):               service=False + user_jwt → všetko ide cez RLS.
+    - SERVICE režim (cron/webhook): service=True  + user_jwt=None → používa sa service klient.
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
 
     # 1) INPUT
-    input_data = build_input_from_db(user_id, user_jwt=jwt)
+    input_data = build_input_from_db(
+        user_id=user_id,
+        user_jwt=jwt,
+        service=service,
+    )
 
     # 1b) Kontext pre AI – deep copy + drop external_activities z prefs (ak sú)
     context_for_ai = json.loads(json.dumps(input_data, default=str))
     try:
         prefs_block = context_for_ai.get("prefs") or {}
+        # ak sú prefs zabalene ako {"value": {...}}, rieš to tam
         if isinstance(prefs_block, dict):
+            # varianta 1: prefs.value.external_activities
             prefs_val = prefs_block.get("value")
             if isinstance(prefs_val, dict):
                 prefs_val.pop("external_activities", None)
+            # varianta 2: priamo prefs.external_activities
+            prefs_block.pop("external_activities", None)
     except Exception:
-        # nech analyze nespadne kvôli blbosti v prefse
         pass
 
     # 2) AI CALL – čistý výstup z AI = "analysis"
     model_to_use = model or DEFAULT_MODEL
     analysis, trace = generate_athlete_state_json(
-        context_payload=input_data,  # používame pôvodný input_data
+        context_payload=context_for_ai,
         model=model_to_use,
     )
 
     if not isinstance(analysis, dict):
         analysis = {}
 
-    # doplníme meta, ak by ich AI neposlala
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
     analysis.setdefault("model", "Coach BeTY")
 
-    # 2b) Doplníme deterministic plan_adjustment podľa našich heuristík
+    # 2b) deterministic plan_adjustment z našich heuristík
     try:
         signals = _compute_plan_adjustment_signals(
             analyze_input=input_data,
             analysis=analysis,
         )
     except Exception as e:
-        # nech analyza nespadne na heuristike – v najhoršom žiadne auto úpravy
         print("[service_analyze_athlete] plan_adjustment error:", repr(e))
         signals = {
             "soften_next_days": {
@@ -698,21 +709,21 @@ def service_analyze_athlete(
         "weekly_replan_reason": signals.get("weekly_replan_reason"),
     }
 
-    # 3) STORAGE (voliteľné)
+    # 3) STORAGE
     state_id: Optional[int] = None
     if save_to_db:
         state_id = service_save_state_to_db(
             user_id=user_id,
             analysis=analysis,
             user_jwt=jwt,
+            service=service,
         )
 
-    # 4) RESPONSE – jasné oddelenie INPUT vs AI OUTPUT
     resp: Dict[str, Any] = {
         "state_id": state_id,
         "model": model_to_use,
-        "analysis": analysis,  # čistý výstup + naše plan_adjustment
-        "input": input_data,   # CoachAnalyzeInput snapshot
+        "analysis": analysis,
+        "input": input_data,
     }
     if debug:
         resp["debug_trace"] = trace

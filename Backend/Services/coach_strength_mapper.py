@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List, Tuple, Optional
 
-
 from Schemas.coach_plan_daily import STRENGTH_EXERCISE_CATALOG
 from Routes_DB.coach_strength_history import (
     db_get_strength_history_for_user,  # -> List[Dict]
@@ -117,7 +116,8 @@ def enrich_daily_plan_with_strength_exercises(
     available_equipment: List[str],
     today: date,
     weeks_back: int = 8,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Vezme AI daily_plan so strength_exercises slotmi a:
@@ -125,16 +125,23 @@ def enrich_daily_plan_with_strength_exercises(
       - pripraví históriu na INSERT do DB,
       - vráti upravený daily_plan.
 
-    RLS:
-      - čítanie aj zápis coach_strength_history ide cez user_jwt.
+    Klient:
+      - service=False → RLS režim (vyžaduje JWT, require_jwt).
+      - service=True  → service DB klient, user_jwt môže byť None.
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        # service režim – DB vrstva si podľa `service=True` vyberie service klienta
+        jwt = user_jwt
+    else:
+        # klasický RLS režim
+        jwt = require_jwt(user_jwt)
 
-    # 1) vytiahneme históriu cez RLS
+    # 1) vytiahneme históriu
     history = db_get_strength_history_for_user(
         user_id=user_id,
         weeks_back=weeks_back,
         user_jwt=jwt,
+        service=service,
     )
     _normalize_history_dates(history)
 
@@ -223,6 +230,7 @@ def enrich_daily_plan_with_strength_exercises(
         db_insert_strength_history_rows(
             new_history_rows,
             user_jwt=jwt,
+            service=service,
         )
 
     return daily_plan

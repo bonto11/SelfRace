@@ -1,4 +1,3 @@
-# Services/user_bests.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -133,17 +132,30 @@ def service_delete_user_best(
 def service_build_bests_block_for_analysis(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Minimalizované PB pre AI:
       { run: [...], ride: [...] } – zatiaľ len run.
+
+    Režimy:
+      - service=False: RLS (require_jwt + RLS klient).
+      - service=True: service DB klient (user_jwt forward, bez require_jwt).
     """
-    user_jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
 
     out: Dict[str, List[Dict[str, Any]]] = {"run": [], "ride": []}
 
-    # použijeme priamo DB vrstvu + dopočítame time_str, nech je to lacné
-    run_rows = db_fetch_user_bests(user_id, "run", user_jwt=user_jwt)
+    # priamo DB vrstva, ale so service flagom
+    run_rows = db_fetch_user_bests(
+        user_id,
+        "run",
+        user_jwt=jwt,
+        service=service,
+    )
     for r in run_rows:
         best_time_s = r.get("best_time_s") or 0
         time_str = seconds_to_hhmmss(best_time_s)
