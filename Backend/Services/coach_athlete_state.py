@@ -27,7 +27,9 @@ from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,
     db_get_latest_state_for_user,
+    db_get_latest_states_for_user,
     db_list_states_for_user,
+    db_update_state_compare_previous,
 )
 from Routes_DB.activities_summary import (
     db_get_recent_activity_ids,
@@ -566,6 +568,7 @@ def service_get_athlete_state_by_id(
         "version": row.get("version"),
         "created_at": row.get("created_at"),
         "state": state_json,
+        "compare_previous": row.get("compare_previous"),
     }
 
 
@@ -602,6 +605,7 @@ def service_get_latest_athlete_state(
         "version": row.get("version"),
         "created_at": row.get("created_at"),
         "state": state_json,
+        "compare_previous": row.get("compare_previous"),
     }
 
 
@@ -637,75 +641,6 @@ def service_list_athlete_states_meta(
         }
         for r in rows or []
     ]
-
-
-# -------------------- INTERNAL: načítanie posledných dvoch stavov --------------------
-
-
-def _load_last_two_states_with_json(
-    user_id: int,
-    *,
-    version: Optional[int] = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> List[Dict[str, Any]]:
-    """
-    Vytiahne najnovšie dva záznamy pre usera (vrátane state_json).
-
-    Použije existujúci db_list_states_for_user (meta) + db_get_state_by_id.
-    """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
-
-    meta_rows = db_list_states_for_user(
-        user_id=user_id,
-        limit=10,
-        user_jwt=jwt,
-        service=service,
-    ) or []
-
-    # filtrovanie podľa version, ak je zadaná
-    filtered = [
-        r for r in meta_rows if version is None or r.get("version") == version
-    ]
-    ids: List[int] = []
-    for r in filtered:
-        sid = r.get("id")
-        if isinstance(sid, int):
-            ids.append(sid)
-        elif isinstance(sid, str):
-            try:
-                ids.append(int(sid))
-            except Exception:
-                continue
-        if len(ids) >= 2:
-            break
-
-    out: List[Dict[str, Any]] = []
-    for sid in ids:
-        row = db_get_state_by_id(
-            sid,
-            user_jwt=jwt,
-            service=service,
-        )
-        if not row:
-            continue
-        out.append(
-            {
-                "id": row.get("id"),
-                "user_id": row.get("user_id"),
-                "model": row.get("model"),
-                "version": row.get("version"),
-                "created_at": row.get("created_at"),
-                "state": row.get("state_json") or {},
-            }
-        )
-
-    # zoradíme podľa created_at desc, pre istotu
-    out.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
-    return out
 
 
 # -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
@@ -798,8 +733,10 @@ def service_analyze_athlete(
         "weekly_replan_reason": signals.get("weekly_replan_reason"),
     }
 
-    # 3) STORAGE
+    # 3) STORAGE + progress report
     state_id: Optional[int] = None
+    compare_previous: Optional[Dict[str, Any]] = None
+
     if save_to_db:
         state_id = service_save_state_to_db(
             user_id=user_id,
@@ -808,12 +745,29 @@ def service_analyze_athlete(
             service=service,
         )
 
+        # ak máme aspoň 2 stavy, dopočítaj progress report a ulož do compare_previous
+        try:
+            progress_result = service_compare_latest_athlete_states(
+                user_id=user_id,
+                version=analysis.get("schema_version") or 1,
+                user_jwt=user_jwt if not service else None,
+                service=service,
+                model=model_to_use,
+                debug=False,
+            )
+            if progress_result.get("ok") and progress_result.get("report"):
+                compare_previous = progress_result.get("report")
+        except Exception as e:  # noqa: BLE001
+            print("[service_analyze_athlete] compare_previous error:", repr(e))
+
     resp: Dict[str, Any] = {
         "state_id": state_id,
         "model": model_to_use,
         "analysis": analysis,
         "input": input_data,
     }
+    if compare_previous is not None:
+        resp["compare_previous"] = compare_previous
     if debug:
         resp["debug_trace"] = trace
 
@@ -831,16 +785,17 @@ def service_compare_latest_athlete_states(
 ) -> Dict[str, Any]:
     """
     Zoberie posledné dva uložené stavy atleta a spraví AI progress report.
-
-    - použiteľné pre FE (RLS) aj pre worker (service=True)
+    Report sa zároveň uloží do compare_previous na najnovšom state.
     """
     if service:
         jwt = None
     else:
         jwt = require_jwt(user_jwt)
 
-    rows = _load_last_two_states_with_json(
+    # 1) posledné 2 stavy vrátane state_json
+    rows = db_get_latest_states_for_user(
         user_id=user_id,
+        limit=2,
         version=version,
         user_jwt=jwt,
         service=service,
@@ -857,11 +812,12 @@ def service_compare_latest_athlete_states(
     current = rows[0]
     previous = rows[1]
 
-    current_state = current.get("state") or {}
-    previous_state = previous.get("state") or {}
+    current_state = current.get("state_json") or {}
+    previous_state = previous.get("state_json") or {}
 
     model_to_use = model or DEFAULT_MODEL
 
+    # 2) AI report
     report, trace = generate_athlete_progress_report(
         previous_state=previous_state,
         current_state=current_state,
@@ -869,6 +825,33 @@ def service_compare_latest_athlete_states(
         user_id=user_id,
         debug_raw=debug,
     )
+
+    # 3) uložíme report do compare_previous na aktuálnom zázname
+    try:
+        sid_raw = current.get("id")
+        sid: Optional[int]
+        if isinstance(sid_raw, int):
+            sid = sid_raw
+        elif isinstance(sid_raw, str):
+            try:
+                sid = int(sid_raw)
+            except Exception:
+                sid = None
+        else:
+            sid = None
+
+        if sid is not None:
+            db_update_state_compare_previous(
+                state_id=sid,
+                compare_previous=report,
+                user_jwt=jwt,
+                service=service,
+            )
+    except Exception as e:  # noqa: BLE001
+        print(
+            "[service_compare_latest_athlete_states] db_update_state_compare_previous error:",
+            repr(e),
+        )
 
     resp: Dict[str, Any] = {
         "ok": True,
@@ -879,8 +862,8 @@ def service_compare_latest_athlete_states(
         "current_created_at": current.get("created_at"),
         "previous_created_at": previous.get("created_at"),
         "report": report,
+        "source": "generated",
     }
-
     if debug:
         resp["debug_trace"] = trace
 

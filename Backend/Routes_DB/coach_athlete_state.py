@@ -20,7 +20,7 @@ def db_insert_athlete_state(
 
     Typicky:
       - FE/AI:   user_jwt=jwt
-      - worker:  service=True (ak si raz spravíš batch analýzy)
+      - worker:  service=True (ak raz spravíš batch analýzy)
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
 
@@ -58,7 +58,7 @@ def db_get_state_by_id(
     try:
         res = (
             sb.table(TABLE_COACH_ATHLETE_STATE)
-            .select("id,user_id,model,version,state_json,created_at")
+            .select("id,user_id,model,version,state_json,compare_previous,created_at")
             .eq("id", state_id)
             .limit(1)
             .execute()
@@ -86,7 +86,7 @@ def db_get_latest_state_for_user(
     try:
         q = (
             sb.table(TABLE_COACH_ATHLETE_STATE)
-            .select("id,user_id,model,version,state_json,created_at")
+            .select("id,user_id,model,version,state_json,compare_previous,created_at")
             .eq("user_id", user_id)
         )
         if version is not None:
@@ -118,7 +118,7 @@ def db_get_latest_states_for_user(
     try:
         q = (
             sb.table(TABLE_COACH_ATHLETE_STATE)
-            .select("id,user_id,model,version,state_json,created_at")
+            .select("id,user_id,model,version,state_json,compare_previous,created_at")
             .eq("user_id", user_id)
         )
         if version is not None:
@@ -128,6 +128,32 @@ def db_get_latest_states_for_user(
         return list(res.data or [])
     except Exception:  # noqa: BLE001
         return []
+
+
+def db_update_state_compare_previous(
+    state_id: int,
+    compare_previous: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """
+    Uloží JSON porovnania do stĺpca compare_previous pre daný state_id
+    a vráti aktualizovaný riadok.
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+
+    try:
+        res = (
+            sb.table(TABLE_COACH_ATHLETE_STATE)
+            .update({"compare_previous": compare_previous})
+            .eq("id", state_id)
+            .execute()
+        )
+        rows = list(res.data or [])
+        return rows[0] if rows else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def db_list_states_for_user(
