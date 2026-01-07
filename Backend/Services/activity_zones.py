@@ -429,11 +429,19 @@ def upsert_enrichment_minutes(
             except Exception:
                 pass
 
-    s_map = _load_summary_map(user_id, ids, user_jwt=jwt, service=service)
+    s_map = _load_summary_map(
+        user_id,
+        ids,
+        user_jwt=jwt,
+        service=service,
+    )
     now_ts = datetime.now(timezone.utc).isoformat()
-    # service_get_user_uid má API len na user_id → nechávame tak.
-    user_uid = service_get_user_uid(user_id)
-
+    user_uid = service_get_user_uid(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    )
+    
     rows: List[dict] = []
     skipped = 0
     for it in items:
