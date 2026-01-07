@@ -72,4 +72,11 @@ COACH_PLAN_GENERATE_MIN_HORIZON_DAYS = 4
 COACH_PLAN_SCAN_HORIZON_DAYS = 120
 COACH_PLAN_OVERVIEW_HORIZON_DAYS = 20
 
+# Ako často môžeme „rozbiť“ weekly plán (ochrana pred spamom)
+WEEKLY_REPLAN_COOLDOWN_DAYS = 3
+
+# Koľko dní minimálne chceme mať dopredu po weekly repláne
+MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
+
+
 MAINTENANCE_API_KEY = os.getenv("MAINTENANCE_API_KEY")

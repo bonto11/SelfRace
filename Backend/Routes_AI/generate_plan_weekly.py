@@ -1,4 +1,4 @@
-# Routes_AI/coach_plan_weekly.py
+# Routes_AI/generate_plan_weekly.py
 from __future__ import annotations
 
 from zoneinfo import ZoneInfo
@@ -105,7 +105,25 @@ def _build_prompts_for_weekly(
         "active_plan": {...},
         "external_events": {...}   // definitions + calendar occurrences of external events
       },
-      "athlete_state": {...},       // output from analyze_athlete_state (ai_state + user_summary)
+      "athlete_state": {
+        "user_summary": {...},
+        "ai_state": {
+          "fitness_level": {...},
+          "fatigue_level": "...",
+          "injury_risk": "...",
+          "volume_tolerance": {...},
+          "intensity_tolerance": {...},
+          "suggested_block_kind": "...",
+          "metrics": {...},
+          "plan_adjustment": {
+            "soften_next_days": {...},
+            "should_replan_weekly": bool,
+            "weekly_replan_reason": str | null,
+            "should_notify_user": bool,
+            "notify_message": str | null
+          }
+        }
+      },
       "athlete_state_meta": {...}
     }
     """
@@ -153,6 +171,8 @@ def _build_prompts_for_weekly(
         "AI analysis state, recent load, thresholds, zones and external events. "
         "External events are fixed activities like football matches, club runs or other regular trainings, "
         "which already create load and must be counted into total weekly volume or at least reduce the room for training. "
+        "The AI analysis (athlete_state.ai_state) also includes a plan_adjustment block that can suggest "
+        "short-term softening of load or a need to re-plan the weekly structure. "
         "Your task is to design a WEEK-BY-WEEK meta training plan (no daily sessions yet). "
         "You must return ONE valid JSON object only. No prose, no code fences."
     )
@@ -248,7 +268,7 @@ def _build_prompts_for_weekly(
         "- analyze_input.active_plan: previous/active plan if it exists\n"
         "- analyze_input.external_events: external sports and life events that either create training load\n"
         "  (team sports, regular trainings) or take away time for training (weddings, long travel, etc.)\n"
-        "- athlete_state: AI analysis from the previous step (ai_state + user_summary)\n"
+        "- athlete_state: AI analysis from the previous step (ai_state + user_summary), including ai_state.plan_adjustment\n"
         "- user_settings: optional user settings including language/timezone/units.\n\n"
         "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
         + json.dumps(context_payload, ensure_ascii=False)
@@ -259,7 +279,7 @@ def _build_prompts_for_weekly(
         f"- All free text fields (goal, focus, notes) MUST be written in {lang_label} language.\n"
         "- Make sure week_index starts at 1 and increases consecutively (1, 2, 3, ...).\n"
         "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
-        "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance)\n"
+        "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance, plan_adjustment)\n"
         "  to assign load_phase and decide the load progression across weeks.\n"
         "- Respect as much as possible the requested number of weeks (context_payload.weeks or prefs.weeks).\n"
         "- Do NOT generate daily sessions here – only the weekly meta information.\n"
@@ -270,8 +290,14 @@ def _build_prompts_for_weekly(
         + "\n"
         "- If athlete_state.ai_state.fatigue_level = 'high' or injury_risk = 'high', "
         "make at least the first week a clear recovery week with planned_minutes close to weekly_minutes_min.\n"
-        "- For peak/race weeks do not exceed volume_tolerance.weekly_minutes_max; prefer higher intensity over higher volume.\n"
-        "- Do NOT recommend a long-term trend where most weeks are far above weekly_minutes_max.\n"
+        "- If athlete_state.ai_state.plan_adjustment.soften_next_days.should_soften is true (when present), "
+        "ensure that at least the first week (and optionally the second) is visibly lighter: "
+        "lower planned_minutes (within or slightly below weekly_minutes_min), "
+        "use recovery-oriented load_phase and focus, and mention the reason briefly in notes.\n"
+        "- If athlete_state.ai_state.plan_adjustment.should_replan_weekly is true (when present), "
+        "assume the previous weekly structure is no longer optimal and design a structurally improved plan for the whole horizon "
+        "instead of copying any previous pattern; reflect the re-alignment in the first week's goal/notes.\n"
+        "- Do NOT recommend a long-term trend where most weeks are far above volume_tolerance.weekly_minutes_max.\n"
     )
 
     return system_txt, user_txt

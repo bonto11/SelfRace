@@ -4,9 +4,13 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
 import asyncio
+from functools import partial  # ⬅️ PRIDANÉ
 
 from Modules.Supabase.client import get_service_client
 from Services.synchronization_single import service_sync_single_activity
+from Services.coach_plan_adjustment import (
+    service_coach_autoadjust_after_update,
+)
 
 supabase = get_service_client()
 
@@ -31,6 +35,27 @@ async def sync_activity_from_strava(
         True,  # fetch_details
         None,  # user_jwt (service mode)
     )
+
+
+async def _run_coach_autoadjust_service(user_id: int) -> dict:
+    """
+    Spustí coach auto-adjust v service režime (user_jwt=None) v thread executore.
+
+    V tomto režime:
+      - používa sa len BE heuristika nad recent_load / recovery,
+      - AI sa nemá volať,
+      - funkcia vráti len JSON s tým, čo by odporúčala (mode, reason, flags),
+        ale neprepíše weekly/daily plán.
+    """
+    loop = asyncio.get_running_loop()
+
+    fn = partial(
+        service_coach_autoadjust_after_update,
+        user_id=user_id,
+        user_jwt=None,  # service / webhook režim – BE-only, bez RLS
+    )
+
+    return await loop.run_in_executor(None, fn)
 
 
 async def _process_single_event(row: Mapping[str, Any]) -> None:
@@ -103,13 +128,35 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         ).eq("id", event_id).execute()
         return
 
-    # 4) CREATE/UPDATE → spusti single-activity sync
+    # 4) CREATE/UPDATE → spusti single-activity sync + auto-adjust (service režim)
     try:
         await sync_activity_from_strava(
             user_id=user_id,
             athlete_id=athlete_id,
             strava_activity_id=object_id,
         )
+
+        # 4b) Po úspešnom syncu skús auto-adjust coach plánu (BE-only, bez AI)
+        try:
+            auto_res = await _run_coach_autoadjust_service(user_id=user_id)
+            print(
+                "[COACH-AUTOADJUST][service]",
+                "user_id=",
+                user_id,
+                "mode=",
+                auto_res.get("mode"),
+                "reason=",
+                auto_res.get("reason"),
+            )
+        except Exception as e:
+            # nech error v coach logike nezabije spracovanie webhooku
+            print(
+                "[COACH-AUTOADJUST][service] error for user",
+                user_id,
+                ":",
+                repr(e),
+            )
+
     except Exception as e:
         supabase.table("strava_webhook_events").update(
             {
