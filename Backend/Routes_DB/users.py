@@ -142,3 +142,29 @@ def db_list_users_for_cron(
         .execute()
     )
     return list(res.data or [])
+    
+def db_list_users_for_athlete_state(
+    *,
+    limit: int = 1000,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> List[Dict[str, Any]]:
+    """
+    Zoznam userov vhodný pre batch analýzu atleta.
+
+    Zatiaľ žiadne extra filtre (is_deleted/is_active) – ak ich budeš mať v TABLE_USERS,
+    môžeš si tu doplniť .eq("is_deleted", False) a pod.
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="users")
+
+    try:
+        res = (
+            sb.table(TABLE_USERS)
+            .select("id, auth_uid, mail_address")
+            .order("id", desc=False)
+            .limit(limit)
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception:
+        return []
