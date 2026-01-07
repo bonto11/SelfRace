@@ -84,6 +84,7 @@ def _compute_be_flags_recent_load(
     *,
     user_jwt: Optional[str] = None,
     window_days: int = 42,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     BE heuristika nad recent_load – rozhodne, či vôbec má zmysel volať AI.
@@ -91,11 +92,15 @@ def _compute_be_flags_recent_load(
     Používame weekly agregáty:
       - total_minutes
       - week_index_from_now (0 = aktuálny týždeň, -1 = minulý, ...)
+
+    - service=True → recent_load sa berie zo service summary
+    - service=False → recent_load cez RLS (ak user_jwt)
     """
     rl = service_build_recent_load_raw(
         user_id=user_id,
         window_days=window_days,
-        user_jwt=user_jwt,  # v service režime = None → service client (podľa DB implementácie)
+        user_jwt=user_jwt,
+        service=service,
     )
 
     weeks: List[Dict[str, Any]] = rl.get("weeks") or []
@@ -211,10 +216,12 @@ def _compute_recovery_debug(
     if not user_jwt:
         return None
 
+    jwt = require_jwt(user_jwt)
+
     rows = db_get_recent_recovery(
         user_id,
         days,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
     ) or []
 
     if not rows:
@@ -264,23 +271,23 @@ def service_coach_autoadjust_after_update(
     """
     Hlavný orchestratór po nových dátach (activity sync / recovery update).
 
-    - Ak `service=True` alebo `user_jwt is None` → beží v SERVICE režime (webhook, cron):
-        * recent_load + recovery (len BE / service),
-        * podľa BE flagov prípadne zavolá AI analyze + weekly/daily replan
-          cez service Supabase klienta (bez RLS).
+    - service režim (cron/webhook):
+        service=True, user_jwt=None
+        → recent_load & plán idú cez service klienta, AI tiež cez service
 
-    - Ak máme `user_jwt` a `service=False` → beží v RLS režime (volané z FE):
-        * recent_load + recovery cez RLS,
-        * AI analyze,
-        * weekly/daily replan cez RLS.
+    - RLS režim (FE):
+        service=False, user_jwt=JWT
+        → všetko ide cez RLS
     """
     today = date.today()
     service_mode = service or (user_jwt is None)
 
-    # --- 0) BE heuristika recent_load (vždy service / bez RLS, aby mala plné dáta) ---
+    # --- 0) BE heuristika recent_load – vždy zo SERVICE summary ---
     be_flags = _compute_be_flags_recent_load(
         user_id=user_id,
-        user_jwt=None,  # recent_load počítame vždy zo service summary
+        user_jwt=None,
+        window_days=42,
+        service=True,
     )
 
     print(
@@ -292,16 +299,13 @@ def service_coach_autoadjust_after_update(
     )
 
     # Recovery debug – len v RLS režime (user_jwt != None)
-    jwt_rls: Optional[str] = None
-    if not service_mode:
-        jwt_rls = require_jwt(user_jwt)
     recovery_debug = _compute_recovery_debug(
         user_id=user_id,
-        user_jwt=jwt_rls,
+        user_jwt=user_jwt if not service_mode else None,
     )
 
     if not be_flags.get("should_trigger_ai"):
-        # load je v norme → žiadne AI, žiadny re-plan, ale logy sú
+        # load je v norme → žiadne AI, žiadny re-plan
         return {
             "changed": False,
             "mode": "no_adjustment_needed_service" if service_mode else "no_adjustment_needed",
@@ -313,14 +317,19 @@ def service_coach_autoadjust_after_update(
             "plan_adjustment": None,
         }
 
-    # --- 1) AI analyze – v service_mode aj RLS mode, ale prístup k DB musí podporovať service ---
+    # --- 1) AI analyze ---
+    if service_mode:
+        jwt_rls: Optional[str] = None
+    else:
+        jwt_rls = require_jwt(user_jwt)
+
     analyze_resp = service_analyze_athlete(
         user_id=user_id,
-        user_jwt=jwt_rls,      # v service_mode typicky None
+        user_jwt=jwt_rls,
         debug=False,
         save_to_db=True,
         model=None,
-        service=service_mode,  # ⬅️ TOTO musíš doplniť v implementácii service_analyze_athlete
+        service=service_mode,
     )
     state_id = analyze_resp.get("state_id")
     analysis = analyze_resp.get("analysis") or {}
@@ -335,11 +344,11 @@ def service_coach_autoadjust_after_update(
     weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
     weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
-    # --- 2) nájdeme aktívny / posledný plán (support service režim) ---
+    # --- 2) nájdeme aktívny / posledný plán (podľa režimu) ---
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
         user_jwt=jwt_rls,
-        service=service_mode,  # ⬅️ musíš mať arg `service: bool = False` aj v DB funkcii
+        service=service_mode,
     ) or db_get_latest_plan_meta_for_user(
         user_id=user_id,
         user_jwt=jwt_rls,
@@ -369,7 +378,7 @@ def service_coach_autoadjust_after_update(
     # --- 3a) WEEKLY REPLAN ---
     if weekly_replan_should:
         if weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
-            # príliš čerstvý weekly, padáme do daily softening logiky
+            # príliš čerstvý weekly → padáme do daily softening logiky
             pass
         else:
             weekly_resp = service_generate_weekly_plan(
@@ -380,14 +389,14 @@ def service_coach_autoadjust_after_update(
                 weeks=None,
                 model=None,
                 debug=False,
-                service=service_mode,  # ⬅️ doplň parameter v implementácii
+                service=service_mode,
             )
 
             daily_extend = service_auto_extend_daily_plan(
                 user_id=user_id,
-                min_horizon_days=MIN_DAILY_HORIZON_AFTER_WEEKLY,
                 user_jwt=jwt_rls,
-                service=service_mode,  # ⬅️ doplň parameter v implementácii
+                min_horizon_days=MIN_DAILY_HORIZON_AFTER_WEEKLY,
+                service=service_mode,
             )
 
             return {
@@ -414,7 +423,7 @@ def service_coach_autoadjust_after_update(
                 user_id=user_id,
                 plan_id=plan_id,
                 user_jwt=jwt_rls,
-                service=service_mode,  # ⬅️ doplň param aj v DB vrstve
+                service=service_mode,
             )
             or []
         )
@@ -456,7 +465,7 @@ def service_coach_autoadjust_after_update(
             model=None,
             debug=False,
             user_jwt=jwt_rls,
-            service=service_mode,  # ⬅️ doplň param v implementácii
+            service=service_mode,
         )
 
         return {

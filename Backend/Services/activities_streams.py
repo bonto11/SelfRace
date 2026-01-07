@@ -10,6 +10,8 @@ from Routes_DB.activities_streams import (
     db_upsert_streams_with_sport,
     db_upsert_stream_arrays,
 )
+from Services.users import require_jwt
+
 
 # --------------------------------------------------------------------
 # Common helper – práca s key_by_type JSONom zo Stravy
@@ -111,6 +113,7 @@ def save_streams_with_sport_to_db(
     streams_json: Dict[str, Any],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Tuple[bool, str]:
     """
     Uloží streamy cez RPC upsert_streams_with_sport:
@@ -120,8 +123,8 @@ def save_streams_with_sport_to_db(
     - NEROBÍ žiadny HTTP request na Stravu
 
     RLS vs service:
-      - ak user_jwt nie je None → ideš cez RLS klienta
-      - ak user_jwt=None       → service role (worker/webhook)
+      - ak service=False + user_jwt nie je None → ideš cez RLS klienta
+      - ak service=True (typicky user_jwt=None) → service role (worker/webhook)
     """
     try:
         times = _arr(streams_json, "time")
@@ -139,6 +142,7 @@ def save_streams_with_sport_to_db(
             power=[int(x) for x in poww] if poww else [],
             distance=[float(x) for x in dist] if dist else [],
             user_jwt=user_jwt,
+            service=service,
         )
         return True, ""
     except Exception as e:  # noqa: BLE001
@@ -151,12 +155,17 @@ def save_streams_arrays_to_db(
     streams_json: Dict[str, Any],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Tuple[bool, str]:
     """
     Jednoduchší zápis streamov priamo do TABLE_ACTIVITIES_STREAMS:
 
     - používa db_upsert_stream_arrays
     - NEROBÍ žiadny HTTP request na Stravu
+
+    RLS vs service:
+      - ak service=False + user_jwt nie je None → RLS klient
+      - ak service=True                        → service role
     """
     try:
         times = _arr(streams_json, "time")
@@ -174,6 +183,7 @@ def save_streams_arrays_to_db(
             power_w=[int(x) for x in poww] if poww else None,
             distance_m=[float(x) for x in dist] if dist else None,
             user_jwt=user_jwt,
+            service=service,
         )
         return True, ""
     except Exception as e:  # noqa: BLE001
@@ -185,19 +195,27 @@ def service_get_streams_one(
     activity_id: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Čítanie streamov z DB pre FE/AI.
 
-    - ak user_jwt je zadaný → RLS klient (bežný FE request)
-    - ak user_jwt=None      → service klient (teoreticky worker; moc to nechceš v UI)
+    - service=False + user_jwt → RLS klient (bežný FE request)
+    - service=True             → service klient (worker/cron/webhook)
 
     Vždy vráti dict.
     """
+
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     row = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
     if not row:
         return {"time_s": [], "heartrate_bpm": []}
@@ -215,6 +233,7 @@ def fetch_and_optionally_store_batch(
     store: bool = False,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     PÔVODNÁ API, ale teraz čistejšie:
@@ -223,8 +242,8 @@ def fetch_and_optionally_store_batch(
     - DB write (ak store=True): save_streams_with_sport_to_db()
 
     RLS vs service:
-      - FE sync:   pass user_jwt (RLS)
-      - worker:    user_jwt=None → service role
+      - FE sync:   service=False, pass user_jwt (RLS)
+      - worker:    service=True, user_jwt=None → service role
 
     Výstup:
     {
@@ -243,6 +262,11 @@ def fetch_and_optionally_store_batch(
       ]
     }
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     fetch_res = fetch_streams_batch_from_strava(activity_ids)
     items_in = fetch_res.get("items") or []
 
@@ -285,7 +309,8 @@ def fetch_and_optionally_store_batch(
                 user_id=user_id,
                 activity_id=int(aid),
                 streams_json=j,
-                user_jwt=user_jwt,
+                user_jwt=jwt,
+                service=service,
             )
             out_item["stored"] = stored_ok
             if not stored_ok:
@@ -303,6 +328,7 @@ def cache_streams_for_activities(
     activity_ids: List[int],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, int]:
     """
     PÔVODNÁ API pre enrichment:
@@ -311,9 +337,14 @@ def cache_streams_for_activities(
     - zápis do DB cez save_streams_arrays_to_db()
 
     Typicky:
-      - worker / cron / webhook  → user_jwt=None (service role)
-      - ak by si to volal z FE (skôr debug) → pass user_jwt
+      - worker / cron / webhook  → service=True, user_jwt=None (service role)
+      - ak by si to volal z FE (skôr debug) → service=False, pass user_jwt (RLS)
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     fetch_res = fetch_streams_batch_from_strava(activity_ids)
     items_in = fetch_res.get("items") or []
 
@@ -332,7 +363,8 @@ def cache_streams_for_activities(
             user_id=user_id,
             activity_id=int(aid),
             streams_json=j,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
+            service=service,
         )
         if ok_db:
             saved += 1

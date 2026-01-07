@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 from typing import Any, Dict, Optional, List
+
 from Services.time import week_key, week_bounds
 from Services.analytics_MonoStrainTrimp import (
     sport_bucket,
@@ -24,6 +25,7 @@ def service_weekly_analytics(
     weeks: int = 12,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Týždenná agregácia za posledných N týždňov.
@@ -36,12 +38,27 @@ def service_weekly_analytics(
         * RHR (denné)    -> users_recovery.RHR_bpm (db_get_recent_recovery),
                             v kóde si spravíme mapu date -> rhr
                             a fallback o 1–2 dni dozadu, inak Edwards TRIMP.
+
+    Režimy:
+      - FE / RLS: service=False, user_jwt povinný → require_jwt
+      - worker / cron: service=True, user_jwt môže byť None → DB vrstvy používajú service klienta
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
 
     # ---------------- HR parametre (sex, HR_max) ----------------
-    sex: Optional[str] = db_fetch_user_sex(user_id, user_jwt=jwt)
-    hr_max: Optional[float] = fetch_user_hr_max(user_id, user_jwt=jwt)
+    sex: Optional[str] = db_fetch_user_sex(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    )
+    hr_max: Optional[float] = fetch_user_hr_max(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    )
 
     # ---------------- časové okno ----------------
     # berieme o týždeň viac, aby sme mali buffer pre monotóniu / strain
@@ -55,6 +72,7 @@ def service_weekly_analytics(
         user_id=user_id,
         days=days_window,
         user_jwt=jwt,
+        service=service,
     )
 
     rhr_by_date: Dict[str, float] = {}
@@ -94,6 +112,7 @@ def service_weekly_analytics(
         user_id=user_id,
         since_iso=since_iso,
         user_jwt=jwt,
+        service=service,
     )
 
     def new_week() -> Dict[str, Any]:

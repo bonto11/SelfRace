@@ -23,7 +23,7 @@ from Services.synchronization_utils import (
     _normalize_split,
     _decide_laps_or_splits,
 )
-from Services.synchronization_bulk import enrich_activities_for_ids
+from Services.synchronization_utils import enrich_activities_for_ids
 
 
 def service_sync_single_activity(
@@ -162,6 +162,7 @@ def service_sync_single_activity(
             user_id=user_id,
             activity_ids=[aid],
             user_jwt=user_jwt,
+            service=service_mode,
         )
     except Exception as e:
         print(f"[SYNC:single] enrichment failed id={aid}: {e}")

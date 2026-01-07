@@ -50,7 +50,7 @@ def _load_athlete_state_for_plan(
     Volajúci zodpovedá za to, či ide o RLS (jwt + service=False)
     alebo service režim (service=True, user_jwt môže byť None).
     """
-    # v RLS režime tu typicky príde require_jwt(user_jwt),
+    # v RLS režime sem typicky príde už overený JWT (require_jwt() vyššie),
     # v service režime môže byť None – DB vrstva použije service klienta.
     jwt = user_jwt
 
@@ -370,6 +370,7 @@ def service_get_latest_weekly_plan(
     meta = db_get_latest_plan_meta_for_user(
         user_id=user_id,
         user_jwt=jwt,
+        service=False,
     )
     plan_id: Optional[str] = None
     if meta and isinstance(meta.get("plan_id"), str):
@@ -380,6 +381,7 @@ def service_get_latest_weekly_plan(
         plan_id = db_get_latest_plan_id_for_user(
             user_id=user_id,
             user_jwt=jwt,
+            service=False,
         )
         if not plan_id:
             return None
@@ -388,6 +390,7 @@ def service_get_latest_weekly_plan(
         user_id=user_id,
         plan_id=plan_id,
         user_jwt=jwt,
+        service=False,
     )
     if not rows:
         return None

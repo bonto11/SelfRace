@@ -101,11 +101,13 @@ def service_generate_daily_week(
     """
     Generovanie DAILY plánu pre konkrétny týždeň + zápis do DB.
 
-    - FE / RLS:    service=False, user_jwt povinný → require_jwt.
-    - service mode: service=True, user_jwt môže byť None → DB vrstvy idú cez service klientov.
+    Režimy:
+      - FE / RLS:    service=False, user_jwt povinný → require_jwt → RLS klient.
+      - service:     service=True, user_jwt typicky None → DB vrstvy idú cez service klientov.
     """
     if service:
-        jwt = user_jwt  # typicky None – DB funkcie musia podľa `service` použiť service klienta
+        # service klient – DB si z parametra `service=True` vyberie správneho klienta
+        jwt = user_jwt  # typicky None
     else:
         jwt = require_jwt(user_jwt)
 
@@ -307,7 +309,7 @@ def service_get_daily_overview(
     """
     Vráti jednoduchý DAILY prehľad pre najbližších N dní (RLS).
 
-    Toto ostáva čisto RLS (FE volanie), preto tu nekomplikujeme service režim.
+    Toto ostáva čisto RLS (FE volanie), service režim tu nepotrebujeme.
     """
     jwt = require_jwt(user_jwt)
 
@@ -396,11 +398,12 @@ def service_auto_extend_daily_plan(
     Postará sa o to, aby aktívny (alebo posledný) plán mal vždy
     aspoň `min_horizon_days` naplánovaných dní v coach_plan_daily.
 
-    - FE/RLS:    service=False, user_jwt povinný.
-    - service:   service=True, user_jwt môže byť None, DB ide cez service klientov.
+    Režimy:
+      - FE/RLS: service=False, user_jwt povinný.
+      - service: service=True, user_jwt typicky None, DB ide cez service klientov.
     """
     if service:
-        jwt = user_jwt
+        jwt = user_jwt  # typicky None
     else:
         jwt = require_jwt(user_jwt)
 

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from Routes_DB.activities_summary import db_fetch_summary_since
+from Services.users import require_jwt
 
 
 def _norm_sport(raw: str | None) -> str:
@@ -45,10 +46,10 @@ def service_build_recent_load_raw(
       - sport_type / sport_type_fe / sport_type_ovrd
 
     Klient:
-      - ak service = False a user_jwt nie je None → RLS klient,
+      - ak service = False + user_jwt nie je None → RLS klient,
       - ak service = True alebo user_jwt je None → service klient (cron/worker).
 
-    (Reálna voľba klienta je v DB vrstve – sem len forwardujeme.)
+    (Voľbu klienta robí DB vrstva na základe user_jwt + service.)
     """
     today = datetime.now(timezone.utc).date()
     since = (today - timedelta(days=window_days - 1)).isoformat()
@@ -206,10 +207,15 @@ def service_build_recent_load_block_for_analysis(
       - spočíta weekly recent_load,
       - oseká nulové polia.
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     raw = service_build_recent_load_raw(
         user_id=user_id,
         window_days=window_days,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
         service=service,
     )
     return _prune_recent_load_for_ai(raw)

@@ -307,9 +307,8 @@ def _build_last_activities_block_for_analysis(
     - service=False → RLS klient (require_jwt),
     - service=True  → service klient (DB vrstva podľa `service=True`).
     """
-    # RLS klient používame len keď NIE sme v service režime
     if service:
-        jwt = user_jwt  # typicky None – DB/Routes funkcie musia vedieť použiť service klient
+        jwt = user_jwt
     else:
         jwt = require_jwt(user_jwt)
 
@@ -417,7 +416,7 @@ def build_input_from_db(
     - ak service=True  → používa sa service klient (user_jwt sa len forwarduje).
     """
     if service:
-        jwt = user_jwt  # pri service režime RLS neriešime, DB vrstvy rozhodujú podľa `service`
+        jwt = user_jwt
     else:
         jwt = require_jwt(user_jwt)
 
@@ -534,16 +533,24 @@ def service_save_state_to_db(
 
 def service_get_athlete_state_by_id(
     state_id: int,
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny záznam z coach_athlete_state podľa id
     a rozbalí state_json do samostatného kľúča "state".
-    (RLS len – FE only.)
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
 
-    row = db_get_state_by_id(state_id, user_jwt=jwt)
+    row = db_get_state_by_id(
+        state_id,
+        user_jwt=jwt,
+        service=service,
+    )
     if not row:
         return None
 
@@ -562,18 +569,23 @@ def service_get_athlete_state_by_id(
 def service_get_latest_athlete_state(
     user_id: int,
     version: Optional[int] = 1,
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší stav pre usera (podľa created_at DESC).
-    (RLS len – FE only.)
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
 
     row = db_get_latest_state_for_user(
         user_id=user_id,
         version=version,
         user_jwt=jwt,
+        service=service,
     )
     if not row:
         return None
@@ -593,19 +605,24 @@ def service_get_latest_athlete_state(
 def service_list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
+    *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     História stavov – len meta info (bez state_json),
     vhodné na výpis v UI / debug.
-    (RLS len – FE only.)
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
 
     rows = db_list_states_for_user(
         user_id=user_id,
         limit=limit,
         user_jwt=jwt,
+        service=service,
     )
     return [
         {

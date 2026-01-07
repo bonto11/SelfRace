@@ -8,6 +8,7 @@ from Routes_DB.coach_external_events import (
     db_clear_external_events_for_user,
     db_insert_external_events,
 )
+from Services.users import require_jwt
 
 
 def _normalize_event_input(
@@ -150,7 +151,7 @@ def service_list_external_events_window(
     """
     Vráti externé eventy expandované na konkrétne dni v zadanom okne.
 
-    - RLS režim: service=False, user_jwt nie je None
+    - RLS režim: service=False, user_jwt povinné (require_jwt)
     - service/webhook: service=True, user_jwt môže byť None
     """
     try:
@@ -162,9 +163,14 @@ def service_list_external_events_window(
     if d_to < d_from:
         raise ValueError("to must be >= from")
 
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
+
     base_rows = db_list_external_events_for_user(
         user_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
         service=service,
     )
     occurrences = _expand_events_to_window(base_rows, d_from, d_to)
@@ -178,16 +184,22 @@ def service_list_external_events_window(
 def service_list_external_events(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Vráti zoznam externých eventov pre usera (holé definície, bez expandovania).
-    Čisto RLS/FE use-case.
+    Typicky FE/RLS, ale vieš zavolať aj v service režime.
     """
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
+
     rows = db_list_external_events_for_user(
         user_id,
-        user_jwt=user_jwt,
-        service=False,
+        user_jwt=jwt,
+        service=service,
     )
     return {
         "success": True,
@@ -199,14 +211,22 @@ def service_save_external_events(
     user_id: int,
     *,
     events: List[Dict[str, Any]],
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Overwrite save:
       - zmaže všetky existujúce eventy usera
       - vloží nové podľa payloadu
-    (všetko cez RLS, user_jwt, bez service režimu).
+
+    - FE/RLS:   service=False + user_jwt (require_jwt)
+    - service:  service=True → ide cez service klienta
     """
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
+
     norm_rows: List[Dict[str, Any]] = []
     for raw in events:
         norm_rows.append(_normalize_event_input(user_id, raw))
@@ -214,15 +234,15 @@ def service_save_external_events(
     # vyčisti existujúce eventy
     deleted = db_clear_external_events_for_user(
         user_id,
-        user_jwt=user_jwt,
-        service=False,
+        user_jwt=jwt,
+        service=service,
     )
 
     # insert new
     inserted = db_insert_external_events(
         norm_rows,
-        user_jwt=user_jwt,
-        service=False,
+        user_jwt=jwt,
+        service=service,
     )
 
     return {

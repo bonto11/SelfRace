@@ -5,7 +5,18 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from Services.sport_type import infer_sport_type_fe
+from Services.activities_streams import fetch_and_optionally_store_batch
+from Services.activity_zones import (
+    preview_zones_for_activities,
+    upsert_enrichment_minutes,
+)
 
+from Routes_DB.activities_summary import (
+    db_get_recent_activity_ids,
+)
+
+from Services.users import require_jwt
+from Services.async_jobs import service_enqueue_job, service_run_job_now
 
 # ---------------------------------------------------------------------
 # Pomocné konverzie
@@ -333,3 +344,144 @@ def _decide_laps_or_splits(
         return "splits"
 
     return "laps"
+
+# -----------------------------------------------------------------------------
+# Spoločná enrichment logika (streams + zóny + plan_match)
+# -----------------------------------------------------------------------------
+
+def enrich_activities_for_ids(
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> None:
+    """
+    Enrichment pipeline pre zoznam aktivít:
+      - dotiahne / uloží streams,
+      - spočíta minutáž v zónach,
+      - skúsi plan_match cez async job.
+
+    - ak service=False → RLS režim, vyžaduje JWT
+    - ak service=True  → používame service klientov, JWT len forwardneme (typicky None)
+    """
+    if not activity_ids:
+        print("[SYNC] enrich: no activity ids, skipping")
+        return
+
+    if service:
+        jwt = user_jwt  # typicky None – DB/services musia použiť service klienta
+    else:
+        jwt = require_jwt(user_jwt)
+
+    try:
+        print(f"[SYNC] streams: fetching & storing for {len(activity_ids)} ids …")
+        streams_res = fetch_and_optionally_store_batch(
+            user_id,
+            activity_ids,
+            store=True,
+            user_jwt=jwt,
+            service=service,
+        )
+        print(
+            f"[SYNC] streams: stored={streams_res.get('stored')} / "
+            f"total={streams_res.get('count')}"
+        )
+
+        print("[SYNC] zones: computing minutes from cached streams …")
+        prev = preview_zones_for_activities(
+            user_id,
+            activity_ids,
+            fetch_if_missing=False,
+            user_jwt=jwt,
+            service=service,
+        )
+
+        to_save = [
+            it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")
+        ]
+        saved = upsert_enrichment_minutes(
+            user_id,
+            to_save,
+            user_jwt=jwt,
+            service=service,
+        )
+        print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
+
+        try:
+            enqueue = service_enqueue_job(
+                user_id=user_id,
+                user_uid="",
+                job_type="plan_match",
+                payload={
+                    "activity_ids": activity_ids,
+                    "days_window": 1,
+                    "score_threshold": 0.55,
+                },
+                priority=90,
+                max_attempts=1,
+                dedupe_key=None,
+                user_jwt=jwt,
+                service=service,
+            )
+
+            job = (enqueue or {}).get("job")
+            if not job:
+                print("[SYNC] plan auto-mapping: enqueue_failed")
+            else:
+                run = service_run_job_now(
+                    user_id=user_id,
+                    job_id=int(job["id"]),
+                    worker_id="sync_auto_map",
+                    user_jwt=jwt,
+                    service=service,
+                )
+
+                job_row = run.get("job") or {}
+                result = job_row.get("result") or {}
+
+                print(
+                    "[SYNC] plan auto-mapping (job): "
+                    f"candidates={result.get('candidates')} "
+                    f"mapped={result.get('mapped')} "
+                    f"skipped={result.get('skipped')} "
+                    f"processed={result.get('processed')} "
+                    f"error={run.get('error')}"
+                )
+
+        except Exception as e:
+            print(f"[SYNC] plan auto-mapping via job failed: {e}")
+
+    except Exception as e:
+        print(f"[SYNC] zones enrichment failed: {e}")
+
+def _enrich_activities_after_import(
+    user_id: int,
+    since_iso_for_scan: str,
+    *,
+    user_jwt: Optional[str] = None,
+) -> None:
+    """
+    Wrapper: vyberie recent IDs od since_iso_for_scan a pustí enrichment.
+    (Používa sa len pri manuálnom syncu z FE – RLS režim.)
+    """
+    try:
+        ids_recent = db_get_recent_activity_ids(
+            user_id=user_id,
+            since_iso_date=since_iso_for_scan,
+            limit=500,
+            user_jwt=user_jwt,
+        )
+
+        if not ids_recent:
+            print("[SYNC] enrich: no recent activity ids, skipping")
+            return
+
+        enrich_activities_for_ids(
+            user_id=user_id,
+            activity_ids=ids_recent,
+            user_jwt=user_jwt,
+            service=False,  # manuálny sync = RLS
+        )
+    except Exception as e:
+        print(f"[SYNC] enrich wrapper failed: {e}")

@@ -29,14 +29,13 @@ def service_build_active_plan_block_for_analysis(
       }
     """
     if service:
-        # service režim – DB vrstva musí z `service=True` vybrať service klienta
+        jwt = user_jwt  # typicky None – DB vrstva si vyberie service klienta
         row = db_get_active_plan_meta_for_user(
             user_id=user_id,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
             service=True,
         )
     else:
-        # klasický RLS režim
         jwt = require_jwt(user_jwt)
         row = db_get_active_plan_meta_for_user(
             user_id=user_id,

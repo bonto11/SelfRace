@@ -1,4 +1,3 @@
-# Services/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -12,18 +11,15 @@ from Routes_DB.async_jobs import (
     db_update_job_finished,
 )
 
-from Services.coach_athlete_state import service_analyze_athlete
-    # ai_analyze
-from Services.coach_plan_weekly import service_generate_weekly_plan
-    # weekly_generate
+from Services.coach_athlete_state import service_analyze_athlete  # ai_analyze
+from Services.coach_plan_weekly import service_generate_weekly_plan  # weekly_generate
 from Services.coach_plan_daily import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
-)
-    # daily_generate, daily_extend
-from Services.plan_activity_match import auto_map_plans_for_activities
-    # plan_match
+)  # daily_generate, daily_extend
+from Services.plan_activity_match import auto_map_plans_for_activities  # plan_match
 
+from Services.users import require_jwt
 
 # typy jobov, ktoré worker vie spracovať
 ALLOWED_JOB_TYPES = {
@@ -48,6 +44,7 @@ def service_enqueue_job(
     max_attempts: int = 3,
     dedupe_key: Optional[str] = None,
     user_jwt: Optional[str] = None,  # posielame z routera, ide len do payloadu
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Vytvorí nový job v async_jobs.
@@ -55,14 +52,20 @@ def service_enqueue_job(
     Pozor: DB vrstva (Routes_DB.async_jobs) používa service klient,
     nijaké user_jwt sa tam neposiela. JWT dávame len do job.input.
     """
+
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     if job_type not in ALLOWED_JOB_TYPES:
         raise ValueError(f"Unsupported job_type: {job_type}")
 
     # payload normalizuj a doplň user_jwt (ak je)
     clean_payload: Dict[str, Any] = dict(payload or {})
-    if user_jwt is not None:
+    if jwt is not None:
         # ak ho caller dal priamo do payloadu, necháme jeho hodnotu
-        clean_payload.setdefault("user_jwt", user_jwt)
+        clean_payload.setdefault("user_jwt", jwt)
 
     row: Dict[str, Any] = {
         "user_id": int(user_id),
@@ -105,10 +108,17 @@ def service_run_job_now(
     *,
     worker_id: str = "manual",
     user_jwt: Optional[str] = None,  # JWT berieme z job.input, nie z tohto argumentu
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Spustí konkrétny job (id) pre daného usera – mini worker.
     """
+
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     job = db_get_job_by_id(user_id=user_id, job_id=job_id)
     if not job:
         return {"job": None, "error": "job_not_found"}
@@ -234,7 +244,7 @@ def service_run_job_now(
             else:
                 score_threshold = float(score_threshold_raw)
 
-            # 4a) samotné matchovanie plán ↔ aktivity
+            # 4a) samotné matchovanie plán ↔️ aktivity
             result_payload = auto_map_plans_for_activities(
                 user_id=user_id,
                 user_jwt=payload_jwt,
