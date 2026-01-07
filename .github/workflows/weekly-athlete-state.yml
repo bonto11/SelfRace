@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   # týždenný cron – nedeľa 04:00 UTC (u nás cca 05:00 / 06:00)
   schedule:
-    - cron: "0 4 * * 0"
+    - cron: "0 20 * * 3"
 
 jobs:
   run-weekly-athlete-state:
