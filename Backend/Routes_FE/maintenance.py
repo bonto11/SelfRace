@@ -59,6 +59,8 @@ async def weekly_athlete_state_refresh_endpoint(
             service=True,
         )
 
+        print("users",users)
+
         if not users:
             return JSONResponse(
                 {"ok": True, "processed": 0, "results": [], "note": "no users found"}
@@ -82,6 +84,7 @@ async def weekly_athlete_state_refresh_endpoint(
                     save_to_db=True,
                     model=None,
                 )
+                print("resp",resp)
                 state_id = resp.get("state_id")
                 results.append(
                     {
