@@ -12,6 +12,7 @@ from Routes_DB.coach_plan_daily import (
 
 from Routes_DB.activities_summary import db_get_summary_for_activities
 
+
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
 
 
@@ -220,13 +221,12 @@ def _load_activities_summary(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str],
-    service: bool,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu.
-    V RLS režime musí byť `user_jwt` validný JWT; v service režime si DB vyberie
-    service klienta podľa `service=True`.
+    V service režime sa user_jwt len forwarduje, RLS sa nepoužíva.
     """
     if not activity_ids:
         return []
@@ -245,6 +245,9 @@ def _load_activities_summary(
     return data
 
 
+# ───────────────────────────────────────── main service ─────────────────────────────────────────
+
+
 def auto_map_plans_for_activities(
     user_id: int,
     activity_ids: List[int],
@@ -255,18 +258,13 @@ def auto_map_plans_for_activities(
     service: bool = False,
 ) -> Dict[str, Any]:
     """
-    Automaticky namapuje aktivity (Strava) na plánované session.
+    Automatické mapovanie aktivity na plánované session.
 
-    Režimy:
-      - RLS (FE):       service=False, user_jwt povinný → require_jwt
-      - service/webhook: service=True, user_jwt môže byť None → DB vrstva používa
-        service klienta (bez RLS).
-
-    (Žiadne automatické extendovanie plánu – to rieši inde
-     `service_auto_extend_daily_plan` / `coach_autoadjust`.)
+    - RLS režim:  service=False, user_jwt povinný → require_jwt
+    - service režim (webhook/job): service=True, user_jwt môže byť None
     """
     if service:
-        jwt = user_jwt  # service client / None – rieši DB vrstva
+        jwt = user_jwt          # service klient, JWT nepotrebujeme
     else:
         jwt = require_jwt(user_jwt)
 
@@ -287,6 +285,7 @@ def auto_map_plans_for_activities(
         user_jwt=jwt,
         service=service,
     )
+
     if not acts:
         print("[PLAN-MATCH] no activities_summary rows loaded")
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
@@ -344,7 +343,7 @@ def auto_map_plans_for_activities(
             f"[PLAN-MATCH][ACT] aid={aid} date={a_date.isoformat()} "
             f"sport_type_fe={a.get('sport_type_fe')} "
             f"moving_time_s={a.get('moving_time_s')} "
-            f"avg_hr={a.get('average_heartrate_bpm')} "
+            f"avg_hr={a.get('avg_hr_bpm')} "
             f"name={a.get('name')!r}"
         )
 
