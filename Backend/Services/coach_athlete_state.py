@@ -18,7 +18,10 @@ from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
 from Services.coach_plan_meta import service_build_active_plan_block_for_analysis
-from Routes_AI.analyze_athlete_state import generate_athlete_state_json
+from Routes_AI.analyze_athlete_state import (
+    generate_athlete_state_json,
+    generate_athlete_progress_report,
+)
 
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
@@ -636,6 +639,75 @@ def service_list_athlete_states_meta(
     ]
 
 
+# -------------------- INTERNAL: načítanie posledných dvoch stavov --------------------
+
+
+def _load_last_two_states_with_json(
+    user_id: int,
+    *,
+    version: Optional[int] = 1,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> List[Dict[str, Any]]:
+    """
+    Vytiahne najnovšie dva záznamy pre usera (vrátane state_json).
+
+    Použije existujúci db_list_states_for_user (meta) + db_get_state_by_id.
+    """
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
+
+    meta_rows = db_list_states_for_user(
+        user_id=user_id,
+        limit=10,
+        user_jwt=jwt,
+        service=service,
+    ) or []
+
+    # filtrovanie podľa version, ak je zadaná
+    filtered = [
+        r for r in meta_rows if version is None or r.get("version") == version
+    ]
+    ids: List[int] = []
+    for r in filtered:
+        sid = r.get("id")
+        if isinstance(sid, int):
+            ids.append(sid)
+        elif isinstance(sid, str):
+            try:
+                ids.append(int(sid))
+            except Exception:
+                continue
+        if len(ids) >= 2:
+            break
+
+    out: List[Dict[str, Any]] = []
+    for sid in ids:
+        row = db_get_state_by_id(
+            sid,
+            user_jwt=jwt,
+            service=service,
+        )
+        if not row:
+            continue
+        out.append(
+            {
+                "id": row.get("id"),
+                "user_id": row.get("user_id"),
+                "model": row.get("model"),
+                "version": row.get("version"),
+                "created_at": row.get("created_at"),
+                "state": row.get("state_json") or {},
+            }
+        )
+
+    # zoradíme podľa created_at desc, pre istotu
+    out.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+    return out
+
+
 # -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
 
 
@@ -742,6 +814,73 @@ def service_analyze_athlete(
         "analysis": analysis,
         "input": input_data,
     }
+    if debug:
+        resp["debug_trace"] = trace
+
+    return resp
+
+
+def service_compare_latest_athlete_states(
+    user_id: int,
+    *,
+    version: Optional[int] = 1,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+    model: Optional[str] = None,
+    debug: bool = False,
+) -> Dict[str, Any]:
+    """
+    Zoberie posledné dva uložené stavy atleta a spraví AI progress report.
+
+    - použiteľné pre FE (RLS) aj pre worker (service=True)
+    """
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
+
+    rows = _load_last_two_states_with_json(
+        user_id=user_id,
+        version=version,
+        user_jwt=jwt,
+        service=service,
+    )
+
+    if len(rows) < 2:
+        return {
+            "ok": False,
+            "error": "not_enough_states",
+            "message": "Na porovnanie sú potrebné aspoň dve AI analýzy.",
+            "user_id": user_id,
+        }
+
+    current = rows[0]
+    previous = rows[1]
+
+    current_state = current.get("state") or {}
+    previous_state = previous.get("state") or {}
+
+    model_to_use = model or DEFAULT_MODEL
+
+    report, trace = generate_athlete_progress_report(
+        previous_state=previous_state,
+        current_state=current_state,
+        model=model_to_use,
+        user_id=user_id,
+        debug_raw=debug,
+    )
+
+    resp: Dict[str, Any] = {
+        "ok": True,
+        "user_id": user_id,
+        "version": version,
+        "current_state_id": current.get("id"),
+        "previous_state_id": previous.get("id"),
+        "current_created_at": current.get("created_at"),
+        "previous_created_at": previous.get("created_at"),
+        "report": report,
+    }
+
     if debug:
         resp["debug_trace"] = trace
 
