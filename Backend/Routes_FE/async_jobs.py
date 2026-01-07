@@ -1,4 +1,3 @@
-# Routes_FE/jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -19,7 +18,7 @@ from Routes_DB.async_jobs import (
     db_get_recent_jobs,
     db_get_job_by_id,
 )
-from Modules.HTTP.auth_deps import require_user_jwt  # ⬅️ DOPLNENÉ
+from Modules.HTTP.auth_deps import require_user_jwt  # ⬅️ JWT z FE
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -84,7 +83,6 @@ def list_active_jobs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @router.get("/recent/{user_id}")
 def list_recent_jobs(
     user_id: int,
@@ -102,7 +100,11 @@ def list_recent_jobs(
         if job_types:
             job_types_list = [k.strip() for k in job_types.split(",") if k.strip()]
 
-        rows = db_get_recent_jobs(user_id=user_id, job_types=job_types_list, limit=limit)
+        rows = db_get_recent_jobs(
+            user_id=user_id,
+            job_types=job_types_list,
+            limit=limit,
+        )
         return {"success": True, "jobs": rows}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -123,12 +125,11 @@ def get_job(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @router.post("/run/{user_id}/{job_id}", response_model=RunJobResponse)
 def run_job(
     user_id: int,
     job_id: int,
-    user_jwt: str = Depends(require_user_jwt),  # voliteľné – kvôli auth
+    user_jwt: str = Depends(require_user_jwt),  # ⬅️ JWT z FE
 ) -> Dict[str, Any]:
     """
     Manuálne spracovanie jedného jobu (mini-worker).
@@ -138,6 +139,7 @@ def run_job(
             user_id=user_id,
             job_id=job_id,
             worker_id="api_run",
+            user_jwt=user_jwt,  # ⬅️ POSIELAME ĎALEJ
         )
         return {
             "success": out.get("error") is None,
