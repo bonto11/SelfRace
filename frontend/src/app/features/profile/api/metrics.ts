@@ -7,6 +7,10 @@ import type {
   SaveMetricsSuccess,
   MetricsApiFail,
   MetricHistoryRow,
+  HistoryRow,
+  EstRow,
+  Vo2HistoryApiOk,
+  Vo2EstimateApiOk,
 } from "@/app/features/profile/types/profile";
 
 /**
@@ -35,6 +39,85 @@ export async function apiGetLatestMetrics(
     return (json as LatestMetricsResponse).data ?? null;
   } catch (e) {
     console.error("[METRICS][apiGetLatestMetrics] ERROR", e);
+    return null;
+  }
+}
+
+
+
+/**
+ * GET VO2 history + meta (sex, birth_date)
+ */
+export async function apiGetVo2History(
+  userId: number
+): Promise<Vo2HistoryApiOk | null> {
+  if (!userId) return null;
+
+  const path = `/profile/vo2-history/${encodeURIComponent(String(userId))}`;
+  console.debug("[METRICS][apiGetVo2History] ->", path);
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!json || json.success === false) {
+      return null;
+    }
+
+    const history: HistoryRow[] = Array.isArray(json.history)
+      ? (json.history as HistoryRow[])
+      : [];
+
+    const sex: "M" | "F" | null =
+      json.sex === "F" ? "F" : json.sex === "M" ? "M" : null;
+
+    const birth_date: string | null = json.birth_date ?? null;
+
+    return {
+      success: true,
+      history,
+      sex,
+      birth_date,
+    };
+  } catch (e) {
+    console.error("[METRICS][apiGetVo2History] ERROR", e);
+    return null;
+  }
+}
+
+/**
+ * GET VO2 estimate
+ */
+export async function apiGetVo2Estimate(
+  userId: number
+): Promise<EstRow | null> {
+  if (!userId) return null;
+
+  const path = `/profile/vo2-estimate/${encodeURIComponent(String(userId))}`;
+  console.debug("[METRICS][apiGetVo2Estimate] ->", path);
+
+  try {
+    const json = await callBackend<Vo2EstimateApiOk | MetricsApiFail | null>(
+      path,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    if (!json || (json as any).success === false) {
+      return null;
+    }
+
+    // BE vracia { success, value, updated_at } – to vieš mapnúť priamo na EstRow
+    return {
+      value: (json as Vo2EstimateApiOk).value ?? null,
+      updated_at: (json as Vo2EstimateApiOk).updated_at ?? null,
+    } as EstRow;
+  } catch (e) {
+    console.error("[METRICS][apiGetVo2Estimate] ERROR", e);
     return null;
   }
 }

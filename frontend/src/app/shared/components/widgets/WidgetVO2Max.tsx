@@ -4,7 +4,6 @@ import * as React from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Pill from "@/app/shared/components/ui/Pill";
-import { API_URL } from "@/app/shared/config";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
@@ -17,6 +16,10 @@ import {
   Range,
 } from "@/app/features/profile/types/profile";
 import { levelColor } from "@/app/features/profile/utils/profile";
+import {
+  apiGetVo2History,
+  apiGetVo2Estimate,
+} from "@/app/features/profile/api/metrics";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -32,34 +35,34 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
   React.useEffect(() => {
     if (!userId) return;
+
     let alive = true;
+
     (async () => {
       try {
         setLoading(true);
 
-        // merané
-        const r1 = await fetch(`${API_URL}/profile/vo2-history/${userId}`, {
-          cache: "no-store",
-        });
-        const js1 = await r1.json().catch(() => ({}));
-        if (alive && js1?.success) {
-          setHistory(Array.isArray(js1.history) ? js1.history : []);
-          setSex(js1.sex === "F" ? "F" : "M");
-          setBirthDate(js1.birth_date || "");
-        } else if (alive) {
+        const [histRes, estRes] = await Promise.all([
+          apiGetVo2History(userId),
+          apiGetVo2Estimate(userId),
+        ]);
+
+        if (!alive) return;
+
+        if (histRes) {
+          setHistory(histRes.history ?? []);
+          setSex(histRes.sex === "F" ? "F" : "M");
+          setBirthDate(histRes.birth_date || "");
+        } else {
           setHistory([]);
         }
 
-        // odhad
-        const r2 = await fetch(`${API_URL}/profile/vo2-estimate/${userId}`, {
-          cache: "no-store",
-        });
-        const js2: EstRow = await r2.json().catch(() => ({} as EstRow));
-        if (alive) setEst(js2 ?? null);
+        setEst(estRes ?? null);
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };

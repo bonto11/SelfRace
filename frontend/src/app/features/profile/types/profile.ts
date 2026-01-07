@@ -96,3 +96,16 @@ export type MetricHistoryRow = {
 
 export type MetricState = Record<EditableMetricKey, number | null>;
 export type DirtyMap = Record<EditableMetricKey, boolean>;
+
+export type Vo2HistoryApiOk = {
+  success: true;
+  history: HistoryRow[];
+  sex: "M" | "F" | null;
+  birth_date: string | null;
+};
+
+export type Vo2EstimateApiOk = {
+  success: boolean;
+  value: number | null;
+  updated_at: string | null;
+};
