@@ -36,11 +36,25 @@ def service_resolve_user(
 def service_get_user_uid(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> str:
     """
     Vráti auth_uid pre dané user_id, alebo hodí RuntimeError ak chýba.
+
+    Režimy:
+      - service=False (default): RLS klient → require_jwt
+      - service=True: service klient → user_jwt sa len forwarduje (môže byť aj None)
     """
-    uid = db_get_user_uid(user_id, user_jwt=user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
+    uid = db_get_user_uid(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    )
     if not uid:
         raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
     return uid
