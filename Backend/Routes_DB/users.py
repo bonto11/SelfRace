@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS
@@ -119,3 +119,26 @@ def db_delete_user_by_email(
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="users")
     sb.table(TABLE_USERS).delete().eq("mail_address", email).execute()
+
+
+def db_list_users_for_cron(
+    *,
+    limit: int = 1000,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Základný zoznam userov pre cron/maintenance úlohy.
+
+    Zatiaľ bez filtrov (všetci useri z TABLE_USERS). Ak pridáš stĺpec
+    typu is_active / is_deleted, môžeš tu doplniť .eq("is_active", True) atď.
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="users.cron")
+
+    res = (
+        sb.table(TABLE_USERS)
+        .select("id, auth_uid")
+        .limit(limit)
+        .execute()
+    )
+    return list(res.data or [])

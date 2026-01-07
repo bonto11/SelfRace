@@ -21,6 +21,7 @@ from Services.plan_activity_match import auto_map_plans_for_activities  # plan_m
 
 from Services.users import require_jwt
 
+
 # typy jobov, ktoré worker vie spracovať
 ALLOWED_JOB_TYPES = {
     "sync",
@@ -112,6 +113,10 @@ def service_run_job_now(
 ) -> Dict[str, Any]:
     """
     Spustí konkrétny job (id) pre daného usera – mini worker.
+
+    - service=False  → typicky FE/manual (RLS, require_jwt na vstupe).
+    - service=True   → cron/worker – tento JWT sa prakticky nepoužíva,
+                       rozhodujúce je, čo je v job.input (user_jwt / service).
     """
 
     if service:
@@ -164,8 +169,13 @@ def service_run_job_now(
     try:
         # 1) ANALYZE ATHLETE
         if job_type == "ai_analyze":
-            if payload_jwt is None:
-                raise ValueError("ai_analyze: job.input.user_jwt is required")
+            # nový prepínač – či bežíme v service móde (cron) alebo v RLS móde (FE)
+            run_as_service = bool(input_payload.get("service", False))
+
+            if not run_as_service and payload_jwt is None:
+                raise ValueError(
+                    "ai_analyze: job.input.user_jwt is required unless service=True"
+                )
 
             debug_flag = bool(input_payload.get("debug", False))
             save_flag = bool(input_payload.get("save_to_db", True))
@@ -173,7 +183,8 @@ def service_run_job_now(
 
             result_payload = service_analyze_athlete(
                 user_id=user_id,
-                user_jwt=payload_jwt,
+                user_jwt=None if run_as_service else payload_jwt,
+                service=run_as_service,
                 debug=debug_flag,
                 save_to_db=save_flag,
                 model=model_override,
@@ -321,3 +332,48 @@ def service_run_job_now(
             progress=100,
         )
         return {"job": finished, "error": str(e)}
+
+
+# -------------------------------------------------
+# Helper pre cron: enqueuj ai_analyze v service režime
+# -------------------------------------------------
+
+
+def service_enqueue_ai_analyze_job_service(
+    user_id: int,
+    user_uid: str,
+    *,
+    model: Optional[str] = None,
+    debug: bool = False,
+    save_to_db: bool = True,
+) -> Dict[str, Any]:
+    """
+    Convenience helper pre cron/maintenance:
+
+      - enqueuje job_type="ai_analyze"
+      - job pobeží v SERVICE móde (bez user_jwt)
+      - výsledok sa uloží do coach_athlete_state
+
+    Použitie (napr. v cron route):
+        service_enqueue_ai_analyze_job_service(
+            user_id=123,
+            user_uid="auth-uid-123",
+        )
+    """
+    payload: Dict[str, Any] = {
+        "save_to_db": bool(save_to_db),
+        "debug": bool(debug),
+        "service": True,  # ← kľúčové pre worker (run_as_service)
+    }
+    if model:
+        payload["model"] = model
+
+    return service_enqueue_job(
+        user_id=user_id,
+        user_uid=user_uid,
+        job_type="ai_analyze",
+        payload=payload,
+        # cron/worker → service klient, JWT netreba
+        user_jwt=None,
+        service=True,
+    )
