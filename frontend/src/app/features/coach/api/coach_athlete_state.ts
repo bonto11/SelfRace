@@ -5,6 +5,7 @@ import type {
   AnalyzeAthleteStateResponse,
 } from "@/app/features/coach/types/coachApiTypes";
 
+
 type AsyncJobRow = {
   id: number;
   user_id: number;
@@ -51,6 +52,20 @@ type LatestAthleteStateResponse = {
   error?: string | null;
 };
 
+export type AthleteProgressRecord = {
+  id: number;
+  user_id: number;
+  version: number;
+  created_at: string;
+  compare_previous: any | null;
+};
+
+type LatestAthleteProgressResponse = {
+  success: boolean;
+  progress: AthleteProgressRecord | null;
+  detail?: string | null;
+  error?: string | null;
+};
 export async function apiAnalyzeAthleteState(
   userId: number,
   userUuid: string,
@@ -171,4 +186,41 @@ export async function apiGetLatestAthleteState(
   }
 
   return json.state ?? null;
+}
+
+/**
+ * GET /coach/athlete/state/latest-progress/:user_id
+ * – pre Weekly Coach Progress widget
+ */
+export async function apiGetLatestAthleteProgress(
+  userId: number
+): Promise<AthleteProgressRecord | null> {
+  if (!userId) {
+    throw new Error("Missing userId in apiGetLatestAthleteProgress");
+  }
+
+  const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(
+    String(userId)
+  )}`;
+
+  let json: LatestAthleteProgressResponse;
+  try {
+    json = await callBackend<LatestAthleteProgressResponse>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    console.error("[Coach][apiGetLatestAthleteProgress] ERROR", e);
+    throw e instanceof Error
+      ? e
+      : new Error(`Network/BE error (latest progress): ${String(e)}`);
+  }
+
+  if (!json?.success) {
+    const msg =
+      json.detail || json.error || "Failed to load latest athlete progress";
+    throw new Error(msg);
+  }
+
+  return json.progress ?? null;
 }

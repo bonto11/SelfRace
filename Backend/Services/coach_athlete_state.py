@@ -868,3 +868,40 @@ def service_compare_latest_athlete_states(
         resp["debug_trace"] = trace
 
     return resp
+
+def service_get_latest_athlete_progress(
+    user_id: int,
+    version: Optional[int] = 1,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """
+    Vráti posledný stav atleta so zhrnutím progressu (compare_previous).
+
+    - RLS režim (FE):               service=False + user_jwt
+    - SERVICE režim (cron/worker):  service=True  + user_jwt=None
+    """
+    if service:
+        jwt = None
+    else:
+        jwt = require_jwt(user_jwt)
+
+    row = db_get_latest_state_for_user(
+        user_id=user_id,
+        version=version,
+        user_jwt=jwt,
+        service=service,
+    )
+    if not row:
+        return None
+
+    return {
+        "id": row.get("id"),
+        "user_id": row.get("user_id"),
+        "model": row.get("model"),
+        "version": row.get("version"),
+        "created_at": row.get("created_at"),
+        # tu je uložený AI weekly progress report
+        "compare_previous": row.get("compare_previous"),
+    }

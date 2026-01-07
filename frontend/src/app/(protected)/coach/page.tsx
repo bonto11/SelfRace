@@ -11,6 +11,7 @@ import WidgetExternalEvents from "@/app/shared/components/widgets/WidgetExternal
 import WidgetCoachAIAnalyze from "@/app/shared/components/widgets/WidgetCoachAthleteState";
 import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeeklyPlan";
 import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
+import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
 
 import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
@@ -26,7 +27,7 @@ function ClientPage() {
       <WidgetCoachPlan />
       <WidgetActivitiesCalendar />
 
-      {/* nové AI widgety – zatiaľ statické */}
+      {/* AI widgety */}
       <WidgetCoachAIAnalyze
         onOpenDetail={() => router.push("/coach/ai/athleteState")}
       />
@@ -35,6 +36,9 @@ function ClientPage() {
       />
       <WidgetCoachAIDaily
         onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
+      />
+      <WidgetCoachAIProgress
+        onOpenDetail={() => router.push("/coach/ai/progress")}
       />
     </div>
   );
