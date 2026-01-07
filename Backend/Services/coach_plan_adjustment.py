@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any, Dict, Optional, List
+from statistics import mean  # ⬅️ na výpočet priemerov
 
 from Services.users import require_jwt
 from Services.coach_athlete_state import service_analyze_athlete
@@ -16,8 +17,10 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
+from Routes_DB.user_recovery import db_get_recent_recovery  # ⬅️ na HRV/RHR záznamy
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
+
 
 def _to_date(val: Any) -> Optional[date]:
     """
@@ -50,7 +53,6 @@ def _find_current_week_index(
     if not weekly_rows:
         return None
 
-    # zoradíme podľa week_index (pre istotu)
     weekly_sorted = sorted(
         weekly_rows,
         key=lambda w: int(w.get("week_index") or 0),
@@ -140,11 +142,13 @@ def _compute_be_flags_recent_load(
         key=lambda w: int(w.get("week_index_from_now") or 0),
     )
 
-    recent_baseline_weeks = prev_weeks_sorted[-3:] if len(prev_weeks_sorted) >= 3 else prev_weeks_sorted
+    recent_baseline_weeks = (
+        prev_weeks_sorted[-3:] if len(prev_weeks_sorted) >= 3 else prev_weeks_sorted
+    )
     if recent_baseline_weeks:
-        baseline = sum(float(w.get("total_minutes") or 0.0) for w in recent_baseline_weeks) / len(
-            recent_baseline_weeks
-        )
+        baseline = sum(
+            float(w.get("total_minutes") or 0.0) for w in recent_baseline_weeks
+        ) / len(recent_baseline_weeks)
     else:
         baseline = curr_min  # fallback – bez histórie ber current ako baseline
 
@@ -153,10 +157,6 @@ def _compute_be_flags_recent_load(
     # hard_sessions – ak sú vo weekly
     hard_current = int(current.get("hard_sessions") or 0)
 
-    # jednoduchá heuristika:
-    # - ratio <= 1.2 a hard_sessions <= 2 → nič nerieš
-    # - 1.2 < ratio <= 1.4 alebo hard_sessions >= 3 → soften daily
-    # - ratio > 1.4 alebo curr_min >= baseline + 150 → weekly replan
     if baseline <= 0 and curr_min <= 0:
         return {
             "has_data": True,
@@ -169,7 +169,7 @@ def _compute_be_flags_recent_load(
             "hard_sessions": hard_current,
         }
 
-    # veľký spike
+    # veľký spike → weekly replan kandidát
     if ratio > 1.4 or (curr_min > baseline + 150):
         return {
             "has_data": True,
@@ -208,6 +208,61 @@ def _compute_be_flags_recent_load(
     }
 
 
+def _compute_recovery_debug(
+    user_id: int,
+    *,
+    user_jwt: str,
+    days: int = 21,
+) -> Dict[str, Any]:
+    """
+    Debug infá z user_recovery – priemery HRV, posledný záznam, spánok...
+
+    Volá sa len v RLS režime (user_jwt != None), nie zo service/webhooku.
+    """
+    rows = db_get_recent_recovery(
+        user_id,
+        days,
+        user_jwt=user_jwt,
+    ) or []
+
+    if not rows:
+        return {
+            "latest_date": None,
+            "latest_RHR_bpm": None,
+            "latest_HRV_ms": None,
+            "sleep_min": None,
+            "hrv_7d_avg": None,
+            "hrv_prev_7_21d_avg": None,
+        }
+
+    latest = rows[0]
+
+    def _hrv_vals(slice_rows: List[Dict[str, Any]]) -> List[float]:
+        vals: List[float] = []
+        for r in slice_rows:
+            v = r.get("HRV_avg_ms")
+            if isinstance(v, (int, float)) and v > 0:
+                vals.append(float(v))
+        return vals
+
+    recent_vals = _hrv_vals(rows[:7])
+    prev_vals = _hrv_vals(rows[7:21])
+
+    hrv_recent_avg = mean(recent_vals) if recent_vals else None
+    hrv_prev_avg = mean(prev_vals) if prev_vals else None
+
+    sleep_min = latest.get("sleep_duration_min")
+
+    return {
+        "latest_date": latest.get("date"),
+        "latest_RHR_bpm": latest.get("RHR_bpm"),
+        "latest_HRV_ms": latest.get("HRV_avg_ms"),
+        "sleep_min": sleep_min,
+        "hrv_7d_avg": hrv_recent_avg,
+        "hrv_prev_7_21d_avg": hrv_prev_avg,
+    }
+
+
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
@@ -239,7 +294,16 @@ def service_coach_autoadjust_after_update(
     # --- 0) BE heuristika nad recent_load (funguje aj bez JWT – vie použiť service klienta) ---
     be_flags = _compute_be_flags_recent_load(
         user_id=user_id,
-        user_jwt=None,  # nech recent_load berie všetky aktivity (service režim)
+        user_jwt=None,  # recent_load berie všetky aktivity (service režim)
+    )
+
+    # základný debug log – vidíš current vs baseline, ratio, atď.
+    print(
+        "[COACH-AUTOADJUST][BE]",
+        "user_id=",
+        user_id,
+        "flags=",
+        be_flags,
     )
 
     # --- 0a) Webhook / čisto service režim (bez JWT) → iba BE analýza, žiadne AI, žiadne zásahy ---
@@ -249,19 +313,36 @@ def service_coach_autoadjust_after_update(
             "mode": "service_be_only",
             "reason": be_flags.get("reason"),
             "be_flags": be_flags,
+            "recovery_debug": None,
             "analyze_state_id": None,
             "plan_adjustment": None,
         }
 
-    # --- 0b) Máme user_jwt → môžeme ísť ďalej (RLS + AI), ale len ak BE chce AI ---
+    # --- 0b) Máme user_jwt → RLS + môžeme ísť na AI a re-plany ---
     jwt = require_jwt(user_jwt)
 
+    # Recovery debug (HRV priemery, RHR, spánok) – čisto pre logy / FE
+    recovery_debug = _compute_recovery_debug(
+        user_id=user_id,
+        user_jwt=jwt,
+    )
+
+    print(
+        "[COACH-AUTOADJUST][RECOVERY]",
+        "user_id=",
+        user_id,
+        "recovery_debug=",
+        recovery_debug,
+    )
+
     if not be_flags.get("should_trigger_ai"):
+        # load je v norme → AI sa nevolá, plán sa nemení
         return {
             "changed": False,
             "mode": "no_adjustment_needed",
             "reason": be_flags.get("reason", "load_within_normal_range"),
             "be_flags": be_flags,
+            "recovery_debug": recovery_debug,
             "analyze_state_id": None,
             "plan_adjustment": None,
         }
@@ -303,6 +384,7 @@ def service_coach_autoadjust_after_update(
             "mode": "no_plan",
             "reason": "no_plan_meta",
             "be_flags": be_flags,
+            "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
             "plan_adjustment": plan_adjustment,
         }
@@ -347,6 +429,7 @@ def service_coach_autoadjust_after_update(
                 "reason": weekly_replan_reason
                 or "weekly plan re-generated based on load & recovery",
                 "be_flags": be_flags,
+                "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
                 "plan_adjustment": plan_adjustment,
                 "weekly_plan_meta": {
@@ -373,6 +456,7 @@ def service_coach_autoadjust_after_update(
                 "mode": "no_weekly_rows",
                 "reason": "no_weekly_rows_for_plan",
                 "be_flags": be_flags,
+                "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
                 "plan_adjustment": plan_adjustment,
             }
@@ -388,6 +472,7 @@ def service_coach_autoadjust_after_update(
                 "mode": "cannot_determine_current_week",
                 "reason": "cannot_determine_current_week",
                 "be_flags": be_flags,
+                "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
                 "plan_adjustment": plan_adjustment,
             }
@@ -408,6 +493,7 @@ def service_coach_autoadjust_after_update(
             "reason": soften_reason
             or f"softening next days (week_index={current_week_index}) based on load & recovery",
             "be_flags": be_flags,
+            "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
             "plan_adjustment": plan_adjustment,
             "affected_week_index": current_week_index,
@@ -425,6 +511,7 @@ def service_coach_autoadjust_after_update(
         "mode": "no_adjustment",
         "reason": "plan_adjustment does not request changes",
         "be_flags": be_flags,
+        "recovery_debug": recovery_debug,
         "analyze_state_id": state_id,
         "plan_adjustment": plan_adjustment,
     }

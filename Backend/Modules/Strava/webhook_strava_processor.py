@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
 import asyncio
-from functools import partial  # ⬅️ PRIDANÉ
+from functools import partial
 
 from Modules.Supabase.client import get_service_client
 from Services.synchronization_single import service_sync_single_activity
@@ -42,10 +42,10 @@ async def _run_coach_autoadjust_service(user_id: int) -> dict:
     Spustí coach auto-adjust v service režime (user_jwt=None) v thread executore.
 
     V tomto režime:
-      - používa sa len BE heuristika nad recent_load / recovery,
-      - AI sa nemá volať,
-      - funkcia vráti len JSON s tým, čo by odporúčala (mode, reason, flags),
-        ale neprepíše weekly/daily plán.
+      - používa sa len BE heuristika nad recent_load,
+      - AI sa nevolá,
+      - weekly/daily plány sa nemenia,
+      - vracia sa JSON s be_flags, aby sa dal logovať/debuggovať.
     """
     loop = asyncio.get_running_loop()
 
@@ -128,7 +128,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         ).eq("id", event_id).execute()
         return
 
-    # 4) CREATE/UPDATE → spusti single-activity sync + auto-adjust (service režim)
+    # 4) CREATE/UPDATE → spusti single-activity sync + BE auto-adjust (service režim)
     try:
         await sync_activity_from_strava(
             user_id=user_id,
@@ -147,6 +147,8 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
                 auto_res.get("mode"),
                 "reason=",
                 auto_res.get("reason"),
+                "be_flags=",
+                auto_res.get("be_flags"),
             )
         except Exception as e:
             # nech error v coach logike nezabije spracovanie webhooku
