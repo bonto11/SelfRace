@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-
-from fastapi import HTTPException
-
 from Routes_DB.activities_summary import (
     db_get_activity_summary_one,
 )
@@ -15,15 +12,7 @@ from Routes_DB.activities_laps import (
 from Routes_DB.activities_splits import (
     db_get_activity_splits,
 )
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Detail aktivity je user-scoped → vždy cez RLS/JWT.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def service_get_activity_detail(
@@ -38,7 +27,7 @@ def service_get_activity_detail(
       - volané z FE route, ktorá vie vytiahnuť JWT aktuálneho usera
       - RLS na activities_* tabuľkách zabezpečí, že user vidí len svoje dáta
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     # ✅ summary už ide len podľa activity_id + JWT (bez user_id)
     summary = db_get_activity_summary_one(
@@ -74,7 +63,7 @@ def service_get_detail_one(
     """
     Lightweight verzia – len laps + splits (bez summary).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     laps = db_get_activity_laps(
         user_id=user_id,

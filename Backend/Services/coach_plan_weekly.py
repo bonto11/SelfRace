@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 from uuid import uuid4
 
-from fastapi import HTTPException
-
 from Configs.config import (
     DEFAULT_MODEL,
     COACH_PLAN_MIN_WEEKS,
@@ -32,15 +30,7 @@ from Routes_DB.coach_plan_meta import (
 from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Všetky coach_plan_weekly operácie chceme striktne cez RLS/JWT.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def _load_athlete_state_for_plan(
@@ -58,7 +48,7 @@ def _load_athlete_state_for_plan(
 
     Keď nič nenájdeme → ValueError (FE dostane 400).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     row: Optional[Dict[str, Any]] = None
 
@@ -133,7 +123,7 @@ def service_generate_weekly_plan(
     - založí coach_plan_meta so status='generated'
     - vráti { weekly_plan, plan_id, state_id, ... }
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     # 1) vstup pre AI (rovnaký ako pre analyze)
     analyze_input = build_input_from_db(
@@ -143,8 +133,10 @@ def service_generate_weekly_plan(
 
     # PREFS – flatten (kvôli tomu, že v prefs môže byť 'value' obal)
     raw_prefs = analyze_input.get("prefs") or {}
-    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
-        raw_prefs["value"], dict
+    if (
+        isinstance(raw_prefs, dict)
+        and "value" in raw_prefs
+        and isinstance(raw_prefs["value"], dict)
     ):
         prefs_ai = raw_prefs["value"]
     elif isinstance(raw_prefs, dict):
@@ -341,7 +333,7 @@ def service_get_latest_weekly_plan(
       }
     Alebo None, ak user nemá žiadny plán.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     # 1) Skús najnovší plan_id z coach_plan_meta
     meta = db_get_latest_plan_meta_for_user(

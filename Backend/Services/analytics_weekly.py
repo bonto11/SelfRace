@@ -4,9 +4,6 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 from typing import Any, Dict, Optional, List
-
-from fastapi import HTTPException
-
 from Services.time import week_key, week_bounds
 from Services.analytics_MonoStrainTrimp import (
     sport_bucket,
@@ -19,15 +16,7 @@ from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.user_recovery import db_get_recent_recovery
 from Routes_DB.profile_static import db_fetch_user_sex
 from Routes_DB.profile_metrics import fetch_user_hr_max
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Weekly analytics sú striktne user-scoped → vždy cez RLS/JWT.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def service_weekly_analytics(
@@ -48,7 +37,7 @@ def service_weekly_analytics(
                             v kóde si spravíme mapu date -> rhr
                             a fallback o 1–2 dni dozadu, inak Edwards TRIMP.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     # ---------------- HR parametre (sex, HR_max) ----------------
     sex: Optional[str] = db_fetch_user_sex(user_id, user_jwt=jwt)
@@ -201,15 +190,9 @@ def service_weekly_analytics(
     for wk, wa in sorted(week_agg.items()):
         start, end = week_bounds(wk)
 
-        mono_km, strain_km = monotony_and_strain(
-            wa["day_km"], start, wa["km_total"]
-        )
-        mono_tm, strain_tm = monotony_and_strain(
-            wa["day_time"], start, wa["time_min"]
-        )
-        mono_tr, strain_tr = monotony_and_strain(
-            wa["day_trimp"], start, wa["trimp"]
-        )
+        mono_km, strain_km = monotony_and_strain(wa["day_km"], start, wa["km_total"])
+        mono_tm, strain_tm = monotony_and_strain(wa["day_time"], start, wa["time_min"])
+        mono_tr, strain_tr = monotony_and_strain(wa["day_trimp"], start, wa["trimp"])
 
         out_weeks.append(
             {

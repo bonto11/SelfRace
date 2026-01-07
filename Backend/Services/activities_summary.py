@@ -101,12 +101,10 @@ def service_select_activities(
                 "name": r.get("name") or "",
                 "start_date": r.get("date"),
                 "sport": r.get("sport_type_fe"),
-                "distance_km": (distance_m or 0) / 1000
-                if distance_m is not None
-                else None,
-                "duration_min": (moving_s or 0) / 60
-                if moving_s is not None
-                else None,
+                "distance_km": (
+                    (distance_m or 0) / 1000 if distance_m is not None else None
+                ),
+                "duration_min": (moving_s or 0) / 60 if moving_s is not None else None,
             }
         )
 

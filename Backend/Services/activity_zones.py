@@ -24,6 +24,7 @@ from Routes_DB.activities_streams import (
 
 # ------------------------- utils -------------------------
 
+
 def _to_int(v: Any) -> Optional[int]:
     try:
         if v is None:
@@ -61,6 +62,7 @@ def _canon_sport(s: Optional[str]) -> str:
 
 
 # -------------------- DB loaders (summary/streams) --------------------
+
 
 def _load_activity_ids_since(
     user_id: int,
@@ -143,6 +145,7 @@ def _load_streams_row(
 
 # -------------------- zónové helpery --------------------
 
+
 def _zones_out_to_numeric(z: ZonesOut) -> Dict[str, int]:
     """
     ZonesOut -> numerické hranice.
@@ -188,23 +191,19 @@ def _zones_out_to_numeric(z: ZonesOut) -> Dict[str, int]:
     out = {
         "z1_min": int(z1_min or 0),
         "z1_max": int(
-            z1_max
-            or (z2_min - 1 if z2_min else (hrmax * 0.60 if hrmax else 120))
+            z1_max or (z2_min - 1 if z2_min else (hrmax * 0.60 if hrmax else 120))
         ),
         "z2_min": int(z2_min or ((z1_max or 119) + 1)),
         "z2_max": int(
-            z2_max
-            or (z3_min - 1 if z3_min else (hrmax * 0.70 if hrmax else 140))
+            z2_max or (z3_min - 1 if z3_min else (hrmax * 0.70 if hrmax else 140))
         ),
         "z3_min": int(z3_min or ((z2_max or 139) + 1)),
         "z3_max": int(
-            z3_max
-            or (z4_min - 1 if z4_min else (hrmax * 0.80 if hrmax else 160))
+            z3_max or (z4_min - 1 if z4_min else (hrmax * 0.80 if hrmax else 160))
         ),
         "z4_min": int(z4_min or ((z3_max or 159) + 1)),
         "z4_max": int(
-            z4_max
-            or (z5_min - 1 if z5_min else (hrmax * 0.90 if hrmax else 180))
+            z4_max or (z5_min - 1 if z5_min else (hrmax * 0.90 if hrmax else 180))
         ),
         "z5_min": int(z5_min or ((z4_max or 179) + 1)),
     }
@@ -230,6 +229,7 @@ def _zone_of(hr: Optional[int], Z: Dict[str, int]) -> str:
 
 # -------------------- fetch ak chýba --------------------
 
+
 def _fetch_and_store_if_missing(
     user_id: int,
     activity_ids: List[int],
@@ -252,6 +252,7 @@ def _fetch_and_store_if_missing(
 
 # -------------------- výpočet minút --------------------
 
+
 def _compute_minutes_for_streams(
     stream_row: Dict[str, Any], Z: Dict[str, int]
 ) -> dict | None:
@@ -267,11 +268,7 @@ def _compute_minutes_for_streams(
 
     for i in range(n):
         t0 = int(time_s[i] or 0)
-        t1 = (
-            int(time_s[i + 1])
-            if i + 1 < n and time_s[i + 1] is not None
-            else (t0 + 1)
-        )
+        t1 = int(time_s[i + 1]) if i + 1 < n and time_s[i + 1] is not None else (t0 + 1)
         dur = max(0, t1 - t0)
         h = int(hr[i]) if i < len(hr) and hr[i] is not None else None
         if h is None:
@@ -291,6 +288,7 @@ def _compute_minutes_for_streams(
 
 
 # -------------------- public API --------------------
+
 
 def preview_zones_for_activities(
     user_id: int,
@@ -359,9 +357,7 @@ def preview_zones_for_activities(
         aid_i = int(aid)
         row = _load_streams_row(user_id, aid_i, user_jwt=user_jwt)
         if not row or not (row.get("time_s") or []):
-            items.append(
-                {"activity_id": aid_i, "ok": False, "reason": "no_streams"}
-            )
+            items.append({"activity_id": aid_i, "ok": False, "reason": "no_streams"})
             continue
 
         sp = _canon_sport((s_map.get(aid_i) or {}).get("sport_type_fe"))
@@ -369,9 +365,7 @@ def preview_zones_for_activities(
 
         mins = _compute_minutes_for_streams(row, Z)
         if mins is None:
-            items.append(
-                {"activity_id": aid_i, "ok": False, "reason": "no_hr"}
-            )
+            items.append({"activity_id": aid_i, "ok": False, "reason": "no_hr"})
             continue
 
         items.append({"activity_id": aid_i, "ok": True, "minutes": mins})
@@ -475,12 +469,10 @@ def backfill_enrichment_for_period(
     total = len(ids)
     saved = 0
     preview_count = 0
-    logs: list[str] = [
-        f"[backfill] user={user_id} since={since_iso} ids={total}"
-    ]
+    logs: list[str] = [f"[backfill] user={user_id} since={since_iso} ids={total}"]
 
     for i in range(0, total, max(1, batch)):
-        chunk = ids[i: i + batch]
+        chunk = ids[i : i + batch]
         logs.append(f"[backfill] chunk {i//batch+1}: {len(chunk)} ids")
 
         res = preview_zones_for_activities(

@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 from datetime import date, timedelta
 
-from fastapi import HTTPException
-
 from Configs.config import DEFAULT_MODEL
 from Services.coach_athlete_state import build_input_from_db
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
@@ -25,15 +23,7 @@ from Routes_DB.coach_plan_meta import (
 from Routes_AI.generate_plan_daily import generate_daily_week_json
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.coach_external_events import service_list_external_events_window
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Všetky coach_plan_daily operácie chceme striktne cez RLS/JWT.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def _build_daily_rows_from_ai(
@@ -110,7 +100,7 @@ def service_generate_daily_week(
     """
     Generovanie DAILY plánu pre konkrétny týždeň + zápis do DB (RLS/JWT).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
@@ -303,7 +293,7 @@ def service_get_daily_overview(
     """
     Vráti jednoduchý DAILY prehľad pre najbližších N dní (RLS).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     if horizon_days <= 0:
         horizon_days = 7
@@ -320,12 +310,15 @@ def service_get_daily_overview(
     if meta and isinstance(meta.get("plan_id"), str):
         plan_id = meta["plan_id"]
 
-    rows: List[Dict[str, Any]] = db_list_daily_for_user_horizon(
-        user_id=user_id,
-        horizon_days=horizon_days,
-        plan_id=plan_id,
-        user_jwt=jwt,
-    ) or []
+    rows: List[Dict[str, Any]] = (
+        db_list_daily_for_user_horizon(
+            user_id=user_id,
+            horizon_days=horizon_days,
+            plan_id=plan_id,
+            user_jwt=jwt,
+        )
+        or []
+    )
 
     by_date: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
@@ -344,9 +337,8 @@ def service_get_daily_overview(
             structure = s.get("structure") or payload.get("structure")
 
             if structure is None:
-                strength_ex = (
-                    s.get("strength_exercises")
-                    or payload.get("strength_exercises")
+                strength_ex = s.get("strength_exercises") or payload.get(
+                    "strength_exercises"
                 )
                 if strength_ex:
                     structure = {"strength_exercises": strength_ex}
@@ -387,7 +379,7 @@ def service_auto_extend_daily_plan(
     Postará sa o to, aby aktívny (alebo posledný) plán mal vždy
     aspoň `min_horizon_days` naplánovaných dní v coach_plan_daily.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     if min_horizon_days <= 0:
         min_horizon_days = 6
@@ -413,12 +405,15 @@ def service_auto_extend_daily_plan(
         }
 
     # existujúce daily rows (veľké okno dopredu)
-    daily_rows: List[Dict[str, Any]] = db_list_daily_for_user_horizon(
-        user_id=user_id,
-        horizon_days=365,
-        plan_id=plan_id,
-        user_jwt=jwt,
-    ) or []
+    daily_rows: List[Dict[str, Any]] = (
+        db_list_daily_for_user_horizon(
+            user_id=user_id,
+            horizon_days=365,
+            plan_id=plan_id,
+            user_jwt=jwt,
+        )
+        or []
+    )
 
     if not daily_rows:
         return {
@@ -427,9 +422,7 @@ def service_auto_extend_daily_plan(
         }
 
     last_date_str = max(
-        str(r.get("plan_date"))[:10]
-        for r in daily_rows
-        if r.get("plan_date")
+        str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
     )
     last_date = date.fromisoformat(last_date_str)
     days_left = (last_date - today).days
@@ -442,11 +435,14 @@ def service_auto_extend_daily_plan(
             "last_daily_date": last_date_str,
         }
 
-    weekly_rows: List[Dict[str, Any]] = db_get_weekly_for_user_plan(
-        user_id=user_id,
-        plan_id=plan_id,
-        user_jwt=jwt,
-    ) or []
+    weekly_rows: List[Dict[str, Any]] = (
+        db_get_weekly_for_user_plan(
+            user_id=user_id,
+            plan_id=plan_id,
+            user_jwt=jwt,
+        )
+        or []
+    )
 
     if not weekly_rows:
         return {
@@ -501,9 +497,7 @@ def service_auto_extend_daily_plan(
         }
 
     future_weeks = [
-        w
-        for w in weekly_sorted
-        if int(w.get("week_index") or 0) > current_week_index
+        w for w in weekly_sorted if int(w.get("week_index") or 0) > current_week_index
     ]
     if not future_weeks:
         return {
@@ -532,17 +526,18 @@ def service_auto_extend_daily_plan(
         )
         generated.append(week_idx)
 
-        daily_rows = db_list_daily_for_user_horizon(
-            user_id=user_id,
-            horizon_days=365,
-            plan_id=plan_id,
-            user_jwt=jwt,
-        ) or []
+        daily_rows = (
+            db_list_daily_for_user_horizon(
+                user_id=user_id,
+                horizon_days=365,
+                plan_id=plan_id,
+                user_jwt=jwt,
+            )
+            or []
+        )
 
         current_last_str = max(
-            str(r.get("plan_date"))[:10]
-            for r in daily_rows
-            if r.get("plan_date")
+            str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
         )
         current_last_date = date.fromisoformat(current_last_str)
         days_left = (current_last_date - today).days

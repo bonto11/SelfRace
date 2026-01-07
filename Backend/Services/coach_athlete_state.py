@@ -26,6 +26,7 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_state_for_user,
     db_list_states_for_user,
 )
+from Services.users import require_jwt
 
 from Configs.config import DEFAULT_MODEL
 
@@ -33,15 +34,6 @@ from Configs.config import DEFAULT_MODEL
 # -------------------- HELPERS --------------------
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Celý athlete_state stack má bežať striktne pod user JWT (RLS).
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
 
 
 def _build_base_input(user_id: int) -> Dict[str, Any]:
@@ -123,7 +115,7 @@ def build_input_from_db(
 
     - vyžaduje user_jwt → všetky user-data služby idú cez RLS/JWT
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     input_data = _build_base_input(user_id)
 
@@ -197,7 +189,7 @@ def service_save_state_to_db(
     """
     Uloží AI stav atleta do coach_athlete_state pod user JWT (RLS).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     model = str(analysis.get("model") or "Trainalyze Coach")
     version = int(analysis.get("schema_version") or 1)
@@ -218,7 +210,7 @@ def service_get_athlete_state_by_id(
     Načíta konkrétny záznam z coach_athlete_state podľa id
     a rozbalí state_json do samostatného kľúča "state".
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     row = db_get_state_by_id(state_id, user_jwt=jwt)
     if not row:
@@ -244,7 +236,7 @@ def service_get_latest_athlete_state(
     """
     Najnovší stav pre usera (podľa created_at DESC).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     row = db_get_latest_state_for_user(
         user_id=user_id,
@@ -275,7 +267,7 @@ def service_list_athlete_states_meta(
     História stavov – len meta info (bez state_json),
     vhodné na výpis v UI / debug.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     rows = db_list_states_for_user(
         user_id=user_id,
@@ -313,7 +305,7 @@ def service_analyze_athlete(
     - (voliteľne) uloží analýzu do DB
     - vráti štruktúru vhodnú pre FE aj pre ďalší backend (plan-weekly)
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     # 1) INPUT
     input_data = build_input_from_db(user_id, user_jwt=jwt)
@@ -359,7 +351,7 @@ def service_analyze_athlete(
         "state_id": state_id,
         "model": model_to_use,
         "analysis": analysis,  # čistý výstup z AI (user_summary, ai_state, metrics…)
-        "input": input_data,   # CoachAnalyzeInput snapshot
+        "input": input_data,  # CoachAnalyzeInput snapshot
     }
     if debug:
         resp["debug_trace"] = trace

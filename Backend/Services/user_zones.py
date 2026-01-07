@@ -2,30 +2,16 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-
-from fastapi import HTTPException
-
 from Routes_DB.user_zones import (
     db_user_zones_fetch_all,
     db_user_zones_fetch_latest,
     db_user_zones_insert_row,
 )
 from Schemas.user_zones import ZonesOut, Sport
+from Services.users import require_jwt
 
 
 # ------------ helpers ------------
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Zabezpečí, že zóny vždy idú cez RLS (auth usera).
-    Ak JWT chýba, končíme 401 – použiteľné len z FE / auth rout.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
-
-
 def _num(v: Any) -> Optional[int]:
     try:
         return None if v is None else int(round(float(v)))
@@ -131,7 +117,7 @@ def service_load_user_zones(
     Najnovšie zóny pre daného usera (+voliteľne sport), normalizované na ZonesOut.
     Vyžaduje user_jwt (RLS).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     sport_filter = _canon_sport(sport) if sport else None
     row = db_user_zones_fetch_latest(
@@ -150,7 +136,7 @@ def service_load_user_zones_all_latest(
     Vráti dict { sport -> ZonesOut } – pre každý sport len najnovší záznam.
     Vyžaduje user_jwt (RLS).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     rows = db_user_zones_fetch_all(
         user_id,
@@ -174,21 +160,20 @@ def service_save_user_zones(
     Uloží nové zóny pre usera a vráti normalizovaný posledný stav (ZonesOut).
     Vyžaduje user_jwt (RLS).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     row = _normalize_insert(user_id, payload or {})
     db_user_zones_insert_row(
         row,
         user_jwt=user_jwt,
     )
-    return (
-        service_load_user_zones(
-            user_id,
-            row["sport"],
-            user_jwt=user_jwt,
-        )
-        or {"sport": row["sport"]}  # type: ignore[return-value]
-    )
+    return service_load_user_zones(
+        user_id,
+        row["sport"],
+        user_jwt=user_jwt,
+    ) or {
+        "sport": row["sport"]
+    }  # type: ignore[return-value]
 
 
 def service_choose_best_zones(
@@ -200,7 +185,7 @@ def service_choose_best_zones(
     Heuristika: skús preferred_sport, potom running, potom hocičo.
     Vyžaduje user_jwt (RLS).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     z = service_load_user_zones(
         user_id,
@@ -238,7 +223,7 @@ def service_build_zones_block_for_analysis(
       - lthr_bpm nechávame None (LT2 pôjde z thresholds)
     Vyžaduje user_jwt (RLS).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     best = service_choose_best_zones(
         user_id,

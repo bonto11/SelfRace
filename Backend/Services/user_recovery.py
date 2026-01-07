@@ -4,21 +4,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from fastapi import HTTPException
-
 from Routes_DB.user_recovery import (
     db_get_recovery_record,
     db_insert_recovery,
     db_update_recovery,
     db_get_recent_recovery,
 )
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    if not user_jwt:
-        # recovery vždy cez RLS
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def service_insert_or_update_recovery(
@@ -29,15 +21,17 @@ def service_insert_or_update_recovery(
     Vloží alebo updatuje recovery záznam podľa (user_id, date).
     Vracia nový/aktualizovaný riadok.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     user_id = payload["user_id"]
     date_iso = payload.get("date") or datetime.now().date().isoformat()
 
     print(
         "[service_insert_or_update_recovery]",
-        "user_id=", user_id,
-        "jwt_present=", bool(user_jwt),
+        "user_id=",
+        user_id,
+        "jwt_present=",
+        bool(user_jwt),
     )
 
     existing = db_get_recovery_record(
@@ -75,12 +69,14 @@ def service_get_recovery(
     days: int = 14,
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     print(
         "[service_get_recovery]",
-        "user_id=", user_id,
-        "jwt_present=", bool(user_jwt),
+        "user_id=",
+        user_id,
+        "jwt_present=",
+        bool(user_jwt),
     )
 
     return db_get_recent_recovery(
@@ -97,7 +93,7 @@ def service_build_recovery_block_for_analysis(
     """
     Blok pre CoachAnalyzeInput["recovery"].
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     rows = db_get_recent_recovery(
         user_id,

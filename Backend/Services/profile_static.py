@@ -7,12 +7,7 @@ from fastapi import HTTPException
 from Routes_DB.profile_static import db_fetch_static, db_upsert_static
 from Services.time import iso_now, birth_to_iso_date
 from Schemas.profile_static import StaticPayload
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def service_get_static_profile(
@@ -23,7 +18,7 @@ def service_get_static_profile(
     """
     Načíta static profil – ak neexistuje, hodí 404.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     row = db_fetch_static(
         user_id=user_id,
@@ -43,7 +38,7 @@ def service_upsert_static_profile(
     """
     Upsert static profilu podľa user_id / user_uid (pod RLS).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     data: Dict[str, Any] = {
         # ak FE pošle user_uid, použijeme ho (v RLS musí sedieť na auth.uid())

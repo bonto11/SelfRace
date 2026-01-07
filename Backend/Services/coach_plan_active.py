@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import HTTPException
-
 from Routes_DB.coach_plan_meta import (
     db_archive_user_plans,
     db_get_latest_plan_meta_for_user,
@@ -15,15 +13,7 @@ from Routes_DB.coach_plan_daily import (
     db_clear_daily_for_user_plan,
 )
 from Routes_DB.coach_plan_weekly import db_clear_weekly_for_user_plan
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Všetky coach_plan_active operácie chceme striktne cez RLS/JWT.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def _ensure_latest_plan_meta(
@@ -35,7 +25,7 @@ def _ensure_latest_plan_meta(
     Nájde najnovší záznam v coach_plan_meta pre daného usera.
     Ak nič nie je, hodí ValueError.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     meta = db_get_latest_plan_meta_for_user(
         user_id=user_id,
@@ -60,7 +50,7 @@ def service_save_active_plan(
     - najnovšiemu nastaví status='active'
     - vráti info pre FE
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     # 1) nájdi najnovší plán z meta
     meta = _ensure_latest_plan_meta(user_id=user_id, user_jwt=jwt)
@@ -73,12 +63,15 @@ def service_save_active_plan(
     )
 
     # 3) nastav status = active pre daný plan_id
-    updated = db_update_plan_status(
-        user_id=user_id,
-        plan_id=plan_id,
-        new_status="active",
-        user_jwt=jwt,
-    ) or meta
+    updated = (
+        db_update_plan_status(
+            user_id=user_id,
+            plan_id=plan_id,
+            new_status="active",
+            user_jwt=jwt,
+        )
+        or meta
+    )
 
     return {
         "plan_id": plan_id,
@@ -100,7 +93,7 @@ def service_cancel_active_plan(
       - nastaví status='archived'
       - vymaže všetky weekly + daily riadky daného plan_id
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
@@ -112,12 +105,15 @@ def service_cancel_active_plan(
     plan_id = meta["plan_id"]
 
     # 1) meta -> archived
-    updated_meta = db_update_plan_status(
-        user_id=user_id,
-        plan_id=plan_id,
-        new_status="archived",
-        user_jwt=jwt,
-    ) or meta
+    updated_meta = (
+        db_update_plan_status(
+            user_id=user_id,
+            plan_id=plan_id,
+            new_status="archived",
+            user_jwt=jwt,
+        )
+        or meta
+    )
 
     # 2) zmaž plán
     weekly_deleted = db_clear_weekly_for_user_plan(
@@ -148,7 +144,7 @@ def service_continue_active_plan(
     """
     Zatiaľ len stub – vráti info o aktuálnom aktívnom pláne.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
@@ -184,7 +180,7 @@ def service_extend_active_plan(
     Stub pre extend – zatiaľ nič nemení, len vráti info,
     aby FE nepadal.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
@@ -220,7 +216,7 @@ def service_link_activity(
     """
     Prelinkovanie planned session -> activity_id.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     try:
         db_link_session_to_activity(
@@ -242,7 +238,7 @@ def service_get_active_plan_status(
     """
     Zistí, či má user aktívny plán.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,

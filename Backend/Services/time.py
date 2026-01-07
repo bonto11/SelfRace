@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone, date, time
 from fastapi import HTTPException
 from typing import Optional, Union
 
+
 def hhmmss_to_seconds(s: str | None) -> int | None:
     if not s:
         return None
@@ -20,6 +21,7 @@ def hhmmss_to_seconds(s: str | None) -> int | None:
     except Exception:
         return None
 
+
 def seconds_to_hhmmss(sec: int | None) -> str | None:
     if sec is None:
         return None
@@ -27,6 +29,7 @@ def seconds_to_hhmmss(sec: int | None) -> str | None:
     m = (sec % 3600) // 60
     s = sec % 60
     return f"{h:02d}:{m:02d}:{s:02d}"
+
 
 def iso_date(d: datetime | date | str) -> str:
     """Normalize to YYYY-MM-DD (string)."""
@@ -36,9 +39,11 @@ def iso_date(d: datetime | date | str) -> str:
         return d.date().isoformat()
     return d.isoformat()
 
+
 def week_key(d: date) -> str:
     y, w, _ = d.isocalendar()
     return f"{y}-W{w:02d}"
+
 
 def week_bounds(iso_key: str) -> tuple[date, date]:
     y = int(iso_key.split("-W")[0])
@@ -46,6 +51,7 @@ def week_bounds(iso_key: str) -> tuple[date, date]:
     start = date.fromisocalendar(y, w, 1)
     end = start + timedelta(days=6)
     return start, end
+
 
 import re
 from typing import Optional, Tuple
@@ -56,12 +62,9 @@ _TIME_MMSS = re.compile(r"^(?P<m>\d{1,2}):(?P<s>[0-5]\d)$")
 # hh:mm:ss (napr. 01:05:32, 2:03:07)
 _TIME_HHMMSS = re.compile(r"^(?P<h>\d{1,2}):(?P<m>[0-5]\d):(?P<s>[0-5]\d)$")
 
+
 def is_time(
-    s: str,
-    *,
-    allow_mmss: bool = True,
-    allow_hhmmss: bool = True,
-    max_hours: int = 23
+    s: str, *, allow_mmss: bool = True, allow_hhmmss: bool = True, max_hours: int = 23
 ) -> bool:
     """
     Overí, či string `s` predstavuje čas vo formáte mm:ss alebo hh:mm:ss.
@@ -94,28 +97,41 @@ def is_time(
             hours = int(m.group("h"))
             minutes = int(m.group("m"))
             seconds = int(m.group("s"))
-            return (0 <= hours <= max_hours) and (0 <= minutes <= 59) and (0 <= seconds <= 59)
+            return (
+                (0 <= hours <= max_hours)
+                and (0 <= minutes <= 59)
+                and (0 <= seconds <= 59)
+            )
 
     return False
+
 
 def _day_floor_utc(d: date) -> datetime:
     return datetime.combine(d, time(0, 0, 0, tzinfo=timezone.utc))
 
+
 def since_weeks_utc(weeks: int) -> datetime:
     # okno = (weeks + 1) kvôli zásahu do predchádzajúceho týždňa
-    return _day_floor_utc((datetime.now(timezone.utc) - timedelta(weeks=weeks + 1)).date())
+    return _day_floor_utc(
+        (datetime.now(timezone.utc) - timedelta(weeks=weeks + 1)).date()
+    )
+
 
 def parse_date_ymd(s: str) -> date:
     try:
         return datetime.strptime(s, "%Y-%m-%d").date()
     except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid date '{s}', expected YYYY-MM-DD"
+        )
+
 
 def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 from typing import Optional, Union  # už tam máš, len nech zostane
+
 
 def birth_to_iso_date(val: Optional[Union[str, date, datetime]]) -> Optional[str]:
     """

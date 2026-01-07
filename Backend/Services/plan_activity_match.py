@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
-
-from fastapi import HTTPException
-
 from Configs.config import (
     COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
 )
+from Services.users import require_jwt
 
 from Routes_DB.coach_plan_daily import (
     db_get_planned_range_rows,
@@ -18,19 +16,8 @@ from Routes_DB.activities_summary import db_get_summary_for_activities
 
 from Services.coach_plan_daily import service_auto_extend_daily_plan
 
-
-# ───────────────────────────────────────── helpers: common ─────────────────────────────────────────
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Celý plan-match robíme striktne cez RLS → JWT je povinné.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
-
-
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
+
 
 def _date_from_ts(ts: Any) -> Optional[date]:
     """
@@ -100,6 +87,7 @@ def _sport_compat(plan_sport: str, act_sport: str) -> float:
 
 
 # ───────────────────────────────────────── helpers: scoring ─────────────────────────────────────────
+
 
 def _ratio_score(a: Optional[float], b: Optional[float]) -> float:
     """
@@ -184,7 +172,9 @@ def _compute_match_score(
 
     # šport
     plan_sg = _sport_group_from_plan(sess.get("sport"))
-    act_sg = _sport_group_from_activity(act.get("sport_type_fe") or act.get("sport_type"))
+    act_sg = _sport_group_from_activity(
+        act.get("sport_type_fe") or act.get("sport_type")
+    )
     sport_score = _sport_compat(plan_sg, act_sg)
 
     # trvanie
@@ -211,10 +201,7 @@ def _compute_match_score(
     )
 
     score = (
-        0.35 * date_score
-        + 0.25 * sport_score
-        + 0.25 * dur_score
-        + 0.15 * name_score
+        0.35 * date_score + 0.25 * sport_score + 0.25 * dur_score + 0.15 * name_score
     )
 
     detail = {
@@ -231,6 +218,7 @@ def _compute_match_score(
 
 
 # ───────────────────────────────────────── DB helpers ─────────────────────────────────────────
+
 
 def _load_activities_summary(
     user_id: int,
@@ -268,7 +256,7 @@ def auto_map_plans_for_activities(
 
     Všetko beží striktne pod user JWT → RLS.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     print(
         f"[PLAN-MATCH] start user={user_id} "
@@ -354,9 +342,7 @@ def auto_map_plans_for_activities(
                 for sess in plan_by_date[d]:
                     candidates.append((sess, delta))
 
-        print(
-            f"[PLAN-MATCH][ACT] aid={aid} candidates_found={len(candidates)}"
-        )
+        print(f"[PLAN-MATCH][ACT] aid={aid} candidates_found={len(candidates)}")
         total_candidates += len(candidates)
 
         if not candidates:

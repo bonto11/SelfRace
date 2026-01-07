@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
-from collections import defaultdict
-
-from fastapi import HTTPException
 
 from Configs.config_sport import (
     normalize_sport,
@@ -18,16 +15,7 @@ from Services.activity_zones import (
 )
 from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Pareto analytics sú user-scoped → vždy očakávame RLS/JWT klienta.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 # ----------------------- interné helpers ------------------------
@@ -57,9 +45,7 @@ def _to_dt(s: str) -> datetime:
     try:
         dt = datetime.fromisoformat(x)
     except Exception:
-        dt = datetime.strptime(x[:19], "%Y-%m-%dT%H:%M:%S").replace(
-            tzinfo=timezone.utc
-        )
+        dt = datetime.strptime(x[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
@@ -110,7 +96,7 @@ def service_pareto_source(
     Proxy na veľký dataset pre session.
     Jediná zodpovednosť: forwardnúť user_jwt ďalej (RLS vs service role).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     return get_pareto_source(
         user_id=user_id,
@@ -131,7 +117,7 @@ def service_pareto_widget(
     """
     Sumár za posledné `days` – vracia iba payload `data` bez `success`.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     days = int(days)
     sports = _parse_sport_query(sport)  # None => použi default set
@@ -197,7 +183,7 @@ def service_pareto_trend(
     Podporuje multi-sport query (?sport=run,ride).
     Vracia zoznam radkov (bez success wrappera).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     weeks = max(1, int(weeks))
     sports = _parse_sport_query(sport)  # None => default set

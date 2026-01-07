@@ -16,15 +16,10 @@ from Routes_DB.profile_static import (
     db_fetch_static_basic,
     db_get_static_sex_birth,
 )
+from Services.users import require_jwt
 
 from Services.time import iso_now
 from Schemas.profile_metrics import BatchMetricsPayload, MetricKey
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
 
 
 def service_insert_metrics(
@@ -32,7 +27,7 @@ def service_insert_metrics(
     payload: BatchMetricsPayload,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     if not payload.entries:
         raise HTTPException(status_code=400, detail="No entries provided")
@@ -83,7 +78,7 @@ def service_get_metric_history(
     limit: Optional[int] = None,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     data = db_get_metric_history(
         user_id=user_id,
@@ -105,7 +100,7 @@ def service_get_latest_metrics(
     user_uid: Optional[str] = None,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     out: Dict[str, Any] = {}
     targets: List[str] = [
@@ -134,11 +129,14 @@ def service_get_latest_metrics(
         )
 
     # BMI = posledná váha + výška zo static
-    static = db_fetch_static_basic(
-        user_id=user_id,
-        user_uid=user_uid,
-        user_jwt=user_jwt,
-    ) or {}
+    static = (
+        db_fetch_static_basic(
+            user_id=user_id,
+            user_uid=user_uid,
+            user_jwt=user_jwt,
+        )
+        or {}
+    )
 
     height_cm = static.get("height_cm")
     last_weight = (
@@ -172,7 +170,7 @@ def service_get_vo2_history(
     user_uid: Optional[str] = None,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     try:
         hist = db_get_vo2_measured_history(
@@ -180,11 +178,14 @@ def service_get_vo2_history(
             user_uid=user_uid,
             user_jwt=user_jwt,
         )
-        stat = db_get_static_sex_birth(
-            user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
-        ) or {}
+        stat = (
+            db_get_static_sex_birth(
+                user_id=user_id,
+                user_uid=user_uid,
+                user_jwt=user_jwt,
+            )
+            or {}
+        )
 
         history = [
             {"VO2Max": row["value_num"], "updated_at": row["measured_at"]}
@@ -206,7 +207,7 @@ def service_get_vo2_estimate(
     user_uid: Optional[str] = None,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     try:
         row = db_get_latest_metric(
@@ -260,14 +261,17 @@ def service_load_user_profile_for_analysis(
         "weight_kg": float | None,
       }
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     # STATIC: sex, birth_date, height_cm
-    static = db_fetch_static_basic(
-        user_id=user_id,
-        user_uid=user_uid,
-        user_jwt=user_jwt,
-    ) or {}
+    static = (
+        db_fetch_static_basic(
+            user_id=user_id,
+            user_uid=user_uid,
+            user_jwt=user_jwt,
+        )
+        or {}
+    )
 
     sex = static.get("sex")
     birth_date = static.get("birth_date")

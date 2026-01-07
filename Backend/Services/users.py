@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from fastapi import HTTPException
 
 from Routes_DB.users import (
     db_get_user_by_auth_uid,
@@ -10,6 +11,12 @@ from Routes_DB.users import (
     db_update_user_by_email,
     db_delete_user_by_email,
 )
+
+
+def require_jwt(user_jwt: Optional[str]) -> str:
+    if not user_jwt:
+        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
+    return user_jwt
 
 
 def service_resolve_user(

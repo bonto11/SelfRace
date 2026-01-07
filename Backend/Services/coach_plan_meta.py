@@ -2,18 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import HTTPException
-
 from Routes_DB.coach_plan_meta import db_get_active_plan_meta_for_user
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Všetky meta/plán operácie chceme striktne cez RLS/JWT.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def service_build_active_plan_block_for_analysis(
@@ -32,7 +22,7 @@ def service_build_active_plan_block_for_analysis(
         "horizon_days": int | None,
       }
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     row = db_get_active_plan_meta_for_user(
         user_id=user_id,

@@ -3,22 +3,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import HTTPException
-
 from Routes_DB.user_thresholds import (
     db_list_user_thresholds_raw,
     db_get_user_threshold_latest,
     db_upsert_user_threshold,
 )
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Všetky threshold operácie idú cez RLS → JWT je povinné.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+from Services.users import require_jwt
 
 
 def _num(v: Any) -> Optional[float]:
@@ -63,7 +53,7 @@ def service_list_user_thresholds(
     """
     Všetky threshold riadky usera (DESC podľa updated_at), normalizované.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     rows = db_list_user_thresholds_raw(user_id, user_jwt=user_jwt)
     return [_row_norm(r) for r in rows]
 
@@ -99,7 +89,7 @@ def service_load_user_thresholds(
     """
     Najnovší threshold pre daný sport+type (default running/LT2).
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     canon = _canon_sport(sport)
     row = db_get_user_threshold_latest(
         user_id,
@@ -118,7 +108,7 @@ def service_upsert_user_threshold(
     """
     Uloží / upsertne threshold a vráti najnovší stav pre daný sport+type.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     sport = _canon_sport(payload.get("sport"))
     t_type = payload.get("threshold_type") or "LT2"
@@ -159,7 +149,7 @@ def service_build_thresholds_block_for_analysis(
     """
     Blok pre CoachAnalyzeInput["thresholds"] – fokus na running LT2.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     rows = service_list_user_thresholds(
         user_id,
@@ -207,8 +197,8 @@ def service_build_thresholds_block_for_analysis(
     block_run = {
         "lthr_bpm": best.get("hr_bpm"),
         "pace_lthr_s_per_km": best.get("pace_sec_km"),
-        "ftp_power_w": None,        # bike FTP nateraz neriešime
-        "vo2max_estimate": None,    # môžeš doplniť neskôr
+        "ftp_power_w": None,  # bike FTP nateraz neriešime
+        "vo2max_estimate": None,  # môžeš doplniť neskôr
     }
 
     return {"run": block_run}

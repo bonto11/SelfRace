@@ -35,19 +35,11 @@ from Services.synchronization_utils import (
     _normalize_split,
     _decide_laps_or_splits,
 )
+from Services.users import require_jwt
+
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Synchronizácia spúšťaná z FE musí ísť cez user JWT (RLS).
-    Webhook / interný CRON môže volať iné služby bez JWT (service-role).
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
 
 
 # -----------------------------------------------------------------------------
@@ -233,9 +225,7 @@ def enrich_activities_for_ids(
         )
 
         to_save = [
-            it
-            for it in (prev.get("items") or [])
-            if it.get("ok") and it.get("minutes")
+            it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")
         ]
         saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
@@ -328,7 +318,7 @@ def service_sync_activities(
     """
     Manuálny sync z FE (import zo Stravy).
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     stats, since_iso_for_scan = _import_activities_from_strava(
         user_id=user_id,

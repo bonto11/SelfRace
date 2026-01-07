@@ -75,7 +75,7 @@ def _num(v) -> float:
 
 
 def _extract_dt_pairs_from_laps(
-    laps_raw: List[Dict[str, Any]]
+    laps_raw: List[Dict[str, Any]],
 ) -> List[Tuple[float, float]]:
     out: List[Tuple[float, float]] = []
     for L in laps_raw:
@@ -87,7 +87,7 @@ def _extract_dt_pairs_from_laps(
 
 
 def _extract_dt_pairs_from_splits(
-    splits_raw: List[Dict[str, Any]]
+    splits_raw: List[Dict[str, Any]],
 ) -> List[Tuple[float, float]]:
     out: List[Tuple[float, float]] = []
     for S in splits_raw:
@@ -112,7 +112,7 @@ def _match_ratio(
 
     used = set()
     matches = 0
-    for (sd, st) in splits_dt:
+    for sd, st in splits_dt:
         best_i = None
         best_err = 1e18
         for i, (ld, lt) in enumerate(laps_dt):
@@ -156,6 +156,7 @@ def _normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     from .synchronization_utils import to_int, to_float, to_str  # type: ignore  # self-import hack for Pylance
+
     # (pozn.: toto je potrebné len ak ti Pylance blbne, runtime to nevadí)
 
     distance_m = to_int(a.get("distance"))
@@ -288,9 +289,7 @@ def _normalize_split(
         "elevation_diff_m": to_float(
             s.get("elevation_difference") or s.get("elevation_diff_m")
         ),
-        "avg_speed_mps": to_float(
-            s.get("average_speed") or s.get("avg_speed_mps")
-        ),
+        "avg_speed_mps": to_float(s.get("average_speed") or s.get("avg_speed_mps")),
         "avg_gap_mps": to_float(
             s.get("average_grade_adjusted_speed") or s.get("avg_gap_mps")
         ),

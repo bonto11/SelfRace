@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
-
 from Routes_DB.user_prefs import (
     db_get_prefs_all,
     db_get_pref_single,
@@ -13,6 +11,7 @@ from Routes_DB.user_prefs import (
     db_upsert_many,
     db_delete_pref_single,
 )
+from Services.users import require_jwt
 
 # kľúč, pod ktorým si ukladáš celé coach prefs (JSON) do KV tabuľky
 COACH_PREFS_KEY = "coach.prefs"
@@ -22,24 +21,14 @@ USER_SETTINGS_KEY = "user.settings"
 
 # default hodnoty, keď ešte user nič nemá uložené
 DEFAULT_USER_SETTINGS: Dict[str, Any] = {
-    "language": "sk",                # výstup AI + neskôr UI jazyk
-    "timezone": "Europe/Bratislava", # IANA timezone string
+    "language": "sk",  # výstup AI + neskôr UI jazyk
+    "timezone": "Europe/Bratislava",  # IANA timezone string
     "time_format_24h": True,
     "date_format": "yyyy-MM-dd",
     # do budúcna môžeš pridať:
     # "units": "metric",
     # "week_start": "Mon",
 }
-
-
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Všetky user_prefs operácie idú cez RLS → JWT je povinné.
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
-
 
 # ---------- generické helpery nad KV prefs ----------
 
@@ -49,7 +38,7 @@ def service_get_user_prefs_list(
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Raw zoznam riadkov z KV tabuľky (key/value/updated_at)."""
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     return db_get_prefs_all(user_id, user_jwt=user_jwt)
 
 
@@ -58,7 +47,7 @@ def service_get_user_prefs_map(
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Mapovanie {key: value} pre všetky prefs daného usera."""
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     rows = db_get_prefs_all(user_id, user_jwt=user_jwt)
     return {str(r["key"]): r.get("value") for r in rows}
 
@@ -68,7 +57,7 @@ def service_get_user_pref(
     key: str,
     user_jwt: Optional[str] = None,
 ) -> Optional[Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     row = db_get_pref_single(user_id, key, user_jwt=user_jwt)
     return row.get("value") if row else None
 
@@ -79,7 +68,7 @@ def service_save_user_pref(
     value: Any,
     user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     return db_upsert_pref_single(user_id, key, value, user_jwt=user_jwt)
 
 
@@ -88,7 +77,7 @@ def service_save_user_prefs_bulk(
     kv: Dict[str, Any],
     user_jwt: Optional[str] = None,
 ) -> int:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     return db_upsert_many(user_id, kv, user_jwt=user_jwt)
 
 
@@ -97,7 +86,7 @@ def service_delete_user_pref(
     key: str,
     user_jwt: Optional[str] = None,
 ) -> int:
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     return db_delete_pref_single(user_id, key, user_jwt=user_jwt)
 
 
@@ -111,7 +100,7 @@ def service_load_coach_prefs_for_analysis(
     """
     Vytiahne celé coach prefs (JSON) z KV tabuľky a vráti ako dict.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     row = db_get_pref_single(user_id, COACH_PREFS_KEY, user_jwt=user_jwt)
     if not row:
@@ -141,7 +130,7 @@ def service_save_coach_prefs(
     """
     Uloží celé coach prefs (JSON) pod key="coach.prefs".
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     return db_upsert_pref_single(user_id, COACH_PREFS_KEY, prefs, user_jwt=user_jwt)
 
 
@@ -168,7 +157,7 @@ def service_load_user_settings(
     """
     Načíta user nastavenia spod key="user.settings" a doplní defaulty.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     row = db_get_pref_single(user_id, USER_SETTINGS_KEY, user_jwt=user_jwt)
     if not row:
@@ -190,7 +179,7 @@ def service_save_user_settings(
     """
     Uloží user nastavenia pod key="user.settings".
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     merged = DEFAULT_USER_SETTINGS.copy()
     merged.update(settings or {})

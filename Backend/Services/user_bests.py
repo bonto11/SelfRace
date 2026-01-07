@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from fastapi import HTTPException
+from Services.users import require_jwt
 
 from Services.time import hhmmss_to_seconds, seconds_to_hhmmss
 from Routes_DB.user_bests import (
@@ -21,12 +21,6 @@ STD_DISTANCES_BY_SPORT: dict[str, list[int]] = {
 }
 
 
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
-
-
 def allowed_distances(sport: str) -> List[int]:
     return STD_DISTANCES_BY_SPORT.get(sport, [])
 
@@ -41,7 +35,7 @@ def service_fetch_user_bests(
       - zavolá DB vrstvu
       - dopočíta time_str z best_time_s
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     rows = db_fetch_user_bests(user_id, sport, user_jwt=user_jwt)
     for r in rows:
         best_time_s = r.get("best_time_s") or 0
@@ -57,7 +51,7 @@ def service_upsert_user_best(
     """
     Validácia + normalizácia payloadu a následný UPSERT do DB.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     sport = str(payload.get("sport") or "run").lower()
 
@@ -132,7 +126,7 @@ def service_delete_user_best(
     """
     Tenšia obálka okolo DB delete – kvôli konzistencii service vrstvy.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
     return db_delete_user_best(user_id, sport, distance_m, user_jwt=user_jwt)
 
 
@@ -144,7 +138,7 @@ def service_build_bests_block_for_analysis(
     Minimalizované PB pre AI:
       { run: [...], ride: [...] } – zatiaľ len run.
     """
-    user_jwt = _require_jwt(user_jwt)
+    user_jwt = require_jwt(user_jwt)
 
     out: Dict[str, List[Dict[str, Any]]] = {"run": [], "ride": []}
 

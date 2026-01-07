@@ -143,10 +143,7 @@ def service_sync_single_activity(
                     service=service_mode,
                 )
 
-                lap_rows = [
-                    _normalize_lap(L, user_id, aid)
-                    for L in laps_raw
-                ]
+                lap_rows = [_normalize_lap(L, user_id, aid) for L in laps_raw]
                 for row in lap_rows:
                     db_upsert_lap(
                         row,

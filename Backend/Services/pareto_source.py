@@ -2,26 +2,17 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
-from fastapi import HTTPException
-
 from Routes_DB.activities_summary import (
     db_select_activities_window_basic,
 )
+from Services.users import require_jwt
 
 from Routes_DB.activities_enrichment import (
     db_get_enrichment_for_activities,
 )
 
+
 # ---------------------------- helpers ----------------------------
-def _require_jwt(user_jwt: Optional[str]) -> str:
-    """
-    Pareto zdroj chceme ťahať striktne pod user JWT (RLS).
-    """
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
-
-
 def _as_int(x: Any) -> Optional[int]:
     try:
         if x is None or x == "":
@@ -40,7 +31,7 @@ def _as_str(x: Any) -> Optional[str]:
 def _as_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
-        # noqa: E701
+            # noqa: E701
             return None
         return float(x)
     except Exception:
@@ -65,7 +56,9 @@ def _chunked(seq: Iterable[Any], n: int = 1000) -> Iterable[List[Any]]:
         yield buf
 
 
-def _row_easy_hard(row: Dict[str, Any], count_no_hr_as_easy: bool = True) -> Tuple[float, float]:
+def _row_easy_hard(
+    row: Dict[str, Any], count_no_hr_as_easy: bool = True
+) -> Tuple[float, float]:
     """
     Easy = Z1+Z2, Hard = Z3+Z4+Z5. Ak zóny chýbajú a je povolené count_no_hr_as_easy,
     prirátame easy = moving_time_s/60.
@@ -85,6 +78,7 @@ def _row_easy_hard(row: Dict[str, Any], count_no_hr_as_easy: bool = True) -> Tup
 
 
 # ------------------------ data loaders ---------------------------
+
 
 def _activity_ids_in_range(
     user_id: int,
@@ -141,6 +135,7 @@ def _load_enrichment_for_ids(
 
 # -------------------------- public API ---------------------------
 
+
 def get_pareto_source(
     user_id: int,
     months: int = 3,
@@ -154,7 +149,7 @@ def get_pareto_source(
 
     Musí prísť user_jwt – všetky dotazy cez RLS klienta.
     """
-    jwt = _require_jwt(user_jwt)
+    jwt = require_jwt(user_jwt)
 
     months = max(1, int(months))
     start_dt = datetime.now(timezone.utc) - timedelta(days=months * 31)
