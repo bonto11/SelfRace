@@ -542,140 +542,36 @@ def generate_athlete_state_json(
 
 
 # ---------- PROGRESS REPORT: previous_state vs current_state ----------
-
-
 def generate_athlete_progress_report(
-    previous_state: Dict[str, Any],
-    current_state: Dict[str, Any],
-    model: str,
     *,
+    previous_state: dict,
+    current_state: dict,
+    model: str,
     user_id: Optional[int] = None,
     debug_raw: bool = False,
-) -> Tuple[dict, Optional[dict]]:
+) -> tuple[dict, Optional[dict]]:
     """
-    AI porovnanie dvoch athlete_state JSON (predošlý vs aktuálny).
+    AI klient pre PROGRESS REPORT (porovnanie dvoch athlete_state JSONov).
 
-    Vstup:
-      - previous_state: state_json zo staršieho záznamu
-      - current_state:  state_json z najnovšieho záznamu
-
-    Výstup:
-      - progress_dict (summary + comparisons)
-      - debug_trace (ak debug_raw=True)
+    Vráti (report_dict, debug_trace_or_None).
+    Pri zlyhaní AI sa vráti jednoduchý fallback.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
-    # user settings (jazyk, timezone)
+    # user settings kvôli jazyku
     settings: Dict[str, Any] = {}
-    if user_id is not None:
+    if user_id:
         try:
             settings = service_load_user_settings(user_id) or {}
         except Exception:
             settings = {}
 
-    lang_code = (settings.get("language") or "sk").lower()
-    if lang_code.startswith("en"):
-        lang_label = "English"
-    elif lang_code.startswith("cs"):
-        lang_label = "Czech"
-    else:
-        lang_label = "Slovak"
-
-    ctx = {
-        "previous_state": previous_state,
-        "current_state": current_state,
-    }
-
-    system_txt = (
-        "You are an endurance coaching assistant. "
-        "You receive two JSON objects: previous_state and current_state, "
-        "each produced by an athlete_state analysis (user_summary + ai_state). "
-        "Your task is to compare them and return a SINGLE JSON object describing "
-        "the key changes in fitness, fatigue, injury risk, volume tolerance and block focus. "
-        "Do NOT output any prose or code fences, only JSON."
-    )
-
-    schema_text = f"""
-{{
-  "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name or 'Trainalyze Coach')",
-  "summary": {{
-    "headline": "short progress headline in {lang_label} (1 sentence)",
-    "bullets": string[]  // 3–6 krátkych bodov v {lang_label}, zamerané na zmeny
-  }},
-  "comparisons": {{
-    "fitness_level": {{
-      "run": {{
-        "previous": number | null,
-        "current": number | null,
-        "comment": string | null   // stručne popíš, čo sa zmenilo (v {lang_label})
-      }},
-      "ride": {{
-        "previous": number | null,
-        "current": number | null,
-        "comment": string | null
-      }} | null,
-      "strength": {{
-        "previous": number | null,
-        "current": number | null,
-        "comment": string | null
-      }} | null
-    }},
-    "fatigue_level": {{
-      "previous": "low" | "moderate" | "high" | null,
-      "current": "low" | "moderate" | "high" | null,
-      "comment": string | null
-    }},
-    "injury_risk": {{
-      "previous": "low" | "moderate" | "high" | null,
-      "current": "low" | "moderate" | "high" | null,
-      "comment": string | null
-    }},
-    "volume_tolerance": {{
-      "previous_weekly_minutes_min": number | null,
-      "previous_weekly_minutes_max": number | null,
-      "current_weekly_minutes_min": number | null,
-      "current_weekly_minutes_max": number | null,
-      "comment": string | null
-    }},
-    "block_kind": {{
-      "previous": string | null,  // ai_state.suggested_block_kind
-      "current": string | null,
-      "comment": string | null
-    }},
-    "plan_adjustment": {{
-      "soften_change": string | null,   // čo sa zmenilo v soften_next_days, v {lang_label}
-      "weekly_replan_change": string | null // čo sa zmenilo v should_replan_weekly, v {lang_label}
-    }}
-  }},
-  "recommendations": {{
-    "focus_next_weeks": string[],  // konkrétne zameranie na najbližšie týždne, v {lang_label}
-    "risks_to_watch": string[],    // na čo si dať pozor, v {lang_label}
-    "celebrations": string[]       // čo si môže atlét pochváliť, v {lang_label}
-  }}
-}}
-""".strip()
-
-    user_txt = (
-        "You are given two athlete_state JSON snapshots produced at different times.\n"
-        "- previous_state: older snapshot\n"
-        "- current_state: newer snapshot\n\n"
-        "CONTEXT_JSON:\n"
-        + json.dumps(ctx, ensure_ascii=False)
-        + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
-        + schema_text
-        + f"\n\nHard requirements:\n"
-        "- Always return a single JSON object exactly matching the schema "
-        "(numeric fields may be null if unknown).\n"
-        f"- All free text (headline, bullets, comments, recommendations) MUST be written in {lang_label}.\n"
-        "- Focus on DELTAS: what improved, what worsened, what stayed stable.\n"
-        "- Use ai_state.fitness_level, fatigue_level, injury_risk, volume_tolerance, suggested_block_kind "
-        "and plan_adjustment fields from both states.\n"
-        "- In bullets, prefer concrete observations like 'Týždenný objem je stabilnejší', "
-        "'Únava klesla z vysokej na miernu', 'Riziko zranenia zostáva mierne', atď.\n"
-        "- Recommendations must be realistic and consistent with volume_tolerance and fatigue/injury risk.\n"
+    system_txt, user_txt = _build_prompts_for_progress(
+        previous_state=previous_state,
+        current_state=current_state,
+        user_id=user_id,
+        settings=settings,
     )
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
@@ -683,13 +579,14 @@ def generate_athlete_progress_report(
 
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
     models = _llm_models_priority(model)
-    token_budgets = [900, 700, 500]
+    token_budgets = [1200, 900, 700]
 
     trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
 
+    # timezone na generated_at
     tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
         tzinfo = ZoneInfo(tz_name)
@@ -703,6 +600,7 @@ def generate_athlete_progress_report(
             try:
                 raw = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
+
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
@@ -718,7 +616,7 @@ def generate_athlete_progress_report(
                 )
 
                 if not parsed:
-                    last_err = "AI returned invalid JSON"
+                    last_err = "AI returned invalid JSON for progress report"
                     continue
 
                 now_local = datetime.now(tzinfo)
@@ -727,7 +625,7 @@ def generate_athlete_progress_report(
                     parsed["schema_version"] = 1
                 parsed["generated_at"] = now_local.isoformat()
                 if "model" not in parsed:
-                    parsed["model"] = m
+                    parsed["model"] = "Trainalyze Coach"
 
                 if debug_raw:
                     trace["raw"] = raw_keep
@@ -751,54 +649,23 @@ def generate_athlete_progress_report(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # fallback – aspoň niečo
+    # fallback – AI zlyhalo
     now_fallback = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 1,
         "generated_at": now_fallback,
         "model": "progress-fallback",
         "summary": {
-            "headline": "Nepodarilo sa získať AI porovnanie stavov.",
-            "bullets": ["Skús to znova neskôr."],
+            "headline": "Nepodarilo sa získať AI progress report.",
+            "bullets": ["Skús to neskôr alebo manuálne porovnaj posledné dve analýzy."],
         },
-        "comparisons": {
-            "fitness_level": {
-                "run": {"previous": None, "current": None, "comment": None},
-                "ride": None,
-                "strength": None,
-            },
-            "fatigue_level": {
-                "previous": None,
-                "current": None,
-                "comment": None,
-            },
-            "injury_risk": {
-                "previous": None,
-                "current": None,
-                "comment": None,
-            },
-            "volume_tolerance": {
-                "previous_weekly_minutes_min": None,
-                "previous_weekly_minutes_max": None,
-                "current_weekly_minutes_min": None,
-                "current_weekly_minutes_max": None,
-                "comment": None,
-            },
-            "block_kind": {
-                "previous": None,
-                "current": None,
-                "comment": None,
-            },
-            "plan_adjustment": {
-                "soften_change": None,
-                "weekly_replan_change": None,
-            },
-        },
+        "comparisons": {},
         "recommendations": {
-            "focus_next_weeks": [],
-            "risks_to_watch": [],
             "celebrations": [],
+            "risks_to_watch": [],
+            "focus_next_weeks": [],
         },
+        "error": last_err,
     }
 
     if debug_raw:
