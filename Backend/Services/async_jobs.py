@@ -54,7 +54,7 @@ def service_enqueue_job(
     """
 
     if service:
-        jwt = user_jwt
+        jwt = user_jwt          # service klient – JWT nepotrebujeme
     else:
         jwt = require_jwt(user_jwt)
 
@@ -115,7 +115,7 @@ def service_run_job_now(
     """
 
     if service:
-        jwt = user_jwt
+        jwt = user_jwt  # len kvôli prípadnej budúcnosti; teraz sa nepoužíva
     else:
         jwt = require_jwt(user_jwt)
 
@@ -215,9 +215,7 @@ def service_run_job_now(
 
         # 4) AUTO MAP (plan_match)
         elif job_type == "plan_match":
-            if payload_jwt is None:
-                raise ValueError("plan_match: job.input.user_jwt is required")
-
+            # Tu už NEvyžadujeme user_jwt – ak nie je, bežíme v service režime.
             raw_ids = input_payload.get("activity_ids") or []
             if not isinstance(raw_ids, list):
                 raise ValueError("plan_match: activity_ids must be a list")
@@ -245,13 +243,26 @@ def service_run_job_now(
                 score_threshold = float(score_threshold_raw)
 
             # 4a) samotné matchovanie plán ↔️ aktivity
-            result_payload = auto_map_plans_for_activities(
-                user_id=user_id,
-                user_jwt=payload_jwt,
-                activity_ids=activity_ids,
-                days_window=days_window,
-                score_threshold=score_threshold,
-            )
+            if payload_jwt is None:
+                # webhook / service režim – DB klient pôjde cez service role
+                result_payload = auto_map_plans_for_activities(
+                    user_id=user_id,
+                    activity_ids=activity_ids,
+                    days_window=days_window,
+                    score_threshold=score_threshold,
+                    user_jwt=None,
+                    service=True,
+                )
+            else:
+                # RLS režim – klasicky s JWT
+                result_payload = auto_map_plans_for_activities(
+                    user_id=user_id,
+                    activity_ids=activity_ids,
+                    days_window=days_window,
+                    score_threshold=score_threshold,
+                    user_jwt=payload_jwt,
+                    service=False,
+                )
 
             # 4b) enqueue follow-up job typu "daily_extend",
             # aby bol horizont aspoň COACH_PLAN_GENERATE_MIN_HORIZON_DAYS dní
@@ -264,6 +275,7 @@ def service_run_job_now(
                         "min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
                     },
                     user_jwt=payload_jwt,
+                    service=(payload_jwt is None),
                 )
                 if isinstance(result_payload, dict):
                     result_payload["daily_extend_job"] = extend_job.get("job")
