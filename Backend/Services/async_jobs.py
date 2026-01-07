@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 
+from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 from Routes_DB.async_jobs import (
     db_insert_job,
     db_get_active_jobs,
@@ -12,10 +13,17 @@ from Routes_DB.async_jobs import (
 )
 
 from Services.coach_athlete_state import service_analyze_athlete
+    # ai_analyze
 from Services.coach_plan_weekly import service_generate_weekly_plan
-from Services.coach_plan_daily import service_generate_daily_week
+    # weekly_generate
+from Services.coach_plan_daily import (
+    service_generate_daily_week,
+    service_auto_extend_daily_plan,
+)
+    # daily_generate, daily_extend
 from Services.plan_activity_match import auto_map_plans_for_activities
-from Services.coach_plan_daily import service_auto_extend_daily_plan
+    # plan_match
+
 
 # typy jobov, ktoré worker vie spracovať
 ALLOWED_JOB_TYPES = {
@@ -47,7 +55,6 @@ def service_enqueue_job(
     Pozor: DB vrstva (Routes_DB.async_jobs) používa service klient,
     nijaké user_jwt sa tam neposiela. JWT dávame len do job.input.
     """
-
     if job_type not in ALLOWED_JOB_TYPES:
         raise ValueError(f"Unsupported job_type: {job_type}")
 
@@ -227,6 +234,7 @@ def service_run_job_now(
             else:
                 score_threshold = float(score_threshold_raw)
 
+            # 4a) samotné matchovanie plán ↔ aktivity
             result_payload = auto_map_plans_for_activities(
                 user_id=user_id,
                 user_jwt=payload_jwt,
@@ -235,15 +243,39 @@ def service_run_job_now(
                 score_threshold=score_threshold,
             )
 
+            # 4b) enqueue follow-up job typu "daily_extend",
+            # aby bol horizont aspoň COACH_PLAN_GENERATE_MIN_HORIZON_DAYS dní
+            try:
+                extend_job = service_enqueue_job(
+                    user_id=user_id,
+                    user_uid=str(job.get("user_uid") or ""),
+                    job_type="daily_extend",
+                    payload={
+                        "min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
+                    },
+                    user_jwt=payload_jwt,
+                )
+                if isinstance(result_payload, dict):
+                    result_payload["daily_extend_job"] = extend_job.get("job")
+            except Exception as e:
+                if isinstance(result_payload, dict):
+                    result_payload["daily_extend_job_error"] = str(e)
+
         # 5) EXTEND DAILY
         elif job_type == "daily_extend":
             if payload_jwt is None:
                 raise ValueError("daily_extend: job.input.user_jwt is required")
 
+            min_horizon_raw = input_payload.get("min_horizon_days")
+            if min_horizon_raw is None:
+                min_horizon_days = COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
+            else:
+                min_horizon_days = int(min_horizon_raw)
+
             result_payload = service_auto_extend_daily_plan(
                 user_id=user_id,
                 user_jwt=payload_jwt,
-                min_horizon_days=10,
+                min_horizon_days=min_horizon_days,
             )
 
         else:

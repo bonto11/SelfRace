@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
-from Configs.config import (
-    COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
-)
+
 from Services.users import require_jwt
 
 from Routes_DB.coach_plan_daily import (
@@ -13,8 +11,6 @@ from Routes_DB.coach_plan_daily import (
 )
 
 from Routes_DB.activities_summary import db_get_summary_for_activities
-
-from Services.coach_plan_daily import service_auto_extend_daily_plan
 
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
 
@@ -418,7 +414,7 @@ def auto_map_plans_for_activities(
                 f"detail={best_detail}"
             )
 
-    # 6) summary + auto-extend daily plánu (cez RLS)
+    # 6) summary
     summary = {
         "processed": len(acts),
         "candidates": int(total_candidates),
@@ -427,23 +423,4 @@ def auto_map_plans_for_activities(
     }
     print(f"[PLAN-MATCH][SUMMARY] {summary}")
 
-    extend_info: Optional[Dict[str, Any]] = None
-    extend_error: Optional[str] = None
-
-    try:
-        extend_info = service_auto_extend_daily_plan(
-            user_id=user_id,
-            min_horizon_days=COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
-            user_jwt=user_jwt,
-        )
-        print(f"[PLAN-MATCH][DAILY-EXTEND] {extend_info}")
-    except Exception as e:
-        extend_error = str(e)
-        print(f"[PLAN-MATCH][DAILY-EXTEND][ERROR] {e!r}")
-
-    # vrátime pôvodný summary + info o extendovaní
-    return {
-        **summary,
-        "daily_extend": extend_info,
-        "daily_extend_error": extend_error,
-    }
+    return summary

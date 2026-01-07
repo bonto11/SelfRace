@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 from datetime import date, timedelta
 
-from Configs.config import DEFAULT_MODEL
+from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
 from Services.coach_athlete_state import build_input_from_db
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
 from Routes_DB.coach_plan_weekly import (
@@ -408,7 +408,7 @@ def service_auto_extend_daily_plan(
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
             user_id=user_id,
-            horizon_days=365,
+            horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
             plan_id=plan_id,
             user_jwt=jwt,
         )
@@ -529,7 +529,7 @@ def service_auto_extend_daily_plan(
         daily_rows = (
             db_list_daily_for_user_horizon(
                 user_id=user_id,
-                horizon_days=365,
+                horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
                 plan_id=plan_id,
                 user_jwt=jwt,
             )
