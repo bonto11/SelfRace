@@ -2,27 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_PLAN_META
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError(
-        "coach_plan_meta: missing user_jwt or service=True in DB helper"
-    )
-
 
 def db_insert_plan_meta_generated(
     *,
@@ -41,7 +22,7 @@ def db_insert_plan_meta_generated(
     """
     Vloží riadok do coach_plan_meta so status='generated'.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_meta")
 
     row = {
         "user_id": user_id,
@@ -77,7 +58,7 @@ def db_archive_user_plans(
     Nastaví status='archived' pre všetky meta plány usera
     s daným statusom (default: generated + active).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_meta")
     st = statuses or ["generated", "active"]
 
     try:
@@ -110,7 +91,7 @@ def db_get_latest_plan_meta_for_user(
     Najnovší meta záznam (bez ohľadu na status).
     Použiteľné na zistenie last plan_id.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_meta")
 
     try:
         res = (
@@ -137,7 +118,7 @@ def db_get_active_plan_meta_for_user(
     """
     Vráti aktuálne aktívny plán (status='active'), alebo None.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_meta")
 
     try:
         res = (
@@ -167,7 +148,7 @@ def db_update_plan_status(
     """
     Zmení status konkrétneho plánu (napr. generated → active alebo → cancelled).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_meta")
 
     try:
         res = (

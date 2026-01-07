@@ -2,25 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_PROFILE_STATIC
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError("profile_static: missing user_jwt or service=True in DB helper")
-
 
 def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
     """
@@ -41,7 +24,7 @@ def db_fetch_static(
     """
     Vytiahne static profil – preferuje user_uid, inak user_id.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("*").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -61,7 +44,7 @@ def db_upsert_static(
     """
     Upsert static profilu, vracia uložený riadok.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
 
     res = (
         sb.table(TABLE_PROFILE_STATIC)
@@ -80,7 +63,7 @@ def db_fetch_static_basic(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date,height_cm").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -96,7 +79,7 @@ def db_get_static_sex_birth(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -114,7 +97,7 @@ def db_fetch_user_sex(
     """
     Jednoduchý helper na zistenie pohlavia usera (pod RLS alebo service).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
 
     try:
         rec = (

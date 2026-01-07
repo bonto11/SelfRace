@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from Modules.API.Strava.activities import StravaActivitiesClient
+from Modules.Strava.activities import StravaActivitiesClient
 
 from Routes_DB.activities_summary import (
     db_upsert_activities_summary,

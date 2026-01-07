@@ -2,24 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_PROFILE_METRIC
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError("profile_metrics: missing user_jwt or service=True in DB helper")
 
 
 def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
@@ -38,7 +22,7 @@ def db_insert_metric_rows(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
 
     res = sb.table(TABLE_PROFILE_METRIC).insert(rows).execute()
     return res.data or rows
@@ -56,7 +40,7 @@ def db_get_metric_history(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -85,7 +69,7 @@ def db_get_latest_metric(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -108,7 +92,7 @@ def db_get_vo2_measured_history(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -130,7 +114,7 @@ def fetch_user_hr_max(
     """
     Helper na vytiahnutie HR_max z profile_metric.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
 
     try:
         rec = (

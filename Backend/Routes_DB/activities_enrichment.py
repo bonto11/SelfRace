@@ -2,26 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - service=True      → service-role klient (worker/webhook/cron)
-    - user_jwt != None  → RLS klient (FE/AI)
-    """
-    if service:
-        return get_service_client()
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    raise RuntimeError(
-        "activities_enrichment: missing user_jwt or service=True in DB helper"
-    )
 
 
 def db_get_enrichment_for_activities(
@@ -49,7 +31,7 @@ def db_get_enrichment_for_activities(
     if not activity_ids:
         return []
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_enrichment")
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
@@ -77,7 +59,7 @@ def db_upsert_enrichment_rows(
     if not rows:
         return 0
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_enrichment")
 
     saved = 0
     BATCH = 200

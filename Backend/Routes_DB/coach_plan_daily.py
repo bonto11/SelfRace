@@ -3,26 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import date, timedelta
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_PLAN_DAILY
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError(
-        "coach_plan_daily: missing user_jwt or service=True in DB helper"
-    )
 
 
 def db_insert_daily_rows(
@@ -38,7 +20,7 @@ def db_insert_daily_rows(
     if not rows:
         return 0
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
@@ -62,7 +44,7 @@ def db_clear_daily_for_user_week(
     """
     DELETE všetkých daily riadkov pre daný plán + týždeň (interval dátumov).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         res = (
@@ -93,6 +75,7 @@ def db_clear_daily_for_user_week(
 #  FUNKCIE, KTORÉ POUŽÍVA plan_activity_match.py
 # ---------------------------------------------------------------------------
 
+
 def db_get_planned_range_rows(
     user_id: int,
     date_from: str,
@@ -104,7 +87,7 @@ def db_get_planned_range_rows(
     """
     Načíta všetky plánované sessions pre usera v danom dátumovom rozsahu.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         res = (
@@ -135,7 +118,7 @@ def db_link_session_to_activity(
     Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu
     – zapíše activity_id.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         res = (
@@ -172,7 +155,7 @@ def db_list_daily_for_user_horizon(
     date_from = today.isoformat()
     date_to = end_date.isoformat()
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         query = (
@@ -205,7 +188,7 @@ def db_clear_daily_for_user_plan(
     """
     Delete všetkých daily riadkov pre daný plán (bez ohľadu na dátum).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
 
     try:
         res = (

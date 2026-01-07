@@ -2,26 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_EXTERNAL_EVENTS
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient (worker / cron / admin tooling)
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError(
-        "coach_external_events: missing user_jwt or service=True in DB helper"
-    )
 
 
 def db_list_external_events_for_user(
@@ -36,7 +18,7 @@ def db_list_external_events_for_user(
     - prípadne service=True pre interné nástroje
     """
     try:
-        sb = _get_sb(user_jwt=user_jwt, service=service)
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_external_events")
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .select("*")
@@ -62,7 +44,7 @@ def db_clear_external_events_for_user(
     Používame pri "overwrite" save.
     """
     try:
-        sb = _get_sb(user_jwt=user_jwt, service=service)
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_external_events")
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .delete()
@@ -92,7 +74,7 @@ def db_insert_external_events(
         return 0
 
     try:
-        sb = _get_sb(user_jwt=user_jwt, service=service)
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_external_events")
         res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-EXT] inserted rows:", len(data))

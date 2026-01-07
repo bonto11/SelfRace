@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_SUMMARY
 
 FIELDS = (
@@ -11,25 +11,6 @@ FIELDS = (
     "distance_m,moving_time_s,average_heartrate_bpm,"
     "date"
 )
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient (FE / AI)
-    - service=True     → service klient (webhook / worker / cron)
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError(
-        "activities_summary: missing user_jwt or service=True in DB helper"
-    )
-
 
 # ───────────────────────────── basic summary helpers ─────────────────────────────
 
@@ -47,11 +28,12 @@ def db_fetch_summary_since(
     - so service=True → service klient (napr. worker/backfill)
     """
     try:
-        sb = _get_sb(user_jwt=user_jwt, service=service)
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
         rec = (
             sb.table(TABLE_ACTIVITIES_SUMMARY)
             .select(FIELDS)
             .eq("user_id", user_id)
+            .is_("deleted_at", None)              # ⬅️ ignoruj soft-deleted
             .gte("date", since_iso)
             .order("date", desc=True)
             .execute()
@@ -75,7 +57,7 @@ def db_upsert_activities_summary(
     """
     if not rows:
         return
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     sb.table(TABLE_ACTIVITIES_SUMMARY).upsert(
         rows,
         on_conflict="activity_id",
@@ -92,11 +74,12 @@ def db_get_last_activity_start(
     Najnovší dátum uložený v summary (ako aware-UTC datetime).
     Používa sa v sync logike – môže ísť cez RLS aj service.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("date")
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ len aktívne
         .order("date", desc=True)
         .limit(1)
         .execute()
@@ -106,7 +89,6 @@ def db_get_last_activity_start(
         return None
 
     s = str(data[0].get("date") or "")
-    # môže prísť "2025-09-06 20:03:34+00" alebo "2025-09-06T20:03:34"
     s = s.replace(" ", "T")
     if "+" not in s and "Z" not in s:
         s += "Z"
@@ -134,12 +116,13 @@ def db_get_existing_activity_ids_since(
     ID už uložených aktivít od 'since_iso_date' (YYYY-MM-DD).
     Sync helper – môže bežať cez RLS aj service.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     out: Set[int] = set()
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("activity_id,date")
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ len ne-deleted
         .gte("date", since_iso_date)
         .execute()
     )
@@ -163,11 +146,12 @@ def db_get_recent_activity_ids(
     Posledné aktivity pre daného usera od dátumu (YYYY-MM-DD),
     vráti len zoznam activity_id.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("activity_id")
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ len ne-deleted
         .gte("date", since_iso_date)
         .order("date", desc=True)
         .limit(limit)
@@ -194,7 +178,7 @@ def db_get_activities_recent(
     """
     Aktivity od since_iso_date (YYYY-MM-DD) – payload pre FE list / range.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -203,6 +187,7 @@ def db_get_activities_recent(
             "distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,date"
         )
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ skryj deleted
         .gte("date", since_iso_date)
         .order("date", desc=True)
         .execute()
@@ -219,10 +204,10 @@ def db_get_activity_summary_one(
     """
     Kompletný summary riadok pre jednu aktivitu.
 
-    - s user_jwt → RLS (filter cez policies)
-    - so service=True → service klient (napr. webhook)
+    POZOR: zámerne BEZ filtra na deleted_at.
+    Worker/sync potrebuje vidieť aj soft-deleted, aby ich vedel oživiť.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select("*")
@@ -245,7 +230,7 @@ def db_get_activities_in_range_basic(
     """
     Aktivity v rozsahu [start_ts_iso, end_ts_iso) podľa 'date'.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -254,6 +239,7 @@ def db_get_activities_in_range_basic(
             "distance_m,moving_time_s,average_heartrate_bpm,max_heartrate_bpm,date"
         )
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ len aktívne
         .gte("date", start_ts_iso)
         .lt("date", end_ts_iso)
         .order("date", desc=True)
@@ -275,7 +261,7 @@ def db_select_activities_window_basic(
     Aktivity v okne [date_from, date_to] vrátane (stringy YYYY-MM-DD / ISO),
     filtrované podľa sport_type_fe.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     q = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -285,6 +271,7 @@ def db_select_activities_window_basic(
             "distance_m,moving_time_s"
         )
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ len aktívne
         .gte("date", date_from)
         .lte("date", date_to)
         .order("date", desc=False)
@@ -304,8 +291,9 @@ def db_get_summary_one(
 ) -> Optional[Dict[str, Any]]:
     """
     Minimal summary payload pre /summary/one endpoint.
+    (FE detail – deleted aktivity tu už nechceme.)
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -315,6 +303,7 @@ def db_get_summary_one(
             "sport_type_fe"
         )
         .eq("activity_id", activity_id)
+        .is_("deleted_at", None)                  # ⬅️ skryť soft-deleted
         .limit(1)
         .execute()
     )
@@ -336,7 +325,7 @@ def db_get_summary_for_activities(
     if not activity_ids:
         return []
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_summary")
     res = (
         sb.table(TABLE_ACTIVITIES_SUMMARY)
         .select(
@@ -347,6 +336,7 @@ def db_get_summary_for_activities(
             "distance_m,moving_time_s,average_heartrate_bpm"
         )
         .eq("user_id", user_id)
+        .is_("deleted_at", None)                  # ⬅️ len aktívne
         .in_("activity_id", list(set(activity_ids)))
         .execute()
     )

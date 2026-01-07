@@ -1,22 +1,27 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from Modules.Supabase.client import get_service_client
-
-# maintenance ide vždy ako admin → service client (bez RLS/JWT)
-supabase = get_service_client()
+from Modules.Supabase.client import get_sb
 
 
-def db_cleanup_deleted_activities(cutoff_days: int = 30) -> Dict[str, Any]:
+def db_cleanup_deleted_activities(
+    cutoff_days: int = 30,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,  # default = service-role
+) -> Dict[str, Any]:
     """
     Volá SQL funkciu cleanup_deleted_activities(cutoff_days)
     a vracia jej JSON výsledok.
 
     Používané zo Services (cron / admin úlohy).
+    V praxi to volaj ako service client → service=True, user_jwt nechaj None.
     """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="maintenance_cleanup")
+
     resp = (
-        supabase.rpc(
+        sb.rpc(
             "cleanup_deleted_activities",
             {"cutoff_days": cutoff_days},
         )

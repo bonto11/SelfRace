@@ -2,27 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_STREAMS
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - service=True      → service-role klient (worker/webhook)
-    - user_jwt != None  → RLS klient (FE/AI)
-    """
-    if service:
-        return get_service_client()
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    raise RuntimeError(
-        "activities_streams: missing user_jwt or service=True in DB helper"
-    )
-
 
 def db_get_streams_one(
     user_id: int,
@@ -38,7 +19,7 @@ def db_get_streams_one(
     - FE/AI:    db_get_streams_one(..., user_jwt=jwt)
     - worker:   db_get_streams_one(..., service=True)
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select("time_s,heartrate_bpm")
@@ -67,7 +48,7 @@ def db_get_streams_ids_present(
     if not activity_ids:
         return []
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
 
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
@@ -104,7 +85,7 @@ def db_upsert_streams_with_sport(
     - FE/AI proces:   user_jwt=jwt
     - worker/webhook: service=True
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
 
     params = {
         "p_user_id": int(user_id),
@@ -137,7 +118,7 @@ def db_upsert_stream_arrays(
     - cache / worker: service=True
     - teoreticky aj FE debug: user_jwt=jwt
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
 
     row = {
         "activity_id": int(activity_id),

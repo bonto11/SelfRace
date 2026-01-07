@@ -1,4 +1,4 @@
-# Modules/SQL/db_handler.py
+# Modules/Supabase/client.py
 
 from typing import Optional
 
@@ -6,6 +6,27 @@ from supabase import create_client
 
 from Configs.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE, SUPABASE_ANON_KEY
 
+
+def get_sb(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+    caller: str = "db",
+):
+    """
+    - user_jwt != None → RLS klient (FE / AI)
+    - service=True     → service klient (webhook / worker / cron)
+    - nikdy nepovoľ oboje naraz
+    """
+    if user_jwt is not None and service:
+        raise RuntimeError(f"{caller}: both user_jwt and service=True supplied")
+
+    if user_jwt is not None:
+        return get_client(user_jwt=user_jwt)
+    if service:
+        return get_service_client()
+
+    raise RuntimeError(f"{caller}: missing user_jwt or service=True in DB helper")
 
 # ------------------------------------------------------------------
 # SERVICE CLIENT – obchádza RLS (SERVICE_ROLE key)
@@ -70,3 +91,4 @@ def get_client(
         )
 
     return get_user_client(user_jwt)
+

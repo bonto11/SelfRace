@@ -4,26 +4,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS_PREFERENCES
-
-
-def _get_sb(user_jwt: Optional[str] = None):
-    """
-    - ak máme user_jwt → RLS klient (FE / AI)
-    - ak user_jwt=None → service klient (worker / admin skripty)
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    return get_service_client()
 
 
 def db_get_prefs_all(
     user_id: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
@@ -41,8 +32,9 @@ def db_get_pref_single(
     key: str,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
@@ -63,8 +55,9 @@ def db_upsert_pref_single(
     value: Any,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
 
     rec = {
         "user_id": user_id,
@@ -85,8 +78,9 @@ def db_upsert_many(
     kv: Dict[str, Any],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
 
     rows = [
         {
@@ -112,8 +106,9 @@ def db_delete_pref_single(
     key: str,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)

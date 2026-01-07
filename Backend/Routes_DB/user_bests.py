@@ -2,25 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS_BESTS
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError("user_bests: missing user_jwt or service=True in DB helper")
-
 
 def db_fetch_user_bests(
     user_id: int,
@@ -33,7 +16,7 @@ def db_fetch_user_bests(
     Low-level SELECT pre users_bests.
     Nerieši time_str ani validáciu.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
 
     res = (
         sb.table(TABLE_USERS_BESTS)
@@ -60,7 +43,7 @@ def db_upsert_user_best(
     """
     Low-level UPSERT. Predpokladá už zvalidované a normalizované pole `row`.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
 
     res = (
         sb.table(TABLE_USERS_BESTS)
@@ -84,7 +67,7 @@ def db_delete_user_best(
     """
     Hard delete; vráti počet zmazaných riadkov.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
 
     res = (
         sb.table(TABLE_USERS_BESTS)

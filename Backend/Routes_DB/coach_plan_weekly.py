@@ -2,27 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_PLAN_WEEKLY
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient
-    - service=True     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError(
-        "coach_plan_weekly: missing user_jwt or service=True in DB helper"
-    )
-
 
 def db_insert_weekly_rows(
     rows: List[Dict[str, Any]],
@@ -37,7 +18,7 @@ def db_insert_weekly_rows(
     if not rows:
         return 0
 
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
 
     try:
         res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
@@ -59,7 +40,7 @@ def db_clear_weekly_for_user_plan(
     """
     DELETE všetkých weekly riadkov daného plánu pre usera.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
 
     try:
         res = (
@@ -92,7 +73,7 @@ def db_get_weekly_for_user_plan(
     """
     Načítanie weekly riadkov pre konkrétny plan_id.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
 
     try:
         res = (
@@ -120,7 +101,7 @@ def db_get_week_row_for_plan(
     """
     Načíta konkrétny týždeň (1 riadok) pre daný plan_id + week_index.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
 
     try:
         res = (
@@ -148,7 +129,7 @@ def db_get_latest_plan_id_for_user(
     """
     Vracia posledný použitý plan_id pre usera (podľa created_at).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
 
     try:
         res = (

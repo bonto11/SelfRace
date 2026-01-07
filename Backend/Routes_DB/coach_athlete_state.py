@@ -3,27 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_ATHLETE_STATE
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - user_jwt != None → RLS klient (štandardný režim – user vlastní stav)
-    - service=True     → service klient (napr. offline analýzy vo workerovi)
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-    raise RuntimeError(
-        "coach_athlete_state: missing user_jwt or service=True in DB helper"
-    )
-
 
 def db_insert_athlete_state(
     user_id: int,
@@ -41,7 +22,7 @@ def db_insert_athlete_state(
       - FE/AI:   user_jwt=jwt
       - worker:  service=True (ak si raz spravíš batch analýzy)
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_athlete_state")
 
     row = {
         "user_id": user_id,
@@ -72,7 +53,7 @@ def db_get_state_by_id(
     - s user_jwt → RLS stráži, či user môže daný riadok čítať
     - so service=True → worker môže čítať hociktorého usera
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_athlete_state")
 
     try:
         res = (
@@ -100,7 +81,7 @@ def db_get_latest_state_for_user(
 
     Ak version je None, nefiltruje podľa verzie.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_athlete_state")
 
     try:
         q = (
@@ -128,7 +109,7 @@ def db_list_states_for_user(
     """
     História stavov pre usera (bez state_json, len meta – vhodné na prehľad v UI).
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_athlete_state")
 
     try:
         res = (

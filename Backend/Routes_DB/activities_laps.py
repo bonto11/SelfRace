@@ -2,26 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_LAPS
-
-
-def _get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    """
-    - service=True      → service-role klient (worker/webhook)
-    - user_jwt != None  → RLS klient (FE/AI)
-    """
-    if service:
-        return get_service_client()
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    raise RuntimeError(
-        "activities_laps: missing user_jwt or service=True in DB helper"
-    )
 
 
 def db_delete_laps_for_activity(
@@ -33,7 +15,7 @@ def db_delete_laps_for_activity(
     """
     Delete všetkých laps pre danú aktivitu.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_laps")
     sb.table(TABLE_ACTIVITIES_LAPS).delete().eq("activity_id", activity_id).execute()
 
 
@@ -46,7 +28,7 @@ def db_upsert_lap(
     """
     Upsert jedného lapu pre aktivitu.
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_laps")
     sb.table(TABLE_ACTIVITIES_LAPS).upsert(
         row,
         on_conflict="activity_id,lap_index",
@@ -66,7 +48,7 @@ def db_get_activity_laps(
     - FE/AI:    user_jwt=jwt
     - worker:   service=True
     """
-    sb = _get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_laps")
 
     res = (
         sb.table(TABLE_ACTIVITIES_LAPS)

@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from Modules.API.Strava.activities import StravaActivitiesClient
+from Modules.Strava.activities import StravaActivitiesClient
 from Routes_DB.activities_streams import (
     db_get_streams_one,
     db_upsert_streams_with_sport,

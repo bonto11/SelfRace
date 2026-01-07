@@ -3,18 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 
-from Modules.Supabase.client import get_client, get_service_client
+from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_USERS_RECOVERY
-
-
-def _get_sb(user_jwt: Optional[str] = None):
-    """
-    - user_jwt → RLS klient
-    - None     → service klient
-    """
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    return get_service_client()
 
 
 def db_get_recovery_record(
@@ -22,11 +12,12 @@ def db_get_recovery_record(
     date_iso: str,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti {"id": ...} ak existuje recovery pre daný deň, inak None.
     """
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -46,8 +37,9 @@ def db_insert_recovery(
     row: Dict[str, Any],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
 
     res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
     rows: List[Dict[str, Any]] = res.data or []
@@ -60,8 +52,9 @@ def db_update_recovery(
     row: Dict[str, Any],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -80,8 +73,9 @@ def db_get_recent_recovery(
     days: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
-    sb = _get_sb(user_jwt)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
