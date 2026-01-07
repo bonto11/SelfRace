@@ -9,14 +9,49 @@ import {
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 
-type ProgressParsed = {
+type Parsed = {
   headline: string | null;
   generatedAt: string | null;
   summaryBullets: string[];
-  positives: string[];
-  negatives: string[];
-  nextWeeksFocus: string[];
-  riskFlags: string[];
+
+  fatiguePrev: string | null;
+  fatigueCurr: string | null;
+  fatigueComment: string | null;
+
+  injuryPrev: string | null;
+  injuryCurr: string | null;
+  injuryComment: string | null;
+
+  blockPrev: string | null;
+  blockCurr: string | null;
+  blockComment: string | null;
+
+  fitnessRunPrev: number | null;
+  fitnessRunCurr: number | null;
+  fitnessRunComment: string | null;
+
+  fitnessRidePrev: number | null;
+  fitnessRideCurr: number | null;
+  fitnessRideComment: string | null;
+
+  fitnessStrengthPrev: number | null;
+  fitnessStrengthCurr: number | null;
+  fitnessStrengthComment: string | null;
+
+  volPrevMin: number | null;
+  volPrevMax: number | null;
+  volCurrMin: number | null;
+  volCurrMax: number | null;
+  volComment: string | null;
+
+  planSoften: string | null;
+  planWeekly: string | null;
+
+  celebrations: string[];
+  risksToWatch: string[];
+  focusNextWeeks: string[];
+
+  raw: any | null;
 };
 
 function toStringArray(v: any): string[] {
@@ -25,49 +60,84 @@ function toStringArray(v: any): string[] {
   return [];
 }
 
-function parseProgress(row: AthleteProgressRecord | null): ProgressParsed {
+function slovakLevel(level?: string | null): string {
+  const l = (level || "").toLowerCase();
+  if (!l) return "—";
+  if (l === "low") return "nízka";
+  if (l === "moderate") return "stredná";
+  if (l === "high") return "vysoká";
+  return l;
+}
+
+function formatMinutesRange(min?: number | null, max?: number | null): string {
+  if (!min && !max) return "—";
+  const toHours = (v: number | null | undefined) =>
+    typeof v === "number" ? Math.round(v / 60) : null;
+  const hMin = toHours(min ?? null);
+  const hMax = toHours(max ?? null);
+  if (hMin != null && hMax != null) return `${hMin}–${hMax} h / týždeň`;
+  if (hMin != null) return `${hMin} h / týždeň (min)`;
+  if (hMax != null) return `${hMax} h / týždeň (max)`;
+  return "—";
+}
+
+function parseProgress(row: AthleteProgressRecord | null): Parsed {
   if (!row || !row.compare_previous) {
     return {
       headline: null,
       generatedAt: null,
       summaryBullets: [],
-      positives: [],
-      negatives: [],
-      nextWeeksFocus: [],
-      riskFlags: [],
+      fatiguePrev: null,
+      fatigueCurr: null,
+      fatigueComment: null,
+      injuryPrev: null,
+      injuryCurr: null,
+      injuryComment: null,
+      blockPrev: null,
+      blockCurr: null,
+      blockComment: null,
+      fitnessRunPrev: null,
+      fitnessRunCurr: null,
+      fitnessRunComment: null,
+      fitnessRidePrev: null,
+      fitnessRideCurr: null,
+      fitnessRideComment: null,
+      fitnessStrengthPrev: null,
+      fitnessStrengthCurr: null,
+      fitnessStrengthComment: null,
+      volPrevMin: null,
+      volPrevMax: null,
+      volCurrMin: null,
+      volCurrMax: null,
+      volComment: null,
+      planSoften: null,
+      planWeekly: null,
+      celebrations: [],
+      risksToWatch: [],
+      focusNextWeeks: [],
+      raw: row?.compare_previous ?? null,
     };
   }
 
   const cp: any = row.compare_previous;
 
   const headline: string | null =
-    cp.headline ||
-    cp.summary?.headline ||
-    cp.user_summary?.headline ||
-    null;
+    cp.summary?.headline || cp.headline || null;
 
   const summaryBullets: string[] =
-    toStringArray(cp.summary_bullets) ||
-    toStringArray(cp.summary?.bullets) ||
-    toStringArray(cp.user_summary?.bullets);
+    toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
 
-  const positives: string[] =
-    toStringArray(cp.positives) ||
-    toStringArray(cp.positive_trends) ||
-    toStringArray(cp.improvements);
+  const comp = cp.comparisons || {};
 
-  const negatives: string[] =
-    toStringArray(cp.negatives) ||
-    toStringArray(cp.negative_trends) ||
-    toStringArray(cp.regressions);
-
-  const nextWeeksFocus: string[] =
-    toStringArray(cp.next_weeks_focus) ||
-    toStringArray(cp.recommendations) ||
-    toStringArray(cp.next_block_focus);
-
-  const riskFlags: string[] =
-    toStringArray(cp.risk_flags) || toStringArray(cp.alerts);
+  const fatigue = comp.fatigue_level || {};
+  const injury = comp.injury_risk || {};
+  const block = comp.block_kind || {};
+  const planAdj = comp.plan_adjustment || {};
+  const vol = comp.volume_tolerance || {};
+  const fit = comp.fitness_level || {};
+  const fitRun = fit.run || {};
+  const fitRide = fit.ride || {};
+  const fitStrength = fit.strength || {};
 
   let generatedAt: string | null = cp.generated_at || row.created_at || null;
   if (generatedAt) {
@@ -85,14 +155,61 @@ function parseProgress(row: AthleteProgressRecord | null): ProgressParsed {
     }
   }
 
+  const celebrations = toStringArray(cp.recommendations?.celebrations);
+  const risksToWatch = toStringArray(cp.recommendations?.risks_to_watch);
+  const focusNextWeeks = toStringArray(cp.recommendations?.focus_next_weeks);
+
   return {
     headline,
     generatedAt,
     summaryBullets,
-    positives,
-    negatives,
-    nextWeeksFocus,
-    riskFlags,
+    fatiguePrev: fatigue.previous || null,
+    fatigueCurr: fatigue.current || null,
+    fatigueComment: fatigue.comment || null,
+    injuryPrev: injury.previous || null,
+    injuryCurr: injury.current || null,
+    injuryComment: injury.comment || null,
+    blockPrev: block.previous || null,
+    blockCurr: block.current || null,
+    blockComment: block.comment || null,
+    fitnessRunPrev:
+      typeof fitRun.previous === "number" ? fitRun.previous : null,
+    fitnessRunCurr:
+      typeof fitRun.current === "number" ? fitRun.current : null,
+    fitnessRunComment: fitRun.comment || null,
+    fitnessRidePrev:
+      typeof fitRide?.previous === "number" ? fitRide.previous : null,
+    fitnessRideCurr:
+      typeof fitRide?.current === "number" ? fitRide.current : null,
+    fitnessRideComment: fitRide?.comment || null,
+    fitnessStrengthPrev:
+      typeof fitStrength.previous === "number" ? fitStrength.previous : null,
+    fitnessStrengthCurr:
+      typeof fitStrength.current === "number" ? fitStrength.current : null,
+    fitnessStrengthComment: fitStrength.comment || null,
+    volPrevMin:
+      typeof vol.previous_weekly_minutes_min === "number"
+        ? vol.previous_weekly_minutes_min
+        : null,
+    volPrevMax:
+      typeof vol.previous_weekly_minutes_max === "number"
+        ? vol.previous_weekly_minutes_max
+        : null,
+    volCurrMin:
+      typeof vol.current_weekly_minutes_min === "number"
+        ? vol.current_weekly_minutes_min
+        : null,
+    volCurrMax:
+      typeof vol.current_weekly_minutes_max === "number"
+        ? vol.current_weekly_minutes_max
+        : null,
+    volComment: vol.comment || null,
+    planSoften: planAdj.soften_change || null,
+    planWeekly: planAdj.weekly_replan_change || null,
+    celebrations,
+    risksToWatch,
+    focusNextWeeks,
+    raw: cp,
   };
 }
 
@@ -164,23 +281,14 @@ export default function DetailAthleteProgress() {
     return (
       <div className={SURFACE_CARD}>
         <div className="px-4 py-4 text-sm">
-          Zatiaľ nemáš žiadne uložené porovnanie AI analýz. Potrebujeme aspoň
-          dve analýzy stavu (cron weekly refresh) – potom sa tu zobrazí
-          prehľad progresu.
+          Zatiaľ nemáš žiadne uložené porovnanie analýz. Potrebujeme aspoň dve
+          AI analýzy stavu (cron weekly refresh), potom sa tu zobrazí detail.
         </div>
       </div>
     );
   }
 
-  const {
-    headline,
-    generatedAt,
-    summaryBullets,
-    positives,
-    negatives,
-    nextWeeksFocus,
-    riskFlags,
-  } = parsed;
+  const p = parsed;
 
   return (
     <div className="space-y-4 pb-6">
@@ -190,17 +298,17 @@ export default function DetailAthleteProgress() {
           <h2 className="text-lg font-semibold tracking-tight">
             Weekly progress – porovnanie posledných AI stavov
           </h2>
-          {generatedAt && (
+          {p.generatedAt && (
             <p className="text-xs text-slate-400 mt-1">
-              Posledné porovnanie vytvorené: {generatedAt}
+              Porovnanie vytvorené: {p.generatedAt}
             </p>
           )}
-          {headline && (
-            <p className="mt-2 text-sm text-slate-100">{headline}</p>
+          {p.headline && (
+            <p className="mt-2 text-sm text-slate-100">{p.headline}</p>
           )}
-          {summaryBullets.length > 0 && (
+          {p.summaryBullets.length > 0 && (
             <ul className="mt-3 text-sm space-y-1 list-disc list-inside text-slate-100">
-              {summaryBullets.map((b, i) => (
+              {p.summaryBullets.map((b, i) => (
                 <li key={i}>{b}</li>
               ))}
             </ul>
@@ -209,50 +317,160 @@ export default function DetailAthleteProgress() {
         <div className="h-1.5 rounded-b-2xl bg-sky-500/80" />
       </section>
 
-      {/* POZITÍVNE vs NEGATÍVNE TRENDS */}
+      {/* ÚNAVA / INJURY / BLOK */}
       <section className={SURFACE_CARD}>
         <header className="px-4 pt-4 pb-2">
           <h3 className="text-base font-semibold tracking-tight">
-            Trendy za posledné obdobie
+            Únava, riziko zranenia a tréningový blok
           </h3>
         </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2">
-          {/* Pozitíva */}
+        <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2 text-emerald-100">
-                Čo ide správnym smerom
-              </h4>
-              {positives.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-emerald-100">
-                  {positives.map((p, i) => (
-                    <li key={i}>{p}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-slate-400">
-                  AI zatiaľ nevyzdvihla konkrétne zlepšenia.
+              <div className="text-xs text-slate-400 mb-1">Únava</div>
+              <div className="font-semibold mb-1">
+                {p.fatiguePrev || p.fatigueCurr
+                  ? `${slovakLevel(p.fatiguePrev)} → ${slovakLevel(
+                      p.fatigueCurr
+                    )}`
+                  : "—"}
+              </div>
+              {p.fatigueComment && (
+                <p className="text-xs text-slate-300">{p.fatigueComment}</p>
+              )}
+            </div>
+          </div>
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3">
+              <div className="text-xs text-slate-400 mb-1">Riziko zranenia</div>
+              <div className="font-semibold mb-1">
+                {p.injuryPrev || p.injuryCurr
+                  ? `${slovakLevel(p.injuryPrev)} → ${slovakLevel(
+                      p.injuryCurr
+                    )}`
+                  : "—"}
+              </div>
+              {p.injuryComment && (
+                <p className="text-xs text-slate-300">{p.injuryComment}</p>
+              )}
+            </div>
+          </div>
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3">
+              <div className="text-xs text-slate-400 mb-1">
+                Odporúčaný blok
+              </div>
+              <div className="font-semibold mb-1">
+                {p.blockPrev || p.blockCurr
+                  ? `${p.blockPrev || "—"} → ${p.blockCurr || "—"}`
+                  : "—"}
+              </div>
+              {p.blockComment && (
+                <p className="text-xs text-slate-300">{p.blockComment}</p>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+      </section>
+
+      {/* FITNESS LEVELS */}
+      <section className={SURFACE_CARD}>
+        <header className="px-4 pt-4 pb-2">
+          <h3 className="text-base font-semibold tracking-tight">
+            Fitness úroveň (1–10): predchádzajúca vs. aktuálna
+          </h3>
+        </header>
+        <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3">
+              <div className="text-xs text-slate-400 mb-1">Beh</div>
+              <div className="font-semibold mb-1">
+                {p.fitnessRunPrev != null || p.fitnessRunCurr != null
+                  ? `${p.fitnessRunPrev ?? "—"}/10 → ${
+                      p.fitnessRunCurr ?? "—"
+                    }/10`
+                  : "—"}
+              </div>
+              {p.fitnessRunComment && (
+                <p className="text-xs text-slate-300">{p.fitnessRunComment}</p>
+              )}
+            </div>
+          </div>
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3">
+              <div className="text-xs text-slate-400 mb-1">Bicykel</div>
+              <div className="font-semibold mb-1">
+                {p.fitnessRidePrev != null || p.fitnessRideCurr != null
+                  ? `${p.fitnessRidePrev ?? "—"}/10 → ${
+                      p.fitnessRideCurr ?? "—"
+                    }/10`
+                  : "—"}
+              </div>
+              {p.fitnessRideComment && (
+                <p className="text-xs text-slate-300">
+                  {p.fitnessRideComment}
                 </p>
               )}
             </div>
           </div>
-
-          {/* Výzvy */}
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2 text-amber-100">
-                Kde si dávať väčší pozor
-              </h4>
-              {negatives.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-amber-100">
-                  {negatives.map((n, i) => (
-                    <li key={i}>{n}</li>
-                  ))}
-                </ul>
-              ) : (
+              <div className="text-xs text-slate-400 mb-1">Sila</div>
+              <div className="font-semibold mb-1">
+                {p.fitnessStrengthPrev != null || p.fitnessStrengthCurr != null
+                  ? `${p.fitnessStrengthPrev ?? "—"}/10 → ${
+                      p.fitnessStrengthCurr ?? "—"
+                    }/10`
+                  : "—"}
+              </div>
+              {p.fitnessStrengthComment && (
+                <p className="text-xs text-slate-300">
+                  {p.fitnessStrengthComment}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+      </section>
+
+      {/* OBJEM + PLAN ADJUSTMENT */}
+      <section className={SURFACE_CARD}>
+        <header className="px-4 pt-4 pb-2">
+          <h3 className="text-base font-semibold tracking-tight">
+            Tréningový objem a úpravy plánu
+          </h3>
+        </header>
+
+        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2 text-sm">
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3 space-y-2">
+              <div className="text-xs text-slate-400">Týždenný objem (min)</div>
+              <div className="font-semibold">
+                {formatMinutesRange(p.volPrevMin, p.volPrevMax)} →{" "}
+                {formatMinutesRange(p.volCurrMin, p.volCurrMax)}
+              </div>
+              {p.volComment && (
+                <p className="text-xs text-slate-300">{p.volComment}</p>
+              )}
+            </div>
+          </div>
+
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3 space-y-2">
+              <div className="text-xs text-slate-400">
+                Zmeny v tréningovom pláne
+              </div>
+              {p.planSoften && (
+                <p className="text-xs text-slate-300">{p.planSoften}</p>
+              )}
+              {p.planWeekly && (
+                <p className="text-xs text-slate-300">{p.planWeekly}</p>
+              )}
+              {!p.planSoften && !p.planWeekly && (
                 <p className="text-xs text-slate-400">
-                  Zatiaľ bez výrazných negatívnych trendov.
+                  AI neodporúča meniť štruktúru plánu.
                 </p>
               )}
             </div>
@@ -262,29 +480,27 @@ export default function DetailAthleteProgress() {
         <div className="h-1.5 rounded-b-2xl bg-slate-700" />
       </section>
 
-      {/* FOCUS NA ĎALŠIE TÝŽDNE + RISK FLAGS */}
+      {/* RECOMMENDATIONS */}
       <section className={SURFACE_CARD}>
         <header className="px-4 pt-4 pb-2">
           <h3 className="text-base font-semibold tracking-tight">
-            Fokus na najbližšie týždne
+            Odporúčania z posledného porovnania
           </h3>
         </header>
 
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2">
+        <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">
-                Čomu sa zamerať v tréningu
-              </h4>
-              {nextWeeksFocus.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-emerald-100">
-                  {nextWeeksFocus.map((s, i) => (
-                    <li key={i}>{s}</li>
+              <h4 className="text-sm font-semibold mb-2">Čo osláviť</h4>
+              {p.celebrations.length ? (
+                <ul className="list-disc list-inside text-xs space-y-1 text-emerald-100">
+                  {p.celebrations.map((c, i) => (
+                    <li key={i}>{c}</li>
                   ))}
                 </ul>
               ) : (
                 <p className="text-xs text-slate-400">
-                  Po ďalších porovnaniach sem AI doplní konkrétny fokus blokov.
+                  Zatiaľ žiadne špecifické oslavy.
                 </p>
               )}
             </div>
@@ -292,17 +508,37 @@ export default function DetailAthleteProgress() {
 
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">Rizikové signály</h4>
-              {riskFlags.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-rose-100">
-                  {riskFlags.map((r, i) => (
+              <h4 className="text-sm font-semibold mb-2">
+                Riziká, ktoré sledovať
+              </h4>
+              {p.risksToWatch.length ? (
+                <ul className="list-disc list-inside text-xs space-y-1 text-amber-100">
+                  {p.risksToWatch.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}
                 </ul>
               ) : (
                 <p className="text-xs text-slate-400">
-                  Momentálne žiadne špecifické varovania z posledného
-                  porovnania.
+                  Momentálne bez konkrétnych varovaní.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className={SURFACE_SUBCARD}>
+            <div className="px-3 pt-3 pb-3">
+              <h4 className="text-sm font-semibold mb-2">
+                Fokus na najbližšie týždne
+              </h4>
+              {p.focusNextWeeks.length ? (
+                <ul className="list-disc list-inside text-xs space-y-1 text-emerald-100">
+                  {p.focusNextWeeks.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Po ďalších porovnaniach sem pribudnú konkrétne priority.
                 </p>
               )}
             </div>
@@ -310,6 +546,20 @@ export default function DetailAthleteProgress() {
         </div>
 
         <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+      </section>
+
+      {/* RAW JSON (debug) */}
+      <section className={SURFACE_CARD}>
+        <div className="px-4 py-3">
+          <details className="text-xs">
+            <summary className="cursor-pointer text-slate-300">
+              Debug – raw JSON compare_previous
+            </summary>
+            <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-900/80 p-3 text-[10px] leading-tight text-slate-100">
+              {JSON.stringify(p.raw, null, 2)}
+            </pre>
+          </details>
+        </div>
       </section>
     </div>
   );

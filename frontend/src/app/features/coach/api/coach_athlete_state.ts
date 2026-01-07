@@ -6,6 +6,24 @@ import type {
 } from "@/app/features/coach/types/coachApiTypes";
 
 
+// ... existujúce typy
+
+export type AthleteProgressRecord = {
+  id: number;
+  user_id: number;
+  model: string | null;
+  version: number;
+  created_at: string;
+  compare_previous: any | null; // uložený JSON z AI progressu
+};
+
+type LatestAthleteProgressResponse = {
+  success: boolean;
+  item: AthleteProgressRecord | null;
+  detail?: string | null;
+  error?: string | null;
+};
+
 type AsyncJobRow = {
   id: number;
   user_id: number;
@@ -52,20 +70,6 @@ type LatestAthleteStateResponse = {
   error?: string | null;
 };
 
-export type AthleteProgressRecord = {
-  id: number;
-  user_id: number;
-  version: number;
-  created_at: string;
-  compare_previous: any | null;
-};
-
-type LatestAthleteProgressResponse = {
-  success: boolean;
-  progress: AthleteProgressRecord | null;
-  detail?: string | null;
-  error?: string | null;
-};
 export async function apiAnalyzeAthleteState(
   userId: number,
   userUuid: string,
@@ -192,14 +196,18 @@ export async function apiGetLatestAthleteState(
  * GET /coach/athlete/state/latest-progress/:user_id
  * – pre Weekly Coach Progress widget
  */
+// ... existujúci importy hore
+
+/**
+ * GET /coach/athlete/state/compare/latest/:user_id
+ * – vráti posledný riadok s compare_previous (ak existuje).
+ */
 export async function apiGetLatestAthleteProgress(
   userId: number
 ): Promise<AthleteProgressRecord | null> {
-  if (!userId) {
-    throw new Error("Missing userId in apiGetLatestAthleteProgress");
-  }
+  if (!userId) throw new Error("Missing userId in apiGetLatestAthleteProgress");
 
-  const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(
+  const path = `/coach/athlete/state/compare/latest/${encodeURIComponent(
     String(userId)
   )}`;
 
@@ -222,5 +230,5 @@ export async function apiGetLatestAthleteProgress(
     throw new Error(msg);
   }
 
-  return json.progress ?? null;
+  return json.item ?? null;
 }

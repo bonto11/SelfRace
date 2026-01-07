@@ -18,57 +18,93 @@ type UiState = {
   hasData: boolean;
   comparedAt: string | null;
   headline: string | null;
-  summaryBullets: string[];
-  positives: string[];
-  negatives: string[];
+  bullets: string[];
+  fatigueLabel: string | null;
+  injuryLabel: string | null;
+  blockLabel: string | null;
+  volumeLabel: string | null;
 };
 
 function toStringArray(v: any): string[] {
   if (!v) return [];
-  if (Array.isArray(v)) {
-    return v.filter((x) => typeof x === "string");
-  }
+  if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
   return [];
 }
 
-function buildUiState(progress: AthleteProgressRecord | null): UiState {
-  if (!progress || !progress.compare_previous) {
+function slovakLevel(level?: string | null): string {
+  const l = (level || "").toLowerCase();
+  if (!l) return "—";
+  if (l === "low") return "nízka";
+  if (l === "moderate") return "stredná";
+  if (l === "high") return "vysoká";
+  return l;
+}
+
+function buildUiState(row: AthleteProgressRecord | null): UiState {
+  if (!row || !row.compare_previous) {
     return {
       hasData: false,
       comparedAt: null,
       headline: null,
-      summaryBullets: [],
-      positives: [],
-      negatives: [],
+      bullets: [],
+      fatigueLabel: null,
+      injuryLabel: null,
+      blockLabel: null,
+      volumeLabel: null,
     };
   }
 
-  const cp: any = progress.compare_previous;
+  const cp: any = row.compare_previous;
 
-  // headline – viacero možných názvov pre robustnosť
   const headline: string | null =
-    cp.headline ||
-    cp.summary?.headline ||
-    cp.user_summary?.headline ||
-    null;
+    cp.summary?.headline || cp.headline || null;
 
-  const summaryBullets: string[] =
-    toStringArray(cp.summary_bullets) ||
-    toStringArray(cp.summary?.bullets) ||
-    toStringArray(cp.user_summary?.bullets);
+  const bullets: string[] =
+    toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
 
-  const positives: string[] =
-    toStringArray(cp.positives) ||
-    toStringArray(cp.positive_trends) ||
-    toStringArray(cp.improvements);
+  const comp = cp.comparisons || {};
+  const fatigue = comp.fatigue_level || {};
+  const injury = comp.injury_risk || {};
+  const block = comp.block_kind || {};
+  const vol = comp.volume_tolerance || {};
 
-  const negatives: string[] =
-    toStringArray(cp.negatives) ||
-    toStringArray(cp.negative_trends) ||
-    toStringArray(cp.regressions);
+  const fatigueLabel =
+    fatigue.previous || fatigue.current
+      ? `${slovakLevel(fatigue.previous)} → ${slovakLevel(fatigue.current)}`
+      : null;
 
-  // dátum – preferuj generated_at, fallback created_at z riadku
-  let comparedAt: string | null = cp.generated_at || progress.created_at || null;
+  const injuryLabel =
+    injury.previous || injury.current
+      ? `${slovakLevel(injury.previous)} → ${slovakLevel(injury.current)}`
+      : null;
+
+  const blockLabel =
+    block.previous || block.current
+      ? `${block.previous || "—"} → ${block.current || "—"}`
+      : null;
+
+  let volumeLabel: string | null = null;
+  if (
+    (typeof vol.previous_weekly_minutes_min === "number" &&
+      typeof vol.current_weekly_minutes_min === "number") ||
+    (typeof vol.previous_weekly_minutes_max === "number" &&
+      typeof vol.current_weekly_minutes_max === "number")
+  ) {
+    const fromMin = vol.previous_weekly_minutes_min;
+    const toMin = vol.current_weekly_minutes_min;
+    const fromH =
+      typeof fromMin === "number" ? Math.round(fromMin / 60) : null;
+    const toH = typeof toMin === "number" ? Math.round(toMin / 60) : null;
+
+    if (fromH != null && toH != null) {
+      volumeLabel = `${fromH} h → ${toH} h / týždeň (min)`;
+    } else {
+      volumeLabel = null;
+    }
+  }
+
+  let comparedAt: string | null =
+    cp.generated_at || row.created_at || null;
   if (comparedAt) {
     try {
       const d = new Date(comparedAt);
@@ -80,7 +116,7 @@ function buildUiState(progress: AthleteProgressRecord | null): UiState {
         minute: "2-digit",
       });
     } catch {
-      // nechaj raw string
+      // nechaj raw
     }
   }
 
@@ -88,16 +124,18 @@ function buildUiState(progress: AthleteProgressRecord | null): UiState {
     hasData: true,
     comparedAt,
     headline,
-    summaryBullets,
-    positives,
-    negatives,
+    bullets,
+    fatigueLabel,
+    injuryLabel,
+    blockLabel,
+    volumeLabel,
   };
 }
 
 export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   const { userId } = useUserId();
 
-  const [progress, setProgress] = useState<AthleteProgressRecord | null>(null);
+  const [row, setRow] = useState<AthleteProgressRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,7 +148,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
       setError(null);
       try {
         const r = await apiGetLatestAthleteProgress(userId);
-        if (alive) setProgress(r ?? null);
+        if (alive) setRow(r ?? null);
       } catch (e: any) {
         if (alive)
           setError(
@@ -126,7 +164,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
     };
   }, [userId]);
 
-  const ui = useMemo(() => buildUiState(progress), [progress]);
+  const ui = useMemo(() => buildUiState(row), [row]);
 
   const accent =
     THEME?.chart?.neutral ??
@@ -142,7 +180,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
           ? ui.comparedAt
             ? `Posledné porovnanie: ${ui.comparedAt}`
             : "Posledné porovnanie AI stavov atleta."
-          : "Potrebujeme aspoň 2 AI analýzy stavu (cron/maintenance ich urobí 1× týždenne)."
+          : "Potrebujeme aspoň dve AI analýzy stavu – potom sa tu zobrazí progress."
       }
       accent={accent}
       onOpen={onOpenDetail}
@@ -170,55 +208,32 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
       ) : (
         <>
           {ui.headline && (
-            <div className="text-sm font-medium mb-2">{ui.headline}</div>
+            <div className="text-sm font-medium mb-1">{ui.headline}</div>
           )}
 
-          {ui.summaryBullets.length > 0 && (
-            <ul className="text-xs space-y-1 mb-2">
-              {ui.summaryBullets.slice(0, 3).map((b, i) => (
+          {ui.bullets && ui.bullets.length > 0 && (
+            <ul className="text-xs space-y-1 mb-3">
+              {ui.bullets.slice(0, 3).map((b, i) => (
                 <li key={i} className="flex gap-2">
                   <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-slate-400" />
-                  <span>{b}</span>
+                  <span className="truncate">{b}</span>
                 </li>
               ))}
             </ul>
           )}
 
-          <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
-                Zlepšenia
-              </div>
-              {ui.positives.length ? (
-                <ul className="space-y-1 text-emerald-100">
-                  {ui.positives.slice(0, 3).map((p, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      <span className="truncate">{p}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="opacity-60">Zatiaľ bez zvýraznených plusov.</div>
-              )}
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide opacity-70 mb-1">
-                Výzvy / mínusy
-              </div>
-              {ui.negatives.length ? (
-                <ul className="space-y-1 text-amber-100">
-                  {ui.negatives.slice(0, 3).map((n, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-amber-400" />
-                      <span className="truncate">{n}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="opacity-60">Bez zásadných varovaní.</div>
-              )}
-            </div>
+          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+            <div className="opacity-70">Únava</div>
+            <div className="font-semibold">{ui.fatigueLabel ?? "—"}</div>
+
+            <div className="opacity-70">Riziko zranenia</div>
+            <div className="font-semibold">{ui.injuryLabel ?? "—"}</div>
+
+            <div className="opacity-70">Blok</div>
+            <div className="font-semibold">{ui.blockLabel ?? "—"}</div>
+
+            <div className="opacity-70">Min. týždenný objem</div>
+            <div className="font-semibold">{ui.volumeLabel ?? "—"}</div>
           </div>
         </>
       )}
