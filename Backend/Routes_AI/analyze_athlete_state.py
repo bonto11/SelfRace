@@ -222,8 +222,6 @@ def _build_prompts_for_analyze(
 
     return system_txt, user_txt
 
-from Services.user_prefs import service_load_user_settings
-# už tam máš import zhora pri athlete state – použijeme to isté
 
 def _build_prompts_for_progress(
     previous_state: dict,
@@ -348,12 +346,18 @@ def _build_prompts_for_progress(
     )
 
     return system_txt, user_txt
+
+
 # ---------- OpenAI volanie ----------
 
 
 def _call_openai_raw(
     client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
-) -> str:
+) -> Tuple[str, Dict[str, int]]:
+    """
+    Zavolá OpenAI a vráti (content, usage_dict).
+    usage_dict má kľúče: prompt_tokens, completion_tokens, total_tokens.
+    """
     resp = client.chat.completions.create(
         model=model,
         messages=[
@@ -364,7 +368,36 @@ def _call_openai_raw(
         max_tokens=max_tokens,
         response_format={"type": "json_object"},
     )
-    return (resp.choices[0].message.content or "").strip()
+
+    content = (resp.choices[0].message.content or "").strip()
+    usage_raw = getattr(resp, "usage", None) or {}
+
+    def _get(u: Any, *names: str) -> int:
+        for name in names:
+            # objekt (pydantic) alebo dict
+            if hasattr(u, name):
+                try:
+                    v = getattr(u, name)
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+            if isinstance(u, dict) and name in u:
+                try:
+                    v = u[name]
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+        return 0
+
+    usage = {
+        "prompt_tokens": _get(usage_raw, "prompt_tokens", "input_tokens"),
+        "completion_tokens": _get(usage_raw, "completion_tokens", "output_tokens"),
+        "total_tokens": _get(usage_raw, "total_tokens"),
+    }
+
+    return content, usage
 
 
 def generate_athlete_state_json(
@@ -413,7 +446,7 @@ def generate_athlete_state_json(
     models = _llm_models_priority(model)
     token_budgets = [1800, 1500, 1200]
 
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
+    trace: Dict[str, Any] = {"models_tried": models, "attempts": [], "usage": {}}
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
@@ -430,7 +463,7 @@ def generate_athlete_state_json(
             started = time.time()
             budget = token_budgets[min(attempt - 1, len(token_budgets) - 1)]
             try:
-                raw = _call_openai_raw(client, m, system_txt, user_txt, budget)
+                raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
@@ -449,6 +482,14 @@ def generate_athlete_state_json(
                 if not parsed:
                     last_err = "AI returned invalid JSON"
                     continue
+
+                # usage uložíme pri prvom úspešnom parse
+                trace["usage"] = {
+                    "model": m,
+                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+                    "completion_tokens": int(usage.get("completion_tokens", 0)),
+                    "total_tokens": int(usage.get("total_tokens", 0)),
+                }
 
                 # použijeme lokálny čas pre generated_at
                 now_local = datetime.now(tzinfo)
@@ -542,6 +583,8 @@ def generate_athlete_state_json(
 
 
 # ---------- PROGRESS REPORT: previous_state vs current_state ----------
+
+
 def generate_athlete_progress_report(
     *,
     previous_state: dict,
@@ -581,7 +624,7 @@ def generate_athlete_progress_report(
     models = _llm_models_priority(model)
     token_budgets = [1200, 900, 700]
 
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
+    trace: Dict[str, Any] = {"models_tried": models, "attempts": [], "usage": {}}
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
@@ -598,7 +641,7 @@ def generate_athlete_progress_report(
             started = time.time()
             budget = token_budgets[min(attempt - 1, len(token_budgets) - 1)]
             try:
-                raw = _call_openai_raw(client, m, system_txt, user_txt, budget)
+                raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
 
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
@@ -618,6 +661,13 @@ def generate_athlete_progress_report(
                 if not parsed:
                     last_err = "AI returned invalid JSON for progress report"
                     continue
+
+                trace["usage"] = {
+                    "model": m,
+                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+                    "completion_tokens": int(usage.get("completion_tokens", 0)),
+                    "total_tokens": int(usage.get("total_tokens", 0)),
+                }
 
                 now_local = datetime.now(tzinfo)
 
