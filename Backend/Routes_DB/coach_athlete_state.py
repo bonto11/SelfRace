@@ -180,3 +180,35 @@ def db_list_states_for_user(
         return list(res.data or [])
     except Exception:  # noqa: BLE001
         return []
+    
+def db_get_latest_athlete_progress(
+    user_id: int,
+    *,
+    version: Optional[int] = 1,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """
+    Vráti najnovší záznam s compare_previous pre daného usera.
+
+    Používame stĺpec compare_previous (jsonb), ktorý drží AI progress report.
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+
+    try:
+        q = (
+            sb.table(TABLE_COACH_ATHLETE_STATE)
+            .select("id,user_id,model,version,created_at,compare_previous")
+            .eq("user_id", user_id)
+        )
+        if version is not None:
+            q = q.eq("version", version)
+
+        # ak chceš byť super-striktný a filtrovať len riadky s ne-null compare_previous:
+        # q = q.not_.is_("compare_previous", None)
+
+        res = q.order("created_at", desc=True).limit(1).execute()
+        rows = list(res.data or [])
+        return rows[0] if rows else None
+    except Exception:  # noqa: BLE001
+        return None

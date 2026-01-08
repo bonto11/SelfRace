@@ -5,16 +5,13 @@ import type {
   AnalyzeAthleteStateResponse,
 } from "@/app/features/coach/types/coachApiTypes";
 
-
-// ... existujúce typy
-
 export type AthleteProgressRecord = {
   id: number;
   user_id: number;
   model: string | null;
   version: number;
   created_at: string;
-  compare_previous: any | null; // uložený JSON z AI progressu
+  report: any | null; // obsah compare_previous z DB
 };
 
 type LatestAthleteProgressResponse = {
@@ -23,6 +20,7 @@ type LatestAthleteProgressResponse = {
   detail?: string | null;
   error?: string | null;
 };
+
 
 type AsyncJobRow = {
   id: number;
@@ -202,6 +200,7 @@ export async function apiGetLatestAthleteState(
  * GET /coach/athlete/state/compare/latest/:user_id
  * – vráti posledný riadok s compare_previous (ak existuje).
  */
+
 export async function apiGetLatestAthleteProgress(
   userId: number
 ): Promise<AthleteProgressRecord | null> {

@@ -30,6 +30,7 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_states_for_user,
     db_list_states_for_user,
     db_update_state_compare_previous,
+    db_get_latest_athlete_progress,
 )
 from Routes_DB.activities_summary import (
     db_get_recent_activity_ids,
@@ -871,23 +872,26 @@ def service_compare_latest_athlete_states(
 
 def service_get_latest_athlete_progress(
     user_id: int,
-    version: Optional[int] = 1,
     *,
+    version: Optional[int] = 1,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
-    Vráti posledný stav atleta so zhrnutím progressu (compare_previous).
+    Najnovší progress report (compare_previous) pre usera.
 
-    - RLS režim (FE):               service=False + user_jwt
-    - SERVICE režim (cron/worker):  service=True  + user_jwt=None
+    Vracia tvar, ktorý chce FE:
+      {
+        id, user_id, model, version, created_at,
+        report: {...}  # obsah stĺpca compare_previous
+      }
     """
     if service:
         jwt = None
     else:
         jwt = require_jwt(user_jwt)
 
-    row = db_get_latest_state_for_user(
+    row = db_get_latest_athlete_progress(
         user_id=user_id,
         version=version,
         user_jwt=jwt,
@@ -896,14 +900,12 @@ def service_get_latest_athlete_progress(
     if not row:
         return None
 
-    print("service_get_latest_athlete_progress row",row)
-
     return {
         "id": row.get("id"),
         "user_id": row.get("user_id"),
         "model": row.get("model"),
         "version": row.get("version"),
         "created_at": row.get("created_at"),
-        # tu je uložený AI weekly progress report
-        "compare_previous": row.get("compare_previous"),
+        # kľúčové – FE očakáva 'report', nie 'compare_previous'
+        "report": row.get("compare_previous") or None,
     }

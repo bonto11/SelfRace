@@ -105,8 +105,7 @@ def get_latest_athlete_progress(
     user_jwt: str = Depends(require_user_jwt),
 ):
     """
-    Vráti posledný progress report (compare_previous) pre daného užívateľa.
-    Widget si z tohto číta weekly progress.
+    Vráti najnovší AI progress report (porovnanie posledných dvoch stavov).
     """
     try:
         row = service_get_latest_athlete_progress(
@@ -114,10 +113,9 @@ def get_latest_athlete_progress(
             version=1,
             user_jwt=user_jwt,
         )
-        print("get_latest_athlete_progress row",row)
         return {
             "success": True,
-            "progress": row,  # môže byť None, ak ešte nie je žiadne porovnanie
+            "item": row,  # <- presne to, čo čaká FE apiGetLatestAthleteProgress
         }
     except HTTPException:
         raise
