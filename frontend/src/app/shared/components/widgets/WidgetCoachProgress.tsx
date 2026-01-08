@@ -41,7 +41,10 @@ function slovakLevel(level?: string | null): string {
 }
 
 function buildUiState(row: AthleteProgressRecord | null): UiState {
-  if (!row || !row.compare_previous) {
+  const payload: any =
+    (row as any)?.report ?? (row as any)?.compare_previous ?? null;
+
+  if (!row || !payload) {
     return {
       hasData: false,
       comparedAt: null,
@@ -54,7 +57,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
     };
   }
 
-  const cp: any = row.compare_previous;
+  const cp = payload;
 
   const headline: string | null =
     cp.summary?.headline || cp.headline || null;
@@ -85,22 +88,12 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
 
   let volumeLabel: string | null = null;
   if (
-    (typeof vol.previous_weekly_minutes_min === "number" &&
-      typeof vol.current_weekly_minutes_min === "number") ||
-    (typeof vol.previous_weekly_minutes_max === "number" &&
-      typeof vol.current_weekly_minutes_max === "number")
+    typeof vol.previous_weekly_minutes_min === "number" &&
+    typeof vol.current_weekly_minutes_min === "number"
   ) {
-    const fromMin = vol.previous_weekly_minutes_min;
-    const toMin = vol.current_weekly_minutes_min;
-    const fromH =
-      typeof fromMin === "number" ? Math.round(fromMin / 60) : null;
-    const toH = typeof toMin === "number" ? Math.round(toMin / 60) : null;
-
-    if (fromH != null && toH != null) {
-      volumeLabel = `${fromH} h → ${toH} h / týždeň (min)`;
-    } else {
-      volumeLabel = null;
-    }
+    const fromH = Math.round(vol.previous_weekly_minutes_min / 60);
+    const toH = Math.round(vol.current_weekly_minutes_min / 60);
+    volumeLabel = `${fromH} h → ${toH} h / týždeň (min)`;
   }
 
   let comparedAt: string | null =

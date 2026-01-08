@@ -9,7 +9,12 @@ import {
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 
+/* ---------- helper typy ---------- */
+
 type Parsed = {
+  model: string | null;
+  schemaVersion: number | null;
+
   headline: string | null;
   generatedAt: string | null;
   summaryBullets: string[];
@@ -82,8 +87,14 @@ function formatMinutesRange(min?: number | null, max?: number | null): string {
 }
 
 function parseProgress(row: AthleteProgressRecord | null): Parsed {
-  if (!row || !row.compare_previous) {
+  // payload z DB je v stĺpci compare_previous → v API ho mapujeme na "report"
+  const payload: any =
+    (row as any)?.report ?? (row as any)?.compare_previous ?? null;
+
+  if (!row || !payload) {
     return {
+      model: null,
+      schemaVersion: null,
       headline: null,
       generatedAt: null,
       summaryBullets: [],
@@ -115,11 +126,15 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
       celebrations: [],
       risksToWatch: [],
       focusNextWeeks: [],
-      raw: row?.compare_previous ?? null,
+      raw: payload,
     };
   }
 
-  const cp: any = row.compare_previous;
+  const cp = payload;
+
+  const model: string | null = cp.model || null;
+  const schemaVersion: number | null =
+    typeof cp.schema_version === "number" ? cp.schema_version : null;
 
   const headline: string | null =
     cp.summary?.headline || cp.headline || null;
@@ -160,6 +175,8 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   const focusNextWeeks = toStringArray(cp.recommendations?.focus_next_weeks);
 
   return {
+    model,
+    schemaVersion,
     headline,
     generatedAt,
     summaryBullets,
@@ -245,6 +262,7 @@ export default function DetailAthleteProgress() {
   }, [userId]);
 
   const parsed = useMemo(() => parseProgress(row), [row]);
+  const p = parsed;
 
   if (!userId) {
     return (
@@ -277,7 +295,8 @@ export default function DetailAthleteProgress() {
     );
   }
 
-  if (!row || !row.compare_previous) {
+  // žiadne dáta
+  if (!row || !(row as any).report) {
     return (
       <div className={SURFACE_CARD}>
         <div className="px-4 py-4 text-sm">
@@ -288,31 +307,36 @@ export default function DetailAthleteProgress() {
     );
   }
 
-  const p = parsed;
-
   return (
     <div className="space-y-4 pb-6">
       {/* HLAVNÝ PREHĽAD */}
       <section className={SURFACE_CARD}>
-        <div className="px-4 pt-4 pb-3">
-          <h2 className="text-lg font-semibold tracking-tight">
-            Weekly progress – porovnanie posledných AI stavov
-          </h2>
-          {p.generatedAt && (
-            <p className="text-xs text-slate-400 mt-1">
-              Porovnanie vytvorené: {p.generatedAt}
-            </p>
-          )}
-          {p.headline && (
-            <p className="mt-2 text-sm text-slate-100">{p.headline}</p>
-          )}
-          {p.summaryBullets.length > 0 && (
-            <ul className="mt-3 text-sm space-y-1 list-disc list-inside text-slate-100">
-              {p.summaryBullets.map((b, i) => (
-                <li key={i}>{b}</li>
-              ))}
-            </ul>
-          )}
+        <div className="px-4 pt-4 pb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Weekly progress – porovnanie posledných AI stavov
+            </h2>
+            {p.generatedAt && (
+              <p className="text-xs text-slate-400 mt-1">
+                Porovnanie vytvorené: {p.generatedAt}
+              </p>
+            )}
+            {(p.model || p.schemaVersion) && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                Model: {p.model ?? "—"}, schema v{p.schemaVersion ?? "?"}
+              </p>
+            )}
+            {p.headline && (
+              <p className="mt-2 text-sm text-slate-100">{p.headline}</p>
+            )}
+            {p.summaryBullets.length > 0 && (
+              <ul className="mt-3 text-sm space-y-1 list-disc list-inside text-slate-100">
+                {p.summaryBullets.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
         <div className="h-1.5 rounded-b-2xl bg-sky-500/80" />
       </section>
@@ -382,55 +406,42 @@ export default function DetailAthleteProgress() {
           </h3>
         </header>
         <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">Beh</div>
-              <div className="font-semibold mb-1">
-                {p.fitnessRunPrev != null || p.fitnessRunCurr != null
-                  ? `${p.fitnessRunPrev ?? "—"}/10 → ${
-                      p.fitnessRunCurr ?? "—"
-                    }/10`
-                  : "—"}
+          {[
+            {
+              label: "Beh",
+              prev: p.fitnessRunPrev,
+              curr: p.fitnessRunCurr,
+              comment: p.fitnessRunComment,
+            },
+            {
+              label: "Bicykel",
+              prev: p.fitnessRidePrev,
+              curr: p.fitnessRideCurr,
+              comment: p.fitnessRideComment,
+            },
+            {
+              label: "Sila",
+              prev: p.fitnessStrengthPrev,
+              curr: p.fitnessStrengthCurr,
+              comment: p.fitnessStrengthComment,
+            },
+          ].map((row, idx) => (
+            <div key={idx} className={SURFACE_SUBCARD}>
+              <div className="px-3 pt-3 pb-3">
+                <div className="text-xs text-slate-400 mb-1">
+                  {row.label}
+                </div>
+                <div className="font-semibold mb-1">
+                  {row.prev != null || row.curr != null
+                    ? `${row.prev ?? "—"}/10 → ${row.curr ?? "—"}/10`
+                    : "—"}
+                </div>
+                {row.comment && (
+                  <p className="text-xs text-slate-300">{row.comment}</p>
+                )}
               </div>
-              {p.fitnessRunComment && (
-                <p className="text-xs text-slate-300">{p.fitnessRunComment}</p>
-              )}
             </div>
-          </div>
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">Bicykel</div>
-              <div className="font-semibold mb-1">
-                {p.fitnessRidePrev != null || p.fitnessRideCurr != null
-                  ? `${p.fitnessRidePrev ?? "—"}/10 → ${
-                      p.fitnessRideCurr ?? "—"
-                    }/10`
-                  : "—"}
-              </div>
-              {p.fitnessRideComment && (
-                <p className="text-xs text-slate-300">
-                  {p.fitnessRideComment}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">Sila</div>
-              <div className="font-semibold mb-1">
-                {p.fitnessStrengthPrev != null || p.fitnessStrengthCurr != null
-                  ? `${p.fitnessStrengthPrev ?? "—"}/10 → ${
-                      p.fitnessStrengthCurr ?? "—"
-                    }/10`
-                  : "—"}
-              </div>
-              {p.fitnessStrengthComment && (
-                <p className="text-xs text-slate-300">
-                  {p.fitnessStrengthComment}
-                </p>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
         <div className="h-1.5 rounded-b-2xl bg-slate-700" />
       </section>
@@ -446,7 +457,9 @@ export default function DetailAthleteProgress() {
         <div className="px-4 pb-4 grid gap-4 md:grid-cols-2 text-sm">
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3 space-y-2">
-              <div className="text-xs text-slate-400">Týždenný objem (min)</div>
+              <div className="text-xs text-slate-400">
+                Týždenný objem (min)
+              </div>
               <div className="font-semibold">
                 {formatMinutesRange(p.volPrevMin, p.volPrevMax)} →{" "}
                 {formatMinutesRange(p.volCurrMin, p.volCurrMax)}
@@ -553,7 +566,7 @@ export default function DetailAthleteProgress() {
         <div className="px-4 py-3">
           <details className="text-xs">
             <summary className="cursor-pointer text-slate-300">
-              Debug – raw JSON compare_previous
+              Debug – raw JSON progress report
             </summary>
             <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-900/80 p-3 text-[10px] leading-tight text-slate-100">
               {JSON.stringify(p.raw, null, 2)}
