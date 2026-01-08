@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, HTTPException, Depends
 
-from Services.coach_athlete_state import (
+from Services.AI.athlete_state import (
     service_analyze_athlete,
     service_get_latest_athlete_state,
     service_list_athlete_states_meta,

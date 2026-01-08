@@ -1,4 +1,4 @@
-# backend/shared/training_types.py
+# Configs/config_training.py
 from __future__ import annotations
 
 import json

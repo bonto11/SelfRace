@@ -2,8 +2,11 @@
 from __future__ import annotations
 from typing import Dict
 
-# ceny podľa OpenAI STANDARD tieru (USD / 1M tokens)
-# prepočítané na micros / 1k tokens: price_per_1M * 1000
+# Ceny podľa OpenAI STANDARD tieru (USD / 1M tokens),
+# prepočítané na µ (micros) / 1k tokens: price_per_1M * 1000.
+#
+# 1 micro = 0.000001 USD
+# 0.15 USD / 1M → 150 µ / 1k
 
 _AI_PRICING: Dict[str, Dict[str, int]] = {
     # 1) tvoj default – gpt-4o-mini
@@ -41,6 +44,9 @@ _AI_PRICING: Dict[str, Dict[str, int]] = {
         "price_reasoning_micros_per_1k": 10000,
     },
 }
+
+# mesačný limit tokenov na usera (pre všetky AI joby dokopy)
+AI_MONTHLY_FREE_TOKENS: int = 500_000
 
 
 def get_ai_pricing_for_model(model: str) -> Dict[str, int]:

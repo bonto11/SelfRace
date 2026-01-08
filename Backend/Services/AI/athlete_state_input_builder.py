@@ -1,4 +1,4 @@
-# Services/AI_Athhlete_State/coach_input_builder.py
+# Services/AI/athlete_state_input_builder.py
 from __future__ import annotations
 
 import json

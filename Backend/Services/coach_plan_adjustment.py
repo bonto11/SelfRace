@@ -5,9 +5,9 @@ from typing import Any, Dict, Optional, List
 from statistics import mean
 
 from Services.users import require_jwt
-from Services.coach_athlete_state import service_analyze_athlete
-from Services.coach_plan_weekly import service_generate_weekly_plan
-from Services.coach_plan_daily import (
+from Services.AI.athlete_state import service_analyze_athlete
+from Services.AI.weekly_plan import service_generate_weekly_plan
+from Services.AI.daily_plan import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
 )
@@ -218,11 +218,14 @@ def _compute_recovery_debug(
 
     jwt = require_jwt(user_jwt)
 
-    rows = db_get_recent_recovery(
-        user_id,
-        days,
-        user_jwt=jwt,
-    ) or []
+    rows = (
+        db_get_recent_recovery(
+            user_id,
+            days,
+            user_jwt=jwt,
+        )
+        or []
+    )
 
     if not rows:
         return {
@@ -308,7 +311,11 @@ def service_coach_autoadjust_after_update(
         # load je v norme → žiadne AI, žiadny re-plan
         return {
             "changed": False,
-            "mode": "no_adjustment_needed_service" if service_mode else "no_adjustment_needed",
+            "mode": (
+                "no_adjustment_needed_service"
+                if service_mode
+                else "no_adjustment_needed"
+            ),
             "reason": be_flags.get("reason", "load_within_normal_range"),
             "service_mode": service_mode,
             "be_flags": be_flags,
@@ -333,8 +340,8 @@ def service_coach_autoadjust_after_update(
     )
     state_id = analyze_resp.get("state_id")
     analysis = analyze_resp.get("analysis") or {}
-    ai_state = (analysis.get("ai_state") or {})
-    plan_adjustment = (ai_state.get("plan_adjustment") or {})
+    ai_state = analysis.get("ai_state") or {}
+    plan_adjustment = ai_state.get("plan_adjustment") or {}
 
     soften_block = plan_adjustment.get("soften_next_days") or {}
     soften_should = bool(soften_block.get("should_soften"))
@@ -377,7 +384,10 @@ def service_coach_autoadjust_after_update(
 
     # --- 3a) WEEKLY REPLAN ---
     if weekly_replan_should:
-        if weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
+        if (
+            weekly_age_days is not None
+            and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS
+        ):
             # príliš čerstvý weekly → padáme do daily softening logiky
             pass
         else:

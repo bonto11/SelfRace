@@ -19,7 +19,7 @@ from Configs.config import (
     COACH_PLAN_SCAN_HORIZON_DAYS,
 )
 
-from Services.coach_athlete_state import build_input_from_db
+from Services.AI.athlete_state import build_input_from_db
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
 from Routes_DB.coach_plan_weekly import (
     db_get_week_row_for_plan,
@@ -127,8 +127,10 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     # ---- PREFS (flatten .value if present) ----
     raw_prefs = ctx.get("prefs") or {}
-    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
-        raw_prefs["value"], dict
+    if (
+        isinstance(raw_prefs, dict)
+        and "value" in raw_prefs
+        and isinstance(raw_prefs["value"], dict)
     ):
         prefs = raw_prefs["value"]
     else:
@@ -245,8 +247,10 @@ def _build_prompts_for_daily(
 
     # ---- PREFS (flatten .value if present) ----
     raw_prefs = context_payload.get("prefs") or {}
-    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
-        raw_prefs["value"], dict
+    if (
+        isinstance(raw_prefs, dict)
+        and "value" in raw_prefs
+        and isinstance(raw_prefs["value"], dict)
     ):
         prefs = raw_prefs["value"]
     else:
@@ -515,7 +519,7 @@ def _build_prompts_for_daily(
         "- For every occurrence whose date lies between `week_start` and `week_end` (inclusive),\n"
         "  you MUST treat it as an already fixed session that week:\n"
         "    * create a session that clearly represents this event on the same day with a similar load;\n"
-        "      if the sport is not `run`/`ride`/`strength`/`swim`, then use `sport: \"other\"` and a short title\n"
+        '      if the sport is not `run`/`ride`/`strength`/`swim`, then use `sport: "other"` and a short title\n'
         "      based on the event `title` in the target language.\n"
         "    * avoid scheduling another hard session of the SAME type on that day\n"
         "      (for example, do not add a hard run interval session on a football day).\n"
@@ -554,8 +558,8 @@ def _build_prompts_for_daily(
         f"- All free text for the athlete (titles, notes, etc.) MUST be written in {lang_label} language.\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array. For a rest day, use exactly one session such as:\n"
-        '    { \"sport\": \"other\", \"title\": \"Rest day\" (or its translation), \"duration_min\": 0, '
-        '\"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n'
+        '    { "sport": "other", "title": "Rest day" (or its translation), "duration_min": 0, '
+        '"intensity": "rest", "session_type": "rest_day" }.\n'
         "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on days with high-intensity external events.\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
@@ -573,7 +577,7 @@ def _build_prompts_for_daily(
         "- If you significantly soften or change a session because of plan_adjustment "
         "(for example turning planned intervals into an easy Z1 run or full rest), then:\n"
         "    * Add a short explanation into `notes` (in the target language), and\n"
-        "    * Set `payload.plan_adjustment = { \"softened\": true, \"reason\": \"short explanation\" }` "
+        '    * Set `payload.plan_adjustment = { "softened": true, "reason": "short explanation" }` '
         "for that session so that the app can highlight the change.\n"
         "- Do NOT invent extreme workloads. Keep all durations and intensities realistic.\n"
     )

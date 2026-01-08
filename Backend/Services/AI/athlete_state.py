@@ -1,4 +1,4 @@
-# Services/coach_athlete_state.py
+# Services/AI/athlete_state.py
 from __future__ import annotations
 
 import json
@@ -21,14 +21,16 @@ from Routes_DB.coach_athlete_state import (
 )
 
 from Services.users import require_jwt
-from Services.AI_Athlete_State.coach_input_builder import build_input_from_db
-from Services.AI_Athlete_State.coach_plan_signals import compute_plan_adjustment_signals
-from Services.AI_Athlete_State.coach_ai_billing import (
+from Services.AI.athlete_state_input_builder import build_input_from_db
+from Services.AI.athlete_state_signals import compute_plan_adjustment_signals
+
+from Services.AI.billing import (
     extract_usage_from_trace,
-    log_ai_usage_and_charge,
+    log_ai_usage_for_user,
+    get_user_monthly_usage_tokens,
+    is_user_over_token_quota,
 )
 
-from Configs.ai_pricing import get_ai_pricing_for_model
 from Configs.config import DEFAULT_MODEL
 
 
@@ -190,11 +192,32 @@ def service_analyze_athlete(
 ) -> Dict[str, Any]:
     """
     Hlavná service funkcia pre AI analýzu atleta.
+
+    - service=False (FE): kontroluje mesačný limit AI tokenov.
+    - service=True  (cron/webhook): ignoruje limit, ide cez service klienta.
     """
     if service:
         jwt = None
     else:
         jwt = require_jwt(user_jwt)
+
+    # 0) QUOTA CHECK – obmedzenie pre user-trigger volania
+    if not service and is_user_over_token_quota(user_id):
+        used = get_user_monthly_usage_tokens(user_id)
+        return {
+            "state_id": None,
+            "model": model or DEFAULT_MODEL,
+            "analysis": None,
+            "input": None,
+            "error": {
+                "code": "ai_quota_exceeded",
+                "message": (
+                    "Mesačný limit AI analýz bol vyčerpaný. "
+                    "Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
+                ),
+                "used_tokens_this_month": used,
+            },
+        }
 
     # 1) INPUT
     input_data = build_input_from_db(
@@ -232,24 +255,17 @@ def service_analyze_athlete(
     # === AI BILLING – usage za ANALYZE =====================
     usage = extract_usage_from_trace(trace)
     if usage:
+        # prepíš model v usage na reálne použitý
         if model_to_use:
             usage["model"] = model_to_use
-
-        pricing = get_ai_pricing_for_model(model_to_use)
         try:
-            log_ai_usage_and_charge(
+            log_ai_usage_for_user(
                 user_id=user_id,
-                model=model_to_use,
+                usage=usage,
                 job_type="coach.analyze_state",
                 source="service" if service else "user",
-                input_tokens=int(usage.get("prompt_tokens") or 0),
-                output_tokens=int(usage.get("completion_tokens") or 0),
-                reasoning_tokens=0,
-                price_input_micros_per_1k=pricing["price_input_micros_per_1k"],
-                price_output_micros_per_1k=pricing["price_output_micros_per_1k"],
-                price_reasoning_micros_per_1k=pricing["price_reasoning_micros_per_1k"],
-                billed_via="internal",   # zatiaľ interne
-                charge_wallet=False,     # peňaženku zapneme neskôr
+                billed_via="internal",  # zatiaľ len interné logovanie
+                charge_wallet=False,
                 meta={},
             )
         except Exception as e:  # noqa: BLE001
@@ -346,6 +362,17 @@ def service_compare_latest_athlete_states(
     else:
         jwt = require_jwt(user_jwt)
 
+    # voliteľne: quota check aj tu (aby FE nemohol spamovať progress report)
+    if not service and is_user_over_token_quota(user_id):
+        used = get_user_monthly_usage_tokens(user_id)
+        return {
+            "ok": False,
+            "error": "ai_quota_exceeded",
+            "message": "Mesačný limit AI analýz bol vyčerpaný.",
+            "user_id": user_id,
+            "used_tokens_this_month": used,
+        }
+
     rows = db_get_latest_states_for_user(
         user_id=user_id,
         limit=2,
@@ -384,20 +411,12 @@ def service_compare_latest_athlete_states(
     if usage:
         if model_to_use:
             usage["model"] = model_to_use
-
-        pricing = get_ai_pricing_for_model(model_to_use)
         try:
-            log_ai_usage_and_charge(
+            log_ai_usage_for_user(
                 user_id=user_id,
-                model=model_to_use,
+                usage=usage,
                 job_type="coach.progress_report",
                 source="service" if service else "user",
-                input_tokens=int(usage.get("prompt_tokens") or 0),
-                output_tokens=int(usage.get("completion_tokens") or 0),
-                reasoning_tokens=0,
-                price_input_micros_per_1k=pricing["price_input_micros_per_1k"],
-                price_output_micros_per_1k=pricing["price_output_micros_per_1k"],
-                price_reasoning_micros_per_1k=pricing["price_reasoning_micros_per_1k"],
                 billed_via="internal",
                 charge_wallet=False,
                 meta={},

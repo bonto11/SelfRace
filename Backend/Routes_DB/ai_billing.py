@@ -1,6 +1,8 @@
+# Routes_DB/ai_billing.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_AI_USAGE_EVENTS, TABLE_AI_WALLET_TRANSACTION
@@ -40,6 +42,7 @@ def db_insert_ai_usage_event(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     data = res.data or []
     return data[0] if data else None
 
+
 # ---------------- AI WALLET TRANSACTIONS ----------------
 
 
@@ -67,7 +70,7 @@ def db_get_wallet_balance_micros(user_id: int) -> int:
     """
     Jednoduchý helper: spočíta aktuálny stav walletu v µ (micros).
 
-    Implementácia je brut-force SUM nad ai_wallet_transactions.
+    Implementácia je brute-force SUM nad ai_wallet_transactions.
     Keď budeš chcieť výkon, spravíš materializovaný view / trigger.
     """
     sb = _get_sb()
@@ -91,6 +94,7 @@ def db_get_wallet_balance_micros(user_id: int) -> int:
             continue
     return total
 
+
 def db_ai_register_usage(
     *,
     user_id: int,
@@ -103,10 +107,10 @@ def db_ai_register_usage(
     meta: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Jednoduchý wrapper: zapíše usage event bez ceny (unit_price_micros/cost_micros = 0).
+    Legacy helper: zapíše usage event bez ceny (unit_price_micros/cost_micros = 0).
 
-    Nevyužíva sa v coach service, ale nechávam ho tu ako jednoduchý helper,
-    ak budeš chcieť niekde logovať len tokeny bez billing logiky.
+    Nevyužíva sa v novom billing core, ale môže sa hodiť na rýchle logovanie
+    bez pricingu.
     """
     row: Dict[str, Any] = {
         "user_id": user_id,
@@ -123,3 +127,45 @@ def db_ai_register_usage(
         "meta": meta or {},
     }
     return db_insert_ai_usage_event(row)
+
+
+def db_get_monthly_usage_tokens(
+    user_id: int,
+    year: int,
+    month: int,
+) -> int:
+    """
+    Spočíta total_tokens z ai_usage_events pre daného usera
+    v danom mesiaci (UTC).
+    """
+    sb = _get_sb()
+
+    # začiatok mesiaca
+    start = datetime(year, month, 1, tzinfo=timezone.utc)
+    # prvý deň ďalšieho mesiaca
+    if month == 12:
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+
+    try:
+        res = (
+            sb.table(TABLE_AI_USAGE_EVENTS)
+            .select("total_tokens")
+            .eq("user_id", user_id)
+            .gte("created_at", start.isoformat())
+            .lt("created_at", end.isoformat())
+            .execute()
+        )
+    except Exception as e:  # noqa: BLE001
+        print("[AI_BILLING][db_get_monthly_usage_tokens] error:", repr(e))
+        return 0
+
+    rows = res.data or []
+    total = 0
+    for r in rows:
+        try:
+            total += int(r.get("total_tokens") or 0)
+        except Exception:
+            continue
+    return total

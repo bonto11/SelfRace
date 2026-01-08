@@ -11,9 +11,9 @@ from Routes_DB.async_jobs import (
     db_update_job_finished,
 )
 
-from Services.coach_athlete_state import service_analyze_athlete  # ai_analyze
-from Services.coach_plan_weekly import service_generate_weekly_plan  # weekly_generate
-from Services.coach_plan_daily import (
+from Services.AI.athlete_state import service_analyze_athlete  # ai_analyze
+from Services.AI.weekly_plan import service_generate_weekly_plan  # weekly_generate
+from Services.AI.daily_plan import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
 )  # daily_generate, daily_extend
@@ -55,7 +55,7 @@ def service_enqueue_job(
     """
 
     if service:
-        jwt = user_jwt          # service klient – JWT nepotrebujeme
+        jwt = user_jwt  # service klient – JWT nepotrebujeme
     else:
         jwt = require_jwt(user_jwt)
 
@@ -282,9 +282,7 @@ def service_run_job_now(
                     user_id=user_id,
                     user_uid=str(job.get("user_uid") or ""),
                     job_type="daily_extend",
-                    payload={
-                        "min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
-                    },
+                    payload={"min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS},
                     user_jwt=payload_jwt,
                     service=(payload_jwt is None),
                 )

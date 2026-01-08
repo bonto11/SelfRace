@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from Services.maintenance import service_cleanup_deleted_activities
-from Services.coach_athlete_state import service_analyze_athlete
+from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
 
 from Configs.config import MAINTENANCE_API_KEY
@@ -82,7 +82,7 @@ async def weekly_athlete_state_refresh_endpoint(
                     save_to_db=True,
                     model=None,
                 )
-                
+
                 state_id = resp.get("state_id")
                 results.append(
                     {

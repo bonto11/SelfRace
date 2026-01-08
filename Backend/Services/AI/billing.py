@@ -1,14 +1,19 @@
-# Services/AI_Athlete_State/coach_ai_billing.py
+# Services/AI/billing.py
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from Routes_DB.ai_billing import (
     db_insert_ai_usage_event,
     db_insert_ai_wallet_transaction,
     db_get_wallet_balance_micros,
+    db_get_monthly_usage_tokens,
 )
-from Configs.ai_pricing import get_ai_pricing_for_model
+from Configs.config_ai_pricing import (
+    get_ai_pricing_for_model,
+    AI_MONTHLY_FREE_TOKENS,
+)
 
 
 # ---------------------- usage extraction ----------------------
@@ -17,16 +22,19 @@ from Configs.ai_pricing import get_ai_pricing_for_model
 def extract_usage_from_trace(trace: Any) -> Optional[Dict[str, Any]]:
     """
     Bezpečne vytiahne usage dict z trace (ak existuje).
-    Očakáva formát:
+
+    Očakávaný formát:
       trace["usage"] = {
         "model": str,
         "prompt_tokens": int,
         "completion_tokens": int,
         "total_tokens": int,
+        # voliteľne: "reasoning_tokens": int
       }
     """
     if not isinstance(trace, dict):
         return None
+
     usage = trace.get("usage")
     if not isinstance(usage, dict):
         return None
@@ -36,13 +44,16 @@ def extract_usage_from_trace(trace: Any) -> Optional[Dict[str, Any]]:
         "prompt_tokens": int(usage.get("prompt_tokens") or 0),
         "completion_tokens": int(usage.get("completion_tokens") or 0),
         "total_tokens": int(usage.get("total_tokens") or 0),
+        "reasoning_tokens": int(usage.get("reasoning_tokens") or 0),
     }
+
     if (
         out["prompt_tokens"] == 0
         and out["completion_tokens"] == 0
         and out["total_tokens"] == 0
     ):
         return None
+
     return out
 
 
@@ -102,9 +113,9 @@ def log_ai_usage_and_charge(
     price_input_micros_per_1k: int,
     price_output_micros_per_1k: int,
     price_reasoning_micros_per_1k: int,
-    billed_via: str = "internal",   # 'internal' | 'included_quota' | 'wallet'
+    billed_via: str = "internal",  # 'internal' | 'included_quota' | 'wallet'
     meta: Optional[Dict[str, Any]] = None,
-    charge_wallet: bool = False,    # či má spraviť zápis do wallet
+    charge_wallet: bool = False,  # či má spraviť zápis do wallet
 ) -> Dict[str, Any]:
     """
     Zapíše ai_usage_events + (voliteľne) ai_wallet_transactions.
@@ -193,46 +204,47 @@ def log_ai_usage_for_user(
     *,
     user_id: int,
     usage: Dict[str, Any],
-    purpose: str,
+    job_type: str,
     source: str,
-) -> None:
+    billed_via: str = "internal",
+    charge_wallet: bool = False,
+    meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
-    Jednoduchý helper, ktorý:
-      - z usage zoberie tokeny
-      - z Configs.ai_pricing vytiahne ceny pre daný model
-      - zavolá log_ai_usage_and_charge s billed_via="internal"
+    Vezme usage dict z extract_usage_from_trace a:
+
+      - vyberie model a tokeny,
+      - vytiahne pricing z Configs.ai_pricing,
+      - zavolá log_ai_usage_and_charge.
+
+    Toto vieš použiť všade: athlete_state, weekly, daily, čokoľvek.
     """
     if not user_id or not usage:
-        return
+        return {
+            "usage": None,
+            "wallet_tx": None,
+            "total_tokens": 0,
+            "cost_micros": 0,
+        }
 
-    try:
-        model = str(usage.get("model") or "").strip()
-        pricing = get_ai_pricing_for_model(model)
+    model = str(usage.get("model") or "").strip()
+    pricing = get_ai_pricing_for_model(model)
 
-        log_ai_usage_and_charge(
-            user_id=user_id,
-            model=model or "unknown",
-            job_type=purpose,
-            source=source,
-            input_tokens=int(usage.get("prompt_tokens") or 0),
-            output_tokens=int(usage.get("completion_tokens") or 0),
-            reasoning_tokens=0,  # reasoning = účtujeme ako output → tu 0
-            price_input_micros_per_1k=pricing["input_micros_per_1k"],
-            price_output_micros_per_1k=pricing["output_micros_per_1k"],
-            price_reasoning_micros_per_1k=0,
-            billed_via="internal",   # nateraz len log, nie wallet
-            meta=None,
-            charge_wallet=False,
-        )
-    except Exception as e:  # noqa: BLE001
-        print(
-            "[AI_BILLING] log_ai_usage_for_user error:",
-            repr(e),
-            "user_id=",
-            user_id,
-            "usage=",
-            usage,
-        )
+    return log_ai_usage_and_charge(
+        user_id=user_id,
+        model=model or "unknown",
+        job_type=job_type,
+        source=source,
+        input_tokens=int(usage.get("prompt_tokens") or 0),
+        output_tokens=int(usage.get("completion_tokens") or 0),
+        reasoning_tokens=int(usage.get("reasoning_tokens") or 0),
+        price_input_micros_per_1k=pricing["price_input_micros_per_1k"],
+        price_output_micros_per_1k=pricing["price_output_micros_per_1k"],
+        price_reasoning_micros_per_1k=pricing["price_reasoning_micros_per_1k"],
+        billed_via=billed_via,
+        charge_wallet=charge_wallet,
+        meta=meta or {},
+    )
 
 
 def get_user_wallet_balance_micros(user_id: int) -> int:
@@ -240,3 +252,35 @@ def get_user_wallet_balance_micros(user_id: int) -> int:
     Helper – prečíta celkový stav walletu v µ.
     """
     return db_get_wallet_balance_micros(user_id)
+
+
+def get_user_monthly_usage_tokens(
+    user_id: int,
+    *,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+) -> int:
+    """
+    Celkový počet tokenov za daný mesiac (default = aktuálny).
+    """
+    now = datetime.now(timezone.utc)
+    y = year or now.year
+    m = month or now.month
+    return db_get_monthly_usage_tokens(
+        user_id=user_id,
+        year=y,
+        month=m,
+    )
+
+
+def is_user_over_token_quota(
+    user_id: int,
+    limit_tokens: int = AI_MONTHLY_FREE_TOKENS,
+) -> bool:
+    """
+    True = user má minutý (alebo prebitý) mesačný limit AI tokenov.
+    """
+    if limit_tokens <= 0:
+        return False
+    used = get_user_monthly_usage_tokens(user_id)
+    return used >= int(limit_tokens)

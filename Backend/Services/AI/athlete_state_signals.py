@@ -1,4 +1,4 @@
-# Services/AI_Athhlete_State/coach_plan_signals.py
+# Services/AI/athlete_state_signals.py
 from __future__ import annotations
 
 from statistics import mean
