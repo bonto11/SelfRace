@@ -207,7 +207,7 @@ export async function apiGetLatestAthleteProgress(
 ): Promise<AthleteProgressRecord | null> {
   if (!userId) throw new Error("Missing userId in apiGetLatestAthleteProgress");
 
-  const path = `/coach/athlete/state/compare/latest/${encodeURIComponent(
+  const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(
     String(userId)
   )}`;
 
