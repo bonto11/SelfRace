@@ -46,7 +46,8 @@ _AI_PRICING: Dict[str, Dict[str, int]] = {
 }
 
 # mesačný limit tokenov na usera (pre všetky AI joby dokopy)
-AI_MONTHLY_FREE_TOKENS: int = 500_000
+#AI_MONTHLY_FREE_TOKENS: int = 500_000
+AI_MONTHLY_FREE_TOKENS: int = 500
 
 
 def get_ai_pricing_for_model(model: str) -> Dict[str, int]:
