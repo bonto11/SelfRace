@@ -25,9 +25,10 @@ from Services.AI_Athlete_State.coach_input_builder import build_input_from_db
 from Services.AI_Athlete_State.coach_plan_signals import compute_plan_adjustment_signals
 from Services.AI_Athlete_State.coach_ai_billing import (
     extract_usage_from_trace,
-    log_ai_usage_for_user,
+    log_ai_usage_and_charge,
 )
 
+from Configs.ai_pricing import get_ai_pricing_for_model
 from Configs.config import DEFAULT_MODEL
 
 
@@ -233,12 +234,26 @@ def service_analyze_athlete(
     if usage:
         if model_to_use:
             usage["model"] = model_to_use
-        log_ai_usage_for_user(
-            user_id=user_id,
-            usage=usage,
-            purpose="coach.analyze_state",
-            source="service" if service else "user",
-        )
+
+        pricing = get_ai_pricing_for_model(model_to_use)
+        try:
+            log_ai_usage_and_charge(
+                user_id=user_id,
+                model=model_to_use,
+                job_type="coach.analyze_state",
+                source="service" if service else "user",
+                input_tokens=int(usage.get("prompt_tokens") or 0),
+                output_tokens=int(usage.get("completion_tokens") or 0),
+                reasoning_tokens=0,
+                price_input_micros_per_1k=pricing["price_input_micros_per_1k"],
+                price_output_micros_per_1k=pricing["price_output_micros_per_1k"],
+                price_reasoning_micros_per_1k=pricing["price_reasoning_micros_per_1k"],
+                billed_via="internal",   # zatiaľ interne
+                charge_wallet=False,     # peňaženku zapneme neskôr
+                meta={},
+            )
+        except Exception as e:  # noqa: BLE001
+            print("[AI_BILLING] analyze_state billing error:", repr(e))
     # =======================================================
 
     # 2b) deterministic plan_adjustment z našich heuristík
@@ -369,12 +384,26 @@ def service_compare_latest_athlete_states(
     if usage:
         if model_to_use:
             usage["model"] = model_to_use
-        log_ai_usage_for_user(
-            user_id=user_id,
-            usage=usage,
-            purpose="coach.progress_report",
-            source="service" if service else "user",
-        )
+
+        pricing = get_ai_pricing_for_model(model_to_use)
+        try:
+            log_ai_usage_and_charge(
+                user_id=user_id,
+                model=model_to_use,
+                job_type="coach.progress_report",
+                source="service" if service else "user",
+                input_tokens=int(usage.get("prompt_tokens") or 0),
+                output_tokens=int(usage.get("completion_tokens") or 0),
+                reasoning_tokens=0,
+                price_input_micros_per_1k=pricing["price_input_micros_per_1k"],
+                price_output_micros_per_1k=pricing["price_output_micros_per_1k"],
+                price_reasoning_micros_per_1k=pricing["price_reasoning_micros_per_1k"],
+                billed_via="internal",
+                charge_wallet=False,
+                meta={},
+            )
+        except Exception as e:  # noqa: BLE001
+            print("[AI_BILLING] progress_report billing error:", repr(e))
     # ======================================================
 
     # 3) uložíme report do compare_previous na aktuálnom zázname
