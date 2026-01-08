@@ -1,4 +1,3 @@
-// src/features/coach/api/coach_athlete_state.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   AnalyzeOptions,
@@ -20,7 +19,6 @@ type LatestAthleteProgressResponse = {
   detail?: string | null;
   error?: string | null;
 };
-
 
 type AsyncJobRow = {
   id: number;
@@ -144,6 +142,9 @@ export async function apiAnalyzeAthleteState(
 
   const result = runJson.job.result;
 
+  // 👇 AI kvóta pre analyze
+  maybeThrowAiQuotaError(result);
+
   if (!result || typeof result !== "object") {
     throw new Error("Job finished but result payload is empty or invalid");
   }
@@ -183,7 +184,8 @@ export async function apiGetLatestAthleteState(
   }
 
   if (!json?.success) {
-    const msg = json.detail || json.error || "Failed to load latest athlete state";
+    const msg =
+      json.detail || json.error || "Failed to load latest athlete state";
     throw new Error(msg);
   }
 
@@ -194,7 +196,6 @@ export async function apiGetLatestAthleteState(
  * GET /coach/athlete/state/latest-progress/:user_id
  * – pre Weekly Coach Progress widget
  */
-// ... existujúci importy hore
 
 /**
  * GET /coach/athlete/state/compare/latest/:user_id
@@ -204,7 +205,8 @@ export async function apiGetLatestAthleteState(
 export async function apiGetLatestAthleteProgress(
   userId: number
 ): Promise<AthleteProgressRecord | null> {
-  if (!userId) throw new Error("Missing userId in apiGetLatestAthleteProgress");
+  if (!userId)
+    throw new Error("Missing userId in apiGetLatestAthleteProgress");
 
   const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(
     String(userId)
@@ -229,7 +231,7 @@ export async function apiGetLatestAthleteProgress(
     throw new Error(msg);
   }
 
-  console.log("json.item",json.item)
+  console.log("json.item", json.item);
   return json.item ?? null;
 }
 
@@ -244,7 +246,7 @@ export type AiBackendError = {
 export function maybeThrowAiQuotaError(result: any) {
   if (!result || typeof result !== "object") return;
 
-  const err: AiBackendError | undefined = result.error;
+  const err: AiBackendError | undefined = (result as any).error;
   if (!err || err.code !== "ai_quota_exceeded") return;
 
   const e = new Error(
