@@ -232,3 +232,28 @@ export async function apiGetLatestAthleteProgress(
   console.log("json.item",json.item)
   return json.item ?? null;
 }
+
+// ---- AI error helpers (quota) ----
+
+export type AiBackendError = {
+  code?: string | null;
+  message?: string | null;
+  used_tokens_this_month?: number | null;
+};
+
+export function maybeThrowAiQuotaError(result: any) {
+  if (!result || typeof result !== "object") return;
+
+  const err: AiBackendError | undefined = result.error;
+  if (!err || err.code !== "ai_quota_exceeded") return;
+
+  const e = new Error(
+    err.message ??
+      "Mesačný limit AI bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
+  );
+
+  (e as any).code = err.code;
+  (e as any).usedTokensThisMonth = err.used_tokens_this_month ?? null;
+
+  throw e;
+}
