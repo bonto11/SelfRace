@@ -427,7 +427,7 @@ export default function WidgetCoachPlan() {
 
       {/* chyba */}
       {error && (
-        <div className="mt-1 text-[11px] text-red-300 line-clamp-2">
+        <div className="mt-1 text-[11px] text-red-300 line-clamp-3">
           {error}
         </div>
       )}
