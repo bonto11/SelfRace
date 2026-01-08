@@ -1,4 +1,4 @@
-# backend/Services/AI/weekly_plan.py
+# Services/AI/weekly_plan.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List

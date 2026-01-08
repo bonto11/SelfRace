@@ -1,4 +1,4 @@
-# backend/Schemas/coach_types.py
+# Schemas/coach_types.py
 # Schemas/coach_types.py
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 class CoachAnalyzeInput(TypedDict):
     """Vstup pre AI analýzu atlétovho stavu."""
+
     schema_version: int
     user: Dict[str, Any]
     prefs: Dict[str, Any]
@@ -23,6 +24,7 @@ class CoachAnalyzeInput(TypedDict):
 
 class CoachAthleteState(TypedDict):
     """Výstup z AI analýzy formy."""
+
     schema_version: int
     generated_at: str
     model: str
@@ -50,6 +52,7 @@ class WeeklyWeek(TypedDict, total=False):
 
 class CoachWeeklyPlanInput(TypedDict):
     """Čo posielame AI pre weekly plán (high-level týždne)."""
+
     schema_version: int
     prefs: Dict[str, Any]
     athlete_state: Dict[str, Any]
@@ -58,6 +61,7 @@ class CoachWeeklyPlanInput(TypedDict):
 
 class CoachWeeklyPlan(TypedDict):
     """AI výstup – plán po týždňoch."""
+
     schema_version: int
     generated_at: str
     model: str
@@ -83,6 +87,7 @@ class DailySession(TypedDict, total=False):
 
 class DailyDay(TypedDict, total=False):
     """Jeden deň v týždni – to, čo berieme/vkladáme do DB."""
+
     day: str
     notes: Optional[str]
     sessions: List[DailySession]
@@ -90,16 +95,18 @@ class DailyDay(TypedDict, total=False):
 
 class CoachDailyWeekInput(TypedDict):
     """Vstup pre AI na rozbitie 1 týždňa weekly plánu na denné tréningy."""
+
     schema_version: int
-    week: WeeklyWeek          # week_context z weekly plánu
+    week: WeeklyWeek  # week_context z weekly plánu
     prefs: Dict[str, Any]
     athlete_state: Dict[str, Any]
     existing_days: List[DailyDay]
-    meta: Dict[str, Any]      # user_id, plan_id, atď.
+    meta: Dict[str, Any]  # user_id, plan_id, atď.
 
 
 class CoachDailyWeekPlan(TypedDict):
     """AI výstup – detailný plán na 1 týždeň (7 dní)."""
+
     schema_version: int
     generated_at: str
     model: str

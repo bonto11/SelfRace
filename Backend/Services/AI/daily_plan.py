@@ -1,15 +1,15 @@
-# backend/Services/AI/daily_plan.py
+# Services/AI/daily_plan.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 from datetime import date
 
 from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
-from backend.Services.AI.daily_builders import (
+from Services.AI.daily_builders import (
     build_daily_rows_from_ai,
     build_daily_context_from_db,
 )
-from backend.Services.AI.billing import (
+from Services.AI.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
     is_user_over_token_quota,

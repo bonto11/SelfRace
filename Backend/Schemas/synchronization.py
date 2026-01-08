@@ -1,7 +1,8 @@
-# backend/Schemas/synchronization.py
+# Schemas/synchronization.py
 from __future__ import annotations
 from typing import Dict, Optional
 from pydantic import BaseModel
+
 
 class SyncActivitiesRequest(BaseModel):
     force_last_days: Optional[int] = 30

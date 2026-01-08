@@ -70,6 +70,7 @@ _MIN_FALLBACK: Dict[str, Dict[str, Dict[str, Any]]] = {
     },
 }
 
+
 def _project_path_candidates() -> list[Path]:
     """
     Preferuj ENV, potom cesty relatívne k tomuto súboru.
@@ -77,19 +78,22 @@ def _project_path_candidates() -> list[Path]:
     """
     env = os.getenv("TRAINING_TYPES_PATH")
     here = Path(__file__).resolve().parent
-    root = here.parent  # backend/
+    root = here.parent  #
 
     candidates = []
     if env:
         candidates.append(Path(env))
 
-    # tvoje aktuálne umiestnenie: backend/shared/files/training_types.json
+    # tvoje aktuálne umiestnenie: shared/files/training_types.json
     candidates.append(here / "files" / "training_types.json")
     # alternatívy, keby si niekedy presunul súbor
     candidates.append(here / "training_types.json")
-    candidates.append(root / "data" / "training_types.json")  # legacy – už nepreferujeme
+    candidates.append(
+        root / "data" / "training_types.json"
+    )  # legacy – už nepreferujeme
 
     return candidates
+
 
 def _validate_catalog(obj: Any) -> Optional[Dict[str, Dict[str, Dict[str, Any]]]]:
     """
@@ -119,6 +123,7 @@ def _validate_catalog(obj: Any) -> Optional[Dict[str, Dict[str, Dict[str, Any]]]
             out[str(sport)] = g2
     return out if out else None
 
+
 def _load_catalog_from_disk() -> Tuple[Dict[str, Dict[str, Dict[str, Any]]], str]:
     for p in _project_path_candidates():
         try:
@@ -134,6 +139,7 @@ def _load_catalog_from_disk() -> Tuple[Dict[str, Dict[str, Dict[str, Any]]], str
     # nič nenašlo – spadnúť nechceme, vrátime minimálny fallback
     return _MIN_FALLBACK, "FALLBACK::embedded"
 
+
 def get_session_type_catalog_for_prompt() -> Dict[str, Dict[str, Dict[str, Any]]]:
     """
     Verejná funkcia – používa ju plan_generation.py.
@@ -146,6 +152,7 @@ def get_session_type_catalog_for_prompt() -> Dict[str, Dict[str, Dict[str, Any]]
     _CACHED_CATALOG = cat
     _CACHED_PATH = used_path
     return cat
+
 
 def training_types_path_debug() -> str:
     """
