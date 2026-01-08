@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Dict
+from Configs.config import DEFAULT_MODEL
 
 # ceny = µ (micros) / 1k tokenov, podľa STANDARD tier
 AI_PRICING_MICROS: Dict[str, Dict[str, int]] = {
@@ -27,7 +28,7 @@ AI_PRICING_MICROS: Dict[str, Dict[str, int]] = {
     },
 }
 
-DEFAULT_MODEL_PRICING_KEY = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-4o-mini"
 
 
 def get_ai_pricing_for_model(model: str) -> Dict[str, int]:
@@ -36,7 +37,7 @@ def get_ai_pricing_for_model(model: str) -> Dict[str, int]:
     Ak model nepoznáme, použijeme fallback.
     """
     if not model:
-        return AI_PRICING_MICROS[DEFAULT_MODEL_PRICING_KEY]
+        return AI_PRICING_MICROS[DEFAULT_MODEL]
 
     model = model.strip()
 
@@ -52,4 +53,4 @@ def get_ai_pricing_for_model(model: str) -> Dict[str, int]:
     if base in AI_PRICING_MICROS:
         return AI_PRICING_MICROS[base]
 
-    return AI_PRICING_MICROS[DEFAULT_MODEL_PRICING_KEY]
+    return AI_PRICING_MICROS[DEFAULT_MODEL]
