@@ -114,6 +114,7 @@ def get_latest_athlete_progress(
             version=1,
             user_jwt=user_jwt,
         )
+        print("get_latest_athlete_progress row",row)
         return {
             "success": True,
             "progress": row,  # môže byť None, ak ešte nie je žiadne porovnanie

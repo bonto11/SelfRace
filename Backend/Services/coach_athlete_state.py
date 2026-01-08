@@ -896,6 +896,8 @@ def service_get_latest_athlete_progress(
     if not row:
         return None
 
+    print("service_get_latest_athlete_progress row",row)
+
     return {
         "id": row.get("id"),
         "user_id": row.get("user_id"),
