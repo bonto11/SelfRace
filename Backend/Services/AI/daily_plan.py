@@ -64,7 +64,11 @@ def service_generate_daily_week(
     daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
     # 0) QUOTA CHECK – obmedzenie pre user-trigger volania (FE / RLS)
-    if not service and is_user_over_token_quota(user_id):
+    if not service and is_user_over_token_quota(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    ):
         used = get_user_monthly_usage_tokens(user_id)
         return {
             "daily_plan": None,
