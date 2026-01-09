@@ -1,8 +1,11 @@
+// src/features/billing/components/BillingPanel.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import Button from "@/app/shared/components/ui/Button";
+import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { toast } from "@/app/shared/components/ui/Toast";
 
 import {
@@ -20,11 +23,20 @@ import {
   setSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
 
-import BillingStatusCard from "./BillingStatusCard";
-import BillingTierSelector from "./BillingTierSelector";
-import BillingHistory from "./BillingHistory";
+import BillingUsageBar from "@/app/features/billing/components/BillingUsageBar";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
+
+const TIER_ORDER: Record<string, number> = {
+  free: 0,
+  classic: 1,
+  pro: 2,
+};
+
+function tierRank(code: string | null | undefined): number {
+  if (!code) return 0;
+  return TIER_ORDER[code] ?? 0;
+}
 
 export default function BillingPanel() {
   const { userId } = useUserId();
@@ -37,6 +49,7 @@ export default function BillingPanel() {
   );
 
   const plannedChange = status?.scheduled_change ?? null;
+  const activeSub = status?.active_subscription ?? null;
 
   // load status + tiers
   useEffect(() => {
@@ -94,7 +107,15 @@ export default function BillingPanel() {
   }, [userId]);
 
   const tiers: AppSubscriptionTier[] = status?.tiers ?? [];
-  const activeSub = status?.active_subscription ?? null;
+  const activeRank = tierRank(activeTierCode);
+
+  const currentTier =
+    tiers.find((t) => t.code === activeTierCode) ??
+    tiers.find((t) => t.code === "free") ??
+    null;
+
+  const limitTokens = currentTier?.ai_monthly_tokens_limit ?? 0;
+  const usedTokens = status?.current_month_usage_tokens ?? 0;
 
   async function handleSetTier(tierCode: string) {
     if (!userId) {
@@ -160,20 +181,121 @@ export default function BillingPanel() {
     );
   }
 
+  const hasPlannedChange =
+    !!plannedChange &&
+    !!activeSub &&
+    !!activeSub.current_period_end &&
+    activeSub.cancel_at_period_end;
+
   return (
     <div className="space-y-6">
-      {/* Current status + AI usage */}
-      <BillingStatusCard
-        status={status}
-        activeTierCode={activeTierCode}
-        plannedChange={plannedChange as any}
-        loadingStatus={loading === "status"}
-        loadingAny={loading === "set-tier"}
-        error={error}
-        onCancelPlannedChange={handleCancelPlannedChange}
-      />
+      {/* Current status */}
+      <section className="rounded-xl border border-white/10 bg-black/40 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold">Subscription status</h2>
+            <p className="text-xs opacity-70">
+              Aktuálny mód aplikácie a AI limity.
+            </p>
+          </div>
+          {loading === "status" && <LoadingSpinner size="button" />}
+        </div>
 
-      {/* Tier selector */}
+        {error && (
+          <p className="mt-2 text-xs text-red-400 line-clamp-2">{error}</p>
+        )}
+
+        <div className="mt-3 text-sm space-y-1">
+          <div>
+            <span className="opacity-70">Current tier: </span>
+            <span className="font-semibold uppercase">
+              {activeTierCode || "free"}
+            </span>
+          </div>
+
+          {activeSub ? (
+            <>
+              <div>
+                <span className="opacity-70">Status: </span>
+                <span className="font-semibold">
+                  {activeSub.status}
+                  {activeSub.cancel_at_period_end &&
+                    " (cancel at period end)"}
+                </span>
+              </div>
+              <div className="text-xs opacity-75">
+                {activeSub.current_period_start &&
+                  activeSub.current_period_end && (
+                    <>
+                      Billing period:{" "}
+                      {activeSub.current_period_start.slice(0, 10)} →{" "}
+                      {activeSub.current_period_end.slice(0, 10)}
+                    </>
+                  )}
+              </div>
+
+              {/* PROGRESS BAR */}
+              {currentTier && limitTokens > 0 && (
+                <BillingUsageBar
+                  limitTokens={limitTokens}
+                  usedTokens={usedTokens}
+                />
+              )}
+
+              {hasPlannedChange && (
+                <div className="mt-2 text-xs">
+                  <div className="text-amber-300">
+                    {plannedChange.kind === "cancel"
+                      ? "Planned cancellation"
+                      : "Planned downgrade"}{" "}
+                    {plannedChange.to_tier_code && (
+                      <>
+                        to{" "}
+                        <span className="font-semibold uppercase">
+                          {plannedChange.to_tier_code}
+                        </span>
+                      </>
+                    )}{" "}
+                    {plannedChange.effective_from && (
+                      <>
+                        from{" "}
+                        <span className="font-mono">
+                          {plannedChange.effective_from.slice(0, 10)}
+                        </span>
+                      </>
+                    )}
+                    .
+                  </div>
+
+                  <div className="mt-1">
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      disabled={loading === "set-tier"}
+                      onClick={handleCancelPlannedChange}
+                    >
+                      {loading === "set-tier" ? (
+                        <span className="inline-flex items-center gap-1">
+                          <LoadingSpinner size="button" />
+                          Keeping current…
+                        </span>
+                      ) : (
+                        "Keep current program"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs opacity-75">
+              Nemáš aktívne platené členstvo. Používaš free tier.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Tiers list + manual switch */}
       <section className="rounded-xl border border-white/10 bg-black/40 p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -185,22 +307,162 @@ export default function BillingPanel() {
           </div>
         </div>
 
-        <BillingTierSelector
-          tiers={tiers}
-          activeTierCode={activeTierCode}
-          plannedChange={plannedChange as any}
-          isBusy={loading === "set-tier"}
-          onSetTier={handleSetTier}
-        />
+        {tiers.length === 0 ? (
+          <p className="mt-3 text-sm opacity-70">
+            Zatiaľ nemáš v DB nakonfigurované žiadne subscription tiers.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {tiers.map((tier) => {
+              const isCurrent = tier.code === activeTierCode;
+              const priceEur = (tier.monthly_price_cents || 0) / 100;
+              const rank = tierRank(tier.code);
+              const isUpgrade = rank > activeRank;
+              const isDowngrade = rank < activeRank;
+
+              const isPlannedTarget =
+                !!plannedChange &&
+                plannedChange.to_tier_code === tier.code &&
+                plannedChange.kind === "downgrade";
+
+              let buttonLabel = "Switch to this tier";
+              if (isCurrent) {
+                buttonLabel = "Current tier";
+              } else if (tier.code === "free" && plannedChange?.kind === "cancel") {
+                buttonLabel = plannedChange.effective_from
+                  ? `Cancel on ${plannedChange.effective_from.slice(0, 10)}`
+                  : "Cancel scheduled";
+              } else if (isPlannedTarget) {
+                buttonLabel = plannedChange?.effective_from
+                  ? `Downgrade on ${plannedChange.effective_from.slice(0, 10)}`
+                  : "Downgrade scheduled";
+              } else if (tier.code === "free") {
+                buttonLabel = "Schedule cancel";
+              } else if (isDowngrade) {
+                buttonLabel = "Schedule downgrade";
+              } else if (isUpgrade) {
+                buttonLabel = "Upgrade now";
+              }
+
+              const disabled =
+                loading === "set-tier" ||
+                isCurrent ||
+                isPlannedTarget ||
+                (tier.code === "free" && plannedChange?.kind === "cancel");
+
+              return (
+                <div
+                  key={tier.id}
+                  className={`rounded-lg border px-3 py-3 text-sm bg-black/40 ${
+                    isCurrent
+                      ? "border-emerald-400/70"
+                      : isPlannedTarget ||
+                        (tier.code === "free" && plannedChange?.kind === "cancel")
+                      ? "border-amber-400/70"
+                      : "border-white/10 opacity-90"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-semibold uppercase tracking-wide text-xs">
+                        {tier.code}
+                      </div>
+                      <div className="text-xs opacity-70">{tier.name}</div>
+                    </div>
+                    {isCurrent && (
+                      <span className="text-[10px] rounded-full border border-emerald-400/70 px-2 py-0.5 text-emerald-300">
+                        current
+                      </span>
+                    )}
+                    {!isCurrent &&
+                      (isPlannedTarget ||
+                        (tier.code === "free" &&
+                          plannedChange?.kind === "cancel")) && (
+                        <span className="text-[10px] rounded-full border border-amber-400/70 px-2 py-0.5 text-amber-300">
+                          scheduled
+                        </span>
+                      )}
+                  </div>
+
+                  <div className="mt-2 text-sm">
+                    {priceEur === 0 ? (
+                      <span className="font-semibold">Free</span>
+                    ) : (
+                      <span className="font-semibold">
+                        {priceEur.toFixed(2)} € / mesiac
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-1 text-[11px] opacity-70">
+                    AI limit:{" "}
+                    <span className="font-semibold">
+                      {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")}{" "}
+                      tokenov / mesiac
+                    </span>
+                  </div>
+
+                  {tier.description && (
+                    <p className="mt-1 text-[11px] opacity-80 line-clamp-3">
+                      {tier.description}
+                    </p>
+                  )}
+
+                  <div className="mt-3">
+                    <Button
+                      size="xs"
+                      variant={isCurrent ? "secondary" : "primary"}
+                      disabled={disabled}
+                      onClick={() => handleSetTier(tier.code)}
+                    >
+                      {loading === "set-tier" && !isCurrent ? (
+                        <span className="inline-flex items-center gap-1">
+                          <LoadingSpinner size="button" />
+                          Switching…
+                        </span>
+                      ) : (
+                        buttonLabel
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* History */}
+      {/* History (optional info) */}
       <section className="rounded-xl border border-white/10 bg-black/40 p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold">History</h2>
         </div>
 
-        <BillingHistory history={history} />
+        {history.length === 0 ? (
+          <p className="mt-2 text-xs opacity-70">
+            Zatiaľ žiadne záznamy o subscriptionoch.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-2 text-xs">
+            {history.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between rounded-md border border-white/10 px-3 py-2"
+              >
+                <div>
+                  <div className="font-semibold uppercase">
+                    {s.tier_code} • {s.status}
+                  </div>
+                  <div className="opacity-70">
+                    {s.current_period_start?.slice(0, 10)} →{" "}
+                    {s.current_period_end?.slice(0, 10)}
+                  </div>
+                </div>
+                <div className="opacity-60">{s.created_at.slice(0, 10)}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
