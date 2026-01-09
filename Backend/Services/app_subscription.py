@@ -1,8 +1,8 @@
-# backend/Services/app_subscription.py
+# Services/app_subscription.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from datetime import date, timedelta
+from datetime import datetime, timezone
 
 from Routes_DB.app_subscription import (
     db_list_app_subscription_tiers,
@@ -11,27 +11,11 @@ from Routes_DB.app_subscription import (
     db_update_app_user_subscription_status,
     db_list_app_user_subscriptions,
     db_get_active_app_subscription_for_user,
-    db_get_user_app_subscription_tier,
     db_set_user_app_subscription_tier,
+    db_get_user_app_subscription_tier,
 )
-from Services.users import require_jwt
 
-
-def _resolve_jwt(
-    user_jwt: Optional[str],
-    *,
-    service: bool,
-) -> Optional[str]:
-    """
-    Helper – v RLS režime vyžaduje platný JWT, v service režime
-    len preposiela (môže byť None).
-    """
-    if service:
-        return user_jwt
-    return require_jwt(user_jwt)
-
-
-# --------- TIERS ---------
+# ---------- TIERS ----------
 
 
 def service_list_app_subscription_tiers(
@@ -40,62 +24,47 @@ def service_list_app_subscription_tiers(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
-    jwt = _resolve_jwt(user_jwt, service=service)
-
+    """
+    Zoznam tierov pre FE / admin.
+    Default: RLS (service=False, user_jwt z FE).
+    """
     return db_list_app_subscription_tiers(
         include_inactive=include_inactive,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
 
-def service_get_app_subscription_tier_by_code(
-    code: str,
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Optional[Dict[str, Any]]:
-    jwt = _resolve_jwt(user_jwt, service=service)
-
-    return db_get_app_subscription_tier_by_code(
-        code,
-        user_jwt=jwt,
-        service=service,
-    )
-
-
-# --------- USER SUBSCRIPTIONS / STATUS ---------
+# ---------- STATUS / HISTORY ----------
 
 
 def service_get_user_app_subscription_status(
-    user_id: int,
     *,
+    user_id: int,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
     """
-    Hlavný "status" objekt pre FE:
-      - aktuálny tier_code (users.app_subscription_tier alebo 'free'),
-      - aktívny subscription z app_user_subscriptions (ak existuje),
-      - zoznam dostupných tierov (len active).
+    Vráti:
+      - aktuálny tier flag z users.app_subscription_tier (alebo 'free')
+      - aktívny subscription z app_user_subscriptions (ak existuje)
+      - zoznam tierov (len aktívne)
     """
-    jwt = _resolve_jwt(user_jwt, service=service)
-
     tier_code = db_get_user_app_subscription_tier(
         user_id=user_id,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
     active_sub = db_get_active_app_subscription_for_user(
         user_id=user_id,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
     tiers = db_list_app_subscription_tiers(
         include_inactive=False,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
@@ -108,96 +77,89 @@ def service_get_user_app_subscription_status(
 
 
 def service_list_user_app_subscriptions(
-    user_id: int,
     *,
+    user_id: int,
     limit: int = 20,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    História subscriptionov pre usera (napr. do settings → Billing history).
+    História subscriptionov pre usera.
     """
-    jwt = _resolve_jwt(user_jwt, service=service)
-
     return db_list_app_user_subscriptions(
         user_id=user_id,
         limit=limit,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
 
-# --------- DEV / MANUAL UPGRADE (bez reálnej platby) ---------
+# ---------- DEV: manuálne prepnutie tieru ----------
 
 
 def service_set_user_app_subscription_tier_manual(
+    *,
     user_id: int,
     tier_code: str,
-    *,
-    # dev endpoint → typicky service=True (admin/service klient),
     user_jwt: Optional[str] = None,
-    service: bool = True,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
-    DEV/ADMIN helper:
-      - nastaví users.app_subscription_tier,
-      - založí/aktualizuje active subscription v app_user_subscriptions.
+    DEV/ADMIN helper – manuálne prepne tier usera (bez reálnej platby).
 
-    Toto neskôr nahradíš logikou z platobnej brány (webhook).
+    Robí:
+      1) validuje, že tier_code existuje v app_subscription_tiers
+      2) zruší aktuálny active subscription (ak je)
+      3) založí nový active subscription
+      4) nastaví users.app_subscription_tier = tier_code
     """
-    jwt = _resolve_jwt(user_jwt, service=service)
-
     # 1) validácia tieru
     tier = db_get_app_subscription_tier_by_code(
-        tier_code,
-        user_jwt=jwt,
+        code=tier_code,
+        user_jwt=user_jwt,
         service=service,
     )
     if not tier:
-        raise ValueError(f"Unknown app_subscription_tier code: {tier_code!r}")
+        raise ValueError(f"Unknown subscription tier: {tier_code!r}")
 
-    # 2) zruš existujúci ACTIVE (jednoducho nastav status='cancelled')
+    # 2) zruš existujúci active subscription (ak je)
     active = db_get_active_app_subscription_for_user(
         user_id=user_id,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
-    if active and isinstance(active.get("id"), int):
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    if active and active.get("id"):
         db_update_app_user_subscription_status(
             subscription_id=int(active["id"]),
             status="cancelled",
-            user_jwt=jwt,
+            current_period_end=now,
+            user_jwt=user_jwt,
             service=service,
-            meta_patch={
-                **(active.get("meta") or {}),
-                "cancel_reason": "manual_change",
-            },
         )
 
-    # 3) založ nový ACTIVE period (jednoducho 30 dní od dnes)
-    today = date.today()
-    start_iso = today.isoformat()
-    end_iso = (today + timedelta(days=30)).isoformat()
-
+    # 3) založ nový active subscription (DEV: bez current_period_end)
     new_sub = db_insert_app_user_subscription(
         user_id=user_id,
         tier_code=tier_code,
         status="active",
-        current_period_start=start_iso,
-        current_period_end=end_iso,
+        current_period_start=now,
+        current_period_end=None,
         cancel_at_period_end=False,
         external_customer_id=None,
         external_subscription_id=None,
         meta={"source": "manual_dev"},
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
-    # 4) users.app_subscription_tier
+    # 4) nastav flag na users
     user_row = db_set_user_app_subscription_tier(
         user_id=user_id,
         tier_code=tier_code,
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
 
