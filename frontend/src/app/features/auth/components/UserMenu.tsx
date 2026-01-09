@@ -178,7 +178,6 @@ export default function UserMenu() {
                 {me?.email || me?.name || ""}
               </div>
             </div>
-
             <nav className="py-1 flex flex-col gap-1">
               <a
                 className="block w-full px-3 py-2 text-sm hover:bg:white/10 hover:bg-white/10"
@@ -191,6 +190,14 @@ export default function UserMenu() {
                 href="/profile"
               >
                 Zmeniť e-mail / profil
+              </a>
+
+              {/* NEW: Account / Billing */}
+              <a
+                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                href="/account"
+              >
+                Account / Billing
               </a>
 
               {stravaConnectUrl && (
@@ -230,6 +237,7 @@ export default function UserMenu() {
                 {busy === "signout" ? "Odhlasujem…" : "Odhlásiť sa"}
               </button>
             </nav>
+            
           </div>
         </div>
       )}
