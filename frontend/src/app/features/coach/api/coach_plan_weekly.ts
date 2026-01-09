@@ -1,5 +1,5 @@
-// src/features/coach/api/coach_plan_weekly.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
+import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
 
 /* ---------- spoločné typy pre async_jobs (rovnaké ako pri analyze/daily) ---------- */
 
@@ -122,6 +122,9 @@ export async function apiGenerateWeeklyPlan(
   }
 
   const result = runJson.job.result;
+
+  // 👇 AI kvóta pre weekly plán
+  maybeThrowAiQuotaError(result);
 
   if (!result || typeof result !== "object") {
     throw new Error(
