@@ -18,6 +18,11 @@ import {
   type AppUserSubscription,
 } from "@/app/features/billing/api/app_subscription";
 
+import {
+  getSubscriptionTier,
+  setSubscriptionTier,
+} from "@/app/shared/state/subscriptionTierStore";
+
 type LoadingKind = "status" | "history" | "set-tier" | null;
 
 const TIER_ORDER: Record<string, number> = {
@@ -37,7 +42,9 @@ export default function BillingPanel() {
   const [history, setHistory] = useState<AppUserSubscription[]>([]);
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
-  const [activeTierCode, setActiveTierCode] = useState<string>("free");
+  const [activeTierCode, setActiveTierCode] = useState<string>(
+    () => getSubscriptionTier() || "free"
+  );
 
   const plannedChange = status?.scheduled_change ?? null;
   const activeSub = status?.active_subscription ?? null;
@@ -54,8 +61,10 @@ export default function BillingPanel() {
         const st = await apiGetAppSubscriptionStatus(userId);
         if (!alive) return;
         if (st) {
+          const code = st.tier_code || "free";
           setStatus(st);
-          setActiveTierCode(st.tier_code || "free");
+          setActiveTierCode(code);
+          setSubscriptionTier(code);
         }
       } catch (e: any) {
         if (!alive) return;
@@ -113,7 +122,9 @@ export default function BillingPanel() {
 
       const st = await apiGetAppSubscriptionStatus(userId);
       setStatus(st);
-      setActiveTierCode(st?.tier_code || tierCode);
+      const code = st?.tier_code || tierCode;
+      setActiveTierCode(code);
+      setSubscriptionTier(code);
 
       const h = await apiGetAppSubscriptionHistory(userId, 20);
       setHistory(h);
@@ -137,7 +148,9 @@ export default function BillingPanel() {
 
       const st = await apiGetAppSubscriptionStatus(userId);
       setStatus(st);
-      setActiveTierCode(st?.tier_code || "free");
+      const code = st?.tier_code || "free";
+      setActiveTierCode(code);
+      setSubscriptionTier(code);
 
       const h = await apiGetAppSubscriptionHistory(userId, 20);
       setHistory(h);
@@ -403,7 +416,7 @@ export default function BillingPanel() {
 
       {/* History (optional info) */}
       <section className="rounded-xl border border-white/10 bg-black/40 p-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify_between gap-2">
           <h2 className="text-base font-semibold">History</h2>
         </div>
 

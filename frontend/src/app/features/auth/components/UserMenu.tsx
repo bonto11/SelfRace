@@ -8,6 +8,10 @@ import { resetClientCache } from "@/app/shared/utils/resetClientCache";
 import { toast } from "@/app/shared/components/ui/Toast";
 import { apiSyncActivities } from "@/app/features/activities/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
+import {
+  getSubscriptionTier,
+  subscribeSubscriptionTier,
+} from "@/app/shared/state/subscriptionTierStore";
 
 type LocalUser = {
   id: number | null;
@@ -16,6 +20,8 @@ type LocalUser = {
   name: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  // ak ti /api/auth/me už vracia app_subscription_tier, môžeš ho sem doplniť:
+  // app_subscription_tier?: string | null;
 };
 
 const STRAVA_API_BASE = "https://api-dev.patrikmbontar.eu";
@@ -24,6 +30,7 @@ export default function UserMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"reload" | "import" | "signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
+  const [tierCode, setTierCode] = useState<string>(() => getSubscriptionTier() || "free");
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -36,7 +43,17 @@ export default function UserMenu() {
         });
         const j = await r.json();
         if (!alive) return;
-        if (j?.ok && j.user) setMe(j.user as LocalUser);
+        if (j?.ok && j.user) {
+          const user = j.user as LocalUser;
+          setMe(user);
+
+          // ak ti BE niekedy začne posielať tier v /me, vieš ho tu napojiť:
+          // if ((user as any).app_subscription_tier) {
+          //   const code = (user as any).app_subscription_tier as string;
+          //   setTierCode(code);
+          //   setSubscriptionTier(code);
+          // }
+        }
       } catch {
         /* ignore */
       }
@@ -44,6 +61,14 @@ export default function UserMenu() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  // subscribe na globálny tier store – update hneď po zmene v Billingu
+  useEffect(() => {
+    const unsubscribe = subscribeSubscriptionTier((next) => {
+      setTierCode(next || "free");
+    });
+    return unsubscribe;
   }, []);
 
   const label = useMemo(
@@ -125,13 +150,18 @@ export default function UserMenu() {
 
       resetClientCache();
     } catch (e: any) {
-      toast.error(
-        e?.message || "Import from Strava failed."
-      );
+      toast.error(e?.message || "Import from Strava failed.");
     } finally {
       setBusy(null);
     }
   }
+
+  const tierClass =
+    tierCode === "pro"
+      ? "bg-purple-500/90 text-white"
+      : tierCode === "classic"
+      ? "bg-sky-600/90 text-white"
+      : "bg-slate-700 text-slate-100";
 
   return (
     <div ref={boxRef} className="relative">
@@ -141,9 +171,22 @@ export default function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="text-sm max-w-[140px] truncate text-right">
-          {label}
-        </span>
+        <div className="flex items-center gap-1 max-w-[160px]">
+          <span className="text-sm max-w-[120px] truncate text-right">
+            {label}
+          </span>
+          {tierCode && (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold ${tierClass}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.location.href = "/account";
+              }}
+            >
+              {tierCode.toUpperCase()}
+            </span>
+          )}
+        </div>
 
         {me?.avatarUrl ? (
           <Image
@@ -171,13 +214,25 @@ export default function UserMenu() {
         <div className="absolute right-0 mt-2 w-64 z-50">
           <div className="rounded-xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
             <div className="px-3 py-2 text-sm border-b border-white/10">
-              <div className="font-medium">
-                {me?.displayName || me?.name || "User"}
-              </div>
-              <div className="opacity-70 truncate">
-                {me?.email || me?.name || ""}
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium">
+                    {me?.displayName || me?.name || "User"}
+                  </div>
+                  <div className="opacity-70 truncate">
+                    {me?.email || me?.name || ""}
+                  </div>
+                </div>
+                {tierCode && (
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold ${tierClass}`}
+                  >
+                    {tierCode.toUpperCase()}
+                  </span>
+                )}
               </div>
             </div>
+
             <nav className="py-1 flex flex-col gap-1">
               <a
                 className="block w-full px-3 py-2 text-sm hover:bg:white/10 hover:bg-white/10"
@@ -192,7 +247,6 @@ export default function UserMenu() {
                 Zmeniť e-mail / profil
               </a>
 
-              {/* NEW: Account / Billing */}
               <a
                 className="block w-full px-3 py-2 text-sm hover:bg-white/10"
                 href="/account"
@@ -209,7 +263,6 @@ export default function UserMenu() {
                 </a>
               )}
 
-              {/* Import from Strava */}
               {me?.id && (
                 <button
                   className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
@@ -220,7 +273,6 @@ export default function UserMenu() {
                 </button>
               )}
 
-              {/* Reload data */}
               <button
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
                 onClick={handleReloadData}
@@ -237,7 +289,6 @@ export default function UserMenu() {
                 {busy === "signout" ? "Odhlasujem…" : "Odhlásiť sa"}
               </button>
             </nav>
-            
           </div>
         </div>
       )}
