@@ -20,8 +20,7 @@ def db_list_app_subscription_tiers(
     service: bool = True,
 ) -> List[Dict[str, Any]]:
     """
-    Vráti zoznam app tierov (free / classic / pro ...).
-    Typicky service=True (bez RLS), ale môžeš to volať aj cez RLS.
+    Zoznam app tierov (free / classic / pro ...).
     """
     sb = get_sb(
         user_jwt=user_jwt,
@@ -32,7 +31,7 @@ def db_list_app_subscription_tiers(
     query = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .select("*")
-        .order("sort_order", ascending=True)
+        .order("sort_order", desc=False)  # vzostupne
     )
 
     if not include_inactive:
@@ -49,7 +48,7 @@ def db_get_app_subscription_tier_by_code(
     service: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """
-    Vráti konkrétny tier podľa code (napr. 'free', 'classic', 'pro').
+    Konkrétny tier podľa code (napr. 'free', 'classic', 'pro').
     """
     sb = get_sb(
         user_jwt=user_jwt,
@@ -82,7 +81,6 @@ def db_upsert_app_subscription_tier(
 ) -> Dict[str, Any]:
     """
     Insert / update jedného tieru (podľa code).
-    Použiješ skôr v admin nástrojoch.
     """
     sb = get_sb(
         user_jwt=user_jwt,
@@ -103,7 +101,7 @@ def db_upsert_app_subscription_tier(
     res = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .upsert(payload, on_conflict="code")
-        .select("*")           # Pylance tu môže hundrať, runtime v Supabase je OK
+        .select("*")  # Pylance môže hundrať, runtime je OK
         .maybe_single()
         .execute()
     )
@@ -151,7 +149,7 @@ def db_insert_app_user_subscription(
     res = (
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .insert(payload)
-        .select("*")           # rovnaký pattern ako inde
+        .select("*")
         .maybe_single()
         .execute()
     )
@@ -192,7 +190,7 @@ def db_update_app_user_subscription_status(
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .update(patch)
         .eq("id", subscription_id)
-        .select("*")           # tu prípadne môžeš dať  # type: ignore[attr-defined]
+        .select("*")  # ak veľmi svieti, pridaj  # type: ignore[attr-defined]
         .maybe_single()
         .execute()
     )
@@ -219,7 +217,7 @@ def db_list_app_user_subscriptions(
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .select("*")
         .eq("user_id", user_id)
-        .order("created_at", ascending=False)
+        .order("created_at", desc=True)  # najnovšie hore
         .limit(limit)
         .execute()
     )
@@ -246,7 +244,7 @@ def db_get_active_app_subscription_for_user(
         .select("*")
         .eq("user_id", user_id)
         .eq("status", "active")
-        .order("current_period_end", ascending=False)
+        .order("current_period_end", desc=True)  # najneskorší koniec
         .limit(1)
         .maybe_single()
         .execute()
