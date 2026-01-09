@@ -28,17 +28,17 @@ def db_list_app_subscription_tiers(
         caller="app_subscription_tiers.list",
     )
 
-    query = (
+    res = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .select("*")
         .order("sort_order", desc=False)  # vzostupne
+        .execute()
     )
 
+    rows: List[Dict[str, Any]] = res.data or []
     if not include_inactive:
-        query = query.eq("is_active", True)
-
-    res = query.execute()
-    return res.data or []
+        rows = [r for r in rows if r.get("is_active")]
+    return rows
 
 
 def db_get_app_subscription_tier_by_code(
@@ -61,10 +61,11 @@ def db_get_app_subscription_tier_by_code(
         .select("*")
         .eq("code", code)
         .limit(1)
-        .maybe_single()
         .execute()
     )
-    return res.data
+
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows[0] if rows else None
 
 
 def db_upsert_app_subscription_tier(
@@ -101,11 +102,11 @@ def db_upsert_app_subscription_tier(
     res = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .upsert(payload, on_conflict="code")
-        .select("*")  # Pylance môže hundrať, runtime je OK
-        .maybe_single()
         .execute()
     )
-    return res.data
+
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows[0] if rows else payload
 
 
 # --------- USER SUBSCRIPTIONS (app_user_subscriptions) ---------
@@ -149,11 +150,11 @@ def db_insert_app_user_subscription(
     res = (
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .insert(payload)
-        .select("*")
-        .maybe_single()
         .execute()
     )
-    return res.data
+
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows[0] if rows else payload
 
 
 def db_update_app_user_subscription_status(
@@ -190,11 +191,11 @@ def db_update_app_user_subscription_status(
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .update(patch)
         .eq("id", subscription_id)
-        .select("*")  # ak veľmi svieti, pridaj  # type: ignore[attr-defined]
-        .maybe_single()
         .execute()
     )
-    return res.data
+
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows[0] if rows else patch
 
 
 def db_list_app_user_subscriptions(
@@ -221,7 +222,9 @@ def db_list_app_user_subscriptions(
         .limit(limit)
         .execute()
     )
-    return res.data or []
+
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows
 
 
 def db_get_active_app_subscription_for_user(
@@ -246,10 +249,11 @@ def db_get_active_app_subscription_for_user(
         .eq("status", "active")
         .order("current_period_end", desc=True)  # najneskorší koniec
         .limit(1)
-        .maybe_single()
         .execute()
     )
-    return res.data
+
+    rows: List[Dict[str, Any]] = res.data or []
+    return rows[0] if rows else None
 
 
 # --------- users.app_subscription_tier helper ---------
@@ -275,11 +279,12 @@ def db_set_user_app_subscription_tier(
         sb.table(TABLE_USERS)
         .update({"app_subscription_tier": tier_code})
         .eq("id", user_id)
-        .select("id, app_subscription_tier")
-        .maybe_single()
         .execute()
     )
-    return res.data
+
+    rows: List[Dict[str, Any]] = res.data or []
+    # typicky 1 riadok, ale fallback na to, čo sme poslali
+    return rows[0] if rows else {"id": user_id, "app_subscription_tier": tier_code}
 
 
 def db_get_user_app_subscription_tier(
@@ -302,9 +307,10 @@ def db_get_user_app_subscription_tier(
         .select("app_subscription_tier")
         .eq("id", user_id)
         .limit(1)
-        .maybe_single()
         .execute()
     )
-    row = res.data or {}
+
+    rows: List[Dict[str, Any]] = res.data or []
+    row = rows[0] if rows else {}
     tier = row.get("app_subscription_tier") or "free"
     return str(tier)
