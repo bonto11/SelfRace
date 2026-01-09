@@ -1,4 +1,3 @@
-// src/features/billing/api/app_subscription.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 /* ---------- typy z BE tabuliek ---------- */
@@ -39,18 +38,18 @@ export type AppSubscriptionScheduledChange = {
 export type AppSubscriptionAiQuota = {
   monthly_limit_tokens: number | null;
   used_tokens_this_month: number | null;
-  remaining_tokens?: number | null;
-  is_over?: boolean | null;
-  reset_at?: string | null;
+  remaining_tokens: number | null;
+  is_over: boolean | null;
+  reset_at: string | null;
 };
 
 export type AppSubscriptionStatus = {
   user_id: number;
-  tier_code: string;
+  tier_code: string; // "free", ak nič iné
   active_subscription: AppUserSubscription | null;
   tiers: AppSubscriptionTier[];
   scheduled_change?: AppSubscriptionScheduledChange | null;
-  ai_quota?: AppSubscriptionAiQuota | null;   // ✅ nový field
+  ai_quota?: AppSubscriptionAiQuota | null; // <-- usage info pre progress bar
 };
 
 type ListTiersResponse = {
