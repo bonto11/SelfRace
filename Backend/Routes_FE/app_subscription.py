@@ -99,7 +99,7 @@ def set_user_app_subscription_tier_manual(
             user_id=user_id,
             tier_code=payload.tier_code,
             user_jwt=user_jwt,
-            service=True,  # service klient (obíde RLS)
+            service=False,
         )
         return {"success": True, **result}
     except ValueError as ve:
