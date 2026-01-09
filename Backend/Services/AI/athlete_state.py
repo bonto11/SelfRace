@@ -202,7 +202,11 @@ def service_analyze_athlete(
         jwt = require_jwt(user_jwt)
 
     # 0) QUOTA CHECK – obmedzenie pre user-trigger volania
-    if not service and is_user_over_token_quota(user_id):
+    if not service and is_user_over_token_quota(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    ):
         used = get_user_monthly_usage_tokens(user_id)
         return {
             "state_id": None,
@@ -363,7 +367,11 @@ def service_compare_latest_athlete_states(
         jwt = require_jwt(user_jwt)
 
     # voliteľne: quota check aj tu (aby FE nemohol spamovať progress report)
-    if not service and is_user_over_token_quota(user_id):
+    if not service and is_user_over_token_quota(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    ):
         used = get_user_monthly_usage_tokens(user_id)
         return {
             "ok": False,
