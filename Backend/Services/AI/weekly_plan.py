@@ -59,7 +59,11 @@ def service_generate_weekly_plan(
     plan_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
     # 0) QUOTA CHECK – obmedzenie pre user-trigger volania
-    if not service and is_user_over_token_quota(user_id):
+    if not service and is_user_over_token_quota(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    ):
         used = get_user_monthly_usage_tokens(user_id)
         return {
             "weekly_plan": None,
@@ -107,24 +111,24 @@ def service_generate_weekly_plan(
     usage = extract_usage_from_trace(trace)
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
-        if plan_model:
-            usage["model"] = plan_model
-        try:
-            billing_result = log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.generate_weekly_plan",
-                source="service" if service else "user",
-                billed_via="internal",  # zatiaľ len interné logovanie, bez walletu
-                charge_wallet=False,
-                meta={
-                    "state_id": used_state_id,
-                    "requested_weeks": weeks,
-                    "horizon_weeks": horizon_weeks,
-                },
-            )
-        except Exception as e:  # noqa: BLE001
-            print("[AI_BILLING] weekly_plan billing error:", repr(e))
+      if plan_model:
+          usage["model"] = plan_model
+      try:
+          billing_result = log_ai_usage_for_user(
+              user_id=user_id,
+              usage=usage,
+              job_type="coach.generate_weekly_plan",
+              source="service" if service else "user",
+              billed_via="internal",  # zatiaľ len interné logovanie, bez walletu
+              charge_wallet=False,
+              meta={
+                  "state_id": used_state_id,
+                  "requested_weeks": weeks,
+                  "horizon_weeks": horizon_weeks,
+              },
+          )
+      except Exception as e:  # noqa: BLE001
+          print("[AI_BILLING] weekly_plan billing error:", repr(e))
 
     # 4) vyber plan_id (z AI alebo nové)
     if isinstance(weekly_plan, dict) and weekly_plan.get("plan_id"):
