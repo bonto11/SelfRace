@@ -1,4 +1,4 @@
-name: Weekly athlete state
+name: Weekly athlete state (dev)
 
 on:
   workflow_dispatch:
@@ -11,13 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call weekly athlete state endpoint
+      - name: Call weekly athlete state endpoint (dev)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
-          BACKEND_BASE_URL: ${{ secrets.BACKEND_BASE_URL }}
         run: |
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{"max_users": 5}' \
-            "$BACKEND_BASE_URL/maintenance/weekly-athlete-state-refresh"
+            https://api-dev.patrikmbontar.eu/maintenance/weekly-athlete-state-refresh
