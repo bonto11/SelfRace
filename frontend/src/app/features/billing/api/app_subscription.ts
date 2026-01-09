@@ -207,3 +207,39 @@ export async function apiSetAppSubscriptionTierManual(
 
   return json;
 }
+
+type CancelPlannedResponse = SetTierResponse; // rovnaký shape
+
+export async function apiCancelPlannedSubscriptionChange(
+  userId: number
+): Promise<CancelPlannedResponse> {
+  if (!userId) {
+    throw new Error("Missing userId in apiCancelPlannedSubscriptionChange");
+  }
+
+  const path = `/app/subscription/cancel-scheduled/${encodeURIComponent(
+    String(userId)
+  )}`;
+
+  let json: CancelPlannedResponse;
+  try {
+    json = await callBackend<CancelPlannedResponse>(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+    });
+  } catch (err: any) {
+    console.error("[Billing][apiCancelPlannedSubscriptionChange] ERROR", err);
+    throw err instanceof Error
+      ? err
+      : new Error(`Network/BE error (cancel-scheduled): ${String(err)}`);
+  }
+
+  if (!json?.success) {
+    throw new Error(
+      json.detail || json.error || "Failed to cancel scheduled change"
+    );
+  }
+
+  return json;
+}

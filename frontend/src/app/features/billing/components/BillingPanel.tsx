@@ -12,6 +12,7 @@ import {
   apiGetAppSubscriptionStatus,
   apiGetAppSubscriptionHistory,
   apiSetAppSubscriptionTierManual,
+  apiCancelPlannedSubscriptionChange,
   type AppSubscriptionStatus,
   type AppSubscriptionTier,
   type AppUserSubscription,
@@ -39,6 +40,7 @@ export default function BillingPanel() {
   const [activeTierCode, setActiveTierCode] = useState<string>("free");
 
   const plannedChange = status?.scheduled_change ?? null;
+  const activeSub = status?.active_subscription ?? null;
 
   // load status + tiers
   useEffect(() => {
@@ -109,7 +111,6 @@ export default function BillingPanel() {
       await apiSetAppSubscriptionTierManual(userId, tierCode);
       toast.success(`Tier switched to "${tierCode}".`);
 
-      // refresh status & history
       const st = await apiGetAppSubscriptionStatus(userId);
       setStatus(st);
       setActiveTierCode(st?.tier_code || tierCode);
@@ -125,6 +126,30 @@ export default function BillingPanel() {
     }
   }
 
+  async function handleCancelPlannedChange() {
+    if (!userId) return;
+
+    setLoading("set-tier");
+    setError(null);
+    try {
+      await apiCancelPlannedSubscriptionChange(userId);
+      toast.success("Plánovaná zmena zrušená. Zostáva aktuálny program.");
+
+      const st = await apiGetAppSubscriptionStatus(userId);
+      setStatus(st);
+      setActiveTierCode(st?.tier_code || "free");
+
+      const h = await apiGetAppSubscriptionHistory(userId, 20);
+      setHistory(h);
+    } catch (e: any) {
+      const msg = e?.message || "Failed to cancel scheduled change.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(null);
+    }
+  }
+
   if (!userId) {
     return (
       <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-sm">
@@ -132,6 +157,12 @@ export default function BillingPanel() {
       </div>
     );
   }
+
+  const hasPlannedChange =
+    !!plannedChange &&
+    !!activeSub &&
+    !!activeSub.current_period_end &&
+    activeSub.cancel_at_period_end;
 
   return (
     <div className="space-y-6">
@@ -159,56 +190,69 @@ export default function BillingPanel() {
             </span>
           </div>
 
-          {status?.active_subscription ? (
+          {activeSub ? (
             <>
               <div>
                 <span className="opacity-70">Status: </span>
                 <span className="font-semibold">
-                  {status.active_subscription.status}
-                  {status.active_subscription.cancel_at_period_end &&
+                  {activeSub.status}
+                  {activeSub.cancel_at_period_end &&
                     " (cancel at period end)"}
                 </span>
               </div>
               <div className="text-xs opacity-75">
-                {status.active_subscription.current_period_start &&
-                  status.active_subscription.current_period_end && (
+                {activeSub.current_period_start &&
+                  activeSub.current_period_end && (
                     <>
                       Billing period:{" "}
-                      {status.active_subscription.current_period_start.slice(
-                        0,
-                        10
-                      )}{" "}
-                      →{" "}
-                      {status.active_subscription.current_period_end.slice(
-                        0,
-                        10
-                      )}
+                      {activeSub.current_period_start.slice(0, 10)} →{" "}
+                      {activeSub.current_period_end.slice(0, 10)}
                     </>
                   )}
               </div>
 
-              {plannedChange && (
-                <div className="mt-1 text-xs text-amber-300">
-                  {plannedChange.kind === "cancel"
-                    ? "Planned cancellation"
-                    : "Planned downgrade"}{" "}
-                  {plannedChange.to_tier_code && (
-                    <>
-                      to{" "}
-                      <span className="font-semibold uppercase">
-                        {plannedChange.to_tier_code}
-                      </span>
-                    </>
-                  )}{" "}
-                  {plannedChange.effective_from && (
-                    <>
-                      from{" "}
-                      <span className="font-mono">
-                        {plannedChange.effective_from.slice(0, 10)}
-                      </span>
-                    </>
-                  )}
-                  .
+              {hasPlannedChange && (
+                <div className="mt-2 text-xs">
+                  <div className="text-amber-300">
+                    {plannedChange.kind === "cancel"
+                      ? "Planned cancellation"
+                      : "Planned downgrade"}{" "}
+                    {plannedChange.to_tier_code && (
+                      <>
+                        to{" "}
+                        <span className="font-semibold uppercase">
+                          {plannedChange.to_tier_code}
+                        </span>
+                      </>
+                    )}{" "}
+                    {plannedChange.effective_from && (
+                      <>
+                        from{" "}
+                        <span className="font-mono">
+                          {plannedChange.effective_from.slice(0, 10)}
+                        </span>
+                      </>
+                    )}
+                    .
+                  </div>
+
+                  <div className="mt-1">
+                    <Button
+                      size="xs"
+                      variant="secondary"
+                      disabled={loading === "set-tier"}
+                      onClick={handleCancelPlannedChange}
+                    >
+                      {loading === "set-tier" ? (
+                        <span className="inline-flex items-center gap-1">
+                          <LoadingSpinner size="button" />
+                          Keeping current…
+                        </span>
+                      ) : (
+                        "Keep current program"
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
@@ -270,7 +314,9 @@ export default function BillingPanel() {
               }
 
               const disabled =
-                loading === "set-tier" || isCurrent || isPlannedTarget ||
+                loading === "set-tier" ||
+                isCurrent ||
+                isPlannedTarget ||
                 (tier.code === "free" && plannedChange?.kind === "cancel");
 
               return (
@@ -297,12 +343,14 @@ export default function BillingPanel() {
                         current
                       </span>
                     )}
-                    {!isCurrent && (isPlannedTarget ||
-                      (tier.code === "free" && plannedChange?.kind === "cancel")) && (
-                      <span className="text-[10px] rounded-full border border-amber-400/70 px-2 py-0.5 text-amber-300">
-                        scheduled
-                      </span>
-                    )}
+                    {!isCurrent &&
+                      (isPlannedTarget ||
+                        (tier.code === "free" &&
+                          plannedChange?.kind === "cancel")) && (
+                        <span className="text-[10px] rounded-full border border-amber-400/70 px-2 py-0.5 text-amber-300">
+                          scheduled
+                        </span>
+                      )}
                   </div>
 
                   <div className="mt-2 text-sm">
@@ -379,9 +427,7 @@ export default function BillingPanel() {
                     {s.current_period_end?.slice(0, 10)}
                   </div>
                 </div>
-                <div className="opacity-60">
-                  {s.created_at.slice(0, 10)}
-                </div>
+                <div className="opacity-60">{s.created_at.slice(0, 10)}</div>
               </div>
             ))}
           </div>

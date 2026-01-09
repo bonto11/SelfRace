@@ -12,6 +12,7 @@ from Routes_DB.app_subscription import (
     db_list_app_user_subscriptions,
     db_get_active_app_subscription_for_user,
     db_list_due_subscription_changes,
+    db_set_user_app_subscription_tier,
 )
 
 TIER_ORDER: Dict[str, int] = {
@@ -331,3 +332,64 @@ def service_apply_due_subscription_changes(
         )
 
     return {"now": now_iso, "count": len(processed), "items": processed}
+
+def service_cancel_scheduled_subscription_change(
+    *,
+    user_id: int,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Dict[str, Any]:
+    """
+    Zruší pending_downgrade/pending_cancel na aktuálnom active subscriptione.
+    Použiješ z Billing UI ako 'Keep current program'.
+    """
+    active = db_get_active_app_subscription_for_user(
+        user_id=user_id,
+        user_jwt=user_jwt,
+        service=service,
+    )
+    if not active:
+        raise ValueError("No active subscription to update.")
+
+    sub_id = int(active["id"])
+    meta = dict(active.get("meta") or {})
+    changed = False
+
+    if meta.pop("pending_downgrade_to", None) is not None:
+        changed = True
+    if meta.pop("pending_cancel", None) is not None:
+        changed = True
+
+    if not active.get("cancel_at_period_end") and not changed:
+        # nič nie je naplánované
+        return {"active_subscription": active, "tier": None, "user": None}
+
+    # resetni cancel_at_period_end + meta
+    updated = db_update_app_user_subscription_status(
+        subscription_id=sub_id,
+        status=active.get("status", "active"),
+        cancel_at_period_end=False,
+        meta_patch=meta,
+        user_jwt=user_jwt,
+        service=service,
+    )
+
+    # quick flag v users necháme ako je (ostáva aktuálny tier)
+    user_row = db_set_user_app_subscription_tier(
+        user_id=user_id,
+        tier_code=str(updated.get("tier_code", active.get("tier_code"))),
+        user_jwt=user_jwt,
+        service=service,
+    )
+
+    tier = db_get_app_subscription_tier_by_code(
+        code=str(updated.get("tier_code")),
+        user_jwt=user_jwt,
+        service=service,
+    )
+
+    return {
+        "user": user_row,
+        "active_subscription": updated,
+        "tier": tier,
+    }

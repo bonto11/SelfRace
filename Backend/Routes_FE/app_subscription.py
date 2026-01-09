@@ -4,13 +4,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Body, HTTPException
 from pydantic import BaseModel
 
-from Modules.HTTP.auth_deps import require_user_jwt
+from Modules.HTTP.auth_deps import require_user_jwt 
 from Services.app_subscription import (
     service_list_app_subscription_tiers,
     service_get_user_app_subscription_status,
     service_list_user_app_subscriptions,
     service_set_user_app_subscription_tier_manual,
-    service_apply_due_subscription_changes,
+    service_cancel_scheduled_subscription_change, 
 )
 
 router = APIRouter(
@@ -90,3 +90,23 @@ def set_user_app_subscription_tier_manual(
     raise HTTPException(status_code=400, detail=str(ve))
   except Exception as e:  # noqa: BLE001
     raise HTTPException(status_code=500, detail=str(e))
+  
+@router.post("/cancel-scheduled/{user_id}")
+def cancel_scheduled_subscription_change(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
+):
+    """
+    Zruší naplánovaný downgrade/cancel (keep current tier).
+    """
+    try:
+        result = service_cancel_scheduled_subscription_change(
+            user_id=user_id,
+            user_jwt=user_jwt,
+            service=False,
+        )
+        return {"success": True, **result}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))

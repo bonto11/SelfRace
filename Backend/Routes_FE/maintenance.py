@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from Services.maintenance import service_cleanup_deleted_activities
 from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
+from Services.app_subscription import service_apply_due_subscription_changes
 from Configs.config import MAINTENANCE_API_KEY
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
@@ -109,6 +110,32 @@ async def weekly_athlete_state_refresh_endpoint(
             }
         )
 
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(
+            {"ok": False, "error": str(e)},
+            status_code=500,
+        )
+    
+@router.post("/app-subscriptions/apply-due")
+async def maintenance_apply_due_app_subscriptions(
+    x_api_key: str | None = Header(default=None),
+):
+    """
+    Cron endpoint – volaný raz denne zvonka (GitHub Actions / Railway cron).
+    Vykoná všetky naplánované zmeny subscriptionov.
+    """
+    if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or missing API key",
+        )
+
+    try:
+        result = service_apply_due_subscription_changes(
+            user_jwt=None,
+            service=True,  # service klient na DB, bez RLS
+        )
+        return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
         return JSONResponse(
             {"ok": False, "error": str(e)},

@@ -1,0 +1,22 @@
+name: Cron – apply subscription changes
+
+on:
+  schedule:
+    # raz denne o 03:00 UTC (uprav podľa seba)
+    - cron: "0 0 * * *"
+  # možnosť spustiť manuálne z GitHub UI
+  workflow_dispatch: {}
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call maintenance /app-subscriptions/apply-due
+        run: |
+          curl -X POST \
+            -H "X-API-Key: ${{ secrets.MAINTENANCE_API_KEY }}" \
+            "$BACKEND_BASE_URL/maintenance/app-subscriptions/apply-due"
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+          BACKEND_BASE_URL: ${{ secrets.BACKEND_BASE_URL }}
