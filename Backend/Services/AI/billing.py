@@ -14,6 +14,9 @@ from Configs.config_ai_pricing import (
     get_ai_pricing_for_model,
     AI_MONTHLY_FREE_TOKENS,
 )
+from Services.app_subscription import (
+    service_get_user_app_subscription_status,
+)
 
 
 # ---------------------- usage extraction ----------------------
@@ -273,13 +276,94 @@ def get_user_monthly_usage_tokens(
     )
 
 
+# ---------------------- quota podľa tieru --------------------
+
+
+def get_user_ai_quota_status_for_current_tier(
+    user_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Dict[str, Any]:
+    """
+    Vráti info o kvóte podľa aktuálneho app subscription tieru:
+
+      {
+        "user_id": int,
+        "tier_code": "free" | "classic" | "pro" | ...,
+        "limit_tokens": int,
+        "used_tokens": int,
+        "remaining_tokens": int,
+        "is_over": bool,
+      }
+
+    - limit_tokens sa číta z app_subscription_tiers.ai_monthly_tokens_limit
+    - ak sa tier nenájde alebo limit <= 0, fallback je AI_MONTHLY_FREE_TOKENS
+    """
+    # Zober status z app_subscription service
+    status: Dict[str, Any] = service_get_user_app_subscription_status(
+        user_id=user_id,
+        user_jwt=user_jwt,
+        service=service,
+    )
+
+    tier_code = (status or {}).get("tier_code") or "free"
+    tiers = (status or {}).get("tiers") or []
+
+    limit_tokens: Optional[int] = None
+    for t in tiers:
+        if str(t.get("code")) == str(tier_code):
+            try:
+                limit_tokens = int(t.get("ai_monthly_tokens_limit") or 0)
+            except Exception:
+                limit_tokens = 0
+            break
+
+    # Fallback na globálnu free hodnotu (staré správanie), ak nič v DB
+    if limit_tokens is None or limit_tokens <= 0:
+        try:
+            limit_tokens = int(AI_MONTHLY_FREE_TOKENS or 0)
+        except Exception:
+            limit_tokens = 0
+
+    used_tokens = get_user_monthly_usage_tokens(user_id)
+    remaining_tokens = max(limit_tokens - used_tokens, 0) if limit_tokens > 0 else 0
+    is_over = used_tokens >= limit_tokens if limit_tokens > 0 else False
+
+    return {
+        "user_id": user_id,
+        "tier_code": tier_code,
+        "limit_tokens": limit_tokens,
+        "used_tokens": used_tokens,
+        "remaining_tokens": remaining_tokens,
+        "is_over": is_over,
+    }
+
+
 def is_user_over_token_quota(
     user_id: int,
-    limit_tokens: int = AI_MONTHLY_FREE_TOKENS,
+    limit_tokens: Optional[int] = None,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> bool:
     """
     True = user má minutý (alebo prebitý) mesačný limit AI tokenov.
+
+    - Ak `limit_tokens` je zadaný, použije sa priamo (napr. pre špeciálne akcie).
+    - Ak `limit_tokens` je None, použije sa limit podľa aktuálneho tieru
+      (app_subscription_tiers.ai_monthly_tokens_limit) s fallbackom na
+      AI_MONTHLY_FREE_TOKENS.
     """
+    # Nové správanie – podľa tieru
+    if limit_tokens is None:
+        quota = get_user_ai_quota_status_for_current_tier(
+            user_id=user_id,
+            user_jwt=user_jwt,
+            service=service,
+        )
+        return bool(quota.get("is_over"))
+
+    # Manuálne zadaný limit (kompatibilita so starým použitím)
     if limit_tokens <= 0:
         return False
     used = get_user_monthly_usage_tokens(user_id)
