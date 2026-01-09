@@ -36,12 +36,21 @@ export type AppSubscriptionScheduledChange = {
   effective_from: string | null;
 };
 
+export type AppSubscriptionAiQuota = {
+  monthly_limit_tokens: number | null;
+  used_tokens_this_month: number | null;
+  remaining_tokens?: number | null;
+  is_over?: boolean | null;
+  reset_at?: string | null;
+};
+
 export type AppSubscriptionStatus = {
   user_id: number;
-  tier_code: string; // "free", ak nič iné
+  tier_code: string;
   active_subscription: AppUserSubscription | null;
   tiers: AppSubscriptionTier[];
   scheduled_change?: AppSubscriptionScheduledChange | null;
+  ai_quota?: AppSubscriptionAiQuota | null;   // ✅ nový field
 };
 
 type ListTiersResponse = {
