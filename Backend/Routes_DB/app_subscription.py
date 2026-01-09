@@ -32,7 +32,7 @@ def db_list_app_subscription_tiers(
     query = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .select("*")
-        .order("sort_order", ascending=True)
+        .order("sort_order", desc=False)
     )
 
     if not include_inactive:
