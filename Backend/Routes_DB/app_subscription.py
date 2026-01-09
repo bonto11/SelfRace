@@ -4,7 +4,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
-from Configs.config import TABLE_APP_USER_SUBSCRIPTIONS, TABLE_USERS
+from Configs.config import (
+    TABLE_APP_SUBSCRIPTION_TIERS,
+    TABLE_APP_USER_SUBSCRIPTIONS,
+    TABLE_USERS,
+)
 
 # --------- TIERY (app_subscription_tiers) ---------
 
@@ -15,13 +19,22 @@ def db_list_app_subscription_tiers(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> List[Dict[str, Any]]:
-    
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="app_user_subscriptions")
+    """
+    Vráti zoznam app tierov (Free / Classic / Pro...).
+    Typicky service=True (bez RLS), ale môžeš to volať aj cez RLS.
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_subscription_tiers.list",
+    )
+
     query = (
-        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .select("*")
         .order("sort_order", ascending=True)
     )
+
     if not include_inactive:
         query = query.eq("is_active", True)
 
@@ -35,9 +48,17 @@ def db_get_app_subscription_tier_by_code(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    client = _get_client(user_jwt, service)
+    """
+    Vráti konkrétny tier podľa code (napr. 'free', 'classic', 'pro').
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_subscription_tiers.get_by_code",
+    )
+
     res = (
-        client.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .select("*")
         .eq("code", code)
         .limit(1)
@@ -59,7 +80,15 @@ def db_upsert_app_subscription_tier(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> Dict[str, Any]:
-    client = _get_client(user_jwt, service)
+    """
+    Insert / update jedného tieru (podľa code).
+    Použiješ skôr v admin nástrojoch.
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_subscription_tiers.upsert",
+    )
 
     payload = {
         "code": code,
@@ -72,7 +101,7 @@ def db_upsert_app_subscription_tier(
     }
 
     res = (
-        client.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .upsert(payload, on_conflict="code")
         .select("*")
         .maybe_single()
@@ -98,7 +127,14 @@ def db_insert_app_user_subscription(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> Dict[str, Any]:
-    client = _get_client(user_jwt, service)
+    """
+    Vloží nový záznam do app_user_subscriptions (napr. po webhooku z platobnej brány).
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_user_subscriptions.insert",
+    )
 
     payload = {
         "user_id": user_id,
@@ -113,7 +149,7 @@ def db_insert_app_user_subscription(
     }
 
     res = (
-        client.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .insert(payload)
         .select("*")
         .maybe_single()
@@ -133,7 +169,14 @@ def db_update_app_user_subscription_status(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> Dict[str, Any]:
-    client = _get_client(user_jwt, service)
+    """
+    Update statusu / period end atď. pre existujúci subscription.
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_user_subscriptions.update_status",
+    )
 
     patch: Dict[str, Any] = {"status": status}
     if current_period_start is not None:
@@ -146,7 +189,7 @@ def db_update_app_user_subscription_status(
         patch["meta"] = meta_patch
 
     res = (
-        client.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .update(patch)
         .eq("id", subscription_id)
         .select("*")
@@ -163,9 +206,17 @@ def db_list_app_user_subscriptions(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> List[Dict[str, Any]]:
-    client = _get_client(user_jwt, service)
+    """
+    História všetkých subscriptionov usera (napr. pre admin alebo settings UI).
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_user_subscriptions.list_for_user",
+    )
+
     res = (
-        client.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .select("*")
         .eq("user_id", user_id)
         .order("created_at", ascending=False)
@@ -181,9 +232,17 @@ def db_get_active_app_subscription_for_user(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    client = _get_client(user_jwt, service)
+    """
+    Vráti posledný ACTIVE subscription pre usera (ak existuje).
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_user_subscriptions.get_active_for_user",
+    )
+
     res = (
-        client.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .select("*")
         .eq("user_id", user_id)
         .eq("status", "active")
@@ -205,9 +264,17 @@ def db_set_user_app_subscription_tier(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> Dict[str, Any]:
-    client = _get_client(user_jwt, service)
+    """
+    Nastaví users.app_subscription_tier (rýchly flag pre FE / billing).
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="users.set_app_subscription_tier",
+    )
+
     res = (
-        client.table("users")
+        sb.table(TABLE_USERS)
         .update({"app_subscription_tier": tier_code})
         .eq("id", user_id)
         .select("id, app_subscription_tier")
@@ -223,9 +290,17 @@ def db_get_user_app_subscription_tier(
     user_jwt: Optional[str] = None,
     service: bool = True,
 ) -> str:
-    client = _get_client(user_jwt, service)
+    """
+    Vráti users.app_subscription_tier (alebo 'free' ak je NULL).
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="users.get_app_subscription_tier",
+    )
+
     res = (
-        client.table("users")
+        sb.table(TABLE_USERS)
         .select("app_subscription_tier")
         .eq("id", user_id)
         .limit(1)
