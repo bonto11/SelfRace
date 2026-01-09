@@ -1,4 +1,3 @@
-# Services/AI/billing.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -219,8 +218,6 @@ def log_ai_usage_for_user(
       - vyberie model a tokeny,
       - vytiahne pricing z Configs.ai_pricing,
       - zavolá log_ai_usage_and_charge.
-
-    Toto vieš použiť všade: athlete_state, weekly, daily, čokoľvek.
     """
     if not user_id or not usage:
         return {
@@ -290,15 +287,13 @@ def get_user_ai_quota_status_for_current_tier(
 
       {
         "user_id": int,
-        "tier_code": "free" | "classic" | "pro" | ...,
+        "tier_code": "...",
         "limit_tokens": int,
         "used_tokens": int,
         "remaining_tokens": int,
         "is_over": bool,
+        "reset_at": str | None,
       }
-
-    - limit_tokens sa číta z app_subscription_tiers.ai_monthly_tokens_limit
-    - ak sa tier nenájde alebo limit <= 0, fallback je AI_MONTHLY_FREE_TOKENS
     """
     # Zober status z app_subscription service
     status: Dict[str, Any] = service_get_user_app_subscription_status(
@@ -309,6 +304,7 @@ def get_user_ai_quota_status_for_current_tier(
 
     tier_code = (status or {}).get("tier_code") or "free"
     tiers = (status or {}).get("tiers") or []
+    active_sub = (status or {}).get("active_subscription") or None
 
     limit_tokens: Optional[int] = None
     for t in tiers:
@@ -330,6 +326,10 @@ def get_user_ai_quota_status_for_current_tier(
     remaining_tokens = max(limit_tokens - used_tokens, 0) if limit_tokens > 0 else 0
     is_over = used_tokens >= limit_tokens if limit_tokens > 0 else False
 
+    reset_at: Optional[str] = None
+    if isinstance(active_sub, dict):
+        reset_at = active_sub.get("current_period_end")
+
     return {
         "user_id": user_id,
         "tier_code": tier_code,
@@ -337,6 +337,7 @@ def get_user_ai_quota_status_for_current_tier(
         "used_tokens": used_tokens,
         "remaining_tokens": remaining_tokens,
         "is_over": is_over,
+        "reset_at": reset_at,
     }
 
 
@@ -349,10 +350,8 @@ def is_user_over_token_quota(
     """
     True = user má minutý (alebo prebitý) mesačný limit AI tokenov.
 
-    - Ak `limit_tokens` je zadaný, použije sa priamo (napr. pre špeciálne akcie).
-    - Ak `limit_tokens` je None, použije sa limit podľa aktuálneho tieru
-      (app_subscription_tiers.ai_monthly_tokens_limit) s fallbackom na
-      AI_MONTHLY_FREE_TOKENS.
+    - Ak `limit_tokens` je zadaný, použije sa priamo.
+    - Ak je None, použije sa limit podľa aktuálneho tieru.
     """
     # Nové správanie – podľa tieru
     if limit_tokens is None:
