@@ -1,4 +1,3 @@
-# Routes_DB/ai_billing.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -22,20 +21,6 @@ def _get_sb():
 def db_insert_ai_usage_event(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     Vloží jeden riadok do ai_usage_events a vráti vložený záznam (alebo None).
-
-    Očakávané polia v `row`:
-      - user_id: int
-      - model: str
-      - job_type: str
-      - source: str ('service' | 'user' | ...)
-      - input_tokens: int
-      - output_tokens: int
-      - reasoning_tokens: int
-      - total_tokens: int
-      - unit_price_micros: int
-      - cost_micros: int
-      - billed_via: str ('internal' | 'included_quota' | 'wallet')
-      - meta: jsonb / dict
     """
     sb = _get_sb()
     res = sb.table(TABLE_AI_USAGE_EVENTS).insert(row).execute()
@@ -51,14 +36,6 @@ def db_insert_ai_wallet_transaction(
 ) -> Optional[Dict[str, Any]]:
     """
     Vloží jeden riadok do ai_wallet_transactions a vráti vložený záznam (alebo None).
-
-    Očakávané polia v `row`:
-      - user_id: int
-      - kind: str ('usage_charge' | 'topup' | ...)
-      - amount_micros: int  (kladné = dobite, záporné = odpis)
-      - source: str ('ai_usage' | 'manual' | ...)
-      - related_usage_event_id: int | None
-      - meta: jsonb / dict
     """
     sb = _get_sb()
     res = sb.table(TABLE_AI_WALLET_TRANSACTION).insert(row).execute()
@@ -69,9 +46,6 @@ def db_insert_ai_wallet_transaction(
 def db_get_wallet_balance_micros(user_id: int) -> int:
     """
     Jednoduchý helper: spočíta aktuálny stav walletu v µ (micros).
-
-    Implementácia je brute-force SUM nad ai_wallet_transactions.
-    Keď budeš chcieť výkon, spravíš materializovaný view / trigger.
     """
     sb = _get_sb()
     try:
@@ -108,9 +82,6 @@ def db_ai_register_usage(
 ) -> Optional[Dict[str, Any]]:
     """
     Legacy helper: zapíše usage event bez ceny (unit_price_micros/cost_micros = 0).
-
-    Nevyužíva sa v novom billing core, ale môže sa hodiť na rýchle logovanie
-    bez pricingu.
     """
     row: Dict[str, Any] = {
         "user_id": user_id,
