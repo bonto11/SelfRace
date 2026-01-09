@@ -10,7 +10,7 @@ from Configs.config import (
     TABLE_USERS,
 )
 
-# --------- TIERY (app_subscription_tiers) ---------
+# --------- TIERS (app_subscription_tiers) ---------
 
 
 def db_list_app_subscription_tiers(
@@ -20,7 +20,7 @@ def db_list_app_subscription_tiers(
     service: bool = True,
 ) -> List[Dict[str, Any]]:
     """
-    Vráti zoznam app tierov (Free / Classic / Pro...).
+    Vráti zoznam app tierov (free / classic / pro ...).
     Typicky service=True (bez RLS), ale môžeš to volať aj cez RLS.
     """
     sb = get_sb(
@@ -32,7 +32,7 @@ def db_list_app_subscription_tiers(
     query = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .select("*")
-        .order("sort_order", desc=False)
+        .order("sort_order", ascending=True)
     )
 
     if not include_inactive:
@@ -103,7 +103,7 @@ def db_upsert_app_subscription_tier(
     res = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
         .upsert(payload, on_conflict="code")
-        .select("*")
+        .select("*")           # Pylance tu môže hundrať, runtime v Supabase je OK
         .maybe_single()
         .execute()
     )
@@ -151,7 +151,7 @@ def db_insert_app_user_subscription(
     res = (
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .insert(payload)
-        .select("*")
+        .select("*")           # rovnaký pattern ako inde
         .maybe_single()
         .execute()
     )
@@ -192,7 +192,7 @@ def db_update_app_user_subscription_status(
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
         .update(patch)
         .eq("id", subscription_id)
-        .select("*")
+        .select("*")           # tu prípadne môžeš dať  # type: ignore[attr-defined]
         .maybe_single()
         .execute()
     )
