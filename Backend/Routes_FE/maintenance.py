@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 from Services.maintenance import service_cleanup_deleted_activities
 from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
-
 from Configs.config import MAINTENANCE_API_KEY
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])

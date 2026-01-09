@@ -147,11 +147,7 @@ def db_insert_app_user_subscription(
         "meta": meta or {},
     }
 
-    res = (
-        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
-        .insert(payload)
-        .execute()
-    )
+    res = sb.table(TABLE_APP_USER_SUBSCRIPTIONS).insert(payload).execute()
 
     rows: List[Dict[str, Any]] = res.data or []
     return rows[0] if rows else payload
@@ -314,3 +310,33 @@ def db_get_user_app_subscription_tier(
     row = rows[0] if rows else {}
     tier = row.get("app_subscription_tier") or "free"
     return str(tier)
+
+
+def db_list_due_subscription_changes(
+    *,
+    now_iso: str,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+    limit: int = 1000,
+) -> List[Dict[str, Any]]:
+    """
+    ACTIVE subscriptions s cancel_at_period_end = true
+    a current_period_end <= now_iso.
+    """
+    sb = get_sb(
+        user_jwt=user_jwt,
+        service=service,
+        caller="app_user_subscriptions.list_due_changes",
+    )
+
+    res = (
+        sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
+        .select("*")
+        .eq("status", "active")
+        .eq("cancel_at_period_end", True)
+        .lte("current_period_end", now_iso)
+        .limit(limit)
+        .execute()
+    )
+
+    return res.data or []

@@ -1,3 +1,4 @@
+// src/features/billing/components/BillingPanel.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -18,6 +19,17 @@ import {
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
 
+const TIER_ORDER: Record<string, number> = {
+  free: 0,
+  classic: 1,
+  pro: 2,
+};
+
+function tierRank(code: string | null | undefined): number {
+  if (!code) return 0;
+  return TIER_ORDER[code] ?? 0;
+}
+
 export default function BillingPanel() {
   const { userId } = useUserId();
   const [status, setStatus] = useState<AppSubscriptionStatus | null>(null);
@@ -25,6 +37,8 @@ export default function BillingPanel() {
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
   const [activeTierCode, setActiveTierCode] = useState<string>("free");
+
+  const plannedChange = status?.scheduled_change ?? null;
 
   // load status + tiers
   useEffect(() => {
@@ -66,8 +80,8 @@ export default function BillingPanel() {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
         if (!alive) return;
         setHistory(h);
-      } catch (e) {
-        // tichá chyba, history je len nice-to-have
+      } catch {
+        // optional
       } finally {
         if (!alive) return;
         setLoading(null);
@@ -80,6 +94,7 @@ export default function BillingPanel() {
   }, [userId]);
 
   const tiers: AppSubscriptionTier[] = status?.tiers ?? [];
+  const activeRank = tierRank(activeTierCode);
 
   async function handleSetTier(tierCode: string) {
     if (!userId) {
@@ -150,6 +165,8 @@ export default function BillingPanel() {
                 <span className="opacity-70">Status: </span>
                 <span className="font-semibold">
                   {status.active_subscription.status}
+                  {status.active_subscription.cancel_at_period_end &&
+                    " (cancel at period end)"}
                 </span>
               </div>
               <div className="text-xs opacity-75">
@@ -169,6 +186,31 @@ export default function BillingPanel() {
                     </>
                   )}
               </div>
+
+              {plannedChange && (
+                <div className="mt-1 text-xs text-amber-300">
+                  {plannedChange.kind === "cancel"
+                    ? "Planned cancellation"
+                    : "Planned downgrade"}{" "}
+                  {plannedChange.to_tier_code && (
+                    <>
+                      to{" "}
+                      <span className="font-semibold uppercase">
+                        {plannedChange.to_tier_code}
+                      </span>
+                    </>
+                  )}{" "}
+                  {plannedChange.effective_from && (
+                    <>
+                      from{" "}
+                      <span className="font-mono">
+                        {plannedChange.effective_from.slice(0, 10)}
+                      </span>
+                    </>
+                  )}
+                  .
+                </div>
+              )}
             </>
           ) : (
             <p className="text-xs opacity-75">
@@ -184,7 +226,8 @@ export default function BillingPanel() {
           <div>
             <h2 className="text-base font-semibold">Tiers</h2>
             <p className="text-xs opacity-70">
-              DEV: ručné prepínanie tieru (bez reálnej platby).
+              DEV: upgrade hneď, downgrade alebo prechod na free od ďalšieho
+              obdobia.
             </p>
           </div>
         </div>
@@ -198,6 +241,37 @@ export default function BillingPanel() {
             {tiers.map((tier) => {
               const isCurrent = tier.code === activeTierCode;
               const priceEur = (tier.monthly_price_cents || 0) / 100;
+              const rank = tierRank(tier.code);
+              const isUpgrade = rank > activeRank;
+              const isDowngrade = rank < activeRank;
+
+              const isPlannedTarget =
+                !!plannedChange &&
+                plannedChange.to_tier_code === tier.code &&
+                plannedChange.kind === "downgrade";
+
+              let buttonLabel = "Switch to this tier";
+              if (isCurrent) {
+                buttonLabel = "Current tier";
+              } else if (tier.code === "free" && plannedChange?.kind === "cancel") {
+                buttonLabel = plannedChange.effective_from
+                  ? `Cancel on ${plannedChange.effective_from.slice(0, 10)}`
+                  : "Cancel scheduled";
+              } else if (isPlannedTarget) {
+                buttonLabel = plannedChange?.effective_from
+                  ? `Downgrade on ${plannedChange.effective_from.slice(0, 10)}`
+                  : "Downgrade scheduled";
+              } else if (tier.code === "free") {
+                buttonLabel = "Schedule cancel";
+              } else if (isDowngrade) {
+                buttonLabel = "Schedule downgrade";
+              } else if (isUpgrade) {
+                buttonLabel = "Upgrade now";
+              }
+
+              const disabled =
+                loading === "set-tier" || isCurrent || isPlannedTarget ||
+                (tier.code === "free" && plannedChange?.kind === "cancel");
 
               return (
                 <div
@@ -205,6 +279,9 @@ export default function BillingPanel() {
                   className={`rounded-lg border px-3 py-3 text-sm bg-black/40 ${
                     isCurrent
                       ? "border-emerald-400/70"
+                      : isPlannedTarget ||
+                        (tier.code === "free" && plannedChange?.kind === "cancel")
+                      ? "border-amber-400/70"
                       : "border-white/10 opacity-90"
                   }`}
                 >
@@ -218,6 +295,12 @@ export default function BillingPanel() {
                     {isCurrent && (
                       <span className="text-[10px] rounded-full border border-emerald-400/70 px-2 py-0.5 text-emerald-300">
                         current
+                      </span>
+                    )}
+                    {!isCurrent && (isPlannedTarget ||
+                      (tier.code === "free" && plannedChange?.kind === "cancel")) && (
+                      <span className="text-[10px] rounded-full border border-amber-400/70 px-2 py-0.5 text-amber-300">
+                        scheduled
                       </span>
                     )}
                   </div>
@@ -250,18 +333,16 @@ export default function BillingPanel() {
                     <Button
                       size="xs"
                       variant={isCurrent ? "secondary" : "primary"}
-                      disabled={loading === "set-tier" || isCurrent}
+                      disabled={disabled}
                       onClick={() => handleSetTier(tier.code)}
                     >
-                      {loading === "set-tier" && tier.code !== activeTierCode ? (
+                      {loading === "set-tier" && !isCurrent ? (
                         <span className="inline-flex items-center gap-1">
                           <LoadingSpinner size="button" />
                           Switching…
                         </span>
-                      ) : isCurrent ? (
-                        "Current tier"
                       ) : (
-                        "Switch to this tier"
+                        buttonLabel
                       )}
                     </Button>
                   </div>

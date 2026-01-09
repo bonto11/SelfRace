@@ -30,11 +30,18 @@ export type AppUserSubscription = {
   created_at: string;
 };
 
+export type AppSubscriptionScheduledChange = {
+  kind: "downgrade" | "cancel";
+  to_tier_code: string | null;
+  effective_from: string | null;
+};
+
 export type AppSubscriptionStatus = {
   user_id: number;
-  tier_code: string; // "free" ak nič iné
+  tier_code: string; // "free", ak nič iné
   active_subscription: AppUserSubscription | null;
   tiers: AppSubscriptionTier[];
+  scheduled_change?: AppSubscriptionScheduledChange | null;
 };
 
 type ListTiersResponse = {
@@ -60,9 +67,10 @@ type HistoryResponse = {
 
 type SetTierResponse = {
   success: boolean;
-  user: { id: number; app_subscription_tier: string } | null;
+  user: any | null;
   active_subscription: AppUserSubscription | null;
   tier: AppSubscriptionTier | null;
+  status?: AppSubscriptionStatus | null;
   detail?: string | null;
   error?: string | null;
 };
@@ -164,7 +172,8 @@ export async function apiGetAppSubscriptionHistory(
 
 /**
  * DEV helper – manuálne prepnutie tieru (bez reálnej platby).
- * Volaj len z admin/dev UI.
+ * - upgrade = hneď
+ * - downgrade/free = plán od ďalšieho obdobia
  */
 export async function apiSetAppSubscriptionTierManual(
   userId: number,

@@ -1,10 +1,8 @@
-# Routes_FE/app_subscription.py
+# backend/Routes_FE/app_subscription.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, List
-
 from fastapi import APIRouter, Depends, Body, HTTPException
-from pydantic import BaseModel   # <<< chýbajúci import
+from pydantic import BaseModel
 
 from Modules.HTTP.auth_deps import require_user_jwt
 from Services.app_subscription import (
@@ -12,6 +10,7 @@ from Services.app_subscription import (
     service_get_user_app_subscription_status,
     service_list_user_app_subscriptions,
     service_set_user_app_subscription_tier_manual,
+    service_apply_due_subscription_changes,
 )
 
 router = APIRouter(
@@ -24,18 +23,15 @@ router = APIRouter(
 def list_app_subscription_tiers(
     user_jwt: str = Depends(require_user_jwt),
 ):
-    """
-    Zoznam dostupných app tierov (Free / Classic / Pro...).
-    """
-    try:
-        items = service_list_app_subscription_tiers(
-            include_inactive=False,
-            user_jwt=user_jwt,
-            service=False,
-        )
-        return {"success": True, "items": items}
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+  try:
+    items = service_list_app_subscription_tiers(
+        include_inactive=False,
+        user_jwt=user_jwt,
+        service=False,
+    )
+    return {"success": True, "items": items}
+  except Exception as e:  # noqa: BLE001
+    raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/status/{user_id}")
@@ -43,18 +39,15 @@ def get_app_subscription_status(
     user_id: int,
     user_jwt: str = Depends(require_user_jwt),
 ):
-    """
-    Stav subscriptionu pre konkrétneho usera.
-    """
-    try:
-        status = service_get_user_app_subscription_status(
-            user_id=user_id,
-            user_jwt=user_jwt,
-            service=False,
-        )
-        return {"success": True, "status": status}
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+  try:
+    status = service_get_user_app_subscription_status(
+        user_id=user_id,
+        user_jwt=user_jwt,
+        service=False,
+    )
+    return {"success": True, "status": status}
+  except Exception as e:  # noqa: BLE001
+    raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/history/{user_id}")
@@ -63,26 +56,20 @@ def list_app_subscription_history(
     limit: int = 20,
     user_jwt: str = Depends(require_user_jwt),
 ):
-    """
-    História subscriptionov pre usera.
-    """
-    try:
-        items = service_list_user_app_subscriptions(
-            user_id=user_id,
-            limit=limit,
-            user_jwt=user_jwt,
-            service=False,
-        )
-        return {"success": True, "items": items}
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ---------- DEV: manuálne nastavenie tieru (bez reálnej platby) ----------
+  try:
+    items = service_list_user_app_subscriptions(
+        user_id=user_id,
+        limit=limit,
+        user_jwt=user_jwt,
+        service=False,
+    )
+    return {"success": True, "items": items}
+  except Exception as e:  # noqa: BLE001
+    raise HTTPException(status_code=500, detail=str(e))
 
 
 class SetTierPayload(BaseModel):
-    tier_code: str
+  tier_code: str
 
 
 @router.post("/set-tier/{user_id}")
@@ -91,18 +78,15 @@ def set_user_app_subscription_tier_manual(
     payload: SetTierPayload = Body(...),
     user_jwt: str = Depends(require_user_jwt),
 ):
-    """
-    DEV/ADMIN endpoint – manuálne prepne tier usera (bez platby).
-    """
-    try:
-        result = service_set_user_app_subscription_tier_manual(
-            user_id=user_id,
-            tier_code=payload.tier_code,
-            user_jwt=user_jwt,
-            service=False,
-        )
-        return {"success": True, **result}
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+  try:
+    result = service_set_user_app_subscription_tier_manual(
+        user_id=user_id,
+        tier_code=payload.tier_code,
+        user_jwt=user_jwt,
+        service=False,
+    )
+    return {"success": True, **result}
+  except ValueError as ve:
+    raise HTTPException(status_code=400, detail=str(ve))
+  except Exception as e:  # noqa: BLE001
+    raise HTTPException(status_code=500, detail=str(e))
