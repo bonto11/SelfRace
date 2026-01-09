@@ -17,4 +17,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${{ secrets.MAINTENANCE_API_KEY }}" \
             -d '{"max_users": 5}' \
-            https://api-dev.patrikmbontar.eu/maintenance/weekly-athlete-state-refresh
+            $BACKEND_BASE_URL/maintenance/weekly-athlete-state-refresh
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+          BACKEND_BASE_URL: ${{ secrets.BACKEND_BASE_URL }}
