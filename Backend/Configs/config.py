@@ -41,7 +41,7 @@ TABLE_ASYNC_JOBS = "async_jobs"
 
 TABLE_AI_USAGE_EVENTS = "ai_usage_events"
 TABLE_AI_WALLET_TRANSACTION = "ai_wallet_transactions"
-
+TABLE_APP_USER_SUBSCRIPTIONS = "app_user_subscriptions"
 SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
 SUPABASE_ANON_KEY: str = env_required("SUPABASE_ANON_KEY")
