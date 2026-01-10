@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import type { JSX } from "react";
 
-import HrChart from "@/app/shared/components/trend/HrChart";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { CHART_HR } from "@/app/shared/ui/classes";
 import type { StreamsData } from "@/app/features/activities/types/activities";
@@ -11,6 +10,16 @@ import type { StreamsData } from "@/app/features/activities/types/activities";
 type ActivityStreamChartsProps = {
   streams: StreamsData;
   compact?: boolean;
+};
+
+type BaseChartProps = {
+  xs: number[];
+  ys: (number | null | undefined)[];
+  height?: number;
+  compact?: boolean;
+  yLabel?: string;
+  formatY?: (v: number) => string;
+  mode?: "hr" | "plain";
 };
 
 type MiniChartProps = {
@@ -22,22 +31,42 @@ type MiniChartProps = {
   formatY?: (v: number) => string;
 };
 
-function MiniStreamChart({
-  title,
+/** HR zónová farba */
+function zoneColor(hr: number) {
+  const [c1, c2, c3, c4] = CHART_HR.zoneCuts;
+  const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
+  if (hr <= c1) return z1;
+  if (hr <= c2) return z2;
+  if (hr <= c3) return z3;
+  if (hr <= c4) return z4;
+  return z5;
+}
+
+/**
+ * Jednotný základ pre všetky stream grafy.
+ * mode="hr" → zónové pásy + farebné segmenty + legenda
+ * mode="plain" → jednoduchý line chart bez pásov
+ */
+function BaseStreamChart({
   xs,
   ys,
+  height = 120,
   compact = false,
   yLabel,
   formatY,
-}: MiniChartProps) {
+  mode = "plain",
+}: BaseChartProps) {
   const Svg = useMemo(() => {
     const n = Math.min(xs.length, ys.length);
     if (!n) {
       return () => (
-        <div className="opacity-70 text-xs">Dáta nie sú k dispozícii.</div>
+        <div className={CHART_HR.emptyTextClass}>
+          Stream nie je k dispozícii.
+        </div>
       );
     }
 
+    // očistené body
     const points: { x: number; y: number }[] = [];
     for (let i = 0; i < n; i++) {
       const v = ys[i];
@@ -47,17 +76,20 @@ function MiniStreamChart({
 
     if (!points.length) {
       return () => (
-        <div className="opacity-70 text-xs">Dáta nie sú k dispozícii.</div>
+        <div className={CHART_HR.emptyTextClass}>
+          Stream nie je k dispozícii.
+        </div>
       );
     }
 
-    const padL = 32;
-    const padR = 8;
-    const padT = 16;
-    const padB = 22;
+    // paddingy
+    const padL = compact ? 28 : 40;
+    const padR = compact ? 8 : 16;
+    const padT = compact ? 10 : 20;
+    const padB = compact ? 20 : 26;
 
-    const W = 480;
-    const H = compact ? 90 : 110;
+    const W = 980;
+    const H = Math.max(100, height);
 
     const minX = points[0].x;
     const maxX = points[points.length - 1].x;
@@ -69,45 +101,90 @@ function MiniStreamChart({
       if (p.y > maxY) maxY = p.y;
     }
 
-    if (minY === maxY) {
-      minY -= 1;
-      maxY += 1;
+    if (mode === "hr") {
+      // HR špecifiká – nech to nie je úplne od 0
+      minY = Math.min(120, minY);
+      maxY = Math.max(CHART_HR.maxBpm, maxY);
+    } else {
+      if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
+      }
     }
 
     const sx = (t: number) =>
       padL +
       ((t - minX) / Math.max(1, maxX - minX)) * (W - padL - padR);
+
     const sy = (v: number) => {
       const h = H - padT - padB;
       const t = (v - minY) / Math.max(1, maxY - minY);
       return H - padB - t * h;
     };
 
-    const xTicks = 3;
+    // ticks
+    const xTicks = 5;
     const xVals = Array.from(
       { length: xTicks + 1 },
       (_, i) => minX + (i * (maxX - minX)) / xTicks
     );
 
-    const yTicks = 3;
+    const yTicks = 4;
     const yVals = Array.from(
       { length: yTicks + 1 },
       (_, i) => minY + (i * (maxY - minY)) / yTicks
     );
 
-    const path: JSX.Element[] = [];
+    // zónové pásy len pre HR
+    const bands: JSX.Element[] = [];
+    if (mode === "hr") {
+      const levels = [minY, ...CHART_HR.zoneCuts, maxY];
+      const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
+      const colors = [z1, z2, z3, z4, z5];
+      for (let i = 0; i < 5; i++) {
+        const yTop = sy(levels[i + 1]);
+        const yBot = sy(levels[i]);
+        bands.push(
+          <rect
+            key={`band-${i}`}
+            x={padL}
+            width={W - padL - padR}
+            y={yTop}
+            height={Math.max(0, yBot - yTop)}
+            fill={colors[i]}
+            opacity={CHART_HR.bandOpacity}
+          />
+        );
+      }
+    }
+
+    // polyline – segmenty
+    const segs: JSX.Element[] = [];
     for (let i = 1; i < points.length; i++) {
       const p1 = points[i - 1];
       const p2 = points[i];
-      path.push(
+
+      const x1 = sx(p1.x);
+      const y1 = sy(p1.y);
+      const x2 = sx(p2.x);
+      const y2 = sy(p2.y);
+
+      const col =
+        mode === "hr"
+          ? zoneColor((p1.y + p2.y) / 2)
+          : CHART_HR.axisText;
+
+      segs.push(
         <line
-          key={`ln-${i}`}
-          x1={sx(p1.x)}
-          y1={sy(p1.y)}
-          x2={sx(p2.x)}
-          y2={sy(p2.y)}
-          stroke={CHART_HR.axisText}
-          strokeWidth={compact ? 1 : 1.4}
+          key={`seg-${i}`}
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={col}
+          strokeWidth={
+            compact ? CHART_HR.lineWidth.compact : CHART_HR.lineWidth.normal
+          }
           strokeLinecap="round"
         />
       );
@@ -126,17 +203,18 @@ function MiniStreamChart({
               strokeDasharray="4 4"
             />
             <text
-              x={padL - 4}
+              x={padL - 6}
               y={sy(v)}
               textAnchor="end"
               dominantBaseline="central"
-              fontSize={9}
+              fontSize={10}
               fill={CHART_HR.tickText}
             >
               {formatY ? formatY(v) : Math.round(v)}
             </text>
           </g>
         ))}
+
         {xVals.map((t, i) => (
           <g key={`gx-${i}`}>
             <line
@@ -149,9 +227,9 @@ function MiniStreamChart({
             />
             <text
               x={sx(t)}
-              y={H - padB + 12}
+              y={H - padB + 14}
               textAnchor="middle"
-              fontSize={9}
+              fontSize={10}
               fill={CHART_HR.tickText}
             >
               {fmtSecondsHMS(Math.round(t))}
@@ -167,7 +245,7 @@ function MiniStreamChart({
               (padT + (H - padB)) / 2
             })`}
             textAnchor="middle"
-            fontSize={9}
+            fontSize={10}
             fill={CHART_HR.axisText}
           >
             {yLabel}
@@ -176,17 +254,51 @@ function MiniStreamChart({
       </>
     );
 
+    // legenda pre HR
+    const Legend =
+      mode === "hr"
+        ? () => {
+            const LEG_W = 5 * 36;
+            const LEG_X = (W - LEG_W) / 2;
+            const LEG_Y = padT - 4;
+            const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
+            return (
+              <g transform={`translate(${LEG_X},${LEG_Y})`}>
+                {[
+                  ["Z1", z1],
+                  ["Z2", z2],
+                  ["Z3", z3],
+                  ["Z4", z4],
+                  ["Z5", z5],
+                ].map(([t, c], i) => (
+                  <g key={t} transform={`translate(${i * 36},0)`}>
+                    <circle cx={0} cy={0} r={4} fill={c as string} />
+                    <text
+                      x={8}
+                      y={2}
+                      fontSize={10}
+                      fill={CHART_HR.tickText}
+                    >
+                      {t}
+                    </text>
+                  </g>
+                ))}
+              </g>
+            );
+          }
+        : () => null;
+
     return () => (
       <svg
         width="100%"
         height={H}
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={title}
       >
+        {bands}
         <Axis />
         <defs>
-          <clipPath id="miniClip">
+          <clipPath id="streamClip">
             <rect
               x={padL}
               y={padT}
@@ -195,17 +307,38 @@ function MiniStreamChart({
             />
           </clipPath>
         </defs>
-        <g clipPath="url(#miniClip)">{path}</g>
+        <g clipPath="url(#streamClip)">{segs}</g>
+        <Legend />
       </svg>
     );
-  }, [xs, ys, compact, title, yLabel, formatY]);
+  }, [xs, ys, height, compact, yLabel, formatY, mode]);
 
+  return <Svg />;
+}
+
+/** Mini chart – obalí BaseStreamChart do malej karty s titulkom. */
+function MiniStreamChart({
+  title,
+  xs,
+  ys,
+  compact = false,
+  yLabel,
+  formatY,
+}: MiniChartProps) {
   return (
     <div className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2">
       <div className="text-[11px] font-semibold mb-1 opacity-80">
         {title}
       </div>
-      <Svg />
+      <BaseStreamChart
+        xs={xs}
+        ys={ys}
+        height={compact ? 100 : 120}
+        compact={compact}
+        yLabel={yLabel}
+        formatY={formatY}
+        mode="plain"
+      />
     </div>
   );
 }
@@ -217,7 +350,8 @@ export function ActivityStreamCharts({
   streams,
   compact = false,
 }: ActivityStreamChartsProps) {
-  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } = streams;
+  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } =
+    streams;
 
   const hasTime = Array.isArray(time_s) && time_s.length > 0;
   if (!hasTime) {
@@ -235,9 +369,10 @@ export function ActivityStreamCharts({
     Array.isArray(distance_m) && distance_m.some((v) => v != null);
   const hasCad =
     Array.isArray(cadence_rpm) && cadence_rpm.some((v) => v != null);
-  const hasPow = Array.isArray(power_w) && power_w.some((v) => v != null);
+  const hasPow =
+    Array.isArray(power_w) && power_w.some((v) => v != null);
 
-  // dynamický výpočet pace z distance/time – približne instantaneous pace
+  // instant pace zo vzdialenosti a času
   const pace_s_per_km: (number | null)[] = useMemo(() => {
     if (!hasDist) return [];
     const out: (number | null)[] = [];
@@ -261,7 +396,6 @@ export function ActivityStreamCharts({
         out.push(pace);
       }
     }
-    // zarovnanie dĺžky s time_s
     if (out.length < time_s.length) out.unshift(null);
     return out;
   }, [time_s, distance_m, hasDist]);
@@ -276,11 +410,13 @@ export function ActivityStreamCharts({
           <div className="flex items-center justify-between mb-1.5">
             <h4 className="font-bold text-sm">HR priebeh</h4>
           </div>
-          <HrChart
+          <BaseStreamChart
             xs={time_s}
             ys={hr}
             height={compact ? 148 : 220}
             compact={compact}
+            yLabel="bpm"
+            mode="hr"
           />
         </div>
       )}
