@@ -5,6 +5,13 @@ from typing import Any, Dict, List, Optional
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_STREAMS
 
+DEBUG_STREAMS_DB = True
+
+
+def _dbg_db(*args: Any, **kwargs: Any) -> None:
+    if DEBUG_STREAMS_DB:
+        print("[streams-db]", *args, **kwargs, flush=True)
+
 
 def db_get_streams_one(
     user_id: int,
@@ -15,20 +22,14 @@ def db_get_streams_one(
 ) -> Optional[Dict[str, Any]]:
     """
     Jedna row so streamami pre danú aktivitu.
-
-    Teraz vraciame všetky dôležité polia:
-      - time_s
-      - heartrate_bpm
-      - cadence_rpm
-      - power_w
-      - distance_m
-      - altitude_m
-      - speed_mps
-      - grade_smooth
-      - temp_c
-      - moving
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
+
+    _dbg_db(
+        "db_get_streams_one query:",
+        {"user_id": user_id, "activity_id": activity_id},
+    )
+
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select(
@@ -48,8 +49,32 @@ def db_get_streams_one(
         .limit(1)
         .execute()
     )
+
     data = res.data or []
-    return data[0] if data else None
+    if not data:
+        _dbg_db("db_get_streams_one result: EMPTY")
+        return None
+
+    row = data[0]
+    _dbg_db(
+        "db_get_streams_one result keys:",
+        sorted(list(row.keys())),
+    )
+    _dbg_db(
+        "db_get_streams_one result sizes:",
+        {
+            "time_s": len(row.get("time_s") or []),
+            "heartrate_bpm": len(row.get("heartrate_bpm") or []),
+            "cadence_rpm": len(row.get("cadence_rpm") or []),
+            "power_w": len(row.get("power_w") or []),
+            "distance_m": len(row.get("distance_m") or []),
+            "altitude_m": len(row.get("altitude_m") or []),
+            "speed_mps": len(row.get("speed_mps") or []),
+            "grade_smooth": len(row.get("grade_smooth") or []),
+            "temp_c": len(row.get("temp_c") or []),
+        },
+    )
+    return row
 
 
 def db_get_streams_ids_present(
@@ -61,14 +86,16 @@ def db_get_streams_ids_present(
 ) -> List[int]:
     """
     Vráti zoznam activity_id, pre ktoré už existuje aspoň jeden stream záznam.
-
-    - typicky sync/worker: service=True
-    - prípadne RLS:        user_jwt=jwt
     """
     if not activity_ids:
         return []
 
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
+
+    _dbg_db(
+        "db_get_streams_ids_present query:",
+        {"user_id": user_id, "activity_ids": activity_ids},
+    )
 
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
@@ -84,6 +111,11 @@ def db_get_streams_ids_present(
             out.append(int(r["activity_id"]))
         except Exception:
             pass
+
+    _dbg_db(
+        "db_get_streams_ids_present result:",
+        {"present_ids": out},
+    )
     return out
 
 
@@ -101,10 +133,6 @@ def db_upsert_streams_with_sport(
 ) -> None:
     """
     Volá SQL funkciu upsert_streams_with_sport(...) cez RPC.
-
-    POZOR: táto funkcia RPC stále používa pôvodné parametre.
-    Nové polia (altitude, speed, atď.) riešime cez db_upsert_stream_arrays.
-    Ak chceš, vieme potom updatnuť aj samotnú SQL funkciu.
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
@@ -117,7 +145,20 @@ def db_upsert_streams_with_sport(
         "p_power": [int(x) for x in power] if power else [],
         "p_distance": [float(x) for x in distance] if distance else [],
     }
+
+    _dbg_db(
+        "db_upsert_streams_with_sport params sizes:",
+        {
+            "time_s": len(params["p_time_s"]),
+            "heartrate": len(params["p_heartrate"]),
+            "cadence": len(params["p_cadence"]),
+            "power": len(params["p_power"]),
+            "distance": len(params["p_distance"]),
+        },
+    )
+
     sb.rpc("upsert_streams_with_sport", params).execute()
+
 
 def db_upsert_stream_arrays(
     *,
@@ -135,7 +176,10 @@ def db_upsert_stream_arrays(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ):
-    client = get_supabase_client(user_jwt=user_jwt, service=service)
+    """
+    Priamy upsert do public.activities_streams.
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
     payload: Dict[str, Any] = {
         "user_id": user_id,
@@ -160,8 +204,27 @@ def db_upsert_stream_arrays(
     if temp_c is not None:
         payload["temp_c"] = temp_c
 
+    _dbg_db(
+        "db_upsert_stream_arrays payload keys:",
+        sorted(list(payload.keys())),
+    )
+    _dbg_db(
+        "db_upsert_stream_arrays payload sizes:",
+        {
+            "time_s": len(payload.get("time_s") or []),
+            "heartrate_bpm": len(payload.get("heartrate_bpm") or []),
+            "cadence_rpm": len(payload.get("cadence_rpm") or []),
+            "power_w": len(payload.get("power_w") or []),
+            "distance_m": len(payload.get("distance_m") or []),
+            "altitude_m": len(payload.get("altitude_m") or []),
+            "speed_mps": len(payload.get("speed_mps") or []),
+            "grade_smooth": len(payload.get("grade_smooth") or []),
+            "temp_c": len(payload.get("temp_c") or []),
+        },
+    )
+
     (
-        client.table("activities_streams")
+        sb.table(TABLE_ACTIVITIES_STREAMS)
         .upsert(payload, on_conflict="user_id,activity_id")
         .execute()
     )
