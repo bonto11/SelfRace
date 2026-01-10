@@ -11,7 +11,10 @@ import {
   SURFACE_INLINE,
   FLUSH_DETAIL,
 } from "@/app/shared/ui/classes";
-import { ComponentVariant, StreamsData } from "@/app/features/activities/types/activities";
+import {
+  ComponentVariant,
+  StreamsData,
+} from "@/app/features/activities/types/activities";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
 
 /** ========== Types ========== */
@@ -110,6 +113,7 @@ function statusLabel(status: PlanStatus): string {
   if (status === "missed") return "missed";
   return "planned";
 }
+
 function statusCls(status: PlanStatus): string {
   if (status === "done")
     return "border-emerald-500/80 text-emerald-300 bg-emerald-500/5";
@@ -150,6 +154,20 @@ function tgtToStr(t: any): string | null {
   if (typeof t === "string") return t;
   const bits = [t?.pace, t?.power, t?.hr].filter(Boolean);
   return bits.length ? bits.join(" · ") : null;
+}
+
+/** AVG pace z distance/time */
+function fmtPaceFromSummary(
+  distance_m: number | null | undefined,
+  moving_time_s: number | null | undefined
+): string | null {
+  if (!distance_m || !moving_time_s) return null;
+  const pace = moving_time_s / (distance_m / 1000); // s/km
+  if (!Number.isFinite(pace) || pace <= 0) return null;
+  const total = Math.round(pace);
+  const min = Math.floor(total / 60);
+  const sec = total % 60;
+  return `${min}:${sec.toString().padStart(2, "0")} /km`;
 }
 
 /** ========== Component ========== */
@@ -321,7 +339,6 @@ function DetailBody({
     const raw = plan.planRaw ?? undefined;
     const structure = plan.planStructure ?? raw?.structure ?? undefined;
 
-    // preferuj: plan.planExercises → structure.strength_exercises → raw.strength_exercises
     const exercises =
       Array.isArray(plan.planExercises) && plan.planExercises.length > 0
         ? plan.planExercises
@@ -596,6 +613,25 @@ function DetailBody({
   const avgTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
   const maxTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
 
+  const elevTxt =
+    s && s.elevation_gain_m != null
+      ? `${Math.round(s.elevation_gain_m)} m`
+      : null;
+
+  const paceTxt = s
+    ? fmtPaceFromSummary(s.distance_m, s.moving_time_s)
+    : null;
+
+  const cadTxt =
+    s && s.average_cadence_rpm != null
+      ? `${Math.round(s.average_cadence_rpm)} spm`
+      : null;
+
+  const avgPowerTxt =
+    s && s.average_watts != null
+      ? `${Math.round(s.average_watts)} W`
+      : null;
+
   const [streams, setStreams] = useState<StreamsData>({
     time_s: [],
     hr: [],
@@ -623,7 +659,7 @@ function DetailBody({
         console.log("[SessionCard] detail raw", act.activityId, dt);
 
         if (st) {
-          const raw: any = st?.streams ?? st ?? {};
+          const raw: any = st ?? {};
 
           const time_s: number[] = Array.isArray(raw.time_s)
             ? raw.time_s
@@ -723,23 +759,31 @@ function DetailBody({
       {kpiBlock}
 
       {!hasKpis && (
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {[
             { label: "TIME", value: timeTxt },
             { label: "DISTANCE", value: distTxt },
             { label: "AVG HR", value: avgTxt },
             { label: "MAX HR", value: maxTxt },
-          ].map((t) => (
-            <div
-              key={t.label}
-              className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-            >
-              <div className="text-[10px] opacity-70">{safeText(t.label)}</div>
-              <div className="text-xl font-semibold tabular-nums">
-                {safeText(t.value)}
+            paceTxt && { label: "AVG PACE", value: paceTxt },
+            elevTxt && { label: "ELEV GAIN", value: elevTxt },
+            cadTxt && { label: "AVG CAD", value: cadTxt },
+            avgPowerTxt && { label: "AVG PWR", value: avgPowerTxt },
+          ]
+            .filter(Boolean)
+            .map((t: any) => (
+              <div
+                key={t.label}
+                className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+              >
+                <div className="text-[10px] opacity-70">
+                  {safeText(t.label)}
+                </div>
+                <div className="text-xl font-semibold tabular-nums">
+                  {safeText(t.value)}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
 
