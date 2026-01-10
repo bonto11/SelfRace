@@ -1,10 +1,8 @@
-// src/shared/components/SessionCard.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import HrChart from "@/app/shared/components/trend/HrChart";
 import SportBadge from "@/app/shared/components/ui/SportBadge";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
@@ -13,7 +11,8 @@ import {
   SURFACE_INLINE,
   FLUSH_DETAIL,
 } from "@/app/shared/ui/classes";
-import { ComponentVariant } from "@/app/features/activities/types/activities";
+import { ComponentVariant, StreamsData } from "@/app/features/activities/types/activities";
+import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
 
 /** ========== Types ========== */
 
@@ -597,14 +596,14 @@ function DetailBody({
   const avgTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
   const maxTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
 
-  const [streams, setStreams] = useState<{
-    time_s: number[];
-    hr: (number | null)[];
-    duration_s: number;
-  }>({
+  const [streams, setStreams] = useState<StreamsData>({
     time_s: [],
     hr: [],
     duration_s: 0,
+    cadence_rpm: [],
+    power_w: [],
+    distance_m: [],
+    altitude_m: [],
   });
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
@@ -624,7 +623,7 @@ function DetailBody({
         console.log("[SessionCard] detail raw", act.activityId, dt);
 
         if (st) {
-          const raw: any = st;
+          const raw: any = st?.streams ?? st ?? {};
 
           const time_s: number[] = Array.isArray(raw.time_s)
             ? raw.time_s
@@ -638,6 +637,34 @@ function DetailBody({
             ? raw.heartrate_bpm
             : [];
 
+          const cadence_rpm: (number | null)[] =
+            Array.isArray(raw.cadence_rpm) && raw.cadence_rpm.length
+              ? raw.cadence_rpm
+              : Array.isArray(raw.cadence)
+              ? raw.cadence
+              : [];
+
+          const power_w: (number | null)[] =
+            Array.isArray(raw.power_w) && raw.power_w.length
+              ? raw.power_w
+              : Array.isArray(raw.watts)
+              ? raw.watts
+              : [];
+
+          const distance_m: (number | null)[] =
+            Array.isArray(raw.distance_m) && raw.distance_m.length
+              ? raw.distance_m
+              : Array.isArray(raw.distance)
+              ? raw.distance
+              : [];
+
+          const altitude_m: (number | null)[] =
+            Array.isArray(raw.altitude_m) && raw.altitude_m.length
+              ? raw.altitude_m
+              : Array.isArray(raw.altitude)
+              ? raw.altitude
+              : [];
+
           const duration_s: number =
             typeof raw.duration_s === "number"
               ? raw.duration_s
@@ -645,10 +672,26 @@ function DetailBody({
               ? Number(time_s[time_s.length - 1]) || 0
               : 0;
 
-          setStreams({ time_s, hr, duration_s });
+          setStreams({
+            time_s,
+            hr,
+            duration_s,
+            cadence_rpm,
+            power_w,
+            distance_m,
+            altitude_m,
+          });
         } else {
           console.log("[SessionCard] no streams for", act.activityId);
-          setStreams({ time_s: [], hr: [], duration_s: 0 });
+          setStreams({
+            time_s: [],
+            hr: [],
+            duration_s: 0,
+            cadence_rpm: [],
+            power_w: [],
+            distance_m: [],
+            altitude_m: [],
+          });
         }
 
         if (dt) {
@@ -658,7 +701,15 @@ function DetailBody({
         }
       } catch (err) {
         console.error("[SessionCard] getStreams/getDetail error", err);
-        setStreams({ time_s: [], hr: [], duration_s: 0 });
+        setStreams({
+          time_s: [],
+          hr: [],
+          duration_s: 0,
+          cadence_rpm: [],
+          power_w: [],
+          distance_m: [],
+          altitude_m: [],
+        });
       }
     })();
 
@@ -741,26 +792,9 @@ function DetailBody({
         <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
       )}
 
-      {/* HR priebeh */}
+      {/* Stream priebehy: HR + elevation + pace + power + cadence */}
       <div className="mt-3">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-bold">HR priebeh</h4>
-        </div>
-
-        {streams.time_s.length ? (
-          <div className="mb-1">
-            <HrChart
-              xs={streams.time_s}
-              ys={streams.hr}
-              height={compactChart ? 148 : 220}
-              compact={compactChart}
-            />
-          </div>
-        ) : (
-          <div className="opacity-70 text-sm">
-            HR stream nie je k dispozícii.
-          </div>
-        )}
+        <ActivityStreamCharts streams={streams} compact={compactChart} />
       </div>
 
       {!!splits.length && (
