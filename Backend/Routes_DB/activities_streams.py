@@ -22,6 +22,18 @@ def db_get_streams_one(
 ) -> Optional[Dict[str, Any]]:
     """
     Jedna row so streamami pre danú aktivitu.
+
+    Teraz vraciame všetky dôležité polia:
+      - time_s
+      - heartrate_bpm
+      - cadence_rpm
+      - power_w
+      - distance_m
+      - altitude_m
+      - speed_mps
+      - grade_smooth
+      - temp_c
+      - moving
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
@@ -49,7 +61,6 @@ def db_get_streams_one(
         .limit(1)
         .execute()
     )
-
     data = res.data or []
     if not data:
         _dbg_db("db_get_streams_one result: EMPTY")
@@ -86,6 +97,9 @@ def db_get_streams_ids_present(
 ) -> List[int]:
     """
     Vráti zoznam activity_id, pre ktoré už existuje aspoň jeden stream záznam.
+
+    - typicky sync/worker: service=True
+    - prípadne RLS:        user_jwt=jwt
     """
     if not activity_ids:
         return []
@@ -133,6 +147,9 @@ def db_upsert_streams_with_sport(
 ) -> None:
     """
     Volá SQL funkciu upsert_streams_with_sport(...) cez RPC.
+
+    POZOR: táto funkcia RPC stále používa pôvodné parametre.
+    Nové polia (altitude, speed, atď.) riešime cez db_upsert_stream_arrays.
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
@@ -177,7 +194,8 @@ def db_upsert_stream_arrays(
     service: bool = False,
 ):
     """
-    Priamy upsert do public.activities_streams.
+    Priamy upsert do public.activities_streams:
+    - ak pole je None, nechávame ho tak (neprepíšeme ho NULLom)
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
