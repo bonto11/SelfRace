@@ -20,15 +20,7 @@ type BaseChartProps = {
   yLabel?: string;
   formatY?: (v: number) => string;
   mode?: "hr" | "plain";
-};
-
-type MiniChartProps = {
-  title: string;
-  xs: number[];
-  ys: (number | null | undefined)[];
-  compact?: boolean;
-  yLabel?: string;
-  formatY?: (v: number) => string;
+  strokeColor?: string; // pre non-HR grafy
 };
 
 /** HR zónová farba */
@@ -45,7 +37,7 @@ function zoneColor(hr: number) {
 /**
  * Jednotný základ pre všetky stream grafy.
  * mode="hr" → zónové pásy + farebné segmenty + legenda
- * mode="plain" → jednoduchý line chart bez pásov
+ * mode="plain" → veľký line chart bez pásov, s vlastnou farbou
  */
 function BaseStreamChart({
   xs,
@@ -55,6 +47,7 @@ function BaseStreamChart({
   yLabel,
   formatY,
   mode = "plain",
+  strokeColor,
 }: BaseChartProps) {
   const Svg = useMemo(() => {
     const n = Math.min(xs.length, ys.length);
@@ -102,7 +95,7 @@ function BaseStreamChart({
     }
 
     if (mode === "hr") {
-      // HR špecifiká – nech to nie je úplne od 0
+      // HR špecifiká – nech to “sedí” so zónami
       minY = Math.min(120, minY);
       maxY = Math.max(CHART_HR.maxBpm, maxY);
     } else {
@@ -172,7 +165,7 @@ function BaseStreamChart({
       const col =
         mode === "hr"
           ? zoneColor((p1.y + p2.y) / 2)
-          : CHART_HR.axisText;
+          : strokeColor || CHART_HR.axisText;
 
       segs.push(
         <line
@@ -311,40 +304,13 @@ function BaseStreamChart({
         <Legend />
       </svg>
     );
-  }, [xs, ys, height, compact, yLabel, formatY, mode]);
+  }, [xs, ys, height, compact, yLabel, formatY, mode, strokeColor]);
 
   return <Svg />;
 }
 
-/** Mini chart – obalí BaseStreamChart do malej karty s titulkom. */
-function MiniStreamChart({
-  title,
-  xs,
-  ys,
-  compact = false,
-  yLabel,
-  formatY,
-}: MiniChartProps) {
-  return (
-    <div className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2">
-      <div className="text-[11px] font-semibold mb-1 opacity-80">
-        {title}
-      </div>
-      <BaseStreamChart
-        xs={xs}
-        ys={ys}
-        height={compact ? 100 : 120}
-        compact={compact}
-        yLabel={yLabel}
-        formatY={formatY}
-        mode="plain"
-      />
-    </div>
-  );
-}
-
 /**
- * Hlavný wrapper: HR + ostatné streamy (prevýšenie, pace, power, cadence).
+ * Hlavný wrapper: všetky streamy ako veľké grafy (rovnako veľké ako HR).
  */
 export function ActivityStreamCharts({
   streams,
@@ -402,9 +368,11 @@ export function ActivityStreamCharts({
 
   const formatPace = (v: number) => fmtSecondsHMS(Math.round(v));
 
+  const height = compact ? 148 : 220;
+
   return (
-    <div className="space-y-3">
-      {/* HR hlavný graf */}
+    <div className="space-y-4">
+      {/* HR */}
       {hasHr && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -413,7 +381,7 @@ export function ActivityStreamCharts({
           <BaseStreamChart
             xs={time_s}
             ys={hr}
-            height={compact ? 148 : 220}
+            height={height}
             compact={compact}
             yLabel="bpm"
             mode="hr"
@@ -421,49 +389,78 @@ export function ActivityStreamCharts({
         </div>
       )}
 
-      {/* Ostatné mini grafy */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {hasAlt && (
-          <MiniStreamChart
-            title="Prevýšenie"
+      {/* Prevýšenie */}
+      {hasAlt && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="font-bold text-sm">Prevýšenie</h4>
+          </div>
+          <BaseStreamChart
             xs={time_s}
             ys={altitude_m ?? []}
+            height={height}
             compact={compact}
             yLabel="m"
+            mode="plain"
+            strokeColor={CHART_HR.colors.z2}
           />
-        )}
+        </div>
+      )}
 
-        {hasDist && (
-          <MiniStreamChart
-            title="Tempo (instantné)"
+      {/* Tempo */}
+      {hasDist && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="font-bold text-sm">Tempo (instantné)</h4>
+          </div>
+          <BaseStreamChart
             xs={time_s}
             ys={pace_s_per_km}
+            height={height}
             compact={compact}
             yLabel="s/km"
             formatY={formatPace}
+            mode="plain"
+            strokeColor={CHART_HR.colors.z3}
           />
-        )}
+        </div>
+      )}
 
-        {hasPow && (
-          <MiniStreamChart
-            title="Power"
+      {/* Power */}
+      {hasPow && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="font-bold text-sm">Power</h4>
+          </div>
+          <BaseStreamChart
             xs={time_s}
             ys={power_w ?? []}
+            height={height}
             compact={compact}
             yLabel="W"
+            mode="plain"
+            strokeColor={CHART_HR.colors.z4}
           />
-        )}
+        </div>
+      )}
 
-        {hasCad && (
-          <MiniStreamChart
-            title="Cadence"
+      {/* Cadence */}
+      {hasCad && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="font-bold text-sm">Cadence</h4>
+          </div>
+          <BaseStreamChart
             xs={time_s}
             ys={cadence_rpm ?? []}
+            height={height}
             compact={compact}
             yLabel="rpm"
+            mode="plain"
+            strokeColor={CHART_HR.colors.z5}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
