@@ -8,7 +8,6 @@ from Modules.Strava.activities import StravaActivitiesClient
 from Routes_DB.activities_streams import (
     db_get_streams_one,
     db_upsert_streams_with_sport,
-    db_upsert_stream_arrays,
 )
 from Services.users import require_jwt
 
@@ -89,7 +88,7 @@ def fetch_streams_batch_from_strava(
                     "json": j,
                 }
             )
-            print("fetch_streams_batch_from_strava out",out)
+
         except Exception as e:  # noqa: BLE001
             out["items"].append(
                 {
@@ -116,23 +115,18 @@ def save_streams_with_sport_to_db(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Tuple[bool, str]:
-    """
-    Uloží streamy cez RPC upsert_streams_with_sport:
-
-    - dotiahne user_uid a sport_type_fe zo summary (logika v DB)
-    - používa db_upsert_streams_with_sport
-    - NEROBÍ žiadny HTTP request na Stravu
-
-    RLS vs service:
-      - ak service=False + user_jwt nie je None → ideš cez RLS klienta
-      - ak service=True (typicky user_jwt=None) → service role (worker/webhook)
-    """
     try:
         times = _arr(streams_json, "time")
         hr = _arr(streams_json, "heartrate")
         cad = _arr(streams_json, "cadence")
         poww = _arr(streams_json, "watts")
         dist = _arr(streams_json, "distance")
+
+        # 🔹 nové streamy
+        alt = _arr(streams_json, "altitude")
+        vel = _arr(streams_json, "velocity_smooth")
+        grade = _arr(streams_json, "grade_smooth")
+        temp = _arr(streams_json, "temp")
 
         db_upsert_streams_with_sport(
             user_id=int(user_id),
@@ -142,60 +136,11 @@ def save_streams_with_sport_to_db(
             cadence=[int(x) for x in cad] if cad else [],
             power=[int(x) for x in poww] if poww else [],
             distance=[float(x) for x in dist] if dist else [],
-            user_jwt=user_jwt,
-            service=service,
-        )
-        return True, ""
-    except Exception as e:  # noqa: BLE001
-        return False, str(e)
 
-
-def save_streams_arrays_to_db(
-    user_id: int,
-    activity_id: int,
-    streams_json: Dict[str, Any],
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Tuple[bool, str]:
-    """
-    Jednoduchší zápis streamov priamo do TABLE_ACTIVITIES_STREAMS:
-
-    - používa db_upsert_stream_arrays
-    - NEROBÍ žiadny HTTP request na Stravu
-
-    RLS vs service:
-      - ak service=False + user_jwt nie je None → RLS klient
-      - ak service=True                        → service role
-    """
-    try:
-        times = _arr(streams_json, "time")
-        hr = _arr(streams_json, "heartrate")
-        cad = _arr(streams_json, "cadence")
-        poww = _arr(streams_json, "watts")
-        dist = _arr(streams_json, "distance")
-
-        # 🔹 nové streamy zo Stravy
-        alt = _arr(streams_json, "altitude")
-        vel = _arr(streams_json, "velocity_smooth")
-        grade = _arr(streams_json, "grade_smooth")
-        temp = _arr(streams_json, "temp")
-
-        db_upsert_stream_arrays(
-            user_id=int(user_id),
-            activity_id=int(activity_id),
-            time_s=[int(x) for x in times],
-
-            heartrate_bpm=[int(x) for x in hr] if hr else None,
-            cadence_rpm=[int(x) for x in cad] if cad else None,
-            power_w=[int(x) for x in poww] if poww else None,
-            distance_m=[float(x) for x in dist] if dist else None,
-
-            # 🔹 nové polia – presne ako máš stĺpce v public.activities_streams
-            altitude_m=[float(x) for x in alt] if alt else None,
-            speed_mps=[float(x) for x in vel] if vel else None,
-            grade_smooth=[float(x) for x in grade] if grade else None,
-            temp_c=[float(x) for x in temp] if temp else None,
+            altitude=[float(x) for x in alt] if alt else [],
+            speed=[float(x) for x in vel] if vel else [],
+            grade=[float(x) for x in grade] if grade else [],
+            temp=[float(x) for x in temp] if temp else [],
 
             user_jwt=user_jwt,
             service=service,
@@ -203,7 +148,6 @@ def save_streams_arrays_to_db(
         return True, ""
     except Exception as e:  # noqa: BLE001
         return False, str(e)
-
 
 def service_get_streams_one(
     user_id: int,
@@ -307,8 +251,6 @@ def fetch_and_optionally_store_batch(
         "items": [],
     }
 
-    print("fetch_and_optionally_store_batch items_in",items_in)
-
     for item in items_in:
         aid = item.get("activity_id")
         ok = bool(item.get("ok"))
@@ -391,7 +333,7 @@ def cache_streams_for_activities(
             continue
 
         j = item.get("json") or {}
-        ok_db, _ = save_streams_arrays_to_db(
+        ok_db, _ = save_streams_with_sport_to_db(
             user_id=user_id,
             activity_id=int(aid),
             streams_json=j,

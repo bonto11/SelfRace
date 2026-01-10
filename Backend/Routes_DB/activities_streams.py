@@ -96,6 +96,10 @@ def db_upsert_streams_with_sport(
     cadence: List[int],
     power: List[int],
     distance: List[float],
+    altitude: List[float],
+    speed: List[float],
+    grade: List[float],
+    temp: List[float],
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> None:
@@ -116,52 +120,9 @@ def db_upsert_streams_with_sport(
         "p_cadence": [int(x) for x in cadence] if cadence else [],
         "p_power": [int(x) for x in power] if power else [],
         "p_distance": [float(x) for x in distance] if distance else [],
+        "p_altitude": [float(x) for x in altitude] if altitude else [],
+        "p_speed": [float(x) for x in speed] if speed else [],
+        "p_grade": [float(x) for x in grade] if grade else [],
+        "p_temp": [float(x) for x in temp] if temp else [],
     }
     sb.rpc("upsert_streams_with_sport", params).execute()
-
-def db_upsert_stream_arrays(
-    *,
-    user_id: int,
-    activity_id: int,
-    time_s: List[int],
-    heartrate_bpm: Optional[List[int]] = None,
-    cadence_rpm: Optional[List[int]] = None,
-    power_w: Optional[List[int]] = None,
-    distance_m: Optional[List[float]] = None,
-    altitude_m: Optional[List[float]] = None,
-    speed_mps: Optional[List[float]] = None,
-    grade_smooth: Optional[List[float]] = None,
-    temp_c: Optional[List[float]] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-):
-    client = get_supabase_client(user_jwt=user_jwt, service=service)
-
-    payload: Dict[str, Any] = {
-        "user_id": user_id,
-        "activity_id": activity_id,
-        "time_s": time_s,
-    }
-
-    if heartrate_bpm is not None:
-        payload["heartrate_bpm"] = heartrate_bpm
-    if cadence_rpm is not None:
-        payload["cadence_rpm"] = cadence_rpm
-    if power_w is not None:
-        payload["power_w"] = power_w
-    if distance_m is not None:
-        payload["distance_m"] = distance_m
-    if altitude_m is not None:
-        payload["altitude_m"] = altitude_m
-    if speed_mps is not None:
-        payload["speed_mps"] = speed_mps
-    if grade_smooth is not None:
-        payload["grade_smooth"] = grade_smooth
-    if temp_c is not None:
-        payload["temp_c"] = temp_c
-
-    (
-        client.table("activities_streams")
-        .upsert(payload, on_conflict="user_id,activity_id")
-        .execute()
-    )
