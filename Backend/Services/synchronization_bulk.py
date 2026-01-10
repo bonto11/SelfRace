@@ -11,6 +11,7 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
+    db_update_activity_map_and_workout,  # ⬅️ NOVÉ
 )
 from Routes_DB.activities_laps import (
     db_delete_laps_for_activity,
@@ -26,7 +27,7 @@ from Services.synchronization_utils import (
     _normalize_lap,
     _normalize_split,
     _decide_laps_or_splits,
-    _enrich_activities_after_import
+    _enrich_activities_after_import,
 )
 from Services.users import require_jwt
 
@@ -47,7 +48,7 @@ def _import_activities_from_strava(
     """
     Čisto import aktivity zo Stravy:
       - /athlete/activities (summary)
-      - laps/splits pre posledné aktivity
+      - detail + laps/splits pre posledné aktivity
 
     Vracia:
       - stats dict (imported/updated/skipped/fetched)
@@ -95,7 +96,24 @@ def _import_activities_from_strava(
         print(f"[SYNC] page={page} fetched={len(items)} (total={fetched})")
 
         for a in items:
+            # základný normalized summary
             row = _normalize_summary(user_id, a)
+
+            # ⬇️ doplníme workout_type + summary polyline zo Strava summary
+            wt = a.get("workout_type", None)
+            if wt is not None:
+                try:
+                    row["workout_type"] = int(wt)
+                except Exception:
+                    # ak príde nezmysel, radšej neprepíšeme
+                    pass
+
+            m = a.get("map") or {}
+            if isinstance(m, dict):
+                sp = m.get("summary_polyline")
+                if sp is not None:
+                    row["map_summary_polyline"] = sp
+
             aid = int(row["activity_id"]) if row.get("activity_id") else None
             if not aid:
                 skipped += 1
@@ -125,10 +143,10 @@ def _import_activities_from_strava(
             to_upsert,
             user_jwt=user_jwt,
         )
-        print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
-        to_upsert.clear()
+    print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
+    to_upsert.clear()
 
-    # -------- detaily (laps/splits) --------
+    # -------- detaily (laps/splits + mapa/workout_type) --------
     if fetch_details and fetched:
         ids = db_get_recent_activity_ids(
             user_id=user_id,
@@ -142,6 +160,25 @@ def _import_activities_from_strava(
                 laps_raw = client.fetch_activity_laps(aid)
                 detail = client.fetch_activity_detail(aid)
                 splits_raw = detail.get("splits_metric") or []
+
+                # ⬇️ z detailu doplníme mapu + workout_type
+                m = detail.get("map") or {}
+                map_summary_polyline = None
+                map_polyline = None
+
+                if isinstance(m, dict):
+                    map_summary_polyline = m.get("summary_polyline")
+                    map_polyline = m.get("polyline")
+
+                detail_wt = detail.get("workout_type", None)
+
+                db_update_activity_map_and_workout(
+                    activity_id=aid,
+                    workout_type=detail_wt,
+                    map_summary_polyline=map_summary_polyline,
+                    map_polyline=map_polyline,
+                    user_jwt=user_jwt,
+                )
 
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
@@ -159,6 +196,7 @@ def _import_activities_from_strava(
                         row = _normalize_lap(L, user_id, aid)
                         db_upsert_lap(row, user_jwt=user_jwt)
                 else:
+                    # nevieme rozhodnúť, necháme tak
                     pass
 
             except Exception as e:
