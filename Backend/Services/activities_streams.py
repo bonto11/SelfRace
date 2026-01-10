@@ -89,6 +89,7 @@ def fetch_streams_batch_from_strava(
                     "json": j,
                 }
             )
+            print("fetch_streams_batch_from_strava out",out)
         except Exception as e:  # noqa: BLE001
             out["items"].append(
                 {
@@ -291,6 +292,8 @@ def fetch_and_optionally_store_batch(
         "stored": 0,
         "items": [],
     }
+
+    print("fetch_and_optionally_store_batch items_in",items_in)
 
     for item in items_in:
         aid = item.get("activity_id")
