@@ -5,14 +5,6 @@ from typing import Any, Dict, List, Optional
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_STREAMS
 
-DEBUG_STREAMS_DB = True
-
-
-def _dbg_db(*args: Any, **kwargs: Any) -> None:
-    if DEBUG_STREAMS_DB:
-        print("[streams-db]", *args, **kwargs, flush=True)
-
-
 def db_get_streams_one(
     user_id: int,
     activity_id: int,
@@ -37,11 +29,6 @@ def db_get_streams_one(
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
-    _dbg_db(
-        "db_get_streams_one query:",
-        {"user_id": user_id, "activity_id": activity_id},
-    )
-
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select(
@@ -63,28 +50,10 @@ def db_get_streams_one(
     )
     data = res.data or []
     if not data:
-        _dbg_db("db_get_streams_one result: EMPTY")
         return None
 
     row = data[0]
-    _dbg_db(
-        "db_get_streams_one result keys:",
-        sorted(list(row.keys())),
-    )
-    _dbg_db(
-        "db_get_streams_one result sizes:",
-        {
-            "time_s": len(row.get("time_s") or []),
-            "heartrate_bpm": len(row.get("heartrate_bpm") or []),
-            "cadence_rpm": len(row.get("cadence_rpm") or []),
-            "power_w": len(row.get("power_w") or []),
-            "distance_m": len(row.get("distance_m") or []),
-            "altitude_m": len(row.get("altitude_m") or []),
-            "speed_mps": len(row.get("speed_mps") or []),
-            "grade_smooth": len(row.get("grade_smooth") or []),
-            "temp_c": len(row.get("temp_c") or []),
-        },
-    )
+
     return row
 
 
@@ -106,11 +75,6 @@ def db_get_streams_ids_present(
 
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
-    _dbg_db(
-        "db_get_streams_ids_present query:",
-        {"user_id": user_id, "activity_ids": activity_ids},
-    )
-
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select("activity_id")
@@ -126,10 +90,6 @@ def db_get_streams_ids_present(
         except Exception:
             pass
 
-    _dbg_db(
-        "db_get_streams_ids_present result:",
-        {"present_ids": out},
-    )
     return out
 
 
@@ -170,17 +130,6 @@ def db_upsert_streams_with_sport(
         "p_grade": [float(x) for x in grade] if grade else [],
         "p_temp": [float(x) for x in temp] if temp else [],
     }
-
-    _dbg_db(
-        "db_upsert_streams_with_sport params sizes:",
-        {
-            "time_s": len(params["p_time_s"]),
-            "heartrate": len(params["p_heartrate"]),
-            "cadence": len(params["p_cadence"]),
-            "power": len(params["p_power"]),
-            "distance": len(params["p_distance"]),
-        },
-    )
 
     sb.rpc("upsert_streams_with_sport", params).execute()
 
@@ -229,25 +178,6 @@ def db_upsert_stream_arrays(
         payload["grade_smooth"] = grade_smooth
     if temp_c is not None:
         payload["temp_c"] = temp_c
-
-    _dbg_db(
-        "db_upsert_stream_arrays payload keys:",
-        sorted(list(payload.keys())),
-    )
-    _dbg_db(
-        "db_upsert_stream_arrays payload sizes:",
-        {
-            "time_s": len(payload.get("time_s") or []),
-            "heartrate_bpm": len(payload.get("heartrate_bpm") or []),
-            "cadence_rpm": len(payload.get("cadence_rpm") or []),
-            "power_w": len(payload.get("power_w") or []),
-            "distance_m": len(payload.get("distance_m") or []),
-            "altitude_m": len(payload.get("altitude_m") or []),
-            "speed_mps": len(payload.get("speed_mps") or []),
-            "grade_smooth": len(payload.get("grade_smooth") or []),
-            "temp_c": len(payload.get("temp_c") or []),
-        },
-    )
 
     (
         sb.table(TABLE_ACTIVITIES_STREAMS)
