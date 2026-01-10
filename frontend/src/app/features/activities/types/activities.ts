@@ -39,20 +39,61 @@ export interface MiniActivity {
 export type WeekPick = { week: string; start: string; end: string; sport: string };
 
 /** Ľahký rad pre listy/grafy (90d range) */
-export interface ActivityRow {
+export type ActivityRow = {
   activity_id: number;
   name: string;
-  date: string; // ISO (YYYY-MM-DD)
-  sport_type?: string | null;
-  sport_type_fe?: string | null;
-  sport_type_ovrd?: string | null;
+  date: string; // ISO "YYYY-MM-DD"
+
+  // šport
+  sport_type: string | null;
+  sport_type_fe: SportFE | null;
+  sport_type_ovrd: SportFE | null;
+
+  // distance / time
   distance_m: number | null;
   moving_time_s: number | null;
+  elapsed_time_s: number | null;
+
+  // rýchlosť / tempo
+  average_speed_mps: number | null;
+  max_speed_mps: number | null;
+
+  // tep
   average_heartrate_bpm: number | null;
   max_heartrate_bpm: number | null;
-  // voliteľne – ak by API niekde malo TRIMP (ak nie, nechávame null)
+
+  // prevýšenie
+  elevation_gain_m: number | null;
+  elev_high_m: number | null;
+  elev_low_m: number | null;
+
+  // kadencia / teplota / výkon
+  average_cadence_rpm: number | null;
+  average_temp_c: number | null;
+  average_watts: number | null;
+  max_watts: number | null;
+
+  // energia a štatistiky
+  calories_kcal: number | null;
+  achievement_count: number | null;
+  pr_count: number | null;
+
+  // výbava
+  gear_id: string | null;
+  gear_name: string | null;
+
+  // časové info
+  timezone: string | null;
+  utc_offset_s: number | null;
+
+  // workout / mapa
+  workout_type: number | null;
+  map_summary_polyline: string | null;
+  map_polyline: string | null;
+
+  // interné veci (zónový / AI enrichment)
   trimp: number | null;
-}
+};
 
 /** Extra detail (doťahuje sa len na klik) */
 export interface ActivityDetailExtra {
