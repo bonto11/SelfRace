@@ -1,4 +1,3 @@
-# Routes_DB/activities_summary.py
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -342,3 +341,42 @@ def db_get_summary_for_activities(
         .execute()
     )
     return res.data or []
+
+
+# ───────────────────────────── update map/workout_type ─────────────────────────────
+
+
+def db_update_activity_map(
+    activity_id: int,
+    *,
+    workout_type: Optional[int] = None,
+    map_summary_polyline: Optional[str] = None,
+    map_polyline: Optional[str] = None,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> None:
+    """
+    Update mapových polí a workout_type pre danú aktivitu.
+
+    Toto je kvôli staršiemu kódu, ktorý importuje db_update_activity_map.
+    Ak žiadne z polí nie je zadané, neurobí sa nič.
+    """
+    update_fields: Dict[str, Any] = {}
+
+    if workout_type is not None:
+        update_fields["workout_type"] = int(workout_type)
+    if map_summary_polyline is not None:
+        update_fields["map_summary_polyline"] = map_summary_polyline
+    if map_polyline is not None:
+        update_fields["map_polyline"] = map_polyline
+
+    if not update_fields:
+        return
+
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_summary")
+    (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+        .update(update_fields)
+        .eq("activity_id", activity_id)
+        .execute()
+    )
