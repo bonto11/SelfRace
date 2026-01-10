@@ -15,6 +15,13 @@ class StravaActivitiesClient:
 
     - drží jednu requests.Session s Authorization headerom
     - rate-limit rieši volajúci (time.sleep v servicách)
+
+    Dôležité:
+      - fetch_activity_detail() vracia celý DetailedActivity objekt,
+        teda aj:
+          - workout_type
+          - map.summary_polyline
+          - map.polyline
     """
 
     def __init__(self) -> None:
@@ -67,6 +74,11 @@ class StravaActivitiesClient:
     ) -> Dict[str, Any]:
         """
         Detail jednej aktivity: /activities/{id}
+
+        Vracia DetailedActivity JSON, vrátane:
+          - workout_type
+          - map.summary_polyline
+          - map.polyline
         """
         r = self._session.get(
             f"{STRAVA_BASE}/activities/{int(activity_id)}",
