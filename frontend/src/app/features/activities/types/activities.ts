@@ -1,6 +1,13 @@
 export type StreamsData = {
   time_s: number[];
   hr: (number | null)[];
+
+  // nové veci zo streams tabulky – všetko optional,
+  // aby ti to nerozbilo starý kód
+  cadence_rpm?: (number | null)[];
+  power_w?: (number | null)[];
+  distance_m?: (number | null)[];
+
   duration_s: number;
 };
 
