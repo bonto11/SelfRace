@@ -13,18 +13,132 @@ import {
 export function normalizeActivityRow(r: any): ActivityRow | null {
   const id = Number(r?.activity_id ?? r?.id);
   if (!Number.isFinite(id)) return null;
+
+  const date = isoDate(r?.date ?? r?.start_date_local ?? r?.start_date);
+
+  const distance_m = numOrNull(r?.distance_m ?? r?.distance);
+  const moving_time_s = numOrNull(r?.moving_time_s ?? r?.moving_time);
+  const elapsed_time_s = numOrNull(r?.elapsed_time_s ?? r?.elapsed_time);
+
+  const average_speed_mps = numOrNull(
+    r?.average_speed_mps ?? r?.avg_speed ?? r?.average_speed
+  );
+  const max_speed_mps = numOrNull(
+    r?.max_speed_mps ?? r?.max_speed ?? r?.max_speed_mps
+  );
+
+  const average_heartrate_bpm = numOrNull(
+    r?.average_heartrate_bpm ?? r?.avg_hr ?? r?.average_heartrate
+  );
+  const max_heartrate_bpm = numOrNull(
+    r?.max_heartrate_bpm ?? r?.max_hr ?? r?.max_heartrate
+  );
+
+  const elevation_gain_m = numOrNull(
+    r?.elevation_gain_m ?? r?.total_elevation_gain
+  );
+  const elev_high_m = numOrNull(r?.elev_high_m ?? r?.elev_high);
+  const elev_low_m = numOrNull(r?.elev_low_m ?? r?.elev_low);
+
+  const average_cadence_rpm = numOrNull(
+    r?.average_cadence_rpm ?? r?.avg_cadence ?? r?.cadence
+  );
+  const average_temp_c = numOrNull(
+    r?.average_temp_c ?? r?.average_temp ?? r?.temp
+  );
+  const average_watts = numOrNull(
+    r?.average_watts ??
+      r?.weighted_average_watts ??
+      r?.avg_watts ??
+      r?.average_power
+  );
+  const max_watts = numOrNull(r?.max_watts);
+
+  const calories_kcal = numOrNull(r?.calories_kcal ?? r?.calories);
+
+  const achievement_count = numOrNull(r?.achievement_count);
+  const pr_count = numOrNull(r?.pr_count);
+
+  const workout_type = numOrNull(r?.workout_type);
+
+  // map polylines – buď priamo z DB stĺpcov, alebo z vnoreného map objektu
+  const map_summary_polyline =
+    typeof r?.map_summary_polyline === "string"
+      ? r.map_summary_polyline
+      : typeof r?.map?.summary_polyline === "string"
+      ? r.map.summary_polyline
+      : null;
+
+  const map_polyline =
+    typeof r?.map_polyline === "string"
+      ? r.map_polyline
+      : typeof r?.map?.polyline === "string"
+      ? r.map.polyline
+      : null;
+
+  const gear_id =
+    typeof r?.gear_id === "string"
+      ? r.gear_id
+      : typeof r?.gear?.id === "string"
+      ? r.gear.id
+      : null;
+
+  const gear_name =
+    typeof r?.gear_name === "string"
+      ? r.gear_name
+      : typeof r?.gear?.name === "string"
+      ? r.gear.name
+      : null;
+
+  const timezone =
+    typeof r?.timezone === "string" ? r.timezone : r?.timezone ?? null;
+  const utc_offset_s = numOrNull(r?.utc_offset_s ?? r?.utc_offset);
+
+  const trimp = numOrNull(r?.trimp);
+
   return {
     activity_id: id,
     name: String(r?.name ?? "").trim(),
-    date: isoDate(r?.date ?? r?.start_date_local ?? r?.start_date),
+    date,
+
     sport_type: r?.sport_type ?? null,
     sport_type_fe: r?.sport_type_fe ?? null,
     sport_type_ovrd: r?.sport_type_ovrd ?? null,
-    distance_m: numOrNull(r?.distance_m ?? r?.distance),
-    moving_time_s: numOrNull(r?.moving_time_s ?? r?.moving_time),
-    average_heartrate_bpm: numOrNull(r?.average_heartrate_bpm ?? r?.avg_hr),
-    max_heartrate_bpm: numOrNull(r?.max_heartrate_bpm ?? r?.max_hr),
-    trimp: numOrNull(r?.trimp), // často null – nevadí
+
+    distance_m,
+    moving_time_s,
+    elapsed_time_s,
+
+    average_speed_mps,
+    max_speed_mps,
+
+    average_heartrate_bpm,
+    max_heartrate_bpm,
+
+    elevation_gain_m,
+    elev_high_m,
+    elev_low_m,
+
+    average_cadence_rpm,
+    average_temp_c,
+    average_watts,
+    max_watts,
+
+    calories_kcal,
+    achievement_count,
+    pr_count,
+
+    gear_id,
+    gear_name,
+
+    timezone,
+    utc_offset_s,
+
+    workout_type,
+    map_summary_polyline,
+    map_polyline,
+
+    trimp,
   };
 }
 
