@@ -20,7 +20,7 @@ type BaseChartProps = {
   yLabel?: string;
   formatY?: (v: number) => string;
   mode?: "hr" | "plain";
-  strokeColor?: string; // pre non-HR grafy
+  strokeColor?: string;
 };
 
 /** HR zónová farba */
@@ -36,8 +36,6 @@ function zoneColor(hr: number) {
 
 /**
  * Jednotný základ pre všetky stream grafy.
- * mode="hr" → zónové pásy + farebné segmenty + legenda
- * mode="plain" → veľký line chart bez pásov, s vlastnou farbou
  */
 function BaseStreamChart({
   xs,
@@ -95,7 +93,7 @@ function BaseStreamChart({
     }
 
     if (mode === "hr") {
-      // HR špecifiká – nech to “sedí” so zónami
+      // HR špecifiká – nech to sedí so zónami
       minY = Math.min(120, minY);
       maxY = Math.max(CHART_HR.maxBpm, maxY);
     } else {
@@ -244,7 +242,6 @@ function BaseStreamChart({
       </>
     );
 
-    // legenda pre HR
     const Legend =
       mode === "hr"
         ? () => {
@@ -297,7 +294,7 @@ function BaseStreamChart({
 }
 
 /**
- * Hlavný wrapper: všetky streamy ako veľké grafy (rovnako veľké ako HR).
+ * Wrapper pre všetky stream grafy + rozbalovanie.
  */
 export function ActivityStreamCharts({
   streams,
@@ -317,7 +314,10 @@ export function ActivityStreamCharts({
   const hasPow =
     Array.isArray(power_w) && power_w.some((v) => v != null);
 
-  // 🔹 hook musí byť VŽDY zavolaný (aj keď nie sú dáta)
+  // rozbalovanie (default zavreté)
+  const [isOpen, setIsOpen] = useState(false);
+
+  // hook musí bežať vždy
   const pace_s_per_km: (number | null)[] = useMemo(() => {
     if (!hasDist || !hasTime) return [];
 
@@ -346,7 +346,6 @@ export function ActivityStreamCharts({
     return out;
   }, [hasDist, hasTime, time_s, distance_m]);
 
-  // až teraz môže byť early return
   if (!hasTime) {
     return (
       <div className="opacity-70 text-sm">
@@ -359,89 +358,104 @@ export function ActivityStreamCharts({
   const height = compact ? 148 : 220;
 
   return (
-    <div className="space-y-4">
-      {hasHr && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="font-bold text-sm">HR priebeh</h4>
-          </div>
-          <BaseStreamChart
-            xs={time_s}
-            ys={hr}
-            height={height}
-            compact={compact}
-            yLabel="bpm"
-            mode="hr"
-          />
-        </div>
-      )}
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold hover:bg-gray-700"
+      >
+        <span>Podrobné grafy</span>
+        <span className="ml-2 text-lg leading-none">
+          {isOpen ? "−" : "+"}
+        </span>
+      </button>
 
-      {hasAlt && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="font-bold text-sm">Prevýšenie</h4>
-          </div>
-          <BaseStreamChart
-            xs={time_s}
-            ys={altitude_m ?? []}
-            height={height}
-            compact={compact}
-            yLabel="m"
-            mode="plain"
-            strokeColor={CHART_HR.colors.z2}
-          />
-        </div>
-      )}
+      {isOpen && (
+        <div className="mt-3 space-y-4">
+          {hasHr && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-sm">HR priebeh</h4>
+              </div>
+              <BaseStreamChart
+                xs={time_s}
+                ys={hr}
+                height={height}
+                compact={compact}
+                yLabel="bpm"
+                mode="hr"
+              />
+            </div>
+          )}
 
-      {hasDist && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="font-bold text-sm">Tempo (instantné)</h4>
-          </div>
-          <BaseStreamChart
-            xs={time_s}
-            ys={pace_s_per_km}
-            height={height}
-            compact={compact}
-            yLabel="s/km"
-            formatY={formatPace}
-            mode="plain"
-            strokeColor={CHART_HR.colors.z3}
-          />
-        </div>
-      )}
+          {hasAlt && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-sm">Prevýšenie</h4>
+              </div>
+              <BaseStreamChart
+                xs={time_s}
+                ys={altitude_m ?? []}
+                height={height}
+                compact={compact}
+                yLabel="m"
+                mode="plain"
+                strokeColor={CHART_HR.colors.z2}
+              />
+            </div>
+          )}
 
-      {hasPow && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="font-bold text-sm">Power</h4>
-          </div>
-          <BaseStreamChart
-            xs={time_s}
-            ys={power_w ?? []}
-            height={height}
-            compact={compact}
-            yLabel="W"
-            mode="plain"
-            strokeColor={CHART_HR.colors.z4}
-          />
-        </div>
-      )}
+          {hasDist && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-sm">Tempo (instantné)</h4>
+              </div>
+              <BaseStreamChart
+                xs={time_s}
+                ys={pace_s_per_km}
+                height={height}
+                compact={compact}
+                yLabel="s/km"
+                formatY={formatPace}
+                mode="plain"
+                strokeColor={CHART_HR.colors.z3}
+              />
+            </div>
+          )}
 
-      {hasCad && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="font-bold text-sm">Cadence</h4>
-          </div>
-          <BaseStreamChart
-            xs={time_s}
-            ys={cadence_rpm ?? []}
-            height={height}
-            compact={compact}
-            yLabel="rpm"
-            mode="plain"
-            strokeColor={CHART_HR.colors.z5}
-          />
+          {hasPow && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-sm">Power</h4>
+              </div>
+              <BaseStreamChart
+                xs={time_s}
+                ys={power_w ?? []}
+                height={height}
+                compact={compact}
+                yLabel="W"
+                mode="plain"
+                strokeColor={CHART_HR.colors.z4}
+              />
+            </div>
+          )}
+
+          {hasCad && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-sm">Cadence</h4>
+              </div>
+              <BaseStreamChart
+                xs={time_s}
+                ys={cadence_rpm ?? []}
+                height={height}
+                compact={compact}
+                yLabel="rpm"
+                mode="plain"
+                strokeColor={CHART_HR.colors.z5}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
