@@ -203,7 +203,7 @@ def service_get_streams_one(
     - service=False + user_jwt → RLS klient (bežný FE request)
     - service=True             → service klient (worker/cron/webhook)
 
-    Vždy vráti dict.
+    Vždy vráti dict s rovnakými kľúčmi.
     """
 
     if service:
@@ -217,10 +217,25 @@ def service_get_streams_one(
         user_jwt=jwt,
         service=service,
     )
-    if not row:
-        return {"time_s": [], "heartrate_bpm": []}
-    return row
 
+    if not row:
+        # default shape – aby FE nemusel riešiť None / chýbajúce kľúče
+        return {
+            "time_s": [],
+            "heartrate_bpm": [],
+            "cadence_rpm": [],
+            "power_w": [],
+            "distance_m": [],
+        }
+
+    # ak DB vráti len čas a HR (staršie riadky), dopoň prázdne polia:
+    row.setdefault("cadence_rpm", [])
+    row.setdefault("power_w", [])
+    row.setdefault("distance_m", [])
+    row.setdefault("time_s", row.get("time_s") or [])
+    row.setdefault("heartrate_bpm", row.get("heartrate_bpm") or [])
+
+    return row
 
 # ====================================================================
 # 3) KOMBINOVANÉ HELPERY – Strava + DB (backward kompatibilita)
