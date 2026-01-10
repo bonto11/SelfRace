@@ -7,6 +7,7 @@ export type StreamsData = {
   cadence_rpm?: (number | null)[];
   power_w?: (number | null)[];
   distance_m?: (number | null)[];
+  altitude_m?: (number | null)[]; // ⬅️ prevýšenie / nadmorská výška
 
   duration_s: number;
 };
