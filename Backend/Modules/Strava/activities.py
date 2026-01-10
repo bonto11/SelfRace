@@ -1,4 +1,3 @@
-# Modules/API/Strava/activities.py
 from __future__ import annotations
 
 from typing import Any, Dict, List
@@ -124,25 +123,36 @@ class StravaActivitiesClient:
         """
         Streams pre jednu aktivitu: /activities/{id}/streams (key_by_type=true).
 
-        Vracia raw JSON dict v tom tvare, ako ho očakáva pôvodný kód:
+        Vracia raw JSON dict:
         {
           "time": {"data": [...]},
           "heartrate": {"data": [...]},
+          "distance": {"data": [...]},
+          "altitude": {"data": [...]},
+          "velocity_smooth": {"data": [...]},
+          "cadence": {"data": [...]},
+          "watts": {"data": [...]},
+          "latlng": {"data": [...]},
+          "grade_smooth": {"data": [...]},
+          "temp": {"data": [...]},
+          "moving": {"data": [...]},
           ...
         }
         """
         r = self._session.get(
             f"{STRAVA_BASE}/activities/{int(activity_id)}/streams",
             params={
-                "keys": "time,heartrate,distance,altitude,velocity_smooth,cadence,watts,latlng",
+                "keys": (
+                    "time,heartrate,distance,altitude,"
+                    "velocity_smooth,cadence,watts,latlng,"
+                    "grade_smooth,temp,moving"
+                ),
                 "key_by_type": "true",
             },
             timeout=timeout,
         )
         # 403/404 → necháme raise_for_status alebo si to rieši volajúci try/except
         if r.status_code in (403, 404):
-            # nechávame rovnaké správanie ako starý helper:
-            # volajúci si to odchytí a zapíše do result["status"]
             r.raise_for_status()
         j = r.json() or {}
         if not isinstance(j, dict):
