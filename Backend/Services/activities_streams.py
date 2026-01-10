@@ -52,6 +52,10 @@ def fetch_streams_from_strava(
 ) -> Dict[str, Any]:
     """
     Načíta streams pre JEDNU aktivitu zo Stravy.
+
+    - používa StravaActivitiesClient.fetch_activity_streams()
+    - NEROBÍ žiadne DB operácie
+    - vyhadzuje výnimky pri HTTP errore (raise_for_status)
     """
     client = StravaActivitiesClient()
     j = client.fetch_activity_streams(int(activity_id), timeout=timeout)
@@ -70,6 +74,21 @@ def fetch_streams_batch_from_strava(
 ) -> Dict[str, Any]:
     """
     Batch fetch zo Stravy – žiadna DB.
+
+    Výstup:
+    {
+      "ok": True/False,
+      "count": N,
+      "items": [
+        {
+          "activity_id": ...,
+          "ok": True/False,
+          "json": { ... }   # len ak ok=True
+          "error": "..."    # len ak ok=False
+        },
+        ...
+      ]
+    }
     """
     client = StravaActivitiesClient()
     out: Dict[str, Any] = {
@@ -93,6 +112,7 @@ def fetch_streams_batch_from_strava(
                     "json": j,
                 }
             )
+
         except Exception as e:  # noqa: BLE001
             _dbg(f"fetch_streams_batch_from_strava activity_id={aid} ERROR: {e}")
             out["items"].append(
@@ -125,7 +145,16 @@ def save_streams_with_sport_to_db(
     service: bool = False,
 ) -> Tuple[bool, str]:
     """
-    Uloží streamy cez RPC upsert_streams_with_sport.
+    Uloží streamy cez RPC upsert_streams_with_sport
+    + hneď aj extended arrays do TABLE_ACTIVITIES_STREAMS.
+
+    - dotiahne user_uid a sport_type_fe zo summary (logika v DB)
+    - používa db_upsert_streams_with_sport (pôvodné polia)
+    - navyše zavolá db_upsert_stream_arrays na altitude/speed/grade/temp
+
+    RLS vs service:
+      - ak service=False + user_jwt nie je None → ideš cez RLS klienta
+      - ak service=True (typicky user_jwt=None) → service role
     """
     try:
         _dbg(
@@ -133,6 +162,7 @@ def save_streams_with_sport_to_db(
             f"raw_keys={sorted(list(streams_json.keys()))}"
         )
 
+        # základné polia (pôvodná logika)
         times = _arr(streams_json, "time")
         hr = _arr(streams_json, "heartrate")
         cad = _arr(streams_json, "cadence")
@@ -140,7 +170,7 @@ def save_streams_with_sport_to_db(
         dist = _arr(streams_json, "distance")
 
         _dbg(
-            "save_streams_with_sport_to_db sizes:",
+            "save_streams_with_sport_to_db sizes (core):",
             {
                 "time": len(times),
                 "heartrate": len(hr),
@@ -150,6 +180,7 @@ def save_streams_with_sport_to_db(
             },
         )
 
+        # 1) pôvodné RPC – aby sa držala logika so sport_type atď.
         db_upsert_streams_with_sport(
             user_id=int(user_id),
             activity_id=int(activity_id),
@@ -161,6 +192,24 @@ def save_streams_with_sport_to_db(
             user_jwt=user_jwt,
             service=service,
         )
+
+        # 2) extended arrays – altitude, speed, grade, temp
+        ok_ext, err_ext = save_streams_arrays_to_db(
+            user_id=user_id,
+            activity_id=activity_id,
+            streams_json=streams_json,
+            user_jwt=user_jwt,
+            service=service,
+        )
+        if not ok_ext:
+            _dbg(
+                f"save_streams_with_sport_to_db extended arrays ERROR "
+                f"user={user_id} act={activity_id}: {err_ext}"
+            )
+            # ak chceš, môžeš tu vrátiť False – nechávam to ako error,
+            # aby si pri debugu videl, že sa niečo nepodarilo
+            return False, err_ext
+
         return True, ""
     except Exception as e:  # noqa: BLE001
         _dbg(
@@ -179,7 +228,14 @@ def save_streams_arrays_to_db(
     service: bool = False,
 ) -> Tuple[bool, str]:
     """
-    Jednoduchší zápis streamov priamo do TABLE_ACTIVITIES_STREAMS.
+    Jednoduchší zápis streamov priamo do TABLE_ACTIVITIES_STREAMS:
+
+    - používa db_upsert_stream_arrays
+    - NEROBÍ žiadny HTTP request na Stravu
+
+    RLS vs service:
+      - ak service=False + user_jwt nie je None → RLS klient
+      - ak service=True                        → service role
     """
     try:
         _dbg(
@@ -193,13 +249,14 @@ def save_streams_arrays_to_db(
         poww = _arr(streams_json, "watts")
         dist = _arr(streams_json, "distance")
 
+        # nové streamy zo Stravy
         alt = _arr(streams_json, "altitude")
         vel = _arr(streams_json, "velocity_smooth")
         grade = _arr(streams_json, "grade_smooth")
         temp = _arr(streams_json, "temp")
 
         _dbg(
-            "save_streams_arrays_to_db sizes:",
+            "save_streams_arrays_to_db sizes (extended):",
             {
                 "time": len(times),
                 "heartrate": len(hr),
@@ -246,6 +303,11 @@ def service_get_streams_one(
 ) -> Dict[str, Any]:
     """
     Čítanie streamov z DB pre FE/AI.
+
+    - service=False + user_jwt → RLS klient (bežný FE request)
+    - service=True             → service klient (worker/cron/webhook)
+
+    Vždy vráti dict s rovnakými kľúčmi.
     """
 
     if service:
@@ -321,7 +383,14 @@ def fetch_and_optionally_store_batch(
     service: bool = False,
 ) -> Dict[str, Any]:
     """
-    Pôvodná API – Strava fetch + voliteľný zápis do DB.
+    PÔVODNÁ API, ale teraz čistejšie:
+
+    - Strava fetch: fetch_streams_batch_from_strava()
+    - DB write (ak store=True): save_streams_with_sport_to_db()
+
+    RLS vs service:
+      - FE sync:   service=False, pass user_jwt (RLS)
+      - worker:    service=True, user_jwt=None → service role
     """
     if service:
         jwt = user_jwt
@@ -414,7 +483,10 @@ def cache_streams_for_activities(
     service: bool = False,
 ) -> Dict[str, int]:
     """
-    Používa sa typicky v worker/cron – fetch + zápis arrays do DB.
+    PÔVODNÁ API pre enrichment:
+
+    - Strava fetch pre každé activity_id
+    - zápis do DB cez save_streams_arrays_to_db()
     """
     if service:
         jwt = user_jwt
