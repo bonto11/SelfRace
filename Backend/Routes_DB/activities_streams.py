@@ -119,11 +119,10 @@ def db_upsert_streams_with_sport(
     }
     sb.rpc("upsert_streams_with_sport", params).execute()
 
-
 def db_upsert_stream_arrays(
+    *,
     user_id: int,
     activity_id: int,
-    *,
     time_s: List[int],
     heartrate_bpm: Optional[List[int]] = None,
     cadence_rpm: Optional[List[int]] = None,
@@ -133,40 +132,36 @@ def db_upsert_stream_arrays(
     speed_mps: Optional[List[float]] = None,
     grade_smooth: Optional[List[float]] = None,
     temp_c: Optional[List[float]] = None,
-    moving: Optional[List[bool]] = None,
     user_jwt: Optional[str] = None,
     service: bool = False,
-) -> None:
-    """
-    Jednoduchý upsert priamo do TABLE_ACTIVITIES_STREAMS (bez RPC).
+):
+    client = get_supabase_client(user_jwt=user_jwt, service=service)
 
-    Nové polia:
-      - altitude_m
-      - speed_mps
-      - grade_smooth
-      - temp_c
-      - moving
-    """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
-
-    row = {
-        "activity_id": int(activity_id),
-        "user_id": int(user_id),
-        "user_uid": None,
-        "sport_type_fe": "other",
-        "time_s": [int(x) for x in time_s],
-        "heartrate_bpm": [int(x) for x in heartrate_bpm] if heartrate_bpm else None,
-        "cadence_rpm": [int(x) for x in cadence_rpm] if cadence_rpm else None,
-        "power_w": [int(x) for x in power_w] if power_w else None,
-        "distance_m": [float(x) for x in distance_m] if distance_m else None,
-        "altitude_m": [float(x) for x in altitude_m] if altitude_m else None,
-        "speed_mps": [float(x) for x in speed_mps] if speed_mps else None,
-        "grade_smooth": [float(x) for x in grade_smooth] if grade_smooth else None,
-        "temp_c": [float(x) for x in temp_c] if temp_c else None,
-        "moving": [bool(x) for x in moving] if moving else None,
+    payload: Dict[str, Any] = {
+        "user_id": user_id,
+        "activity_id": activity_id,
+        "time_s": time_s,
     }
 
-    sb.table(TABLE_ACTIVITIES_STREAMS).upsert(
-        row,
-        on_conflict="activity_id",
-    ).execute()
+    if heartrate_bpm is not None:
+        payload["heartrate_bpm"] = heartrate_bpm
+    if cadence_rpm is not None:
+        payload["cadence_rpm"] = cadence_rpm
+    if power_w is not None:
+        payload["power_w"] = power_w
+    if distance_m is not None:
+        payload["distance_m"] = distance_m
+    if altitude_m is not None:
+        payload["altitude_m"] = altitude_m
+    if speed_mps is not None:
+        payload["speed_mps"] = speed_mps
+    if grade_smooth is not None:
+        payload["grade_smooth"] = grade_smooth
+    if temp_c is not None:
+        payload["temp_c"] = temp_c
+
+    (
+        client.table("activities_streams")
+        .upsert(payload, on_conflict="user_id,activity_id")
+        .execute()
+    )
