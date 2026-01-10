@@ -16,6 +16,7 @@ export async function apiFetchStreams(
       cadence_rpm: [],
       power_w: [],
       distance_m: [],
+      altitude_m: [],
     };
   }
 
@@ -79,6 +80,15 @@ export async function apiFetchStreams(
       ? payload.distance
       : undefined;
 
+    // altitude / prevýšenie
+    const altitude_m: (number | null)[] | undefined = Array.isArray(
+      payload.altitude_m
+    )
+      ? payload.altitude_m
+      : Array.isArray(payload.altitude)
+      ? payload.altitude
+      : undefined;
+
     const duration_s: number =
       typeof payload.duration_s === "number"
         ? payload.duration_s
@@ -93,6 +103,7 @@ export async function apiFetchStreams(
       cadence_rpm: cadence_rpm ?? [],
       power_w: power_w ?? [],
       distance_m: distance_m ?? [],
+      altitude_m: altitude_m ?? [],
     };
   } catch (e) {
     console.error("[apiFetchStreams] error", e);
@@ -103,6 +114,7 @@ export async function apiFetchStreams(
       cadence_rpm: [],
       power_w: [],
       distance_m: [],
+      altitude_m: [],
     };
   }
 }
