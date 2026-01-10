@@ -1,343 +1,333 @@
 "use client";
 
+import { useMemo } from "react";
 import type { JSX } from "react";
+
+import HrChart from "@/app/shared/components/trend/HrChart";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { CHART_HR } from "@/app/shared/ui/classes";
+import type { StreamsData } from "@/app/features/activities/types/activities";
 
-/**
- * Generický line chart pre ľubovoľný stream (pace, cadence, power, altitude, hr, ...).
- */
-function StreamLineChartBase({
+type ActivityStreamChartsProps = {
+  streams: StreamsData;
+  compact?: boolean;
+};
+
+type MiniChartProps = {
+  title: string;
+  xs: number[];
+  ys: (number | null | undefined)[];
+  compact?: boolean;
+  yLabel?: string;
+  formatY?: (v: number) => string;
+};
+
+function MiniStreamChart({
+  title,
   xs,
   ys,
-  height = 120,
   compact = false,
-  labelY,
-  labelX = "čas",
-  emptyText = "Stream nie je k dispozícii.",
-  formatYTick,
-  formatXTick,
-  color = "#3b82f6",
-}: {
-  xs: number[];
-  ys: (number | null)[];
-  height?: number;
-  compact?: boolean;
-  labelY: string;
-  labelX?: string;
-  emptyText?: string;
-  formatYTick?: (v: number) => string;
-  formatXTick?: (v: number) => string;
-  color?: string;
-}) {
-  const n = Math.min(xs.length, ys.length);
-  if (!n) {
-    const cls = CHART_HR.emptyTextClass;
-    return <div className={cls}>{emptyText}</div>;
-  }
-
-  const padL = compact ? 28 : 40;
-  const padR = compact ? 8 : 16;
-  const padT = compact ? 10 : 20;
-  const padB = compact ? 20 : 26;
-
-  const W = 980;
-  const H = Math.max(100, height);
-
-  // očistené body
-  const xv: number[] = [];
-  const yv: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const v = ys[i];
-    if (v != null && Number.isFinite(v)) {
-      xv.push(xs[i]);
-      yv.push(v);
+  yLabel,
+  formatY,
+}: MiniChartProps) {
+  const Svg = useMemo(() => {
+    const n = Math.min(xs.length, ys.length);
+    if (!n) {
+      return () => (
+        <div className="opacity-70 text-xs">Dáta nie sú k dispozícii.</div>
+      );
     }
-  }
-  if (!yv.length) {
-    const cls = CHART_HR.emptyTextClass;
-    return <div className={cls}>{emptyText}</div>;
-  }
 
-  const minY = Math.min(...yv);
-  const maxY = Math.max(...yv);
-  const minX = xv[0];
-  const maxX = xv[xv.length - 1];
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      const v = ys[i];
+      if (v == null) continue;
+      points.push({ x: xs[i], y: Number(v) });
+    }
 
-  const sx = (t: number) =>
-    padL + ((t - minX) / Math.max(1, maxX - minX)) * (W - padL - padR);
-  const sy = (v: number) => {
-    const h = H - padT - padB;
-    const t = (v - minY) / Math.max(1, maxY - minY);
-    return H - padB - t * h;
-  };
+    if (!points.length) {
+      return () => (
+        <div className="opacity-70 text-xs">Dáta nie sú k dispozícii.</div>
+      );
+    }
 
-  // mriežka
-  const yTicks = 4;
-  const yVals = Array.from(
-    { length: yTicks + 1 },
-    (_, i) => minY + (i * (maxY - minY)) / yTicks
+    const padL = 32;
+    const padR = 8;
+    const padT = 16;
+    const padB = 22;
+
+    const W = 480;
+    const H = compact ? 90 : 110;
+
+    const minX = points[0].x;
+    const maxX = points[points.length - 1].x;
+
+    let minY = points[0].y;
+    let maxY = points[0].y;
+    for (const p of points) {
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    if (minY === maxY) {
+      minY -= 1;
+      maxY += 1;
+    }
+
+    const sx = (t: number) =>
+      padL +
+      ((t - minX) / Math.max(1, maxX - minX)) * (W - padL - padR);
+    const sy = (v: number) => {
+      const h = H - padT - padB;
+      const t = (v - minY) / Math.max(1, maxY - minY);
+      return H - padB - t * h;
+    };
+
+    const xTicks = 3;
+    const xVals = Array.from(
+      { length: xTicks + 1 },
+      (_, i) => minX + (i * (maxX - minX)) / xTicks
+    );
+
+    const yTicks = 3;
+    const yVals = Array.from(
+      { length: yTicks + 1 },
+      (_, i) => minY + (i * (maxY - minY)) / yTicks
+    );
+
+    const path: JSX.Element[] = [];
+    for (let i = 1; i < points.length; i++) {
+      const p1 = points[i - 1];
+      const p2 = points[i];
+      path.push(
+        <line
+          key={`ln-${i}`}
+          x1={sx(p1.x)}
+          y1={sy(p1.y)}
+          x2={sx(p2.x)}
+          y2={sy(p2.y)}
+          stroke={CHART_HR.axisText}
+          strokeWidth={compact ? 1 : 1.4}
+          strokeLinecap="round"
+        />
+      );
+    }
+
+    const Axis = () => (
+      <>
+        {yVals.map((v, i) => (
+          <g key={`gy-${i}`}>
+            <line
+              x1={padL}
+              x2={W - padR}
+              y1={sy(v)}
+              y2={sy(v)}
+              stroke={CHART_HR.grid}
+              strokeDasharray="4 4"
+            />
+            <text
+              x={padL - 4}
+              y={sy(v)}
+              textAnchor="end"
+              dominantBaseline="central"
+              fontSize={9}
+              fill={CHART_HR.tickText}
+            >
+              {formatY ? formatY(v) : Math.round(v)}
+            </text>
+          </g>
+        ))}
+        {xVals.map((t, i) => (
+          <g key={`gx-${i}`}>
+            <line
+              x1={sx(t)}
+              x2={sx(t)}
+              y1={padT}
+              y2={H - padB}
+              stroke={CHART_HR.grid}
+              strokeDasharray="4 4"
+            />
+            <text
+              x={sx(t)}
+              y={H - padB + 12}
+              textAnchor="middle"
+              fontSize={9}
+              fill={CHART_HR.tickText}
+            >
+              {fmtSecondsHMS(Math.round(t))}
+            </text>
+          </g>
+        ))}
+
+        {yLabel && (
+          <text
+            x={padL + 4}
+            y={(padT + (H - padB)) / 2}
+            transform={`rotate(-90 ${padL + 4} ${
+              (padT + (H - padB)) / 2
+            })`}
+            textAnchor="middle"
+            fontSize={9}
+            fill={CHART_HR.axisText}
+          >
+            {yLabel}
+          </text>
+        )}
+      </>
+    );
+
+    return () => (
+      <svg
+        width="100%"
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={title}
+      >
+        <Axis />
+        <defs>
+          <clipPath id="miniClip">
+            <rect
+              x={padL}
+              y={padT}
+              width={W - padL - padR}
+              height={H - padT - padB}
+            />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#miniClip)">{path}</g>
+      </svg>
+    );
+  }, [xs, ys, compact, title, yLabel, formatY]);
+
+  return (
+    <div className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2">
+      <div className="text-[11px] font-semibold mb-1 opacity-80">
+        {title}
+      </div>
+      <Svg />
+    </div>
   );
-  const xTicks = 5;
-  const xVals = Array.from(
-    { length: xTicks + 1 },
-    (_, i) => minX + (i * (maxX - minX)) / xTicks
-  );
+}
 
-  // polyline
-  const segs: JSX.Element[] = [];
-  for (let i = 1; i < yv.length; i++) {
-    const x1 = sx(xv[i - 1]);
-    const y1 = sy(yv[i - 1]);
-    const x2 = sx(xv[i]);
-    const y2 = sy(yv[i]);
+/**
+ * Hlavný wrapper: HR + ostatné streamy (prevýšenie, pace, power, cadence).
+ */
+export function ActivityStreamCharts({
+  streams,
+  compact = false,
+}: ActivityStreamChartsProps) {
+  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } = streams;
 
-    segs.push(
-      <line
-        key={`s-${i}`}
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke={color}
-        strokeWidth={
-          compact ? CHART_HR.lineWidth.compact : CHART_HR.lineWidth.normal
-        }
-        strokeLinecap="round"
-      />
+  const hasTime = Array.isArray(time_s) && time_s.length > 0;
+  if (!hasTime) {
+    return (
+      <div className="opacity-70 text-sm">
+        Stream dáta nie sú k dispozícii pre túto aktivitu.
+      </div>
     );
   }
 
-  const Axis = () => (
-    <>
-      {yVals.map((v, i) => (
-        <g key={`gy-${i}`}>
-          <line
-            x1={padL}
-            x2={W - padR}
-            y1={sy(v)}
-            y2={sy(v)}
-            stroke={CHART_HR.grid}
-            strokeDasharray="4 4"
+  const hasHr = Array.isArray(hr) && hr.length > 0;
+  const hasAlt =
+    Array.isArray(altitude_m) && altitude_m.some((v) => v != null);
+  const hasDist =
+    Array.isArray(distance_m) && distance_m.some((v) => v != null);
+  const hasCad =
+    Array.isArray(cadence_rpm) && cadence_rpm.some((v) => v != null);
+  const hasPow = Array.isArray(power_w) && power_w.some((v) => v != null);
+
+  // dynamický výpočet pace z distance/time – približne instantaneous pace
+  const pace_s_per_km: (number | null)[] = useMemo(() => {
+    if (!hasDist) return [];
+    const out: (number | null)[] = [];
+    for (let i = 1; i < time_s.length; i++) {
+      const dt = time_s[i] - time_s[i - 1];
+      const d1 = distance_m?.[i - 1] ?? null;
+      const d2 = distance_m?.[i] ?? null;
+      if (dt <= 0 || d1 == null || d2 == null) {
+        out.push(null);
+        continue;
+      }
+      const dd = d2 - d1;
+      if (dd <= 0.5) {
+        out.push(null);
+        continue;
+      }
+      const pace = dt / (dd / 1000); // s/km
+      if (!Number.isFinite(pace) || pace <= 0) {
+        out.push(null);
+      } else {
+        out.push(pace);
+      }
+    }
+    // zarovnanie dĺžky s time_s
+    if (out.length < time_s.length) out.unshift(null);
+    return out;
+  }, [time_s, distance_m, hasDist]);
+
+  const formatPace = (v: number) => fmtSecondsHMS(Math.round(v));
+
+  return (
+    <div className="space-y-3">
+      {/* HR hlavný graf */}
+      {hasHr && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="font-bold text-sm">HR priebeh</h4>
+          </div>
+          <HrChart
+            xs={time_s}
+            ys={hr}
+            height={compact ? 148 : 220}
+            compact={compact}
           />
-          <text
-            x={padL - 6}
-            y={sy(v)}
-            textAnchor="end"
-            dominantBaseline="central"
-            fontSize={10}
-            fill={CHART_HR.tickText}
-          >
-            {formatYTick ? formatYTick(v) : Math.round(v)}
-          </text>
-        </g>
-      ))}
-      {xVals.map((t, i) => (
-        <g key={`gx-${i}`}>
-          <line
-            x1={sx(t)}
-            x2={sx(t)}
-            y1={padT}
-            y2={H - padB}
-            stroke={CHART_HR.grid}
-            strokeDasharray="4 4"
+        </div>
+      )}
+
+      {/* Ostatné mini grafy */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {hasAlt && (
+          <MiniStreamChart
+            title="Prevýšenie"
+            xs={time_s}
+            ys={altitude_m ?? []}
+            compact={compact}
+            yLabel="m"
           />
-          <text
-            x={sx(t)}
-            y={H - padB + 14}
-            textAnchor="middle"
-            fontSize={10}
-            fill={CHART_HR.tickText}
-          >
-            {formatXTick ? formatXTick(t) : fmtSecondsHMS(Math.round(t))}
-          </text>
-        </g>
-      ))}
-      <text
-        x={padL + 4}
-        y={(padT + (H - padB)) / 2}
-        transform={`rotate(-90 ${padL + 4} ${(padT + (H - padB)) / 2})`}
-        textAnchor="middle"
-        fontSize={10}
-        fill={CHART_HR.axisText}
-      >
-        {labelY}
-      </text>
-      <text
-        x={(padL + (W - padR)) / 2}
-        y={H - 4}
-        textAnchor="middle"
-        fontSize={10}
-        fill={CHART_HR.axisText}
-      >
-        {labelX}
-      </text>
-    </>
-  );
+        )}
 
-  return (
-    <svg
-      width="100%"
-      height={H}
-      viewBox={`0 0 ${W} ${H}`}
-      role="img"
-      aria-label={`${labelY} priebeh`}
-    >
-      <Axis />
-      <defs>
-        <clipPath id="streamClip">
-          <rect
-            x={padL}
-            y={padT}
-            width={W - padL - padR}
-            height={H - padT - padB}
+        {hasDist && (
+          <MiniStreamChart
+            title="Tempo (instantné)"
+            xs={time_s}
+            ys={pace_s_per_km}
+            compact={compact}
+            yLabel="s/km"
+            formatY={formatPace}
           />
-        </clipPath>
-      </defs>
-      <g clipPath="url(#streamClip)">{segs}</g>
-    </svg>
-  );
-}
+        )}
 
-/* ----------------------------- Pace chart ----------------------------- */
+        {hasPow && (
+          <MiniStreamChart
+            title="Power"
+            xs={time_s}
+            ys={power_w ?? []}
+            compact={compact}
+            yLabel="W"
+          />
+        )}
 
-function fmtPace(secPerKm: number): string {
-  if (!Number.isFinite(secPerKm) || secPerKm <= 0) return "";
-  const m = Math.floor(secPerKm / 60);
-  const s = Math.round(secPerKm - m * 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-export function PaceChart({
-  xs,
-  ys,
-  height = 120,
-  compact = false,
-}: {
-  xs: number[];
-  ys: (number | null)[]; // pace v sekundách na km
-  height?: number;
-  compact?: boolean;
-}) {
-  return (
-    <StreamLineChartBase
-      xs={xs}
-      ys={ys}
-      height={height}
-      compact={compact}
-      labelY="pace (min/km)"
-      labelX="čas"
-      emptyText="Pace stream nie je k dispozícii."
-      formatYTick={(v) => fmtPace(v)}
-      color="#f97316"
-    />
-  );
-}
-
-/* --------------------------- Cadence chart ---------------------------- */
-
-export function CadenceChart({
-  xs,
-  ys,
-  height = 120,
-  compact = false,
-}: {
-  xs: number[];
-  ys: (number | null)[]; // cadence v rpm
-  height?: number;
-  compact?: boolean;
-}) {
-  return (
-    <StreamLineChartBase
-      xs={xs}
-      ys={ys}
-      height={height}
-      compact={compact}
-      labelY="cadence (rpm)"
-      labelX="čas"
-      emptyText="Kadencia stream nie je k dispozícii."
-      color="#22c55e"
-    />
-  );
-}
-
-/* ---------------------------- Power chart ----------------------------- */
-
-export function PowerChart({
-  xs,
-  ys,
-  height = 120,
-  compact = false,
-}: {
-  xs: number[];
-  ys: (number | null)[]; // výkon vo W
-  height?: number;
-  compact?: boolean;
-}) {
-  return (
-    <StreamLineChartBase
-      xs={xs}
-      ys={ys}
-      height={height}
-      compact={compact}
-      labelY="power (W)"
-      labelX="čas"
-      emptyText="Power stream nie je k dispozícii."
-      color="#a855f7"
-    />
-  );
-}
-
-/* ------------------------- Elevation / prevýšenie ------------------------- */
-
-export function ElevationChart({
-  xs,
-  ys,
-  height = 120,
-  compact = false,
-}: {
-  xs: number[];
-  ys: (number | null)[]; // nadmorská výška v metroch (altitude_m)
-  height?: number;
-  compact?: boolean;
-}) {
-  return (
-    <StreamLineChartBase
-      xs={xs}
-      ys={ys}
-      height={height}
-      compact={compact}
-      labelY="elevácia (m)"
-      labelX="čas"
-      emptyText="Elevation stream nie je k dispozícii."
-      color="#6b7280" // sivá
-    />
-  );
-}
-
-/* ----------------------------- HR simple chart ----------------------------- */
-
-export function HrStreamChart({
-  xs,
-  ys,
-  height = 120,
-  compact = false,
-}: {
-  xs: number[];
-  ys: (number | null)[]; // HR v bpm
-  height?: number;
-  compact?: boolean;
-}) {
-  return (
-    <StreamLineChartBase
-      xs={xs}
-      ys={ys}
-      height={height}
-      compact={compact}
-      labelY="bpm"
-      labelX="čas"
-      emptyText="HR stream nie je k dispozícii."
-      color={CHART_HR.colors.z3 ?? "#ef4444"}
-    />
+        {hasCad && (
+          <MiniStreamChart
+            title="Cadence"
+            xs={time_s}
+            ys={cadence_rpm ?? []}
+            compact={compact}
+            yLabel="rpm"
+          />
+        )}
+      </div>
+    </div>
   );
 }
