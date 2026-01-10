@@ -174,14 +174,28 @@ def save_streams_arrays_to_db(
         poww = _arr(streams_json, "watts")
         dist = _arr(streams_json, "distance")
 
+        # 🔹 nové streamy zo Stravy
+        alt = _arr(streams_json, "altitude")
+        vel = _arr(streams_json, "velocity_smooth")
+        grade = _arr(streams_json, "grade_smooth")
+        temp = _arr(streams_json, "temp")
+
         db_upsert_stream_arrays(
             user_id=int(user_id),
             activity_id=int(activity_id),
             time_s=[int(x) for x in times],
+
             heartrate_bpm=[int(x) for x in hr] if hr else None,
             cadence_rpm=[int(x) for x in cad] if cad else None,
             power_w=[int(x) for x in poww] if poww else None,
             distance_m=[float(x) for x in dist] if dist else None,
+
+            # 🔹 nové polia – presne ako máš stĺpce v public.activities_streams
+            altitude_m=[float(x) for x in alt] if alt else None,
+            speed_mps=[float(x) for x in vel] if vel else None,
+            grade_smooth=[float(x) for x in grade] if grade else None,
+            temp_c=[float(x) for x in temp] if temp else None,
+
             user_jwt=user_jwt,
             service=service,
         )
