@@ -20,22 +20,25 @@ export async function apiFetchRange(
 
   console.debug("[activityApi][range] ->", path);
 
-  // callBackend pridá JWT + base URL, my len riešime payload
   const json = await callBackend<any>(path, {
     method: "GET",
     cache: "no-store",
   });
 
-  const list: any[] = Array.isArray(json?.data)
-    ? json.data
-    : Array.isArray(json?.rows)
-    ? json.rows
-    : [];
+  // podporíme viac variant payloadu:
+  // {data: [...]}, {rows: [...]}, {items: [...]}, alebo rovno pole
+  const raw =
+    (Array.isArray(json?.data) && json.data) ||
+    (Array.isArray(json?.rows) && json.rows) ||
+    (Array.isArray(json?.items) && json.items) ||
+    (Array.isArray(json) && json) ||
+    [];
 
-  const norm = (list as any[])
+  const norm = (raw as any[])
     .map(normalizeActivityRow)
     .filter(Boolean) as ActivityRow[];
 
+  // ak chceš najnovšie hore, prehoď poradie
   norm.sort((a, b) => a.date.localeCompare(b.date));
   return norm;
 }
