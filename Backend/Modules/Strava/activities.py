@@ -7,20 +7,17 @@ import requests
 from Modules.Strava.auth import get_access_token
 from Configs.config import STRAVA_BASE
 
+DEBUG_STRAVA_STREAMS = True
+
+
+def _dbg_strava(*args: Any, **kwargs: Any) -> None:
+    if DEBUG_STRAVA_STREAMS:
+        print("[strava-streams]", *args, **kwargs, flush=True)
+
 
 class StravaActivitiesClient:
     """
     Klient na čítanie Strava aktivít (summary + detail + laps + streams).
-
-    - drží jednu requests.Session s Authorization headerom
-    - rate-limit rieši volajúci (time.sleep v servicách)
-
-    Dôležité:
-      - fetch_activity_detail() vracia celý DetailedActivity objekt,
-        teda aj:
-          - workout_type
-          - map.summary_polyline
-          - map.polyline
     """
 
     def __init__(self) -> None:
@@ -73,11 +70,6 @@ class StravaActivitiesClient:
     ) -> Dict[str, Any]:
         """
         Detail jednej aktivity: /activities/{id}
-
-        Vracia DetailedActivity JSON, vrátane:
-          - workout_type
-          - map.summary_polyline
-          - map.polyline
         """
         r = self._session.get(
             f"{STRAVA_BASE}/activities/{int(activity_id)}",
@@ -122,22 +114,6 @@ class StravaActivitiesClient:
     ) -> Dict[str, Any]:
         """
         Streams pre jednu aktivitu: /activities/{id}/streams (key_by_type=true).
-
-        Vracia raw JSON dict:
-        {
-          "time": {"data": [...]},
-          "heartrate": {"data": [...]},
-          "distance": {"data": [...]},
-          "altitude": {"data": [...]},
-          "velocity_smooth": {"data": [...]},
-          "cadence": {"data": [...]},
-          "watts": {"data": [...]},
-          "latlng": {"data": [...]},
-          "grade_smooth": {"data": [...]},
-          "temp": {"data": [...]},
-          "moving": {"data": [...]},
-          ...
-        }
         """
         r = self._session.get(
             f"{STRAVA_BASE}/activities/{int(activity_id)}/streams",
@@ -151,10 +127,29 @@ class StravaActivitiesClient:
             },
             timeout=timeout,
         )
-        # 403/404 → necháme raise_for_status alebo si to rieši volajúci try/except
         if r.status_code in (403, 404):
             r.raise_for_status()
         j = r.json() or {}
         if not isinstance(j, dict):
             return {}
+
+        _dbg_strava(
+            f"fetch_activity_streams({activity_id}) "
+            f"keys={sorted(list(j.keys()))}"
+        )
+
+        for key in [
+            "time",
+            "heartrate",
+            "distance",
+            "altitude",
+            "velocity_smooth",
+            "cadence",
+            "watts",
+            "grade_smooth",
+            "temp",
+        ]:
+            val = (j.get(key) or {}).get("data") or []
+            _dbg_strava(f"  {key}: len={len(val)}")
+
         return j
