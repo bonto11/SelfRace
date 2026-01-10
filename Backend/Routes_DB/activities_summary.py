@@ -1,3 +1,4 @@
+# Routes_DB/activities_summary.py
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -357,9 +358,6 @@ def db_update_activity_map(
 ) -> None:
     """
     Update mapových polí a workout_type pre danú aktivitu.
-
-    Toto je kvôli staršiemu kódu, ktorý importuje db_update_activity_map.
-    Ak žiadne z polí nie je zadané, neurobí sa nič.
     """
     update_fields: Dict[str, Any] = {}
 
@@ -379,4 +377,29 @@ def db_update_activity_map(
         .update(update_fields)
         .eq("activity_id", activity_id)
         .execute()
+    )
+
+
+def db_update_activity_map_and_workout(
+    activity_id: int,
+    *,
+    workout_type: Optional[int] = None,
+    map_summary_polyline: Optional[str] = None,
+    map_polyline: Optional[str] = None,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> None:
+    """
+    Starší názov, ktorý používa synchronization_single.py.
+
+    Wrapper na db_update_activity_map, aby import
+    `db_update_activity_map_and_workout` fungoval bez ďalších zásahov.
+    """
+    db_update_activity_map(
+        activity_id,
+        workout_type=workout_type,
+        map_summary_polyline=map_summary_polyline,
+        map_polyline=map_polyline,
+        user_jwt=user_jwt,
+        service=service,
     )
