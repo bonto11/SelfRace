@@ -1,93 +1,71 @@
-export type StreamsData = {
-  time_s: number[];
-  hr: (number | null)[];
+// src/features/activity/api/activities_summary.ts
+import { callBackend } from "@/app/shared/utils/callBackend";
+import type {
+  ActivityRow,
+  MiniActivity,
+  SportFE,
+} from "@/app/features/activities/types/activities";
 
-  // nové veci zo streams tabulky – všetko optional,
-  // aby ti to nerozbilo starý kód
-  cadence_rpm?: (number | null)[];
-  power_w?: (number | null)[];
-  distance_m?: (number | null)[];
+import { normalizeActivityRow } from "@/app/features/activities/utils/activity";
 
-  duration_s: number;
-};
+// 1) RANGE
+export async function apiFetchRange(
+  userId: number,
+  start: string,
+  end: string
+): Promise<ActivityRow[]> {
+  const path = `/activities_summary/range/${userId}?start=${encodeURIComponent(
+    start
+  )}&end=${encodeURIComponent(end)}`;
 
-export type SportFE =
-  | "run"
-  | "ride"
-  | "strength"
-  | "mixed"
-  | "skate"
-  | "swim"
-  | "other"
-  | string;
+  console.debug("[activityApi][range] ->", path);
 
-export type Range = { start?: string; end?: string };
+  const json = await callBackend<any>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
 
+  // podporíme viac variant payloadu:
+  // {data: [...]}, {rows: [...]}, {items: [...]}, alebo rovno pole
+  const raw =
+    (Array.isArray(json?.data) && json.data) ||
+    (Array.isArray(json?.rows) && json.rows) ||
+    (Array.isArray(json?.items) && json.items) ||
+    (Array.isArray(json) && json) ||
+    [];
 
-export type ComponentVariant = "activity" | "calendar" | "pb" | "plan";
-export type Metric = "km" | "time" | "trimp";
+  const norm = (raw as any[])
+    .map(normalizeActivityRow)
+    .filter(Boolean) as ActivityRow[];
 
-export interface MiniActivity {
-  id: number;                 // activity_id
-  name: string;               // napr. "Evening Run"
-  start_date: string;         // ISO "YYYY-MM-DDTHH:mm:ssZ" (alebo "YYYY-MM-DD")
-  sport: SportFE;             // z DB: sport_type_fe
-  distance_km?: number | null;
-  duration_min?: number | null;
+  // ak chceš najnovšie hore, prehoď poradie
+  norm.sort((a, b) => a.date.localeCompare(b.date));
+  return norm;
 }
 
-export type WeekPick = { week: string; start: string; end: string; sport: string };
+export async function apiFetchActivitiesAround(
+  userId: number,
+  opts: {
+    date: string; // "YYYY-MM-DD"
+    deltaDays?: number; // default 1  ->  +/- 1 deň
+    sports?: SportFE[]; // default ["run","mixed"]
+  }
+): Promise<MiniActivity[]> {
+  const delta = opts.deltaDays ?? 1;
+  const sports = (opts.sports ?? ["run", "mixed"]).join(",");
 
-/** Ľahký rad pre listy/grafy (90d range) */
-export interface ActivityRow {
-  activity_id: number;
-  name: string;
-  date: string; // ISO (YYYY-MM-DD)
-  sport_type?: string | null;
-  sport_type_fe?: string | null;
-  sport_type_ovrd?: string | null;
-  distance_m: number | null;
-  moving_time_s: number | null;
-  average_heartrate_bpm: number | null;
-  max_heartrate_bpm: number | null;
-  // voliteľne – ak by API niekde malo TRIMP (ak nie, nechávame null)
-  trimp: number | null;
-}
+  const path =
+    `/activities_summary/select/${userId}` +
+    `?date=${encodeURIComponent(opts.date)}` +
+    `&delta_days=${delta}` +
+    `&sports=${encodeURIComponent(sports)}`;
 
-/** Extra detail (doťahuje sa len na klik) */
-export interface ActivityDetailExtra {
-  laps: any[];
-  splits: any[];
-}
+  console.debug("[activityApi][around] ->", path);
 
+  const j = await callBackend<{ items?: MiniActivity[] }>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
 
-/** Týždenná agregácia pre grafy a summary */
-
-export interface WeekRow {
-  week: string; // "YYYY-Www"
-  label: string; // napr. "1.–7.10."
-  start: string; // ISO
-  end: string; // ISO
-  // km
-  km_run: number;
-  km_ride: number;
-  km_mixed: number;
-  km_skate: number;
-  // time (min)
-  time_run_min: number;
-  time_ride_min: number;
-  time_strength_min: number;
-  time_mixed_min: number;
-  time_skate_min: number;
-  time_other_min: number;
-  // trimp (ak nemáme, bude 0)
-  trimp_run: number;
-  trimp_ride: number;
-  trimp_strength: number;
-  trimp_mixed: number;
-  trimp_skate: number;
-  trimp_other: number;
-  // monotony/strain pre každý metric
-  monotony: { km?: number; time?: number; trimp?: number };
-  strain: { km?: number; time?: number; trimp?: number };
+  return (j?.items ?? []) as MiniActivity[];
 }
