@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_STREAMS
 
+
 def db_get_streams_one(
     user_id: int,
     activity_id: int,
@@ -13,16 +14,35 @@ def db_get_streams_one(
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
-    Jedna row so streamami pre danú aktivitu:
-      { time_s: [...], heartrate_bpm: [...] }
+    Jedna row so streamami pre danú aktivitu.
 
-    - FE/AI:    db_get_streams_one(..., user_jwt=jwt)
-    - worker:   db_get_streams_one(..., service=True)
+    Teraz vraciame všetky dôležité polia:
+      - time_s
+      - heartrate_bpm
+      - cadence_rpm
+      - power_w
+      - distance_m
+      - altitude_m
+      - speed_mps
+      - grade_smooth
+      - temp_c
+      - moving
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
-        .select("time_s,heartrate_bpm")
+        .select(
+            "time_s,"
+            "heartrate_bpm,"
+            "cadence_rpm,"
+            "power_w,"
+            "distance_m,"
+            "altitude_m,"
+            "speed_mps,"
+            "grade_smooth,"
+            "temp_c,"
+            "moving"
+        )
         .eq("user_id", user_id)
         .eq("activity_id", activity_id)
         .limit(1)
@@ -48,7 +68,7 @@ def db_get_streams_ids_present(
     if not activity_ids:
         return []
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
@@ -82,10 +102,11 @@ def db_upsert_streams_with_sport(
     """
     Volá SQL funkciu upsert_streams_with_sport(...) cez RPC.
 
-    - FE/AI proces:   user_jwt=jwt
-    - worker/webhook: service=True
+    POZOR: táto funkcia RPC stále používa pôvodné parametre.
+    Nové polia (altitude, speed, atď.) riešime cez db_upsert_stream_arrays.
+    Ak chceš, vieme potom updatnuť aj samotnú SQL funkciu.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
     params = {
         "p_user_id": int(user_id),
@@ -108,17 +129,25 @@ def db_upsert_stream_arrays(
     cadence_rpm: Optional[List[int]] = None,
     power_w: Optional[List[int]] = None,
     distance_m: Optional[List[float]] = None,
+    altitude_m: Optional[List[float]] = None,
+    speed_mps: Optional[List[float]] = None,
+    grade_smooth: Optional[List[float]] = None,
+    temp_c: Optional[List[float]] = None,
+    moving: Optional[List[bool]] = None,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> None:
     """
     Jednoduchý upsert priamo do TABLE_ACTIVITIES_STREAMS (bez RPC).
 
-    Použitie:
-    - cache / worker: service=True
-    - teoreticky aj FE debug: user_jwt=jwt
+    Nové polia:
+      - altitude_m
+      - speed_mps
+      - grade_smooth
+      - temp_c
+      - moving
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_streams")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
 
     row = {
         "activity_id": int(activity_id),
@@ -130,6 +159,11 @@ def db_upsert_stream_arrays(
         "cadence_rpm": [int(x) for x in cadence_rpm] if cadence_rpm else None,
         "power_w": [int(x) for x in power_w] if power_w else None,
         "distance_m": [float(x) for x in distance_m] if distance_m else None,
+        "altitude_m": [float(x) for x in altitude_m] if altitude_m else None,
+        "speed_mps": [float(x) for x in speed_mps] if speed_mps else None,
+        "grade_smooth": [float(x) for x in grade_smooth] if grade_smooth else None,
+        "temp_c": [float(x) for x in temp_c] if temp_c else None,
+        "moving": [bool(x) for x in moving] if moving else None,
     }
 
     sb.table(TABLE_ACTIVITIES_STREAMS).upsert(
