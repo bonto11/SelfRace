@@ -9,7 +9,14 @@ export async function apiFetchStreams(
 ): Promise<StreamsData> {
   if (userId == null || activityId == null) {
     console.error("[apiFetchStreams] missing userId or activityId");
-    return { time_s: [], hr: [], duration_s: 0 };
+    return {
+      time_s: [],
+      hr: [],
+      duration_s: 0,
+      cadence_rpm: [],
+      power_w: [],
+      distance_m: [],
+    };
   }
 
   const q = new URLSearchParams();
@@ -25,24 +32,52 @@ export async function apiFetchStreams(
   console.debug("[apiFetchStreams] ->", path);
 
   try {
-    const json: any = await callBackend<any>(path, {
+    // BE: { success: true, streams: { ... } }
+    const json = await callBackend<any>(path, {
       method: "GET",
       cache: "no-store",
     });
 
     const payload = json?.streams ?? json ?? {};
 
+    // time
     const time_s: number[] = Array.isArray(payload.time_s)
       ? payload.time_s
       : Array.isArray(payload.time)
       ? payload.time
       : [];
 
+    // HR
     const hr: (number | null)[] = Array.isArray(payload.hr)
       ? payload.hr
       : Array.isArray(payload.heartrate_bpm)
       ? payload.heartrate_bpm
       : [];
+
+    // cadence
+    const cadence_rpm: (number | null)[] | undefined = Array.isArray(
+      payload.cadence_rpm
+    )
+      ? payload.cadence_rpm
+      : Array.isArray(payload.cadence)
+      ? payload.cadence
+      : undefined;
+
+    // power
+    const power_w: (number | null)[] | undefined = Array.isArray(payload.power_w)
+      ? payload.power_w
+      : Array.isArray(payload.watts)
+      ? payload.watts
+      : undefined;
+
+    // distance
+    const distance_m: (number | null)[] | undefined = Array.isArray(
+      payload.distance_m
+    )
+      ? payload.distance_m
+      : Array.isArray(payload.distance)
+      ? payload.distance
+      : undefined;
 
     const duration_s: number =
       typeof payload.duration_s === "number"
@@ -51,9 +86,23 @@ export async function apiFetchStreams(
         ? Number(time_s[time_s.length - 1]) || 0
         : 0;
 
-    return { time_s, hr, duration_s };
+    return {
+      time_s,
+      hr,
+      duration_s,
+      cadence_rpm: cadence_rpm ?? [],
+      power_w: power_w ?? [],
+      distance_m: distance_m ?? [],
+    };
   } catch (e) {
     console.error("[apiFetchStreams] error", e);
-    return { time_s: [], hr: [], duration_s: 0 };
+    return {
+      time_s: [],
+      hr: [],
+      duration_s: 0,
+      cadence_rpm: [],
+      power_w: [],
+      distance_m: [],
+    };
   }
 }
