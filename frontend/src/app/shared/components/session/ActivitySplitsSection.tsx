@@ -1,7 +1,6 @@
 "use client";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { formatDistance } from "@/app/shared/utils/distance";
 
 type Props = {
   // sem posielaš splits alebo laps
@@ -23,31 +22,41 @@ function toNumber(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Do UI posielame km bez jednotky – jednotka je v headri
+// 1 km ± 10 m -> 1.00, inak km s 2 des. miestami (bez jednotky)
 function formatSplitDistance(distance_m: number | null): string {
   if (distance_m == null) return "—";
 
-  // 1 km ± 10 m -> 1.00
-  if (Math.abs(distance_m - 1000) <= 10) {
-    return "1.00";
-  }
+  if (Math.abs(distance_m - 1000) <= 10) return "1.00";
 
-  // ostatné prevedieme na km
   const km = distance_m / 1000;
   return km.toFixed(2);
 }
 
-// kompaktné tempo, jednotka v headri
+// krátky čas do tabuľky:  mm:ss alebo h:mm:ss, bez „h/m/s“
+function formatTimeShort(seconds: number | null): string {
+  if (seconds == null || seconds <= 0) return "—";
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const mm = String(m).padStart(h > 0 ? 2 : 1, "0");
+  const ss = String(s).padStart(2, "0");
+  if (h > 0) {
+    return `${h}:${mm}:${ss}`;
+  }
+  return `${mm}:${ss}`;
+}
+
+// tempo: mm:ss (jednotka v headri)
 function formatPace(pace_s_per_km: number | null): string {
   if (pace_s_per_km == null || pace_s_per_km <= 0) return "—";
   const total = Math.round(pace_s_per_km);
-  const min = Math.floor(total / 60);
-  const sec = total % 60;
-  const secStr = String(sec).padStart(2, "0");
-  return `${min}:${secStr}`;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  const ss = String(s).padStart(2, "0");
+  return `${m}:${ss}`;
 }
 
-// len číslo, jednotka v headri
 function formatHr(hr: number | null): string {
   if (hr == null || hr <= 0) return "—";
   return `${Math.round(hr)}`;
@@ -101,11 +110,11 @@ function buildRows(data: any[]): SplitRow[] {
   });
 }
 
-// škálovanie výšky barov podľa hodnôt (vyššie = výraznejší)
+// výška barov podľa rozsahu hodnôt
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 12,
-  maxPx = 40
+  minPx = 18,
+  maxPx = 54
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -146,8 +155,8 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // všetky stĺpce majú rovnakú šírku
-  const segmentWidthPct = rows.length ? 100 / rows.length : 0;
+  // necháme si trochu rezervu kvôli gapom, aby sa všetky bary vošli do 100 %
+  const segmentWidthPct = rows.length ? 100 / (rows.length + 2) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
@@ -198,25 +207,33 @@ export function ActivitySplitsSection({ kind }: Props) {
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
-            <tr className="text-[10px] sm:text-[11px] uppercase tracking-wide opacity-70">
-              <th className="py-1.5 pr-2 text-right">#</th>
-              <th className="py-1.5 pr-2 text-left whitespace-nowrap">
-                Distance (km)
+            <tr className="uppercase tracking-wide opacity-70">
+              <th className="py-1.5 pr-2 text-right align-bottom text-[10px]">
+                #
               </th>
-              <th className="py-1.5 pr-2 text-left whitespace-nowrap">
-                Time
+
+              <th className="py-1.5 pr-2 text-left align-bottom">
+                <HeaderWithUnit label="Distance" unit="km" />
               </th>
-              <th className="py-1.5 pr-2 text-left whitespace-nowrap">
-                Pace (/km)
+
+              <th className="py-1.5 pr-2 text-left align-bottom">
+                <HeaderWithUnit label="Time" unit="h:mm:ss" />
               </th>
-              <th className="py-1.5 pr-2 text-right whitespace-nowrap">
-                Avg HR (bpm)
+
+              <th className="py-1.5 pr-2 text-left align-bottom">
+                <HeaderWithUnit label="Pace" unit="min/km" />
               </th>
-              <th className="py-1.5 pl-2 text-right whitespace-nowrap">
-                Elev. Δ (m)
+
+              <th className="py-1.5 pr-2 text-right align-bottom">
+                <HeaderWithUnit label="Avg HR" unit="bpm" />
+              </th>
+
+              <th className="py-1.5 pl-2 text-right align-bottom">
+                <HeaderWithUnit label="Elev. Δ" unit="m" />
               </th>
             </tr>
           </thead>
+
           <tbody>
             {rows.map((r) => (
               <tr
@@ -226,19 +243,24 @@ export function ActivitySplitsSection({ kind }: Props) {
                 <td className="py-1.5 pr-2 text-right tabular-nums">
                   {r.index}
                 </td>
-                <td className="py-1.5 pr-2 tabular-nums">
+
+                <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
                   {formatSplitDistance(r.distance_m)}
                 </td>
+
                 <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
-                  {r.time_s != null ? fmtSecondsHMS(r.time_s) : "—"}
+                  {formatTimeShort(r.time_s)}
                 </td>
+
                 <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
                   {formatPace(r.pace_s_per_km)}
                 </td>
-                <td className="py-1.5 pr-2 text-right tabular-nums">
+
+                <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap">
                   {formatHr(r.avg_hr_bpm)}
                 </td>
-                <td className="py-1.5 pl-2 text-right tabular-nums">
+
+                <td className="py-1.5 pl-2 text-right tabular-nums whitespace-nowrap">
                   {formatElev(r.elev_delta_m)}
                 </td>
               </tr>
@@ -266,14 +288,16 @@ function MetricBarRow({
   getValue,
 }: MetricBarRowProps) {
   const values = rows.map((r) => getValue(r));
-  const heightFor = makeHeightScaler(values, 12, 40);
+  const heightFor = makeHeightScaler(values, 18, 54);
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-14 shrink-0 text-[11px] opacity-75">
+    <div className="flex items-center gap-1.5">
+      {/* label – bližšie pri baroch, menšia šírka */}
+      <div className="w-11 shrink-0 text-[10px] opacity-75 text-right pr-1">
         {label}
       </div>
-      <div className="flex-1 flex items-end gap-[3px] h-12">
+
+      <div className="flex-1 flex items-end gap-[2px] h-16">
         {rows.map((r) => {
           const hPx = heightFor(getValue(r));
           return (
@@ -282,13 +306,27 @@ function MetricBarRow({
               className={`rounded-sm ${colorClass} flex-none`}
               style={{
                 width: `${segmentWidthPct}%`,
-                minWidth: "4px",
+                minWidth: "2px",
                 height: `${hPx}px`,
               }}
             />
           );
         })}
       </div>
+    </div>
+  );
+}
+
+type HeaderWithUnitProps = {
+  label: string;
+  unit: string;
+};
+
+function HeaderWithUnit({ label, unit }: HeaderWithUnitProps) {
+  return (
+    <div className="leading-tight">
+      <div className="text-[10px]">{label}</div>
+      <div className="text-[9px] opacity-70">{unit}</div>
     </div>
   );
 }
