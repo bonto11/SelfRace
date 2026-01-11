@@ -4,7 +4,7 @@ import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { formatDistance } from "@/app/shared/utils/distance";
 
 type Props = {
-  // sem pošleš buď splits alebo laps – je to len pole objektov
+  // sem posielaš splits alebo laps
   kind: any[];
 };
 
@@ -23,34 +23,38 @@ function toNumber(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Do UI posielame km bez jednotky – jednotka je v headri
 function formatSplitDistance(distance_m: number | null): string {
   if (distance_m == null) return "—";
 
-  // 1 km ± 10 m -> zobraz "1 km"
+  // 1 km ± 10 m -> 1.00
   if (Math.abs(distance_m - 1000) <= 10) {
-    return "1 km";
+    return "1.00";
   }
 
-  return formatDistance(distance_m);
+  // ostatné prevedieme na km
+  const km = distance_m / 1000;
+  return km.toFixed(2);
 }
 
+// kompaktné tempo, jednotka v headri
 function formatPace(pace_s_per_km: number | null): string {
   if (pace_s_per_km == null || pace_s_per_km <= 0) return "—";
   const total = Math.round(pace_s_per_km);
   const min = Math.floor(total / 60);
   const sec = total % 60;
   const secStr = String(sec).padStart(2, "0");
-  return `${min}m ${secStr}s /km`;
+  return `${min}:${secStr}`;
 }
 
+// len číslo, jednotka v headri
 function formatHr(hr: number | null): string {
   if (hr == null || hr <= 0) return "—";
-  return `${Math.round(hr)} bpm`;
+  return `${Math.round(hr)}`;
 }
 
 function formatElev(elev: number | null): string {
   if (elev == null || !Number.isFinite(elev)) return "—";
-  // bez "m", kvôli zarovnaniu; jednotku dáme do headeru
   return Math.round(elev).toString();
 }
 
@@ -97,11 +101,11 @@ function buildRows(data: any[]): SplitRow[] {
   });
 }
 
-// škálovanie výšky barov podľa hodnôt
+// škálovanie výšky barov podľa hodnôt (vyššie = výraznejší)
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 4,
-  maxPx = 18
+  minPx = 12,
+  maxPx = 40
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -142,14 +146,11 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  const widthPct = (time_s: number | null): number => {
-    if (!time_s || totalTime <= 0) return 0;
-    const pct = (time_s / totalTime) * 100;
-    return Math.max(pct, 2); // nech nie je úplne neviditeľný
-  };
+  // všetky stĺpce majú rovnakú šírku
+  const segmentWidthPct = rows.length ? 100 / rows.length : 0;
 
   return (
-    <div className="text-xs sm:text-[13px]">
+    <div className="text-[11px] sm:text-xs">
       {/* TOP – trendy */}
       <div className="mb-3">
         <div className="mb-1 text-[11px] opacity-70">
@@ -157,38 +158,34 @@ export function ActivitySplitsSection({ kind }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          {/* Time row */}
           <MetricBarRow
             label="Time"
             rows={rows}
-            widthPct={widthPct}
+            segmentWidthPct={segmentWidthPct}
             colorClass="bg-emerald-500/80"
             getValue={(r) => r.time_s}
           />
 
-          {/* Pace row */}
           <MetricBarRow
             label="Pace"
             rows={rows}
-            widthPct={widthPct}
+            segmentWidthPct={segmentWidthPct}
             colorClass="bg-sky-500/80"
             getValue={(r) => r.pace_s_per_km}
           />
 
-          {/* HR row */}
           <MetricBarRow
             label="HR"
             rows={rows}
-            widthPct={widthPct}
+            segmentWidthPct={segmentWidthPct}
             colorClass="bg-rose-500/80"
             getValue={(r) => r.avg_hr_bpm}
           />
 
-          {/* Elevation row – berieme absolútnu hodnotu */}
           <MetricBarRow
             label="Elev."
             rows={rows}
-            widthPct={widthPct}
+            segmentWidthPct={segmentWidthPct}
             colorClass="bg-amber-500/80"
             getValue={(r) =>
               r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
@@ -201,13 +198,21 @@ export function ActivitySplitsSection({ kind }: Props) {
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
-            <tr className="text-[11px] uppercase tracking-wide opacity-70">
-              <th className="py-1 pr-2 text-right">#</th>
-              <th className="py-1 pr-2 text-left">Distance</th>
-              <th className="py-1 pr-2 text-left">Time</th>
-              <th className="py-1 pr-2 text-left">Pace</th>
-              <th className="py-1 pr-2 text-right">Avg HR</th>
-              <th className="py-1 pl-2 text-right">
+            <tr className="text-[10px] sm:text-[11px] uppercase tracking-wide opacity-70">
+              <th className="py-1.5 pr-2 text-right">#</th>
+              <th className="py-1.5 pr-2 text-left whitespace-nowrap">
+                Distance (km)
+              </th>
+              <th className="py-1.5 pr-2 text-left whitespace-nowrap">
+                Time
+              </th>
+              <th className="py-1.5 pr-2 text-left whitespace-nowrap">
+                Pace (/km)
+              </th>
+              <th className="py-1.5 pr-2 text-right whitespace-nowrap">
+                Avg HR (bpm)
+              </th>
+              <th className="py-1.5 pl-2 text-right whitespace-nowrap">
                 Elev. Δ (m)
               </th>
             </tr>
@@ -218,24 +223,22 @@ export function ActivitySplitsSection({ kind }: Props) {
                 key={r.index}
                 className="border-b border-white/5 last:border-b-0"
               >
-                <td className="py-1 pr-2 text-right tabular-nums">
+                <td className="py-1.5 pr-2 text-right tabular-nums">
                   {r.index}
                 </td>
-                <td className="py-1 pr-2">
+                <td className="py-1.5 pr-2 tabular-nums">
                   {formatSplitDistance(r.distance_m)}
                 </td>
-                <td className="py-1 pr-2 tabular-nums">
-                  {r.time_s != null
-                    ? fmtSecondsHMS(r.time_s)
-                    : "—"}
+                <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
+                  {r.time_s != null ? fmtSecondsHMS(r.time_s) : "—"}
                 </td>
-                <td className="py-1 pr-2 tabular-nums">
+                <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
                   {formatPace(r.pace_s_per_km)}
                 </td>
-                <td className="py-1 pr-2 text-right tabular-nums">
+                <td className="py-1.5 pr-2 text-right tabular-nums">
                   {formatHr(r.avg_hr_bpm)}
                 </td>
-                <td className="py-1 pl-2 text-right tabular-nums">
+                <td className="py-1.5 pl-2 text-right tabular-nums">
                   {formatElev(r.elev_delta_m)}
                 </td>
               </tr>
@@ -250,7 +253,7 @@ export function ActivitySplitsSection({ kind }: Props) {
 type MetricBarRowProps = {
   label: string;
   rows: SplitRow[];
-  widthPct: (time_s: number | null) => number;
+  segmentWidthPct: number;
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
 };
@@ -258,29 +261,28 @@ type MetricBarRowProps = {
 function MetricBarRow({
   label,
   rows,
-  widthPct,
+  segmentWidthPct,
   colorClass,
   getValue,
 }: MetricBarRowProps) {
-  // heights podľa hodnoty metriky
   const values = rows.map((r) => getValue(r));
-  const heightFor = makeHeightScaler(values, 4, 18);
+  const heightFor = makeHeightScaler(values, 12, 40);
 
   return (
     <div className="flex items-center gap-2">
       <div className="w-14 shrink-0 text-[11px] opacity-75">
         {label}
       </div>
-      <div className="flex-1 flex items-end gap-[3px] h-5">
+      <div className="flex-1 flex items-end gap-[3px] h-12">
         {rows.map((r) => {
           const hPx = heightFor(getValue(r));
-          const w = widthPct(r.time_s);
           return (
             <div
               key={`${label}-${r.index}`}
               className={`rounded-sm ${colorClass} flex-none`}
               style={{
-                width: `${w}%`,
+                width: `${segmentWidthPct}%`,
+                minWidth: "4px",
                 height: `${hPx}px`,
               }}
             />
