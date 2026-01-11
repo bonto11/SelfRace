@@ -198,122 +198,134 @@ export default function ActivitySessionDetail({
     };
   }, [item.activityId, getStreams, getDetail]);
 
-  const extraBlocks = s ? (
-    <>
-      {/* Elevácia / kadencia / teplota */}
-      <MetricGrid
-        metrics={[
-          {
-            label: "ELEV GAIN",
-            value:
-              s.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—",
-          },
-          {
-            label: "ELEV HIGH",
-            value: s.elev_high_m != null ? `${s.elev_high_m} m` : "—",
-          },
-          {
-            label: "ELEV LOW",
-            value: s.elev_low_m != null ? `${s.elev_low_m} m` : "—",
-          },
-          {
-            label: "AVG CADENCE",
-            value: formatCadenceSummary(s) ?? "—",
-          },
-        ]}
-      />
-
-      {/* Rýchlosť / výkon */}
-      <MetricGrid
-        metrics={[
-          {
-            label: "AVG SPEED",
-            value:
-              s.average_speed_mps != null
-                ? `${s.average_speed_mps.toFixed(3)} m/s`
-                : "—",
-          },
-          {
-            label: "MAX SPEED",
-            value:
-              s.max_speed_mps != null
-                ? `${s.max_speed_mps.toFixed(3)} m/s`
-                : "—",
-          },
-          {
-            label: "AVG POWER",
-            value:
-              s.average_watts != null ? `${s.average_watts} W` : "—",
-          },
-          {
-            label: "MAX POWER",
-            value: s.max_watts != null ? `${s.max_watts} W` : "—",
-          },
-        ]}
-      />
-
-      {/* Prostredie / štatistiky */}
-      <MetricGrid
-        metrics={[
-          {
-            label: "AVG TEMP",
-            value:
-              s.average_temp_c != null ? `${s.average_temp_c} °C` : "—",
-          },
-          {
-            label: "CALORIES",
-            value: s.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
-          },
-          {
-            label: "ACHIEVEMENTS",
-            value: valOrDash(s.achievement_count),
-          },
-          {
-            label: "PR COUNT",
-            value: valOrDash(s.pr_count),
-          },
-        ]}
-      />
-
-      {/* Workout type – slovami */}
-      <MetricGrid
-        metrics={[
-          {
-            label: "WORKOUT TYPE",
-            value: workoutTypeLabelFromSummary(s) ?? "—",
-          },
-        ]}
-        cols={2}
-      />
-    </>
-  ) : null;
-
   return (
     <div>
-      {/* KPIs (ak prídu zhora) */}
-      {kpis.length > 0 && (
-        <MetricGrid
-          metrics={kpis.map((k) => ({
-            label: k.label,
-            value: k.value,
-          }))}
-        />
+      {/* PREHĽAD / ZÁKLADNÉ ÚDAJE */}
+      {kpis.length > 0 ? (
+        <DetailSection title="Prehľad">
+          <MetricGrid
+            metrics={kpis.map((k) => ({
+              label: k.label,
+              value: k.value,
+            }))}
+          />
+        </DetailSection>
+      ) : (
+        <DetailSection title="Základné údaje">
+          <MetricGrid
+            metrics={[
+              { label: "TIME", value: timeTxt },
+              { label: "DISTANCE", value: distTxt },
+              { label: "AVG HR", value: avgTxt },
+              { label: "MAX HR", value: maxTxt },
+            ]}
+          />
+        </DetailSection>
       )}
 
-      {/* fallback základné KPI */}
-      {kpis.length === 0 && (
-        <MetricGrid
-          metrics={[
-            { label: "TIME", value: timeTxt },
-            { label: "DISTANCE", value: distTxt },
-            { label: "AVG HR", value: avgTxt },
-            { label: "MAX HR", value: maxTxt },
-          ]}
-        />
-      )}
+      {/* ĎALŠIE METRIKY zo summary */}
+      {s && (
+        <>
+          <DetailSection title="Elevácia & kadencia">
+            <MetricGrid
+              metrics={[
+                {
+                  label: "ELEV GAIN",
+                  value:
+                    s.elevation_gain_m != null
+                      ? `${s.elevation_gain_m} m`
+                      : "—",
+                },
+                {
+                  label: "ELEV HIGH",
+                  value:
+                    s.elev_high_m != null ? `${s.elev_high_m} m` : "—",
+                },
+                {
+                  label: "ELEV LOW",
+                  value:
+                    s.elev_low_m != null ? `${s.elev_low_m} m` : "—",
+                },
+                {
+                  label: "AVG CADENCE",
+                  value: formatCadenceSummary(s) ?? "—",
+                },
+              ]}
+            />
+          </DetailSection>
 
-      {/* ostatné summary polia */}
-      {extraBlocks}
+          <DetailSection title="Rýchlosť & výkon">
+            <MetricGrid
+              metrics={[
+                {
+                  label: "AVG SPEED",
+                  value:
+                    s.average_speed_mps != null
+                      ? `${s.average_speed_mps.toFixed(3)} m/s`
+                      : "—",
+                },
+                {
+                  label: "MAX SPEED",
+                  value:
+                    s.max_speed_mps != null
+                      ? `${s.max_speed_mps.toFixed(3)} m/s`
+                      : "—",
+                },
+                {
+                  label: "AVG POWER",
+                  value:
+                    s.average_watts != null ? `${s.average_watts} W` : "—",
+                },
+                {
+                  label: "MAX POWER",
+                  value: s.max_watts != null ? `${s.max_watts} W` : "—",
+                },
+              ]}
+            />
+          </DetailSection>
+
+          <DetailSection title="Prostredie & štatistiky">
+            <MetricGrid
+              metrics={[
+                {
+                  label: "AVG TEMP",
+                  value:
+                    s.average_temp_c != null
+                      ? `${s.average_temp_c} °C`
+                      : "—",
+                },
+                {
+                  label: "CALORIES",
+                  value:
+                    s.calories_kcal != null
+                      ? `${s.calories_kcal} kcal`
+                      : "—",
+                },
+                {
+                  label: "ACHIEVEMENTS",
+                  value: valOrDash(s.achievement_count),
+                },
+                {
+                  label: "PR COUNT",
+                  value: valOrDash(s.pr_count),
+                },
+              ]}
+            />
+          </DetailSection>
+
+          <DetailSection title="Typ tréningu">
+            <MetricGrid
+              cols={2}
+              metrics={[
+                {
+                  label: "WORKOUT TYPE",
+                  value: workoutTypeLabelFromSummary(s) ?? "—",
+                },
+              ]}
+            />
+          </DetailSection>
+        </>
+      )}
 
       {/* Akcie na activitu */}
       {(item.onEdit || item.onDelete || item.onToggleFavorite) && (
