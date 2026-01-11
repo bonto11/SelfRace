@@ -1,0 +1,87 @@
+import { ActivityRow } from "@/app/features/activities/types/activities";
+
+export function fmtMin(m?: number) {
+  return typeof m === "number" && m > 0 ? `${m} min` : null;
+}
+
+export function safeText(value: any): string {
+  if (value == null) return "";
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+export function tgtToStr(t: any): string | null {
+  if (!t) return null;
+  if (typeof t === "string") return t;
+  const bits = [t?.pace, t?.power, t?.hr].filter(Boolean);
+  return bits.length ? bits.join(" · ") : null;
+}
+
+export function valOrDash(v: any): string {
+  if (v === null || v === undefined || v === "") return "—";
+  return String(v);
+}
+
+// workout_type → pekný label
+export function workoutTypeLabelFromSummary(
+  s: ActivityRow | null
+): string | null {
+  if (!s || s.workout_type == null) return null;
+  const wt = s.workout_type;
+  const sport = (
+    s.sport_type_ovrd ??
+    s.sport_type_fe ??
+    s.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  if (sport.includes("run")) {
+    if (wt === 1) return "Race";
+    if (wt === 2) return "Long run";
+    if (wt === 3) return "Workout";
+    return `Run type ${wt}`;
+  }
+
+  if (sport.includes("ride") || sport.includes("bike") || sport.includes("cycle")) {
+    if (wt === 1) return "Race";
+    if (wt === 2) return "Long ride";
+    if (wt === 3) return "Workout";
+    return `Ride type ${wt}`;
+  }
+
+  return `Type ${wt}`;
+}
+
+// kadencia – run → steps/min, bike → rpm
+export function formatCadenceSummary(s: ActivityRow | null): string | null {
+  if (!s || s.average_cadence_rpm == null) return null;
+  const sport = (
+    s.sport_type_ovrd ??
+    s.sport_type_fe ??
+    s.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  const rpm = s.average_cadence_rpm;
+
+  if (sport.includes("run")) {
+    const spm = Math.round(rpm * 2);
+    return `${spm} steps/min`;
+  }
+
+  return `${rpm} rpm`;
+}

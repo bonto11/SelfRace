@@ -13,7 +13,7 @@ import {
 } from "@/app/features/activities/utils/activity";
 import { prettySkDate, fmtSecondsHMS } from "@/app/shared/utils/time";
 
-import SessionCard from "@/app/shared/components/SessionCard";
+import SessionCard from "@/app/shared/components/session/SessionCard";
 
 /* props */
 type Props = {

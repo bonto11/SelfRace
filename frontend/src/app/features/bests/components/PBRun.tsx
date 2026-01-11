@@ -8,14 +8,17 @@ import {
   apiDeleteBest,
 } from "@/app/features/bests/api/bests";
 
-import { distanceOptions, distanceLabel } from "@/app/features/bests/utils/bests";
+import {
+  distanceOptions,
+  distanceLabel,
+} from "@/app/features/bests/utils/bests";
 
 import { UserBest, PBRunFormState } from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
 import ActivitySelector from "@/app/shared/components/ActivitySelector";
-import SessionCard from "@/app/shared/components/SessionCard";
+import SessionCard from "@/app/shared/components/session/SessionCard";
 import { toast } from "@/app/shared/components/ui/Toast";
 import { confirm } from "@/app/shared/components/ui/Confirm";
 import Button from "@/app/shared/components/ui/Button";
