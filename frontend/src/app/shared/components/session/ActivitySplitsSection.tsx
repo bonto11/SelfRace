@@ -115,8 +115,8 @@ function buildRows(data: any[]): SplitRow[] {
 
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 26,
-  maxPx = 80
+  minPx = 30,
+  maxPx = 90
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -131,7 +131,6 @@ function makeHeightScaler(
     if (v > max) max = v;
     sum += v;
   }
-  const avg = sum / nums.length;
 
   if (min === max) {
     return () => (minPx + maxPx) / 2;
@@ -174,7 +173,7 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // väčšia rezerva -> užšie bary + väčšie medzery
+  // užšie bary + väčšie medzery
   const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
@@ -185,15 +184,16 @@ export function ActivitySplitsSection({ kind }: Props) {
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        <div className="space-y-2 ml-[-10px]">
+        <div className="space-y-2 ml-[-6px]">
           <MetricBarRow
             label="Time"
             rows={rows}
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-emerald-500/80"
             getValue={(r) => r.time_s}
+            getStatValue={(r) => r.time_s}
             formatStat={(v) => formatTimeShort(v)}
-            statsMode="min-avg-max"
+            statMode="time"
           />
 
           <MetricBarRow
@@ -202,8 +202,9 @@ export function ActivitySplitsSection({ kind }: Props) {
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-sky-500/80"
             getValue={(r) => r.pace_s_per_km}
+            getStatValue={(r) => r.pace_s_per_km}
             formatStat={(v) => formatPace(v)}
-            statsMode="min-avg-max"
+            statMode="pace"
           />
 
           <MetricBarRow
@@ -212,8 +213,9 @@ export function ActivitySplitsSection({ kind }: Props) {
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-rose-500/80"
             getValue={(r) => r.avg_hr_bpm}
+            getStatValue={(r) => r.avg_hr_bpm}
             formatStat={(v) => formatHr(v)}
-            statsMode="min-avg-max"
+            statMode="hr"
           />
 
           <MetricBarRow
@@ -224,8 +226,9 @@ export function ActivitySplitsSection({ kind }: Props) {
             getValue={(r) =>
               r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
             }
+            getStatValue={(r) => r.elev_delta_m}
             formatStat={(v) => formatElev(v)}
-            statsMode="min-0-max"
+            statMode="elev"
           />
         </div>
       </div>
@@ -235,23 +238,23 @@ export function ActivitySplitsSection({ kind }: Props) {
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
             <tr className="opacity-70">
-              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
                 #
               </th>
-              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
                 Dist. (km)
               </th>
-              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
                 Time (h:mm:ss)
               </th>
-              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
                 Pace (min/km)
               </th>
-              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
                 Avg HR (bpm)
               </th>
-              <th className="py-1.5 pl-2 pr-1 text-right align-bottom text-[10px]">
-                Elev. Δ m
+              <th className="py-1 pl-1 pr-0.5 text-right align-bottom text-[10px]">
+                Elev. Δm
               </th>
             </tr>
           </thead>
@@ -262,11 +265,11 @@ export function ActivitySplitsSection({ kind }: Props) {
                 key={r.index}
                 className="border-b border-white/5 last:border-b-0"
               >
-                <td className="py-1.5 px-2 text-center tabular-nums">
+                <td className="py-1 px-1 text-center tabular-nums">
                   {r.index}
                 </td>
 
-                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
                   <span className="sm:hidden">
                     {formatSplitDistanceShort(r.distance_m)}
                   </span>
@@ -275,19 +278,19 @@ export function ActivitySplitsSection({ kind }: Props) {
                   </span>
                 </td>
 
-                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
                   {formatTimeShort(r.time_s)}
                 </td>
 
-                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
                   {formatPace(r.pace_s_per_km)}
                 </td>
 
-                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
                   {formatHr(r.avg_hr_bpm)}
                 </td>
 
-                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums whitespace-nowrap">
+                <td className="py-1 pl-1 pr-0.5 text-right tabular-nums whitespace-nowrap">
                   {formatElev(r.elev_delta_m)}
                 </td>
               </tr>
@@ -305,8 +308,10 @@ type MetricBarRowProps = {
   segmentWidthPct: number;
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
+  getStatValue?: (r: SplitRow) => number | null;
   formatStat: (v: number | null) => string;
-  statsMode: "min-avg-max" | "min-0-max";
+  // time/hr -> max,avg,min; pace -> min,avg,max; elev -> max,0,min
+  statMode: "time" | "hr" | "pace" | "elev";
 };
 
 function MetricBarRow({
@@ -315,52 +320,77 @@ function MetricBarRow({
   segmentWidthPct,
   colorClass,
   getValue,
+  getStatValue,
   formatStat,
-  statsMode,
+  statMode,
 }: MetricBarRowProps) {
   const values = rows.map((r) => getValue(r));
-  const heightFor = makeHeightScaler(values, 26, 80);
-  const stats = computeStats(values);
+  const statValues = rows.map((r) =>
+    getStatValue ? getStatValue(r) : getValue(r)
+  );
+  const heightFor = makeHeightScaler(values, 30, 90);
+  const stats = computeStats(statValues);
+
+  let topVal: number | null = null;
+  let midVal: number | null = null;
+  let bottomVal: number | null = null;
+
+  if (statMode === "time" || statMode === "hr") {
+    // hore max, v strede priemer, dole min
+    topVal = stats?.max ?? null;
+    midVal = stats?.avg ?? null;
+    bottomVal = stats?.min ?? null;
+  } else if (statMode === "pace") {
+    // pace – hore najrýchlejší (najnižšie číslo), dole najpomalší
+    topVal = stats?.min ?? null;
+    midVal = stats?.avg ?? null;
+    bottomVal = stats?.max ?? null;
+  } else if (statMode === "elev") {
+    // elev – hore najvyšší +, v strede 0, dole najnižší -
+    topVal = stats?.max ?? null;
+    midVal = 0;
+    bottomVal = stats?.min ?? null;
+  }
+
+  const topLabel = formatStat(topVal);
+  const midLabel = formatStat(midVal);
+  const bottomLabel = formatStat(bottomVal);
 
   return (
-    <div className="flex items-center gap-1">
-      {/* label – úzky, aby bary boli bližšie osi */}
-      <div className="w-7 shrink-0 text-[10px] opacity-75 text-right pr-0.5">
-        {label}
+    <div className="flex items-stretch gap-1">
+      {/* Rotovaný label vľavo */}
+      <div className="w-4 shrink-0 flex justify-center">
+        <span className="text-[9px] opacity-75 origin-center -rotate-90 whitespace-nowrap">
+          {label}
+        </span>
       </div>
 
-      <div className="flex-1 flex items-end gap-[4px] h-20">
-        {rows.map((r) => {
-          const hPx = heightFor(getValue(r));
-          return (
-            <div
-              key={`${label}-${r.index}`}
-              className={`rounded-sm ${colorClass} flex-none`}
-              style={{
-                width: `${segmentWidthPct}%`,
-                minWidth: "2px",
-                height: `${hPx}px`,
-              }}
-            />
-          );
-        })}
-      </div>
+      {/* bary + stats v jednom relatívnom wrappe */}
+      <div className="flex-1 relative">
+        {/* bary – rezervuj miesto pre čísla vpravo cez paddingRight */}
+        <div className="flex items-end gap-[5px] h-24 pr-8">
+          {rows.map((r) => {
+            const hPx = heightFor(getValue(r));
+            return (
+              <div
+                key={`${label}-${r.index}`}
+                className={`rounded-sm ${colorClass} flex-none`}
+                style={{
+                  width: `${segmentWidthPct}%`,
+                  minWidth: "2px",
+                  height: `${hPx}px`,
+                }}
+              />
+            );
+          })}
+        </div>
 
-      {/* pravá strana – štatistiky */}
-      <div className="w-[74px] shrink-0 text-[10px] text-right leading-tight pl-1">
-        {statsMode === "min-0-max" ? (
-          <>
-            <div>{formatStat(stats?.min ?? null)}</div>
-            <div>{formatStat(0)}</div>
-            <div>{formatStat(stats?.max ?? null)}</div>
-          </>
-        ) : (
-          <>
-            <div>{formatStat(stats?.min ?? null)}</div>
-            <div>{formatStat(stats?.avg ?? null)}</div>
-            <div>{formatStat(stats?.max ?? null)}</div>
-          </>
-        )}
+        {/* čísla vpravo – rozložené top / middle / bottom */}
+        <div className="absolute inset-y-0 right-0 flex flex-col justify-between items-end text-[9px] opacity-80 pr-0.5">
+          <span>{topLabel}</span>
+          <span>{midLabel}</span>
+          <span>{bottomLabel}</span>
+        </div>
       </div>
     </div>
   );
