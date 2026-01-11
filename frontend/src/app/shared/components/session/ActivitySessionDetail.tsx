@@ -182,16 +182,16 @@ function ActivitySectionShell({
 
 type ActivitySessionDetailProps = {
   item: ActivitySession;
-  kpiBlock: ReactNode;
-  hasKpis: boolean;
+  kpiBlock: ReactNode;        // z parenta, ale už ho nevykresľujeme
+  hasKpis: boolean;           // nechávam v type kvôli kompatibilite
   compactChart: boolean;
   onOpenActivity?: (activityId: number) => void;
 };
 
 export function ActivitySessionDetail({
   item,
-  kpiBlock,
-  hasKpis,
+  kpiBlock,          // eslint-disable-line @typescript-eslint/no-unused-vars
+  hasKpis,           // eslint-disable-line @typescript-eslint/no-unused-vars
   compactChart,
   onOpenActivity,
 }: ActivitySessionDetailProps) {
@@ -463,8 +463,7 @@ export function ActivitySessionDetail({
 
   return (
     <div>
-      {/* KPI z parenta (napr. PB view) */}
-      {kpiBlock}
+      {/* ŽIADNE horné 4 KPI – kpiBlock úmyselne nevyužitý */}
 
       {/* Akčné tlačidlá – HORE */}
       {"onEdit" in act &&
@@ -512,11 +511,11 @@ export function ActivitySessionDetail({
         </div>
       )}
 
-      {/* PREHĽAD – hlavné veci */}
+      {/* PREHĽAD – hlavné veci (default otvorené) */}
       {showOverview && (
         <ActivitySectionShell
           title="Prehľad"
-          defaultOpen={!hasKpis}
+          defaultOpen={true}
           items={overviewItems}
         />
       )}
