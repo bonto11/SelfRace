@@ -606,14 +606,14 @@ export function ActivitySessionDetail({
       {/* SPLITS */}
       {hasSplits && (
         <ActivitySectionShell title="Splits">
-          <ActivitySplitsSection splits={splits} />
+          <ActivitySplitsSection kind={splits} />
         </ActivitySectionShell>
       )}
 
       {/* LAPS */}
       {hasLaps && (
         <ActivitySectionShell title="Laps">
-          <ActivitySplitsSection splits={laps} />
+          <ActivitySplitsSection kind={laps} />
         </ActivitySectionShell>
       )}
 

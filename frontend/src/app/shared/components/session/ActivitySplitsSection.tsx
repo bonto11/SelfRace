@@ -4,7 +4,7 @@ import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { formatDistance } from "@/app/shared/utils/distance";
 
 type Props = {
-  splits: any[];
+  kind: any[];
 };
 
 type SplitRow = {
@@ -96,13 +96,13 @@ function buildRows(splits: any[]): SplitRow[] {
   });
 }
 
-export function ActivitySplitsSection({ splits }: Props) {
-  const rows = buildRows(splits).filter((r) => r.time_s != null);
+export function ActivitySplitsSection({ kind }: Props) {
+  const rows = buildRows(kind).filter((r) => r.time_s != null);
 
   if (!rows.length) {
     return (
       <div className="text-sm opacity-80">
-        Žiadne splits.
+        Žiadne splits/laps.
       </div>
     );
   }
