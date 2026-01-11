@@ -1,4 +1,4 @@
-# Services/activities_summary.py (názov si prispôsobíš projektu)
+# Services/activities_summary.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, time, date
@@ -34,12 +34,17 @@ def service_get_activities(
         jwt = require_jwt(user_jwt)
 
     since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
-    return db_get_activities_recent(
+    rows = db_get_activities_recent(
         user_id=user_id,
         since_iso_date=since_date,
         user_jwt=jwt,
         service=service,
     )
+    print(
+        "[SERVICE][activities_summary][get_activities]",
+        {"user_id": user_id, "days": days, "rows": len(rows)},
+    )
+    return rows
 
 
 def service_activities_in_range(
@@ -72,6 +77,16 @@ def service_activities_in_range(
         end_ts_iso=end_ts.isoformat(),
         user_jwt=jwt,
         service=service,
+    )
+
+    print(
+        "[SERVICE][activities_summary][range]",
+        {
+            "user_id": user_id,
+            "start": start_d.isoformat(),
+            "end": end_d.isoformat(),
+            "rows": len(rows),
+        },
     )
 
     return {
@@ -112,6 +127,17 @@ def service_select_activities(
         sports=sport_list or None,
         user_jwt=jwt,
         service=service,
+    )
+
+    print(
+        "[SERVICE][activities_summary][select_window]",
+        {
+            "user_id": user_id,
+            "center": center.isoformat(),
+            "delta_days": delta_days,
+            "sports": sport_list,
+            "rows": len(rows),
+        },
     )
 
     items: List[Dict[str, Any]] = []
@@ -161,4 +187,9 @@ def service_get_summary_one(
     )
     if not row:
         raise ValueError("activity not found")
+
+    print(
+        "[SERVICE][activities_summary][summary_one]",
+        {"activity_id": activity_id},
+    )
     return row
