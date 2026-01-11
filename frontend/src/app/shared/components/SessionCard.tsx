@@ -162,6 +162,58 @@ function valOrDash(v: any): string {
   return String(v);
 }
 
+// workout_type → pekný label
+function workoutTypeLabelFromSummary(s: ActivityRow | null): string | null {
+  if (!s || s.workout_type == null) return null;
+  const wt = s.workout_type;
+  const sport = (
+    s.sport_type_ovrd ??
+    s.sport_type_fe ??
+    s.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  if (sport.includes("run")) {
+    if (wt === 1) return "Race";
+    if (wt === 2) return "Long run";
+    if (wt === 3) return "Workout";
+    return `Run type ${wt}`;
+  }
+
+  if (sport.includes("ride") || sport.includes("bike") || sport.includes("cycle")) {
+    if (wt === 1) return "Race";
+    if (wt === 2) return "Long ride";
+    if (wt === 3) return "Workout";
+    return `Ride type ${wt}`;
+  }
+
+  return `Type ${wt}`;
+}
+
+// kadencia – run → steps/min, bike → rpm
+function formatCadenceSummary(s: ActivityRow | null): string | null {
+  if (!s || s.average_cadence_rpm == null) return null;
+  const sport = (
+    s.sport_type_ovrd ??
+    s.sport_type_fe ??
+    s.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  const rpm = s.average_cadence_rpm;
+
+  if (sport.includes("run")) {
+    const spm = Math.round(rpm * 2);
+    return `${spm} steps/min`;
+  }
+
+  return `${rpm} rpm`;
+}
+
 /** ========== Component ========== */
 
 export default function SessionCard({
@@ -758,10 +810,10 @@ function DetailBody({
     };
   }, [act.activityId, getStreams, getDetail]);
 
-  // ===== extra bloky zo summary – všetky polia z DB =====
+  // ===== extra bloky zo summary – vyčistené, ale všetko dôležité =====
   const extraBlocks = s ? (
     <>
-      {/* Elevácia / kadencia */}
+      {/* Elevácia / kadencia / teplota */}
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
         {[
           {
@@ -779,10 +831,7 @@ function DetailBody({
           },
           {
             label: "AVG CADENCE",
-            value:
-              s.average_cadence_rpm != null
-                ? `${s.average_cadence_rpm} rpm`
-                : "—",
+            value: formatCadenceSummary(s) ?? "—",
           },
         ].map((t) => (
           <div
@@ -836,7 +885,7 @@ function DetailBody({
         ))}
       </div>
 
-      {/* Prostredie / energia */}
+      {/* Prostredie / energia / štatistiky */}
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
         {[
           {
@@ -849,47 +898,12 @@ function DetailBody({
             value: s.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
           },
           {
-            label: "TIMEZONE",
-            value: s.timezone,
-          },
-          {
-            label: "UTC OFFSET",
-            value:
-              s.utc_offset_s != null
-                ? `${s.utc_offset_s / 3600} h`
-                : "—",
-          },
-        ].map((t) => (
-          <div
-            key={t.label}
-            className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-          >
-            <div className="text-[10px] opacity-70">{t.label}</div>
-            <div className="text-xl font-semibold tabular-nums truncate">
-              {valOrDash(t.value)}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Štatistiky / TRIMP / workout typ */}
-      <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
-        {[
-          {
             label: "ACHIEVEMENTS",
             value: s.achievement_count,
           },
           {
             label: "PR COUNT",
             value: s.pr_count,
-          },
-          {
-            label: "WORKOUT TYPE",
-            value: s.workout_type,
-          },
-          {
-            label: "TRIMP",
-            value: s.trimp,
           },
         ].map((t) => (
           <div
@@ -904,24 +918,12 @@ function DetailBody({
         ))}
       </div>
 
-      {/* Výbava / mapy (debug – veľké stringy) */}
+      {/* Workout type – slovami */}
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
         {[
           {
-            label: "GEAR NAME",
-            value: s.gear_name,
-          },
-          {
-            label: "GEAR ID",
-            value: s.gear_id,
-          },
-          {
-            label: "MAP SUMMARY POLYLINE",
-            value: s.map_summary_polyline,
-          },
-          {
-            label: "MAP POLYLINE",
-            value: s.map_polyline,
+            label: "WORKOUT TYPE",
+            value: workoutTypeLabelFromSummary(s) ?? "—",
           },
         ].map((t) => (
           <div
@@ -929,7 +931,7 @@ function DetailBody({
             className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
           >
             <div className="text-[10px] opacity-70">{t.label}</div>
-            <div className="text-[11px] font-semibold break-words max-h-32 overflow-y-auto">
+            <div className="text-xl font-semibold tabular-nums">
               {valOrDash(t.value)}
             </div>
           </div>
@@ -964,7 +966,7 @@ function DetailBody({
         </div>
       )}
 
-      {/* všetky ostatné summary polia */}
+      {/* ostatné summary polia (už očistené) */}
       {extraBlocks}
 
       {"onEdit" in act &&
