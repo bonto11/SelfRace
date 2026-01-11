@@ -50,13 +50,9 @@ def db_fetch_summary_since(
             .execute()
         )
         data = rec.data or []
-        print(
-            "[DB][activities_summary][fetch_since]",
-            {"user_id": user_id, "since": since_iso, "rows": len(data)},
-        )
+
         return data
     except Exception as e:  # noqa: BLE001
-        print("[DB][activities_summary][fetch_since][ERROR]", e)
         return []
 
 

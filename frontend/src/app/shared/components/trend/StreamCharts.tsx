@@ -12,9 +12,14 @@ import {
 import type { StreamsData } from "@/app/features/activities/types/activities";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 
+export type StreamMetric = "hr" | "elevation" | "power" | "pace" | "cadence";
+
 type ActivityStreamChartsProps = {
   streams: StreamsData;
   compact?: boolean;
+  metric?: StreamMetric;
+  /** hint na šport – použijeme na rozhodnutie, či kadenciu zdvojnásobiť (run → steps/min) */
+  sportHint?: string | null;
 };
 
 type BaseChartProps = {
@@ -299,11 +304,15 @@ function BaseStreamChart({
 }
 
 /**
- * Wrapper pre všetky stream grafy + rozbalovanie.
+ * Wrapper pre stream grafy.
+ * - ak `metric` NIE je zadaný → všetky grafy + header + toggle
+ * - ak `metric` JE zadaný → len daný graf, bez headera (na použitie v sekciách).
  */
 export function ActivityStreamCharts({
   streams,
   compact = false,
+  metric,
+  sportHint,
 }: ActivityStreamChartsProps) {
   const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } =
     streams;
@@ -319,10 +328,13 @@ export function ActivityStreamCharts({
   const hasPow =
     Array.isArray(power_w) && power_w.some((v) => v != null);
 
-  // rozbalovanie (default zavreté)
-  const [isOpen, setIsOpen] = useState(false);
+  const isRunSport = useMemo(() => {
+    if (!sportHint) return false;
+    const s = sportHint.toLowerCase();
+    return s.includes("run") || s.includes("trail");
+  }, [sportHint]);
 
-  // hook musí bežať vždy
+  // pace (s/km)
   const pace_s_per_km: (number | null)[] = useMemo(() => {
     if (!hasDist || !hasTime) return [];
 
@@ -351,6 +363,15 @@ export function ActivityStreamCharts({
     return out;
   }, [hasDist, hasTime, time_s, distance_m]);
 
+  // kadencia – ak run → steps/min = rpm*2
+  const cadenceSeries: (number | null)[] = useMemo(() => {
+    if (!hasCad) return [];
+    if (!isRunSport) return cadence_rpm as (number | null)[];
+    return (cadence_rpm as (number | null)[]).map((v) =>
+      v == null ? null : v * 2
+    );
+  }, [hasCad, cadence_rpm, isRunSport]);
+
   if (!hasTime) {
     return (
       <div className="opacity-70 text-sm">
@@ -361,6 +382,112 @@ export function ActivityStreamCharts({
 
   const formatPace = (v: number) => fmtSecondsHMS(Math.round(v));
   const height = compact ? 148 : 220;
+
+  /** ====== režim: konkrétny metric (sekcie v ActivitySessionDetail) ====== */
+  if (metric) {
+    const common = { xs: time_s, height, compact };
+
+    if (metric === "hr") {
+      if (!hasHr) {
+        return (
+          <div className="opacity-70 text-sm">
+            HR stream nie je k dispozícii.
+          </div>
+        );
+      }
+      return (
+        <BaseStreamChart
+          {...common}
+          ys={hr}
+          yLabel="bpm"
+          mode="hr"
+        />
+      );
+    }
+
+    if (metric === "elevation") {
+      if (!hasAlt) {
+        return (
+          <div className="opacity-70 text-sm">
+            Elevation stream nie je k dispozícii.
+          </div>
+        );
+      }
+      return (
+        <BaseStreamChart
+          {...common}
+          ys={altitude_m ?? []}
+          yLabel="m"
+          mode="plain"
+          strokeColor={CHART_HR.colors.z2}
+        />
+      );
+    }
+
+    if (metric === "pace") {
+      if (!hasDist) {
+        return (
+          <div className="opacity-70 text-sm">
+            Pace stream nie je k dispozícii.
+          </div>
+        );
+      }
+      return (
+        <BaseStreamChart
+          {...common}
+          ys={pace_s_per_km}
+          yLabel="s/km"
+          formatY={formatPace}
+          mode="plain"
+          strokeColor={CHART_HR.colors.z3}
+        />
+      );
+    }
+
+    if (metric === "power") {
+      if (!hasPow) {
+        return (
+          <div className="opacity-70 text-sm">
+            Power stream nie je k dispozícii.
+          </div>
+        );
+      }
+      return (
+        <BaseStreamChart
+          {...common}
+          ys={power_w ?? []}
+          yLabel="W"
+          mode="plain"
+          strokeColor={CHART_HR.colors.z4}
+        />
+      );
+    }
+
+    if (metric === "cadence") {
+      if (!hasCad) {
+        return (
+          <div className="opacity-70 text-sm">
+            Cadence stream nie je k dispozícii.
+          </div>
+        );
+      }
+      return (
+        <BaseStreamChart
+          {...common}
+          ys={cadenceSeries}
+          yLabel={isRunSport ? "steps/min" : "rpm"}
+          mode="plain"
+          strokeColor={CHART_HR.colors.z5}
+        />
+      );
+    }
+
+    return null;
+  }
+
+  /** ====== režim: všetky grafy + header (coach / calendar detail) ====== */
+
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div className="mt-3">
@@ -384,7 +511,6 @@ export function ActivityStreamCharts({
         {isOpen && (
           <div className="mt-3">
             <div className={SCROLL_X}>
-              {/* vnútro, ktoré sa môže horizontálne scrollovať */}
               <div className="space-y-4 py-1 min-w-[720px]">
                 {hasHr && (
                   <div>
@@ -461,10 +587,10 @@ export function ActivityStreamCharts({
                     </div>
                     <BaseStreamChart
                       xs={time_s}
-                      ys={cadence_rpm ?? []}
+                      ys={cadenceSeries}
                       height={height}
                       compact={compact}
-                      yLabel="rpm"
+                      yLabel={isRunSport ? "steps/min" : "rpm"}
                       mode="plain"
                       strokeColor={CHART_HR.colors.z5}
                     />

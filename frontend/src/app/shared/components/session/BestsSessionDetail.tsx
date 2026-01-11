@@ -21,11 +21,8 @@ export default function BestsSessionDetail({
   compactChart,
   onOpenActivity,
 }: Props) {
-  // teraz 1:1 ako activity; keď budeš chcieť iný layout PB,
-  // zmeníš to tu a SessionCard sa nemusí meniť.
   return (
     <ActivitySessionDetail
-      // typovo je to veľmi podobné ActivitySession, takže cast je OK
       item={item as any}
       kpiBlock={kpiBlock}
       hasKpis={hasKpis}

@@ -10,7 +10,6 @@ import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 
-// cesta platí, ak je tento súbor vedľa SessionCard.tsx
 import type { ActivitySession } from "./SessionCard";
 
 /** ================= helpers ================= */
@@ -41,6 +40,17 @@ function safeText(value: any): string {
   }
 }
 
+// má sekcia aspoň jednu „reálnu“ hodnotu?
+function hasNonEmptyValue(items?: InfoItem[]): boolean {
+  if (!items || items.length === 0) return false;
+  return items.some((it) => {
+    const v = it.value;
+    if (v === null || v === undefined) return false;
+    const s = String(v).trim();
+    return s !== "" && s !== "—";
+  });
+}
+
 // workout_type → pekný label
 function workoutTypeLabelFromSummary(s: any | null): string | null {
   if (!s || s.workout_type == null) return null;
@@ -61,7 +71,11 @@ function workoutTypeLabelFromSummary(s: any | null): string | null {
     return `Run type ${wt}`;
   }
 
-  if (sport.includes("ride") || sport.includes("bike") || sport.includes("cycle")) {
+  if (
+    sport.includes("ride") ||
+    sport.includes("bike") ||
+    sport.includes("cycle")
+  ) {
     if (wt === 1) return "Race";
     if (wt === 2) return "Long ride";
     if (wt === 3) return "Workout";
@@ -102,7 +116,7 @@ function formatPaceFromSpeedMps(speed?: number | null): string | null {
   return `${minutes}:${secStr} min/km`;
 }
 
-/** ============ malý lokálny „accordion“ shell ============ */
+/** ============ lokálny accordion shell ============ */
 
 type SectionProps = {
   title: string;
@@ -199,6 +213,14 @@ export function ActivitySessionDetail({
   const cadenceLabel = formatCadenceSummary(s);
   const workoutTypeLabel = workoutTypeLabelFromSummary(s);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
+
+  // hint na šport pre grafy (kadencia steps/min vs rpm)
+  const sportHint =
+    (s?.sport_type_ovrd ??
+      s?.sport_type_fe ??
+      s?.sport_type ??
+      act.sport ??
+      "") as string;
 
   const [streams, setStreams] = useState<StreamsData>({
     time_s: [],
@@ -357,7 +379,6 @@ export function ActivitySessionDetail({
   const hrItems: InfoItem[] = [
     { label: "AVG HR", value: avgHrTxt },
     { label: "MAX HR", value: maxHrTxt },
-    // neskôr čas v zónach
   ];
 
   const elevItems: InfoItem[] = [
@@ -419,91 +440,33 @@ export function ActivitySessionDetail({
     { label: "WORKOUT TYPE", value: workoutTypeLabel ?? "—" },
   ];
 
+  const showOverview = hasNonEmptyValue(overviewItems);
+  const showHr = hasNonEmptyValue(hrItems);
+  const showElev = hasNonEmptyValue(elevItems);
+  const showPower = hasNonEmptyValue(powerItems);
+  const showEnv = hasNonEmptyValue(envItems);
+  const showWorkout = hasNonEmptyValue(workoutItems);
+
+  const hasStreams =
+    (streams.time_s?.length ?? 0) > 0 ||
+    (streams.hr?.length ?? 0) > 0 ||
+    (streams.cadence_rpm?.length ?? 0) > 0 ||
+    (streams.power_w?.length ?? 0) > 0 ||
+    (streams.distance_m?.length ?? 0) > 0 ||
+    (streams.altitude_m?.length ?? 0) > 0;
+
+  const hasCadStream = (streams.cadence_rpm?.length ?? 0) > 0;
+
+  const hasRoute = routePoints.length > 0;
+  const hasSplits = splits.length > 0;
+  const hasLaps = laps.length > 0;
+
   return (
     <div>
       {/* KPI z parenta (napr. PB view) */}
       {kpiBlock}
 
-      {/* PREHĽAD – hlavné veci */}
-      <ActivitySectionShell
-        title="Prehľad"
-        defaultOpen={!hasKpis}
-        items={overviewItems}
-      />
-
-      {/* HEART RATE */}
-      <ActivitySectionShell title="Heart rate" items={hrItems} />
-
-      {/* ELEVÁCIA & KADENCIA */}
-      <ActivitySectionShell
-        title="Elevácia & kadencia"
-        items={elevItems}
-      />
-
-      {/* RÝCHLOSŤ & VÝKON */}
-      <ActivitySectionShell
-        title="Rýchlosť & výkon"
-        items={powerItems}
-      />
-
-      {/* PROSTREDIE & ŠTATISTIKY */}
-      <ActivitySectionShell
-        title="Prostredie & štatistiky"
-        items={envItems}
-      />
-
-      {/* TYP TRÉNINGU */}
-      <ActivitySectionShell
-        title="Typ tréningu"
-        items={workoutItems}
-      />
-
-      {/* PODROBNÉ GRAFY */}
-      <ActivitySectionShell title="Podrobné grafy" defaultOpen>
-        <ActivityStreamCharts streams={streams} compact={compactChart} />
-      </ActivitySectionShell>
-
-      {/* MAPA TRASY */}
-      <ActivitySectionShell title="Mapa trasy">
-        <ActivityRouteMap points={routePoints} />
-      </ActivitySectionShell>
-
-      {/* SPLITS */}
-      <ActivitySectionShell title="Splits">
-        {splits.length ? (
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            {splits.map((sp: any, idx: number) => (
-              <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},
-                {" "}
-                {fmtSecondsHMS(sp.moving_time_s)}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="opacity-80 text-sm">Žiadne splits.</div>
-        )}
-      </ActivitySectionShell>
-
-      {/* LAPS */}
-      <ActivitySectionShell title="Laps">
-        {laps.length ? (
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            {laps.map((lap: any, idx: number) => (
-              <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},
-                {" "}
-                {fmtSecondsHMS(lap.moving_time_s)}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="opacity-80 text-sm">Žiadne laps.</div>
-        )}
-      </ActivitySectionShell>
-
-      {/* Akčné tlačidlá + open in activity + poznámka */}
-
+      {/* Akčné tlačidlá – HORE */}
       {"onEdit" in act &&
         (act.onEdit || act.onDelete || act.onToggleFavorite) && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -547,6 +510,125 @@ export function ActivitySessionDetail({
             Otvoriť aktivitu
           </button>
         </div>
+      )}
+
+      {/* PREHĽAD – hlavné veci */}
+      {showOverview && (
+        <ActivitySectionShell
+          title="Prehľad"
+          defaultOpen={!hasKpis}
+          items={overviewItems}
+        />
+      )}
+
+      {/* HEART RATE – graf HR */}
+      {showHr && (
+        <ActivitySectionShell title="Heart rate" items={hrItems}>
+          {hasStreams && (
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="hr"
+              sportHint={sportHint}
+            />
+          )}
+        </ActivitySectionShell>
+      )}
+
+      {/* ELEVÁCIA & KADENCIA – graf elevation + (ak je) graf kadencie */}
+      {showElev && (
+        <ActivitySectionShell
+          title="Elevácia & kadencia"
+          items={elevItems}
+        >
+          {hasStreams && (
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="elevation"
+              sportHint={sportHint}
+            />
+          )}
+
+          {hasCadStream && (
+            <div className="mt-4">
+              <ActivityStreamCharts
+                streams={streams}
+                compact={compactChart}
+                metric="cadence"
+                sportHint={sportHint}
+              />
+            </div>
+          )}
+        </ActivitySectionShell>
+      )}
+
+      {/* RÝCHLOSŤ & VÝKON – graf power (príp. neskôr pace) */}
+      {showPower && (
+        <ActivitySectionShell
+          title="Rýchlosť & výkon"
+          items={powerItems}
+        >
+          {hasStreams && (
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="power"
+              sportHint={sportHint}
+            />
+          )}
+        </ActivitySectionShell>
+      )}
+
+      {/* PROSTREDIE & ŠTATISTIKY – zatiaľ bez grafu */}
+      {showEnv && (
+        <ActivitySectionShell
+          title="Prostredie & štatistiky"
+          items={envItems}
+        />
+      )}
+
+      {/* TYP TRÉNINGU – bez grafu */}
+      {showWorkout && (
+        <ActivitySectionShell
+          title="Typ tréningu"
+          items={workoutItems}
+        />
+      )}
+
+      {/* MAPA TRASY */}
+      {hasRoute && (
+        <ActivitySectionShell title="Mapa trasy">
+          <ActivityRouteMap points={routePoints} />
+        </ActivitySectionShell>
+      )}
+
+      {/* SPLITS */}
+      {hasSplits && (
+        <ActivitySectionShell title="Splits">
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            {splits.map((sp: any, idx: number) => (
+              <li key={sp.split_index ?? idx}>
+                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},{" "}
+                {fmtSecondsHMS(sp.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </ActivitySectionShell>
+      )}
+
+      {/* LAPS */}
+      {hasLaps && (
+        <ActivitySectionShell title="Laps">
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            {laps.map((lap: any, idx: number) => (
+              <li key={lap.lap_index ?? idx}>
+                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},{" "}
+                {fmtSecondsHMS(lap.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        </ActivitySectionShell>
       )}
 
       {act.notes && (
