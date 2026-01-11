@@ -4,6 +4,7 @@ import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { formatDistance } from "@/app/shared/utils/distance";
 
 type Props = {
+  // sem pošleš buď splits alebo laps – je to len pole objektov
   kind: any[];
 };
 
@@ -53,8 +54,8 @@ function formatElev(elev: number | null): string {
   return Math.round(elev).toString();
 }
 
-function buildRows(splits: any[]): SplitRow[] {
-  return splits.map((sp, i) => {
+function buildRows(data: any[]): SplitRow[] {
+  return data.map((sp, i) => {
     const distance_m =
       toNumber(sp.distance_m) ??
       toNumber(sp.distance) ??
@@ -96,13 +97,44 @@ function buildRows(splits: any[]): SplitRow[] {
   });
 }
 
+// škálovanie výšky barov podľa hodnôt
+function makeHeightScaler(
+  values: (number | null)[],
+  minPx = 4,
+  maxPx = 18
+): (v: number | null) => number {
+  const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
+  if (!nums.length) {
+    return () => (minPx + maxPx) / 2;
+  }
+
+  let min = nums[0];
+  let max = nums[0];
+  for (const v of nums) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+
+  if (min === max) {
+    return () => (minPx + maxPx) / 2;
+  }
+
+  return (v: number | null) => {
+    if (v == null || !Number.isFinite(v)) return minPx;
+    const t = (v - min) / (max - min);
+    return minPx + t * (maxPx - minPx);
+  };
+}
+
 export function ActivitySplitsSection({ kind }: Props) {
-  const rows = buildRows(kind).filter((r) => r.time_s != null);
+  const rows = buildRows(Array.isArray(kind) ? kind : []).filter(
+    (r) => r.time_s != null
+  );
 
   if (!rows.length) {
     return (
       <div className="text-sm opacity-80">
-        Žiadne splits/laps.
+        Žiadne dáta.
       </div>
     );
   }
@@ -113,8 +145,7 @@ export function ActivitySplitsSection({ kind }: Props) {
   const widthPct = (time_s: number | null): number => {
     if (!time_s || totalTime <= 0) return 0;
     const pct = (time_s / totalTime) * 100;
-    // nech tam nie sú úplne neviditeľné prúžky
-    return Math.max(pct, 2);
+    return Math.max(pct, 2); // nech nie je úplne neviditeľný
   };
 
   return (
@@ -132,6 +163,7 @@ export function ActivitySplitsSection({ kind }: Props) {
             rows={rows}
             widthPct={widthPct}
             colorClass="bg-emerald-500/80"
+            getValue={(r) => r.time_s}
           />
 
           {/* Pace row */}
@@ -140,6 +172,7 @@ export function ActivitySplitsSection({ kind }: Props) {
             rows={rows}
             widthPct={widthPct}
             colorClass="bg-sky-500/80"
+            getValue={(r) => r.pace_s_per_km}
           />
 
           {/* HR row */}
@@ -148,14 +181,18 @@ export function ActivitySplitsSection({ kind }: Props) {
             rows={rows}
             widthPct={widthPct}
             colorClass="bg-rose-500/80"
+            getValue={(r) => r.avg_hr_bpm}
           />
 
-          {/* Elevation row */}
+          {/* Elevation row – berieme absolútnu hodnotu */}
           <MetricBarRow
             label="Elev."
             rows={rows}
             widthPct={widthPct}
             colorClass="bg-amber-500/80"
+            getValue={(r) =>
+              r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
+            }
           />
         </div>
       </div>
@@ -215,6 +252,7 @@ type MetricBarRowProps = {
   rows: SplitRow[];
   widthPct: (time_s: number | null) => number;
   colorClass: string;
+  getValue: (r: SplitRow) => number | null;
 };
 
 function MetricBarRow({
@@ -222,20 +260,32 @@ function MetricBarRow({
   rows,
   widthPct,
   colorClass,
+  getValue,
 }: MetricBarRowProps) {
+  // heights podľa hodnoty metriky
+  const values = rows.map((r) => getValue(r));
+  const heightFor = makeHeightScaler(values, 4, 18);
+
   return (
     <div className="flex items-center gap-2">
       <div className="w-14 shrink-0 text-[11px] opacity-75">
         {label}
       </div>
-      <div className="flex-1 flex gap-[3px] h-2.5">
-        {rows.map((r) => (
-          <div
-            key={`${label}-${r.index}`}
-            className={`rounded-sm ${colorClass} flex-none`}
-            style={{ width: `${widthPct(r.time_s)}%` }}
-          />
-        ))}
+      <div className="flex-1 flex items-end gap-[3px] h-5">
+        {rows.map((r) => {
+          const hPx = heightFor(getValue(r));
+          const w = widthPct(r.time_s);
+          return (
+            <div
+              key={`${label}-${r.index}`}
+              className={`rounded-sm ${colorClass} flex-none`}
+              style={{
+                width: `${w}%`,
+                height: `${hPx}px`,
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );
