@@ -49,8 +49,14 @@ def db_fetch_summary_since(
             .order("date", desc=True)
             .execute()
         )
-        return rec.data or []
-    except Exception:
+        data = rec.data or []
+        print(
+            "[DB][activities_summary][fetch_since]",
+            {"user_id": user_id, "since": since_iso, "rows": len(data)},
+        )
+        return data
+    except Exception as e:  # noqa: BLE001
+        print("[DB][activities_summary][fetch_since][ERROR]", e)
         return []
 
 
@@ -203,7 +209,12 @@ def db_get_activities_recent(
         .order("date", desc=True)
         .execute()
     )
-    return res.data or []
+    data = res.data or []
+    print(
+        "[DB][activities_summary][recent]",
+        {"user_id": user_id, "since": since_iso_date, "rows": len(data)},
+    )
+    return data
 
 
 def db_get_activity_summary_one(
@@ -229,6 +240,10 @@ def db_get_activity_summary_one(
         .execute()
     )
     data = res.data or []
+    print(
+        "[DB][activities_summary][summary_one]",
+        {"activity_id": activity_id, "found": bool(data)},
+    )
     return data[0] if data else None
 
 
@@ -256,7 +271,17 @@ def db_get_activities_in_range_basic(
         .order("date", desc=True)
         .execute()
     )
-    return res.data or []
+    data = res.data or []
+    print(
+        "[DB][activities_summary][range_basic]",
+        {
+            "user_id": user_id,
+            "start": start_ts_iso,
+            "end": end_ts_iso,
+            "rows": len(data),
+        },
+    )
+    return data
 
 
 def db_select_activities_window_basic(
@@ -288,7 +313,18 @@ def db_select_activities_window_basic(
         q = q.in_("sport_type_fe", sports)
 
     res = q.execute()
-    return res.data or []
+    data = res.data or []
+    print(
+        "[DB][activities_summary][select_window]",
+        {
+            "user_id": user_id,
+            "from": date_from,
+            "to": date_to,
+            "sports": sports or [],
+            "rows": len(data),
+        },
+    )
+    return data
 
 
 def db_get_summary_one(
@@ -313,6 +349,10 @@ def db_get_summary_one(
         .execute()
     )
     data = res.data or []
+    print(
+        "[DB][activities_summary][summary_one_public]",
+        {"activity_id": activity_id, "found": bool(data)},
+    )
     return data[0] if data else None
 
 
@@ -341,7 +381,12 @@ def db_get_summary_for_activities(
         .in_("activity_id", list(set(activity_ids)))
         .execute()
     )
-    return res.data or []
+    data = res.data or []
+    print(
+        "[DB][activities_summary][summary_for_ids]",
+        {"user_id": user_id, "count_ids": len(activity_ids), "rows": len(data)},
+    )
+    return data
 
 
 # ───────────────────────────── update map/workout_type ─────────────────────────────
