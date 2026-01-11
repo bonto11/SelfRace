@@ -18,8 +18,6 @@ export async function apiFetchRange(
     start
   )}&end=${encodeURIComponent(end)}`;
 
-  console.debug("[activityApi][range] ->", path);
-
   const json = await callBackend<any>(path, {
     method: "GET",
     cache: "no-store",
@@ -32,20 +30,9 @@ export async function apiFetchRange(
     (Array.isArray(json) && json) ||
     [];
 
-  // 🔍 TEMP DEBUG – tá istá aktivita ako v BE
-  const TARGET_ID = 16999438256;
-
-  const rawOne = (raw as any[]).find(
-    (r) => Number(r?.activity_id ?? r?.id) === TARGET_ID
-  );
-  console.debug("[activityApi][range][debug raw one]", rawOne);
-
   const norm = (raw as any[])
     .map(normalizeActivityRow)
     .filter(Boolean) as ActivityRow[];
-
-  const normOne = norm.find((r) => r.activity_id === TARGET_ID);
-  console.debug("[activityApi][range][debug norm one]", normOne);
 
   // ak chceš najnovšie hore, prehoď poradie
   norm.sort((a, b) => a.date.localeCompare(b.date));
@@ -69,14 +56,10 @@ export async function apiFetchActivitiesAround(
     `&delta_days=${delta}` +
     `&sports=${encodeURIComponent(sports)}`;
 
-  console.debug("[activityApi][around] ->", path);
-
   const j = await callBackend<{ items?: MiniActivity[] }>(path, {
     method: "GET",
     cache: "no-store",
   });
-
-  console.debug("[activityApi][around] payload:", j);
 
   return (j?.items ?? []) as MiniActivity[];
 }

@@ -210,10 +210,7 @@ def db_get_activities_recent(
         .execute()
     )
     data = res.data or []
-    print(
-        "[DB][activities_summary][recent]",
-        {"user_id": user_id, "since": since_iso_date, "rows": len(data)},
-    )
+
     return data
 
 
@@ -240,10 +237,7 @@ def db_get_activity_summary_one(
         .execute()
     )
     data = res.data or []
-    print(
-        "[DB][activities_summary][summary_one]",
-        {"activity_id": activity_id, "found": bool(data)},
-    )
+
     return data[0] if data else None
 
 
@@ -273,19 +267,6 @@ def db_get_activities_in_range_basic(
     )
 
     rows = res.data or []
-
-    # 🔍 TEMP DEBUG – len konkrétna aktivita (long run)
-    try:
-        target_id = 16999438256
-        for r in rows:
-            if int(r.get("activity_id", 0)) == target_id:
-                print(
-                    "[DB][activities_summary][range_basic][DEBUG_TARGET]",
-                    {"activity_id": target_id, "row": r},
-                )
-                break
-    except Exception as e:  # noqa: BLE001
-        print("[DB][activities_summary][range_basic][DEBUG_ERROR]", str(e))
 
     return rows
 
@@ -319,16 +300,7 @@ def db_select_activities_window_basic(
 
     res = q.execute()
     data = res.data or []
-    print(
-        "[DB][activities_summary][select_window]",
-        {
-            "user_id": user_id,
-            "from": date_from,
-            "to": date_to,
-            "sports": sports or [],
-            "rows": len(data),
-        },
-    )
+ 
     return data
 
 
@@ -354,10 +326,7 @@ def db_get_summary_one(
         .execute()
     )
     data = res.data or []
-    print(
-        "[DB][activities_summary][summary_one_public]",
-        {"activity_id": activity_id, "found": bool(data)},
-    )
+
     return data[0] if data else None
 
 
@@ -387,10 +356,7 @@ def db_get_summary_for_activities(
         .execute()
     )
     data = res.data or []
-    print(
-        "[DB][activities_summary][summary_for_ids]",
-        {"user_id": user_id, "count_ids": len(activity_ids), "rows": len(data)},
-    )
+
     return data
 
 
