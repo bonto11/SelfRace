@@ -1,10 +1,10 @@
 "use client";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { MetricGrid } from "./MetricGrid";
-import { safeText } from "./sessionUtils";
+import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
+import { safeText } from "@/app/shared/components/session/sessionUtils";
 
-import type { ExternalSession } from "./SessionCard";
+import type { ExternalSession } from "@/app/shared/components/session/SessionCard";
 
 type Props = {
   variant: ComponentVariant;

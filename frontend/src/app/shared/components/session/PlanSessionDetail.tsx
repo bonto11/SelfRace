@@ -1,15 +1,15 @@
 "use client";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { MetricGrid } from "./MetricGrid";
-import DetailSection from "./DetailSection";
+import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
+import DetailSection from "@/app/shared/components/session/DetailSection";
 import {
   fmtMin,
   safeText,
   tgtToStr,
-} from "./sessionUtils";
+} from "@/app/shared/components/session/sessionUtils";
 
-import type { PlanSession } from "./SessionCard";
+import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 
 type Props = {
   variant: ComponentVariant;

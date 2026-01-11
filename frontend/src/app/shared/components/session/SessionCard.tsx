@@ -1,18 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import SportBadge from "@/app/shared/components/ui/SportBadge";
-import { SURFACE_CARD, FLUSH_DETAIL } from "@/app/shared/ui/classes";
+import {
+  SURFACE_CARD,
+  SURFACE_INLINE,
+  FLUSH_DETAIL,
+} from "@/app/shared/ui/classes";
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 
-import ActivitySessionDetail from "./ActivitySessionDetail";
-import PlanSessionDetail from "./PlanSessionDetail";
-import ExternalSessionDetail from "./ExternalSessionDetail";
+import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
+import PlanSessionDetail from "@/app/shared/components/session/PlanSessionDetail";
+import ExternalSessionDetail from "@/app/shared/components/session/ExternalSessionDetail";
+import BestsSessionDetail from "@/app/shared/components/session/BestsSessionDetail";
+
+import { safeText } from "@/app/shared/components/session/sessionUtils";
 
 /** ========== Types ========== */
 
-export type SessionKind = "activity" | "plan" | "external";
+export type SessionKind = "activity" | "plan" | "external" | "bests";
 export type PlanStatus = "planned" | "done" | "missed";
 
 export type KPI = { label: string; value: any };
@@ -47,6 +54,18 @@ export type ActivitySession = Base & {
   onDelete?: () => void;
 };
 
+// PB – vlastný typ, ale polia sú rovnaké ako pri activity,
+// aby si vedel ľahko linknúť späť na konkrétnu aktivitu.
+export type BestsSession = Base & {
+  kind: "bests";
+  activityId: number;
+
+  timeStr?: string | null;
+  distanceStr?: string | null;
+  avgHr?: number | null;
+  maxHr?: number | null;
+};
+
 export type PlanSession = Base & {
   kind: "plan";
   status: PlanStatus;
@@ -68,7 +87,11 @@ export type ExternalSession = Base & {
   notes?: string | null;
 };
 
-export type SessionCardItem = ActivitySession | PlanSession | ExternalSession;
+export type SessionCardItem =
+  | ActivitySession
+  | BestsSession
+  | PlanSession
+  | ExternalSession;
 
 export type SessionCardProps = {
   variant?: ComponentVariant; // "activity" | "calendar" | "pb" | "plan"
@@ -132,43 +155,51 @@ export default function SessionCard({
   const cfg = PRESET[variant];
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
 
+  useEffect(() => {
+    if (item.defaultOpen) setOpened(true);
+  }, [item.defaultOpen]);
+
   const dateLine =
     item.hideDateLine || variant === "calendar"
       ? ""
       : prettySkDate(item.dateIso);
 
-  useMemo(() => {
-    if (item.defaultOpen) setOpened(true);
-  }, [item.defaultOpen]);
-
   const secondaryLine = useMemo(() => {
     if (variant === "calendar" && item.subtitle) return item.subtitle;
 
-    if (item.kind === "activity") {
-      const act = item as ActivitySession;
-      const distKm = parseKm(act.distanceStr);
-      if (distKm != null && distKm > 0 && act.distanceStr)
-        return `Distance ${act.distanceStr}`;
-      if (act.timeStr) return `Time ${act.timeStr}`;
-      return null;
-    }
+    switch (item.kind) {
+      case "activity":
+      case "bests": {
+        const act = item as ActivitySession | BestsSession;
+        const distKm = parseKm(act.distanceStr);
+        if (distKm != null && distKm > 0 && act.distanceStr)
+          return `Distance ${act.distanceStr}`;
+        if (act.timeStr) return `Time ${act.timeStr}`;
+        return null;
+      }
 
-    if (item.kind === "plan") {
-      const plan = item as PlanSession;
-      const bits = [
-        plan.planDur ?? "",
-        plan.planIntensity ?? "",
-        plan.planTarget ?? "",
-      ].filter(Boolean);
-      return bits.length ? bits.join(" · ") : null;
-    }
+      case "plan": {
+        const plan = item as PlanSession;
+        const bits = [
+          plan.planDur ?? "",
+          plan.planIntensity ?? "",
+          plan.planTarget ?? "",
+        ].filter(Boolean);
+        return bits.length ? bits.join(" · ") : null;
+      }
 
-    const ext = item as ExternalSession;
-    const bits = [
-      ext.time ? ext.time : null,
-      ext.durationMin != null ? `${ext.durationMin} min` : null,
-    ].filter(Boolean);
-    return bits.length ? bits.join(" · ") : null;
+      case "external": {
+        const ext = item as ExternalSession;
+        const bits = [
+          ext.time ? ext.time : null,
+          ext.durationMin != null ? `${ext.durationMin} min` : null,
+        ].filter(Boolean);
+        return bits.length ? bits.join(" · ") : null;
+      }
+
+      default:
+        return null;
+    }
   }, [item, variant]);
 
   return (
@@ -237,7 +268,6 @@ export default function SessionCard({
           <DetailBody
             variant={variant}
             item={item}
-            compactChart={cfg.compactChart}
             onOpenActivity={onOpenActivity}
             showPlanDebug={showPlanDebug}
           />
@@ -252,16 +282,36 @@ export default function SessionCard({
 function DetailBody({
   variant,
   item,
-  compactChart,
   onOpenActivity,
   showPlanDebug,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
-  compactChart: boolean;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
 }) {
+  const compactChart = PRESET[variant].compactChart;
+
+  const kpis = Array.isArray(item.kpis) ? item.kpis : [];
+  const hasKpis = kpis.length > 0;
+
+  const kpiBlock = hasKpis ? (
+    <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {kpis.map((k) => (
+        <div
+          key={String(k.label)}
+          className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+        >
+          <div className="text-[10px] opacity-70">{safeText(k.label)}</div>
+          <div className="text-xl font-semibold tabular-nums">
+            {safeText(k.value)}
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  // PLAN
   if (item.kind === "plan") {
     return (
       <PlanSessionDetail
@@ -272,14 +322,37 @@ function DetailBody({
     );
   }
 
+  // EXTERNAL
   if (item.kind === "external") {
-    return <ExternalSessionDetail variant={variant} item={item as ExternalSession} />;
+    return (
+      <ExternalSessionDetail
+        variant={variant}
+        item={item as ExternalSession}
+      />
+    );
   }
+
+  // BESTS
+  if (item.kind === "bests") {
+    return (
+      <BestsSessionDetail
+        item={item as BestsSession}
+        kpiBlock={kpiBlock}
+        hasKpis={hasKpis}
+        compactChart={compactChart}
+        onOpenActivity={onOpenActivity}
+      />
+    );
+  }
+
+  // ACTIVITY
+  const act = item as ActivitySession;
 
   return (
     <ActivitySessionDetail
-      variant={variant}
-      item={item as ActivitySession}
+      item={act}
+      kpiBlock={kpiBlock}
+      hasKpis={hasKpis}
       compactChart={compactChart}
       onOpenActivity={onOpenActivity}
     />

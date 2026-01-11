@@ -1,56 +1,204 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { SURFACE_INLINE } from "@/app/shared/ui/classes";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
+import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
+import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import {
-  ActivityRow,
-  ComponentVariant,
-  StreamsData,
-} from "@/app/features/activities/types/activities";
-import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
-import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 
-import { MetricGrid } from "./MetricGrid";
-import DetailSection from "./DetailSection";
-import {
-  formatCadenceSummary,
-  valOrDash,
-  workoutTypeLabelFromSummary,
-} from "./sessionUtils";
-
+// cesta platí, ak je tento súbor vedľa SessionCard.tsx
 import type { ActivitySession } from "./SessionCard";
 
-type Props = {
-  variant: ComponentVariant;
+/** ================= helpers ================= */
+
+type InfoItem = {
+  label: string;
+  value: string | number | null;
+};
+
+function valOrDash(v: string | number | null): string {
+  if (v === null || v === undefined || v === "") return "—";
+  return String(v);
+}
+
+function safeText(value: any): string {
+  if (value == null) return "";
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+// workout_type → pekný label
+function workoutTypeLabelFromSummary(s: any | null): string | null {
+  if (!s || s.workout_type == null) return null;
+  const wt = s.workout_type;
+  const sport = (
+    s.sport_type_ovrd ??
+    s.sport_type_fe ??
+    s.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  if (sport.includes("run")) {
+    if (wt === 1) return "Race";
+    if (wt === 2) return "Long run";
+    if (wt === 3) return "Workout";
+    return `Run type ${wt}`;
+  }
+
+  if (sport.includes("ride") || sport.includes("bike") || sport.includes("cycle")) {
+    if (wt === 1) return "Race";
+    if (wt === 2) return "Long ride";
+    if (wt === 3) return "Workout";
+    return `Ride type ${wt}`;
+  }
+
+  return `Type ${wt}`;
+}
+
+// kadencia – run → steps/min, bike → rpm
+function formatCadenceSummary(s: any | null): string | null {
+  if (!s || s.average_cadence_rpm == null) return null;
+  const sport = (
+    s.sport_type_ovrd ??
+    s.sport_type_fe ??
+    s.sport_type ??
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  const rpm = s.average_cadence_rpm;
+
+  if (sport.includes("run")) {
+    const spm = Math.round(rpm * 2);
+    return `${spm} steps/min`;
+  }
+
+  return `${rpm} rpm`;
+}
+
+function formatPaceFromSpeedMps(speed?: number | null): string | null {
+  if (!speed || speed <= 0) return null;
+  const secPerKm = 1000 / speed;
+  const minutes = Math.floor(secPerKm / 60);
+  const seconds = Math.round(secPerKm % 60);
+  const secStr = String(seconds).padStart(2, "0");
+  return `${minutes}:${secStr} min/km`;
+}
+
+/** ============ malý lokálny „accordion“ shell ============ */
+
+type SectionProps = {
+  title: string;
+  defaultOpen?: boolean;
+  items?: InfoItem[];
+  children?: ReactNode;
+};
+
+function ActivitySectionShell({
+  title,
+  defaultOpen,
+  items,
+  children,
+}: SectionProps) {
+  const [open, setOpen] = useState(!!defaultOpen);
+
+  return (
+    <section className="mt-3">
+      <div className={[SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(" ")}>
+        <button
+          type="button"
+          onClick={() => setOpen((s) => !s)}
+          className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold tracking-tight"
+        >
+          <span>{title}</span>
+          <span
+            className={[
+              "text-base leading-none select-none transition-transform",
+              open ? "rotate-180" : "",
+            ].join(" ")}
+          >
+            ▾
+          </span>
+        </button>
+
+        {open && (
+          <div className="border-t border-white/10 px-4 py-3 text-sm">
+            {items && items.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+                {items.map((t) => (
+                  <div
+                    key={t.label}
+                    className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+                  >
+                    <div className="text-[10px] opacity-70">{t.label}</div>
+                    <div className="text-xl font-semibold tabular-nums">
+                      {valOrDash(t.value)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {children}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** ================= main component ================= */
+
+type ActivitySessionDetailProps = {
   item: ActivitySession;
+  kpiBlock: ReactNode;
+  hasKpis: boolean;
   compactChart: boolean;
   onOpenActivity?: (activityId: number) => void;
 };
 
-export default function ActivitySessionDetail({
+export function ActivitySessionDetail({
   item,
+  kpiBlock,
+  hasKpis,
   compactChart,
   onOpenActivity,
-}: Props) {
+}: ActivitySessionDetailProps) {
+  const act = item;
   const { getSummary, getStreams, getDetail } = useActivityData();
 
-  const kpis = Array.isArray(item.kpis) ? item.kpis : [];
-
-  const s: ActivityRow | null =
-    item.activityId != null ? ((getSummary(item.activityId) as any) || null) : null;
+  const s: any | null =
+    act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
   const distTxt = s
     ? formatDistance(s.distance_m ?? null)
-    : item.distanceStr ?? "—";
+    : act.distanceStr ?? "—";
   const timeTxt =
     s && s.moving_time_s != null
       ? fmtSecondsHMS(s.moving_time_s)
-      : item.timeStr ?? "—";
-  const avgTxt = s ? s.average_heartrate_bpm ?? "—" : item.avgHr ?? "—";
-  const maxTxt = s ? s.max_heartrate_bpm ?? "—" : item.maxHr ?? "—";
+      : act.timeStr ?? "—";
+  const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
+  const maxHrTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
+  const cadenceLabel = formatCadenceSummary(s);
+  const workoutTypeLabel = workoutTypeLabelFromSummary(s);
+  const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
 
   const [streams, setStreams] = useState<StreamsData>({
     time_s: [],
@@ -61,20 +209,20 @@ export default function ActivitySessionDetail({
     distance_m: [],
     altitude_m: [],
   });
-  const [routePoints, setRoutePoints] = useState<
-    { lat: number; lng: number }[]
-  >([]);
+  const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>(
+    []
+  );
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
   useEffect(() => {
     let alive = true;
-    if (!item.activityId) return;
+    if (!act.activityId) return;
 
     (async () => {
       try {
-        const st = await getStreams(item.activityId);
-        const dt = await getDetail(item.activityId);
+        const st = await getStreams(act.activityId);
+        const dt = await getDetail(act.activityId);
 
         if (!alive) return;
 
@@ -196,175 +344,204 @@ export default function ActivitySessionDetail({
     return () => {
       alive = false;
     };
-  }, [item.activityId, getStreams, getDetail]);
+  }, [act.activityId, getStreams, getDetail]);
+
+  /** ====== data pre jednotlivé sekcie ====== */
+
+  const overviewItems: InfoItem[] = [
+    { label: "TIME", value: timeTxt },
+    { label: "DISTANCE", value: distTxt },
+    paceLabel ? { label: "AVG PACE", value: paceLabel } : null,
+  ].filter(Boolean) as InfoItem[];
+
+  const hrItems: InfoItem[] = [
+    { label: "AVG HR", value: avgHrTxt },
+    { label: "MAX HR", value: maxHrTxt },
+    // neskôr čas v zónach
+  ];
+
+  const elevItems: InfoItem[] = [
+    {
+      label: "ELEV GAIN",
+      value:
+        s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—",
+    },
+    {
+      label: "ELEV HIGH",
+      value: s?.elev_high_m != null ? `${s.elev_high_m} m` : "—",
+    },
+    {
+      label: "ELEV LOW",
+      value: s?.elev_low_m != null ? `${s.elev_low_m} m` : "—",
+    },
+    cadenceLabel ? { label: "CADENCE", value: cadenceLabel } : null,
+  ].filter(Boolean) as InfoItem[];
+
+  const powerItems: InfoItem[] = [
+    {
+      label: "AVG SPEED",
+      value:
+        s?.average_speed_mps != null
+          ? `${s.average_speed_mps.toFixed(3)} m/s`
+          : "—",
+    },
+    {
+      label: "MAX SPEED",
+      value:
+        s?.max_speed_mps != null
+          ? `${s.max_speed_mps.toFixed(3)} m/s`
+          : "—",
+    },
+    {
+      label: "AVG POWER",
+      value: s?.average_watts != null ? `${s.average_watts} W` : "—",
+    },
+    {
+      label: "MAX POWER",
+      value: s?.max_watts != null ? `${s.max_watts} W` : "—",
+    },
+  ];
+
+  const envItems: InfoItem[] = [
+    {
+      label: "AVG TEMP",
+      value:
+        s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—",
+    },
+    {
+      label: "CALORIES",
+      value:
+        s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
+    },
+  ];
+
+  const workoutItems: InfoItem[] = [
+    { label: "WORKOUT TYPE", value: workoutTypeLabel ?? "—" },
+  ];
 
   return (
     <div>
-      {/* PREHĽAD / ZÁKLADNÉ ÚDAJE */}
-      {kpis.length > 0 ? (
-        <DetailSection title="Prehľad">
-          <MetricGrid
-            metrics={kpis.map((k) => ({
-              label: k.label,
-              value: k.value,
-            }))}
-          />
-        </DetailSection>
-      ) : (
-        <DetailSection title="Základné údaje">
-          <MetricGrid
-            metrics={[
-              { label: "TIME", value: timeTxt },
-              { label: "DISTANCE", value: distTxt },
-              { label: "AVG HR", value: avgTxt },
-              { label: "MAX HR", value: maxTxt },
-            ]}
-          />
-        </DetailSection>
-      )}
+      {/* KPI z parenta (napr. PB view) */}
+      {kpiBlock}
 
-      {/* ĎALŠIE METRIKY zo summary */}
-      {s && (
-        <>
-          <DetailSection title="Elevácia & kadencia">
-            <MetricGrid
-              metrics={[
-                {
-                  label: "ELEV GAIN",
-                  value:
-                    s.elevation_gain_m != null
-                      ? `${s.elevation_gain_m} m`
-                      : "—",
-                },
-                {
-                  label: "ELEV HIGH",
-                  value:
-                    s.elev_high_m != null ? `${s.elev_high_m} m` : "—",
-                },
-                {
-                  label: "ELEV LOW",
-                  value:
-                    s.elev_low_m != null ? `${s.elev_low_m} m` : "—",
-                },
-                {
-                  label: "AVG CADENCE",
-                  value: formatCadenceSummary(s) ?? "—",
-                },
-              ]}
-            />
-          </DetailSection>
+      {/* PREHĽAD – hlavné veci */}
+      <ActivitySectionShell
+        title="Prehľad"
+        defaultOpen={!hasKpis}
+        items={overviewItems}
+      />
 
-          <DetailSection title="Rýchlosť & výkon">
-            <MetricGrid
-              metrics={[
-                {
-                  label: "AVG SPEED",
-                  value:
-                    s.average_speed_mps != null
-                      ? `${s.average_speed_mps.toFixed(3)} m/s`
-                      : "—",
-                },
-                {
-                  label: "MAX SPEED",
-                  value:
-                    s.max_speed_mps != null
-                      ? `${s.max_speed_mps.toFixed(3)} m/s`
-                      : "—",
-                },
-                {
-                  label: "AVG POWER",
-                  value:
-                    s.average_watts != null ? `${s.average_watts} W` : "—",
-                },
-                {
-                  label: "MAX POWER",
-                  value: s.max_watts != null ? `${s.max_watts} W` : "—",
-                },
-              ]}
-            />
-          </DetailSection>
+      {/* HEART RATE */}
+      <ActivitySectionShell title="Heart rate" items={hrItems} />
 
-          <DetailSection title="Prostredie & štatistiky">
-            <MetricGrid
-              metrics={[
-                {
-                  label: "AVG TEMP",
-                  value:
-                    s.average_temp_c != null
-                      ? `${s.average_temp_c} °C`
-                      : "—",
-                },
-                {
-                  label: "CALORIES",
-                  value:
-                    s.calories_kcal != null
-                      ? `${s.calories_kcal} kcal`
-                      : "—",
-                },
-                {
-                  label: "ACHIEVEMENTS",
-                  value: valOrDash(s.achievement_count),
-                },
-                {
-                  label: "PR COUNT",
-                  value: valOrDash(s.pr_count),
-                },
-              ]}
-            />
-          </DetailSection>
+      {/* ELEVÁCIA & KADENCIA */}
+      <ActivitySectionShell
+        title="Elevácia & kadencia"
+        items={elevItems}
+      />
 
-          <DetailSection title="Typ tréningu">
-            <MetricGrid
-              cols={2}
-              metrics={[
-                {
-                  label: "WORKOUT TYPE",
-                  value: workoutTypeLabelFromSummary(s) ?? "—",
-                },
-              ]}
-            />
-          </DetailSection>
-        </>
-      )}
+      {/* RÝCHLOSŤ & VÝKON */}
+      <ActivitySectionShell
+        title="Rýchlosť & výkon"
+        items={powerItems}
+      />
 
-      {/* Akcie na activitu */}
-      {(item.onEdit || item.onDelete || item.onToggleFavorite) && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {item.onToggleFavorite && (
-            <button
-              type="button"
-              onClick={item.onToggleFavorite}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-            >
-              {item.isFavorite ? "★ Favorite" : "☆ Set favorite"}
-            </button>
-          )}
-          {item.onEdit && (
-            <button
-              type="button"
-              onClick={item.onEdit}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-            >
-              Edit
-            </button>
-          )}
-          {item.onDelete && (
-            <button
-              type="button"
-              onClick={item.onDelete}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      )}
+      {/* PROSTREDIE & ŠTATISTIKY */}
+      <ActivitySectionShell
+        title="Prostredie & štatistiky"
+        items={envItems}
+      />
+
+      {/* TYP TRÉNINGU */}
+      <ActivitySectionShell
+        title="Typ tréningu"
+        items={workoutItems}
+      />
+
+      {/* PODROBNÉ GRAFY */}
+      <ActivitySectionShell title="Podrobné grafy" defaultOpen>
+        <ActivityStreamCharts streams={streams} compact={compactChart} />
+      </ActivitySectionShell>
+
+      {/* MAPA TRASY */}
+      <ActivitySectionShell title="Mapa trasy">
+        <ActivityRouteMap points={routePoints} />
+      </ActivitySectionShell>
+
+      {/* SPLITS */}
+      <ActivitySectionShell title="Splits">
+        {splits.length ? (
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            {splits.map((sp: any, idx: number) => (
+              <li key={sp.split_index ?? idx}>
+                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},
+                {" "}
+                {fmtSecondsHMS(sp.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="opacity-80 text-sm">Žiadne splits.</div>
+        )}
+      </ActivitySectionShell>
+
+      {/* LAPS */}
+      <ActivitySectionShell title="Laps">
+        {laps.length ? (
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            {laps.map((lap: any, idx: number) => (
+              <li key={lap.lap_index ?? idx}>
+                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},
+                {" "}
+                {fmtSecondsHMS(lap.moving_time_s)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="opacity-80 text-sm">Žiadne laps.</div>
+        )}
+      </ActivitySectionShell>
+
+      {/* Akčné tlačidlá + open in activity + poznámka */}
+
+      {"onEdit" in act &&
+        (act.onEdit || act.onDelete || act.onToggleFavorite) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {act.onToggleFavorite && (
+              <button
+                type="button"
+                onClick={act.onToggleFavorite}
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+              >
+                {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
+              </button>
+            )}
+            {act.onEdit && (
+              <button
+                type="button"
+                onClick={act.onEdit}
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+              >
+                Edit
+              </button>
+            )}
+            {act.onDelete && (
+              <button
+                type="button"
+                onClick={act.onDelete}
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        )}
 
       {onOpenActivity && (
         <div className="mt-3">
           <button
             type="button"
-            onClick={() => onOpenActivity(item.activityId)}
+            onClick={() => onOpenActivity(act.activityId)}
             className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
           >
             Otvoriť aktivitu
@@ -372,46 +549,8 @@ export default function ActivitySessionDetail({
         </div>
       )}
 
-      {item.notes && (
-        <div className="mt-3 text-sm opacity-90">{item.notes}</div>
-      )}
-
-      {/* Podrobné grafy */}
-      <DetailSection title="Podrobné grafy" defaultOpen>
-        <ActivityStreamCharts streams={streams} compact={compactChart} />
-      </DetailSection>
-
-      {/* Mapa trasy */}
-      <DetailSection title="Mapa trasy" defaultOpen={false}>
-        <ActivityRouteMap points={routePoints} />
-      </DetailSection>
-
-      {/* Splits */}
-      {splits.length > 0 && (
-        <DetailSection title="Splits" defaultOpen>
-          <ul className="list-disc pl-5">
-            {splits.map((sp: any, idx: number) => (
-              <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},{" "}
-                {fmtSecondsHMS(sp.moving_time_s)}
-              </li>
-            ))}
-          </ul>
-        </DetailSection>
-      )}
-
-      {/* Laps */}
-      {laps.length > 0 && (
-        <DetailSection title="Laps" defaultOpen={false}>
-          <ul className="list-disc pl-5">
-            {laps.map((lap: any, idx: number) => (
-              <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},{" "}
-                {fmtSecondsHMS(lap.moving_time_s)}
-              </li>
-            ))}
-          </ul>
-        </DetailSection>
+      {act.notes && (
+        <div className="mt-3 text-sm opacity-90">{safeText(act.notes)}</div>
       )}
     </div>
   );
