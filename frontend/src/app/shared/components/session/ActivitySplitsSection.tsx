@@ -23,10 +23,20 @@ function toNumber(v: any): number | null {
 }
 
 // 1 km ± 10 m -> 1.00, inak km s 2 des. miestami (bez jednotky)
-function formatSplitDistance(distance_m: number | null): string {
+function formatSplitDistanceFull(distance_m: number | null): string {
   if (distance_m == null) return "—";
 
   if (Math.abs(distance_m - 1000) <= 10) return "1.00";
+
+  const km = distance_m / 1000;
+  return km.toFixed(2);
+}
+
+// kratšia verzia na mobil: 1 km ± 10 m -> "1", inak km na 2 des. miesta
+function formatSplitDistanceShort(distance_m: number | null): string {
+  if (distance_m == null) return "—";
+
+  if (Math.abs(distance_m - 1000) <= 10) return "1";
 
   const km = distance_m / 1000;
   return km.toFixed(2);
@@ -155,7 +165,7 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // necháme si trochu rezervu kvôli gapom, aby sa všetky bary vošli do 100 %
+  // rezervu kvôli gapom, aby sa všetky bary vošli do 100 %
   const segmentWidthPct = rows.length ? 100 / (rows.length + 2) : 0;
 
   return (
@@ -228,8 +238,11 @@ export function ActivitySplitsSection({ kind }: Props) {
                 <HeaderWithUnit label="Avg HR" unit="bpm" />
               </th>
 
+              {/* Elevation – všetko v jednom riadku, vrátane jednotky */}
               <th className="py-1.5 pl-2 text-right align-bottom">
-                <HeaderWithUnit label="Elev. Δ" unit="m" />
+                <div className="text-[10px] leading-tight">
+                  Elev. Δ (m)
+                </div>
               </th>
             </tr>
           </thead>
@@ -245,7 +258,13 @@ export function ActivitySplitsSection({ kind }: Props) {
                 </td>
 
                 <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
-                  {formatSplitDistance(r.distance_m)}
+                  {/* malý display – len skrátená verzia; od sm vyššie plná */}
+                  <span className="sm:hidden">
+                    {formatSplitDistanceShort(r.distance_m)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {formatSplitDistanceFull(r.distance_m)}
+                  </span>
                 </td>
 
                 <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
@@ -291,9 +310,9 @@ function MetricBarRow({
   const heightFor = makeHeightScaler(values, 18, 54);
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* label – bližšie pri baroch, menšia šírka */}
-      <div className="w-11 shrink-0 text-[10px] opacity-75 text-right pr-1">
+    <div className="flex items-center gap-1">
+      {/* label – užší, aby bary boli bližšie vľavo */}
+      <div className="w-9 shrink-0 text-[10px] opacity-75 text-right pr-0.5">
         {label}
       </div>
 
