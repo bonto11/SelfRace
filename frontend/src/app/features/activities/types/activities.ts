@@ -1,3 +1,4 @@
+// src/features/activities/types/activities.ts
 export type StreamsData = {
   time_s: number[];
   hr: (number | null)[];
@@ -24,20 +25,24 @@ export type SportFE =
 
 export type Range = { start?: string; end?: string };
 
-
 export type ComponentVariant = "activity" | "calendar" | "pb" | "plan";
 export type Metric = "km" | "time" | "trimp";
 
 export interface MiniActivity {
-  id: number;                 // activity_id
-  name: string;               // napr. "Evening Run"
-  start_date: string;         // ISO "YYYY-MM-DDTHH:mm:ssZ" (alebo "YYYY-MM-DD")
-  sport: SportFE;             // z DB: sport_type_fe
+  id: number; // activity_id
+  name: string; // napr. "Evening Run"
+  start_date: string; // ISO "YYYY-MM-DDTHH:mm:ssZ" (alebo "YYYY-MM-DD")
+  sport: SportFE; // z DB: sport_type_fe
   distance_km?: number | null;
   duration_min?: number | null;
 }
 
-export type WeekPick = { week: string; start: string; end: string; sport: string };
+export type WeekPick = {
+  week: string;
+  start: string;
+  end: string;
+  sport: string;
+};
 
 /** Ľahký rad pre listy/grafy (90d range) */
 export type ActivityRow = {
@@ -87,6 +92,14 @@ export type ActivityRow = {
   timezone: string | null;
   utc_offset_s: number | null;
 
+  // extra polia z DB (aby mal SessionCard všetko)
+  user_id: number | null;
+  user_uid: string | null;
+  description: string | null;
+  comment: string | null;
+  pace_seconds_per_km: number | null;
+  deleted_at?: string | null;
+
   // workout / mapa
   workout_type: number | null;
   map_summary_polyline: string | null;
@@ -102,9 +115,7 @@ export interface ActivityDetailExtra {
   splits: any[];
 }
 
-
 /** Týždenná agregácia pre grafy a summary */
-
 export interface WeekRow {
   week: string; // "YYYY-Www"
   label: string; // napr. "1.–7.10."
