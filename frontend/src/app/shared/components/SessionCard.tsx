@@ -16,6 +16,7 @@ import {
   StreamsData,
 } from "@/app/features/activities/types/activities";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
+import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 
 /** ========== Types ========== */
 
@@ -608,6 +609,9 @@ function DetailBody({
     distance_m: [],
     altitude_m: [],
   });
+  const [routePoints, setRoutePoints] = useState<
+    { lat: number; lng: number }[]
+  >([]);
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
@@ -626,7 +630,7 @@ function DetailBody({
         console.log("[SessionCard] detail raw", act.activityId, dt);
 
         if (st) {
-          // getStreams vracia priamo StreamsData
+          // getStreams vracia priamo StreamsData + raw
           const raw: any = st ?? {};
 
           const time_s: number[] = Array.isArray(raw.time_s)
@@ -676,6 +680,29 @@ function DetailBody({
               ? Number(time_s[time_s.length - 1]) || 0
               : 0;
 
+          // lat/lng → routePoints pre mapu
+          const pts: { lat: number; lng: number }[] = [];
+          const latlngRaw = raw.latlng;
+
+          if (Array.isArray(latlngRaw)) {
+            for (const p of latlngRaw) {
+              if (
+                Array.isArray(p) &&
+                p.length >= 2 &&
+                typeof p[0] === "number" &&
+                typeof p[1] === "number"
+              ) {
+                pts.push({ lat: p[0], lng: p[1] });
+              } else if (
+                p &&
+                typeof p.lat === "number" &&
+                typeof p.lng === "number"
+              ) {
+                pts.push({ lat: p.lat, lng: p.lng });
+              }
+            }
+          }
+
           setStreams({
             time_s,
             hr,
@@ -685,6 +712,7 @@ function DetailBody({
             distance_m,
             altitude_m,
           });
+          setRoutePoints(pts);
         } else {
           console.log("[SessionCard] no streams for", act.activityId);
           setStreams({
@@ -696,6 +724,7 @@ function DetailBody({
             distance_m: [],
             altitude_m: [],
           });
+          setRoutePoints([]);
         }
 
         if (dt) {
@@ -714,6 +743,7 @@ function DetailBody({
           distance_m: [],
           altitude_m: [],
         });
+        setRoutePoints([]);
       }
     })();
 
@@ -754,7 +784,7 @@ function DetailBody({
               <button
                 type="button"
                 onClick={act.onToggleFavorite}
-                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg.white/20 border border-white/10 transition-colors"
               >
                 {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
               </button>
@@ -796,10 +826,13 @@ function DetailBody({
         <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
       )}
 
-      {/* Stream priebehy: HR + elevation + pace + power + cadence */}
+      {/* Stream priebehy */}
       <div className="mt-3">
         <ActivityStreamCharts streams={streams} compact={compactChart} />
       </div>
+
+      {/* Mapa trasy (SVG route) */}
+      <ActivityRouteMap points={routePoints} />
 
       {!!splits.length && (
         <>
