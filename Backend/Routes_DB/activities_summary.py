@@ -271,18 +271,23 @@ def db_get_activities_in_range_basic(
         .order("date", desc=True)
         .execute()
     )
-    data = res.data or []
-    print(
-        "[DB][activities_summary][range_basic]",
-        {
-            "user_id": user_id,
-            "start": start_ts_iso,
-            "end": end_ts_iso,
-            "rows": len(data),
-        },
-    )
-    return data
 
+    rows = res.data or []
+
+    # 🔍 TEMP DEBUG – len konkrétna aktivita (long run)
+    try:
+        target_id = 16999438256
+        for r in rows:
+            if int(r.get("activity_id", 0)) == target_id:
+                print(
+                    "[DB][activities_summary][range_basic][DEBUG_TARGET]",
+                    {"activity_id": target_id, "row": r},
+                )
+                break
+    except Exception as e:  # noqa: BLE001
+        print("[DB][activities_summary][range_basic][DEBUG_ERROR]", str(e))
+
+    return rows
 
 def db_select_activities_window_basic(
     user_id: int,

@@ -25,10 +25,6 @@ export async function apiFetchRange(
     cache: "no-store",
   });
 
-  console.debug("[activityApi][range] raw json:", json);
-
-  // podporíme viac variant payloadu:
-  // {data: [...]}, {rows: [...]}, {items: [...]}, alebo rovno pole
   const raw =
     (Array.isArray(json?.data) && json.data) ||
     (Array.isArray(json?.rows) && json.rows) ||
@@ -36,17 +32,23 @@ export async function apiFetchRange(
     (Array.isArray(json) && json) ||
     [];
 
-  console.debug("[activityApi][range] raw rows:", raw);
+  // 🔍 TEMP DEBUG – tá istá aktivita ako v BE
+  const TARGET_ID = 16999438256;
+
+  const rawOne = (raw as any[]).find(
+    (r) => Number(r?.activity_id ?? r?.id) === TARGET_ID
+  );
+  console.debug("[activityApi][range][debug raw one]", rawOne);
 
   const norm = (raw as any[])
     .map(normalizeActivityRow)
     .filter(Boolean) as ActivityRow[];
 
+  const normOne = norm.find((r) => r.activity_id === TARGET_ID);
+  console.debug("[activityApi][range][debug norm one]", normOne);
+
   // ak chceš najnovšie hore, prehoď poradie
   norm.sort((a, b) => a.date.localeCompare(b.date));
-
-  console.debug("[activityApi][range] normalized rows:", norm);
-
   return norm;
 }
 
