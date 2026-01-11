@@ -208,7 +208,7 @@ export function ActivitySplitsSection({ kind }: Props) {
           />
 
           <MetricBarRow
-            label="HR"
+            label="Heart rate"
             rows={rows}
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-rose-500/80"
@@ -219,7 +219,7 @@ export function ActivitySplitsSection({ kind }: Props) {
           />
 
           <MetricBarRow
-            label="Elev."
+            label="Elevation"
             rows={rows}
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-amber-500/80"
@@ -233,7 +233,7 @@ export function ActivitySplitsSection({ kind }: Props) {
         </div>
       </div>
 
-      {/* TABLE – toto už nemeníme */}
+      {/* TABLE */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
@@ -358,32 +358,35 @@ function MetricBarRow({
 
   return (
     <div className="pt-1">
-      {/* riadok s názvom + štatistikami vpravo */}
-      <div className="flex items-baseline justify-between mb-1 pr-1">
+      {/* názov metriky – centrovaný */}
+      <div className="mb-1 text-center">
         <span className="text-[11px] opacity-80">{label}</span>
-        <div className="flex flex-col items-end text-[9px] opacity-80 leading-tight">
+      </div>
+
+      {/* bary + „pseudo-osa“ so štatistikami vpravo */}
+      <div className="flex items-stretch">
+        <div className="flex-1 flex items-end gap-[6px] h-24 pr-2">
+          {rows.map((r) => {
+            const hPx = heightFor(getValue(r));
+            return (
+              <div
+                key={`${label}-${r.index}`}
+                className={`rounded-sm ${colorClass} flex-none`}
+                style={{
+                  width: `${segmentWidthPct}%`,
+                  minWidth: "2px",
+                  height: `${hPx}px`,
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight">
           <span>{topLabel}</span>
           <span>{midLabel}</span>
           <span>{bottomLabel}</span>
         </div>
-      </div>
-
-      {/* samotné bary */}
-      <div className="flex items-end gap-[6px] h-24">
-        {rows.map((r) => {
-          const hPx = heightFor(getValue(r));
-          return (
-            <div
-              key={`${label}-${r.index}`}
-              className={`rounded-sm ${colorClass} flex-none`}
-              style={{
-                width: `${segmentWidthPct}%`,
-                minWidth: "2px",
-                height: `${hPx}px`,
-              }}
-            />
-          );
-        })}
       </div>
     </div>
   );
