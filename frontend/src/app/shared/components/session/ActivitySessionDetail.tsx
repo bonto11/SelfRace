@@ -9,7 +9,7 @@ import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import LapsSplitsSection from "./LapsSplitsSection";
+import { ActivitySplitsSection } from "./ActivitySplitsSection";
 
 import type { ActivitySession } from "./SessionCard";
 
@@ -606,14 +606,14 @@ export function ActivitySessionDetail({
       {/* SPLITS */}
       {hasSplits && (
         <ActivitySectionShell title="Splits">
-          <LapsSplitsSection kind="splits" items={splits} />
+          <ActivitySplitsSection splits={splits} />
         </ActivitySectionShell>
       )}
 
       {/* LAPS */}
       {hasLaps && (
         <ActivitySectionShell title="Laps">
-          <LapsSplitsSection kind="laps" items={laps} />
+          <ActivitySplitsSection splits={laps} />
         </ActivitySectionShell>
       )}
 
