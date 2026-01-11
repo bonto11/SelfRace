@@ -173,7 +173,7 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // užšie bary + väčšie medzery
+  // šírka stĺpcov – úzke, ale s medzerami
   const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
@@ -184,7 +184,7 @@ export function ActivitySplitsSection({ kind }: Props) {
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        <div className="space-y-2 ml-[-6px]">
+        <div className="space-y-4">
           <MetricBarRow
             label="Time"
             rows={rows}
@@ -233,7 +233,7 @@ export function ActivitySplitsSection({ kind }: Props) {
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* TABLE – toto už nemeníme */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
@@ -357,40 +357,33 @@ function MetricBarRow({
   const bottomLabel = formatStat(bottomVal);
 
   return (
-    <div className="flex items-stretch gap-1">
-      {/* Rotovaný label vľavo */}
-      <div className="w-4 shrink-0 flex justify-center">
-        <span className="text-[9px] opacity-75 origin-center -rotate-90 whitespace-nowrap">
-          {label}
-        </span>
-      </div>
-
-      {/* bary + stats v jednom relatívnom wrappe */}
-      <div className="flex-1 relative">
-        {/* bary – rezervuj miesto pre čísla vpravo cez paddingRight */}
-        <div className="flex items-end gap-[5px] h-24 pr-8">
-          {rows.map((r) => {
-            const hPx = heightFor(getValue(r));
-            return (
-              <div
-                key={`${label}-${r.index}`}
-                className={`rounded-sm ${colorClass} flex-none`}
-                style={{
-                  width: `${segmentWidthPct}%`,
-                  minWidth: "2px",
-                  height: `${hPx}px`,
-                }}
-              />
-            );
-          })}
-        </div>
-
-        {/* čísla vpravo – rozložené top / middle / bottom */}
-        <div className="absolute inset-y-0 right-0 flex flex-col justify-between items-end text-[9px] opacity-80 pr-0.5">
+    <div className="pt-1">
+      {/* riadok s názvom + štatistikami vpravo */}
+      <div className="flex items-baseline justify-between mb-1 pr-1">
+        <span className="text-[11px] opacity-80">{label}</span>
+        <div className="flex flex-col items-end text-[9px] opacity-80 leading-tight">
           <span>{topLabel}</span>
           <span>{midLabel}</span>
           <span>{bottomLabel}</span>
         </div>
+      </div>
+
+      {/* samotné bary */}
+      <div className="flex items-end gap-[6px] h-24">
+        {rows.map((r) => {
+          const hPx = heightFor(getValue(r));
+          return (
+            <div
+              key={`${label}-${r.index}`}
+              className={`rounded-sm ${colorClass} flex-none`}
+              style={{
+                width: `${segmentWidthPct}%`,
+                minWidth: "2px",
+                height: `${hPx}px`,
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );
