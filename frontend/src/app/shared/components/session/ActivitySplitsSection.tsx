@@ -185,15 +185,16 @@ export function ActivitySplitsSection({ kind }: Props) {
         </div>
 
         <div className="space-y-4">
+          {/* PORADIE: HR, Pace, Elevation, Time */}
           <MetricBarRow
-            label="Time"
+            label="Heart rate"
             rows={rows}
             segmentWidthPct={segmentWidthPct}
-            colorClass="bg-emerald-500/80"
-            getValue={(r) => r.time_s}
-            getStatValue={(r) => r.time_s}
-            formatStat={(v) => formatTimeShort(v)}
-            statMode="time"
+            colorClass="bg-rose-500/80"
+            getValue={(r) => r.avg_hr_bpm}
+            getStatValue={(r) => r.avg_hr_bpm}
+            formatStat={(v) => formatHr(v)}
+            statMode="hr"
           />
 
           <MetricBarRow
@@ -208,17 +209,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           />
 
           <MetricBarRow
-            label="Heart rate"
-            rows={rows}
-            segmentWidthPct={segmentWidthPct}
-            colorClass="bg-rose-500/80"
-            getValue={(r) => r.avg_hr_bpm}
-            getStatValue={(r) => r.avg_hr_bpm}
-            formatStat={(v) => formatHr(v)}
-            statMode="hr"
-          />
-
-          <MetricBarRow
             label="Elevation"
             rows={rows}
             segmentWidthPct={segmentWidthPct}
@@ -230,10 +220,21 @@ export function ActivitySplitsSection({ kind }: Props) {
             formatStat={(v) => formatElev(v)}
             statMode="elev"
           />
+
+          <MetricBarRow
+            label="Time"
+            rows={rows}
+            segmentWidthPct={segmentWidthPct}
+            colorClass="bg-emerald-500/80"
+            getValue={(r) => r.time_s}
+            getStatValue={(r) => r.time_s}
+            formatStat={(v) => formatTimeShort(v)}
+            statMode="time"
+          />
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* TABLE – poradie: HR, Pace, Elev, Time */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
@@ -245,16 +246,16 @@ export function ActivitySplitsSection({ kind }: Props) {
                 Dist. (km)
               </th>
               <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                Time (h:mm:ss)
+                Avg HR (bpm)
               </th>
               <th className="py-1 px-1 text-center align-bottom text-[10px]">
                 Pace (min/km)
               </th>
-              <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                Avg HR (bpm)
-              </th>
               <th className="py-1 pl-1 pr-0.5 text-right align-bottom text-[10px]">
                 Elev. Δm
+              </th>
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
+                Time (h:mm:ss)
               </th>
             </tr>
           </thead>
@@ -279,19 +280,19 @@ export function ActivitySplitsSection({ kind }: Props) {
                 </td>
 
                 <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                  {formatTimeShort(r.time_s)}
+                  {formatHr(r.avg_hr_bpm)}
                 </td>
 
                 <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
                   {formatPace(r.pace_s_per_km)}
                 </td>
 
-                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                  {formatHr(r.avg_hr_bpm)}
-                </td>
-
                 <td className="py-1 pl-1 pr-0.5 text-right tabular-nums whitespace-nowrap">
                   {formatElev(r.elev_delta_m)}
+                </td>
+
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                  {formatTimeShort(r.time_s)}
                 </td>
               </tr>
             ))}
@@ -363,9 +364,9 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + „pseudo-osa“ so štatistikami vpravo */}
+      {/* bary + pseudo-osa so štatistikami vpravo */}
       <div className="flex items-stretch">
-        <div className="flex-1 flex items-end gap-[6px] h-24 pr-2">
+        <div className="flex-1 flex items-end gap-[6px] h-24">
           {rows.map((r) => {
             const hPx = heightFor(getValue(r));
             return (
@@ -382,7 +383,8 @@ function MetricBarRow({
           })}
         </div>
 
-        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight">
+        {/* väčší odstup od stĺpcov */}
+        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-4">
           <span>{topLabel}</span>
           <span>{midLabel}</span>
           <span>{bottomLabel}</span>
