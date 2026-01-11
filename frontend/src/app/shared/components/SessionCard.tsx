@@ -12,6 +12,7 @@ import {
   FLUSH_DETAIL,
 } from "@/app/shared/ui/classes";
 import {
+  ActivityRow,
   ComponentVariant,
   StreamsData,
 } from "@/app/features/activities/types/activities";
@@ -154,6 +155,11 @@ function tgtToStr(t: any): string | null {
   if (typeof t === "string") return t;
   const bits = [t?.pace, t?.power, t?.hr].filter(Boolean);
   return bits.length ? bits.join(" · ") : null;
+}
+
+function valOrDash(v: any): string {
+  if (v === null || v === undefined || v === "") return "—";
+  return String(v);
 }
 
 /** ========== Component ========== */
@@ -587,8 +593,8 @@ function DetailBody({
   // -------- ACTIVITY --------
   const act = item as ActivitySession;
 
-  const s =
-    act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
+  const s: ActivityRow | null =
+    act.activityId != null ? ((getSummary(act.activityId) as any) || null) : null;
 
   const distTxt = s
     ? formatDistance(s.distance_m ?? null)
@@ -752,10 +758,191 @@ function DetailBody({
     };
   }, [act.activityId, getStreams, getDetail]);
 
+  // ===== extra bloky zo summary – všetky polia z DB =====
+  const extraBlocks = s ? (
+    <>
+      {/* Elevácia / kadencia */}
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {[
+          {
+            label: "ELEV GAIN",
+            value:
+              s.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—",
+          },
+          {
+            label: "ELEV HIGH",
+            value: s.elev_high_m != null ? `${s.elev_high_m} m` : "—",
+          },
+          {
+            label: "ELEV LOW",
+            value: s.elev_low_m != null ? `${s.elev_low_m} m` : "—",
+          },
+          {
+            label: "AVG CADENCE",
+            value:
+              s.average_cadence_rpm != null
+                ? `${s.average_cadence_rpm} rpm`
+                : "—",
+          },
+        ].map((t) => (
+          <div
+            key={t.label}
+            className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+          >
+            <div className="text-[10px] opacity-70">{t.label}</div>
+            <div className="text-xl font-semibold tabular-nums">
+              {valOrDash(t.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Rýchlosť / výkon */}
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {[
+          {
+            label: "AVG SPEED",
+            value:
+              s.average_speed_mps != null
+                ? `${s.average_speed_mps.toFixed(3)} m/s`
+                : "—",
+          },
+          {
+            label: "MAX SPEED",
+            value:
+              s.max_speed_mps != null
+                ? `${s.max_speed_mps.toFixed(3)} m/s`
+                : "—",
+          },
+          {
+            label: "AVG POWER",
+            value:
+              s.average_watts != null ? `${s.average_watts} W` : "—",
+          },
+          {
+            label: "MAX POWER",
+            value: s.max_watts != null ? `${s.max_watts} W` : "—",
+          },
+        ].map((t) => (
+          <div
+            key={t.label}
+            className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+          >
+            <div className="text-[10px] opacity-70">{t.label}</div>
+            <div className="text-xl font-semibold tabular-nums">
+              {valOrDash(t.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Prostredie / energia */}
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {[
+          {
+            label: "AVG TEMP",
+            value:
+              s.average_temp_c != null ? `${s.average_temp_c} °C` : "—",
+          },
+          {
+            label: "CALORIES",
+            value: s.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
+          },
+          {
+            label: "TIMEZONE",
+            value: s.timezone,
+          },
+          {
+            label: "UTC OFFSET",
+            value:
+              s.utc_offset_s != null
+                ? `${s.utc_offset_s / 3600} h`
+                : "—",
+          },
+        ].map((t) => (
+          <div
+            key={t.label}
+            className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+          >
+            <div className="text-[10px] opacity-70">{t.label}</div>
+            <div className="text-xl font-semibold tabular-nums truncate">
+              {valOrDash(t.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Štatistiky / TRIMP / workout typ */}
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {[
+          {
+            label: "ACHIEVEMENTS",
+            value: s.achievement_count,
+          },
+          {
+            label: "PR COUNT",
+            value: s.pr_count,
+          },
+          {
+            label: "WORKOUT TYPE",
+            value: s.workout_type,
+          },
+          {
+            label: "TRIMP",
+            value: s.trimp,
+          },
+        ].map((t) => (
+          <div
+            key={t.label}
+            className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+          >
+            <div className="text-[10px] opacity-70">{t.label}</div>
+            <div className="text-xl font-semibold tabular-nums">
+              {valOrDash(t.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Výbava / mapy (debug – veľké stringy) */}
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {[
+          {
+            label: "GEAR NAME",
+            value: s.gear_name,
+          },
+          {
+            label: "GEAR ID",
+            value: s.gear_id,
+          },
+          {
+            label: "MAP SUMMARY POLYLINE",
+            value: s.map_summary_polyline,
+          },
+          {
+            label: "MAP POLYLINE",
+            value: s.map_polyline,
+          },
+        ].map((t) => (
+          <div
+            key={t.label}
+            className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+          >
+            <div className="text-[10px] opacity-70">{t.label}</div>
+            <div className="text-[11px] font-semibold break-words max-h-32 overflow-y-auto">
+              {valOrDash(t.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  ) : null;
+
   return (
     <div>
       {kpiBlock}
 
+      {/* základné KPI keď neprídu kpis zhora */}
       {!hasKpis && (
         <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
           {[
@@ -777,6 +964,9 @@ function DetailBody({
         </div>
       )}
 
+      {/* všetky ostatné summary polia */}
+      {extraBlocks}
+
       {"onEdit" in act &&
         (act.onEdit || act.onDelete || act.onToggleFavorite) && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -784,7 +974,7 @@ function DetailBody({
               <button
                 type="button"
                 onClick={act.onToggleFavorite}
-                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg.white/20 border border-white/10 transition-colors"
+                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
               >
                 {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
               </button>
@@ -831,7 +1021,7 @@ function DetailBody({
         <ActivityStreamCharts streams={streams} compact={compactChart} />
       </div>
 
-      {/* Mapa trasy (SVG route) */}
+      {/* Mapa trasy */}
       <ActivityRouteMap points={routePoints} />
 
       {!!splits.length && (
