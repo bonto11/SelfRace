@@ -154,16 +154,18 @@ function ActivitySectionShell({
         </button>
 
         {open && (
-          <div className="border-t border-white/10 px-4 py-3 text-sm">
+          <div className="border-t border-white/10 px-3 py-2 text-sm">
             {items && items.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {items.map((t) => (
                   <div
                     key={t.label}
-                    className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+                    className="rounded-lg bg-white/5/5 border border-white/5 px-2.5 py-1.5"
                   >
-                    <div className="text-[10px] opacity-70">{t.label}</div>
-                    <div className="text-xl font-semibold tabular-nums">
+                    <div className="text-[10px] opacity-70 leading-tight">
+                      {t.label}
+                    </div>
+                    <div className="text-sm font-semibold tabular-nums leading-tight">
                       {valOrDash(t.value)}
                     </div>
                   </div>
