@@ -405,7 +405,7 @@ export function normSportsList(
 ): string[] | null {
   if (sel == null) return null;
   if (Array.isArray(sel)) {
-    const arr = sel.map((s) => String(s).trim().lowerCase()).filter(Boolean);
+    const arr = sel.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
     if (arr.length === 0) return null;
     if (arr.length === 1 && arr[0] === "all") return null;
     return Array.from(new Set(arr));
