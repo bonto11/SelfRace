@@ -25,6 +25,8 @@ export async function apiFetchRange(
     cache: "no-store",
   });
 
+  console.debug("[activityApi][range] raw json:", json);
+
   // podporíme viac variant payloadu:
   // {data: [...]}, {rows: [...]}, {items: [...]}, alebo rovno pole
   const raw =
@@ -34,12 +36,17 @@ export async function apiFetchRange(
     (Array.isArray(json) && json) ||
     [];
 
+  console.debug("[activityApi][range] raw rows:", raw);
+
   const norm = (raw as any[])
     .map(normalizeActivityRow)
     .filter(Boolean) as ActivityRow[];
 
   // ak chceš najnovšie hore, prehoď poradie
   norm.sort((a, b) => a.date.localeCompare(b.date));
+
+  console.debug("[activityApi][range] normalized rows:", norm);
+
   return norm;
 }
 
@@ -66,6 +73,8 @@ export async function apiFetchActivitiesAround(
     method: "GET",
     cache: "no-store",
   });
+
+  console.debug("[activityApi][around] payload:", j);
 
   return (j?.items ?? []) as MiniActivity[];
 }
