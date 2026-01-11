@@ -3,8 +3,7 @@
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 
 type Props = {
-  // sem posielaš splits alebo laps
-  kind: any[];
+  kind: any[]; // splits alebo laps
 };
 
 type SplitRow = {
@@ -22,27 +21,23 @@ function toNumber(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// 1 km ± 10 m -> 1.00, inak km s 2 des. miestami (bez jednotky)
+// 1 km ± 10 m -> 1.00, inak km s 2 des. miestami
 function formatSplitDistanceFull(distance_m: number | null): string {
   if (distance_m == null) return "—";
-
   if (Math.abs(distance_m - 1000) <= 10) return "1.00";
-
   const km = distance_m / 1000;
   return km.toFixed(2);
 }
 
-// kratšia verzia na mobil: 1 km ± 10 m -> "1", inak km na 2 des. miesta
+// krátka verzia na mobil: 1 km ± 10 m -> "1"
 function formatSplitDistanceShort(distance_m: number | null): string {
   if (distance_m == null) return "—";
-
   if (Math.abs(distance_m - 1000) <= 10) return "1";
-
   const km = distance_m / 1000;
   return km.toFixed(2);
 }
 
-// krátky čas do tabuľky:  mm:ss alebo h:mm:ss, bez „h/m/s“
+// čas do tabuľky – mm:ss alebo h:mm:ss, bez sufixov
 function formatTimeShort(seconds: number | null): string {
   if (seconds == null || seconds <= 0) return "—";
   const total = Math.round(seconds);
@@ -51,13 +46,11 @@ function formatTimeShort(seconds: number | null): string {
   const s = total % 60;
   const mm = String(m).padStart(h > 0 ? 2 : 1, "0");
   const ss = String(s).padStart(2, "0");
-  if (h > 0) {
-    return `${h}:${mm}:${ss}`;
-  }
+  if (h > 0) return `${h}:${mm}:${ss}`;
   return `${mm}:${ss}`;
 }
 
-// tempo: mm:ss (jednotka v headri)
+// tempo: mm:ss
 function formatPace(pace_s_per_km: number | null): string {
   if (pace_s_per_km == null || pace_s_per_km <= 0) return "—";
   const total = Math.round(pace_s_per_km);
@@ -120,11 +113,10 @@ function buildRows(data: any[]): SplitRow[] {
   });
 }
 
-// výška barov podľa rozsahu hodnôt
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 22,
-  maxPx = 64
+  minPx = 26,
+  maxPx = 80
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -133,10 +125,13 @@ function makeHeightScaler(
 
   let min = nums[0];
   let max = nums[0];
+  let sum = 0;
   for (const v of nums) {
     if (v < min) min = v;
     if (v > max) max = v;
+    sum += v;
   }
+  const avg = sum / nums.length;
 
   if (min === max) {
     return () => (minPx + maxPx) / 2;
@@ -149,24 +144,38 @@ function makeHeightScaler(
   };
 }
 
+function computeStats(values: (number | null)[]): {
+  min: number;
+  max: number;
+  avg: number;
+} | null {
+  const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
+  if (!nums.length) return null;
+  let min = nums[0];
+  let max = nums[0];
+  let sum = 0;
+  for (const v of nums) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+    sum += v;
+  }
+  return { min, max, avg: sum / nums.length };
+}
+
 export function ActivitySplitsSection({ kind }: Props) {
   const rows = buildRows(Array.isArray(kind) ? kind : []).filter(
     (r) => r.time_s != null
   );
 
   if (!rows.length) {
-    return (
-      <div className="text-sm opacity-80">
-        Žiadne dáta.
-      </div>
-    );
+    return <div className="text-sm opacity-80">Žiadne dáta.</div>;
   }
 
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // rezervu kvôli gapom, aby sa všetky bary vošli do 100 % a boli štíhlejšie
-  const segmentWidthPct = rows.length ? 100 / (rows.length + 4) : 0;
+  // väčšia rezerva -> užšie bary + väčšie medzery
+  const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
@@ -176,13 +185,15 @@ export function ActivitySplitsSection({ kind }: Props) {
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        <div className="space-y-1.5 ml-[-8px]">
+        <div className="space-y-2 ml-[-10px]">
           <MetricBarRow
             label="Time"
             rows={rows}
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-emerald-500/80"
             getValue={(r) => r.time_s}
+            formatStat={(v) => formatTimeShort(v)}
+            statsMode="min-avg-max"
           />
 
           <MetricBarRow
@@ -191,6 +202,8 @@ export function ActivitySplitsSection({ kind }: Props) {
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-sky-500/80"
             getValue={(r) => r.pace_s_per_km}
+            formatStat={(v) => formatPace(v)}
+            statsMode="min-avg-max"
           />
 
           <MetricBarRow
@@ -199,6 +212,8 @@ export function ActivitySplitsSection({ kind }: Props) {
             segmentWidthPct={segmentWidthPct}
             colorClass="bg-rose-500/80"
             getValue={(r) => r.avg_hr_bpm}
+            formatStat={(v) => formatHr(v)}
+            statsMode="min-avg-max"
           />
 
           <MetricBarRow
@@ -209,6 +224,8 @@ export function ActivitySplitsSection({ kind }: Props) {
             getValue={(r) =>
               r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
             }
+            formatStat={(v) => formatElev(v)}
+            statsMode="min-0-max"
           />
         </div>
       </div>
@@ -218,27 +235,22 @@ export function ActivitySplitsSection({ kind }: Props) {
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
             <tr className="opacity-70">
-              <th className="py-1.5 pr-2 text-right align-bottom text-[10px]">
+              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
                 #
               </th>
-
-              <th className="py-1.5 pr-2 text-left align-bottom text-[10px]">
+              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
                 Dist. (km)
               </th>
-
-              <th className="py-1.5 pr-2 text-left align-bottom text-[10px]">
+              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
                 Time (h:mm:ss)
               </th>
-
-              <th className="py-1.5 pr-2 text-left align-bottom text-[10px]">
+              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
                 Pace (min/km)
               </th>
-
-              <th className="py-1.5 pr-2 text-right align-bottom text-[10px]">
+              <th className="py-1.5 px-2 text-center align-bottom text-[10px]">
                 Avg HR (bpm)
               </th>
-
-              <th className="py-1.5 pl-2 text-right align-bottom text-[10px]">
+              <th className="py-1.5 pl-2 pr-1 text-right align-bottom text-[10px]">
                 Elev. Δ m
               </th>
             </tr>
@@ -250,12 +262,11 @@ export function ActivitySplitsSection({ kind }: Props) {
                 key={r.index}
                 className="border-b border-white/5 last:border-b-0"
               >
-                <td className="py-1.5 pr-2 text-right tabular-nums">
+                <td className="py-1.5 px-2 text-center tabular-nums">
                   {r.index}
                 </td>
 
-                <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
-                  {/* malý display – len skrátená verzia; od sm vyššie plná */}
+                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
                   <span className="sm:hidden">
                     {formatSplitDistanceShort(r.distance_m)}
                   </span>
@@ -264,19 +275,19 @@ export function ActivitySplitsSection({ kind }: Props) {
                   </span>
                 </td>
 
-                <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
+                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
                   {formatTimeShort(r.time_s)}
                 </td>
 
-                <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">
+                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
                   {formatPace(r.pace_s_per_km)}
                 </td>
 
-                <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap">
+                <td className="py-1.5 px-2 text-center tabular-nums whitespace-nowrap">
                   {formatHr(r.avg_hr_bpm)}
                 </td>
 
-                <td className="py-1.5 pl-2 text-right tabular-nums whitespace-nowrap">
+                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums whitespace-nowrap">
                   {formatElev(r.elev_delta_m)}
                 </td>
               </tr>
@@ -294,6 +305,8 @@ type MetricBarRowProps = {
   segmentWidthPct: number;
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
+  formatStat: (v: number | null) => string;
+  statsMode: "min-avg-max" | "min-0-max";
 };
 
 function MetricBarRow({
@@ -302,18 +315,21 @@ function MetricBarRow({
   segmentWidthPct,
   colorClass,
   getValue,
+  formatStat,
+  statsMode,
 }: MetricBarRowProps) {
   const values = rows.map((r) => getValue(r));
-  const heightFor = makeHeightScaler(values, 22, 64);
+  const heightFor = makeHeightScaler(values, 26, 80);
+  const stats = computeStats(values);
 
   return (
-    <div className="flex items-center gap-0.5">
-      {/* label – užší, aby bary boli bližšie vľavo */}
-      <div className="w-7 shrink-0 text-[10px] opacity-75 text-right pr-0">
+    <div className="flex items-center gap-1">
+      {/* label – úzky, aby bary boli bližšie osi */}
+      <div className="w-7 shrink-0 text-[10px] opacity-75 text-right pr-0.5">
         {label}
       </div>
 
-      <div className="flex-1 flex items-end gap-[1px] h-16">
+      <div className="flex-1 flex items-end gap-[4px] h-20">
         {rows.map((r) => {
           const hPx = heightFor(getValue(r));
           return (
@@ -328,6 +344,23 @@ function MetricBarRow({
             />
           );
         })}
+      </div>
+
+      {/* pravá strana – štatistiky */}
+      <div className="w-[74px] shrink-0 text-[10px] text-right leading-tight pl-1">
+        {statsMode === "min-0-max" ? (
+          <>
+            <div>{formatStat(stats?.min ?? null)}</div>
+            <div>{formatStat(0)}</div>
+            <div>{formatStat(stats?.max ?? null)}</div>
+          </>
+        ) : (
+          <>
+            <div>{formatStat(stats?.min ?? null)}</div>
+            <div>{formatStat(stats?.avg ?? null)}</div>
+            <div>{formatStat(stats?.max ?? null)}</div>
+          </>
+        )}
       </div>
     </div>
   );
