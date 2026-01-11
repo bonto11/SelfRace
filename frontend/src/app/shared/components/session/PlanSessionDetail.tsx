@@ -1,7 +1,6 @@
 "use client";
 
-import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
+import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
 import {
   fmtMin,
@@ -16,6 +15,52 @@ type Props = {
   item: PlanSession;
   showPlanDebug: boolean;
 };
+
+/** ==== shared mini KPI grid (rovnaký štýl ako pri aktivitách) ==== */
+
+type MiniMetric = {
+  label: string;
+  value: string | number | null;
+};
+
+type MiniMetricGridProps = {
+  metrics: MiniMetric[];
+  cols?: 2 | 3;
+};
+
+function valOrDash(v: string | number | null): string {
+  if (v === null || v === undefined || v === "") return "—";
+  return String(v);
+}
+
+function MiniMetricGrid({ metrics, cols = 3 }: MiniMetricGridProps) {
+  if (!metrics || metrics.length === 0) return null;
+
+  const colClass =
+    cols === 2
+      ? "grid-cols-2 sm:grid-cols-4"
+      : "grid-cols-3 sm:grid-cols-6";
+
+  return (
+    <div className={`mt-3 grid ${colClass} gap-2`}>
+      {metrics.map((m) => (
+        <div
+          key={m.label}
+          className="rounded-lg border border-white/5 bg-white/5 px-2.5 py-1.5"
+        >
+          <div className="text-[10px] opacity-70 leading-tight">
+            {m.label}
+          </div>
+          <div className="text-sm font-semibold tabular-nums leading-tight">
+            {valOrDash(m.value as any)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** ================= main ================= */
 
 export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
@@ -58,32 +103,28 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
         : undefined,
   });
 
+  // KPI blok – rovnaký štýl ako activity detail
+  const metricsFromKpis: MiniMetric[] = kpis.map((k) => ({
+    label: k.label,
+    value: k.value,
+  }));
+
+  const fallbackMetrics: MiniMetric[] = [
+    item.planDur ? { label: "Duration", value: item.planDur } : null,
+    item.planIntensity
+      ? { label: "Intensity", value: item.planIntensity }
+      : null,
+    item.planTarget ? { label: "Target", value: item.planTarget } : null,
+  ].filter(Boolean) as MiniMetric[];
+
   return (
     <div>
-      {/* KPIs (ak prídu zhora) */}
-      {kpis.length > 0 && (
-        <MetricGrid
-          metrics={kpis.map((k) => ({
-            label: k.label,
-            value: k.value,
-          }))}
-        />
+      {metricsFromKpis.length > 0 && (
+        <MiniMetricGrid metrics={metricsFromKpis} cols={3} />
       )}
 
-      {/* fallback KPI pre plan */}
-      {kpis.length === 0 && (
-        <MetricGrid
-          cols={3}
-          metrics={[
-            item.planDur ? { label: "DURATION", value: item.planDur } : null,
-            item.planIntensity
-              ? { label: "INTENSITY", value: item.planIntensity }
-              : null,
-            item.planTarget
-              ? { label: "TARGET", value: item.planTarget }
-              : null,
-          ].filter(Boolean) as any}
-        />
+      {metricsFromKpis.length === 0 && fallbackMetrics.length > 0 && (
+        <MiniMetricGrid metrics={fallbackMetrics} cols={3} />
       )}
 
       {(wu || mainBlocks.length || cd) && (
@@ -94,7 +135,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                 <div className="text-[11px] font-semibold opacity-80">
                   WARM-UP
                 </div>
-                <div className="text-sm mt-0.5">
+                <div className="mt-0.5 text-sm">
                   {[
                     fmtMin((wu as any).minutes),
                     typeof (wu as any).notes === "string"
@@ -112,7 +153,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
             {mainBlocks.length > 0 && (
               <div className="px-1">
                 <div className="text-[11px] font-semibold opacity-80">MAIN</div>
-                <div className="text-sm mt-0.5 space-y-1">
+                <div className="mt-0.5 space-y-1 text-sm">
                   {mainBlocks.map((mn: any, idx: number) => {
                     const line =
                       [
@@ -153,7 +194,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                 <div className="text-[11px] font-semibold opacity-80">
                   COOL-DOWN
                 </div>
-                <div className="text-sm mt-0.5">
+                <div className="mt-0.5 text-sm">
                   {[
                     fmtMin((cd as any).minutes),
                     typeof (cd as any).notes === "string"
@@ -203,9 +244,9 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                   className="rounded-md border border-white/10 px-3 py-2"
                 >
                   <div className="text-sm font-medium">{name}</div>
-                  <div className="text-xs opacity-85 mt-0.5">{line}</div>
+                  <div className="mt-0.5 text-xs opacity-85">{line}</div>
                   {notesText && (
-                    <div className="text-xs opacity-85 mt-0.5">
+                    <div className="mt-0.5 text-xs opacity-85">
                       {notesText}
                     </div>
                   )}
