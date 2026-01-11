@@ -123,8 +123,8 @@ function buildRows(data: any[]): SplitRow[] {
 // výška barov podľa rozsahu hodnôt
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 18,
-  maxPx = 54
+  minPx = 22,
+  maxPx = 64
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -165,8 +165,8 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // rezervu kvôli gapom, aby sa všetky bary vošli do 100 %
-  const segmentWidthPct = rows.length ? 100 / (rows.length + 2) : 0;
+  // rezervu kvôli gapom, aby sa všetky bary vošli do 100 % a boli štíhlejšie
+  const segmentWidthPct = rows.length ? 100 / (rows.length + 4) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
@@ -176,7 +176,7 @@ export function ActivitySplitsSection({ kind }: Props) {
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 ml-[-8px]">
           <MetricBarRow
             label="Time"
             rows={rows}
@@ -217,32 +217,29 @@ export function ActivitySplitsSection({ kind }: Props) {
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
-            <tr className="uppercase tracking-wide opacity-70">
+            <tr className="opacity-70">
               <th className="py-1.5 pr-2 text-right align-bottom text-[10px]">
                 #
               </th>
 
-              <th className="py-1.5 pr-2 text-left align-bottom">
-                <HeaderWithUnit label="Distance" unit="km" />
+              <th className="py-1.5 pr-2 text-left align-bottom text-[10px]">
+                Dist. (km)
               </th>
 
-              <th className="py-1.5 pr-2 text-left align-bottom">
-                <HeaderWithUnit label="Time" unit="h:mm:ss" />
+              <th className="py-1.5 pr-2 text-left align-bottom text-[10px]">
+                Time (h:mm:ss)
               </th>
 
-              <th className="py-1.5 pr-2 text-left align-bottom">
-                <HeaderWithUnit label="Pace" unit="min/km" />
+              <th className="py-1.5 pr-2 text-left align-bottom text-[10px]">
+                Pace (min/km)
               </th>
 
-              <th className="py-1.5 pr-2 text-right align-bottom">
-                <HeaderWithUnit label="Avg HR" unit="bpm" />
+              <th className="py-1.5 pr-2 text-right align-bottom text-[10px]">
+                Avg HR (bpm)
               </th>
 
-              {/* Elevation – všetko v jednom riadku, vrátane jednotky */}
-              <th className="py-1.5 pl-2 text-right align-bottom">
-                <div className="text-[10px] leading-tight">
-                  Elev. Δ (m)
-                </div>
+              <th className="py-1.5 pl-2 text-right align-bottom text-[10px]">
+                Elev. Δ m
               </th>
             </tr>
           </thead>
@@ -307,16 +304,16 @@ function MetricBarRow({
   getValue,
 }: MetricBarRowProps) {
   const values = rows.map((r) => getValue(r));
-  const heightFor = makeHeightScaler(values, 18, 54);
+  const heightFor = makeHeightScaler(values, 22, 64);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {/* label – užší, aby bary boli bližšie vľavo */}
-      <div className="w-9 shrink-0 text-[10px] opacity-75 text-right pr-0.5">
+      <div className="w-7 shrink-0 text-[10px] opacity-75 text-right pr-0">
         {label}
       </div>
 
-      <div className="flex-1 flex items-end gap-[2px] h-16">
+      <div className="flex-1 flex items-end gap-[1px] h-16">
         {rows.map((r) => {
           const hPx = heightFor(getValue(r));
           return (
@@ -332,20 +329,6 @@ function MetricBarRow({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-type HeaderWithUnitProps = {
-  label: string;
-  unit: string;
-};
-
-function HeaderWithUnit({ label, unit }: HeaderWithUnitProps) {
-  return (
-    <div className="leading-tight">
-      <div className="text-[10px]">{label}</div>
-      <div className="text-[9px] opacity-70">{unit}</div>
     </div>
   );
 }
