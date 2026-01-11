@@ -9,6 +9,7 @@ import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
+import LapsSplitsSection from "./LapsSplitsSection";
 
 import type { ActivitySession } from "./SessionCard";
 
@@ -605,28 +606,14 @@ export function ActivitySessionDetail({
       {/* SPLITS */}
       {hasSplits && (
         <ActivitySectionShell title="Splits">
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            {splits.map((sp: any, idx: number) => (
-              <li key={sp.split_index ?? idx}>
-                Split {sp.split_index ?? idx}: {formatDistance(sp.distance_m)},{" "}
-                {fmtSecondsHMS(sp.moving_time_s)}
-              </li>
-            ))}
-          </ul>
+          <LapsSplitsSection kind="splits" items={splits} />
         </ActivitySectionShell>
       )}
 
       {/* LAPS */}
       {hasLaps && (
         <ActivitySectionShell title="Laps">
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            {laps.map((lap: any, idx: number) => (
-              <li key={lap.lap_index ?? idx}>
-                Lap {lap.lap_index ?? idx}: {formatDistance(lap.distance_m)},{" "}
-                {fmtSecondsHMS(lap.moving_time_s)}
-              </li>
-            ))}
-          </ul>
+          <LapsSplitsSection kind="laps" items={laps} />
         </ActivitySectionShell>
       )}
 
