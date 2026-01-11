@@ -21,20 +21,28 @@ function toNumber(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// 1 km ± 10 m -> 1.00, inak km s 2 des. miestami
+// 1 km ± 10 m -> 1.0, inak km s 1 desatinným miestom
 function formatSplitDistanceFull(distance_m: number | null): string {
   if (distance_m == null) return "—";
-  if (Math.abs(distance_m - 1000) <= 10) return "1.00";
   const km = distance_m / 1000;
-  return km.toFixed(2);
+
+  if (Math.abs(distance_m - 1000) <= 10) {
+    return "1.0";
+  }
+
+  return km.toFixed(1); // napr. 1.0, 1.3, 9.7
 }
 
-// krátka verzia na mobil: 1 km ± 10 m -> "1"
+// krátka verzia na mobil – rovnako 1 desatinné miesto
 function formatSplitDistanceShort(distance_m: number | null): string {
   if (distance_m == null) return "—";
-  if (Math.abs(distance_m - 1000) <= 10) return "1";
   const km = distance_m / 1000;
-  return km.toFixed(2);
+
+  if (Math.abs(distance_m - 1000) <= 10) {
+    return "1.0";
+  }
+
+  return km.toFixed(1);
 }
 
 // čas do tabuľky – mm:ss alebo h:mm:ss, bez sufixov
