@@ -8,10 +8,7 @@ import {
   apiFetchUserPref,
   apiUpsertUserPref,
 } from "@/app/features/prefs/api/prefs";
-
 import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import SelectField from "@/app/shared/components/ui/SelectField";
 import { toast } from "@/app/shared/components/ui/Toast";
 
 type UserSettings = {
@@ -60,8 +57,9 @@ export default function PersonalSettingsPanel() {
             ...(raw as Partial<UserSettings>),
           }));
         } else {
-          // ak nič v DB, použijeme default a rovno uložíme
+          // ak nič v DB, zapíš defaulty
           await apiUpsertUserPref(userId, "user.settings", DEFAULT_SETTINGS);
+          setSettings(DEFAULT_SETTINGS);
         }
       } catch (e) {
         console.error("[PersonalSettingsPanel] load error", e);
@@ -91,14 +89,16 @@ export default function PersonalSettingsPanel() {
 
   const disabled = !userId || loading || saving;
 
+  const inputBase =
+    "mt-1 block w-full rounded-md border border-white/15 bg-black/20 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/70";
+
   return (
     <section className="rounded-xl border border-white/10 bg-black/20 px-4 py-4 space-y-4">
       <header className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Personal settings</h2>
           <p className="mt-1 text-xs opacity-70">
-            Jazyk, jednotky, formát dátumu a času. Tieto nastavenia platia pre
-            celé rozhranie.
+            Jazyk, jednotky, formát dátumu a času. Platí pre celé rozhranie.
           </p>
         </div>
 
@@ -113,93 +113,107 @@ export default function PersonalSettingsPanel() {
       </header>
 
       {/* APP PREFERENCIE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SelectField
-          label="Jazyk rozhrania"
-          value={settings.language}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              language: (e.currentTarget.value as "sk" | "en") || "sk",
-            }))
-          }
-          options={[
-            { value: "sk", label: "Slovenčina" },
-            { value: "en", label: "English" },
-          ]}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <div>
+          <label className="text-xs opacity-80">Jazyk rozhrania</label>
+          <select
+            className={inputBase}
+            value={settings.language}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                language: (e.target.value as "sk" | "en") || "sk",
+              }))
+            }
+          >
+            <option value="sk">Slovenčina</option>
+            <option value="en">English</option>
+          </select>
+        </div>
 
-        <SelectField
-          label="Jednotky"
-          value={settings.units}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              units: (e.currentTarget.value as "metric" | "imperial") || "metric",
-            }))
-          }
-          options={[
-            { value: "metric", label: "Metrické (km, kg)" },
-            { value: "imperial", label: "Imperiálne (mi, lb)" },
-          ]}
-        />
+        <div>
+          <label className="text-xs opacity-80">Jednotky</label>
+          <select
+            className={inputBase}
+            value={settings.units}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                units: (e.target.value as "metric" | "imperial") || "metric",
+              }))
+            }
+          >
+            <option value="metric">Metrické (km, kg)</option>
+            <option value="imperial">Imperiálne (mi, lb)</option>
+          </select>
+        </div>
 
-        <TextField
-          label="Timezone (IANA)"
-          placeholder="Europe/Bratislava"
-          value={settings.timezone}
-          onChange={(e) =>
-            setSettings((s) => ({ ...s, timezone: e.currentTarget.value }))
-          }
-        />
+        <div>
+          <label className="text-xs opacity-80">Timezone (IANA)</label>
+          <input
+            className={inputBase}
+            type="text"
+            placeholder="Europe/Bratislava"
+            value={settings.timezone}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, timezone: e.target.value }))
+            }
+          />
+        </div>
 
-        <SelectField
-          label="Začiatok týždňa"
-          value={settings.week_start}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              week_start: (e.currentTarget.value as "Mon" | "Sun") || "Mon",
-            }))
-          }
-          options={[
-            { value: "Mon", label: "Pondelok" },
-            { value: "Sun", label: "Nedeľa" },
-          ]}
-        />
+        <div>
+          <label className="text-xs opacity-80">Začiatok týždňa</label>
+          <select
+            className={inputBase}
+            value={settings.week_start}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                week_start: (e.target.value as "Mon" | "Sun") || "Mon",
+              }))
+            }
+          >
+            <option value="Mon">Pondelok</option>
+            <option value="Sun">Nedeľa</option>
+          </select>
+        </div>
 
-        <TextField
-          label="Formát dátumu"
-          placeholder="yyyy-MM-dd"
-          value={settings.date_format}
-          onChange={(e) =>
-            setSettings((s) => ({ ...s, date_format: e.currentTarget.value }))
-          }
-        />
+        <div>
+          <label className="text-xs opacity-80">Formát dátumu</label>
+          <input
+            className={inputBase}
+            type="text"
+            placeholder="yyyy-MM-dd"
+            value={settings.date_format}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, date_format: e.target.value }))
+            }
+          />
+        </div>
 
-        <SelectField
-          label="Formát času"
-          value={settings.time_format_24h ? "24" : "12"}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              time_format_24h: e.currentTarget.value === "24",
-            }))
-          }
-          options={[
-            { value: "24", label: "24 h (13:37)" },
-            { value: "12", label: "12 h (1:37 PM)" },
-          ]}
-        />
+        <div>
+          <label className="text-xs opacity-80">Formát času</label>
+          <select
+            className={inputBase}
+            value={settings.time_format_24h ? "24" : "12"}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                time_format_24h: e.target.value === "24",
+              }))
+            }
+          >
+            <option value="24">24 h (13:37)</option>
+            <option value="12">12 h (1:37 PM)</option>
+          </select>
+        </div>
       </div>
 
       {/* ÚČET – heslo, e-mail */}
       <div className="pt-3 border-t border-white/10 space-y-2">
-        <h3 className="text-sm font-semibold opacity-90">
-          Account actions
-        </h3>
+        <h3 className="text-sm font-semibold opacity-90">Account actions</h3>
         <p className="text-xs opacity-70">
-          Rýchle akcie pre zmenu hesla a e-mailu. Otvoria samostatnú stránku.
+          Rýchle akcie pre zmenu hesla a e-mailu (otvoria samostatnú stránku).
         </p>
 
         <div className="flex flex-wrap gap-2 mt-1">
