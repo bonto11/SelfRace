@@ -212,8 +212,6 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ---------- prompt builder ----------
-
-
 def _build_prompts_for_daily(
     context_payload: dict,
     *,
@@ -238,10 +236,13 @@ def _build_prompts_for_daily(
 
     if lang_code.startswith("en"):
         lang_label = "English"
+        second_person_note = "Always speak directly to the athlete and use 'you' instead of 'the athlete' or 'he/she'."
     elif lang_code.startswith("cs"):
         lang_label = "Czech"
+        second_person_note = "Vždy mluv přímo k atletovi a používej 2. osobu ('ty' / 'vy'), nikdy nepiš 'atlet by měl…'."
     else:
         lang_label = "Slovak"
+        second_person_note = "Vždy hovor priamo k atlétovi a používaj 2. osobu ('ty'), nikdy nepiš 'atlét by mal…'."
 
     week = context_payload.get("week") or {}
 
@@ -444,8 +445,8 @@ def _build_prompts_for_daily(
 - upper_push: pushing patterns for chest and triceps (push-ups, presses)
 """.strip()
 
-    schema_text = """
-{
+    schema_text = f"""
+{{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
@@ -453,58 +454,55 @@ def _build_prompts_for_daily(
   "week_start": "YYYY-MM-DD",
   "week_end": "YYYY-MM-DD",
   "days": [
-    {
+    {{
       "date": "YYYY-MM-DD",
       "sessions": [
-        {
+        {{
           "sport": "run" | "ride" | "strength" | "swim" | "other",
-          "title": string,
+          "title": string,          // short session name in {lang_label}, speaking directly to the athlete
           "duration_min": number,
           "intensity": string | null,
           "session_type": string | null,
           "zone_text": string | null,
-          "notes": string | null,
-          "structure": {
-            // For endurance sports (run/ride/swim):
-            "warmup"?: {
+          "notes": string | null,   // short notes in {lang_label}, 2nd person ("today you will... / dnes pôjdeš...")
+          "structure": {{
+            "warmup"?: {{
               "minutes"?: number,
               "notes"?: string | null
-            },
+            }},
             "main"?: [
-              {
+              {{
                 "reps"?: number,
                 "work_min"?: number,
                 "recover_min"?: number,
                 "notes"?: string | null
-              }
+              }}
             ],
-            "cooldown"?: {
+            "cooldown"?: {{
               "minutes"?: number,
               "notes"?: string | null
-            },
-
-            // For strength sessions – ONLY slots, no concrete exercise names:
+            }},
             "strength_exercises"?: [
-              {
+              {{
                 "slot": "lower_quad" | "lower_posterior" | "core" | "upper_pull" | "upper_push",
                 "sets": number,
                 "reps": string,
                 "rest_s": number,
                 "notes": string | null
-              }
+              }}
             ]
-          },
-          "targets"?: {
+          }},
+          "targets"?: {{
             "hr_bpm"?: [number, number] | null,
             "pace_min_per_km"?: string | null,
             "power_w"?: number | null
-          },
+          }},
           "payload"?: object | null
-        }
+        }}
       ]
-    }
+    }}
   ]
-}
+}}
 """.strip()
 
     context_for_ai = _minify_context_for_ai(context_payload)
@@ -555,11 +553,14 @@ def _build_prompts_for_daily(
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return a single JSON object exactly matching the schema (you may set some fields to null when unknown).\n"
-        f"- All free text for the athlete (titles, notes, etc.) MUST be written in {lang_label} language.\n"
+        f"- All free text for the athlete (titles, notes, warmup/main/cooldown notes, strength notes) MUST be written in {lang_label} "
+        "and MUST address the athlete directly in 2nd person. "
+        f"{second_person_note}\n"
+        "- Never refer to them as 'the athlete', 'he', 'she' or similar; always speak to them directly.\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array. For a rest day, use exactly one session such as:\n"
-        '    { "sport": "other", "title": "Rest day" (or its translation), "duration_min": 0, '
-        '"intensity": "rest", "session_type": "rest_day" }.\n'
+        '    { \"sport\": \"other\", \"title\": \"Rest day\" (or its translation), \"duration_min\": 0, '
+        '\"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n'
         "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on days with high-intensity external events.\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
@@ -570,20 +571,19 @@ def _build_prompts_for_daily(
         "- For strength sessions:\n"
         "    * If strength.sessions_per_week == 1 → use 6–8 strength_exercises covering whole body "
         "(lower_quad, lower_posterior, core, upper_pull, upper_push).\n"
-        "    * If strength.sessions_per_week == 2 → use 4–6 strength_exercises per session, still covering whole body across the week.\n"
-        "    * Otherwise (3+ sessions) → 3–5 strength_exercises per session.\n"
+        "    * If strength.sessions_per_week == 2 → use 6–8 strength_exercises per session, still covering whole body across the week.\n"
+        "    * Otherwise (3+ sessions) → 4–6 strength_exercises per session.\n"
         "- Do NOT invent specific exercise names (like 'plank', 'split squat') – only describe slots and intent in notes.\n"
         "- Keep total weekly load consistent with week.planned_minutes (if provided), volume_tolerance and recent_load.\n"
         "- If you significantly soften or change a session because of plan_adjustment "
         "(for example turning planned intervals into an easy Z1 run or full rest), then:\n"
         "    * Add a short explanation into `notes` (in the target language), and\n"
-        '    * Set `payload.plan_adjustment = { "softened": true, "reason": "short explanation" }` '
+        '    * Set `payload.plan_adjustment = { \"softened\": true, \"reason\": \"short explanation\" }` '
         "for that session so that the app can highlight the change.\n"
         "- Do NOT invent extreme workloads. Keep all durations and intensities realistic.\n"
     )
 
     return system_txt, user_txt
-
 
 def _call_openai_raw(
     client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
