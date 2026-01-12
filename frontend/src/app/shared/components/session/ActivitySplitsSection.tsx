@@ -369,11 +369,19 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + čísla v dvoch „stĺpcoch“ */}
-      <div className="flex items-stretch justify-center">
-        <div className="flex w-full max-w-[1100px] px-3">
-          {/* bary – majú padding-right, takže končia pred číslami */}
-          <div className="flex-1 flex items-end gap-[6px] h-24 pr-2">
+      {/* bary + čísla – grid: 1fr + auto s fixným gapom */}
+      <div className="flex justify-center">
+        <div
+          className="w-full max-w-[1100px] px-3"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            columnGap: 4, // ~2–4 px medzera medzi barom a číslami na všetkých zariadeniach
+            alignItems: "stretch",
+          }}
+        >
+          {/* ľavý stĺpec – bary */}
+          <div className="flex items-end gap-[6px] h-24">
             {rows.map((r) => {
               const hPx = heightFor(getValue(r));
               return (
@@ -390,7 +398,7 @@ function MetricBarRow({
             })}
           </div>
 
-          {/* čísla – bez extra marginu, len to čo dá pr-2 hore */}
+          {/* pravý stĺpec – hodnoty, vždy tesne vedľa barov */}
           <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight">
             <span>{topLabel}</span>
             <span>{midLabel}</span>
