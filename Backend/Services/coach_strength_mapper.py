@@ -53,12 +53,14 @@ def _pick_exercise_for_slot(
     history: List[Dict[str, Any]],
     today: date,
     lookback_days: int = 28,
+    used_ids_in_week: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Vyberie konkrétny cvik pre daný slot na základe:
-      - kandidátov zo SLOT_TO_EXERCISES
-      - dostupného vybavenia
-      - histórie za posledných lookback_days (default 4 týždne)
+      - kandidátov zo SLOT_TO_EXERCISES,
+      - dostupného vybavenia,
+      - histórie za posledných lookback_days (default 4 týždne),
+      - cvikov, ktoré už boli použité v aktuálnom týždni (used_ids_in_week).
     """
 
     candidate_ids = SLOT_TO_EXERCISES.get(slot, [])
@@ -66,6 +68,12 @@ def _pick_exercise_for_slot(
 
     # filter podľa vybavenia
     candidates = [ex for ex in candidates if _has_equipment(ex, available_equipment)]
+
+    # filter podľa toho, čo už bolo v tomto týždni použité
+    if used_ids_in_week:
+        not_used_yet = [ex for ex in candidates if ex["id"] not in used_ids_in_week]
+        if not_used_yet:
+            candidates = not_used_yet
 
     if not candidates:
         # fallback – ak nič nesedí, vráť prvý z katalógu (radšej niečo, než nič)
@@ -146,6 +154,9 @@ def enrich_daily_plan_with_strength_exercises(
 
     new_history_rows: List[Dict[str, Any]] = []
 
+    # track, čo už bolo v rámci tohto týždňa použité (slot -> [exercise_id])
+    used_in_week: Dict[str, List[str]] = {}
+
     days = daily_plan.get("days") or []
     for day in days:
         date_str = day.get("date")
@@ -183,12 +194,15 @@ def enrich_daily_plan_with_strength_exercises(
                 rest_s = slot_item.get("rest_s")
                 notes = slot_item.get("notes")
 
+                used_ids = used_in_week.setdefault(slot, [])
+
                 ex = _pick_exercise_for_slot(
                     user_id=user_id,
                     slot=slot,
                     available_equipment=available_equipment,
                     history=history,
                     today=session_date,
+                    used_ids_in_week=used_ids,
                 )
 
                 enriched = {
@@ -201,6 +215,9 @@ def enrich_daily_plan_with_strength_exercises(
                     "exercise_name": ex["name"],
                 }
                 enriched_slots.append(enriched)
+
+                # označíme ako použité v tomto týždni
+                used_ids.append(ex["id"])
 
                 history.append(
                     {
