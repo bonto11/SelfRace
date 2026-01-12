@@ -67,6 +67,13 @@ STRENGTH_EXERCISE_CATALOG = [
 
     # ---------- LOWER POSTERIOR / HAMSTRINGS ----------
     {
+        "id": "glute_bridge_bodyweight",
+        "name": "Glute bridge s vlastnou váhou",
+        "equipment": ["none"],
+        "muscle_groups": ["glutes", "hamstrings"],
+        "level": "easy",
+    },
+    {
         "id": "single_leg_deadlift_band",
         "name": "Mŕtvy ťah na jednej nohe s gumou",
         "equipment": ["resistance_bands"],
@@ -133,6 +140,13 @@ STRENGTH_EXERCISE_CATALOG = [
     },
 
     # ---------- UPPER PULL (BACK / BICEPS) ----------
+    {
+        "id": "bodyweight_row",
+        "name": "Príťahy v predklone s vlastnou váhou (inverted row)",
+        "equipment": ["none"],
+        "muscle_groups": ["back", "biceps"],
+        "level": "easy",
+    },
     {
         "id": "trx_row",
         "name": "TRX príťahy",
