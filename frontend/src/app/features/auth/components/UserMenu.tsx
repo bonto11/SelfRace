@@ -4,10 +4,6 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
 import { AVATAR_BUTTON } from "@/app/shared/ui/classes";
-import { resetClientCache } from "@/app/shared/utils/resetClientCache";
-import { toast } from "@/app/shared/components/ui/Toast";
-import { apiSyncActivities } from "@/app/features/activities/api/synchronization";
-import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 import {
   getSubscriptionTier,
   subscribeSubscriptionTier,
@@ -20,20 +16,14 @@ type LocalUser = {
   name: string | null;
   displayName: string | null;
   avatarUrl: string | null;
-  // ak ti /api/auth/me už vracia app_subscription_tier, môžeš ho sem doplniť:
-  // app_subscription_tier?: string | null;
 };
-
-const STRAVA_API_BASE = "https://api-dev.patrikmbontar.eu";
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<"reload" | "import" | "signout" | null>(
-    null
-  );
+  const [busy, setBusy] = useState<"signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
   const [tierCode, setTierCode] = useState<string>(
-    () => getSubscriptionTier() || "free"
+    () => getSubscriptionTier() || "free",
   );
   const boxRef = useRef<HTMLDivElement | null>(null);
 
@@ -50,13 +40,6 @@ export default function UserMenu() {
         if (j?.ok && j.user) {
           const user = j.user as LocalUser;
           setMe(user);
-
-          // ak ti BE niekedy začne posielať tier v /me, vieš ho tu napojiť:
-          // if ((user as any).app_subscription_tier) {
-          //   const code = (user as any).app_subscription_tier as string;
-          //   setTierCode(code);
-          //   setSubscriptionTier(code);
-          // }
         }
       } catch {
         /* ignore */
@@ -67,7 +50,6 @@ export default function UserMenu() {
     };
   }, []);
 
-  // subscribe na globálny tier store – update hneď po zmene v Billingu
   useEffect(() => {
     const unsubscribe = subscribeSubscriptionTier((next) => {
       setTierCode(next || "free");
@@ -77,7 +59,7 @@ export default function UserMenu() {
 
   const label = useMemo(
     () => me?.displayName || me?.name || me?.email || "",
-    [me?.displayName, me?.name, me?.email]
+    [me?.displayName, me?.name, me?.email],
   );
 
   const initials = useMemo(() => {
@@ -88,11 +70,6 @@ export default function UserMenu() {
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.displayName, me?.email]);
-
-  const stravaConnectUrl = useMemo(() => {
-    if (!me?.id) return null;
-    return `${STRAVA_API_BASE}/api/strava/oauth/start?user_id=${me.id}`;
-  }, [me?.id]);
 
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => {
@@ -112,49 +89,6 @@ export default function UserMenu() {
     setBusy("signout");
     try {
       await signOut("/signin");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleReloadData() {
-    if (busy) return;
-    setBusy("reload");
-    try {
-      resetClientCache();
-      toast.success("Reloaded data.");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to reload data.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleImportFromStrava() {
-    if (!me?.id) {
-      toast.error("Missing user id.");
-      return;
-    }
-    if (busy) return;
-
-    setBusy("import");
-    try {
-      const stats: SyncActivitiesStats = await apiSyncActivities(me.id, {
-        forceLastDays: 30,
-        fetchDetails: true,
-      });
-
-      const imp = stats.imported ?? 0;
-      const upd = stats.updated ?? 0;
-      const skp = stats.skipped ?? 0;
-
-      toast.success(
-        `Import from Strava OK • imported: ${imp} • updated: ${upd} • skipped: ${skp}`
-      );
-
-      resetClientCache();
-    } catch (e: any) {
-      toast.error(e?.message || "Import from Strava failed.");
     } finally {
       setBusy(null);
     }
@@ -245,32 +179,12 @@ export default function UserMenu() {
                 Account
               </a>
 
-              {stravaConnectUrl && (
-                <a
-                  className="block w-full px-3 py-2 text-sm hover:bg-white/10"
-                  href={stravaConnectUrl}
-                >
-                  Pripojiť Strava
-                </a>
-              )}
-
-              {me?.id && (
-                <button
-                  className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-                  onClick={handleImportFromStrava}
-                  disabled={busy === "import"}
-                >
-                  {busy === "import" ? "Importujem…" : "Import from Strava"}
-                </button>
-              )}
-
-              <button
-                className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-                onClick={handleReloadData}
-                disabled={busy === "reload"}
+              <a
+                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
+                href="/connectedApps"
               >
-                {busy === "reload" ? "Reloading…" : "Reload data"}
-              </button>
+                Connected apps
+              </a>
 
               <button
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
