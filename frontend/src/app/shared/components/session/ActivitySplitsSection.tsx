@@ -186,129 +186,126 @@ export function ActivitySplitsSection({ kind }: Props) {
 
   return (
     <div className="text-[11px] sm:text-xs">
-      {/* vnútorný kontajner – centrovaný, aby to na PC nebolo pritesné */}
-      <div className="mx-auto w-full max-w-4xl">
-        {/* TOP – trendy */}
-        <div className="mb-3">
-          <div className="mb-1 text-[11px] opacity-70">
-            Total time: {fmtSecondsHMS(totalTime)}
-          </div>
-
-          <div className="space-y-4">
-            {/* PORADIE: HR, Pace, Elevation, Time */}
-            <MetricBarRow
-              label="Heart rate"
-              rows={rows}
-              segmentWidthPct={segmentWidthPct}
-              colorClass="bg-rose-500/80"
-              getValue={(r) => r.avg_hr_bpm}
-              getStatValue={(r) => r.avg_hr_bpm}
-              formatStat={(v) => formatHr(v)}
-              statMode="hr"
-            />
-
-            <MetricBarRow
-              label="Pace"
-              rows={rows}
-              segmentWidthPct={segmentWidthPct}
-              colorClass="bg-sky-500/80"
-              getValue={(r) => r.pace_s_per_km}
-              getStatValue={(r) => r.pace_s_per_km}
-              formatStat={(v) => formatPace(v)}
-              statMode="pace"
-            />
-
-            <MetricBarRow
-              label="Elevation"
-              rows={rows}
-              segmentWidthPct={segmentWidthPct}
-              colorClass="bg-amber-500/80"
-              getValue={(r) =>
-                r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
-              }
-              getStatValue={(r) => r.elev_delta_m}
-              formatStat={(v) => formatElev(v)}
-              statMode="elev"
-            />
-
-            <MetricBarRow
-              label="Time"
-              rows={rows}
-              segmentWidthPct={segmentWidthPct}
-              colorClass="bg-emerald-500/80"
-              getValue={(r) => r.time_s}
-              getStatValue={(r) => r.time_s}
-              formatStat={(v) => formatTimeShort(v)}
-              statMode="time"
-            />
-          </div>
+      {/* TOP – trendy */}
+      <div className="mb-3">
+        <div className="mb-1 text-[11px] opacity-70">
+          Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        {/* TABLE – poradie: HR, Pace, Elev, Time */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
-            <thead className="border-b border-white/10">
-              <tr className="opacity-70">
-                <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                  #
-                </th>
-                <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                  Dist. (km)
-                </th>
-                <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                  Avg HR (bpm)
-                </th>
-                <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                  Pace (min/km)
-                </th>
-                <th className="py-1 pl-1 pr-0.5 text-right align-bottom text-[10px]">
-                  Elev. Δm
-                </th>
-                <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                  Time (h:mm:ss)
-                </th>
+        <div className="space-y-4">
+          {/* PORADIE: HR, Pace, Elevation, Time */}
+          <MetricBarRow
+            label="Heart rate"
+            rows={rows}
+            segmentWidthPct={segmentWidthPct}
+            colorClass="bg-rose-500/80"
+            getValue={(r) => r.avg_hr_bpm}
+            getStatValue={(r) => r.avg_hr_bpm}
+            formatStat={(v) => formatHr(v)}
+            statMode="hr"
+          />
+
+          <MetricBarRow
+            label="Pace"
+            rows={rows}
+            segmentWidthPct={segmentWidthPct}
+            colorClass="bg-sky-500/80"
+            getValue={(r) => r.pace_s_per_km}
+            getStatValue={(r) => r.pace_s_per_km}
+            formatStat={(v) => formatPace(v)}
+            statMode="pace"
+          />
+
+          <MetricBarRow
+            label="Elevation"
+            rows={rows}
+            segmentWidthPct={segmentWidthPct}
+            colorClass="bg-amber-500/80"
+            getValue={(r) =>
+              r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
+            }
+            getStatValue={(r) => r.elev_delta_m}
+            formatStat={(v) => formatElev(v)}
+            statMode="elev"
+          />
+
+          <MetricBarRow
+            label="Time"
+            rows={rows}
+            segmentWidthPct={segmentWidthPct}
+            colorClass="bg-emerald-500/80"
+            getValue={(r) => r.time_s}
+            getStatValue={(r) => r.time_s}
+            formatStat={(v) => formatTimeShort(v)}
+            statMode="time"
+          />
+        </div>
+      </div>
+
+      {/* TABLE – poradie: HR, Pace, Elev, Time */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead className="border-b border-white/10">
+            <tr className="opacity-70">
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
+                #
+              </th>
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
+                Dist. (km)
+              </th>
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
+                Avg HR (bpm)
+              </th>
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
+                Pace (min/km)
+              </th>
+              <th className="py-1 pl-1 pr-0.5 text-right align-bottom text-[10px]">
+                Elev. Δm
+              </th>
+              <th className="py-1 px-1 text-center align-bottom text-[10px]">
+                Time (h:mm:ss)
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.index}
+                className="border-b border-white/5 last:border-b-0"
+              >
+                <td className="py-1 px-1 text-center tabular-nums">
+                  {r.index}
+                </td>
+
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                  <span className="sm:hidden">
+                    {formatSplitDistanceShort(r.distance_m)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {formatSplitDistanceFull(r.distance_m)}
+                  </span>
+                </td>
+
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                  {formatHr(r.avg_hr_bpm)}
+                </td>
+
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                  {formatPace(r.pace_s_per_km)}
+                </td>
+
+                <td className="py-1 pl-1 pr-0.5 text-right tabular-nums whitespace-nowrap">
+                  {formatElev(r.elev_delta_m)}
+                </td>
+
+                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                  {formatTimeShort(r.time_s)}
+                </td>
               </tr>
-            </thead>
-
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.index}
-                  className="border-b border-white/5 last:border-b-0"
-                >
-                  <td className="py-1 px-1 text-center tabular-nums">
-                    {r.index}
-                  </td>
-
-                  <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                    <span className="sm:hidden">
-                      {formatSplitDistanceShort(r.distance_m)}
-                    </span>
-                    <span className="hidden sm:inline">
-                      {formatSplitDistanceFull(r.distance_m)}
-                    </span>
-                  </td>
-
-                  <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                    {formatHr(r.avg_hr_bpm)}
-                  </td>
-
-                  <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                    {formatPace(r.pace_s_per_km)}
-                  </td>
-
-                  <td className="py-1 pl-1 pr-0.5 text-right tabular-nums whitespace-nowrap">
-                    {formatElev(r.elev_delta_m)}
-                  </td>
-
-                  <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                    {formatTimeShort(r.time_s)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -374,31 +371,31 @@ function MetricBarRow({
 
       {/* bary + pseudo-osa so štatistikami vpravo */}
       <div className="flex items-stretch justify-center">
-        <div className="flex-1 flex items-end gap-[6px] h-24">
-          {rows.map((r) => {
-            const hPx = heightFor(getValue(r));
-            return (
-              <div
-                key={`${label}-${r.index}`}
-                className={`rounded-sm ${colorClass} flex-none`}
-                style={{
-                  width: `${segmentWidthPct}%`,
-                  minWidth: "2px",
-                  height: `${hPx}px`,
-                }}
-              />
-            );
-          })}
-        </div>
+        <div className="flex w-full max-w-[900px] px-2">
+          {/* bary */}
+          <div className="flex-1 flex items-end gap-[6px] h-24">
+            {rows.map((r) => {
+              const hPx = heightFor(getValue(r));
+              return (
+                <div
+                  key={`${label}-${r.index}`}
+                  className={`rounded-sm ${colorClass} flex-none`}
+                  style={{
+                    width: `${segmentWidthPct}%`,
+                    minWidth: "2px",
+                    height: `${hPx}px`,
+                  }}
+                />
+              );
+            })}
+          </div>
 
-        {/* fixná 2px medzera medzi trendom a číslami – na mobile aj PC rovnaká */}
-        <div
-          className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight"
-          style={{ marginLeft: 2 }}
-        >
-          <span>{topLabel}</span>
-          <span>{midLabel}</span>
-          <span>{bottomLabel}</span>
+          {/* štatistiky – responzívne odsadenie, ale s minimom */}
+          <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-1 sm:ml-2 md:ml-3 lg:ml-4">
+            <span>{topLabel}</span>
+            <span>{midLabel}</span>
+            <span>{bottomLabel}</span>
+          </div>
         </div>
       </div>
     </div>
