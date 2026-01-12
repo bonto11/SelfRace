@@ -181,6 +181,7 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
+  // šírka stĺpcov – úzke, ale s medzerami
   const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
@@ -368,7 +369,7 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + čísla vpravo */}
+      {/* bary + pseudo-osa so štatistikami vpravo */}
       <div className="flex items-stretch">
         <div className="flex-1 flex items-end gap-[6px] h-24">
           {rows.map((r) => {
@@ -387,8 +388,8 @@ function MetricBarRow({
           })}
         </div>
 
-        {/* pevná, ale responsívna medzera: menšia na mobile, väčšia na desktope */}
-        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-1 sm:ml-3">
+        {/* MEDZERA – väčšia na mobile, menšia na desktope */}
+        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-3 md:ml-2 xl:ml-1">
           <span>{topLabel}</span>
           <span>{midLabel}</span>
           <span>{bottomLabel}</span>
