@@ -181,8 +181,8 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // šírka stĺpcov – úzke, ale s medzerami
-  const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
+  // škála na šírku barov – používame len ako faktor pre px šírku
+  const segmentWidthFactor = rows.length ? 100 / (rows.length + 4) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
@@ -199,7 +199,7 @@ export function ActivitySplitsSection({ kind }: Props) {
             <MetricBarRow
               label="Heart rate"
               rows={rows}
-              segmentWidthPct={segmentWidthPct}
+              segmentWidthFactor={segmentWidthFactor}
               colorClass="bg-rose-500/80"
               getValue={(r) => r.avg_hr_bpm}
               getStatValue={(r) => r.avg_hr_bpm}
@@ -210,7 +210,7 @@ export function ActivitySplitsSection({ kind }: Props) {
             <MetricBarRow
               label="Pace"
               rows={rows}
-              segmentWidthPct={segmentWidthPct}
+              segmentWidthFactor={segmentWidthFactor}
               colorClass="bg-sky-500/80"
               getValue={(r) => r.pace_s_per_km}
               getStatValue={(r) => r.pace_s_per_km}
@@ -221,7 +221,7 @@ export function ActivitySplitsSection({ kind }: Props) {
             <MetricBarRow
               label="Elevation"
               rows={rows}
-              segmentWidthPct={segmentWidthPct}
+              segmentWidthFactor={segmentWidthFactor}
               colorClass="bg-amber-500/80"
               getValue={(r) =>
                 r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
@@ -234,7 +234,7 @@ export function ActivitySplitsSection({ kind }: Props) {
             <MetricBarRow
               label="Time"
               rows={rows}
-              segmentWidthPct={segmentWidthPct}
+              segmentWidthFactor={segmentWidthFactor}
               colorClass="bg-emerald-500/80"
               getValue={(r) => r.time_s}
               getStatValue={(r) => r.time_s}
@@ -317,7 +317,7 @@ export function ActivitySplitsSection({ kind }: Props) {
 type MetricBarRowProps = {
   label: string;
   rows: SplitRow[];
-  segmentWidthPct: number;
+  segmentWidthFactor: number;
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
   getStatValue?: (r: SplitRow) => number | null;
@@ -329,7 +329,7 @@ type MetricBarRowProps = {
 function MetricBarRow({
   label,
   rows,
-  segmentWidthPct,
+  segmentWidthFactor,
   colorClass,
   getValue,
   getStatValue,
@@ -368,6 +368,12 @@ function MetricBarRow({
   const midLabel = formatStat(midVal);
   const bottomLabel = formatStat(bottomVal);
 
+  // šírka jedného stĺpca v px – mení sa podľa počtu splitov
+  const barWidthPx = Math.max(
+    6,
+    Math.min(18, Math.round(segmentWidthFactor * 0.3))
+  );
+
   return (
     <div className="pt-1">
       {/* názov metriky – centrovaný */}
@@ -375,11 +381,11 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* centrovaný blok barov + čísiel – roztiahnutý podľa veľkosti displeja */}
-      <div className="mx-auto w-full max-w-full sm:max-w-3xl lg:max-w-5xl">
-        <div className="flex items-stretch justify-center gap-3">
+      {/* centrovaný blok barov + čísiel – celý blok má šírku len podľa obsahu */}
+      <div className="flex justify-center">
+        <div className="flex items-stretch gap-3">
           {/* bary */}
-          <div className="flex-1 flex items-end gap-[6px] h-24">
+          <div className="flex items-end gap-[6px] h-24">
             {rows.map((r) => {
               const hPx = heightFor(getValue(r));
               return (
@@ -387,7 +393,7 @@ function MetricBarRow({
                   key={`${label}-${r.index}`}
                   className={`rounded-sm ${colorClass} flex-none`}
                   style={{
-                    width: `${segmentWidthPct}%`,
+                    width: `${barWidthPx}px`,
                     minWidth: "2px",
                     height: `${hPx}px`,
                   }}
@@ -396,7 +402,7 @@ function MetricBarRow({
             })}
           </div>
 
-          {/* čísla vpravo – blízko grafu */}
+          {/* čísla vpravo – tesne pri grafe, nie na kraji panelu */}
           <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight min-w-[38px]">
             <span>{topLabel}</span>
             <span>{midLabel}</span>
