@@ -9,10 +9,16 @@ from Services.users import require_jwt
 def service_build_active_plan_block_for_analysis(
     user_id: int,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Blok active_plan pre CoachAnalyzeInput.
+
+    Režimy:
+      - service=False (default): RLS cez user_jwt, require_jwt().
+      - service=True: používa service DB klienta (user_jwt sa len forwarduje,
+        môže byť aj None). RLS sa neaplikuje, zodpovednosť je na volajúcom.
 
     Výstup:
       {
@@ -22,12 +28,20 @@ def service_build_active_plan_block_for_analysis(
         "horizon_days": int | None,
       }
     """
-    jwt = require_jwt(user_jwt)
-
-    row = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        user_jwt=jwt,
-    )
+    if service:
+        jwt = user_jwt  # typicky None – DB vrstva si vyberie service klienta
+        row = db_get_active_plan_meta_for_user(
+            user_id=user_id,
+            user_jwt=jwt,
+            service=True,
+        )
+    else:
+        jwt = require_jwt(user_jwt)
+        row = db_get_active_plan_meta_for_user(
+            user_id=user_id,
+            user_jwt=jwt,
+            service=False,
+        )
 
     if not row:
         return {

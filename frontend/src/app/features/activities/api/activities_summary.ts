@@ -18,24 +18,23 @@ export async function apiFetchRange(
     start
   )}&end=${encodeURIComponent(end)}`;
 
-  console.debug("[activityApi][range] ->", path);
-
-  // callBackend pridá JWT + base URL, my len riešime payload
   const json = await callBackend<any>(path, {
     method: "GET",
     cache: "no-store",
   });
 
-  const list: any[] = Array.isArray(json?.data)
-    ? json.data
-    : Array.isArray(json?.rows)
-    ? json.rows
-    : [];
+  const raw =
+    (Array.isArray(json?.data) && json.data) ||
+    (Array.isArray(json?.rows) && json.rows) ||
+    (Array.isArray(json?.items) && json.items) ||
+    (Array.isArray(json) && json) ||
+    [];
 
-  const norm = (list as any[])
+  const norm = (raw as any[])
     .map(normalizeActivityRow)
     .filter(Boolean) as ActivityRow[];
 
+  // ak chceš najnovšie hore, prehoď poradie
   norm.sort((a, b) => a.date.localeCompare(b.date));
   return norm;
 }
@@ -56,8 +55,6 @@ export async function apiFetchActivitiesAround(
     `?date=${encodeURIComponent(opts.date)}` +
     `&delta_days=${delta}` +
     `&sports=${encodeURIComponent(sports)}`;
-
-  console.debug("[activityApi][around] ->", path);
 
   const j = await callBackend<{ items?: MiniActivity[] }>(path, {
     method: "GET",

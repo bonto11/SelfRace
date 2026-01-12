@@ -12,7 +12,7 @@ import {
 import SessionCard, {
   type KPI,
   type PlanSession,
-} from "@/app/shared/components/SessionCard";
+} from "@/app/shared/components/session/SessionCard";
 
 /* ---------- helpers ---------- */
 

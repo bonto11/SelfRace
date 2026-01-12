@@ -39,6 +39,12 @@ TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
 TABLE_USERS_PREFERENCES = "users_preferences"
 TABLE_ASYNC_JOBS = "async_jobs"
 
+TABLE_AI_USAGE_EVENTS = "ai_usage_events"
+TABLE_AI_WALLET_TRANSACTION = "ai_wallet_transactions"
+
+TABLE_APP_SUBSCRIPTION_TIERS = "app_subscription_tiers"
+TABLE_APP_USER_SUBSCRIPTIONS = "app_user_subscriptions"
+
 SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
 SUPABASE_ANON_KEY: str = env_required("SUPABASE_ANON_KEY")
@@ -72,4 +78,14 @@ COACH_PLAN_GENERATE_MIN_HORIZON_DAYS = 4
 COACH_PLAN_SCAN_HORIZON_DAYS = 120
 COACH_PLAN_OVERVIEW_HORIZON_DAYS = 20
 
+# Ako často môžeme „rozbiť“ weekly plán (ochrana pred spamom)
+WEEKLY_REPLAN_COOLDOWN_DAYS = 3
+
+# Koľko dní minimálne chceme mať dopredu po weekly repláne
+MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
+
+
 MAINTENANCE_API_KEY = os.getenv("MAINTENANCE_API_KEY")
+
+# Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
+MAX_FULL_DETAILS_PER_RUN = 150

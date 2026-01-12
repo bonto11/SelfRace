@@ -1,12 +1,12 @@
-# Routes_FE/coach_athlete_state.py
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, HTTPException, Depends
 
-from Services.coach_athlete_state import (
+from Services.AI.athlete_state import (
     service_analyze_athlete,
     service_get_latest_athlete_state,
     service_list_athlete_states_meta,
+    service_get_latest_athlete_progress,
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
 from Configs.config import DEFAULT_MODEL
@@ -34,7 +34,6 @@ def analyze_athlete(
             if not payload or payload.save_to_db is None
             else bool(payload.save_to_db)
         )
-        # jasnejšia verzia – bez operator precedence mindfucku
         model = DEFAULT_MODEL
         if payload and payload.model:
             model = payload.model
@@ -94,6 +93,30 @@ def list_athlete_states_meta(
             user_jwt=user_jwt,
         )
         return {"success": True, "items": rows}
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/state/latest-progress/{user_id}")
+def get_latest_athlete_progress(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
+):
+    """
+    Vráti najnovší AI progress report (porovnanie posledných dvoch stavov).
+    """
+    try:
+        row = service_get_latest_athlete_progress(
+            user_id=user_id,
+            version=1,
+            user_jwt=user_jwt,
+        )
+        return {
+            "success": True,
+            "item": row,  # <- presne to, čo čaká FE apiGetLatestAthleteProgress
+        }
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001

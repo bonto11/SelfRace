@@ -1,4 +1,3 @@
-# Services/analytics_MonoStrainTrimp.py
 from __future__ import annotations
 from datetime import date, timedelta
 import math, statistics

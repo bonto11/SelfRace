@@ -1,9 +1,11 @@
+# Services/activities_summary.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, time, date
 from typing import Any, Dict, List, Optional
 
 from Services.time import parse_date_ymd
+from Services.users import require_jwt
 from Routes_DB.activities_summary import (
     db_get_activities_recent,
     db_get_activity_summary_one,  # (ak ho niekde použiješ neskôr)
@@ -18,19 +20,31 @@ def service_get_activities(
     days: int = 30,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     FE: GET /activities_summary/multiple/{user_id}?days=30
 
-    - FE route by mala poslať user_jwt (RLS)
-    - teoretický worker/debug môže volať s user_jwt=None → service klient
+    - FE route: service=False + user_jwt → RLS
+    - worker/debug: service=True (user_jwt môže byť None) → service klient
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
-    return db_get_activities_recent(
+    rows = db_get_activities_recent(
         user_id=user_id,
         since_iso_date=since_date,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
+    print(
+        "[SERVICE][activities_summary][get_activities]",
+        {"user_id": user_id, "days": days, "rows": len(rows)},
+    )
+    return rows
 
 
 def service_activities_in_range(
@@ -39,10 +53,16 @@ def service_activities_in_range(
     end: str,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     FE: GET /activities_summary/range/{user_id}?start=YYYY-MM-DD&end=YYYY-MM-DD
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     start_d = date.fromisoformat(start)
     end_d = date.fromisoformat(end)
 
@@ -55,7 +75,18 @@ def service_activities_in_range(
         user_id=user_id,
         start_ts_iso=start_ts.isoformat(),
         end_ts_iso=end_ts.isoformat(),
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
+    )
+
+    print(
+        "[SERVICE][activities_summary][range]",
+        {
+            "user_id": user_id,
+            "start": start_d.isoformat(),
+            "end": end_d.isoformat(),
+            "rows": len(rows),
+        },
     )
 
     return {
@@ -74,10 +105,16 @@ def service_select_activities(
     sports_csv: str,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     FE: GET /activities_summary/select/{user_id}
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     center = parse_date_ymd(date_str)
     date_from = (center - timedelta(days=delta_days)).isoformat()
     date_to = (center + timedelta(days=delta_days)).isoformat()
@@ -88,11 +125,23 @@ def service_select_activities(
         date_from=date_from,
         date_to=date_to,
         sports=sport_list or None,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
+    )
+
+    print(
+        "[SERVICE][activities_summary][select_window]",
+        {
+            "user_id": user_id,
+            "center": center.isoformat(),
+            "delta_days": delta_days,
+            "sports": sport_list,
+            "rows": len(rows),
+        },
     )
 
     items: List[Dict[str, Any]] = []
-    for r in rows:
+    for r in rows or []:
         distance_m = r.get("distance_m")
         moving_s = r.get("moving_time_s")
         items.append(
@@ -118,14 +167,29 @@ def service_get_summary_one(
     activity_id: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     FE: GET /activities_summary/summary/one/{activity_id}
+
+    - service=False → RLS (vyžaduje user_jwt)
+    - service=True  → service klient (cron/worker/debug)
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     row = db_get_summary_one(
         activity_id=activity_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
     if not row:
         raise ValueError("activity not found")
+
+    print(
+        "[SERVICE][activities_summary][summary_one]",
+        {"activity_id": activity_id},
+    )
     return row

@@ -1,4 +1,3 @@
-// src/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -117,6 +116,24 @@ function RowAction({
   );
 }
 
+/**
+ * Formátovanie chýb z AI (vrátane kvóty)
+ */
+function formatAiError(e: any): string {
+  const code = e?.code ?? (e && (e as any).code);
+  if (code === "ai_quota_exceeded") {
+    const used = (e as any).usedTokensThisMonth;
+    if (typeof used === "number") {
+      return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString(
+        "sk-SK"
+      )}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
+    }
+    return `AI limit pre tento mesiac je vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
+  }
+
+  return e?.message || String(e);
+}
+
 /* ---------- hlavný widget ---------- */
 
 export default function WidgetCoachPlan() {
@@ -138,7 +155,9 @@ export default function WidgetCoachPlan() {
 
     (async () => {
       try {
-        const p = await apiFetchUserPref(userId,"coach.prefs").catch(() => null);
+        const p = await apiFetchUserPref(userId, "coach.prefs").catch(
+          () => null
+        );
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff);
       } catch {
@@ -253,7 +272,7 @@ export default function WidgetCoachPlan() {
         setLatestStateId(sid);
       }
     } catch (e: any) {
-      setError(e?.message || String(e));
+      setError(formatAiError(e));
     } finally {
       setLoadingKind(null);
     }
@@ -276,7 +295,7 @@ export default function WidgetCoachPlan() {
 
       markGenerated();
     } catch (e: any) {
-      setError(e?.message || String(e));
+      setError(formatAiError(e));
     } finally {
       setLoadingKind(null);
     }
@@ -296,7 +315,7 @@ export default function WidgetCoachPlan() {
 
       markGenerated();
     } catch (e: any) {
-      setError(e?.message || String(e));
+      setError(formatAiError(e));
     } finally {
       setLoadingKind(null);
     }
@@ -408,7 +427,7 @@ export default function WidgetCoachPlan() {
 
       {/* chyba */}
       {error && (
-        <div className="mt-1 text-[11px] text-red-300 line-clamp-2">
+        <div className="mt-1 text-[11px] text-red-300 line-clamp-3">
           {error}
         </div>
       )}

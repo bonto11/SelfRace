@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
@@ -31,7 +32,6 @@ def _as_str(x: Any) -> Optional[str]:
 def _as_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
-            # noqa: E701
             return None
         return float(x)
     except Exception:
@@ -57,7 +57,8 @@ def _chunked(seq: Iterable[Any], n: int = 1000) -> Iterable[List[Any]]:
 
 
 def _row_easy_hard(
-    row: Dict[str, Any], count_no_hr_as_easy: bool = True
+    row: Dict[str, Any],
+    count_no_hr_as_easy: bool = True,
 ) -> Tuple[float, float]:
     """
     Easy = Z1+Z2, Hard = Z3+Z4+Z5. Ak zóny chýbajú a je povolené count_no_hr_as_easy,
@@ -86,6 +87,7 @@ def _activity_ids_in_range(
     end_iso: str,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Tuple[int, str]]:
     """
     Vytiahne (activity_id, date) pre usera v okne [start_iso, end_iso] vrátane.
@@ -97,7 +99,7 @@ def _activity_ids_in_range(
         date_from=start_iso,
         date_to=end_iso,
         user_jwt=user_jwt,
-        service=False,
+        service=service,
         sports=None,  # všetky športy, filtruje až FE
     )
 
@@ -118,6 +120,7 @@ def _load_enrichment_for_ids(
     ids: List[int],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Načíta enrichment pre daného usera a dané activity_ids cez DB helper.
@@ -129,7 +132,7 @@ def _load_enrichment_for_ids(
         user_id=user_id,
         activity_ids=ids,
         user_jwt=user_jwt,
-        service=False,
+        service=service,
     )
 
 
@@ -141,15 +144,21 @@ def get_pareto_source(
     months: int = 3,
     count_no_hr_as_easy: bool = True,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Kompletný výstrel dát za posledné `months` mesiacov (SUMMARY + ENRICHMENT),
     vrátane easy/hard/total. FE si to drží v SESSION a filtruje lokálne.
 
-    Musí prísť user_jwt – všetky dotazy cez RLS klienta.
+    Režimy:
+      - service=False → RLS (vyžaduje JWT, require_jwt)
+      - service=True  → service klient (user_jwt sa len forwarduje, môže byť None)
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
 
     months = max(1, int(months))
     start_dt = datetime.now(timezone.utc) - timedelta(days=months * 31)
@@ -162,6 +171,7 @@ def get_pareto_source(
         start_iso=start_iso,
         end_iso=end_iso,
         user_jwt=jwt,
+        service=service,
     )
     if not id_rows:
         return {"success": True, "data": [], "months": months}
@@ -182,6 +192,7 @@ def get_pareto_source(
         user_id=user_id,
         ids=ids,
         user_jwt=jwt,
+        service=service,
     )
 
     out: List[Dict[str, Any]] = []

@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
-import SessionCard from "@/app/shared/components/SessionCard";
+import SessionCard from "@/app/shared/components/session/SessionCard";
 import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
 
 type Props = {

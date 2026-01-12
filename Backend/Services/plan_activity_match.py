@@ -12,6 +12,7 @@ from Routes_DB.coach_plan_daily import (
 
 from Routes_DB.activities_summary import db_get_summary_for_activities
 
+
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────
 
 
@@ -113,7 +114,7 @@ def _name_hint_score(plan_title: str, act_name: str) -> float:
     groups = [
         ["interval", "repeats", "repeat", "interv"],
         ["vo2"],
-        ["hill", "hills, climb"],
+        ["hill", "hills", "climb"],
         ["tempo"],
         ["threshold", "thr"],
         ["easy", "recovery", "regen"],
@@ -220,10 +221,12 @@ def _load_activities_summary(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu (RLS/JWT).
+    Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu.
+    V service režime sa user_jwt len forwarduje, RLS sa nepoužíva.
     """
     if not activity_ids:
         return []
@@ -232,10 +235,17 @@ def _load_activities_summary(
         user_id=user_id,
         activity_ids=activity_ids,
         user_jwt=user_jwt,
+        service=service,
     )
     data = rows or []
-    print(f"[PLAN-MATCH] loaded activities_summary rows={len(data)} for user={user_id}")
+    print(
+        f"[PLAN-MATCH] loaded activities_summary rows={len(data)} "
+        f"for user={user_id} service={service}"
+    )
     return data
+
+
+# ───────────────────────────────────────── main service ─────────────────────────────────────────
 
 
 def auto_map_plans_for_activities(
@@ -244,20 +254,24 @@ def auto_map_plans_for_activities(
     days_window: int = 1,
     score_threshold: float = 0.55,
     *,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
-    Automaticky namapuje aktivity (Strava) na plánované session
-    a potom prípadne automaticky rozšíri daily plán dopredu.
+    Automatické mapovanie aktivity na plánované session.
 
-    Všetko beží striktne pod user JWT → RLS.
+    - RLS režim:  service=False, user_jwt povinný → require_jwt
+    - service režim (webhook/job): service=True, user_jwt môže byť None
     """
-    user_jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt          # service klient, JWT nepotrebujeme
+    else:
+        jwt = require_jwt(user_jwt)
 
     print(
         f"[PLAN-MATCH] start user={user_id} "
         f"activity_ids={activity_ids} days_window={days_window} "
-        f"threshold={score_threshold}"
+        f"threshold={score_threshold} service={service}"
     )
 
     if not activity_ids:
@@ -268,8 +282,10 @@ def auto_map_plans_for_activities(
     acts = _load_activities_summary(
         user_id=user_id,
         activity_ids=activity_ids,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
+
     if not acts:
         print("[PLAN-MATCH] no activities_summary rows loaded")
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
@@ -287,12 +303,13 @@ def auto_map_plans_for_activities(
     min_d = str(min(act_dates) - timedelta(days=days_window))
     max_d = str(max(act_dates) + timedelta(days=days_window))
 
-    # 2) plánované session v rozmedzí – cez db_get_planned_range_rows (RLS)
+    # 2) plánované session v rozmedzí – cez db_get_planned_range_rows
     plan_rows = db_get_planned_range_rows(
         user_id=user_id,
         date_from=min_d,
         date_to=max_d,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
     if not plan_rows:
         print("[PLAN-MATCH] no plan rows in range")
@@ -326,7 +343,7 @@ def auto_map_plans_for_activities(
             f"[PLAN-MATCH][ACT] aid={aid} date={a_date.isoformat()} "
             f"sport_type_fe={a.get('sport_type_fe')} "
             f"moving_time_s={a.get('moving_time_s')} "
-            f"avg_hr={a.get('average_heartrate_bpm')} "
+            f"avg_hr={a.get('avg_hr_bpm')} "
             f"name={a.get('name')!r}"
         )
 
@@ -353,7 +370,8 @@ def auto_map_plans_for_activities(
             if sess.get("activity_id"):
                 print(
                     f"[PLAN-MATCH][CAND] aid={aid} plan_row_id={sess.get('id')} "
-                    f"plan_date={sess.get('plan_date')} ALREADY_MAPPED activity_id={sess.get('activity_id')}"
+                    f"plan_date={sess.get('plan_date')} ALREADY_MAPPED "
+                    f"activity_id={sess.get('activity_id')}"
                 )
                 continue
 
@@ -389,7 +407,8 @@ def auto_map_plans_for_activities(
                     user_id=user_id,
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
-                    user_jwt=user_jwt,
+                    user_jwt=jwt,
+                    service=service,
                 )
                 mapped += 1
                 print(
@@ -420,6 +439,7 @@ def auto_map_plans_for_activities(
         "candidates": int(total_candidates),
         "mapped": int(mapped),
         "skipped": int(skipped),
+        "service": service,
     }
     print(f"[PLAN-MATCH][SUMMARY] {summary}")
 

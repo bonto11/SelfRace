@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from Configs.config import COACH_PLAN_OVERVIEW_HORIZON_DAYS
 from Schemas.coach_plan_daily import DailyWeekGenerateConfig
-from Services.coach_plan_daily import (
+from Services.AI.daily_plan import (
     service_generate_daily_week,
     service_get_daily_overview,
 )

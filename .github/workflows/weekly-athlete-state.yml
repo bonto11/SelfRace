@@ -1,0 +1,22 @@
+name: Weekly athlete state (dev)
+
+on:
+  workflow_dispatch:
+  # každú stredu 20:00 UTC
+  schedule:
+    - cron: "0 20 * * 3"
+
+jobs:
+  run-weekly-athlete-state:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call weekly athlete state endpoint (dev)
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            -d '{"max_users": 5}' \
+            https://api-dev.patrikmbontar.eu/maintenance/weekly-athlete-state-refresh

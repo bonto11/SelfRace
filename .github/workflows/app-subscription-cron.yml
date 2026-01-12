@@ -1,0 +1,20 @@
+name: Cron – apply subscription changes (dev)
+
+on:
+  # raz denne o 00:00 UTC
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call maintenance /app-subscriptions/apply-due (dev)
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+        run: |
+          curl -X POST \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            https://api-dev.patrikmbontar.eu/maintenance/app-subscriptions/apply-due

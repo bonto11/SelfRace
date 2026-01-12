@@ -4,7 +4,7 @@ import type {
   SessionCardItem,
   KPI,
   PlanStatus,
-} from "@/app/shared/components/SessionCard";
+} from "@/app/shared/components/session/SessionCard";
 
 // malé helpers
 function fmtMinutes(min?: number | null): string | null {

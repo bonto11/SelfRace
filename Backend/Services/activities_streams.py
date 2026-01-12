@@ -1,4 +1,3 @@
-# Services/activities_streams.py
 from __future__ import annotations
 
 import time
@@ -8,8 +7,8 @@ from Modules.Strava.activities import StravaActivitiesClient
 from Routes_DB.activities_streams import (
     db_get_streams_one,
     db_upsert_streams_with_sport,
-    db_upsert_stream_arrays,
 )
+from Services.users import require_jwt
 
 # --------------------------------------------------------------------
 # Common helper – práca s key_by_type JSONom zo Stravy
@@ -22,7 +21,8 @@ def _arr(j: Dict[str, Any], key: str):
     Očakávaný tvar:
       { "time": { "data": [...] }, "heartrate": { "data": [...] }, ... }
     """
-    return (j.get(key) or {}).get("data") or []
+    val = (j.get(key) or {}).get("data") or []
+    return val
 
 
 # ====================================================================
@@ -37,13 +37,11 @@ def fetch_streams_from_strava(
 ) -> Dict[str, Any]:
     """
     Načíta streams pre JEDNU aktivitu zo Stravy.
-
-    - používa StravaActivitiesClient.fetch_activity_streams()
-    - NEROBÍ žiadne DB operácie
-    - vyhadzuje výnimky pri HTTP errore (raise_for_status)
     """
     client = StravaActivitiesClient()
-    return client.fetch_activity_streams(int(activity_id), timeout=timeout)
+    j = client.fetch_activity_streams(int(activity_id), timeout=timeout)
+
+    return j
 
 
 def fetch_streams_batch_from_strava(
@@ -54,21 +52,6 @@ def fetch_streams_batch_from_strava(
 ) -> Dict[str, Any]:
     """
     Batch fetch zo Stravy – žiadna DB.
-
-    Výstup:
-    {
-      "ok": True/False,
-      "count": N,
-      "items": [
-        {
-          "activity_id": ...,
-          "ok": True/False,
-          "json": { ... }   # len ak ok=True
-          "error": "..."    # len ak ok=False
-        },
-        ...
-      ]
-    }
     """
     client = StravaActivitiesClient()
     out: Dict[str, Any] = {
@@ -77,9 +60,10 @@ def fetch_streams_batch_from_strava(
         "items": [],
     }
 
-    for aid in activity_ids:
+    for idx, aid in enumerate(activity_ids):
         try:
             j = client.fetch_activity_streams(int(aid), timeout=timeout)
+            
             out["items"].append(
                 {
                     "activity_id": aid,
@@ -87,6 +71,7 @@ def fetch_streams_batch_from_strava(
                     "json": j,
                 }
             )
+
         except Exception as e:  # noqa: BLE001
             out["items"].append(
                 {
@@ -111,24 +96,26 @@ def save_streams_with_sport_to_db(
     streams_json: Dict[str, Any],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Tuple[bool, str]:
     """
-    Uloží streamy cez RPC upsert_streams_with_sport:
+    Uloží streamy cez RPC upsert_streams_with_sport.
 
-    - dotiahne user_uid a sport_type_fe zo summary (logika v DB)
-    - používa db_upsert_streams_with_sport
-    - NEROBÍ žiadny HTTP request na Stravu
-
-    RLS vs service:
-      - ak user_jwt nie je None → ideš cez RLS klienta
-      - ak user_jwt=None       → service role (worker/webhook)
+    Jediný zápis do public.activities_streams – vrátane altitude/speed/grade/temp.
     """
     try:
+        # základné polia
         times = _arr(streams_json, "time")
         hr = _arr(streams_json, "heartrate")
         cad = _arr(streams_json, "cadence")
         poww = _arr(streams_json, "watts")
         dist = _arr(streams_json, "distance")
+
+        # nové streamy
+        alt = _arr(streams_json, "altitude")
+        vel = _arr(streams_json, "velocity_smooth")
+        grade = _arr(streams_json, "grade_smooth")
+        temp = _arr(streams_json, "temp")
 
         db_upsert_streams_with_sport(
             user_id=int(user_id),
@@ -138,42 +125,12 @@ def save_streams_with_sport_to_db(
             cadence=[int(x) for x in cad] if cad else [],
             power=[int(x) for x in poww] if poww else [],
             distance=[float(x) for x in dist] if dist else [],
+            altitude=[float(x) for x in alt] if alt else [],
+            speed=[float(x) for x in vel] if vel else [],
+            grade=[float(x) for x in grade] if grade else [],
+            temp=[float(x) for x in temp] if temp else [],
             user_jwt=user_jwt,
-        )
-        return True, ""
-    except Exception as e:  # noqa: BLE001
-        return False, str(e)
-
-
-def save_streams_arrays_to_db(
-    user_id: int,
-    activity_id: int,
-    streams_json: Dict[str, Any],
-    *,
-    user_jwt: Optional[str] = None,
-) -> Tuple[bool, str]:
-    """
-    Jednoduchší zápis streamov priamo do TABLE_ACTIVITIES_STREAMS:
-
-    - používa db_upsert_stream_arrays
-    - NEROBÍ žiadny HTTP request na Stravu
-    """
-    try:
-        times = _arr(streams_json, "time")
-        hr = _arr(streams_json, "heartrate")
-        cad = _arr(streams_json, "cadence")
-        poww = _arr(streams_json, "watts")
-        dist = _arr(streams_json, "distance")
-
-        db_upsert_stream_arrays(
-            user_id=int(user_id),
-            activity_id=int(activity_id),
-            time_s=[int(x) for x in times],
-            heartrate_bpm=[int(x) for x in hr] if hr else None,
-            cadence_rpm=[int(x) for x in cad] if cad else None,
-            power_w=[int(x) for x in poww] if poww else None,
-            distance_m=[float(x) for x in dist] if dist else None,
-            user_jwt=user_jwt,
+            service=service,
         )
         return True, ""
     except Exception as e:  # noqa: BLE001
@@ -185,27 +142,53 @@ def service_get_streams_one(
     activity_id: int,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Čítanie streamov z DB pre FE/AI.
-
-    - ak user_jwt je zadaný → RLS klient (bežný FE request)
-    - ak user_jwt=None      → service klient (teoreticky worker; moc to nechceš v UI)
-
-    Vždy vráti dict.
     """
+
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     row = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
+
     if not row:
-        return {"time_s": [], "heartrate_bpm": []}
+        return {
+            "time_s": [],
+            "heartrate_bpm": [],
+            "cadence_rpm": [],
+            "power_w": [],
+            "distance_m": [],
+            "altitude_m": [],
+            "speed_mps": [],
+            "grade_smooth": [],
+            "temp_c": [],
+        }
+
+    # doplň prázdne polia, aby FE malo vždy rovnaký shape
+    row.setdefault("time_s", row.get("time_s") or [])
+    row.setdefault("heartrate_bpm", row.get("heartrate_bpm") or [])
+    row.setdefault("cadence_rpm", row.get("cadence_rpm") or [])
+    row.setdefault("power_w", row.get("power_w") or [])
+    row.setdefault("distance_m", row.get("distance_m") or [])
+    row.setdefault("altitude_m", row.get("altitude_m") or [])
+    row.setdefault("speed_mps", row.get("speed_mps") or [])
+    row.setdefault("grade_smooth", row.get("grade_smooth") or [])
+    row.setdefault("temp_c", row.get("temp_c") or [])
+
     return row
 
 
 # ====================================================================
-# 3) KOMBINOVANÉ HELPERY – Strava + DB (backward kompatibilita)
+# 3) KOMBINOVANÉ HELPERY – Strava + DB
 # ====================================================================
 
 
@@ -215,34 +198,17 @@ def fetch_and_optionally_store_batch(
     store: bool = False,
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
-    PÔVODNÁ API, ale teraz čistejšie:
-
     - Strava fetch: fetch_streams_batch_from_strava()
     - DB write (ak store=True): save_streams_with_sport_to_db()
-
-    RLS vs service:
-      - FE sync:   pass user_jwt (RLS)
-      - worker:    user_jwt=None → service role
-
-    Výstup:
-    {
-      "ok": True/False,
-      "count": N,
-      "stored": M,
-      "items": [
-        {
-          "activity_id": ...,
-          "ok": True/False,
-          "sizes": {...},
-          "stored": True/False,  # len ak store=True
-          "error": "..."         # len pri chybe
-        },
-        ...
-      ]
-    }
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     fetch_res = fetch_streams_batch_from_strava(activity_ids)
     items_in = fetch_res.get("items") or []
 
@@ -285,7 +251,8 @@ def fetch_and_optionally_store_batch(
                 user_id=user_id,
                 activity_id=int(aid),
                 streams_json=j,
-                user_jwt=user_jwt,
+                user_jwt=jwt,
+                service=service,
             )
             out_item["stored"] = stored_ok
             if not stored_ok:
@@ -303,17 +270,19 @@ def cache_streams_for_activities(
     activity_ids: List[int],
     *,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, int]:
     """
     PÔVODNÁ API pre enrichment:
 
     - Strava fetch pre každé activity_id
-    - zápis do DB cez save_streams_arrays_to_db()
-
-    Typicky:
-      - worker / cron / webhook  → user_jwt=None (service role)
-      - ak by si to volal z FE (skôr debug) → pass user_jwt
+    - zápis do DB cez save_streams_with_sport_to_db()
     """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
     fetch_res = fetch_streams_batch_from_strava(activity_ids)
     items_in = fetch_res.get("items") or []
 
@@ -328,15 +297,18 @@ def cache_streams_for_activities(
             continue
 
         j = item.get("json") or {}
-        ok_db, _ = save_streams_arrays_to_db(
+        ok_db, err = save_streams_with_sport_to_db(
             user_id=user_id,
             activity_id=int(aid),
             streams_json=j,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
+            service=service,
         )
         if ok_db:
             saved += 1
         else:
             failed += 1
 
-    return {"saved": saved, "failed": failed, "total": len(activity_ids)}
+    summary = {"saved": saved, "failed": failed, "total": len(activity_ids)}
+
+    return summary

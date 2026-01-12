@@ -1,4 +1,4 @@
-# backend/Schemas/async_jobs.py
+# Schemas/async_jobs.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -17,7 +17,7 @@ class EnqueueJobPayload(BaseModel):
         description="ISO timestamp (timestamptz), napr. '2025-12-18T12:00:00Z'",
     )
     max_attempts: int = Field(default=3, ge=1, le=10)
-    dedupe_key: Optional[str] = None 
+    dedupe_key: Optional[str] = None
 
 
 class EnqueueJobResponse(BaseModel):

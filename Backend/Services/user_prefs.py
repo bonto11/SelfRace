@@ -1,4 +1,3 @@
-# Services/user_prefs.py
 from __future__ import annotations
 
 import json
@@ -25,10 +24,8 @@ DEFAULT_USER_SETTINGS: Dict[str, Any] = {
     "timezone": "Europe/Bratislava",  # IANA timezone string
     "time_format_24h": True,
     "date_format": "yyyy-MM-dd",
-    # do budúcna môžeš pridať:
-    # "units": "metric",
-    # "week_start": "Mon",
 }
+
 
 # ---------- generické helpery nad KV prefs ----------
 
@@ -96,13 +93,26 @@ def service_delete_user_pref(
 def service_load_coach_prefs_for_analysis(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Vytiahne celé coach prefs (JSON) z KV tabuľky a vráti ako dict.
-    """
-    user_jwt = require_jwt(user_jwt)
 
-    row = db_get_pref_single(user_id, COACH_PREFS_KEY, user_jwt=user_jwt)
+    Režimy:
+      - service=False: RLS, require_jwt + RLS klient.
+      - service=True: service klient, user_jwt sa len forwarduje.
+    """
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
+
+    row = db_get_pref_single(
+        user_id,
+        COACH_PREFS_KEY,
+        user_jwt=jwt,
+        service=service,
+    )
     if not row:
         return {}
 

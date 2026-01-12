@@ -222,7 +222,6 @@ def service_get_vo2_estimate(
             "updated_at": row.get("measured_at") if row else None,
         }
     except Exception as e:  # noqa: BLE001
-        # TU bol typo: statuscode -> status_code
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -248,10 +247,14 @@ def service_load_user_profile_for_analysis(
     user_id: int,
     user_uid: Optional[str] = None,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Použije STATIC + METRICS na poskladanie user bloku pre CoachAnalyzeInput.user.
 
+    Režimy:
+      - service=False (default): RLS (require_jwt + RLS klient).
+      - service=True: použije service DB klient (user_jwt sa len forwarduje).
     Výstup:
       {
         "id": int,
@@ -261,14 +264,18 @@ def service_load_user_profile_for_analysis(
         "weight_kg": float | None,
       }
     """
-    user_jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
 
     # STATIC: sex, birth_date, height_cm
     static = (
         db_fetch_static_basic(
             user_id=user_id,
             user_uid=user_uid,
-            user_jwt=user_jwt,
+            user_jwt=jwt,
+            service=service,
         )
         or {}
     )
@@ -283,7 +290,8 @@ def service_load_user_profile_for_analysis(
         user_id=user_id,
         metric="weight_kg",
         user_uid=user_uid,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
     if weight_row and weight_row.get("value_num") is not None:
         try:

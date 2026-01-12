@@ -1,9 +1,24 @@
-// src/features/coach/api/coach_athlete_state.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   AnalyzeOptions,
   AnalyzeAthleteStateResponse,
 } from "@/app/features/coach/types/coachApiTypes";
+
+export type AthleteProgressRecord = {
+  id: number;
+  user_id: number;
+  model: string | null;
+  version: number;
+  created_at: string;
+  report: any | null; // obsah compare_previous z DB
+};
+
+type LatestAthleteProgressResponse = {
+  success: boolean;
+  item: AthleteProgressRecord | null;
+  detail?: string | null;
+  error?: string | null;
+};
 
 type AsyncJobRow = {
   id: number;
@@ -127,6 +142,9 @@ export async function apiAnalyzeAthleteState(
 
   const result = runJson.job.result;
 
+  // 👇 AI kvóta pre analyze
+  maybeThrowAiQuotaError(result);
+
   if (!result || typeof result !== "object") {
     throw new Error("Job finished but result payload is empty or invalid");
   }
@@ -166,9 +184,78 @@ export async function apiGetLatestAthleteState(
   }
 
   if (!json?.success) {
-    const msg = json.detail || json.error || "Failed to load latest athlete state";
+    const msg =
+      json.detail || json.error || "Failed to load latest athlete state";
     throw new Error(msg);
   }
 
   return json.state ?? null;
+}
+
+/**
+ * GET /coach/athlete/state/latest-progress/:user_id
+ * – pre Weekly Coach Progress widget
+ */
+
+/**
+ * GET /coach/athlete/state/compare/latest/:user_id
+ * – vráti posledný riadok s compare_previous (ak existuje).
+ */
+
+export async function apiGetLatestAthleteProgress(
+  userId: number
+): Promise<AthleteProgressRecord | null> {
+  if (!userId)
+    throw new Error("Missing userId in apiGetLatestAthleteProgress");
+
+  const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(
+    String(userId)
+  )}`;
+
+  let json: LatestAthleteProgressResponse;
+  try {
+    json = await callBackend<LatestAthleteProgressResponse>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    console.error("[Coach][apiGetLatestAthleteProgress] ERROR", e);
+    throw e instanceof Error
+      ? e
+      : new Error(`Network/BE error (latest progress): ${String(e)}`);
+  }
+
+  if (!json?.success) {
+    const msg =
+      json.detail || json.error || "Failed to load latest athlete progress";
+    throw new Error(msg);
+  }
+
+  console.log("json.item", json.item);
+  return json.item ?? null;
+}
+
+// ---- AI error helpers (quota) ----
+
+export type AiBackendError = {
+  code?: string | null;
+  message?: string | null;
+  used_tokens_this_month?: number | null;
+};
+
+export function maybeThrowAiQuotaError(result: any) {
+  if (!result || typeof result !== "object") return;
+
+  const err: AiBackendError | undefined = (result as any).error;
+  if (!err || err.code !== "ai_quota_exceeded") return;
+
+  const e = new Error(
+    err.message ??
+      "Mesačný limit AI bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
+  );
+
+  (e as any).code = err.code;
+  (e as any).usedTokensThisMonth = err.used_tokens_this_month ?? null;
+
+  throw e;
 }

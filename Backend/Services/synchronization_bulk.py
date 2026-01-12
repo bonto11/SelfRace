@@ -4,21 +4,14 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException
-
 from Modules.Strava.activities import StravaActivitiesClient
-from Services.activities_streams import fetch_and_optionally_store_batch
-from Services.activity_zones import (
-    preview_zones_for_activities,
-    upsert_enrichment_minutes,
-)
-from Services.async_jobs import service_enqueue_job, service_run_job_now
 
 from Routes_DB.activities_summary import (
     db_upsert_activities_summary,
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
+    db_update_activity_map_and_workout,  # ⬅️ NOVÉ
 )
 from Routes_DB.activities_laps import (
     db_delete_laps_for_activity,
@@ -34,9 +27,9 @@ from Services.synchronization_utils import (
     _normalize_lap,
     _normalize_split,
     _decide_laps_or_splits,
+    _enrich_activities_after_import,
 )
 from Services.users import require_jwt
-
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
@@ -55,7 +48,7 @@ def _import_activities_from_strava(
     """
     Čisto import aktivity zo Stravy:
       - /athlete/activities (summary)
-      - laps/splits pre posledné aktivity
+      - detail + laps/splits pre posledné aktivity
 
     Vracia:
       - stats dict (imported/updated/skipped/fetched)
@@ -103,7 +96,24 @@ def _import_activities_from_strava(
         print(f"[SYNC] page={page} fetched={len(items)} (total={fetched})")
 
         for a in items:
+            # základný normalized summary
             row = _normalize_summary(user_id, a)
+
+            # ⬇️ doplníme workout_type + summary polyline zo Strava summary
+            wt = a.get("workout_type", None)
+            if wt is not None:
+                try:
+                    row["workout_type"] = int(wt)
+                except Exception:
+                    # ak príde nezmysel, radšej neprepíšeme
+                    pass
+
+            m = a.get("map") or {}
+            if isinstance(m, dict):
+                sp = m.get("summary_polyline")
+                if sp is not None:
+                    row["map_summary_polyline"] = sp
+
             aid = int(row["activity_id"]) if row.get("activity_id") else None
             if not aid:
                 skipped += 1
@@ -133,10 +143,10 @@ def _import_activities_from_strava(
             to_upsert,
             user_jwt=user_jwt,
         )
-        print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
-        to_upsert.clear()
+    print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
+    to_upsert.clear()
 
-    # -------- detaily (laps/splits) --------
+    # -------- detaily (laps/splits + mapa/workout_type) --------
     if fetch_details and fetched:
         ids = db_get_recent_activity_ids(
             user_id=user_id,
@@ -150,6 +160,25 @@ def _import_activities_from_strava(
                 laps_raw = client.fetch_activity_laps(aid)
                 detail = client.fetch_activity_detail(aid)
                 splits_raw = detail.get("splits_metric") or []
+
+                # ⬇️ z detailu doplníme mapu + workout_type
+                m = detail.get("map") or {}
+                map_summary_polyline = None
+                map_polyline = None
+
+                if isinstance(m, dict):
+                    map_summary_polyline = m.get("summary_polyline")
+                    map_polyline = m.get("polyline")
+
+                detail_wt = detail.get("workout_type", None)
+
+                db_update_activity_map_and_workout(
+                    activity_id=aid,
+                    workout_type=detail_wt,
+                    map_summary_polyline=map_summary_polyline,
+                    map_polyline=map_polyline,
+                    user_jwt=user_jwt,
+                )
 
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
@@ -167,6 +196,7 @@ def _import_activities_from_strava(
                         row = _normalize_lap(L, user_id, aid)
                         db_upsert_lap(row, user_jwt=user_jwt)
                 else:
+                    # nevieme rozhodnúť, necháme tak
                     pass
 
             except Exception as e:
@@ -191,122 +221,6 @@ def _import_activities_from_strava(
 
 
 # -----------------------------------------------------------------------------
-# Spoločná enrichment logika (streams + zóny + plan_match)
-# -----------------------------------------------------------------------------
-def enrich_activities_for_ids(
-    user_id: int,
-    activity_ids: List[int],
-    *,
-    user_jwt: Optional[str] = None,
-) -> None:
-    if not activity_ids:
-        print("[SYNC] enrich: no activity ids, skipping")
-        return
-
-    try:
-        print(f"[SYNC] streams: fetching & storing for {len(activity_ids)} ids …")
-        streams_res = fetch_and_optionally_store_batch(
-            user_id,
-            activity_ids,
-            store=True,
-            user_jwt=user_jwt,
-        )
-        print(
-            f"[SYNC] streams: stored={streams_res.get('stored')} / "
-            f"total={streams_res.get('count')}"
-        )
-
-        print("[SYNC] zones: computing minutes from cached streams …")
-        prev = preview_zones_for_activities(
-            user_id,
-            activity_ids,
-            fetch_if_missing=False,
-            user_jwt=user_jwt,
-        )
-
-        to_save = [
-            it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")
-        ]
-        saved = upsert_enrichment_minutes(user_id, to_save, user_jwt=user_jwt)
-        print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
-
-        try:
-            enqueue = service_enqueue_job(
-                user_id=user_id,
-                user_uid="",
-                job_type="plan_match",
-                payload={
-                    "activity_ids": activity_ids,
-                    "days_window": 1,
-                    "score_threshold": 0.55,
-                },
-                priority=90,
-                max_attempts=1,
-                dedupe_key=None,
-                user_jwt=user_jwt,
-            )
-
-            job = (enqueue or {}).get("job")
-            if not job:
-                print("[SYNC] plan auto-mapping: enqueue_failed")
-            else:
-                run = service_run_job_now(
-                    user_id=user_id,
-                    job_id=int(job["id"]),
-                    worker_id="sync_auto_map",
-                    user_jwt=user_jwt,
-                )
-
-                job_row = run.get("job") or {}
-                result = job_row.get("result") or {}
-
-                print(
-                    "[SYNC] plan auto-mapping (job): "
-                    f"candidates={result.get('candidates')} "
-                    f"mapped={result.get('mapped')} "
-                    f"skipped={result.get('skipped')} "
-                    f"processed={result.get('processed')} "
-                    f"error={run.get('error')}"
-                )
-
-        except Exception as e:
-            print(f"[SYNC] plan auto-mapping via job failed: {e}")
-
-    except Exception as e:
-        print(f"[SYNC] zones enrichment failed: {e}")
-
-
-def _enrich_activities_after_import(
-    user_id: int,
-    since_iso_for_scan: str,
-    *,
-    user_jwt: Optional[str] = None,
-) -> None:
-    """
-    Wrapper: vyberie recent IDs od since_iso_for_scan a pustí enrichment.
-    """
-    try:
-        ids_recent = db_get_recent_activity_ids(
-            user_id=user_id,
-            since_iso_date=since_iso_for_scan,
-            limit=500,
-            user_jwt=user_jwt,
-        )
-
-        if not ids_recent:
-            print("[SYNC] enrich: no recent activity ids, skipping")
-            return
-
-        enrich_activities_for_ids(
-            user_id=user_id,
-            activity_ids=ids_recent,
-            user_jwt=user_jwt,
-        )
-    except Exception as e:
-        print(f"[SYNC] enrich wrapper failed: {e}")
-
-
-# -----------------------------------------------------------------------------
 # Verejná služba – manuálny import z FE
 # -----------------------------------------------------------------------------
 def service_sync_activities(
@@ -317,6 +231,7 @@ def service_sync_activities(
 ) -> Dict[str, int]:
     """
     Manuálny sync z FE (import zo Stravy).
+    Toto je čisto RLS režim – vyžaduje platný user_jwt.
     """
     jwt = require_jwt(user_jwt)
 
