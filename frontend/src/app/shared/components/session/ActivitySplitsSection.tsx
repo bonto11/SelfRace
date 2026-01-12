@@ -181,7 +181,7 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // škála na šírku barov – používame len ako faktor pre px šírku
+  // len faktor, keby sme ho chceli použiť; nechávam kvôli signature
   const segmentWidthFactor = rows.length ? 100 / (rows.length + 4) : 0;
 
   return (
@@ -192,8 +192,8 @@ export function ActivitySplitsSection({ kind }: Props) {
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        {/* celá sada trendov centrovaná – na veľkom displeji roztiahnutá */}
-        <div className="mx-auto w-full max-w-full sm:max-w-3xl lg:max-w-5xl">
+        {/* celý blok trendov cez šírku panelu */}
+        <div className="mx-auto w-full">
           <div className="space-y-4">
             {/* PORADIE: HR, Pace, Elevation, Time */}
             <MetricBarRow
@@ -317,7 +317,7 @@ export function ActivitySplitsSection({ kind }: Props) {
 type MetricBarRowProps = {
   label: string;
   rows: SplitRow[];
-  segmentWidthFactor: number;
+  segmentWidthFactor: number; // nechávam kvôli signature, vnútri ho už nepotrebujeme
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
   getStatValue?: (r: SplitRow) => number | null;
@@ -329,7 +329,7 @@ type MetricBarRowProps = {
 function MetricBarRow({
   label,
   rows,
-  segmentWidthFactor,
+  // segmentWidthFactor,
   colorClass,
   getValue,
   getStatValue,
@@ -368,11 +368,7 @@ function MetricBarRow({
   const midLabel = formatStat(midVal);
   const bottomLabel = formatStat(bottomVal);
 
-  // šírka jedného stĺpca v px – mení sa podľa počtu splitov
-  const barWidthPx = Math.max(
-    6,
-    Math.min(18, Math.round(segmentWidthFactor * 0.3))
-  );
+  const barWidthPercent = rows.length ? 100 / rows.length : 0;
 
   return (
     <div className="pt-1">
@@ -381,11 +377,11 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* centrovaný blok barov + čísiel – celý blok má šírku len podľa obsahu */}
+      {/* blok barov + čísiel roztiahnutý do šírky */}
       <div className="flex justify-center">
-        <div className="flex items-stretch gap-3">
-          {/* bary */}
-          <div className="flex items-end gap-[6px] h-24">
+        <div className="flex items-stretch gap-3 w-full px-1 sm:px-2">
+          {/* bary – flex-1, každý zaberá percento z dostupnej šírky */}
+          <div className="flex-1 flex items-end gap-[6px] h-24">
             {rows.map((r) => {
               const hPx = heightFor(getValue(r));
               return (
@@ -393,8 +389,8 @@ function MetricBarRow({
                   key={`${label}-${r.index}`}
                   className={`rounded-sm ${colorClass} flex-none`}
                   style={{
-                    width: `${barWidthPx}px`,
-                    minWidth: "2px",
+                    width: `${barWidthPercent}%`,
+                    minWidth: "4px",
                     height: `${hPx}px`,
                   }}
                 />
