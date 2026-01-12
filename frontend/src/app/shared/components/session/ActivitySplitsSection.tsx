@@ -321,7 +321,7 @@ type MetricBarRowProps = {
 function MetricBarRow({
   label,
   rows,
-  segmentWidthPct,
+  segmentWidthPct,   // už ho ďalej nepoužijeme, ale nechávam v signatúre kvôli typu
   colorClass,
   getValue,
   getStatValue,
@@ -364,7 +364,7 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* čísla VĽAVO, fixná malá medzera, potom bary až po pravý padding */}
+      {/* čísla vľavo, fixná malá medzera, bary vyplnia zvyšok */}
       <div className="flex items-stretch">
         {/* pseudo-osa so štatistikami – vľavo */}
         <div className="flex flex-col justify-between items-start text-[9px] opacity-80 leading-tight mr-2">
@@ -373,19 +373,15 @@ function MetricBarRow({
           <span>{bottomLabel}</span>
         </div>
 
-        {/* bary – zaberú zvyšok šírky */}
+        {/* bary – rovnomerne po celej šírke */}
         <div className="flex-1 flex items-end gap-[6px] h-24">
           {rows.map((r) => {
             const hPx = heightFor(getValue(r));
             return (
               <div
                 key={`${label}-${r.index}`}
-                className={`rounded-sm ${colorClass} flex-none`}
-                style={{
-                  width: `${segmentWidthPct}%`,
-                  minWidth: "2px",
-                  height: `${hPx}px`,
-                }}
+                className={`flex-1 basis-0 rounded-sm ${colorClass}`}
+                style={{ height: `${hPx}px` }}
               />
             );
           })}
