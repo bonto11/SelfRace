@@ -402,8 +402,8 @@ function MetricBarRow({
             })}
           </div>
 
-          {/* čísla vpravo – tesne pri grafe, nie na kraji panelu */}
-          <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight min-w-[38px]">
+          {/* čísla vpravo – väčší font na väčších displejoch */}
+          <div className="flex flex-col justify-between items-end text-[9px] sm:text-[11px] md:text-xs font-medium opacity-80 leading-tight min-w-[44px]">
             <span>{topLabel}</span>
             <span>{midLabel}</span>
             <span>{bottomLabel}</span>
