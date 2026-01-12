@@ -12,11 +12,47 @@ from Services.users import require_jwt
 
 # Slot -> kandidátne exercise_id z katalógu
 SLOT_TO_EXERCISES: Dict[str, List[str]] = {
-    "lower_quad": ["bodyweight_squat", "split_squat", "box_stepup"],
-    "lower_posterior": ["single_leg_deadlift_band"],
-    "core": ["plank", "side_plank", "abwheel_rollout"],
-    "upper_pull": ["trx_row", "band_row"],
-    "upper_push": ["pushup"],
+    # predné stehná + gluteus
+    "lower_quad": [
+        "bodyweight_squat",
+        "split_squat",
+        "box_stepup",
+        "barbell_back_squat",
+        "leg_press_machine",
+        "dumbbell_lunge_walk",
+    ],
+    # hamstringy + zadný reťazec
+    "lower_posterior": [
+        "single_leg_deadlift_band",
+        "romanian_deadlift_barbell",
+        "hip_thrust_barbell",
+        "hamstring_curl_machine",
+    ],
+    # core
+    "core": [
+        "plank",
+        "side_plank",
+        "abwheel_rollout",
+        "cable_chop",
+        "hanging_knee_raise",
+    ],
+    # chrbát + bicepsy
+    "upper_pull": [
+        "trx_row",
+        "band_row",
+        "lat_pulldown_machine",
+        "seated_row_machine",
+        "pullup_assisted",
+    ],
+    # prsia / ramená / tricepsy
+    "upper_push": [
+        "pushup",
+        "bench_press_barbell",
+        "incline_db_press",
+        "shoulder_press_dumbbell",
+        "chest_press_machine",
+        "dip_assisted",
+    ],
 }
 
 
