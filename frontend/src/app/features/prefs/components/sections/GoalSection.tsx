@@ -113,8 +113,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     [runTargets.races]
   );
 
-  const weeks = local.weeks ? `${local.weeks} weeks` : null;
-
   /* ---------- closed preview ---------- */
 
   const aRace =
@@ -150,7 +148,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const previewParts = [
     `Goal: ${overallLabel}`,
     racePreview ? `Key race: ${racePreview}` : null,
-    weeks ? `Horizon: ${weeks}` : null,
   ].filter(Boolean);
 
   const previewText =

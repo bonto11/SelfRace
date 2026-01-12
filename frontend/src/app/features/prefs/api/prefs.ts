@@ -1,6 +1,6 @@
 // src/features/prefs/api/prefs.ts
-
 import { callBackend } from "@/app/shared/utils/callBackend";
+import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 
 export type UserPrefRow = { key: string; value: any };
 
@@ -124,4 +124,70 @@ export async function apiUpsertUserPrefs(
       e instanceof Error ? e.message : "prefs save failed (apiUpsertUserPrefs)";
     throw new Error(msg);
   }
+}
+
+/* ───────────────────── helper pre coach plan start ───────────────────── */
+
+function isoToday(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isoTodayPlus(days: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Ak má coach.prefs.start_date dátum v minulosti, nastaví ho na zajtra
+ * (rovnaký princíp ako MIN_PLAN_START v PlanStartSection) a uloží do DB.
+ * Vráti aktuálne prefs (pôvodné alebo upravené).
+ */
+export async function apiEnsureCoachPlanStartFuture(
+  userId: number
+): Promise<CoachPrefs | null> {
+  if (!userId) return null;
+
+  let prefs: CoachPrefs | null = null;
+
+  try {
+    prefs = (await apiFetchUserPref(
+      userId,
+      "coach.prefs"
+    )) as CoachPrefs | null;
+  } catch (e) {
+    console.warn("[CoachPrefs][ensurePlanStartFuture] fetch error", e);
+    return null;
+  }
+
+  if (!prefs || typeof prefs !== "object") return prefs;
+
+  const current = (prefs as any).start_date as string | null | undefined;
+  if (!current) return prefs;
+
+  const today = isoToday();
+
+  // už je dnes alebo v budúcnosti -> nič nerobíme
+  if (current >= today) return prefs;
+
+  const nextStart = isoTodayPlus(1);
+  const updated: CoachPrefs = { ...(prefs as any), start_date: nextStart };
+
+  try {
+    await apiUpsertUserPref(userId, "coach.prefs", updated);
+  } catch (e) {
+    console.error("[CoachPrefs][ensurePlanStartFuture] upsert error", e);
+    // aj keď save zlyhá, vraciame lokálne updated, nech FE vie, čo sme chceli
+  }
+
+  return updated;
 }

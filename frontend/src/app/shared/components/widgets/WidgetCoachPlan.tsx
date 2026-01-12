@@ -1,3 +1,4 @@
+// src/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +14,7 @@ import { THEME } from "@/app/shared/theme/tokens";
 
 import {
   apiFetchUserPref,
+  apiEnsureCoachPlanStartFuture,
 } from "@/app/features/prefs/api/prefs";
 
 import {
@@ -60,8 +62,8 @@ function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
   }
 
   const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
-  const goal = prefs.goal_kind ?? "—";
-  const weeks = prefs.weeks ?? "—";
+  const goal = (prefs as any).goal_kind ?? "—";
+  const weeks = (prefs as any).weeks ?? "—";
 
   return (
     <span className="text-[11px] opacity-80">
@@ -159,7 +161,7 @@ export default function WidgetCoachPlan() {
           () => null
         );
         const eff = p ?? readPrefsFromStorage();
-        setPrefs(eff);
+        setPrefs(eff as CoachPrefs | null);
       } catch {
         setPrefs(readPrefsFromStorage());
       }
@@ -248,6 +250,20 @@ export default function WidgetCoachPlan() {
     }
   }, []);
 
+  /**
+   * Pred generovaním weekly/daily sa postará o to, aby coach.prefs.start_date
+   * nebol v minulosti. Ak je, posunie ho na zajtra a uloží do DB.
+   */
+  const ensurePlanStartFuture = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const updated = await apiEnsureCoachPlanStartFuture(userId);
+      if (updated) setPrefs(updated);
+    } catch (e) {
+      console.warn("[CoachPlan] ensurePlanStartFuture error", e);
+    }
+  }, [userId]);
+
   /* ---- handlers ---- */
 
   const handleAnalyze = useCallback(async () => {
@@ -284,6 +300,9 @@ export default function WidgetCoachPlan() {
     setLoadingKind("weekly");
 
     try {
+      // najprv opravíme start_date v prefs, ak je starý
+      await ensurePlanStartFuture();
+
       const weeks = (prefs as any)?.weeks ?? null;
       const stateId = result?.state_id ?? latestStateId ?? null;
 
@@ -299,7 +318,15 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, result, latestStateId, markGenerated]);
+  }, [
+    userId,
+    userUuid,
+    prefs,
+    result,
+    latestStateId,
+    markGenerated,
+    ensurePlanStartFuture,
+  ]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -307,6 +334,9 @@ export default function WidgetCoachPlan() {
     setLoadingKind("daily");
 
     try {
+      // tiež chceme mať korektný start_date pred daily generovaním
+      await ensurePlanStartFuture();
+
       await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: 1,
         plan_id: null,
@@ -319,7 +349,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, markGenerated]);
+  }, [userId, userUuid, markGenerated, ensurePlanStartFuture]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId) return;
@@ -352,7 +382,6 @@ export default function WidgetCoachPlan() {
     }
   }, [userId, latestStateId, hasGenerated]);
 
-  // 🚨 TU používame tvoj Confirm popup
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
     setError(null);
