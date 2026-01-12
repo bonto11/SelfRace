@@ -262,7 +262,14 @@ export default function WidgetActivitiesCalendar({
         </div>
       )}
 
-      <div className="grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70 mb-2">
+      {/* HLAVIČKA DNÍ – pridané vodorovné paddingy, aby ring nebol na hrane */}
+      <div
+        className="
+          grid grid-cols-7 gap-2
+          text-[11px] uppercase tracking-wide opacity-70 mb-2
+          px-1.5 sm:px-2
+        "
+      >
         {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
           <div key={d} className="text-center">
             {d}
@@ -270,8 +277,9 @@ export default function WidgetActivitiesCalendar({
         ))}
       </div>
 
+      {/* DŇOVÉ BUNKY – tiež odsunuté dovnútra */}
       <div
-        className="grid grid-cols-7 gap-2 cursor-pointer"
+        className="grid grid-cols-7 gap-2 cursor-pointer px-1.5 sm:px-2"
         onClick={handleOpen}
         aria-label="otvoriť kalendár"
       >
