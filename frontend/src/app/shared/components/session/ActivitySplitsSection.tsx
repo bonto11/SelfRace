@@ -123,8 +123,8 @@ function buildRows(data: any[]): SplitRow[] {
 
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 30,
-  maxPx = 90
+  minPx = 1,
+  maxPx = 100
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -194,7 +194,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Heart rate"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-rose-500/80"
             getValue={(r) => r.avg_hr_bpm}
             getStatValue={(r) => r.avg_hr_bpm}
@@ -205,7 +204,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Pace"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-sky-500/80"
             getValue={(r) => r.pace_s_per_km}
             getStatValue={(r) => r.pace_s_per_km}
@@ -216,7 +214,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Elevation"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-amber-500/80"
             getValue={(r) =>
               r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
@@ -229,7 +226,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Time"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-emerald-500/80"
             getValue={(r) => r.time_s}
             getStatValue={(r) => r.time_s}
@@ -310,7 +306,6 @@ export function ActivitySplitsSection({ kind }: Props) {
 type MetricBarRowProps = {
   label: string;
   rows: SplitRow[];
-  segmentWidthPct: number;
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
   getStatValue?: (r: SplitRow) => number | null;
@@ -321,7 +316,6 @@ type MetricBarRowProps = {
 function MetricBarRow({
   label,
   rows,
-  segmentWidthPct,   // už ho ďalej nepoužijeme, ale nechávam v signatúre kvôli typu
   colorClass,
   getValue,
   getStatValue,

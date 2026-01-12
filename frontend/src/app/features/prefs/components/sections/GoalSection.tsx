@@ -532,21 +532,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 None
               </Button>
             </div>
-
-            <TextField
-              label="Planning horizon (weeks, optional)"
-              placeholder="e.g. 8, 12, 16"
-              value={local.weeks ?? ""}
-              onChange={(e) =>
-                setPref(
-                  "weeks",
-                  e.currentTarget.value
-                    ? Number(e.currentTarget.value)
-                    : undefined
-                )
-              }
-              inputMode="numeric"
-            />
           </div>
         </div>
       )}
