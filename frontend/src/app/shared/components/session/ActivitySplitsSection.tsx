@@ -369,11 +369,11 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + pseudo-osa so štatistikami vpravo */}
+      {/* bary + čísla v dvoch „stĺpcoch“ */}
       <div className="flex items-stretch justify-center">
-        <div className="flex w-full max-w-[900px] px-2">
-          {/* bary */}
-          <div className="flex-1 flex items-end gap-[6px] h-24">
+        <div className="flex w-full max-w-[1100px] px-3">
+          {/* bary – majú padding-right, takže končia pred číslami */}
+          <div className="flex-1 flex items-end gap-[6px] h-24 pr-2">
             {rows.map((r) => {
               const hPx = heightFor(getValue(r));
               return (
@@ -390,8 +390,8 @@ function MetricBarRow({
             })}
           </div>
 
-          {/* štatistiky – responzívne odsadenie, ale s minimom */}
-          <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-1 sm:ml-2 md:ml-3 lg:ml-4">
+          {/* čísla – bez extra marginu, len to čo dá pr-2 hore */}
+          <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight">
             <span>{topLabel}</span>
             <span>{midLabel}</span>
             <span>{bottomLabel}</span>
