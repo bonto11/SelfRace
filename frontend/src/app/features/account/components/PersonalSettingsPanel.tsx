@@ -1,6 +1,7 @@
+// src/features/account/components/PersonalSettingsPanel.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -10,10 +11,8 @@ import {
 } from "@/app/features/prefs/api/prefs";
 import Button from "@/app/shared/components/ui/Button";
 import { toast } from "@/app/shared/components/ui/Toast";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
-
-/* ─────────────────────── types & defaults ─────────────────────── */
+import SelectField from "@/app/shared/components/ui/SelectField";
+import { inputClass } from "@/app/shared/ui";
 
 type UserSettings = {
   units: "metric" | "imperial";
@@ -33,138 +32,72 @@ const DEFAULT_SETTINGS: UserSettings = {
   time_format_24h: true,
 };
 
-/* ─────────────────────── timezones ─────────────────────── */
-
-type TzOption = { value: string; label: string };
-type TzGroup = { label: string; options: TzOption[] };
-
-const TIMEZONE_GROUPS: TzGroup[] = [
-  {
-    label: "UTC−8",
-    options: [
-      { value: "America/Los_Angeles", label: "Pacific — Los Angeles, Vancouver" },
-      { value: "America/Vancouver", label: "Vancouver" },
-    ],
-  },
-  {
-    label: "UTC−5",
-    options: [
-      { value: "America/New_York", label: "Eastern — New York, Toronto" },
-      { value: "America/Toronto", label: "Toronto" },
-      { value: "America/Bogota", label: "Bogotá" },
-    ],
-  },
-  {
-    label: "UTC−3",
-    options: [
-      { value: "America/Sao_Paulo", label: "São Paulo" },
-      { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires" },
-    ],
-  },
-  {
-    label: "UTC±0",
-    options: [
-      { value: "Europe/London", label: "London" },
-      { value: "Atlantic/Canary", label: "Canary Islands" },
-      { value: "UTC", label: "UTC" },
-    ],
-  },
-  {
-    label: "UTC+1",
-    options: [
-      {
-        value: "Europe/Bratislava",
-        label: "Bratislava, Vienna, Prague",
-      },
-      { value: "Europe/Berlin", label: "Berlin" },
-      { value: "Europe/Paris", label: "Paris" },
-      { value: "Europe/Oslo", label: "Oslo" },
-    ],
-  },
-  {
-    label: "UTC+2",
-    options: [
-      { value: "Europe/Athens", label: "Athens" },
-      { value: "Europe/Bucharest", label: "Bucharest" },
-      { value: "Europe/Helsinki", label: "Helsinki" },
-      { value: "Africa/Cairo", label: "Cairo" },
-    ],
-  },
-  {
-    label: "UTC+3",
-    options: [
-      { value: "Europe/Moscow", label: "Moscow" },
-      { value: "Asia/Riyadh", label: "Riyadh" },
-      { value: "Africa/Nairobi", label: "Nairobi" },
-    ],
-  },
-  {
-    label: "UTC+4",
-    options: [
-      { value: "Asia/Dubai", label: "Dubai" },
-      { value: "Asia/Baku", label: "Baku" },
-    ],
-  },
-  {
-    label: "UTC+5",
-    options: [
-      { value: "Asia/Tashkent", label: "Tashkent" },
-      { value: "Asia/Karachi", label: "Karachi" },
-    ],
-  },
-  {
-    label: "UTC+5:30",
-    options: [{ value: "Asia/Kolkata", label: "India — Kolkata, Delhi" }],
-  },
-  {
-    label: "UTC+6",
-    options: [
-      { value: "Asia/Dhaka", label: "Dhaka" },
-      { value: "Asia/Almaty", label: "Almaty" },
-    ],
-  },
-  {
-    label: "UTC+7",
-    options: [
-      { value: "Asia/Bangkok", label: "Bangkok" },
-      { value: "Asia/Ho_Chi_Minh", label: "Ho Chi Minh City" },
-    ],
-  },
-  {
-    label: "UTC+8",
-    options: [
-      { value: "Asia/Shanghai", label: "Shanghai" },
-      { value: "Asia/Singapore", label: "Singapore" },
-      { value: "Asia/Hong_Kong", label: "Hong Kong" },
-      { value: "Australia/Perth", label: "Perth" },
-    ],
-  },
-  {
-    label: "UTC+9",
-    options: [
-      { value: "Asia/Tokyo", label: "Tokyo" },
-      { value: "Asia/Seoul", label: "Seoul" },
-    ],
-  },
-  {
-    label: "UTC+10",
-    options: [
-      { value: "Australia/Sydney", label: "Sydney" },
-      { value: "Pacific/Port_Moresby", label: "Port Moresby" },
-    ],
-  },
-  {
-    label: "UTC+12",
-    options: [
-      { value: "Pacific/Auckland", label: "Auckland" },
-      { value: "Pacific/Fiji", label: "Fiji" },
-    ],
-  },
+const LANGUAGE_OPTIONS = [
+  { value: "sk", label: "Slovenčina" },
+  { value: "en", label: "English" },
 ];
 
-const TIMEZONE_FLAT: TzOption[] = TIMEZONE_GROUPS.flatMap((g) => g.options);
+const UNIT_OPTIONS = [
+  { value: "metric", label: "Metrické (km, kg)" },
+  { value: "imperial", label: "Imperiálne (mi, lb)" },
+];
 
-/* ─────────────────────── component ─────────────────────── */
+const WEEK_START_OPTIONS = [
+  { value: "Mon", label: "Pondelok" },
+  { value: "Sun", label: "Nedeľa" },
+];
+
+const TIME_FORMAT_OPTIONS = [
+  { value: "24", label: "24 h (13:37)" },
+  { value: "12", label: "12 h (1:37 PM)" },
+];
+
+// kurátorovaný zoznam – reálne IANA názvy, v labeloch offset + mestá
+const TIMEZONE_OPTIONS = [
+  // západ
+  { value: "UTC", label: "(UTC±00:00) London, Reykjavik" },
+  { value: "Atlantic/Canary", label: "(UTC±00:00) Canary Islands" },
+
+  // +1
+  {
+    value: "Europe/Bratislava",
+    label: "(UTC+01:00) Bratislava, Prague, Berlin",
+  },
+  {
+    value: "Europe/Vienna",
+    label: "(UTC+01:00) Vienna, Budapest, Warsaw",
+  },
+  {
+    value: "Europe/Paris",
+    label: "(UTC+01:00) Paris, Madrid, Rome",
+  },
+
+  // +2
+  { value: "Europe/Athens", label: "(UTC+02:00) Athens, Bucharest" },
+  { value: "Europe/Helsinki", label: "(UTC+02:00) Helsinki, Riga" },
+  { value: "Africa/Cairo", label: "(UTC+02:00) Cairo" },
+
+  // +3
+  { value: "Europe/Moscow", label: "(UTC+03:00) Moscow" },
+  { value: "Asia/Riyadh", label: "(UTC+03:00) Riyadh" },
+
+  // -3 / -4 / -5 ...
+  { value: "America/Sao_Paulo", label: "(UTC−03:00) São Paulo" },
+  { value: "America/Halifax", label: "(UTC−04:00) Halifax" },
+  { value: "America/New_York", label: "(UTC−05:00) New York" },
+  { value: "America/Chicago", label: "(UTC−06:00) Chicago" },
+  { value: "America/Denver", label: "(UTC−07:00) Denver" },
+  { value: "America/Los_Angeles", label: "(UTC−08:00) Los Angeles" },
+
+  // Ázia / Pacifik
+  { value: "Asia/Dubai", label: "(UTC+04:00) Dubai" },
+  { value: "Asia/Karachi", label: "(UTC+05:00) Karachi" },
+  { value: "Asia/Kolkata", label: "(UTC+05:30) India (Kolkata)" },
+  { value: "Asia/Bangkok", label: "(UTC+07:00) Bangkok" },
+  { value: "Asia/Shanghai", label: "(UTC+08:00) Shanghai, Hong Kong" },
+  { value: "Asia/Tokyo", label: "(UTC+09:00) Tokyo, Seoul" },
+  { value: "Australia/Sydney", label: "(UTC+10:00) Sydney" },
+];
 
 export default function PersonalSettingsPanel() {
   const router = useRouter();
@@ -173,9 +106,8 @@ export default function PersonalSettingsPanel() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [open, setOpen] = useState(true);
 
-  // načítanie user.settings
+  // load user.settings
   useEffect(() => {
     if (!userId) return;
 
@@ -184,7 +116,7 @@ export default function PersonalSettingsPanel() {
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(
-          () => null
+          () => null,
         );
 
         if (!alive) return;
@@ -195,7 +127,6 @@ export default function PersonalSettingsPanel() {
             ...(raw as Partial<UserSettings>),
           }));
         } else {
-          // ak nič v DB, zapíš defaulty
           await apiUpsertUserPref(userId, "user.settings", DEFAULT_SETTINGS);
           setSettings(DEFAULT_SETTINGS);
         }
@@ -227,214 +158,129 @@ export default function PersonalSettingsPanel() {
 
   const disabled = !userId || loading || saving;
 
-  const inputBase =
-    "mt-1 block w-full rounded-md border border-white/15 bg-black/20 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/70";
-
-  // ak máš v settings timezone, ktorý nie je v našom zozname, zobrazíme Bratislavu
-  const timezoneValue = useMemo(() => {
-    const found = TIMEZONE_FLAT.some((o) => o.value === settings.timezone);
-    return found ? settings.timezone : DEFAULT_SETTINGS.timezone;
-  }, [settings.timezone]);
-
-  const previewText = useMemo(() => {
-    const lang = settings.language === "sk" ? "SK" : "EN";
-    const units = settings.units === "metric" ? "metric" : "imperial";
-    const timeFmt = settings.time_format_24h ? "24h" : "12h";
-    const tzLabel =
-      TIMEZONE_FLAT.find((o) => o.value === timezoneValue)?.label ??
-      timezoneValue;
-
-    return `Lang: ${lang} | Units: ${units} | TZ: ${tzLabel} | Time: ${timeFmt}`;
-  }, [settings.language, settings.units, settings.time_format_24h, timezoneValue]);
-
   return (
-    <section className={SECTION}>
-      {/* header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex flex-col">
-          <div className="text-sm font-medium opacity-90">
-            Personal settings
-          </div>
-          <div className="text-xs opacity-70">
-            Language, units, date & time format pre celé rozhranie.
-          </div>
+    <section className="rounded-xl border border-white/10 bg-black/20 px-4 py-4 space-y-4">
+      <header className="flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Personal settings</h2>
+          <p className="mt-1 text-xs opacity-70">
+            Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé
+            rozhranie.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            size="xs"
-            variant="primary"
-            disabled={disabled}
-            onClick={handleSave}
-          >
-            {saving ? "Ukladám…" : "Uložiť"}
-          </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={disabled}
+          onClick={handleSave}
+        >
+          {saving ? "Ukladám…" : "Uložiť"}
+        </Button>
+      </header>
 
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((v) => !v)}
-            labelWhenOpen="Collapse personal settings"
-            labelWhenClosed="Expand personal settings"
+      {/* APP PREFERENCIE */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <SelectField
+          label="Jazyk rozhrania"
+          value={settings.language}
+          onChange={(e) =>
+            setSettings((s) => ({
+              ...s,
+              language: (e.target.value as "sk" | "en") || "sk",
+            }))
+          }
+          options={LANGUAGE_OPTIONS}
+        />
+
+        <SelectField
+          label="Jednotky"
+          value={settings.units}
+          onChange={(e) =>
+            setSettings((s) => ({
+              ...s,
+              units: (e.target.value as "metric" | "imperial") || "metric",
+            }))
+          }
+          options={UNIT_OPTIONS}
+        />
+
+        <SelectField
+          label="Timezone"
+          hint="Vyber časové pásmo podľa mesta / offsetu."
+          value={settings.timezone}
+          onChange={(e) =>
+            setSettings((s) => ({
+              ...s,
+              timezone: e.target.value || "Europe/Bratislava",
+            }))
+          }
+          options={TIMEZONE_OPTIONS}
+        />
+
+        <SelectField
+          label="Začiatok týždňa"
+          value={settings.week_start}
+          onChange={(e) =>
+            setSettings((s) => ({
+              ...s,
+              week_start: (e.target.value as "Mon" | "Sun") || "Mon",
+            }))
+          }
+          options={WEEK_START_OPTIONS}
+        />
+
+        <div>
+          <label className="text-xs opacity-80">Formát dátumu</label>
+          <input
+            className={`${inputClass} mt-1`}
+            type="text"
+            placeholder="yyyy-MM-dd"
+            value={settings.date_format}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, date_format: e.target.value }))
+            }
           />
         </div>
+
+        <SelectField
+          label="Formát času"
+          value={settings.time_format_24h ? "24" : "12"}
+          onChange={(e) =>
+            setSettings((s) => ({
+              ...s,
+              time_format_24h: e.target.value === "24",
+            }))
+          }
+          options={TIME_FORMAT_OPTIONS}
+        />
       </div>
 
-      {/* closed preview */}
-      {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-70 select-none",
-          ].join(" ")}
-        >
-          {previewText}
+      {/* ÚČET – heslo, e-mail */}
+      <div className="pt-3 border-t border-white/10 space-y-2">
+        <h3 className="text-sm font-semibold opacity-90">Account actions</h3>
+        <p className="text-xs opacity-70">
+          Rýchle akcie pre zmenu hesla a e-mailu (otvoria samostatnú stránku).
+        </p>
+
+        <div className="flex flex-wrap gap-2 mt-1">
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => router.push("/forgot-password")}
+          >
+            Zmeniť heslo (e-mailom)
+          </Button>
+
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => router.push("/profile")}
+          >
+            Zmeniť e-mail / profil
+          </Button>
         </div>
-      )}
-
-      {open && (
-        <div className="space-y-4">
-          {/* APP PREFERENCIE */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div>
-              <label className="text-xs opacity-80">Jazyk rozhrania</label>
-              <select
-                className={inputBase}
-                value={settings.language}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    language: (e.target.value as "sk" | "en") || "sk",
-                  }))
-                }
-              >
-                <option value="sk">Slovenčina</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs opacity-80">Jednotky</label>
-              <select
-                className={inputBase}
-                value={settings.units}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    units:
-                      (e.target.value as "metric" | "imperial") || "metric",
-                  }))
-                }
-              >
-                <option value="metric">Metrické (km, kg)</option>
-                <option value="imperial">Imperiálne (mi, lb)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs opacity-80">Timezone</label>
-              <select
-                className={inputBase}
-                value={timezoneValue}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    timezone: e.target.value,
-                  }))
-                }
-              >
-                {TIMEZONE_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.options.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs opacity-80">Začiatok týždňa</label>
-              <select
-                className={inputBase}
-                value={settings.week_start}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    week_start: (e.target.value as "Mon" | "Sun") || "Mon",
-                  }))
-                }
-              >
-                <option value="Mon">Pondelok</option>
-                <option value="Sun">Nedeľa</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs opacity-80">Formát dátumu</label>
-              <input
-                className={inputBase}
-                type="text"
-                placeholder="yyyy-MM-dd"
-                value={settings.date_format}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    date_format: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div>
-              <label className="text-xs opacity-80">Formát času</label>
-              <select
-                className={inputBase}
-                value={settings.time_format_24h ? "24" : "12"}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    time_format_24h: e.target.value === "24",
-                  }))
-                }
-              >
-                <option value="24">24 h (13:37)</option>
-                <option value="12">12 h (1:37 PM)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* ÚČET – heslo, e-mail */}
-          <div className="pt-3 border-t border-white/10 space-y-2">
-            <h3 className="text-sm font-semibold opacity-90">
-              Account actions
-            </h3>
-            <p className="text-xs opacity-70">
-              Rýchle akcie pre zmenu hesla a e-mailu (otvoria samostatnú
-              stránku).
-            </p>
-
-            <div className="flex flex-wrap gap-2 mt-1">
-              <Button
-                size="xs"
-                variant="secondary"
-                onClick={() => router.push("/forgot-password")}
-              >
-                Zmeniť heslo (e-mailom)
-              </Button>
-
-              <Button
-                size="xs"
-                variant="secondary"
-                onClick={() => router.push("/profile")}
-              >
-                Zmeniť e-mail / profil
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </section>
   );
 }
