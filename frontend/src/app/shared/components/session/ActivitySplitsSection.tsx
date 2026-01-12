@@ -181,19 +181,16 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // šírka stĺpcov – úzke, ale s medzerami
   const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
-      {/* TOP – trendy */}
       <div className="mb-3">
         <div className="mb-1 text-[11px] opacity-70">
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
         <div className="space-y-4">
-          {/* PORADIE: HR, Pace, Elevation, Time */}
           <MetricBarRow
             label="Heart rate"
             rows={rows}
@@ -242,7 +239,6 @@ export function ActivitySplitsSection({ kind }: Props) {
         </div>
       </div>
 
-      {/* TABLE – poradie: HR, Pace, Elev, Time */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
@@ -319,7 +315,6 @@ type MetricBarRowProps = {
   getValue: (r: SplitRow) => number | null;
   getStatValue?: (r: SplitRow) => number | null;
   formatStat: (v: number | null) => string;
-  // time/hr -> max,avg,min; pace -> min,avg,max; elev -> max,0,min
   statMode: "time" | "hr" | "pace" | "elev";
 };
 
@@ -364,12 +359,10 @@ function MetricBarRow({
 
   return (
     <div className="pt-1">
-      {/* názov metriky – centrovaný */}
       <div className="mb-1 text-center">
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + pseudo-osa so štatistikami vpravo */}
       <div className="flex items-stretch">
         <div className="flex-1 flex items-end gap-[6px] h-24">
           {rows.map((r) => {
@@ -388,8 +381,8 @@ function MetricBarRow({
           })}
         </div>
 
-        {/* MEDZERA – väčšia na mobile, menšia na desktope */}
-        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-3 md:ml-2 xl:ml-1">
+        {/* mobil nechávame, desktop výrazne bližšie k barom */}
+        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-3 md:ml-1 lg:ml-1 xl:ml-[2px] 2xl:ml-[1px]">
           <span>{topLabel}</span>
           <span>{midLabel}</span>
           <span>{bottomLabel}</span>
