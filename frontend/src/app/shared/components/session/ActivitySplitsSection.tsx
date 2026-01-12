@@ -30,7 +30,7 @@ function formatSplitDistanceFull(distance_m: number | null): string {
     return "1.0";
   }
 
-  return km.toFixed(1); // napr. 1.0, 1.3, 9.7
+  return km.toFixed(1);
 }
 
 // krátka verzia na mobil – rovnako 1 desatinné miesto
@@ -181,68 +181,70 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // šírka stĺpcov – rátame, ale layout je primárne flex
-  const segmentWidthPct = rows.length ? 100 / (rows.length + 4) : 0;
+  // šírka stĺpcov – úzke, ale s medzerami
+  const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
-      {/* TOP – trendy */}
-      <div className="mb-3">
-        <div className="mb-1 text-[11px] opacity-70">
-          Total time: {fmtSecondsHMS(totalTime)}
-        </div>
+      {/* GRAFY – centrované, max 720px */}
+      <div className="w-full flex justify-center">
+        <div className="w-full max-w-[720px] mx-auto mb-3">
+          <div className="mb-1 text-[11px] opacity-70">
+            Total time: {fmtSecondsHMS(totalTime)}
+          </div>
 
-        <div className="space-y-4">
-          {/* PORADIE: HR, Pace, Elevation, Time */}
-          <MetricBarRow
-            label="Heart rate"
-            rows={rows}
-            segmentWidthPct={segmentWidthPct}
-            colorClass="bg-rose-500/80"
-            getValue={(r) => r.avg_hr_bpm}
-            getStatValue={(r) => r.avg_hr_bpm}
-            formatStat={(v) => formatHr(v)}
-            statMode="hr"
-          />
+          <div className="space-y-5">
+            {/* PORADIE: HR, Pace, Elevation, Time */}
+            <MetricBarRow
+              label="Heart rate"
+              rows={rows}
+              segmentWidthPct={segmentWidthPct}
+              colorClass="bg-rose-500/80"
+              getValue={(r) => r.avg_hr_bpm}
+              getStatValue={(r) => r.avg_hr_bpm}
+              formatStat={(v) => formatHr(v)}
+              statMode="hr"
+            />
 
-          <MetricBarRow
-            label="Pace"
-            rows={rows}
-            segmentWidthPct={segmentWidthPct}
-            colorClass="bg-sky-500/80"
-            getValue={(r) => r.pace_s_per_km}
-            getStatValue={(r) => r.pace_s_per_km}
-            formatStat={(v) => formatPace(v)}
-            statMode="pace"
-          />
+            <MetricBarRow
+              label="Pace"
+              rows={rows}
+              segmentWidthPct={segmentWidthPct}
+              colorClass="bg-sky-500/80"
+              getValue={(r) => r.pace_s_per_km}
+              getStatValue={(r) => r.pace_s_per_km}
+              formatStat={(v) => formatPace(v)}
+              statMode="pace"
+            />
 
-          <MetricBarRow
-            label="Elevation"
-            rows={rows}
-            segmentWidthPct={segmentWidthPct}
-            colorClass="bg-amber-500/80"
-            getValue={(r) =>
-              r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
-            }
-            getStatValue={(r) => r.elev_delta_m}
-            formatStat={(v) => formatElev(v)}
-            statMode="elev"
-          />
+            <MetricBarRow
+              label="Elevation"
+              rows={rows}
+              segmentWidthPct={segmentWidthPct}
+              colorClass="bg-amber-500/80"
+              getValue={(r) =>
+                r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
+              }
+              getStatValue={(r) => r.elev_delta_m}
+              formatStat={(v) => formatElev(v)}
+              statMode="elev"
+            />
 
-          <MetricBarRow
-            label="Time"
-            rows={rows}
-            segmentWidthPct={segmentWidthPct}
-            colorClass="bg-emerald-500/80"
-            getValue={(r) => r.time_s}
-            getStatValue={(r) => r.time_s}
-            formatStat={(v) => formatTimeShort(v)}
-            statMode="time"
-          />
+            <MetricBarRow
+              label="Time"
+              rows={rows}
+              segmentWidthPct={segmentWidthPct}
+              colorClass="bg-emerald-500/80"
+              getValue={(r) => r.time_s}
+              getStatValue={(r) => r.time_s}
+              formatStat={(v) => formatTimeShort(v)}
+              statMode="time"
+            />
+          </div>
         </div>
       </div>
 
-      {/* TABLE – poradie: HR, Pace, Elev, Time */}
+      {/* TABUĽKA */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
@@ -345,14 +347,17 @@ function MetricBarRow({
   let bottomVal: number | null = null;
 
   if (statMode === "time" || statMode === "hr") {
+    // hore max, v strede priemer, dole min
     topVal = stats?.max ?? null;
     midVal = stats?.avg ?? null;
     bottomVal = stats?.min ?? null;
   } else if (statMode === "pace") {
+    // pace – hore najrýchlejší (najnižšie číslo), dole najpomalší
     topVal = stats?.min ?? null;
     midVal = stats?.avg ?? null;
     bottomVal = stats?.max ?? null;
   } else if (statMode === "elev") {
+    // elev – hore najvyšší +, v strede 0, dole najnižší -
     topVal = stats?.max ?? null;
     midVal = 0;
     bottomVal = stats?.min ?? null;
@@ -369,33 +374,31 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + čísla – blok vycentrovaný, pevná malá medzera */}
-      <div className="flex justify-center">
-        <div className="flex w-full max-w-[1100px] items-stretch">
-          {/* ľavý stĺpec – bary */}
-          <div className="flex-1 flex items-end gap-[6px] h-24 px-1">
-            {rows.map((r) => {
-              const hPx = heightFor(getValue(r));
-              return (
-                <div
-                  key={`${label}-${r.index}`}
-                  className={`rounded-sm ${colorClass} flex-none`}
-                  style={{
-                    width: `${segmentWidthPct}%`,
-                    minWidth: "2px",
-                    height: `${hPx}px`,
-                  }}
-                />
-              );
-            })}
-          </div>
+      {/* bary + pseudo-osa so štatistikami vpravo */}
+      <div className="flex items-stretch">
+        {/* bary – padding-right = pevná medzera od čísiel */}
+        <div className="flex-1 flex items-end gap-[4px] h-24 pr-[2px] sm:pr-3 lg:pr-6">
+          {rows.map((r) => {
+            const hPx = heightFor(getValue(r));
+            return (
+              <div
+                key={`${label}-${r.index}`}
+                className={`rounded-sm ${colorClass} flex-none`}
+                style={{
+                  width: `${segmentWidthPct}%`,
+                  minWidth: "2px",
+                  height: `${hPx}px`,
+                }}
+              />
+            );
+          })}
+        </div>
 
-          {/* pravý stĺpec – hodnoty, fixne tesne vedľa barov */}
-          <div className="w-[34px] sm:w-[40px] flex flex-col justify-between items-end text-[9px] sm:text-[10px] opacity-80 leading-tight ml-[2px]">
-            <span>{topLabel}</span>
-            <span>{midLabel}</span>
-            <span>{bottomLabel}</span>
-          </div>
+        {/* pravý stĺpec – fixná šírka, žiadny margin-left */}
+        <div className="flex flex-col justify-between items-end text-[9px] sm:text-[10px] opacity-80 leading-tight w-[32px] sm:w-[40px] lg:w-[48px]">
+          <span>{topLabel}</span>
+          <span>{midLabel}</span>
+          <span>{bottomLabel}</span>
         </div>
       </div>
     </div>
