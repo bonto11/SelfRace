@@ -192,8 +192,8 @@ export function ActivitySplitsSection({ kind }: Props) {
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
-        {/* celá sada trendov centrovaná */}
-        <div className="mx-auto max-w-[640px]">
+        {/* celá sada trendov centrovaná – na veľkom displeji roztiahnutá */}
+        <div className="mx-auto w-full max-w-full sm:max-w-3xl lg:max-w-5xl">
           <div className="space-y-4">
             {/* PORADIE: HR, Pace, Elevation, Time */}
             <MetricBarRow
@@ -375,8 +375,8 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* centrovaný blok barov + čísiel */}
-      <div className="mx-auto max-w-[520px]">
+      {/* centrovaný blok barov + čísiel – roztiahnutý podľa veľkosti displeja */}
+      <div className="mx-auto w-full max-w-full sm:max-w-3xl lg:max-w-5xl">
         <div className="flex items-stretch justify-center gap-3">
           {/* bary */}
           <div className="flex-1 flex items-end gap-[6px] h-24">
