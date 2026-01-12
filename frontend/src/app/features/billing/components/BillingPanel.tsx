@@ -1,7 +1,7 @@
 // src/features/billing/components/BillingPanel.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/components/ui/Toast";
@@ -25,6 +25,9 @@ import BillingStatusCard from "./BillingStatusCard";
 import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
+import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
+
 type LoadingKind = "status" | "history" | "set-tier" | null;
 
 type PlannedChange = {
@@ -42,6 +45,7 @@ export default function BillingPanel() {
   const [activeTierCode, setActiveTierCode] = useState<string>(
     () => getSubscriptionTier() || "free",
   );
+  const [open, setOpen] = useState(true);
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
   const tiers: AppSubscriptionTier[] = status?.tiers ?? [];
@@ -163,57 +167,153 @@ export default function BillingPanel() {
     }
   }
 
+  const previewText = useMemo(() => {
+    if (!userId) return "Musíš byť prihlásený, aby si videl billing.";
+
+    const tier = status?.tier_code || activeTierCode || "free";
+
+    const parts: string[] = [`Tier: ${tier.toUpperCase()}`];
+
+    if (plannedChange?.kind) {
+      const kindLabel =
+        plannedChange.kind === "upgrade"
+          ? "upgrade"
+          : plannedChange.kind === "downgrade"
+          ? "downgrade"
+          : "cancel";
+      const toTier = plannedChange.to_tier_code
+        ? plannedChange.to_tier_code.toUpperCase()
+        : "FREE";
+      const when = plannedChange.effective_from
+        ? plannedChange.effective_from.slice(0, 10)
+        : null;
+      parts.push(
+        `Planned ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`,
+      );
+    }
+
+    const quota = (status as any)?.ai_quota as
+      | {
+          monthly_limit_tokens?: number | null;
+          used_tokens_this_month?: number | null;
+        }
+      | undefined;
+
+    if (
+      quota &&
+      typeof quota.monthly_limit_tokens === "number" &&
+      quota.monthly_limit_tokens > 0 &&
+      typeof quota.used_tokens_this_month === "number"
+    ) {
+      const pct = Math.round(
+        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100,
+      );
+      parts.push(`AI usage ~${pct}%`);
+    }
+
+    return parts.join(" • ");
+  }, [userId, status, activeTierCode, plannedChange]);
+
   // --------- RENDER ----------
+
   if (!userId) {
     return (
-      <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-sm">
-        Musíš byť prihlásený, aby si videl nastavenia účtu.
-      </div>
+      <section className={SECTION}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium opacity-90">
+            Billing & Subscription
+          </div>
+        </div>
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-70 select-none",
+          ].join(" ")}
+        >
+          Musíš byť prihlásený, aby si videl nastavenia účtu.
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* 1) Status + usage bar + cancel planned change */}
-      <BillingStatusCard
-        status={status}
-        activeTierCode={activeTierCode}
-        plannedChange={plannedChange}
-        loadingStatus={isStatusLoading}
-        loadingAny={isAnyActionLoading}
-        error={error}
-        onCancelPlannedChange={handleCancelPlannedChange}
-      />
-
-      {/* 2) Tiers grid */}
-      <section className="rounded-xl border border-white/10 bg-black/40 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold">Tiers</h2>
-            <p className="text-xs opacity-70">
-              DEV: upgrade hneď, downgrade alebo prechod na free od ďalšieho
-              obdobia.
-            </p>
+    <section className={SECTION}>
+      {/* header */}
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-sm font-medium opacity-90">
+            Billing & Subscription
+          </div>
+          <div className="text-xs opacity-70">
+            Tiers, AI limity a história fakturácie.
           </div>
         </div>
 
-        <BillingTierSelector
-          tiers={tiers}
-          activeTierCode={activeTierCode}
-          plannedChange={plannedChange}
-          isBusy={isAnyActionLoading}
-          onSetTier={handleSetTier}
+        <DisclosureToggle
+          open={open}
+          onToggle={() => setOpen(v => !v)}
+          labelWhenOpen="Collapse billing section"
+          labelWhenClosed="Expand billing section"
         />
-      </section>
+      </div>
 
-      {/* 3) History */}
-      <section className="rounded-xl border border-white/10 bg-black/40 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">History</h2>
+      {/* closed preview */}
+      {!open && (
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-70 select-none",
+          ].join(" ")}
+        >
+          {previewText}
         </div>
+      )}
 
-        <BillingHistory history={history} />
-      </section>
-    </div>
+      {/* obsah billing-u */}
+      {open && (
+        <div className="space-y-6">
+          {/* 1) Status + usage bar + cancel planned change */}
+          <BillingStatusCard
+            status={status}
+            activeTierCode={activeTierCode}
+            plannedChange={plannedChange}
+            loadingStatus={isStatusLoading}
+            loadingAny={isAnyActionLoading}
+            error={error}
+            onCancelPlannedChange={handleCancelPlannedChange}
+          />
+
+          {/* 2) Tiers grid */}
+          <section className="rounded-xl border border-white/10 bg-black/40 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold">Tiers</h2>
+                <p className="text-xs opacity-70">
+                  DEV: upgrade hneď, downgrade alebo prechod na free od
+                  ďalšieho obdobia.
+                </p>
+              </div>
+            </div>
+
+            <BillingTierSelector
+              tiers={tiers}
+              activeTierCode={activeTierCode}
+              plannedChange={plannedChange}
+              isBusy={isAnyActionLoading}
+              onSetTier={handleSetTier}
+            />
+          </section>
+
+          {/* 3) History */}
+          <section className="rounded-xl border border-white/10 bg-black/40 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">History</h2>
+            </div>
+
+            <BillingHistory history={history} />
+          </section>
+        </div>
+      )}
+    </section>
   );
 }
