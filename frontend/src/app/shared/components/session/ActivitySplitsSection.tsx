@@ -30,7 +30,7 @@ function formatSplitDistanceFull(distance_m: number | null): string {
     return "1.0";
   }
 
-  return km.toFixed(1);
+  return km.toFixed(1); // napr. 1.0, 1.3, 9.7
 }
 
 // krátka verzia na mobil – rovnako 1 desatinné miesto
@@ -181,8 +181,8 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // šírka stĺpcov – úzke, ale s medzerami
-  const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
+  // šírka stĺpcov – rátame, ale layout je primárne flex
+  const segmentWidthPct = rows.length ? 100 / (rows.length + 4) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
@@ -369,19 +369,11 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + čísla – grid: 1fr + auto s fixným gapom */}
+      {/* bary + čísla – blok vycentrovaný, pevná malá medzera */}
       <div className="flex justify-center">
-        <div
-          className="w-full max-w-[1100px] px-3"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            columnGap: 4, // ~2–4 px medzera medzi barom a číslami na všetkých zariadeniach
-            alignItems: "stretch",
-          }}
-        >
+        <div className="flex w-full max-w-[1100px] items-stretch">
           {/* ľavý stĺpec – bary */}
-          <div className="flex items-end gap-[6px] h-24">
+          <div className="flex-1 flex items-end gap-[6px] h-24 px-1">
             {rows.map((r) => {
               const hPx = heightFor(getValue(r));
               return (
@@ -398,8 +390,8 @@ function MetricBarRow({
             })}
           </div>
 
-          {/* pravý stĺpec – hodnoty, vždy tesne vedľa barov */}
-          <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight">
+          {/* pravý stĺpec – hodnoty, fixne tesne vedľa barov */}
+          <div className="w-[34px] sm:w-[40px] flex flex-col justify-between items-end text-[9px] sm:text-[10px] opacity-80 leading-tight ml-[2px]">
             <span>{topLabel}</span>
             <span>{midLabel}</span>
             <span>{bottomLabel}</span>
