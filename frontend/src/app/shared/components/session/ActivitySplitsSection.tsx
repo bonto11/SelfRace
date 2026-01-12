@@ -359,11 +359,21 @@ function MetricBarRow({
 
   return (
     <div className="pt-1">
+      {/* názov metriky – centrovaný */}
       <div className="mb-1 text-center">
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
+      {/* čísla VĽAVO, fixná malá medzera, potom bary až po pravý padding */}
       <div className="flex items-stretch">
+        {/* pseudo-osa so štatistikami – vľavo */}
+        <div className="flex flex-col justify-between items-start text-[9px] opacity-80 leading-tight mr-2">
+          <span>{topLabel}</span>
+          <span>{midLabel}</span>
+          <span>{bottomLabel}</span>
+        </div>
+
+        {/* bary – zaberú zvyšok šírky */}
         <div className="flex-1 flex items-end gap-[6px] h-24">
           {rows.map((r) => {
             const hPx = heightFor(getValue(r));
@@ -379,13 +389,6 @@ function MetricBarRow({
               />
             );
           })}
-        </div>
-
-        {/* mobil nechávame, desktop výrazne bližšie k barom */}
-        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-3 md:ml-1 lg:ml-1 xl:ml-[2px] 2xl:ml-[1px]">
-          <span>{topLabel}</span>
-          <span>{midLabel}</span>
-          <span>{bottomLabel}</span>
         </div>
       </div>
     </div>
