@@ -28,9 +28,13 @@ const STRAVA_API_BASE = "https://api-dev.patrikmbontar.eu";
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<"reload" | "import" | "signout" | null>(null);
+  const [busy, setBusy] = useState<"reload" | "import" | "signout" | null>(
+    null
+  );
   const [me, setMe] = useState<LocalUser | null>(null);
-  const [tierCode, setTierCode] = useState<string>(() => getSubscriptionTier() || "free");
+  const [tierCode, setTierCode] = useState<string>(
+    () => getSubscriptionTier() || "free"
+  );
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -235,23 +239,10 @@ export default function UserMenu() {
 
             <nav className="py-1 flex flex-col gap-1">
               <a
-                className="block w-full px-3 py-2 text-sm hover:bg:white/10 hover:bg-white/10"
-                href="/forgot-password"
-              >
-                Zmeniť heslo (e-mailom)
-              </a>
-              <a
-                className="block w-full px-3 py-2 text-sm hover:bg-white/10"
-                href="/profile"
-              >
-                Zmeniť e-mail / profil
-              </a>
-
-              <a
                 className="block w-full px-3 py-2 text-sm hover:bg-white/10"
                 href="/account"
               >
-                Account / Billing
+                Account
               </a>
 
               {stravaConnectUrl && (

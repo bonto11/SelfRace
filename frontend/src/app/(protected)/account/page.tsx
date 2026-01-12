@@ -1,3 +1,4 @@
+import PersonalSettingsPanel from "@/app/features/account/components/PersonalSettingsPanel";
 import BillingPanel from "@/app/features/billing/components/BillingPanel";
 
 export const metadata = {
@@ -10,11 +11,14 @@ export default function AccountPage() {
       <header>
         <h1 className="text-xl font-semibold">Account & Billing</h1>
         <p className="mt-1 text-sm opacity-70">
-          Sprav svoje subscription tiers a AI limity. Zatiaľ je to DEV
-          obrazovka s manuálnym prepínaním tierov.
+          Sprav svoje osobné nastavenia účtu, subscription tiers a AI limity.
         </p>
       </header>
 
+      {/* nový panel */}
+      <PersonalSettingsPanel />
+
+      {/* existujúci BillingPanel */}
       <BillingPanel />
     </main>
   );
