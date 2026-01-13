@@ -13,6 +13,7 @@ from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
+
 # ---------- parsing utils ----------
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
@@ -243,48 +244,67 @@ def _apply_fixed_slots_postprocess(
     fixed_slots: List[Dict[str, Any]],
 ) -> None:
     """
-    Hard enforcement: donúti výstup, aby na dané dni sedel sport/kind.
+    Hard enforcement: donúti výstup, aby na dané dni sedel sport/kind
+    pre fixné sloty (napr. Tue/Fri strength, Sat run/long).
 
-    - neupravuje objem ani duration, len prvú session daného dňa.
+    Upravená je prvá session daného dňa, ostatné nechávame tak.
     """
     if not fixed_slots:
         return
-
-    slots_by_weekday: Dict[str, Dict[str, Any]] = {}
-    for fs in fixed_slots:
-        wd = fs.get("weekday")
-        if isinstance(wd, str) and wd in WEEKDAY_ORDER:
-            slots_by_weekday[wd] = fs
 
     days = daily_plan.get("days") or []
     if not isinstance(days, list):
         return
 
+    # namapujeme weekday -> list dní v tomto týždni
+    days_by_weekday: Dict[str, List[Dict[str, Any]]] = {}
     for day in days:
         if not isinstance(day, dict):
             continue
         date_str = day.get("date")
         if not date_str:
             continue
+        wd = _weekday_name_from_iso(date_str)
+        if not wd:
+            continue
+        days_by_weekday.setdefault(wd, []).append(day)
 
-        weekday = _weekday_name_from_iso(date_str)
-        if not weekday:
+    for slot in fixed_slots:
+        weekday = slot.get("weekday")
+        sport = slot.get("sport")
+        kind = slot.get("kind")
+        if not isinstance(weekday, str) or weekday not in days_by_weekday:
             continue
 
-        slot = slots_by_weekday.get(weekday)
-        if not slot:
+        # vezmeme najskorší dátum daného weekday v rámci týždňa
+        day_list = sorted(
+            days_by_weekday[weekday],
+            key=lambda d: (d.get("date") or ""),
+        )
+        if not day_list:
             continue
+        day = day_list[0]
 
         sessions = day.get("sessions") or []
         if not isinstance(sessions, list) or not sessions:
-            continue
+            # ak tam nič nie je, vytvoríme základnú session
+            s0 = {
+                "sport": sport or "other",
+                "title": None,
+                "duration_min": 0,
+                "intensity": None,
+                "session_type": None,
+                "zone_text": None,
+                "notes": None,
+                "structure": {},
+                "payload": {},
+            }
+            day["sessions"] = [s0]
+            sessions = day["sessions"]
 
         s0 = sessions[0]
         if not isinstance(s0, dict):
             continue
-
-        sport = slot.get("sport")
-        kind = slot.get("kind")
 
         if sport == "strength":
             s0["sport"] = "strength"
@@ -301,6 +321,83 @@ def _apply_fixed_slots_postprocess(
                 s0["title"] = "Dlhý beh"
 
 
+def _limit_strength_sessions(
+    daily_plan: Dict[str, Any],
+    fixed_slots: List[Dict[str, Any]],
+    strength_target: Optional[int],
+) -> None:
+    """
+    Orezanie počtu silových tréningov na sessions_per_week:
+
+    - všetky strength sessions na dňoch z template (weekday==slot.weekday & slot.sport=='strength')
+      sú chránené,
+    - ostatné strength sessions sa postupne menia na regeneračný "other / rest_day",
+      kým sa nedosiahol target.
+    """
+    if not isinstance(strength_target, int) or strength_target <= 0:
+        return
+
+    days = daily_plan.get("days") or []
+    if not isinstance(days, list):
+        return
+
+    fixed_strength_weekdays = {
+        fs["weekday"]
+        for fs in fixed_slots
+        if isinstance(fs.get("weekday"), str) and fs.get("sport") == "strength"
+    }
+
+    strength_sessions: List[Tuple[Dict[str, Any], Dict[str, Any], bool]] = []
+    total_strength = 0
+
+    for day in days:
+        if not isinstance(day, dict):
+            continue
+        date_str = day.get("date")
+        if not date_str:
+            continue
+        wd = _weekday_name_from_iso(date_str)
+        sessions = day.get("sessions") or []
+        if not isinstance(sessions, list):
+            continue
+
+        for s in sessions:
+            if not isinstance(s, dict):
+                continue
+            if (s.get("sport") or "").lower() != "strength":
+                continue
+            total_strength += 1
+            protected = wd in fixed_strength_weekdays
+            strength_sessions.append((day, s, protected))
+
+    if total_strength <= strength_target:
+        return
+
+    to_remove = total_strength - strength_target
+
+    for day, s, protected in strength_sessions:
+        if to_remove <= 0:
+            break
+        if protected:
+            continue
+
+        # prekonvertujeme na rest day / other
+        s["sport"] = "other"
+        s["session_type"] = "rest_day"
+        s["intensity"] = "rest"
+        s["duration_min"] = 0
+        if not s.get("title"):
+            s["title"] = "Odpočinok"
+
+        structure = s.get("structure")
+        if isinstance(structure, dict):
+            structure.pop("strength_exercises", None)
+            if not structure:
+                s["structure"] = None
+
+        to_remove -= 1
+
+
 # ---------- prompt builder ----------
 
 
@@ -308,9 +405,9 @@ def _build_prompts_for_daily(
     context_payload: dict,
     *,
     settings: Optional[Dict[str, Any]] = None,
-) -> Tuple[str, str, List[Dict[str, Any]]]:
+) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
     """
-    Vráti (system_prompt, user_prompt, fixed_slots).
+    Vráti (system_prompt, user_prompt, fixed_slots, strength_target).
     """
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
@@ -409,7 +506,7 @@ def _build_prompts_for_daily(
         else:
             soften_line = (
                 "- Plan adjustment: `soften_next_days.should_soften` is true.\n"
-                "  → Soften as least the first 2–3 days after week_start.\n"
+                "  → Soften at least the first 2–3 days after week_start.\n"
             )
         if soften_reason:
             soften_line += f"  Reason from AI state: {soften_reason}\n"
@@ -442,7 +539,10 @@ def _build_prompts_for_daily(
     long_run_str = ", ".join(long_run_days) if long_run_days else "none"
 
     strength_target = (targets.get("strength") or {}).get("sessions_per_week")
-    strength_str = f"{strength_target}× per week" if strength_target else "no explicit target"
+    if strength_target:
+        strength_str = f"{strength_target}× per week"
+    else:
+        strength_str = "no explicit target"
 
     if hard_max:
         hard_str = (
@@ -605,7 +705,7 @@ def _build_prompts_for_daily(
         "- Do NOT invent extreme workloads.\n"
     )
 
-    return system_txt, user_txt, fixed_slots
+    return system_txt, user_txt, fixed_slots, strength_target
 
 
 # ---------- low-level OpenAI call ----------
@@ -647,7 +747,12 @@ def generate_daily_week_json(
     raw_settings = context_payload.get("user_settings") or {}
     settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
 
-    system_txt, user_txt, fixed_slots_from_template = _build_prompts_for_daily(
+    (
+        system_txt,
+        user_txt,
+        fixed_slots_from_template,
+        strength_target,
+    ) = _build_prompts_for_daily(
         context_payload,
         settings=settings,
     )
@@ -667,6 +772,7 @@ def generate_daily_week_json(
         trace["system_prompt"] = system_txt
         trace["user_prompt"] = user_txt
         trace["fixed_slots_from_template"] = fixed_slots_from_template
+        trace["strength_target"] = strength_target
 
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
@@ -728,8 +834,9 @@ def generate_daily_week_json(
                 if plan_id_from_ctx and "plan_id" not in parsed:
                     parsed["plan_id"] = plan_id_from_ctx
 
-                # HARD ENFORCEMENT fixed slots
+                # HARD ENFORCEMENT fixed slots + limit strength sessions
                 _apply_fixed_slots_postprocess(parsed, fixed_slots_from_template)
+                _limit_strength_sessions(parsed, fixed_slots_from_template, strength_target)
 
                 if debug_raw:
                     trace["raw"] = raw_keep
