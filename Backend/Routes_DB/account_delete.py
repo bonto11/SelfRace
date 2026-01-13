@@ -14,7 +14,7 @@ def db_get_account_delete_row(
     """
     Načíta raw riadok z account_delete_requests (alebo None).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="account_delete")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
 
     resp = (
         sb.table("account_delete_requests")
@@ -41,7 +41,7 @@ def db_upsert_account_delete_request(
     Vytvorí / updatuje požiadavku na zmazanie účtu.
     - nastaví requested_at = now, delete_at = delete_at_iso, cancelled_at = NULL
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="account_delete")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -77,7 +77,7 @@ def db_cancel_account_delete_request(
       - delete_at = NULL
       - cancelled_at = now
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="account_delete")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
