@@ -10,6 +10,10 @@ from Routes_DB.activities_streams import (
 )
 from Services.users import require_jwt
 
+# ⬅️ spoločný helper na Strava tokeny (DB + refresh)
+from Services.synchronization_single import _get_access_token_for_user
+
+
 # --------------------------------------------------------------------
 # Common helper – práca s key_by_type JSONom zo Stravy
 # --------------------------------------------------------------------
@@ -31,20 +35,30 @@ def _arr(j: Dict[str, Any], key: str):
 
 
 def fetch_streams_from_strava(
+    user_id: int,
     activity_id: int,
     *,
     timeout: int = 30,
 ) -> Dict[str, Any]:
     """
-    Načíta streams pre JEDNU aktivitu zo Stravy.
+    Načíta streams pre JEDNU aktivitu zo Stravy pre daného usera.
     """
-    client = StravaActivitiesClient()
-    j = client.fetch_activity_streams(int(activity_id), timeout=timeout)
+    access_token = _get_access_token_for_user(user_id)
+    if not access_token:
+        # žiadny platný token → žiadny call na Stravu
+        print(
+            f"[STREAMS] no valid Strava access_token for user_id={user_id}, "
+            f"activity_id={activity_id}"
+        )
+        return {}
 
+    client = StravaActivitiesClient(access_token=access_token)
+    j = client.fetch_activity_streams(int(activity_id), timeout=timeout)
     return j
 
 
 def fetch_streams_batch_from_strava(
+    user_id: int,
     activity_ids: List[int],
     *,
     timeout: int = 30,
@@ -52,8 +66,30 @@ def fetch_streams_batch_from_strava(
 ) -> Dict[str, Any]:
     """
     Batch fetch zo Stravy – žiadna DB.
+
+    Všetky activity_ids sú pre JEDNÉHO usera → použijeme jeho access_token.
     """
-    client = StravaActivitiesClient()
+    access_token = _get_access_token_for_user(user_id)
+    if not access_token:
+        print(
+            f"[STREAMS] no valid Strava access_token for user_id={user_id}, "
+            f"batch size={len(activity_ids)}"
+        )
+        return {
+            "ok": False,
+            "count": len(activity_ids),
+            "items": [
+                {
+                    "activity_id": aid,
+                    "ok": False,
+                    "error": "no_access_token_for_user",
+                }
+                for aid in activity_ids
+            ],
+        }
+
+    client = StravaActivitiesClient(access_token=access_token)
+
     out: Dict[str, Any] = {
         "ok": True,
         "count": len(activity_ids),
@@ -63,7 +99,7 @@ def fetch_streams_batch_from_strava(
     for idx, aid in enumerate(activity_ids):
         try:
             j = client.fetch_activity_streams(int(aid), timeout=timeout)
-            
+
             out["items"].append(
                 {
                     "activity_id": aid,
@@ -201,7 +237,7 @@ def fetch_and_optionally_store_batch(
     service: bool = False,
 ) -> Dict[str, Any]:
     """
-    - Strava fetch: fetch_streams_batch_from_strava()
+    - Strava fetch: fetch_streams_batch_from_strava(user_id, activity_ids)
     - DB write (ak store=True): save_streams_with_sport_to_db()
     """
     if service:
@@ -209,7 +245,10 @@ def fetch_and_optionally_store_batch(
     else:
         jwt = require_jwt(user_jwt)
 
-    fetch_res = fetch_streams_batch_from_strava(activity_ids)
+    fetch_res = fetch_streams_batch_from_strava(
+        user_id=user_id,
+        activity_ids=activity_ids,
+    )
     items_in = fetch_res.get("items") or []
 
     out: Dict[str, Any] = {
@@ -275,7 +314,7 @@ def cache_streams_for_activities(
     """
     PÔVODNÁ API pre enrichment:
 
-    - Strava fetch pre každé activity_id
+    - Strava fetch pre každé activity_id (cez fetch_streams_batch_from_strava)
     - zápis do DB cez save_streams_with_sport_to_db()
     """
     if service:
@@ -283,7 +322,10 @@ def cache_streams_for_activities(
     else:
         jwt = require_jwt(user_jwt)
 
-    fetch_res = fetch_streams_batch_from_strava(activity_ids)
+    fetch_res = fetch_streams_batch_from_strava(
+        user_id=user_id,
+        activity_ids=activity_ids,
+    )
     items_in = fetch_res.get("items") or []
 
     saved = 0
