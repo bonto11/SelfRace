@@ -20,7 +20,7 @@ import {
   apiRequestAccountDeletion,
   apiCancelAccountDeletion,
   type AccountDeleteStatus,
-} from "@/app/features/account/api/accountDelete";
+} from "./accountDelete";
 
 type UserSettings = {
   units: "metric" | "imperial";
