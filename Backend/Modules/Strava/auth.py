@@ -1,3 +1,4 @@
+#Modules/Strava/auth
 import json
 import os
 import webbrowser
