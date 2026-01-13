@@ -2,7 +2,11 @@
 
 import Button from "@/app/shared/components/ui/Button";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import type { AppSubscriptionTier } from "@/app/features/billing/api/app_subscription";
+import type {
+   AppSubscriptionTier,
+   PlannedChange,
+   BillingTierSelectorProps,
+} from "@/app/features/billing/types/billing";
 
 const TIER_ORDER: Record<string, number> = {
   free: 0,
@@ -14,20 +18,6 @@ function tierRank(code: string | null | undefined): number {
   if (!code) return 0;
   return TIER_ORDER[code] ?? 0;
 }
-
-type PlannedChange = {
-  kind: "cancel" | "downgrade" | "upgrade";
-  to_tier_code: string | null;
-  effective_from: string | null;
-} | null;
-
-type BillingTierSelectorProps = {
-  tiers: AppSubscriptionTier[];
-  activeTierCode: string;
-  plannedChange: PlannedChange;
-  isBusy: boolean;
-  onSetTier: (tierCode: string) => void | Promise<void>;
-};
 
 export default function BillingTierSelector({
   tiers,

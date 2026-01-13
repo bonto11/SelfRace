@@ -1,3 +1,4 @@
+# Services/account_delete.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -9,9 +10,7 @@ from Routes_DB.account_delete import (
     db_upsert_account_delete_request,
     db_cancel_account_delete_request,
 )
-
-# koľko dní čakať, kým cron spraví hard delete
-DELETE_GRACE_DAYS = 30
+from Configs.config import DELETE_GRACE_DAYS
 
 
 def _row_to_status(row: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -35,14 +34,14 @@ def _row_to_status(row: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def service_get_account_delete_status(
-    user_id: int,
     *,
+    user_id: int,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
     """
     Stav vymazania účtu pre daného usera.
-    - service=False -> RLS (JWT povinné)
+    - service=False -> RLS (JWT povinné, bežné FE volanie)
     - service=True  -> service klient (cron, admin, atď.)
     """
     jwt = user_jwt if service else require_jwt(user_jwt)
@@ -56,9 +55,9 @@ def service_get_account_delete_status(
     return _row_to_status(row)
 
 
-def service_request_account_deletion(
-    user_id: int,
+def service_request_account_delete(
     *,
+    user_id: int,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
@@ -81,9 +80,9 @@ def service_request_account_deletion(
     return _row_to_status(row)
 
 
-def service_cancel_account_deletion(
-    user_id: int,
+def service_cancel_account_delete(
     *,
+    user_id: int,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:

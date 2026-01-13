@@ -3,19 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from Modules.Supabase.client import get_client, get_service_client
-
-
-def _get_sb(user_jwt: Optional[str], service: bool = False):
-    """
-    Vyberie správneho Supabase klienta:
-      - service=True  -> service role (mimo RLS)
-      - service=False -> RLS klient, vyžaduje JWT
-    """
-    if service:
-        return get_service_client()
-    return get_client(user_jwt)
-
+from Modules.Supabase.client import get_sb
 
 def db_get_account_delete_row(
     user_id: int,
@@ -26,7 +14,7 @@ def db_get_account_delete_row(
     """
     Načíta raw riadok z account_delete_requests (alebo None).
     """
-    sb = _get_sb(user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="account_delete")
 
     resp = (
         sb.table("account_delete_requests")
@@ -53,7 +41,7 @@ def db_upsert_account_delete_request(
     Vytvorí / updatuje požiadavku na zmazanie účtu.
     - nastaví requested_at = now, delete_at = delete_at_iso, cancelled_at = NULL
     """
-    sb = _get_sb(user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="account_delete")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -89,7 +77,7 @@ def db_cancel_account_delete_request(
       - delete_at = NULL
       - cancelled_at = now
     """
-    sb = _get_sb(user_jwt, service=service)
+    sb = get_sb(user_jwt=user_jwt, service=service, caller ="account_delete")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 

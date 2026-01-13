@@ -1,0 +1,20 @@
+# .github/workflows/account-hard-delete.yml
+name: Account hard delete cron
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:       # možnosť spustiť ručne
+
+jobs:
+  hard-delete:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call backend hard-delete endpoint
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+        run: |
+          curl -X POST \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            https://api-dev.patrikmbontar.eu/api/account/delete/cron/hard-delete

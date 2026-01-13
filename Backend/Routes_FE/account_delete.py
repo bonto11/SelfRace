@@ -1,112 +1,67 @@
+# Routes_FE/account_delete.py
 from __future__ import annotations
 
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
-
+from Modules.HTTP.auth_deps import require_user_jwt
 from Services.account_delete import (
-  service_get_account_delete_status,
-  service_request_account_deletion,
-  service_cancel_account_deletion,
+    service_get_account_delete_status,
+    service_request_account_delete,
+    service_cancel_account_delete,
 )
 
-router = APIRouter(
-    prefix="/api/account/delete",
-    tags=["account_delete"],
-)
+router = APIRouter(prefix="/account", tags=["account"])
 
 
-# -------------------------------------------------------------------
-# Helper na vytiahnutie JWT z Authorization headera
-# -------------------------------------------------------------------
-
-
-def get_bearer_token(
-    authorization: Optional[str] = Header(default=None, alias="Authorization"),
-) -> Optional[str]:
-    """
-    Očakáva štýl "Bearer <jwt>".
-    Ak príde niečo iné, vráti None a require_jwt to potom stopne.
-    """
-    if not authorization:
-        return None
-    parts = authorization.split()
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        return parts[1]
-    # fallback – ak by si tam posielal priamo JWT
-    return authorization
-
-
-# -------------------------------------------------------------------
-# Schemy
-# -------------------------------------------------------------------
-
-
-class AccountDeleteRequestIn(BaseModel):
-    user_id: int
-
-
-class AccountDeleteStatusOut(BaseModel):
-    pending: bool
-    delete_at: Optional[str] = None
-
-
-# -------------------------------------------------------------------
-# Routes
-# -------------------------------------------------------------------
-
-
-@router.get("/status", response_model=AccountDeleteStatusOut)
+@router.get("/{user_id}/delete/status")
 def get_account_delete_status(
     user_id: int,
-    user_jwt: Optional[str] = Depends(get_bearer_token),
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
-    Stav plánovaného zmazania účtu (FE volá s JWT).
-    RLS v DB musí zabezpečiť, že user_id patrí JWT.
+    Vráti, či je účet označený na vymazanie a plánovaný dátum delete.
     """
     try:
         return service_get_account_delete_status(
             user_id=user_id,
             user_jwt=user_jwt,
-            service=False,  # RLS režim
+            service=False,
         )
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/request", response_model=AccountDeleteStatusOut)
-def request_account_deletion(
-    body: AccountDeleteRequestIn,
-    user_jwt: Optional[str] = Depends(get_bearer_token),
+@router.post("/{user_id}/delete/request")
+def request_account_delete(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
-    Označí účet na zmazanie o 30 dní.
+    Označí účet na zmazanie (delete_at = now + DELETE_GRACE_DAYS).
     """
     try:
-        return service_request_account_deletion(
-            user_id=body.user_id,
+        return service_request_account_delete(
+            user_id=user_id,
             user_jwt=user_jwt,
-            service=False,  # RLS režim
+            service=False,
         )
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/cancel", response_model=AccountDeleteStatusOut)
-def cancel_account_deletion(
-    body: AccountDeleteRequestIn,
-    user_jwt: Optional[str] = Depends(get_bearer_token),
+@router.post("/{user_id}/delete/cancel")
+def cancel_account_delete(
+    user_id: int,
+    user_jwt: str = Depends(require_user_jwt),
 ):
     """
-    Zruší plánované zmazanie účtu.
+    Zruší pending delete flag (delete_at = NULL).
     """
     try:
-        return service_cancel_account_deletion(
-            user_id=body.user_id,
+        return service_cancel_account_delete(
+            user_id=user_id,
             user_jwt=user_jwt,
-            service=False,  # RLS režim
+            service=False,
         )
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

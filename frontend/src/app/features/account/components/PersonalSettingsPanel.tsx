@@ -17,19 +17,14 @@ import { confirm } from "@/app/shared/components/ui/Confirm";
 
 import {
   apiGetAccountDeleteStatus,
-  apiRequestAccountDeletion,
-  apiCancelAccountDeletion,
-  type AccountDeleteStatus,
-} from "./accountDelete";
+  apiRequestAccountDelete,
+  apiCancelAccountDelete,
+} from "@/app/features/account/api/accountDelete";
 
-type UserSettings = {
-  units: "metric" | "imperial";
-  language: "sk" | "en";
-  timezone: string;
-  week_start: "Mon" | "Sun";
-  date_format: string;
-  time_format_24h: boolean;
-};
+import type {
+  UserSettings,
+  AccountDeleteStatus,
+} from "@/app/features/account/types/account";
 
 const DEFAULT_SETTINGS: UserSettings = {
   units: "metric",
@@ -116,7 +111,7 @@ export default function PersonalSettingsPanel() {
   const [saving, setSaving] = useState(false);
 
   const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
-    null,
+    null
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
@@ -130,7 +125,7 @@ export default function PersonalSettingsPanel() {
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(
-          () => null,
+          () => null
         );
 
         if (!alive) return;
@@ -221,10 +216,10 @@ export default function PersonalSettingsPanel() {
 
     setProcessingDelete(true);
     try {
-      const st = await apiRequestAccountDeletion(userId);
+      const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
       toast.success(
-        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia.",
+        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia."
       );
     } catch (e: any) {
       console.error("[PersonalSettingsPanel] delete request error", e);
@@ -244,11 +239,11 @@ export default function PersonalSettingsPanel() {
       okText: "Áno, ponechať účet",
       cancelText: "Nechať zmazanie",
     });
-    if !ok) return;
+    if (!ok) return;
 
     setProcessingDelete(true);
     try {
-      const st = await apiCancelAccountDeletion(userId);
+      const st = await apiCancelAccountDelete(userId);
       setDeleteStatus(st);
       toast.success("Plánované zmazanie účtu bolo zrušené.");
     } catch (e: any) {
@@ -412,7 +407,8 @@ export default function PersonalSettingsPanel() {
           ) : deletePending ? (
             <>
               <p className="opacity-90">
-                Účet je <span className="font-semibold">označený na zmazanie</span>.
+                Účet je{" "}
+                <span className="font-semibold">označený na zmazanie</span>.
               </p>
               <p className="mt-1 opacity-80">
                 Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia
@@ -429,7 +425,8 @@ export default function PersonalSettingsPanel() {
           ) : (
             <>
               <p className="opacity-90">
-                Zmazanie účtu je <span className="font-semibold">nezvratné</span>.
+                Zmazanie účtu je{" "}
+                <span className="font-semibold">nezvratné</span>.
               </p>
               <p className="mt-1 opacity-80">
                 Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho
@@ -458,7 +455,9 @@ export default function PersonalSettingsPanel() {
               disabled={processingDelete || !userId}
               onClick={handleRequestDelete}
             >
-              {processingDelete ? "Označujem na zmazanie…" : "Označiť účet na zmazanie"}
+              {processingDelete
+                ? "Označujem na zmazanie…"
+                : "Označiť účet na zmazanie"}
             </Button>
           )}
         </div>

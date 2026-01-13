@@ -89,3 +89,6 @@ MAINTENANCE_API_KEY = os.getenv("MAINTENANCE_API_KEY")
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
+
+# koľko dní čakať, kým cron spraví hard delete
+DELETE_GRACE_DAYS = 30
