@@ -10,9 +10,6 @@ from Routes_DB.activities_streams import (
 )
 from Services.users import require_jwt
 
-# ⬅️ spoločný helper na Strava tokeny (DB + refresh)
-from Services.synchronization_single import _get_access_token_for_user
-
 
 # --------------------------------------------------------------------
 # Common helper – práca s key_by_type JSONom zo Stravy
@@ -29,6 +26,29 @@ def _arr(j: Dict[str, Any], key: str):
     return val
 
 
+# --------------------------------------------------------------------
+# Strava client pre konkrétneho usera (lazy import, aby nebol circular)
+# --------------------------------------------------------------------
+
+
+def _get_strava_client_for_user(user_id: int) -> StravaActivitiesClient:
+    """
+    Vytvorí StravaActivitiesClient s access_tokenom z DB (strava_accounts).
+
+    Import _get_access_token_for_user robíme LAZY až pri volaní funkcie,
+    aby sme sa vyhli circular importu so Services.synchronization_single.
+    """
+    from Services.synchronization_single import _get_access_token_for_user
+
+    token = _get_access_token_for_user(user_id)
+    if not token:
+        raise RuntimeError(
+            f"Missing Strava access token for user_id={user_id} in strava_accounts"
+        )
+
+    return StravaActivitiesClient(access_token=token)
+
+
 # ====================================================================
 # 1) STRAVA LAYER – čisto HTTP, žiadna DB
 # ====================================================================
@@ -41,18 +61,9 @@ def fetch_streams_from_strava(
     timeout: int = 30,
 ) -> Dict[str, Any]:
     """
-    Načíta streams pre JEDNU aktivitu zo Stravy pre daného usera.
+    Načíta streams pre JEDNU aktivitu zo Stravy (per-user access token).
     """
-    access_token = _get_access_token_for_user(user_id)
-    if not access_token:
-        # žiadny platný token → žiadny call na Stravu
-        print(
-            f"[STREAMS] no valid Strava access_token for user_id={user_id}, "
-            f"activity_id={activity_id}"
-        )
-        return {}
-
-    client = StravaActivitiesClient(access_token=access_token)
+    client = _get_strava_client_for_user(user_id)
     j = client.fetch_activity_streams(int(activity_id), timeout=timeout)
     return j
 
@@ -66,29 +77,9 @@ def fetch_streams_batch_from_strava(
 ) -> Dict[str, Any]:
     """
     Batch fetch zo Stravy – žiadna DB.
-
-    Všetky activity_ids sú pre JEDNÉHO usera → použijeme jeho access_token.
+    Používa access_token daného usera, aby Strava videla korektného atlétov.
     """
-    access_token = _get_access_token_for_user(user_id)
-    if not access_token:
-        print(
-            f"[STREAMS] no valid Strava access_token for user_id={user_id}, "
-            f"batch size={len(activity_ids)}"
-        )
-        return {
-            "ok": False,
-            "count": len(activity_ids),
-            "items": [
-                {
-                    "activity_id": aid,
-                    "ok": False,
-                    "error": "no_access_token_for_user",
-                }
-                for aid in activity_ids
-            ],
-        }
-
-    client = StravaActivitiesClient(access_token=access_token)
+    client = _get_strava_client_for_user(user_id)
 
     out: Dict[str, Any] = {
         "ok": True,
@@ -245,10 +236,7 @@ def fetch_and_optionally_store_batch(
     else:
         jwt = require_jwt(user_jwt)
 
-    fetch_res = fetch_streams_batch_from_strava(
-        user_id=user_id,
-        activity_ids=activity_ids,
-    )
+    fetch_res = fetch_streams_batch_from_strava(user_id, activity_ids)
     items_in = fetch_res.get("items") or []
 
     out: Dict[str, Any] = {
@@ -314,7 +302,7 @@ def cache_streams_for_activities(
     """
     PÔVODNÁ API pre enrichment:
 
-    - Strava fetch pre každé activity_id (cez fetch_streams_batch_from_strava)
+    - Strava fetch pre každé activity_id
     - zápis do DB cez save_streams_with_sport_to_db()
     """
     if service:
@@ -322,10 +310,7 @@ def cache_streams_for_activities(
     else:
         jwt = require_jwt(user_jwt)
 
-    fetch_res = fetch_streams_batch_from_strava(
-        user_id=user_id,
-        activity_ids=activity_ids,
-    )
+    fetch_res = fetch_streams_batch_from_strava(user_id, activity_ids)
     items_in = fetch_res.get("items") or []
 
     saved = 0
