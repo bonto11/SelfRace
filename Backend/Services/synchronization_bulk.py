@@ -11,7 +11,7 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
-    db_update_activity_map_and_workout,  # ⬅️ NOVÉ
+    db_update_activity_map_and_workout,  # map + workout_type
 )
 from Routes_DB.activities_laps import (
     db_delete_laps_for_activity,
@@ -31,7 +31,22 @@ from Services.synchronization_utils import (
 )
 from Services.users import require_jwt
 
-# Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
+# spoločný helper na Strava tokeny (DB + refresh)
+from Services.synchronization_single import _get_access_token_for_user
+
+
+# ----------------- LIMITY / NASTAVENIA -----------------
+
+# max backfill okno pri bulk syncu – nech netiahneme roky dozadu
+MAX_BACKFILL_DAYS = 50
+
+# koľko strán /athlete/activities stiahnuť v jednom behu (1 strana = max 100 aktivít)
+MAX_PAGES_PER_RUN = 10
+
+# pauza medzi requestami na Stravu – mierne šetrenie rate limitu
+SLEEP_BETWEEN_REQUESTS_S = 0.2
+
+# koľko aktivít max dotiahnuť s detailmi (laps/splits + mapa) v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
 
 
@@ -48,23 +63,31 @@ def _import_activities_from_strava(
     """
     Čisto import aktivity zo Stravy:
       - /athlete/activities (summary)
-      - detail + laps/splits pre posledné aktivity
+      - voliteľne detail + laps/splits pre posledné aktivity
 
     Vracia:
       - stats dict (imported/updated/skipped/fetched)
-      - since_iso_for_scan (odkiaľ ďalej počítať streams/zóny)
+      - since_iso_for_scan (odkiaľ ďalej počítať zóny / enrichment)
     """
-    client = StravaActivitiesClient()
+
+    # --------- určenie "after" (odkiaľ backfillovať) ---------
 
     after_epoch = 0
     since_iso_for_scan = "1970-01-01"
 
+    # pri ďalších runoch berieme poslednú aktivitu z DB
     last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
     if last_dt:
         after_epoch = int(last_dt.timestamp())
         since_iso_for_scan = last_dt.strftime("%Y-%m-%d")
-    elif force_last_days is not None:
-        after_dt = datetime.now(timezone.utc) - timedelta(days=force_last_days)
+    else:
+        # prvý backfill: okno max MAX_BACKFILL_DAYS
+        if force_last_days is None:
+            effective_days = MAX_BACKFILL_DAYS
+        else:
+            effective_days = min(int(force_last_days), MAX_BACKFILL_DAYS)
+
+        after_dt = datetime.now(timezone.utc) - timedelta(days=effective_days)
         after_epoch = int(after_dt.timestamp())
         since_iso_for_scan = after_dt.strftime("%Y-%m-%d")
 
@@ -79,11 +102,37 @@ def _import_activities_from_strava(
 
     print(
         f"[SYNC] user={user_id} after_epoch={after_epoch} "
-        f"(since={since_iso_for_scan})"
+        f"(since={since_iso_for_scan}) window_days<= {MAX_BACKFILL_DAYS}"
     )
 
+    # --- Strava access token z DB (žiadny legacy auth.py) ---
+    access_token = _get_access_token_for_user(user_id)
+    if not access_token:
+        print(
+            f"[SYNC] no valid Strava access_token for user_id={user_id} "
+            f"(bulk import skipped)"
+        )
+        stats = {
+            "imported": 0,
+            "updated": 0,
+            "skipped": 0,
+            "fetched": 0,
+        }
+        return stats, since_iso_for_scan
+
+    client = StravaActivitiesClient(access_token=access_token)
+    service_mode = user_jwt is None  # pre DB volania (service vs RLS)
+
+    # -------- SUMMARY import cez /athlete/activities --------
     page = 1
     while True:
+        if page > MAX_PAGES_PER_RUN:
+            print(
+                f"[SYNC] stopping after MAX_PAGES_PER_RUN={MAX_PAGES_PER_RUN} "
+                f"pages (user={user_id})"
+            )
+            break
+
         items: List[Dict[str, Any]] = client.fetch_athlete_activities_page(
             after_epoch=after_epoch,
             page=page,
@@ -99,7 +148,7 @@ def _import_activities_from_strava(
             # základný normalized summary
             row = _normalize_summary(user_id, a)
 
-            # ⬇️ doplníme workout_type + summary polyline zo Strava summary
+            # doplníme workout_type + summary polyline zo Strava summary
             wt = a.get("workout_type", None)
             if wt is not None:
                 try:
@@ -125,34 +174,45 @@ def _import_activities_from_strava(
                 imported += 1
                 existing.add(aid)
 
+            # soft-delete undo – ak by bolo v DB deleted_at, upsert to nastaví na NULL
+            row["deleted_at"] = None
+
             to_upsert.append(row)
 
         if len(to_upsert) >= 200:
             db_upsert_activities_summary(
                 to_upsert,
                 user_jwt=user_jwt,
+                service=service_mode,
             )
             print(f"[SYNC] upsert batch summary rows={len(to_upsert)}")
             to_upsert.clear()
 
         page += 1
-        time.sleep(0.1)
+        time.sleep(SLEEP_BETWEEN_REQUESTS_S)
 
     if to_upsert:
         db_upsert_activities_summary(
             to_upsert,
             user_jwt=user_jwt,
+            service=service_mode,
         )
-    print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
-    to_upsert.clear()
+        print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
+        to_upsert.clear()
 
     # -------- detaily (laps/splits + mapa/workout_type) --------
     if fetch_details and fetched:
+        # vezmeme len relatívne nedávne aktivity (od since_iso_for_scan)
         ids = db_get_recent_activity_ids(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=MAX_FULL_DETAILS_PER_RUN,
             user_jwt=user_jwt,
+        )
+
+        print(
+            f"[SYNC] fetching details for up to "
+            f"{len(ids)}/{MAX_FULL_DETAILS_PER_RUN} activities"
         )
 
         for i, aid in enumerate(ids, start=1):
@@ -161,7 +221,7 @@ def _import_activities_from_strava(
                 detail = client.fetch_activity_detail(aid)
                 splits_raw = detail.get("splits_metric") or []
 
-                # ⬇️ z detailu doplníme mapu + workout_type
+                # z detailu doplníme mapu + workout_type
                 m = detail.get("map") or {}
                 map_summary_polyline = None
                 map_polyline = None
@@ -178,32 +238,49 @@ def _import_activities_from_strava(
                     map_summary_polyline=map_summary_polyline,
                     map_polyline=map_polyline,
                     user_jwt=user_jwt,
+                    service=service_mode,
                 )
 
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
                 if mode == "splits":
-                    db_delete_laps_for_activity(aid, user_jwt=user_jwt)
+                    db_delete_laps_for_activity(
+                        aid,
+                        user_jwt=user_jwt,
+                        service=service_mode,
+                    )
                 elif mode == "laps":
-                    db_delete_splits_for_activity(aid, user_jwt=user_jwt)
+                    db_delete_splits_for_activity(
+                        aid,
+                        user_jwt=user_jwt,
+                        service=service_mode,
+                    )
 
                 if mode == "splits":
                     for idx, S in enumerate(splits_raw, start=1):
                         row = _normalize_split(S, user_id, aid, idx)
-                        db_upsert_split(row, user_jwt=user_jwt)
+                        db_upsert_split(
+                            row,
+                            user_jwt=user_jwt,
+                            service=service_mode,
+                        )
                 elif mode == "laps":
                     for L in laps_raw:
                         row = _normalize_lap(L, user_id, aid)
-                        db_upsert_lap(row, user_jwt=user_jwt)
+                        db_upsert_lap(
+                            row,
+                            user_jwt=user_jwt,
+                            service=service_mode,
+                        )
                 else:
                     # nevieme rozhodnúť, necháme tak
-                    pass
+                    print(f"[SYNC] no laps/splits decision for id={aid}")
 
             except Exception as e:
                 skipped += 1
                 print(f"[SYNC] details failed id={aid}: {e}")
 
-            time.sleep(0.1)
+            time.sleep(SLEEP_BETWEEN_REQUESTS_S)
 
     stats = {
         "imported": int(imported),
@@ -231,14 +308,22 @@ def service_sync_activities(
 ) -> Dict[str, int]:
     """
     Manuálny sync z FE (import zo Stravy).
-    Toto je čisto RLS režim – vyžaduje platný user_jwt.
+
+    - vždy RLS režim – vyžaduje platný user_jwt
+    - force_last_days je max. 50 dní (MAX_BACKFILL_DAYS), ignorujeme väčšie hodnoty
     """
     jwt = require_jwt(user_jwt)
+
+    # cap na MAX_BACKFILL_DAYS
+    if force_last_days is None:
+        effective_days = MAX_BACKFILL_DAYS
+    else:
+        effective_days = min(int(force_last_days), MAX_BACKFILL_DAYS)
 
     stats, since_iso_for_scan = _import_activities_from_strava(
         user_id=user_id,
         user_jwt=jwt,
-        force_last_days=force_last_days,
+        force_last_days=effective_days,
         fetch_details=fetch_details,
     )
 

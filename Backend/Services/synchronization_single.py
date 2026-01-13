@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Mapping
+from datetime import datetime, timezone
+import os
+import requests
 
 from Modules.Strava.activities import StravaActivitiesClient
+from Modules.Supabase.client import get_service_client
 
 from Routes_DB.activities_summary import (
     db_upsert_activities_summary,
@@ -27,6 +31,147 @@ from Services.synchronization_utils import (
 from Services.synchronization_utils import enrich_activities_for_ids
 
 
+# -------------------------------------------------------------------
+# STRAVA TOKENS – helpery (čisto DB + OAuth refresh, žiadny legacy súbor)
+# -------------------------------------------------------------------
+
+_supabase_service = get_service_client()
+
+
+def _get_env(name: str) -> str:
+    v = os.getenv(name)
+    if not v:
+        raise RuntimeError(f"{name} is not set")
+    return v
+
+
+def _get_strava_client_id() -> str:
+    return _get_env("STRAVA_CLIENT_ID")
+
+
+def _get_strava_client_secret() -> str:
+    return _get_env("STRAVA_CLIENT_SECRET")
+
+
+def _refresh_strava_tokens_for_user(user_id: int, row: Mapping[str, Any]) -> Optional[str]:
+    """
+    Refreshne Strava token pre daného usera na základe refresh_tokenu v strava_accounts
+    a updatne riadok v DB. Vracia nový access_token alebo None.
+    """
+    refresh_token = row.get("refresh_token")
+    if not refresh_token:
+        print(f"[SYNC:tokens] user_id={user_id} missing refresh_token")
+        return None
+
+    try:
+        resp = requests.post(
+            "https://www.strava.com/oauth/token",
+            data={
+                "client_id": _get_strava_client_id(),
+                "client_secret": _get_strava_client_secret(),
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            timeout=15,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:tokens] refresh request failed for user_id={user_id}: {e}")
+        return None
+
+    if resp.status_code != 200:
+        print(
+            f"[SYNC:tokens] refresh bad status for user_id={user_id}:",
+            resp.status_code,
+            resp.text,
+        )
+        return None
+
+    data = resp.json() or {}
+    access_token = data.get("access_token")
+    new_refresh = data.get("refresh_token")
+    expires_at_ts = data.get("expires_at")
+
+    if not access_token:
+        print(f"[SYNC:tokens] refresh response missing access_token for user_id={user_id}")
+        return None
+
+    expires_at_iso = None
+    if isinstance(expires_at_ts, (int, float)):
+        expires_at_iso = datetime.fromtimestamp(
+            expires_at_ts, tz=timezone.utc
+        ).isoformat()
+
+    try:
+        _supabase_service.table("strava_accounts").update(
+            {
+                "access_token": access_token,
+                "refresh_token": new_refresh or refresh_token,
+                "expires_at": expires_at_iso,
+            }
+        ).eq("user_id", user_id).execute()
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:tokens] failed to update strava_accounts for user_id={user_id}: {e}")
+
+    return access_token
+
+
+def _get_access_token_for_user(user_id: int) -> Optional[str]:
+    """
+    Vytiahne access_token zo strava_accounts pre daného usera.
+    Ak je expirovaný, skúsi refresh a vráti nový token.
+    """
+    try:
+        resp = (
+            _supabase_service.table("strava_accounts")
+            .select("*")
+            .eq("user_id", user_id)
+            .is_("deauthorized_at", None)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:tokens] failed to fetch strava_accounts for user_id={user_id}: {e}")
+        return None
+
+    rows: Sequence[Mapping[str, Any]] = resp.data or []
+    if not rows:
+        print(f"[SYNC:tokens] no strava_accounts row for user_id={user_id}")
+        return None
+
+    row = rows[0]
+    access_token = row.get("access_token")
+    expires_at_raw = row.get("expires_at")
+
+    # ak nemáme expires_at, ber to ako expirované a skús refresh
+    needs_refresh = False
+    if isinstance(expires_at_raw, str):
+        try:
+            # podporíme formát s 'Z' aj s offsetom
+            if expires_at_raw.endswith("Z") and "+" not in expires_at_raw:
+                exp_dt = datetime.fromisoformat(
+                    expires_at_raw.replace("Z", "+00:00")
+                )
+            else:
+                exp_dt = datetime.fromisoformat(expires_at_raw)
+            if exp_dt <= datetime.now(timezone.utc):
+                needs_refresh = True
+        except Exception:
+            # nevieme parse-nuť → radšej refresh
+            needs_refresh = True
+    else:
+        needs_refresh = True
+
+    if not access_token or needs_refresh:
+        return _refresh_strava_tokens_for_user(user_id, row)
+
+    return access_token
+
+
+# -------------------------------------------------------------------
+# HLAVNÁ FUNKCIA – SYNC SINGLE ACTIVITY
+# -------------------------------------------------------------------
+
+
 def service_sync_single_activity(
     user_id: int,
     strava_activity_id: int,
@@ -36,8 +181,25 @@ def service_sync_single_activity(
     """
     Sync JEDNEJ Strava aktivity – pre webhook (user_jwt=None → service client)
     aj manuálne použitie (user_jwt != None → RLS).
+
+    PRODUKCIA:
+      - access_token sa vždy berie z tabuľky strava_accounts pre daného usera.
     """
-    client = StravaActivitiesClient()
+    # 0) access_token pre usera
+    access_token = _get_access_token_for_user(user_id)
+    if not access_token:
+        print(
+            f"[SYNC:single] no valid Strava access_token for user_id={user_id}, "
+            f"activity_id={strava_activity_id}"
+        )
+        return {
+            "imported": 0,
+            "updated": 0,
+            "skipped": 1,
+            "fetched": 0,
+        }
+
+    client = StravaActivitiesClient(access_token=access_token)
 
     imported = 0
     updated = 0
@@ -164,9 +326,9 @@ def service_sync_single_activity(
                     _normalize_split(S, user_id, aid, idx)
                     for idx, S in enumerate(splits_raw, start=1)
                 ]
-                for row in split_rows:
+                for s_row in split_rows:
                     db_upsert_split(
-                        row,
+                        s_row,
                         user_jwt=user_jwt,
                         service=service_mode,
                     )
@@ -179,9 +341,9 @@ def service_sync_single_activity(
                 )
 
                 lap_rows = [_normalize_lap(L, user_id, aid) for L in laps_raw]
-                for row in lap_rows:
+                for l_row in lap_rows:
                     db_upsert_lap(
-                        row,
+                        l_row,
                         user_jwt=user_jwt,
                         service=service_mode,
                     )
@@ -199,7 +361,7 @@ def service_sync_single_activity(
             user_jwt=user_jwt,
             service=service_mode,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] enrichment failed id={aid}: {e}")
 
     print(
