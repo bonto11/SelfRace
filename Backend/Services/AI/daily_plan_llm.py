@@ -244,158 +244,101 @@ def _apply_fixed_slots_postprocess(
     fixed_slots: List[Dict[str, Any]],
 ) -> None:
     """
-    Hard enforcement: donúti výstup, aby na dané dni sedel sport/kind
-    pre fixné sloty (napr. Tue/Fri strength, Sat run/long).
+    Post-processing pre weekly_template:
 
-    Upravená je prvá session daného dňa, ostatné nechávame tak.
+    - NIČ nevyhadzuje ani nemení na rest day.
+    - Garantuje, že v dňoch z weekly_template existuje aspoň jedna session
+      s daným 'sport' (a pri run/long ju označí ako long_run).
+    - Ak sport v daný deň úplne chýba, PRIDÁ novú session.
     """
-    if not fixed_slots:
+    if not fixed_slots or not isinstance(daily_plan, dict):
         return
 
-    days = daily_plan.get("days") or []
+    days = daily_plan.get("days")
     if not isinstance(days, list):
         return
 
-    # namapujeme weekday -> list dní v tomto týždni
+    # weekday -> list dní v tomto týždni
     days_by_weekday: Dict[str, List[Dict[str, Any]]] = {}
-    for day in days:
-        if not isinstance(day, dict):
+    for d in days:
+        if not isinstance(d, dict):
             continue
-        date_str = day.get("date")
-        if not date_str:
+        date_str = d.get("date")
+        if not isinstance(date_str, str):
             continue
         wd = _weekday_name_from_iso(date_str)
         if not wd:
             continue
-        days_by_weekday.setdefault(wd, []).append(day)
+        days_by_weekday.setdefault(wd, []).append(d)
 
     for slot in fixed_slots:
-        weekday = slot.get("weekday")
+        weekday = slot.get("weekday") or slot.get("day")
         sport = slot.get("sport")
         kind = slot.get("kind")
-        if not isinstance(weekday, str) or weekday not in days_by_weekday:
+        if not (weekday and sport and kind):
             continue
 
-        # vezmeme najskorší dátum daného weekday v rámci týždňa
-        day_list = sorted(
-            days_by_weekday[weekday],
-            key=lambda d: (d.get("date") or ""),
-        )
+        day_list = days_by_weekday.get(weekday)
         if not day_list:
+            # v tomto týždni nemáme pre daný weekday žiadny deň (skrátený týždeň)
             continue
+
         day = day_list[0]
-
-        sessions = day.get("sessions") or []
-        if not isinstance(sessions, list) or not sessions:
-            # ak tam nič nie je, vytvoríme základnú session
-            s0 = {
-                "sport": sport or "other",
-                "title": None,
-                "duration_min": 0,
-                "intensity": None,
-                "session_type": None,
-                "zone_text": None,
-                "notes": None,
-                "structure": {},
-                "payload": {},
-            }
-            day["sessions"] = [s0]
-            sessions = day["sessions"]
-
-        s0 = sessions[0]
-        if not isinstance(s0, dict):
-            continue
-
-        if sport == "strength":
-            s0["sport"] = "strength"
-            s0.setdefault("session_type", "strength")
-            s0.setdefault("intensity", "moderate")
-            if not s0.get("title"):
-                s0["title"] = "Silový tréning - celé telo"
-
-        elif sport == "run" and kind == "long":
-            s0["sport"] = "run"
-            s0.setdefault("session_type", "long_run")
-            s0.setdefault("intensity", "easy")
-            if not s0.get("title"):
-                s0["title"] = "Dlhý beh"
-
-
-def _limit_strength_sessions(
-    daily_plan: Dict[str, Any],
-    fixed_slots: List[Dict[str, Any]],
-    strength_target: Optional[int],
-) -> None:
-    """
-    Orezanie počtu silových tréningov na sessions_per_week:
-
-    - všetky strength sessions na dňoch z template (weekday==slot.weekday & slot.sport=='strength')
-      sú chránené,
-    - ostatné strength sessions sa postupne menia na regeneračný "other / rest_day",
-      kým sa nedosiahol target.
-    """
-    if not isinstance(strength_target, int) or strength_target <= 0:
-        return
-
-    days = daily_plan.get("days") or []
-    if not isinstance(days, list):
-        return
-
-    fixed_strength_weekdays = {
-        fs["weekday"]
-        for fs in fixed_slots
-        if isinstance(fs.get("weekday"), str) and fs.get("sport") == "strength"
-    }
-
-    strength_sessions: List[Tuple[Dict[str, Any], Dict[str, Any], bool]] = []
-    total_strength = 0
-
-    for day in days:
-        if not isinstance(day, dict):
-            continue
-        date_str = day.get("date")
-        if not date_str:
-            continue
-        wd = _weekday_name_from_iso(date_str)
         sessions = day.get("sessions") or []
         if not isinstance(sessions, list):
+            sessions = []
+            day["sessions"] = sessions
+
+        # 1) Existuje session s daným sportom?
+        same_sport_sessions: List[Dict[str, Any]] = [
+            s
+            for s in sessions
+            if isinstance(s, dict)
+            and (s.get("sport") or "").lower() == sport.lower()
+        ]
+
+        if same_sport_sessions:
+            # run/long → označ ako long_run, ale nemeníme duráciu/intenzitu
+            if sport == "run" and kind == "long":
+                already_long = any(
+                    (s.get("session_type") or "") == "long_run"
+                    for s in same_sport_sessions
+                )
+                if not already_long:
+                    s0 = same_sport_sessions[0]
+                    s0["session_type"] = "long_run"
+                    if not s0.get("title"):
+                        s0["title"] = "Dlhý beh"
+                    if not s0.get("intensity"):
+                        s0["intensity"] = "easy"
+            # strength – ak tam nejaká je, necháme presne tak, ako ju navrhla AI
             continue
 
-        for s in sessions:
-            if not isinstance(s, dict):
-                continue
-            if (s.get("sport") or "").lower() != "strength":
-                continue
-            total_strength += 1
-            protected = wd in fixed_strength_weekdays
-            strength_sessions.append((day, s, protected))
+        # 2) Sport v daný deň úplne chýba → pridáme novú session
+        new_session: Dict[str, Any] = {
+            "sport": sport,
+            "duration_min": 40 if sport == "strength" else 60,
+            "intensity": "easy" if sport == "run" else "moderate",
+            "session_type": None,
+            "title": "",
+            "notes": "",
+            "structure": {},
+        }
 
-    if total_strength <= strength_target:
-        return
+        if sport == "strength":
+            new_session["session_type"] = "strength"
+            new_session["title"] = "Silový tréning – celé telo"
+            new_session[
+                "notes"
+            ] = "Zameraj sa na celé telo, základné cviky a kontrolované tempo."
+        elif sport == "run" and kind == "long":
+            new_session["session_type"] = "long_run"
+            new_session["title"] = "Dlhý beh"
+            new_session[
+                "notes"
+            ] = "Bež v nízkej intenzite, aby si budoval aeróbnu vytrvalosť."
 
-    to_remove = total_strength - strength_target
-
-    for day, s, protected in strength_sessions:
-        if to_remove <= 0:
-            break
-        if protected:
-            continue
-
-        # prekonvertujeme na rest day / other
-        s["sport"] = "other"
-        s["session_type"] = "rest_day"
-        s["intensity"] = "rest"
-        s["duration_min"] = 0
-        if not s.get("title"):
-            s["title"] = "Odpočinok"
-
-        structure = s.get("structure")
-        if isinstance(structure, dict):
-            structure.pop("strength_exercises", None)
-            if not structure:
-                s["structure"] = None
-
-        to_remove -= 1
+        sessions.append(new_session)
 
 
 # ---------- prompt builder ----------
@@ -698,7 +641,7 @@ def _build_prompts_for_daily(
         "    * If there is a fixed_slot for that weekday, create exactly one key session with the same sport and kind.\n"
         "    * Do not add another hard/key session of the same sport on that day.\n"
         f"{avoid_two_a_day_str}"
-        f"{avoid_back_to_back_hard_str}"
+        f"{avoid_back_to_back_hard_str}\n"
         "- Use hard_sessions_per_week_max from athlete_state.intensity_tolerance to cap total hard sessions (including external events).\n"
         "- If strength.sessions_per_week >= 1, schedule approximately that many strength sessions distributed through the week.\n"
         "- For strength sessions, use only the strength_exercises slot structure (slot, sets, reps, rest_s, notes).\n"
@@ -834,9 +777,8 @@ def generate_daily_week_json(
                 if plan_id_from_ctx and "plan_id" not in parsed:
                     parsed["plan_id"] = plan_id_from_ctx
 
-                # HARD ENFORCEMENT fixed slots + limit strength sessions
+                # POSTPROCESS: fixed slots (už len dopĺňame chýbajúce, nič neorezávame)
                 _apply_fixed_slots_postprocess(parsed, fixed_slots_from_template)
-                _limit_strength_sessions(parsed, fixed_slots_from_template, strength_target)
 
                 if debug_raw:
                     trace["raw"] = raw_keep

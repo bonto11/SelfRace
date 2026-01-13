@@ -538,6 +538,7 @@ def service_auto_extend_daily_plan(
             user_jwt=jwt,
         )
         generated.append(week_idx)
+        
 
         daily_rows = (
             db_list_daily_for_user_horizon(
