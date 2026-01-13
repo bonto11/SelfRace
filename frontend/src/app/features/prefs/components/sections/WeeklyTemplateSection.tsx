@@ -13,7 +13,6 @@ import type {
   TemplateSportKind,
   RunTemplateKind,
   StrengthTemplateKind,
-  SessionPriority,
 } from "@/app/features/prefs/types/prefs";
 import type { DayAbbrev } from "@/app/shared/types/day";
 
@@ -32,8 +31,9 @@ const DAY_ORDER: { value: DayAbbrev; label: string }[] = [
   { value: "Sun", label: "Nedeľa" },
 ];
 
+// sport "" = žiadny pevný tréning v daný deň
 const SPORT_OPTIONS: { value: TemplateSportKind | ""; label: string }[] = [
-  { value: "", label: "— žiadny tréning —" },
+  { value: "", label: "— žiadny fixný tréning —" },
   { value: "run", label: "Beh" },
   { value: "ride", label: "Bicykel" },
   { value: "swim", label: "Plávanie" },
@@ -41,23 +41,7 @@ const SPORT_OPTIONS: { value: TemplateSportKind | ""; label: string }[] = [
   { value: "other", label: "Iné" },
 ];
 
-const PRIORITY_OPTIONS: { value: SessionPriority; label: string }[] = [
-  { value: "key", label: "Kľúčový tréning" },
-  { value: "support", label: "Podporný" },
-  { value: "optional", label: "Voliteľný" },
-];
-
-const MODE_OPTIONS: { value: WeeklyTemplateMode; label: string }[] = [
-  { value: "off", label: "Vypnuté – coach určuje rozloženie" },
-  {
-    value: "loose",
-    label: "Loose – coach rešpektuje, ale môže mierne pohnúť",
-  },
-  {
-    value: "strict",
-    label: "Strict – coach zachová štruktúru (typ tréningu/deň)",
-  },
-];
+const MAX_FIXED_SLOTS = 3;
 
 function kindOptionsForSport(sport: TemplateSportKind | ""): {
   value: RunTemplateKind | StrengthTemplateKind | "other" | "";
@@ -108,9 +92,18 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
   const [open, setOpen] = useState(false);
 
   const mode = (template.mode ?? "off") as WeeklyTemplateMode;
+  const templateEnabled = mode !== "off";
+
+  const fixedCount = useMemo(() => {
+    return (template.days ?? []).reduce((acc, d) => {
+      const slots = d.slots ?? [];
+      const nonEmpty = slots.filter((s) => s && s.sport && s.kind).length;
+      return acc + nonEmpty;
+    }, 0);
+  }, [template]);
 
   const summary = useMemo(() => {
-    if (mode === "off") {
+    if (!templateEnabled) {
       return "Vypnuté – coach si rozloží týždeň podľa cieľov a histórie.";
     }
     const parts: string[] = [];
@@ -118,6 +111,7 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
       const dayT = template.days.find((x) => x.day === d.value);
       if (!dayT || !dayT.slots.length) continue;
       const slot = dayT.slots[0];
+      if (!slot || !slot.sport || !slot.kind) continue;
       const sportLabel =
         SPORT_OPTIONS.find((s) => s.value === slot.sport)?.label ?? "Tréning";
       const kindLabel =
@@ -128,10 +122,10 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
       );
     }
     if (!parts.length) {
-      return "Zapnuté, ale žiadne dni ešte nemajú tréning.";
+      return "Zapnuté, ale nemáš zvolené žiadne fixné tréningy.";
     }
     return parts.join(" · ");
-  }, [mode, template]);
+  }, [templateEnabled, template]);
 
   const updateTemplate = (patch: Partial<WeeklyTemplate>) => {
     onChange({
@@ -145,7 +139,6 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
     const other = template.days.filter((d) => d.day !== day);
     const nextDay: DayTemplate = { ...current, ...patch };
 
-    // ak deň nemá žiadne sloty, vôbec ho neukladaj
     const cleanedSlots = (nextDay.slots ?? []).filter(
       (s) => s && s.sport && s.kind
     );
@@ -157,65 +150,70 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
     updateTemplate({ days: finalDays });
   };
 
-  const updateSlot = (
+  /**
+   * Jednoduchý model:
+   * - max 1 slot na deň
+   * - každý slot je automaticky priority = "key", ai_can_move = false
+   */
+  const updateSingleSlot = (
     day: DayAbbrev,
-    idx: number,
     patch: Partial<SessionTemplate>
   ) => {
     const currentDay = ensureDay(template, day);
-    const slots = [...(currentDay.slots ?? [])];
+    const prev = (currentDay.slots?.[0] ?? {}) as SessionTemplate;
 
-    while (slots.length <= idx) slots.push({} as SessionTemplate);
-
-    const prev = (slots[idx] ?? {}) as SessionTemplate;
-
-    // najprv pôvodný slot + patch
     const merged: SessionTemplate = {
       ...prev,
       ...patch,
     };
 
-    // doplnenie defaultov – ŽIADNE duplikáty v literáli
-    if (!merged.sport) {
-      merged.sport = "run" as TemplateSportKind;
-    }
-    if (!merged.kind) {
-      merged.kind = "easy" as any;
-    }
-    if (!merged.priority) {
-      merged.priority = "support";
-    }
-    if (typeof merged.ai_can_move !== "boolean") {
-      merged.ai_can_move = template.mode !== "strict";
+    const sport = (merged as any).sport as TemplateSportKind | "" | undefined;
+    const kind = (merged as any).kind as
+      | RunTemplateKind
+      | StrengthTemplateKind
+      | "other"
+      | ""
+      | undefined;
+
+    // ak nemáme sport alebo kind → žiadny fixný tréning v tento deň
+    if (!sport || !kind) {
+      updateDay(day, { slots: [] });
+      return;
     }
 
-    // ak po zmene nemá sport ani kind -> vymaž slot
-    if (!merged.sport && !merged.kind) {
-      slots.splice(idx, 1);
-    } else {
-      slots[idx] = merged;
-    }
+    // v jednoduchom modeli sú všetky tieto sloty "key" a pevné
+    merged.priority = "key" as any;
+    (merged as any).ai_can_move = false;
 
-    updateDay(day, { slots });
+    updateDay(day, { slots: [merged] });
   };
 
-  const handleModeChange = (nextMode: WeeklyTemplateMode) => {
-    updateTemplate({ mode: nextMode });
+  const handleToggleEnabled = (enabled: boolean) => {
+    if (!enabled) {
+      updateTemplate({ mode: "off", days: [] });
+    } else {
+      // "loose" tu používame len ako "zapnuté";
+      // BE používa priority+ai_can_move, nie mode.
+      updateTemplate({
+        mode: "loose",
+        days: template.days ?? [],
+      });
+    }
   };
 
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">
-          Weekly template (advanced)
+          Fixné tréningy v týždni (advanced)
         </div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Tu si vieš napevno rozložiť, v ktoré dni chceš aký typ tréningu. Coach potom rieši objem a intenzitu, ale drží sa tvojej štruktúry (najmä v režime Strict)." />
+          <InfoPopover text="Tu si vieš zafixovať max. pár kľúčových tréningov v konkrétnych dňoch (napr. štvrtkové intervaly, sobotný long run). Coach potom doplní ostatné tréningy okolo nich podľa cieľov, objemu a regenerácie." />
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen((o) => !o)}
-            labelWhenOpen="Skryť template"
-            labelWhenClosed="Zobraziť template"
+            labelWhenOpen="Skryť nastavenia"
+            labelWhenClosed="Zobraziť nastavenia"
           />
         </div>
       </div>
@@ -230,111 +228,106 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
 
       {open && (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs opacity-80 mb-1">Režim</div>
-              <SelectField
-                value={mode}
-                onChange={(e) =>
-                  handleModeChange(e.target.value as WeeklyTemplateMode)
-                }
-                options={MODE_OPTIONS}
+          <div
+            className={[
+              SURFACE_INLINE,
+              "px-3 py-2 text-xs leading-relaxed opacity-80 flex flex-col gap-2",
+            ].join(" ")}
+          >
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={templateEnabled}
+                onChange={(e) => handleToggleEnabled(e.target.checked)}
               />
+              <span>Použiť fixné tréningy v týždni (max {MAX_FIXED_SLOTS})</span>
+            </label>
+            <div>
+              Keď je táto možnosť vypnutá, coach si celý týždeň rozloží sám
+              podľa cieľov, pretekov a histórie. Keď ju zapneš, vyberieš si max{" "}
+              {MAX_FIXED_SLOTS} kľúčových tréningov (napr. štvrtkový
+              intervalový beh, sobotný long run) a coach naplánuje zvyšok okolo
+              nich.
             </div>
+            {templateEnabled && fixedCount >= MAX_FIXED_SLOTS && (
+              <div className="text-[11px] text-red-500">
+                Dosiahol si limit {MAX_FIXED_SLOTS} fixných tréningov za týždeň.
+                Ak chceš pridať ďalší, najprv niektorý iný odstráň.
+              </div>
+            )}
+          </div>
+
+          {templateEnabled && (
+            <div className="space-y-2">
+              {DAY_ORDER.map((d) => {
+                const dayT = ensureDay(template, d.value);
+                const slot = (dayT.slots?.[0] ?? {}) as SessionTemplate;
+
+                const sport = (slot?.sport ??
+                  "") as TemplateSportKind | "";
+                const kind = (slot?.kind ?? "") as any;
+
+                const kindOpts = kindOptionsForSport(sport);
+
+                const hasSlot = !!sport && !!kind;
+                const disableNewSlot =
+                  !hasSlot && fixedCount >= MAX_FIXED_SLOTS;
+
+                return (
+                  <div key={d.value} className={SURFACE_INLINE + " p-3"}>
+                    <div className="text-xs font-medium mb-2 opacity-80">
+                      {d.label}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.4fr] gap-2 items-center">
+                      <SelectField
+                        value={sport}
+                        onChange={(e) =>
+                          updateSingleSlot(d.value, {
+                            // "" = žiadny fixný tréning v tento deň
+                            sport: e.target.value as TemplateSportKind,
+                            // keď zmeníš sport, zresetuješ kind
+                            kind: "" as any,
+                          })
+                        }
+                        options={SPORT_OPTIONS}
+                        disabled={disableNewSlot}
+                      />
+                      <SelectField
+                        value={kind}
+                        onChange={(e) =>
+                          updateSingleSlot(d.value, {
+                            kind: e.target.value as any,
+                          })
+                        }
+                        options={kindOpts}
+                        disabled={disableNewSlot || !sport}
+                      />
+                    </div>
+                    {disableNewSlot && !hasSlot && (
+                      <div className="mt-1 text-[11px] text-red-500">
+                        Máš už nastavené {MAX_FIXED_SLOTS} fixné tréningy v
+                        týždni. Najprv niektorý inde vypni.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!templateEnabled && (
             <div
               className={[
                 SURFACE_INLINE,
                 "px-3 py-2 text-xs leading-relaxed opacity-80",
               ].join(" ")}
             >
-              {mode === "off" &&
-                "Vypnuté – coach si sám rozhoduje, kedy dať long run, rýchlosť atď."}
-              {mode === "loose" &&
-                "Loose – týždeň si navrhneš ty, coach sa ho snaží držať, ale môže jemne posunúť tréning kvôli regenerácii."}
-              {mode === "strict" &&
-                "Strict – coach zachová tvoje rozloženie (typy tréningov v konkrétnych dňoch), ale môže upraviť objem/intenzitu, ak je toho príliš."}
+              Fixné tréningy sú vypnuté. Coach bude sám rozhodovať, v ktoré dni
+              dať long run, rýchlostný tréning, silu a podobne. Ak chceš mať
+              napr. „štvrtok vždy intervaly“ alebo „sobota vždy long run“,
+              zapni fixné tréningy a vyber si konkrétne dni.
             </div>
-          </div>
-
-          <div className="space-y-2">
-            {DAY_ORDER.map((d) => {
-              const dayT = ensureDay(template, d.value);
-              const slots = dayT.slots ?? [];
-              const slot0 = slots[0] ?? ({} as SessionTemplate);
-              const slot1 = slots[1] ?? ({} as SessionTemplate);
-
-              const renderSlot = (idx: number, slot: SessionTemplate) => {
-                const sport = (slot?.sport ?? "") as TemplateSportKind | "";
-                const kind = (slot?.kind ?? "") as any;
-                const priority = (slot?.priority ??
-                  "support") as SessionPriority;
-                const aiCanMove =
-                  slot?.ai_can_move ??
-                  (template.mode !== "strict" ? true : false);
-
-                const kindOpts = kindOptionsForSport(sport);
-
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.2fr_0.9fr_auto] gap-2">
-                    <SelectField
-                      value={sport}
-                      onChange={(e) =>
-                        updateSlot(d.value, idx, {
-                          sport: e.target.value as TemplateSportKind,
-                          // keď zmeníš sport, zresetuj kind
-                          kind: "" as any,
-                        })
-                      }
-                      options={SPORT_OPTIONS}
-                    />
-                    <SelectField
-                      value={kind}
-                      onChange={(e) =>
-                        updateSlot(d.value, idx, {
-                          kind: e.target.value as any,
-                        })
-                      }
-                      options={kindOpts}
-                    />
-                    <SelectField
-                      value={priority}
-                      onChange={(e) =>
-                        updateSlot(d.value, idx, {
-                          priority: e.target.value as SessionPriority,
-                        })
-                      }
-                      options={PRIORITY_OPTIONS}
-                    />
-                    <label className="flex items-center gap-1 text-[11px] opacity-80">
-                      <input
-                        type="checkbox"
-                        checked={!!aiCanMove}
-                        onChange={(e) =>
-                          updateSlot(d.value, idx, {
-                            ai_can_move: e.target.checked,
-                          })
-                        }
-                      />
-                      <span>AI môže presunúť</span>
-                    </label>
-                  </div>
-                );
-              };
-
-              return (
-                <div key={d.value} className={SURFACE_INLINE + " p-3"}>
-                  <div className="text-xs font-medium mb-2 opacity-80">
-                    {d.label}
-                  </div>
-                  <div className="space-y-2">
-                    {renderSlot(0, slot0)}
-                    {/* druhý slot – voliteľný */}
-                    {renderSlot(1, slot1)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          )}
         </div>
       )}
     </section>
