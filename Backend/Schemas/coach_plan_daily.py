@@ -28,6 +28,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["none"],
         "muscle_groups": ["quads", "glutes"],
         "level": "easy",
+        "effectiveness": 3,  # základný full-body drep bez záťaže
     },
     {
         "id": "split_squat",
@@ -35,6 +36,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["box"],
         "muscle_groups": ["quads", "glutes"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "box_stepup",
@@ -42,6 +44,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["box"],
         "muscle_groups": ["quads", "glutes"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "barbell_back_squat",
@@ -49,6 +52,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["barbell"],
         "muscle_groups": ["quads", "glutes"],
         "level": "hard",
+        "effectiveness": 5,  # top cvik na nohy
     },
     {
         "id": "leg_press_machine",
@@ -56,6 +60,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["leg_press_machine"],
         "muscle_groups": ["quads", "glutes"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "dumbbell_lunge_walk",
@@ -63,6 +68,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["dumbbells"],
         "muscle_groups": ["quads", "glutes"],
         "level": "medium",
+        "effectiveness": 4,
     },
 
     # ---------- LOWER POSTERIOR / HAMSTRINGS ----------
@@ -72,6 +78,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["none"],
         "muscle_groups": ["glutes", "hamstrings"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "single_leg_deadlift_band",
@@ -79,6 +86,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["resistance_bands"],
         "muscle_groups": ["hamstrings", "glutes"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "romanian_deadlift_barbell",
@@ -86,6 +94,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["barbell"],
         "muscle_groups": ["hamstrings", "glutes"],
         "level": "hard",
+        "effectiveness": 5,
     },
     {
         "id": "hip_thrust_barbell",
@@ -93,6 +102,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["barbell", "bench"],
         "muscle_groups": ["glutes", "hamstrings"],
         "level": "medium",
+        "effectiveness": 5,
     },
     {
         "id": "hamstring_curl_machine",
@@ -100,6 +110,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["hamstring_curl_machine"],
         "muscle_groups": ["hamstrings"],
         "level": "medium",
+        "effectiveness": 4,
     },
 
     # ---------- CORE ----------
@@ -109,6 +120,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["none"],
         "muscle_groups": ["core"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "side_plank",
@@ -116,6 +128,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["none"],
         "muscle_groups": ["core"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "abwheel_rollout",
@@ -123,6 +136,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["abwheel"],
         "muscle_groups": ["core"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "cable_chop",
@@ -130,6 +144,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["cable_machine"],
         "muscle_groups": ["core"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "hanging_knee_raise",
@@ -137,6 +152,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["pullup_bar"],
         "muscle_groups": ["core"],
         "level": "medium",
+        "effectiveness": 4,
     },
 
     # ---------- UPPER PULL (BACK / BICEPS) ----------
@@ -146,6 +162,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["none"],
         "muscle_groups": ["back", "biceps"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "trx_row",
@@ -153,6 +170,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["trx"],
         "muscle_groups": ["back", "biceps"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "band_row",
@@ -160,6 +178,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["resistance_bands"],
         "muscle_groups": ["back", "biceps"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "lat_pulldown_machine",
@@ -167,6 +186,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["lat_pulldown_machine"],
         "muscle_groups": ["back", "biceps"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "seated_row_machine",
@@ -174,6 +194,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["row_machine"],
         "muscle_groups": ["back", "biceps"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "pullup_assisted",
@@ -181,6 +202,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["pullup_bar", "assisted_machine"],
         "muscle_groups": ["back", "biceps"],
         "level": "medium",
+        "effectiveness": 4,
     },
 
     # ---------- UPPER PUSH (CHEST / SHOULDERS / TRICEPS) ----------
@@ -190,6 +212,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["none"],
         "muscle_groups": ["chest", "triceps", "core"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "bench_press_barbell",
@@ -197,6 +220,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["barbell", "bench"],
         "muscle_groups": ["chest", "triceps"],
         "level": "medium",
+        "effectiveness": 5,
     },
     {
         "id": "incline_db_press",
@@ -204,6 +228,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["dumbbells", "bench"],
         "muscle_groups": ["chest", "shoulders", "triceps"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "shoulder_press_dumbbell",
@@ -211,6 +236,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["dumbbells"],
         "muscle_groups": ["shoulders", "triceps"],
         "level": "medium",
+        "effectiveness": 4,
     },
     {
         "id": "chest_press_machine",
@@ -218,6 +244,7 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["chest_press_machine"],
         "muscle_groups": ["chest", "triceps"],
         "level": "easy",
+        "effectiveness": 3,
     },
     {
         "id": "dip_assisted",
@@ -225,5 +252,6 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["assisted_machine"],
         "muscle_groups": ["chest", "triceps"],
         "level": "medium",
+        "effectiveness": 4,
     },
 ]

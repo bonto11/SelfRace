@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple, Optional, Set
 from Schemas.coach_plan_daily import STRENGTH_EXERCISE_CATALOG
 from Routes_DB.coach_strength_history import (
     db_get_strength_history_for_user,  # -> List[Dict]
-    db_insert_strength_history_rows,  # -> int
+    db_insert_strength_history_rows,   # -> int
 )
 from Services.users import require_jwt
 
@@ -100,7 +100,7 @@ def _find_ex_by_id(ex_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _pick_exercise_for_slot(
+def _rank_exercises_for_slot(
     user_id: int,  # zatiaľ nevyužité, nechávam pre budúce rozšírenia
     slot: str,
     available_equipment: List[str],
@@ -108,19 +108,18 @@ def _pick_exercise_for_slot(
     today: date,
     lookback_days: int = 28,
     used_in_session: Optional[Set[str]] = None,
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
-    Vyberie konkrétny cvik pre daný slot na základe:
-      - kandidátov zo SLOT_TO_EXERCISES,
-      - dostupného vybavenia,
-      - histórie za posledných lookback_days,
-      - toho, čo už bolo vybrané v rámci danej session (used_in_session).
+    Vráti kandidátov pre slot zoradených podľa skóre (najlepší prvý).
 
-    Cieľ:
-      - v rámci jedného tréningu nepoužiť ten istý cvik dvakrát,
-        pokiaľ existujú alternatívy,
-      - ak je dostupný full gym, preferovať cviky s činkami / strojmi
-        pred čistým bodyweightom.
+    Skóre:
+      - základ: effectiveness (1–5) * 10
+      - bonus za gym vybavenie (keď ho máš k dispozícii)
+      - penalizácia za časté použitie v posledných týždňoch
+      - bonus, keď cvik dlho nebol použitý
+
+    Zároveň sa snažíme, aby v rámci jednej SESSION nebol ten istý cvik použitý
+    dvakrát (pokiaľ existujú alternatívy) – na to slúži used_in_session.
     """
     used_in_session = used_in_session or set()
 
@@ -132,7 +131,6 @@ def _pick_exercise_for_slot(
 
     # ak po vybavení nič neostane, stále chceme niečo pre daný slot
     if not candidates:
-        # skúsiť default pre slot
         default_id = DEFAULT_EXERCISE_FOR_SLOT.get(slot)
         if default_id:
             ex = _find_ex_by_id(default_id)
@@ -140,9 +138,8 @@ def _pick_exercise_for_slot(
                 candidates = [ex]
 
     if not candidates:
-        # ultimate fallback – prvý z katalógu; toto by už malo nastať len pri
-        # nejakej nekonzistencii v dátach
-        return STRENGTH_EXERCISE_CATALOG[0]
+        # ultimate fallback – teoreticky by sa to nemalo stať
+        return [STRENGTH_EXERCISE_CATALOG[0]]
 
     # vyradíme cviky, ktoré už sú v rámci tejto session použité – ale len vtedy,
     # ak nám po odfiltrovaní ostane aspoň jeden kandidát
@@ -151,10 +148,13 @@ def _pick_exercise_for_slot(
         candidates = filtered
 
     cutoff = today - timedelta(days=lookback_days)
+    many_equipment = len([eq for eq in available_equipment if eq != "none"]) >= 4
 
-    scores: List[Tuple[float, Dict[str, Any]]] = []
+    scored: List[Tuple[float, Dict[str, Any]]] = []
+
     for ex in candidates:
         ex_id = ex["id"]
+        eff = float(ex.get("effectiveness") or 3)
 
         uses_dates: List[date] = []
         for h in history:
@@ -167,29 +167,29 @@ def _pick_exercise_for_slot(
         uses_count = len(uses_dates)
         last_date = max(uses_dates) if uses_dates else None
 
-        # base score
-        score = 1.0
+        # base score z effectiveness
+        score = eff * 10.0
 
-        # bonus za "gym" vybavenie – nech pri full gyme ide radšej do činiek/strojov
+        # bonus za to, že cvik používa gym vybavenie – ale len ak user má fakt "full gym"
         eqs = ex.get("equipment") or []
-        if any(eq not in ("none",) for eq in eqs):
-            score += 0.35  # preferuj niečo, čo využíva gym
+        if many_equipment and any(eq not in ("none",) for eq in eqs):
+            score += 5.0
 
         # penalizácia za časté použitie
-        score -= 0.4 * uses_count
+        score -= 2.0 * uses_count
 
         # bonus za to, že dlho nebol použitý
         if last_date is None:
-            score += 1.0  # ešte nepoužitý za lookback
+            score += 5.0  # ešte nepoužitý za lookback
         else:
             days_since = (today - last_date).days
-            score += min(days_since / 7 * 0.2, 1.0)  # +0.2 za týždeň, max +1.0
+            # +1 bod za každý týždeň pauzy, max +5
+            score += min(days_since / 7.0, 5.0)
 
-        scores.append((score, ex))
+        scored.append((score, ex))
 
-    scores.sort(key=lambda x: x[0], reverse=True)
-    best_ex = scores[0][1]
-    return best_ex
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [ex for _, ex in scored]
 
 
 def enrich_daily_plan_with_strength_exercises(
@@ -205,6 +205,7 @@ def enrich_daily_plan_with_strength_exercises(
     """
     Vezme AI daily_plan so strength_exercises slotmi a:
       - doplní ku každému slotu konkrétny exercise_id + exercise_name,
+      - pridá aj zoznam options (2–3 možnosti) pre FE,
       - pripraví históriu na INSERT do DB,
       - vráti upravený daily_plan.
 
@@ -213,10 +214,8 @@ def enrich_daily_plan_with_strength_exercises(
       - service=True  → service DB klient, user_jwt môže byť None.
     """
     if service:
-        # service režim – DB vrstva si podľa `service=True` vyberie service klienta
         jwt = user_jwt
     else:
-        # klasický RLS režim
         jwt = require_jwt(user_jwt)
 
     # 1) vytiahneme históriu
@@ -253,10 +252,10 @@ def enrich_daily_plan_with_strength_exercises(
             if not isinstance(slots, list) or not slots:
                 continue
 
-            # v rámci jednej session nechceme duplicitné cviky
+            # v rámci jednej session nechceme duplicitné PRIMÁRNE cviky
             used_in_session: Set[str] = set()
-
             enriched_slots: List[Dict[str, Any]] = []
+
             for slot_item in slots:
                 if not isinstance(slot_item, dict):
                     continue
@@ -270,7 +269,7 @@ def enrich_daily_plan_with_strength_exercises(
                 rest_s = slot_item.get("rest_s")
                 notes = slot_item.get("notes")
 
-                ex = _pick_exercise_for_slot(
+                ranked = _rank_exercises_for_slot(
                     user_id=user_id,
                     slot=slot,
                     available_equipment=available_equipment,
@@ -278,7 +277,19 @@ def enrich_daily_plan_with_strength_exercises(
                     today=session_date,
                     used_in_session=used_in_session,
                 )
-                used_in_session.add(ex["id"])
+
+                best_ex = ranked[0]
+                used_in_session.add(best_ex["id"])
+
+                # top 2–3 možnosti pre FE (primary + alternatívy)
+                max_options = 3
+                options = [
+                    {
+                        "exercise_id": ex["id"],
+                        "exercise_name": ex["name"],
+                    }
+                    for ex in ranked[:max_options]
+                ]
 
                 enriched = {
                     "slot": slot,
@@ -286,8 +297,9 @@ def enrich_daily_plan_with_strength_exercises(
                     "reps": reps,
                     "rest_s": rest_s,
                     "notes": notes,
-                    "exercise_id": ex["id"],
-                    "exercise_name": ex["name"],
+                    "exercise_id": best_ex["id"],
+                    "exercise_name": best_ex["name"],
+                    "options": options,
                 }
                 enriched_slots.append(enriched)
 
@@ -296,7 +308,7 @@ def enrich_daily_plan_with_strength_exercises(
                         "user_id": user_id,
                         "session_date": session_date,
                         "slot": slot,
-                        "exercise_id": ex["id"],
+                        "exercise_id": best_ex["id"],
                     }
                 )
                 new_history_rows.append(
@@ -306,11 +318,11 @@ def enrich_daily_plan_with_strength_exercises(
                         "plan_id": daily_plan.get("plan_id"),
                         "session_index": idx,
                         "slot": slot,
-                        "exercise_id": ex["id"],
+                        "exercise_id": best_ex["id"],
                     }
                 )
 
-            # zapíš späť do structure + voliteľne top-level
+            # zapíš späť do structure + top-level
             session.setdefault("structure", {})["strength_exercises"] = enriched_slots
             session["strength_exercises"] = enriched_slots
 
