@@ -12,12 +12,19 @@ import { apiSyncActivities } from "@/app/features/activities/api/synchronization
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 import { confirm } from "@/app/shared/components/ui/Confirm";
 import { API_URL } from "@/app/shared/config";
+import {
+  apiGetStravaStatus,
+  type StravaStatus,
+} from "@/app/features/strava/api/status";
 
 type BusyKind = "reload" | "import" | null;
 
 export default function StravaPanel() {
   const { userId } = useUserId();
   const [busy, setBusy] = useState<BusyKind>(null);
+
+  const [status, setStatus] = useState<StravaStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -27,20 +34,46 @@ export default function StravaPanel() {
     ? `${API_URL}/api/strava/oauth/start?user_id=${userId}`
     : null;
 
-  // Po návrate z /api/strava/oauth/callback príde ?strava=ok|error
+  // --- načítanie statusu ---
   useEffect(() => {
-    const status = searchParams.get("strava");
-    if (!status) return;
+    if (!userId) {
+      setStatus(null);
+      return;
+    }
 
-    if (status === "ok") {
+    setStatusLoading(true);
+    apiGetStravaStatus(userId)
+      .then((s) => setStatus(s))
+      .catch((e) => {
+        console.error("[StravaPanel] status error:", e);
+      })
+      .finally(() => setStatusLoading(false));
+  }, [userId]);
+
+  // --- callback z OAuth (?strava=ok|error) ---
+  useEffect(() => {
+    const s = searchParams.get("strava");
+    if (!s) return;
+
+    if (s === "ok") {
       toast.success("Strava účet bol úspešne prepojený.");
-    } else if (status === "error") {
+      // po úspechu načítame čerstvý status
+      if (userId) {
+        setStatusLoading(true);
+        apiGetStravaStatus(userId)
+          .then((st) => setStatus(st))
+          .catch((e) =>
+            console.error("[StravaPanel] status reload error:", e),
+          )
+          .finally(() => setStatusLoading(false));
+      }
+    } else if (s === "error") {
       toast.error("Pripojenie Strava účtu zlyhalo. Skús to znova.");
     }
 
-    // odstráň query param, nech to netoastuje pri každom reloade
+    // odstránime query param, nech to netoastuje pri každom reloade
     router.replace(pathname);
-  }, [searchParams, pathname, router]);
+  }, [searchParams, pathname, router, userId]);
 
   async function handleReloadData() {
     if (busy) return;
@@ -62,7 +95,6 @@ export default function StravaPanel() {
     }
     if (busy) return;
 
-    // 1. krok – jemné potvrdenie
     const step1 = await confirm({
       title: "Importovať aktivity zo Stravy?",
       message:
@@ -72,7 +104,6 @@ export default function StravaPanel() {
     });
     if (!step1) return;
 
-    // 2. krok – „are you sure“ s danger tónom
     const step2 = await confirm({
       title: "Naozaj spustiť import?",
       message:
@@ -86,7 +117,7 @@ export default function StravaPanel() {
     setBusy("import");
     try {
       const stats: SyncActivitiesStats = await apiSyncActivities(userId, {
-        forceLastDays: 50, // ⬅️ backfill max 50 dní (BE má ešte limity na ~200 aktivít)
+        forceLastDays: 50, // BE má ešte cap na ~200 aktivít
         fetchDetails: true,
       });
 
@@ -108,6 +139,13 @@ export default function StravaPanel() {
 
   const disabled = !userId || busy !== null;
 
+  const statusLabel = (() => {
+    if (!userId) return "Neprihlásený";
+    if (statusLoading) return "Kontrolujem…";
+    if (!status || !status.connected) return "Neprepojené";
+    return `Prepojené (athlete #${status.athlete_id})`;
+  })();
+
   return (
     <section className="space-y-4 rounded-xl border border-white/10 bg-black/20 px-4 py-4">
       <header className="flex items-center justify-between gap-2">
@@ -117,9 +155,14 @@ export default function StravaPanel() {
             Prepojenie účtu, reload cache a manuálny import aktivít.
           </p>
         </div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-60">
-          Powered by Strava
-        </p>
+        <div className="flex flex-col items-end gap-1">
+          <span className="rounded-full border border-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide opacity-80">
+            {statusLabel}
+          </span>
+          <p className="text-[10px] font-semibold uppercase tracking-wide opacity-60">
+            Powered by Strava
+          </p>
+        </div>
       </header>
 
       <div className="space-y-3 text-sm">
