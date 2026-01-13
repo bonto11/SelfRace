@@ -139,9 +139,9 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
     const other = template.days.filter((d) => d.day !== day);
     const nextDay: DayTemplate = { ...current, ...patch };
 
-    const cleanedSlots = (nextDay.slots ?? []).filter(
-      (s) => s && s.sport && s.kind
-    );
+    // v state necháme každý slot, ktorý má šport; kind môže byť dočasne prázdny
+    const cleanedSlots = (nextDay.slots ?? []).filter((s) => s && s.sport);
+
     const finalDays =
       cleanedSlots.length === 0
         ? other
@@ -240,14 +240,15 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
                 checked={templateEnabled}
                 onChange={(e) => handleToggleEnabled(e.target.checked)}
               />
-              <span>Použiť fixné tréningy v týždni (max {MAX_FIXED_SLOTS})</span>
+              <span>
+                Použiť fixné tréningy v týždni (max {MAX_FIXED_SLOTS})
+              </span>
             </label>
             <div>
               Keď je táto možnosť vypnutá, coach si celý týždeň rozloží sám
               podľa cieľov, pretekov a histórie. Keď ju zapneš, vyberieš si max{" "}
-              {MAX_FIXED_SLOTS} kľúčových tréningov (napr. štvrtkový
-              intervalový beh, sobotný long run) a coach naplánuje zvyšok okolo
-              nich.
+              {MAX_FIXED_SLOTS} kľúčových tréningov (napr. štvrtkový intervalový
+              beh, sobotný long run) a coach naplánuje zvyšok okolo nich.
             </div>
             {templateEnabled && fixedCount >= MAX_FIXED_SLOTS && (
               <div className="text-[11px] text-red-500">
@@ -263,8 +264,7 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
                 const dayT = ensureDay(template, d.value);
                 const slot = (dayT.slots?.[0] ?? {}) as SessionTemplate;
 
-                const sport = (slot?.sport ??
-                  "") as TemplateSportKind | "";
+                const sport = (slot?.sport ?? "") as TemplateSportKind | "";
                 const kind = (slot?.kind ?? "") as any;
 
                 const kindOpts = kindOptionsForSport(sport);
@@ -324,8 +324,8 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
             >
               Fixné tréningy sú vypnuté. Coach bude sám rozhodovať, v ktoré dni
               dať long run, rýchlostný tréning, silu a podobne. Ak chceš mať
-              napr. „štvrtok vždy intervaly“ alebo „sobota vždy long run“,
-              zapni fixné tréningy a vyber si konkrétne dni.
+              napr. „štvrtok vždy intervaly“ alebo „sobota vždy long run“, zapni
+              fixné tréningy a vyber si konkrétne dni.
             </div>
           )}
         </div>
