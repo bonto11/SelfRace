@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/components/ui/Button";
@@ -18,18 +19,37 @@ export default function StravaPanel() {
   const { userId } = useUserId();
   const [busy, setBusy] = useState<BusyKind>(null);
 
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
   const stravaConnectUrl = userId
     ? `${API_URL}/api/strava/oauth/start?user_id=${userId}`
     : null;
+
+  // Po návrate z /api/strava/oauth/callback príde ?strava=ok|error
+  useEffect(() => {
+    const status = searchParams.get("strava");
+    if (!status) return;
+
+    if (status === "ok") {
+      toast.success("Strava účet bol úspešne prepojený.");
+    } else if (status === "error") {
+      toast.error("Pripojenie Strava účtu zlyhalo. Skús to znova.");
+    }
+
+    // odstráň query param, nech to netoastuje pri každom reloade
+    router.replace(pathname);
+  }, [searchParams, pathname, router]);
 
   async function handleReloadData() {
     if (busy) return;
     setBusy("reload");
     try {
       resetClientCache();
-      toast.success("Reloaded data.");
+      toast.success("Dáta boli znovu načítané.");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to reload data.");
+      toast.error(e?.message || "Nepodarilo sa reloadnúť dáta.");
     } finally {
       setBusy(null);
     }
@@ -37,7 +57,7 @@ export default function StravaPanel() {
 
   async function handleImportFromStrava() {
     if (!userId) {
-      toast.error("Missing user id.");
+      toast.error("Chýba user id – skús sa znova prihlásiť.");
       return;
     }
     if (busy) return;
@@ -46,7 +66,7 @@ export default function StravaPanel() {
     const step1 = await confirm({
       title: "Importovať aktivity zo Stravy?",
       message:
-        "Spustí sa import posledných 30 dní aktivít (vrátane detailov). Môže to chvíľu trvať.",
+        "Spustí sa import priblížne posledných 50 dní alebo max. ~200 najnovších aktivít (vrátane detailov). Môže to chvíľu trvať.",
       okText: "Pokračovať",
       cancelText: "Zrušiť",
     });
@@ -56,7 +76,7 @@ export default function StravaPanel() {
     const step2 = await confirm({
       title: "Naozaj spustiť import?",
       message:
-        "Ak máš veľa aktivít, import môže chvíľu bežať a prepíše staré záznamy (import/update/skipped).",
+        "Existujúce záznamy sa len aktualizujú (import/update/skipped). Nevymažeme nič, ale import môže chvíľu bežať.",
       okText: "Spustiť import",
       cancelText: "Zrušiť",
       tone: "danger",
@@ -66,7 +86,7 @@ export default function StravaPanel() {
     setBusy("import");
     try {
       const stats: SyncActivitiesStats = await apiSyncActivities(userId, {
-        forceLastDays: 30,
+        forceLastDays: 50, // ⬅️ backfill max 50 dní (BE má ešte limity na ~200 aktivít)
         fetchDetails: true,
       });
 
@@ -75,12 +95,12 @@ export default function StravaPanel() {
       const skp = stats.skipped ?? 0;
 
       toast.success(
-        `Import from Strava OK • imported: ${imp} • updated: ${upd} • skipped: ${skp}`,
+        `Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`,
       );
 
       resetClientCache();
     } catch (e: any) {
-      toast.error(e?.message || "Import from Strava failed.");
+      toast.error(e?.message || "Import zo Stravy zlyhal.");
     } finally {
       setBusy(null);
     }
@@ -89,39 +109,44 @@ export default function StravaPanel() {
   const disabled = !userId || busy !== null;
 
   return (
-    <section className="rounded-xl border border-white/10 bg-black/20 px-4 py-4 space-y-4">
+    <section className="space-y-4 rounded-xl border border-white/10 bg-black/20 px-4 py-4">
       <header className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Strava</h2>
           <p className="mt-1 text-xs opacity-70">
-            Prepojenie účtu, reload cache a manuálny import posledných 30 dní.
+            Prepojenie účtu, reload cache a manuálny import aktivít.
           </p>
         </div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-60">
+          Powered by Strava
+        </p>
       </header>
 
       <div className="space-y-3 text-sm">
+        {/* 1) Connect with Strava */}
         <div className="space-y-1">
           <div className="text-xs font-semibold opacity-80">
             1. Prepojenie účtu
           </div>
           <p className="text-xs opacity-70">
-            Otvorí Strava autorizáciu v novom okne. Po potvrdení ťa presmeruje
-            späť sem.
+            Otvorí oficiálne Strava okno na prihlásenie. Po potvrdení ťa Strava
+            presmeruje späť do aplikácie.
           </p>
           <Button
             size="sm"
             variant="primary"
-            disabled={!stravaConnectUrl}
+            disabled={!stravaConnectUrl || disabled}
             onClick={() => {
-              if (!stravaConnectUrl) return;
+              if (!stravaConnectUrl || disabled) return;
               window.location.href = stravaConnectUrl;
             }}
           >
-            Pripojiť Strava
+            Connect with Strava
           </Button>
         </div>
 
-        <div className="space-y-1 pt-2 border-t border-white/10">
+        {/* 2) Reload cache */}
+        <div className="space-y-1 border-t border-white/10 pt-2">
           <div className="text-xs font-semibold opacity-80">2. Reload dát</div>
           <p className="text-xs opacity-70">
             Vyčistí lokálnu cache (aktivity, plány, prefs) a natiahne čerstvé
@@ -136,7 +161,7 @@ export default function StravaPanel() {
             {busy === "reload" ? (
               <span className="inline-flex items-center gap-1">
                 <LoadingSpinner size="button" />
-                Reloading…
+                Reloadujem…
               </span>
             ) : (
               "Reload data"
@@ -144,13 +169,15 @@ export default function StravaPanel() {
           </Button>
         </div>
 
-        <div className="space-y-1 pt-2 border-t border-white/10">
+        {/* 3) Manuálny import */}
+        <div className="space-y-1 border-t border-white/10 pt-2">
           <div className="text-xs font-semibold opacity-80">
-            3. Import z&nbsp;Stravy
+            3. Import zo&nbsp;Stravy
           </div>
           <p className="text-xs opacity-70">
-            Manuálny import posledných 30 dní aktivít. Ak existujú v DB, záznamy
-            sa updatnú, inak sa vytvoria nové.
+            Manuálny import približne posledných 50 dní alebo max. ~200
+            najnovších aktivít. Existujúce záznamy sa aktualizujú, nové sa
+            vytvoria.
           </p>
           <Button
             size="sm"
