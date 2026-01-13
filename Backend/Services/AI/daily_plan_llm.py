@@ -161,7 +161,7 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     return ctx2
 
 
-# ---------- fixed slots helper ----------
+# ---------- fixed slots helper (len ako soft preferencie do promptu) ----------
 
 WEEKDAY_ORDER: Dict[str, int] = {
     "Mon": 0,
@@ -179,7 +179,8 @@ def _derive_fixed_slots(
     max_fixed: int = 7,
 ) -> List[Dict[str, Any]]:
     """
-    Z weekly_template vyberie pevné sloty (priority == key, ai_can_move != True).
+    Z weekly_template vyberie sloty s priority == key (ai_can_move môže byť čokoľvek).
+    Používame ich len ako PREFERENCIE v promptoch, nie ako tvrdé pravidlá.
     """
     if not isinstance(weekly_template, dict):
         return []
@@ -205,12 +206,9 @@ def _derive_fixed_slots(
             if not isinstance(s, dict):
                 continue
             priority = s.get("priority")
-            ai_can_move = s.get("ai_can_move")
             sport = s.get("sport")
             kind = s.get("kind")
             if priority != "key":
-                continue
-            if ai_can_move is True:
                 continue
             if not (day_name and sport and kind):
                 continue
@@ -239,108 +237,6 @@ def _weekday_name_from_iso(date_str: str) -> Optional[str]:
     return _WEEKDAY_NAMES[d.weekday()]
 
 
-def _apply_fixed_slots_postprocess(
-    daily_plan: Dict[str, Any],
-    fixed_slots: List[Dict[str, Any]],
-) -> None:
-    """
-    Post-processing pre weekly_template:
-
-    - NIČ nevyhadzuje ani nemení na rest day.
-    - Garantuje, že v dňoch z weekly_template existuje aspoň jedna session
-      s daným 'sport' (a pri run/long ju označí ako long_run).
-    - Ak sport v daný deň úplne chýba, PRIDÁ novú session.
-    """
-    if not fixed_slots or not isinstance(daily_plan, dict):
-        return
-
-    days = daily_plan.get("days")
-    if not isinstance(days, list):
-        return
-
-    # weekday -> list dní v tomto týždni
-    days_by_weekday: Dict[str, List[Dict[str, Any]]] = {}
-    for d in days:
-        if not isinstance(d, dict):
-            continue
-        date_str = d.get("date")
-        if not isinstance(date_str, str):
-            continue
-        wd = _weekday_name_from_iso(date_str)
-        if not wd:
-            continue
-        days_by_weekday.setdefault(wd, []).append(d)
-
-    for slot in fixed_slots:
-        weekday = slot.get("weekday") or slot.get("day")
-        sport = slot.get("sport")
-        kind = slot.get("kind")
-        if not (weekday and sport and kind):
-            continue
-
-        day_list = days_by_weekday.get(weekday)
-        if not day_list:
-            # v tomto týždni nemáme pre daný weekday žiadny deň (skrátený týždeň)
-            continue
-
-        day = day_list[0]
-        sessions = day.get("sessions") or []
-        if not isinstance(sessions, list):
-            sessions = []
-            day["sessions"] = sessions
-
-        # 1) Existuje session s daným sportom?
-        same_sport_sessions: List[Dict[str, Any]] = [
-            s
-            for s in sessions
-            if isinstance(s, dict)
-            and (s.get("sport") or "").lower() == sport.lower()
-        ]
-
-        if same_sport_sessions:
-            # run/long → označ ako long_run, ale nemeníme duráciu/intenzitu
-            if sport == "run" and kind == "long":
-                already_long = any(
-                    (s.get("session_type") or "") == "long_run"
-                    for s in same_sport_sessions
-                )
-                if not already_long:
-                    s0 = same_sport_sessions[0]
-                    s0["session_type"] = "long_run"
-                    if not s0.get("title"):
-                        s0["title"] = "Dlhý beh"
-                    if not s0.get("intensity"):
-                        s0["intensity"] = "easy"
-            # strength – ak tam nejaká je, necháme presne tak, ako ju navrhla AI
-            continue
-
-        # 2) Sport v daný deň úplne chýba → pridáme novú session
-        new_session: Dict[str, Any] = {
-            "sport": sport,
-            "duration_min": 40 if sport == "strength" else 60,
-            "intensity": "easy" if sport == "run" else "moderate",
-            "session_type": None,
-            "title": "",
-            "notes": "",
-            "structure": {},
-        }
-
-        if sport == "strength":
-            new_session["session_type"] = "strength"
-            new_session["title"] = "Silový tréning – celé telo"
-            new_session[
-                "notes"
-            ] = "Zameraj sa na celé telo, základné cviky a kontrolované tempo."
-        elif sport == "run" and kind == "long":
-            new_session["session_type"] = "long_run"
-            new_session["title"] = "Dlhý beh"
-            new_session[
-                "notes"
-            ] = "Bež v nízkej intenzite, aby si budoval aeróbnu vytrvalosť."
-
-        sessions.append(new_session)
-
-
 # ---------- prompt builder ----------
 
 
@@ -351,6 +247,8 @@ def _build_prompts_for_daily(
 ) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
     """
     Vráti (system_prompt, user_prompt, fixed_slots, strength_target).
+    fixed_slots sa používajú len ako info/preferencie v promte (SOFT),
+    nie na tvrdý server-side postprocessing.
     """
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
@@ -404,7 +302,7 @@ def _build_prompts_for_daily(
 
     if wt_mode == "off" or not fixed_slots:
         weekly_template_line = (
-            "- Fixed template sessions: none. Use only days_off, long_run_days "
+            "- Weekly template: none. Use only days_off, long_run_days "
             "and external events to distribute the week.\n"
         )
     else:
@@ -412,14 +310,12 @@ def _build_prompts_for_daily(
             f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in fixed_slots
         )
         weekly_template_line = (
-            "- User provided FIXED TEMPLATE SESSIONS for this plan.\n"
-            f"  Fixed slots (weekday: sport/kind): {fixed_human}.\n"
-            "- For each calendar date between week_start and week_end, determine its weekday name (Mon..Sun).\n"
-            "- If the weekday matches one of these fixed slots, you MUST schedule exactly one session "
-            "with the same sport and general type (kind) on that date.\n"
-            "- You must NOT move these sessions to another weekday and you must NOT replace them by a different sport "
-            "or type (e.g. keep 'run/long' as the long run day, keep 'strength/full' as a full body strength day).\n"
-            "- You may only soften these fixed sessions if recovery/plan_adjustment or serious external events require it.\n"
+            "- User provided PREFERRED TEMPLATE DAYS for this plan (SOFT preference, not a hard rule).\n"
+            f"  Preferred slots (weekday: sport/kind): {fixed_human}.\n"
+            "- When you schedule STRENGTH sessions and LONG RUNS, strongly prefer these weekdays\n"
+            "  as long as it does NOT conflict with recovery, days_off, or important external events.\n"
+            "- If you need to move a preferred session (e.g. because of high fatigue or a match),\n"
+            "  keep the total weekly structure sensible and minimise such changes.\n"
         )
 
     volume_prefs = prefs.get("volume") or {}
@@ -597,7 +493,7 @@ def _build_prompts_for_daily(
     if settings:
         context_for_ai["user_settings"] = settings
     if fixed_slots:
-        context_for_ai["fixed_slots"] = fixed_slots
+        context_for_ai["fixed_slots"] = fixed_slots  # len info, žiadny hard rule
 
     external_hint = (
         "- The context may contain an `external_events` block with concrete occurrences "
@@ -636,12 +532,11 @@ def _build_prompts_for_daily(
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array; rest day = one session with sport 'other' and session_type 'rest_day'.\n"
         "- Respect prefs.days_off, long_run_days and avoid hard run sessions on days with high-intensity external events.\n"
-        "- If `fixed_slots` is present in CONTEXT_JSON, you MUST:\n"
-        "    * For each date in [week_start, week_end] find its weekday (Mon..Sun).\n"
-        "    * If there is a fixed_slot for that weekday, create exactly one key session with the same sport and kind.\n"
-        "    * Do not add another hard/key session of the same sport on that day.\n"
+        "- Treat any weekly_template / fixed_slots information as SOFT preferences for which weekdays\n"
+        "  to place strength sessions and long runs. Follow them when possible without breaking\n"
+        "  recovery rules, days_off or important external events.\n"
         f"{avoid_two_a_day_str}"
-        f"{avoid_back_to_back_hard_str}\n"
+        f"{avoid_back_to_back_hard_str}"
         "- Use hard_sessions_per_week_max from athlete_state.intensity_tolerance to cap total hard sessions (including external events).\n"
         "- If strength.sessions_per_week >= 1, schedule approximately that many strength sessions distributed through the week.\n"
         "- For strength sessions, use only the strength_exercises slot structure (slot, sets, reps, rest_s, notes).\n"
@@ -683,6 +578,8 @@ def generate_daily_week_json(
     AI client pre DAILY PLAN jedného týždňa.
 
     Vždy vracia (daily_dict, debug_trace_or_None).
+    ŽIADNY server-side zásah do placementu tréningov – všetko riadi LLM
+    na základe prefs, weekly_template a external_events.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
@@ -776,9 +673,6 @@ def generate_daily_week_json(
 
                 if plan_id_from_ctx and "plan_id" not in parsed:
                     parsed["plan_id"] = plan_id_from_ctx
-
-                # POSTPROCESS: fixed slots (už len dopĺňame chýbajúce, nič neorezávame)
-                _apply_fixed_slots_postprocess(parsed, fixed_slots_from_template)
 
                 if debug_raw:
                     trace["raw"] = raw_keep
