@@ -101,7 +101,7 @@ def service_generate_daily_week(
     plan_id: Optional[str] = None,
     overwrite: bool = True,
     model: Optional[str] = None,
-    debug: bool = False,
+    debug: bool = True,
     user_jwt: str,
 ) -> Dict[str, Any]:
     """
@@ -534,7 +534,7 @@ def service_auto_extend_daily_plan(
             plan_id=plan_id,
             overwrite=True,
             model=None,
-            debug=False,
+            debug=True,
             user_jwt=jwt,
         )
         generated.append(week_idx)

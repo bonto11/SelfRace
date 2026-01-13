@@ -59,6 +59,7 @@ export async function apiGenerateDailyForWeek(
     week_index: opts.week_index,
     plan_id: opts.plan_id ?? null,
     overwrite: opts.overwrite ?? true,
+    debug: true,
   };
 
   // 1) ENQUEUE JOB

@@ -658,6 +658,8 @@ def generate_daily_week_json(
     Vždy vracia (daily_dict, debug_trace_or_None).
     Na fail vráti fallback štruktúru s error fieldom a empty days.
     """
+
+    
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
@@ -670,6 +672,13 @@ def generate_daily_week_json(
         settings=settings,
     )
 
+    # ⬇⬇⬇ PRIDAJ TOTO ⬇⬇⬇
+    base_trace: Dict[str, Any] = {}
+    if debug_raw:
+        base_trace["system_prompt"] = system_txt
+        base_trace["user_prompt"] = user_txt
+    # ⬆⬆⬆ PRIDAJ TOTO ⬆⬆⬆
+
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
     timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
 
@@ -677,7 +686,7 @@ def generate_daily_week_json(
     models = _llm_models_priority(model)
     token_budgets = [2500, 2200, 2000]
 
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
+    trace: Dict[str, Any] = {**base_trace, "models_tried": models, "attempts": []}
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
