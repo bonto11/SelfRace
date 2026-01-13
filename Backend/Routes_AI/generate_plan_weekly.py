@@ -79,8 +79,6 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 # ---------- prompt builder ----------
-
-
 def _build_prompts_for_weekly(
     context_payload: dict,
     *,
@@ -94,37 +92,9 @@ def _build_prompts_for_weekly(
       "user_id": 123,
       "weeks": 6,
       "overwrite": true,
-      "analyze_input": {
-        "user": {...},
-        "zones": {...},
-        "thresholds": {...},
-        "prefs": {... or { "value": { ...real prefs... } }},
-        "bests": {...},
-        "recent_load": {...},
-        "recovery": {...},
-        "active_plan": {...},
-        "external_events": {...}   // definitions + calendar occurrences of external events
-      },
-      "athlete_state": {
-        "user_summary": {...},
-        "ai_state": {
-          "fitness_level": {...},
-          "fatigue_level": "...",
-          "injury_risk": "...",
-          "volume_tolerance": {...},
-          "intensity_tolerance": {...},
-          "suggested_block_kind": "...",
-          "metrics": {...},
-          "plan_adjustment": {
-            "soften_next_days": {...},
-            "should_replan_weekly": bool,
-            "weekly_replan_reason": str | null,
-            "should_notify_user": bool,
-            "notify_message": str | null
-          }
-        }
-      },
-      "athlete_state_meta": {...}
+      "analyze_input": { ... },
+      "athlete_state": { ... },
+      "athlete_state_meta": { ... }
     }
     """
     settings = settings or {}
@@ -132,10 +102,13 @@ def _build_prompts_for_weekly(
 
     if lang_code.startswith("en"):
         lang_label = "English"
+        second_person_note = "Use 'you' to talk directly to the athlete."
     elif lang_code.startswith("cs"):
         lang_label = "Czech"
+        second_person_note = "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
     else:
         lang_label = "Slovak"
+        second_person_note = "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
     analyze_input = context_payload.get("analyze_input") or {}
 
@@ -177,31 +150,31 @@ def _build_prompts_for_weekly(
         "You must return ONE valid JSON object only. No prose, no code fences."
     )
 
-    schema_text = """
-{
+    schema_text = f"""
+{{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
-  "plan_meta": {
+  "plan_meta": {{
     "start_date": "YYYY-MM-DD" | null,
     "weeks": number,
     "main_sport": string,
     "goal_kind": string | null
-  },
+  }},
   "weeks": [
-    {
+    {{
       "week_index": number,          // 1-based index within the plan
       "week_start": "YYYY-MM-DD",    // start of the week (e.g. Monday)
       "week_end": "YYYY-MM-DD",      // end of the week
-      "goal": string | null,         // short weekly goal (in target language)
-      "focus": string | null,        // e.g. endurance, threshold, VO2, race, recovery (in target language)
+      "goal": string | null,         // short weekly goal in {lang_label}, speaking directly to the athlete (2nd person)
+      "focus": string | null,        // e.g. endurance, threshold, VO2, race, recovery – in {lang_label}, 2nd person if possible
       "load_phase": string | null,   // e.g. base, build, peak, taper, recovery
       "planned_km": number | null,   // approximate planned distance in km for main sport (if relevant)
       "planned_minutes": number | null, // approximate planned total training time for all sports (incl. external sports events)
-      "notes": string | null         // short notes in target language
-    }
+      "notes": string | null         // short notes in {lang_label}, addressing the athlete directly ("this week you should...")
+    }}
   ]
-}
+}}
 """.strip()
 
     # Explain to the LLM how to handle volume and external events
@@ -276,7 +249,8 @@ def _build_prompts_for_weekly(
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return a single JSON object exactly matching the schema (you may set numeric fields to null if unknown).\n"
-        f"- All free text fields (goal, focus, notes) MUST be written in {lang_label} language.\n"
+        f"- All free text fields (goal, focus, notes) MUST be written in {lang_label} and MUST speak directly to the athlete in 2nd person. "
+        f"{second_person_note} Never refer to them as 'the athlete', 'he', 'she' or similar.\n"
         "- Make sure week_index starts at 1 and increases consecutively (1, 2, 3, ...).\n"
         "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
         "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance, plan_adjustment)\n"
@@ -301,7 +275,6 @@ def _build_prompts_for_weekly(
     )
 
     return system_txt, user_txt
-
 
 def _call_openai_raw(
     client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int

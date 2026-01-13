@@ -78,8 +78,6 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 # ---------- prompt builder: ANALYZE STATE ----------
-
-
 def _build_prompts_for_analyze(
     context_payload: dict,
     *,
@@ -104,13 +102,16 @@ def _build_prompts_for_analyze(
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
 
-    # prívetivý label jazyka pre inštrukcie
+    # label jazyka pre komentáre
     if lang_code.startswith("en"):
         lang_label = "English"
+        second_person_note = "Use 'you' to talk directly to the athlete."
     elif lang_code.startswith("cs"):
         lang_label = "Czech"
+        second_person_note = "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
     else:
         lang_label = "Slovak"
+        second_person_note = "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
     # doplníme user_settings do contextu pre model
     ctx_for_llm = dict(context_payload)
@@ -138,14 +139,14 @@ def _build_prompts_for_analyze(
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
   "user_summary": {{
-    "headline": "short summary in {lang_label} (1 sentence)",
-    "bullets": string[],          // 2–5 short bullet points in {lang_label}
-    "risks": string[],            // potential risks (fatigue, injury, volume), in {lang_label}
-    "suggestions_short": string[] // 2–5 concrete short suggestions for the next weeks, in {lang_label}
+    "headline": "short summary in {lang_label} (1 sentence, talking directly to the athlete in 2nd person)",
+    "bullets": string[],          // 2–5 short bullet points in {lang_label}, always in 2nd person ("you"/"ty")
+    "risks": string[],            // potential risks (fatigue, injury, volume), phrased as warnings to "you"
+    "suggestions_short": string[] // 2–5 concrete short suggestions for the next weeks, directly addressing "you"
   }},
   "ai_state": {{
     "fitness_level": {{
-      "run":      {{ "level_1_to_10": number, "comment": string | null }},
+      "run":      {{ "level_1_to_10": number, "comment": string | null }},  // comment in 2nd person
       "ride":     {{ "level_1_to_10": number, "comment": string | null }} | null,
       "strength": {{ "level_1_to_10": number, "comment": string | null }} | null
     }},
@@ -154,15 +155,15 @@ def _build_prompts_for_analyze(
     "volume_tolerance": {{
       "weekly_minutes_min": number | null,
       "weekly_minutes_max": number | null,
-      "note": string | null     // explanation, in {lang_label}
+      "note": string | null     // explanation, in {lang_label}, talking to the athlete
     }},
     "intensity_tolerance": {{
       "hard_sessions_per_week_max": number | null,
-      "comment": string | null   // explanation, in {lang_label}
+      "comment": string | null   // explanation, in {lang_label}, 2nd person
     }},
     "suggested_block_kind": "base_aerobic" | "base_long" | "threshold_speed" | "regeneration" | "race_specific" | string,
-    "key_limitations": string[], // in {lang_label}
-    "key_strengths": string[],   // in {lang_label}
+    "key_limitations": string[], // in {lang_label}, phrased as "Your weak points are…"
+    "key_strengths": string[],   // in {lang_label}, phrased as "Your strengths are…"
     "metrics": {{
       "estimated_vo2max": number | null,
       "estimated_5k_time_min": number | null,
@@ -173,12 +174,12 @@ def _build_prompts_for_analyze(
       "soften_next_days": {{
         "should_soften": boolean,
         "days": number | null,        // typically 1–7
-        "reason": string | null       // short explanation in {lang_label}
+        "reason": string | null       // short explanation in {lang_label}, talking to "you"
       }},
       "should_replan_weekly": boolean,
-      "weekly_replan_reason": string | null,  // why current weekly structure should change, in {lang_label}
+      "weekly_replan_reason": string | null,  // why current weekly structure should change, in {lang_label}, 2nd person
       "should_notify_user": boolean,
-      "notify_message": string | null // 1–2 short sentences in {lang_label}, e.g. 'Upcoming trainings have been adjusted...'
+      "notify_message": string | null // 1–2 short sentences in {lang_label}, directly addressing the athlete
     }}
   }}
 }}
@@ -196,6 +197,8 @@ def _build_prompts_for_analyze(
         "- Always return a single JSON object exactly matching the schema "
         "(you may set numeric fields to null if unknown).\n"
         f"- All free text (headline, bullets, risks, suggestions, comments, notes, reasons, notify_message) MUST be written in {lang_label}.\n"
+        f"- {second_person_note} Always speak directly to the athlete in 2nd person. "
+        "Never refer to them as 'the athlete', 'he', 'she' or similar.\n"
         "- Keep headline and bullet points short, concrete and training-focused.\n"
         "- Use recent_load, recovery, external_events and last_activities to assess fatigue and injury risk realistically.\n"
         "- Use bests and thresholds to set fitness_level for each sport.\n"
@@ -222,7 +225,6 @@ def _build_prompts_for_analyze(
 
     return system_txt, user_txt
 
-
 def _build_prompts_for_progress(
     previous_state: dict,
     current_state: dict,
@@ -234,17 +236,19 @@ def _build_prompts_for_progress(
     Pripraví system + user prompt pre AI progress report:
     porovnanie dvoch athlete_state JSONov.
     """
-    # jazyk z user_settings alebo fallback
     if settings is None:
         settings = {}
 
     lang_code = (settings.get("language") or "sk").lower()
     if lang_code.startswith("en"):
         lang_label = "English"
+        second_person_note = "Use 'you' to talk directly to the athlete."
     elif lang_code.startswith("cs"):
         lang_label = "Czech"
+        second_person_note = "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
     else:
         lang_label = "Slovak"
+        second_person_note = "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
     ctx_for_llm = {
         "previous_state": previous_state or {},
@@ -267,30 +271,30 @@ def _build_prompts_for_progress(
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string (your model name or 'Trainalyze Coach')",
   "summary": {{
-    "headline": "1 sentence summary in {lang_label}",
-    "bullets": string[]  // 2–6 short bullets in {lang_label}
+    "headline": "1 sentence summary in {lang_label}, talking directly to the athlete",
+    "bullets": string[]  // 2–6 short bullets in {lang_label}, 2nd person
   }},
   "comparisons": {{
     "fatigue_level": {{
       "previous": "low" | "moderate" | "high" | null,
       "current": "low" | "moderate" | "high" | null,
-      "comment": string | null   // short note in {lang_label}
+      "comment": string | null   // short note in {lang_label}, 2nd person
     }},
     "injury_risk": {{
       "previous": "low" | "moderate" | "high" | null,
       "current": "low" | "moderate" | "high" | null,
-      "comment": string | null   // short note in {lang_label}
+      "comment": string | null   // short note in {lang_label}, 2nd person
     }},
     "block_kind": {{
       "previous": string | null,
       "current": string | null,
-      "comment": string | null   // short explanation in {lang_label}
+      "comment": string | null   // short explanation in {lang_label}, 2nd person
     }},
     "fitness_level": {{
       "run": {{
         "previous": number | null,
         "current": number | null,
-        "comment": string | null  // in {lang_label}
+        "comment": string | null  // in {lang_label}, talking to the athlete
       }} | null,
       "ride": {{
         "previous": number | null,
@@ -308,17 +312,17 @@ def _build_prompts_for_progress(
       "previous_weekly_minutes_max": number | null,
       "current_weekly_minutes_min": number | null,
       "current_weekly_minutes_max": number | null,
-      "comment": string | null  // explanation of the change, in {lang_label}
+      "comment": string | null  // explanation of the change, in {lang_label}, 2nd person
     }},
     "plan_adjustment": {{
-      "soften_change": string | null,         // how softening changed, in {lang_label}
-      "weekly_replan_change": string | null   // how weekly replan changed, in {lang_label}
+      "soften_change": string | null,         // how softening changed, in {lang_label}, 2nd person
+      "weekly_replan_change": string | null   // how weekly replan changed, in {lang_label}, 2nd person
     }}
   }},
   "recommendations": {{
-    "celebrations": string[],       // positives, in {lang_label}
-    "risks_to_watch": string[],     // risks, in {lang_label}
-    "focus_next_weeks": string[]    // 3–5 concrete priorities, in {lang_label}
+    "celebrations": string[],       // positives, in {lang_label}, phrased as praise to "you"
+    "risks_to_watch": string[],     // risks, in {lang_label}, as warnings directly to the athlete
+    "focus_next_weeks": string[]    // 3–5 concrete priorities, in {lang_label}, in 2nd person
   }}
 }}
 """.strip()
@@ -336,8 +340,9 @@ def _build_prompts_for_progress(
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return exactly one JSON object matching the schema.\n"
-        "- All free text (headline, bullets, comments, recommendations) MUST be written in "
-        f"{lang_label}.\n"
+        f"- All free text (headline, bullets, comments, recommendations) MUST be written in {lang_label}.\n"
+        f"- {second_person_note} Always speak directly to the athlete in 2nd person. "
+        "Never refer to them as 'the athlete', 'he', 'she' or similar.\n"
         "- When there is no meaningful change for a field, you can keep previous and current equal "
         "and still explain it briefly in the comment.\n"
         "- Bullets in summary should be short, concrete descriptions of key changes.\n"
@@ -346,7 +351,6 @@ def _build_prompts_for_progress(
     )
 
     return system_txt, user_txt
-
 
 # ---------- OpenAI volanie ----------
 

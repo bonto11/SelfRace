@@ -30,7 +30,7 @@ function formatSplitDistanceFull(distance_m: number | null): string {
     return "1.0";
   }
 
-  return km.toFixed(1); // napr. 1.0, 1.3, 9.7
+  return km.toFixed(1);
 }
 
 // krátka verzia na mobil – rovnako 1 desatinné miesto
@@ -123,8 +123,8 @@ function buildRows(data: any[]): SplitRow[] {
 
 function makeHeightScaler(
   values: (number | null)[],
-  minPx = 30,
-  maxPx = 90
+  minPx = 1,
+  maxPx = 100
 ): (v: number | null) => number {
   const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
   if (!nums.length) {
@@ -181,23 +181,19 @@ export function ActivitySplitsSection({ kind }: Props) {
   const totalTime =
     rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
-  // šírka stĺpcov – úzke, ale s medzerami
   const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
 
   return (
     <div className="text-[11px] sm:text-xs">
-      {/* TOP – trendy */}
       <div className="mb-3">
         <div className="mb-1 text-[11px] opacity-70">
           Total time: {fmtSecondsHMS(totalTime)}
         </div>
 
         <div className="space-y-4">
-          {/* PORADIE: HR, Pace, Elevation, Time */}
           <MetricBarRow
             label="Heart rate"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-rose-500/80"
             getValue={(r) => r.avg_hr_bpm}
             getStatValue={(r) => r.avg_hr_bpm}
@@ -208,7 +204,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Pace"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-sky-500/80"
             getValue={(r) => r.pace_s_per_km}
             getStatValue={(r) => r.pace_s_per_km}
@@ -219,7 +214,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Elevation"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-amber-500/80"
             getValue={(r) =>
               r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
@@ -232,7 +226,6 @@ export function ActivitySplitsSection({ kind }: Props) {
           <MetricBarRow
             label="Time"
             rows={rows}
-            segmentWidthPct={segmentWidthPct}
             colorClass="bg-emerald-500/80"
             getValue={(r) => r.time_s}
             getStatValue={(r) => r.time_s}
@@ -242,7 +235,6 @@ export function ActivitySplitsSection({ kind }: Props) {
         </div>
       </div>
 
-      {/* TABLE – poradie: HR, Pace, Elev, Time */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead className="border-b border-white/10">
@@ -314,19 +306,16 @@ export function ActivitySplitsSection({ kind }: Props) {
 type MetricBarRowProps = {
   label: string;
   rows: SplitRow[];
-  segmentWidthPct: number;
   colorClass: string;
   getValue: (r: SplitRow) => number | null;
   getStatValue?: (r: SplitRow) => number | null;
   formatStat: (v: number | null) => string;
-  // time/hr -> max,avg,min; pace -> min,avg,max; elev -> max,0,min
   statMode: "time" | "hr" | "pace" | "elev";
 };
 
 function MetricBarRow({
   label,
   rows,
-  segmentWidthPct,
   colorClass,
   getValue,
   getStatValue,
@@ -345,17 +334,14 @@ function MetricBarRow({
   let bottomVal: number | null = null;
 
   if (statMode === "time" || statMode === "hr") {
-    // hore max, v strede priemer, dole min
     topVal = stats?.max ?? null;
     midVal = stats?.avg ?? null;
     bottomVal = stats?.min ?? null;
   } else if (statMode === "pace") {
-    // pace – hore najrýchlejší (najnižšie číslo), dole najpomalší
     topVal = stats?.min ?? null;
     midVal = stats?.avg ?? null;
     bottomVal = stats?.max ?? null;
   } else if (statMode === "elev") {
-    // elev – hore najvyšší +, v strede 0, dole najnižší -
     topVal = stats?.max ?? null;
     midVal = 0;
     bottomVal = stats?.min ?? null;
@@ -372,30 +358,27 @@ function MetricBarRow({
         <span className="text-[11px] opacity-80">{label}</span>
       </div>
 
-      {/* bary + pseudo-osa so štatistikami vpravo */}
+      {/* čísla vľavo, fixná malá medzera, bary vyplnia zvyšok */}
       <div className="flex items-stretch">
+        {/* pseudo-osa so štatistikami – vľavo */}
+        <div className="flex flex-col justify-between items-start text-[9px] opacity-80 leading-tight mr-2">
+          <span>{topLabel}</span>
+          <span>{midLabel}</span>
+          <span>{bottomLabel}</span>
+        </div>
+
+        {/* bary – rovnomerne po celej šírke */}
         <div className="flex-1 flex items-end gap-[6px] h-24">
           {rows.map((r) => {
             const hPx = heightFor(getValue(r));
             return (
               <div
                 key={`${label}-${r.index}`}
-                className={`rounded-sm ${colorClass} flex-none`}
-                style={{
-                  width: `${segmentWidthPct}%`,
-                  minWidth: "2px",
-                  height: `${hPx}px`,
-                }}
+                className={`flex-1 basis-0 rounded-sm ${colorClass}`}
+                style={{ height: `${hPx}px` }}
               />
             );
           })}
-        </div>
-
-        {/* väčší odstup od stĺpcov */}
-        <div className="flex flex-col justify-between items-end text-[9px] opacity-80 leading-tight ml-4">
-          <span>{topLabel}</span>
-          <span>{midLabel}</span>
-          <span>{bottomLabel}</span>
         </div>
       </div>
     </div>
