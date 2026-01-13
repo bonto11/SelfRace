@@ -1,4 +1,12 @@
 #Modules/Strava/webhook_strava_processor
+
+"""
+Webhook processor:
+ - mapuje athlete_id -> user_id cez strava_accounts
+ - pre activity create/update spúšťa sync + coach auto-adjust
+ - pre activity delete označuje activity ako deleted_at
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -14,7 +22,6 @@ from Services.coach_plan_adjustment import (
 )
 
 supabase = get_service_client()
-
 
 async def sync_activity_from_strava(
     *,
