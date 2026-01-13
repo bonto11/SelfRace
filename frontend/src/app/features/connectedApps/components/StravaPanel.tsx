@@ -15,7 +15,7 @@ import { API_URL } from "@/app/shared/config";
 import {
   apiGetStravaStatus,
   type StravaStatus,
-} from "./StravaApi";
+} from "../api/strava";
 
 type BusyKind = "reload" | "import" | null;
 

@@ -12,7 +12,7 @@ import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { ActivitySplitsSection } from "./ActivitySplitsSection";
 
 import type { ActivitySession } from "./SessionCard";
-
+import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 /** ================= helpers ================= */
 
 type InfoItem = {
@@ -56,12 +56,7 @@ function hasNonEmptyValue(items?: InfoItem[]): boolean {
 function workoutTypeLabelFromSummary(s: any | null): string | null {
   if (!s || s.workout_type == null) return null;
   const wt = s.workout_type;
-  const sport = (
-    s.sport_type_ovrd ??
-    s.sport_type_fe ??
-    s.sport_type ??
-    ""
-  )
+  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
     .toString()
     .toLowerCase();
 
@@ -89,12 +84,7 @@ function workoutTypeLabelFromSummary(s: any | null): string | null {
 // kadencia – run → steps/min, bike → rpm
 function formatCadenceSummary(s: any | null): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
-  const sport = (
-    s.sport_type_ovrd ??
-    s.sport_type_fe ??
-    s.sport_type ??
-    ""
-  )
+  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
     .toString()
     .toLowerCase();
 
@@ -185,16 +175,16 @@ function ActivitySectionShell({
 
 type ActivitySessionDetailProps = {
   item: ActivitySession;
-  kpiBlock: ReactNode;        // z parenta, ale už ho nevykresľujeme
-  hasKpis: boolean;           // nechávam v type kvôli kompatibilite
+  kpiBlock: ReactNode; // z parenta, ale už ho nevykresľujeme
+  hasKpis: boolean; // nechávam v type kvôli kompatibilite
   compactChart: boolean;
   onOpenActivity?: (activityId: number) => void;
 };
 
 export function ActivitySessionDetail({
   item,
-  kpiBlock,          // eslint-disable-line @typescript-eslint/no-unused-vars
-  hasKpis,           // eslint-disable-line @typescript-eslint/no-unused-vars
+  kpiBlock,
+  hasKpis,
   compactChart,
   onOpenActivity,
 }: ActivitySessionDetailProps) {
@@ -218,12 +208,22 @@ export function ActivitySessionDetail({
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
 
   // hint na šport pre grafy (kadencia steps/min vs rpm)
-  const sportHint =
-    (s?.sport_type_ovrd ??
-      s?.sport_type_fe ??
-      s?.sport_type ??
-      act.sport ??
-      "") as string;
+  const sportHint = (s?.sport_type_ovrd ??
+    s?.sport_type_fe ??
+    s?.sport_type ??
+    act.sport ??
+    "") as string;
+
+  // ⬅️ NOVÉ – Strava URL
+  const stravaActivityId =
+    (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
+
+  const stravaUrl =
+    stravaActivityId !== null &&
+    (typeof stravaActivityId === "number" ||
+      typeof stravaActivityId === "string")
+      ? getStravaActivityUrl(stravaActivityId)
+      : null;
 
   const [streams, setStreams] = useState<StreamsData>({
     time_s: [],
@@ -234,9 +234,9 @@ export function ActivitySessionDetail({
     distance_m: [],
     altitude_m: [],
   });
-  const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>(
-    []
-  );
+  const [routePoints, setRoutePoints] = useState<
+    { lat: number; lng: number }[]
+  >([]);
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
@@ -352,7 +352,10 @@ export function ActivitySessionDetail({
           setSplits(anyDt.splits || []);
         }
       } catch (err) {
-        console.error("[ActivitySessionDetail] getStreams/getDetail error", err);
+        console.error(
+          "[ActivitySessionDetail] getStreams/getDetail error",
+          err
+        );
         setStreams({
           time_s: [],
           hr: [],
@@ -387,8 +390,7 @@ export function ActivitySessionDetail({
   const elevItems: InfoItem[] = [
     {
       label: "ELEV GAIN",
-      value:
-        s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—",
+      value: s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—",
     },
     {
       label: "ELEV HIGH",
@@ -412,9 +414,7 @@ export function ActivitySessionDetail({
     {
       label: "MAX SPEED",
       value:
-        s?.max_speed_mps != null
-          ? `${s.max_speed_mps.toFixed(3)} m/s`
-          : "—",
+        s?.max_speed_mps != null ? `${s.max_speed_mps.toFixed(3)} m/s` : "—",
     },
     {
       label: "AVG POWER",
@@ -429,13 +429,11 @@ export function ActivitySessionDetail({
   const envItems: InfoItem[] = [
     {
       label: "AVG TEMP",
-      value:
-        s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—",
+      value: s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—",
     },
     {
       label: "CALORIES",
-      value:
-        s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
+      value: s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
     },
   ];
 
@@ -466,8 +464,6 @@ export function ActivitySessionDetail({
 
   return (
     <div>
-      {/* ŽIADNE horné 4 KPI – kpiBlock úmyselne nevyužitý */}
-
       {/* Akčné tlačidlá – HORE */}
       {"onEdit" in act &&
         (act.onEdit || act.onDelete || act.onToggleFavorite) && (
@@ -502,15 +498,28 @@ export function ActivitySessionDetail({
           </div>
         )}
 
-      {onOpenActivity && (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => onOpenActivity(act.activityId)}
-            className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-          >
-            Otvoriť aktivitu
-          </button>
+      {(onOpenActivity || stravaUrl) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {onOpenActivity && (
+            <button
+              type="button"
+              onClick={() => onOpenActivity(act.activityId)}
+              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+            >
+              Otvoriť aktivitu
+            </button>
+          )}
+
+          {stravaUrl && (
+            <a
+              href={stravaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center h-8 px-3 rounded-full text-sm font-semibold border border-white/20 bg-transparent hover:bg-white/10 transition-colors"
+            >
+              View on Strava
+            </a>
+          )}
         </div>
       )}
 
@@ -539,10 +548,7 @@ export function ActivitySessionDetail({
 
       {/* ELEVÁCIA & KADENCIA – graf elevation + (ak je) graf kadencie */}
       {showElev && (
-        <ActivitySectionShell
-          title="Elevácia & kadencia"
-          items={elevItems}
-        >
+        <ActivitySectionShell title="Elevácia & kadencia" items={elevItems}>
           {hasStreams && (
             <ActivityStreamCharts
               streams={streams}
@@ -567,10 +573,7 @@ export function ActivitySessionDetail({
 
       {/* RÝCHLOSŤ & VÝKON – graf power (príp. neskôr pace) */}
       {showPower && (
-        <ActivitySectionShell
-          title="Rýchlosť & výkon"
-          items={powerItems}
-        >
+        <ActivitySectionShell title="Rýchlosť & výkon" items={powerItems}>
           {hasStreams && (
             <ActivityStreamCharts
               streams={streams}
@@ -592,10 +595,7 @@ export function ActivitySessionDetail({
 
       {/* TYP TRÉNINGU – bez grafu */}
       {showWorkout && (
-        <ActivitySectionShell
-          title="Typ tréningu"
-          items={workoutItems}
-        />
+        <ActivitySectionShell title="Typ tréningu" items={workoutItems} />
       )}
 
       {/* MAPA TRASY */}
