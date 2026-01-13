@@ -8,36 +8,11 @@ from Services.account_delete import (
     service_get_account_delete_status,
     service_request_account_delete,
     service_cancel_account_delete,
-    service_hard_delete_due_accounts,
 )
 
 router = APIRouter(prefix="/account", tags=["account"])
 
-
-# -------------------- helper na maintenance API key --------------------
-
-
-def get_maintenance_api_key_env() -> str:
-    v = os.getenv("MAINTENANCE_API_KEY")
-    if not v:
-        raise RuntimeError("MAINTENANCE_API_KEY is not set")
-    return v
-
-
-def require_maintenance_api_key(request: Request):
-    """
-    Použije sa pre cron route – očakáva hlavičku X-API-Key.
-    """
-    expected = get_maintenance_api_key_env()
-    sent = request.headers.get("X-API-Key")
-
-    if not sent or sent != expected:
-        raise HTTPException(status_code=403, detail="invalid maintenance api key")
-
-
 # -------------------- user-facing endpointy (JWT) --------------------
-
-
 @router.get("/{user_id}/delete/status")
 def get_account_delete_status(
     user_id: int,
@@ -88,26 +63,5 @@ def cancel_account_delete(
             user_jwt=user_jwt,
             service=False,
         )
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# -------------------- cron endpoint (GitHub Action) --------------------
-
-
-@router.post("/delete/cron/hard-delete")
-def cron_account_hard_delete(
-    _: None = Depends(require_maintenance_api_key),
-):
-    """
-    Cron endpoint volaný z GitHub Actions:
-    - nájde všetky account_delete_requests, ktoré majú delete_at <= now
-      a ešte nemajú hard_deleted_at,
-    - zmaže ich dáta z DB,
-    - nastaví hard_deleted_at.
-    """
-    try:
-        res = service_hard_delete_due_accounts(limit=100)
-        return res
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
