@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import date, timedelta
 from typing import Any, Dict, List, Tuple, Optional, Set
 
@@ -10,9 +11,8 @@ from Routes_DB.coach_strength_history import (
 from Services.users import require_jwt
 
 
-# Slot -> kandidátne exercise_id z katalógu (každý cvik len v jednom slote)
+# Slot -> kandidátne exercise_id z katalógu
 SLOT_TO_EXERCISES: Dict[str, List[str]] = {
-    # predné stehná + gluteus
     "lower_quad": [
         "bodyweight_squat",
         "split_squat",
@@ -21,7 +21,6 @@ SLOT_TO_EXERCISES: Dict[str, List[str]] = {
         "leg_press_machine",
         "dumbbell_lunge_walk",
     ],
-    # hamstringy + zadný reťazec
     "lower_posterior": [
         "glute_bridge_bodyweight",
         "single_leg_deadlift_band",
@@ -29,7 +28,6 @@ SLOT_TO_EXERCISES: Dict[str, List[str]] = {
         "hip_thrust_barbell",
         "hamstring_curl_machine",
     ],
-    # core
     "core": [
         "plank",
         "side_plank",
@@ -37,7 +35,6 @@ SLOT_TO_EXERCISES: Dict[str, List[str]] = {
         "cable_chop",
         "hanging_knee_raise",
     ],
-    # chrbát + bicepsy
     "upper_pull": [
         "bodyweight_row",
         "trx_row",
@@ -46,7 +43,6 @@ SLOT_TO_EXERCISES: Dict[str, List[str]] = {
         "seated_row_machine",
         "pullup_assisted",
     ],
-    # prsia / ramená / tricepsy
     "upper_push": [
         "pushup",
         "bench_press_barbell",
@@ -57,15 +53,6 @@ SLOT_TO_EXERCISES: Dict[str, List[str]] = {
     ],
 }
 
-# slot-specific fallback, keď po filtroch neostane nič
-DEFAULT_EXERCISE_FOR_SLOT: Dict[str, str] = {
-    "lower_quad": "bodyweight_squat",
-    "lower_posterior": "glute_bridge_bodyweight",
-    "core": "plank",
-    "upper_pull": "bodyweight_row",
-    "upper_push": "pushup",
-}
-
 
 def _has_equipment(
     ex: Dict[str, Any],
@@ -73,8 +60,14 @@ def _has_equipment(
     equipment_mode: Optional[str],
 ) -> bool:
     """
-    - equipment_mode == 'full_gym' -> všetko je k dispozícii
-    - inak: 'none' = vždy, ostatné podľa available_equipment
+    Filtruje kandidátov podľa vybavenia.
+
+    - equipment_mode == "full_gym"  -> všetko povolené (ignorujeme zoznam).
+    - inak:
+        - ak cvik obsahuje "none", je vždy povolený,
+        - ak available_equipment je prázdny, pustíme len home-friendly veci
+          (none, resistance_bands, trx, abwheel, pullup_bar),
+        - inak vyžadujeme intersect s available_equipment.
     """
     if equipment_mode == "full_gym":
         return True
@@ -82,10 +75,24 @@ def _has_equipment(
     eqs = ex.get("equipment") or []
     if "none" in eqs:
         return True
-    return any(eq in available_equipment for eq in eqs)
+
+    if not available_equipment:
+        home_ok = {
+            "none",
+            "resistance_bands",
+            "trx",
+            "abwheel",
+            "pullup_bar",
+        }
+        return any(e in home_ok for e in eqs)
+
+    return any(e in available_equipment for e in eqs)
 
 
 def _normalize_history_dates(history: List[Dict[str, Any]]) -> None:
+    """
+    Upraví history in-place tak, aby session_date bol vždy date objekt.
+    """
     for h in history:
         sd = h.get("session_date")
         if isinstance(sd, date):
@@ -100,75 +107,47 @@ def _normalize_history_dates(history: List[Dict[str, Any]]) -> None:
             h["session_date"] = None
 
 
-def _find_ex_by_id(ex_id: str) -> Optional[Dict[str, Any]]:
-    for ex in STRENGTH_EXERCISE_CATALOG:
-        if ex.get("id") == ex_id:
-            return ex
-    return None
-
-
-def _rank_exercises_for_slot(
+def _pick_exercise_for_slot(
     user_id: int,  # zatiaľ nevyužité, nechávam pre budúce rozšírenia
     slot: str,
     available_equipment: List[str],
     equipment_mode: Optional[str],
     history: List[Dict[str, Any]],
     today: date,
+    used_exercise_ids: Optional[Set[str]] = None,
     lookback_days: int = 28,
-    used_in_session: Optional[Set[str]] = None,
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """
-    Vráti kandidátov pre slot zoradených podľa skóre (najlepší prvý).
-
-    Skóre:
-      - základ: effectiveness (1–5) * 10
-      - bonus za gym vybavenie (pri full_gym alebo keď reálne máš veľa vybavenia)
-      - penalizácia za časté použitie v posledných týždňoch
-      - bonus, keď cvik dlho nebol použitý
-
-    V rámci jednej SESSION nevyberáme ten istý cvik dvakrát.
+    Vyberie konkrétny cvik pre daný slot na základe:
+      - kandidátov zo SLOT_TO_EXERCISES
+      - dostupného vybavenia + equipment_mode
+      - histórie za posledných lookback_days
+      - už použitých cvikov v danej session (used_exercise_ids)
     """
-    used_in_session = used_in_session or set()
 
     candidate_ids = SLOT_TO_EXERCISES.get(slot, [])
-    candidates_all = [ex for ex in STRENGTH_EXERCISE_CATALOG if ex["id"] in candidate_ids]
+    all_candidates = [ex for ex in STRENGTH_EXERCISE_CATALOG if ex["id"] in candidate_ids]
 
-    # filter podľa vybavenia
+    # filter podľa vybavenia / režimu
     candidates = [
         ex
-        for ex in candidates_all
+        for ex in all_candidates
         if _has_equipment(ex, available_equipment, equipment_mode)
     ]
 
-    # ak po vybavení nič neostane, stále chceme niečo pre daný slot
     if not candidates:
-        default_id = DEFAULT_EXERCISE_FOR_SLOT.get(slot)
-        if default_id:
-            ex = _find_ex_by_id(default_id)
-            if ex is not None:
-                candidates = [ex]
-
-    if not candidates:
-        return [STRENGTH_EXERCISE_CATALOG[0]]
-
-    # vyradíme cviky, ktoré už sú v rámci tejto session použité – ale len,
-    # ak po odfiltrovaní ostane aspoň jeden kandidát
-    filtered = [ex for ex in candidates if ex["id"] not in used_in_session]
-    if filtered:
-        candidates = filtered
+        # fallback – ak nič nesedí, radšej prvý z all_candidates,
+        # a ak ani tie nie sú, potom prvý z celého katalógu
+        if all_candidates:
+            return all_candidates[0]
+        return STRENGTH_EXERCISE_CATALOG[0]
 
     cutoff = today - timedelta(days=lookback_days)
+    used_exercise_ids = used_exercise_ids or set()
 
-    if equipment_mode == "full_gym":
-        many_equipment = True
-    else:
-        many_equipment = len([eq for eq in available_equipment if eq != "none"]) >= 4
-
-    scored: List[Tuple[float, Dict[str, Any]]] = []
-
+    scores: List[Tuple[float, Dict[str, Any]]] = []
     for ex in candidates:
         ex_id = ex["id"]
-        eff = float(ex.get("effectiveness") or 3)
 
         uses_dates: List[date] = []
         for h in history:
@@ -181,28 +160,29 @@ def _rank_exercises_for_slot(
         uses_count = len(uses_dates)
         last_date = max(uses_dates) if uses_dates else None
 
-        # base score z effectiveness
-        score = eff * 10.0
+        # base score = effectiveness
+        eff = float(ex.get("effectiveness", 1.0))
+        score = eff
 
-        # bonus za gym vybavenie – pri full_gym chceme preferovať “gymové” cviky
-        eqs = ex.get("equipment") or []
-        if many_equipment and any(eq not in ("none",) for eq in eqs):
-            score += 5.0
-
-        # penalizácia za časté použitie
-        score -= 2.0 * uses_count
+        # penalizácia za časté použitie v posledných týždňoch
+        score -= 0.3 * uses_count
 
         # bonus za to, že dlho nebol použitý
         if last_date is None:
-            score += 5.0
+            score += 0.8
         else:
             days_since = (today - last_date).days
-            score += min(days_since / 7.0, 5.0)
+            score += min(days_since / 7 * 0.15, 0.8)
 
-        scored.append((score, ex))
+        # silná penalizácia ak už je v tej istej session
+        if ex_id in used_exercise_ids:
+            score -= 5.0
 
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [ex for _, ex in scored]
+        scores.append((score, ex))
+
+    scores.sort(key=lambda x: x[0], reverse=True)
+    best_ex = scores[0][1]
+    return best_ex
 
 
 def enrich_daily_plan_with_strength_exercises(
@@ -219,21 +199,18 @@ def enrich_daily_plan_with_strength_exercises(
     """
     Vezme AI daily_plan so strength_exercises slotmi a:
       - doplní ku každému slotu konkrétny exercise_id + exercise_name,
-      - pridá aj zoznam options (2–3 možnosti) pre FE,
       - pripraví históriu na INSERT do DB,
       - vráti upravený daily_plan.
 
-    Ak equipment_mode == 'full_gym', ignoruje obsah available_equipment
-    (môže byť aj prázdny) a berie, že máš plne vybavenú posilku.
+    equipment_mode:
+      - "full_gym"    -> ignorujeme available_equipment, uprednostníme gym cviky.
+      - "auto"/None   -> filtrujeme podľa available_equipment + home-friendly fallback.
+      - ďalšie stringy môžeš použiť neskôr (napr. "home_only").
     """
     if service:
         jwt = user_jwt
     else:
         jwt = require_jwt(user_jwt)
-
-    # pri full_gym nepotrebuješ ručne vypisovať náradie
-    if equipment_mode == "full_gym" and not available_equipment:
-        available_equipment = []  # necháme prázdne, ale _has_equipment to aj tak ignoruje
 
     # 1) vytiahneme históriu
     history = db_get_strength_history_for_user(
@@ -269,8 +246,8 @@ def enrich_daily_plan_with_strength_exercises(
             if not isinstance(slots, list) or not slots:
                 continue
 
-            used_in_session: Set[str] = set()
             enriched_slots: List[Dict[str, Any]] = []
+            used_ids: Set[str] = set()
 
             for slot_item in slots:
                 if not isinstance(slot_item, dict):
@@ -280,43 +257,32 @@ def enrich_daily_plan_with_strength_exercises(
                 if not slot:
                     continue
 
-                sets = slot_item.get("sets")
-                reps = slot_item.get("reps")
-                rest_s = slot_item.get("rest_s")
-                notes = slot_item.get("notes")
+                sets_val = slot_item.get("sets")
+                reps_val = slot_item.get("reps")
+                rest_s_val = slot_item.get("rest_s")
+                notes_val = slot_item.get("notes")
 
-                ranked = _rank_exercises_for_slot(
+                ex = _pick_exercise_for_slot(
                     user_id=user_id,
                     slot=slot,
                     available_equipment=available_equipment,
                     equipment_mode=equipment_mode,
                     history=history,
                     today=session_date,
-                    used_in_session=used_in_session,
+                    used_exercise_ids=used_ids,
                 )
 
-                best_ex = ranked[0]
-                used_in_session.add(best_ex["id"])
-
-                # top 2–3 možnosti pre FE (primary + alternatívy)
-                max_options = 3
-                options = [
-                    {
-                        "exercise_id": ex["id"],
-                        "exercise_name": ex["name"],
-                    }
-                    for ex in ranked[:max_options]
-                ]
+                used_ids.add(ex["id"])
 
                 enriched = {
                     "slot": slot,
-                    "sets": sets,
-                    "reps": reps,
-                    "rest_s": rest_s,
-                    "notes": notes,
-                    "exercise_id": best_ex["id"],
-                    "exercise_name": best_ex["name"],
-                    "options": options,
+                    "sets": sets_val,
+                    "reps": reps_val,
+                    "rest_s": rest_s_val,
+                    "notes": notes_val,
+                    "exercise_id": ex["id"],
+                    "exercise_name": ex["name"],
+                    # priestor do budúcna – napr. alternatívy
                 }
                 enriched_slots.append(enriched)
 
@@ -325,7 +291,7 @@ def enrich_daily_plan_with_strength_exercises(
                         "user_id": user_id,
                         "session_date": session_date,
                         "slot": slot,
-                        "exercise_id": best_ex["id"],
+                        "exercise_id": ex["id"],
                     }
                 )
                 new_history_rows.append(
@@ -335,10 +301,11 @@ def enrich_daily_plan_with_strength_exercises(
                         "plan_id": daily_plan.get("plan_id"),
                         "session_index": idx,
                         "slot": slot,
-                        "exercise_id": best_ex["id"],
+                        "exercise_id": ex["id"],
                     }
                 )
 
+            # zapíš späť do structure + voliteľne top-level
             session.setdefault("structure", {})["strength_exercises"] = enriched_slots
             session["strength_exercises"] = enriched_slots
 

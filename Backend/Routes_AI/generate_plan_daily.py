@@ -282,27 +282,43 @@ def _build_prompts_for_daily(
     wt_days = weekly_template.get("days") or []
 
     def _summarize_weekly_template(days: List[Dict[str, Any]]) -> str:
+        """
+        Vráti textový popis weekly_template, vrátane priority a prípadného can_move.
+
+        Príklad:
+          mon=[run:easy(key, fixed), strength:full_body(supporting)]
+          wed=[run:intervals(key)]
+        """
         if not isinstance(days, list) or not days:
             return "empty"
+
         parts: List[str] = []
         for d in days:
             day = d.get("day")
             slots = d.get("slots") or []
             if not day or not isinstance(slots, list) or not slots:
                 continue
+
             slot_descs: List[str] = []
             for s in slots:
                 if not isinstance(s, dict):
                     continue
                 sport = s.get("sport") or "?"
                 kind = s.get("kind") or "?"
-                priority = s.get("priority")
-                txt = f"{sport}:{kind}"
-                if priority:
-                    txt += f"({priority})"
-                slot_descs.append(txt)
+                priority = s.get("priority") or "supporting"
+                can_move = s.get("can_move")
+
+                tags: List[str] = [priority]
+                # ak can_move je explicitne False → ber to ako „fixed“
+                if can_move is False:
+                    tags.append("fixed")
+
+                tag_str = ", ".join(tags)
+                slot_descs.append(f"{sport}:{kind}({tag_str})")
+
             if slot_descs:
-                parts.append(f"{day}={'+'.join(slot_descs)}")
+                parts.append(f"{day}=[{', '.join(slot_descs)}]")
+
         return ", ".join(parts) if parts else "empty"
 
     wt_summary = _summarize_weekly_template(wt_days)
@@ -314,9 +330,17 @@ def _build_prompts_for_daily(
         )
     else:
         weekly_template_line = (
-            f"- Weekly template mode: '{wt_mode}'. High-level slots per day: {wt_summary}.\n"
-            "  Try to follow this structure as long as it does not conflict "
-            "with external events, volume or intensity limits.\n"
+            f"- Weekly template mode: '{wt_mode}'. High-level slots per weekday: {wt_summary}.\n"
+            "- Weekly template days are real weekdays (Mon..Sun). "
+            "You must keep all KEY sessions (priority='key' or can_move=false) on their specified weekday "
+            "inside the calendar range [week_start, week_end].\n"
+            "- For this particular week, do NOT shift the whole pattern. "
+            "If week_start is in the middle of the calendar week (for example Wednesday), "
+            "simply SKIP template days that lie before week_start (Mon/Tue) instead of moving them "
+            "to later days. Apply the template only to days from week_start to week_end.\n"
+            "- Supporting sessions (priority='supporting' and can_move != false) may be moved or dropped "
+            "when necessary, but the pattern of KEY sessions across the week should follow the template "
+            "as closely as possible.\n"
         )
 
     # volume prefs
@@ -562,6 +586,9 @@ def _build_prompts_for_daily(
         '    { \"sport\": \"other\", \"title\": \"Rest day\" (or its translation), \"duration_min\": 0, '
         '\"intensity\": \"rest\", \"session_type\": \"rest_day\" }.\n'
         "- Respect prefs: days_off, long_run_days, and avoid scheduling hard run sessions on days with high-intensity external events.\n"
+        "- Respect the weekly_template: KEY sessions (priority='key' or can_move=false) must stay on their assigned weekday "
+        "within [week_start, week_end]. Do NOT systematically shift the entire pattern by one or more days; "
+        "only supporting sessions may be moved or dropped when needed.\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
         "- Use `hard_sessions_per_week_max` from athlete_state.ai_state.intensity_tolerance "
@@ -943,14 +970,20 @@ def service_generate_daily_week(
 
     # 6b) STRENGTH MAPPER – doplní konkrétne cviky podľa DB (RLS)
     strength_settings = prefs_ai.get("strength_settings") or {}
+
     available_equipment = strength_settings.get("available") or []
     if not isinstance(available_equipment, list):
         available_equipment = []
+
+    equipment_mode = strength_settings.get("equipment_mode") or "auto"
+    if not isinstance(equipment_mode, str):
+        equipment_mode = "auto"
 
     daily_plan = enrich_daily_plan_with_strength_exercises(
         user_id=user_id,
         daily_plan=daily_plan,
         available_equipment=available_equipment,
+        equipment_mode=equipment_mode,
         today=date.today(),
         weeks_back=8,
         user_jwt=jwt,
