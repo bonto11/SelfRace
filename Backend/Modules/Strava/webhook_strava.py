@@ -439,3 +439,49 @@ async def strava_oauth_callback(
         f"{FRONTEND_URL}/coach?strava=ok",
         status_code=302,
     )
+    
+@router.get("/status")
+async def strava_status(
+    user_id: int = Query(..., description="SelfRace user_id"),
+):
+    """
+    Jednoduchý status – či má user prepojený Strava účet.
+
+    Číta strava_accounts cez service klienta a vráti:
+    - connected: bool
+    - athlete_id: int | null
+    - scopes: list[str]
+    - expires_at: ISO timestamp | null
+    """
+    try:
+        resp = (
+            supabase.table("strava_accounts")
+            .select("athlete_id, scope, expires_at, deauthorized_at")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA STATUS] DB error:", e)
+        raise HTTPException(status_code=500, detail="db_error")
+
+    rows = getattr(resp, "data", None) or []
+    row = rows[0] if rows else None
+
+    if not row:
+        return {
+            "connected": False,
+            "athlete_id": None,
+            "scopes": [],
+            "expires_at": None,
+        }
+
+    deauth = row.get("deauthorized_at")
+    connected = not bool(deauth)
+
+    return {
+        "connected": connected,
+        "athlete_id": row.get("athlete_id"),
+        "scopes": row.get("scope") or [],
+        "expires_at": row.get("expires_at"),
+    }
