@@ -176,7 +176,7 @@ export function WeeklyTemplateSection({ template, onChange }: Props) {
       | undefined;
 
     // ak nemáme sport alebo kind → žiadny fixný tréning v tento deň
-    if (!sport || !kind) {
+    if (!sport && !kind) {
       updateDay(day, { slots: [] });
       return;
     }
