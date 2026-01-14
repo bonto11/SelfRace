@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from Modules.Supabase.client import get_service_client
 from Modules.Strava.webhook_strava_processor import _process_single_event
 
-# Supabase client – service role (mimo RLS, admin veci)
+# Supabase  client – service role (mimo RLS, admin veci)
 supabase = get_service_client()
 
 router = APIRouter(prefix="/api/strava", tags=["strava"])
