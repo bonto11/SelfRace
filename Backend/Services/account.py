@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Sequence, Mapping
+from typing import Any, Dict, Optional
 
 from Services.users import require_jwt
-from Routes_DB.account_delete import (
+from Routes_DB.account import (
     db_get_account_delete_row,
     db_upsert_account_delete_request,
     db_cancel_account_delete_request,

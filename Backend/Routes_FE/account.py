@@ -4,13 +4,14 @@ import os
 from fastapi import APIRouter, HTTPException, Depends, Request
 
 from Modules.HTTP.auth_deps import require_user_jwt
-from Services.account_delete import (
+from Services.account import (
     service_get_account_delete_status,
     service_request_account_delete,
     service_cancel_account_delete,
 )
 
 router = APIRouter(prefix="/account", tags=["account"])
+
 
 # -------------------- user-facing endpointy (JWT) --------------------
 @router.get("/{user_id}/delete/status")

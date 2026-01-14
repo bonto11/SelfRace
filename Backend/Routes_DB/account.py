@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from Modules.Supabase.client import get_sb
 
+
 def db_get_account_delete_row(
     user_id: int,
     *,
@@ -18,9 +19,7 @@ def db_get_account_delete_row(
 
     resp = (
         sb.table("account_delete_requests")
-        .select(
-            "user_id, requested_at, delete_at, cancelled_at, hard_deleted_at"
-        )
+        .select("user_id, requested_at, delete_at, cancelled_at, hard_deleted_at")
         .eq("user_id", user_id)
         .limit(1)
         .execute()
@@ -54,9 +53,7 @@ def db_upsert_account_delete_request(
     }
 
     resp = (
-        sb.table("account_delete_requests")
-        .upsert(row, on_conflict="user_id")
-        .execute()
+        sb.table("account_delete_requests").upsert(row, on_conflict="user_id").execute()
     )
 
     data = getattr(resp, "data", None) or []
