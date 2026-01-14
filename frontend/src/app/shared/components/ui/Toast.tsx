@@ -61,6 +61,7 @@ export const toast = {
 // ---- host (renderer) --------------------------------------------------------
 export default function ToastHost() {
   const [items, setItems] = React.useState<ToastItem[]>([]);
+  const lastShownRef = React.useRef<Record<string, number>>({}); // <-- ADD
 
   const dismiss = React.useCallback((id: number) => {
     setItems((arr) =>
@@ -68,11 +69,19 @@ export default function ToastHost() {
     );
     window.setTimeout(() => {
       setItems((arr) => arr.filter((x) => x.id !== id));
-    }, 360); // allow "toast-exit" animation to play
+    }, 360);
   }, []);
 
   const show = React.useCallback(
     (type: ToastType, text: string, ttl: number = 2800) => {
+      // ---- DEDUPE (prevents double toasts in dev/strict-mode etc.) ----
+      const key = `${type}:${text}`;
+      const now = Date.now();
+      const last = lastShownRef.current[key] ?? 0;
+      if (now - last < 1200) return; // ignore duplicates within 1.2s
+      lastShownRef.current[key] = now;
+      // ---------------------------------------------------------------
+
       const id = Date.now() + Math.random();
       const isSticky = ttl === Infinity || ttl <= 0;
 
@@ -84,7 +93,7 @@ export default function ToastHost() {
         );
       }, 20);
 
-      if (isSticky) return; // no auto-out, no auto-remove
+      if (isSticky) return;
 
       const outAt = Math.max(600, ttl - 360);
       window.setTimeout(() => {
