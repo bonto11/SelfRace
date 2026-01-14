@@ -13,12 +13,13 @@ from typing import Any, Mapping, Sequence, Optional, List, Dict, Literal
 from pydantic import BaseModel, Field
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+
 from Modules.Supabase.client import get_service_client
 from Modules.Strava.webhook_strava_processor import _process_single_event
 
-# Supabase  client – service role (mimo RLS, admin veci)
+# Supabase client – service role (mimo RLS, admin veci)
 supabase = get_service_client()
 
 router = APIRouter(prefix="/api/strava", tags=["strava"])
@@ -517,35 +518,16 @@ async def strava_status(
     }
 
 
-
 @router.post("/disconnect")
 async def strava_disconnect(
     user_id: int = Query(..., description="SelfRace user_id"),
-    debug: bool = Query(False, description="Return debug info"),
 ):
     """
-    Odpojí Strava účet (robustné + debug):
-    - best effort: Strava /oauth/deauthorize
-    - DB: deauthorized_at + vyčistenie tokenov (a scope podľa typu)
+    Odpojí Strava účet:
+    - best effort: zavolá Strava /oauth/deauthorize (ak máme access_token)
+    - v DB nastaví deauthorized_at a vyčistí tokeny
     """
-    VERSION = "disconnect_v3_debug"
-
-    # 0) zisti typy stĺpcov (hlavne scope, tokeny)
-    try:
-        cols = (
-            supabase.schema("information_schema")
-            .table("columns")
-            .select("column_name,data_type,udt_name,is_nullable")
-            .eq("table_schema", "public")
-            .eq("table_name", "strava_accounts")
-            .in_("column_name", ["access_token", "refresh_token", "expires_at", "scope", "deauthorized_at"])
-            .execute()
-        )
-        col_rows = getattr(cols, "data", None) or []
-    except Exception as e:  # noqa: BLE001
-        col_rows = [{"error": f"schema_lookup_failed: {repr(e)}"}]
-
-    # 1) load row
+    # 1) load current row
     try:
         resp = (
             supabase.table("strava_accounts")
@@ -555,16 +537,18 @@ async def strava_disconnect(
             .execute()
         )
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail={"code": "db_select_failed", "version": VERSION, "error": repr(e)})
+        print("[STRAVA DISCONNECT] select failed:", repr(e))
+        raise HTTPException(status_code=500, detail="db_select_failed")
 
     row = (getattr(resp, "data", None) or [None])[0]
     if not row:
-        return {"ok": True, "already": True, "version": VERSION, "schema": col_rows if debug else None}
+        # nič nie je pripojené – idempotentné
+        return {"ok": True, "already": True}
 
     access_token = row.get("access_token")
     deauth_at = row.get("deauthorized_at")
 
-    # 2) deauthorize on Strava (best effort)
+    # 2) call Strava deauthorize (best effort)
     if access_token and not deauth_at:
         try:
             r = requests.post(
@@ -576,51 +560,19 @@ async def strava_disconnect(
                 print("[STRAVA DISCONNECT] deauthorize non-200:", r.status_code, r.text)
         except Exception as e:  # noqa: BLE001
             print("[STRAVA DISCONNECT] deauthorize error:", repr(e))
+            # nepoložíme endpoint
 
     now_iso = datetime.now(timezone.utc).isoformat()
-
-    # 3) priprav payload bezpečne podľa typu scope
-    # default: nikdy nepchať [] naslepo
-    scope_payload = None
-    # pokus zistiť scope typ
-    scope_col = None
-    for c in col_rows:
-        if c.get("column_name") == "scope":
-            scope_col = c
-            break
-
-    if scope_col:
-        dt = (scope_col.get("data_type") or "").lower()
-        udt = (scope_col.get("udt_name") or "").lower()
-
-        # najčastejšie:
-        # - text[] => udt_name = _text
-        # - varchar[] => _varchar
-        # - jsonb => jsonb
-        # - text/varchar => text / varchar
-        if udt.startswith("_"):  # array typ
-            scope_payload = []              # OK pre array
-        elif udt == "jsonb" or dt == "jsonb":
-            scope_payload = []              # OK pre jsonb (ako json array)
-        else:
-            # scope je scalar (text/varchar/...) => nedávaj []
-            # nechaj pôvodné alebo nastav NULL
-            scope_payload = None
 
     payload = {
         "deauthorized_at": now_iso,
         "access_token": None,
         "refresh_token": None,
         "expires_at": None,
+        # ak je scope text[] v PG, toto je OK:
+        "scope": [],
     }
-    # scope update len ak vieme, že to sedí
-    if scope_col and scope_payload is not None:
-        payload["scope"] = scope_payload
-    elif scope_col and scope_payload is None:
-        # radšej scope vôbec nemeníme (aby to nepadlo)
-        pass
 
-    # 4) update
     try:
         upd = (
             supabase.table("strava_accounts")
@@ -629,39 +581,23 @@ async def strava_disconnect(
             .execute()
         )
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "code": "db_update_exception",
-                "version": VERSION,
-                "error": repr(e),
-                "payload": payload if debug else None,
-                "schema": col_rows if debug else None,
-            },
-        )
+        print("[STRAVA DISCONNECT] update exception:", repr(e))
+        raise HTTPException(status_code=500, detail="db_update_exception")
 
     err = getattr(upd, "error", None)
     data = getattr(upd, "data", None)
 
     if err:
-        # toto je kľúč – konečne uvidíš presnú príčinu
+        # toto ti konečne povie skutočný dôvod (NOT NULL, type mismatch, atď.)
+        print("[STRAVA DISCONNECT] update error:", err)
         raise HTTPException(
             status_code=500,
-            detail={
-                "code": "db_update_failed",
-                "version": VERSION,
-                "error": str(err),
-                "payload": payload if debug else None,
-                "schema": col_rows if debug else None,
-            },
+            detail={"code": "db_update_failed", "error": str(err)},
         )
 
-    return {
-        "ok": True,
-        "version": VERSION,
-        "updated": len(data or []),
-        "schema": col_rows if debug else None,
-        "payload": payload if debug else None,
-    }
+    # ak by update nič netrafil (nemalo by sa stať)
+    if not data:
+        print("[STRAVA DISCONNECT] update ok but no rows updated")
+        return {"ok": True, "updated": 0}
 
-#test
+    return {"ok": True, "updated": len(data)}
