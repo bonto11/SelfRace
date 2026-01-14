@@ -1,6 +1,6 @@
 // src/app/(auth)/forgot-password/page.tsx
 "use client";
-
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
 
       setMsg(
-        "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.",
+        "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla."
       );
     } catch (e: any) {
       setErr(e?.message || "Nepodarilo sa odoslať e-mail.");
