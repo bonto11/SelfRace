@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Dict, Any, List, Optional
 
-from Routes_DB.maintenance import db_cleanup_deleted_activities
+from Routes_DB.maintenance import db_cleanup_deleted_activities, db_account_hard_delete
 from Routes_DB.users import db_list_users_for_cron
 from Services.async_jobs import service_enqueue_ai_analyze_job_service
 from Routes_DB.maintenance import (
     db_cleanup_deleted_activities,
     db_account_hard_delete,
 )
+from Services.supabase_auth_admin import admin_delete_auth_users
 
 def service_cleanup_deleted_activities(cutoff_days: int = 30) -> Dict[str, Any]:
     """
@@ -74,12 +75,30 @@ def service_account_hard_delete(
     """
     Hard delete účtov označených na zmazanie.
 
-    - dry_run=True  → len simuluje, nič nemaže
-    - only_user_id  → ak je zadané, obmedzí mazanie len na daného usera
+    Po zmazaní dát v public schéme zmaže aj Supabase Auth usera (auth.users)
+    cez admin API (service role).
     """
-    return db_account_hard_delete(
+    result = db_account_hard_delete(
         dry_run=dry_run,
         only_user_id=only_user_id,
         user_jwt=None,
-        service=True,  # service-role, bez RLS
+        service=True,
     )
+
+    # pri dry-run nič nemažeme v auth
+    if dry_run:
+        return {**result, "auth_delete": {"skipped": True, "reason": "dry_run"}}
+
+    items = result.get("items") or []
+    auth_uids: List[str] = []
+    for it in items:
+        uid = it.get("auth_uid")
+        if uid:
+            auth_uids.append(str(uid))
+
+    auth_report = admin_delete_auth_users(auth_uids)
+
+    return {
+        **result,
+        "auth_delete": auth_report,
+    }
