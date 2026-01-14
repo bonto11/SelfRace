@@ -104,7 +104,9 @@ export async function POST(req: NextRequest) {
 
       // očakávame, že funkcia vráti riadok z public.users
       const appId: number | null = dbUser.id ?? null;
-      res.cookies.set(SR_UUID, authUid, cookieOpts);
+      res.cookies.set(SR_UUID, authUid, {...cookieOpts,
+        httpOnly: false
+      });
 
       //const appUuid: string | null = dbUser.user_uid ?? null;
 

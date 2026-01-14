@@ -4,6 +4,7 @@ import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  
 
   // 1) Lokálne ignoruj statické veci a API – matcher potom môže byť len '/:path*'
   if (
@@ -23,6 +24,7 @@ export async function middleware(req: NextRequest) {
 
     // 3) Tichý refresh / bootstrap cookies (nič nepresmerúvame)
     const { data, error } = await supabase.auth.getSession();
+
 
     console.log("[SB][mw]", {
       path: pathname,
