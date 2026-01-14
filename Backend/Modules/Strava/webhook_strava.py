@@ -6,6 +6,8 @@ import hmac
 import hashlib
 import json
 import asyncio
+from urllib.parse import urlencode
+
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence, Optional, List, Dict, Literal
 from pydantic import BaseModel, Field
@@ -61,6 +63,18 @@ def get_webhook_secret() -> str:
 def get_strava_client_id() -> str:
     return _get_env("STRAVA_CLIENT_ID")
 
+# =================================================
+# HELPERY NA Redirect
+# =================================================
+
+CONNECTED_APPS_PATH = "/connectedApps"  # toto je tvoja FE route
+
+def _fe_redirect(status: str, reason: str | None = None) -> RedirectResponse:
+    params = {"strava": status}
+    if reason:
+        params["reason"] = reason
+    url = f"{FRONTEND_URL}{CONNECTED_APPS_PATH}?{urlencode(params)}"
+    return RedirectResponse(url, status_code=302)
 
 # =================================================
 # 1) WEBHOOK – VERIFY
@@ -292,7 +306,137 @@ async def process_pending_events(
 # =================================================
 # 6) OAUTH FLOW: CONNECT + CALLBACK
 # =================================================
+@router.get("/oauth/callback", name="strava_oauth_callback")
+async def strava_oauth_callback(
+    code: Optional[str] = Query(default=None),
+    state: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+):
+    # 1) user zrušil / Strava poslala error
+    if error:
+        print("[STRAVA OAUTH] error param:", error)
+        return _fe_redirect("error", "strava_denied")
 
+    # 2) missing params
+    if not code or not state:
+        print("[STRAVA OAUTH] missing code/state", {"code": bool(code), "state": bool(state)})
+        return _fe_redirect("error", "missing_code_or_state")
+
+    # 3) state -> user_id
+    try:
+        user_id = int(state)
+    except Exception:
+        print("[STRAVA OAUTH] invalid state:", state)
+        return _fe_redirect("error", "invalid_state")
+
+    client_id = get_strava_client_id()
+    client_secret = get_webhook_secret()  # STRAVA_CLIENT_SECRET
+
+    # 4) exchange code -> tokens
+    try:
+        resp = requests.post(
+            "https://www.strava.com/oauth/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+            },
+            timeout=15,
+        )
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA OAUTH] token exchange error:", repr(e))
+        return _fe_redirect("error", "token_exchange_failed")
+
+    if resp.status_code != 200:
+        print("[STRAVA OAUTH] token exchange bad status:", resp.status_code, resp.text)
+        # Strava limit býva často ešte pred callbackom, ale pre istotu:
+        if "Limit of connected athletes exceeded" in (resp.text or ""):
+            return _fe_redirect("error", "strava_athlete_limit")
+        return _fe_redirect("error", "token_exchange_bad_status")
+
+    token_data = resp.json()
+    print("[STRAVA OAUTH] token response:", token_data)
+
+    access_token = token_data.get("access_token")
+    refresh_token = token_data.get("refresh_token")
+    expires_at_ts = token_data.get("expires_at")
+    athlete = token_data.get("athlete") or {}
+    athlete_id = athlete.get("id")
+
+    scope_raw = token_data.get("scope") or ""
+    if isinstance(scope_raw, str):
+        scopes = [s.strip() for s in scope_raw.split(",") if s.strip()]
+    elif isinstance(scope_raw, list):
+        scopes = [str(s) for s in scope_raw]
+    else:
+        scopes = []
+
+    if not access_token or not refresh_token or not athlete_id:
+        print("[STRAVA OAUTH] invalid_token_response", {"access": bool(access_token), "refresh": bool(refresh_token), "athlete_id": athlete_id})
+        return _fe_redirect("error", "invalid_token_response")
+
+    expires_at_iso = None
+    if isinstance(expires_at_ts, (int, float)):
+        expires_at_iso = datetime.fromtimestamp(expires_at_ts, tz=timezone.utc).isoformat()
+
+    athlete_id_int = int(athlete_id)
+
+    # 5) athlete_id už existuje u iného usera -> pekná chyba (nie 500)
+    try:
+        existing = (
+            supabase.table("strava_accounts")
+            .select("user_id")
+            .eq("athlete_id", athlete_id_int)
+            .limit(1)
+            .execute()
+        )
+        row = (getattr(existing, "data", None) or [None])[0]
+        if row and int(row.get("user_id")) != user_id:
+            print("[STRAVA OAUTH] athlete already linked", {"athlete_id": athlete_id_int, "existing_user": row.get("user_id"), "wanted_user": user_id})
+            return _fe_redirect("error", "athlete_already_linked")
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA OAUTH] athlete check failed:", repr(e))
+        return _fe_redirect("error", "db_error")
+
+    # 6) UPSERT podľa user_id
+    upsert_row = {
+        "user_id": user_id,
+        "athlete_id": athlete_id_int,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_at": expires_at_iso,
+        "scope": scopes,
+        "deauthorized_at": None,
+    }
+
+    try:
+        upsert_resp = (
+            supabase.table("strava_accounts")
+            .upsert(upsert_row, on_conflict="user_id")
+            .execute()
+        )
+
+        print("[STRAVA OAUTH] upsert data:", getattr(upsert_resp, "data", None))
+        err = getattr(upsert_resp, "error", None)
+        print("[STRAVA OAUTH] upsert error:", err)
+
+        # ak by supabase klient vrátil error vo fielde
+        if err:
+            return _fe_redirect("error", "upsert_failed")
+
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        print("[STRAVA OAUTH] upsert exception:", repr(e))
+
+        low = msg.lower()
+        if "duplicate key value" in low or "athlete_id_key" in low:
+            return _fe_redirect("error", "athlete_already_linked")
+
+        return _fe_redirect("error", "upsert_failed")
+
+    # 7) success
+    return _fe_redirect("ok")
 
 @router.get("/oauth/start")
 async def strava_oauth_start(
@@ -327,119 +471,6 @@ async def strava_oauth_start(
     return RedirectResponse(url, status_code=302)
 
 
-@router.get("/oauth/callback", name="strava_oauth_callback")
-async def strava_oauth_callback(
-    code: Optional[str] = Query(default=None),
-    state: Optional[str] = Query(default=None),
-    error: Optional[str] = Query(default=None),
-):
-    """
-    Step 2: callback zo Stravy.
-
-    - ak user povolil prístup → máme `code` + `state`
-    - vymeníme `code` za access/refresh token
-    - uložíme/aktualizujeme `strava_accounts`
-    - redirect späť na FE
-    """
-    if error:
-        print("[STRAVA OAUTH] error param:", error)
-        return RedirectResponse(
-            f"{FRONTEND_URL}/coach?strava=error",
-            status_code=302,
-        )
-
-    if not code or not state:
-        raise HTTPException(status_code=400, detail="missing code or state")
-
-    try:
-        user_id = int(state)
-    except Exception:
-        raise HTTPException(status_code=400, detail="invalid state")
-
-    client_id = get_strava_client_id()
-    client_secret = get_webhook_secret()  # = STRAVA_CLIENT_SECRET
-
-    # ---- EXCHANGE CODE -> TOKENS ----
-    try:
-        resp = requests.post(
-            "https://www.strava.com/oauth/token",
-            data={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "code": code,
-                "grant_type": "authorization_code",
-            },
-            timeout=15,
-        )
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA OAUTH] token exchange error:", e)
-        raise HTTPException(status_code=502, detail="token_exchange_failed")
-
-    if resp.status_code != 200:
-        print("[STRAVA OAUTH] token exchange bad status:", resp.status_code, resp.text)
-        raise HTTPException(status_code=502, detail="token_exchange_bad_status")
-
-    token_data = resp.json()
-    print("[STRAVA OAUTH] token response:", token_data)
-
-    access_token = token_data.get("access_token")
-    refresh_token = token_data.get("refresh_token")
-    expires_at_ts = token_data.get("expires_at")
-    athlete = token_data.get("athlete") or {}
-    athlete_id = athlete.get("id")
-
-    scope_raw = token_data.get("scope") or ""
-    scopes: List[str]
-    if isinstance(scope_raw, str):
-        scopes = [s.strip() for s in scope_raw.split(",") if s.strip()]
-    elif isinstance(scope_raw, list):
-        scopes = [str(s) for s in scope_raw]
-    else:
-        scopes = []
-
-    if not access_token or not refresh_token or not athlete_id:
-        raise HTTPException(status_code=502, detail="invalid_token_response")
-
-    expires_at_iso = None
-    if isinstance(expires_at_ts, (int, float)):
-        expires_at_iso = datetime.fromtimestamp(
-            expires_at_ts, tz=timezone.utc
-        ).isoformat()
-
-    # ---- UPSERT DO strava_accounts ----
-    upsert_row = {
-        "user_id": user_id,
-        "athlete_id": int(athlete_id),
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "expires_at": expires_at_iso,
-        "scope": scopes,
-        "deauthorized_at": None,
-    }
-
-    try:
-        upsert_resp = (
-            supabase.table("strava_accounts")
-            .upsert(upsert_row, on_conflict="user_id")
-            .execute()
-        )
-        print(
-            "[STRAVA OAUTH] upsert data:",
-            getattr(upsert_resp, "data", None),
-        )
-        print(
-            "[STRAVA OAUTH] upsert error:",
-            getattr(upsert_resp, "error", None),
-        )
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA OAUTH] upsert error:", e)
-        raise HTTPException(status_code=500, detail=f"upsert_failed: {e}")
-
-    return RedirectResponse(
-        f"{FRONTEND_URL}/coach?strava=ok",
-        status_code=302,
-    )
-    
 @router.get("/status")
 async def strava_status(
     user_id: int = Query(..., description="SelfRace user_id"),

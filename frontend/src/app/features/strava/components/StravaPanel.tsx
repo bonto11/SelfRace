@@ -50,7 +50,21 @@ export default function StravaPanel() {
   // --- callback z OAuth (?strava=ok|error) ---
   useEffect(() => {
     const s = searchParams.get("strava");
+    const reason = searchParams.get("reason");
+
     if (!s) return;
+
+    if (s === "error") {
+      if (reason === "athlete_already_linked") {
+        toast.error("Tento Strava účet je už pripojený k inému účtu.");
+      } else if (reason === "strava_athlete_limit") {
+        toast.error("Strava limit: aplikácia je zatiaľ v test režime (1 pripojený účet).");
+      } else if (reason === "strava_denied") {
+        toast.error("Pripojenie bolo zrušené na Strave.");
+      } else {
+        toast.error("Pripojenie Strava účtu zlyhalo. Skús to znova.");
+      }
+    }
 
     if (s === "ok") {
       toast.success("Strava účet bol úspešne prepojený.");
