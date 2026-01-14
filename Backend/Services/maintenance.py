@@ -6,7 +6,10 @@ from typing import Dict, Any, List
 from Routes_DB.maintenance import db_cleanup_deleted_activities
 from Routes_DB.users import db_list_users_for_cron
 from Services.async_jobs import service_enqueue_ai_analyze_job_service
-
+from Routes_DB.maintenance import (
+    db_cleanup_deleted_activities,
+    db_account_hard_delete,
+)
 
 def service_cleanup_deleted_activities(cutoff_days: int = 30) -> Dict[str, Any]:
     """
@@ -62,3 +65,21 @@ def service_weekly_athlete_state_analysis(
         "users_total": len(users),
         "jobs_enqueued": enqueued,
     }
+
+def service_account_hard_delete(
+    *,
+    dry_run: bool = False,
+    only_user_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Hard delete účtov označených na zmazanie.
+
+    - dry_run=True  → len simuluje, nič nemaže
+    - only_user_id  → ak je zadané, obmedzí mazanie len na daného usera
+    """
+    return db_account_hard_delete(
+        dry_run=dry_run,
+        only_user_id=only_user_id,
+        user_jwt=None,
+        service=True,  # service-role, bez RLS
+    )
