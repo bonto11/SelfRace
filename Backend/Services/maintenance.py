@@ -1,7 +1,7 @@
 # Services/maintenance.py
 from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from Routes_DB.maintenance import db_cleanup_deleted_activities
 from Routes_DB.users import db_list_users_for_cron
