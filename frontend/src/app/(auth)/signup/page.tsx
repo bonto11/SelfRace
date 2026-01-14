@@ -1,13 +1,79 @@
-// src/app/signup/page.tsx
-import { Suspense } from "react";
-import ClientPage from "./ClientPage";
+// src/app/(auth)/signup/page.tsx
+"use client";
 
-export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
+import { useState } from "react";
+import Link from "next/link";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import Button from "@/app/shared/components/ui/Button";
 
-export default function Page() {
+export const dynamic = "force-dynamic"; // aby sa to necachovalo
+
+export default function SignupPage() {
+  const sb = getSupabaseBrowser();
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    const { error } = await sb.auth.signUp({
+      email,
+      password: pwd,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: `${window.location.origin}/coach`,
+      },
+    });
+    setBusy(false);
+    setMsg(error ? error.message : "Skontroluj e-mail a potvrď registráciu.");
+  }
+
   return (
-    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
-      <ClientPage />
-    </Suspense>
+    <main className="min-h-screen flex items-center justify-center px-4">
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <h1 className="text-2xl font-semibold">Vytvoriť účet</h1>
+
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            className="w-full rounded-md bg-slate-900 px-3 py-2"
+            placeholder="Meno (voliteľné)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            required
+            type="email"
+            className="w-full rounded-md bg-slate-900 px-3 py-2"
+            placeholder="tvoje@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            required
+            type="password"
+            className="w-full rounded-md bg-slate-900 px-3 py-2"
+            placeholder="Heslo (min. 6 znakov)"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+          />
+          <Button type="submit" variant="primary" block disabled={busy}>
+            {busy ? "Vytváram…" : "Registrovať"}
+          </Button>
+        </form>
+
+        <div className="text-sm text-white/60">
+          Už máš účet?{" "}
+          <Link className="underline" href="/signin">
+            Prihlás sa
+          </Link>
+        </div>
+
+        {msg && <div className="text-sm text-white/80">{msg}</div>}
+      </div>
+    </main>
   );
 }

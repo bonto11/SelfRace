@@ -1,3 +1,4 @@
+//app/shared/routes.ts
 export const ROUTES = {
   dashboard: "/dashboard",
   signin: "/signin",

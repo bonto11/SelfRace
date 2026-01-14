@@ -11,7 +11,7 @@ export async function getAuthUser() {
 }
 
 /** Server-only guard do (protected) layoutov. */
-export async function requireAuth(redirectTo: string = "/signin") {
+export async function requireAuth(redirectTo: string = "/") {
   const user = await getAuthUser();
   if (!user) redirect(redirectTo);
   return user;

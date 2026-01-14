@@ -8,7 +8,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   // SSR kontrola prihlásenia – stačí sr_uuid
   const cookieStore = await cookies();
   const srUuid = cookieStore.get("sr_uuid")?.value ?? null;
-  if (!srUuid) redirect("/signin");
+  if (!srUuid) redirect("/");
 
   // Všetko klientské (providery, sidebar, header, toasty) ide do ClientProtectedShell
   return <ClientProtectedShell>{children}</ClientProtectedShell>;

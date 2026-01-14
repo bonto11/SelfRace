@@ -19,7 +19,7 @@ export function useUser(redirectToLogin: boolean = false) {
       setLoading(false);
 
       if (redirectToLogin && !user) {
-        router.push("/signin");
+        router.push("/");
       }
     }
 
@@ -29,7 +29,7 @@ export function useUser(redirectToLogin: boolean = false) {
       async (_event, session) => {
         setUser(session?.user ?? null);
         if (redirectToLogin && !session?.user) {
-          router.push("/signin");
+          router.push("/");
         }
       }
     );
