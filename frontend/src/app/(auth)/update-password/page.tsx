@@ -1,6 +1,6 @@
 // src/app/update-password/page.tsx
 "use client";
-
+export const dynamic = "force-dynamic"
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";

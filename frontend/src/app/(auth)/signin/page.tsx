@@ -1,16 +1,13 @@
 // src/app/(auth)/signin/page.tsx
-"use client";
-
+import { Suspense } from "react";
 import SignInForm from "@/app/features/auth/components/SignInForm";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // nech sa neskúša staticky prerenderovať
 
-export default function SigninPage() {
+export default function Page() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <SignInForm />
-      </div>
-    </main>
+    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
+      <SignInForm />
+    </Suspense>
   );
 }
