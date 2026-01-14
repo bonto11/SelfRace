@@ -8,10 +8,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // DÔLEŽITÉ: await cookies()
     const cookieStore = await cookies();
-    const idRaw = cookieStore.get("sr_id")?.value ?? null;
-    const uuidCookie = cookieStore.get("sr_uuid")?.value ?? null;
+    const idRaw = cookieStore.get("sr_id")?.value ?? null;      // app users.id (len info)
+    const uuidCookie = cookieStore.get("sr_uuid")?.value ?? null; // app users.user_uid
 
     const idNum = Number.isFinite(Number(idRaw)) ? Number(idRaw) : null;
 
@@ -24,25 +23,45 @@ export async function GET() {
 
     const authUser = authData?.user ?? null;
     const email = authUser?.email ?? null;
+    const authUid = authUser?.id ?? null;
 
-    // --- profil v tabuľke users ---
-    let profileName: string | null = null;
-    let profileDisplayName: string | null = null;
+    // --- načítanie profilu z public.users ---
+    let profile: any = null;
 
-    if (idNum != null) {
-      const { data: profile, error: profileError } = await sb
+    if (uuidCookie) {
+      const { data, error } = await sb
         .from("users")
-        .select("name, display_name")
-        .eq("id", idNum)
+        .select("id, user_uid, mail_address, name, display_name")
+        .eq("user_uid", uuidCookie)
         .maybeSingle();
 
-      if (profileError) {
-        console.error("[ME][srv] users select error:", profileError.message);
-      } else if (profile) {
-        profileName = (profile as any).name ?? null;
-        profileDisplayName = (profile as any).display_name ?? null;
+      if (error) {
+        console.error("[ME][srv] users by user_uid error:", error.message);
+      } else {
+        profile = data;
       }
     }
+
+    // fallback – staré cookies: skús auth_uid
+    if (!profile && authUid) {
+      const { data, error } = await sb
+        .from("users")
+        .select("id, user_uid, mail_address, name, display_name")
+        .eq("auth_uid", authUid)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[ME][srv] users by auth_uid error:", error.message);
+      } else {
+        profile = data;
+      }
+    }
+
+    const appId: number | null = profile?.id ?? idNum ?? null;
+    const appUuid: string | null = profile?.user_uid ?? uuidCookie ?? null;
+    const profileName: string | null = profile?.name ?? null;
+    const profileDisplayName: string | null = profile?.display_name ?? null;
+    const profileEmail: string | null = profile?.mail_address ?? null;
 
     const name =
       profileName ??
@@ -61,11 +80,11 @@ export async function GET() {
       null;
 
     const user = {
-      id: idNum,
-      uuid: uuidCookie,
-      email,
-      name,        // celé meno
-      displayName, // prezývka / skratka
+      id: appId,
+      uuid: appUuid,
+      email: profileEmail ?? email,
+      name,
+      displayName,
       avatarUrl,
     };
 
@@ -74,13 +93,13 @@ export async function GET() {
       {
         status: 200,
         headers: { "cache-control": "no-store" },
-      }
+      },
     );
   } catch (e: any) {
     console.error("[ME][srv] ERROR:", e?.message ?? e);
     return NextResponse.json(
       { ok: false, user: null, error: e?.message ?? "server_error" },
-      { status: 200 }
+      { status: 200 },
     );
   }
 }
