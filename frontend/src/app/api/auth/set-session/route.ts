@@ -26,7 +26,7 @@ function serverClient(req: NextRequest, res: NextResponse) {
 
 type Body = { event?: "SIGNED_IN" | "SIGNED_OUT"; session?: Session | null };
 
-const SR_UUID = "sr_uuid"; // app users.user_uid
+const SR_UUID = "sr_uuid"; // app users.auth_uid
 const SR_ID = "sr_id";     // app users.id
 
 const cookieOpts = {
@@ -104,14 +104,17 @@ export async function POST(req: NextRequest) {
 
       // očakávame, že funkcia vráti riadok z public.users
       const appId: number | null = dbUser.id ?? null;
-      const appUuid: string | null = dbUser.user_uid ?? null;
+      res.cookies.set(SR_UUID, authUid, cookieOpts);
+
+      //const appUuid: string | null = dbUser.user_uid ?? null;
 
       if (appId != null) {
         res.cookies.set(SR_ID, String(appId), cookieOpts);
       }
-      if (appUuid) {
-        res.cookies.set(SR_UUID, appUuid, cookieOpts);
-      }
+
+      //if (appUuid) {
+      //  res.cookies.set(SR_UUID, appUuid, cookieOpts);
+     // }
 
       return res;
     }
