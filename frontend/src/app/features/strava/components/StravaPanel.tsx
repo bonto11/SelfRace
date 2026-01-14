@@ -12,10 +12,7 @@ import { apiSyncActivities } from "@/app/features/activities/api/synchronization
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 import { confirm } from "@/app/shared/components/ui/Confirm";
 import { API_URL } from "@/app/shared/config";
-import {
-  apiGetStravaStatus,
-  type StravaStatus,
-} from "../api/strava";
+import { apiGetStravaStatus, type StravaStatus } from "../api/strava";
 
 type BusyKind = "reload" | "import" | null;
 
@@ -62,9 +59,7 @@ export default function StravaPanel() {
         setStatusLoading(true);
         apiGetStravaStatus(userId)
           .then((st) => setStatus(st))
-          .catch((e) =>
-            console.error("[StravaPanel] status reload error:", e),
-          )
+          .catch((e) => console.error("[StravaPanel] status reload error:", e))
           .finally(() => setStatusLoading(false));
       }
     } else if (s === "error") {
@@ -126,7 +121,7 @@ export default function StravaPanel() {
       const skp = stats.skipped ?? 0;
 
       toast.success(
-        `Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`,
+        `Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`
       );
 
       resetClientCache();

@@ -433,7 +433,7 @@ async def strava_oauth_callback(
         )
     except Exception as e:  # noqa: BLE001
         print("[STRAVA OAUTH] upsert error:", e)
-        raise HTTPException(status_code=500, detail="upsert_failed")
+        raise HTTPException(status_code=500, detail=f"upsert_failed: {e}")
 
     return RedirectResponse(
         f"{FRONTEND_URL}/coach?strava=ok",
