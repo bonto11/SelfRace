@@ -1,4 +1,4 @@
-//shared/components/ui/Toast
+// shared/components/ui/Toast
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
@@ -18,7 +18,7 @@ type ToastItem = {
   id: number;
   type: ToastType;
   text: string;
-  ttl: number;
+  ttl: number; // ms, Infinity/<=0 = sticky
   phase: Phase;
 };
 
@@ -40,14 +40,20 @@ function emit(detail: BusDetail) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent<BusDetail>(BUS, { detail }));
 }
+
+// sensible defaults (your old 2800ms was too short)
+const TTL_SUCCESS = 3500;
+const TTL_INFO = 4500;
+const TTL_ERROR = 8000;
+
 export const toast = {
-  success(text: string, ttl?: number) {
+  success(text: string, ttl: number = TTL_SUCCESS) {
     emit({ type: "success", text, ttl });
   },
-  error(text: string, ttl?: number) {
+  error(text: string, ttl: number = TTL_ERROR) {
     emit({ type: "error", text, ttl });
   },
-  info(text: string, ttl?: number) {
+  info(text: string, ttl: number = TTL_INFO) {
     emit({ type: "info", text, ttl });
   },
 };
@@ -56,24 +62,43 @@ export const toast = {
 export default function ToastHost() {
   const [items, setItems] = React.useState<ToastItem[]>([]);
 
-  const show = (type: ToastType, text: string, ttl = 2800) => {
-    const id = Date.now() + Math.random();
-    setItems((arr) => [...arr, { id, type, text, ttl, phase: "in" }]);
-    window.setTimeout(() => {
-      setItems((arr) =>
-        arr.map((x) => (x.id === id ? { ...x, phase: "hold" } : x))
-      );
-    }, 20);
-    const outAt = Math.max(600, ttl - 360);
-    window.setTimeout(() => {
-      setItems((arr) =>
-        arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x))
-      );
-    }, outAt);
+  const dismiss = React.useCallback((id: number) => {
+    setItems((arr) =>
+      arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x))
+    );
     window.setTimeout(() => {
       setItems((arr) => arr.filter((x) => x.id !== id));
-    }, ttl);
-  };
+    }, 360); // allow "toast-exit" animation to play
+  }, []);
+
+  const show = React.useCallback(
+    (type: ToastType, text: string, ttl: number = 2800) => {
+      const id = Date.now() + Math.random();
+      const isSticky = ttl === Infinity || ttl <= 0;
+
+      setItems((arr) => [...arr, { id, type, text, ttl, phase: "in" }]);
+
+      window.setTimeout(() => {
+        setItems((arr) =>
+          arr.map((x) => (x.id === id ? { ...x, phase: "hold" } : x))
+        );
+      }, 20);
+
+      if (isSticky) return; // no auto-out, no auto-remove
+
+      const outAt = Math.max(600, ttl - 360);
+      window.setTimeout(() => {
+        setItems((arr) =>
+          arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x))
+        );
+      }, outAt);
+
+      window.setTimeout(() => {
+        setItems((arr) => arr.filter((x) => x.id !== id));
+      }, ttl);
+    },
+    []
+  );
 
   React.useEffect(() => {
     const onBus = (e: Event) => {
@@ -82,7 +107,7 @@ export default function ToastHost() {
     };
     window.addEventListener(BUS, onBus as EventListener);
     return () => window.removeEventListener(BUS, onBus as EventListener);
-  }, []);
+  }, [show]);
 
   const node = (
     <div className={TOAST_LAYER}>
@@ -97,10 +122,20 @@ export default function ToastHost() {
               t.type === "info" && TOAST_INFO,
               t.phase === "in" && "toast-enter",
               t.phase === "hold" && "toast-hold",
-              t.phase === "out" && "toast-exit"
+              t.phase === "out" && "toast-exit",
+              "flex items-center justify-between gap-3"
             )}
           >
-            {t.text}
+            <span className="min-w-0 flex-1">{t.text}</span>
+
+            <button
+              type="button"
+              aria-label="Close"
+              className="shrink-0 opacity-80 hover:opacity-100"
+              onClick={() => dismiss(t.id)}
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>

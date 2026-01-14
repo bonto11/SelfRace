@@ -50,25 +50,12 @@ export default function StravaPanel() {
   // --- callback z OAuth (?strava=ok|error) ---
   useEffect(() => {
     const s = searchParams.get("strava");
-    const reason = searchParams.get("reason");
-
     if (!s) return;
 
-    if (s === "error") {
-      if (reason === "athlete_already_linked") {
-        toast.error("Tento Strava účet je už pripojený k inému účtu.");
-      } else if (reason === "strava_athlete_limit") {
-        toast.error("Strava limit: aplikácia je zatiaľ v test režime (1 pripojený účet).");
-      } else if (reason === "strava_denied") {
-        toast.error("Pripojenie bolo zrušené na Strave.");
-      } else {
-        toast.error("Pripojenie Strava účtu zlyhalo. Skús to znova.");
-      }
-    }
+    const reason = searchParams.get("reason");
 
     if (s === "ok") {
       toast.success("Strava účet bol úspešne prepojený.");
-      // po úspechu načítame čerstvý status
       if (userId) {
         setStatusLoading(true);
         apiGetStravaStatus(userId)
@@ -76,11 +63,26 @@ export default function StravaPanel() {
           .catch((e) => console.error("[StravaPanel] status reload error:", e))
           .finally(() => setStatusLoading(false));
       }
-    } else if (s === "error") {
-      toast.error("Pripojenie Strava účtu zlyhalo. Skús to znova.");
     }
 
-    // odstránime query param, nech to netoastuje pri každom reloade
+    if (s === "error") {
+      if (reason === "athlete_already_linked") {
+        toast.error(
+          "Tento Strava účet je už pripojený k inému účtu.",
+          Infinity
+        );
+      } else if (reason === "strava_athlete_limit") {
+        toast.error(
+          "Strava limit: aplikácia je zatiaľ v test režime (1 pripojený účet).",
+          Infinity
+        );
+      } else if (reason === "strava_denied") {
+        toast.error("Pripojenie bolo zrušené na Strave.");
+      } else {
+        toast.error("Pripojenie Strava účtu zlyhalo. Skús to znova.");
+      }
+    }
+
     router.replace(pathname);
   }, [searchParams, pathname, router, userId]);
 
