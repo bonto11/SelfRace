@@ -17,5 +17,5 @@ jobs:
           curl -X POST \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"dry_run": false, "only_user_id": 8}' \
+            -d '{"dry_run": false, "only_user_id": null}' \
             https://api-dev.patrikmbontar.eu/maintenance/account-hard-delete

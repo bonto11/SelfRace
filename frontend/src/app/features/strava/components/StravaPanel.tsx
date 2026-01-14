@@ -12,9 +12,13 @@ import { apiSyncActivities } from "@/app/features/activities/api/synchronization
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 import { confirm } from "@/app/shared/components/ui/Confirm";
 import { API_URL } from "@/app/shared/config";
-import { apiGetStravaStatus, type StravaStatus } from "../api/strava";
+import {
+  apiGetStravaStatus,
+  type StravaStatus,
+  apiDisconnectStrava,
+} from "../api/strava";
 
-type BusyKind = "reload" | "import" | null;
+type BusyKind = "reload" | "import" | "disconnect" | null;
 
 export default function StravaPanel() {
   const { userId } = useUserId();
@@ -148,6 +152,50 @@ export default function StravaPanel() {
     }
   }
 
+  async function handleDisconnectStrava() {
+    if (!userId) {
+      toast.error("Chýba user id – skús sa znova prihlásiť.");
+      return;
+    }
+    if (busy) return;
+
+    const step1 = await confirm({
+      title: "Odpojiť Stravu?",
+      message:
+        "Odpojíme Strava účet od SelfRace. Zruší sa autorizácia na Strave a vymažeme uložené tokeny. Import a webhooky prestanú fungovať.",
+      okText: "Odpojiť",
+      cancelText: "Zrušiť",
+      tone: "danger",
+    });
+    if (!step1) return;
+
+    const step2 = await confirm({
+      title: "Naozaj odpojiť Stravu?",
+      message:
+        "Toto je bezpečnostný krok. Po odpojení bude treba znovu autorizovať prístup.",
+      okText: "Áno, odpojiť",
+      cancelText: "Zrušiť",
+      tone: "danger",
+    });
+    if (!step2) return;
+
+    setBusy("disconnect");
+    try {
+      await apiDisconnectStrava(userId);
+      toast.success("Strava účet bol odpojený.");
+
+      // refresh status + cache
+      setStatusLoading(true);
+      await apiGetStravaStatus(userId).then(setStatus);
+      resetClientCache();
+    } catch (e: any) {
+      toast.error(e?.message || "Odpojenie Stravy zlyhalo.");
+    } finally {
+      setStatusLoading(false);
+      setBusy(null);
+    }
+  }
+
   const disabled = !userId || busy !== null;
 
   const statusLabel = (() => {
@@ -198,6 +246,32 @@ export default function StravaPanel() {
             Connect with Strava
           </Button>
         </div>
+
+        {/* 4) Disconnect */}
+        {status?.connected ? (
+          <div className="space-y-1 border-t border-white/10 pt-2">
+            <div className="text-xs font-semibold opacity-80">4. Odpojenie</div>
+            <p className="text-xs opacity-70">
+              Zruší autorizáciu na Strave a vymaže tokeny uložené v aplikácii.
+            </p>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy === "disconnect" || !userId}
+              onClick={handleDisconnectStrava}
+            >
+              {busy === "disconnect" ? (
+                <span className="inline-flex items-center gap-1">
+                  <LoadingSpinner size="button" />
+                  Odpájam…
+                </span>
+              ) : (
+                "Disconnect Strava"
+              )}
+            </Button>
+          </div>
+        ) : null}
 
         {/* 2) Reload cache */}
         <div className="space-y-1 border-t border-white/10 pt-2">

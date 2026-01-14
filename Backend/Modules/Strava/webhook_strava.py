@@ -516,3 +516,70 @@ async def strava_status(
         "scopes": row.get("scope") or [],
         "expires_at": row.get("expires_at"),
     }
+
+
+@router.post("/disconnect")
+async def strava_disconnect(
+    user_id: int = Query(..., description="SelfRace user_id"),
+):
+    """
+    Odpojí Strava účet:
+    - zavolá Strava /oauth/deauthorize (ak máme access_token)
+    - v DB nastaví deauthorized_at a vymaže tokeny
+    """
+    # 1) load current row
+    resp = (
+        supabase.table("strava_accounts")
+        .select("user_id, athlete_id, access_token, deauthorized_at")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    row = (getattr(resp, "data", None) or [None])[0]
+    if not row:
+        # nič nie je pripojené – idempotentné
+        return {"ok": True, "already": True}
+
+    access_token = row.get("access_token")
+    deauth_at = row.get("deauthorized_at")
+
+    # 2) if already deauthorized -> still cleanup tokens
+    # 3) call Strava deauthorize if token exists and not already deauthed
+    if access_token and not deauth_at:
+        try:
+            r = requests.post(
+                "https://www.strava.com/oauth/deauthorize",
+                data={"access_token": access_token},
+                timeout=15,
+            )
+            # Strava väčšinou vráti 200 aj keď je už deauthorized,
+            # ale nebudeme to hrotiť – dôležité je, aby sme lokálne vyčistili tokeny.
+            if r.status_code not in (200, 201):
+                print("[STRAVA DISCONNECT] deauthorize non-200:", r.status_code, r.text)
+        except Exception as e:  # noqa: BLE001
+            print("[STRAVA DISCONNECT] deauthorize error:", repr(e))
+            # nepolož endpoint – lokálne cleanup je prioritný
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    upd = (
+        supabase.table("strava_accounts")
+        .update(
+            {
+                "deauthorized_at": now_iso,
+                "access_token": None,
+                "refresh_token": None,
+                "expires_at": None,
+                "scope": [],
+            }
+        )
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    err = getattr(upd, "error", None)
+    if err:
+        raise HTTPException(status_code=500, detail="db_update_failed")
+
+    return {"ok": True}
