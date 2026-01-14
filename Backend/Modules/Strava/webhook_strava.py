@@ -523,11 +523,11 @@ async def strava_disconnect(
     user_id: int = Query(..., description="SelfRace user_id"),
 ):
     """
-    Odpojí Strava účet (idempotentné):
-    - best-effort Strava deauthorize
-    - vždy lokálne vyčistí DB
-    - NIKDY nepadá 500 kvôli Strave
+    Odpojí Strava účet:
+    - best effort: zavolá Strava /oauth/deauthorize (ak máme access_token)
+    - v DB nastaví deauthorized_at a vyčistí tokeny
     """
+    # 1) load current row
     try:
         resp = (
             supabase.table("strava_accounts")
@@ -536,63 +536,68 @@ async def strava_disconnect(
             .limit(1)
             .execute()
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print("[STRAVA DISCONNECT] select failed:", repr(e))
-        raise HTTPException(status_code=500, detail="db_read_failed")
+        raise HTTPException(status_code=500, detail="db_select_failed")
 
     row = (getattr(resp, "data", None) or [None])[0]
     if not row:
-        # nič nie je pripojené → OK
+        # nič nie je pripojené – idempotentné
         return {"ok": True, "already": True}
 
     access_token = row.get("access_token")
     deauth_at = row.get("deauthorized_at")
 
-    # --- 1) BEST EFFORT: Strava deauthorize ---
+    # 2) call Strava deauthorize (best effort)
     if access_token and not deauth_at:
         try:
             r = requests.post(
                 "https://www.strava.com/oauth/deauthorize",
                 data={"access_token": access_token},
-                timeout=10,
+                timeout=15,
             )
-            print(
-                "[STRAVA DISCONNECT] deauthorize status:",
-                r.status_code,
-                r.text,
-            )
-        except Exception as e:
-            # ❗ NESMIEME padnúť
+            if r.status_code not in (200, 201):
+                print("[STRAVA DISCONNECT] deauthorize non-200:", r.status_code, r.text)
+        except Exception as e:  # noqa: BLE001
             print("[STRAVA DISCONNECT] deauthorize error:", repr(e))
+            # nepoložíme endpoint
 
-    # --- 2) LOKÁLNY CLEANUP (kritické) ---
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    payload = {
+        "deauthorized_at": now_iso,
+        "access_token": None,
+        "refresh_token": None,
+        "expires_at": None,
+        # ak je scope text[] v PG, toto je OK:
+        "scope": [],
+    }
 
     try:
         upd = (
             supabase.table("strava_accounts")
-            .update(
-                {
-                    "deauthorized_at": now_iso,
-                    "access_token": None,
-                    "refresh_token": None,
-                    "expires_at": None,
-                    # ⚠️ DÔLEŽITÉ:
-                    # ak scope NIE JE array → daj None
-                    "scope": None,
-                }
-            )
+            .update(payload)
             .eq("user_id", user_id)
             .execute()
         )
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA DISCONNECT] update exception:", repr(e))
+        raise HTTPException(status_code=500, detail="db_update_exception")
 
-        err = getattr(upd, "error", None)
-        if err:
-            print("[STRAVA DISCONNECT] db_update error:", err)
-            raise RuntimeError(err)
+    err = getattr(upd, "error", None)
+    data = getattr(upd, "data", None)
 
-    except Exception as e:
-        print("[STRAVA DISCONNECT] db_update failed:", repr(e))
-        raise HTTPException(status_code=500, detail="db_update_failed")
+    if err:
+        # toto ti konečne povie skutočný dôvod (NOT NULL, type mismatch, atď.)
+        print("[STRAVA DISCONNECT] update error:", err)
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "db_update_failed", "error": str(err)},
+        )
 
-    return {"ok": True}
+    # ak by update nič netrafil (nemalo by sa stať)
+    if not data:
+        print("[STRAVA DISCONNECT] update ok but no rows updated")
+        return {"ok": True, "updated": 0}
+
+    return {"ok": True, "updated": len(data)}
