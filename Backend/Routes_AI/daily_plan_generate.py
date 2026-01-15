@@ -15,7 +15,7 @@ from Configs.config import (
     LLM_TIMEOUT_S,
 )
 
-from backend.Routes_AI.daily_plan_llm import (
+from Routes_AI.daily_plan_llm import (
     _llm_models_priority,
     _sanitize_json_guess,
 ) 
