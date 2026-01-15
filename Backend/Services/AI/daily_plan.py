@@ -28,7 +28,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_get_latest_plan_meta_for_user,
 )
-from backend.Routes_AI.daily_plan_generate import generate_daily_week_json
+from Routes_AI.daily_plan_generate import generate_daily_week_json
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
 
