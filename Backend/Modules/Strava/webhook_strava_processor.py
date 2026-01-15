@@ -1,8 +1,14 @@
+# Modules/Strava/webhook_strava_processor.py
+
 """
 Webhook processor:
  - mapuje athlete_id -> user_id cez strava_accounts
  - pre activity create/update spúšťa sync + coach auto-adjust
  - pre activity delete označuje activity ako deleted_at
+
+Bezpečnostná pointa:
+ - webhook je iba trigger (id + owner_id)
+ - reálne dáta sa ťahajú zo Strava API cez token v service_sync_single_activity
 """
 
 from __future__ import annotations
@@ -43,21 +49,16 @@ def _mark_event(
     ).eq("id", event_id).execute()
 
 
-async def _sync_activity(
-    *,
-    user_id: int,
-    strava_activity_id: int,
-) -> None:
+async def _sync_activity(*, user_id: int, strava_activity_id: int) -> None:
     """
     Spustí service_sync_single_activity v SERVICE režime (bez JWT).
     """
     loop = asyncio.get_running_loop()
-
     await loop.run_in_executor(
         None,
         service_sync_single_activity,
-        user_id,
-        strava_activity_id,
+        int(user_id),
+        int(strava_activity_id),
         True,   # fetch_details
         None,   # user_jwt (service mode)
     )
@@ -68,14 +69,12 @@ async def _run_coach_autoadjust_service(user_id: int) -> dict:
     Coach auto-adjust v SERVICE režime (best-effort).
     """
     loop = asyncio.get_running_loop()
-
     fn = partial(
         service_coach_autoadjust_after_update,
-        user_id=user_id,
+        user_id=int(user_id),
         user_jwt=None,
-        service=True,  # 🔥 kritické
+        service=True,
     )
-
     return await loop.run_in_executor(None, fn)
 
 
@@ -86,6 +85,7 @@ async def _run_coach_autoadjust_service(user_id: int) -> dict:
 async def _process_single_event(row: Mapping[str, Any]) -> None:
     """
     Spracuje JEDEN záznam zo strava_webhook_events.
+    Očakáva: status in ("pending", "pending_unverified") a processed_at is NULL.
     """
     event_id_raw = row.get("id")
     if not event_id_raw:
@@ -93,61 +93,43 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     event_id = int(event_id_raw)
+    now_iso = _utc_now_iso()
+
+    status = row.get("status")
+    if status == "pending_unverified":
+        # Len audit info. Bezpečnosť stojí na tom, že sync ťahá z API.
+        print("[STRAVA] processing UNVERIFIED webhook event id=", event_id)
 
     object_type = row.get("object_type")
     aspect_type = row.get("aspect_type")
     owner_id = row.get("owner_id")
-    object_id_raw = row.get("object_id")
-
-    now_iso = _utc_now_iso()
 
     # --------------------------------------------------------
     # 0) object_id MUSÍ byť int (Strava activity id)
     # --------------------------------------------------------
     object_id_raw = row.get("object_id")
-
     if object_id_raw is None:
-        _mark_event(
-            event_id,
-            status="error",
-            error="missing_activity_id",
-            processed_at_iso=now_iso,
-        )
+        _mark_event(event_id, status="error", error="missing_activity_id", processed_at_iso=now_iso)
         return
 
     try:
-        object_id = int(str(object_id_raw))  # <-- str() zúži Any -> str
+        object_id = int(str(object_id_raw))
     except ValueError:
-        _mark_event(
-            event_id,
-            status="error",
-            error="invalid_activity_id",
-            processed_at_iso=now_iso,
-        )
+        _mark_event(event_id, status="error", error="invalid_activity_id", processed_at_iso=now_iso)
         return
 
     # --------------------------------------------------------
     # 1) activity only
     # --------------------------------------------------------
     if object_type != "activity":
-        _mark_event(
-            event_id,
-            status="ignored",
-            error=None,
-            processed_at_iso=now_iso,
-        )
+        _mark_event(event_id, status="ignored", error=None, processed_at_iso=now_iso)
         return
 
     # --------------------------------------------------------
     # 2) owner_id musí existovať
     # --------------------------------------------------------
     if owner_id is None:
-        _mark_event(
-            event_id,
-            status="error",
-            error="missing_owner_id",
-            processed_at_iso=now_iso,
-        )
+        _mark_event(event_id, status="error", error="missing_owner_id", processed_at_iso=now_iso)
         return
 
     # --------------------------------------------------------
@@ -164,7 +146,6 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
 
     rows: Sequence[Mapping[str, Any]] = acc_resp.data or []
     account = rows[0] if rows else None
-
     if not account:
         _mark_event(
             event_id,
@@ -183,34 +164,23 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         try:
             supabase.table("activities_summary").update(
                 {"deleted_at": now_iso}
-            ).eq("user_id", user_id).eq(
-                "activity_id", object_id
-            ).execute()
+            ).eq("user_id", user_id).eq("activity_id", object_id).execute()
         except Exception as e:  # noqa: BLE001
-            _mark_event(
-                event_id,
-                status="error",
-                error=f"delete_mark_failed: {e}",
-                processed_at_iso=now_iso,
-            )
+            _mark_event(event_id, status="error", error=f"delete_mark_failed: {e}", processed_at_iso=now_iso)
             return
 
-        _mark_event(
-            event_id,
-            status="processed",
-            error=None,
-            processed_at_iso=now_iso,
-        )
+        _mark_event(event_id, status="processed", error=None, processed_at_iso=now_iso)
         return
 
     # --------------------------------------------------------
     # 5) CREATE / UPDATE → sync + auto-adjust
     # --------------------------------------------------------
+    if aspect_type not in ("create", "update"):
+        _mark_event(event_id, status="ignored", error="unknown_aspect_type", processed_at_iso=now_iso)
+        return
+
     try:
-        await _sync_activity(
-            user_id=user_id,
-            strava_activity_id=object_id,
-        )
+        await _sync_activity(user_id=user_id, strava_activity_id=object_id)
 
         # auto-adjust je best-effort
         try:
@@ -220,32 +190,12 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
                 "user_id=", user_id,
                 "mode=", auto_res.get("mode"),
                 "reason=", auto_res.get("reason"),
-                "be_flags=", auto_res.get("be_flags"),
-                "recovery_debug=", auto_res.get("recovery_debug"),
             )
         except Exception as e:  # noqa: BLE001
-            print(
-                "[COACH-AUTOADJUST][service] error for user",
-                user_id,
-                ":",
-                repr(e),
-            )
+            print("[COACH-AUTOADJUST][service] error user_id=", user_id, "err=", repr(e))
 
     except Exception as e:  # noqa: BLE001
-        _mark_event(
-            event_id,
-            status="error",
-            error=str(e),
-            processed_at_iso=now_iso,
-        )
+        _mark_event(event_id, status="error", error=str(e), processed_at_iso=now_iso)
         return
 
-    # --------------------------------------------------------
-    # 6) OK
-    # --------------------------------------------------------
-    _mark_event(
-        event_id,
-        status="processed",
-        error=None,
-        processed_at_iso=now_iso,
-    )
+    _mark_event(event_id, status="processed", error=None, processed_at_iso=now_iso)

@@ -4,12 +4,10 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from Modules.Strava.http_client import StravaHTTPClient
-
-DEBUG_STRAVA_STREAMS = True
-
+from Configs.config import STRAVA_DEBUG_STREAMS
 
 def _dbg_strava(*args: Any, **kwargs: Any) -> None:
-    if DEBUG_STRAVA_STREAMS:
+    if STRAVA_DEBUG_STREAMS:
         print("[strava-streams]", *args, **kwargs, flush=True)
 
 
@@ -54,9 +52,10 @@ class StravaActivitiesClient:
             timeout=timeout,
         )
         data = r.json() or []
+    
         if not isinstance(data, list):
             return []
-        return data
+        return [dict(x) for x in data if isinstance(x, dict)]
 
     # ------------------------------------------------------------------
     # /activities/{id}
@@ -96,9 +95,10 @@ class StravaActivitiesClient:
             timeout=timeout,
         )
         data = r.json() or []
+        
         if not isinstance(data, list):
             return []
-        return data
+        return [dict(x) for x in data if isinstance(x, dict)]
 
     # ------------------------------------------------------------------
     # /activities/{id}/streams

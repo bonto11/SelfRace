@@ -142,11 +142,9 @@ def _get_access_token_for_user(user_id: int) -> Optional[str]:
     access_token = row.get("access_token")
     expires_at_raw = row.get("expires_at")
 
-    # ak nemáme expires_at, ber to ako expirované a skús refresh
     needs_refresh = False
     if isinstance(expires_at_raw, str):
         try:
-            # podporíme formát s 'Z' aj s offsetom
             if expires_at_raw.endswith("Z") and "+" not in expires_at_raw:
                 exp_dt = datetime.fromisoformat(
                     expires_at_raw.replace("Z", "+00:00")
@@ -156,7 +154,6 @@ def _get_access_token_for_user(user_id: int) -> Optional[str]:
             if exp_dt <= datetime.now(timezone.utc):
                 needs_refresh = True
         except Exception:
-            # nevieme parse-nuť → radšej refresh
             needs_refresh = True
     else:
         needs_refresh = True
@@ -168,9 +165,37 @@ def _get_access_token_for_user(user_id: int) -> Optional[str]:
 
 
 # -------------------------------------------------------------------
-# HLAVNÁ FUNKCIA – SYNC SINGLE ACTIVITY
+# TYPING FIX: Mapping/Sequence -> List[Dict[str, Any]]
 # -------------------------------------------------------------------
 
+def _to_list_of_dicts(items: Any) -> List[Dict[str, Any]]:
+    """
+    Strava klient často vracia list[dict], ale typovo to vie byť Sequence[Mapping].
+    Pre Pylance a naše helpery z toho spravíme List[Dict[str, Any]].
+    """
+    if not items:
+        return []
+    out: List[Dict[str, Any]] = []
+    if isinstance(items, list):
+        for x in items:
+            if isinstance(x, dict):
+                out.append(x)
+            elif isinstance(x, Mapping):
+                out.append(dict(x))
+        return out
+
+    if isinstance(items, Sequence):
+        for x in items:
+            if isinstance(x, dict):
+                out.append(x)
+            elif isinstance(x, Mapping):
+                out.append(dict(x))
+    return out
+
+
+# -------------------------------------------------------------------
+# HLAVNÁ FUNKCIA – SYNC SINGLE ACTIVITY
+# -------------------------------------------------------------------
 
 def service_sync_single_activity(
     user_id: int,
@@ -185,19 +210,13 @@ def service_sync_single_activity(
     PRODUKCIA:
       - access_token sa vždy berie z tabuľky strava_accounts pre daného usera.
     """
-    # 0) access_token pre usera
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
         print(
             f"[SYNC:single] no valid Strava access_token for user_id={user_id}, "
             f"activity_id={strava_activity_id}"
         )
-        return {
-            "imported": 0,
-            "updated": 0,
-            "skipped": 1,
-            "fetched": 0,
-        }
+        return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
 
     client = StravaActivitiesClient(access_token=access_token)
 
@@ -208,7 +227,6 @@ def service_sync_single_activity(
 
     aid = int(strava_activity_id)
 
-    # sme v service-mode, ak nemáme user_jwt (napr. Strava webhook)
     service_mode = user_jwt is None
 
     # ---------- 1) DETAIL AKTIVITY ----------
@@ -217,14 +235,8 @@ def service_sync_single_activity(
         fetched += 1
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] failed to fetch activity id={aid}: {e}")
-        return {
-            "imported": 0,
-            "updated": 0,
-            "skipped": 1,
-            "fetched": 0,
-        }
+        return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
 
-    # vyberieme mapu + workout_type z detailu
     m = detail.get("map") or {}
     map_summary_polyline = None
     map_polyline = None
@@ -238,28 +250,19 @@ def service_sync_single_activity(
     row = _normalize_summary(user_id, detail)
     if not row.get("activity_id"):
         print(f"[SYNC:single] missing activity_id for id={aid}")
-        return {
-            "imported": 0,
-            "updated": 0,
-            "skipped": 1,
-            "fetched": 0,
-        }
+        return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
 
-    # doplníme workout_type + summary polyline do summary riadku
     if detail_wt is not None:
         try:
             row["workout_type"] = int(detail_wt)
         except Exception:
-            # nech to nespadne na nečísle
             pass
 
     if map_summary_polyline is not None:
         row["map_summary_polyline"] = map_summary_polyline
 
-    # ak už bola niekedy soft-deleted, sync ju má "oživiť"
     row["deleted_at"] = None
 
-    # zisti, či už existuje (user_id + activity_id)
     try:
         existing_row = db_get_activity_summary_one(
             activity_id=aid,
@@ -283,14 +286,8 @@ def service_sync_single_activity(
             imported += 1
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] summary upsert failed id={aid}: {e}")
-        return {
-            "imported": 0,
-            "updated": 0,
-            "skipped": 1,
-            "fetched": fetched,
-        }
+        return {"imported": 0, "updated": 0, "skipped": 1, "fetched": fetched}
 
-    # zároveň z detailu doplníme aj full map_polyline + workout_type
     try:
         db_update_activity_map_and_workout(
             activity_id=aid,
@@ -306,12 +303,17 @@ def service_sync_single_activity(
     # ---------- 3) LAPS / SPLITS (voliteľné) ----------
     if fetch_details:
         try:
-            laps_raw = client.fetch_activity_laps(aid)
+            laps_raw_any = client.fetch_activity_laps(aid)
         except Exception as e:  # noqa: BLE001
             print(f"[SYNC:single] laps fetch failed id={aid}: {e}")
-            laps_raw = []
+            laps_raw_any = []
 
-        splits_raw = detail.get("splits_metric") or []
+        splits_raw_any = detail.get("splits_metric") or []
+
+        # ✅ TYPING FIX: prehoď na List[Dict[str, Any]] kvôli _decide/_normalize
+        laps_raw: List[Dict[str, Any]] = _to_list_of_dicts(laps_raw_any)
+        splits_raw: List[Dict[str, Any]] = _to_list_of_dicts(splits_raw_any)
+
         mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
         try:
@@ -340,6 +342,7 @@ def service_sync_single_activity(
                     service=service_mode,
                 )
 
+                # ✅ teraz L je Dict[str, Any], Pylance OK
                 lap_rows = [_normalize_lap(L, user_id, aid) for L in laps_raw]
                 for l_row in lap_rows:
                     db_upsert_lap(

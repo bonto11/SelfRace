@@ -45,17 +45,25 @@ TABLE_AI_WALLET_TRANSACTION = "ai_wallet_transactions"
 TABLE_APP_SUBSCRIPTION_TIERS = "app_subscription_tiers"
 TABLE_APP_USER_SUBSCRIPTIONS = "app_user_subscriptions"
 
+# --- KONŠTANTY PRE URL (všetko HTTPS) ---
+BACKEND_URL: str = env_required("BACKEND_URL")
+FRONTEND_URL: str = env_required("FRONTEND_URL")
+MAINTENANCE_API_KEY: str = env_required("MAINTENANCE_API_KEY")
+
 SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
 SUPABASE_ANON_KEY: str = env_required("SUPABASE_ANON_KEY")
 CLIENT_ID: str = env_required("STRAVA_CLIENT_ID")
 CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
+
 STRAVA_BASE = "https://www.strava.com/api/v3"
 REDIRECT_URI = "http://localhost:5000/exchange_token"
 TOKENS_FILE = "data/tokens.json"
 
 USE_STRAVA_CACHE = "true"
 CACHE_DIR = "data/strava_cache"
+STRAVA_DEBUG_STREAMS = os.getenv("STRAVA_DEBUG_STREAMS","").lower() in ("1","true","yes")
+
 
 # dobrovoľný globálny delay medzi requestami (sekundy, napr. 0, 0.5, 1.0…)
 REQUEST_DELAY_SECS = 0.3
@@ -84,8 +92,6 @@ WEEKLY_REPLAN_COOLDOWN_DAYS = 3
 # Koľko dní minimálne chceme mať dopredu po weekly repláne
 MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
 
-
-MAINTENANCE_API_KEY = os.getenv("MAINTENANCE_API_KEY")
 
 # Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
 MAX_FULL_DETAILS_PER_RUN = 150
