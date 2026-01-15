@@ -1,6 +1,7 @@
 # Services/AI/weekly_plan_builders.py
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, Optional, List
 
 from Configs.config import (
@@ -17,6 +18,16 @@ from Routes_DB.coach_athlete_state import (
 from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
+
+
+def _debug_enabled() -> bool:
+    return (os.getenv("COACH_DEBUG", "") or "").lower() in ("1", "true", "yes", "on")
+
+
+def _dbg(*args: Any) -> None:
+    if _debug_enabled():
+        print(*args)
+
 
 def load_athlete_state_for_plan(
     user_id: int,
@@ -69,23 +80,85 @@ def load_athlete_state_for_plan(
         "state": state_json,
     }
 
+
 def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
     """
     Z AI výstupu vytiahne list týždňov.
     Podporujeme:
       - {"weeks": [ ... ]}
+      - {"plan":  [ ... ]}
       - [ { ... }, { ... } ]
     """
     if isinstance(weekly_plan, dict):
         weeks = weekly_plan.get("weeks")
         if isinstance(weeks, list):
-            return weeks
-        if isinstance(weekly_plan.get("plan"), list):
-            return weekly_plan["plan"]
+            return [w for w in weeks if isinstance(w, dict)]
+        plan = weekly_plan.get("plan")
+        if isinstance(plan, list):
+            return [w for w in plan if isinstance(w, dict)]
         return []
     if isinstance(weekly_plan, list):
-        return weekly_plan
+        return [w for w in weekly_plan if isinstance(w, dict)]
     return []
+
+
+def _extract_prefs_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
+    raw_prefs = analyze_input.get("prefs") or {}
+    if (
+        isinstance(raw_prefs, dict)
+        and "value" in raw_prefs
+        and isinstance(raw_prefs["value"], dict)
+    ):
+        return raw_prefs["value"]
+    if isinstance(raw_prefs, dict):
+        return raw_prefs
+    return {}
+
+
+def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Jemná minifikácia už na úrovni buildera (SAFE):
+    - odstráni len očividne citlivé/ťažké veci
+    - necháva štruktúru podobnú analyze_input, aby weekly_prompts vedel fungovať aj keď raz prepneš na analyze_input_min
+    """
+    ai: Dict[str, Any] = dict(analyze_input) if isinstance(analyze_input, dict) else {}
+
+    # user: drop id + meno/email ak by sa niekedy objavili
+    u = ai.get("user")
+    if isinstance(u, dict):
+        u2 = dict(u)
+        u2.pop("id", None)
+        u2.pop("email", None)
+        u2.pop("name", None)
+        ai["user"] = u2
+
+    # last_activities: často obsahujú názvy a timestampy -> nechaj len agregácie ak existujú
+    la = ai.get("last_activities")
+    if isinstance(la, list):
+        trimmed: List[Dict[str, Any]] = []
+        for a in la:
+            if not isinstance(a, dict):
+                continue
+            trimmed.append(
+                {
+                    "sport": a.get("sport") or a.get("type"),
+                    "distance_km": a.get("distance_km") or a.get("distance"),
+                    "moving_time_min": a.get("moving_time_min") or a.get("moving_time"),
+                    "load": a.get("load") or a.get("trimp"),
+                    "day_offset": a.get("day_offset"),  # ak to máš
+                }
+            )
+            if len(trimmed) >= 20:
+                break
+        ai["last_activities"] = trimmed
+
+    # ak máš niekde raw streams/laps -> drop
+    ai.pop("streams", None)
+    ai.pop("laps", None)
+    ai.pop("splits", None)
+
+    return ai
+
 
 def build_weekly_context_from_db(
     user_id: int,
@@ -97,27 +170,19 @@ def build_weekly_context_from_db(
     weeks: Optional[int],
 ) -> Dict[str, Any]:
     """
-    Poskladá context_payload pre weekly plán z DB + meta info,
-    ktoré potrebuje service vrstva.
+    Poskladá context_payload pre weekly plán z DB + meta info.
     """
     analyze_input = build_input_from_db(
         user_id=user_id,
         user_jwt=user_jwt,
         service=service,
     )
+    if not isinstance(analyze_input, dict):
+        analyze_input = {}
 
-    raw_prefs = analyze_input.get("prefs") or {}
-    if (
-        isinstance(raw_prefs, dict)
-        and "value" in raw_prefs
-        and isinstance(raw_prefs["value"], dict)
-    ):
-        prefs_ai = raw_prefs["value"]
-    elif isinstance(raw_prefs, dict):
-        prefs_ai = raw_prefs
-    else:
-        prefs_ai = {}
+    prefs_ai = _extract_prefs_ai(analyze_input)
 
+    # external events: prefer priamo z analyze_input, inak dopočítaj
     external_events_block = analyze_input.get("external_events")
     if external_events_block is None:
         try:
@@ -141,30 +206,27 @@ def build_weekly_context_from_db(
 
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
 
-    # NOTE(review): printy v produkcii (môžu leakať interné hodnoty / spamovať logy)
-    print("[DB-COACH-WEEKLY] weeks (payload):", weeks)
-    print("[DB-COACH-WEEKLY] prefs_ai.get('weeks'):", prefs_ai.get("weeks"))
-    print("[DB-COACH-WEEKLY] raw_weeks:", raw_weeks)
+    _dbg("[DB-COACH-WEEKLY] weeks(payload):", weeks)
+    _dbg("[DB-COACH-WEEKLY] prefs_ai.weeks:", prefs_ai.get("weeks"))
+    _dbg("[DB-COACH-WEEKLY] raw_weeks:", raw_weeks)
 
     horizon_weeks = max(
         COACH_PLAN_MIN_WEEKS,
         min(raw_weeks, COACH_PLAN_MAX_WEEKS),
     )
 
-    # NOTE(review): do LLM payloadu posielaš `user_id` a celé `analyze_input` (vrátane last_activities názvov atď.)
-    # Ak chceš “privacy by default”, tak:
-    #  - buď tu urob minifikáciu analyze_input (napr. vyhodiť `user.id`, `last_activities.name`, a nechávať len relative dni),
-    #  - alebo rob anonymizáciu už v build_input_from_db / builderoch.
-    # NOTE(review): v daily si riešil “today-1” a podobne; weekly tu ešte nesynchronizuješ dátumy na relatívne.
-    # Toto je najlepšie riešiť v jednom mieste (shared sanitizer), inak bude weekly/daily/analyze nekonzistentné.
+    analyze_input_min = _minify_analyze_input_for_weekly(analyze_input)
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
+        # NOTE: user_id držíš v context_payload kvôli server-side logike,
+        # ale weekly_prompts si ho vie vyhodiť pred LLM.
         "user_id": user_id,
         "weeks": horizon_weeks,
         "overwrite": overwrite,
         "prefs": prefs_ai,
-        "analyze_input": analyze_input,
+        "analyze_input": analyze_input,          # legacy (kým sa nepreklikneš)
+        "analyze_input_min": analyze_input_min,  # pripravené pre LLM minify
         "athlete_state": athlete_state,
         "athlete_state_meta": {
             "state_id": used_state_id,
@@ -183,7 +245,9 @@ def build_weekly_context_from_db(
         "prefs_ai": prefs_ai,
         "horizon_weeks": horizon_weeks,
         "analyze_input": analyze_input,
+        "analyze_input_min": analyze_input_min,
     }
+
 
 def build_weekly_rows_from_ai(
     user_id: int,
@@ -201,24 +265,23 @@ def build_weekly_rows_from_ai(
 
         week_index = int(w.get("week_index") or idx)
 
-        row: Dict[str, Any] = {
-            "user_id": user_id,
-            "plan_id": plan_id,
-            "week_index": week_index,
-            "week_start": w.get("week_start"),  # "YYYY-MM-DD"
-            "week_end": w.get("week_end"),
-            "goal": w.get("goal"),
-            "focus": w.get("focus"),
-            "load_phase": w.get("load_phase"),
-            "planned_km": w.get("planned_km"),
-            "planned_minutes": w.get("planned_minutes"),
-            "completed_km": None,
-            "completed_minutes": None,
-            "notes": w.get("notes"),
-            "raw_json": w,
-        }
-
-        rows.append(row)
+        rows.append(
+            {
+                "user_id": user_id,
+                "plan_id": plan_id,
+                "week_index": week_index,
+                "week_start": w.get("week_start"),  # "YYYY-MM-DD"
+                "week_end": w.get("week_end"),
+                "goal": w.get("goal"),
+                "focus": w.get("focus"),
+                "load_phase": w.get("load_phase"),
+                "planned_km": w.get("planned_km"),
+                "planned_minutes": w.get("planned_minutes"),
+                "completed_km": None,
+                "completed_minutes": None,
+                "notes": w.get("notes"),
+                "raw_json": w,
+            }
+        )
 
     return rows
-

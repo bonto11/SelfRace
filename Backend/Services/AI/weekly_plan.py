@@ -20,7 +20,7 @@ from Services.AI.weekly_plan_builders import (
     build_weekly_rows_from_ai,
 )
 
-from Routes_AI.generate_plan_weekly import generate_weekly_plan_json
+from backend.Routes_AI.weekly_plan_generate import generate_weekly_plan_json
 from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,

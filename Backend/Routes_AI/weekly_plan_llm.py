@@ -10,12 +10,14 @@ from openai import OpenAI
 
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
+
 def _strip_codefence(s: str) -> str:
-    m = CODEFENCE_RE.search(s)
-    return m.group(1).strip() if m else s.strip()
+    m = CODEFENCE_RE.search(s or "")
+    return m.group(1).strip() if m else (s or "").strip()
 
 
 def _find_outer_json_block(s: str) -> str:
+    s = s or ""
     start = s.find("{")
     if start < 0:
         return s
@@ -33,7 +35,7 @@ def _find_outer_json_block(s: str) -> str:
 
 
 def _sanitize_json_guess(s: str) -> str:
-    s = s.replace("“", '"').replace("”", '"').replace("’", "'")
+    s = (s or "").replace("“", '"').replace("”", '"').replace("’", "'")
     s = _strip_codefence(s)
     s = _find_outer_json_block(s)
     s = re.sub(r",\s*([}\]])", r"\1", s)  # trailing commas
@@ -51,7 +53,11 @@ def llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def call_openai_raw(
-    client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
+    client: OpenAI,
+    model: str,
+    system_txt: str,
+    user_txt: str,
+    max_tokens: int,
 ) -> Tuple[str, Dict[str, int]]:
     """
     Returns (content, usage_dict).
@@ -97,19 +103,18 @@ def call_openai_raw(
 
     return content, usage
 
+
 def parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
     Return (parsed_dict or None, cleaned_text, raw_text).
     Never throws – on failure parsed is None, but cleaned/raw are returned.
     """
-    if not raw:
-        return None, "", ""
+    raw = raw or ""
     try:
         return json.loads(raw.strip()), raw.strip(), raw.strip()
     except Exception:
-        cleaned = _sanitize_json_guess(raw or "")
+        cleaned = _sanitize_json_guess(raw)
         try:
             return json.loads(cleaned), cleaned, raw
         except Exception:
             return None, cleaned, raw
-

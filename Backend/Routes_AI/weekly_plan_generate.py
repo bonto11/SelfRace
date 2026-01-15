@@ -12,8 +12,9 @@ from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 from Services.user_prefs import service_load_user_settings
-from Routes_AI.weekly_prompts import build_prompts_for_weekly
+from backend.Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
 from Routes_AI.weekly_plan_llm import llm_models_priority, call_openai_raw, parse_ai_json
+
 
 def generate_weekly_plan_json(
     context_payload: dict,
@@ -21,16 +22,9 @@ def generate_weekly_plan_json(
     *,
     debug_raw: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
-    """
-    AI client for WEEKLY PLAN.
-
-    Always returns (weekly_dict, debug_trace_or_None).
-    When AI fails, weekly_dict is a simple fallback.
-    """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
-    # --- load user settings (language + timezone) server-side ---
     analyze_input = context_payload.get("analyze_input") or {}
     user_block = analyze_input.get("user") or {}
     user_id_raw = user_block.get("id") or context_payload.get("user_id")
@@ -42,7 +36,6 @@ def generate_weekly_plan_json(
     except Exception:
         user_id = None
 
-    # NOTE(review): ak upstream anonymizuješ user.id v LLM payload-e, nevadí — tu user_id stále máš z context_payload.user_id.
     settings: Dict[str, Any] = {}
     if user_id:
         try:
@@ -84,15 +77,19 @@ def generate_weekly_plan_json(
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": parsed is not None,
-                        "duration_ms": dur_ms,
-                        "raw_preview": raw[:600] + ("…[truncated]" if len(raw) > 600 else ""),
-                    }
-                )
+                attempt_row: Dict[str, Any] = {
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": parsed is not None,
+                    "duration_ms": dur_ms,
+                }
+                # REVIEW: raw_preview len pri debug_raw=True (inak nechceš ukladať/logovať)
+                if debug_raw:
+                    attempt_row["raw_preview"] = raw[:600] + (
+                        "…[truncated]" if len(raw) > 600 else ""
+                    )
+
+                trace["attempts"].append(attempt_row)
 
                 if not parsed:
                     last_err = "AI returned invalid JSON"
@@ -107,22 +104,27 @@ def generate_weekly_plan_json(
 
                 now_local = datetime.now(tzinfo)
 
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
+                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = m
+
+                # REVIEW/konzistentnosť: vždy nastav reálne použitý model
+                parsed["model"] = m
 
                 # ensure plan_meta.weeks is set from context if missing
                 plan_meta = parsed.get("plan_meta") or {}
                 if "weeks" not in plan_meta or plan_meta.get("weeks") is None:
                     analyze_input2 = context_payload.get("analyze_input") or {}
                     raw_prefs = analyze_input2.get("prefs") or context_payload.get("prefs") or {}
-                    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(raw_prefs["value"], dict):
+                    if (
+                        isinstance(raw_prefs, dict)
+                        and "value" in raw_prefs
+                        and isinstance(raw_prefs["value"], dict)
+                    ):
                         prefs = raw_prefs["value"]
                     else:
                         prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
                     plan_meta["weeks"] = int(prefs.get("weeks") or context_payload.get("weeks") or 6)
+
                 parsed["plan_meta"] = plan_meta
 
                 if debug_raw:
@@ -147,15 +149,18 @@ def generate_weekly_plan_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback
+    now_iso = datetime.now(tzinfo).isoformat()
     analyze_input_fb = context_payload.get("analyze_input") or {}
     raw_prefs_fb = analyze_input_fb.get("prefs") or context_payload.get("prefs") or {}
-    if isinstance(raw_prefs_fb, dict) and "value" in raw_prefs_fb and isinstance(raw_prefs_fb["value"], dict):
+    if (
+        isinstance(raw_prefs_fb, dict)
+        and "value" in raw_prefs_fb
+        and isinstance(raw_prefs_fb["value"], dict)
+    ):
         prefs_fb = raw_prefs_fb["value"]
     else:
         prefs_fb = raw_prefs_fb if isinstance(raw_prefs_fb, dict) else {}
 
-    now_iso = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 1,
         "generated_at": now_iso,
