@@ -62,6 +62,7 @@ SENSITIVE_DEBUG_KEYS: Set[str] = {
     "prompt",
     "system_txt",
     "user_txt",
+    "weekly_plan",
     "messages",
     "response_format",
 }
