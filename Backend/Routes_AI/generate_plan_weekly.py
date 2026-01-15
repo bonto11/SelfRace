@@ -85,17 +85,7 @@ def _build_prompts_for_weekly(
     settings: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, str]:
     """
-    context_payload typically looks like:
-
-    {
-      "schema_version": 1,
-      "user_id": 123,
-      "weeks": 6,
-      "overwrite": true,
-      "analyze_input": { ... },
-      "athlete_state": { ... },
-      "athlete_state_meta": { ... }
-    }
+    Builds system + user prompts for weekly meta plan.
     """
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
@@ -112,11 +102,9 @@ def _build_prompts_for_weekly(
 
     analyze_input = context_payload.get("analyze_input") or {}
 
-    # prefs can be directly present or under .value (same pattern as daily)
+    # prefs can be directly present or under .value
     raw_prefs = analyze_input.get("prefs") or context_payload.get("prefs") or {}
-    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
-        raw_prefs["value"], dict
-    ):
+    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(raw_prefs["value"], dict):
         prefs = raw_prefs["value"]
     else:
         prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
@@ -133,10 +121,15 @@ def _build_prompts_for_weekly(
 
     volume_prefs = prefs.get("volume") or {}
 
-    # attach user_settings into context so LLM vidí, že existujú
+    # NOTE(review): do LLM payloadu prikladáš celé `user_settings`.
+    # Ak by sa ti tam niekedy dostali citlivé polia (email, meno), radšej settings minifikuj upstream.
     if settings:
         context_payload = dict(context_payload)
         context_payload["user_settings"] = settings
+
+    # NOTE(review): Najväčší privacy/scale risk je posielať do LLM celé `analyze_input` bez minifikácie.
+    # Lepšia verzia je upstream pripraviť "minified_analyze_input" (bez IDs, bez názvov aktivít,
+    # bez presných timestampov) a sem dávať len to.
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -167,17 +160,16 @@ def _build_prompts_for_weekly(
       "week_start": "YYYY-MM-DD",    // start of the week (e.g. Monday)
       "week_end": "YYYY-MM-DD",      // end of the week
       "goal": string | null,         // short weekly goal in {lang_label}, speaking directly to the athlete (2nd person)
-      "focus": string | null,        // e.g. endurance, threshold, VO2, race, recovery – in {lang_label}, 2nd person if possible
-      "load_phase": string | null,   // e.g. base, build, peak, taper, recovery
-      "planned_km": number | null,   // approximate planned distance in km for main sport (if relevant)
-      "planned_minutes": number | null, // approximate planned total training time for all sports (incl. external sports events)
-      "notes": string | null         // short notes in {lang_label}, addressing the athlete directly ("this week you should...")
+      "focus": string | null,        // in {lang_label}
+      "load_phase": string | null,   // base/build/peak/taper/recovery (or similar)
+      "planned_km": number | null,   // approximate main sport distance (optional)
+      "planned_minutes": number | null, // approximate total training time (incl. external sports events)
+      "notes": string | null         // short notes in {lang_label}, addressing the athlete directly
     }}
   ]
 }}
 """.strip()
 
-    # Explain to the LLM how to handle volume and external events
     volume_hint_lines: List[str] = []
 
     volume_mode = volume_prefs.get("mode")
@@ -191,9 +183,8 @@ def _build_prompts_for_weekly(
     elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
         volume_hint_lines.append(
             "- In prefs.volume the athlete has a target as daily_minutes. "
-            "You can approximate the number of training days from prefs.preferences.days_off, "
-            "so training_days ≈ 7 - count(days_off). "
-            "The baseline weekly volume target ≈ daily_minutes * training_days."
+            "Approximate training_days from prefs.preferences.days_off: training_days ≈ 7 - count(days_off). "
+            "Baseline weekly volume ≈ daily_minutes * training_days."
         )
     else:
         volume_hint_lines.append(
@@ -203,22 +194,17 @@ def _build_prompts_for_weekly(
 
     volume_hint_lines.append(
         "- In athlete_state.ai_state.volume_tolerance you have weekly_minutes_min and weekly_minutes_max. "
-        "When designing planned weeks, keep planned_minutes of each week mostly inside this range. "
-        "Short-term deviations are possible but should not be extreme."
+        "Keep planned_minutes mostly inside this range. Short deviations are OK but not extreme."
     )
 
     volume_hint_lines.append(
-        "- The block analyze_input.external_events contains external events (definitions and calendar occurrences). "
-        "Treat sports-type events (football, club trainings, etc.) as part of the training load – "
-        "planned_minutes for a given week should include a reasonable estimate of these sports events. "
-        "For non-sport life events (wedding, long travel, etc.) reduce the available time for training "
-        "and usually lower planned_minutes for that week."
+        "- analyze_input.external_events contains external sports and life events. "
+        "Sports-type events count as training load. Non-sport big events reduce available time and should lower planned_minutes."
     )
 
     volume_hint_lines.append(
-        "- Use recent_load and recovery to shape load progression: for example a cycle of "
-        "2–3 higher load weeks followed by 1 lighter recovery week, without chronically exceeding "
-        "volume_tolerance.weekly_minutes_max."
+        "- Use recent_load and recovery to shape progression (e.g. 2–3 build weeks + 1 recovery week), "
+        "without chronically exceeding weekly_minutes_max."
     )
 
     volume_hint = "\n".join(volume_hint_lines)
@@ -230,19 +216,6 @@ def _build_prompts_for_weekly(
         f"Planning horizon (weeks): {weeks}\n"
         f"Preferred plan start date (if any): {start_date or 'none'}\n"
         f"Target athlete language for all text fields: {lang_label}.\n\n"
-        "The CONTEXT_JSON you receive contains:\n"
-        "- analyze_input.user: basic profile (age, history, etc.)\n"
-        "- analyze_input.zones: training zones\n"
-        "- analyze_input.thresholds: thresholds (especially running LT2)\n"
-        "- analyze_input.bests: personal bests\n"
-        "- analyze_input.recent_load: volume and intensity of the last weeks\n"
-        "- analyze_input.recovery: HRV, RHR, subjective fatigue, etc.\n"
-        "- analyze_input.prefs or analyze_input.prefs.value: coach prefs (goals, days_off, main_sport, volume, ...)\n"
-        "- analyze_input.active_plan: previous/active plan if it exists\n"
-        "- analyze_input.external_events: external sports and life events that either create training load\n"
-        "  (team sports, regular trainings) or take away time for training (weddings, long travel, etc.)\n"
-        "- athlete_state: AI analysis from the previous step (ai_state + user_summary), including ai_state.plan_adjustment\n"
-        "- user_settings: optional user settings including language/timezone/units.\n\n"
         "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
         + json.dumps(context_payload, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
@@ -254,31 +227,30 @@ def _build_prompts_for_weekly(
         "- Make sure week_index starts at 1 and increases consecutively (1, 2, 3, ...).\n"
         "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
         "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance, plan_adjustment)\n"
-        "  to assign load_phase and decide the load progression across weeks.\n"
-        "- Respect as much as possible the requested number of weeks (context_payload.weeks or prefs.weeks).\n"
-        "- Do NOT generate daily sessions here – only the weekly meta information.\n"
-        "- planned_minutes must represent the approximate total training time per week, including sports-type external events\n"
-        "  that carry meaningful intensity. For big non-sport events, reduce planned_minutes because there is less room for training.\n"
-        "- When planning the overall volume and progression, follow these guidelines:\n"
+        "  to assign load_phase and decide load progression.\n"
+        "- Do NOT generate daily sessions here – only weekly meta.\n"
+        "- planned_minutes must include meaningful sports-type external events; reduce for big non-sport events.\n"
+        "- Volume guidelines:\n"
         + volume_hint
         + "\n"
-        "- If athlete_state.ai_state.fatigue_level = 'high' or injury_risk = 'high', "
-        "make at least the first week a clear recovery week with planned_minutes close to weekly_minutes_min.\n"
-        "- If athlete_state.ai_state.plan_adjustment.soften_next_days.should_soften is true (when present), "
-        "ensure that at least the first week (and optionally the second) is visibly lighter: "
-        "lower planned_minutes (within or slightly below weekly_minutes_min), "
-        "use recovery-oriented load_phase and focus, and mention the reason briefly in notes.\n"
-        "- If athlete_state.ai_state.plan_adjustment.should_replan_weekly is true (when present), "
-        "assume the previous weekly structure is no longer optimal and design a structurally improved plan for the whole horizon "
-        "instead of copying any previous pattern; reflect the re-alignment in the first week's goal/notes.\n"
-        "- Do NOT recommend a long-term trend where most weeks are far above volume_tolerance.weekly_minutes_max.\n"
+        "- If fatigue_level='high' or injury_risk='high', make week 1 a clear recovery week near weekly_minutes_min.\n"
+        "- If plan_adjustment.soften_next_days.should_soften is true, ensure week 1 (optionally week 2) is visibly lighter.\n"
+        "- If plan_adjustment.should_replan_weekly is true, design a structurally improved plan for the whole horizon.\n"
+        "- Do NOT plan a long-term trend where most weeks are far above weekly_minutes_max.\n"
     )
 
     return system_txt, user_txt
 
+
+# ---------- OpenAI call (WITH USAGE for billing consistency) ----------
+
 def _call_openai_raw(
     client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
-) -> str:
+) -> Tuple[str, Dict[str, int]]:
+    """
+    Returns (content, usage_dict).
+    usage_dict keys: prompt_tokens, completion_tokens, total_tokens.
+    """
     resp = client.chat.completions.create(
         model=model,
         messages=[
@@ -289,7 +261,35 @@ def _call_openai_raw(
         max_tokens=max_tokens,
         response_format={"type": "json_object"},
     )
-    return (resp.choices[0].message.content or "").strip()
+
+    content = (resp.choices[0].message.content or "").strip()
+    usage_raw = getattr(resp, "usage", None) or {}
+
+    def _get(u: Any, *names: str) -> int:
+        for name in names:
+            if hasattr(u, name):
+                try:
+                    v = getattr(u, name)
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+            if isinstance(u, dict) and name in u:
+                try:
+                    v = u[name]
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+        return 0
+
+    usage = {
+        "prompt_tokens": _get(usage_raw, "prompt_tokens", "input_tokens"),
+        "completion_tokens": _get(usage_raw, "completion_tokens", "output_tokens"),
+        "total_tokens": _get(usage_raw, "total_tokens"),
+    }
+
+    return content, usage
 
 
 def generate_weekly_plan_json(
@@ -302,12 +302,12 @@ def generate_weekly_plan_json(
     AI client for WEEKLY PLAN.
 
     Always returns (weekly_dict, debug_trace_or_None).
-    When AI fails, weekly_dict is a simple fallback with error info.
+    When AI fails, weekly_dict is a simple fallback.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
-    # --- load user settings (language + timezone) ---
+    # --- load user settings (language + timezone) server-side ---
     analyze_input = context_payload.get("analyze_input") or {}
     user_block = analyze_input.get("user") or {}
     user_id_raw = user_block.get("id") or context_payload.get("user_id")
@@ -319,6 +319,7 @@ def generate_weekly_plan_json(
     except Exception:
         user_id = None
 
+    # NOTE(review): ak upstream anonymizuješ user.id v LLM payload-e, nevadí — tu user_id stále máš z context_payload.user_id.
     settings: Dict[str, Any] = {}
     if user_id:
         try:
@@ -338,14 +339,13 @@ def generate_weekly_plan_json(
     models = _llm_models_priority(model)
     token_budgets = [1800, 1500, 1200]
 
-    # timezone for generated_at
     tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
         tzinfo = ZoneInfo(tz_name)
     except Exception:
         tzinfo = timezone.utc
 
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
+    trace: Dict[str, Any] = {"models_tried": models, "attempts": [], "usage": {}}
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
@@ -355,8 +355,9 @@ def generate_weekly_plan_json(
             started = time.time()
             budget = token_budgets[min(attempt - 1, len(token_budgets) - 1)]
             try:
-                raw = _call_openai_raw(client, m, system_txt, user_txt, budget)
+                raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
+
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
@@ -366,8 +367,7 @@ def generate_weekly_plan_json(
                         "attempt": attempt,
                         "ok": parsed is not None,
                         "duration_ms": dur_ms,
-                        "raw_preview": raw[:600]
-                        + ("…[truncated]" if len(raw) > 600 else ""),
+                        "raw_preview": raw[:600] + ("…[truncated]" if len(raw) > 600 else ""),
                     }
                 )
 
@@ -375,7 +375,13 @@ def generate_weekly_plan_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                # sanity defaults (LOCAL time)
+                trace["usage"] = {
+                    "model": m,
+                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+                    "completion_tokens": int(usage.get("completion_tokens", 0)),
+                    "total_tokens": int(usage.get("total_tokens", 0)),
+                }
+
                 now_local = datetime.now(tzinfo)
 
                 if "schema_version" not in parsed:
@@ -387,17 +393,13 @@ def generate_weekly_plan_json(
                 # ensure plan_meta.weeks is set from context if missing
                 plan_meta = parsed.get("plan_meta") or {}
                 if "weeks" not in plan_meta or plan_meta.get("weeks") is None:
-                    analyze_input = context_payload.get("analyze_input") or {}
-                    raw_prefs = analyze_input.get("prefs") or context_payload.get("prefs") or {}
-                    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(
-                        raw_prefs["value"], dict
-                    ):
+                    analyze_input2 = context_payload.get("analyze_input") or {}
+                    raw_prefs = analyze_input2.get("prefs") or context_payload.get("prefs") or {}
+                    if isinstance(raw_prefs, dict) and "value" in raw_prefs and isinstance(raw_prefs["value"], dict):
                         prefs = raw_prefs["value"]
                     else:
                         prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
-                    plan_meta["weeks"] = int(
-                        prefs.get("weeks") or context_payload.get("weeks") or 6
-                    )
+                    plan_meta["weeks"] = int(prefs.get("weeks") or context_payload.get("weeks") or 6)
                 parsed["plan_meta"] = plan_meta
 
                 if debug_raw:
@@ -422,12 +424,10 @@ def generate_weekly_plan_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback – AI completely failed (still use local tz)
+    # Fallback
     analyze_input_fb = context_payload.get("analyze_input") or {}
     raw_prefs_fb = analyze_input_fb.get("prefs") or context_payload.get("prefs") or {}
-    if isinstance(raw_prefs_fb, dict) and "value" in raw_prefs_fb and isinstance(
-        raw_prefs_fb["value"], dict
-    ):
+    if isinstance(raw_prefs_fb, dict) and "value" in raw_prefs_fb and isinstance(raw_prefs_fb["value"], dict):
         prefs_fb = raw_prefs_fb["value"]
     else:
         prefs_fb = raw_prefs_fb if isinstance(raw_prefs_fb, dict) else {}
@@ -444,6 +444,7 @@ def generate_weekly_plan_json(
             "goal_kind": prefs_fb.get("goal_kind") or "improve_overall",
         },
         "weeks": [],
+        "error": last_err,
     }
 
     if debug_raw:
