@@ -469,19 +469,26 @@ def generate_athlete_state_json(
             try:
                 raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
+
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": parsed is not None,
-                        "duration_ms": dur_ms,
-                        "raw_preview": raw[:600]
-                        + ("…[truncated]" if len(raw) > 600 else ""),
-                    }
-                )
+                attempt_row: Dict[str, Any] = {
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": parsed is not None,
+                    "duration_ms": dur_ms,
+                }
+
+                # REVIEW: nechceš ukladať raw výstupy modelu (môže obsahovať citlivé dáta)
+                # attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
+
+                if debug_raw:
+                    attempt_row["raw_preview"] = raw[:600] + (
+                        "…[truncated]" if len(raw) > 600 else ""
+                    )
+
+                trace["attempts"].append(attempt_row)
 
                 if not parsed:
                     last_err = "AI returned invalid JSON"
@@ -498,11 +505,11 @@ def generate_athlete_state_json(
                 # použijeme lokálny čas pre generated_at
                 now_local = datetime.now(tzinfo)
 
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
+                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = m
+
+                # REVIEW/konzistentnosť: nech je vždy reálne použitý model (nie "Trainalyze Coach")
+                parsed["model"] = m
 
                 if debug_raw:
                     trace["raw"] = raw_keep
@@ -585,9 +592,7 @@ def generate_athlete_state_json(
 
     return fallback, trace if debug_raw else None
 
-
 # ---------- PROGRESS REPORT: previous_state vs current_state ----------
-
 
 def generate_athlete_progress_report(
     *,
@@ -651,16 +656,22 @@ def generate_athlete_progress_report(
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": parsed is not None,
-                        "duration_ms": dur_ms,
-                        "raw_preview": raw[:600]
-                        + ("…[truncated]" if len(raw) > 600 else ""),
-                    }
-                )
+                attempt_row: Dict[str, Any] = {
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": parsed is not None,
+                    "duration_ms": dur_ms,
+                }
+
+                # REVIEW: nechceš ukladať raw výstupy modelu (môže obsahovať citlivé dáta)
+                # attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
+
+                if debug_raw:
+                    attempt_row["raw_preview"] = raw[:600] + (
+                        "…[truncated]" if len(raw) > 600 else ""
+                    )
+
+                trace["attempts"].append(attempt_row)
 
                 if not parsed:
                     last_err = "AI returned invalid JSON for progress report"
@@ -675,11 +686,11 @@ def generate_athlete_progress_report(
 
                 now_local = datetime.now(tzinfo)
 
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
+                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = "Trainalyze Coach"
+
+                # REVIEW/konzistentnosť: nech je vždy reálne použitý model
+                parsed["model"] = m
 
                 if debug_raw:
                     trace["raw"] = raw_keep
