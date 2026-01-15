@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from backend.Services.AI.athlete_state_builders import build_input_from_db
+from Services.AI.athlete_state_builders import build_input_from_db
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
 from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Routes_DB.coach_plan_meta import (
