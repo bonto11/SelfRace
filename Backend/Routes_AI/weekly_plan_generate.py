@@ -12,7 +12,7 @@ from openai import OpenAI
 
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 from Services.user_prefs import service_load_user_settings
-from backend.Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
+from Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
 from Routes_AI.weekly_plan_llm import llm_models_priority, call_openai_raw, parse_ai_json
 
 
@@ -25,14 +25,11 @@ def generate_weekly_plan_json(
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
-    analyze_input = context_payload.get("analyze_input") or {}
-    user_block = analyze_input.get("user") or {}
-    user_id_raw = user_block.get("id") or context_payload.get("user_id")
-
+    # ✅ authoritative user_id is always context_payload.user_id
     user_id: Optional[int] = None
     try:
-        if user_id_raw is not None:
-            user_id = int(user_id_raw)
+        if context_payload.get("user_id") is not None:
+            user_id = int(context_payload["user_id"])
     except Exception:
         user_id = None
 
@@ -66,6 +63,13 @@ def generate_weekly_plan_json(
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
 
+    # ✅ authoritative weeks horizon
+    horizon_weeks: int = 6
+    try:
+        horizon_weeks = int(context_payload.get("weeks") or 6)
+    except Exception:
+        horizon_weeks = 6
+
     for m in models:
         for attempt in range(1, retries + 1):
             started = time.time()
@@ -83,12 +87,10 @@ def generate_weekly_plan_json(
                     "ok": parsed is not None,
                     "duration_ms": dur_ms,
                 }
-                # REVIEW: raw_preview len pri debug_raw=True (inak nechceš ukladať/logovať)
                 if debug_raw:
                     attempt_row["raw_preview"] = raw[:600] + (
                         "…[truncated]" if len(raw) > 600 else ""
                     )
-
                 trace["attempts"].append(attempt_row)
 
                 if not parsed:
@@ -106,24 +108,15 @@ def generate_weekly_plan_json(
 
                 parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
+                parsed["model"] = m  # ✅ always real model
 
-                # REVIEW/konzistentnosť: vždy nastav reálne použitý model
-                parsed["model"] = m
-
-                # ensure plan_meta.weeks is set from context if missing
                 plan_meta = parsed.get("plan_meta") or {}
-                if "weeks" not in plan_meta or plan_meta.get("weeks") is None:
-                    analyze_input2 = context_payload.get("analyze_input") or {}
-                    raw_prefs = analyze_input2.get("prefs") or context_payload.get("prefs") or {}
-                    if (
-                        isinstance(raw_prefs, dict)
-                        and "value" in raw_prefs
-                        and isinstance(raw_prefs["value"], dict)
-                    ):
-                        prefs = raw_prefs["value"]
-                    else:
-                        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
-                    plan_meta["weeks"] = int(prefs.get("weeks") or context_payload.get("weeks") or 6)
+                if not isinstance(plan_meta, dict):
+                    plan_meta = {}
+
+                # ✅ ensure weeks is always consistent with horizon
+                if plan_meta.get("weeks") is None:
+                    plan_meta["weeks"] = horizon_weeks
 
                 parsed["plan_meta"] = plan_meta
 
@@ -149,27 +142,23 @@ def generate_weekly_plan_json(
                 time.sleep(0.5 * attempt)
                 continue
 
+    # Fallback
     now_iso = datetime.now(tzinfo).isoformat()
-    analyze_input_fb = context_payload.get("analyze_input") or {}
-    raw_prefs_fb = analyze_input_fb.get("prefs") or context_payload.get("prefs") or {}
-    if (
-        isinstance(raw_prefs_fb, dict)
-        and "value" in raw_prefs_fb
-        and isinstance(raw_prefs_fb["value"], dict)
-    ):
-        prefs_fb = raw_prefs_fb["value"]
-    else:
-        prefs_fb = raw_prefs_fb if isinstance(raw_prefs_fb, dict) else {}
+
+    prefs_fb = context_payload.get("prefs") or {}
+    # allow prefs.value
+    if isinstance(prefs_fb, dict) and isinstance(prefs_fb.get("value"), dict):
+        prefs_fb = prefs_fb["value"]
 
     fallback = {
         "schema_version": 1,
         "generated_at": now_iso,
         "model": "weekly-fallback",
         "plan_meta": {
-            "start_date": prefs_fb.get("start_date") or None,
-            "weeks": int(prefs_fb.get("weeks") or context_payload.get("weeks") or 6),
-            "main_sport": prefs_fb.get("main_sport") or "run",
-            "goal_kind": prefs_fb.get("goal_kind") or "improve_overall",
+            "start_date": (prefs_fb.get("start_date") or prefs_fb.get("plan_start_date")) if isinstance(prefs_fb, dict) else None,
+            "weeks": horizon_weeks,
+            "main_sport": (prefs_fb.get("main_sport") if isinstance(prefs_fb, dict) else None) or "run",
+            "goal_kind": (prefs_fb.get("goal_kind") if isinstance(prefs_fb, dict) else None) or "improve_overall",
         },
         "weeks": [],
         "error": last_err,
