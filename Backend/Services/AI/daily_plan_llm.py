@@ -78,7 +78,6 @@ def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
 
 # ---------- helper pre context ----------
 
-
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
     Orezaný context pre LLM – len veci potrebné na plán.
@@ -151,27 +150,16 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if "last_activities" in ctx:
         ctx2["last_activities"] = ctx["last_activities"]
 
-    if "user_id" in ctx:
-        ctx2["user_id"] = ctx["user_id"]
-    if "plan_id" in ctx:
-        ctx2["plan_id"] = ctx["plan_id"]
+    # REVIEW: neposielaj interné identifikátory do LLM payloadu
+    # if "user_id" in ctx:
+    #     ctx2["user_id"] = ctx["user_id"]
+    # if "plan_id" in ctx:
+    #     ctx2["plan_id"] = ctx["plan_id"]
+
     if "user_settings" in ctx:
         ctx2["user_settings"] = ctx["user_settings"]
 
     return ctx2
-
-
-# ---------- fixed slots helper (len ako soft preferencie do promptu) ----------
-
-WEEKDAY_ORDER: Dict[str, int] = {
-    "Mon": 0,
-    "Tue": 1,
-    "Wed": 2,
-    "Thu": 3,
-    "Fri": 4,
-    "Sat": 5,
-    "Sun": 6,
-}
 
 
 def _derive_fixed_slots(
@@ -566,8 +554,6 @@ def _call_openai_raw(
 
 
 # ---------- public AI client ----------
-
-
 def generate_daily_week_json(
     context_payload: dict,
     model: str,
@@ -640,16 +626,22 @@ def generate_daily_week_json(
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": parsed is not None,
-                        "duration_ms": dur_ms,
-                        "raw_preview": raw[:600]
-                        + ("…[truncated]" if len(raw) > 600 else ""),
-                    }
-                )
+                attempt_row: Dict[str, Any] = {
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": parsed is not None,
+                    "duration_ms": dur_ms,
+                }
+
+                # REVIEW: raw preview len keď debug_raw=True (inak to nechceš ukladať/logovať)
+                # attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
+
+                if debug_raw:
+                    attempt_row["raw_preview"] = raw[:600] + (
+                        "…[truncated]" if len(raw) > 600 else ""
+                    )
+
+                trace["attempts"].append(attempt_row)
 
                 if not parsed:
                     last_err = "AI returned invalid JSON"
@@ -657,11 +649,12 @@ def generate_daily_week_json(
 
                 now_local = datetime.now(tzinfo)
 
-                if "schema_version" not in parsed:
-                    parsed["schema_version"] = 1
+                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
-                if "model" not in parsed:
-                    parsed["model"] = m
+
+                # REVIEW/konzistentnosť: vždy nastav reálne použitý model
+                parsed["model"] = m
+
                 if "week_index" not in parsed:
                     parsed["week_index"] = week_index
                 if "week_start" not in parsed and week_start:
@@ -671,8 +664,9 @@ def generate_daily_week_json(
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
 
-                if plan_id_from_ctx and "plan_id" not in parsed:
-                    parsed["plan_id"] = plan_id_from_ctx
+                # REVIEW: plan_id je interné; do AI výstupu ho netlač
+                # if plan_id_from_ctx and "plan_id" not in parsed:
+                #     parsed["plan_id"] = plan_id_from_ctx
 
                 if debug_raw:
                     trace["raw"] = raw_keep
