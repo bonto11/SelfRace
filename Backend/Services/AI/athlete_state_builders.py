@@ -1,4 +1,4 @@
-# Services/AI/athlete_state_input_builder.py
+# Services/AI/athlete_state_builders.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
@@ -61,18 +61,33 @@ def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
     except Exception:
         return None
 
+
 def _days_ago(date_str: Any) -> Optional[int]:
     dt = _parse_yyyy_mm_dd(date_str)
     if not dt:
         return None
     today = datetime.now(timezone.utc).date()
     d = (today - dt.date()).days
-    return int(d) if d >= 0 else 0  # ak je to v budúcnosti, clamp na 0
+    return int(d) if d >= 0 else 0  # budúcnosť clamp na 0
+
+
+def _days_from_today(date_str: Any) -> Optional[int]:
+    """
+    + => event je v budúcnosti (za X dní)
+    0 => dnes
+    - => v minulosti
+    """
+    dt = _parse_yyyy_mm_dd(date_str)
+    if not dt:
+        return None
+    today = datetime.now(timezone.utc).date()
+    return int((dt.date() - today).days)
+
 
 def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Pre každý PB zamení 'date' za 'days_ago' (int).
-    'date' vyhodí, aby sa do AI neposielali absolútne dátumy.
+    Pre každý PB zamení 'date'/'start_date'/'performed_at' za 'days_ago' (int).
+    Absolútne dátumy vyhodí.
     """
     if not isinstance(bests, dict):
         return bests
@@ -91,7 +106,7 @@ def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
             d = _days_ago(it2.get("date") or it2.get("start_date") or it2.get("performed_at"))
             if d is not None:
                 it2["days_ago"] = d
-            # vyhoď absolútne dátumy
+
             it2.pop("date", None)
             it2.pop("start_date", None)
             it2.pop("performed_at", None)
@@ -101,6 +116,55 @@ def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
         out[sport_key] = new_items
 
     return out
+
+
+def _minify_external_events_for_ai(ext: Any) -> Any:
+    """
+    External events: odstráni absolútne dátumy, nahradí ich days_from_today.
+    Zachová weekday/priority/sport/title/duration_min.
+    Nechceme posielať veľké nested štruktúry ani interné id.
+    """
+    if not isinstance(ext, dict):
+        return ext
+
+    out: Dict[str, Any] = {"schema_version": ext.get("schema_version") or 1}
+
+    # events môžu byť buď ext["events"], alebo ext["window"]["events"]
+    events: List[Dict[str, Any]] = []
+    if isinstance(ext.get("events"), list):
+        events = [e for e in ext["events"] if isinstance(e, dict)]
+    elif isinstance(ext.get("window"), dict) and isinstance(ext["window"].get("events"), list):
+        events = [e for e in ext["window"]["events"] if isinstance(e, dict)]
+
+    cleaned_events: List[Dict[str, Any]] = []
+    for e in events:
+        dt = e.get("occurrence_date") or e.get("date") or e.get("start_date_local") or e.get("start_date") or e.get("start_date_iso")
+        days = _days_from_today(dt)
+
+        cleaned_events.append(
+            {
+                "days_from_today": days,
+                "weekday": e.get("weekday"),
+                "sport": e.get("sport"),
+                "duration_min": e.get("duration_min"),
+                "priority": e.get("priority"),
+                "title": e.get("title"),
+            }
+        )
+
+    # window: ak existuje, tiež zrelativizuj
+    win = ext.get("window")
+    if isinstance(win, dict):
+        out["window"] = {
+            "from_days_from_today": _days_from_today(win.get("from")),
+            "to_days_from_today": _days_from_today(win.get("to")),
+            "events": cleaned_events,
+        }
+    else:
+        out["events"] = cleaned_events
+
+    return out
+
 
 def build_last_activities_block_for_analysis(
     user_id: int,
@@ -112,7 +176,7 @@ def build_last_activities_block_for_analysis(
     """
     Vytiahne posledných N aktivít (summary + zóny z enrichment) a preloží ich do jednoduchého listu pre AI.
 
-    REVIEW HARDENING:
+    HARDENING:
       - name = None
       - activity_id = None
       - date = relatívny label: today / today-N
@@ -246,11 +310,29 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
             "notes_for_coach": None,
         },
         "zones": {"run": {"hr_max": None, "lthr_bpm": None, "zones": []}},
-        "thresholds": {"run": {"lthr_bpm": None, "pace_lthr_s_per_km": None, "ftp_power_w": None, "vo2max_estimate": None}},
+        "thresholds": {
+            "run": {
+                "lthr_bpm": None,
+                "pace_lthr_s_per_km": None,
+                "ftp_power_w": None,
+                "vo2max_estimate": None,
+            }
+        },
         "bests": {"run": [], "ride": []},
         "recent_load": {"schema_version": 1, "window_days": 42, "weeks": []},
-        "recovery": {"rhr_bpm": None, "hrv_avg": None, "hrv_trend": None, "sleep_ok": None, "last_illness_days_ago": None},
-        "active_plan": {"has_active_plan": False, "current_week_index": None, "total_weeks": None, "horizon_days": None},
+        "recovery": {
+            "rhr_bpm": None,
+            "hrv_avg": None,
+            "hrv_trend": None,
+            "sleep_ok": None,
+            "last_illness_days_ago": None,
+        },
+        "active_plan": {
+            "has_active_plan": False,
+            "current_week_index": None,
+            "total_weeks": None,
+            "horizon_days": None,
+        },
         "external_events": None,
         "last_activities": [],
     }
@@ -298,8 +380,6 @@ def build_input_from_db(
     )
     input_data["bests"] = _bests_dates_to_days_ago(input_data.get("bests") or {})
 
-
-
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
         user_id=user_id,
         window_days=42,
@@ -319,11 +399,13 @@ def build_input_from_db(
         service=service,
     )
 
-    input_data["external_events"] = service_build_external_events_block_for_analysis(
+    # external events -> minify (days_from_today)
+    ext = service_build_external_events_block_for_analysis(
         user_id=user_id,
         user_jwt=jwt,
         service=service,
     )
+    input_data["external_events"] = _minify_external_events_for_ai(ext)
 
     input_data["last_activities"] = build_last_activities_block_for_analysis(
         user_id=user_id,

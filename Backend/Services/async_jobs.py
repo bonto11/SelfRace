@@ -1,6 +1,8 @@
+# Services/async_jobs.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, List
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, List, Set, Union, cast
 
 from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 from Routes_DB.async_jobs import (
@@ -23,7 +25,7 @@ from Services.users import require_jwt
 
 
 # typy jobov, ktoré worker vie spracovať
-ALLOWED_JOB_TYPES = {
+ALLOWED_JOB_TYPES: Set[str] = {
     "sync",
     "uspert_enrichment_zones",
     "ai_analyze",
@@ -34,7 +36,7 @@ ALLOWED_JOB_TYPES = {
 }
 
 # kľúče, ktoré nikdy nechceme posielať FE
-SENSITIVE_KEYS = {
+SENSITIVE_KEYS: Set[str] = {
     "user_jwt",
     "authorization",
     "access_token",
@@ -46,7 +48,7 @@ SENSITIVE_KEYS = {
 }
 
 # debug/traces, ktoré môžu obsahovať citlivé dáta alebo prompt
-SENSITIVE_DEBUG_KEYS = {
+SENSITIVE_DEBUG_KEYS: Set[str] = {
     "debug_trace",
     "trace",
     "raw",
@@ -55,12 +57,24 @@ SENSITIVE_DEBUG_KEYS = {
     "prompt",
     "system_txt",
     "user_txt",
+    "messages",
+    "response_format",
 }
+
+# keys, ktoré nechceme vracať FE z result payloadu (aj keby neboli “secret”)
+NOISY_RESULT_KEYS: Set[str] = {
+    "input",      # CoachAnalyzeInput a pod. – zbytočné pre FE
+    "ai_usage",   # voliteľne: ak chceš ukazovať usage v UI, vyhoď z tohto setu
+}
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _scrub_dict(x: Any) -> Any:
     """
-    Rekurzívne odstráni citlivé kľúče zo slovníkov aj nested štruktúr.
+    Rekurzívne odstráni citlivé/debug kľúče zo slovníkov aj nested štruktúr.
     """
     if isinstance(x, dict):
         out: Dict[str, Any] = {}
@@ -75,6 +89,35 @@ def _scrub_dict(x: Any) -> Any:
     return x
 
 
+def _minify_result_for_client(job_type: str, result: Any) -> Any:
+    """
+    Zredukuje result na to, čo FE reálne potrebuje.
+    Tým pádom aj keby DB držala veľké payloady, FE uvidí len minimum.
+
+    Dôležité: zachováva rovnaký “core output” pre UI.
+    """
+    if not isinstance(result, dict):
+        return result
+
+    # 1) AI ANALYZE – posielaj len to, čo UI potrebuje
+    if job_type == "ai_analyze":
+        return {
+            "state_id": result.get("state_id"),
+            "model": result.get("model"),
+            "analysis": result.get("analysis"),
+            "compare_previous": result.get("compare_previous"),
+            "error": result.get("error"),
+            # input vedome NEposielame (PII/noise)
+        }
+
+    # 2) ostatné typy – defaultne nechaj, ale vyhoď noisy keys
+    out = dict(result)
+    for k in list(out.keys()):
+        if str(k).lower() in NOISY_RESULT_KEYS:
+            out.pop(k, None)
+    return out
+
+
 def _sanitize_job_for_client(job: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Sanitizes job dict before returning it to FE.
@@ -84,14 +127,20 @@ def _sanitize_job_for_client(job: Optional[Dict[str, Any]]) -> Optional[Dict[str
         return job
 
     j = dict(job)
+    job_type = str(j.get("job_type") or "")
 
+    # input býva dict – vyhoď JWT + tokeny
     inp = j.get("input")
     if isinstance(inp, dict):
-        j["input"] = _scrub_dict(inp)
+        j["input"] = cast(Dict[str, Any], _scrub_dict(inp))
 
+    # result: najprv zredukuj, potom scrubni
     res = j.get("result")
-    if isinstance(res, dict):
-        j["result"] = _scrub_dict(res)
+    res_min = _minify_result_for_client(job_type, res)
+    if isinstance(res_min, dict):
+        j["result"] = cast(Dict[str, Any], _scrub_dict(res_min))
+    else:
+        j["result"] = _scrub_dict(res_min)
 
     # error nechávame
     return j
@@ -116,9 +165,8 @@ def service_enqueue_job(
     Pozor: DB vrstva (Routes_DB.async_jobs) používa service klient,
     nijaké user_jwt sa tam neposiela. JWT dávame len do job.input.
     """
-
     if service:
-        jwt = user_jwt  # service klient – JWT nepotrebujeme
+        jwt = user_jwt
     else:
         jwt = require_jwt(user_jwt)
 
@@ -128,7 +176,6 @@ def service_enqueue_job(
     # payload normalizuj a doplň user_jwt (ak je)
     clean_payload: Dict[str, Any] = dict(payload or {})
     if jwt is not None:
-        # ak ho caller dal priamo do payloadu, necháme jeho hodnotu
         clean_payload.setdefault("user_jwt", jwt)
 
     row: Dict[str, Any] = {
@@ -146,12 +193,11 @@ def service_enqueue_job(
     if run_after:
         row["run_after"] = run_after
 
-    # DB vrstva beží na service role – sem user_jwt neposielame
     created = db_insert_job(row)
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
-    # ✅ do FE nikdy nevracaj secrets
+    # ✅ do FE nikdy nevracaj secrets / debug / veľké payloady
     return {"job": _sanitize_job_for_client(created), "note": "enqueued"}
 
 
@@ -162,7 +208,7 @@ def service_list_active_jobs(
     user_jwt: Optional[str] = None,  # zatiaľ nepoužívame
 ) -> List[Dict[str, Any]]:
     """
-    Jednoduchý wrapper pre FE/worker – aktívne joby.
+    Jednoduchý wrapper pre FE – aktívne joby.
     """
     rows = db_get_active_jobs(
         user_id=user_id,
@@ -171,7 +217,6 @@ def service_list_active_jobs(
     ) or []
 
     sanitized: List[Dict[str, Any]] = []
-
     for r in rows:
         if not isinstance(r, dict):
             continue
@@ -194,14 +239,12 @@ def service_run_job_now(
     Spustí konkrétny job (id) pre daného usera – mini worker.
 
     - service=False  → typicky FE/manual (RLS, require_jwt na vstupe).
-    - service=True   → cron/worker – tento JWT sa prakticky nepoužíva,
-                       rozhodujúce je, čo je v job.input (user_jwt / service).
+    - service=True   → cron/worker – rozhodujúce je, čo je v job.input (user_jwt / service).
     """
-
     if service:
-        jwt = user_jwt  # len kvôli prípadnej budúcnosti; teraz sa nepoužíva
+        _ = user_jwt  # teraz sa nepoužíva
     else:
-        jwt = require_jwt(user_jwt)
+        _ = require_jwt(user_jwt)
 
     job = db_get_job_by_id(user_id=user_id, job_id=job_id)
     if not job:
@@ -212,10 +255,7 @@ def service_run_job_now(
 
     status = str(job.get("status") or "")
     if status not in ("queued", "running"):
-        return {
-            "job": _sanitize_job_for_client(job),
-            "error": f"job_not_runnable (status={status})",
-        }
+        return {"job": _sanitize_job_for_client(job), "error": f"job_not_runnable (status={status})"}
 
     attempts_raw = job.get("attempts")
     try:
@@ -230,10 +270,7 @@ def service_run_job_now(
     )
     if not locked:
         job_latest = db_get_job_by_id(user_id=user_id, job_id=job_id)
-        return {
-            "job": _sanitize_job_for_client(job_latest),
-            "error": "job_not_queued_or_already_running",
-        }
+        return {"job": _sanitize_job_for_client(job_latest), "error": "job_not_queued_or_already_running"}
 
     job_type = str(job.get("job_type") or "")
     input_payload = job.get("input") or {}
@@ -241,7 +278,6 @@ def service_run_job_now(
         input_payload = {}
 
     payload_jwt: Optional[str] = input_payload.get("user_jwt")
-
     result_payload: Optional[Dict[str, Any]] = None
 
     try:
@@ -380,6 +416,8 @@ def service_run_job_now(
             error=None,
             progress=100,
         )
+
+        # ✅ FE dostane safe + minified job
         return {"job": _sanitize_job_for_client(finished), "error": None}
 
     except Exception as e:  # noqa: BLE001

@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
-from Routes_AI.analyze_athlete_state import (
+from Routes_AI.athlete_state_generate import (
     generate_athlete_state_json,
     generate_athlete_progress_report,
 )
@@ -21,7 +21,7 @@ from Routes_DB.coach_athlete_state import (
 )
 
 from Services.users import require_jwt
-from Services.AI.athlete_state_input_builder import build_input_from_db
+from Services.AI.athlete_state_builders import build_input_from_db
 from Services.AI.athlete_state_signals import compute_plan_adjustment_signals
 
 from Services.AI.billing import (
