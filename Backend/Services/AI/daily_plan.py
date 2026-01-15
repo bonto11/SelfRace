@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, List
 from datetime import date
 
 from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
-from backend.Services.AI.daily_plan_builders import (
+from Services.AI.daily_plan_builders import (
     build_daily_rows_from_ai,
     build_daily_context_from_db,
 )
