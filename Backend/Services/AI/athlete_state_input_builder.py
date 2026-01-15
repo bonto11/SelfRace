@@ -90,6 +90,11 @@ def build_last_activities_block_for_analysis(
 
     - service=False → RLS klient (require_jwt),
     - service=True  → service klient (DB vrstva podľa `service=True`).
+
+    REVIEW HARDENING:
+      - name = None
+      - activity_id = None
+      - date = relatívny label: today / today-N
     """
     if service:
         jwt = user_jwt
@@ -138,9 +143,26 @@ def build_last_activities_block_for_analysis(
         if aid is not None:
             enr_by_id[aid] = r
 
-    # 4) poskladáme výsledný list – zoradený podľa date desc
     def _date_key(row: Dict[str, Any]) -> str:
         return str(row.get("date") or "")[:19]
+
+    def _parse_date_yyyy_mm_dd(s: str) -> Optional[datetime]:
+        try:
+            if not s:
+                return None
+            return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+    def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
+        dt = _parse_date_yyyy_mm_dd(date_str or "")
+        if not dt:
+            return None
+        today = datetime.now(timezone.utc).date()
+        d = (today - dt.date()).days
+        if d <= 0:
+            return "today"
+        return f"today-{int(d)}"
 
     out: List[Dict[str, Any]] = []
 
@@ -166,10 +188,10 @@ def build_last_activities_block_for_analysis(
 
         out.append(
             {
-                "activity_id": aid,
-                "date": date_str,
+                "activity_id": None,                 # anonymizované
+                "date": _rel_day_label(date_str),    # relatívne
                 "sport": sport,
-                "name": r.get("name"),
+                "name": None,                        # anonymizované
                 "duration_min": dur_min,
                 "distance_km": dist_km,
                 "avg_hr": avg_hr,
