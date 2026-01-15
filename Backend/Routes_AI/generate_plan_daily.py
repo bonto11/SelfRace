@@ -101,123 +101,69 @@ def service_generate_daily_week(
     plan_id: Optional[str] = None,
     overwrite: bool = True,
     model: Optional[str] = None,
-    debug: bool = True,
-    user_jwt: str,
+    debug: bool = False,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
-    Generovanie DAILY plánu pre konkrétny týždeň + zápis do DB (RLS/JWT).
+    Generovanie DAILY plánu pre konkrétny týždeň + zápis do DB.
+
+    Režimy:
+      - FE / RLS:    service=False, user_jwt povinný → require_jwt → RLS klient.
+      - service:     service=True, user_jwt typicky None → DB vrstvy idú cez service klientov.
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt  # typicky None
+    else:
+        jwt = require_jwt(user_jwt)
 
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
-    # 0) plan_id – aktívny / posledný meta záznam
-    plan_id_effective: Optional[str] = plan_id
-    if not plan_id_effective:
-        meta = db_get_active_plan_meta_for_user(
-            user_id=user_id,
-            user_jwt=jwt,
-        ) or db_get_latest_plan_meta_for_user(
-            user_id=user_id,
-            user_jwt=jwt,
-        )
-        if meta and isinstance(meta.get("plan_id"), str):
-            plan_id_effective = meta["plan_id"]
-
-    # 1) vstup z analyze (rovnaké ako weekly) – už s JWT
-    analyze_input = build_input_from_db(
-        user_id=user_id,
-        user_jwt=jwt,
-    )
-
-    # prefs + targets pre AI
-    prefs_ai = _flatten_prefs_for_ai(analyze_input)
-    targets_ai = _extract_targets_from_prefs(prefs_ai)
-
-    # weekly_template vytiahneme z coach.prefs (pre info a debug)
-    weekly_template = {}
-    if isinstance(prefs_ai, dict):
-        wt = prefs_ai.get("weekly_template")
-        if isinstance(wt, dict):
-            weekly_template = wt
-
-    recent_load = analyze_input.get("recent_load") or {}
-    zones = analyze_input.get("zones") or {}
-    thresholds = analyze_input.get("thresholds") or {}
-
-    # 2) weekly meta – ak máme plan_id, nájdeme konkrétny týždeň
-    week_row: Optional[Dict[str, Any]] = None
-    if plan_id_effective:
-        week_row = db_get_week_row_for_plan(
-            user_id=user_id,
-            plan_id=plan_id_effective,
-            week_index=week_index,
-            user_jwt=jwt,
-        )
-
-    week_meta: Dict[str, Any] = {
-        "week_index": week_index,
-        "week_start": week_row.get("week_start") if week_row else None,
-        "week_end": week_row.get("week_end") if week_row else None,
-        "goal": week_row.get("goal") if week_row else None,
-        "focus": week_row.get("focus") if week_row else None,
-        "load_phase": week_row.get("load_phase") if week_row else None,
-        "planned_km": week_row.get("planned_km") if week_row else None,
-        "planned_minutes": week_row.get("planned_minutes") if week_row else None,
-    }
-
-    # 3) EXTERNAL EVENTS – výskyty len pre tento týždeň (RLS)
-    external_block: Optional[Dict[str, Any]] = None
-    if week_meta["week_start"] and week_meta["week_end"]:
-        try:
-            ext_window = service_list_external_events_window(
-                user_id=user_id,
-                from_iso=week_meta["week_start"],
-                to_iso=week_meta["week_end"],
-                user_jwt=jwt,
-            )
-            external_block = {
-                "window": {
-                    "from": week_meta["week_start"],
-                    "to": week_meta["week_end"],
-                    "events": ext_window.get("events") or [],
-                }
-            }
-        except Exception:
-            external_block = None
-
-    # 4) state pre AI (coach_athlete_state – RLS)
-    state_row = db_get_latest_state_for_user(
-        user_id=user_id,
-        version=1,
-        user_jwt=jwt,
-    )
-    athlete_state_json = (state_row or {}).get("state_json") or None
-
-    # 5) context pre AI
-    context_payload: Dict[str, Any] = {
-        "schema_version": 1,
-        "user_id": user_id,
-        "week_index": week_index,
-        "plan_id": plan_id_effective,
-        "overwrite": overwrite,
-        "week": week_meta,
-        "prefs": prefs_ai,
-        "targets": targets_ai,
-        "athlete_state": athlete_state_json,
-        "recent_load": recent_load,
-        "zones": zones,
-        "thresholds": thresholds,
-        # weekly template pridáme aj top-level (preinfo/debug)
-        "weekly_template": weekly_template,
-    }
-    if external_block is not None:
-        context_payload["external_events"] = external_block
-
     daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
-    # 6) AI CALL
+    if not service and is_user_over_token_quota(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    ):
+        used = get_user_monthly_usage_tokens(user_id)
+        return {
+            "daily_plan": None,
+            "plan_id": plan_id,
+            "week_index": week_index,
+            "week_start": None,
+            "week_end": None,
+            "state_id": None,
+            "model": daily_model,
+            "overwrite": overwrite,
+            "inserted_rows": 0,
+            "deleted_rows": 0,
+            "error": {
+                "code": "ai_quota_exceeded",
+                "message": (
+                    "Mesačný limit AI plánov bol vyčerpaný. "
+                    "Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
+                ),
+                "used_tokens_this_month": used,
+            },
+        }
+
+    ctx = build_daily_context_from_db(
+        user_id=user_id,
+        week_index=week_index,
+        plan_id=plan_id,
+        overwrite=overwrite,
+        user_jwt=jwt,
+        service=service,
+    )
+
+    context_payload = ctx["context_payload"]
+    plan_id_effective: Optional[str] = ctx["plan_id_effective"]
+    week_meta: Dict[str, Any] = ctx["week_meta"]
+    state_row: Optional[Dict[str, Any]] = ctx["state_row"]
+    prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
+
     daily_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
@@ -228,31 +174,43 @@ def service_generate_daily_week(
         daily_plan = {}
 
     plan_id_out = plan_id_effective
-    if plan_id_out:
-        daily_plan["plan_id"] = plan_id_out
 
-    # 6b) STRENGTH MAPPER – doplní konkrétne cviky podľa DB (RLS)
+    usage = extract_usage_from_trace(trace)
+    billing_result: Optional[Dict[str, Any]] = None
+    if usage:
+        if daily_model:
+            usage["model"] = daily_model
+        try:
+            billing_result = log_ai_usage_for_user(
+                user_id=user_id,
+                usage=usage,
+                job_type="coach.generate_daily_plan",
+                source="service" if service else "user",
+                billed_via="internal",
+                charge_wallet=False,
+                meta={
+                    "week_index": week_index,
+                    "plan_id": plan_id_out,
+                },
+            )
+        except Exception as e:  # noqa: BLE001
+            print("[AI_BILLING] daily_plan billing error:", repr(e))
+
     strength_settings = prefs_ai.get("strength_settings") or {}
-
     available_equipment = strength_settings.get("available") or []
     if not isinstance(available_equipment, list):
         available_equipment = []
-
-    equipment_mode = strength_settings.get("equipment_mode") or "auto"
-    if not isinstance(equipment_mode, str):
-        equipment_mode = "auto"
 
     daily_plan = enrich_daily_plan_with_strength_exercises(
         user_id=user_id,
         daily_plan=daily_plan,
         available_equipment=available_equipment,
-        equipment_mode=equipment_mode,
         today=date.today(),
         weeks_back=8,
         user_jwt=jwt,
+        service=service,
     )
 
-    # 7) zápis do DB (coach_plan_daily) – RLS
     deleted_rows = 0
     if overwrite and plan_id_out and week_meta["week_start"] and week_meta["week_end"]:
         deleted_rows = db_clear_daily_for_user_week(
@@ -261,9 +219,10 @@ def service_generate_daily_week(
             week_start=week_meta["week_start"],
             week_end=week_meta["week_end"],
             user_jwt=jwt,
+            service=service,
         )
 
-    rows_to_insert: List[Dict[str, Any]] = _build_daily_rows_from_ai(
+    rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
         user_id=user_id,
         plan_id=plan_id_out,
         daily_plan=daily_plan,
@@ -273,6 +232,7 @@ def service_generate_daily_week(
         db_insert_daily_rows(
             rows_to_insert,
             user_jwt=jwt,
+            service=service,
         )
         if rows_to_insert
         else 0
@@ -293,6 +253,8 @@ def service_generate_daily_week(
     if debug:
         resp["debug"] = trace
         resp["context_payload"] = context_payload
+        resp["ai_usage"] = usage
+        resp["billing"] = billing_result
 
     return resp
 
@@ -386,13 +348,21 @@ def service_auto_extend_daily_plan(
     user_id: int,
     *,
     min_horizon_days: int = 6,
-    user_jwt: str,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Postará sa o to, aby aktívny (alebo posledný) plán mal vždy
     aspoň `min_horizon_days` naplánovaných dní v coach_plan_daily.
+
+    Režimy:
+      - FE/RLS: service=False, user_jwt povinný.
+      - service: service=True, user_jwt typicky None, DB ide cez service klientov.
     """
-    jwt = require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt  # typicky None
+    else:
+        jwt = require_jwt(user_jwt)
 
     if min_horizon_days <= 0:
         min_horizon_days = 6
@@ -402,9 +372,11 @@ def service_auto_extend_daily_plan(
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
         user_jwt=jwt,
+        service=service,
     ) or db_get_latest_plan_meta_for_user(
         user_id=user_id,
         user_jwt=jwt,
+        service=service,
     )
 
     plan_id: Optional[str] = None
@@ -417,13 +389,13 @@ def service_auto_extend_daily_plan(
             "reason": "no_plan",
         }
 
-    # existujúce daily rows (skenujeme dopredu len rozumné okno)
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
             user_id=user_id,
             horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
             plan_id=plan_id,
             user_jwt=jwt,
+            service=service,
         )
         or []
     )
@@ -453,6 +425,7 @@ def service_auto_extend_daily_plan(
             user_id=user_id,
             plan_id=plan_id,
             user_jwt=jwt,
+            service=service,
         )
         or []
     )
@@ -522,23 +495,22 @@ def service_auto_extend_daily_plan(
         }
 
     generated: List[int] = []
-    current_last_date = last_date
     current_last_str = last_date_str
 
     for w in future_weeks:
         week_idx = int(w.get("week_index") or 0)
 
-        gen = service_generate_daily_week(
+        _ = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
             plan_id=plan_id,
             overwrite=True,
             model=None,
-            debug=True,
+            debug=False,
             user_jwt=jwt,
+            service=service,
         )
         generated.append(week_idx)
-        
 
         daily_rows = (
             db_list_daily_for_user_horizon(
@@ -546,6 +518,7 @@ def service_auto_extend_daily_plan(
                 horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
                 plan_id=plan_id,
                 user_jwt=jwt,
+                service=service,
             )
             or []
         )
