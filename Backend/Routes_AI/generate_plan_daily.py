@@ -25,50 +25,6 @@ from Routes_AI.daily_prompts import (
 ) 
 
 
-def _build_daily_rows_from_ai(
-    user_id: int,
-    plan_id: Optional[str],
-    daily_plan: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    """
-    Preklopí AI výstup (daily_plan JSON – už po obohatení strength mapperom)
-    do rows pre coach_plan_daily.
-    """
-    days = daily_plan.get("days") or []
-    rows: List[Dict[str, Any]] = []
-
-    for day in days:
-        date_str = day.get("date")
-        sessions = day.get("sessions") or []
-        if not date_str or not isinstance(sessions, list):
-            continue
-
-        for idx, s in enumerate(sessions):
-            if not isinstance(s, dict):
-                continue
-
-            row: Dict[str, Any] = {
-                "user_id": user_id,
-                "plan_date": date_str,
-                "sport": s.get("sport") or "other",
-                "title": s.get("title"),
-                "duration_min": s.get("duration_min"),
-                "intensity": s.get("intensity"),
-                "zone_text": s.get("zone_text"),
-                "structure": s.get("structure"),
-                "notes": s.get("notes"),
-                "source": "ai_daily_v1",
-                "plan_id": plan_id,
-                "session_type": s.get("session_type"),
-                "session_index": int(s.get("session_index") or idx),
-                "payload": s.get("payload"),
-                "activity_id": None,
-            }
-            rows.append(row)
-
-    return rows
-
-
 def _flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     """
     build_input_from_db vracia:
