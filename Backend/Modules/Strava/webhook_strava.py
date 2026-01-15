@@ -24,6 +24,7 @@ from Modules.Supabase.client import get_service_client
 supabase = get_service_client()
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
+
 class StravaWebhookEventIn(BaseModel):
     aspect_type: Literal["create", "update", "delete"]
     event_time: int
@@ -60,7 +61,6 @@ def _get_env_bool(name: str, default: bool = False) -> bool:
 
 
 def get_verify_token() -> str:
-    # Strava webhook subscription verify_token (tvoj vlastný random string)
     return _get_env("STRAVA_VERIFY_TOKEN")
 
 
@@ -69,30 +69,18 @@ def get_strava_client_id() -> str:
 
 
 def get_strava_client_secret() -> str:
-    # Strava app CLIENT_SECRET
     return _get_env("STRAVA_CLIENT_SECRET")
 
 
 def get_oauth_state_secret() -> str:
-    # tvoj HMAC secret pre OAuth state
     return _get_env("STRAVA_OAUTH_STATE_SECRET")
-
-
-def is_strict_signature() -> bool:
-    """
-    strict=true:
-      - ak signature header príde a je zlá -> 403
-      - ak signature header nepríde -> NEBLOKUJEME (Strava negarantuje), len označíme event ako unverified
-    strict=false:
-      - nikdy neblokujeme, len logujeme
-    """
-    return _get_env_bool("STRAVA_WEBHOOK_STRICT_SIGNATURE", default=False)
 
 
 def get_expected_subscription_id() -> Optional[int]:
     """
-    Odporúčané anti-spam:
-    Ak nastavíš STRAVA_SUBSCRIPTION_ID, tak eventy s iným subscription_id označíme ako ignored.
+    Anti-spam / anti-forgery:
+    - Ak nastavíš STRAVA_SUBSCRIPTION_ID, tak budeme akceptovať LEN eventy s týmto subscription_id.
+    (Je to najlepší praktický filter, ktorý Strava reálne posiela.)
     """
     v = _get_env_opt("STRAVA_SUBSCRIPTION_ID")
     if not v:
@@ -188,50 +176,10 @@ async def strava_webhook_verify(
     return JSONResponse({"hub.challenge": hub_challenge})
 
 
-#@router.options("/webhook")
-#async def strava_webhook_options() -> JSONResponse:
-#   return JSONResponse({"ok": True})
-
-
 # =================================================
-# 2) SIGNATURE VERIFICATION (optional header)
+# 2) INSERT EVENT (with subscription_id filtering)
 # =================================================
-async def verify_optional_signature(request: Request, secret: str) -> tuple[bytes, bool, bool]:
-    """
-    Vracia: (raw_body, signature_present, signature_valid)
-
-    - Ak header nie je: present=False, valid=False (unverified)
-    - Ak header je a sedí: present=True, valid=True
-    - Ak header je a nesedí:
-        strict=true  -> 403
-        strict=false -> allow, present=True, valid=False
-    """
-    raw = await request.body()
-    sent = request.headers.get("X-Strava-Signature")
-    strict = is_strict_signature()
-
-    if not sent:
-        if strict:
-            print("[STRAVA] signature missing (strict=true) -> allowing but marking unverified")
-        return raw, False, False
-
-    computed = hmac.new(secret.encode("utf-8"), raw, hashlib.sha256).hexdigest()
-
-    if not hmac.compare_digest(computed, sent):
-        if strict:
-            raise HTTPException(status_code=403, detail="invalid_signature")
-        print("[STRAVA] invalid signature (strict=false) -> allowing", {"sent": sent, "computed": computed})
-        return raw, True, False
-
-    return raw, True, True
-
-
-def _insert_event_from_dict(
-    data: dict,
-    *,
-    signature_present: bool,
-    signature_valid: bool,
-) -> dict:
+def _insert_event_from_dict(data: dict) -> dict:
     event = StravaWebhookEventIn(**data)
     dt = datetime.fromtimestamp(event.event_time, tz=timezone.utc).isoformat()
 
@@ -239,15 +187,11 @@ def _insert_event_from_dict(
     status = "pending"
     error: Optional[str] = None
 
-    # Anti-spam: subscription_id filter (ak je nastavený)
+    # Hard filter ak je nakonfigurovaný subscription_id
     if expected_sub_id is not None:
         if event.subscription_id is None or int(event.subscription_id) != int(expected_sub_id):
             status = "ignored"
             error = "unexpected_subscription_id"
-
-    # Audit flag: ak podpis nie je valid -> pending_unverified
-    if status == "pending" and (not signature_present or not signature_valid):
-        status = "pending_unverified"
 
     resp = (
         supabase.table("strava_webhook_events")
@@ -283,7 +227,7 @@ async def _process_pending_events_core(limit: int = 20) -> dict:
         supabase.table("strava_webhook_events")
         .select("*")
         .is_("processed_at", None)
-        .in_("status", ["pending", "pending_unverified"])
+        .eq("status", "pending")
         .order("id", desc=False)
         .limit(limit)
         .execute()
@@ -311,12 +255,15 @@ async def _process_pending_events_core(limit: int = 20) -> dict:
 # 4) WEBHOOK HANDLER
 # =================================================
 @router.post("/webhook")
-async def strava_webhook_handler(
-    request: Request,
-    secret: str = Depends(get_strava_client_secret),
-):
-    # Strava chce rýchlo 200 OK; ťažké veci async.
-    raw_body, sig_present, sig_valid = await verify_optional_signature(request, secret)
+async def strava_webhook_handler(request: Request):
+    """
+    Strava vyžaduje 200 OK do 2 sekúnd; spracovanie musí ísť async.  [oai_citation:2‡developers.strava.com](https://developers.strava.com/docs/webhooks)
+    """
+    raw_body = await request.body()
+
+    # Basic sanity
+    if not raw_body:
+        raise HTTPException(status_code=400, detail="empty_body")
 
     try:
         data = json.loads(raw_body.decode("utf-8"))
@@ -325,11 +272,15 @@ async def strava_webhook_handler(
         raise HTTPException(status_code=400, detail="invalid_json")
 
     try:
-        _insert_event_from_dict(data, signature_present=sig_present, signature_valid=sig_valid)
+        row = _insert_event_from_dict(data)
     except Exception as e:  # noqa: BLE001
         print("[STRAVA] insert failed:", repr(e))
-        # 500 -> Strava retry (a ty vidíš chybu)
+        # 500 -> Strava retry (max 3 pokusy)  [oai_citation:3‡developers.strava.com](https://developers.strava.com/docs/webhooks)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+    # Ak sme event ignorovali (zlá subscription_id), aj tak vrátime 200 – nech nás nespamujú retrymi.
+    if row.get("status") == "ignored":
+        return JSONResponse({"ok": True, "ignored": True})
 
     async def _bg():
         try:
@@ -361,10 +312,9 @@ async def strava_oauth_start(
     callback_url = f"{BACKEND_URL}/api/strava/oauth/callback"
     state = make_oauth_state(user_id=user_id, ttl_seconds=600)
 
-    # ✅ Tvoje finálne scope:
+    # Scope:
     # - read (basic)
-    # - activity:read_all (private activities)
-    # - nepouzivane - profile:read_all (profilové info)
+    # - activity:read_all (aby si vedel korektne rešpektovať privacy a dostať update pri "Only You")  [oai_citation:4‡developers.strava.com](https://developers.strava.com/docs/webhooks)
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
@@ -518,7 +468,7 @@ async def strava_status(
 
 
 # =================================================
-# 8) DISCONNECT (tvoj funkčný kód – bez zmeny logiky)
+# 8) DISCONNECT
 # =================================================
 @router.post("/disconnect")
 async def strava_disconnect(

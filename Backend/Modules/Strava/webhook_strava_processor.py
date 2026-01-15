@@ -1,5 +1,4 @@
 # Modules/Strava/webhook_strava_processor.py
-
 """
 Webhook processor:
  - mapuje athlete_id -> user_id cez strava_accounts
@@ -7,8 +6,8 @@ Webhook processor:
  - pre activity delete označuje activity ako deleted_at
 
 Bezpečnostná pointa:
- - webhook je iba trigger (id + owner_id)
- - reálne dáta sa ťahajú zo Strava API cez token v service_sync_single_activity
+ - webhook je iba trigger (id + owner_id + subscription_id)
+ - reálne dáta sa ťahajú zo Strava API cez tokeny v service_sync_single_activity
 """
 
 from __future__ import annotations
@@ -24,10 +23,6 @@ from Services.coach_plan_adjustment import service_coach_autoadjust_after_update
 
 supabase = get_service_client()
 
-
-# ============================================================
-# HELPERS
-# ============================================================
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -50,9 +45,6 @@ def _mark_event(
 
 
 async def _sync_activity(*, user_id: int, strava_activity_id: int) -> None:
-    """
-    Spustí service_sync_single_activity v SERVICE režime (bez JWT).
-    """
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(
         None,
@@ -65,9 +57,6 @@ async def _sync_activity(*, user_id: int, strava_activity_id: int) -> None:
 
 
 async def _run_coach_autoadjust_service(user_id: int) -> dict:
-    """
-    Coach auto-adjust v SERVICE režime (best-effort).
-    """
     loop = asyncio.get_running_loop()
     fn = partial(
         service_coach_autoadjust_after_update,
@@ -78,15 +67,7 @@ async def _run_coach_autoadjust_service(user_id: int) -> dict:
     return await loop.run_in_executor(None, fn)
 
 
-# ============================================================
-# CORE
-# ============================================================
-
 async def _process_single_event(row: Mapping[str, Any]) -> None:
-    """
-    Spracuje JEDEN záznam zo strava_webhook_events.
-    Očakáva: status in ("pending", "pending_unverified") a processed_at is NULL.
-    """
     event_id_raw = row.get("id")
     if not event_id_raw:
         print("[STRAVA] invalid row: missing id")
@@ -95,18 +76,11 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
     event_id = int(event_id_raw)
     now_iso = _utc_now_iso()
 
-    status = row.get("status")
-    if status == "pending_unverified":
-        # Len audit info. Bezpečnosť stojí na tom, že sync ťahá z API.
-        print("[STRAVA] processing UNVERIFIED webhook event id=", event_id)
-
     object_type = row.get("object_type")
     aspect_type = row.get("aspect_type")
     owner_id = row.get("owner_id")
 
-    # --------------------------------------------------------
-    # 0) object_id MUSÍ byť int (Strava activity id)
-    # --------------------------------------------------------
+    # 0) object_id musí byť int
     object_id_raw = row.get("object_id")
     if object_id_raw is None:
         _mark_event(event_id, status="error", error="missing_activity_id", processed_at_iso=now_iso)
@@ -118,23 +92,17 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         _mark_event(event_id, status="error", error="invalid_activity_id", processed_at_iso=now_iso)
         return
 
-    # --------------------------------------------------------
     # 1) activity only
-    # --------------------------------------------------------
     if object_type != "activity":
         _mark_event(event_id, status="ignored", error=None, processed_at_iso=now_iso)
         return
 
-    # --------------------------------------------------------
     # 2) owner_id musí existovať
-    # --------------------------------------------------------
     if owner_id is None:
         _mark_event(event_id, status="error", error="missing_owner_id", processed_at_iso=now_iso)
         return
 
-    # --------------------------------------------------------
     # 3) nájsť prepojený strava_account (len aktívny)
-    # --------------------------------------------------------
     acc_resp = (
         supabase.table("strava_accounts")
         .select("user_id, athlete_id")
@@ -157,9 +125,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
 
     user_id = int(account["user_id"])
 
-    # --------------------------------------------------------
     # 4) DELETE → označiť activity ako deleted
-    # --------------------------------------------------------
     if aspect_type == "delete":
         try:
             supabase.table("activities_summary").update(
@@ -172,9 +138,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         _mark_event(event_id, status="processed", error=None, processed_at_iso=now_iso)
         return
 
-    # --------------------------------------------------------
     # 5) CREATE / UPDATE → sync + auto-adjust
-    # --------------------------------------------------------
     if aspect_type not in ("create", "update"):
         _mark_event(event_id, status="ignored", error="unknown_aspect_type", processed_at_iso=now_iso)
         return
@@ -182,7 +146,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
     try:
         await _sync_activity(user_id=user_id, strava_activity_id=object_id)
 
-        # auto-adjust je best-effort
+        # best-effort auto-adjust
         try:
             auto_res = await _run_coach_autoadjust_service(user_id=user_id)
             print(
