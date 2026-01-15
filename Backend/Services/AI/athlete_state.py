@@ -230,8 +230,18 @@ def service_analyze_athlete(
         service=service,
     )
 
-    # 1b) Kontext pre AI – deep copy + drop external_activities z prefs (ak sú)
+    # 1b) Kontext pre AI – deep copy + drop / anonymizácia polí
     context_for_ai = json.loads(json.dumps(input_data, default=str))
+
+    # drop internal user id z AI payloadu
+    try:
+        u = context_for_ai.get("user")
+        if isinstance(u, dict):
+            u.pop("id", None)
+    except Exception:
+        pass
+
+    # drop external_activities z prefs (ak sú)
     try:
         prefs_block = context_for_ai.get("prefs") or {}
         if isinstance(prefs_block, dict):
@@ -241,6 +251,45 @@ def service_analyze_athlete(
             prefs_block.pop("external_activities", None)
     except Exception:
         pass
+
+    # --- REVIEW HARDENING: last_activities anonymizácia (name + absolútny dátum + activity_id) ---
+    def _parse_date_yyyy_mm_dd(s: str) -> Optional[datetime]:
+        try:
+            if not s:
+                return None
+            # očakávame "YYYY-MM-DD"
+            return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+    def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
+        dt = _parse_date_yyyy_mm_dd(date_str or "")
+        if not dt:
+            return None
+        today = datetime.now(timezone.utc).date()
+        d = (today - dt.date()).days
+        if d <= 0:
+            return "today"
+        return f"today-{int(d)}"
+
+    try:
+        la = context_for_ai.get("last_activities")
+        if isinstance(la, list):
+            for it in la:
+                if not isinstance(it, dict):
+                    continue
+
+                # it.get("activity_id")  # <- pôvodné
+                it["activity_id"] = None  # anonymizované
+
+                # it.get("name")  # <- pôvodné
+                it["name"] = None  # anonymizované (aj keď je to len názov, môže byť PII)
+
+                # it.get("date")  # <- pôvodné absolútne YYYY-MM-DD
+                it["date"] = _rel_day_label(it.get("date"))  # relatívne "today-N"
+    except Exception:
+        pass
+    # --- END REVIEW HARDENING ---
 
     # 2) AI CALL – čistý výstup z AI = "analysis"
     model_to_use = model or DEFAULT_MODEL
@@ -259,7 +308,6 @@ def service_analyze_athlete(
     # === AI BILLING – usage za ANALYZE =====================
     usage = extract_usage_from_trace(trace)
     if usage:
-        # prepíš model v usage na reálne použitý
         if model_to_use:
             usage["model"] = model_to_use
         try:
@@ -268,7 +316,7 @@ def service_analyze_athlete(
                 usage=usage,
                 job_type="coach.analyze_state",
                 source="service" if service else "user",
-                billed_via="internal",  # zatiaľ len interné logovanie
+                billed_via="internal",
                 charge_wallet=False,
                 meta={},
             )
@@ -346,7 +394,6 @@ def service_analyze_athlete(
         resp["ai_usage"] = usage
 
     return resp
-
 
 def service_compare_latest_athlete_states(
     user_id: int,
