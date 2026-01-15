@@ -25,7 +25,7 @@ def generate_weekly_plan_json(
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
-    # ✅ authoritative user_id is always context_payload.user_id
+    # authoritative user_id is always context_payload.user_id
     user_id: Optional[int] = None
     try:
         if context_payload.get("user_id") is not None:
@@ -63,7 +63,7 @@ def generate_weekly_plan_json(
     last_cleaned: Optional[str] = None
     last_err: Optional[str] = None
 
-    # ✅ authoritative weeks horizon
+    # authoritative weeks horizon
     horizon_weeks: int = 6
     try:
         horizon_weeks = int(context_payload.get("weeks") or 6)
@@ -108,16 +108,14 @@ def generate_weekly_plan_json(
 
                 parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
-                parsed["model"] = m  # ✅ always real model
+                parsed["model"] = m  # always real model
 
                 plan_meta = parsed.get("plan_meta") or {}
                 if not isinstance(plan_meta, dict):
                     plan_meta = {}
 
-                # ✅ ensure weeks is always consistent with horizon
-                if plan_meta.get("weeks") is None:
-                    plan_meta["weeks"] = horizon_weeks
-
+                # FORCE: weeks must match horizon_weeks (not just when missing)
+                plan_meta["weeks"] = horizon_weeks
                 parsed["plan_meta"] = plan_meta
 
                 if debug_raw:
@@ -146,7 +144,6 @@ def generate_weekly_plan_json(
     now_iso = datetime.now(tzinfo).isoformat()
 
     prefs_fb = context_payload.get("prefs") or {}
-    # allow prefs.value
     if isinstance(prefs_fb, dict) and isinstance(prefs_fb.get("value"), dict):
         prefs_fb = prefs_fb["value"]
 

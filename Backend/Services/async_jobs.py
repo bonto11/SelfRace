@@ -134,6 +134,21 @@ def _minify_result_for_client(job_type: str, result: Any) -> Any:
             "compare_previous": result.get("compare_previous"),
             "error": result.get("error"),
         }
+    
+    # WEEKLY GENERATE – FE nepotrebuje celý weekly_plan JSON
+    if job_type == "weekly_generate":
+        return {
+            "plan_id": result.get("plan_id"),
+            "state_id": result.get("state_id"),
+            "model": result.get("model"),
+            "overwrite": result.get("overwrite"),
+            "weeks": result.get("weeks"),
+            "plan_meta": result.get("plan_meta"),
+            "inserted_rows": result.get("inserted_rows"),
+            "deleted_rows": result.get("deleted_rows"),
+            "archived_meta": result.get("archived_meta"),
+            "error": result.get("error"),
+        }
 
         # Ak by si náhodou niekde posielal input v result, tak ho tu úplne odstrihneme.
         return out

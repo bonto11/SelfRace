@@ -6,7 +6,6 @@ from uuid import uuid4
 
 from Configs.config import DEFAULT_MODEL
 
-
 from Services.AI.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
@@ -35,6 +34,14 @@ from Routes_DB.coach_plan_meta import (
 
 from Services.users import require_jwt
 
+
+def _safe_error_payload(code: str, message: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"code": code, "message": message}
+    if isinstance(extra, dict):
+        out.update(extra)
+    return out
+
+
 def service_generate_weekly_plan(
     user_id: int,
     *,
@@ -48,6 +55,10 @@ def service_generate_weekly_plan(
 ) -> Dict[str, Any]:
     """
     Hlavná service pre weekly plán.
+
+    SAFE pravidlá:
+      - keď debug=False → nevraciame FE celý weekly_plan (len meta: plan_id, weeks, state_id, model, error...)
+      - keď debug=True → môžeš dostať aj weekly_plan + trace (na lokálny debug)
     """
     if service:
         jwt = user_jwt
@@ -56,6 +67,7 @@ def service_generate_weekly_plan(
 
     plan_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
+    # --- quota (len user-trigger) ---
     if not service and is_user_over_token_quota(
         user_id,
         user_jwt=jwt,
@@ -63,22 +75,19 @@ def service_generate_weekly_plan(
     ):
         used = get_user_monthly_usage_tokens(user_id)
         return {
-            "weekly_plan": None,
             "plan_id": None,
             "state_id": None,
             "model": plan_model,
             "overwrite": overwrite,
             "weeks": weeks,
-            "error": {
-                "code": "ai_quota_exceeded",
-                "message": (
-                    "Mesačný limit AI plánov bol vyčerpaný. "
-                    "Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
-                ),
-                "used_tokens_this_month": used,
-            },
+            "error": _safe_error_payload(
+                "ai_quota_exceeded",
+                "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
+                {"used_tokens_this_month": used},
+            ),
         }
 
+    # --- build context (LLM payload nemeníme) ---
     ctx = build_weekly_context_from_db(
         user_id=user_id,
         user_jwt=jwt,
@@ -94,24 +103,17 @@ def service_generate_weekly_plan(
 
     used_state_id = state_bundle["state_id"]
 
-    # NOTE(review): do LLM payloadu posielaš `context_payload["user_id"]`
-    # (aj `context_payload["analyze_input"]` typicky obsahuje interné ids).
-    # Ak chceš, aby LLM nemalo user_id, sprav anonymizáciu v builderi (nie tu),
-    # inak si to LLM vie “niesť” v trace/debug.
-    # NOTE(review): `analyze_input` môže byť objemné; ak sa ti rozbíja kontext okno,
-    # tak ho v `build_weekly_context_from_db` minifikuj (ponechaj len to čo weekly prompt reálne používa).
-
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
         model=plan_model,
         debug_raw=debug,
     )
 
+    # --- billing (usage je v trace aj bez debug, ak ho generate vracia) ---
     usage = extract_usage_from_trace(trace)
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
-        if plan_model:
-            usage["model"] = plan_model
+        usage["model"] = str(plan_model)
         try:
             billing_result = log_ai_usage_for_user(
                 user_id=user_id,
@@ -129,11 +131,13 @@ def service_generate_weekly_plan(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] weekly_plan billing error:", repr(e))
 
+    # --- plan_id ---
     if isinstance(weekly_plan, dict) and weekly_plan.get("plan_id"):
         plan_id = str(weekly_plan["plan_id"])
     else:
         plan_id = str(uuid4())
 
+    # --- overwrite: archive + clear previous weekly rows ---
     deleted_rows = 0
     archived_meta = 0
     if overwrite:
@@ -156,6 +160,7 @@ def service_generate_weekly_plan(
                 service=service,
             )
 
+    # --- store weekly rows ---
     weeks_list = extract_weeks_payload(weekly_plan)
     rows: List[Dict[str, Any]] = build_weekly_rows_from_ai(
         user_id=user_id,
@@ -169,10 +174,10 @@ def service_generate_weekly_plan(
         service=service,
     )
 
+    # --- plan_meta row (DB) ---
     plan_meta_dict = (weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}) or {}
-
-    # NOTE(review): print v produkcii (obsahuje meta z LLM) – zváž znížiť na debug-only
-    print("[DB-COACH-WEEKLY] plan_meta_dict:", plan_meta_dict)
+    if not isinstance(plan_meta_dict, dict):
+        plan_meta_dict = {}
 
     start_date: Optional[str] = plan_meta_dict.get("start_date") or None
     end_date: Optional[str] = plan_meta_dict.get("end_date") or None
@@ -185,9 +190,6 @@ def service_generate_weekly_plan(
 
     main_sport = plan_meta_dict.get("main_sport")
     goal_kind = plan_meta_dict.get("goal_kind")
-
-    # NOTE(review): print v produkcii
-    print("[DB-COACH-WEEKLY] plan_id:", plan_id)
 
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
@@ -203,8 +205,9 @@ def service_generate_weekly_plan(
         service=service,
     )
 
+    # --- SAFE RESPONSE (default) ---
+    error_obj = weekly_plan.get("error") if isinstance(weekly_plan, dict) else None
     resp: Dict[str, Any] = {
-        "weekly_plan": weekly_plan,
         "plan_id": plan_id,
         "state_id": used_state_id,
         "model": plan_model,
@@ -213,15 +216,20 @@ def service_generate_weekly_plan(
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
         "archived_meta": archived_meta,
+        "error": error_obj,
     }
     if meta_row is not None:
         resp["plan_meta"] = meta_row
-    if debug and trace is not None:
-        resp["debug"] = trace
+
+    # --- DEBUG (only when explicitly requested) ---
+    if debug:
+        resp["weekly_plan"] = weekly_plan
+        resp["debug_trace"] = trace
         resp["ai_usage"] = usage
         resp["billing"] = billing_result
 
     return resp
+
 
 def service_get_latest_weekly_plan(
     user_id: int,
@@ -230,12 +238,10 @@ def service_get_latest_weekly_plan(
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).
-
-    Toto nechávame čisto RLS/FE (žiadny service režim).
+    Čisto RLS/FE.
     """
     jwt = require_jwt(user_jwt)
 
-    # 1) Skús najnovší plan_id z coach_plan_meta
     meta = db_get_latest_plan_meta_for_user(
         user_id=user_id,
         user_jwt=jwt,
@@ -245,7 +251,6 @@ def service_get_latest_weekly_plan(
     if meta and isinstance(meta.get("plan_id"), str):
         plan_id = meta["plan_id"]
 
-    # fallback na weekly tabuľku (cez RLS)
     if not plan_id:
         plan_id = db_get_latest_plan_id_for_user(
             user_id=user_id,
@@ -279,7 +284,8 @@ def service_get_latest_weekly_plan(
                 "completed_km": r.get("completed_km"),
                 "completed_minutes": r.get("completed_minutes"),
                 "notes": r.get("notes"),
-                "raw_json": r.get("raw_json"),
+                # raw_json typicky netreba do UI; nechávam OFF.
+                # "raw_json": r.get("raw_json"),
             }
         )
 
