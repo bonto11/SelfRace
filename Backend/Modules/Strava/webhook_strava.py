@@ -118,7 +118,9 @@ def make_oauth_state(user_id: int, ttl_seconds: int = 600) -> str:
     now = int(time.time())
     payload = {"uid": int(user_id), "iat": now, "exp": now + int(ttl_seconds), "v": 1}
 
-    payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(
+        "utf-8"
+    )
     payload_b64 = _b64url_encode(payload_bytes)
 
     sig = hmac.new(
@@ -189,7 +191,9 @@ def _insert_event_from_dict(data: dict) -> dict:
 
     # Hard filter ak je nakonfigurovaný subscription_id
     if expected_sub_id is not None:
-        if event.subscription_id is None or int(event.subscription_id) != int(expected_sub_id):
+        if event.subscription_id is None or int(event.subscription_id) != int(
+            expected_sub_id
+        ):
             status = "ignored"
             error = "unexpected_subscription_id"
 
@@ -260,6 +264,11 @@ async def strava_webhook_handler(request: Request):
     Strava vyžaduje 200 OK do 2 sekúnd; spracovanie musí ísť async.  [oai_citation:2‡developers.strava.com](https://developers.strava.com/docs/webhooks)
     """
     raw_body = await request.body()
+
+    print("[STRAVA] headers keys:", sorted(list(request.headers.keys())))
+    print("[STRAVA] x-strava-signature:", request.headers.get("X-Strava-Signature"))
+    print("[STRAVA] x-forwarded-for:", request.headers.get("X-Forwarded-For"))
+    print("[STRAVA] user-agent:", request.headers.get("User-Agent"))
 
     # Basic sanity
     if not raw_body:
@@ -389,7 +398,9 @@ async def strava_oauth_callback(
 
     expires_at_iso = None
     if isinstance(expires_at_ts, (int, float)):
-        expires_at_iso = datetime.fromtimestamp(expires_at_ts, tz=timezone.utc).isoformat()
+        expires_at_iso = datetime.fromtimestamp(
+            expires_at_ts, tz=timezone.utc
+        ).isoformat()
 
     athlete_id_int = int(athlete_id)
 
@@ -420,7 +431,11 @@ async def strava_oauth_callback(
     }
 
     try:
-        upsert_resp = supabase.table("strava_accounts").upsert(upsert_row, on_conflict="user_id").execute()
+        upsert_resp = (
+            supabase.table("strava_accounts")
+            .upsert(upsert_row, on_conflict="user_id")
+            .execute()
+        )
         err = getattr(upsert_resp, "error", None)
         if err:
             return _fe_redirect("error", "upsert_failed")
@@ -456,7 +471,12 @@ async def strava_status(
     row = rows[0] if rows else None
 
     if not row:
-        return {"connected": False, "athlete_id": None, "scopes": [], "expires_at": None}
+        return {
+            "connected": False,
+            "athlete_id": None,
+            "scopes": [],
+            "expires_at": None,
+        }
 
     connected = not bool(row.get("deauthorized_at"))
     return {
@@ -516,7 +536,12 @@ async def strava_disconnect(
     }
 
     try:
-        upd = supabase.table("strava_accounts").update(payload).eq("user_id", user_id).execute()
+        upd = (
+            supabase.table("strava_accounts")
+            .update(payload)
+            .eq("user_id", user_id)
+            .execute()
+        )
     except Exception as e:  # noqa: BLE001
         print("[STRAVA DISCONNECT] update exception:", repr(e))
         raise HTTPException(status_code=500, detail="db_update_exception")
@@ -526,6 +551,8 @@ async def strava_disconnect(
 
     if err:
         print("[STRAVA DISCONNECT] update error:", err)
-        raise HTTPException(status_code=500, detail={"code": "db_update_failed", "error": str(err)})
+        raise HTTPException(
+            status_code=500, detail={"code": "db_update_failed", "error": str(err)}
+        )
 
     return {"ok": True, "updated": len(data or [])}
