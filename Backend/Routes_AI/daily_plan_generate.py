@@ -15,12 +15,12 @@ from Configs.config import (
     LLM_TIMEOUT_S,
 )
 
-from Services.AI.daily_plan_llm import (
+from backend.Routes_AI.daily_plan_llm import (
     _llm_models_priority,
     _sanitize_json_guess,
 ) 
 
-from Routes_AI.daily_prompts import (
+from backend.Routes_AI.daily_plan_prompts import (
     _build_prompts_for_daily,
 ) 
 

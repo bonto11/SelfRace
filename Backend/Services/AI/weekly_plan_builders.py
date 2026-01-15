@@ -18,7 +18,6 @@ from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
 
-
 def load_athlete_state_for_plan(
     user_id: int,
     state_id: Optional[int],
@@ -69,7 +68,6 @@ def load_athlete_state_for_plan(
         "created_at": row.get("created_at"),
         "state": state_json,
     }
-
 
 def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
     """
@@ -223,3 +221,4 @@ def build_weekly_rows_from_ai(
         rows.append(row)
 
     return rows
+

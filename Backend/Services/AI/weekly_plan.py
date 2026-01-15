@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from Configs.config import DEFAULT_MODEL
 
+
 from Services.AI.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
@@ -33,7 +34,6 @@ from Routes_DB.coach_plan_meta import (
 )
 
 from Services.users import require_jwt
-
 
 def service_generate_weekly_plan(
     user_id: int,

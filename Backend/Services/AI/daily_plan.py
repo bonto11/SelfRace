@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, List
 from datetime import date
 
 from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
-from Services.AI.daily_builders import (
+from backend.Services.AI.daily_plan_builders import (
     build_daily_rows_from_ai,
     build_daily_context_from_db,
 )
@@ -28,7 +28,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_get_latest_plan_meta_for_user,
 )
-from Routes_AI.generate_plan_daily import generate_daily_week_json
+from backend.Routes_AI.daily_plan_generate import generate_daily_week_json
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
 
