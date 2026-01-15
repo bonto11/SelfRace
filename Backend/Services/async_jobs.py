@@ -435,3 +435,34 @@ def service_run_job_now(
             progress=100,
         )
         return {"job": _sanitize_job_for_client(finished), "error": str(e)}
+    
+def service_enqueue_ai_analyze_job_service(
+    user_id: int,
+    user_uid: str,
+    *,
+    model: Optional[str] = None,
+    debug: bool = False,
+    save_to_db: bool = True,
+) -> Dict[str, Any]:
+    """
+    Convenience helper pre cron/maintenance:
+      - enqueuje job_type="ai_analyze"
+      - job pobeží v SERVICE móde (bez user_jwt)
+      - výsledok sa uloží do coach_athlete_state
+    """
+    payload: Dict[str, Any] = {
+        "save_to_db": bool(save_to_db),
+        "debug": bool(debug),
+        "service": True,
+    }
+    if model:
+        payload["model"] = model
+
+    return service_enqueue_job(
+        user_id=user_id,
+        user_uid=user_uid,
+        job_type="ai_analyze",
+        payload=payload,
+        user_jwt=None,
+        service=True,
+    )
