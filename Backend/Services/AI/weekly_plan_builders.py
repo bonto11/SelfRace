@@ -24,6 +24,16 @@ def _debug_enabled() -> bool:
     return (os.getenv("COACH_DEBUG", "") or "").lower() in ("1", "true", "yes", "on")
 
 
+def _include_full_analyze_input() -> bool:
+    # explicit opt-in; debug tiež povoľ
+    return _debug_enabled() or (os.getenv("COACH_INCLUDE_ANALYZE_INPUT", "") or "").lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 def _dbg(*args: Any) -> None:
     if _debug_enabled():
         print(*args)
@@ -44,7 +54,6 @@ def load_athlete_state_for_plan(
       2) najnovší stav pre usera (version=1).
     """
     jwt = user_jwt
-
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
@@ -118,8 +127,8 @@ def _extract_prefs_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
 def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     """
     Jemná minifikácia už na úrovni buildera (SAFE):
-    - odstráni len očividne citlivé/ťažké veci
-    - necháva štruktúru podobnú analyze_input, aby weekly_prompts vedel fungovať aj keď raz prepneš na analyze_input_min
+    - odstráni citlivé/ťažké veci
+    - necháva štruktúru podobnú analyze_input
     """
     ai: Dict[str, Any] = dict(analyze_input) if isinstance(analyze_input, dict) else {}
 
@@ -132,7 +141,7 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
         u2.pop("name", None)
         ai["user"] = u2
 
-    # last_activities: často obsahujú názvy a timestampy -> nechaj len agregácie ak existujú
+    # last_activities: často obsahujú názvy a timestampy -> nechaj len agregácie
     la = ai.get("last_activities")
     if isinstance(la, list):
         trimmed: List[Dict[str, Any]] = []
@@ -145,14 +154,14 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
                     "distance_km": a.get("distance_km") or a.get("distance"),
                     "moving_time_min": a.get("moving_time_min") or a.get("moving_time"),
                     "load": a.get("load") or a.get("trimp"),
-                    "day_offset": a.get("day_offset"),  # ak to máš
+                    "day_offset": a.get("day_offset"),
                 }
             )
             if len(trimmed) >= 20:
                 break
         ai["last_activities"] = trimmed
 
-    # ak máš niekde raw streams/laps -> drop
+    # drop raw streams/laps/splits ak by sa objavili
     ai.pop("streams", None)
     ai.pop("laps", None)
     ai.pop("splits", None)
@@ -219,14 +228,13 @@ def build_weekly_context_from_db(
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
-        # NOTE: user_id držíš v context_payload kvôli server-side logike,
-        # ale weekly_prompts si ho vie vyhodiť pred LLM.
+        # držíš user_id kvôli server-side logike (settings, billing, meta)
         "user_id": user_id,
         "weeks": horizon_weeks,
         "overwrite": overwrite,
         "prefs": prefs_ai,
-        "analyze_input": analyze_input,          # legacy (kým sa nepreklikneš)
-        "analyze_input_min": analyze_input_min,  # pripravené pre LLM minify
+        # ✅ default: only minified
+        "analyze_input_min": analyze_input_min,
         "athlete_state": athlete_state,
         "athlete_state_meta": {
             "state_id": used_state_id,
@@ -236,6 +244,10 @@ def build_weekly_context_from_db(
         },
     }
 
+    # opt-in: full analyze_input iba keď chceš
+    if _include_full_analyze_input():
+        context_payload["analyze_input"] = analyze_input
+
     if external_events_block is not None:
         context_payload["external_events"] = external_events_block
 
@@ -244,6 +256,7 @@ def build_weekly_context_from_db(
         "state_bundle": state_bundle,
         "prefs_ai": prefs_ai,
         "horizon_weeks": horizon_weeks,
+        # vraciaš aj pre debug/logiku
         "analyze_input": analyze_input,
         "analyze_input_min": analyze_input_min,
     }
@@ -270,7 +283,7 @@ def build_weekly_rows_from_ai(
                 "user_id": user_id,
                 "plan_id": plan_id,
                 "week_index": week_index,
-                "week_start": w.get("week_start"),  # "YYYY-MM-DD"
+                "week_start": w.get("week_start"),
                 "week_end": w.get("week_end"),
                 "goal": w.get("goal"),
                 "focus": w.get("focus"),
