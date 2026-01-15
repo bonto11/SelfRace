@@ -89,7 +89,6 @@ def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
         return weekly_plan
     return []
 
-
 def build_weekly_context_from_db(
     user_id: int,
     *,
@@ -103,14 +102,12 @@ def build_weekly_context_from_db(
     Poskladá context_payload pre weekly plán z DB + meta info,
     ktoré potrebuje service vrstva.
     """
-    # 1) vstup pre AI (rovnaký ako pre analyze)
     analyze_input = build_input_from_db(
         user_id=user_id,
         user_jwt=user_jwt,
         service=service,
     )
 
-    # PREFS – flatten
     raw_prefs = analyze_input.get("prefs") or {}
     if (
         isinstance(raw_prefs, dict)
@@ -123,7 +120,6 @@ def build_weekly_context_from_db(
     else:
         prefs_ai = {}
 
-    # EXTERNAL EVENTS – už by mali byť v analyze_input, ale pre istotu:
     external_events_block = analyze_input.get("external_events")
     if external_events_block is None:
         try:
@@ -135,7 +131,6 @@ def build_weekly_context_from_db(
         except Exception:
             external_events_block = None
 
-    # 2) stav atlétu z analyze
     state_bundle = load_athlete_state_for_plan(
         user_id=user_id,
         state_id=state_id,
@@ -146,15 +141,24 @@ def build_weekly_context_from_db(
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
 
-    # koľko týždňov – preferuj z payloadu, inak z prefs, fallback default
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
+
+    # NOTE(review): printy v produkcii (môžu leakať interné hodnoty / spamovať logy)
     print("[DB-COACH-WEEKLY] weeks (payload):", weeks)
     print("[DB-COACH-WEEKLY] prefs_ai.get('weeks'):", prefs_ai.get("weeks"))
     print("[DB-COACH-WEEKLY] raw_weeks:", raw_weeks)
+
     horizon_weeks = max(
         COACH_PLAN_MIN_WEEKS,
         min(raw_weeks, COACH_PLAN_MAX_WEEKS),
     )
+
+    # NOTE(review): do LLM payloadu posielaš `user_id` a celé `analyze_input` (vrátane last_activities názvov atď.)
+    # Ak chceš “privacy by default”, tak:
+    #  - buď tu urob minifikáciu analyze_input (napr. vyhodiť `user.id`, `last_activities.name`, a nechávať len relative dni),
+    #  - alebo rob anonymizáciu už v build_input_from_db / builderoch.
+    # NOTE(review): v daily si riešil “today-1” a podobne; weekly tu ešte nesynchronizuješ dátumy na relatívne.
+    # Toto je najlepšie riešiť v jednom mieste (shared sanitizer), inak bude weekly/daily/analyze nekonzistentné.
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
@@ -182,7 +186,6 @@ def build_weekly_context_from_db(
         "horizon_weeks": horizon_weeks,
         "analyze_input": analyze_input,
     }
-
 
 def build_weekly_rows_from_ai(
     user_id: int,
