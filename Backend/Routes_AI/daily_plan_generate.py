@@ -20,7 +20,7 @@ from Routes_AI.daily_plan_llm import (
     _sanitize_json_guess,
 ) 
 
-from backend.Routes_AI.daily_plan_prompts import (
+from Routes_AI.daily_plan_prompts import (
     _build_prompts_for_daily,
 ) 
 
