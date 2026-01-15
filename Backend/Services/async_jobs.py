@@ -150,6 +150,22 @@ def _minify_result_for_client(job_type: str, result: Any) -> Any:
             "archived_meta": result.get("archived_meta"),
             "error": result.get("error"),
         }
+    
+    # DAILY GENERATE – FE potrebuje len výstup plánu a meta, nie kontext/prompt/debug
+    if job_type == "daily_generate":
+        daily_plan = result.get("daily_plan")
+        return {
+            "plan_id": result.get("plan_id"),
+            "week_index": result.get("week_index"),
+            "week_start": result.get("week_start"),
+            "week_end": result.get("week_end"),
+            "model": result.get("model"),
+            "overwrite": result.get("overwrite"),
+            "inserted_rows": result.get("inserted_rows"),
+            "deleted_rows": result.get("deleted_rows"),
+            "daily_plan": daily_plan,          # ✅ toto chceš v UI
+            "error": result.get("error"),
+        }
 
         # Ak by si náhodou niekde posielal input v result, tak ho tu úplne odstrihneme.
         return out
