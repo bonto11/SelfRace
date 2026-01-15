@@ -1,4 +1,4 @@
-# Routes_AI/generate_plan_weekly.py
+# Routes_AI/weekly_plan_generate.py
 from __future__ import annotations
 
 from zoneinfo import ZoneInfo
