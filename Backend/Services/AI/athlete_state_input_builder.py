@@ -53,6 +53,55 @@ def _canonical_sport(s: Any) -> str:
     return "other"
 
 
+def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
+    try:
+        if not s:
+            return None
+        return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+def _days_ago(date_str: Any) -> Optional[int]:
+    dt = _parse_yyyy_mm_dd(date_str)
+    if not dt:
+        return None
+    today = datetime.now(timezone.utc).date()
+    d = (today - dt.date()).days
+    return int(d) if d >= 0 else 0  # ak je to v budúcnosti, clamp na 0
+
+def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Pre každý PB zamení 'date' za 'days_ago' (int).
+    'date' vyhodí, aby sa do AI neposielali absolútne dátumy.
+    """
+    if not isinstance(bests, dict):
+        return bests
+
+    out = dict(bests)
+    for sport_key in ("run", "ride"):
+        items = out.get(sport_key)
+        if not isinstance(items, list):
+            continue
+
+        new_items: List[Dict[str, Any]] = []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            it2 = dict(it)
+            d = _days_ago(it2.get("date") or it2.get("start_date") or it2.get("performed_at"))
+            if d is not None:
+                it2["days_ago"] = d
+            # vyhoď absolútne dátumy
+            it2.pop("date", None)
+            it2.pop("start_date", None)
+            it2.pop("performed_at", None)
+
+            new_items.append(it2)
+
+        out[sport_key] = new_items
+
+    return out
+
 def build_last_activities_block_for_analysis(
     user_id: int,
     *,
@@ -247,6 +296,9 @@ def build_input_from_db(
         user_jwt=jwt,
         service=service,
     )
+    input_data["bests"] = _bests_dates_to_days_ago(input_data.get("bests") or {})
+
+
 
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
         user_id=user_id,
