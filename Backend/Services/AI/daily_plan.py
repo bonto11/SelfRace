@@ -23,7 +23,6 @@ from Routes_DB.coach_plan_daily import (
     db_insert_daily_rows,
     db_clear_daily_for_user_week,
     db_list_daily_for_user_horizon,
-    db_get_planned_range_rows,
 )
 from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,

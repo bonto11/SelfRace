@@ -56,7 +56,6 @@ def build_daily_rows_from_ai(
 
     return rows
 
-
 def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     """
     build_input_from_db vracia:

@@ -1,36 +1,28 @@
 # Routes_AI/generate_plan_daily.py
 from __future__ import annotations
 
-from datetime import date
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+from fastapi import HTTPException
+from openai import OpenAI
+from zoneinfo import ZoneInfo
+import json
+import os
+import time
 
 from Configs.config import (
-    DEFAULT_MODEL,
-    COACH_PLAN_SCAN_HORIZON_DAYS,
+    OPENAI_API_KEY,
+    LLM_TIMEOUT_S,
 )
 
-from Services.AI.athlete_state import build_input_from_db
-from Services.AI.daily_plan_llm import generate_daily_week_json
-from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
-from Routes_DB.coach_plan_weekly import (
-    db_get_week_row_for_plan,
-    db_get_weekly_for_user_plan,
-)
-from Routes_DB.coach_plan_daily import (
-    db_insert_daily_rows,
-    db_clear_daily_for_user_week,
-    db_list_daily_for_user_horizon,
-)
-from Routes_DB.coach_plan_meta import (
-    db_get_active_plan_meta_for_user,
-    db_get_latest_plan_meta_for_user,
-)
-from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
-from Services.coach_external_events import service_list_external_events_window
-from Services.users import require_jwt
+from Services.AI.daily_plan_llm import (
+    _llm_models_priority,
+    _sanitize_json_guess,
+) 
 
-
-# ---------- SERVICES: DB + AI + DB ----------
+from Routes_AI.daily_prompts import (
+    _build_prompts_for_daily,
+) 
 
 
 def _build_daily_rows_from_ai(
@@ -89,454 +81,226 @@ def _flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
-def _extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
-    t = prefs.get("targets")
-    return t if isinstance(t, dict) else {}
 
-
-def service_generate_daily_week(
-    user_id: int,
-    *,
-    week_index: int,
-    plan_id: Optional[str] = None,
-    overwrite: bool = True,
-    model: Optional[str] = None,
-    debug: bool = False,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Dict[str, Any]:
-    """
-    Generovanie DAILY plánu pre konkrétny týždeň + zápis do DB.
-
-    Režimy:
-      - FE / RLS:    service=False, user_jwt povinný → require_jwt → RLS klient.
-      - service:     service=True, user_jwt typicky None → DB vrstvy idú cez service klientov.
-    """
-    if service:
-        jwt = user_jwt  # typicky None
-    else:
-        jwt = require_jwt(user_jwt)
-
-    if week_index <= 0:
-        raise ValueError("week_index must be >= 1")
-
-    daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
-
-    if not service and is_user_over_token_quota(
-        user_id,
-        user_jwt=jwt,
-        service=service,
-    ):
-        used = get_user_monthly_usage_tokens(user_id)
-        return {
-            "daily_plan": None,
-            "plan_id": plan_id,
-            "week_index": week_index,
-            "week_start": None,
-            "week_end": None,
-            "state_id": None,
-            "model": daily_model,
-            "overwrite": overwrite,
-            "inserted_rows": 0,
-            "deleted_rows": 0,
-            "error": {
-                "code": "ai_quota_exceeded",
-                "message": (
-                    "Mesačný limit AI plánov bol vyčerpaný. "
-                    "Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
-                ),
-                "used_tokens_this_month": used,
-            },
-        }
-
-    ctx = build_daily_context_from_db(
-        user_id=user_id,
-        week_index=week_index,
-        plan_id=plan_id,
-        overwrite=overwrite,
-        user_jwt=jwt,
-        service=service,
+def _call_openai_raw(
+    client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
+) -> Tuple[str, Dict[str, int]]:
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_txt},
+            {"role": "user", "content": user_txt},
+        ],
+        temperature=0.2,
+        max_tokens=max_tokens,
+        response_format={"type": "json_object"},
     )
 
-    context_payload = ctx["context_payload"]
-    plan_id_effective: Optional[str] = ctx["plan_id_effective"]
-    week_meta: Dict[str, Any] = ctx["week_meta"]
-    state_row: Optional[Dict[str, Any]] = ctx["state_row"]
-    prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
+    content = (resp.choices[0].message.content or "").strip()
+    usage_raw = getattr(resp, "usage", None) or {}
 
-    daily_plan, trace = generate_daily_week_json(
-        context_payload=context_payload,
-        model=daily_model,
-        debug_raw=debug,
-    )
+    def _get(u: Any, *names: str) -> int:
+        for name in names:
+            if hasattr(u, name):
+                try:
+                    v = getattr(u, name)
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+            if isinstance(u, dict) and name in u:
+                try:
+                    v = u[name]
+                    if v is not None:
+                        return int(v)
+                except Exception:
+                    pass
+        return 0
 
-    if not isinstance(daily_plan, dict):
-        daily_plan = {}
-
-    plan_id_out = plan_id_effective
-
-    usage = extract_usage_from_trace(trace)
-    billing_result: Optional[Dict[str, Any]] = None
-    if usage:
-        if daily_model:
-            usage["model"] = daily_model
-        try:
-            billing_result = log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.generate_daily_plan",
-                source="service" if service else "user",
-                billed_via="internal",
-                charge_wallet=False,
-                meta={
-                    "week_index": week_index,
-                    "plan_id": plan_id_out,
-                },
-            )
-        except Exception as e:  # noqa: BLE001
-            print("[AI_BILLING] daily_plan billing error:", repr(e))
-
-    strength_settings = prefs_ai.get("strength_settings") or {}
-    available_equipment = strength_settings.get("available") or []
-    if not isinstance(available_equipment, list):
-        available_equipment = []
-
-    daily_plan = enrich_daily_plan_with_strength_exercises(
-        user_id=user_id,
-        daily_plan=daily_plan,
-        available_equipment=available_equipment,
-        today=date.today(),
-        weeks_back=8,
-        user_jwt=jwt,
-        service=service,
-    )
-
-    deleted_rows = 0
-    if overwrite and plan_id_out and week_meta["week_start"] and week_meta["week_end"]:
-        deleted_rows = db_clear_daily_for_user_week(
-            user_id=user_id,
-            plan_id=plan_id_out,
-            week_start=week_meta["week_start"],
-            week_end=week_meta["week_end"],
-            user_jwt=jwt,
-            service=service,
-        )
-
-    rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
-        user_id=user_id,
-        plan_id=plan_id_out,
-        daily_plan=daily_plan,
-    )
-
-    inserted_rows = (
-        db_insert_daily_rows(
-            rows_to_insert,
-            user_jwt=jwt,
-            service=service,
-        )
-        if rows_to_insert
-        else 0
-    )
-
-    resp: Dict[str, Any] = {
-        "daily_plan": daily_plan,
-        "plan_id": plan_id_out,
-        "week_index": week_index,
-        "week_start": daily_plan.get("week_start") or week_meta["week_start"],
-        "week_end": daily_plan.get("week_end") or week_meta["week_end"],
-        "state_id": (state_row or {}).get("id"),
-        "model": daily_model,
-        "overwrite": overwrite,
-        "inserted_rows": inserted_rows,
-        "deleted_rows": deleted_rows,
-    }
-    if debug:
-        resp["debug"] = trace
-        resp["context_payload"] = context_payload
-        resp["ai_usage"] = usage
-        resp["billing"] = billing_result
-
-    return resp
-
-
-def service_get_daily_overview(
-    user_id: int,
-    horizon_days: int = 7,
-    *,
-    user_jwt: str,
-) -> Dict[str, Any]:
-    """
-    Vráti jednoduchý DAILY prehľad pre najbližších N dní (RLS).
-    """
-    jwt = require_jwt(user_jwt)
-
-    if horizon_days <= 0:
-        horizon_days = 7
-
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        user_jwt=jwt,
-    ) or db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        user_jwt=jwt,
-    )
-
-    plan_id: Optional[str] = None
-    if meta and isinstance(meta.get("plan_id"), str):
-        plan_id = meta["plan_id"]
-
-    rows: List[Dict[str, Any]] = (
-        db_list_daily_for_user_horizon(
-            user_id=user_id,
-            horizon_days=horizon_days,
-            plan_id=plan_id,
-            user_jwt=jwt,
-        )
-        or []
-    )
-
-    by_date: Dict[str, List[Dict[str, Any]]] = {}
-    for r in rows:
-        d = r.get("plan_date")
-        if not d:
-            continue
-        by_date.setdefault(d, []).append(r)
-
-    days_out: List[Dict[str, Any]] = []
-
-    for date_str, sessions in sorted(by_date.items(), key=lambda kv: kv[0]):
-        sessions_out: List[Dict[str, Any]] = []
-
-        for s in sorted(sessions, key=lambda x: int(x.get("session_index") or 0)):
-            payload = s.get("payload") or {}
-            structure = s.get("structure") or payload.get("structure")
-
-            if structure is None:
-                strength_ex = s.get("strength_exercises") or payload.get(
-                    "strength_exercises"
-                )
-                if strength_ex:
-                    structure = {"strength_exercises": strength_ex}
-
-            sessions_out.append(
-                {
-                    "sport": s.get("sport") or "other",
-                    "title": s.get("title"),
-                    "duration_min": s.get("duration_min"),
-                    "intensity": s.get("intensity"),
-                    "zone_text": s.get("zone_text"),
-                    "notes": s.get("notes"),
-                    "session_type": s.get("session_type"),
-                    "structure": structure,
-                }
-            )
-
-        days_out.append(
-            {
-                "date": date_str,
-                "sessions": sessions_out,
-            }
-        )
-
-    return {
-        "horizon_days": horizon_days,
-        "days": days_out,
+    usage = {
+        "prompt_tokens": _get(usage_raw, "prompt_tokens", "input_tokens"),
+        "completion_tokens": _get(usage_raw, "completion_tokens", "output_tokens"),
+        "total_tokens": _get(usage_raw, "total_tokens"),
     }
 
+    return content, usage
 
-def service_auto_extend_daily_plan(
-    user_id: int,
-    *,
-    min_horizon_days: int = 6,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Dict[str, Any]:
+def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
-    Postará sa o to, aby aktívny (alebo posledný) plán mal vždy
-    aspoň `min_horizon_days` naplánovaných dní v coach_plan_daily.
-
-    Režimy:
-      - FE/RLS: service=False, user_jwt povinný.
-      - service: service=True, user_jwt typicky None, DB ide cez service klientov.
+    Return (parsed_dict or None, cleaned_text, raw_text).
+    Nikdy nehádže výnimku – pri chybe je parsed None.
     """
-    if service:
-        jwt = user_jwt  # typicky None
-    else:
-        jwt = require_jwt(user_jwt)
-
-    if min_horizon_days <= 0:
-        min_horizon_days = 6
-
-    today = date.today()
-
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        user_jwt=jwt,
-        service=service,
-    ) or db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        user_jwt=jwt,
-        service=service,
-    )
-
-    plan_id: Optional[str] = None
-    if meta and isinstance(meta.get("plan_id"), str):
-        plan_id = meta["plan_id"]
-
-    if not plan_id:
-        return {
-            "changed": False,
-            "reason": "no_plan",
-        }
-
-    daily_rows: List[Dict[str, Any]] = (
-        db_list_daily_for_user_horizon(
-            user_id=user_id,
-            horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
-            plan_id=plan_id,
-            user_jwt=jwt,
-            service=service,
-        )
-        or []
-    )
-
-    if not daily_rows:
-        return {
-            "changed": False,
-            "reason": "no_daily_rows",
-        }
-
-    last_date_str = max(
-        str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
-    )
-    last_date = date.fromisoformat(last_date_str)
-    days_left = (last_date - today).days
-
-    if days_left >= min_horizon_days:
-        return {
-            "changed": False,
-            "reason": "enough_horizon",
-            "days_left": days_left,
-            "last_daily_date": last_date_str,
-        }
-
-    weekly_rows: List[Dict[str, Any]] = (
-        db_get_weekly_for_user_plan(
-            user_id=user_id,
-            plan_id=plan_id,
-            user_jwt=jwt,
-            service=service,
-        )
-        or []
-    )
-
-    if not weekly_rows:
-        return {
-            "changed": False,
-            "reason": "no_weekly_rows",
-            "days_left": days_left,
-            "last_daily_date": last_date_str,
-        }
-
-    weekly_sorted = sorted(
-        weekly_rows,
-        key=lambda w: int(w.get("week_index") or 0),
-    )
-
-    current_week_index: Optional[int] = None
-    for w in weekly_sorted:
-        ws_raw = w.get("week_start")
-        we_raw = w.get("week_end") or ws_raw
-
-        if not isinstance(ws_raw, str) or not isinstance(we_raw, str):
-            continue
-
+    if not raw:
+        return None, "", ""
+    try:
+        return json.loads(raw.strip()), raw.strip(), raw.strip()
+    except Exception:
+        cleaned = _sanitize_json_guess(raw or "")
         try:
-            ws = date.fromisoformat(ws_raw)
-            we = date.fromisoformat(we_raw)
-        except ValueError:
-            continue
+            return json.loads(cleaned), cleaned, raw
+        except Exception:
+            return None, cleaned, raw
 
-        if ws <= last_date <= we:
-            current_week_index = int(w.get("week_index") or 0)
-            break
 
-    if current_week_index is None:
-        for w in weekly_sorted:
-            ws_raw = w.get("week_start")
-            if not isinstance(ws_raw, str):
-                continue
+def generate_daily_week_json(
+    context_payload: dict,
+    model: str,
+    *,
+    debug_raw: bool = False,
+) -> Tuple[dict, Optional[dict]]:
+    """
+    AI client pre DAILY PLAN jedného týždňa.
+
+    Vždy vracia (daily_dict, debug_trace_or_None).
+    ŽIADNY server-side zásah do placementu tréningov – všetko riadi LLM
+    na základe prefs, weekly_template a external_events.
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
+
+    raw_settings = context_payload.get("user_settings") or {}
+    settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
+
+    (
+        system_txt,
+        user_txt,
+        fixed_slots_from_template,
+        strength_target,
+    ) = _build_prompts_for_daily(
+        context_payload,
+        settings=settings,
+    )
+
+    retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
+    timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
+
+    client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
+    models = _llm_models_priority(model)
+    token_budgets = [2500, 2200, 2000]
+
+    trace: Dict[str, Any] = {
+        "models_tried": models,
+        "attempts": [],
+    }
+    if debug_raw:
+        trace["system_prompt"] = system_txt
+        trace["user_prompt"] = user_txt
+        trace["fixed_slots_from_template"] = fixed_slots_from_template
+        trace["strength_target"] = strength_target
+
+    last_raw: Optional[str] = None
+    last_cleaned: Optional[str] = None
+    last_err: Optional[str] = None
+
+    week = context_payload.get("week") or {}
+    week_index = int(week.get("week_index") or 1)
+    week_start = week.get("week_start") or None
+    week_end = week.get("week_end") or None
+    plan_id_from_ctx = context_payload.get("plan_id")
+
+    tz_name = settings.get("timezone") or "Europe/Bratislava"
+    try:
+        tzinfo = ZoneInfo(tz_name)
+    except Exception:
+        tzinfo = timezone.utc
+
+    for m in models:
+        for attempt in range(1, retries + 1):
+            started = time.time()
+            budget = token_budgets[min(attempt - 1, len(token_budgets) - 1)]
             try:
-                ws = date.fromisoformat(ws_raw)
-            except ValueError:
+                raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
+                dur_ms = int((time.time() - started) * 1000)
+                parsed, cleaned, raw_keep = _parse_ai_json(raw)
+                last_raw, last_cleaned = raw_keep, cleaned
+
+                attempt_row: Dict[str, Any] = {
+                    "model": m,
+                    "attempt": attempt,
+                    "ok": parsed is not None,
+                    "duration_ms": dur_ms,
+                }
+
+                # REVIEW: raw preview len keď debug_raw=True (inak to nechceš ukladať/logovať)
+                # attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
+
+                if debug_raw:
+                    attempt_row["raw_preview"] = raw[:600] + (
+                        "…[truncated]" if len(raw) > 600 else ""
+                    )
+
+                trace["attempts"].append(attempt_row)
+
+                if not parsed:
+                    last_err = "AI returned invalid JSON"
+                    continue
+
+                now_local = datetime.now(tzinfo)
+
+                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
+                parsed["generated_at"] = now_local.isoformat()
+
+                trace["usage"] = {
+                    "model": m,
+                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+                    "completion_tokens": int(usage.get("completion_tokens", 0)),
+                    "total_tokens": int(usage.get("total_tokens", 0)),
+                }
+
+                # REVIEW/konzistentnosť: vždy nastav reálne použitý model
+                parsed["model"] = m
+
+                if "week_index" not in parsed:
+                    parsed["week_index"] = week_index
+                if "week_start" not in parsed and week_start:
+                    parsed["week_start"] = week_start
+                if "week_end" not in parsed and week_end:
+                    parsed["week_end"] = week_end
+                if "days" not in parsed or not isinstance(parsed["days"], list):
+                    parsed["days"] = []
+
+                # REVIEW: plan_id je interné; do AI výstupu ho netlač
+                # if plan_id_from_ctx and "plan_id" not in parsed:
+                #     parsed["plan_id"] = plan_id_from_ctx
+
+                if debug_raw:
+                    trace["raw"] = raw_keep
+                    trace["cleaned"] = cleaned
+                    trace["ok_model"] = m
+
+                return parsed, trace
+
+            except Exception as e:  # noqa: BLE001
+                dur_ms = int((time.time() - started) * 1000)
+                last_err = f"{e.__class__.__name__}: {e}"
+                trace["attempts"].append(
+                    {
+                        "model": m,
+                        "attempt": attempt,
+                        "ok": False,
+                        "duration_ms": dur_ms,
+                        "error": last_err,
+                    }
+                )
+                time.sleep(0.5 * attempt)
                 continue
 
-            if ws <= last_date:
-                current_week_index = int(w.get("week_index") or 0)
-
-    if current_week_index is None:
-        return {
-            "changed": False,
-            "reason": "cannot_determine_current_week",
-            "days_left": days_left,
-            "last_daily_date": last_date_str,
-        }
-
-    future_weeks = [
-        w for w in weekly_sorted if int(w.get("week_index") or 0) > current_week_index
-    ]
-    if not future_weeks:
-        return {
-            "changed": False,
-            "reason": "no_future_weeks",
-            "current_week_index": current_week_index,
-            "days_left": days_left,
-            "last_daily_date": last_date_str,
-        }
-
-    generated: List[int] = []
-    current_last_str = last_date_str
-
-    for w in future_weeks:
-        week_idx = int(w.get("week_index") or 0)
-
-        _ = service_generate_daily_week(
-            user_id=user_id,
-            week_index=week_idx,
-            plan_id=plan_id,
-            overwrite=True,
-            model=None,
-            debug=False,
-            user_jwt=jwt,
-            service=service,
-        )
-        generated.append(week_idx)
-
-        daily_rows = (
-            db_list_daily_for_user_horizon(
-                user_id=user_id,
-                horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
-                plan_id=plan_id,
-                user_jwt=jwt,
-                service=service,
-            )
-            or []
-        )
-
-        current_last_str = max(
-            str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
-        )
-        current_last_date = date.fromisoformat(current_last_str)
-        days_left = (current_last_date - today).days
-
-        if days_left >= min_horizon_days:
-            break
-
-    return {
-        "changed": bool(generated),
-        "generated_weeks": generated,
-        "current_week_index": current_week_index,
-        "final_days_left": days_left,
-        "last_daily_date": current_last_str,
-        "plan_id": plan_id,
+    # Fallback – AI failed úplne
+    now_fallback = datetime.now(tzinfo).isoformat()
+    fallback = {
+        "schema_version": 1,
+        "generated_at": now_fallback,
+        "model": "daily-fallback",
+        "week_index": week_index,
+        "week_start": week_start,
+        "week_end": week_end,
+        "days": [],
+        "error": last_err,
     }
+
+    if debug_raw:
+        trace["raw"] = last_raw
+        trace["cleaned"] = last_cleaned
+        trace["error"] = last_err or "unknown"
+
+    return fallback, trace if debug_raw else None
