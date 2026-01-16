@@ -28,30 +28,10 @@ from Services.AI.daily_plan_builders import (
 )
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
-
+from Configs.config import WEEKDAY_ORDER, WEEKDAY_TO_ABBR
 # -----------------------------------------------------------------------------
 # Fixed-slot derivation + minimal server-side enforcement (copy-paste safe)
 # -----------------------------------------------------------------------------
-
-WEEKDAY_ORDER: Dict[str, int] = {
-    "Mon": 0,
-    "Tue": 1,
-    "Wed": 2,
-    "Thu": 3,
-    "Fri": 4,
-    "Sat": 5,
-    "Sun": 6,
-}
-
-_WEEKDAY_TO_ABBR: Dict[int, str] = {
-    0: "Mon",
-    1: "Tue",
-    2: "Wed",
-    3: "Thu",
-    4: "Fri",
-    5: "Sat",
-    6: "Sun",
-}
 
 
 def _weekday_abbr_from_iso(d: Optional[str]) -> Optional[str]:
@@ -59,7 +39,7 @@ def _weekday_abbr_from_iso(d: Optional[str]) -> Optional[str]:
         return None
     try:
         dd = date.fromisoformat(d[:10])
-        return _WEEKDAY_TO_ABBR.get(dd.weekday())
+        return WEEKDAY_TO_ABBR.get(dd.weekday())
     except Exception:
         return None
 

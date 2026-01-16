@@ -163,12 +163,28 @@ def build_daily_context_from_db(
                 user_jwt=jwt,
                 service=service,
             )
+            
+            events = ext_window.get("events") or []
+
+            # ak service ešte nevracia occurrence_date, tak aspoň premapuj na AI-friendly shape
+            occurrences = []
+            for e in events:
+                if not isinstance(e, dict):
+                    continue
+                occurrences.append({
+                    "occurrence_date": e.get("occurrence_date") or e.get("date") or e.get("single_date"),
+                    "occurrence_weekday": e.get("occurrence_weekday") or e.get("weekday_abbr"),
+                    "sport": e.get("sport"),
+                    "title": e.get("title"),
+                    "duration_min": e.get("duration_min"),
+                    "priority": e.get("priority"),
+                    "start_time_local": e.get("start_time_local"),
+                    "notes": e.get("notes"),
+                })
+
             external_block = {
-                "window": {
-                    "from": week_meta["week_start"],
-                    "to": week_meta["week_end"],
-                    "events": ext_window.get("events") or [],
-                }
+            "occurrences": occurrences,
+            "window": {"from": week_meta["week_start"], "to": week_meta["week_end"]},
             }
         except Exception:
             external_block = None

@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-
+from typing import Dict
 load_dotenv(override=False)
 
 
@@ -98,3 +98,24 @@ MAX_FULL_DETAILS_PER_RUN = 150
 
 # koľko dní čakať, kým cron spraví hard delete
 DELETE_GRACE_DAYS = 30
+
+
+WEEKDAY_ORDER: Dict[str, int] = {
+    "Mon": 0,
+    "Tue": 1,
+    "Wed": 2,
+    "Thu": 3,
+    "Fri": 4,
+    "Sat": 5,
+    "Sun": 6,
+}
+
+WEEKDAY_TO_ABBR: Dict[int, str] = {
+    0: "Mon",
+    1: "Tue",
+    2: "Wed",
+    3: "Thu",
+    4: "Fri",
+    5: "Sat",
+    6: "Sun",
+}
