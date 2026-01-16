@@ -1,4 +1,4 @@
-# ===== PROMPTS (tvoj súbor s _build_prompts_for_daily) =====
+# ===== PROMPTS (súbor s _build_prompts_for_daily) =====
 from __future__ import annotations
 
 import json
@@ -179,7 +179,7 @@ def _build_prompts_for_daily(
 
     Poznámka:
     - fixed_slots posielame do AI ako štruktúrovanú informáciu.
-    - HARD enforcement na 100% (ak chceš) sa robí až server-side postprocessingom,
+    - HARD enforcement na 100% sa robí až server-side postprocessingom,
       ale tento prompt už HARD pravidlo jasne vyžaduje.
     """
     settings = settings or {}
@@ -262,16 +262,16 @@ def _build_prompts_for_daily(
             f"  HARD FIXED slots (ai_can_move=false): {hard_human}\n"
             f"  SOFT preferred slots (ai_can_move=true): {soft_human}\n"
             "\n"
-            "- HARD FIXED rule:\n"
+            "- HARD FIXED rule (non-negotiable):\n"
             "  For every HARD fixed slot that falls within this week, you MUST place a session of that sport/kind on that exact weekday.\n"
             "  If doing the planned workout there would be a bad idea (fatigue, recovery, clash with a high-intensity external event),\n"
-            "  you STILL keep the slot on that day, but you must soften it into a safer alternative.\n"
+            "  you STILL keep the session on that day, but you must soften it into a safer alternative.\n"
             "  In that case set session_type='coach_override' and explain in notes why you softened/changed it.\n"
             "\n"
             "- SOFT preferred rule:\n"
             "  Prefer these weekdays when it makes sense, but you may move them if recovery or external events require it.\n"
             "\n"
-            "- REQUIRED FIXED SLOT TAGGING:\n"
+            "- REQUIRED FIXED SLOT TAGGING (mandatory):\n"
             "  Any session scheduled because of a fixed slot MUST include payload.fixed_slot:\n"
             "  {weekday, sport, kind, policy}.\n"
         )
@@ -446,16 +446,18 @@ def _build_prompts_for_daily(
         "STRENGTH SLOTS (concept only, not concrete exercises):\n"
         + strength_slots_desc
         + "\n\nSTRENGTH QUALITY RULES (important):\n"
-        "- If you schedule a strength session with kind='full', duration_min should be ~75 (±10).\n"
-        "- A 'full' strength session MUST NOT be only 2–3 exercises.\n"
+        "- If you schedule a strength session (especially when payload.fixed_slot.kind='full'), duration_min should be ~75 (±10).\n"
+        "- A strength session MUST NOT be only 2–3 exercises.\n"
         "- For full strength, follow structure roughly:\n"
         "  warmup ~15 min (activation/mobility), main ~45 min, finish/cooldown ~15 min.\n"
-        "- strength_exercises should include approximately:\n"
+        "- strength_exercises for a full session should be approximately 9 items (2 + 5 + 2):\n"
         "  2 activation (2–3 sets, 8–12 reps, rest 45–60s),\n"
         "  5 main (4 sets, 4–6 reps, rest 120s),\n"
-        "  2 accessories (3 sets, 8–12 reps, rest 60s).\n"
-        "- If a HARD fixed strength slot conflicts with recovery/external event, keep it that day but soften it:\n"
-        "  set session_type='coach_override', reduce duration to 30–50, and explain why in notes.\n"
+        "  2 accessories (2–3 sets, 10–15 reps, rest 60s).\n"
+        "- If a HARD fixed strength slot conflicts with recovery/external event, keep it on that day but soften it:\n"
+        "  set session_type='coach_override', keep duration_min roughly similar (do NOT drop to 30–50),\n"
+        "  reduce intensity/volume inside strength_exercises (fewer sets, higher reps, longer rests, easier intent),\n"
+        "  and explain why in notes.\n"
         + "\n\nPLAN ADJUSTMENT HINTS FROM ATHLETE STATE:\n"
         + soften_line
         + replan_line
