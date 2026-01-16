@@ -181,12 +181,9 @@ def _build_prompts_for_daily(
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    weekly_template = (
-        prefs.get("weekly_template") or context_payload.get("weekly_template") or {}
-    )
+    weekly_template = prefs.get("weekly_template") or context_payload.get("weekly_template") or {}
     fixed_slots = _derive_fixed_slots(weekly_template, max_fixed=7)
 
-    # targets
     strength_target = (targets.get("strength") or {}).get("sessions_per_week")
     strength_target_int = int(strength_target) if isinstance(strength_target, int) else None
 
@@ -194,7 +191,7 @@ def _build_prompts_for_daily(
     day_constraints = context_payload.get("day_constraints") or []
     has_day_constraints = isinstance(day_constraints, list) and len(day_constraints) > 0
 
-    # weekly template block: reference only
+    # weekly template reference (debug only)
     weekly_template_reference_line = ""
     hard_slots = [fs for fs in fixed_slots if fs.get("policy") == "hard"]
     if hard_slots:
@@ -206,26 +203,29 @@ def _build_prompts_for_daily(
 
     if has_day_constraints:
         constraints_block = (
-            "- DAY_CONSTRAINTS (SOURCE OF TRUTH, date-based, non-negotiable):\n"
+            "- DAY_CONSTRAINTS (SOURCE OF TRUTH, DATE-BASED, NON-NEGOTIABLE):\n"
             "  You are given `day_constraints` for each date in the week.\n"
-            "  For each day:\n"
-            "  1) You MUST schedule EXACTLY day.max_sessions sessions (not fewer, not more).\n"
-            "     - If max_sessions=1 => exactly one session that day.\n"
-            "     - If max_sessions=2 => exactly two sessions that day.\n"
-            "  2) You MUST include ALL items from day.locks as sessions on that exact date.\n"
-            "  3) You MUST NOT add any session that would violate max_sessions.\n"
+            "  CRITICAL: DATE IS THE TRUTH. Weekday strings are only labels.\n"
+            "  For each day object in output:\n"
+            "  1) You MUST include ALL items from day.locks as sessions on that EXACT date.\n"
+            "  2) You MUST NOT exceed day.max_sessions (hard upper bound).\n"
+            "  3) If max_sessions=1 and there is a lock, that lock must be the only session.\n"
+            "  4) If locks already fill the day, do not add anything else.\n"
             "\n"
             "- LOCK MAPPING RULES:\n"
-            "  - If a lock has source='weekly_template': create a session matching {sport, kind} on that date.\n"
+            "  - If lock.source='weekly_template': create a session matching {sport, kind} on that exact date.\n"
             "    Attach payload.fixed_slot {weekday,sport,kind,policy}.\n"
-            "    payload.fixed_slot.weekday MUST match the session's actual weekday.\n"
+            "    payload.fixed_slot.weekday MUST match the session's real weekday.\n"
             "    Use payload.fixed_slot ONLY for sessions created because of a weekly_template lock.\n"
-            "  - If a lock has source='external_events': create a session on that date.\n"
-            "    Attach payload.external_event with at least {title, sport, date} (and duration_min if known).\n"
+            "  - If lock.source='external_events': create a session on that exact date.\n"
+            "    IMPORTANT: schema sport enum allows only run/ride/strength/swim/other.\n"
+            "    So if external lock sport is not one of these (e.g. football), set session.sport='other'\n"
+            "    and store the real sport in payload.external_event.sport.\n"
+            "    Attach payload.external_event at least {date, title, sport} (duration_min if known).\n"
             "\n"
-            "- FILLING SESSIONS:\n"
-            "  After placing all locks, if you still need more sessions to reach EXACTLY max_sessions,\n"
-            "  fill the remaining slots with appropriate training that respects recovery and targets.\n"
+            "- OPTIONAL FILL:\n"
+            "  After placing all locks, you MAY add extra sessions only if max_sessions allows it\n"
+            "  and only if it makes training sense (recovery, targets). Otherwise keep 1 session/day.\n"
         )
     else:
         constraints_block = (
@@ -238,7 +238,7 @@ def _build_prompts_for_daily(
         "  - payload.fixed_slot: ONLY for weekly_template locks.\n"
         "  - payload.external_event: ONLY for external_events locks.\n"
         "  - Never attach payload.fixed_slot to a non-fixed (free) session.\n"
-        "  - Never attach Tue fixed_slot to a Wed session.\n"
+        "  - Never attach a fixed_slot weekday that doesn't match the session's real weekday.\n"
     )
 
     volume_prefs = prefs.get("volume") or {}
@@ -351,9 +351,9 @@ def _build_prompts_for_daily(
         context_for_ai["fixed_slots"] = fixed_slots
 
     external_hint = (
-        "- The context contains `external_events.occurrences`: concrete occurrences.\n"
-        "- Each occurrence has: date, weekday, sport, title, duration_min, priority, start_time_local.\n"
-        "- If an external occurrence is present in day_constraints.locks, it MUST appear as a session on that exact date.\n"
+        "- External events can appear in day_constraints.locks with source='external_events'.\n"
+        "- They MUST be scheduled on the exact date.\n"
+        "- If the sport is not in the schema enum, set session.sport='other' and store real sport in payload.external_event.sport.\n"
     )
 
     user_txt = (
