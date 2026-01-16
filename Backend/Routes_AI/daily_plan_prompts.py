@@ -51,15 +51,17 @@ def _derive_fixed_slots(
                 continue
 
             ai_can_move_val = s.get("ai_can_move")
-            hard = (ai_can_move_val is False)
+            hard = ai_can_move_val is False
 
             fixed.append(
                 {
-                    "weekday": str(day_name),   # "Tue", "Fri", ...
-                    "sport": str(sport),        # "strength", "run", ...
-                    "kind": str(kind),          # "full", "long", ...
+                    "weekday": str(day_name),  # "Tue", "Fri", ...
+                    "sport": str(sport),  # "strength", "run", ...
+                    "kind": str(kind),  # "full", "long", ...
                     "priority": "key",
-                    "ai_can_move": bool(ai_can_move_val) if ai_can_move_val is not None else True,
+                    "ai_can_move": (
+                        bool(ai_can_move_val) if ai_can_move_val is not None else True
+                    ),
                     "policy": "hard" if hard else "soft",
                 }
             )
@@ -170,13 +172,17 @@ def _build_prompts_for_daily(
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    weekly_template = prefs.get("weekly_template") or context_payload.get("weekly_template") or {}
+    weekly_template = (
+        prefs.get("weekly_template") or context_payload.get("weekly_template") or {}
+    )
     wt_mode = weekly_template.get("mode") or "off"
     fixed_slots = _derive_fixed_slots(weekly_template, max_fixed=7)
 
     # targets
     strength_target = (targets.get("strength") or {}).get("sessions_per_week")
-    strength_target_int = int(strength_target) if isinstance(strength_target, int) else None
+    strength_target_int = (
+        int(strength_target) if isinstance(strength_target, int) else None
+    )
 
     # count hard fixed slots by sport
     hard_slots = [fs for fs in fixed_slots if fs.get("policy") == "hard"]
@@ -185,14 +191,24 @@ def _build_prompts_for_daily(
 
     # weekly template instructions
     if wt_mode == "off" or not fixed_slots:
-        weekly_template_line = (
-            "- Weekly template: none. Use only days_off, long_run_days and external events.\n"
-        )
+        weekly_template_line = "- Weekly template: none. Use only days_off, long_run_days and external events.\n"
         fixed_enforcement_block = ""
     else:
-        hard_human = "; ".join(f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in hard_slots) if hard_slots else "none"
+        hard_human = (
+            "; ".join(
+                f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in hard_slots
+            )
+            if hard_slots
+            else "none"
+        )
         soft_slots = [fs for fs in fixed_slots if fs.get("policy") != "hard"]
-        soft_human = "; ".join(f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in soft_slots) if soft_slots else "none"
+        soft_human = (
+            "; ".join(
+                f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in soft_slots
+            )
+            if soft_slots
+            else "none"
+        )
 
         weekly_template_line = (
             "- Weekly template days are provided in two levels:\n"
@@ -231,9 +247,7 @@ def _build_prompts_for_daily(
     weekly_max = volume_tol.get("weekly_minutes_max")
 
     if isinstance(planned_minutes, (int, float)):
-        weekly_volume_line = (
-            f"- Weekly target from WEEK META: planned_minutes ≈ {planned_minutes} min. Total duration_min should be close (±15%).\n"
-        )
+        weekly_volume_line = f"- Weekly target from WEEK META: planned_minutes ≈ {planned_minutes} min. Total duration_min should be close (±15%).\n"
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         weekly_volume_line = (
             "- Volume preference: prefs.volume.mode='weekly_hours'. "
@@ -242,17 +256,32 @@ def _build_prompts_for_daily(
     elif isinstance(weekly_min, (int, float)) or isinstance(weekly_max, (int, float)):
         weekly_volume_line = "- Weekly volume tolerance is defined in athlete_state.ai_state.volume_tolerance.\n"
     else:
-        weekly_volume_line = "- Weekly volume not explicitly specified; infer from recent_load.\n"
+        weekly_volume_line = (
+            "- Weekly volume not explicitly specified; infer from recent_load.\n"
+        )
 
-    avoid_two_a_day_str = "- Do NOT schedule two-a-day sessions.\n" if avoid_two_a_day else "- Two-a-day is allowed, but avoid it unless clearly beneficial.\n"
-    avoid_back_to_back_hard_str = "- Do NOT schedule two hard sessions on consecutive days.\n" if avoid_back_to_back_hard else "- Avoid back-to-back hard days when possible.\n"
+    avoid_two_a_day_str = (
+        "- Do NOT schedule two-a-day sessions.\n"
+        if avoid_two_a_day
+        else "- Two-a-day is allowed, but avoid it unless clearly beneficial.\n"
+    )
+    avoid_back_to_back_hard_str = (
+        "- Do NOT schedule two hard sessions on consecutive days.\n"
+        if avoid_back_to_back_hard
+        else "- Avoid back-to-back hard days when possible.\n"
+    )
 
     days_off_str = ", ".join(days_off) if days_off else "none"
     long_run_str = ", ".join(long_run_days) if long_run_days else "none"
-    strength_str = f"{strength_target_int}× per week" if strength_target_int else "no explicit target"
+    strength_str = (
+        f"{strength_target_int}× per week"
+        if strength_target_int
+        else "no explicit target"
+    )
     hard_str = (
         f"max {hard_max} hard sessions / week (including high-intensity external events)"
-        if hard_max else "not specified"
+        if hard_max
+        else "not specified"
     )
 
     system_txt = (
@@ -315,12 +344,10 @@ def _build_prompts_for_daily(
         context_for_ai["fixed_slots"] = fixed_slots
 
     external_hint = (
-        "- External events:\n"
-        "  Prefer explicit occurrences with `occurrence_date` (YYYY-MM-DD).\n"
-        "  If an event is weekly-recurring, the context should provide occurrences inside [week_start, week_end].\n"
-        "  For every occurrence within [week_start, week_end], represent it as a session on that exact day.\n"
-        "  If you see only weekday integers, you MUST also have `occurrence_weekday` as 'Mon..Sun' in the same record; otherwise treat it as unknown.\n"
-        "  Football is typically a hard session.\n"
+        "- The context contains `external_events.occurrences`: a list of concrete occurrences.\n"
+        "- Each occurrence has: occurrence_date (YYYY-MM-DD), occurrence_weekday (Mon..Sun), sport, title, duration_min, priority, start_time_local.\n"
+        "- For EVERY occurrence within [week_start, week_end], you MUST include it as a session on that exact occurrence_date.\n"
+        "- IMPORTANT: Do not schedule an additional strength session on the same day as a high-intensity external event (e.g. football) unless it is a HARD fixed slot.\n"
     )
 
     # Extra explicit quota line for strength so the model stops adding Wednesday strength
@@ -359,6 +386,7 @@ def _build_prompts_for_daily(
         + schema_text
         + "\n\nHard requirements:\n"
         + "- Always return a single JSON object matching the schema.\n"
+        "- If strength.sessions_per_week is 2 and there are 2 HARD fixed strength slots, do NOT add any extra strength sessions.\n"
         + f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
         + "- Days must form a continuous sequence within [week_start, week_end].\n"
         + "- For each day, `sessions` MUST be a non-empty array; rest day = one session with sport 'other' and session_type 'rest_day'.\n"

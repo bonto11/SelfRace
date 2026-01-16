@@ -5,6 +5,17 @@ from typing import Any, Dict, List, Optional
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_EXTERNAL_EVENTS
 
+# weekday v DB berieme ako text: "Mon".."Sun"
+WEEKDAY_ORDER: Dict[str, int] = {
+    "Mon": 0,
+    "Tue": 1,
+    "Wed": 2,
+    "Thu": 3,
+    "Fri": 4,
+    "Sat": 5,
+    "Sun": 6,
+}
+
 
 def db_list_external_events_for_user(
     user_id: int,
@@ -13,21 +24,24 @@ def db_list_external_events_for_user(
     service: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Vráti všetky externé eventy pre daného usera, zoradené podľa weekday a created_at.
-    - bežne cez RLS (user_jwt)
-    - prípadne service=True pre interné nástroje
+    Vráti všetky externé eventy pre usera.
+
+    Pozn.: V DB je weekday ako text ("Mon".."Sun"), takže .order("weekday")
+    je lexikografické. Preto to zoraď ešte server-side podľa WEEKDAY_ORDER.
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_external_events")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .select("*")
             .eq("user_id", user_id)
-            .order("weekday", desc=False)
             .order("created_at", desc=False)
             .execute()
         )
-        return res.data or []
+        rows = res.data or []
+
+        rows.sort(key=lambda r: WEEKDAY_ORDER.get(str(r.get("weekday") or ""), 99))
+        return rows
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-EXT] list error:", repr(e))
         return []
@@ -39,12 +53,8 @@ def db_clear_external_events_for_user(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> int:
-    """
-    Zmaže všetky externé eventy pre daného usera.
-    Používame pri "overwrite" save.
-    """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_external_events")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .delete()
@@ -65,16 +75,11 @@ def db_insert_external_events(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> int:
-    """
-    Bulk INSERT externých eventov.
-    - typicky cez RLS (user_jwt)
-    - môžeš použiť aj service=True z workerov
-    """
     if not rows:
         return 0
 
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_external_events")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
         res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-EXT] inserted rows:", len(data))

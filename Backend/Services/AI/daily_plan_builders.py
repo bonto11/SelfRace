@@ -75,7 +75,6 @@ def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
     t = prefs.get("targets")
     return t if isinstance(t, dict) else {}
 
-
 def build_daily_context_from_db(
     user_id: int,
     *,
@@ -85,16 +84,8 @@ def build_daily_context_from_db(
     user_jwt: Optional[str],
     service: bool,
 ) -> Dict[str, Any]:
-    """
-    Poskladá context_payload pre DAILY plán z DB.
-
-    Volajúci rieši:
-      - require_jwt (v RLS režime),
-      - quota/billing.
-    """
     jwt = user_jwt
 
-    # 1) vyrieš plan_id – aktívny / posledný meta záznam
     plan_id_effective: Optional[str] = plan_id
     if not plan_id_effective:
         meta = db_get_active_plan_meta_for_user(
@@ -109,14 +100,12 @@ def build_daily_context_from_db(
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
 
-    # 2) vstup z analyze (rovnaké ako weekly / athlete_state)
     analyze_input = build_input_from_db(
         user_id=user_id,
         user_jwt=jwt,
         service=service,
     )
 
-    # prefs + targets pre AI
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
 
@@ -130,7 +119,6 @@ def build_daily_context_from_db(
     zones = analyze_input.get("zones") or {}
     thresholds = analyze_input.get("thresholds") or {}
 
-    # 3) weekly meta – ak máme plan_id, nájdeme konkrétny týždeň
     week_row: Optional[Dict[str, Any]] = None
     if plan_id_effective:
         week_row = db_get_week_row_for_plan(
@@ -152,7 +140,7 @@ def build_daily_context_from_db(
         "planned_minutes": week_row.get("planned_minutes") if week_row else None,
     }
 
-    # 4) EXTERNAL EVENTS – výskyty len pre tento týždeň
+    # --- external occurrences pre tento tyzden (AI-friendly) ---
     external_block: Optional[Dict[str, Any]] = None
     if week_meta["week_start"] and week_meta["week_end"]:
         try:
@@ -163,33 +151,33 @@ def build_daily_context_from_db(
                 user_jwt=jwt,
                 service=service,
             )
-            
-            events = ext_window.get("events") or []
 
-            # ak service ešte nevracia occurrence_date, tak aspoň premapuj na AI-friendly shape
-            occurrences = []
-            for e in events:
+            raw_occ = ext_window.get("occurrences") or []
+            occurrences: List[Dict[str, Any]] = []
+            for e in raw_occ:
                 if not isinstance(e, dict):
                     continue
-                occurrences.append({
-                    "occurrence_date": e.get("occurrence_date") or e.get("date") or e.get("single_date"),
-                    "occurrence_weekday": e.get("occurrence_weekday") or e.get("weekday_abbr"),
-                    "sport": e.get("sport"),
-                    "title": e.get("title"),
-                    "duration_min": e.get("duration_min"),
-                    "priority": e.get("priority"),
-                    "start_time_local": e.get("start_time_local"),
-                    "notes": e.get("notes"),
-                })
+                occurrences.append(
+                    {
+                        "occurrence_date": e.get("occurrence_date"),
+                        "occurrence_weekday": e.get("occurrence_weekday"),
+                        "sport": e.get("sport"),
+                        "title": e.get("title"),
+                        "duration_min": e.get("duration_min"),
+                        "priority": e.get("priority"),
+                        "start_time_local": e.get("start_time_local"),
+                        "notes": e.get("notes"),
+                    }
+                )
 
             external_block = {
-            "occurrences": occurrences,
-            "window": {"from": week_meta["week_start"], "to": week_meta["week_end"]},
+                "schema_version": 1,
+                "occurrences": occurrences,
+                "window": {"from": week_meta["week_start"], "to": week_meta["week_end"]},
             }
         except Exception:
             external_block = None
 
-    # 5) state pre AI (coach_athlete_state)
     state_row = db_get_latest_state_for_user(
         user_id=user_id,
         version=1,
@@ -198,7 +186,6 @@ def build_daily_context_from_db(
     )
     athlete_state_json = (state_row or {}).get("state_json") or None
 
-    # 6) context pre AI
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
         "user_id": user_id,
