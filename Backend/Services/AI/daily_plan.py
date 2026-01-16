@@ -4,12 +4,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from Configs.config import (
-    DEFAULT_MODEL,
-    COACH_PLAN_SCAN_HORIZON_DAYS,
-    WEEKDAY_ORDER,
-    WEEKDAY_TO_ABBR,
-)
+from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
 from Routes_AI.daily_plan_generate import generate_daily_week_json
 from Routes_DB.coach_plan_daily import (
     db_clear_daily_for_user_week,
@@ -34,441 +29,10 @@ from Services.AI.daily_plan_builders import (
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
 
-# -----------------------------------------------------------------------------
-# Helpers: weekday + fixed slots + day constraints + enforcement
-# -----------------------------------------------------------------------------
-
-
-def _weekday_abbr_from_iso(d: Optional[str]) -> Optional[str]:
-    if not isinstance(d, str) or not d:
-        return None
-    try:
-        dd = date.fromisoformat(d[:10])
-        return WEEKDAY_TO_ABBR.get(dd.weekday())
-    except Exception:
-        return None
-
-
-def _weekday_abbr_from_iso_or_none(d: Any) -> Optional[str]:
-    if not isinstance(d, str) or not d:
-        return None
-    try:
-        dd = date.fromisoformat(d[:10])
-        return WEEKDAY_TO_ABBR.get(dd.weekday())
-    except Exception:
-        return None
-
-
-def _dates_in_window(week_start: str, week_end: str) -> List[str]:
-    try:
-        d0 = date.fromisoformat(str(week_start)[:10])
-        d1 = date.fromisoformat(str(week_end)[:10])
-    except Exception:
-        return []
-    out: List[str] = []
-    cur = d0
-    while cur <= d1:
-        out.append(cur.isoformat())
-        cur = cur.fromordinal(cur.toordinal() + 1)
-    return out
-
-
-def _extract_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Podporí oba tvary:
-    - external_events: { occurrences: [...] }
-    - external_events: { window: { events: [...] } }
-    """
-    ext = context_payload.get("external_events") or {}
-    if not isinstance(ext, dict):
-        return []
-
-    occ = ext.get("occurrences")
-    if isinstance(occ, list):
-        return [e for e in occ if isinstance(e, dict)]
-
-    win = ext.get("window") or {}
-    if isinstance(win, dict):
-        events = win.get("events")
-        if isinstance(events, list):
-            out: List[Dict[str, Any]] = []
-            for e in events:
-                if not isinstance(e, dict):
-                    continue
-                out.append(
-                    {
-                        "occurrence_date": e.get("occurrence_date") or e.get("date"),
-                        "occurrence_weekday": e.get("occurrence_weekday"),
-                        "sport": e.get("sport"),
-                        "title": e.get("title"),
-                        "duration_min": e.get("duration_min"),
-                        "priority": e.get("priority"),
-                        "start_time_local": e.get("start_time_local"),
-                        "notes": e.get("notes"),
-                    }
-                )
-            return out
-
-    return []
-
-
-def _build_day_constraints_for_week(
-    *,
-    week_start: str,
-    week_end: str,
-    prefs_ai: Dict[str, Any],
-    fixed_slots: List[Dict[str, Any]],
-    context_payload: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    """
-    Pre každý deň v týždni:
-      - max_sessions (1 alebo 2)
-      - locks: HARD fixed slots + external occurrences (presný dátum)
-    """
-    dates = _dates_in_window(week_start, week_end)
-    if not dates:
-        return []
-
-    pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
-    avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
-
-    hard_fixed_by_wd: Dict[str, List[Dict[str, Any]]] = {}
-    for fs in fixed_slots or []:
-        if not isinstance(fs, dict):
-            continue
-        if fs.get("policy") != "hard":
-            continue
-        wd = str(fs.get("weekday") or "")
-        if wd:
-            hard_fixed_by_wd.setdefault(wd, []).append(fs)
-
-    external_occ = _extract_external_occurrences(context_payload)
-    ext_by_date: Dict[str, List[Dict[str, Any]]] = {}
-    for e in external_occ:
-        d = (e.get("occurrence_date") or "")[:10]
-        if d:
-            ext_by_date.setdefault(d, []).append(e)
-
-    out: List[Dict[str, Any]] = []
-
-    for d in dates:
-        wd = _weekday_abbr_from_iso_or_none(d) or ""
-        locks: List[Dict[str, Any]] = []
-
-        for fs in hard_fixed_by_wd.get(wd, []):
-            locks.append(
-                {
-                    "source": "weekly_template",
-                    "weekday": wd,
-                    "sport": fs.get("sport"),
-                    "kind": fs.get("kind"),
-                    "policy": fs.get("policy") or "hard",
-                }
-            )
-
-        for e in ext_by_date.get(d, []):
-            locks.append(
-                {
-                    "source": "external_events",
-                    "weekday": wd,
-                    "sport": e.get("sport"),
-                    "title": e.get("title"),
-                    "duration_min": e.get("duration_min"),
-                    "priority": e.get("priority"),
-                    "start_time_local": e.get("start_time_local"),
-                }
-            )
-
-        if avoid_two_a_day:
-            max_sessions = 1
-        else:
-            has_external = bool(ext_by_date.get(d))
-            has_hard_fixed = bool(hard_fixed_by_wd.get(wd))
-            # external deň default 1, iba ak je zároveň hard fixed (napr fixed sila) dovolíme 2
-            if has_external and not has_hard_fixed:
-                max_sessions = 1
-            else:
-                max_sessions = 2
-
-        out.append({"date": d, "weekday": wd, "max_sessions": max_sessions, "locks": locks})
-
-    return out
-
-
-def _derive_fixed_slots_daily(
-    weekly_template: Dict[str, Any],
-    max_fixed: int = 7,
-) -> List[Dict[str, Any]]:
-    """
-    Z weekly_template vyberie sloty s priority == "key".
-
-    - ai_can_move == False -> HARD fixed
-    - ai_can_move == True  -> SOFT preferred
-    """
-    if not isinstance(weekly_template, dict):
-        return []
-
-    days = weekly_template.get("days")
-    if not isinstance(days, list):
-        return []
-
-    ordered_days: List[Dict[str, Any]] = sorted(
-        (d for d in days if isinstance(d, dict) and isinstance(d.get("day"), str)),
-        key=lambda d: WEEKDAY_ORDER.get(str(d.get("day") or ""), 99),
-    )
-
-    fixed: List[Dict[str, Any]] = []
-
-    for d in ordered_days:
-        day_name = d.get("day")
-        slots = d.get("slots") or []
-        if not isinstance(slots, list):
-            continue
-
-        for s in slots:
-            if not isinstance(s, dict):
-                continue
-
-            priority = s.get("priority")
-            if priority != "key":
-                continue
-
-            sport = s.get("sport")
-            kind = s.get("kind")
-            if not (day_name and sport and kind):
-                continue
-
-            ai_can_move_val = s.get("ai_can_move")
-            hard = ai_can_move_val is False
-
-            fixed.append(
-                {
-                    "weekday": str(day_name),
-                    "sport": str(sport),
-                    "kind": str(kind),
-                    "priority": str(priority),
-                    "ai_can_move": bool(ai_can_move_val) if ai_can_move_val is not None else True,
-                    "policy": "hard" if hard else "soft",
-                }
-            )
-
-            if len(fixed) >= max_fixed:
-                return fixed
-
-    return fixed
-
-
-def _drop_extra_strength_if_fixed_covers_target(
-    daily_plan: Dict[str, Any],
-    *,
-    fixed_slots: List[Dict[str, Any]],
-    strength_target_int: Optional[int],
-) -> Dict[str, Any]:
-    """
-    Ak hard fixed strength >= target, vyhoď všetky strength sessions
-    bez payload.fixed_slot.sport == 'strength'.
-    """
-    if not isinstance(daily_plan, dict):
-        return daily_plan
-
-    days = daily_plan.get("days")
-    if not isinstance(days, list):
-        return daily_plan
-
-    if not isinstance(strength_target_int, int) or strength_target_int <= 0:
-        return daily_plan
-
-    hard_fixed_strength = [
-        fs
-        for fs in (fixed_slots or [])
-        if isinstance(fs, dict) and fs.get("policy") == "hard" and fs.get("sport") == "strength"
-    ]
-    if len(hard_fixed_strength) < strength_target_int:
-        return daily_plan
-
-    for day in days:
-        if not isinstance(day, dict):
-            continue
-        sessions = day.get("sessions")
-        if not isinstance(sessions, list):
-            continue
-
-        kept: List[Dict[str, Any]] = []
-        for s in sessions:
-            if not isinstance(s, dict):
-                continue
-            if s.get("sport") != "strength":
-                kept.append(s)
-                continue
-
-            p = s.get("payload") or {}
-            fs = p.get("fixed_slot") if isinstance(p, dict) else None
-            if isinstance(fs, dict) and fs.get("sport") == "strength":
-                kept.append(s)
-                continue
-            # drop extra strength
-
-        day["sessions"] = kept
-
-    return daily_plan
-
-
-def _ensure_payload_dict(s: Dict[str, Any]) -> Dict[str, Any]:
-    p = s.get("payload")
-    if isinstance(p, dict):
-        return p
-    p = {}
-    s["payload"] = p
-    return p
-
-
-def _matches_fixed_slot_session(s: Dict[str, Any], fs: Dict[str, Any], weekday: str) -> bool:
-    """
-    Prefer strict match by payload.fixed_slot. Fallback: match by sport on that weekday.
-    """
-    if not isinstance(s, dict) or not isinstance(fs, dict):
-        return False
-
-    p = s.get("payload")
-    if isinstance(p, dict):
-        f = p.get("fixed_slot")
-        if isinstance(f, dict):
-            return (
-                str(f.get("weekday")) == weekday
-                and str(f.get("sport")) == str(fs.get("sport"))
-                and str(f.get("kind")) == str(fs.get("kind"))
-            )
-
-    return str(s.get("sport")) == str(fs.get("sport"))
-
-
-def enforce_hard_fixed_slots(
-    daily_plan: Dict[str, Any],
-    fixed_slots: List[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """
-    Ensure every HARD fixed slot exists on that weekday.
-
-    Minimal intervention:
-    - If session exists that day that matches -> just tag it (payload.fixed_slot).
-    - If not -> add ONE placeholder session.
-    """
-    if not isinstance(daily_plan, dict):
-        return daily_plan
-
-    days = daily_plan.get("days")
-    if not isinstance(days, list) or not days:
-        return daily_plan
-
-    hard_slots = [fs for fs in fixed_slots if isinstance(fs, dict) and fs.get("policy") == "hard"]
-    if not hard_slots:
-        return daily_plan
-
-    by_weekday: Dict[str, Dict[str, Any]] = {}
-    for day in days:
-        if not isinstance(day, dict):
-            continue
-        wd = _weekday_abbr_from_iso(day.get("date"))
-        if wd:
-            by_weekday[wd] = day
-
-    for fs in hard_slots:
-        weekday = str(fs.get("weekday") or "")
-        if not weekday:
-            continue
-
-        day = by_weekday.get(weekday)
-        if not day:
-            continue
-
-        sessions = day.get("sessions")
-        if not isinstance(sessions, list):
-            sessions = []
-            day["sessions"] = sessions
-
-        chosen: Optional[Dict[str, Any]] = None
-        for s in sessions:
-            if isinstance(s, dict) and _matches_fixed_slot_session(s, fs, weekday):
-                chosen = s
-                break
-
-        if chosen is not None:
-            payload = _ensure_payload_dict(chosen)
-            payload.setdefault(
-                "fixed_slot",
-                {
-                    "weekday": weekday,
-                    "sport": fs.get("sport"),
-                    "kind": fs.get("kind"),
-                    "policy": fs.get("policy"),
-                },
-            )
-            continue
-
-        sport = str(fs.get("sport") or "other")
-        kind = str(fs.get("kind") or "full")
-
-        if sport == "strength":
-            title = "Silový tréning (fixný deň)"
-            duration = 75 if kind == "full" else 45
-            session_type = "coach_override"
-            intensity = "moderate"
-            structure = {
-                "warmup": {"minutes": 15, "notes": "Aktivácia + mobilita."},
-                "strength_exercises": [
-                    {"slot": "core", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia."},
-                    {"slot": "lower_posterior", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť."},
-                    {"slot": "lower_quad", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť."},
-                    {"slot": "upper_pull", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť."},
-                    {"slot": "upper_push", "sets": 3, "reps": "8–12", "rest_s": 60, "notes": "Doplnok."},
-                ],
-                "cooldown": {"minutes": 10, "notes": "Krátke vychodenie + mobilita."},
-            }
-            notes = "Fixný slot z weekly template. AI ho na tento deň nedalo, preto je tu bezpečný placeholder."
-        elif sport == "run" and kind == "long":
-            title = "Dlhý beh (fixný deň)"
-            duration = 60
-            session_type = "coach_override"
-            intensity = "easy"
-            structure = {"main": [{"work_min": 60, "notes": "Ľahko, bez tlaku."}]}
-            notes = "Fixný dlhý beh z template. AI ho na tento deň nedalo, preto je tu bezpečný placeholder."
-        else:
-            title = "Fixný tréning"
-            duration = 30
-            session_type = "coach_override"
-            intensity = None
-            structure = None
-            notes = "Fixný slot z template. AI ho na tento deň nedalo, preto je tu ľahká alternatíva."
-
-        sessions.append(
-            {
-                "sport": sport,
-                "title": title,
-                "duration_min": duration,
-                "intensity": intensity,
-                "session_type": session_type,
-                "zone_text": None,
-                "notes": notes,
-                "structure": structure,
-                "targets": None,
-                "payload": {
-                    "fixed_slot": {
-                        "weekday": weekday,
-                        "sport": fs.get("sport"),
-                        "kind": fs.get("kind"),
-                        "policy": fs.get("policy"),
-                    }
-                },
-            }
-        )
-
-    return daily_plan
-
 
 # -----------------------------------------------------------------------------
-# Strength quality normalizer (75 min, 15+45+15, 2+5+2)
+# Strength quality normalizer (75 min, 15+45+15, 2+5+2)  [KEEP]
 # -----------------------------------------------------------------------------
-
 
 def _append_note(existing: Any, extra: str) -> str:
     base = existing if isinstance(existing, str) else ""
@@ -482,20 +46,9 @@ def _append_note(existing: Any, extra: str) -> str:
     return base.rstrip() + " " + extra
 
 
-def _strength_kind_to_minutes(kind: str) -> int:
-    k = (kind or "").strip().lower()
-    if k in {"compact", "short"}:
-        return 45
-    return 75
-
-
-def normalize_strength_sessions_quality(
-    daily_plan: Dict[str, Any],
-    *,
-    fixed_slots: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Všetky strength sessions prepíš do 75min šablóny.
+    Zjednotí VŠETKY strength sessions na konzistentnú šablónu (cca 75 min, 2+5+2).
     Konkrétne cviky doplní mapper neskôr (exercise_id, exercise_name).
     """
     if not isinstance(daily_plan, dict):
@@ -505,23 +58,10 @@ def normalize_strength_sessions_quality(
     if not isinstance(days, list):
         return daily_plan
 
-    fixed_strength_by_weekday: Dict[str, str] = {}
-    for fs in fixed_slots or []:
-        if not isinstance(fs, dict):
-            continue
-        if fs.get("policy") != "hard":
-            continue
-        if str(fs.get("sport")) != "strength":
-            continue
-        wd = str(fs.get("weekday") or "")
-        if wd:
-            fixed_strength_by_weekday[wd] = str(fs.get("kind") or "full")
-
     for day in days:
         if not isinstance(day, dict):
             continue
 
-        wd = _weekday_abbr_from_iso(day.get("date"))
         sessions = day.get("sessions")
         if not isinstance(sessions, list):
             continue
@@ -532,38 +72,25 @@ def normalize_strength_sessions_quality(
             if str(s.get("sport")) != "strength":
                 continue
 
-            kind = None
-            p = s.get("payload")
-            if isinstance(p, dict):
-                fs2 = p.get("fixed_slot")
-                if isinstance(fs2, dict) and fs2.get("sport") == "strength":
-                    kind = fs2.get("kind")
-
-            if not kind and wd and wd in fixed_strength_by_weekday:
-                kind = fixed_strength_by_weekday[wd]
-
-            kind = str(kind or "full")
-            duration = _strength_kind_to_minutes(kind)
-
-            # produkt konzistentný: aj compact -> 75 (kým sa nerozhodneš inak)
-            if duration < 75:
-                duration = 75
-
-            s["duration_min"] = duration
+            # drž konzistentný produkt (zatiaľ vždy 75)
+            s["duration_min"] = 75
             s["session_type"] = s.get("session_type") or "strength_full"
             s["intensity"] = s.get("intensity") or "moderate"
             s["title"] = s.get("title") or "Silový tréning"
 
             strength_exercises = [
+                # Aktivácia (2)
                 {"slot": "core", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia / kontrola trupu."},
                 {"slot": "lower_posterior", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia zadného reťazca."},
 
+                # Hlavná časť (5)
                 {"slot": "lower_posterior", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
                 {"slot": "lower_quad", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
                 {"slot": "upper_pull", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
                 {"slot": "upper_push", "sets": 3, "reps": "6–10", "rest_s": 90, "notes": "Hlavná časť – doplnok."},
                 {"slot": "core", "sets": 3, "reps": "8–12", "rest_s": 60, "notes": "Hlavná časť – core."},
 
+                # Doplnky (2)
                 {"slot": "upper_pull", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
                 {"slot": "lower_quad", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
             ]
@@ -586,7 +113,6 @@ def normalize_strength_sessions_quality(
 # -----------------------------------------------------------------------------
 # Public services
 # -----------------------------------------------------------------------------
-
 
 def service_generate_daily_week(
     user_id: int,
@@ -629,6 +155,7 @@ def service_generate_daily_week(
             },
         }
 
+    # 1) context z buildera (obsahuje day_constraints + external occurrences)
     ctx = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
@@ -644,27 +171,7 @@ def service_generate_daily_week(
     state_row: Optional[Dict[str, Any]] = ctx["state_row"]
     prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
 
-    weekly_template = prefs_ai.get("weekly_template") or {}
-    fixed_slots = _derive_fixed_slots_daily(weekly_template, max_fixed=7)
-    context_payload["fixed_slots"] = fixed_slots
-
-    # --- targets: strength.sessions_per_week ---
-    targets = (prefs_ai.get("targets") or {}) if isinstance(prefs_ai, dict) else {}
-    strength_target = (targets.get("strength") or {}).get("sessions_per_week")
-    strength_target_int = int(strength_target) if isinstance(strength_target, int) else None
-
-    # --- day_constraints (max_sessions + locks) ---
-    ws = str(week_meta.get("week_start") or context_payload.get("week", {}).get("week_start") or "")
-    we = str(week_meta.get("week_end") or context_payload.get("week", {}).get("week_end") or "")
-    if ws and we:
-        context_payload["day_constraints"] = _build_day_constraints_for_week(
-            week_start=ws,
-            week_end=we,
-            prefs_ai=prefs_ai,
-            fixed_slots=fixed_slots,
-            context_payload=context_payload,
-        )
-
+    # 2) LLM -> daily_plan
     daily_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
@@ -677,29 +184,13 @@ def service_generate_daily_week(
     if plan_id_out:
         daily_plan["plan_id"] = plan_id_out
 
-    # 0) safety: ak fixed strength uz pokryva target, dropni extra strength bez fixed_slot
+    # 3) normalize strength sessions (kvalita šablóny) – bez presúvania dní, bez placeholderov
     try:
-        daily_plan = _drop_extra_strength_if_fixed_covers_target(
-            daily_plan,
-            fixed_slots=fixed_slots,
-            strength_target_int=strength_target_int,
-        )
-    except Exception as e:  # noqa: BLE001
-        print("[DAILY] drop_extra_strength error:", repr(e))
-
-    # 1) enforce HARD fixed slots (minimal)
-    try:
-        daily_plan = enforce_hard_fixed_slots(daily_plan, fixed_slots)
-    except Exception as e:  # noqa: BLE001
-        print("[DAILY] enforce_hard_fixed_slots error:", repr(e))
-
-    # 2) normalize ALL strength sessions quality (75min template)
-    try:
-        daily_plan = normalize_strength_sessions_quality(daily_plan, fixed_slots=fixed_slots)
+        daily_plan = normalize_strength_sessions_quality(daily_plan)
     except Exception as e:  # noqa: BLE001
         print("[DAILY] normalize_strength_sessions_quality error:", repr(e))
 
-    # 3) billing
+    # 4) billing
     usage = extract_usage_from_trace(trace)
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
@@ -718,8 +209,8 @@ def service_generate_daily_week(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] daily_plan billing error:", repr(e))
 
-    # 4) strength mapper – doplní konkrétne cviky
-    strength_settings = prefs_ai.get("strength_settings") or {}
+    # 5) strength mapper – doplní konkrétne cviky
+    strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
     available_equipment = strength_settings.get("available") or []
     if not isinstance(available_equipment, list):
         available_equipment = []
@@ -736,7 +227,7 @@ def service_generate_daily_week(
         service=service,
     )
 
-    # 5) DB write
+    # 6) DB write
     deleted_rows = 0
     if overwrite and plan_id_out and week_meta.get("week_start") and week_meta.get("week_end"):
         deleted_rows = db_clear_daily_for_user_week(
@@ -753,7 +244,6 @@ def service_generate_daily_week(
         plan_id=plan_id_out,
         daily_plan=daily_plan,
     )
-
     inserted_rows = db_insert_daily_rows(rows_to_insert, user_jwt=jwt, service=service) if rows_to_insert else 0
 
     resp: Dict[str, Any] = {
@@ -791,7 +281,6 @@ def service_get_daily_overview(
     meta = db_get_active_plan_meta_for_user(user_id=user_id, user_jwt=jwt) or db_get_latest_plan_meta_for_user(
         user_id=user_id, user_jwt=jwt
     )
-
     plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
 
     rows: List[Dict[str, Any]] = (
