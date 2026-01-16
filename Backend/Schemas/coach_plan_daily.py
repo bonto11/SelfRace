@@ -161,12 +161,20 @@ STRENGTH_EXERCISE_CATALOG = [
         "level": "medium",
         "effectiveness": 2.2,
     },
+    {
+        "id": "farmer_carry",
+        "name": "Farmer carry (chôdza s jednoručkami)",
+        "equipment": ["dumbbells"],
+        "muscle_groups": ["grip", "core"],
+        "level": "easy",
+        "effectiveness": 2.0,
+    },
 
     # ---------- UPPER PULL (BACK / BICEPS) ----------
     {
         "id": "bodyweight_row",
-        "name": "Príťahy v predklone s vlastnou váhou (inverted row)",
-        "equipment": ["none"],
+        "name": "Príťahy s vlastnou váhou (inverted row)",
+        "equipment": ["trx"],
         "muscle_groups": ["back", "biceps"],
         "level": "easy",
         "effectiveness": 1.2,

@@ -1,20 +1,11 @@
+# Routes_AI/daily_plan_llm.py
 from __future__ import annotations
 
 import os
 import re
-from datetime import date
 from typing import List, Optional
 
-_WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 CODEFENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
-
-
-def _weekday_name_from_iso(date_str: str) -> Optional[str]:
-    try:
-        d = date.fromisoformat(str(date_str)[:10])
-    except Exception:
-        return None
-    return _WEEKDAY_NAMES[d.weekday()]
 
 
 def _strip_codefence(s: str) -> str:
@@ -39,7 +30,10 @@ def _find_outer_json_block(s: str) -> str:
     return s[start : end + 1] if end > start else s
 
 
-def _sanitize_json_guess(s: str) -> str:
+def sanitize_json_guess(s: str) -> str:
+    """
+    Best-effort sanitizér pre prípad, že model vráti rozbité JSON.
+    """
     s = s.replace("“", '"').replace("”", '"').replace("’", "'")
     s = _strip_codefence(s)
     s = _find_outer_json_block(s)
@@ -49,7 +43,7 @@ def _sanitize_json_guess(s: str) -> str:
     return s.strip()
 
 
-def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
+def llm_models_priority(explicit_model: Optional[str]) -> List[str]:
     env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4o-mini,gpt-4o,gpt-4.1-mini")
     env_models = [m.strip() for m in env_list.split(",") if m.strip()]
     if explicit_model and explicit_model not in env_models:

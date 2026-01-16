@@ -1,8 +1,9 @@
-# Routes_AI/generate_plan_daily.py
+# Routes_AI/daily_plan_generate.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 from fastapi import HTTPException
 from openai import OpenAI
 from zoneinfo import ZoneInfo
@@ -10,36 +11,18 @@ import json
 import os
 import time
 
-from Configs.config import (
-    OPENAI_API_KEY,
-    LLM_TIMEOUT_S,
-)
+from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 
-from Routes_AI.daily_plan_llm import (
-    _llm_models_priority,
-    _sanitize_json_guess,
-) 
-
-from Routes_AI.daily_plan_prompts import (
-    _build_prompts_for_daily,
-) 
-
-
-def _flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    build_input_from_db vracia:
-      "prefs": { "value": { ... } } alebo už čistý dict.
-    Tu chceme pre AI čistý dict bez 'value' obalu.
-    """
-    raw = analyze_input.get("prefs") or {}
-    if isinstance(raw, dict) and "value" in raw and isinstance(raw["value"], dict):
-        return raw["value"]
-    return raw if isinstance(raw, dict) else {}
-
+from Routes_AI.daily_plan_llm import llm_models_priority, sanitize_json_guess
+from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
 
 
 def _call_openai_raw(
-    client: OpenAI, model: str, system_txt: str, user_txt: str, max_tokens: int
+    client: OpenAI,
+    model: str,
+    system_txt: str,
+    user_txt: str,
+    max_tokens: int,
 ) -> Tuple[str, Dict[str, int]]:
     resp = client.chat.completions.create(
         model=model,
@@ -78,8 +61,8 @@ def _call_openai_raw(
         "completion_tokens": _get(usage_raw, "completion_tokens", "output_tokens"),
         "total_tokens": _get(usage_raw, "total_tokens"),
     }
-
     return content, usage
+
 
 def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
@@ -88,14 +71,16 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
     """
     if not raw:
         return None, "", ""
+
+    txt = raw.strip()
     try:
-        return json.loads(raw.strip()), raw.strip(), raw.strip()
+        return json.loads(txt), txt, txt
     except Exception:
-        cleaned = _sanitize_json_guess(raw or "")
+        cleaned = sanitize_json_guess(txt)
         try:
-            return json.loads(cleaned), cleaned, raw
+            return json.loads(cleaned), cleaned, txt
         except Exception:
-            return None, cleaned, raw
+            return None, cleaned, txt
 
 
 def generate_daily_week_json(
@@ -106,10 +91,10 @@ def generate_daily_week_json(
 ) -> Tuple[dict, Optional[dict]]:
     """
     AI client pre DAILY PLAN jedného týždňa.
-
     Vždy vracia (daily_dict, debug_trace_or_None).
-    ŽIADNY server-side zásah do placementu tréningov – všetko riadi LLM
-    na základe prefs, weekly_template a external_events.
+
+    Pozn.: placement rieši LLM. Server-side enforcement fixed slotov rieši
+    až daily_service (tam to aj patrí).
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
@@ -117,32 +102,40 @@ def generate_daily_week_json(
     raw_settings = context_payload.get("user_settings") or {}
     settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
 
-    (
-        system_txt,
-        user_txt,
-        fixed_slots_from_template,
-        strength_target,
-    ) = _build_prompts_for_daily(
+    system_txt, user_txt, fixed_slots_from_template, strength_target = _build_prompts_for_daily(
         context_payload,
         settings=settings,
     )
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
-    timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
+
+    # timeout: default = LLM_TIMEOUT_S (ak je), inak 45
+    timeout_env = os.getenv("OPENAI_TIMEOUT_S")
+    if timeout_env:
+        try:
+            timeout_s = int(timeout_env)
+        except Exception:
+            timeout_s = int(LLM_TIMEOUT_S or 45)
+    else:
+        timeout_s = int(LLM_TIMEOUT_S or 45)
+
+    # safety clamp (aby ti to niekto nenastavil na 1s alebo 9999s)
+    if timeout_s < 10:
+        timeout_s = 10
+    if timeout_s > 120:
+        timeout_s = 120
 
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
-    models = _llm_models_priority(model)
+    models = llm_models_priority(model)
     token_budgets = [2500, 2200, 2000]
 
-    trace: Dict[str, Any] = {
-        "models_tried": models,
-        "attempts": [],
-    }
+    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     if debug_raw:
         trace["system_prompt"] = system_txt
         trace["user_prompt"] = user_txt
         trace["fixed_slots_from_template"] = fixed_slots_from_template
         trace["strength_target"] = strength_target
+        trace["timeout_s"] = timeout_s
 
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
@@ -152,11 +145,10 @@ def generate_daily_week_json(
     week_index = int(week.get("week_index") or 1)
     week_start = week.get("week_start") or None
     week_end = week.get("week_end") or None
-    plan_id_from_ctx = context_payload.get("plan_id")
 
     tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
-        tzinfo = ZoneInfo(tz_name)
+        tzinfo = ZoneInfo(str(tz_name))
     except Exception:
         tzinfo = timezone.utc
 
@@ -167,6 +159,7 @@ def generate_daily_week_json(
             try:
                 raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
+
                 parsed, cleaned, raw_keep = _parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
@@ -176,15 +169,8 @@ def generate_daily_week_json(
                     "ok": parsed is not None,
                     "duration_ms": dur_ms,
                 }
-
-                # REVIEW: raw preview len keď debug_raw=True (inak to nechceš ukladať/logovať)
-                # attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
-
                 if debug_raw:
-                    attempt_row["raw_preview"] = raw[:600] + (
-                        "…[truncated]" if len(raw) > 600 else ""
-                    )
-
+                    attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
                 trace["attempts"].append(attempt_row)
 
                 if not parsed:
@@ -195,15 +181,6 @@ def generate_daily_week_json(
 
                 parsed["schema_version"] = int(parsed.get("schema_version") or 1)
                 parsed["generated_at"] = now_local.isoformat()
-
-                trace["usage"] = {
-                    "model": m,
-                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
-                    "completion_tokens": int(usage.get("completion_tokens", 0)),
-                    "total_tokens": int(usage.get("total_tokens", 0)),
-                }
-
-                # REVIEW/konzistentnosť: vždy nastav reálne použitý model
                 parsed["model"] = m
 
                 if "week_index" not in parsed:
@@ -215,9 +192,12 @@ def generate_daily_week_json(
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
 
-                # REVIEW: plan_id je interné; do AI výstupu ho netlač
-                # if plan_id_from_ctx and "plan_id" not in parsed:
-                #     parsed["plan_id"] = plan_id_from_ctx
+                trace["usage"] = {
+                    "model": m,
+                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+                    "completion_tokens": int(usage.get("completion_tokens", 0)),
+                    "total_tokens": int(usage.get("total_tokens", 0)),
+                }
 
                 if debug_raw:
                     trace["raw"] = raw_keep
@@ -241,7 +221,6 @@ def generate_daily_week_json(
                 time.sleep(0.5 * attempt)
                 continue
 
-    # Fallback – AI failed úplne
     now_fallback = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 1,

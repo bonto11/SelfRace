@@ -1,3 +1,4 @@
+# ===== PROMPTS (tvoj súbor s _build_prompts_for_daily) =====
 from __future__ import annotations
 
 import json
@@ -13,13 +14,26 @@ WEEKDAY_ORDER: Dict[str, int] = {
     "Sun": 6,
 }
 
+
 def _derive_fixed_slots(
     weekly_template: Dict[str, Any],
     max_fixed: int = 7,
 ) -> List[Dict[str, Any]]:
     """
-    Z weekly_template vyberie sloty s priority == key (ai_can_move môže byť čokoľvek).
-    Používame ich len ako PREFERENCIE v promptoch, nie ako tvrdé pravidlá.
+    Z weekly_template vyberie sloty s priority == "key".
+
+    - ai_can_move == False -> HARD fixed (coach má držať konkrétny deň)
+    - ai_can_move == True  -> SOFT preferred
+
+    Vracia list objektov:
+      {
+        "weekday": "Tue",
+        "sport": "strength",
+        "kind": "full",
+        "priority": "key",
+        "ai_can_move": False,
+        "policy": "hard" | "soft"
+      }
     """
     if not isinstance(weekly_template, dict):
         return []
@@ -30,7 +44,7 @@ def _derive_fixed_slots(
 
     ordered_days: List[Dict[str, Any]] = sorted(
         (d for d in days if isinstance(d, dict) and isinstance(d.get("day"), str)),
-        key=lambda d: WEEKDAY_ORDER.get(d.get("day") or "", 99),
+        key=lambda d: WEEKDAY_ORDER.get(str(d.get("day") or ""), 99),
     )
 
     fixed: List[Dict[str, Any]] = []
@@ -44,25 +58,38 @@ def _derive_fixed_slots(
         for s in slots:
             if not isinstance(s, dict):
                 continue
+
             priority = s.get("priority")
-            sport = s.get("sport")
-            kind = s.get("kind")
             if priority != "key":
                 continue
+
+            sport = s.get("sport")
+            kind = s.get("kind")
             if not (day_name and sport and kind):
                 continue
 
+            ai_can_move_val = s.get("ai_can_move")
+            # default bezpečne: ak nie je zadané, ber to ako SOFT
+            hard = (ai_can_move_val is False)
+
             fixed.append(
                 {
-                    "weekday": day_name,  # "Tue", "Fri", "Sat"
-                    "sport": sport,
-                    "kind": kind,
+                    "weekday": str(day_name),  # "Tue", "Fri", "Sat"
+                    "sport": str(sport),
+                    "kind": str(kind),
+                    "priority": str(priority),
+                    "ai_can_move": bool(ai_can_move_val)
+                    if ai_can_move_val is not None
+                    else True,
+                    "policy": "hard" if hard else "soft",
                 }
             )
+
             if len(fixed) >= max_fixed:
                 return fixed
 
     return fixed
+
 
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -136,16 +163,11 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if "last_activities" in ctx:
         ctx2["last_activities"] = ctx["last_activities"]
 
-    # REVIEW: neposielaj interné identifikátory do LLM payloadu
-    # if "user_id" in ctx:
-    #     ctx2["user_id"] = ctx["user_id"]
-    # if "plan_id" in ctx:
-    #     ctx2["plan_id"] = ctx["plan_id"]
-
     if "user_settings" in ctx:
         ctx2["user_settings"] = ctx["user_settings"]
 
     return ctx2
+
 
 def _build_prompts_for_daily(
     context_payload: dict,
@@ -154,15 +176,20 @@ def _build_prompts_for_daily(
 ) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
     """
     Vráti (system_prompt, user_prompt, fixed_slots, strength_target).
-    fixed_slots sa používajú len ako info/preferencie v promte (SOFT),
-    nie na tvrdý server-side postprocessing.
+
+    Poznámka:
+    - fixed_slots posielame do AI ako štruktúrovanú informáciu.
+    - HARD enforcement na 100% (ak chceš) sa robí až server-side postprocessingom,
+      ale tento prompt už HARD pravidlo jasne vyžaduje.
     """
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
 
     if lang_code.startswith("en"):
         lang_label = "English"
-        second_person_note = "Always speak directly to the athlete and use 'you' instead of 'the athlete' or 'he/she'."
+        second_person_note = (
+            "Always speak directly to the athlete and use 'you' instead of 'the athlete' or 'he/she'."
+        )
     elif lang_code.startswith("cs"):
         lang_label = "Czech"
         second_person_note = "Vždy mluv přímo k atletovi a používej 2. osobu ('ty' / 'vy'), nikdy nepiš 'atlet by měl…'."
@@ -205,22 +232,48 @@ def _build_prompts_for_daily(
     wt_mode = weekly_template.get("mode") or "off"
     fixed_slots = _derive_fixed_slots(weekly_template, max_fixed=7)
 
+    # ---- weekly template instructions (HARD vs SOFT) ----
     if wt_mode == "off" or not fixed_slots:
         weekly_template_line = (
             "- Weekly template: none. Use only days_off, long_run_days "
             "and external events to distribute the week.\n"
         )
     else:
-        fixed_human = "; ".join(
-            f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in fixed_slots
+        hard_slots = [fs for fs in fixed_slots if fs.get("policy") == "hard"]
+        soft_slots = [fs for fs in fixed_slots if fs.get("policy") != "hard"]
+
+        hard_human = (
+            "; ".join(
+                f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in hard_slots
+            )
+            if hard_slots
+            else "none"
         )
+        soft_human = (
+            "; ".join(
+                f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in soft_slots
+            )
+            if soft_slots
+            else "none"
+        )
+
         weekly_template_line = (
-            "- User provided PREFERRED TEMPLATE DAYS for this plan (SOFT preference, not a hard rule).\n"
-            f"  Preferred slots (weekday: sport/kind): {fixed_human}.\n"
-            "- When you schedule STRENGTH sessions and LONG RUNS, strongly prefer these weekdays\n"
-            "  as long as it does NOT conflict with recovery, days_off, or important external events.\n"
-            "- If you need to move a preferred session (e.g. because of high fatigue or a match),\n"
-            "  keep the total weekly structure sensible and minimise such changes.\n"
+            "- Weekly template days are provided in two levels:\n"
+            f"  HARD FIXED slots (ai_can_move=false): {hard_human}\n"
+            f"  SOFT preferred slots (ai_can_move=true): {soft_human}\n"
+            "\n"
+            "- HARD FIXED rule:\n"
+            "  For every HARD fixed slot that falls within this week, you MUST place a session of that sport/kind on that exact weekday.\n"
+            "  If doing the planned workout there would be a bad idea (fatigue, recovery, clash with a high-intensity external event),\n"
+            "  you STILL keep the slot on that day, but you must soften it into a safer alternative.\n"
+            "  In that case set session_type='coach_override' and explain in notes why you softened/changed it.\n"
+            "\n"
+            "- SOFT preferred rule:\n"
+            "  Prefer these weekdays when it makes sense, but you may move them if recovery or external events require it.\n"
+            "\n"
+            "- REQUIRED FIXED SLOT TAGGING:\n"
+            "  Any session scheduled because of a fixed slot MUST include payload.fixed_slot:\n"
+            "  {weekday, sport, kind, policy}.\n"
         )
 
     volume_prefs = prefs.get("volume") or {}
@@ -283,18 +336,15 @@ def _build_prompts_for_daily(
     long_run_str = ", ".join(long_run_days) if long_run_days else "none"
 
     strength_target = (targets.get("strength") or {}).get("sessions_per_week")
-    if strength_target:
-        strength_str = f"{strength_target}× per week"
-    else:
-        strength_str = "no explicit target"
+    strength_str = (
+        f"{strength_target}× per week" if strength_target else "no explicit target"
+    )
 
-    if hard_max:
-        hard_str = (
-            "max "
-            f"{hard_max} hard sessions / week (including high-intensity external sports events)"
-        )
-    else:
-        hard_str = "not specified"
+    hard_str = (
+        f"max {hard_max} hard sessions / week (including high-intensity external sports events)"
+        if hard_max
+        else "not specified"
+    )
 
     if isinstance(planned_minutes, (int, float)):
         weekly_volume_line = (
@@ -307,15 +357,11 @@ def _build_prompts_for_daily(
             f"Target weekly volume ≈ {volume_value * 60:.0f} min.\n"
         )
     elif isinstance(volume_value, (int, float)) and volume_mode == "daily_minutes":
-        weekly_volume_line = (
-            "- Volume preference: prefs.volume.mode = 'daily_minutes'.\n"
-        )
+        weekly_volume_line = "- Volume preference: prefs.volume.mode = 'daily_minutes'.\n"
     elif isinstance(weekly_min, (int, float)) or isinstance(weekly_max, (int, float)):
         weekly_volume_line = "- Weekly volume tolerance is defined in athlete_state.ai_state.volume_tolerance.\n"
     else:
-        weekly_volume_line = (
-            "- Weekly volume is not explicitly specified; infer it from recent_load.\n"
-        )
+        weekly_volume_line = "- Weekly volume is not explicitly specified; infer it from recent_load.\n"
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -332,8 +378,8 @@ def _build_prompts_for_daily(
 - upper_push: pushing patterns for chest and triceps
 """.strip()
 
-    schema_text = f"""
-{{
+    schema_text = """
+{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string",
@@ -341,10 +387,10 @@ def _build_prompts_for_daily(
   "week_start": "YYYY-MM-DD",
   "week_end": "YYYY-MM-DD",
   "days": [
-    {{
+    {
       "date": "YYYY-MM-DD",
       "sessions": [
-        {{
+        {
           "sport": "run" | "ride" | "strength" | "swim" | "other",
           "title": string,
           "duration_min": number,
@@ -352,57 +398,37 @@ def _build_prompts_for_daily(
           "session_type": string | null,
           "zone_text": string | null,
           "notes": string | null,
-          "structure": {{
-            "warmup"?: {{
-              "minutes"?: number,
-              "notes"?: string | null
-            }},
+          "structure": {
+            "warmup"?: { "minutes"?: number, "notes"?: string | null },
             "main"?: [
-              {{
-                "reps"?: number,
-                "work_min"?: number,
-                "recover_min"?: number,
-                "notes"?: string | null
-              }}
+              { "reps"?: number, "work_min"?: number, "recover_min"?: number, "notes"?: string | null }
             ],
-            "cooldown"?: {{
-              "minutes"?: number,
-              "notes"?: string | null
-            }},
+            "cooldown"?: { "minutes"?: number, "notes"?: string | null },
             "strength_exercises"?: [
-              {{
-                "slot": "lower_quad" | "lower_posterior" | "core" | "upper_pull" | "upper_push",
-                "sets": number,
-                "reps": string,
-                "rest_s": number,
-                "notes": string | null
-              }}
+              { "slot": "lower_quad" | "lower_posterior" | "core" | "upper_pull" | "upper_push", "sets": number, "reps": string, "rest_s": number, "notes": string | null }
             ]
-          }},
-          "targets"?: {{
-            "hr_bpm"?: [number, number] | null,
-            "pace_min_per_km"?: string | null,
-            "power_w"?: number | null
-          }},
+          },
+          "targets"?: { "hr_bpm"?: [number, number] | null, "pace_min_per_km"?: string | null, "power_w"?: number | null },
           "payload"?: object | null
-        }}
+        }
       ]
-    }}
+    }
   ]
-}}
+}
 """.strip()
 
     context_for_ai = _minify_context_for_ai(context_payload)
     if settings:
         context_for_ai["user_settings"] = settings
     if fixed_slots:
-        context_for_ai["fixed_slots"] = fixed_slots  # len info, žiadny hard rule
+        context_for_ai["fixed_slots"] = fixed_slots
 
     external_hint = (
         "- The context may contain an `external_events` block with concrete occurrences "
         "(fields `occurrence_date`, `sport`, `duration_min`, `priority`, `title`).\n"
-        "- For every occurrence within [week_start, week_end], you MUST represent it as a session that day.\n"
-        "- Team sports such as football usually count as a hard session.\n"
+        "- For every occurrence within [week_start, week_end], you MUST represent it as a session on that day.\n"
+        "- Team sports such as football can be a hard session, but do not assume 90 minutes by default; "
+        "use duration_min if available, otherwise prefer 45–60 min unless the context clearly implies more.\n"
     )
 
     user_txt = (
@@ -419,6 +445,17 @@ def _build_prompts_for_daily(
         f"{weekly_volume_line}"
         "STRENGTH SLOTS (concept only, not concrete exercises):\n"
         + strength_slots_desc
+        + "\n\nSTRENGTH QUALITY RULES (important):\n"
+        "- If you schedule a strength session with kind='full', duration_min should be ~75 (±10).\n"
+        "- A 'full' strength session MUST NOT be only 2–3 exercises.\n"
+        "- For full strength, follow structure roughly:\n"
+        "  warmup ~15 min (activation/mobility), main ~45 min, finish/cooldown ~15 min.\n"
+        "- strength_exercises should include approximately:\n"
+        "  2 activation (2–3 sets, 8–12 reps, rest 45–60s),\n"
+        "  5 main (4 sets, 4–6 reps, rest 120s),\n"
+        "  2 accessories (3 sets, 8–12 reps, rest 60s).\n"
+        "- If a HARD fixed strength slot conflicts with recovery/external event, keep it that day but soften it:\n"
+        "  set session_type='coach_override', reduce duration to 30–50, and explain why in notes.\n"
         + "\n\nPLAN ADJUSTMENT HINTS FROM ATHLETE STATE:\n"
         + soften_line
         + replan_line
@@ -430,17 +467,15 @@ def _build_prompts_for_daily(
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return a single JSON object matching the schema (you may set fields to null when unknown).\n"
-        f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. "
-        f"{second_person_note}\n"
+        f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
         "- Days must form a continuous sequence within [week_start, week_end].\n"
         "- For each day, `sessions` MUST be a non-empty array; rest day = one session with sport 'other' and session_type 'rest_day'.\n"
-        "- Respect prefs.days_off, long_run_days and avoid hard run sessions on days with high-intensity external events.\n"
-        "- Treat any weekly_template / fixed_slots information as SOFT preferences for which weekdays\n"
-        "  to place strength sessions and long runs. Follow them when possible without breaking\n"
-        "  recovery rules, days_off or important external events.\n"
+        "- Respect prefs.days_off and long_run_days.\n"
+        "- Avoid scheduling a hard run workout on the same day as a clearly high-intensity external event.\n"
+        "- HARD fixed slots (ai_can_move=false) are mandatory as described above; keep them on that weekday even if you must soften them.\n"
         f"{avoid_two_a_day_str}"
         f"{avoid_back_to_back_hard_str}"
-        "- Use hard_sessions_per_week_max from athlete_state.intensity_tolerance to cap total hard sessions (including external events).\n"
+        "- Use hard_sessions_per_week_max from athlete_state.ai_state.intensity_tolerance to cap total hard sessions (including external events).\n"
         "- If strength.sessions_per_week >= 1, schedule approximately that many strength sessions distributed through the week.\n"
         "- For strength sessions, use only the strength_exercises slot structure (slot, sets, reps, rest_s, notes).\n"
         "- Do NOT invent extreme workloads.\n"
