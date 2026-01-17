@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
 from Routes_AI.daily_plan_generate import generate_daily_week_json
@@ -111,6 +111,245 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
 
 
 # -----------------------------------------------------------------------------
+# Day-constraints materializer (LOCKS + AI FREE SESSIONS -> FULL WEEK PLAN)
+# -----------------------------------------------------------------------------
+
+_ALLOWED_SPORT_ENUM = {"run", "ride", "strength", "swim", "other"}
+
+
+def _safe_list(x: Any) -> List[Any]:
+    return x if isinstance(x, list) else []
+
+
+def _make_lock_session(
+    lock: Dict[str, Any],
+    date_str: str,
+) -> Dict[str, Any]:
+    """
+    Create a concrete session from a lock.
+    - weekly_template lock -> payload.fixed_slot
+    - external_events lock -> payload.external_event (real sport stored there)
+    """
+    src = str(lock.get("source") or "")
+    sport_raw = str(lock.get("sport") or "other")
+    kind = lock.get("kind")
+
+    # schema enum constraint:
+    sport_out = sport_raw if sport_raw in _ALLOWED_SPORT_ENUM else "other"
+
+    title = lock.get("title")
+    if not isinstance(title, str) or not title.strip():
+        if src == "external_events":
+            title = "Externá aktivita"
+        else:
+            # weekly template lock
+            if sport_raw == "strength":
+                title = "Silový tréning (fixný)"
+            elif sport_raw == "run" and kind == "long":
+                title = "Dlhý beh (fixný)"
+            else:
+                title = "Fixný tréning"
+
+    dur = lock.get("duration_min")
+    if not isinstance(dur, (int, float)) or dur <= 0:
+        # sensible defaults
+        if sport_raw == "strength":
+            dur = 75
+        elif sport_raw == "run" and kind == "long":
+            dur = 90
+        else:
+            dur = 60
+
+    sess: Dict[str, Any] = {
+        "sport": sport_out,
+        "title": title,
+        "duration_min": int(dur),
+        "intensity": lock.get("intensity"),
+        "session_type": lock.get("session_type"),
+        "zone_text": lock.get("zone_text"),
+        "notes": lock.get("notes"),
+        "structure": lock.get("structure") or {},
+        "payload": {},
+    }
+
+    if src == "weekly_template":
+        sess["payload"]["fixed_slot"] = {
+            "weekday": lock.get("weekday"),
+            "sport": lock.get("sport"),
+            "kind": lock.get("kind"),
+            "policy": lock.get("policy") or "hard",
+        }
+        sess["session_type"] = sess.get("session_type") or "coach_override"
+        sess["notes"] = _append_note(
+            sess.get("notes"),
+            "Fixný tréning z weekly template (nepresúva sa).",
+        )
+
+    if src == "external_events":
+        sess["payload"]["external_event"] = {
+            "date": date_str,
+            "weekday": lock.get("weekday"),
+            "sport": sport_raw,  # real sport here (e.g. football)
+            "title": lock.get("title"),
+            "duration_min": int(dur),
+            "start_time_local": lock.get("start_time_local"),
+            "priority": lock.get("priority"),
+        }
+        sess["notes"] = _append_note(
+            sess.get("notes"),
+            "Externá udalosť (nepresúva sa).",
+        )
+
+    return sess
+
+
+def _index_free_sessions_by_date(ai_plan: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for d in _safe_list(ai_plan.get("days")):
+        if not isinstance(d, dict):
+            continue
+        ds = str(d.get("date") or "")[:10]
+        if not ds:
+            continue
+        sessions = d.get("sessions")
+        if sessions is None:
+            sessions = []
+        if not isinstance(sessions, list):
+            sessions = []
+        # keep only dict sessions
+        out[ds] = [s for s in sessions if isinstance(s, dict)]
+    return out
+
+
+def _materialize_full_week_plan_from_constraints(
+    *,
+    context_payload: Dict[str, Any],
+    ai_free_plan: Dict[str, Any],
+    plan_id: Optional[str],
+    week_index: int,
+    week_start: Optional[str],
+    week_end: Optional[str],
+) -> Tuple[Dict[str, Any], List[str]]:
+    """
+    Build final daily_plan:
+      - always 7 days from day_constraints (date truth)
+      - sessions = lock_sessions + ai_free_sessions
+      - session_index set deterministically
+    Returns (daily_plan, warnings)
+    """
+    warnings: List[str] = []
+
+    day_constraints = context_payload.get("day_constraints") or []
+    if not isinstance(day_constraints, list) or not day_constraints:
+        # fallback: return AI plan as-is (legacy mode)
+        out = ai_free_plan if isinstance(ai_free_plan, dict) else {}
+        out.setdefault("week_index", week_index)
+        if week_start:
+            out.setdefault("week_start", week_start)
+        if week_end:
+            out.setdefault("week_end", week_end)
+        if plan_id:
+            out["plan_id"] = plan_id
+        return out, warnings
+
+    free_by_date = _index_free_sessions_by_date(ai_free_plan)
+
+    out_days: List[Dict[str, Any]] = []
+    for dc in day_constraints:
+        if not isinstance(dc, dict):
+            continue
+        ds = str(dc.get("date") or "")[:10]
+        if not ds:
+            continue
+
+        locks = dc.get("locks") or []
+        locks = locks if isinstance(locks, list) else []
+
+        max_sessions = dc.get("max_sessions")
+        if not isinstance(max_sessions, int) or max_sessions < 0:
+            max_sessions = 0
+
+        lock_sessions: List[Dict[str, Any]] = []
+        for lock in locks:
+            if not isinstance(lock, dict):
+                continue
+            lock_sessions.append(_make_lock_session(lock, ds))
+
+        open_slots = max_sessions - len(lock_sessions)
+        if open_slots < 0:
+            open_slots = 0
+            warnings.append(f"{ds}: locks exceed max_sessions (server kept locks only).")
+
+        free_sessions = free_by_date.get(ds, [])
+        if len(free_sessions) != open_slots:
+            # The generate layer should already validate this. If it happens, trim/pad safely.
+            warnings.append(
+                f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (auto-fixing)."
+            )
+            if len(free_sessions) > open_slots:
+                free_sessions = free_sessions[:open_slots]
+            else:
+                # pad with rest_day placeholders (so FE/DB shape stays consistent)
+                for _ in range(open_slots - len(free_sessions)):
+                    free_sessions.append(
+                        {
+                            "sport": "other",
+                            "title": "Voľno",
+                            "duration_min": 0,
+                            "intensity": None,
+                            "session_type": "rest_day",
+                            "zone_text": None,
+                            "notes": "Doplnené systémom, lebo AI nevrátila dostatok sessionov pre otvorené sloty.",
+                            "structure": {},
+                            "payload": {"system_fallback": True},
+                        }
+                    )
+
+        # enforce payload hygiene (free sessions must not carry lock payloads)
+        cleaned_free: List[Dict[str, Any]] = []
+        for s in free_sessions:
+            if not isinstance(s, dict):
+                continue
+            payload = s.get("payload")
+            if isinstance(payload, dict) and ("fixed_slot" in payload or "external_event" in payload):
+                # strip forbidden keys silently (but add note)
+                payload = dict(payload)
+                payload.pop("fixed_slot", None)
+                payload.pop("external_event", None)
+                s["payload"] = payload
+                s["notes"] = _append_note(
+                    s.get("notes"),
+                    "Pozn.: systém odstránil lock-payload z voľnej session (bolo to vyhradené pre fixné/externé bloky).",
+                )
+            cleaned_free.append(s)
+
+        # merge + index
+        merged = lock_sessions + cleaned_free
+        for idx, s in enumerate(merged):
+            if isinstance(s, dict):
+                s["session_index"] = idx
+
+        out_days.append({"date": ds, "sessions": merged})
+
+    daily_out: Dict[str, Any] = {
+        "schema_version": int(ai_free_plan.get("schema_version") or 2),
+        "generated_at": ai_free_plan.get("generated_at"),
+        "model": ai_free_plan.get("model"),
+        "week_index": week_index,
+        "week_start": week_start,
+        "week_end": week_end,
+        "days": out_days,
+    }
+    if plan_id:
+        daily_out["plan_id"] = plan_id
+
+    if warnings:
+        daily_out["warnings"] = warnings
+
+    return daily_out, warnings
+
+
+# -----------------------------------------------------------------------------
 # Public services
 # -----------------------------------------------------------------------------
 
@@ -171,20 +410,30 @@ def service_generate_daily_week(
     state_row: Optional[Dict[str, Any]] = ctx["state_row"]
     prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
 
-    # 2) LLM -> daily_plan
-    daily_plan, trace = generate_daily_week_json(
+    # 2) LLM -> AI FREE sessions plan (NEW CONTRACT)
+    ai_free_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
         debug_raw=debug,
     )
-    if not isinstance(daily_plan, dict):
-        daily_plan = {}
+    if not isinstance(ai_free_plan, dict):
+        ai_free_plan = {}
 
     plan_id_out = plan_id_effective
-    if plan_id_out:
-        daily_plan["plan_id"] = plan_id_out
+    week_start = str(week_meta.get("week_start") or ai_free_plan.get("week_start") or "") or None
+    week_end = str(week_meta.get("week_end") or ai_free_plan.get("week_end") or "") or None
 
-    # 3) normalize strength sessions (kvalita šablóny) – bez presúvania dní, bez placeholderov
+    # 2b) Materialize FULL plan from day_constraints (LOCKS + AI FREE)
+    daily_plan, materialize_warnings = _materialize_full_week_plan_from_constraints(
+        context_payload=context_payload,
+        ai_free_plan=ai_free_plan,
+        plan_id=plan_id_out,
+        week_index=week_index,
+        week_start=week_start,
+        week_end=week_end,
+    )
+
+    # 3) normalize strength sessions (kvalita šablóny) – bez presúvania dní
     try:
         daily_plan = normalize_strength_sessions_quality(daily_plan)
     except Exception as e:  # noqa: BLE001
@@ -258,11 +507,15 @@ def service_generate_daily_week(
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
     }
+    if materialize_warnings:
+        resp["warnings"] = materialize_warnings
+
     if debug:
         resp["debug"] = trace
         resp["context_payload"] = context_payload
         resp["ai_usage"] = usage
         resp["billing"] = billing_result
+        resp["ai_free_plan"] = ai_free_plan  # useful for debugging contract
 
     return resp
 
