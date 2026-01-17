@@ -1,8 +1,8 @@
-# Services/AI/daily_builders.py
+# ===== Services/AI/daily_builders.py =====
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
 from Routes_DB.coach_plan_meta import (
@@ -12,6 +12,22 @@ from Routes_DB.coach_plan_meta import (
 from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
+
+# NOTE:
+# This file is responsible for building a clean, AI-friendly CONTEXT for DAILY planning.
+# It also converts the final daily_plan JSON into DB rows (coach_plan_daily).
+#
+# The new approach:
+# - Build a strict week "skeleton" via day_constraints:
+#     - date, weekday
+#     - max_sessions
+#     - locks[] (non-negotiable items: weekly_template hard slots + external events)
+#     - open_slots (derived = max_sessions - len(locks), clamped to >=0)
+# - AI should ONLY fill open slots; locks are placed server-side later (enforced).
+#
+# IMPORTANT: FE schema sport enum is limited to: run/ride/strength/swim/other.
+# External events may have sport like "football" => session.sport must be "other",
+# while payload.external_event.sport carries the real sport.
 
 WEEKDAY_ORDER: Dict[str, int] = {
     "Mon": 0,
@@ -33,6 +49,18 @@ _WEEKDAY_TO_ABBR: Dict[int, str] = {
     6: "Sun",
 }
 
+_ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
+
+_TEAM_SPORTS = {
+    "football",
+    "soccer",
+    "basketball",
+    "hockey",
+    "handball",
+    "floorball",
+    "futsal",
+}
+
 
 def _weekday_abbr_from_iso(d: str) -> Optional[str]:
     if not isinstance(d, str) or not d:
@@ -42,6 +70,26 @@ def _weekday_abbr_from_iso(d: str) -> Optional[str]:
         return _WEEKDAY_TO_ABBR.get(dd.weekday())
     except Exception:
         return None
+
+
+def _coerce_session_sport(raw_sport: Any) -> str:
+    """
+    Map arbitrary sports to the FE schema sport enum.
+    """
+    s = str(raw_sport or "").strip().lower()
+    if s in _ALLOWED_SESSION_SPORTS:
+        return s
+    # common mappings if needed
+    if s in {"bike", "cycling", "bicycle"}:
+        return "ride"
+    if s in {"run", "running"}:
+        return "run"
+    if s in {"gym", "weights", "weightlifting"}:
+        return "strength"
+    if s in {"swim", "swimming"}:
+        return "swim"
+    # everything else becomes "other"
+    return "other"
 
 
 # -------------------------
@@ -54,8 +102,8 @@ def build_daily_rows_from_ai(
     daily_plan: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
     """
-    Preklopí AI výstup (daily_plan JSON – už po obohatení strength mapperom)
-    do rows pre coach_plan_daily.
+    Converts the final daily_plan JSON (already enriched with strength mapper)
+    into rows for coach_plan_daily.
     """
     days = daily_plan.get("days") or []
     rows: List[Dict[str, Any]] = []
@@ -98,9 +146,9 @@ def build_daily_rows_from_ai(
 
 def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     """
-    build_input_from_db vracia:
-      "prefs": { "value": { ... } } alebo už čistý dict.
-    Chceme pre AI čistý dict bez 'value' obalu.
+    build_input_from_db can return:
+      "prefs": { "value": { ... } } or already a plain dict.
+    We want a plain dict for AI/logic.
     """
     raw = analyze_input.get("prefs") or {}
     if isinstance(raw, dict) and "value" in raw and isinstance(raw["value"], dict):
@@ -109,9 +157,6 @@ def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Vytiahne prefs.targets ako dict.
-    """
     t = prefs.get("targets")
     return t if isinstance(t, dict) else {}
 
@@ -125,12 +170,17 @@ def _derive_hard_fixed_slots_from_weekly_template(
     max_fixed: int = 14,
 ) -> List[Dict[str, Any]]:
     """
-    Z weekly_template vyberie len HARD fixed sloty:
+    Extract HARD fixed slots from weekly_template:
       - priority == "key"
       - ai_can_move == False
 
-    Výstup je AI-friendly:
-    {weekday, sport, kind, priority, policy="hard", source="weekly_template"}
+    Output:
+      {
+        weekday, sport, kind,
+        priority="key",
+        policy="hard",
+        source="weekly_template"
+      }
     """
     if not isinstance(weekly_template, dict):
         return []
@@ -160,7 +210,7 @@ def _derive_hard_fixed_slots_from_weekly_template(
             if s.get("priority") != "key":
                 continue
             if s.get("ai_can_move") is not False:
-                continue  # len HARD
+                continue  # only HARD
 
             sport = s.get("sport")
             kind = s.get("kind")
@@ -184,16 +234,21 @@ def _derive_hard_fixed_slots_from_weekly_template(
 
 
 # -------------------------
-# External events -> AI-friendly occurrences
+# External events -> normalized occurrences
 # -------------------------
 
 def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    service_list_external_events_window dnes vracia:
+    service_list_external_events_window returns:
       {"success": True, "events": [ { ... "occurrence_date": "YYYY-MM-DD", ... } ]}
 
-    Normalizujeme na:
-      {date, weekday, sport, title, duration_min, priority, start_time_local, notes, source="external_events", policy="hard"}
+    Normalize to:
+      {
+        date, weekday,
+        sport_raw, session_sport,
+        title, duration_min, priority, start_time_local, notes,
+        source="external_events", policy="hard"
+      }
     """
     events = ext_window.get("events") or []
     if not isinstance(events, list):
@@ -213,11 +268,13 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         if not wd:
             continue
 
+        sport_raw = e.get("sport")
         out.append(
             {
                 "date": ds,
                 "weekday": wd,
-                "sport": e.get("sport"),
+                "sport_raw": sport_raw,
+                "session_sport": _coerce_session_sport(sport_raw),  # for FE schema
                 "title": e.get("title") or "Externá aktivita",
                 "duration_min": e.get("duration_min"),
                 "priority": e.get("priority") or "optional",
@@ -232,7 +289,7 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
 
 
 # -------------------------
-# Day constraints (what AI must respect)
+# Day constraints = WEEK SKELETON
 # -------------------------
 
 def _build_day_constraints_for_week(
@@ -244,12 +301,11 @@ def _build_day_constraints_for_week(
     external_occurrences: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """
-    Vytvorí 7-dňový constraint zoznam:
+    Build a strict 7-day skeleton list:
       - date, weekday
       - max_sessions (1/2)
-      - locks (hard fixed slots + external occurrences)
-
-    POZN: Toto je len guidance pre AI. BE nič nevynucuje.
+      - locks[] (HARD weekly_template slots + external occurrences)
+      - open_slots (derived)
     """
     try:
         d0 = date.fromisoformat(str(week_start_iso)[:10])
@@ -270,16 +326,14 @@ def _build_day_constraints_for_week(
     fixed_by_wd: Dict[str, List[Dict[str, Any]]] = {}
     for fs in hard_fixed:
         wd = fs.get("weekday")
-        if isinstance(wd, str):
+        if isinstance(wd, str) and wd:
             fixed_by_wd.setdefault(wd, []).append(fs)
 
     ext_by_date: Dict[str, List[Dict[str, Any]]] = {}
     for ev in external_occurrences:
         ds = ev.get("date")
-        if isinstance(ds, str):
+        if isinstance(ds, str) and ds:
             ext_by_date.setdefault(ds[:10], []).append(ev)
-
-    TEAM_SPORTS = {"football", "soccer", "basketball", "hockey", "handball", "floorball", "futsal"}
 
     out: List[Dict[str, Any]] = []
     cur = d0
@@ -292,46 +346,52 @@ def _build_day_constraints_for_week(
 
         locks: List[Dict[str, Any]] = []
 
-        # weekly template hard slots
+        # weekly_template hard locks
         for fs in fixed_by_wd.get(wd, []):
             locks.append(
                 {
+                    "source": "weekly_template",
+                    "policy": "hard",
+                    "date": ds,
+                    "weekday": wd,
                     "sport": fs.get("sport"),
                     "kind": fs.get("kind"),
-                    "weekday": wd,
-                    "date": ds,
-                    "source": fs.get("source") or "weekly_template",
-                    "policy": "hard",
+                    "priority": "key",
                 }
             )
 
-        # external occurrences
+        # external hard locks
         for ev in ext_by_date.get(ds, []):
+            sport_raw = ev.get("sport_raw")
+            session_sport = ev.get("session_sport")
             locks.append(
                 {
-                    "sport": ev.get("sport"),
-                    "kind": "external",
-                    "weekday": wd,
+                    "source": "external_events",
+                    "policy": "hard",
                     "date": ds,
+                    "weekday": wd,
+                    # Important: session sport must fit FE schema
+                    "session_sport": session_sport,
+                    # Real sport stored separately (football etc.)
+                    "sport_raw": sport_raw,
+                    "kind": "external",
                     "title": ev.get("title"),
                     "duration_min": ev.get("duration_min"),
                     "priority": ev.get("priority"),
                     "start_time_local": ev.get("start_time_local"),
-                    "source": "external_events",
-                    "policy": "hard",
                 }
             )
 
-        # decide max sessions
+        # decide max_sessions
         max_sessions = base_max
 
         # long run fixed day => only this training
-        if any((l.get("sport") == "run" and l.get("kind") == "long") for l in locks):
+        if any((l.get("source") == "weekly_template" and l.get("sport") == "run" and l.get("kind") == "long") for l in locks):
             max_sessions = 1
 
         # team sport external => only this training
         if any(
-            (str(l.get("sport") or "").lower() in TEAM_SPORTS) and l.get("source") == "external_events"
+            (str(l.get("sport_raw") or "").lower() in _TEAM_SPORTS) and l.get("source") == "external_events"
             for l in locks
         ):
             max_sessions = 1
@@ -340,12 +400,17 @@ def _build_day_constraints_for_week(
         if avoid_two_a_day:
             max_sessions = 1
 
+        open_slots = max_sessions - len(locks)
+        if open_slots < 0:
+            open_slots = 0  # server will handle conflict later
+
         out.append(
             {
                 "date": ds,
                 "weekday": wd,
-                "max_sessions": max_sessions,
+                "max_sessions": int(max_sessions),
                 "locks": locks,
+                "open_slots": int(open_slots),
             }
         )
 
@@ -384,7 +449,7 @@ def build_daily_context_from_db(
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
 
-    # 2) analyze input
+    # 2) analyze input (prefs, recent_load, zones, thresholds)
     analyze_input = build_input_from_db(
         user_id=user_id,
         user_jwt=jwt,
@@ -404,7 +469,7 @@ def build_daily_context_from_db(
     zones = analyze_input.get("zones") or {}
     thresholds = analyze_input.get("thresholds") or {}
 
-    # 3) week meta
+    # 3) week meta from DB
     week_row: Optional[Dict[str, Any]] = None
     if plan_id_effective:
         week_row = db_get_week_row_for_plan(
@@ -426,7 +491,7 @@ def build_daily_context_from_db(
         "planned_minutes": week_row.get("planned_minutes") if week_row else None,
     }
 
-    # 4) external occurrences (AI-friendly)
+    # 4) external occurrences (normalized)
     external_block: Optional[Dict[str, Any]] = None
     external_occurrences_norm: List[Dict[str, Any]] = []
 
@@ -441,13 +506,15 @@ def build_daily_context_from_db(
             )
             external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
 
+            # external_events block kept for debugging / transparency
             external_block = {
                 "schema_version": 1,
                 "occurrences": [
                     {
                         "date": e.get("date"),
                         "weekday": e.get("weekday"),
-                        "sport": e.get("sport"),
+                        "sport_raw": e.get("sport_raw"),
+                        "session_sport": e.get("session_sport"),
                         "title": e.get("title"),
                         "duration_min": e.get("duration_min"),
                         "priority": e.get("priority"),
@@ -462,7 +529,7 @@ def build_daily_context_from_db(
             external_block = None
             external_occurrences_norm = []
 
-    # 5) day constraints (the "week skeleton" for AI)
+    # 5) day_constraints (WEEK SKELETON)
     day_constraints: List[Dict[str, Any]] = []
     if week_meta.get("week_start") and week_meta.get("week_end"):
         day_constraints = _build_day_constraints_for_week(
@@ -482,9 +549,9 @@ def build_daily_context_from_db(
     )
     athlete_state_json = (state_row or {}).get("state_json") or None
 
-    # 7) context payload
+    # 7) context payload for AI / services
     context_payload: Dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "user_id": user_id,
         "week_index": week_index,
         "plan_id": plan_id_effective,
@@ -497,7 +564,7 @@ def build_daily_context_from_db(
         "zones": zones,
         "thresholds": thresholds,
         "weekly_template": weekly_template,
-        "day_constraints": day_constraints,
+        "day_constraints": day_constraints,  # THIS is the skeleton the AI must respect
     }
     if external_block is not None:
         context_payload["external_events"] = external_block
