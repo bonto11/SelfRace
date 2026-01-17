@@ -60,9 +60,9 @@ def _derive_fixed_slots(
 
             fixed.append(
                 {
-                    "weekday": str(day_name),  # "Tue", "Fri", ...
-                    "sport": str(sport),       # "strength", "run", ...
-                    "kind": str(kind),         # "full", "long", ...
+                    "weekday": str(day_name),
+                    "sport": str(sport),
+                    "kind": str(kind),
                     "priority": "key",
                     "ai_can_move": (
                         bool(ai_can_move_val) if ai_can_move_val is not None else True
@@ -201,36 +201,48 @@ def _build_prompts_for_daily(
             f"{hard_human}\n"
         )
 
+    # --- CRITICAL: preference enforcement semantics for the LLM ---
+    long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
+
+    preference_semantics = (
+        "- PREFERENCES SEMANTICS (IMPORTANT):\n"
+        f"  - Preferred long run weekdays: {long_run_days_str}.\n"
+        "  - Treat long_run_days as STRICT whenever it does not conflict with day_constraints locks.\n"
+        "  - If a hard lock forces the long run onto a different day, you MUST:\n"
+        "    (a) keep the lock (date truth), and\n"
+        "    (b) write an explicit explanation in `notes` on that day why long_run_days could not be followed.\n"
+        "\n"
+    )
+
     if has_day_constraints:
         constraints_block = (
             "- DAY_CONSTRAINTS (SOURCE OF TRUTH, DATE-BASED, NON-NEGOTIABLE):\n"
-            "  You are given `day_constraints` for each date in the week.\n"
             "  CRITICAL: DATE IS THE TRUTH. Weekday strings are only labels.\n"
-            "  For each day object in output:\n"
-            "  1) You MUST include ALL items from day.locks as sessions on that EXACT date.\n"
-            "  2) You MUST NOT exceed day.max_sessions (hard upper bound).\n"
-            "  3) If max_sessions=1 and there is a lock, that lock must be the only session.\n"
+            "  For each output day:\n"
+            "  1) You MUST include ALL items from day_constraints.locks as sessions on that EXACT date.\n"
+            "  2) You MUST NOT exceed day_constraints.max_sessions (hard upper bound).\n"
+            "  3) If max_sessions=1 and there is a lock, that lock MUST be the only session.\n"
             "  4) If locks already fill the day, do not add anything else.\n"
             "\n"
             "- LOCK MAPPING RULES:\n"
             "  - If lock.source='weekly_template': create a session matching {sport, kind} on that exact date.\n"
             "    Attach payload.fixed_slot {weekday,sport,kind,policy}.\n"
             "    payload.fixed_slot.weekday MUST match the session's real weekday.\n"
-            "    Use payload.fixed_slot ONLY for sessions created because of a weekly_template lock.\n"
             "  - If lock.source='external_events': create a session on that exact date.\n"
             "    IMPORTANT: schema sport enum allows only run/ride/strength/swim/other.\n"
-            "    So if external lock sport is not one of these (e.g. football), set session.sport='other'\n"
-            "    and store the real sport in payload.external_event.sport.\n"
-            "    Attach payload.external_event at least {date, title, sport} (duration_min if known).\n"
+            "    If external lock sport is not in enum (e.g. football), set session.sport='other'\n"
+            "    and store real sport in payload.external_event.sport.\n"
+            "    Attach payload.external_event at least {date, title, sport}.\n"
             "\n"
             "- OPTIONAL FILL:\n"
             "  After placing all locks, you MAY add extra sessions only if max_sessions allows it\n"
-            "  and only if it makes training sense (recovery, targets). Otherwise keep 1 session/day.\n"
+            "  and only if it makes training sense (recovery, targets).\n"
         )
     else:
         constraints_block = (
             "- DAY_CONSTRAINTS: not provided.\n"
             "  Fall back to prefs/preferences and weekly template.\n"
+            "  In this mode you MUST follow weekly_template hard slots exactly.\n"
         )
 
     fixed_payload_rules = (
@@ -280,8 +292,6 @@ def _build_prompts_for_daily(
     )
 
     days_off_str = ", ".join(days_off) if days_off else "none"
-    long_run_str = ", ".join(long_run_days) if long_run_days else "none"
-
     strength_str = f"{strength_target_int}× per week" if strength_target_int else "no explicit target"
     hard_str = (
         f"max {hard_max} hard sessions / week (including high-intensity external events)"
@@ -356,6 +366,17 @@ def _build_prompts_for_daily(
         "- If the sport is not in the schema enum, set session.sport='other' and store real sport in payload.external_event.sport.\n"
     )
 
+    explanation_rule = (
+        "- EXPLANATION RULE (MANDATORY):\n"
+        "  If you cannot follow a preference (e.g. long_run_days, strength target count, two-a-day desire) because of:\n"
+        "  - day_constraints.max_sessions, or\n"
+        "  - locks (weekly_template / external_events), or\n"
+        "  - recovery constraints,\n"
+        "  then you MUST write a clear one-sentence explanation in `notes` on the affected day/session.\n"
+        "  No generic text. Name the reason (e.g. 'max_sessions=1', 'fixný slot z weekly_template', 'externá udalosť').\n"
+        "\n"
+    )
+
     user_txt = (
         "Generate a DAILY TRAINING PLAN for exactly one calendar week based on the context JSON.\n"
         f"Week index: {week_index}\n"
@@ -363,10 +384,12 @@ def _build_prompts_for_daily(
         f"Focus: {focus or 'N/A'} | Load phase: {load_phase or 'N/A'}\n"
         f"Main sport: {main_sport}\n"
         f"Preferred days off (soft prefs): {days_off_str}\n"
-        f"Preferred long run days (soft prefs): {long_run_str}\n"
+        f"Preferred long run days: {long_run_days_str}\n"
         f"{weekly_template_reference_line}"
+        f"{preference_semantics}"
         f"{constraints_block}\n"
         f"{fixed_payload_rules}\n"
+        f"{explanation_rule}"
         f"Strength training target: {strength_str}\n"
         f"Intensity limit: {hard_str}\n"
         f"{weekly_volume_line}"
