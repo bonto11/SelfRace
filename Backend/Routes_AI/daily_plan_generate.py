@@ -82,37 +82,44 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
             return None, cleaned, txt
 
 
-def _safe_list(x: Any) -> List[Any]:
-    return x if isinstance(x, list) else []
-
-
-def _compute_open_slots_by_date(context_payload: Dict[str, Any]) -> Dict[str, int]:
+def _get_constraints_order_and_open_slots(context_payload: Dict[str, Any]) -> Tuple[List[str], Dict[str, int]]:
     """
-    open_slots = max_sessions - len(locks)
-    If day_constraints missing -> empty dict (no validation).
+    Returns:
+      - expected_dates_order: list of dates in EXACT order from day_constraints
+      - open_slots_by_date: dict date -> open_slots (clamped >=0)
+    If day_constraints missing -> ([], {}).
     """
-    out: Dict[str, int] = {}
     dcs = context_payload.get("day_constraints") or []
     if not isinstance(dcs, list) or not dcs:
-        return out
+        return [], {}
+
+    expected_dates_order: List[str] = []
+    open_slots_by_date: Dict[str, int] = {}
 
     for dc in dcs:
         if not isinstance(dc, dict):
             continue
-        date_str = str(dc.get("date") or "")[:10]
-        if not date_str:
+        ds = str(dc.get("date") or "")[:10]
+        if not ds:
             continue
+
+        expected_dates_order.append(ds)
+
         max_sessions = dc.get("max_sessions")
         if not isinstance(max_sessions, int) or max_sessions < 0:
             max_sessions = 0
+
         locks = dc.get("locks") or []
         if not isinstance(locks, list):
             locks = []
+
         open_slots = max_sessions - len(locks)
         if open_slots < 0:
             open_slots = 0
-        out[date_str] = int(open_slots)
-    return out
+
+        open_slots_by_date[ds] = int(open_slots)
+
+    return expected_dates_order, open_slots_by_date
 
 
 def _contains_lock_payload(session: Dict[str, Any]) -> bool:
@@ -134,12 +141,13 @@ def _validate_free_plan_against_constraints(
     Validation for NEW behavior:
     - AI returns ONLY free sessions. Count must match open_slots per date.
     - It must not output lock payloads (fixed_slot/external_event) in free sessions.
-    - It must cover exactly the constraint dates (continuous week skeleton).
+    - It must output DAYS exactly matching day_constraints:
+        same count, same dates, same order.
     """
     errors: List[str] = []
 
-    open_slots_by_date = _compute_open_slots_by_date(context_payload)
-    if not open_slots_by_date:
+    expected_dates_order, open_slots_by_date = _get_constraints_order_and_open_slots(context_payload)
+    if not expected_dates_order:
         # no day_constraints -> nothing to validate here
         return True, errors
 
@@ -147,31 +155,45 @@ def _validate_free_plan_against_constraints(
     if not isinstance(days, list):
         return False, ["parsed.days is not a list"]
 
-    # build map from parsed
-    seen_dates: Dict[str, Dict[str, Any]] = {}
+    # Validate count and order strictly
+    out_dates_order: List[str] = []
+    seen: set = set()
+
     for d in days:
         if not isinstance(d, dict):
             continue
         ds = str(d.get("date") or "")[:10]
         if not ds:
             continue
-        if ds in seen_dates:
+        out_dates_order.append(ds)
+        if ds in seen:
             errors.append(f"duplicate day.date in output: {ds}")
-        seen_dates[ds] = d
+        seen.add(ds)
 
-    # require same set of dates as constraints
-    expected_dates = list(open_slots_by_date.keys())
-    missing = [ds for ds in expected_dates if ds not in seen_dates]
-    extra = [ds for ds in seen_dates.keys() if ds not in open_slots_by_date]
-    if missing:
-        errors.append(f"missing dates in output: {missing[:8]}{'...' if len(missing) > 8 else ''}")
-    if extra:
-        errors.append(f"extra dates in output not in constraints: {extra[:8]}{'...' if len(extra) > 8 else ''}")
+    if len(out_dates_order) != len(expected_dates_order):
+        errors.append(f"days_count={len(out_dates_order)} != expected_count={len(expected_dates_order)}")
 
-    # validate each day session count + payload hygiene
-    for ds, open_slots in open_slots_by_date.items():
-        day = seen_dates.get(ds)
+    # Exact order match
+    if out_dates_order != expected_dates_order:
+        # keep the message short but useful
+        errors.append(
+            f"day order mismatch. expected={expected_dates_order[:7]}..., got={out_dates_order[:7]}..."
+        )
+
+    # Build map date->day for deeper validation
+    by_date: Dict[str, Dict[str, Any]] = {}
+    for d in days:
+        if isinstance(d, dict):
+            ds = str(d.get("date") or "")[:10]
+            if ds:
+                by_date[ds] = d
+
+    # Validate each day open_slots contract + payload hygiene
+    for ds in expected_dates_order:
+        open_slots = int(open_slots_by_date.get(ds, 0))
+        day = by_date.get(ds)
         if not isinstance(day, dict):
+            errors.append(f"{ds}: missing day object")
             continue
 
         sessions = day.get("sessions")
@@ -181,7 +203,7 @@ def _validate_free_plan_against_constraints(
             errors.append(f"{ds}: sessions is not a list")
             continue
 
-        if len(sessions) != int(open_slots):
+        if len(sessions) != open_slots:
             errors.append(f"{ds}: sessions_count={len(sessions)} != open_slots={open_slots}")
 
         for s in sessions:
@@ -310,7 +332,6 @@ def generate_daily_week_json(
                 ok, errs = _validate_free_plan_against_constraints(parsed, context_payload)
                 if not ok:
                     last_err = "AI output violates day_constraints/free-sessions contract"
-                    # attach a short hint into trace so you see what went wrong
                     attempt_row["ok"] = False
                     attempt_row["validation_errors"] = errs[:12]
                     continue
