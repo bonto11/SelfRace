@@ -124,28 +124,38 @@ def _safe_list(x: Any) -> List[Any]:
 def _make_lock_session(
     lock: Dict[str, Any],
     date_str: str,
+    *,
+    dc_weekday: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a concrete session from a lock.
     - weekly_template lock -> payload.fixed_slot
-    - external_events lock -> payload.external_event (real sport stored there)
+    - external_events lock -> payload.external_event
+      NOTE: external lock provides:
+        - session_sport (enum-safe, e.g. "other")
+        - sport_raw (real sport, e.g. "football")
     """
     src = str(lock.get("source") or "")
-    sport_raw = str(lock.get("sport") or "other")
     kind = lock.get("kind")
 
-    # schema enum constraint:
-    sport_out = sport_raw if sport_raw in _ALLOWED_SPORT_ENUM else "other"
+    if src == "external_events":
+        sport_out = str(lock.get("session_sport") or "other")
+        if sport_out not in _ALLOWED_SPORT_ENUM:
+            sport_out = "other"
+        real_sport = str(lock.get("sport_raw") or "other")
+    else:
+        sport_raw = str(lock.get("sport") or "other")
+        sport_out = sport_raw if sport_raw in _ALLOWED_SPORT_ENUM else "other"
+        real_sport = sport_raw
 
     title = lock.get("title")
     if not isinstance(title, str) or not title.strip():
         if src == "external_events":
             title = "Externá aktivita"
         else:
-            # weekly template lock
-            if sport_raw == "strength":
+            if real_sport == "strength":
                 title = "Silový tréning (fixný)"
-            elif sport_raw == "run" and kind == "long":
+            elif real_sport == "run" and kind == "long":
                 title = "Dlhý beh (fixný)"
             else:
                 title = "Fixný tréning"
@@ -153,9 +163,9 @@ def _make_lock_session(
     dur = lock.get("duration_min")
     if not isinstance(dur, (int, float)) or dur <= 0:
         # sensible defaults
-        if sport_raw == "strength":
+        if real_sport == "strength":
             dur = 75
-        elif sport_raw == "run" and kind == "long":
+        elif real_sport == "run" and kind == "long":
             dur = 90
         else:
             dur = 60
@@ -174,7 +184,7 @@ def _make_lock_session(
 
     if src == "weekly_template":
         sess["payload"]["fixed_slot"] = {
-            "weekday": lock.get("weekday"),
+            "weekday": lock.get("weekday") or dc_weekday,
             "sport": lock.get("sport"),
             "kind": lock.get("kind"),
             "policy": lock.get("policy") or "hard",
@@ -188,13 +198,14 @@ def _make_lock_session(
     if src == "external_events":
         sess["payload"]["external_event"] = {
             "date": date_str,
-            "weekday": lock.get("weekday"),
-            "sport": sport_raw,  # real sport here (e.g. football)
-            "title": lock.get("title"),
+            "weekday": lock.get("weekday") or dc_weekday,
+            "sport": real_sport,  # real sport here (e.g. football)
+            "title": lock.get("title") or title,
             "duration_min": int(dur),
             "start_time_local": lock.get("start_time_local"),
             "priority": lock.get("priority"),
         }
+        sess["session_type"] = sess.get("session_type") or "external_event"
         sess["notes"] = _append_note(
             sess.get("notes"),
             "Externá udalosť (nepresúva sa).",
@@ -216,7 +227,6 @@ def _index_free_sessions_by_date(ai_plan: Dict[str, Any]) -> Dict[str, List[Dict
             sessions = []
         if not isinstance(sessions, list):
             sessions = []
-        # keep only dict sessions
         out[ds] = [s for s in sessions if isinstance(s, dict)]
     return out
 
@@ -232,7 +242,7 @@ def _materialize_full_week_plan_from_constraints(
 ) -> Tuple[Dict[str, Any], List[str]]:
     """
     Build final daily_plan:
-      - always 7 days from day_constraints (date truth)
+      - always dates from day_constraints (date truth)
       - sessions = lock_sessions + ai_free_sessions
       - session_index set deterministically
     Returns (daily_plan, warnings)
@@ -241,7 +251,7 @@ def _materialize_full_week_plan_from_constraints(
 
     day_constraints = context_payload.get("day_constraints") or []
     if not isinstance(day_constraints, list) or not day_constraints:
-        # fallback: return AI plan as-is (legacy mode)
+        # legacy fallback: return AI plan as-is
         out = ai_free_plan if isinstance(ai_free_plan, dict) else {}
         out.setdefault("week_index", week_index)
         if week_start:
@@ -258,10 +268,12 @@ def _materialize_full_week_plan_from_constraints(
     for dc in day_constraints:
         if not isinstance(dc, dict):
             continue
+
         ds = str(dc.get("date") or "")[:10]
         if not ds:
             continue
 
+        dc_weekday = dc.get("weekday")
         locks = dc.get("locks") or []
         locks = locks if isinstance(locks, list) else []
 
@@ -273,7 +285,7 @@ def _materialize_full_week_plan_from_constraints(
         for lock in locks:
             if not isinstance(lock, dict):
                 continue
-            lock_sessions.append(_make_lock_session(lock, ds))
+            lock_sessions.append(_make_lock_session(lock, ds, dc_weekday=dc_weekday))
 
         open_slots = max_sessions - len(lock_sessions)
         if open_slots < 0:
@@ -282,14 +294,14 @@ def _materialize_full_week_plan_from_constraints(
 
         free_sessions = free_by_date.get(ds, [])
         if len(free_sessions) != open_slots:
-            # The generate layer should already validate this. If it happens, trim/pad safely.
+            # generate layer should validate this; still safe-guard
             warnings.append(
                 f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (auto-fixing)."
             )
             if len(free_sessions) > open_slots:
                 free_sessions = free_sessions[:open_slots]
             else:
-                # pad with rest_day placeholders (so FE/DB shape stays consistent)
+                # pad with rest placeholders to keep deterministic shape
                 for _ in range(open_slots - len(free_sessions)):
                     free_sessions.append(
                         {
@@ -312,18 +324,16 @@ def _materialize_full_week_plan_from_constraints(
                 continue
             payload = s.get("payload")
             if isinstance(payload, dict) and ("fixed_slot" in payload or "external_event" in payload):
-                # strip forbidden keys silently (but add note)
                 payload = dict(payload)
                 payload.pop("fixed_slot", None)
                 payload.pop("external_event", None)
                 s["payload"] = payload
                 s["notes"] = _append_note(
                     s.get("notes"),
-                    "Pozn.: systém odstránil lock-payload z voľnej session (bolo to vyhradené pre fixné/externé bloky).",
+                    "Pozn.: systém odstránil lock-payload z voľnej session (vyhradené pre fixné/externé bloky).",
                 )
             cleaned_free.append(s)
 
-        # merge + index
         merged = lock_sessions + cleaned_free
         for idx, s in enumerate(merged):
             if isinstance(s, dict):
@@ -515,7 +525,9 @@ def service_generate_daily_week(
         resp["context_payload"] = context_payload
         resp["ai_usage"] = usage
         resp["billing"] = billing_result
-        resp["ai_free_plan"] = ai_free_plan  # useful for debugging contract
+        resp["ai_free_plan"] = ai_free_plan  # debug: čo AI vrátila pred materializáciou
+        if materialize_warnings:
+            resp["materialize_warnings"] = materialize_warnings
 
     return resp
 
