@@ -82,6 +82,119 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
             return None, cleaned, txt
 
 
+def _safe_list(x: Any) -> List[Any]:
+    return x if isinstance(x, list) else []
+
+
+def _compute_open_slots_by_date(context_payload: Dict[str, Any]) -> Dict[str, int]:
+    """
+    open_slots = max_sessions - len(locks)
+    If day_constraints missing -> empty dict (no validation).
+    """
+    out: Dict[str, int] = {}
+    dcs = context_payload.get("day_constraints") or []
+    if not isinstance(dcs, list) or not dcs:
+        return out
+
+    for dc in dcs:
+        if not isinstance(dc, dict):
+            continue
+        date_str = str(dc.get("date") or "")[:10]
+        if not date_str:
+            continue
+        max_sessions = dc.get("max_sessions")
+        if not isinstance(max_sessions, int) or max_sessions < 0:
+            max_sessions = 0
+        locks = dc.get("locks") or []
+        if not isinstance(locks, list):
+            locks = []
+        open_slots = max_sessions - len(locks)
+        if open_slots < 0:
+            open_slots = 0
+        out[date_str] = int(open_slots)
+    return out
+
+
+def _contains_lock_payload(session: Dict[str, Any]) -> bool:
+    payload = session.get("payload")
+    if not isinstance(payload, dict):
+        return False
+    if isinstance(payload.get("fixed_slot"), dict):
+        return True
+    if isinstance(payload.get("external_event"), dict):
+        return True
+    return False
+
+
+def _validate_free_plan_against_constraints(
+    parsed: Dict[str, Any],
+    context_payload: Dict[str, Any],
+) -> Tuple[bool, List[str]]:
+    """
+    Validation for NEW behavior:
+    - AI returns ONLY free sessions. Count must match open_slots per date.
+    - It must not output lock payloads (fixed_slot/external_event) in free sessions.
+    - It must cover exactly the constraint dates (continuous week skeleton).
+    """
+    errors: List[str] = []
+
+    open_slots_by_date = _compute_open_slots_by_date(context_payload)
+    if not open_slots_by_date:
+        # no day_constraints -> nothing to validate here
+        return True, errors
+
+    days = parsed.get("days")
+    if not isinstance(days, list):
+        return False, ["parsed.days is not a list"]
+
+    # build map from parsed
+    seen_dates: Dict[str, Dict[str, Any]] = {}
+    for d in days:
+        if not isinstance(d, dict):
+            continue
+        ds = str(d.get("date") or "")[:10]
+        if not ds:
+            continue
+        if ds in seen_dates:
+            errors.append(f"duplicate day.date in output: {ds}")
+        seen_dates[ds] = d
+
+    # require same set of dates as constraints
+    expected_dates = list(open_slots_by_date.keys())
+    missing = [ds for ds in expected_dates if ds not in seen_dates]
+    extra = [ds for ds in seen_dates.keys() if ds not in open_slots_by_date]
+    if missing:
+        errors.append(f"missing dates in output: {missing[:8]}{'...' if len(missing) > 8 else ''}")
+    if extra:
+        errors.append(f"extra dates in output not in constraints: {extra[:8]}{'...' if len(extra) > 8 else ''}")
+
+    # validate each day session count + payload hygiene
+    for ds, open_slots in open_slots_by_date.items():
+        day = seen_dates.get(ds)
+        if not isinstance(day, dict):
+            continue
+
+        sessions = day.get("sessions")
+        if sessions is None:
+            sessions = []
+        if not isinstance(sessions, list):
+            errors.append(f"{ds}: sessions is not a list")
+            continue
+
+        if len(sessions) != int(open_slots):
+            errors.append(f"{ds}: sessions_count={len(sessions)} != open_slots={open_slots}")
+
+        for s in sessions:
+            if not isinstance(s, dict):
+                errors.append(f"{ds}: session is not an object")
+                continue
+            if _contains_lock_payload(s):
+                errors.append(f"{ds}: free session contains forbidden lock payload (fixed_slot/external_event)")
+
+    ok = len(errors) == 0
+    return ok, errors
+
+
 def generate_daily_week_json(
     context_payload: dict,
     model: str,
@@ -89,11 +202,15 @@ def generate_daily_week_json(
     debug_raw: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
     """
-    AI client pre DAILY PLAN jedného týždňa.
-    Vždy vracia (daily_dict, debug_trace_or_None).
+    AI client for DAILY PLAN of one week.
+    Returns (daily_dict, debug_trace_or_None).
 
-    NOTE: Žiadne server-side dopĺňanie / enforce lockov / trimovanie.
-    Čisto AI output + minimálne meta polia.
+    This file does NOT inject locks or trim sessions.
+    It only:
+      - calls the LLM,
+      - parses JSON,
+      - adds minimal meta,
+      - validates the NEW "free sessions only" contract vs day_constraints (if provided).
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
@@ -174,10 +291,9 @@ def generate_daily_week_json(
                     last_err = "AI returned invalid JSON"
                     continue
 
-                now_local = datetime.now(tzinfo)
-
                 # minimal meta enrichment only
-                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
+                now_local = datetime.now(tzinfo)
+                parsed["schema_version"] = int(parsed.get("schema_version") or 2)
                 parsed["generated_at"] = now_local.isoformat()
                 parsed["model"] = m
 
@@ -189,6 +305,15 @@ def generate_daily_week_json(
 
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
+
+                # Validate NEW contract: free sessions only + count=open_slots per day_constraints
+                ok, errs = _validate_free_plan_against_constraints(parsed, context_payload)
+                if not ok:
+                    last_err = "AI output violates day_constraints/free-sessions contract"
+                    # attach a short hint into trace so you see what went wrong
+                    attempt_row["ok"] = False
+                    attempt_row["validation_errors"] = errs[:12]
+                    continue
 
                 trace["usage"] = {
                     "model": m,
@@ -221,7 +346,7 @@ def generate_daily_week_json(
 
     now_fallback = datetime.now(tzinfo).isoformat()
     fallback = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": now_fallback,
         "model": "daily-fallback",
         "week_index": week_index,
