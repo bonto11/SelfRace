@@ -1,4 +1,4 @@
-# Routes_AI/daily_plan_prompts.py
+# ===== Routes_AI/daily_plan_prompts.py =====
 from __future__ import annotations
 
 import json
@@ -20,8 +20,8 @@ def _derive_fixed_slots(
     max_fixed: int = 7,
 ) -> List[Dict[str, Any]]:
     """
-    Reference-only helper: vytiahne key sloty z weekly_template.
-    day_constraints je nadradený (source of truth).
+    Reference-only helper: extracts key slots from weekly_template.
+    day_constraints is the real source-of-truth (date-based).
     """
     if not isinstance(weekly_template, dict):
         return []
@@ -64,9 +64,7 @@ def _derive_fixed_slots(
                     "sport": str(sport),
                     "kind": str(kind),
                     "priority": "key",
-                    "ai_can_move": (
-                        bool(ai_can_move_val) if ai_can_move_val is not None else True
-                    ),
+                    "ai_can_move": (bool(ai_can_move_val) if ai_can_move_val is not None else True),
                     "policy": "hard" if hard else "soft",
                 }
             )
@@ -79,8 +77,8 @@ def _derive_fixed_slots(
 
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Orezaný context pre LLM – len to, čo reálne potrebuje.
-    DÔLEŽITÉ: posielame day_constraints (date-based) ako source-of-truth.
+    Send only what the LLM truly needs.
+    CRITICAL: day_constraints is the week skeleton (date-based) and the only hard planner input.
     """
     ctx2: Dict[str, Any] = {}
 
@@ -100,7 +98,7 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "preferences": prefs.get("preferences") or {},
     }
 
-    for k in ("volume", "weeks", "strength_settings"):
+    for k in ("volume", "weeks", "strength_settings", "weekly_template"):
         if k in prefs:
             prefs2[k] = prefs.get(k)
 
@@ -121,10 +119,6 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             "sessions_per_week": strength_t.get("sessions_per_week"),
         }
     prefs2["targets"] = t2
-
-    wt = prefs.get("weekly_template")
-    if isinstance(wt, dict):
-        prefs2["weekly_template"] = wt
 
     ctx2["prefs"] = prefs2
 
@@ -187,70 +181,70 @@ def _build_prompts_for_daily(
     strength_target = (targets.get("strength") or {}).get("sessions_per_week")
     strength_target_int = int(strength_target) if isinstance(strength_target, int) else None
 
-    # Day constraints = source of truth
+    # Day constraints = source of truth skeleton
     day_constraints = context_payload.get("day_constraints") or []
     has_day_constraints = isinstance(day_constraints, list) and len(day_constraints) > 0
 
-    # weekly template reference (debug only)
+    # debug-only ref line
     weekly_template_reference_line = ""
     hard_slots = [fs for fs in fixed_slots if fs.get("policy") == "hard"]
     if hard_slots:
         hard_human = "; ".join(f"{fs['weekday']}: {fs['sport']}/{fs['kind']}" for fs in hard_slots)
         weekly_template_reference_line = (
-            "- Weekly template HARD fixed slots (reference only; real locks are in day_constraints): "
+            "- Weekly template HARD fixed slots (debug/reference only): "
             f"{hard_human}\n"
         )
 
-    # --- CRITICAL: preference enforcement semantics for the LLM ---
+    days_off_str = ", ".join(days_off) if days_off else "none"
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
 
+    # Key shift: AI should NOT try to place locks at all.
+    # It only outputs "free sessions" for each date based on day_constraints.open_slots.
+    skeleton_rules = (
+        "- WEEK SKELETON RULES (CRITICAL):\n"
+        "  You are given `day_constraints` for each DATE in the week.\n"
+        "  Each day has:\n"
+        "    - date (truth)\n"
+        "    - max_sessions (upper bound)\n"
+        "    - locks[] (non-negotiable fixed items)\n"
+        "    - open_slots (how many free slots remain after locks)\n"
+        "\n"
+        "  Your job is ONLY to fill the OPEN SLOTS.\n"
+        "  DO NOT output the locked sessions yourself.\n"
+        "  The server will inject locks and enforce max_sessions afterwards.\n"
+        "\n"
+        "  Therefore, for each day in your output:\n"
+        "    - If open_slots == 0: output sessions = [] (empty array).\n"
+        "    - If open_slots == 1: output exactly 1 free session.\n"
+        "    - If open_slots == 2: output exactly 2 free sessions.\n"
+        "\n"
+        "  Never exceed open_slots. Never output locks.\n"
+    )
+
     preference_semantics = (
-        "- PREFERENCES SEMANTICS (IMPORTANT):\n"
-        f"  - Preferred long run weekdays: {long_run_days_str}.\n"
-        "  - Treat long_run_days as STRICT whenever it does not conflict with day_constraints locks.\n"
-        "  - If a hard lock forces the long run onto a different day, you MUST:\n"
-        "    (a) keep the lock (date truth), and\n"
-        "    (b) write an explicit explanation in `notes` on that day why long_run_days could not be followed.\n"
+        "- PREFERENCES SEMANTICS:\n"
+        f"  - Preferred long run weekday(s): {long_run_days_str}.\n"
+        "  - Treat long_run_days as a strong preference when choosing WHICH DAY gets a long run,\n"
+        "    BUT you may only place long run if that day has open_slots > 0.\n"
+        "  - If long run cannot be placed on preferred day(s) due to open_slots=0 or recovery logic,\n"
+        "    place it elsewhere and EXPLAIN clearly in the long run session notes.\n"
         "\n"
     )
 
-    if has_day_constraints:
-        constraints_block = (
-            "- DAY_CONSTRAINTS (SOURCE OF TRUTH, DATE-BASED, NON-NEGOTIABLE):\n"
-            "  CRITICAL: DATE IS THE TRUTH. Weekday strings are only labels.\n"
-            "  For each output day:\n"
-            "  1) You MUST include ALL items from day_constraints.locks as sessions on that EXACT date.\n"
-            "  2) You MUST NOT exceed day_constraints.max_sessions (hard upper bound).\n"
-            "  3) If max_sessions=1 and there is a lock, that lock MUST be the only session.\n"
-            "  4) If locks already fill the day, do not add anything else.\n"
-            "\n"
-            "- LOCK MAPPING RULES:\n"
-            "  - If lock.source='weekly_template': create a session matching {sport, kind} on that exact date.\n"
-            "    Attach payload.fixed_slot {weekday,sport,kind,policy}.\n"
-            "    payload.fixed_slot.weekday MUST match the session's real weekday.\n"
-            "  - If lock.source='external_events': create a session on that exact date.\n"
-            "    IMPORTANT: schema sport enum allows only run/ride/strength/swim/other.\n"
-            "    If external lock sport is not in enum (e.g. football), set session.sport='other'\n"
-            "    and store real sport in payload.external_event.sport.\n"
-            "    Attach payload.external_event at least {date, title, sport}.\n"
-            "\n"
-            "- OPTIONAL FILL:\n"
-            "  After placing all locks, you MAY add extra sessions only if max_sessions allows it\n"
-            "  and only if it makes training sense (recovery, targets).\n"
-        )
-    else:
-        constraints_block = (
-            "- DAY_CONSTRAINTS: not provided.\n"
-            "  Fall back to prefs/preferences and weekly template.\n"
-            "  In this mode you MUST follow weekly_template hard slots exactly.\n"
-        )
+    explanation_rule = (
+        "- EXPLANATION RULE (MANDATORY):\n"
+        "  Every free session you output MUST include a short, concrete reason in `notes`:\n"
+        "    - why this session type today (e.g. 'po fixnom futbale je to ľahké', 'pred dlhým behom len Z1/Z2'),\n"
+        "    - OR why a preference was not followed (e.g. 'preferovaná sobota má open_slots=0 kvôli fixným lockom').\n"
+        "  Keep it 1–2 sentences. No fluff.\n"
+        "\n"
+    )
 
     fixed_payload_rules = (
-        "- PAYLOAD RULES (strict):\n"
-        "  - payload.fixed_slot: ONLY for weekly_template locks.\n"
-        "  - payload.external_event: ONLY for external_events locks.\n"
-        "  - Never attach payload.fixed_slot to a non-fixed (free) session.\n"
-        "  - Never attach a fixed_slot weekday that doesn't match the session's real weekday.\n"
+        "- PAYLOAD RULES (STRICT):\n"
+        "  - You should generally NOT use payload at all for free sessions.\n"
+        "  - payload.fixed_slot and payload.external_event are reserved for server-injected locks.\n"
+        "  - If you add payload for a free session, it MUST NOT contain fixed_slot/external_event.\n"
     )
 
     volume_prefs = prefs.get("volume") or {}
@@ -268,7 +262,7 @@ def _build_prompts_for_daily(
     if isinstance(planned_minutes, (int, float)):
         weekly_volume_line = (
             f"- Weekly target from WEEK META: planned_minutes ≈ {planned_minutes} min. "
-            "Total duration_min should be close (±15%).\n"
+            "Free sessions total duration should roughly fit the week intent.\n"
         )
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         weekly_volume_line = (
@@ -283,7 +277,7 @@ def _build_prompts_for_daily(
     avoid_two_a_day_str = (
         "- Do NOT schedule two-a-day sessions.\n"
         if avoid_two_a_day
-        else "- Two-a-day is allowed ONLY if day_constraints.max_sessions allows it.\n"
+        else "- Two-a-day is allowed only when open_slots==2.\n"
     )
     avoid_back_to_back_hard_str = (
         "- Do NOT schedule two hard sessions on consecutive days.\n"
@@ -291,7 +285,6 @@ def _build_prompts_for_daily(
         else "- Avoid back-to-back hard days when possible.\n"
     )
 
-    days_off_str = ", ".join(days_off) if days_off else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int else "no explicit target"
     hard_str = (
         f"max {hard_max} hard sessions / week (including high-intensity external events)"
@@ -299,10 +292,10 @@ def _build_prompts_for_daily(
         else "not specified"
     )
 
+    # System prompt
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON for ONE training week. "
-        "Generate day-by-day sessions for that week. "
         "Return ONE valid JSON object only. No prose, no code fences."
     )
 
@@ -314,9 +307,10 @@ def _build_prompts_for_daily(
 - upper_push: pushing patterns for chest and triceps
 """.strip()
 
+    # IMPORTANT: allow sessions to be empty (because locks are server-injected).
     schema_text = """
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string",
   "week_index": number,
@@ -347,6 +341,7 @@ def _build_prompts_for_daily(
           "payload"?: object | null
         }
       ]
+      // sessions MAY be empty [] when open_slots==0
     }
   ]
 }
@@ -356,26 +351,9 @@ def _build_prompts_for_daily(
     if settings:
         context_for_ai["user_settings"] = settings
 
-    # fixed_slots len ako reference/debug
+    # keep fixed_slots only as debug context (not for planning)
     if fixed_slots:
-        context_for_ai["fixed_slots"] = fixed_slots
-
-    external_hint = (
-        "- External events can appear in day_constraints.locks with source='external_events'.\n"
-        "- They MUST be scheduled on the exact date.\n"
-        "- If the sport is not in the schema enum, set session.sport='other' and store real sport in payload.external_event.sport.\n"
-    )
-
-    explanation_rule = (
-        "- EXPLANATION RULE (MANDATORY):\n"
-        "  If you cannot follow a preference (e.g. long_run_days, strength target count, two-a-day desire) because of:\n"
-        "  - day_constraints.max_sessions, or\n"
-        "  - locks (weekly_template / external_events), or\n"
-        "  - recovery constraints,\n"
-        "  then you MUST write a clear one-sentence explanation in `notes` on the affected day/session.\n"
-        "  No generic text. Name the reason (e.g. 'max_sessions=1', 'fixný slot z weekly_template', 'externá udalosť').\n"
-        "\n"
-    )
+        context_for_ai["fixed_slots_debug"] = fixed_slots
 
     user_txt = (
         "Generate a DAILY TRAINING PLAN for exactly one calendar week based on the context JSON.\n"
@@ -386,19 +364,17 @@ def _build_prompts_for_daily(
         f"Preferred days off (soft prefs): {days_off_str}\n"
         f"Preferred long run days: {long_run_days_str}\n"
         f"{weekly_template_reference_line}"
-        f"{preference_semantics}"
-        f"{constraints_block}\n"
+        f"{skeleton_rules}\n"
+        f"{preference_semantics}\n"
         f"{fixed_payload_rules}\n"
-        f"{explanation_rule}"
+        f"{explanation_rule}\n"
         f"Strength training target: {strength_str}\n"
         f"Intensity limit: {hard_str}\n"
         f"{weekly_volume_line}"
         "STRENGTH SLOTS (concept only, not concrete exercises):\n"
         + strength_slots_desc
         + "\n\nSTRENGTH QUALITY RULES:\n"
-        + "- For a full strength session: duration_min ~75 (±10), ~9 exercises (2+5+2).\n"
-        + "\n\nEXTERNAL EVENTS:\n"
-        + external_hint
+        + "- If you output a strength session: keep it simple; server will normalize and mapper will add exercises.\n"
         + "\n\nCONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
@@ -407,14 +383,13 @@ def _build_prompts_for_daily(
         + "- Always return a single JSON object matching the schema.\n"
         + f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
         + "- Days must form a continuous sequence within [week_start, week_end].\n"
-        + "- For each day, `sessions` MUST be a non-empty array.\n"
-        + "- You MUST follow day_constraints exactly.\n"
-        + "- NEVER exceed max_sessions.\n"
-        + "- NEVER omit any lock.\n"
+        + "- You MUST use the exact dates from day_constraints.\n"
+        + "- For each date, number of sessions MUST equal open_slots for that date.\n"
+        + "- Do NOT output locks.\n"
         + "- Do NOT invent extreme workloads.\n"
         + avoid_two_a_day_str
         + avoid_back_to_back_hard_str
-        + "- Avoid scheduling a hard run workout on the same day as football.\n"
+        + "- Avoid scheduling a hard run workout on the day immediately after a team sport external event.\n"
     )
 
     return system_txt, user_txt, fixed_slots, strength_target_int
