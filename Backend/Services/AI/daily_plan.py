@@ -260,7 +260,6 @@ def _make_lock_session(
             "duration_min": int(dur),
             "start_time_local": lock.get("start_time_local"),
             "priority": lock.get("priority"),
-            # keep optional intensity if builder provides it later
             "intensity": lock.get("intensity"),
         }
         sess["session_type"] = sess.get("session_type") or "external_event"
@@ -302,9 +301,9 @@ def _materialize_full_week_plan_from_constraints(
       - session_index set deterministically
 
     IMPORTANT (NEW CONTRACT):
-      - open_slots is how many FREE sessions MUST be present for that date.
-      - generate_daily_week_json already validates sessions.length == open_slots.
-      - Here we still keep defensive trimming + warnings (never crash).
+      - open_slots is a CAP (max), not a MUST-fill requirement.
+      - i.e. AI may return 0..open_slots free sessions.
+      - server injects locks and enforces max_sessions.
     """
     warnings: List[str] = []
 
@@ -359,20 +358,16 @@ def _materialize_full_week_plan_from_constraints(
 
         free_sessions = free_by_date.get(ds, [])
 
-        # defensive: if missing day in AI output (should not happen due to validator)
+        # defensive: if AI omitted day entirely (structural bug)
         if ds not in free_by_date:
-            if open_slots > 0:
-                warnings.append(f"{ds}: missing free sessions in ai_free_plan (expected open_slots={open_slots}).")
+            # only warn if it looks like a real structural violation
+            warnings.append(f"{ds}: missing day in ai_free_plan (server used only locks + 0 free sessions).")
             free_sessions = []
 
-        # defensive: trim if model over-produced (should not happen due to validator)
+        # CAP only: if AI returned more than allowed, trim.
         if len(free_sessions) > open_slots:
             warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} > open_slots={open_slots} (trimmed).")
             free_sessions = free_sessions[:open_slots]
-
-        # defensive: warn if model under-produced (should not happen due to validator)
-        if len(free_sessions) != open_slots:
-            warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (kept).")
 
         # enforce payload hygiene (free sessions must not carry lock payloads)
         cleaned_free: List[Dict[str, Any]] = []
@@ -393,7 +388,7 @@ def _materialize_full_week_plan_from_constraints(
 
         merged = lock_sessions + cleaned_free
 
-        # enforce max_sessions safety
+        # enforce max_sessions safety (should rarely trigger)
         if isinstance(max_sessions, int) and max_sessions >= 0 and len(merged) > max_sessions:
             warnings.append(f"{ds}: merged_sessions={len(merged)} > max_sessions={max_sessions} (trimmed).")
             merged = merged[:max_sessions]
@@ -510,7 +505,7 @@ def service_generate_daily_week(
     _dprint("week_meta=", json.dumps(week_meta, ensure_ascii=False))
     _dprint(_summarize_day_constraints(context_payload))
 
-    # 2) LLM -> AI FREE sessions plan (NEW CONTRACT)
+    # 2) LLM -> AI FREE sessions plan
     ai_free_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
