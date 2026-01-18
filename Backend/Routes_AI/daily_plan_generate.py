@@ -243,9 +243,7 @@ def _validate_free_plan_against_constraints(
         errors.append(f"days_count={len(out_dates_order)} != expected_count={len(expected_dates_order)}")
 
     if out_dates_order != expected_dates_order:
-        errors.append(
-            f"day order mismatch. expected={expected_dates_order[:7]}..., got={out_dates_order[:7]}..."
-        )
+        errors.append(f"day order mismatch. expected={expected_dates_order[:7]}..., got={out_dates_order[:7]}...")
 
     # date -> day map
     by_date: Dict[str, Dict[str, Any]] = {}
@@ -288,7 +286,6 @@ def _validate_free_plan_against_constraints(
 
     ok = len(errors) == 0
     return ok, errors
-
 
 def generate_daily_week_json(
     context_payload: dict,
