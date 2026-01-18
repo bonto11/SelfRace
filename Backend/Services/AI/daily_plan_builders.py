@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import os
 
@@ -150,7 +150,7 @@ def _title_for_weekly_template_lock(sport: str, kind: str) -> str:
     sport = str(sport or "").lower()
     kind = str(kind or "").lower()
     if sport == "strength":
-        return "Silový tréning (fixný deň)"
+        return "Silola (fixný deň)"
     if sport == "run" and kind == "long":
         return "Dlhý beh"
     if sport == "run" and kind in {"interval", "intervals"}:
@@ -247,6 +247,41 @@ def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
 def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
     t = prefs.get("targets")
     return t if isinstance(t, dict) else {}
+
+
+def _two_a_day_days_from_prefs(pref_obj: Dict[str, Any]) -> Set[str]:
+    """
+    New prefs:
+      preferences.two_a_day = { enabled: bool, max_days_per_week: int, days: ["Tue","Thu"] }
+
+    We treat days as SOURCE OF TRUTH. If enabled is false => empty.
+    We clamp to max_days_per_week (defaults 0..2).
+    """
+    if not isinstance(pref_obj, dict):
+        return set()
+
+    two = pref_obj.get("two_a_day") or {}
+    if not isinstance(two, dict):
+        return set()
+
+    enabled = bool(two.get("enabled"))
+    if not enabled:
+        return set()
+
+    max_days = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2)
+    days = two.get("days") or []
+    if not isinstance(days, list):
+        return set()
+
+    cleaned: List[str] = []
+    for d in days:
+        wd = str(d or "").strip()
+        if wd in WEEKDAY_ORDER and wd not in cleaned:
+            cleaned.append(wd)
+
+    if max_days <= 0:
+        return set()
+    return set(cleaned[:max_days])
 
 
 # -------------------------
@@ -514,26 +549,17 @@ def _build_day_constraints_for_week(
 
     pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
 
-    avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
-
-    # SOURCE OF TRUTH: max_sessions_per_day (defaults to 1), clamp 0..2
-    max_sessions_pref = pref_obj.get("max_sessions_per_day")
-    base_max = _safe_int(max_sessions_pref, 1, min_v=0, max_v=2)
-
-    # final base capacity
-    if avoid_two_a_day and base_max > 1:
-        base_max = 1
+    # NEW RULE:
+    # - Default max_sessions/day = 1
+    # - Only user-picked days can be 2-a-day (max 2 days/week, enforced by prefs)
+    two_a_day_days = _two_a_day_days_from_prefs(pref_obj)
 
     hard_fixed = _derive_hard_fixed_slots_from_weekly_template(weekly_template)
     _dprint(
         "weekly_template hard_fixed:",
         len(hard_fixed),
-        "| avoid_two_a_day:",
-        avoid_two_a_day,
-        "| max_sessions_per_day:",
-        max_sessions_pref,
-        "| base_max:",
-        base_max,
+        "| two_a_day_days=",
+        sorted(list(two_a_day_days)),
     )
 
     fixed_by_wd: Dict[str, List[Dict[str, Any]]] = {}
@@ -594,24 +620,22 @@ def _build_day_constraints_for_week(
             locks.append(lock)
             lock_sessions.append(_build_lock_session_from_external_event(lock))
 
-        # default capacity for the day
-        max_sessions = int(base_max)
+        # Default: one session a day
+        max_sessions = 1
 
-        # If a long run is locked -> keep only that one training (capacity=1)
-        # (strict weekly template intent)
+        # If user picked this weekday as 2-a-day => allow 2 (unless overridden below)
+        if wd in two_a_day_days:
+            max_sessions = 2
+
+        # Strict weekly template intent: long run day stays single (no double days)
         if any(
             (l.get("source") == "weekly_template" and l.get("sport") == "run" and l.get("kind") == "long")
             for l in locks
         ):
             max_sessions = 1
 
-        # Only EXTERNAL intensity == hard forces max_sessions=1 (if user allowed 2)
-        # Note: if base_max is already 1, this changes nothing.
+        # External intensity hard forces single (recovery / injury risk)
         if any((l.get("kind") == "external" and (l.get("intensity") == "hard")) for l in locks):
-            max_sessions = 1
-
-        # Hard guard (backward compat)
-        if avoid_two_a_day:
             max_sessions = 1
 
         open_slots = int(max_sessions) - len(locks)
@@ -691,13 +715,13 @@ def build_daily_context_from_db(
     targets_ai = extract_targets_from_prefs(prefs_ai)
 
     pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
+    two_a_day_days = _two_a_day_days_from_prefs(pref_obj)
+
     _dprint(
         "prefs: main_sport=",
         (prefs_ai.get("main_sport") if isinstance(prefs_ai, dict) else None),
-        "| avoid_two_a_day=",
-        bool(pref_obj.get("avoid_two_a_day")),
-        "| max_sessions_per_day=",
-        pref_obj.get("max_sessions_per_day"),
+        "| two_a_day_days=",
+        sorted(list(two_a_day_days)),
         "| hard_locks=",
         (len(pref_obj.get("hard_locks") or []) if isinstance(pref_obj.get("hard_locks"), list) else 0),
         "| has_weekly_template=",
