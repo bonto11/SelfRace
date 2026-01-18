@@ -15,6 +15,7 @@ from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
 
+
 # -----------------------------------------------------------------------------
 # NOTE (NEW APPROACH / "A"):
 # - This builder creates a STRICT week skeleton for daily planning:
@@ -47,16 +48,8 @@ _WEEKDAY_TO_ABBR: Dict[int, str] = {
 }
 
 _ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
+_ALLOWED_EXTERNAL_INTENSITIES = {"hard", "medium", "easy"}
 
-_TEAM_SPORTS = {
-    "football",
-    "soccer",
-    "basketball",
-    "hockey",
-    "handball",
-    "floorball",
-    "futsal",
-}
 
 # -----------------------------------------------------------------------------
 # Debug / Railway prints
@@ -65,7 +58,7 @@ _TEAM_SPORTS = {
 #   DAILY_DEBUG=1
 # alebo:
 #   AI_DAILY_DEBUG=1
-_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or os.getenv("AI_DAILY_DEBUG") or "").strip().lower() in {
+_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
     "1",
     "true",
     "yes",
@@ -82,6 +75,29 @@ def _dprint(*parts: Any) -> None:
     except Exception:
         # never fail the job because of debug printing
         pass
+
+
+def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
+    try:
+        if v is None:
+            out = default
+        elif isinstance(v, bool):
+            out = int(v)  # True->1 False->0
+        elif isinstance(v, (int, float)):
+            out = int(v)
+        elif isinstance(v, str):
+            s = v.strip()
+            out = int(float(s)) if s else default
+        else:
+            out = int(v)  # last resort
+    except Exception:
+        out = default
+
+    if min_v is not None and out < min_v:
+        out = min_v
+    if max_v is not None and out > max_v:
+        out = max_v
+    return out
 
 
 def _weekday_abbr_from_iso(d: str) -> Optional[str]:
@@ -110,6 +126,24 @@ def _coerce_session_sport(raw_sport: Any) -> str:
     if s in {"swim", "swimming"}:
         return "swim"
     return "other"
+
+
+def _normalize_external_intensity(v: Any) -> Optional[str]:
+    """
+    Normalizes intensity to: hard | medium | easy | None
+    Accepts common variants.
+    """
+    s = str(v or "").strip().lower()
+    if not s:
+        return None
+    # common aliases
+    if s in {"high", "very_hard", "vhard", "hard"}:
+        return "hard"
+    if s in {"moderate", "mod", "mid", "medium"}:
+        return "medium"
+    if s in {"low", "easy", "light"}:
+        return "easy"
+    return s if s in _ALLOWED_EXTERNAL_INTENSITIES else None
 
 
 def _title_for_weekly_template_lock(sport: str, kind: str) -> str:
@@ -287,6 +321,7 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
     """
     service_list_external_events_window returns:
       {"success": True, "events": [ { ... "occurrence_date": "YYYY-MM-DD", ... } ]}
+    Adds normalized intensity: hard|medium|easy|None
     """
     events = ext_window.get("events") or []
     if not isinstance(events, list):
@@ -320,6 +355,7 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
                 "notes": e.get("notes"),
                 "source": "external_events",
                 "policy": "hard",
+                "intensity": _normalize_external_intensity(e.get("intensity")),
             }
         )
 
@@ -364,12 +400,13 @@ def _build_lock_session_from_external_event(lock: Dict[str, Any]) -> Dict[str, A
     sport_raw = str(lock.get("sport_raw") or "")
     title = lock.get("title") or "Externá aktivita"
     duration_min = lock.get("duration_min")
+    intensity = _normalize_external_intensity(lock.get("intensity"))
 
     sess: Dict[str, Any] = {
         "sport": session_sport,
         "title": title,
         "duration_min": duration_min if isinstance(duration_min, (int, float)) else None,
-        "intensity": None,
+        "intensity": intensity,
         "session_type": "external_event",
         "zone_text": None,
         "notes": "Externá udalosť (fixná).",
@@ -382,12 +419,78 @@ def _build_lock_session_from_external_event(lock: Dict[str, Any]) -> Dict[str, A
                 "start_time_local": lock.get("start_time_local"),
                 "duration_min": duration_min if isinstance(duration_min, (int, float)) else None,
                 "priority": lock.get("priority"),
+                "intensity": intensity,
             }
         },
     }
     if sess["duration_min"] is None:
         sess.pop("duration_min", None)
+    if sess.get("intensity") is None:
+        sess.pop("intensity", None)
+        sess.get("payload", {}).get("external_event", {}).pop("intensity", None)
     return sess
+
+
+def _normalize_hard_locks_external_occurrences_from_prefs(
+    prefs_ai: Dict[str, Any],
+    week_start_iso: str,
+    week_end_iso: str,
+) -> List[Dict[str, Any]]:
+    pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
+    locks = pref_obj.get("hard_locks") or []
+    if not isinstance(locks, list) or not locks:
+        return []
+
+    try:
+        d0 = date.fromisoformat(str(week_start_iso)[:10])
+        d1 = date.fromisoformat(str(week_end_iso)[:10])
+    except Exception:
+        return []
+
+    out: List[Dict[str, Any]] = []
+
+    for l in locks:
+        if not isinstance(l, dict):
+            continue
+        if str(l.get("type") or "").lower() != "external_event":
+            continue
+        if not l.get("no_move"):
+            continue  # hard means no_move
+
+        weekday = str(l.get("weekday") or "")
+        if weekday not in WEEKDAY_ORDER:
+            continue
+
+        sport_raw = l.get("sport") or "other"
+        title = l.get("title") or "Externá aktivita"
+        duration_min = l.get("duration_min")
+        start_time_local = l.get("start_time_local")
+        intensity = _normalize_external_intensity(l.get("intensity"))
+
+        # create weekly occurrences inside [d0..d1]
+        cur = d0
+        while cur <= d1:
+            wd = _WEEKDAY_TO_ABBR.get(cur.weekday())
+            if wd == weekday:
+                out.append(
+                    {
+                        "date": cur.isoformat(),
+                        "weekday": wd,
+                        "sport_raw": sport_raw,
+                        "session_sport": _coerce_session_sport(sport_raw),
+                        "title": title,
+                        "duration_min": duration_min if isinstance(duration_min, (int, float)) else None,
+                        "priority": "key",
+                        "start_time_local": start_time_local,
+                        "notes": "Hard lock z prefs.",
+                        "source": "prefs_hard_lock",
+                        "policy": "hard",
+                        "intensity": intensity,
+                    }
+                )
+            cur += timedelta(days=1)
+
+    return out
 
 
 def _build_day_constraints_for_week(
@@ -411,19 +514,15 @@ def _build_day_constraints_for_week(
 
     pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
 
-    # Backward compat:
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
 
-    # NEW: default is 1 session/day; allow 2 only if explicitly enabled
-    allow_two_a_day = bool(pref_obj.get("allow_two_a_day"))
+    # SOURCE OF TRUTH: max_sessions_per_day (defaults to 1), clamp 0..2
     max_sessions_pref = pref_obj.get("max_sessions_per_day")
+    base_max = _safe_int(max_sessions_pref, 1, min_v=0, max_v=2)
 
-    base_max = 1
-    if not avoid_two_a_day:
-        if isinstance(max_sessions_pref, (int, float)) and int(max_sessions_pref) >= 2:
-            base_max = 2
-        elif allow_two_a_day:
-            base_max = 2
+    # final base capacity
+    if avoid_two_a_day and base_max > 1:
+        base_max = 1
 
     hard_fixed = _derive_hard_fixed_slots_from_weekly_template(weekly_template)
     _dprint(
@@ -431,8 +530,6 @@ def _build_day_constraints_for_week(
         len(hard_fixed),
         "| avoid_two_a_day:",
         avoid_two_a_day,
-        "| allow_two_a_day:",
-        allow_two_a_day,
         "| max_sessions_per_day:",
         max_sessions_pref,
         "| base_max:",
@@ -478,10 +575,10 @@ def _build_day_constraints_for_week(
             locks.append(lock)
             lock_sessions.append(_build_lock_session_from_weekly_template(lock))
 
-        # external hard locks
+        # external hard locks (DB + prefs merged upstream)
         for ev in ext_by_date.get(ds, []):
             lock = {
-                "source": "external_events",
+                "source": ev.get("source") or "external_events",
                 "policy": "hard",
                 "date": ds,
                 "weekday": wd,
@@ -492,6 +589,7 @@ def _build_day_constraints_for_week(
                 "duration_min": ev.get("duration_min"),
                 "priority": ev.get("priority"),
                 "start_time_local": ev.get("start_time_local"),
+                "intensity": _normalize_external_intensity(ev.get("intensity")),
             }
             locks.append(lock)
             lock_sessions.append(_build_lock_session_from_external_event(lock))
@@ -500,17 +598,16 @@ def _build_day_constraints_for_week(
         max_sessions = int(base_max)
 
         # If a long run is locked -> keep only that one training (capacity=1)
+        # (strict weekly template intent)
         if any(
             (l.get("source") == "weekly_template" and l.get("sport") == "run" and l.get("kind") == "long")
             for l in locks
         ):
             max_sessions = 1
 
-        # Team sport external => keep only that one training (capacity=1)
-        if any(
-            (str(l.get("sport_raw") or "").lower() in _TEAM_SPORTS) and l.get("source") == "external_events"
-            for l in locks
-        ):
+        # Only EXTERNAL intensity == hard forces max_sessions=1 (if user allowed 2)
+        # Note: if base_max is already 1, this changes nothing.
+        if any((l.get("kind") == "external" and (l.get("intensity") == "hard")) for l in locks):
             max_sessions = 1
 
         # Hard guard (backward compat)
@@ -545,9 +642,6 @@ def _build_day_constraints_for_week(
 
     return out
 
-# -------------------------
-# Context builder
-# -------------------------
 
 def build_daily_context_from_db(
     user_id: int,
@@ -602,6 +696,10 @@ def build_daily_context_from_db(
         (prefs_ai.get("main_sport") if isinstance(prefs_ai, dict) else None),
         "| avoid_two_a_day=",
         bool(pref_obj.get("avoid_two_a_day")),
+        "| max_sessions_per_day=",
+        pref_obj.get("max_sessions_per_day"),
+        "| hard_locks=",
+        (len(pref_obj.get("hard_locks") or []) if isinstance(pref_obj.get("hard_locks"), list) else 0),
         "| has_weekly_template=",
         isinstance((prefs_ai.get("weekly_template") if isinstance(prefs_ai, dict) else None), dict),
     )
@@ -656,11 +754,13 @@ def build_daily_context_from_db(
         "planned_minutes": week_row.get("planned_minutes") if week_row else None,
     }
 
-    # 4) external occurrences (normalized)
+    # 4) external occurrences (normalized) + prefs hard_locks -> occurrences
     external_block: Optional[Dict[str, Any]] = None
     external_occurrences_norm: List[Dict[str, Any]] = []
+    prefs_hard_occ: List[Dict[str, Any]] = []
 
     if week_meta.get("week_start") and week_meta.get("week_end"):
+        # A) DB external events
         try:
             _dprint("external_events: querying window", week_meta["week_start"], "->", week_meta["week_end"])
             ext_window = service_list_external_events_window(
@@ -672,9 +772,8 @@ def build_daily_context_from_db(
             )
             external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
             _dprint("external_events: raw_success=", ext_window.get("success"), "| events_in=", len(ext_window.get("events") or []))
-            _dprint("external_events: normalized_occurrences=", len(external_occurrences_norm))
+            _dprint("external_events: normalized_occurrences(DB)=", len(external_occurrences_norm))
 
-            # kept for debug/transparency
             external_block = {
                 "schema_version": 1,
                 "occurrences": [
@@ -688,6 +787,8 @@ def build_daily_context_from_db(
                         "priority": e.get("priority"),
                         "start_time_local": e.get("start_time_local"),
                         "notes": e.get("notes"),
+                        "source": e.get("source"),
+                        "intensity": e.get("intensity"),
                     }
                     for e in external_occurrences_norm
                 ],
@@ -697,6 +798,23 @@ def build_daily_context_from_db(
             _dprint("external_events: ERROR", repr(e))
             external_block = None
             external_occurrences_norm = []
+
+        # B) prefs hard locks -> occurrences
+        try:
+            prefs_hard_occ = _normalize_hard_locks_external_occurrences_from_prefs(
+                prefs_ai if isinstance(prefs_ai, dict) else {},
+                str(week_meta["week_start"]),
+                str(week_meta["week_end"]),
+            )
+            _dprint("prefs hard_locks: occurrences=", len(prefs_hard_occ))
+        except Exception as e:
+            _dprint("prefs hard_locks: ERROR", repr(e))
+            prefs_hard_occ = []
+
+        # C) merge
+        if prefs_hard_occ:
+            external_occurrences_norm = (external_occurrences_norm or []) + prefs_hard_occ
+
     else:
         _dprint("external_events: SKIP (missing week_start/week_end)")
 
@@ -739,7 +857,7 @@ def build_daily_context_from_db(
         "zones": zones,
         "thresholds": thresholds,
         "weekly_template": weekly_template,
-        "day_constraints": day_constraints,  # strict skeleton
+        "day_constraints": day_constraints,
     }
     if external_block is not None:
         context_payload["external_events"] = external_block
@@ -753,8 +871,10 @@ def build_daily_context_from_db(
         week_meta.get("week_end"),
         "| day_constraints=",
         len(day_constraints),
-        "| external_occurrences=",
+        "| external_occurrences_total=",
         len(external_occurrences_norm),
+        "| prefs_hard_occ=",
+        len(prefs_hard_occ),
     )
 
     return {

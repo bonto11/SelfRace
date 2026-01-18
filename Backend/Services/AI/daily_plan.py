@@ -34,13 +34,22 @@ from Services.users import require_jwt
 
 
 # -----------------------------------------------------------------------------
-# DEBUG (forced ON) -> "cebuf=1"
+# DEBUG (env-controlled)
 # -----------------------------------------------------------------------------
-_DEBUG_ENABLED = True
+# zapnes:
+#   DAILY_DEBUG=1
+# vypnes:
+#   DAILY_DEBUG=0
+_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG", "0") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _dprint(*parts: Any) -> None:
-    if not _DEBUG_ENABLED and os.getenv("DAILY_DEBUG", "0") not in ("1", "true", "True"):
+    if not _DEBUG_ENABLED:
         return
     try:
         msg = " ".join(str(p) for p in parts)
@@ -139,6 +148,8 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
                 "strength_exercises": strength_exercises,
                 "cooldown": {"minutes": 15, "notes": "Mobilita + uvoľnenie (15 min)."},
             }
+
+            # (optional redundancy, but keep for FE compatibility if you already rely on it)
             s["strength_exercises"] = strength_exercises
 
             s["notes"] = _append_note(
@@ -160,6 +171,22 @@ def _safe_list(x: Any) -> List[Any]:
     return x if isinstance(x, list) else []
 
 
+def _is_external_lock(lock: Dict[str, Any]) -> bool:
+    # robust: DB occurrences, prefs_hard_lock, future sources...
+    if not isinstance(lock, dict):
+        return False
+    src = str(lock.get("source") or "").strip().lower()
+    if src in {"external_events", "prefs_hard_lock"}:
+        return True
+    # heuristic: external locks carry sport_raw or session_sport
+    if lock.get("sport_raw") is not None or lock.get("session_sport") is not None:
+        return True
+    # kind marker
+    if str(lock.get("kind") or "").strip().lower() == "external":
+        return True
+    return False
+
+
 def _make_lock_session(
     lock: Dict[str, Any],
     date_str: str,
@@ -169,7 +196,9 @@ def _make_lock_session(
     src = str(lock.get("source") or "")
     kind = lock.get("kind")
 
-    if src == "external_events":
+    is_external = _is_external_lock(lock)
+
+    if is_external:
         sport_out = str(lock.get("session_sport") or "other")
         if sport_out not in _ALLOWED_SPORT_ENUM:
             sport_out = "other"
@@ -181,7 +210,7 @@ def _make_lock_session(
 
     title = lock.get("title")
     if not isinstance(title, str) or not title.strip():
-        if src == "external_events":
+        if is_external:
             title = "Externá aktivita"
         else:
             if real_sport == "strength":
@@ -204,7 +233,7 @@ def _make_lock_session(
         "sport": sport_out,
         "title": title,
         "duration_min": int(dur),
-        "intensity": lock.get("intensity"),
+        "intensity": lock.get("intensity"),  # may be None
         "session_type": lock.get("session_type"),
         "zone_text": lock.get("zone_text"),
         "notes": lock.get("notes"),
@@ -222,7 +251,7 @@ def _make_lock_session(
         sess["session_type"] = sess.get("session_type") or "coach_override"
         sess["notes"] = _append_note(sess.get("notes"), "Fixný tréning z weekly template (nepresúva sa).")
 
-    if src == "external_events":
+    if is_external:
         sess["payload"]["external_event"] = {
             "date": date_str,
             "weekday": lock.get("weekday") or dc_weekday,
@@ -231,6 +260,8 @@ def _make_lock_session(
             "duration_min": int(dur),
             "start_time_local": lock.get("start_time_local"),
             "priority": lock.get("priority"),
+            # keep optional intensity if builder provides it later
+            "intensity": lock.get("intensity"),
         }
         sess["session_type"] = sess.get("session_type") or "external_event"
         sess["notes"] = _append_note(sess.get("notes"), "Externá udalosť (nepresúva sa).")
@@ -270,9 +301,10 @@ def _materialize_full_week_plan_from_constraints(
       - sessions = lock_sessions + ai_free_sessions
       - session_index set deterministically
 
-    IMPORTANT:
-      open_slots is a CAP (max), not a MUST-fill requirement.
-      i.e. AI may return 0..open_slots free sessions.
+    IMPORTANT (NEW CONTRACT):
+      - open_slots is how many FREE sessions MUST be present for that date.
+      - generate_daily_week_json already validates sessions.length == open_slots.
+      - Here we still keep defensive trimming + warnings (never crash).
     """
     warnings: List[str] = []
 
@@ -326,10 +358,21 @@ def _materialize_full_week_plan_from_constraints(
                 warnings.append(f"{ds}: locks exceed max_sessions (server kept locks only).")
 
         free_sessions = free_by_date.get(ds, [])
-        # CAP only: if AI returned more than allowed, trim.
+
+        # defensive: if missing day in AI output (should not happen due to validator)
+        if ds not in free_by_date:
+            if open_slots > 0:
+                warnings.append(f"{ds}: missing free sessions in ai_free_plan (expected open_slots={open_slots}).")
+            free_sessions = []
+
+        # defensive: trim if model over-produced (should not happen due to validator)
         if len(free_sessions) > open_slots:
             warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} > open_slots={open_slots} (trimmed).")
             free_sessions = free_sessions[:open_slots]
+
+        # defensive: warn if model under-produced (should not happen due to validator)
+        if len(free_sessions) != open_slots:
+            warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (kept).")
 
         # enforce payload hygiene (free sessions must not carry lock payloads)
         cleaned_free: List[Dict[str, Any]] = []
@@ -350,7 +393,7 @@ def _materialize_full_week_plan_from_constraints(
 
         merged = lock_sessions + cleaned_free
 
-        # enforce max_sessions safety (should not be needed, but keep it)
+        # enforce max_sessions safety
         if isinstance(max_sessions, int) and max_sessions >= 0 and len(merged) > max_sessions:
             warnings.append(f"{ds}: merged_sessions={len(merged)} > max_sessions={max_sessions} (trimmed).")
             merged = merged[:max_sessions]
@@ -378,6 +421,7 @@ def _materialize_full_week_plan_from_constraints(
 
     return daily_out, warnings
 
+
 # -----------------------------------------------------------------------------
 # Public services
 # -----------------------------------------------------------------------------
@@ -396,7 +440,7 @@ def service_generate_daily_week(
     jwt = user_jwt if service else require_jwt(user_jwt)
 
     # allow forcing debug on Railway without FE
-    if os.getenv("DAILY_DEBUG", "0") in ("1", "true", "True"):
+    if str(os.getenv("DAILY_DEBUG", "0") or "").strip().lower() in {"1", "true", "yes", "on"}:
         debug = True
 
     if week_index <= 0:
@@ -405,7 +449,22 @@ def service_generate_daily_week(
     daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
     _dprint("=== service_generate_daily_week start ===")
-    _dprint("user_id=", user_id, "| week_index=", week_index, "| plan_id_in=", plan_id, "| overwrite=", overwrite, "| model=", daily_model, "| debug=", debug, "| service=", service)
+    _dprint(
+        "user_id=",
+        user_id,
+        "| week_index=",
+        week_index,
+        "| plan_id_in=",
+        plan_id,
+        "| overwrite=",
+        overwrite,
+        "| model=",
+        daily_model,
+        "| debug=",
+        debug,
+        "| service=",
+        service,
+    )
 
     if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
         used = get_user_monthly_usage_tokens(user_id)
@@ -464,8 +523,21 @@ def service_generate_daily_week(
     week_start = str(week_meta.get("week_start") or ai_free_plan.get("week_start") or "") or None
     week_end = str(week_meta.get("week_end") or ai_free_plan.get("week_end") or "") or None
 
-    _dprint("ai_free_plan meta:", "model=", ai_free_plan.get("model"), "| generated_at=", ai_free_plan.get("generated_at"), "| week_start=", week_start, "| week_end=", week_end)
-    _dprint("ai_free_plan days=", (len(ai_free_plan.get("days") or []) if isinstance(ai_free_plan.get("days"), list) else "na"))
+    _dprint(
+        "ai_free_plan meta:",
+        "model=",
+        ai_free_plan.get("model"),
+        "| generated_at=",
+        ai_free_plan.get("generated_at"),
+        "| week_start=",
+        week_start,
+        "| week_end=",
+        week_end,
+    )
+    _dprint(
+        "ai_free_plan days=",
+        (len(ai_free_plan.get("days") or []) if isinstance(ai_free_plan.get("days"), list) else "na"),
+    )
 
     # 2b) Materialize FULL plan from day_constraints (LOCKS + AI FREE)
     daily_plan, materialize_warnings = _materialize_full_week_plan_from_constraints(
@@ -477,7 +549,13 @@ def service_generate_daily_week(
         week_end=week_end,
     )
 
-    _dprint("materialize:", "days=", (len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else "na"), "| warnings=", len(materialize_warnings))
+    _dprint(
+        "materialize:",
+        "days=",
+        (len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else "na"),
+        "| warnings=",
+        len(materialize_warnings),
+    )
 
     # 3) normalize strength sessions (kvalita šablóny) – bez presúvania dní
     try:

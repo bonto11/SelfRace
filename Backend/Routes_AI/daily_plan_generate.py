@@ -17,17 +17,24 @@ from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
 
 
 # -----------------------------------------------------------------------------
-# DEBUG (forced ON)  -> "cebuf=1"
+# DEBUG (env-controlled)
 # -----------------------------------------------------------------------------
-# 1) natvrdo zapnuté
-# 2) plus env override:
-#    DAILY_DEBUG=1  (extra printy)
-#    DAILY_DEBUG_RAW=1 (uloží prompt + raw odpoveď do trace)
-_DEBUG_ENABLED = True
+# zapneš:
+#   DAILY_GEN_DEBUG=1
+# alebo (backward compat):
+#   DAILY_DEBUG=1
+# raw trace:
+#   DAILY_DEBUG_RAW=1
+_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _dprint(*parts: Any) -> None:
-    if not _DEBUG_ENABLED and os.getenv("DAILY_DEBUG", "0") not in ("1", "true", "True"):
+    if not _DEBUG_ENABLED:
         return
     try:
         msg = " ".join(str(p) for p in parts)
@@ -129,8 +136,8 @@ def _get_constraints_order_and_open_slots(context_payload: Dict[str, Any]) -> Tu
 
     IMPORTANT:
       day_constraints already contains open_slots computed by builder.
-      Using max_sessions - len(locks) is WRONG if locks are server-injected later.
-      So: prefer dc.open_slots, fallback to compute only if missing.
+      Using max_sessions - len(locks) is WRONG if locks change later.
+      So: prefer dc.open_slots, fallback compute only if missing.
     """
     dcs = context_payload.get("day_constraints") or []
     if not isinstance(dcs, list) or not dcs:
@@ -195,17 +202,27 @@ def _validate_free_plan_against_constraints(
     - It must not output lock payloads (fixed_slot/external_event) in free sessions.
     - It must output DAYS exactly matching day_constraints:
         same count, same dates, same order.
+    - If day_constraints missing: must follow fallback contract (days==[] + warnings contains missing_day_constraints)
     """
     errors: List[str] = []
 
     expected_dates_order, open_slots_by_date = _get_constraints_order_and_open_slots(context_payload)
-    if not expected_dates_order:
-        return True, errors
+    has_constraints = bool(expected_dates_order)
 
     days = parsed.get("days")
     if not isinstance(days, list):
         return False, ["parsed.days is not a list"]
 
+    # Fallback mode contract (no skeleton => do NOT invent plan)
+    if not has_constraints:
+        if len(days) != 0:
+            errors.append("missing day_constraints but parsed.days is not empty")
+        warnings = parsed.get("warnings") or []
+        if not (isinstance(warnings, list) and any(str(w) == "missing_day_constraints" for w in warnings)):
+            errors.append("missing day_constraints but parsed.warnings does not contain 'missing_day_constraints'")
+        return (len(errors) == 0), errors
+
+    # Strict day list: exact order, exact count
     out_dates_order: List[str] = []
     seen: set = set()
 
@@ -228,6 +245,7 @@ def _validate_free_plan_against_constraints(
             f"day order mismatch. expected={expected_dates_order[:7]}..., got={out_dates_order[:7]}..."
         )
 
+    # date -> day map
     by_date: Dict[str, Dict[str, Any]] = {}
     for d in days:
         if isinstance(d, dict):
@@ -235,6 +253,7 @@ def _validate_free_plan_against_constraints(
             if ds:
                 by_date[ds] = d
 
+    # Strict sessions count per open_slots + payload hygiene
     for ds in expected_dates_order:
         open_slots = int(open_slots_by_date.get(ds, 0))
         day = by_date.get(ds)
@@ -249,8 +268,8 @@ def _validate_free_plan_against_constraints(
             errors.append(f"{ds}: sessions is not a list")
             continue
 
-        if len(sessions) > open_slots:
-            errors.append(f"{ds}: sessions_count={len(sessions)} > open_slots={open_slots}")
+        if len(sessions) != open_slots:
+            errors.append(f"{ds}: sessions_count={len(sessions)} != open_slots={open_slots}")
 
         for s in sessions:
             if not isinstance(s, dict):
@@ -278,13 +297,13 @@ def generate_daily_week_json(
       - calls the LLM,
       - parses JSON,
       - adds minimal meta,
-      - validates the NEW "free sessions only" contract vs day_constraints (if provided).
+      - validates the NEW "free sessions only" contract vs day_constraints.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
     # Allow forcing debug on Railway without touching FE
-    if os.getenv("DAILY_DEBUG_RAW", "0") in ("1", "true", "True"):
+    if str(os.getenv("DAILY_DEBUG_RAW", "0") or "").strip().lower() in {"1", "true", "yes", "on"}:
         debug_raw = True
 
     raw_settings = context_payload.get("user_settings") or {}
@@ -368,7 +387,6 @@ def generate_daily_week_json(
                     "duration_ms": dur_ms,
                 }
 
-                # always print compact preview for Railway logs
                 preview = raw[:240].replace("\n", " ")
                 _dprint("raw_preview:", preview + (" …" if len(raw) > 240 else ""))
 
@@ -457,6 +475,7 @@ def generate_daily_week_json(
         "week_end": week_end,
         "days": [],
         "error": last_err,
+        "warnings": ["daily_generation_failed"],
     }
 
     if debug_raw:

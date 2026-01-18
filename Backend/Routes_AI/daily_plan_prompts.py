@@ -2,14 +2,20 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 # -----------------------------------------------------------------------------
-# DEBUG (forced ON)
+# DEBUG (env controlled)
 # -----------------------------------------------------------------------------
-# Chcel si "debug rovno na 1" -> tu je natvrdo zapnutý.
-# (Keď ťa to začne štvať, prepni na False alebo to daj za env var.)
-_DEBUG_ENABLED = True
+# Default ON (kvôli vašim testom), vypneš na Railway:
+#   DAILY_PROMPTS_DEBUG=0
+_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _dprint(*parts: Any) -> None:
@@ -169,7 +175,6 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             bool(ctx2.get("external_events")),
         )
         if isinstance(dc, list) and dc:
-            # krátky prehľad: date open_slots/max/locks
             parts = []
             for d in dc:
                 if not isinstance(d, dict):
@@ -293,9 +298,11 @@ def _build_prompts_for_daily(
         "  DO NOT output locked sessions.\n"
         "  The server will inject locks and enforce max_sessions afterwards.\n"
         "\n"
-        "  Output rule per day:\n"
+        "  Output rule per day (STRICT):\n"
+        "    - sessions.length MUST equal open_slots for that date.\n"
         "    - open_slots == 0 => sessions MUST be []\n"
-        "    - open_slots == 2 => sessions MUST have at most 2 items\n"
+        "    - open_slots == 1 => sessions MUST have exactly 1 item\n"
+        "    - open_slots == 2 => sessions MUST have exactly 2 items\n"
         "\n"
         "  STRICT DAYS RULE:\n"
         "    - Output `days` MUST match day_constraints exactly:\n"
@@ -306,17 +313,18 @@ def _build_prompts_for_daily(
     preference_semantics = (
         "- PREFERENCES SEMANTICS:\n"
         f"  - Preferred long run weekday(s): {long_run_days_str}.\n"
-        "  - Treat long_run_days as a strong preference when choosing WHICH DAY gets a long run,\n"
-        "    but only if that date has open_slots > 0.\n"
-        "  - If long run cannot be placed on preferred day(s) due to open_slots=0 or recovery logic,\n"
-        "    place it elsewhere and explain it calmly in the long run session notes.\n"
+        "  - IMPORTANT: If a long run is already locked in day_constraints.locks (weekly_template),\n"
+        "    do NOT schedule another long run. Treat it as already handled by the server.\n"
+        "  - Only schedule a long run as a FREE session if it is NOT locked and the chosen date has open_slots > 0.\n"
+        "  - If long run preference cannot be followed (e.g. open_slots=0 on preferred day),\n"
+        "    place the long run elsewhere (if needed) and explain why in notes.\n"
         "\n"
     )
 
     explanation_rule = (
         "- EXPLANATION RULE (MANDATORY):\n"
         "  Every free session MUST include 1–2 concrete sentences in `notes`:\n"
-        "    - why this session type today (spacing / fatigue / prep for upcoming lock), OR\n"
+        "    - why this session type today (spacing / fatigue / prep), OR\n"
         "    - why a preference could not be followed (e.g. preferred day has open_slots=0).\n"
         "  No fluff. Coach tone. Never say 'AI spravila chybu'.\n"
         "\n"
@@ -351,6 +359,7 @@ def _build_prompts_for_daily(
         weekly_volume_line = (
             "- Volume preference: prefs.volume.mode='weekly_hours'. "
             f"Target weekly volume ≈ {volume_value * 60:.0f} min.\n"
+            "  Treat this as an approximate target, not an exact number.\n"
         )
     elif isinstance(weekly_min, (int, float)) or isinstance(weekly_max, (int, float)):
         weekly_volume_line = "- Weekly volume tolerance exists in athlete_state.ai_state.volume_tolerance.\n"
@@ -370,7 +379,7 @@ def _build_prompts_for_daily(
 
     strength_str = f"{strength_target_int}× per week" if strength_target_int else "no explicit target"
     hard_str = (
-        f"max {hard_max} hard sessions / week (including high-intensity external events)"
+        f"max {hard_max} hard sessions / week (including hard-intensity external events)"
         if hard_max
         else "not specified"
     )
@@ -423,7 +432,8 @@ def _build_prompts_for_daily(
         }
       ]
     }
-  ]
+  ],
+  "warnings"?: [string]
 }
 """.strip()
 
@@ -434,16 +444,15 @@ def _build_prompts_for_daily(
     if fixed_slots:
         context_for_ai["fixed_slots_debug"] = fixed_slots
 
+    # IMPORTANT: Do not let the model invent a week without skeleton.
+    fallback_block = ""
     if not has_day_constraints:
         fallback_block = (
             "\nFALLBACK MODE (day_constraints missing):\n"
-            "- Create 7 days from week_start..week_end.\n"
-            "- Place weekly_template HARD slots on their weekdays.\n"
-            "- Fill remaining days reasonably.\n"
+            "- You MUST NOT invent a weekly calendar plan.\n"
+            "- Return days: [] and add warnings: ['missing_day_constraints'].\n"
         )
         _dprint("build_prompts: FALLBACK MODE active (day_constraints missing/empty)")
-    else:
-        fallback_block = ""
 
     user_txt = (
         "Generate FREE sessions for exactly one calendar week based on the context JSON.\n"
@@ -480,13 +489,11 @@ def _build_prompts_for_daily(
         + "- Do NOT invent extreme workloads.\n"
         + avoid_two_a_day_str
         + avoid_back_to_back_hard_str
-        + "- Avoid scheduling a hard run workout on the day immediately after a team sport external event.\n"
+        + "- After a hard-intensity external event day (day_constraints.locks has intensity=='hard'), avoid scheduling a hard run the next day.\n"
     )
 
-    # Debug: prompt sizes (toto je často root-cause keď model začne halucinovať / skracovať)
     _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
     try:
-        # nech aspoň vidíš, či tam fakt ide day_constraints a open_slots
         dc = context_for_ai.get("day_constraints") or []
         _dprint("context_for_ai: day_constraints_count=", (len(dc) if isinstance(dc, list) else "na"))
     except Exception:
