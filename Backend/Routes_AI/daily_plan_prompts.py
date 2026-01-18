@@ -305,6 +305,9 @@ def _build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     two_a_day_days_str = ", ".join(two_a_day_days) if two_a_day_days else "none"
 
+    # -----------------------------
+    # CRITICAL: capacity semantics
+    # -----------------------------
     skeleton_rules = (
         "- WEEK SKELETON RULES (CRITICAL):\n"
         "  You are given `day_constraints` for each DATE in the week.\n"
@@ -314,11 +317,14 @@ def _build_prompts_for_daily(
         "  DO NOT output locked sessions.\n"
         "  The server will inject locks and enforce max_sessions afterwards.\n"
         "\n"
-        "  Output rule per day (STRICT):\n"
+        "  CAPACITY rule per day (STRICT):\n"
         "    - sessions.length MUST be <= open_slots for that date.\n"
         "    - open_slots == 0 => sessions MUST be []\n"
-        "    - open_slots == 1 => sessions MAY have 0 or 1 item\n"
-        "    - open_slots == 2 => sessions MAY have 0..2 items\n"
+        "    - open_slots == 1 => sessions MAY be [] OR [1 session]\n"
+        "    - open_slots == 2 => sessions MAY be [] OR [1 session] OR [2 sessions]\n"
+        "\n"
+        "  REST DAY RULE:\n"
+        "    - If you want a rest day, output sessions: [] (do NOT create a fake 'rest' session).\n"
         "\n"
         "  STRICT DAYS RULE:\n"
         "    - Output `days` MUST match day_constraints exactly:\n"
@@ -354,6 +360,9 @@ def _build_prompts_for_daily(
         "\n"
     )
 
+    # -----------------------------
+    # Volume guidance (soft)
+    # -----------------------------
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode")
     volume_value = volume_prefs.get("value")
@@ -369,13 +378,13 @@ def _build_prompts_for_daily(
     if isinstance(planned_minutes, (int, float)):
         weekly_volume_line = (
             f"- Weekly target from WEEK META: planned_minutes ≈ {planned_minutes} min.\n"
-            "  Free sessions total duration should roughly fit the week intent.\n"
+            "  This is an intent only. Do NOT force-fill every open slot if recovery needs it.\n"
         )
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         weekly_volume_line = (
             "- Volume preference: prefs.volume.mode='weekly_hours'. "
             f"Target weekly volume ≈ {volume_value * 60:.0f} min.\n"
-            "  Treat this as an approximate target, not an exact number.\n"
+            "  Intent only. Do NOT force-fill every open slot if recovery needs it.\n"
         )
     elif isinstance(weekly_min, (int, float)) or isinstance(weekly_max, (int, float)):
         weekly_volume_line = "- Weekly volume tolerance exists in athlete_state.ai_state.volume_tolerance.\n"
@@ -390,9 +399,13 @@ def _build_prompts_for_daily(
 
     two_a_day_rule = (
         "- Two-a-day sessions are allowed ONLY on dates where open_slots==2.\n"
-        "  (That already reflects the athlete's settings.)\n"
+        "  Even then, use two-a-day sparingly; a single quality session is usually better.\n"
+        "  (Open slots already reflect athlete settings; do not invent your own two-a-day days.)\n"
     )
 
+    # -----------------------------
+    # Strength & intensity guidance
+    # -----------------------------
     strength_str = f"{strength_target_int}× per week" if strength_target_int else "no explicit target"
     hard_str = (
         f"max {hard_max} hard sessions / week (including hard-intensity external events)"
