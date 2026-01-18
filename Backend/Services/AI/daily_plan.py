@@ -70,6 +70,32 @@ def _append_note(existing: Any, extra: str) -> str:
     return base.rstrip() + " " + extra
 
 
+def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Make session_index deterministic and clean.
+    Prevents AI from returning weird/duplicate indices that break FE sorting.
+    """
+    if not isinstance(daily_plan, dict):
+        return daily_plan
+    days = daily_plan.get("days")
+    if not isinstance(days, list):
+        return daily_plan
+
+    for day in days:
+        if not isinstance(day, dict):
+            continue
+        sessions = day.get("sessions")
+        if not isinstance(sessions, list):
+            continue
+        # keep only dict sessions for indexing
+        dict_sessions = [s for s in sessions if isinstance(s, dict)]
+        for i, s in enumerate(dict_sessions):
+            s["session_index"] = i
+        day["sessions"] = dict_sessions
+
+    return daily_plan
+
+
 # -----------------------------------------------------------------------------
 # Strength quality normalizer (KEEP)
 # -----------------------------------------------------------------------------
@@ -77,6 +103,10 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
     """
     Zjednotí VŠETKY strength sessions na konzistentnú šablónu (cca 75 min, 2+5+2).
     Konkrétne cviky doplní mapper neskôr (exercise_id, exercise_name).
+
+    IMPORTANT:
+    - Do NOT touch external events (payload.external_event) even if sport=strength.
+      External events are DB truth.
     """
     if not isinstance(daily_plan, dict):
         return daily_plan
@@ -97,6 +127,13 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             if not isinstance(s, dict):
                 continue
             if str(s.get("sport")) != "strength":
+                continue
+
+            # --- CRITICAL: don't normalize external events ---
+            payload = s.get("payload") or {}
+            if isinstance(payload, dict) and isinstance(payload.get("external_event"), dict):
+                continue
+            if str(s.get("session_type") or "").strip().lower() == "external_event":
                 continue
 
             # konzistentný produkt (zatiaľ vždy 75)
@@ -260,6 +297,24 @@ def service_generate_daily_week(
 
     daily_plan = ai_plan
 
+    # --- Safety: do not overwrite DB with empty plan ---
+    days_n = len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else 0
+    if days_n == 0:
+        return {
+            "daily_plan": daily_plan,
+            "plan_id": plan_id_effective,
+            "week_index": week_index,
+            "week_start": week_start,
+            "week_end": week_end,
+            "state_id": (state_row or {}).get("id"),
+            "model": daily_model,
+            "overwrite": overwrite,
+            "inserted_rows": 0,
+            "deleted_rows": 0,
+            "error": {"code": "daily_plan_empty", "message": "AI vrátil prázdny plán pre týždeň."},
+            "warnings": ["daily_plan_empty"],
+        }
+
     # 3) normalize strength sessions (quality template) – no date moving
     try:
         daily_plan = normalize_strength_sessions_quality(daily_plan)
@@ -306,6 +361,9 @@ def service_generate_daily_week(
         user_jwt=jwt,
         service=service,
     )
+
+    # Ensure stable ordering for FE + DB
+    daily_plan = _reindex_sessions_per_day(daily_plan)
 
     # 6) DB write
     deleted_rows = 0
@@ -366,8 +424,7 @@ def service_get_daily_overview(
         horizon_days = 7
 
     meta = db_get_active_plan_meta_for_user(user_id=user_id, user_jwt=jwt) or db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        user_jwt=jwt
+        user_id=user_id, user_jwt=jwt
     )
     plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
 
