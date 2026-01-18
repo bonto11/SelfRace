@@ -4,6 +4,9 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
+import os
+import json
+
 from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
 from Routes_AI.daily_plan_generate import generate_daily_week_json
 from Routes_DB.coach_plan_daily import (
@@ -28,6 +31,45 @@ from Services.AI.daily_plan_builders import (
 )
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
+
+
+# -----------------------------------------------------------------------------
+# DEBUG (forced ON) -> "cebuf=1"
+# -----------------------------------------------------------------------------
+_DEBUG_ENABLED = True
+
+
+def _dprint(*parts: Any) -> None:
+    if not _DEBUG_ENABLED and os.getenv("DAILY_DEBUG", "0") not in ("1", "true", "True"):
+        return
+    try:
+        msg = " ".join(str(p) for p in parts)
+        print(f"[DAILY] {msg}")
+    except Exception:
+        pass
+
+
+def _safe_dict(x: Any) -> Dict[str, Any]:
+    return x if isinstance(x, dict) else {}
+
+
+def _summarize_day_constraints(context_payload: Dict[str, Any]) -> str:
+    dcs = context_payload.get("day_constraints") or []
+    if not isinstance(dcs, list) or not dcs:
+        return "day_constraints:<missing/empty>"
+    parts: List[str] = []
+    for dc in dcs:
+        if not isinstance(dc, dict):
+            continue
+        ds = str(dc.get("date") or "")[:10]
+        if not ds:
+            continue
+        open_slots = dc.get("open_slots")
+        max_s = dc.get("max_sessions")
+        locks = dc.get("locks") or []
+        locks_n = len(locks) if isinstance(locks, list) else "na"
+        parts.append(f"{ds}:{open_slots}/{max_s}/locks={locks_n}")
+    return "day_constraints: " + ", ".join(parts)
 
 
 # -----------------------------------------------------------------------------
@@ -79,18 +121,15 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             s["title"] = s.get("title") or "Silový tréning"
 
             strength_exercises = [
-                # Aktivácia (2)
                 {"slot": "core", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia / kontrola trupu."},
                 {"slot": "lower_posterior", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia zadného reťazca."},
 
-                # Hlavná časť (5)
                 {"slot": "lower_posterior", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
                 {"slot": "lower_quad", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
                 {"slot": "upper_pull", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
                 {"slot": "upper_push", "sets": 3, "reps": "6–10", "rest_s": 90, "notes": "Hlavná časť – doplnok."},
                 {"slot": "core", "sets": 3, "reps": "8–12", "rest_s": 60, "notes": "Hlavná časť – core."},
 
-                # Doplnky (2)
                 {"slot": "upper_pull", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
                 {"slot": "lower_quad", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
             ]
@@ -127,14 +166,6 @@ def _make_lock_session(
     *,
     dc_weekday: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Create a concrete session from a lock.
-    - weekly_template lock -> payload.fixed_slot
-    - external_events lock -> payload.external_event
-      NOTE: external lock provides:
-        - session_sport (enum-safe, e.g. "other")
-        - sport_raw (real sport, e.g. "football")
-    """
     src = str(lock.get("source") or "")
     kind = lock.get("kind")
 
@@ -162,7 +193,6 @@ def _make_lock_session(
 
     dur = lock.get("duration_min")
     if not isinstance(dur, (int, float)) or dur <= 0:
-        # sensible defaults
         if real_sport == "strength":
             dur = 75
         elif real_sport == "run" and kind == "long":
@@ -190,26 +220,20 @@ def _make_lock_session(
             "policy": lock.get("policy") or "hard",
         }
         sess["session_type"] = sess.get("session_type") or "coach_override"
-        sess["notes"] = _append_note(
-            sess.get("notes"),
-            "Fixný tréning z weekly template (nepresúva sa).",
-        )
+        sess["notes"] = _append_note(sess.get("notes"), "Fixný tréning z weekly template (nepresúva sa).")
 
     if src == "external_events":
         sess["payload"]["external_event"] = {
             "date": date_str,
             "weekday": lock.get("weekday") or dc_weekday,
-            "sport": real_sport,  # real sport here (e.g. football)
+            "sport": real_sport,
             "title": lock.get("title") or title,
             "duration_min": int(dur),
             "start_time_local": lock.get("start_time_local"),
             "priority": lock.get("priority"),
         }
         sess["session_type"] = sess.get("session_type") or "external_event"
-        sess["notes"] = _append_note(
-            sess.get("notes"),
-            "Externá udalosť (nepresúva sa).",
-        )
+        sess["notes"] = _append_note(sess.get("notes"), "Externá udalosť (nepresúva sa).")
 
     return sess
 
@@ -242,16 +266,19 @@ def _materialize_full_week_plan_from_constraints(
 ) -> Tuple[Dict[str, Any], List[str]]:
     """
     Build final daily_plan:
-      - always dates from day_constraints (date truth)
+      - dates from day_constraints (date truth)
       - sessions = lock_sessions + ai_free_sessions
       - session_index set deterministically
-    Returns (daily_plan, warnings)
+
+    IMPORTANT:
+      open_slots MUST come from dc.open_slots (source of truth),
+      not recomputed as max_sessions - len(locks) here,
+      otherwise it desyncs with builder and generate validation.
     """
     warnings: List[str] = []
 
     day_constraints = context_payload.get("day_constraints") or []
     if not isinstance(day_constraints, list) or not day_constraints:
-        # legacy fallback: return AI plan as-is
         out = ai_free_plan if isinstance(ai_free_plan, dict) else {}
         out.setdefault("week_index", week_index)
         if week_start:
@@ -287,21 +314,24 @@ def _materialize_full_week_plan_from_constraints(
                 continue
             lock_sessions.append(_make_lock_session(lock, ds, dc_weekday=dc_weekday))
 
-        open_slots = max_sessions - len(lock_sessions)
-        if open_slots < 0:
-            open_slots = 0
-            warnings.append(f"{ds}: locks exceed max_sessions (server kept locks only).")
+        # SOURCE OF TRUTH:
+        if isinstance(dc.get("open_slots"), int):
+            open_slots = int(dc.get("open_slots") or 0)
+            if open_slots < 0:
+                open_slots = 0
+        else:
+            # fallback only if open_slots missing
+            open_slots = max_sessions - len(lock_sessions)
+            if open_slots < 0:
+                open_slots = 0
+                warnings.append(f"{ds}: locks exceed max_sessions (server kept locks only).")
 
         free_sessions = free_by_date.get(ds, [])
         if len(free_sessions) != open_slots:
-            # generate layer should validate this; still safe-guard
-            warnings.append(
-                f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (auto-fixing)."
-            )
+            warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (auto-fixing).")
             if len(free_sessions) > open_slots:
                 free_sessions = free_sessions[:open_slots]
             else:
-                # pad with rest placeholders to keep deterministic shape
                 for _ in range(open_slots - len(free_sessions)):
                     free_sessions.append(
                         {
@@ -317,7 +347,6 @@ def _materialize_full_week_plan_from_constraints(
                         }
                     )
 
-        # enforce payload hygiene (free sessions must not carry lock payloads)
         cleaned_free: List[Dict[str, Any]] = []
         for s in free_sessions:
             if not isinstance(s, dict):
@@ -335,6 +364,11 @@ def _materialize_full_week_plan_from_constraints(
             cleaned_free.append(s)
 
         merged = lock_sessions + cleaned_free
+        # enforce max_sessions safety (should not be needed, but keep it)
+        if isinstance(max_sessions, int) and max_sessions >= 0 and len(merged) > max_sessions:
+            warnings.append(f"{ds}: merged_sessions={len(merged)} > max_sessions={max_sessions} (trimmed).")
+            merged = merged[:max_sessions]
+
         for idx, s in enumerate(merged):
             if isinstance(s, dict):
                 s["session_index"] = idx
@@ -376,13 +410,21 @@ def service_generate_daily_week(
 ) -> Dict[str, Any]:
     jwt = user_jwt if service else require_jwt(user_jwt)
 
+    # allow forcing debug on Railway without FE
+    if os.getenv("DAILY_DEBUG", "0") in ("1", "true", "True"):
+        debug = True
+
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
     daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
+    _dprint("=== service_generate_daily_week start ===")
+    _dprint("user_id=", user_id, "| week_index=", week_index, "| plan_id_in=", plan_id, "| overwrite=", overwrite, "| model=", daily_model, "| debug=", debug, "| service=", service)
+
     if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
         used = get_user_monthly_usage_tokens(user_id)
+        _dprint("quota exceeded:", used)
         return {
             "daily_plan": None,
             "plan_id": plan_id,
@@ -420,6 +462,10 @@ def service_generate_daily_week(
     state_row: Optional[Dict[str, Any]] = ctx["state_row"]
     prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
 
+    _dprint("plan_id_effective=", plan_id_effective)
+    _dprint("week_meta=", json.dumps(week_meta, ensure_ascii=False))
+    _dprint(_summarize_day_constraints(context_payload))
+
     # 2) LLM -> AI FREE sessions plan (NEW CONTRACT)
     ai_free_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
@@ -433,6 +479,9 @@ def service_generate_daily_week(
     week_start = str(week_meta.get("week_start") or ai_free_plan.get("week_start") or "") or None
     week_end = str(week_meta.get("week_end") or ai_free_plan.get("week_end") or "") or None
 
+    _dprint("ai_free_plan meta:", "model=", ai_free_plan.get("model"), "| generated_at=", ai_free_plan.get("generated_at"), "| week_start=", week_start, "| week_end=", week_end)
+    _dprint("ai_free_plan days=", (len(ai_free_plan.get("days") or []) if isinstance(ai_free_plan.get("days"), list) else "na"))
+
     # 2b) Materialize FULL plan from day_constraints (LOCKS + AI FREE)
     daily_plan, materialize_warnings = _materialize_full_week_plan_from_constraints(
         context_payload=context_payload,
@@ -443,14 +492,17 @@ def service_generate_daily_week(
         week_end=week_end,
     )
 
+    _dprint("materialize:", "days=", (len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else "na"), "| warnings=", len(materialize_warnings))
+
     # 3) normalize strength sessions (kvalita šablóny) – bez presúvania dní
     try:
         daily_plan = normalize_strength_sessions_quality(daily_plan)
     except Exception as e:  # noqa: BLE001
-        print("[DAILY] normalize_strength_sessions_quality error:", repr(e))
+        _dprint("normalize_strength_sessions_quality error:", repr(e))
 
     # 4) billing
     usage = extract_usage_from_trace(trace)
+    _dprint("usage extracted:", json.dumps(usage or {}, ensure_ascii=False))
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
         if daily_model:
@@ -466,7 +518,7 @@ def service_generate_daily_week(
                 meta={"week_index": week_index, "plan_id": plan_id_out},
             )
         except Exception as e:  # noqa: BLE001
-            print("[AI_BILLING] daily_plan billing error:", repr(e))
+            _dprint("[AI_BILLING] daily_plan billing error:", repr(e))
 
     # 5) strength mapper – doplní konkrétne cviky
     strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
@@ -475,6 +527,9 @@ def service_generate_daily_week(
         available_equipment = []
 
     equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
+
+    _dprint("strength_mapper:", "equipment_mode=", equipment_mode, "| available_equipment=", available_equipment)
+
     daily_plan = enrich_daily_plan_with_strength_exercises(
         user_id=user_id,
         daily_plan=daily_plan,
@@ -497,13 +552,17 @@ def service_generate_daily_week(
             user_jwt=jwt,
             service=service,
         )
+    _dprint("db_clear:", "deleted_rows=", deleted_rows)
 
     rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
         user_id=user_id,
         plan_id=plan_id_out,
         daily_plan=daily_plan,
     )
+    _dprint("rows_to_insert=", len(rows_to_insert))
+
     inserted_rows = db_insert_daily_rows(rows_to_insert, user_jwt=jwt, service=service) if rows_to_insert else 0
+    _dprint("db_insert:", "inserted_rows=", inserted_rows)
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
@@ -525,10 +584,11 @@ def service_generate_daily_week(
         resp["context_payload"] = context_payload
         resp["ai_usage"] = usage
         resp["billing"] = billing_result
-        resp["ai_free_plan"] = ai_free_plan  # debug: čo AI vrátila pred materializáciou
+        resp["ai_free_plan"] = ai_free_plan
         if materialize_warnings:
             resp["materialize_warnings"] = materialize_warnings
 
+    _dprint("=== service_generate_daily_week done ===")
     return resp
 
 
