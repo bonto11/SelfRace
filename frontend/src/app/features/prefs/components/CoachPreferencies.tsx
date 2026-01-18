@@ -74,6 +74,81 @@ function isoTodayPlus(days: number): string {
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
 const MIN_PLAN_START = () => isoTodayPlus(1);
 
+/**
+ * DEV: One-click preset payload to DB (coach.prefs).
+ * - no runtime-only fields (zones/thresholds) here
+ * - keep exactly what BE expects in new schema
+ */
+const PRESET_PREFS_JSON: any = {
+  weeks: 11,
+  start_date: "2026-01-19",
+  end_date: "2026-04-05",
+
+  main_sport: "run",
+  add_on_sports: [],
+
+  goal_kind: "improve_overall",
+
+  volume: {
+    mode: "weekly_hours",
+    value: 8,
+  },
+
+  targets: {
+    run: {
+      races: [
+        {
+          id: "87ff488b-296c-419c-9822-424496218c13",
+          date: "2026-08-29",
+          name: "SPARTAN RACE ULTRA",
+          priority: "A",
+          race_type: "ocr",
+          race_goal: "ultra",
+          terrain: "mountain",
+          target_time: "10:00:00",
+          custom_distance_km: 50,
+          elevation_gain_m: 3000,
+          elevation_profile: "high",
+        },
+        {
+          id: "63d8c69c-f87b-4f1b-b567-956591f8e169",
+          date: "2026-04-05",
+          name: "CSOB Bratislava Marathon relay 10k",
+          priority: "B",
+          race_type: "road",
+          race_goal: "10k",
+          terrain: "flat",
+          target_time: "00:45:00",
+          custom_distance_km: null,
+          elevation_gain_m: null,
+          elevation_profile: null,
+        },
+      ],
+    },
+  },
+
+  preferences: {
+    use_zones: true,
+    days_off: [],
+    two_a_day: {
+      enabled: true,
+      max_days_per_week: 2,
+    },
+    long_run_days: ["Sat"],
+    avoid_back_to_back_hard: false,
+  },
+
+  strength_settings: {
+    location: "gym",
+    equipment_mode: "full_gym",
+    sessions_per_week: 2,
+    available: [],
+  },
+
+  polarized_model: true,
+  pyramidal_model: false,
+};
+
 export default function CoachPreferencies() {
   const { userId } = useUserId();
   const dirtyRef = useRef(false);
@@ -280,7 +355,7 @@ export default function CoachPreferencies() {
         secondary_mix: (local.secondary_mix ?? [])
           .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
-        weekly_template : weeklyTemplate
+        weekly_template: weeklyTemplate,
       };
 
       // vyčisti targets – ulož iba zmysluplné (vrátane swim)
@@ -338,6 +413,50 @@ export default function CoachPreferencies() {
       toast.success("Preferences saved");
       dirtyRef.current = false;
     } catch (e: any) {
+      toast.error(String(e?.message ?? e));
+    }
+  };
+
+  /**
+   * DEV button: save predefined JSON directly to DB coach.prefs
+   * - does NOT touch zones/thresholds tables
+   * - immediately refreshes local state from DB so you see what BE stored
+   */
+  const onSavePresetToDB = async () => {
+    if (!userId) return;
+    try {
+      await saveCoachPrefs(userId, PRESET_PREFS_JSON);
+
+      // refresh from DB so local matches exactly what server persists
+      const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
+        refreshCoachPrefsFromDB(userId),
+        apiFetchUserZonesLatest(userId),
+        apiFetchUserThresholdsLatest(userId),
+      ]);
+
+      const pAny = (fresh || {}) as any;
+      const { external_activities: _ext, ...p } = pAny;
+
+      const zones = (zonesRaw ?? null) as any;
+      const thrRows = (thrRowsRaw ?? []) as any[];
+
+      const draftThr =
+        Array.isArray(thrRows) && thrRows.length > 0
+          ? { ...thrRows[0] }
+          : undefined;
+
+      const next: CoachPrefsExtended = {
+        ...p,
+        zones,
+        thresholds: draftThr ?? undefined,
+        thresholds_latest: thrRows,
+      };
+
+      setLocal(next);
+      dirtyRef.current = false;
+      toast.success("Preset prefs saved to DB");
+    } catch (e: any) {
+      console.error("[CoachPrefs]preset save error", e);
       toast.error(String(e?.message ?? e));
     }
   };
@@ -584,12 +703,17 @@ export default function CoachPreferencies() {
         </>
       )}
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex flex-wrap gap-2 pt-1">
         <Button onClick={onSave} variant="success">
           Save
         </Button>
         <Button onClick={onRefresh} variant="secondary">
           Refresh
+        </Button>
+
+        {/* DEV: one-click preset */}
+        <Button onClick={onSavePresetToDB} variant="warning">
+          Save preset JSON to DB
         </Button>
       </div>
     </div>
