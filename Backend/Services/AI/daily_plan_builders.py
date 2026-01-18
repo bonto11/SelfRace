@@ -410,11 +410,34 @@ def _build_day_constraints_for_week(
         return []
 
     pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
+
+    # Backward compat:
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
-    base_max = 1 if avoid_two_a_day else 2
+
+    # NEW: default is 1 session/day; allow 2 only if explicitly enabled
+    allow_two_a_day = bool(pref_obj.get("allow_two_a_day"))
+    max_sessions_pref = pref_obj.get("max_sessions_per_day")
+
+    base_max = 1
+    if not avoid_two_a_day:
+        if isinstance(max_sessions_pref, (int, float)) and int(max_sessions_pref) >= 2:
+            base_max = 2
+        elif allow_two_a_day:
+            base_max = 2
 
     hard_fixed = _derive_hard_fixed_slots_from_weekly_template(weekly_template)
-    _dprint("weekly_template hard_fixed:", len(hard_fixed), "| avoid_two_a_day:", avoid_two_a_day, "| base_max:", base_max)
+    _dprint(
+        "weekly_template hard_fixed:",
+        len(hard_fixed),
+        "| avoid_two_a_day:",
+        avoid_two_a_day,
+        "| allow_two_a_day:",
+        allow_two_a_day,
+        "| max_sessions_per_day:",
+        max_sessions_pref,
+        "| base_max:",
+        base_max,
+    )
 
     fixed_by_wd: Dict[str, List[Dict[str, Any]]] = {}
     for fs in hard_fixed:
@@ -473,22 +496,24 @@ def _build_day_constraints_for_week(
             locks.append(lock)
             lock_sessions.append(_build_lock_session_from_external_event(lock))
 
-        max_sessions = base_max
+        # default capacity for the day
+        max_sessions = int(base_max)
 
-        # long run fixed day => only this training
+        # If a long run is locked -> keep only that one training (capacity=1)
         if any(
             (l.get("source") == "weekly_template" and l.get("sport") == "run" and l.get("kind") == "long")
             for l in locks
         ):
             max_sessions = 1
 
-        # team sport external => only this training
+        # Team sport external => keep only that one training (capacity=1)
         if any(
             (str(l.get("sport_raw") or "").lower() in _TEAM_SPORTS) and l.get("source") == "external_events"
             for l in locks
         ):
             max_sessions = 1
 
+        # Hard guard (backward compat)
         if avoid_two_a_day:
             max_sessions = 1
 
@@ -512,7 +537,6 @@ def _build_day_constraints_for_week(
         cur += timedelta(days=1)
 
     if _DEBUG_ENABLED:
-        # concise week summary: date -> (max, locks, open)
         summary = ", ".join(
             f"{d['date']}:{int(d['max_sessions'])}/{len(d.get('locks') or [])}/{int(d['open_slots'])}"
             for d in out
@@ -520,7 +544,6 @@ def _build_day_constraints_for_week(
         _dprint("day_constraints summary (date:max/locks/open):", summary)
 
     return out
-
 
 # -------------------------
 # Context builder

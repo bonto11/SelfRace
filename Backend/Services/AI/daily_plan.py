@@ -271,9 +271,8 @@ def _materialize_full_week_plan_from_constraints(
       - session_index set deterministically
 
     IMPORTANT:
-      open_slots MUST come from dc.open_slots (source of truth),
-      not recomputed as max_sessions - len(locks) here,
-      otherwise it desyncs with builder and generate validation.
+      open_slots is a CAP (max), not a MUST-fill requirement.
+      i.e. AI may return 0..open_slots free sessions.
     """
     warnings: List[str] = []
 
@@ -314,7 +313,7 @@ def _materialize_full_week_plan_from_constraints(
                 continue
             lock_sessions.append(_make_lock_session(lock, ds, dc_weekday=dc_weekday))
 
-        # SOURCE OF TRUTH:
+        # SOURCE OF TRUTH: open_slots from builder
         if isinstance(dc.get("open_slots"), int):
             open_slots = int(dc.get("open_slots") or 0)
             if open_slots < 0:
@@ -327,26 +326,12 @@ def _materialize_full_week_plan_from_constraints(
                 warnings.append(f"{ds}: locks exceed max_sessions (server kept locks only).")
 
         free_sessions = free_by_date.get(ds, [])
-        if len(free_sessions) != open_slots:
-            warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} != open_slots={open_slots} (auto-fixing).")
-            if len(free_sessions) > open_slots:
-                free_sessions = free_sessions[:open_slots]
-            else:
-                for _ in range(open_slots - len(free_sessions)):
-                    free_sessions.append(
-                        {
-                            "sport": "other",
-                            "title": "Voľno",
-                            "duration_min": 0,
-                            "intensity": None,
-                            "session_type": "rest_day",
-                            "zone_text": None,
-                            "notes": "Doplnené systémom, lebo AI nevrátila dostatok sessionov pre otvorené sloty.",
-                            "structure": {},
-                            "payload": {"system_fallback": True},
-                        }
-                    )
+        # CAP only: if AI returned more than allowed, trim.
+        if len(free_sessions) > open_slots:
+            warnings.append(f"{ds}: free_sessions_count={len(free_sessions)} > open_slots={open_slots} (trimmed).")
+            free_sessions = free_sessions[:open_slots]
 
+        # enforce payload hygiene (free sessions must not carry lock payloads)
         cleaned_free: List[Dict[str, Any]] = []
         for s in free_sessions:
             if not isinstance(s, dict):
@@ -364,6 +349,7 @@ def _materialize_full_week_plan_from_constraints(
             cleaned_free.append(s)
 
         merged = lock_sessions + cleaned_free
+
         # enforce max_sessions safety (should not be needed, but keep it)
         if isinstance(max_sessions, int) and max_sessions >= 0 and len(merged) > max_sessions:
             warnings.append(f"{ds}: merged_sessions={len(merged)} > max_sessions={max_sessions} (trimmed).")
@@ -391,7 +377,6 @@ def _materialize_full_week_plan_from_constraints(
         daily_out["warnings"] = warnings
 
     return daily_out, warnings
-
 
 # -----------------------------------------------------------------------------
 # Public services

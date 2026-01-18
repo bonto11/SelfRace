@@ -249,8 +249,8 @@ def _validate_free_plan_against_constraints(
             errors.append(f"{ds}: sessions is not a list")
             continue
 
-        if len(sessions) != open_slots:
-            errors.append(f"{ds}: sessions_count={len(sessions)} != open_slots={open_slots}")
+        if len(sessions) > open_slots:
+            errors.append(f"{ds}: sessions_count={len(sessions)} > open_slots={open_slots}")
 
         for s in sessions:
             if not isinstance(s, dict):
