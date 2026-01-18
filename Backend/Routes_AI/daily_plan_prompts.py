@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 # -----------------------------------------------------------------------------
 # DEBUG (env controlled)
 # -----------------------------------------------------------------------------
-# Default ON (kvôli vašim testom), vypneš na Railway:
-#   DAILY_PROMPTS_DEBUG=0
+# Zapneš na Railway env varom:
+#   DAILY_DEBUG=1
 _DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
     "1",
     "true",
@@ -230,8 +230,19 @@ def _build_prompts_for_daily(
     pref_obj = prefs.get("preferences") or {}
     days_off = pref_obj.get("days_off") or []
     long_run_days = pref_obj.get("long_run_days") or []
-    avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
+
+    # NEW prefs for two-a-day (informational only; builder is source of truth via open_slots)
+    two_a_day = pref_obj.get("two_a_day") or {}
+    if not isinstance(two_a_day, dict):
+        two_a_day = {}
+    two_a_day_enabled = bool(two_a_day.get("enabled"))
+    two_a_day_days = two_a_day.get("days") or []
+    if not isinstance(two_a_day_days, list):
+        two_a_day_days = []
+    two_a_day_days = [str(d) for d in two_a_day_days if isinstance(d, str) and d in WEEKDAY_ORDER]
+    max_two_days = two_a_day.get("max_days_per_week")
+    max_two_days_int = int(max_two_days) if isinstance(max_two_days, int) else None
 
     weekly_template = prefs.get("weekly_template") or context_payload.get("weekly_template") or {}
     fixed_slots = _derive_fixed_slots(weekly_template, max_fixed=7)
@@ -259,8 +270,12 @@ def _build_prompts_for_daily(
         len(fixed_slots),
         "| has_day_constraints=",
         has_day_constraints,
-        "| avoid_two_a_day=",
-        avoid_two_a_day,
+        "| two_a_day_enabled=",
+        two_a_day_enabled,
+        "| two_a_day_days=",
+        two_a_day_days,
+        "| max_two_days=",
+        max_two_days_int,
         "| avoid_b2b_hard=",
         avoid_back_to_back_hard,
         "| strength_target=",
@@ -288,21 +303,22 @@ def _build_prompts_for_daily(
 
     days_off_str = ", ".join(days_off) if days_off else "none"
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
+    two_a_day_days_str = ", ".join(two_a_day_days) if two_a_day_days else "none"
 
     skeleton_rules = (
         "- WEEK SKELETON RULES (CRITICAL):\n"
         "  You are given `day_constraints` for each DATE in the week.\n"
         "  Each day has: date (truth), max_sessions, locks[], open_slots.\n"
         "\n"
-        "  Your job is ONLY to output FREE sessions that fill open_slots.\n"
+        "  Your job is ONLY to output FREE sessions.\n"
         "  DO NOT output locked sessions.\n"
         "  The server will inject locks and enforce max_sessions afterwards.\n"
         "\n"
         "  Output rule per day (STRICT):\n"
-        "    - sessions.length MUST equal open_slots for that date.\n"
+        "    - sessions.length MUST be <= open_slots for that date.\n"
         "    - open_slots == 0 => sessions MUST be []\n"
-        "    - open_slots == 1 => sessions MUST have exactly 1 item\n"
-        "    - open_slots == 2 => sessions MUST have exactly 2 items\n"
+        "    - open_slots == 1 => sessions MAY have 0 or 1 item\n"
+        "    - open_slots == 2 => sessions MAY have 0..2 items\n"
         "\n"
         "  STRICT DAYS RULE:\n"
         "    - Output `days` MUST match day_constraints exactly:\n"
@@ -323,9 +339,9 @@ def _build_prompts_for_daily(
 
     explanation_rule = (
         "- EXPLANATION RULE (MANDATORY):\n"
-        "  Every free session MUST include 1–2 concrete sentences in `notes`:\n"
+        "  Every FREE session you output MUST include 1–2 concrete sentences in `notes`:\n"
         "    - why this session type today (spacing / fatigue / prep), OR\n"
-        "    - why a preference could not be followed (e.g. preferred day has open_slots=0).\n"
+        "    - why a preference could not be followed.\n"
         "  No fluff. Coach tone. Never say 'AI spravila chybu'.\n"
         "\n"
     )
@@ -366,15 +382,15 @@ def _build_prompts_for_daily(
     else:
         weekly_volume_line = "- Weekly volume not explicitly specified; infer from recent_load.\n"
 
-    avoid_two_a_day_str = (
-        "- Do NOT schedule two-a-day sessions.\n"
-        if avoid_two_a_day
-        else "- Two-a-day is allowed only when open_slots==2.\n"
-    )
-    avoid_back_to_back_hard_str = (
+    back_to_back_rule = (
         "- Do NOT schedule two hard sessions on consecutive days.\n"
         if avoid_back_to_back_hard
         else "- Avoid back-to-back hard days when possible.\n"
+    )
+
+    two_a_day_rule = (
+        "- Two-a-day sessions are allowed ONLY on dates where open_slots==2.\n"
+        "  (That already reflects the athlete's settings.)\n"
     )
 
     strength_str = f"{strength_target_int}× per week" if strength_target_int else "no explicit target"
@@ -463,11 +479,13 @@ def _build_prompts_for_daily(
         f"Main sport: {main_sport}\n"
         f"Preferred days off (soft prefs): {days_off_str}\n"
         f"Preferred long run days: {long_run_days_str}\n"
+        f"Two-a-day preference (info only): enabled={two_a_day_enabled}, days={two_a_day_days_str}, max_days_per_week={max_two_days_int}\n"
         f"{weekly_template_reference_line}"
         f"{skeleton_rules}\n"
         f"{preference_semantics}\n"
         f"{fixed_payload_rules}\n"
         f"{explanation_rule}\n"
+        f"{two_a_day_rule}\n"
         f"Strength training target: {strength_str}\n"
         f"Intensity limit: {hard_str}\n"
         f"{weekly_volume_line}"
@@ -484,11 +502,10 @@ def _build_prompts_for_daily(
         + "- Always return a single JSON object matching the schema.\n"
         + f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
         + "- Output days MUST match day_constraints dates exactly (same count, same order).\n"
-        + "- For each date, number of sessions MUST equal open_slots for that date.\n"
+        + "- For each date, number of sessions MUST be <= open_slots for that date.\n"
         + "- Do NOT output locks.\n"
         + "- Do NOT invent extreme workloads.\n"
-        + avoid_two_a_day_str
-        + avoid_back_to_back_hard_str
+        + back_to_back_rule
         + "- After a hard-intensity external event day (day_constraints.locks has intensity=='hard'), avoid scheduling a hard run the next day.\n"
     )
 
