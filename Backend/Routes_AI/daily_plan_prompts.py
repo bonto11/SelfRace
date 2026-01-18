@@ -8,8 +8,6 @@ from typing import Any, Dict, List, Optional, Tuple
 # -----------------------------------------------------------------------------
 # DEBUG (env controlled)
 # -----------------------------------------------------------------------------
-# Zapneš na Railway env varom:
-#   DAILY_DEBUG=1
 _DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
     "1",
     "true",
@@ -52,12 +50,6 @@ def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optio
 
 
 def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
-    """
-    ctx.prefs can be:
-      - plain dict
-      - { value: {...} }
-    Return plain dict.
-    """
     if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
         return raw_prefs["value"]
     return raw_prefs if isinstance(raw_prefs, dict) else {}
@@ -65,24 +57,16 @@ def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
 
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Send only what the LLM truly needs (NEW approach: AI plans full week).
-    Keep:
-      - week meta
-      - recent_load, zones, thresholds
-      - prefs (minified to new schema)
-      - athlete_state.ai_state (optional)
-      - external_events occurrences (HARD constraint)
+    NEW approach: AI plans full week.
+    Keep only what it needs, in a stable shape.
     """
     ctx2: Dict[str, Any] = {}
-
     for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
         if k in ctx:
             ctx2[k] = ctx[k]
 
     prefs = _flatten_prefs(ctx.get("prefs") or {})
-
-    # Align to new prefs schema you provided
-    prefs2: Dict[str, Any] = {
+    ctx2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "start_date": prefs.get("start_date"),
         "end_date": prefs.get("end_date"),
@@ -96,7 +80,6 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "polarized_model": prefs.get("polarized_model"),
         "pyramidal_model": prefs.get("pyramidal_model"),
     }
-    ctx2["prefs"] = prefs2
 
     athlete_state = ctx.get("athlete_state") or {}
     ai_state = athlete_state.get("ai_state") or {}
@@ -106,14 +89,13 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         if k in ctx:
             ctx2[k] = ctx[k]
 
-    # Debug summary (do NOT print full JSON)
     try:
         wk = ctx2.get("week") or {}
         ext = ctx2.get("external_events") or {}
         ext_n = len(ext.get("occurrences") or []) if isinstance(ext, dict) else 0
-        pref_obj = prefs2.get("preferences") or {}
+        pref_obj = (ctx2.get("prefs") or {}).get("preferences") or {}
         two = pref_obj.get("two_a_day") or {}
-        strength = prefs2.get("strength_settings") or {}
+        strength = (ctx2.get("prefs") or {}).get("strength_settings") or {}
         _dprint(
             "_minify_context_for_ai:",
             "week_start=",
@@ -139,17 +121,15 @@ def _build_prompts_for_daily(
     settings: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
     """
-    NEW CONTRACT (as agreed):
-      - AI plans the full week (calendar dates + sessions).
-      - NO day_constraints, NO weekly_template, NO open_slots.
-      - Only hard constraint: external_events occurrences MUST appear in output on same dates.
-      - Only soft/hard prefs constraints:
-          * preferences.two_a_day.enabled + max_days_per_week (cap 0..2)
-          * preferences.long_run_days preference
+    CONTRACT:
+      - AI plans full week days+sessions within [week_start..week_end].
+      - External events from DB are HARD: must appear exactly once on the same date.
+      - Pref constraints only:
+          * two_a_day cap (0..2)
+          * long_run_days preference
           * strength_settings.sessions_per_week target
-      - Every session must include notes with the reason.
-      - Strength structure is handled later (normalize + mapper); AI should keep it simple.
-    Returns: (system_txt, user_txt, legacy_fixed_slots=[], strength_target_int)
+      - Notes mandatory, short, concrete.
+      - Strength: keep simple; do NOT output detailed structure.
     """
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
@@ -165,7 +145,6 @@ def _build_prompts_for_daily(
         second_person_note = "Vždy hovor priamo k atlétovi a používaj 2. osobu."
 
     week = context_payload.get("week") or {}
-
     prefs = _flatten_prefs(context_payload.get("prefs") or {})
     targets = context_payload.get("targets") or prefs.get("targets") or {}
 
@@ -181,14 +160,12 @@ def _build_prompts_for_daily(
     if not isinstance(pref_obj, dict):
         pref_obj = {}
 
-    # two-a-day cap from prefs
     two = pref_obj.get("two_a_day") or {}
     if not isinstance(two, dict):
         two = {}
     two_enabled = bool(two.get("enabled"))
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
 
-    # long run preference
     long_run_days = pref_obj.get("long_run_days") or []
     if not isinstance(long_run_days, list):
         long_run_days = []
@@ -196,7 +173,6 @@ def _build_prompts_for_daily(
 
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    # strength target: NEW place: prefs.strength_settings.sessions_per_week
     strength_settings = prefs.get("strength_settings") or {}
     if not isinstance(strength_settings, dict):
         strength_settings = {}
@@ -204,12 +180,10 @@ def _build_prompts_for_daily(
     if isinstance(strength_settings.get("sessions_per_week"), int):
         strength_target_int = int(strength_settings.get("sessions_per_week"))
     else:
-        # fallback legacy (if ever exists)
         legacy = (targets.get("strength") or {}).get("sessions_per_week")
         if isinstance(legacy, int):
             strength_target_int = int(legacy)
 
-    # external occurrences (HARD)
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else None
     ext_count = len(ext_occ) if isinstance(ext_occ, list) else 0
@@ -220,23 +194,16 @@ def _build_prompts_for_daily(
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
 
     if isinstance(planned_minutes, (int, float)):
-        weekly_volume_line = (
-            f"- Weekly intent from WEEK META: planned_minutes ≈ {planned_minutes} min.\n"
-            "  Treat this as intent only.\n"
-        )
+        weekly_volume_line = f"- Weekly intent: planned_minutes ≈ {planned_minutes} min (soft).\n"
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
-        weekly_volume_line = (
-            "- Volume preference: prefs.volume.mode='weekly_hours'. "
-            f"Target weekly volume ≈ {volume_value * 60:.0f} min.\n"
-            "  Treat this as intent only.\n"
-        )
+        weekly_volume_line = f"- Weekly intent: prefs.volume weekly_hours ≈ {volume_value * 60:.0f} min (soft).\n"
     else:
-        weekly_volume_line = "- Weekly volume not explicitly specified; infer from recent_load.\n"
+        weekly_volume_line = "- Weekly intent: infer from recent_load (soft).\n"
 
     back_to_back_rule = (
         "- Do NOT schedule two hard sessions on consecutive days.\n"
         if avoid_back_to_back_hard
-        else "- Avoid back-to-back hard days when possible.\n"
+        else "- Avoid back-to-back hard days when possible (soft).\n"
     )
 
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
@@ -302,25 +269,36 @@ def _build_prompts_for_daily(
 }
 """.strip()
 
-    # HARD requirements around external events
+    # External events rules: enforce exact keys & no duplicates
     external_rules = (
-        "- EXTERNAL EVENTS (HARD REQUIREMENT):\n"
-        "  In CONTEXT_JSON.external_events.occurrences you will receive date-based external events.\n"
-        "  You MUST include each occurrence as a session on the SAME date.\n"
-        "  Represent each occurrence as a session with:\n"
-        "    - sport: occurrence.session_sport (FE enum: run/ride/strength/swim/other)\n"
+        "- EXTERNAL EVENTS (HARD):\n"
+        "  CONTEXT_JSON.external_events.occurrences contains date-based external events from DB.\n"
+        "  You MUST include EVERY occurrence EXACTLY ONCE, on the SAME date.\n"
+        "  Do NOT move them. Do NOT duplicate them.\n"
+        "  For each external event session:\n"
+        "    - sport: occurrence.session_sport\n"
         "    - title: occurrence.title\n"
-        "    - duration_min: occurrence.duration_min (if missing, choose a reasonable default and mention assumption in notes)\n"
+        "    - duration_min: occurrence.duration_min (if missing, pick a reasonable default and say it in notes)\n"
         "    - intensity: occurrence.intensity if present (easy|medium|hard)\n"
         "    - session_type: 'external_event'\n"
-        "    - payload.external_event: include date, title, sport (raw), start_time_local, duration_min, priority, intensity (if present)\n"
-        "  Do NOT move external events to a different day.\n"
-        "  Do NOT omit any external event occurrence.\n"
+        "    - payload.external_event must include EXACTLY these keys:\n"
+        "        date, title, sport_raw, start_time_local, duration_min, priority, intensity\n"
+        "      where:\n"
+        "        date = occurrence.date\n"
+        "        sport_raw = occurrence.sport_raw\n"
+        "  Notes: say what it is and whether you add other training the same day.\n"
+        "\n"
+    )
+
+    date_integrity_rule = (
+        "- DATE INTEGRITY (HARD):\n"
+        "  Only use dates inside the given Week range (week_start..week_end inclusive).\n"
+        "  Do NOT invent dates outside this range.\n"
         "\n"
     )
 
     two_a_day_rule = (
-        "- TWO-A-DAY RULE (PREF CONSTRAINT):\n"
+        "- TWO-A-DAY (PREF CONSTRAINT):\n"
         "  Prefer 1 session/day.\n"
         f"  You may schedule 2 sessions in a day on at most {two_cap} day(s) in the week.\n"
         "  If cap is 0, never schedule 2 sessions in a day.\n"
@@ -329,26 +307,26 @@ def _build_prompts_for_daily(
     )
 
     long_run_rule = (
-        "- LONG RUN RULE (PREF):\n"
+        "- LONG RUN (PREF):\n"
         f"  If main sport is run, schedule 1 long run in the week when reasonable.\n"
         f"  Prefer weekday(s): {long_run_days_str}.\n"
-        "  If you place it on a different day, explain why in notes.\n"
+        "  If you place it elsewhere, explain why in notes.\n"
         "\n"
     )
 
     strength_rule = (
-        "- STRENGTH RULE (PREF CONSTRAINT):\n"
+        "- STRENGTH (PREF CONSTRAINT):\n"
         f"  Aim for {strength_str}.\n"
-        "  Keep strength simple; server will normalize and mapper will add exercises.\n"
+        "  Keep strength SIMPLE:\n"
+        "    - set structure=null\n"
+        "    - do NOT list exercises (mapper will do it)\n"
         "  Use sport='strength'.\n"
         "\n"
     )
 
     explanation_rule = (
-        "- EXPLANATION RULE (MANDATORY):\n"
-        "  Every session MUST include 1–2 concrete sentences in `notes`:\n"
-        "    - why this session is placed on this day (spacing / fatigue / goal), OR\n"
-        "    - why a preference could not be followed.\n"
+        "- NOTES (HARD):\n"
+        "  Every session MUST include 1–2 concrete sentences in `notes` (coach tone).\n"
         "  No fluff. Never mention 'AI made a mistake'.\n"
         "\n"
     )
@@ -374,6 +352,7 @@ def _build_prompts_for_daily(
         f"Focus: {focus or 'N/A'} | Load phase: {load_phase or 'N/A'}\n"
         f"Main sport: {main_sport}\n"
         f"External events occurrences in this week: {ext_count}\n\n"
+        + date_integrity_rule
         + external_rules
         + two_a_day_rule
         + long_run_rule
