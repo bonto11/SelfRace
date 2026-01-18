@@ -140,6 +140,100 @@ def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
     return parsed
 
 
+# -----------------------------------------------------------------------------
+# External events integrity validation (HARD, but NOT "planning constraints")
+# -----------------------------------------------------------------------------
+def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    ext = context_payload.get("external_events") or {}
+    if not isinstance(ext, dict):
+        return []
+    occ = ext.get("occurrences") or []
+    return occ if isinstance(occ, list) else []
+
+
+def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]) -> bool:
+    """
+    Prefer matching by payload.external_event, because prompts require it.
+    Fallback matching by (date + title) if payload missing.
+    """
+    if not isinstance(plan, dict) or not isinstance(occ, dict):
+        return True  # don't block on garbage
+
+    occ_date = str(occ.get("date") or "")[:10]
+    if not occ_date:
+        return True
+
+    occ_title = str(occ.get("title") or "").strip().lower()
+    occ_dur = occ.get("duration_min")
+    occ_dur_int = int(occ_dur) if isinstance(occ_dur, (int, float)) else None
+
+    days = plan.get("days") or []
+    if not isinstance(days, list):
+        return False
+
+    for d in days:
+        if not isinstance(d, dict):
+            continue
+        ds = str(d.get("date") or "")[:10]
+        if ds != occ_date:
+            continue
+
+        sessions = d.get("sessions") or []
+        if not isinstance(sessions, list):
+            continue
+
+        for s in sessions:
+            if not isinstance(s, dict):
+                continue
+
+            payload = s.get("payload")
+            if isinstance(payload, dict) and isinstance(payload.get("external_event"), dict):
+                ev = payload["external_event"]
+                ev_date = str(ev.get("date") or "")[:10]
+                ev_title = str(ev.get("title") or "").strip().lower()
+                ev_dur = ev.get("duration_min")
+                ev_dur_int = int(ev_dur) if isinstance(ev_dur, (int, float)) else None
+
+                if ev_date == occ_date and ev_title == occ_title:
+                    # duration is "best effort": if both present, they should match, otherwise ignore
+                    if occ_dur_int is not None and ev_dur_int is not None and occ_dur_int != ev_dur_int:
+                        continue
+                    return True
+
+            # fallback: if model didn't include payload but still created correct session
+            s_title = str(s.get("title") or "").strip().lower()
+            s_dur = s.get("duration_min")
+            s_dur_int = int(s_dur) if isinstance(s_dur, (int, float)) else None
+            s_type = str(s.get("session_type") or "").strip().lower()
+
+            if s_title == occ_title and (s_type in {"external_event", "external"} or True):
+                if occ_dur_int is not None and s_dur_int is not None and occ_dur_int != s_dur_int:
+                    continue
+                return True
+
+    return False
+
+
+def _validate_external_events_included(
+    parsed: Dict[str, Any],
+    context_payload: Dict[str, Any],
+) -> Tuple[bool, List[str]]:
+    occs = _get_external_occurrences(context_payload)
+    if not occs:
+        return True, []
+
+    missing: List[str] = []
+    for occ in occs:
+        if not isinstance(occ, dict):
+            continue
+        if not _plan_contains_external_occurrence(parsed, occ):
+            ds = str(occ.get("date") or "")[:10]
+            title = str(occ.get("title") or "external").strip()
+            missing.append(f"{ds}:{title}")
+
+    return (len(missing) == 0), missing
+
+
 def generate_daily_week_json(
     context_payload: dict,
     model: str,
@@ -152,8 +246,8 @@ def generate_daily_week_json(
 
     NEW SIMPLIFIED PHILOSOPHY:
       - AI generates the whole week plan (days + sessions) based on prefs + context.
-      - NO day_constraints / slot counting / hard-lock planning logic here.
-      - Server later merges external events from DB (and may annotate), but does not "plan" for AI.
+      - NO day_constraints / slot counting / fixed-days logic here.
+      - External events from DB are HARD: AI must include them in output.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
@@ -175,7 +269,10 @@ def generate_daily_week_json(
 
     _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
 
-    retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
+    # We want MAX 1 retry => MAX 2 attempts.
+    # Respect env if set, but clamp to 2.
+    retries_env = int(os.getenv("OPENAI_RETRIES", "2") or "2")
+    retries = 2 if retries_env >= 2 else 1
 
     timeout_env = os.getenv("OPENAI_TIMEOUT_S")
     if timeout_env:
@@ -193,13 +290,16 @@ def generate_daily_week_json(
 
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
     models = llm_models_priority(model)
-    token_budgets = [2500, 2200, 2000]
+
+    # keep token budget stable; we only do 1 retry max anyway
+    token_budgets = [2500, 2200]
 
     trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     if debug_raw:
         trace["system_prompt"] = system_txt
         trace["user_prompt"] = user_txt
         trace["timeout_s"] = timeout_s
+        trace["max_attempts_per_model"] = retries
 
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
@@ -216,7 +316,7 @@ def generate_daily_week_json(
     except Exception:
         tzinfo = timezone.utc
 
-    _dprint("openai: retries=", retries, "| timeout_s=", timeout_s, "| models=", models)
+    _dprint("openai: retries(max_attempts)=", retries, "| timeout_s=", timeout_s, "| models=", models)
 
     for m in models:
         for attempt in range(1, retries + 1):
@@ -276,6 +376,15 @@ def generate_daily_week_json(
                     parsed.setdefault("week_end", week_end)
 
                 parsed = _basic_shape_sanitize(parsed)
+
+                # HARD integrity: external events must be present in output
+                ok_ext, missing = _validate_external_events_included(parsed, context_payload)
+                if not ok_ext:
+                    last_err = "missing_external_events_in_output"
+                    attempt_row["ok"] = False
+                    attempt_row["validation_errors"] = {"missing_external_events": missing[:12]}
+                    _dprint("validation FAILED: missing external events:", missing[:12])
+                    continue
 
                 trace["usage"] = {
                     "model": m,
