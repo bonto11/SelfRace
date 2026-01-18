@@ -17,25 +17,15 @@ from Services.coach_external_events import service_list_external_events_window
 
 
 # -----------------------------------------------------------------------------
-# NEW APPROACH (Simplified)
+# NEW APPROACH (Simplified, agreed)
 # - AI plans the whole week calendar (days + sessions).
-# - The ONLY hard constraint we must enforce is external events from DB.
+# - Only HARD constraint is external events from DB (must be present in AI output).
 # - No weekly_template fixed days, no prefs hard_locks, no day_constraints/open_slots.
-# - We pass minimal planning constraints to the LLM:
-#     - long_run_days preference
-#     - two-a-day max days/week cap (0..2)
-#     - strength sessions per week (later via prefs schema)
+# - We pass minimal constraints/preferences to the LLM via prefs + planning_constraints:
+#     - preferences.long_run_days (soft preference)
+#     - preferences.two_a_day.max_days_per_week cap (0..2)
+#     - strength_settings.sessions_per_week target
 # -----------------------------------------------------------------------------
-
-WEEKDAY_ORDER: Dict[str, int] = {
-    "Mon": 0,
-    "Tue": 1,
-    "Wed": 2,
-    "Thu": 3,
-    "Fri": 4,
-    "Sat": 5,
-    "Sun": 6,
-}
 
 _WEEKDAY_TO_ABBR: Dict[int, str] = {
     0: "Mon",
@@ -79,7 +69,7 @@ def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optio
         if v is None:
             out = default
         elif isinstance(v, bool):
-            out = int(v)  # True->1 False->0
+            out = int(v)
         elif isinstance(v, (int, float)):
             out = int(v)
         elif isinstance(v, str):
@@ -158,10 +148,18 @@ def build_daily_rows_from_ai(
     days = daily_plan.get("days") or []
     rows: List[Dict[str, Any]] = []
 
+    if not isinstance(days, list):
+        return rows
+
     for day in days:
+        if not isinstance(day, dict):
+            continue
+
         date_str = day.get("date")
         sessions = day.get("sessions") or []
-        if not date_str or not isinstance(sessions, list):
+        if not isinstance(date_str, str) or not date_str:
+            continue
+        if not isinstance(sessions, list):
             continue
 
         for idx, s in enumerate(sessions):
@@ -172,7 +170,7 @@ def build_daily_rows_from_ai(
 
             row: Dict[str, Any] = {
                 "user_id": user_id,
-                "plan_date": date_str,
+                "plan_date": date_str[:10],
                 "sport": sport_safe,
                 "title": s.get("title"),
                 "duration_min": s.get("duration_min"),
@@ -180,7 +178,7 @@ def build_daily_rows_from_ai(
                 "zone_text": s.get("zone_text"),
                 "structure": s.get("structure"),
                 "notes": s.get("notes"),
-                "source": "ai_daily_v1",
+                "source": "ai_daily_v2",
                 "plan_id": plan_id,
                 "session_type": s.get("session_type"),
                 "session_index": int(s.get("session_index") or idx),
@@ -213,11 +211,12 @@ def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
     return t if isinstance(t, dict) else {}
 
 
-def _two_a_day_cap_from_prefs(pref_obj: Dict[str, Any]) -> int:
+def _two_a_day_cap_from_prefs(prefs: Dict[str, Any]) -> int:
     """
-    preferences.two_a_day = { enabled: bool, max_days_per_week: int }
+    prefs.preferences.two_a_day = { enabled: bool, max_days_per_week: int }
     AI can choose which days are two-a-day, but must respect this cap (0..2).
     """
+    pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
     if not isinstance(pref_obj, dict):
         return 0
 
@@ -231,6 +230,35 @@ def _two_a_day_cap_from_prefs(pref_obj: Dict[str, Any]) -> int:
     return _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2)
 
 
+def _long_run_days_from_prefs(prefs: Dict[str, Any]) -> List[str]:
+    pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
+    if not isinstance(pref_obj, dict):
+        return []
+    days = pref_obj.get("long_run_days") or []
+    if not isinstance(days, list):
+        return []
+    out: List[str] = []
+    for d in days:
+        if isinstance(d, str) and d.strip():
+            out.append(d.strip())
+    return out
+
+
+def _strength_sessions_target_from_prefs(prefs: Dict[str, Any], targets: Dict[str, Any]) -> Optional[int]:
+    """
+    New location:
+      prefs.strength_settings.sessions_per_week
+    Fallback legacy:
+      targets.strength.sessions_per_week
+    """
+    ss = prefs.get("strength_settings") if isinstance(prefs, dict) else None
+    if isinstance(ss, dict) and isinstance(ss.get("sessions_per_week"), int):
+        return int(ss.get("sessions_per_week"))
+
+    legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
+    return int(legacy) if isinstance(legacy, int) else None
+
+
 # -------------------------
 # External events -> normalized occurrences
 # -------------------------
@@ -239,6 +267,7 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
     """
     service_list_external_events_window returns:
       {"success": True, "events": [ ... ]}
+
     We normalize minimal fields and keep DB truth (duration/intensity/title).
     """
     events = ext_window.get("events") or []
@@ -262,7 +291,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         sport_raw = e.get("sport")
         duration_min = e.get("duration_min")
         dur_int = int(duration_min) if isinstance(duration_min, (int, float)) else None
-
         intensity = _normalize_external_intensity(e.get("intensity"))
 
         out.append(
@@ -285,6 +313,30 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
     return out
 
 
+def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any) -> Dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "occurrences": [
+            {
+                "date": o.get("date"),
+                "weekday": o.get("weekday"),
+                "sport_raw": o.get("sport_raw"),
+                "session_sport": o.get("session_sport"),
+                "title": o.get("title"),
+                "duration_min": o.get("duration_min"),
+                "priority": o.get("priority"),
+                "start_time_local": o.get("start_time_local"),
+                "notes": o.get("notes"),
+                "source": o.get("source"),
+                "intensity": o.get("intensity"),
+                "allow_other_training": o.get("allow_other_training"),
+            }
+            for o in occurrences
+        ],
+        "window": {"from": week_start, "to": week_end},
+    }
+
+
 # -------------------------
 # Context builder (DB -> AI context)
 # -------------------------
@@ -300,26 +352,25 @@ def build_daily_context_from_db(
 ) -> Dict[str, Any]:
     jwt = user_jwt
 
-    _dprint("START build_daily_context_from_db | user_id=", user_id, "| week_index=", week_index, "| plan_id(in)=", plan_id)
+    _dprint(
+        "START build_daily_context_from_db | user_id=",
+        user_id,
+        "| week_index=",
+        week_index,
+        "| plan_id(in)=",
+        plan_id,
+    )
 
     # 1) resolve plan_id
     plan_id_effective: Optional[str] = plan_id
     resolved_via = "input"
     if not plan_id_effective:
-        meta = db_get_active_plan_meta_for_user(
-            user_id=user_id,
-            user_jwt=jwt,
-            service=service,
-        )
+        meta = db_get_active_plan_meta_for_user(user_id=user_id, user_jwt=jwt, service=service)
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
             resolved_via = "active_meta"
         else:
-            meta2 = db_get_latest_plan_meta_for_user(
-                user_id=user_id,
-                user_jwt=jwt,
-                service=service,
-            )
+            meta2 = db_get_latest_plan_meta_for_user(user_id=user_id, user_jwt=jwt, service=service)
             if meta2 and isinstance(meta2.get("plan_id"), str):
                 plan_id_effective = meta2["plan_id"]
                 resolved_via = "latest_meta"
@@ -327,30 +378,25 @@ def build_daily_context_from_db(
     _dprint("plan_id_effective=", plan_id_effective, "| resolved_via=", resolved_via)
 
     # 2) analyze input (prefs, recent_load, zones, thresholds)
-    analyze_input = build_input_from_db(
-        user_id=user_id,
-        user_jwt=jwt,
-        service=service,
-    )
+    analyze_input = build_input_from_db(user_id=user_id, user_jwt=jwt, service=service)
 
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
 
-    pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
-    two_a_day_cap = _two_a_day_cap_from_prefs(pref_obj)
-
-    long_run_days = pref_obj.get("long_run_days") or []
-    if not isinstance(long_run_days, list):
-        long_run_days = []
-    long_run_days = [str(d) for d in long_run_days if isinstance(d, str)]
+    two_a_day_cap = _two_a_day_cap_from_prefs(prefs_ai)
+    long_run_days = _long_run_days_from_prefs(prefs_ai)
+    strength_target = _strength_sessions_target_from_prefs(prefs_ai, targets_ai)
 
     _dprint(
-        "prefs: main_sport=",
+        "prefs summary:",
+        "main_sport=",
         (prefs_ai.get("main_sport") if isinstance(prefs_ai, dict) else None),
         "| two_a_day_cap=",
         two_a_day_cap,
         "| long_run_days=",
         long_run_days,
+        "| strength_sessions_per_week=",
+        strength_target,
     )
 
     recent_load = analyze_input.get("recent_load") or {}
@@ -369,10 +415,7 @@ def build_daily_context_from_db(
         )
 
     if not week_row:
-        _dprint(
-            "WARNING: week_row is None/empty. "
-            "Check DB: coach_plan_weekly row exists for plan_id+week_index."
-        )
+        _dprint("WARNING: week_row is None/empty. Check DB: coach_plan_weekly row exists for plan_id+week_index.")
 
     week_meta: Dict[str, Any] = {
         "week_index": week_index,
@@ -400,29 +443,13 @@ def build_daily_context_from_db(
                 service=service,
             )
             external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
-            _dprint("external_events: normalized_occurrences(DB)=", len(external_occurrences_norm))
+            _dprint("external_events: success=", ext_window.get("success"), "| normalized=", len(external_occurrences_norm))
 
-            external_block = {
-                "schema_version": 1,
-                "occurrences": [
-                    {
-                        "date": e.get("date"),
-                        "weekday": e.get("weekday"),
-                        "sport_raw": e.get("sport_raw"),
-                        "session_sport": e.get("session_sport"),
-                        "title": e.get("title"),
-                        "duration_min": e.get("duration_min"),
-                        "priority": e.get("priority"),
-                        "start_time_local": e.get("start_time_local"),
-                        "notes": e.get("notes"),
-                        "source": e.get("source"),
-                        "intensity": e.get("intensity"),
-                        "allow_other_training": e.get("allow_other_training"),
-                    }
-                    for e in external_occurrences_norm
-                ],
-                "window": {"from": week_meta["week_start"], "to": week_meta["week_end"]},
-            }
+            external_block = _build_external_block(
+                external_occurrences_norm,
+                week_meta["week_start"],
+                week_meta["week_end"],
+            )
         except Exception as e:
             _dprint("external_events: ERROR", repr(e))
             external_block = None
@@ -431,12 +458,7 @@ def build_daily_context_from_db(
         _dprint("external_events: SKIP (missing week_start/week_end)")
 
     # 5) athlete_state
-    state_row = db_get_latest_state_for_user(
-        user_id=user_id,
-        version=1,
-        user_jwt=jwt,
-        service=service,
-    )
+    state_row = db_get_latest_state_for_user(user_id=user_id, version=1, user_jwt=jwt, service=service)
     athlete_state_json = (state_row or {}).get("state_json") or None
     _dprint("athlete_state:", "present" if athlete_state_json else "missing", "| state_row_id=", (state_row or {}).get("id"))
 
@@ -454,9 +476,11 @@ def build_daily_context_from_db(
         "recent_load": recent_load,
         "zones": zones,
         "thresholds": thresholds,
+        # small helper summary (optional, but makes prompts robust)
         "planning_constraints": {
             "two_a_day_max_days_per_week": int(two_a_day_cap),
             "long_run_days": long_run_days,
+            "strength_sessions_per_week_target": strength_target,
             "external_events_must_be_included": True,
         },
     }
@@ -473,8 +497,6 @@ def build_daily_context_from_db(
         week_meta.get("week_end"),
         "| external_occurrences_total=",
         len(external_occurrences_norm),
-        "| two_a_day_cap=",
-        two_a_day_cap,
     )
 
     return {
