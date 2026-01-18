@@ -360,7 +360,6 @@ def _materialize_full_week_plan_from_constraints(
 
         # defensive: if AI omitted day entirely (structural bug)
         if ds not in free_by_date:
-            # only warn if it looks like a real structural violation
             warnings.append(f"{ds}: missing day in ai_free_plan (server used only locks + 0 free sessions).")
             free_sessions = []
 
