@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
+
+import os
 
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
 from Routes_DB.coach_plan_meta import (
@@ -55,6 +57,31 @@ _TEAM_SPORTS = {
     "floorball",
     "futsal",
 }
+
+# -----------------------------------------------------------------------------
+# Debug / Railway prints
+# -----------------------------------------------------------------------------
+# Zapneš na Railway env varom:
+#   DAILY_DEBUG=1
+# alebo:
+#   AI_DAILY_DEBUG=1
+_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or os.getenv("AI_DAILY_DEBUG") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+
+def _dprint(*parts: Any) -> None:
+    if not _DEBUG_ENABLED:
+        return
+    try:
+        msg = " ".join(str(p) for p in parts)
+        print(f"[DAILY_BUILDER] {msg}")
+    except Exception:
+        # never fail the job because of debug printing
+        pass
 
 
 def _weekday_abbr_from_iso(d: str) -> Optional[str]:
@@ -200,14 +227,6 @@ def _derive_hard_fixed_slots_from_weekly_template(
     Extract HARD fixed slots from weekly_template:
       - priority == "key"
       - ai_can_move == False
-
-    Output:
-      {
-        weekday, sport, kind,
-        priority="key",
-        policy="hard",
-        source="weekly_template"
-      }
     """
     if not isinstance(weekly_template, dict):
         return []
@@ -268,14 +287,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
     """
     service_list_external_events_window returns:
       {"success": True, "events": [ { ... "occurrence_date": "YYYY-MM-DD", ... } ]}
-
-    Normalize to:
-      {
-        date, weekday,
-        sport_raw, session_sport,
-        title, duration_min, priority, start_time_local, notes,
-        source="external_events", policy="hard"
-      }
     """
     events = ext_window.get("events") or []
     if not isinstance(events, list):
@@ -320,10 +331,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
 # -------------------------
 
 def _build_lock_session_from_weekly_template(lock: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Create a "ready" session object for a weekly_template hard lock.
-    Server can insert this without AI.
-    """
     sport = _coerce_session_sport(lock.get("sport"))
     kind = str(lock.get("kind") or "full")
     wd = str(lock.get("weekday") or "")
@@ -347,16 +354,12 @@ def _build_lock_session_from_weekly_template(lock: Dict[str, Any]) -> Dict[str, 
             }
         },
     }
-    # Remove null duration to let AI/service set it later if needed
     if sess["duration_min"] is None:
         sess.pop("duration_min", None)
     return sess
 
 
 def _build_lock_session_from_external_event(lock: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Create a "ready" session object for an external event lock.
-    """
     session_sport = _coerce_session_sport(lock.get("session_sport") or lock.get("sport_raw"))
     sport_raw = str(lock.get("sport_raw") or "")
     title = lock.get("title") or "Externá aktivita"
@@ -395,30 +398,23 @@ def _build_day_constraints_for_week(
     weekly_template: Dict[str, Any],
     external_occurrences: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """
-    Build a strict skeleton list for each day in [week_start, week_end]:
-      - date, weekday
-      - max_sessions (1/2)
-      - locks[] (HARD weekly_template slots + external occurrences)
-      - lock_sessions[] (server-ready sessions for locks)
-      - open_slots (derived)
-      - warnings[] (if locks exceed max_sessions etc.)
-    """
     try:
         d0 = date.fromisoformat(str(week_start_iso)[:10])
         d1 = date.fromisoformat(str(week_end_iso)[:10])
     except Exception:
+        _dprint("day_constraints: invalid week_start/week_end", week_start_iso, week_end_iso)
         return []
 
     if d1 < d0:
+        _dprint("day_constraints: week_end < week_start", d0, d1)
         return []
 
     pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
     avoid_two_a_day = bool(pref_obj.get("avoid_two_a_day"))
-
     base_max = 1 if avoid_two_a_day else 2
 
     hard_fixed = _derive_hard_fixed_slots_from_weekly_template(weekly_template)
+    _dprint("weekly_template hard_fixed:", len(hard_fixed), "| avoid_two_a_day:", avoid_two_a_day, "| base_max:", base_max)
 
     fixed_by_wd: Dict[str, List[Dict[str, Any]]] = {}
     for fs in hard_fixed:
@@ -477,7 +473,6 @@ def _build_day_constraints_for_week(
             locks.append(lock)
             lock_sessions.append(_build_lock_session_from_external_event(lock))
 
-        # decide max_sessions
         max_sessions = base_max
 
         # long run fixed day => only this training
@@ -499,9 +494,7 @@ def _build_day_constraints_for_week(
 
         open_slots = int(max_sessions) - len(locks)
         if open_slots < 0:
-            warnings.append(
-                f"locks_exceed_max_sessions: locks={len(locks)} max_sessions={int(max_sessions)}"
-            )
+            warnings.append(f"locks_exceed_max_sessions: locks={len(locks)} max_sessions={int(max_sessions)}")
             open_slots = 0
 
         out.append(
@@ -517,6 +510,14 @@ def _build_day_constraints_for_week(
         )
 
         cur += timedelta(days=1)
+
+    if _DEBUG_ENABLED:
+        # concise week summary: date -> (max, locks, open)
+        summary = ", ".join(
+            f"{d['date']}:{int(d['max_sessions'])}/{len(d.get('locks') or [])}/{int(d['open_slots'])}"
+            for d in out
+        )
+        _dprint("day_constraints summary (date:max/locks/open):", summary)
 
     return out
 
@@ -536,20 +537,31 @@ def build_daily_context_from_db(
 ) -> Dict[str, Any]:
     jwt = user_jwt
 
+    _dprint("START build_daily_context_from_db | user_id=", user_id, "| week_index=", week_index, "| plan_id(in)=", plan_id)
+
     # 1) resolve plan_id
     plan_id_effective: Optional[str] = plan_id
+    resolved_via = "input"
     if not plan_id_effective:
         meta = db_get_active_plan_meta_for_user(
-            user_id=user_id,
-            user_jwt=jwt,
-            service=service,
-        ) or db_get_latest_plan_meta_for_user(
             user_id=user_id,
             user_jwt=jwt,
             service=service,
         )
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
+            resolved_via = "active_meta"
+        else:
+            meta2 = db_get_latest_plan_meta_for_user(
+                user_id=user_id,
+                user_jwt=jwt,
+                service=service,
+            )
+            if meta2 and isinstance(meta2.get("plan_id"), str):
+                plan_id_effective = meta2["plan_id"]
+                resolved_via = "latest_meta"
+
+    _dprint("plan_id_effective=", plan_id_effective, "| resolved_via=", resolved_via)
 
     # 2) analyze input (prefs, recent_load, zones, thresholds)
     analyze_input = build_input_from_db(
@@ -560,6 +572,16 @@ def build_daily_context_from_db(
 
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
+
+    pref_obj = (prefs_ai.get("preferences") or {}) if isinstance(prefs_ai, dict) else {}
+    _dprint(
+        "prefs: main_sport=",
+        (prefs_ai.get("main_sport") if isinstance(prefs_ai, dict) else None),
+        "| avoid_two_a_day=",
+        bool(pref_obj.get("avoid_two_a_day")),
+        "| has_weekly_template=",
+        isinstance((prefs_ai.get("weekly_template") if isinstance(prefs_ai, dict) else None), dict),
+    )
 
     weekly_template: Dict[str, Any] = {}
     if isinstance(prefs_ai, dict):
@@ -582,6 +604,24 @@ def build_daily_context_from_db(
             service=service,
         )
 
+    if not week_row:
+        _dprint(
+            "WARNING: week_row is None/empty -> day_constraints WILL BE EMPTY. "
+            "This is the #1 reason you get only a few sessions (AI decides freely). "
+            "Check DB: coach_plan_weekly row exists for plan_id+week_index."
+        )
+    else:
+        _dprint(
+            "week_row found | week_start=",
+            week_row.get("week_start"),
+            "| week_end=",
+            week_row.get("week_end"),
+            "| focus=",
+            week_row.get("focus"),
+            "| load_phase=",
+            week_row.get("load_phase"),
+        )
+
     week_meta: Dict[str, Any] = {
         "week_index": week_index,
         "week_start": week_row.get("week_start") if week_row else None,
@@ -599,6 +639,7 @@ def build_daily_context_from_db(
 
     if week_meta.get("week_start") and week_meta.get("week_end"):
         try:
+            _dprint("external_events: querying window", week_meta["week_start"], "->", week_meta["week_end"])
             ext_window = service_list_external_events_window(
                 user_id=user_id,
                 from_iso=str(week_meta["week_start"]),
@@ -607,6 +648,8 @@ def build_daily_context_from_db(
                 service=service,
             )
             external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
+            _dprint("external_events: raw_success=", ext_window.get("success"), "| events_in=", len(ext_window.get("events") or []))
+            _dprint("external_events: normalized_occurrences=", len(external_occurrences_norm))
 
             # kept for debug/transparency
             external_block = {
@@ -627,9 +670,12 @@ def build_daily_context_from_db(
                 ],
                 "window": {"from": week_meta["week_start"], "to": week_meta["week_end"]},
             }
-        except Exception:
+        except Exception as e:
+            _dprint("external_events: ERROR", repr(e))
             external_block = None
             external_occurrences_norm = []
+    else:
+        _dprint("external_events: SKIP (missing week_start/week_end)")
 
     # 5) day_constraints (WEEK SKELETON)
     day_constraints: List[Dict[str, Any]] = []
@@ -641,6 +687,9 @@ def build_daily_context_from_db(
             weekly_template=weekly_template,
             external_occurrences=external_occurrences_norm,
         )
+        _dprint("day_constraints built:", len(day_constraints))
+    else:
+        _dprint("day_constraints: EMPTY (missing week_start/week_end)")
 
     # 6) athlete_state
     state_row = db_get_latest_state_for_user(
@@ -650,6 +699,7 @@ def build_daily_context_from_db(
         service=service,
     )
     athlete_state_json = (state_row or {}).get("state_json") or None
+    _dprint("athlete_state:", "present" if athlete_state_json else "missing", "| state_row_id=", (state_row or {}).get("id"))
 
     # 7) context payload for AI / services
     context_payload: Dict[str, Any] = {
@@ -670,6 +720,19 @@ def build_daily_context_from_db(
     }
     if external_block is not None:
         context_payload["external_events"] = external_block
+
+    _dprint(
+        "DONE build_daily_context_from_db | plan_id_effective=",
+        plan_id_effective,
+        "| week_start=",
+        week_meta.get("week_start"),
+        "| week_end=",
+        week_meta.get("week_end"),
+        "| day_constraints=",
+        len(day_constraints),
+        "| external_occurrences=",
+        len(external_occurrences_norm),
+    )
 
     return {
         "context_payload": context_payload,
