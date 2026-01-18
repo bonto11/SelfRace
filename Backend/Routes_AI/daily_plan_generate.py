@@ -1,4 +1,4 @@
-# Routes_AI/daily_plan_generate.py
+# ===== Routes_AI/daily_plan_generate.py =====
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -14,6 +14,26 @@ import time
 from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 from Routes_AI.daily_plan_llm import llm_models_priority, sanitize_json_guess
 from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
+
+
+# -----------------------------------------------------------------------------
+# DEBUG (forced ON)  -> "cebuf=1"
+# -----------------------------------------------------------------------------
+# 1) natvrdo zapnuté
+# 2) plus env override:
+#    DAILY_DEBUG=1  (extra printy)
+#    DAILY_DEBUG_RAW=1 (uloží prompt + raw odpoveď do trace)
+_DEBUG_ENABLED = True
+
+
+def _dprint(*parts: Any) -> None:
+    if not _DEBUG_ENABLED and os.getenv("DAILY_DEBUG", "0") not in ("1", "true", "True"):
+        return
+    try:
+        msg = " ".join(str(p) for p in parts)
+        print(f"[DAILY_GEN] {msg}")
+    except Exception:
+        pass
 
 
 def _call_openai_raw(
@@ -82,12 +102,35 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
             return None, cleaned, txt
 
 
+def _summarize_day_constraints(context_payload: Dict[str, Any]) -> str:
+    dcs = context_payload.get("day_constraints") or []
+    if not isinstance(dcs, list) or not dcs:
+        return "day_constraints: <missing/empty>"
+    parts: List[str] = []
+    for dc in dcs:
+        if not isinstance(dc, dict):
+            continue
+        ds = str(dc.get("date") or "")[:10]
+        if not ds:
+            continue
+        open_slots = dc.get("open_slots")
+        max_s = dc.get("max_sessions")
+        locks = dc.get("locks") or []
+        locks_n = len(locks) if isinstance(locks, list) else "na"
+        parts.append(f"{ds}:{open_slots}/{max_s}/locks={locks_n}")
+    return "day_constraints: " + ", ".join(parts)
+
+
 def _get_constraints_order_and_open_slots(context_payload: Dict[str, Any]) -> Tuple[List[str], Dict[str, int]]:
     """
     Returns:
       - expected_dates_order: list of dates in EXACT order from day_constraints
       - open_slots_by_date: dict date -> open_slots (clamped >=0)
-    If day_constraints missing -> ([], {}).
+
+    IMPORTANT:
+      day_constraints already contains open_slots computed by builder.
+      Using max_sessions - len(locks) is WRONG if locks are server-injected later.
+      So: prefer dc.open_slots, fallback to compute only if missing.
     """
     dcs = context_payload.get("day_constraints") or []
     if not isinstance(dcs, list) or not dcs:
@@ -105,6 +148,15 @@ def _get_constraints_order_and_open_slots(context_payload: Dict[str, Any]) -> Tu
 
         expected_dates_order.append(ds)
 
+        # SOURCE OF TRUTH:
+        if isinstance(dc.get("open_slots"), int):
+            open_slots = int(dc.get("open_slots") or 0)
+            if open_slots < 0:
+                open_slots = 0
+            open_slots_by_date[ds] = open_slots
+            continue
+
+        # fallback only if open_slots missing
         max_sessions = dc.get("max_sessions")
         if not isinstance(max_sessions, int) or max_sessions < 0:
             max_sessions = 0
@@ -148,14 +200,12 @@ def _validate_free_plan_against_constraints(
 
     expected_dates_order, open_slots_by_date = _get_constraints_order_and_open_slots(context_payload)
     if not expected_dates_order:
-        # no day_constraints -> nothing to validate here
         return True, errors
 
     days = parsed.get("days")
     if not isinstance(days, list):
         return False, ["parsed.days is not a list"]
 
-    # Validate count and order strictly
     out_dates_order: List[str] = []
     seen: set = set()
 
@@ -173,14 +223,11 @@ def _validate_free_plan_against_constraints(
     if len(out_dates_order) != len(expected_dates_order):
         errors.append(f"days_count={len(out_dates_order)} != expected_count={len(expected_dates_order)}")
 
-    # Exact order match
     if out_dates_order != expected_dates_order:
-        # keep the message short but useful
         errors.append(
             f"day order mismatch. expected={expected_dates_order[:7]}..., got={out_dates_order[:7]}..."
         )
 
-    # Build map date->day for deeper validation
     by_date: Dict[str, Dict[str, Any]] = {}
     for d in days:
         if isinstance(d, dict):
@@ -188,7 +235,6 @@ def _validate_free_plan_against_constraints(
             if ds:
                 by_date[ds] = d
 
-    # Validate each day open_slots contract + payload hygiene
     for ds in expected_dates_order:
         open_slots = int(open_slots_by_date.get(ds, 0))
         day = by_date.get(ds)
@@ -237,13 +283,24 @@ def generate_daily_week_json(
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
 
+    # Allow forcing debug on Railway without touching FE
+    if os.getenv("DAILY_DEBUG_RAW", "0") in ("1", "true", "True"):
+        debug_raw = True
+
     raw_settings = context_payload.get("user_settings") or {}
     settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
+
+    _dprint("=== generate_daily_week_json start ===")
+    _dprint("model_hint=", model, "| debug_raw=", debug_raw)
+    _dprint(_summarize_day_constraints(context_payload))
 
     system_txt, user_txt, fixed_slots_from_template, strength_target = _build_prompts_for_daily(
         context_payload,
         settings=settings,
     )
+
+    _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
+    _dprint("fixed_slots_from_template=", len(fixed_slots_from_template), "| strength_target=", strength_target)
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
 
@@ -288,10 +345,15 @@ def generate_daily_week_json(
     except Exception:
         tzinfo = timezone.utc
 
+    _dprint("openai: retries=", retries, "| timeout_s=", timeout_s, "| models=", models)
+
     for m in models:
         for attempt in range(1, retries + 1):
             started = time.time()
             budget = token_budgets[min(attempt - 1, len(token_budgets) - 1)]
+
+            _dprint("call model=", m, "| attempt=", attempt, "| max_tokens=", budget)
+
             try:
                 raw, usage = _call_openai_raw(client, m, system_txt, user_txt, budget)
                 dur_ms = int((time.time() - started) * 1000)
@@ -305,12 +367,30 @@ def generate_daily_week_json(
                     "ok": parsed is not None,
                     "duration_ms": dur_ms,
                 }
+
+                # always print compact preview for Railway logs
+                preview = raw[:240].replace("\n", " ")
+                _dprint("raw_preview:", preview + (" …" if len(raw) > 240 else ""))
+
+                _dprint(
+                    "usage:",
+                    "prompt_tokens=",
+                    usage.get("prompt_tokens"),
+                    "completion_tokens=",
+                    usage.get("completion_tokens"),
+                    "total_tokens=",
+                    usage.get("total_tokens"),
+                    "| duration_ms=",
+                    dur_ms,
+                )
+
                 if debug_raw:
                     attempt_row["raw_preview"] = raw[:600] + ("…[truncated]" if len(raw) > 600 else "")
                 trace["attempts"].append(attempt_row)
 
                 if not parsed:
                     last_err = "AI returned invalid JSON"
+                    _dprint("parse failed -> retry; cleaned_preview:", (cleaned[:240].replace("\n", " ")))
                     continue
 
                 # minimal meta enrichment only
@@ -328,12 +408,12 @@ def generate_daily_week_json(
                 if "days" not in parsed or not isinstance(parsed["days"], list):
                     parsed["days"] = []
 
-                # Validate NEW contract: free sessions only + count=open_slots per day_constraints
                 ok, errs = _validate_free_plan_against_constraints(parsed, context_payload)
                 if not ok:
                     last_err = "AI output violates day_constraints/free-sessions contract"
                     attempt_row["ok"] = False
                     attempt_row["validation_errors"] = errs[:12]
+                    _dprint("validation FAILED:", errs[:12])
                     continue
 
                 trace["usage"] = {
@@ -348,6 +428,7 @@ def generate_daily_week_json(
                     trace["cleaned"] = cleaned
                     trace["ok_model"] = m
 
+                _dprint("validation OK -> return model=", m)
                 return parsed, trace
 
             except Exception as e:  # noqa: BLE001
@@ -362,6 +443,7 @@ def generate_daily_week_json(
                         "error": last_err,
                     }
                 )
+                _dprint("call exception:", last_err, "| duration_ms=", dur_ms)
                 time.sleep(0.5 * attempt)
                 continue
 
@@ -382,4 +464,5 @@ def generate_daily_week_json(
         trace["cleaned"] = last_cleaned
         trace["error"] = last_err or "unknown"
 
+    _dprint("=== generate_daily_week_json fallback ===", "error=", last_err)
     return fallback, trace if debug_raw else None
