@@ -712,7 +712,7 @@ export default function CoachPreferencies() {
         </Button>
 
         {/* DEV: one-click preset */}
-        <Button onClick={onSavePresetToDB} variant="warning">
+        <Button onClick={onSavePresetToDB} variant="secondary">
           Save preset JSON to DB
         </Button>
       </div>
