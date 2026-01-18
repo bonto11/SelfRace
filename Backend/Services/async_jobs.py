@@ -374,7 +374,7 @@ def service_run_job_now(
                 plan_id=input_payload.get("plan_id"),
                 overwrite=bool(input_payload.get("overwrite", True)),
                 model=input_payload.get("model"),
-                debug=bool(input_payload.get("debug", False)),
+                debug=bool(input_payload.get("debug", True)),
             )
 
         elif job_type == "plan_match":
