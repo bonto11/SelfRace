@@ -4,6 +4,24 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+# -----------------------------------------------------------------------------
+# DEBUG (forced ON)
+# -----------------------------------------------------------------------------
+# Chcel si "debug rovno na 1" -> tu je natvrdo zapnutý.
+# (Keď ťa to začne štvať, prepni na False alebo to daj za env var.)
+_DEBUG_ENABLED = True
+
+
+def _dprint(*parts: Any) -> None:
+    if not _DEBUG_ENABLED:
+        return
+    try:
+        msg = " ".join(str(p) for p in parts)
+        print(f"[DAILY_PROMPTS] {msg}")
+    except Exception:
+        pass
+
+
 WEEKDAY_ORDER: Dict[str, int] = {
     "Mon": 0,
     "Tue": 1,
@@ -24,10 +42,12 @@ def _derive_fixed_slots(
     day_constraints is the real source-of-truth (date-based).
     """
     if not isinstance(weekly_template, dict):
+        _dprint("_derive_fixed_slots: weekly_template not dict -> []")
         return []
 
     days = weekly_template.get("days")
     if not isinstance(days, list):
+        _dprint("_derive_fixed_slots: weekly_template.days not list -> []")
         return []
 
     ordered_days: List[Dict[str, Any]] = sorted(
@@ -70,8 +90,10 @@ def _derive_fixed_slots(
             )
 
             if len(fixed) >= max_fixed:
+                _dprint("_derive_fixed_slots: reached max_fixed=", max_fixed)
                 return fixed
 
+    _dprint("_derive_fixed_slots: fixed_slots=", len(fixed))
     return fixed
 
 
@@ -130,6 +152,37 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         if k in ctx:
             ctx2[k] = ctx[k]
 
+    # Debug summary (NEprintuj celé JSONy)
+    try:
+        dc = ctx2.get("day_constraints") or []
+        dc_n = len(dc) if isinstance(dc, list) else 0
+        wk = ctx2.get("week") or {}
+        _dprint(
+            "_minify_context_for_ai:",
+            "week_start=",
+            wk.get("week_start"),
+            "week_end=",
+            wk.get("week_end"),
+            "| day_constraints=",
+            dc_n,
+            "| has_external_events=",
+            bool(ctx2.get("external_events")),
+        )
+        if isinstance(dc, list) and dc:
+            # krátky prehľad: date open_slots/max/locks
+            parts = []
+            for d in dc:
+                if not isinstance(d, dict):
+                    continue
+                ds = str(d.get("date") or "")[:10]
+                open_slots = d.get("open_slots")
+                max_s = d.get("max_sessions")
+                locks = d.get("locks") or []
+                parts.append(f"{ds}:{open_slots}/{max_s}/locks={len(locks) if isinstance(locks, list) else 'na'}")
+            _dprint("day_constraints summary:", ", ".join(parts))
+    except Exception as e:
+        _dprint("_minify_context_for_ai: debug summary failed:", repr(e))
+
     return ctx2
 
 
@@ -183,6 +236,41 @@ def _build_prompts_for_daily(
 
     day_constraints = context_payload.get("day_constraints") or []
     has_day_constraints = isinstance(day_constraints, list) and len(day_constraints) > 0
+
+    # ---------------- DEBUG summary ----------------
+    _dprint(
+        "build_prompts:",
+        "week_index=",
+        week_index,
+        "| range=",
+        week_start,
+        "..",
+        week_end,
+        "| main_sport=",
+        main_sport,
+        "| planned_minutes=",
+        planned_minutes,
+        "| fixed_slots=",
+        len(fixed_slots),
+        "| has_day_constraints=",
+        has_day_constraints,
+        "| avoid_two_a_day=",
+        avoid_two_a_day,
+        "| avoid_b2b_hard=",
+        avoid_back_to_back_hard,
+        "| strength_target=",
+        strength_target_int,
+    )
+    if isinstance(day_constraints, list) and day_constraints:
+        try:
+            total_open = sum(int(d.get("open_slots") or 0) for d in day_constraints if isinstance(d, dict))
+            total_locks = sum(
+                len(d.get("locks") or []) for d in day_constraints if isinstance(d, dict) and isinstance(d.get("locks") or [], list)
+            )
+            _dprint("build_prompts: total_open_slots=", total_open, "| total_locks=", total_locks)
+        except Exception as e:
+            _dprint("build_prompts: totals failed:", repr(e))
+    # ------------------------------------------------
 
     weekly_template_reference_line = ""
     hard_slots = [fs for fs in fixed_slots if fs.get("policy") == "hard"]
@@ -302,7 +390,6 @@ def _build_prompts_for_daily(
 - upper_push: pushing patterns for chest and triceps
 """.strip()
 
-    # IMPORTANT: no comments inside JSON schema (model may copy them into output).
     schema_text = """
 {
   "schema_version": 2,
@@ -348,7 +435,6 @@ def _build_prompts_for_daily(
     if fixed_slots:
         context_for_ai["fixed_slots_debug"] = fixed_slots
 
-    # If skeleton missing, force a strict fallback (rare, but prevents random output).
     if not has_day_constraints:
         fallback_block = (
             "\nFALLBACK MODE (day_constraints missing):\n"
@@ -356,6 +442,7 @@ def _build_prompts_for_daily(
             "- Place weekly_template HARD slots on their weekdays.\n"
             "- Fill remaining days reasonably.\n"
         )
+        _dprint("build_prompts: FALLBACK MODE active (day_constraints missing/empty)")
     else:
         fallback_block = ""
 
@@ -396,5 +483,14 @@ def _build_prompts_for_daily(
         + avoid_back_to_back_hard_str
         + "- Avoid scheduling a hard run workout on the day immediately after a team sport external event.\n"
     )
+
+    # Debug: prompt sizes (toto je často root-cause keď model začne halucinovať / skracovať)
+    _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
+    try:
+        # nech aspoň vidíš, či tam fakt ide day_constraints a open_slots
+        dc = context_for_ai.get("day_constraints") or []
+        _dprint("context_for_ai: day_constraints_count=", (len(dc) if isinstance(dc, list) else "na"))
+    except Exception:
+        pass
 
     return system_txt, user_txt, fixed_slots, strength_target_int
