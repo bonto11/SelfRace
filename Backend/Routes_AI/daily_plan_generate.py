@@ -107,185 +107,38 @@ def _parse_ai_json(raw: str) -> Tuple[Optional[dict], str, str]:
             return None, cleaned, txt
 
 
-def _summarize_day_constraints(context_payload: Dict[str, Any]) -> str:
-    dcs = context_payload.get("day_constraints") or []
-    if not isinstance(dcs, list) or not dcs:
-        return "day_constraints: <missing/empty>"
-    parts: List[str] = []
-    for dc in dcs:
-        if not isinstance(dc, dict):
-            continue
-        ds = str(dc.get("date") or "")[:10]
-        if not ds:
-            continue
-        open_slots = dc.get("open_slots")
-        max_s = dc.get("max_sessions")
-        locks = dc.get("locks") or []
-        locks_n = len(locks) if isinstance(locks, list) else "na"
-        parts.append(f"{ds}:{open_slots}/{max_s}/locks={locks_n}")
-    return "day_constraints: " + ", ".join(parts)
-
-
-def _get_constraints_order_and_open_slots(context_payload: Dict[str, Any]) -> Tuple[List[str], Dict[str, int]]:
+def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Returns:
-      - expected_dates_order: list of dates in EXACT order from day_constraints
-      - open_slots_by_date: dict date -> open_slots (clamped >=0)
-
-    IMPORTANT:
-      day_constraints already contains open_slots computed by builder.
-      Using max_sessions - len(locks) is WRONG if locks change later.
-      So: prefer dc.open_slots, fallback compute only if missing.
+    Minimal sanity only (NO planning constraints):
+    - ensure days is list
+    - ensure each day has date and sessions list
+    - drop obviously broken day entries
     """
-    dcs = context_payload.get("day_constraints") or []
-    if not isinstance(dcs, list) or not dcs:
-        return [], {}
-
-    expected_dates_order: List[str] = []
-    open_slots_by_date: Dict[str, int] = {}
-
-    for dc in dcs:
-        if not isinstance(dc, dict):
-            continue
-        ds = str(dc.get("date") or "")[:10]
-        if not ds:
-            continue
-
-        expected_dates_order.append(ds)
-
-        # SOURCE OF TRUTH:
-        if isinstance(dc.get("open_slots"), int):
-            open_slots = int(dc.get("open_slots") or 0)
-            if open_slots < 0:
-                open_slots = 0
-            open_slots_by_date[ds] = open_slots
-            continue
-
-        # fallback only if open_slots missing
-        max_sessions = dc.get("max_sessions")
-        if not isinstance(max_sessions, int) or max_sessions < 0:
-            max_sessions = 0
-
-        locks = dc.get("locks") or []
-        if not isinstance(locks, list):
-            locks = []
-
-        open_slots = max_sessions - len(locks)
-        if open_slots < 0:
-            open_slots = 0
-
-        open_slots_by_date[ds] = int(open_slots)
-
-    return expected_dates_order, open_slots_by_date
-
-
-def _contains_lock_payload(session: Dict[str, Any]) -> bool:
-    payload = session.get("payload")
-    if not isinstance(payload, dict):
-        return False
-    if isinstance(payload.get("fixed_slot"), dict):
-        return True
-    if isinstance(payload.get("external_event"), dict):
-        return True
-    return False
-
-
-def _validate_free_plan_against_constraints(
-    parsed: Dict[str, Any],
-    context_payload: Dict[str, Any],
-) -> Tuple[bool, List[str]]:
-    """
-    Validation for NEW behavior:
-    - AI returns ONLY free sessions.
-    - sessions_count must be <= open_slots for date.
-      open_slots == 0 => sessions MUST be []
-      open_slots >= 1 => sessions MAY be 0..open_slots
-    - must not output lock payloads (fixed_slot/external_event) in free sessions.
-    - output DAYS exactly matching day_constraints:
-        same count, same dates, same order.
-    - If day_constraints missing: must follow fallback contract:
-        days==[] and warnings contains 'missing_day_constraints'
-    """
-    errors: List[str] = []
-
-    expected_dates_order, open_slots_by_date = _get_constraints_order_and_open_slots(context_payload)
-    has_constraints = bool(expected_dates_order)
+    if not isinstance(parsed, dict):
+        return {}
 
     days = parsed.get("days")
     if not isinstance(days, list):
-        return False, ["parsed.days is not a list"]
+        parsed["days"] = []
+        return parsed
 
-    # Fallback mode contract (no skeleton => do NOT invent plan)
-    if not has_constraints:
-        if len(days) != 0:
-            errors.append("missing day_constraints but parsed.days is not empty")
-        warnings = parsed.get("warnings") or []
-        if not (isinstance(warnings, list) and any(str(w) == "missing_day_constraints" for w in warnings)):
-            errors.append("missing day_constraints but parsed.warnings does not contain 'missing_day_constraints'")
-        return (len(errors) == 0), errors
-
-    # Strict day list: exact order, exact count
-    out_dates_order: List[str] = []
-    seen: set = set()
-
+    out_days: List[Dict[str, Any]] = []
     for d in days:
         if not isinstance(d, dict):
             continue
         ds = str(d.get("date") or "")[:10]
         if not ds:
             continue
-        out_dates_order.append(ds)
-        if ds in seen:
-            errors.append(f"duplicate day.date in output: {ds}")
-        seen.add(ds)
-
-    if len(out_dates_order) != len(expected_dates_order):
-        errors.append(f"days_count={len(out_dates_order)} != expected_count={len(expected_dates_order)}")
-
-    if out_dates_order != expected_dates_order:
-        errors.append(f"day order mismatch. expected={expected_dates_order[:7]}..., got={out_dates_order[:7]}...")
-
-    # date -> day map
-    by_date: Dict[str, Dict[str, Any]] = {}
-    for d in days:
-        if isinstance(d, dict):
-            ds = str(d.get("date") or "")[:10]
-            if ds:
-                by_date[ds] = d
-
-    # Sessions count cap + payload hygiene
-    for ds in expected_dates_order:
-        open_slots = int(open_slots_by_date.get(ds, 0))
-        if open_slots < 0:
-            open_slots = 0
-
-        day = by_date.get(ds)
-        if not isinstance(day, dict):
-            errors.append(f"{ds}: missing day object")
-            continue
-
-        sessions = day.get("sessions")
+        sessions = d.get("sessions")
         if sessions is None:
             sessions = []
         if not isinstance(sessions, list):
-            errors.append(f"{ds}: sessions is not a list")
-            continue
+            sessions = []
+        out_days.append({"date": ds, "sessions": [s for s in sessions if isinstance(s, dict)]})
 
-        # NEW CAP rules
-        if open_slots == 0 and len(sessions) != 0:
-            errors.append(f"{ds}: open_slots=0 but sessions_count={len(sessions)} (must be 0)")
-        if len(sessions) > open_slots:
-            errors.append(f"{ds}: sessions_count={len(sessions)} > open_slots={open_slots}")
+    parsed["days"] = out_days
+    return parsed
 
-        for s in sessions:
-            if not isinstance(s, dict):
-                errors.append(f"{ds}: session is not an object")
-                continue
-            if _contains_lock_payload(s):
-                errors.append(f"{ds}: free session contains forbidden lock payload (fixed_slot/external_event)")
-
-    ok = len(errors) == 0
-    return ok, errors
 
 def generate_daily_week_json(
     context_payload: dict,
@@ -297,12 +150,10 @@ def generate_daily_week_json(
     AI client for DAILY PLAN of one week.
     Returns (daily_dict, debug_trace_or_None).
 
-    This file does NOT inject locks or trim sessions.
-    It only:
-      - calls the LLM,
-      - parses JSON,
-      - adds minimal meta,
-      - validates the NEW "free sessions only" contract vs day_constraints.
+    NEW SIMPLIFIED PHILOSOPHY:
+      - AI generates the whole week plan (days + sessions) based on prefs + context.
+      - NO day_constraints / slot counting / hard-lock planning logic here.
+      - Server later merges external events from DB (and may annotate), but does not "plan" for AI.
     """
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
@@ -316,15 +167,13 @@ def generate_daily_week_json(
 
     _dprint("=== generate_daily_week_json start ===")
     _dprint("model_hint=", model, "| debug_raw=", debug_raw)
-    _dprint(_summarize_day_constraints(context_payload))
 
-    system_txt, user_txt, fixed_slots_from_template, strength_target = _build_prompts_for_daily(
+    system_txt, user_txt, _fixed_slots_unused, _strength_target_unused = _build_prompts_for_daily(
         context_payload,
         settings=settings,
     )
 
     _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
-    _dprint("fixed_slots_from_template=", len(fixed_slots_from_template), "| strength_target=", strength_target)
 
     retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
 
@@ -350,8 +199,6 @@ def generate_daily_week_json(
     if debug_raw:
         trace["system_prompt"] = system_txt
         trace["user_prompt"] = user_txt
-        trace["fixed_slots_from_template"] = fixed_slots_from_template
-        trace["strength_target"] = strength_target
         trace["timeout_s"] = timeout_s
 
     last_raw: Optional[str] = None
@@ -428,16 +275,7 @@ def generate_daily_week_json(
                 if week_end:
                     parsed.setdefault("week_end", week_end)
 
-                if "days" not in parsed or not isinstance(parsed["days"], list):
-                    parsed["days"] = []
-
-                ok, errs = _validate_free_plan_against_constraints(parsed, context_payload)
-                if not ok:
-                    last_err = "AI output violates day_constraints/free-sessions contract"
-                    attempt_row["ok"] = False
-                    attempt_row["validation_errors"] = errs[:12]
-                    _dprint("validation FAILED:", errs[:12])
-                    continue
+                parsed = _basic_shape_sanitize(parsed)
 
                 trace["usage"] = {
                     "model": m,
@@ -451,7 +289,7 @@ def generate_daily_week_json(
                     trace["cleaned"] = cleaned
                     trace["ok_model"] = m
 
-                _dprint("validation OK -> return model=", m)
+                _dprint("return model=", m, "| days=", len(parsed.get("days") or []))
                 return parsed, trace
 
             except Exception as e:  # noqa: BLE001
