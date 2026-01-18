@@ -28,17 +28,6 @@ def _dprint(*parts: Any) -> None:
         pass
 
 
-WEEKDAY_ORDER: Dict[str, int] = {
-    "Mon": 0,
-    "Tue": 1,
-    "Wed": 2,
-    "Thu": 3,
-    "Fri": 4,
-    "Sat": 5,
-    "Sun": 6,
-}
-
-
 def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
     try:
         if v is None:
@@ -62,40 +51,51 @@ def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optio
     return out
 
 
+def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
+    """
+    ctx.prefs can be:
+      - plain dict
+      - { value: {...} }
+    Return plain dict.
+    """
+    if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
+        return raw_prefs["value"]
+    return raw_prefs if isinstance(raw_prefs, dict) else {}
+
+
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Send only what the LLM truly needs (new approach):
+    Send only what the LLM truly needs (NEW approach: AI plans full week).
+    Keep:
       - week meta
       - recent_load, zones, thresholds
-      - prefs (minified)
+      - prefs (minified to new schema)
       - athlete_state.ai_state (optional)
       - external_events occurrences (HARD constraint)
-      - planning_constraints (two-a-day cap, long_run_days, etc.)
     """
     ctx2: Dict[str, Any] = {}
 
-    for k in ("week", "zones", "thresholds", "recent_load", "external_events", "planning_constraints"):
+    for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
         if k in ctx:
             ctx2[k] = ctx[k]
 
-    raw_prefs = ctx.get("prefs") or {}
-    if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
-        prefs = raw_prefs["value"]
-    else:
-        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
+    prefs = _flatten_prefs(ctx.get("prefs") or {})
 
-    # Keep prefs lean + aligned with new schema direction
+    # Align to new prefs schema you provided
     prefs2: Dict[str, Any] = {
-        "schema_version": prefs.get("schema_version"),
-        "main_sport": prefs.get("main_sport"),
-        "addons": prefs.get("addons"),
+        "weeks": prefs.get("weeks"),
         "start_date": prefs.get("start_date"),
+        "end_date": prefs.get("end_date"),
+        "main_sport": prefs.get("main_sport"),
+        "add_on_sports": prefs.get("add_on_sports"),
+        "goal_kind": prefs.get("goal_kind"),
         "volume": prefs.get("volume"),
+        "targets": prefs.get("targets"),
         "preferences": prefs.get("preferences") or {},
         "strength_settings": prefs.get("strength_settings") or {},
-        "targets": prefs.get("targets") or {},
+        "polarized_model": prefs.get("polarized_model"),
+        "pyramidal_model": prefs.get("pyramidal_model"),
     }
-
     ctx2["prefs"] = prefs2
 
     athlete_state = ctx.get("athlete_state") or {}
@@ -111,7 +111,9 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         wk = ctx2.get("week") or {}
         ext = ctx2.get("external_events") or {}
         ext_n = len(ext.get("occurrences") or []) if isinstance(ext, dict) else 0
-        pc = ctx2.get("planning_constraints") or {}
+        pref_obj = prefs2.get("preferences") or {}
+        two = pref_obj.get("two_a_day") or {}
+        strength = prefs2.get("strength_settings") or {}
         _dprint(
             "_minify_context_for_ai:",
             "week_start=",
@@ -120,8 +122,10 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             wk.get("week_end"),
             "| external_occurrences=",
             ext_n,
-            "| planning_constraints=",
-            json.dumps(pc, ensure_ascii=False)[:220],
+            "| two_a_day=",
+            json.dumps(two, ensure_ascii=False)[:160],
+            "| strength_sessions_per_week=",
+            strength.get("sessions_per_week"),
         )
     except Exception as e:
         _dprint("_minify_context_for_ai: debug summary failed:", repr(e))
@@ -135,13 +139,16 @@ def _build_prompts_for_daily(
     settings: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
     """
-    New contract:
-      - AI plans the full week (dates + sessions).
-      - It MUST include ALL external events occurrences as sessions on those dates.
-      - Prefer: only 1 session/day; allow 2 sessions/day on max N days/week (cap).
-      - Strength sessions count is a target, not hard-coded by us beyond the numeric requirement.
-      - Long run: should happen once/week if main sport is run, and prefer given long_run_days.
-      - No weekly_template, no day_constraints, no lock payload rules (server won't inject locks).
+    NEW CONTRACT (as agreed):
+      - AI plans the full week (calendar dates + sessions).
+      - NO day_constraints, NO weekly_template, NO open_slots.
+      - Only hard constraint: external_events occurrences MUST appear in output on same dates.
+      - Only soft/hard prefs constraints:
+          * preferences.two_a_day.enabled + max_days_per_week (cap 0..2)
+          * preferences.long_run_days preference
+          * strength_settings.sessions_per_week target
+      - Every session must include notes with the reason.
+      - Strength structure is handled later (normalize + mapper); AI should keep it simple.
     Returns: (system_txt, user_txt, legacy_fixed_slots=[], strength_target_int)
     """
     settings = settings or {}
@@ -159,12 +166,7 @@ def _build_prompts_for_daily(
 
     week = context_payload.get("week") or {}
 
-    raw_prefs = context_payload.get("prefs") or {}
-    if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
-        prefs = raw_prefs["value"]
-    else:
-        prefs = raw_prefs if isinstance(raw_prefs, dict) else {}
-
+    prefs = _flatten_prefs(context_payload.get("prefs") or {})
     targets = context_payload.get("targets") or prefs.get("targets") or {}
 
     week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
@@ -176,28 +178,33 @@ def _build_prompts_for_daily(
     main_sport = prefs.get("main_sport") or "run"
 
     pref_obj = prefs.get("preferences") or {}
-    avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
+    if not isinstance(pref_obj, dict):
+        pref_obj = {}
+
+    # two-a-day cap from prefs
+    two = pref_obj.get("two_a_day") or {}
+    if not isinstance(two, dict):
+        two = {}
+    two_enabled = bool(two.get("enabled"))
+    two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
+
+    # long run preference
     long_run_days = pref_obj.get("long_run_days") or []
     if not isinstance(long_run_days, list):
         long_run_days = []
-    long_run_days = [str(d) for d in long_run_days if isinstance(d, str)]
+    long_run_days = [str(d) for d in long_run_days if isinstance(d, str) and d.strip()]
 
-    # planning_constraints are computed in builder (source of truth)
-    pc = context_payload.get("planning_constraints") or {}
-    if not isinstance(pc, dict):
-        pc = {}
-    two_a_day_cap = _safe_int(pc.get("two_a_day_max_days_per_week"), 0, min_v=0, max_v=2)
+    avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    # strength sessions target: from new place (prefs.strength_settings.sessions_per_week),
-    # fallback to old targets.strength.sessions_per_week if present
+    # strength target: NEW place: prefs.strength_settings.sessions_per_week
     strength_settings = prefs.get("strength_settings") or {}
     if not isinstance(strength_settings, dict):
         strength_settings = {}
-    strength_target_int = None
-    s_target = strength_settings.get("sessions_per_week")
-    if isinstance(s_target, int):
-        strength_target_int = int(s_target)
+    strength_target_int: Optional[int] = None
+    if isinstance(strength_settings.get("sessions_per_week"), int):
+        strength_target_int = int(strength_settings.get("sessions_per_week"))
     else:
+        # fallback legacy (if ever exists)
         legacy = (targets.get("strength") or {}).get("sessions_per_week")
         if isinstance(legacy, int):
             strength_target_int = int(legacy)
@@ -207,33 +214,6 @@ def _build_prompts_for_daily(
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else None
     ext_count = len(ext_occ) if isinstance(ext_occ, list) else 0
 
-    _dprint(
-        "build_prompts:",
-        "week_index=",
-        week_index,
-        "| range=",
-        week_start,
-        "..",
-        week_end,
-        "| main_sport=",
-        main_sport,
-        "| planned_minutes=",
-        planned_minutes,
-        "| external_occurrences=",
-        ext_count,
-        "| two_a_day_cap=",
-        two_a_day_cap,
-        "| long_run_days=",
-        long_run_days,
-        "| strength_target=",
-        strength_target_int,
-        "| avoid_b2b_hard=",
-        avoid_back_to_back_hard,
-    )
-
-    long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
-    strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
-
     # Volume guidance (soft)
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
@@ -241,7 +221,7 @@ def _build_prompts_for_daily(
 
     if isinstance(planned_minutes, (int, float)):
         weekly_volume_line = (
-            f"- Weekly target from WEEK META: planned_minutes ≈ {planned_minutes} min.\n"
+            f"- Weekly intent from WEEK META: planned_minutes ≈ {planned_minutes} min.\n"
             "  Treat this as intent only.\n"
         )
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
@@ -259,14 +239,39 @@ def _build_prompts_for_daily(
         else "- Avoid back-to-back hard days when possible.\n"
     )
 
+    long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
+    strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
+
+    _dprint(
+        "build_prompts:",
+        "week_index=",
+        week_index,
+        "| range=",
+        week_start,
+        "..",
+        week_end,
+        "| main_sport=",
+        main_sport,
+        "| planned_minutes=",
+        planned_minutes,
+        "| external_occurrences=",
+        ext_count,
+        "| two_a_day_cap=",
+        two_cap,
+        "| long_run_days=",
+        long_run_days,
+        "| strength_target=",
+        strength_target_int,
+        "| avoid_b2b_hard=",
+        avoid_back_to_back_hard,
+    )
+
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON for ONE training week. "
         "Return ONE valid JSON object only. No prose, no code fences."
     )
 
-    # Keep schema compatible with current FE/DB,
-    # but remove legacy lock/payload constraints.
     schema_text = """
 {
   "schema_version": 2,
@@ -302,38 +307,40 @@ def _build_prompts_for_daily(
         "- EXTERNAL EVENTS (HARD REQUIREMENT):\n"
         "  In CONTEXT_JSON.external_events.occurrences you will receive date-based external events.\n"
         "  You MUST include each occurrence as a session on the SAME date.\n"
-        "  Use these fields exactly:\n"
-        "    - date: occurrence.date\n"
+        "  Represent each occurrence as a session with:\n"
+        "    - sport: occurrence.session_sport (FE enum: run/ride/strength/swim/other)\n"
         "    - title: occurrence.title\n"
-        "    - duration_min: occurrence.duration_min (if present)\n"
-        "    - intensity: occurrence.intensity (if present: easy|medium|hard)\n"
-        "    - sport: occurrence.session_sport (mapped for FE)\n"
+        "    - duration_min: occurrence.duration_min (if missing, choose a reasonable default and mention assumption in notes)\n"
+        "    - intensity: occurrence.intensity if present (easy|medium|hard)\n"
         "    - session_type: 'external_event'\n"
-        "    - payload.external_event must include: date, title, sport (raw), start_time_local, duration_min, priority, intensity\n"
+        "    - payload.external_event: include date, title, sport (raw), start_time_local, duration_min, priority, intensity (if present)\n"
         "  Do NOT move external events to a different day.\n"
+        "  Do NOT omit any external event occurrence.\n"
         "\n"
     )
 
     two_a_day_rule = (
-        "- TWO-A-DAY RULE:\n"
-        f"  Prefer 1 session/day.\n"
-        f"  You may schedule 2 sessions in a day on at most {two_a_day_cap} day(s) in the week.\n"
+        "- TWO-A-DAY RULE (PREF CONSTRAINT):\n"
+        "  Prefer 1 session/day.\n"
+        f"  You may schedule 2 sessions in a day on at most {two_cap} day(s) in the week.\n"
         "  If cap is 0, never schedule 2 sessions in a day.\n"
+        "  If you schedule a 2-a-day, explain why in notes.\n"
         "\n"
     )
 
     long_run_rule = (
-        "- LONG RUN RULE:\n"
-        f"  If main sport is run, schedule exactly 1 long run in the week when reasonable.\n"
+        "- LONG RUN RULE (PREF):\n"
+        f"  If main sport is run, schedule 1 long run in the week when reasonable.\n"
         f"  Prefer weekday(s): {long_run_days_str}.\n"
-        "  If not possible due to fatigue / external events, pick another suitable day and explain in notes.\n"
+        "  If you place it on a different day, explain why in notes.\n"
         "\n"
     )
 
     strength_rule = (
-        "- STRENGTH RULE:\n"
+        "- STRENGTH RULE (PREF CONSTRAINT):\n"
         f"  Aim for {strength_str}.\n"
         "  Keep strength simple; server will normalize and mapper will add exercises.\n"
+        "  Use sport='strength'.\n"
         "\n"
     )
 
@@ -342,15 +349,11 @@ def _build_prompts_for_daily(
         "  Every session MUST include 1–2 concrete sentences in `notes`:\n"
         "    - why this session is placed on this day (spacing / fatigue / goal), OR\n"
         "    - why a preference could not be followed.\n"
-        "  No fluff.\n"
+        "  No fluff. Never mention 'AI made a mistake'.\n"
         "\n"
     )
 
-    context_for_ai = _minify_context_for_ai(context_payload)
-    if settings:
-        context_for_ai["user_settings"] = settings
-
-    # If week range missing, do not invent dates
+    # Week range fallback
     fallback_block = ""
     if not week_start or not week_end:
         fallback_block = (
@@ -359,6 +362,10 @@ def _build_prompts_for_daily(
             "- Return days: [] and add warnings: ['missing_week_range'].\n"
         )
         _dprint("build_prompts: FALLBACK MODE active (missing week_start/week_end)")
+
+    context_for_ai = _minify_context_for_ai(context_payload)
+    if settings:
+        context_for_ai["user_settings"] = settings
 
     user_txt = (
         "Generate a full weekly training plan (calendar dates + sessions) based on the context JSON.\n"
