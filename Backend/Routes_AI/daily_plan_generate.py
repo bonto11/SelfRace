@@ -20,8 +20,6 @@ from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
 # DEBUG (env-controlled)
 # -----------------------------------------------------------------------------
 # zapneš:
-#   DAILY_GEN_DEBUG=1
-# alebo (backward compat):
 #   DAILY_DEBUG=1
 # raw trace:
 #   DAILY_DEBUG_RAW=1
@@ -198,11 +196,15 @@ def _validate_free_plan_against_constraints(
 ) -> Tuple[bool, List[str]]:
     """
     Validation for NEW behavior:
-    - AI returns ONLY free sessions. Count must match open_slots per date.
-    - It must not output lock payloads (fixed_slot/external_event) in free sessions.
-    - It must output DAYS exactly matching day_constraints:
+    - AI returns ONLY free sessions.
+    - sessions_count must be <= open_slots for date.
+      open_slots == 0 => sessions MUST be []
+      open_slots >= 1 => sessions MAY be 0..open_slots
+    - must not output lock payloads (fixed_slot/external_event) in free sessions.
+    - output DAYS exactly matching day_constraints:
         same count, same dates, same order.
-    - If day_constraints missing: must follow fallback contract (days==[] + warnings contains missing_day_constraints)
+    - If day_constraints missing: must follow fallback contract:
+        days==[] and warnings contains 'missing_day_constraints'
     """
     errors: List[str] = []
 
@@ -253,9 +255,12 @@ def _validate_free_plan_against_constraints(
             if ds:
                 by_date[ds] = d
 
-    # Strict sessions count per open_slots + payload hygiene
+    # Sessions count cap + payload hygiene
     for ds in expected_dates_order:
         open_slots = int(open_slots_by_date.get(ds, 0))
+        if open_slots < 0:
+            open_slots = 0
+
         day = by_date.get(ds)
         if not isinstance(day, dict):
             errors.append(f"{ds}: missing day object")
@@ -268,8 +273,11 @@ def _validate_free_plan_against_constraints(
             errors.append(f"{ds}: sessions is not a list")
             continue
 
-        if len(sessions) != open_slots:
-            errors.append(f"{ds}: sessions_count={len(sessions)} != open_slots={open_slots}")
+        # NEW CAP rules
+        if open_slots == 0 and len(sessions) != 0:
+            errors.append(f"{ds}: open_slots=0 but sessions_count={len(sessions)} (must be 0)")
+        if len(sessions) > open_slots:
+            errors.append(f"{ds}: sessions_count={len(sessions)} > open_slots={open_slots}")
 
         for s in sessions:
             if not isinstance(s, dict):
