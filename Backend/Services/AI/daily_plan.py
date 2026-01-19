@@ -165,11 +165,6 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             # optional redundancy for FE compatibility if you rely on it
             s["strength_exercises"] = strength_exercises
 
-            s["notes"] = _append_note(
-                s.get("notes"),
-                "Štruktúra silového tréningu bola zjednotená systémom na 75 min (15+45+15) a 2+5+2 bloky.",
-            )
-
     return daily_plan
 
 
