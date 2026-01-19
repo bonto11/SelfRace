@@ -244,19 +244,25 @@ def _long_run_days_from_prefs(prefs: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _strength_sessions_target_from_prefs(prefs: Dict[str, Any], targets: Dict[str, Any]) -> Optional[int]:
-    """
-    New location:
-      prefs.strength_settings.sessions_per_week
-    Fallback legacy:
-      targets.strength.sessions_per_week
-    """
-    ss = prefs.get("strength_settings") if isinstance(prefs, dict) else None
-    if isinstance(ss, dict) and isinstance(ss.get("sessions_per_week"), int):
-        return int(ss.get("sessions_per_week"))
+def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]:
+    strength_settings = prefs.get("strength_settings")
+    if isinstance(strength_settings, dict):
+        raw = strength_settings.get("sessions_per_week")
+        if isinstance(raw, (int, float, str)):
+            try:
+                return int(raw)
+            except Exception:
+                return None
 
+    targets = prefs.get("targets")
     legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
-    return int(legacy) if isinstance(legacy, int) else None
+    if isinstance(legacy, (int, float, str)):
+        try:
+            return int(legacy)
+        except Exception:
+            return None
+
+    return None
 
 
 # -------------------------
@@ -270,12 +276,12 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
 
     We normalize minimal fields and keep DB truth (duration/intensity/title).
     """
-    events = ext_window.get("events") or []
-    if not isinstance(events, list):
+    occurrences = ext_window.get("occurrences") or []
+    if not isinstance(occurrences, list):
         return []
 
     out: List[Dict[str, Any]] = []
-    for e in events:
+    for e in occurrences:
         if not isinstance(e, dict):
             continue
 
@@ -385,7 +391,7 @@ def build_daily_context_from_db(
 
     two_a_day_cap = _two_a_day_cap_from_prefs(prefs_ai)
     long_run_days = _long_run_days_from_prefs(prefs_ai)
-    strength_target = _strength_sessions_target_from_prefs(prefs_ai, targets_ai)
+    strength_target = _strength_sessions_target_from_prefs(prefs_ai)
 
     _dprint(
         "prefs summary:",

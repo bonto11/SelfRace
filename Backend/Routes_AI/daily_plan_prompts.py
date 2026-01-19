@@ -26,7 +26,9 @@ def _dprint(*parts: Any) -> None:
         pass
 
 
-def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
+def _safe_int(
+    v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
+) -> int:
     try:
         if v is None:
             out = default
@@ -164,7 +166,11 @@ def _build_prompts_for_daily(
     if not isinstance(two, dict):
         two = {}
     two_enabled = bool(two.get("enabled"))
-    two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
+    two_cap = (
+        _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2)
+        if two_enabled
+        else 0
+    )
 
     long_run_days = pref_obj.get("long_run_days") or []
     if not isinstance(long_run_days, list):
@@ -173,16 +179,25 @@ def _build_prompts_for_daily(
 
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    strength_settings = prefs.get("strength_settings") or {}
+    strength_settings = prefs.get("strength_settings")
     if not isinstance(strength_settings, dict):
         strength_settings = {}
+
     strength_target_int: Optional[int] = None
-    if isinstance(strength_settings.get("sessions_per_week"), int):
-        strength_target_int = int(strength_settings.get("sessions_per_week"))
+    ss_raw = strength_settings.get("sessions_per_week")
+    if isinstance(ss_raw, (int, float, str)):
+        try:
+            strength_target_int = int(ss_raw)
+        except Exception:
+            strength_target_int = None
     else:
-        legacy = (targets.get("strength") or {}).get("sessions_per_week")
-        if isinstance(legacy, int):
-            strength_target_int = int(legacy)
+        # fallback legacy
+        legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
+        if isinstance(legacy, (int, float, str)):
+            try:
+                strength_target_int = int(legacy)
+            except Exception:
+                strength_target_int = None
 
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else None
@@ -194,7 +209,9 @@ def _build_prompts_for_daily(
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
 
     if isinstance(planned_minutes, (int, float)):
-        weekly_volume_line = f"- Weekly intent: planned_minutes ≈ {planned_minutes} min (soft).\n"
+        weekly_volume_line = (
+            f"- Weekly intent: planned_minutes ≈ {planned_minutes} min (soft).\n"
+        )
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         weekly_volume_line = f"- Weekly intent: prefs.volume weekly_hours ≈ {volume_value * 60:.0f} min (soft).\n"
     else:
@@ -207,7 +224,11 @@ def _build_prompts_for_daily(
     )
 
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
-    strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
+    strength_str = (
+        f"{strength_target_int}× per week"
+        if strength_target_int is not None
+        else "not specified"
+    )
 
     _dprint(
         "build_prompts:",
@@ -307,10 +328,13 @@ def _build_prompts_for_daily(
     )
 
     long_run_rule = (
-        "- LONG RUN (PREF):\n"
-        f"  If main sport is run, schedule 1 long run in the week when reasonable.\n"
-        f"  Prefer weekday(s): {long_run_days_str}.\n"
-        "  If you place it elsewhere, explain why in notes.\n"
+        "- LONG RUN RULE (HARD WHEN POSSIBLE):\n"
+        "  If main_sport is run, schedule exactly 1 long run in the week.\n"
+        f"  Preferred weekdays: {long_run_days_str}.\n"
+        "  If there is NO hard conflict on preferred weekdays (e.g. external_event that cannot be combined),\n"
+        "  you MUST place the long run on ONE of the preferred weekdays.\n"
+        "  Mark it explicitly: session_type='long_run'.\n"
+        "  If you cannot place it on preferred weekdays, explain why in notes and add warnings: ['long_run_not_on_preferred_day'].\n"
         "\n"
     )
 
@@ -372,5 +396,7 @@ def _build_prompts_for_daily(
         + "- Do NOT omit any external event occurrence.\n"
     )
 
-    _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
+    _dprint(
+        "prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt)
+    )
     return system_txt, user_txt, [], strength_target_int
