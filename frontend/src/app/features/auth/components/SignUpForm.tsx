@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
-import { CARD } from "@/app/shared/ui/uiTokens";
+import { CARD } from "@/app/shared/theme/uiTokens";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();

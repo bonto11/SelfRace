@@ -9,7 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import { THEME } from "@/app/shared/theme/tokens";
 import Button from "@/app/shared/components/ui/Button";
-import { CALENDAR_CONTAINER, NO_X_OVERFLOW } from "@/app/shared/ui/uiTokens";
+import { CALENDAR_CONTAINER, NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 

@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 type Props = {

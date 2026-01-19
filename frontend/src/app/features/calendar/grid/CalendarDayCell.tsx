@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
-import { CALENDAR_DAY_CELL } from "@/app/shared/ui/uiTokens";
+import { CALENDAR_DAY_CELL } from "@/app/shared/theme/uiTokens";
 
 type Props = {
   cell: DayCellData;

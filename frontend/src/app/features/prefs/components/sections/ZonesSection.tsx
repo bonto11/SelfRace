@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import SelectField from "@/app/shared/components/ui/SelectField";

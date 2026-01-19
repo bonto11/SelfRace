@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/uiTokens";
+import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/theme/uiTokens";
 
 // lazy import – nech sa PBRun nenačítava zbytočne
 const PBRun = dynamic(() => import("@/app/features/bests/components/PBRun"), {

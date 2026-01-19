@@ -24,7 +24,7 @@ import { confirm } from "@/app/shared/components/ui/Confirm";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { inputClass } from "@/app/shared/ui";
-import { NO_X, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { NO_X, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
 

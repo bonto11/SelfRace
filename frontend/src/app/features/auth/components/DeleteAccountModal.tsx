@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { API_URL } from "@/app/shared/config";
 import Button from "@/app/shared/components/ui/Button";
-import { CARD, SIDEBAR_OVERLAY } from "@/app/shared/ui/uiTokens";
+import { CARD, SIDEBAR_OVERLAY } from "@/app/shared/theme/uiTokens";
 import { toast } from "@/app/shared/components/ui/Toast";
 
 export default function DeleteAccountModal({

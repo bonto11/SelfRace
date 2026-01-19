@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
-import { AVATAR_BUTTON } from "@/app/shared/ui/uiTokens";
+import { AVATAR_BUTTON } from "@/app/shared/theme/uiTokens";
 import {
   getSubscriptionTier,
   subscribeSubscriptionTier,

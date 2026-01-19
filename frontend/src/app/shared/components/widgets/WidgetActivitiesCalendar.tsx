@@ -5,7 +5,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import { CALENDAR_DAY_CELL, NO_X_OVERFLOW } from "@/app/shared/ui/uiTokens";
+import { CALENDAR_DAY_CELL, NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { THEME } from "@/app/shared/theme/tokens";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";

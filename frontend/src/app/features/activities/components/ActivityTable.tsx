@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD, NO_X_OVERFLOW } from "@/app/shared/ui/uiTokens";
+import { CARD, NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import {
   ActivityRow,

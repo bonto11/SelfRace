@@ -17,7 +17,7 @@ import {
   TOPBAR_DESKTOP,
   SIDEBAR_OVERLAY,
   SIDEBAR_MOBILE_PANEL,
-} from "@/app/shared/ui/uiTokens";
+} from "@/app/shared/theme/uiTokens";
 
 function ShellBody({ children }: { children: ReactNode }) {
   const { open, toggle, setOpen } = useSidebar();

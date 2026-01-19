@@ -6,7 +6,7 @@ import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 
 /* ─────────────────────── constants ─────────────────────── */
 

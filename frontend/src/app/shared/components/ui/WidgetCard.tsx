@@ -12,7 +12,7 @@ import {
   WIDGET_NOTE,
   WIDGET_FOOTER,
   WIDGET_ACCENT_BAR,
-} from "@/app/shared/ui/uiTokens";
+} from "@/app/shared/theme/uiTokens";
 
 function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");

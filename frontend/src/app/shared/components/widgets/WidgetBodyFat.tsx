@@ -7,7 +7,7 @@ import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { THEME } from "@/app/shared/theme/tokens";
-import { NO_X_OVERFLOW } from "@/app/shared/ui/uiTokens";
+import { NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { fmtDate } from "@/app/shared/utils/time";
 
 import { apiGetStaticProfile } from "@/app/features/profile/api/static";

@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import { CHART_HR, FLUSH_DETAIL_PB, SCROLL_X } from "@/app/shared/ui/uiTokens";
+import {
+  CHART_HR,
+  FLUSH_DETAIL_PB,
+  SCROLL_X,
+} from "@/app/shared/theme/uiTokens";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 
 type Point = { lat: number; lng: number };

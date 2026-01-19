@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";

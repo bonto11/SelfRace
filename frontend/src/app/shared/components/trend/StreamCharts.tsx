@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { CHART_HR, FLUSH_DETAIL_PB, SCROLL_X } from "@/app/shared/ui/uiTokens";
+import {
+  CHART_HR,
+  FLUSH_DETAIL_PB,
+  SCROLL_X,
+} from "@/app/shared/theme/uiTokens";
 import type { StreamsData } from "@/app/features/activities/types/activities";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 

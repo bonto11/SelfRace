@@ -5,7 +5,7 @@ import { useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
-import { CARD } from "@/app/shared/ui/uiTokens";
+import { CARD } from "@/app/shared/theme/uiTokens";
 import { THEME } from "@/app/shared/theme/tokens";
 
 export default function RegisterForm() {

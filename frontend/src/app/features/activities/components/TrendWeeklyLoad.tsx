@@ -9,7 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
-import { CARD, SCROLL_X } from "@/app/shared/ui/uiTokens";
+import { CARD, SCROLL_X } from "@/app/shared/theme/uiTokens";
 import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 

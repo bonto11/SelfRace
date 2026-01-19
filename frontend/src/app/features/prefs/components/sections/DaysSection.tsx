@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/app/shared/types/day";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

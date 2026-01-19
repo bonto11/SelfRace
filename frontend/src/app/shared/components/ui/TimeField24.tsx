@@ -1,6 +1,6 @@
 "use client";
 
-import { SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
+import { SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 
 type Props = {
   label: string;

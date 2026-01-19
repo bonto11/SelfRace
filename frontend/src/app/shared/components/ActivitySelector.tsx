@@ -11,7 +11,7 @@ import {
   FIELD_BASE,
   FIELD_DISABLED,
   FIELD_HELP,
-} from "@/app/shared/ui/uiTokens";
+} from "@/app/shared/theme/uiTokens";
 import { fmtShortDate } from "@/app/shared/utils/time";
 
 type Props = {
