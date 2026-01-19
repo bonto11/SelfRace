@@ -1,3 +1,6 @@
+//shared/ui/classes.ts
+
+
 /* ===== SURFACES (globálne konzistentné) =============================== */
 /** Hlavný panel/karta – najvýraznejší povrch (použi pre hlavné widgety) */
 export const SURFACE_CARD =
