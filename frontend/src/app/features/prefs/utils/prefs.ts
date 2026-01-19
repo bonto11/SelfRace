@@ -5,14 +5,12 @@ import type {
   CoachPrefs,
   SportKind,
   Preferences,
-  WeeklyTemplate,
+  TrainingBlocks,
+  IntensityModel,
 } from "@/app/features/prefs/types/prefs";
 import type { CoachPrefsLegacyLoose } from "@/app/features/coach/types/coachTypes";
 import { DEFAULT_PREFS } from "@/app/features/prefs/types/prefs";
-import {
-  apiFetchUserPref,
-  apiUpsertUserPref,
-} from "@/app/features/prefs/api/prefs";
+import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
 /** DB key + LS cache key */
 const KEY = "coach.prefs";
@@ -23,7 +21,6 @@ const EVT = "coach:prefs-updated";
 
 /* -------------------- helpers -------------------- */
 
-// SportKind = "run" | "ride" | "swim"  (podľa tvojich types)
 const SPORT_SET = new Set<SportKind>(["run", "ride", "swim"]);
 
 const clampSports = (xs?: unknown): SportKind[] | undefined => {
@@ -67,6 +64,60 @@ function broadcast(prefs: CoachPrefs) {
   }
 }
 
+function normalizeTwoADay(incomingPrefs: any, anyIn: any) {
+  // NEW: preferences.two_a_day: { enabled, max_days_per_week }
+  // OLD: avoid_two_a_day: boolean  (true => disable 2-a-day)
+  const legacyAvoidTwoA: boolean =
+    !!incomingPrefs?.avoid_two_a_day || !!anyIn?.avoid_two_a_day || false;
+
+  const incomingTwoA = incomingPrefs?.two_a_day;
+
+  const two_a_day =
+    incomingTwoA && typeof incomingTwoA === "object"
+      ? {
+          enabled: !!incomingTwoA.enabled,
+          max_days_per_week:
+            typeof incomingTwoA.max_days_per_week === "number"
+              ? Math.max(0, Math.min(2, Math.floor(incomingTwoA.max_days_per_week)))
+              : 2,
+        }
+      : legacyAvoidTwoA
+        ? { enabled: false, max_days_per_week: 0 }
+        : { enabled: true, max_days_per_week: 2 };
+
+  return two_a_day;
+}
+
+function normalizeIntensityModel(incomingPrefs: any, anyIn: any): IntensityModel {
+  // NEW: preferences.intensity_model
+  if (incomingPrefs?.intensity_model === "pyramidal") return "pyramidal";
+  if (incomingPrefs?.intensity_model === "polarized") return "polarized";
+
+  // OLD: top-level polarized_model/pyramidal_model
+  const oldPyr = !!anyIn?.pyramidal_model;
+  if (oldPyr) return "pyramidal";
+  return "polarized";
+}
+
+function normalizeTrainingBlocks(incomingPrefs: any, anyIn: any): TrainingBlocks {
+  // NEW: preferences.training_blocks
+  const b = incomingPrefs?.training_blocks;
+  if (b && typeof b === "object") {
+    return {
+      vo2max: !!b.vo2max,
+      ftp: !!b.ftp,
+      threshold: !!b.threshold,
+    };
+  }
+
+  // OLD: top-level vo2max_training/ftp_training/threshold_focus
+  return {
+    vo2max: !!anyIn?.vo2max_training,
+    ftp: !!anyIn?.ftp_training,
+    threshold: !!anyIn?.threshold_focus,
+  };
+}
+
 /* -------------------- public API -------------------- */
 
 export function readCoachPrefsFromStorage(): CoachPrefs {
@@ -74,20 +125,13 @@ export function readCoachPrefsFromStorage(): CoachPrefs {
   return normalizeCoachPrefs(raw);
 }
 
-export async function refreshCoachPrefsFromDB(
-  userId: number
-): Promise<CoachPrefs> {
+export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPrefs> {
   const raw = await apiFetchUserPref(userId, KEY);
 
   let value: any = raw;
 
   // niekedy API vráti wrapper { success, key, value }
-  if (
-    value &&
-    typeof value === "object" &&
-    "value" in value &&
-    !("goal_kind" in value)
-  ) {
+  if (value && typeof value === "object" && "value" in value && !("goal_kind" in value)) {
     value = (value as any).value;
   }
 
@@ -97,10 +141,7 @@ export async function refreshCoachPrefsFromDB(
   return prefs;
 }
 
-export async function saveCoachPrefs(
-  userId: number,
-  prefs: CoachPrefs
-): Promise<void> {
+export async function saveCoachPrefs(userId: number, prefs: CoachPrefs): Promise<void> {
   await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
   broadcast(prefs);
@@ -112,9 +153,9 @@ export function clearCoachPrefsCache() {
 
 /**
  * Normalization:
- * - supports new schema (main_sport + add_on_sports + preferences.two_a_day + strength_settings + weekly_template)
- * - supports older “new-ish” schema (avoid_two_a_day boolean, preferred_long_run_days, etc.)
- * - supports legacy loose schema (CoachPrefsLegacyLoose) — mapne len to, čo existuje v CoachPrefs
+ * - supports new schema (main_sport + add_on_sports + preferences.two_a_day + strength_settings)
+ * - migrates old fields (avoid_two_a_day boolean, preferred_long_run_days, old intensity + blocks)
+ * - supports legacy loose schema (CoachPrefsLegacyLoose)
  */
 export function normalizeCoachPrefs(
   input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined
@@ -135,42 +176,20 @@ export function normalizeCoachPrefs(
   const hasAnyNew =
     "preferences" in anyIn ||
     "targets" in anyIn ||
-    "weekly_template" in anyIn ||
     "main_sport" in anyIn ||
     "add_on_sports" in anyIn ||
     "strength_settings" in anyIn ||
     "volume" in anyIn ||
     "weeks" in anyIn ||
-    "start_date" in anyIn;
+    "start_date" in anyIn ||
+    "end_date" in anyIn;
 
   if (hasAnyNew) {
     const incomingPrefs = (anyIn.preferences ?? {}) as any;
 
-    // --- two_a_day migration ---
-    // NEW: preferences.two_a_day: { enabled, max_days_per_week }
-    // OLD: avoid_two_a_day: boolean  (true means: avoid -> disable 2-a-day)
-    // OLD (nested): preferences.avoid_two_a_day: boolean
-    const legacyAvoidTwoA: boolean =
-      !!incomingPrefs.avoid_two_a_day ||
-      !!anyIn.avoid_two_a_day ||
-      false;
-
-    const incomingTwoA = incomingPrefs.two_a_day;
-    const two_a_day =
-      incomingTwoA && typeof incomingTwoA === "object"
-        ? {
-            enabled: !!incomingTwoA.enabled,
-            max_days_per_week:
-              typeof incomingTwoA.max_days_per_week === "number"
-                ? Math.max(
-                    0,
-                    Math.min(2, Math.floor(incomingTwoA.max_days_per_week))
-                  )
-                : 2,
-          }
-        : legacyAvoidTwoA
-          ? { enabled: false, max_days_per_week: 0 }
-          : { enabled: true, max_days_per_week: 2 };
+    const two_a_day = normalizeTwoADay(incomingPrefs, anyIn);
+    const intensity_model = normalizeIntensityModel(incomingPrefs, anyIn);
+    const training_blocks = normalizeTrainingBlocks(incomingPrefs, anyIn);
 
     const prefs: Preferences = {
       days_off:
@@ -190,6 +209,9 @@ export function normalizeCoachPrefs(
         anyIn.use_zones ??
         DEFAULT_PREFS.preferences!.use_zones,
       two_a_day,
+
+      intensity_model,
+      training_blocks,
     };
 
     // sanitize sports
@@ -202,10 +224,7 @@ export function normalizeCoachPrefs(
       ? clampSports(anyIn.add_on_sports) ?? []
       : [];
 
-    const addOns = mainSport
-      ? addOnsRaw.filter((s) => s !== mainSport)
-      : addOnsRaw;
-
+    const addOns = mainSport ? addOnsRaw.filter((s) => s !== mainSport) : addOnsRaw;
 
     const result: CoachPrefs = {
       ...DEFAULT_PREFS,
@@ -219,20 +238,32 @@ export function normalizeCoachPrefs(
       preferences: prefs,
     };
 
-    // Drop old external_activities if it leaked into payloads
-    if ("external_activities" in (result as any)) {
-      delete (result as any).external_activities;
+    // Drop old garbage / deprecated
+    if ("external_activities" in (result as any)) delete (result as any).external_activities;
+
+    // drop old top-level intensity fields
+    delete (result as any).polarized_model;
+    delete (result as any).pyramidal_model;
+    delete (result as any).vo2max_training;
+    delete (result as any).ftp_training;
+    delete (result as any).threshold_focus;
+
+    // drop old weekly_template if it leaked
+    delete (result as any).weekly_template;
+
+    // drop include_strides if it leaked (was old preference)
+    if ((result as any)?.preferences && "include_strides" in (result as any).preferences) {
+      delete (result as any).preferences.include_strides;
     }
 
     return result;
   }
 
-  // ---- legacy loose → canonical (len polia, čo existujú v CoachPrefs types) ----
+  // ---- legacy loose → canonical ----
   const l = anyIn as CoachPrefsLegacyLoose;
 
   const legacyPrefs: Preferences = {
     ...DEFAULT_PREFS.preferences!,
-    // ak si chceš zachovať defaulty z DEFAULT_PREFS, nechaj takto
   };
 
   const result: CoachPrefs = {
@@ -242,7 +273,7 @@ export function normalizeCoachPrefs(
     preferences: legacyPrefs,
   };
 
-  // legacy “sports” -> použijeme main_sport + add_on_sports (bez share/role)
+  // legacy “sports” -> main_sport + add_on_sports
   const sports = clampSports((l as any).sports);
   if (sports && sports.length) {
     result.main_sport = sports[0] ?? result.main_sport ?? "run";

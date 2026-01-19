@@ -1,12 +1,8 @@
 // src/features/prefs/types/prefs.ts
 import type { DayAbbrev } from "@/app/shared/types/day";
 
-/** Hlavné ciele plánu / tréningu (už bez "race_time"). */
-export type GoalKind =
-  | "improve_speed"
-  | "improve_endurance"
-  | "improve_overall"
-  | "maintain";
+/** Hlavné ciele plánu / tréningu */
+export type GoalKind = "improve_speed" | "improve_endurance" | "improve_overall" | "maintain";
 
 /** Podporované športy v coach prefs. */
 export type SportKind = "run" | "ride" | "swim";
@@ -36,7 +32,7 @@ export type CoachPersona =
 
 export type RacePriority = "A" | "B" | "C";
 
-/* -------- Race meta pre behy -------- */
+/* -------- Race meta -------- */
 
 export type RaceDistanceKind =
   | "5k"
@@ -50,7 +46,7 @@ export type RaceType = "road" | "trail" | "track" | "cross" | "ocr" | "other";
 export type RaceTerrain = "flat" | "rolling" | "hilly" | "mountain";
 export type RaceElevationProfile = "low" | "moderate" | "high";
 
-/* -------- Zones & Thresholds (NEW) -------- */
+/* -------- Zones & Thresholds -------- */
 
 export type Zones = {
   hr_max?: number | null;
@@ -130,13 +126,10 @@ export interface StrengthTargets {
   sessions_per_week: number;
 }
 
-/** NEW: Swim targets – nech vieme časom generovať swim tréningy */
+/** Swim targets */
 export interface SwimTargets {
-  /** Hlavný swim fokus */
   focus: "technique" | "endurance" | "speed" | "open_water";
-  /** Cieľový týždenný čas v minútach (alebo null, ak nerieši) */
   weekly_time_target_min: number | null;
-  /** Voliteľne počet swim sessions za týždeň */
   sessions_per_week?: number | null;
 }
 
@@ -177,12 +170,10 @@ export type RehabFocus = {
   recovery_protocol?: string | null;
 };
 
+/* -------- strength settings -------- */
+
 export type StrengthLocation = "gym" | "home" | "outdoor";
-export type StrengthEquipmentMode =
-  | "none"
-  | "bodyweight"
-  | "minimal"
-  | "full_gym";
+export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
 
 export type StrengthEquipmentKey =
   | "dumbbells"
@@ -202,11 +193,22 @@ export type StrengthSettings = {
   location?: StrengthLocation | null;
   equipment_mode?: StrengthEquipmentMode | null;
   available?: StrengthEquipmentKey[];
+  sessions_per_week?: number | null;
 };
+
+/* -------- rules -------- */
 
 export type TwoADayPrefs = {
   enabled: boolean;
   max_days_per_week: number; // 0..2
+};
+
+export type IntensityModel = "polarized" | "pyramidal";
+
+export type TrainingBlocks = {
+  vo2max?: boolean;
+  ftp?: boolean;
+  threshold?: boolean;
 };
 
 export interface Preferences {
@@ -215,50 +217,11 @@ export interface Preferences {
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
   two_a_day: TwoADayPrefs;
+
+  /** NEW */
+  intensity_model?: IntensityModel; // default "polarized"
+  training_blocks?: TrainingBlocks; // default {}
 }
-
-// --- Advanced weekly template --------------------------------
-
-export type WeeklyTemplateMode = "off" | "loose" | "strict";
-
-export type TemplateSportKind = SportKind | "other";
-
-export type RunTemplateKind =
-  | "easy"
-  | "long"
-  | "tempo"
-  | "threshold"
-  | "intervals"
-  | "vo2max"
-  | "hills"
-  | "recovery";
-
-export type StrengthTemplateKind =
-  | "upper"
-  | "lower"
-  | "full"
-  | "core"
-  | "hiit";
-
-export type SessionPriority = "key" | "support" | "optional";
-
-export type SessionTemplate = {
-  sport: TemplateSportKind;
-  kind: RunTemplateKind | StrengthTemplateKind | "other";
-  priority: SessionPriority;
-  /** či smie coach posunúť tréning na iný deň (hlavne v `loose` mode) */
-  ai_can_move?: boolean;
-};
-
-export type DayTemplate = {
-  day: DayAbbrev;
-  slots: SessionTemplate[]; // max 0–2
-};
-
-export type WeeklyTemplate = {
-  mode: WeeklyTemplateMode;
-  days: DayTemplate[];
-};
 
 /* -------- Main prefs -------- */
 
@@ -281,10 +244,7 @@ export type CoachPrefs = {
 
   preferences?: Preferences;
 
-  polarized_model?: boolean;
-  pyramidal_model?: boolean;
-
-  strength_settings?: (StrengthSettings & { sessions_per_week?: number | null }) | null;
+  strength_settings?: StrengthSettings | null;
 
   zones?: Zones;
   thresholds?: Thresholds;
@@ -319,6 +279,9 @@ export const DEFAULT_PREFS: CoachPrefs = {
     use_zones: true,
     avoid_back_to_back_hard: false,
     two_a_day: { enabled: true, max_days_per_week: 2 },
+
+    intensity_model: "polarized",
+    training_blocks: {},
   },
 
   strength_settings: {
@@ -327,7 +290,4 @@ export const DEFAULT_PREFS: CoachPrefs = {
     available: [],
     sessions_per_week: 2,
   },
-  
-  polarized_model: true,
-  pyramidal_model: false,
 };

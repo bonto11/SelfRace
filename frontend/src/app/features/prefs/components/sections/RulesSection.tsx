@@ -9,7 +9,7 @@ import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import type { Preferences } from "@/app/features/prefs/types/prefs";
 
 type Props = {
-  pref: any; // local.preferences (alebo prefDefaults(local))
+  pref: any; // prefDefaults(local) (recommended) or local.preferences
   setLocal: (fn: (prev: any) => any) => void;
   markDirty: () => void;
 };
@@ -30,29 +30,33 @@ function normalizePrefs(p: any): Preferences {
 
   const two = incoming.two_a_day;
   const enabled = !!(two && typeof two === "object" ? two.enabled : false);
-  const maxRaw =
-    two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
+  const maxRaw = two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
   const max = Number.isFinite(maxRaw) ? Math.max(0, Math.min(2, maxRaw)) : 0;
+
+  const intensity_model = incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
+
+  const b = incoming.training_blocks;
+  const training_blocks =
+    b && typeof b === "object"
+      ? { vo2max: !!b.vo2max, ftp: !!b.ftp, threshold: !!b.threshold }
+      : { vo2max: false, ftp: false, threshold: false };
 
   return {
     days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
-    long_run_days: Array.isArray(incoming.long_run_days)
-      ? incoming.long_run_days
-      : [],
+    long_run_days: Array.isArray(incoming.long_run_days) ? incoming.long_run_days : [],
     avoid_back_to_back_hard:
       typeof incoming.avoid_back_to_back_hard === "boolean"
         ? incoming.avoid_back_to_back_hard
         : true,
-    use_zones:
-      typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
-    // include_strides ignorujeme úplne (nepoužívame)
+    use_zones: typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
     two_a_day: { enabled, max_days_per_week: max },
+    intensity_model,
+    training_blocks,
   } as Preferences;
 }
 
 export function RulesSection({ pref, setLocal, markDirty }: Props) {
   const [open, setOpen] = useState(false);
-
   const basePref = useMemo(() => normalizePrefs(pref), [pref]);
 
   const toggleRule = (key: RuleKey) => {
@@ -61,10 +65,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
       const cur = normalizePrefs(prev?.preferences);
       return {
         ...prev,
-        preferences: {
-          ...cur,
-          [key]: !cur[key],
-        },
+        preferences: { ...cur, [key]: !cur[key] },
       };
     });
   };
@@ -99,51 +100,64 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         ...prev,
         preferences: {
           ...cur,
-          two_a_day: {
-            enabled: cur.two_a_day.enabled,
-            max_days_per_week: clamped,
-          },
+          two_a_day: { enabled: cur.two_a_day.enabled, max_days_per_week: clamped },
         },
       };
     });
   };
 
-  // --- Intensity model (top-level: polarized_model / pyramidal_model) ---
   const setIntensityModel = (model: "polarized" | "pyramidal") => {
     markDirty();
-    setLocal((prev) => ({
-      ...prev,
-      polarized_model: model === "polarized",
-      pyramidal_model: model === "pyramidal",
-    }));
+    setLocal((prev) => {
+      const cur = normalizePrefs(prev?.preferences);
+      return {
+        ...prev,
+        preferences: { ...cur, intensity_model: model },
+      };
+    });
   };
 
-  // --- Training blocks (top-level toggles) ---
-  const toggleBlock = (key: "vo2max_training" | "ftp_training" | "threshold_focus") => {
+  const toggleBlock = (key: "vo2max" | "ftp" | "threshold") => {
     markDirty();
-    setLocal((prev) => ({ ...prev, [key]: !prev?.[key] }));
+    setLocal((prev) => {
+      const cur = normalizePrefs(prev?.preferences);
+      const nextBlocks = {
+        ...(cur.training_blocks ?? {}),
+        [key]: !(cur.training_blocks as any)?.[key],
+      };
+      return {
+        ...prev,
+        preferences: { ...cur, training_blocks: nextBlocks },
+      };
+    });
   };
 
-  const pol = false; // computed in render below (avoid stale)
-  const enabledShort = BASE_RULES.filter((r) => !!basePref[r.key]).map(
-    (r) => r.short
-  );
+  const enabledShort = BASE_RULES.filter((r) => !!basePref[r.key]).map((r) => r.short);
+  const previewParts = [
+    enabledShort.length ? enabledShort.join(", ") : "none",
+    `model: ${basePref.intensity_model ?? "polarized"}`,
+  ];
+  const previewText = previewParts.join(" | ");
+
+  const twoEnabled = !!basePref.two_a_day?.enabled;
+  const twoMax = Number(basePref.two_a_day?.max_days_per_week) || 0;
+
+  const model = basePref.intensity_model ?? "polarized";
+  const blocks = basePref.training_blocks ?? {};
 
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Rules</div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Rules + intensity model + optional blocks. Ukladá sa do coach.prefs (user_prefs)." />
+          <InfoPopover text="Rules + intensity + blocks. Všetko je v preferences.* (ukladá sa do coach.prefs)." />
           <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
         </div>
       </div>
 
       {!open && (
         <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-80 select-none"].join(" ")}>
-          <span className="opacity-80">
-            {enabledShort.length ? enabledShort.join(", ") : "none"}
-          </span>
+          {previewText}
         </div>
       )}
 
@@ -174,38 +188,28 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
                 type="button"
                 size="sm"
                 variant="prefs"
-                active={!!basePref.two_a_day?.enabled}
+                active={twoEnabled}
                 onClick={toggleTwoADay}
               >
-                {basePref.two_a_day?.enabled ? "Enabled" : "Disabled"}
+                {twoEnabled ? "Enabled" : "Disabled"}
               </Button>
             </div>
 
-            {!!basePref.two_a_day?.enabled && (
+            {twoEnabled && (
               <div className="mt-2 flex items-center gap-2">
                 <div className="text-[11px] opacity-70">Max days/week:</div>
-                {[1, 2].map((n) => (
+                {[0, 1, 2].map((n) => (
                   <Button
                     key={n}
                     type="button"
                     size="xs"
                     variant="prefs"
-                    active={Number(basePref.two_a_day?.max_days_per_week) === n}
+                    active={twoMax === n}
                     onClick={() => setTwoADayMax(n)}
                   >
                     {n}
                   </Button>
                 ))}
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="prefs"
-                  active={Number(basePref.two_a_day?.max_days_per_week) === 0}
-                  onClick={() => setTwoADayMax(0)}
-                  title="0 = never"
-                >
-                  0
-                </Button>
               </div>
             )}
           </div>
@@ -214,7 +218,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
           <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs opacity-80">Intensity model</div>
-              <InfoPopover text="Vyber len 1. Polarized (80/20) je default pre väčšinu. Pyramidal je viac Z2–Z3." />
+              <InfoPopover text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -222,7 +226,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
                 type="button"
                 size="xs"
                 variant="prefs"
-                active={!!(pref && (pref as any).polarized_model)}
+                active={model === "polarized"}
                 onClick={() => setIntensityModel("polarized")}
               >
                 Polarized (80/20)
@@ -231,7 +235,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
                 type="button"
                 size="xs"
                 variant="prefs"
-                active={!!(pref && (pref as any).pyramidal_model)}
+                active={model === "pyramidal"}
                 onClick={() => setIntensityModel("pyramidal")}
               >
                 Pyramidal
@@ -243,7 +247,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
           <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs opacity-80">Training blocks</div>
-              <InfoPopover text="Optional emphasis blocks (len flagy). Planner si ich môže zapnúť ako krátke fázy." />
+              <InfoPopover text="Len flagy v preferences.training_blocks.*" />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -251,8 +255,8 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
                 type="button"
                 size="xs"
                 variant="prefs"
-                active={!!(pref && (pref as any).vo2max_training)}
-                onClick={() => toggleBlock("vo2max_training")}
+                active={!!blocks.vo2max}
+                onClick={() => toggleBlock("vo2max")}
               >
                 VO₂max (run)
               </Button>
@@ -261,8 +265,8 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
                 type="button"
                 size="xs"
                 variant="prefs"
-                active={!!(pref && (pref as any).ftp_training)}
-                onClick={() => toggleBlock("ftp_training")}
+                active={!!blocks.ftp}
+                onClick={() => toggleBlock("ftp")}
               >
                 FTP (ride)
               </Button>
@@ -271,8 +275,8 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
                 type="button"
                 size="xs"
                 variant="prefs"
-                active={!!(pref && (pref as any).threshold_focus)}
-                onClick={() => toggleBlock("threshold_focus")}
+                active={!!blocks.threshold}
+                onClick={() => toggleBlock("threshold")}
               >
                 Threshold focus
               </Button>
