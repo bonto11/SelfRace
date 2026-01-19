@@ -61,7 +61,7 @@ function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
     return <span className="text-xs opacity-70">Prefs: —</span>;
   }
 
-  const main = (prefs as any).main_sport ?? prefs.primary_sports?.[0] ?? "—";
+  const main = (prefs as any).main_sport ?? prefs.main_sport?.[0] ?? "—";
   const goal = (prefs as any).goal_kind ?? "—";
   const weeks = (prefs as any).weeks ?? "—";
 
