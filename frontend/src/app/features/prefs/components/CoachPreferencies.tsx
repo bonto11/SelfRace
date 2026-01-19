@@ -624,7 +624,6 @@ export default function CoachPreferencies() {
 
       <RulesSection
         pref={pref}
-        prefDefaults={prefDefaults as any}
         setLocal={setLocal}
         markDirty={markDirty}
       />
