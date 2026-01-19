@@ -279,24 +279,6 @@ export default function CoachPreferencies() {
     });
   };
 
-  // --- weekly template top-level on CoachPrefs ---
-  const weeklyTemplate: WeeklyTemplate = useMemo(
-    () =>
-      (local.weekly_template as WeeklyTemplate | null | undefined) ?? {
-        mode: "off",
-        days: [],
-      },
-    [local.weekly_template]
-  );
-
-  const setWeeklyTemplate = (nextTemplate: WeeklyTemplate) => {
-    markDirty();
-    setLocal((prev) => ({
-      ...prev,
-      weekly_template: nextTemplate,
-    }));
-  };
-
   const upsertRunTargets = (patch: Partial<RunTargets>) => {
     markDirty();
     setLocal((prev) => {
@@ -365,7 +347,6 @@ export default function CoachPreferencies() {
         secondary_mix: (local.secondary_mix ?? [])
           .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
-        weekly_template: weeklyTemplate,
       };
 
       // clean targets (keep run always)
