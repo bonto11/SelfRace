@@ -192,7 +192,11 @@ def _build_prompts_for_daily(
             strength_target_int = None
     else:
         # fallback legacy
-        legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
+        legacy = (
+            (targets.get("strength") or {}).get("sessions_per_week")
+            if isinstance(targets, dict)
+            else None
+        )
         if isinstance(legacy, (int, float, str)):
             try:
                 strength_target_int = int(legacy)
@@ -350,8 +354,12 @@ def _build_prompts_for_daily(
 
     explanation_rule = (
         "- NOTES (HARD):\n"
-        "  Every session MUST include 1–2 concrete sentences in `notes` (coach tone).\n"
-        "  No fluff. Never mention 'AI made a mistake'.\n"
+        "  Every session MUST include 2–3 short, concrete sentences in `notes`.\n"
+        "  Structure:\n"
+        "    1) Why this session is today (context in the week).\n"
+        "    2) What to focus on / what to avoid (1 key cue).\n"
+        "    3) (Optional) How it supports the goal or recovery.\n"
+        "  No fluff, no emojis, no meta talk.\n"
         "\n"
     )
 
