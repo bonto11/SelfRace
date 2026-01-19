@@ -59,8 +59,13 @@ def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
 
 def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    NEW approach: AI plans full week.
+    AI plans full week.
     Keep only what it needs, in a stable shape.
+    - Remove fields we no longer use:
+        * weekly_template (not used)
+        * include_strides (not used)
+        * polarized_model/pyramidal_model (moved into preferences.intensity_model)
+        * training blocks top-level flags (moved into preferences.training_blocks)
     """
     ctx2: Dict[str, Any] = {}
     for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
@@ -68,6 +73,25 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             ctx2[k] = ctx[k]
 
     prefs = _flatten_prefs(ctx.get("prefs") or {})
+    pref_obj = prefs.get("preferences") or {}
+    if not isinstance(pref_obj, dict):
+        pref_obj = {}
+
+    # normalize the new nested fields so AI always sees them
+    intensity_model = (
+        "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
+    )
+
+    tb = pref_obj.get("training_blocks") or {}
+    if not isinstance(tb, dict):
+        tb = {}
+    training_blocks = {
+        "vo2max": bool(tb.get("vo2max")),
+        "ftp": bool(tb.get("ftp")),
+        "threshold": bool(tb.get("threshold")),
+    }
+
+    # build canonical prefs snapshot for the model
     ctx2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "start_date": prefs.get("start_date"),
@@ -77,10 +101,12 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "goal_kind": prefs.get("goal_kind"),
         "volume": prefs.get("volume"),
         "targets": prefs.get("targets"),
-        "preferences": prefs.get("preferences") or {},
+        "preferences": {
+            **pref_obj,
+            "intensity_model": intensity_model,
+            "training_blocks": training_blocks,
+        },
         "strength_settings": prefs.get("strength_settings") or {},
-        "polarized_model": prefs.get("polarized_model"),
-        "pyramidal_model": prefs.get("pyramidal_model"),
     }
 
     athlete_state = ctx.get("athlete_state") or {}
@@ -95,8 +121,8 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         wk = ctx2.get("week") or {}
         ext = ctx2.get("external_events") or {}
         ext_n = len(ext.get("occurrences") or []) if isinstance(ext, dict) else 0
-        pref_obj = (ctx2.get("prefs") or {}).get("preferences") or {}
-        two = pref_obj.get("two_a_day") or {}
+        pref_obj2 = (ctx2.get("prefs") or {}).get("preferences") or {}
+        two = pref_obj2.get("two_a_day") or {}
         strength = (ctx2.get("prefs") or {}).get("strength_settings") or {}
         _dprint(
             "_minify_context_for_ai:",
@@ -108,6 +134,10 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             ext_n,
             "| two_a_day=",
             json.dumps(two, ensure_ascii=False)[:160],
+            "| intensity_model=",
+            pref_obj2.get("intensity_model"),
+            "| blocks=",
+            json.dumps(pref_obj2.get("training_blocks") or {}, ensure_ascii=False)[:160],
             "| strength_sessions_per_week=",
             strength.get("sessions_per_week"),
         )
@@ -126,10 +156,13 @@ def _build_prompts_for_daily(
     CONTRACT:
       - AI plans full week days+sessions within [week_start..week_end].
       - External events from DB are HARD: must appear exactly once on the same date.
-      - Pref constraints only:
-          * two_a_day cap (0..2)
-          * long_run_days preference
-          * strength_settings.sessions_per_week target
+      - Pref constraints (hard/soft):
+          * two_a_day cap (0..2)  [HARD]
+          * long_run_days preference  [HARD when possible]
+          * avoid_back_to_back_hard  [HARD if enabled]
+          * preferences.intensity_model  [GUIDANCE: distribution]
+          * preferences.training_blocks  [GUIDANCE: emphasis if enabled]
+          * strength_settings.sessions_per_week target  [SOFT target]
       - Notes mandatory, short, concrete.
       - Strength: keep simple; do NOT output detailed structure.
     """
@@ -162,6 +195,7 @@ def _build_prompts_for_daily(
     if not isinstance(pref_obj, dict):
         pref_obj = {}
 
+    # ---------------- two-a-day ----------------
     two = pref_obj.get("two_a_day") or {}
     if not isinstance(two, dict):
         two = {}
@@ -172,13 +206,30 @@ def _build_prompts_for_daily(
         else 0
     )
 
+    # ---------------- long run days ----------------
     long_run_days = pref_obj.get("long_run_days") or []
     if not isinstance(long_run_days, list):
         long_run_days = []
     long_run_days = [str(d) for d in long_run_days if isinstance(d, str) and d.strip()]
 
+    # ---------------- avoid back-to-back hard ----------------
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
+    # ---------------- intensity model + blocks (NEW, inside preferences) ----------------
+    intensity_model = (
+        "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
+    )
+
+    tb = pref_obj.get("training_blocks") or {}
+    if not isinstance(tb, dict):
+        tb = {}
+    blocks = {
+        "vo2max": bool(tb.get("vo2max")),
+        "ftp": bool(tb.get("ftp")),
+        "threshold": bool(tb.get("threshold")),
+    }
+
+    # ---------------- strength settings ----------------
     strength_settings = prefs.get("strength_settings")
     if not isinstance(strength_settings, dict):
         strength_settings = {}
@@ -203,11 +254,12 @@ def _build_prompts_for_daily(
             except Exception:
                 strength_target_int = None
 
+    # ---------------- external events ----------------
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else None
     ext_count = len(ext_occ) if isinstance(ext_occ, list) else 0
 
-    # Volume guidance (soft)
+    # ---------------- volume guidance (soft) ----------------
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
@@ -234,6 +286,8 @@ def _build_prompts_for_daily(
         else "not specified"
     )
 
+    blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
+
     _dprint(
         "build_prompts:",
         "week_index=",
@@ -256,6 +310,10 @@ def _build_prompts_for_daily(
         strength_target_int,
         "| avoid_b2b_hard=",
         avoid_back_to_back_hard,
+        "| intensity_model=",
+        intensity_model,
+        "| blocks=",
+        blocks_str,
     )
 
     system_txt = (
@@ -266,7 +324,7 @@ def _build_prompts_for_daily(
 
     schema_text = """
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "generated_at": "ISO-8601 timestamp with timezone offset",
   "model": "string",
   "week_index": number,
@@ -323,7 +381,7 @@ def _build_prompts_for_daily(
     )
 
     two_a_day_rule = (
-        "- TWO-A-DAY (PREF CONSTRAINT):\n"
+        "- TWO-A-DAY (HARD):\n"
         "  Prefer 1 session/day.\n"
         f"  You may schedule 2 sessions in a day on at most {two_cap} day(s) in the week.\n"
         "  If cap is 0, never schedule 2 sessions in a day.\n"
@@ -343,12 +401,33 @@ def _build_prompts_for_daily(
     )
 
     strength_rule = (
-        "- STRENGTH (PREF CONSTRAINT):\n"
+        "- STRENGTH (PREF TARGET):\n"
         f"  Aim for {strength_str}.\n"
         "  Keep strength SIMPLE:\n"
         "    - set structure=null\n"
         "    - do NOT list exercises (mapper will do it)\n"
         "  Use sport='strength'.\n"
+        "\n"
+    )
+
+    intensity_model_rule = (
+        "- INTENSITY MODEL (GUIDANCE):\n"
+        f"  preferences.intensity_model = '{intensity_model}'.\n"
+        "  If 'polarized': keep most volume easy/recovery, with a small number of hard sessions.\n"
+        "  If 'pyramidal': still mostly easy, but allow more moderate work; keep very hard work limited.\n"
+        "  This is guidance; still respect recovery and avoid back-to-back hard rules.\n"
+        "\n"
+    )
+
+    blocks_rule = (
+        "- TRAINING BLOCKS (GUIDANCE):\n"
+        f"  preferences.training_blocks enabled: {blocks_str}.\n"
+        "  If a block is enabled, include at most ONE session aligned with it in this week (unless external events force otherwise).\n"
+        "  Examples:\n"
+        "    - vo2max: short interval/VO2-style run session.\n"
+        "    - threshold: threshold/tempo-style run session.\n"
+        "    - ftp: steady ride tempo/sweet-spot style session.\n"
+        "  If none enabled, ignore this section.\n"
         "\n"
     )
 
@@ -389,6 +468,8 @@ def _build_prompts_for_daily(
         + two_a_day_rule
         + long_run_rule
         + strength_rule
+        + intensity_model_rule
+        + blocks_rule
         + weekly_volume_line
         + back_to_back_rule
         + explanation_rule
