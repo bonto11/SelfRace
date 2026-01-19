@@ -215,7 +215,6 @@ export interface Preferences {
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
   two_a_day: TwoADayPrefs;
-  include_strides?: boolean;
 }
 
 // --- Advanced weekly template --------------------------------
@@ -289,8 +288,6 @@ export type CoachPrefs = {
 
   zones?: Zones;
   thresholds?: Thresholds;
-
-  weekly_template?: WeeklyTemplate | null;
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
@@ -330,8 +327,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     available: [],
     sessions_per_week: 2,
   },
-
-  weekly_template: { mode: "off", days: [] },
+  
   polarized_model: true,
   pyramidal_model: false,
 };

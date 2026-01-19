@@ -189,10 +189,6 @@ export function normalizeCoachPrefs(
         incomingPrefs.use_zones ??
         anyIn.use_zones ??
         DEFAULT_PREFS.preferences!.use_zones,
-      include_strides:
-        incomingPrefs.include_strides ??
-        anyIn.include_strides ??
-        DEFAULT_PREFS.preferences!.include_strides,
       two_a_day,
     };
 
@@ -210,9 +206,6 @@ export function normalizeCoachPrefs(
       ? addOnsRaw.filter((s) => s !== mainSport)
       : addOnsRaw;
 
-    const wt: WeeklyTemplate | null | undefined = anyIn.weekly_template;
-    const weekly_template =
-      wt && typeof wt === "object" ? wt : DEFAULT_PREFS.weekly_template;
 
     const result: CoachPrefs = {
       ...DEFAULT_PREFS,
@@ -224,9 +217,6 @@ export function normalizeCoachPrefs(
 
       // enforce prefs
       preferences: prefs,
-
-      // weekly template always exists
-      weekly_template,
     };
 
     // Drop old external_activities if it leaked into payloads
