@@ -7,7 +7,7 @@ import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
-import { NO_X_OVERFLOW } from "@/app/shared/ui/classes";
+import { NO_X_OVERFLOW } from "@/app/shared/ui/uiTokens";
 import { fmtDate } from "@/app/shared/utils/time";
 import {
   HistoryRow,

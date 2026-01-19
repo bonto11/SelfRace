@@ -7,7 +7,7 @@ import SelectField from "@/app/shared/components/ui/SelectField";
 import TextField from "@/app/shared/components/ui/TextField";
 import DateField from "@/app/shared/components/ui/DateField";
 import TimeField24 from "@/app/shared/components/ui/TimeField24";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
 
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";

@@ -1,7 +1,7 @@
 "use client";
 
 import Button from "@/app/shared/components/ui/Button";
-import { SECTION } from "@/app/shared/ui/classes";
+import { SECTION } from "@/app/shared/ui/uiTokens";
 import { inputClass } from "@/app/shared/ui";
 
 function isoTodayPlus(days: number): string {
@@ -64,7 +64,9 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
   const start = (local.start_date as string | undefined) ?? "";
   const end = (local.end_date as string | undefined) ?? "";
   const weeksVal =
-    local.weeks != null && !Number.isNaN(local.weeks) ? String(local.weeks) : "";
+    local.weeks != null && !Number.isNaN(local.weeks)
+      ? String(local.weeks)
+      : "";
 
   const applyStart = (nextStart: string) => {
     markDirty();

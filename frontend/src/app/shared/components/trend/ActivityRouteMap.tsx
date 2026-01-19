@@ -3,11 +3,7 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import {
-  CHART_HR,
-  FLUSH_DETAIL_PB,
-  SCROLL_X,
-} from "@/app/shared/ui/classes";
+import { CHART_HR, FLUSH_DETAIL_PB, SCROLL_X } from "@/app/shared/ui/uiTokens";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 
 type Point = { lat: number; lng: number };
@@ -50,10 +46,8 @@ export function ActivityRouteMap({ points }: ActivityRouteMapProps) {
     const innerH = H - 2 * pad;
     const scale = Math.min(innerW / dLng, innerH / dLat);
 
-    const offsetX =
-      pad + (innerW - scale * dLng) / 2 - scale * minLng;
-    const offsetY =
-      pad + (innerH - scale * dLat) / 2 + scale * maxLat; // lat rastie hore, svg dole
+    const offsetX = pad + (innerW - scale * dLng) / 2 - scale * minLng;
+    const offsetY = pad + (innerH - scale * dLat) / 2 + scale * maxLat; // lat rastie hore, svg dole
 
     const project = (p: Point) => {
       const x = scale * p.lng + offsetX;
@@ -74,12 +68,7 @@ export function ActivityRouteMap({ points }: ActivityRouteMapProps) {
     const bg = "#020617"; // tailwind slate-950
 
     return () => (
-      <svg
-        width="100%"
-        height={H}
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-      >
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img">
         {/* podklad – jemný gradient / “sklenený” look */}
         <defs>
           <linearGradient id="route-bg" x1="0" y1="0" x2="1" y2="1">

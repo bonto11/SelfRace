@@ -8,7 +8,7 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
-import { CARD, SURFACE_INSET } from "@/app/shared/ui/classes";
+import { CARD, SURFACE_INSET } from "@/app/shared/ui/uiTokens";
 import { THEME } from "@/app/shared/theme/tokens";
 
 export default function SignInForm() {
@@ -72,9 +72,7 @@ export default function SignInForm() {
           </header>
 
           {info && (
-            <div className={`${SURFACE_INSET} px-3 py-2 text-xs`}>
-              {info}
-            </div>
+            <div className={`${SURFACE_INSET} px-3 py-2 text-xs`}>{info}</div>
           )}
 
           <div className="space-y-3">

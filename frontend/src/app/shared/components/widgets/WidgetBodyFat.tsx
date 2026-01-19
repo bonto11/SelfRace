@@ -7,15 +7,11 @@ import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { THEME } from "@/app/shared/theme/tokens";
-import { NO_X_OVERFLOW } from "@/app/shared/ui/classes";
+import { NO_X_OVERFLOW } from "@/app/shared/ui/uiTokens";
 import { fmtDate } from "@/app/shared/utils/time";
 
-import {
-  apiGetStaticProfile,
-} from "@/app/features/profile/api/static";
-import {
-  apiGetMetricHistory,
-} from "@/app/features/profile/api/metrics";
+import { apiGetStaticProfile } from "@/app/features/profile/api/static";
+import { apiGetMetricHistory } from "@/app/features/profile/api/metrics";
 import type {
   StaticProfile,
   MetricHistoryRow,
@@ -77,7 +73,9 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
           setStat(null);
         }
 
-        const rowsBE: MetricHistoryRow[] = Array.isArray(history) ? history : [];
+        const rowsBE: MetricHistoryRow[] = Array.isArray(history)
+          ? history
+          : [];
         const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
 
         const last: MetricsRowFE | null = lastBE

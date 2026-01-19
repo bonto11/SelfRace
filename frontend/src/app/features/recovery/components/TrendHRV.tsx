@@ -14,7 +14,7 @@ import {
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/ui/classes";
+import { CARD, SCROLL_X } from "@/app/shared/ui/uiTokens";
 import { inputClass } from "@/app/shared/ui";
 
 ensureChartJSRegistered();

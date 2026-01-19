@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { SPINNER_CFG } from "@/app/shared/ui/classes";
+import { SPINNER_CFG } from "@/app/shared/ui/uiTokens";
 
 /** dostupné veľkosti – doplnené o `button` (najmenší) */
 type SpinnerSize = "button" | "widget" | "trend" | "screen";

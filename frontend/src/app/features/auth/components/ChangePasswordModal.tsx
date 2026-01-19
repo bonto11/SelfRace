@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 // UI systém
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
-import { SURFACE_SUBCARD } from "@/app/shared/ui/classes";
+import { SURFACE_SUBCARD } from "@/app/shared/ui/uiTokens";
 
 type Props = { open: boolean; onClose: () => void };
 

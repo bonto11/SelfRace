@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
 
 type DetailSectionProps = {
   title: string;

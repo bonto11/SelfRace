@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/classes";
+import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/uiTokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
@@ -136,8 +136,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   const schemaVersion: number | null =
     typeof cp.schema_version === "number" ? cp.schema_version : null;
 
-  const headline: string | null =
-    cp.summary?.headline || cp.headline || null;
+  const headline: string | null = cp.summary?.headline || cp.headline || null;
 
   const summaryBullets: string[] =
     toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
@@ -191,8 +190,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     blockComment: block.comment || null,
     fitnessRunPrev:
       typeof fitRun.previous === "number" ? fitRun.previous : null,
-    fitnessRunCurr:
-      typeof fitRun.current === "number" ? fitRun.current : null,
+    fitnessRunCurr: typeof fitRun.current === "number" ? fitRun.current : null,
     fitnessRunComment: fitRun.comment || null,
     fitnessRidePrev:
       typeof fitRide?.previous === "number" ? fitRide.previous : null,
@@ -248,9 +246,7 @@ export default function DetailAthleteProgress() {
         if (alive) setRow(r ?? null);
       } catch (e: any) {
         if (alive)
-          setError(
-            e?.message ?? "Chyba pri načítaní AI progress reportu."
-          );
+          setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -381,9 +377,7 @@ export default function DetailAthleteProgress() {
           </div>
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">
-                Odporúčaný blok
-              </div>
+              <div className="text-xs text-slate-400 mb-1">Odporúčaný blok</div>
               <div className="font-semibold mb-1">
                 {p.blockPrev || p.blockCurr
                   ? `${p.blockPrev || "—"} → ${p.blockCurr || "—"}`
@@ -428,9 +422,7 @@ export default function DetailAthleteProgress() {
           ].map((row, idx) => (
             <div key={idx} className={SURFACE_SUBCARD}>
               <div className="px-3 pt-3 pb-3">
-                <div className="text-xs text-slate-400 mb-1">
-                  {row.label}
-                </div>
+                <div className="text-xs text-slate-400 mb-1">{row.label}</div>
                 <div className="font-semibold mb-1">
                   {row.prev != null || row.curr != null
                     ? `${row.prev ?? "—"}/10 → ${row.curr ?? "—"}/10`
@@ -457,9 +449,7 @@ export default function DetailAthleteProgress() {
         <div className="px-4 pb-4 grid gap-4 md:grid-cols-2 text-sm">
           <div className={SURFACE_SUBCARD}>
             <div className="px-3 pt-3 pb-3 space-y-2">
-              <div className="text-xs text-slate-400">
-                Týždenný objem (min)
-              </div>
+              <div className="text-xs text-slate-400">Týždenný objem (min)</div>
               <div className="font-semibold">
                 {formatMinutesRange(p.volPrevMin, p.volPrevMax)} →{" "}
                 {formatMinutesRange(p.volCurrMin, p.volCurrMax)}

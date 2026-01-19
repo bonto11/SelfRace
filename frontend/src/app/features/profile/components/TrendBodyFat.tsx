@@ -10,7 +10,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/ui/classes";
+import { CARD, SCROLL_X } from "@/app/shared/ui/uiTokens";
 import { inputClass } from "@/app/shared/ui";
 
 import type {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
 import SportBadge from "@/app/shared/components/ui/SportBadge";
 import type {
   CalendarItemKind,

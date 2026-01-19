@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import type { DayAbbrev } from "@/app/shared/types/day";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/uiTokens";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -99,7 +99,9 @@ export function DaysSection({
           {/* Long run days */}
           <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-medium opacity-80">Long-run days</div>
+              <div className="text-xs font-medium opacity-80">
+                Long-run days
+              </div>
               <div className="text-[11px] opacity-60">
                 {selectedLong.length ? selectedLong.join(" · ") : "none"}
               </div>

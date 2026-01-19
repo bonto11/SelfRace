@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
-import { AVATAR_BUTTON } from "@/app/shared/ui/classes";
+import { AVATAR_BUTTON } from "@/app/shared/ui/uiTokens";
 import {
   getSubscriptionTier,
   subscribeSubscriptionTier,
@@ -23,7 +23,7 @@ export default function UserMenu() {
   const [busy, setBusy] = useState<"signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
   const [tierCode, setTierCode] = useState<string>(
-    () => getSubscriptionTier() || "free",
+    () => getSubscriptionTier() || "free"
   );
   const boxRef = useRef<HTMLDivElement | null>(null);
 
@@ -59,7 +59,7 @@ export default function UserMenu() {
 
   const label = useMemo(
     () => me?.displayName || me?.name || me?.email || "",
-    [me?.displayName, me?.name, me?.email],
+    [me?.displayName, me?.name, me?.email]
   );
 
   const initials = useMemo(() => {
