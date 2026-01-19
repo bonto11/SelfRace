@@ -1,13 +1,13 @@
-// src/app/signup/page.tsx
+// src/app/(auth)/signup/page.tsx
 import { Suspense } from "react";
-import ClientPage from "./ClientPage";
+import SignUpForm from "@/app/features/auth/components/SignUpForm";
 
-export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
+export const dynamic = "force-dynamic";
 
 export default function Page() {
   return (
     <Suspense fallback={<div className="p-6">Načítavam…</div>}>
-      <ClientPage />
+      <SignUpForm />
     </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import type { AppUserSubscription } from "@/app/features/billing/api/app_subscription";
+import type { AppUserSubscription } from "@/app/features/billing/types/billing";
 
 type BillingHistoryProps = {
   history: AppUserSubscription[];

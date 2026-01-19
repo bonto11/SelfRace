@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
-from Routes_AI.analyze_athlete_state import (
+from Routes_AI.athlete_state_generate import (
     generate_athlete_state_json,
     generate_athlete_progress_report,
 )
@@ -21,7 +21,7 @@ from Routes_DB.coach_athlete_state import (
 )
 
 from Services.users import require_jwt
-from Services.AI.athlete_state_input_builder import build_input_from_db
+from Services.AI.athlete_state_builders import build_input_from_db
 from Services.AI.athlete_state_signals import compute_plan_adjustment_signals
 
 from Services.AI.billing import (
@@ -32,9 +32,6 @@ from Services.AI.billing import (
 )
 
 from Configs.config import DEFAULT_MODEL
-
-
-# -------------------- HELPERS --------------------
 
 
 def _now_iso() -> str:
@@ -230,8 +227,18 @@ def service_analyze_athlete(
         service=service,
     )
 
-    # 1b) Kontext pre AI – deep copy + drop external_activities z prefs (ak sú)
+    # 1b) Kontext pre AI – deep copy + drop interných polí
     context_for_ai = json.loads(json.dumps(input_data, default=str))
+
+    # drop internal user id z AI payloadu (PII / internal)
+    try:
+        u = context_for_ai.get("user")
+        if isinstance(u, dict):
+            u.pop("id", None)
+    except Exception:
+        pass
+
+    # drop external_activities z prefs (ak sú)
     try:
         prefs_block = context_for_ai.get("prefs") or {}
         if isinstance(prefs_block, dict):
@@ -244,9 +251,12 @@ def service_analyze_athlete(
 
     # 2) AI CALL – čistý výstup z AI = "analysis"
     model_to_use = model or DEFAULT_MODEL
+
+    # ⚠️ dôležité: aby billing mal usage, pýtaj trace pri debug alebo vždy
     analysis, trace = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model_to_use,
+        debug_raw=debug,  # ✅ umožní usage v trace (a aj raw_preview)
     )
 
     if not isinstance(analysis, dict):
@@ -254,21 +264,19 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
-    analysis.setdefault("model", "Coach BeTY")
+    analysis.setdefault("model", model_to_use)
 
     # === AI BILLING – usage za ANALYZE =====================
     usage = extract_usage_from_trace(trace)
     if usage:
-        # prepíš model v usage na reálne použitý
-        if model_to_use:
-            usage["model"] = model_to_use
+        usage["model"] = str(analysis.get("model") or model_to_use)
         try:
             log_ai_usage_for_user(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.analyze_state",
                 source="service" if service else "user",
-                billed_via="internal",  # zatiaľ len interné logovanie
+                billed_via="internal",
                 charge_wallet=False,
                 meta={},
             )
@@ -285,11 +293,7 @@ def service_analyze_athlete(
     except Exception as e:
         print("[service_analyze_athlete] plan_adjustment error:", repr(e))
         signals = {
-            "soften_next_days": {
-                "should_soften": False,
-                "days": None,
-                "reason": None,
-            },
+            "soften_next_days": {"should_soften": False, "days": None, "reason": None},
             "should_replan_weekly": False,
             "weekly_replan_reason": None,
         }
@@ -297,9 +301,7 @@ def service_analyze_athlete(
     ai_state = analysis.setdefault("ai_state", {})
     ai_state["plan_adjustment"] = {
         "soften_next_days": {
-            "should_soften": bool(
-                (signals.get("soften_next_days") or {}).get("should_soften")
-            ),
+            "should_soften": bool((signals.get("soften_next_days") or {}).get("should_soften")),
             "days": (signals.get("soften_next_days") or {}).get("days"),
             "reason": (signals.get("soften_next_days") or {}).get("reason"),
         },
@@ -326,7 +328,7 @@ def service_analyze_athlete(
                 user_jwt=user_jwt if not service else None,
                 service=service,
                 model=model_to_use,
-                debug=False,
+                debug=debug,
             )
             if progress_result.get("ok") and progress_result.get("report"):
                 compare_previous = progress_result.get("report")
@@ -366,7 +368,6 @@ def service_compare_latest_athlete_states(
     else:
         jwt = require_jwt(user_jwt)
 
-    # voliteľne: quota check aj tu (aby FE nemohol spamovať progress report)
     if not service and is_user_over_token_quota(
         user_id,
         user_jwt=jwt,
@@ -389,7 +390,7 @@ def service_compare_latest_athlete_states(
         service=service,
     )
 
-    if len(rows) < 2:
+    if len(rows or []) < 2:
         return {
             "ok": False,
             "error": "not_enough_states",
@@ -405,7 +406,6 @@ def service_compare_latest_athlete_states(
 
     model_to_use = model or DEFAULT_MODEL
 
-    # 2) AI report
     report, trace = generate_athlete_progress_report(
         previous_state=previous_state,
         current_state=current_state,
@@ -417,8 +417,7 @@ def service_compare_latest_athlete_states(
     # === AI BILLING – usage za PROGRESS REPORT ============
     usage = extract_usage_from_trace(trace)
     if usage:
-        if model_to_use:
-            usage["model"] = model_to_use
+        usage["model"] = str(report.get("model") or model_to_use)
         try:
             log_ai_usage_for_user(
                 user_id=user_id,
@@ -433,7 +432,7 @@ def service_compare_latest_athlete_states(
             print("[AI_BILLING] progress_report billing error:", repr(e))
     # ======================================================
 
-    # 3) uložíme report do compare_previous na aktuálnom zázname
+    # uložíme report do compare_previous na aktuálnom zázname
     try:
         sid_raw = current.get("id")
         sid: Optional[int]
@@ -455,10 +454,7 @@ def service_compare_latest_athlete_states(
                 service=service,
             )
     except Exception as e:  # noqa: BLE001
-        print(
-            "[service_compare_latest_athlete_states] db_update_state_compare_previous error:",
-            repr(e),
-        )
+        print("[service_compare_latest_athlete_states] db_update_state_compare_previous error:", repr(e))
 
     resp: Dict[str, Any] = {
         "ok": True,

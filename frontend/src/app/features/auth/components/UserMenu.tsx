@@ -88,7 +88,7 @@ export default function UserMenu() {
   async function handleSignOut() {
     setBusy("signout");
     try {
-      await signOut("/signin");
+      await signOut("/");
     } finally {
       setBusy(null);
     }

@@ -8,7 +8,7 @@ import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import {
   readCoachPrefsFromStorage,
   subscribeCoachPrefs,
-} from "@/app/features/coach/utils/prefs";
+} from "@/app/features/prefs/utils/prefs";
 
 /**
  * Vráti CoachPrefs a automaticky sa aktualizuje po Save/Refresh

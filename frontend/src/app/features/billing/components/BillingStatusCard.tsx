@@ -3,23 +3,12 @@
 import Button from "@/app/shared/components/ui/Button";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import BillingUsageBar from "./BillingUsageBar";
-import type { AppSubscriptionStatus } from "@/app/features/billing/api/app_subscription";
 
-type PlannedChange = {
-  kind: "cancel" | "downgrade" | "upgrade";
-  to_tier_code: string | null;
-  effective_from: string | null;
-} | null;
-
-type BillingStatusCardProps = {
-  status: AppSubscriptionStatus | null;
-  activeTierCode: string;
-  plannedChange: PlannedChange;
-  loadingStatus: boolean;
-  loadingAny: boolean;
-  error: string | null;
-  onCancelPlannedChange: () => void | Promise<void>;
-};
+import type {
+  AppSubscriptionStatus,
+  PlannedChange,
+  BillingStatusCardProps,
+} from "@/app/features/billing/types/billing";
 
 export default function BillingStatusCard({
   status,

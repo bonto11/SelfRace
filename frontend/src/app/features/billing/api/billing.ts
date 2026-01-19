@@ -1,87 +1,14 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
-
-/* ---------- typy z BE tabuliek ---------- */
-
-export type AppSubscriptionTier = {
-  id: number;
-  code: string; // "free", "classic", "pro"
-  name: string;
-  description: string | null;
-  monthly_price_cents: number;
-  ai_monthly_tokens_limit: number;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string | null;
-};
-
-export type AppUserSubscription = {
-  id: number;
-  user_id: number;
-  tier_code: string;
-  status: string; // "active", "cancelled", ...
-  current_period_start: string | null;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  external_customer_id: string | null;
-  external_subscription_id: string | null;
-  meta: any | null;
-  created_at: string;
-};
-
-export type AppSubscriptionScheduledChange = {
-  kind: "downgrade" | "cancel";
-  to_tier_code: string | null;
-  effective_from: string | null;
-};
-
-export type AppSubscriptionAiQuota = {
-  monthly_limit_tokens: number | null;
-  used_tokens_this_month: number | null;
-  remaining_tokens: number | null;
-  is_over: boolean | null;
-  reset_at: string | null;
-};
-
-export type AppSubscriptionStatus = {
-  user_id: number;
-  tier_code: string; // "free", ak nič iné
-  active_subscription: AppUserSubscription | null;
-  tiers: AppSubscriptionTier[];
-  scheduled_change?: AppSubscriptionScheduledChange | null;
-  ai_quota?: AppSubscriptionAiQuota | null; // <-- usage info pre progress bar
-};
-
-type ListTiersResponse = {
-  success: boolean;
-  items: AppSubscriptionTier[];
-  detail?: string | null;
-  error?: string | null;
-};
-
-type StatusResponse = {
-  success: boolean;
-  status: AppSubscriptionStatus | null;
-  detail?: string | null;
-  error?: string | null;
-};
-
-type HistoryResponse = {
-  success: boolean;
-  items: AppUserSubscription[];
-  detail?: string | null;
-  error?: string | null;
-};
-
-type SetTierResponse = {
-  success: boolean;
-  user: any | null;
-  active_subscription: AppUserSubscription | null;
-  tier: AppSubscriptionTier | null;
-  status?: AppSubscriptionStatus | null;
-  detail?: string | null;
-  error?: string | null;
-};
+import type {
+  CancelPlannedResponse,
+  AppSubscriptionTier,
+  HistoryResponse,
+  ListTiersResponse,
+  AppSubscriptionStatus,
+  AppUserSubscription,
+  StatusResponse,
+  SetTierResponse,
+} from "@/app/features/billing/types/billing";
 
 /* ---------- API helpers ---------- */
 
@@ -118,9 +45,7 @@ export async function apiGetAppSubscriptionStatus(
 ): Promise<AppSubscriptionStatus | null> {
   if (!userId) throw new Error("Missing userId in apiGetAppSubscriptionStatus");
 
-  const path = `/app/subscription/status/${encodeURIComponent(
-    String(userId)
-  )}`;
+  const path = `/app/subscription/status/${encodeURIComponent(String(userId))}`;
 
   let json: StatusResponse;
   try {
@@ -149,7 +74,8 @@ export async function apiGetAppSubscriptionHistory(
   userId: number,
   limit = 20
 ): Promise<AppUserSubscription[]> {
-  if (!userId) throw new Error("Missing userId in apiGetAppSubscriptionHistory");
+  if (!userId)
+    throw new Error("Missing userId in apiGetAppSubscriptionHistory");
 
   const path = `/app/subscription/history/${encodeURIComponent(
     String(userId)
@@ -188,7 +114,8 @@ export async function apiSetAppSubscriptionTierManual(
   tierCode: string
 ): Promise<SetTierResponse> {
   if (!userId) throw new Error("Missing userId in apiSetAppSubscriptionTier");
-  if (!tierCode) throw new Error("Missing tierCode in apiSetAppSubscriptionTier");
+  if (!tierCode)
+    throw new Error("Missing tierCode in apiSetAppSubscriptionTier");
 
   const path = `/app/subscription/set-tier/${encodeURIComponent(
     String(userId)
@@ -210,13 +137,13 @@ export async function apiSetAppSubscriptionTierManual(
   }
 
   if (!json?.success) {
-    throw new Error(json.detail || json.error || "Failed to set subscription tier");
+    throw new Error(
+      json.detail || json.error || "Failed to set subscription tier"
+    );
   }
 
   return json;
 }
-
-type CancelPlannedResponse = SetTierResponse; // rovnaký shape
 
 export async function apiCancelPlannedSubscriptionChange(
   userId: number

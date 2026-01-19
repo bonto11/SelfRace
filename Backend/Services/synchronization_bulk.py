@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Mapping
 
 from Modules.Strava.activities import StravaActivitiesClient
 
@@ -11,7 +11,7 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
-    db_update_activity_map_and_workout,  # ⬅️ NOVÉ
+    db_update_activity_map_and_workout,  # ⬅️ map + workout_type
 )
 from Routes_DB.activities_laps import (
     db_delete_laps_for_activity,
@@ -31,8 +31,40 @@ from Services.synchronization_utils import (
 )
 from Services.users import require_jwt
 
-# Koľko detailov (laps/splits) max dotiahnuť v jednej synchronizácii
+# ⬅️ spoločný helper na Strava tokeny (DB + refresh)
+from Services.synchronization_single import _get_access_token_for_user
+
 MAX_FULL_DETAILS_PER_RUN = 150
+HISTORICAL_MAX_ACTIVITIES = 200
+HISTORICAL_PER_PAGE = 100
+BACKFILL_MAX_DAYS = 50
+
+
+def _to_list_of_dicts(items: Any) -> List[Dict[str, Any]]:
+    """
+    Fix pre typing/Pylance: Sequence[Mapping] -> List[Dict]
+    (runtime to je jedno, ale helpery majú striktnejšie typy).
+    """
+    if not items:
+        return []
+    out: List[Dict[str, Any]] = []
+
+    if isinstance(items, list):
+        for x in items:
+            if isinstance(x, dict):
+                out.append(x)
+            elif isinstance(x, Mapping):
+                out.append(dict(x))
+        return out
+
+    if isinstance(items, Sequence):
+        for x in items:
+            if isinstance(x, dict):
+                out.append(x)
+            elif isinstance(x, Mapping):
+                out.append(dict(x))
+
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -52,21 +84,30 @@ def _import_activities_from_strava(
 
     Vracia:
       - stats dict (imported/updated/skipped/fetched)
-      - since_iso_for_scan (odkiaľ ďalej počítať streams/zóny)
+      - since_iso_for_scan (odkiaľ ďalej počítať streams/zóny pre AI – max BACKFILL_MAX_DAYS dozadu)
     """
-    client = StravaActivitiesClient()
-
-    after_epoch = 0
-    since_iso_for_scan = "1970-01-01"
+    now_utc = datetime.now(timezone.utc)
 
     last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
-    if last_dt:
+    is_first_sync = last_dt is None
+
+    if is_first_sync:
+        after_epoch = 0
+        since_dt = now_utc - timedelta(days=BACKFILL_MAX_DAYS)
+        since_iso_for_scan = since_dt.strftime("%Y-%m-%d")
+    else:
         after_epoch = int(last_dt.timestamp())
-        since_iso_for_scan = last_dt.strftime("%Y-%m-%d")
-    elif force_last_days is not None:
-        after_dt = datetime.now(timezone.utc) - timedelta(days=force_last_days)
-        after_epoch = int(after_dt.timestamp())
-        since_iso_for_scan = after_dt.strftime("%Y-%m-%d")
+
+        if force_last_days is not None:
+            try:
+                days = min(int(force_last_days), BACKFILL_MAX_DAYS)
+            except Exception:
+                days = BACKFILL_MAX_DAYS
+        else:
+            days = BACKFILL_MAX_DAYS
+
+        since_dt = now_utc - timedelta(days=days)
+        since_iso_for_scan = since_dt.strftime("%Y-%m-%d")
 
     existing = db_get_existing_activity_ids_since(
         user_id,
@@ -78,34 +119,56 @@ def _import_activities_from_strava(
     to_upsert: List[Dict[str, Any]] = []
 
     print(
-        f"[SYNC] user={user_id} after_epoch={after_epoch} "
-        f"(since={since_iso_for_scan})"
+        f"[SYNC] user={user_id} first_sync={is_first_sync} after_epoch={after_epoch} "
+        f"(since_iso_for_scan={since_iso_for_scan})"
     )
 
+    access_token = _get_access_token_for_user(user_id)
+    if not access_token:
+        print(f"[SYNC] no valid Strava access_token for user_id={user_id} (bulk import skipped)")
+        stats = {"imported": 0, "updated": 0, "skipped": 0, "fetched": 0}
+        return stats, since_iso_for_scan
+
+    client = StravaActivitiesClient(access_token=access_token)
+    service_mode = user_jwt is None
+
+    # -------- SUMMARY import cez /athlete/activities --------
     page = 1
+    remaining = HISTORICAL_MAX_ACTIVITIES if is_first_sync else None
+
     while True:
-        items: List[Dict[str, Any]] = client.fetch_athlete_activities_page(
+        per_page = 100
+        if remaining is not None:
+            if remaining <= 0:
+                break
+            per_page = min(per_page, HISTORICAL_PER_PAGE, remaining)
+
+        items_any = client.fetch_athlete_activities_page(
             after_epoch=after_epoch,
             page=page,
-            per_page=100,
+            per_page=per_page,
         )
+
+        # ✅ typing fix
+        items: List[Dict[str, Any]] = _to_list_of_dicts(items_any)
+
         if not items:
             break
 
         fetched += len(items)
-        print(f"[SYNC] page={page} fetched={len(items)} (total={fetched})")
+        print(
+            f"[SYNC] page={page} fetched={len(items)} (total={fetched}) "
+            f"(per_page={per_page}, remaining={remaining})"
+        )
 
         for a in items:
-            # základný normalized summary
             row = _normalize_summary(user_id, a)
 
-            # ⬇️ doplníme workout_type + summary polyline zo Strava summary
             wt = a.get("workout_type", None)
             if wt is not None:
                 try:
                     row["workout_type"] = int(wt)
                 except Exception:
-                    # ak príde nezmysel, radšej neprepíšeme
                     pass
 
             m = a.get("map") or {}
@@ -125,15 +188,22 @@ def _import_activities_from_strava(
                 imported += 1
                 existing.add(aid)
 
+            row["deleted_at"] = None
             to_upsert.append(row)
 
         if len(to_upsert) >= 200:
             db_upsert_activities_summary(
                 to_upsert,
                 user_jwt=user_jwt,
+                service=service_mode,
             )
             print(f"[SYNC] upsert batch summary rows={len(to_upsert)}")
             to_upsert.clear()
+
+        if remaining is not None:
+            remaining -= len(items)
+            if remaining <= 0:
+                break
 
         page += 1
         time.sleep(0.1)
@@ -142,9 +212,10 @@ def _import_activities_from_strava(
         db_upsert_activities_summary(
             to_upsert,
             user_jwt=user_jwt,
+            service=service_mode,
         )
-    print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
-    to_upsert.clear()
+        print(f"[SYNC] upsert remaining summary rows={len(to_upsert)}")
+        to_upsert.clear()
 
     # -------- detaily (laps/splits + mapa/workout_type) --------
     if fetch_details and fetched:
@@ -157,15 +228,17 @@ def _import_activities_from_strava(
 
         for i, aid in enumerate(ids, start=1):
             try:
-                laps_raw = client.fetch_activity_laps(aid)
+                laps_any = client.fetch_activity_laps(aid)
                 detail = client.fetch_activity_detail(aid)
-                splits_raw = detail.get("splits_metric") or []
+                splits_any = detail.get("splits_metric") or []
 
-                # ⬇️ z detailu doplníme mapu + workout_type
+                # ✅ typing fix
+                laps_raw: List[Dict[str, Any]] = _to_list_of_dicts(laps_any)
+                splits_raw: List[Dict[str, Any]] = _to_list_of_dicts(splits_any)
+
                 m = detail.get("map") or {}
                 map_summary_polyline = None
                 map_polyline = None
-
                 if isinstance(m, dict):
                     map_summary_polyline = m.get("summary_polyline")
                     map_polyline = m.get("polyline")
@@ -178,25 +251,25 @@ def _import_activities_from_strava(
                     map_summary_polyline=map_summary_polyline,
                     map_polyline=map_polyline,
                     user_jwt=user_jwt,
+                    service=service_mode,
                 )
 
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 
                 if mode == "splits":
-                    db_delete_laps_for_activity(aid, user_jwt=user_jwt)
+                    db_delete_laps_for_activity(aid, user_jwt=user_jwt, service=service_mode)
                 elif mode == "laps":
-                    db_delete_splits_for_activity(aid, user_jwt=user_jwt)
+                    db_delete_splits_for_activity(aid, user_jwt=user_jwt, service=service_mode)
 
                 if mode == "splits":
                     for idx, S in enumerate(splits_raw, start=1):
                         row = _normalize_split(S, user_id, aid, idx)
-                        db_upsert_split(row, user_jwt=user_jwt)
+                        db_upsert_split(row, user_jwt=user_jwt, service=service_mode)
                 elif mode == "laps":
                     for L in laps_raw:
                         row = _normalize_lap(L, user_id, aid)
-                        db_upsert_lap(row, user_jwt=user_jwt)
+                        db_upsert_lap(row, user_jwt=user_jwt, service=service_mode)
                 else:
-                    # nevieme rozhodnúť, necháme tak
                     pass
 
             except Exception as e:

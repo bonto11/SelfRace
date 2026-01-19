@@ -28,6 +28,8 @@ export default function ClientPage() {
       const token = sp.get("token");
       const type = sp.get("type");
       const em = sp.get("email");
+
+      // 1) Supabase recovery link (token + type=recovery + email)
       if (token && type === "recovery" && em) {
         const { error } = await sb.auth.verifyOtp({
           type: "recovery",
@@ -38,6 +40,7 @@ export default function ClientPage() {
           if (mounted) setErr(error.message);
           return;
         }
+
         try {
           const { data } = await sb.auth.getSession();
           if (data.session) {
@@ -50,28 +53,31 @@ export default function ClientPage() {
               }),
             });
           }
-        } catch {}
+        } catch {
+          /* ignore */
+        }
         if (mounted) setPhase("ready");
         return;
       }
+
+      // 2) Magic link / PKCE variant (code v URL)
       const code = sp.get("code");
       if (code) {
         let ok = false;
         try {
-          /* @ts-ignore */ const r1 = await sb.auth.exchangeCodeForSession(
-            code
-          );
+          // @ts-ignore
+          const r1 = await sb.auth.exchangeCodeForSession(code);
           ok = !r1?.error;
         } catch {}
 
         if (!ok) {
           try {
-            /* @ts-ignore */ const r2 = await sb.auth.exchangeCodeForSession(
-              code
-            );
+            // @ts-ignore
+            const r2 = await sb.auth.exchangeCodeForSession(code);
             ok = !r2?.error;
           } catch {}
         }
+
         if (!ok) {
           const { error } = await sb.auth.verifyOtp({
             type: "recovery",
@@ -82,6 +88,7 @@ export default function ClientPage() {
             return;
           }
         }
+
         try {
           const { data } = await sb.auth.getSession();
           if (data.session) {
@@ -94,20 +101,28 @@ export default function ClientPage() {
               }),
             });
           }
-        } catch {}
+        } catch {
+          /* ignore */
+        }
         if (mounted) setPhase("ready");
         return;
       }
+
+      // 3) fallback – už je prihlásený
       const { data } = await sb.auth.getSession();
       if (data.session) {
         if (mounted) setPhase("ready");
         return;
       }
+
+      // 4) čakáme na session z onAuthStateChange
       const sub = sb.auth.onAuthStateChange((_e, session) => {
         if (session && mounted) setPhase("ready");
       });
+
       return () => sub.data.subscription.unsubscribe();
     })();
+
     return () => {
       mounted = false;
     };
@@ -120,10 +135,12 @@ export default function ClientPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+
     if (!canSubmit) {
       setErr(!match ? "Heslá sa nezhodujú." : "Heslo je príliš slabé.");
       return;
     }
+
     setPhase("saving");
     const { error } = await sb.auth.updateUser({ password: pwd1 });
     if (error) {
@@ -131,99 +148,106 @@ export default function ClientPage() {
       setPhase("ready");
       return;
     }
+
     setPhase("done");
     setTimeout(() => router.replace("/dashboard"), 600);
   }
 
   if (phase === "boot") {
     return (
-      <div className="max-w-sm mx-auto p-6 text-text">
-        <h1 className="text-2xl font-semibold mb-3">Zmeniť heslo</h1>
-        <p className="opacity-90">
-          O chvíľu ťa prihlásime a zobrazíme formulár…
-        </p>
-        {err && <p className="text-danger text-sm mt-2">{err}</p>}
-      </div>
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-sm mx-auto p-6 rounded-xl bg-slate-950/60 border border-white/10 text-text">
+          <h1 className="text-2xl font-semibold mb-3">Zmeniť heslo</h1>
+          <p className="opacity-90">
+            O chvíľu ťa prihlásime a zobrazíme formulár…
+          </p>
+          {err && <p className="text-danger text-sm mt-2">{err}</p>}
+        </div>
+      </main>
     );
   }
+
   if (phase === "done") {
     return (
-      <div className="max-w-sm mx-auto p-6 text-text">
-        <h1 className="text-2xl font-semibold mb-3">Hotovo</h1>
-        <p className="opacity-90">Heslo je zmenené. Prihlasujeme ťa…</p>
-      </div>
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-sm mx-auto p-6 rounded-xl bg-slate-950/60 border border-white/10 text-text">
+          <h1 className="text-2xl font-semibold mb-3">Hotovo</h1>
+          <p className="opacity-90">Heslo je zmenené. Prihlasujeme ťa…</p>
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="max-w-sm mx-auto p-6 text-text">
-      <h1 className="text-2xl font-semibold mb-4">Nastaviť nové heslo</h1>
+    <main className="min-h-screen flex items-center justify-center px-4">
+      <div className="max-w-sm mx-auto p-6 rounded-xl bg-slate-950/60 border border-white/10 text-text">
+        <h1 className="text-2xl font-semibold mb-4">Nastaviť nové heslo</h1>
 
-      <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <label className={labelClass}>
-          Nové heslo
-          <div className="relative mt-1">
+        <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
+          <label className={labelClass}>
+            Nové heslo
+            <div className="relative mt-1">
+              <input
+                type={show ? "text" : "password"}
+                value={pwd1}
+                onChange={(e) => setPwd1(e.target.value)}
+                placeholder="Zadaj nové heslo"
+                className={inputClass}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text"
+                aria-label={show ? "Skryť heslo" : "Zobraziť heslo"}
+                title={show ? "Skryť heslo" : "Zobraziť heslo"}
+              >
+                {show ? "🙈" : "👁️"}
+              </button>
+            </div>
+          </label>
+
+          <PasswordStrengthMeter strength={strength} />
+
+          <label className={labelClass}>
+            Potvrdiť nové heslo
             <input
-              type={show ? "text" : "password"}
-              value={pwd1}
-              onChange={(e) => setPwd1(e.target.value)}
-              placeholder="Zadaj nové heslo"
-              className={inputClass}
+              type="password"
+              value={pwd2}
+              onChange={(e) => setPwd2(e.target.value)}
+              placeholder="Zadaj znovu heslo"
+              className={`${inputClass} mt-1`}
               autoComplete="new-password"
             />
-            <button
-              type="button"
-              onClick={() => setShow((s) => !s)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text"
-              aria-label={show ? "Skryť heslo" : "Zobraziť heslo"}
-              title={show ? "Skryť heslo" : "Zobraziť heslo"}
-            >
-              {show ? "🙈" : "👁️"}
-            </button>
-          </div>
-        </label>
+          </label>
 
-        <PasswordStrengthMeter strength={strength} />
+          <RequirementsList pwd={pwd1} email={email} />
 
-        <label className={labelClass}>
-          Potvrdiť nové heslo
-          <input
-            type="password"
-            value={pwd2}
-            onChange={(e) => setPwd2(e.target.value)}
-            placeholder="Zadaj znovu heslo"
-            className={`${inputClass} mt-1`}
-            autoComplete="new-password"
-          />
-        </label>
+          {!match && pwd2.length > 0 && (
+            <p className="text-sm text-danger">Heslá sa nezhodujú.</p>
+          )}
+          {err && <p className="text-sm text-danger">{err}</p>}
 
-        <RequirementsList pwd={pwd1} email={email} />
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            block
+            disabled={!canSubmit || phase === "saving"}
+          >
+            {phase === "saving" ? "Ukladám…" : "Uložiť"}
+          </Button>
 
-        {!match && pwd2.length > 0 && (
-          <p className="text-sm text-danger">Heslá sa nezhodujú.</p>
-        )}
-        {err && <p className="text-sm text-danger">{err}</p>}
-
-        <Button
-          type="submit"
-          variant="primary"
-          size="md"
-          block
-          disabled={!canSubmit || phase === "saving"}
-        >
-          {phase === "saving" ? "Ukladám…" : "Uložiť"}
-        </Button>
-
-        <p className={hintClass + " mt-2"}>
-          Po uložení ťa automaticky prihlásime.
-        </p>
-      </form>
-    </div>
+          <p className={hintClass + " mt-2"}>
+            Po uložení ťa automaticky prihlásime.
+          </p>
+        </form>
+      </div>
+    </main>
   );
 }
 
-/* -------- zvyšok súboru ponechaný bez zmeny (PasswordStrengthMeter, RequirementsList, scorePassword) -------- */
-/* -------- Pomocné komponenty a heuristika -------- */
+/* -------- Pomocné komponenty a heuristika – nechávam nezmenené -------- */
 
 function PasswordStrengthMeter({
   strength,

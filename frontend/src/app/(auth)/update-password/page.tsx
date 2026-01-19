@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import ClientPage from "./ClientPage";
 
-export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
+export const dynamic = "force-dynamic";
 
 export default function Page() {
   return (

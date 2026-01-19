@@ -1,4 +1,4 @@
-import StravaPanel from "@/app/features/connectedApps/components/StravaPanel";
+import StravaPanel from "@/app/features/strava/components/StravaPanel";
 
 export const metadata = {
   title: "Connected apps",
@@ -10,8 +10,8 @@ export default function ConnectedAppsPage() {
       <header>
         <h1 className="text-xl font-semibold">Connected apps</h1>
         <p className="mt-1 text-sm opacity-70">
-          Prepojenie so Stravou a ďalšími službami. Tu vieš spravovať
-          pripojenie a import tréningov.
+          Prepojenie so Stravou a ďalšími službami. Tu vieš spravovať pripojenie
+          a import tréningov.
         </p>
       </header>
 

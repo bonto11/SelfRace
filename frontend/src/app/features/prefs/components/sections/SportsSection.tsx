@@ -9,86 +9,47 @@ import { SURFACE_INLINE, SECTION } from "@/app/shared/ui/classes";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
-const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
-
-type SecondaryRole = "none" | "supplement" | "improve";
-
-type SecondaryMix = {
-  sport: SportKind;
-  role: SecondaryRole;
-  /** stále existuje kvôli kompatibilite, ale nastavuje sa podľa priority */
-  share_pct: number;
-};
+// DB-aligned: strength rieši StrengthSection, nie coach prefs sports mix
+const MAIN_SPORTS: SportKind[] = ["run", "ride", "swim"];
+const ADD_ON_SPORTS: SportKind[] = ["run", "ride", "swim"];
 
 type Props = {
   local: any;
   mainSport: SportKind | "";
-  secondary: SecondaryMix[];
-  shareWarn: boolean; // nepoužívame, ale nechávame kvôli kompatibilite
+  /** DB: add_on_sports: SportKind[] */
+  addOnSports: SportKind[];
   setPref: (key: any, value: any) => void;
-  updateSecondary: (sport: SportKind, patch: Partial<SecondaryMix>) => void;
 };
 
-/** Priority: 1. = main_sport, ostatné 2nd / 3rd / 4th */
-type Priority = "none" | "second" | "third" | "fourth";
-
-const priorityFromShare = (share: number | undefined | null): Priority => {
-  if (!share || share <= 0) return "none";
-  if (share >= 55) return "second";
-  if (share >= 30) return "third";
-  return "fourth";
-};
-
-const shareFromPriority = (p: Priority): number => {
-  if (p === "second") return 60;
-  if (p === "third") return 30;
-  if (p === "fourth") return 15;
-  return 0;
-};
-
-const priorityLabel = (p: Priority) => {
-  switch (p) {
-    case "second":
-      return "2nd";
-    case "third":
-      return "3rd";
-    case "fourth":
-      return "4th";
-    default:
-      return "—";
-  }
-};
-
-export function SportsSection({
-  local,
-  mainSport,
-  secondary,
-  shareWarn: _shareWarn, // eslint-disable-line @typescript-eslint/no-unused-vars
-  setPref,
-  updateSecondary,
-}: Props) {
+export function SportsSection({ local, mainSport, addOnSports, setPref }: Props) {
   const [open, setOpen] = useState(false);
 
-  // ---------- closed preview ----------
   const preview = useMemo(() => {
     const main = mainSport || "— none —";
-
-    const secBrief = secondary
-      .map((s) => {
-        const pr = priorityFromShare(s.share_pct);
-        if (pr === "none" && s.role === "none") return null;
-        const prTxt = priorityLabel(pr);
-        return `${s.sport} [${prTxt}, ${s.role}]`;
-      })
-      .filter(Boolean) as string[];
-
-    const secText = secBrief.length ? secBrief.join(", ") : "none";
-
+    const addons = Array.isArray(addOnSports) ? addOnSports : [];
+    const addonsText = addons.length ? addons.join(", ") : "none";
     return {
       mainText: `Main: ${main}`,
-      secText: `Others: ${secText}`,
+      addonsText: `Add-ons: ${addonsText}`,
     };
-  }, [mainSport, secondary]);
+  }, [mainSport, addOnSports]);
+
+  const safeAddOns = Array.isArray(addOnSports) ? addOnSports : [];
+
+  const toggleAddOn = (sport: SportKind) => {
+    const main = (mainSport || null) as SportKind | null;
+    if (main && sport === main) {
+      // add-on nesmie byť rovnaký ako main
+      return;
+    }
+
+    const cur = safeAddOns.filter((s) => s !== main); // safety
+    const next = cur.includes(sport)
+      ? cur.filter((s) => s !== sport)
+      : [...cur, sport];
+
+    setPref("add_on_sports", next);
+  };
 
   return (
     <section className={SECTION}>
@@ -96,7 +57,7 @@ export function SportsSection({
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Sports</div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Vyber hlavný šport. Ostatným nastav dôležitosť (2nd / 3rd / 4th) a rolu (supplement / improve). 'none' znamená, že coach tento šport neplánuje." />
+          <InfoPopover text="Vyber hlavný šport pre plán. Doplnkové športy (add-ons) môže coach pridávať ako doplnok k hlavnému plánu. Silu rieš v sekcii Strength." />
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen((o) => !o)}
@@ -116,7 +77,7 @@ export function SportsSection({
         >
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <span>{preview.mainText}</span>
-            <span>{preview.secText}</span>
+            <span>{preview.addonsText}</span>
           </div>
         </div>
       )}
@@ -131,122 +92,68 @@ export function SportsSection({
               <SelectField
                 value={mainSport}
                 onChange={(e) => {
-                  const v = e.target.value as SportKind | "";
-                  setPref("main_sport", v === "" ? null : (v as SportKind));
+                  const v = (e.target.value as SportKind | "") || "";
+                  const nextMain = v === "" ? null : (v as SportKind);
 
-                  // odstráň main_sport zo secondary_mix
-                  const filtered = (local.secondary_mix ?? []).filter(
-                    (s: any) => s.sport !== v
-                  );
-                  setPref("secondary_mix", filtered as any);
+                  setPref("main_sport", nextMain);
+
+                  // ensure add_on_sports neobsahuje main_sport
+                  const curAddOns = Array.isArray(local.add_on_sports)
+                    ? (local.add_on_sports as SportKind[])
+                    : [];
+                  const cleaned = nextMain
+                    ? curAddOns.filter((s) => s !== nextMain)
+                    : curAddOns;
+                  setPref("add_on_sports", cleaned);
                 }}
                 options={[
                   { value: "", label: "— none —" },
-                  ...ALL_SPORTS.map((s) => ({ value: s, label: s })),
+                  ...MAIN_SPORTS.map((s) => ({ value: s, label: s })),
                 ]}
               />
             </div>
 
             <div className="sm:col-span-2 text-xs opacity-70 flex items-end">
-              Ak používaš len beh, ostatné nechaj na &quot;none&quot;. Pri ride
-              / swim nastav prioritu (2nd / 3rd / 4th) a rolu podľa toho, ako
-              veľmi ich chceš mať v pláne.
+              Ak riešiš hlavne beh, nastav <b>run</b>. Add-ons použiješ keď chceš,
+              aby coach občas pridal ride/swim ako doplnok (regenerácia, objem).
             </div>
           </div>
 
-          {/* Secondary rows */}
-          <div className="grid grid-cols-1 gap-2">
-            {secondary.map((sec) => {
-              const pr = priorityFromShare(sec.share_pct);
-              const isOff = pr === "none" && sec.role === "none";
+          {/* Add-on sports */}
+          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs opacity-80">Add-on sports</div>
+              <div className="text-[11px] opacity-60">
+                (bez strength; to je samostatne)
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={sec.sport}
-                  className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="min-w-[80px] text-sm font-medium">
-                      {sec.sport}
-                    </div>
+            <div className="flex flex-wrap gap-2">
+              {ADD_ON_SPORTS.map((s) => {
+                const disabled = !!mainSport && s === mainSport;
+                const active = safeAddOns.includes(s) && !disabled;
+                return (
+                  <Button
+                    key={s}
+                    type="button"
+                    size="sm"
+                    variant="prefs"
+                    active={active}
+                    onClick={() => toggleAddOn(s)}
+                    title={disabled ? "Toto je main sport" : "Toggle add-on"}
+                    disabled={disabled}
+                  >
+                    {s}
+                  </Button>
+                );
+              })}
+            </div>
 
-                    {/* priority buttons */}
-                    <div className="inline-flex items-center gap-1">
-                      {(["none", "second", "third", "fourth"] as const).map(
-                        (p) => {
-                          const active = pr === p;
-                          const label = priorityLabel(p);
-                          return (
-                            <Button
-                              key={p}
-                              type="button"
-                              size="xs"
-                              variant="prefs"
-                              active={active}
-                              onClick={() => {
-                                const newShare = shareFromPriority(p);
-                                updateSecondary(sec.sport, {
-                                  share_pct: newShare,
-                                });
-                              }}
-                              title={label}
-                            >
-                              {label}
-                            </Button>
-                          );
-                        }
-                      )}
-                    </div>
-
-                    {/* role buttons */}
-                    <div className="inline-flex items-center gap-1">
-                      {(["none", "supplement", "improve"] as const).map((r) => {
-                        const active = sec.role === r;
-                        return (
-                          <Button
-                            key={r}
-                            type="button"
-                            size="xs"
-                            variant="prefs"
-                            active={active}
-                            onClick={() => {
-                              if (r === "none") {
-                                // úplne vypni šport
-                                updateSecondary(sec.sport, {
-                                  role: "none",
-                                  share_pct: 0,
-                                });
-                              } else {
-                                // keď zapíname rolu a share je nula -> daj default 4th
-                                const currPr = priorityFromShare(sec.share_pct);
-                                const newShare =
-                                  currPr === "none"
-                                    ? shareFromPriority("fourth")
-                                    : sec.share_pct;
-                                updateSecondary(sec.sport, {
-                                  role: r,
-                                  share_pct: newShare,
-                                });
-                              }
-                            }}
-                            title={r}
-                          >
-                            {r}
-                          </Button>
-                        );
-                      })}
-                    </div>
-
-                    {isOff && (
-                      <div className="text-[10px] opacity-60 sm:ml-auto">
-                        This sport is currently ignored in planning (role:
-                        none).
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {safeAddOns.length === 0 && (
+              <div className="text-[11px] opacity-60 mt-2">
+                Žiadne add-ons. Plán bude čisto podľa main sport.
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,0 +1,21 @@
+name: Account hard delete cron
+
+on:
+  schedule:
+    - cron: "0 4 * * *"    # každý deň o 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  hard-delete:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call backend account hard delete endpoint
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+        run: |
+          curl -X POST \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"dry_run": false, "only_user_id": null}' \
+            https://api-dev.patrikmbontar.eu/maintenance/account-hard-delete

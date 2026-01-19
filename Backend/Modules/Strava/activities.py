@@ -1,35 +1,32 @@
-#Modules/Strava/activities
+# Modules/Strava/activities.py
 from __future__ import annotations
 
 from typing import Any, Dict, List
 
-import requests
-
-from Modules.Strava.auth import get_access_token
-from Configs.config import STRAVA_BASE
-
-DEBUG_STRAVA_STREAMS = True
-
+from Modules.Strava.http_client import StravaHTTPClient
+from Configs.config import STRAVA_DEBUG_STREAMS
 
 def _dbg_strava(*args: Any, **kwargs: Any) -> None:
-    if DEBUG_STRAVA_STREAMS:
+    if STRAVA_DEBUG_STREAMS:
         print("[strava-streams]", *args, **kwargs, flush=True)
 
 
 class StravaActivitiesClient:
     """
     Klient na čítanie Strava aktivít (summary + detail + laps + streams).
+
+    PRODUKCIA:
+      - vždy vytváraj cez access_token z tabuľky strava_accounts,
+        napr. StravaActivitiesClient(access_token=token_from_db)
+
+    ŽIADNY fallback na lokálne súbory / legacy auth.
     """
 
-    def __init__(self) -> None:
-        token = get_access_token()
-        if not token:
-            raise RuntimeError(
-                "Chýba Strava access token. Spusť autorizáciu a /exchange_token."
-            )
-        s = requests.Session()
-        s.headers.update({"Authorization": f"Bearer {token}"})
-        self._session = s
+    def __init__(self, access_token: str) -> None:
+        if not access_token:
+            raise ValueError("StravaActivitiesClient requires non-empty access_token")
+
+        self._http = StravaHTTPClient(access_token=access_token)
 
     # ------------------------------------------------------------------
     # /athlete/activities
@@ -45,8 +42,8 @@ class StravaActivitiesClient:
         """
         Načíta jednu stránku /athlete/activities.
         """
-        r = self._session.get(
-            f"{STRAVA_BASE}/athlete/activities",
+        r = self._http.get(
+            "/athlete/activities",
             params={
                 "after": int(after_epoch),
                 "per_page": int(per_page),
@@ -54,11 +51,11 @@ class StravaActivitiesClient:
             },
             timeout=timeout,
         )
-        r.raise_for_status()
         data = r.json() or []
+    
         if not isinstance(data, list):
             return []
-        return data
+        return [dict(x) for x in data if isinstance(x, dict)]
 
     # ------------------------------------------------------------------
     # /activities/{id}
@@ -72,11 +69,10 @@ class StravaActivitiesClient:
         """
         Detail jednej aktivity: /activities/{id}
         """
-        r = self._session.get(
-            f"{STRAVA_BASE}/activities/{int(activity_id)}",
+        r = self._http.get(
+            f"/activities/{int(activity_id)}",
             timeout=timeout,
         )
-        r.raise_for_status()
         data = r.json() or {}
         if not isinstance(data, dict):
             return {}
@@ -94,15 +90,15 @@ class StravaActivitiesClient:
         """
         Laps pre jednu aktivitu: /activities/{id}/laps
         """
-        r = self._session.get(
-            f"{STRAVA_BASE}/activities/{int(activity_id)}/laps",
+        r = self._http.get(
+            f"/activities/{int(activity_id)}/laps",
             timeout=timeout,
         )
-        r.raise_for_status()
         data = r.json() or []
+        
         if not isinstance(data, list):
             return []
-        return data
+        return [dict(x) for x in data if isinstance(x, dict)]
 
     # ------------------------------------------------------------------
     # /activities/{id}/streams
@@ -116,8 +112,8 @@ class StravaActivitiesClient:
         """
         Streams pre jednu aktivitu: /activities/{id}/streams (key_by_type=true).
         """
-        r = self._session.get(
-            f"{STRAVA_BASE}/activities/{int(activity_id)}/streams",
+        r = self._http.get(
+            f"/activities/{int(activity_id)}/streams",
             params={
                 "keys": (
                     "time,heartrate,distance,altitude,"
@@ -128,8 +124,7 @@ class StravaActivitiesClient:
             },
             timeout=timeout,
         )
-        if r.status_code in (403, 404):
-            r.raise_for_status()
+
         j = r.json() or {}
         if not isinstance(j, dict):
             return {}

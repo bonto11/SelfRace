@@ -1,10 +1,8 @@
 "use client";
 
-type BillingUsageBarProps = {
-  limitTokens?: number;
-  usedTokens?: number;
-  resetAt?: string | null;
-};
+import type {
+   BillingUsageBarProps
+} from "@/app/features/billing/types/billing";
 
 export default function BillingUsageBar({
   limitTokens,

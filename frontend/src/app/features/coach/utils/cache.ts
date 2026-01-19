@@ -1,10 +1,11 @@
 // src/features/coach/utils/cache.ts
+"use client";
 
 // Jednoduchá DEV cache do localStorage s verziovaním podľa userId + prefs hash.
 
 type Cached = {
   savedAt: string; // ISO
-  key: string;     // cache kľúč (userId:prefsHash)
+  key: string; // cache kľúč (userId:prefsHash)
   model?: string;
   result: any;
 };
@@ -31,50 +32,86 @@ function stableStringify(obj: any): string {
 
 function djb2(str: string) {
   let h = 5381;
-  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) + str.charCodeAt(i);
+  for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
   return (h >>> 0).toString(36);
 }
 
-/** Z prefs vyber len to, čo ovplyvňuje plán, a urob z toho hash. */
+/**
+ * Z prefs vyber len to, čo ovplyvňuje plán a urob z toho hash.
+ * - držíme sa novej štruktúry: intensity + blocks sú v preferences.*
+ * - external events sú jediné “pevné” mimo prefs/rules (ak ich stále nesieš v prefs, zahrň ich)
+ * - žiadne staré top-level polarized_model/pyramidal_model ani top-level block toggles
+ */
 export function makeCacheKey(userId: string, prefs: any) {
+  const p = prefs && typeof prefs === "object" ? prefs : {};
+  const pr = (p.preferences && typeof p.preferences === "object") ? p.preferences : {};
+
+  // NEW: intensity model + blocks inside preferences
+  const intensity_model =
+    pr.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
+
+  const b = pr.training_blocks;
+  const training_blocks =
+    b && typeof b === "object"
+      ? { vo2max: !!b.vo2max, ftp: !!b.ftp, threshold: !!b.threshold }
+      : { vo2max: false, ftp: false, threshold: false };
+
+  // External events: nechávam ako "externals", ale:
+  // - preferuj nový field ak existuje (napr. external_events)
+  // - fallback na starý external_activities, ak ešte niekde žije
+  const externals =
+    (Array.isArray(p.external_events) ? p.external_events : null) ??
+    (Array.isArray(p.external_activities) ? p.external_activities : []);
+
   const core = {
-    sv: 2,
-    goal_kind: prefs?.goal_kind ?? null,
-    weeks: prefs?.weeks ?? null,
+    // bump version when key logic changes
+    sv: 3,
 
-    main_sport: prefs?.main_sport ?? null,
-    secondary_mix: (prefs?.secondary_mix ?? []).map((x: any) => ({
-      sport: x?.sport,
-      role: x?.role,
-      pct: x?.share_pct,
-    })),
+    // plan fundamentals
+    goal_kind: p.goal_kind ?? null,
+    weeks: p.weeks ?? null,
+    start_date: p.start_date ?? null,
+    end_date: p.end_date ?? null,
 
-    targets: prefs?.targets ?? null,
-    rules: prefs?.preferences ?? null,
+    // sports
+    main_sport: p.main_sport ?? null,
+    add_on_sports: Array.isArray(p.add_on_sports) ? p.add_on_sports : [],
+    secondary_mix: Array.isArray(p.secondary_mix)
+      ? p.secondary_mix.map((x: any) => ({
+          sport: x?.sport ?? null,
+          role: x?.role ?? null,
+          pct: Number(x?.share_pct) || 0,
+        }))
+      : [],
 
-    externals: prefs?.external_activities ?? [],
-    injuries: prefs?.injuries ?? [],
+    // targets & volume & strength settings
+    volume: p.volume ?? null,
+    targets: p.targets ?? null,
+    strength_settings: p.strength_settings ?? null,
 
+    // rules/preferences (includes intensity + blocks)
+    preferences: {
+      ...pr,
+
+      // enforce canonical bits for stable hash
+      intensity_model,
+      training_blocks,
+    },
+
+    // externals + health context
+    externals,
+    injuries: Array.isArray(p.injuries) ? p.injuries : [],
+
+    // focus/avoid/rehab knobs (ak existujú)
     focus: {
-      areas: prefs?.focus_areas ?? [],
-      avoid: prefs?.avoid_zones ?? [],
-      rehab: prefs?.rehab_focus ?? null,
+      areas: Array.isArray(p.focus_areas) ? p.focus_areas : [],
+      avoid: Array.isArray(p.avoid_zones) ? p.avoid_zones : [],
+      rehab: p.rehab_focus ?? null,
     },
 
-    intensity_model: prefs?.polarized_model
-      ? "polarized"
-      : prefs?.pyramidal_model
-      ? "pyramidal"
-      : null,
-
-    blocks: {
-      vo2: !!prefs?.vo2max_training,
-      thr: !!prefs?.threshold_focus,
-      ftp: !!prefs?.ftp_training,
-    },
-
-    voice: prefs?.coach_voice ?? null,
-    tone: prefs?.coach_tone ?? null,
+    // coach voice/tone (ak existuje)
+    voice: p.coach_voice ?? null,
+    tone: p.coach_tone ?? null,
   };
 
   const raw = stableStringify(core);

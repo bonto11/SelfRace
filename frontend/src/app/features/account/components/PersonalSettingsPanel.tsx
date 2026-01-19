@@ -13,15 +13,18 @@ import Button from "@/app/shared/components/ui/Button";
 import { toast } from "@/app/shared/components/ui/Toast";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import { inputClass } from "@/app/shared/ui";
+import { confirm } from "@/app/shared/components/ui/Confirm";
 
-type UserSettings = {
-  units: "metric" | "imperial";
-  language: "sk" | "en";
-  timezone: string;
-  week_start: "Mon" | "Sun";
-  date_format: string;
-  time_format_24h: boolean;
-};
+import {
+  apiGetAccountDeleteStatus,
+  apiRequestAccountDelete,
+  apiCancelAccountDelete,
+} from "@/app/features/account/api/accountDelete";
+
+import type {
+  UserSettings,
+  AccountDeleteStatus,
+} from "@/app/features/account/types/account";
 
 const DEFAULT_SETTINGS: UserSettings = {
   units: "metric",
@@ -107,6 +110,12 @@ export default function PersonalSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
+    null
+  );
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [processingDelete, setProcessingDelete] = useState(false);
+
   // load user.settings
   useEffect(() => {
     if (!userId) return;
@@ -116,7 +125,7 @@ export default function PersonalSettingsPanel() {
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(
-          () => null,
+          () => null
         );
 
         if (!alive) return;
@@ -142,6 +151,33 @@ export default function PersonalSettingsPanel() {
     };
   }, [userId]);
 
+  // load delete status
+  useEffect(() => {
+    if (!userId) {
+      setDeleteStatus(null);
+      return;
+    }
+
+    let alive = true;
+    setLoadingDelete(true);
+
+    apiGetAccountDeleteStatus(userId)
+      .then((st) => {
+        if (!alive) return;
+        setDeleteStatus(st);
+      })
+      .catch((e) => {
+        console.error("[PersonalSettingsPanel] delete status error", e);
+      })
+      .finally(() => {
+        if (alive) setLoadingDelete(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+
   async function handleSave() {
     if (!userId) return;
     setSaving(true);
@@ -156,7 +192,84 @@ export default function PersonalSettingsPanel() {
     }
   }
 
+  async function handleRequestDelete() {
+    if (!userId || processingDelete) return;
+
+    const first = await confirm({
+      title: "Zrušiť účet?",
+      message:
+        "Účet nebude hneď vymazaný. Najprv sa označí na zmazanie a po 30 dňoch sa všetky tvoje dáta z aplikácie odstránia.",
+      okText: "Pokračovať",
+      cancelText: "Zrušiť",
+    });
+    if (!first) return;
+
+    const second = await confirm({
+      title: "Naozaj chceš zrušiť účet?",
+      message:
+        "Toto je nezvratná akcia. Po 30 dňoch sa trvalo vymažú tréningy, plány aj prepojenia (napr. Strava). Do tej doby môžeš zrušenie ešte odvolať.",
+      okText: "Áno, označiť na zmazanie",
+      cancelText: "Nechcem mazať",
+      tone: "danger",
+    });
+    if (!second) return;
+
+    setProcessingDelete(true);
+    try {
+      const st = await apiRequestAccountDelete(userId);
+      setDeleteStatus(st);
+      toast.success(
+        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia."
+      );
+    } catch (e: any) {
+      console.error("[PersonalSettingsPanel] delete request error", e);
+      toast.error(e?.message || "Nepodarilo sa označiť účet na zmazanie.");
+    } finally {
+      setProcessingDelete(false);
+    }
+  }
+
+  async function handleCancelDelete() {
+    if (!userId || processingDelete) return;
+
+    const ok = await confirm({
+      title: "Zrušiť plánované zmazanie účtu?",
+      message:
+        "Ak zrušíš plánované zmazanie, tvoj účet ostane aktívny a dáta sa nevymažú.",
+      okText: "Áno, ponechať účet",
+      cancelText: "Nechať zmazanie",
+    });
+    if (!ok) return;
+
+    setProcessingDelete(true);
+    try {
+      const st = await apiCancelAccountDelete(userId);
+      setDeleteStatus(st);
+      toast.success("Plánované zmazanie účtu bolo zrušené.");
+    } catch (e: any) {
+      console.error("[PersonalSettingsPanel] cancel delete error", e);
+      toast.error(e?.message || "Nepodarilo sa zrušiť plánované zmazanie.");
+    } finally {
+      setProcessingDelete(false);
+    }
+  }
+
   const disabled = !userId || loading || saving;
+
+  const deletePending = deleteStatus?.pending;
+  const deleteAtLabel =
+    deleteStatus?.delete_at &&
+    (() => {
+      try {
+        return new Date(deleteStatus.delete_at).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      } catch {
+        return deleteStatus.delete_at;
+      }
+    })();
 
   return (
     <section className="rounded-xl border border-white/10 bg-black/20 px-4 py-4 space-y-4">
@@ -279,6 +392,74 @@ export default function PersonalSettingsPanel() {
           >
             Zmeniť e-mail / profil
           </Button>
+        </div>
+      </div>
+
+      {/* ZRUŠENIE ÚČTU */}
+      <div className="pt-3 border-t border-white/10 space-y-2">
+        <h3 className="text-sm font-semibold text-red-400">
+          Delete account (nezvratné)
+        </h3>
+
+        <div className="rounded-lg border border-red-500/60 bg-red-950/40 px-3 py-2 text-xs">
+          {loadingDelete ? (
+            <p className="opacity-80">Kontrolujem stav zmazania účtu…</p>
+          ) : deletePending ? (
+            <>
+              <p className="opacity-90">
+                Účet je{" "}
+                <span className="font-semibold">označený na zmazanie</span>.
+              </p>
+              <p className="mt-1 opacity-80">
+                Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia
+                so Stravou) sa po 30 dňoch trvalo vymažú.
+                {deleteAtLabel && (
+                  <>
+                    {" "}
+                    Odhadovaný dátum zmazania:{" "}
+                    <span className="font-semibold">{deleteAtLabel}</span>.
+                  </>
+                )}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="opacity-90">
+                Zmazanie účtu je{" "}
+                <span className="font-semibold">nezvratné</span>.
+              </p>
+              <p className="mt-1 opacity-80">
+                Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho
+                môžeš ešte zachrániť, potom sa všetky dáta odstránia.
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-1">
+          {deletePending ? (
+            <Button
+              size="xs"
+              variant="secondary"
+              disabled={processingDelete || !userId}
+              onClick={handleCancelDelete}
+            >
+              {processingDelete
+                ? "Ruším plánované zmazanie…"
+                : "Zrušiť plánované zmazanie"}
+            </Button>
+          ) : (
+            <Button
+              size="xs"
+              variant="secondary"
+              disabled={processingDelete || !userId}
+              onClick={handleRequestDelete}
+            >
+              {processingDelete
+                ? "Označujem na zmazanie…"
+                : "Označiť účet na zmazanie"}
+            </Button>
+          )}
         </div>
       </div>
     </section>

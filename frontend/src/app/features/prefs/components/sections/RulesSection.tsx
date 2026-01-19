@@ -1,102 +1,287 @@
-// src/features/coach/components/RulesSection.tsx
+// src/features/prefs/components/RulesSection.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+import type { Preferences } from "@/app/features/prefs/types/prefs";
 
 type Props = {
-  pref: any;
-  prefDefaults: (p: any) => any;
+  pref: any; // prefDefaults(local) (recommended) or local.preferences
   setLocal: (fn: (prev: any) => any) => void;
   markDirty: () => void;
 };
 
-const RULES: Array<{
-  key: "avoid_back_to_back_hard" | "use_zones" | "avoid_two_a_day";
-  label: string; // tooltip
-  short: string; // pill text
-}> = [
+type RuleKey = "avoid_back_to_back_hard" | "use_zones";
+
+const BASE_RULES: Array<{ key: RuleKey; label: string; short: string }> = [
   {
     key: "avoid_back_to_back_hard",
     label: "Avoid two hard days in a row",
     short: "No back-to-back hard",
   },
   { key: "use_zones", label: "Use zones", short: "Use zones" },
-  {
-    key: "avoid_two_a_day",
-    label: "Avoid two sessions in one day",
-    short: "No 2phase sessions",
-  },
 ];
 
-export function RulesSection({
-  pref,
-  prefDefaults,
-  setLocal,
-  markDirty,
-}: Props) {
-  const [open, setOpen] = useState(false);
+function normalizePrefs(p: any): Preferences {
+  const incoming = p && typeof p === "object" ? p : {};
 
-  const toggleRule = (ruleKey: (typeof RULES)[number]["key"]) => {
+  const two = incoming.two_a_day;
+  const enabled = !!(two && typeof two === "object" ? two.enabled : false);
+  const maxRaw = two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
+  const max = Number.isFinite(maxRaw) ? Math.max(0, Math.min(2, maxRaw)) : 0;
+
+  const intensity_model = incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
+
+  const b = incoming.training_blocks;
+  const training_blocks =
+    b && typeof b === "object"
+      ? { vo2max: !!b.vo2max, ftp: !!b.ftp, threshold: !!b.threshold }
+      : { vo2max: false, ftp: false, threshold: false };
+
+  return {
+    days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
+    long_run_days: Array.isArray(incoming.long_run_days) ? incoming.long_run_days : [],
+    avoid_back_to_back_hard:
+      typeof incoming.avoid_back_to_back_hard === "boolean"
+        ? incoming.avoid_back_to_back_hard
+        : true,
+    use_zones: typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
+    two_a_day: { enabled, max_days_per_week: max },
+    intensity_model,
+    training_blocks,
+  } as Preferences;
+}
+
+export function RulesSection({ pref, setLocal, markDirty }: Props) {
+  const [open, setOpen] = useState(false);
+  const basePref = useMemo(() => normalizePrefs(pref), [pref]);
+
+  const toggleRule = (key: RuleKey) => {
     markDirty();
     setLocal((prev) => {
-      const base = prefDefaults(prev);
-      const current = !!(base as any)[ruleKey];
+      const cur = normalizePrefs(prev?.preferences);
+      return {
+        ...prev,
+        preferences: { ...cur, [key]: !cur[key] },
+      };
+    });
+  };
+
+  const toggleTwoADay = () => {
+    markDirty();
+    setLocal((prev) => {
+      const cur = normalizePrefs(prev?.preferences);
+      const nextEnabled = !cur.two_a_day.enabled;
+
       return {
         ...prev,
         preferences: {
-          ...base,
-          [ruleKey]: !current,
+          ...cur,
+          two_a_day: {
+            enabled: nextEnabled,
+            max_days_per_week: nextEnabled
+              ? Math.max(1, Math.min(2, cur.two_a_day.max_days_per_week || 2))
+              : 0,
+          },
         },
       };
     });
   };
 
-  const enabled = RULES.filter((r) => !!pref?.[r.key]).map((r) => r.short);
-  const previewText = enabled.length > 0 ? `${enabled.join(", ")}` : "none";
+  const setTwoADayMax = (nextMax: number) => {
+    markDirty();
+    setLocal((prev) => {
+      const cur = normalizePrefs(prev?.preferences);
+      const clamped = Math.max(0, Math.min(2, nextMax));
+      return {
+        ...prev,
+        preferences: {
+          ...cur,
+          two_a_day: { enabled: cur.two_a_day.enabled, max_days_per_week: clamped },
+        },
+      };
+    });
+  };
+
+  const setIntensityModel = (model: "polarized" | "pyramidal") => {
+    markDirty();
+    setLocal((prev) => {
+      const cur = normalizePrefs(prev?.preferences);
+      return {
+        ...prev,
+        preferences: { ...cur, intensity_model: model },
+      };
+    });
+  };
+
+  const toggleBlock = (key: "vo2max" | "ftp" | "threshold") => {
+    markDirty();
+    setLocal((prev) => {
+      const cur = normalizePrefs(prev?.preferences);
+      const nextBlocks = {
+        ...(cur.training_blocks ?? {}),
+        [key]: !(cur.training_blocks as any)?.[key],
+      };
+      return {
+        ...prev,
+        preferences: { ...cur, training_blocks: nextBlocks },
+      };
+    });
+  };
+
+  const enabledShort = BASE_RULES.filter((r) => !!basePref[r.key]).map((r) => r.short);
+  const previewParts = [
+    enabledShort.length ? enabledShort.join(", ") : "none",
+    `model: ${basePref.intensity_model ?? "polarized"}`,
+  ];
+  const previewText = previewParts.join(" | ");
+
+  const twoEnabled = !!basePref.two_a_day?.enabled;
+  const twoMax = Number(basePref.two_a_day?.max_days_per_week) || 0;
+
+  const model = basePref.intensity_model ?? "polarized";
+  const blocks = basePref.training_blocks ?? {};
 
   return (
     <section className={SECTION}>
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Rules</div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Base composition rules." />
-          <DisclosureToggle open={open} onToggle={() => setOpen(!open)} />
+          <InfoPopover text="Rules + intensity + blocks. Všetko je v preferences.* (ukladá sa do coach.prefs)." />
+          <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
         </div>
       </div>
 
       {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-80 select-none",
-          ].join(" ")}
-        >
+        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-80 select-none"].join(" ")}>
           {previewText}
         </div>
       )}
 
       {open && (
-        <div className="flex flex-wrap gap-2">
-          {RULES.map(({ key, label, short }) => {
-            const active = !!pref?.[key];
-            return (
+        <div className="space-y-3">
+          {/* Base rules */}
+          <div className="flex flex-wrap gap-2">
+            {BASE_RULES.map(({ key, label, short }) => (
               <Button
                 key={key}
                 type="button"
                 size="sm"
                 variant="prefs"
-                active={active}
+                active={!!basePref[key]}
                 title={label}
                 onClick={() => toggleRule(key)}
               >
                 {short}
               </Button>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* Two-a-day */}
+          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
+            <div className="flex items-center justify-between">
+              <div className="text-xs opacity-80">Two-a-day</div>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                active={twoEnabled}
+                onClick={toggleTwoADay}
+              >
+                {twoEnabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+
+            {twoEnabled && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="text-[11px] opacity-70">Max days/week:</div>
+                {[0, 1, 2].map((n) => (
+                  <Button
+                    key={n}
+                    type="button"
+                    size="xs"
+                    variant="prefs"
+                    active={twoMax === n}
+                    onClick={() => setTwoADayMax(n)}
+                  >
+                    {n}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Intensity model */}
+          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs opacity-80">Intensity model</div>
+              <InfoPopover text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="xs"
+                variant="prefs"
+                active={model === "polarized"}
+                onClick={() => setIntensityModel("polarized")}
+              >
+                Polarized (80/20)
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant="prefs"
+                active={model === "pyramidal"}
+                onClick={() => setIntensityModel("pyramidal")}
+              >
+                Pyramidal
+              </Button>
+            </div>
+          </div>
+
+          {/* Training blocks */}
+          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs opacity-80">Training blocks</div>
+              <InfoPopover text="Len flagy v preferences.training_blocks.*" />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="xs"
+                variant="prefs"
+                active={!!blocks.vo2max}
+                onClick={() => toggleBlock("vo2max")}
+              >
+                VO₂max (run)
+              </Button>
+
+              <Button
+                type="button"
+                size="xs"
+                variant="prefs"
+                active={!!blocks.ftp}
+                onClick={() => toggleBlock("ftp")}
+              >
+                FTP (ride)
+              </Button>
+
+              <Button
+                type="button"
+                size="xs"
+                variant="prefs"
+                active={!!blocks.threshold}
+                onClick={() => toggleBlock("threshold")}
+              >
+                Threshold focus
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </section>

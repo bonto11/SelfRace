@@ -3,15 +3,19 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Header, HTTPException, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from Services.maintenance import service_cleanup_deleted_activities
+from Services.maintenance import (
+    service_cleanup_deleted_activities,
+    service_weekly_athlete_state_analysis,
+    service_account_hard_delete,
+)
 from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
 from Services.app_subscription import service_apply_due_subscription_changes
 from Configs.config import MAINTENANCE_API_KEY
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
-
 
 @router.post("/cleanup-deleted-activities")
 async def cleanup_deleted_activities_endpoint(
@@ -134,6 +138,39 @@ async def maintenance_apply_due_app_subscriptions(
         result = service_apply_due_subscription_changes(
             user_jwt=None,
             service=True,  # service klient na DB, bez RLS
+        )
+        return JSONResponse({"ok": True, "result": result})
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(
+            {"ok": False, "error": str(e)},
+            status_code=500,
+        )
+
+class AccountHardDeletePayload(BaseModel):
+  dry_run: bool = False
+  only_user_id: int | None = None
+
+@router.post("/account-hard-delete")
+async def maintenance_account_hard_delete(
+    payload: AccountHardDeletePayload,
+    x_api_key: str | None = Header(default=None),
+):
+    """
+    Cron endpoint pre hard delete účtov označených na zmazanie.
+
+    - dry_run=True  → len simuluje, koho by mazalo
+    - only_user_id  → ak je zadané, mazanie sa obmedzí len na daného usera
+    """
+    if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or missing API key",
+        )
+
+    try:
+        result = service_account_hard_delete(
+            dry_run=payload.dry_run,
+            only_user_id=payload.only_user_id,
         )
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001

@@ -5,6 +5,7 @@ import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { THEME } from "@/app/shared/theme/tokens";
 import SportBadge from "@/app/shared/components/ui/SportBadge";
+import type { SportKind } from "@/app/features/prefs/types/prefs";
 
 type Props = { onOpenDetail?: () => void };
 
@@ -30,24 +31,20 @@ function pickAccent(goal?: string | null, primarySport?: string | null) {
 export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
   const { prefs } = useCoachData();
 
-  // 1) urč hlavný šport
-  const mainSport: string =
-    (prefs.main_sport as string) ||
-    prefs.primary_sports?.[0] ||
-    (prefs.sports?.[0] as string) ||
-    "other";
+  // NEW schema: main_sport + add_on_sports
+  const mainSport = (prefs?.main_sport ?? "other") as SportKind | "other";
 
-  // 2) sekundárne aktívne športy = share > 0
-  const secActive: string[] = (prefs.secondary_mix ?? [])
-    .filter((s: any) => Number(s?.share_pct) > 0)
-    .map((s: any) => String(s.sport));
+  const addOns: SportKind[] = Array.isArray(prefs?.add_on_sports)
+    ? (prefs.add_on_sports as SportKind[])
+    : [];
 
-  // 3) finálny zoznam pre UI (bez duplicit)
-  const sports: string[] = [mainSport, ...secActive]
+  // finálny zoznam bez duplicit + safety (add-ons nesmie obsahovať main)
+  const sports: string[] = [mainSport, ...addOns]
     .filter(Boolean)
-    .filter((v, i, a) => a.indexOf(v) === i);
+    .filter((s, i, arr) => arr.indexOf(s) === i)
+    .filter((s) => s !== "other");
 
-  const accentHex = pickAccent(prefs.goal_kind, mainSport);
+  const accentHex = pickAccent(prefs?.goal_kind ?? null, mainSport);
 
   return (
     <WidgetCard
@@ -60,10 +57,10 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
     >
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
         <div className="opacity-75">Goal</div>
-        <div className="font-semibold truncate">{prefs.goal_kind ?? "—"}</div>
+        <div className="font-semibold truncate">{prefs?.goal_kind ?? "—"}</div>
 
         <div className="opacity-75">Weeks</div>
-        <div className="font-semibold">{prefs.weeks ?? "—"}</div>
+        <div className="font-semibold">{prefs?.weeks ?? "—"}</div>
 
         <div className="opacity-75">Sports</div>
         <div className="flex flex-wrap gap-1.5">

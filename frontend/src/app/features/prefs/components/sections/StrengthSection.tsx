@@ -20,12 +20,20 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const location: "gym" | "home" | "outdoor" | null = settings.location ?? null;
   const mode: "none" | "bodyweight" | "minimal" | "full_gym" | null =
     settings.equipment_mode ?? null;
-  const available: string[] = settings.available ?? [];
+  const available: string[] = Array.isArray(settings.available)
+    ? settings.available
+    : [];
+  const sessionsPerWeek: number | null =
+    typeof settings.sessions_per_week === "number"
+      ? settings.sessions_per_week
+      : settings.sessions_per_week != null
+      ? Number(settings.sessions_per_week) || null
+      : null;
 
-  // ------- closed preview -------
   const preview = useMemo(() => {
     const locText = location ?? "—";
     const modeText = mode ?? "—";
+    const spw = sessionsPerWeek ?? "—";
     const gearCount = available.length;
     const listShort =
       gearCount === 0
@@ -35,18 +43,28 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         : `${available.slice(0, 3).join(", ")} +${gearCount - 3} more`;
 
     return {
-      line1: `Location: ${locText} • Mode: ${modeText}`,
+      line1: `Sessions/week: ${spw} • Location: ${locText} • Mode: ${modeText}`,
       line2: `Gear (${gearCount}): ${listShort}`,
     };
-  }, [location, mode, available]);
+  }, [location, mode, available, sessionsPerWeek]);
+
+  const setSessionsPerWeek = (next: number | null) => {
+    markDirty();
+    setLocal((p: any) => ({
+      ...p,
+      strength_settings: {
+        ...(p.strength_settings ?? {}),
+        sessions_per_week: next,
+      },
+    }));
+  };
 
   return (
     <section className={SECTION}>
-      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm font-medium opacity-90">Strength setup</div>
         <div className="flex items-center gap-2">
-          <InfoPopover text="Choose where you train and what gear you have. Workouts adapt (bodyweight vs. weights, TRX, etc.)." />
+          <InfoPopover text="Nastav koľko silových tréningov chceš týždenne a aké máš vybavenie. Detail cvikov doplní backend mapper." />
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen((o) => !o)}
@@ -56,7 +74,6 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         </div>
       </div>
 
-      {/* Closed preview */}
       {!open && (
         <div
           className={[
@@ -71,9 +88,55 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         </div>
       )}
 
-      {/* Body (collapsible) */}
       {open && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Sessions per week */}
+          <div>
+            <div className="text-xs opacity-80 mb-1">Sessions per week</div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                onClick={() => {
+                  const cur = sessionsPerWeek ?? 2;
+                  setSessionsPerWeek(Math.max(0, cur - 1));
+                }}
+                title="Decrease"
+              >
+                −
+              </Button>
+              <div className="min-w-[42px] text-center text-sm">
+                {sessionsPerWeek ?? 2}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                onClick={() => {
+                  const cur = sessionsPerWeek ?? 2;
+                  setSessionsPerWeek(Math.min(7, cur + 1));
+                }}
+                title="Increase"
+              >
+                +
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                active={sessionsPerWeek == null}
+                onClick={() => setSessionsPerWeek(null)}
+                title="Unset"
+              >
+                —
+              </Button>
+            </div>
+            <div className="text-[11px] opacity-60 mt-1">
+              Odporúčanie: 1–3. Nula = nechceš silu v pláne.
+            </div>
+          </div>
+
           {/* Location */}
           <div>
             <div className="text-xs opacity-80 mb-1">Location</div>
@@ -139,7 +202,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           </div>
 
           {/* Available gear */}
-          <div>
+          <div className="md:col-span-3">
             <div className="text-xs opacity-80 mb-1">Available gear</div>
             <div className="flex flex-wrap gap-2">
               {(

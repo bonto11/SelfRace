@@ -11,10 +11,13 @@ import {
   apiGetAppSubscriptionHistory,
   apiSetAppSubscriptionTierManual,
   apiCancelPlannedSubscriptionChange,
-  type AppSubscriptionStatus,
-  type AppSubscriptionTier,
-  type AppUserSubscription,
-} from "@/app/features/billing/api/app_subscription";
+} from "@/app/features/billing/api/billing";
+
+import type {
+  AppSubscriptionStatus,
+  AppSubscriptionTier,
+  AppUserSubscription,
+} from "@/app/features/billing/types/billing";
 
 import {
   getSubscriptionTier,
@@ -43,7 +46,7 @@ export default function BillingPanel() {
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
   const [activeTierCode, setActiveTierCode] = useState<string>(
-    () => getSubscriptionTier() || "free",
+    () => getSubscriptionTier() || "free"
   );
   const [open, setOpen] = useState(true);
 
@@ -90,7 +93,7 @@ export default function BillingPanel() {
     let alive = true;
 
     (async () => {
-      setLoading(prev => prev || "history");
+      setLoading((prev) => prev || "history");
       try {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
         if (!alive) return;
@@ -187,9 +190,7 @@ export default function BillingPanel() {
       const when = plannedChange.effective_from
         ? plannedChange.effective_from.slice(0, 10)
         : null;
-      parts.push(
-        `Planned ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`,
-      );
+      parts.push(`Planned ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
     }
 
     const quota = (status as any)?.ai_quota as
@@ -206,7 +207,7 @@ export default function BillingPanel() {
       typeof quota.used_tokens_this_month === "number"
     ) {
       const pct = Math.round(
-        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100,
+        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100
       );
       parts.push(`AI usage ~${pct}%`);
     }
@@ -251,7 +252,7 @@ export default function BillingPanel() {
 
         <DisclosureToggle
           open={open}
-          onToggle={() => setOpen(v => !v)}
+          onToggle={() => setOpen((v) => !v)}
           labelWhenOpen="Collapse billing section"
           labelWhenClosed="Expand billing section"
         />
@@ -289,8 +290,8 @@ export default function BillingPanel() {
               <div>
                 <h2 className="text-base font-semibold">Tiers</h2>
                 <p className="text-xs opacity-70">
-                  DEV: upgrade hneď, downgrade alebo prechod na free od
-                  ďalšieho obdobia.
+                  DEV: upgrade hneď, downgrade alebo prechod na free od ďalšieho
+                  obdobia.
                 </p>
               </div>
             </div>
