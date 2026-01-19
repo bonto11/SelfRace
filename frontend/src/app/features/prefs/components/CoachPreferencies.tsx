@@ -39,7 +39,6 @@ import { DaysSection } from "@/app/features/prefs/components/sections/DaysSectio
 import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
 import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
 import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
-import { IntensityModelsSection } from "@/app/features/prefs/components/sections/IntensityModelsSection";
 import { InjuriesSection } from "@/app/features/prefs/components/sections/InjuriesSection";
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
@@ -422,47 +421,6 @@ export default function CoachPreferencies() {
     }
   };
 
-  /**
-   * DEV button: save predefined JSON directly to DB coach.prefs
-   */
-  const onSavePresetToDB = async () => {
-    if (!userId) return;
-    try {
-      await saveCoachPrefs(userId, PRESET_PREFS_JSON);
-
-      const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
-        refreshCoachPrefsFromDB(userId),
-        apiFetchUserZonesLatest(userId),
-        apiFetchUserThresholdsLatest(userId),
-      ]);
-
-      const pAny = (fresh || {}) as any;
-      const { external_activities: _ext, ...p } = pAny;
-
-      const zones = (zonesRaw ?? null) as any;
-      const thrRows = (thrRowsRaw ?? []) as any[];
-
-      const draftThr =
-        Array.isArray(thrRows) && thrRows.length > 0
-          ? { ...thrRows[0] }
-          : undefined;
-
-      const next: CoachPrefsExtended = {
-        ...p,
-        zones,
-        thresholds: draftThr ?? undefined,
-        thresholds_latest: thrRows,
-      };
-
-      setLocal(next);
-      dirtyRef.current = false;
-      toast.success("Preset prefs saved to DB");
-    } catch (e: any) {
-      console.error("[CoachPrefs]preset save error", e);
-      toast.error(String(e?.message ?? e));
-    }
-  };
-
   const onRefresh = async () => {
     if (!userId) return;
     try {
@@ -655,11 +613,6 @@ export default function CoachPreferencies() {
 
       {showAdv && (
         <>
-          <IntensityModelsSection
-            local={local}
-            setLocal={setLocal}
-            setPref={setPref}
-          />
           <InjuriesSection local={local} setLocal={setLocal} />
           <FocusAvoidSection
             local={local}
@@ -676,11 +629,6 @@ export default function CoachPreferencies() {
         </Button>
         <Button onClick={onRefresh} variant="secondary">
           Refresh
-        </Button>
-
-        {/* DEV: one-click preset */}
-        <Button onClick={onSavePresetToDB} variant="secondary">
-          Save preset JSON to DB
         </Button>
       </div>
     </div>
