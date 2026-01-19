@@ -2,8 +2,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import type { ReactNode } from "react";
-
-import { THEME_VARS, toCssVars } from "@/shared/theme/themeCssVars";
+import { appColors } from "@/shared/theme/app_colors";
 
 export const metadata: Metadata = {
   title: "SelfRace",
@@ -14,8 +13,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="sk">
       <body
-        style={{ cssText: toCssVars(THEME_VARS) } as any}
-        className="min-h-dvh bg-[var(--app-bg)] text-[var(--app-text)]"
+        style={{
+          background: appColors.backgroundMain,
+          color: appColors.textPrimary,
+        }}
       >
         {children}
       </body>
