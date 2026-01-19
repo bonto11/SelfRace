@@ -16,12 +16,8 @@ import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDa
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import {
-  SHELL_BG,
-  TOPBAR_MOBILE,
-  TOPBAR_DESKTOP,
-  SHELL_GRID,
-} from "@/app/shared/ui/uiTokens";
+import { appColors } from "@/shared/theme/app_colors";
+import { SHELL_GRID } from "@/app/shared/ui/uiTokens";
 
 export default function ClientProtectedShell({ children }: { children: ReactNode }) {
   return (
@@ -32,15 +28,21 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
-              <div className={["min-h-dvh flex flex-col", SHELL_BG].join(" ")}>
-                {/* TOPBAR – mobile+desktop (display triedy sú v tokenoch) */}
+              <div
+                className="min-h-dvh flex flex-col"
+                style={{
+                  background: appColors.backgroundMain,
+                  color: appColors.textPrimary,
+                }}
+              >
+                {/* TOPBAR */}
                 <header
-                  className={[
-                    "z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3",
-                    "backdrop-blur [padding-top:env(safe-area-inset-top)]",
-                    TOPBAR_MOBILE,
-                    TOPBAR_DESKTOP,
-                  ].join(" ")}
+                  className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
+                  style={{
+                    background: appColors.backgroundAlt,
+                    borderBottom: `1px solid ${appColors.divider}`,
+                    paddingTop: "env(safe-area-inset-top)" as any,
+                  }}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="font-semibold truncate">SelfRace</div>
@@ -48,6 +50,7 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
                   <UserMenu />
                 </header>
 
+                {/* CONTENT */}
                 <div className="flex-1">
                   {/* Desktop */}
                   <div className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}>
