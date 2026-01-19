@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { apiFetchUserPrefs } from "@/app/features/prefs/api/prefs";
-import { readCoachPrefsFromStorage } from "@/app/features/coach/utils/prefs";
+import { readCoachPrefsFromStorage } from "@/app/features/prefs/utils/prefs";
 
 /**
  * Po prihlásení:
