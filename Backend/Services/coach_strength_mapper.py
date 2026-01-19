@@ -97,6 +97,10 @@ def _pick_exercise_for_slot(
     today: date,
     used_exercise_ids: Optional[Set[str]] = None,
     lookback_days: int = 28,
+    # --- NEW: stability knobs ---
+    rotation_days: int = 28,   # v akom okne berieme "aktuálny blok"
+    min_keep_days: int = 14,   # minimálna doba, kedy cvik držíme stabilne
+    rotate_after_uses: int = 0 # 0 = nepoužívať tento trigger; napr 6 = po 6 použitiach sa môže meniť
 ) -> Dict[str, Any]:
     candidate_ids = SLOT_TO_EXERCISES.get(slot, [])
     all_candidates = [ex for ex in STRENGTH_EXERCISE_CATALOG if ex["id"] in candidate_ids]
@@ -111,8 +115,57 @@ def _pick_exercise_for_slot(
             return all_candidates[0]
         return STRENGTH_EXERCISE_CATALOG[0]
 
-    cutoff = today - timedelta(days=lookback_days)
     used_exercise_ids = used_exercise_ids or set()
+
+    # ----------------------------
+    # 1) STICKY selection per slot
+    # ----------------------------
+    # Nájdeme posledný cvik pre tento slot v "rotation_days" okne.
+    rot_cutoff = today - timedelta(days=rotation_days)
+    slot_rows: List[Tuple[date, str]] = []
+
+    for h in history:
+        if h.get("slot") != slot:
+            continue
+        sd = h.get("session_date")
+        ex_id = h.get("exercise_id")
+        if not ex_id:
+            continue
+        if isinstance(sd, date) and sd is not None and sd >= rot_cutoff:
+            slot_rows.append((sd, str(ex_id)))
+
+    if slot_rows:
+        slot_rows.sort(key=lambda x: x[0])  # oldest -> newest
+        first_date, first_ex = slot_rows[0]
+        last_date, last_ex = slot_rows[-1]
+
+        days_in_block = (today - first_date).days
+        uses_in_block = len(slot_rows)
+        days_since_last = (today - last_date).days
+
+        # Ak ešte sme v "min_keep_days" alebo slot bol použitý nedávno, drž rovnaký cvik.
+        # (Toto je presne to, čo chce fyzio: opakovať tie isté patterny 2x týždenne.)
+        can_rotate_by_days = days_in_block >= min_keep_days
+        can_rotate_by_uses = (rotate_after_uses > 0 and uses_in_block >= rotate_after_uses)
+
+        should_keep = (not can_rotate_by_days and not can_rotate_by_uses) or (days_since_last <= 7)
+
+        if should_keep:
+            # vráť last_ex ak je stále kandidát + nie je už použitý v tomto sessione
+            if last_ex not in used_exercise_ids:
+                for ex in candidates:
+                    if ex["id"] == last_ex:
+                        return ex
+            # ak last_ex je už použitý v sessione (duplicitný), skúsi first_ex ako fallback
+            if first_ex not in used_exercise_ids:
+                for ex in candidates:
+                    if ex["id"] == first_ex:
+                        return ex
+
+    # ----------------------------------------
+    # 2) Fallback scoring (rotation mechanism)
+    # ----------------------------------------
+    cutoff = today - timedelta(days=lookback_days)
 
     scores: List[Tuple[float, Dict[str, Any]]] = []
     for ex in candidates:
@@ -131,7 +184,9 @@ def _pick_exercise_for_slot(
 
         eff = float(ex.get("effectiveness", 1.0))
         score = eff
-        score -= 0.3 * uses_count
+
+        # dôležité: znížime penalizáciu, aby sa to "neprehadzovalo" stále
+        score -= 0.10 * uses_count  # bolo 0.3 (príliš agresívne)
 
         if last_date is None:
             score += 0.8
@@ -146,7 +201,6 @@ def _pick_exercise_for_slot(
 
     scores.sort(key=lambda x: x[0], reverse=True)
     return scores[0][1]
-
 
 def enrich_daily_plan_with_strength_exercises(
     user_id: int,
