@@ -9,7 +9,7 @@ export type GoalKind =
   | "maintain";
 
 /** Podporované športy v coach prefs. */
-export type SportKind = "run" | "ride" | "strength" | "swim";
+export type SportKind = "run" | "ride" | "swim";
 
 export type SecondaryRole = "none" | "supplement" | "improve";
 
@@ -204,12 +204,17 @@ export type StrengthSettings = {
   available?: StrengthEquipmentKey[];
 };
 
+export type TwoADayPrefs = {
+  enabled: boolean;
+  max_days_per_week: number; // 0..2
+};
+
 export interface Preferences {
   days_off: DayAbbrev[];
   long_run_days: DayAbbrev[];
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
-  avoid_two_a_day: boolean;
+  two_a_day: TwoADayPrefs;
   include_strides?: boolean;
 }
 
@@ -259,72 +264,41 @@ export type WeeklyTemplate = {
 /* -------- Main prefs -------- */
 
 export type CoachPrefs = {
-  goal_kind?: GoalKind;
-  distance?: string;
-  current_pace?: string;
-  target_pace?: string;
   weeks?: number;
-  sports?: SportKind[];
+  start_date?: string | null;
+  end_date?: string | null;
+
+  goal_kind?: GoalKind;
   volume?: VolumePrefs;
-  primary_sports?: SportKind[];
+
+  main_sport?: SportKind | null;
+  add_on_sports?: SportKind[];
+
   targets?: {
     run?: RunTargets;
     ride?: BikeTargets;
-    strength?: StrengthTargets;
     swim?: SwimTargets;
   };
+
   preferences?: Preferences;
 
-  avoid_back_to_back_hard?: boolean;
-  avoid_two_a_day?: boolean;
-  preferred_long_run_days?: DayAbbrev[];
-
-  goal_text_override?: string;
-
-  main_sport?: SportKind | null;
-  secondary_mix?: {
-    sport: SportKind;
-    role: "none" | "supplement" | "improve";
-    share_pct: number;
-  }[];
-
-  vo2max_training?: boolean;
-  ftp_training?: boolean;
-  threshold_focus?: boolean;
   polarized_model?: boolean;
   pyramidal_model?: boolean;
 
-  injuries?: Injury[];
-  focus_areas?: string[];
-  avoid_zones?: string[];
+  strength_settings?: (StrengthSettings & { sessions_per_week?: number | null }) | null;
 
-  rehab_focus?: RehabFocus;
-
-  coach_voice?: CoachPersona | null;
-  coach_tone?: {
-    directness: number;
-    praise: number;
-    challenge: number;
-    emoji: number;
-    explain: number;
-  };
-
-  start_date?: string | null;
-  strength_settings?: StrengthSettings | null;
   zones?: Zones;
   thresholds?: Thresholds;
 
-  /** NEW: celý weekly template je top-level pole v prefs */
   weekly_template?: WeeklyTemplate | null;
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
   goal_kind: "improve_overall",
-  primary_sports: ["run"],
-  volume: {
-    mode: "weekly_hours",
-    value: null,
-  },
+  main_sport: "run",
+  add_on_sports: [],
+  volume: { mode: "weekly_hours", value: null },
+
   targets: {
     run: {
       races: [],
@@ -339,30 +313,25 @@ export const DEFAULT_PREFS: CoachPrefs = {
       elevation_profile: null,
     },
     ride: { focus: "endurance", weekly_time_target_min: null },
-    strength: { focus: "general", sessions_per_week: 2 },
-    swim: {
-      focus: "endurance",
-      weekly_time_target_min: null,
-      sessions_per_week: null,
-    },
+    swim: { focus: "endurance", weekly_time_target_min: null, sessions_per_week: null },
   },
+
   preferences: {
-    days_off: ["Mon", "Fri"],
-    long_run_days: ["Sat", "Sun"],
-    avoid_back_to_back_hard: true,
+    days_off: [],
+    long_run_days: ["Sat"],
     use_zones: true,
-    avoid_two_a_day: true,
+    avoid_back_to_back_hard: false,
+    two_a_day: { enabled: true, max_days_per_week: 2 },
   },
-  weekly_template: {
-    mode: "off",
-    days: [],
+
+  strength_settings: {
+    location: "gym",
+    equipment_mode: "full_gym",
+    available: [],
+    sessions_per_week: 2,
   },
-  coach_voice: "motivator",
-  coach_tone: {
-    directness: 55,
-    praise: 80,
-    challenge: 60,
-    emoji: 35,
-    explain: 55,
-  },
+
+  weekly_template: { mode: "off", days: [] },
+  polarized_model: true,
+  pyramidal_model: false,
 };

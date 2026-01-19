@@ -32,12 +32,10 @@ import {
 } from "@/app/features/coach/api/thresholds";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
-import { CoachPersonalitySection } from "@/app/features/prefs/components/sections/CoachPersonalitySection";
 import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
 import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
 import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
-import { DaysOffSection } from "@/app/features/prefs/components/sections/DaysOffSection";
-import { LongRunDaysSection } from "@/app/features/prefs/components/sections/LongRunDaysSection";
+import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
 import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
 import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
 import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
@@ -46,7 +44,6 @@ import { InjuriesSection } from "@/app/features/prefs/components/sections/Injuri
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
-import WeeklyTemplateSection from "@/app/features/prefs/components/sections/WeeklyTemplateSection";
 
 /* ---- local DTOs ---- */
 
@@ -54,13 +51,14 @@ type CoachPrefsExtended = CoachPrefs & {
   main_sport?: SportKind | null;
   secondary_mix?: SecondaryMix[];
   coach_voice?: CoachPersona | null;
+
   // runtime-only – neukladá sa do coach.prefs v DB
   zones?: any;
   thresholds?: any;
   thresholds_latest?: any[] | null;
 };
 
-const ALL_SPORTS: SportKind[] = ["run", "ride", "strength", "swim"];
+const ALL_SPORTS: SportKind[] = ["run", "ride", "swim"];
 
 function isoTodayPlus(days: number): string {
   const d = new Date();
@@ -176,7 +174,7 @@ export default function CoachPreferencies() {
 
         console.log("[PREFS] pRaw from DB:", pRaw);
 
-        // Dropni staré prefs.external_activities, nech to už v state ani v SAVE neexistuje
+        // Drop old prefs.external_activities from state & save payload
         const pAny = (pRaw || {}) as any;
         const { external_activities: _ext, ...p } = pAny;
 
@@ -222,23 +220,27 @@ export default function CoachPreferencies() {
     });
   }, []);
 
-  const prefDefaults = (p: CoachPrefsExtended): Preferences => {
-    const base: Preferences = {
-      days_off: [],
-      long_run_days: [],
-      avoid_back_to_back_hard: true,
-      use_zones: true,
-      avoid_two_a_day: false,
-      include_strides: false,
-    };
-
-    const incoming = (p.preferences ?? {}) as Partial<Preferences>;
+  // NOTE: this only normalizes what UI needs (days_off, long_run_days, flags)
+  // It does NOT try to "convert" two_a_day schemas – keep what you store in DB.
+  const prefDefaults = (p: CoachPrefsExtended): any => {
+    const incoming = (p.preferences ?? {}) as any;
 
     return {
-      ...base,
-      ...incoming,
-      days_off: incoming.days_off ?? base.days_off,
-      long_run_days: incoming.long_run_days ?? base.long_run_days,
+      days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
+      long_run_days: Array.isArray(incoming.long_run_days)
+        ? incoming.long_run_days
+        : [],
+      avoid_back_to_back_hard:
+        typeof incoming.avoid_back_to_back_hard === "boolean"
+          ? incoming.avoid_back_to_back_hard
+          : true,
+      use_zones:
+        typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
+
+      // keep whatever shape is stored (legacy bool or new object)
+      avoid_two_a_day: incoming.avoid_two_a_day,
+      two_a_day: incoming.two_a_day,
+      include_strides: incoming.include_strides,
     };
   };
 
@@ -260,16 +262,25 @@ export default function CoachPreferencies() {
     v: any
   ) => {
     markDirty();
-    const p = prefDefaults(local);
-    const next: CoachPrefsExtended = { ...local, preferences: p };
-    if (path.endsWith("days_off"))
-      next.preferences!.days_off = v as DayAbbrev[];
-    if (path.endsWith("long_run_days"))
-      next.preferences!.long_run_days = v as DayAbbrev[];
-    setLocal(next);
+    setLocal((prev) => {
+      const next: CoachPrefsExtended = { ...prev };
+      const prefs = prefDefaults(next);
+
+      next.preferences = {
+        ...(next.preferences ?? {}),
+        ...prefs,
+      } as any;
+
+      if (path.endsWith("days_off"))
+        (next.preferences as any).days_off = v as DayAbbrev[];
+      if (path.endsWith("long_run_days"))
+        (next.preferences as any).long_run_days = v as DayAbbrev[];
+
+      return next;
+    });
   };
 
-  // --- weekly template top-level na CoachPrefs ---
+  // --- weekly template top-level on CoachPrefs ---
   const weeklyTemplate: WeeklyTemplate = useMemo(
     () =>
       (local.weekly_template as WeeklyTemplate | null | undefined) ?? {
@@ -336,11 +347,12 @@ export default function CoachPreferencies() {
         ...(local.main_sport ? [local.main_sport] : []),
         ...activeSecondaries,
       ];
+      void primaries; // kept for potential later use
 
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
 
-      // runtime-only polia von z payloadu
+      // runtime-only fields out of payload
       const {
         zones: _z,
         thresholds: _t,
@@ -348,25 +360,22 @@ export default function CoachPreferencies() {
         ...rest
       } = local;
 
-      const normalized: CoachPrefsExtended = {
+      const normalized: any = {
         ...rest,
         start_date: !startIso || startIso < minIso ? minIso : startIso,
-        primary_sports: primaries.length ? primaries : undefined,
         secondary_mix: (local.secondary_mix ?? [])
           .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
           .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
         weekly_template: weeklyTemplate,
       };
 
-      // vyčisti targets – ulož iba zmysluplné (vrátane swim)
+      // clean targets (keep run always)
       if (normalized.targets) {
         const t = normalized.targets as any;
         const cleaned: any = {};
 
-        // run necháme vždy (aj keď je prázdny)
         if (t.run) cleaned.run = t.run;
 
-        // ride len ak má čas/focus
         if (
           t.ride &&
           (t.ride.weekly_time_target_min != null ||
@@ -375,7 +384,6 @@ export default function CoachPreferencies() {
           cleaned.ride = t.ride;
         }
 
-        // strength len ak nie je default
         if (
           t.strength &&
           (t.strength.sessions_per_week != null ||
@@ -384,7 +392,6 @@ export default function CoachPreferencies() {
           cleaned.strength = t.strength;
         }
 
-        // swim – len ak má reálny cieľ
         if (
           t.swim &&
           (t.swim.weekly_time_target_min != null ||
@@ -401,13 +408,11 @@ export default function CoachPreferencies() {
           };
         }
 
-        normalized.targets =
-          Object.keys(cleaned).length > 0 ? cleaned : undefined;
+        normalized.targets = Object.keys(cleaned).length ? cleaned : undefined;
       }
 
-      // dropni staré prefs.external_activities z payloadu na BE
-      const { external_activities: _ext2, ...normalizedClean } =
-        normalized as any;
+      // drop old prefs.external_activities from payload to BE
+      const { external_activities: _ext2, ...normalizedClean } = normalized;
 
       await saveCoachPrefs(userId, normalizedClean);
       toast.success("Preferences saved");
@@ -419,15 +424,12 @@ export default function CoachPreferencies() {
 
   /**
    * DEV button: save predefined JSON directly to DB coach.prefs
-   * - does NOT touch zones/thresholds tables
-   * - immediately refreshes local state from DB so you see what BE stored
    */
   const onSavePresetToDB = async () => {
     if (!userId) return;
     try {
       await saveCoachPrefs(userId, PRESET_PREFS_JSON);
 
-      // refresh from DB so local matches exactly what server persists
       const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
         refreshCoachPrefsFromDB(userId),
         apiFetchUserZonesLatest(userId),
@@ -470,7 +472,6 @@ export default function CoachPreferencies() {
         apiFetchUserThresholdsLatest(userId),
       ]);
 
-      // opäť dropni eventual external_activities zo servera
       const pAny = (fresh || {}) as any;
       const { external_activities: _ext, ...p } = pAny;
 
@@ -502,36 +503,18 @@ export default function CoachPreferencies() {
 
   /* -------- Sports (main + secondary) -------- */
   const mainSport: SportKind | "" = (local.main_sport ?? "") as any;
-  const secondary: SecondaryMix[] = useMemo(() => {
-    const cur = (local.secondary_mix ?? []).filter(
-      (s) => s.sport !== local.main_sport
-    );
-    const missing = ALL_SPORTS.filter((s) => s !== local.main_sport)
-      .filter((s) => !cur.some((x) => x.sport === s))
-      .map<SecondaryMix>((s) => ({ sport: s, role: "none", share_pct: 0 }));
-    return [...cur, ...missing];
-  }, [local.secondary_mix, local.main_sport]);
-  const setSecondary = (mix: SecondaryMix[]) => {
-    markDirty();
-    setLocal((p) => ({ ...p, secondary_mix: mix }));
-  };
-  const updateSecondary = (sport: SportKind, patch: Partial<SecondaryMix>) => {
-    const next = secondary.map((x) =>
-      x.sport === sport ? { ...x, ...patch } : x
-    );
-    setSecondary(next);
-  };
-  const sumShare = secondary.reduce(
-    (a, b) => a + (Number.isFinite(b.share_pct) ? b.share_pct : 0),
-    0
-  );
-  const shareWarn = sumShare > 100;
+
+  const addOnSports: SportKind[] = useMemo(() => {
+    const v = (local as any).add_on_sports;
+    return Array.isArray(v) ? (v as SportKind[]) : [];
+  }, [local]);
 
   /* -------- Zones / Thresholds handlers -------- */
   const handleZonesChange = (z: any) => {
     setLocal((prev) => ({ ...prev, zones: z }));
     markDirty();
   };
+
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
@@ -548,6 +531,7 @@ export default function CoachPreferencies() {
     setLocal((prev) => ({ ...prev, thresholds: t }));
     markDirty();
   };
+
   const handleSaveThresholdsToDB = async (t: any) => {
     if (!userId) return;
     try {
@@ -556,6 +540,7 @@ export default function CoachPreferencies() {
         const latest = Array.isArray(prev.thresholds_latest)
           ? prev.thresholds_latest
           : [];
+
         const keySaved = `${(
           saved?.sport ??
           t.sport ??
@@ -589,10 +574,11 @@ export default function CoachPreferencies() {
     }
   };
 
-  // LTHR pre výpočet zón – draft > DB
+  // LTHR for zone calc – draft > DB
   const lthrBpm: number | null = useMemo(() => {
     const draft = Number(local?.thresholds?.hr_bpm);
     if (Number.isFinite(draft) && draft > 0) return draft;
+
     const rows = (local.thresholds_latest ?? []) as any[];
     const lt2 = rows.find(
       (r) => String(r.threshold_type).toUpperCase() === "LT2"
@@ -617,10 +603,8 @@ export default function CoachPreferencies() {
       <SportsSection
         local={local}
         mainSport={mainSport}
-        secondary={secondary}
-        shareWarn={shareWarn}
+        addOnSports={addOnSports}
         setPref={setPref}
-        updateSecondary={updateSecondary}
       />
 
       <VolumeSection volume={local.volume} setPref={setPref} />
@@ -631,13 +615,8 @@ export default function CoachPreferencies() {
         markDirty={markDirty}
       />
 
-      <DaysOffSection
+      <DaysSection
         daysOff={pref.days_off}
-        toggleInArray={toggleInArray}
-        setPrefNested={setPrefNested}
-      />
-
-      <LongRunDaysSection
         longRunDays={pref.long_run_days}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
@@ -645,7 +624,7 @@ export default function CoachPreferencies() {
 
       <RulesSection
         pref={pref}
-        prefDefaults={prefDefaults}
+        prefDefaults={prefDefaults as any}
         setLocal={setLocal}
         markDirty={markDirty}
       />
@@ -664,12 +643,6 @@ export default function CoachPreferencies() {
         onSaveToDB={handleSaveThresholdsToDB}
       />
 
-      <CoachPersonalitySection
-        local={local}
-        setPref={setPref}
-        markDirty={markDirty}
-      />
-
       <div className="flex">
         <button
           type="button"
@@ -683,11 +656,6 @@ export default function CoachPreferencies() {
 
       {showAdv && (
         <>
-          <WeeklyTemplateSection
-            template={weeklyTemplate}
-            onChange={setWeeklyTemplate}
-          />
-
           <IntensityModelsSection
             local={local}
             setLocal={setLocal}
