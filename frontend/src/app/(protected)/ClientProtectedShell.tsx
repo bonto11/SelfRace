@@ -16,8 +16,8 @@ import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDa
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import { appColors } from "@/shared/theme/app_colors";
-import { SHELL_GRID } from "@/app/shared/ui/uiTokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
 
 export default function ClientProtectedShell({ children }: { children: ReactNode }) {
   return (

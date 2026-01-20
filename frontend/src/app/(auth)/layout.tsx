@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import ToastHost from "@/app/shared/components/ui/Toast";
 import ConfirmHost from "@/app/shared/components/ui/Confirm";
-import { appColors } from "@/shared/theme/app_colors";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
