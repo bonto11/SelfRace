@@ -5,7 +5,7 @@ import { appColors } from "@/app/shared/theme/app_colors";
 export const SURFACE_CARD = [
   "rounded-2xl",
   "shadow-lg",
-  `border border-[${appColors.surfaceCardBorder}]`,
+  `border border-[${appColors.widgetBorder}]`,      // <- z surfaceCardBorder na widgetBorder
   `bg-[${appColors.surfaceCard}]`,
   "backdrop-blur",
   "text-left",
@@ -13,7 +13,7 @@ export const SURFACE_CARD = [
 
 export const SURFACE_SUBCARD = [
   "rounded-2xl",
-  `border border-[${appColors.surfaceCardBorder}]`,
+  `border border-[${appColors.widgetBorder}]`,
   `bg-[${appColors.surfaceSolid}]`,
   "backdrop-blur",
   "text-left",
@@ -21,7 +21,7 @@ export const SURFACE_SUBCARD = [
 
 export const SURFACE_INSET = [
   "rounded-2xl",
-  `border border-[${appColors.surfaceCardBorder}]`,
+  `border border-[${appColors.widgetBorder}]`,
   `bg-[${appColors.surfaceSolid}]`,
   "backdrop-blur",
   "text-left",
@@ -29,7 +29,7 @@ export const SURFACE_INSET = [
 
 export const SURFACE_INLINE = [
   "rounded-2xl",
-  `border border-[${appColors.surfaceCardBorder}]`,
+  `border border-[${appColors.widgetBorder}]`,
   `bg-[${appColors.backgroundAlt}]`,
   "backdrop-blur",
   "text-left",
@@ -153,7 +153,7 @@ export const WIDGET_TITLE = "text-sm md:text-base font-semibold tracking-tight";
 export const WIDGET_HINT = `text-xs whitespace-nowrap text-[${appColors.textMuted}]`;
 export const WIDGET_NOTE = `opacity-80 text-sm mt-2 text-[${appColors.textSecondary}]`;
 export const WIDGET_FOOTER = "mt-3";
-export const WIDGET_ACCENT_BAR = `h-1.5 rounded-b-xl mt-3 bg-[${appColors.brandMuted}]`;
+export const WIDGET_ACCENT_BAR = `h-1.5 rounded-b-xl mt-3 bg-[${appColors.accentYellowDim}]`;
 
 /* ===== WIDGET HEADER aliasy =========================================== */
 export const WIDGET_HEADER_ROW = "flex items-center";

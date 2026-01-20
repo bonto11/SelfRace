@@ -4,7 +4,7 @@
 // No raw hex/rgba/shadow strings allowed.
 
 
-import { natur } from "./paletteNatur.olive";
+import { natur } from "./paletteNatur";
 
 export const appColors = {
   // Core backgrounds
@@ -14,9 +14,16 @@ export const appColors = {
   // Surfaces
   surfaceCard: natur.natur_surfaceGlass,
   surfaceCardHover: natur.natur_surfaceGlassHover,
-  surfaceCardBorder: natur.natur_borderGlass,
   surfaceSolid: natur.natur_surfaceSolid,
   surfaceSolidHover: natur.natur_surfaceSolidHover,
+
+   // Borders
+  surfaceCardBorder: natur.natur_borderGlass,  // neutrál (kalendár, bežné línie)
+  widgetBorder: natur.natur_borderWidget,      // NEW: len widgety/karty
+
+  // Accents (optional, keď chceš niečo “žlté miesto bielej”)
+  accentYellowSoft: natur.natur_accentYellowSoft,
+  accentYellowDim: natur.natur_accentYellowDim,
 
   divider: natur.natur_divider,
   overlay: natur.natur_overlay,
