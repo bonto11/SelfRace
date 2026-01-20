@@ -4,7 +4,7 @@
 // No raw hex/rgba/shadow strings allowed.
 
 
-import { natur } from "./paletteNatur";
+import { natur } from "./paletteNatur.glass";
 
 export const appColors = {
   // Core backgrounds
