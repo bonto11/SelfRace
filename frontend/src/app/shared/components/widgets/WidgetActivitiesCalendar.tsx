@@ -22,6 +22,7 @@ import {
   type CalendarItemKind,
 } from "@/app/features/calendar/utils/calendarSlots";
 import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 /* ---------- helpers ---------- */
 
@@ -300,7 +301,7 @@ export default function WidgetActivitiesCalendar({
                 CALENDAR_DAY_CELL,
                 "px-2 py-1.5 select-none min-h-[64px]",
                 isToday ? "ring-2 ring-emerald-500/60" : "",
-                "hover:bg-white/10",
+                `hover:bg-[${appColors.surfaceCardHover}]`,
               ].join(" ")}
             >
               <div className="flex flex-col">
