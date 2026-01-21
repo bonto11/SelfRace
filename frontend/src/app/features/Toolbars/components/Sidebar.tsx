@@ -14,12 +14,11 @@ import { NavIcon, type NavId } from "@/app/features/Toolbars/components/navIcons
 type Item = { id: NavId; href: string; label: string };
 
 const ITEMS: Item[] = [
-  { id: "dashboard", href: "/dashboard", label: "Dashboard" },
-  { id: "calendar", href: "/calendar", label: "Kalendár" },
   { id: "activities", href: "/activities", label: "Aktivity" },
-  { id: "recovery", href: "/recovery", label: "Recovery" },
-  { id: "coach", href: "/coach", label: "AI Coach" },
+  { id: "coach", href: "/coach", label: "Coach" },
   { id: "profile", href: "/profile", label: "Profil" },
+  { id: "recovery", href: "/recovery", label: "Recovery" },
+  { id: "calendar", href: "/calendar", label: "Kalendár" },
 ];
 
 function PillItem({

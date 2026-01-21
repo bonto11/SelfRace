@@ -2,6 +2,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
 import Sidebar from "@/app/features/Toolbars/components/Sidebar";
 import UserMenu from "@/app/features/auth/components/UserMenu";
@@ -18,15 +20,9 @@ import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/Reco
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
-import Image from "next/image";
-// ✅ sem si daj import tvojho AppBackdrop
 import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 
-export default function ClientProtectedShell({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function ClientProtectedShell({ children }: { children: ReactNode }) {
   return (
     <>
       <UserPrefsBootstrapper />
@@ -42,12 +38,12 @@ export default function ClientProtectedShell({
                   color: appColors.textPrimary,
                 }}
               >
-                {/* ✅ BACKDROP cez celý viewport */}
+                {/* BACKDROP cez celý viewport */}
                 <div className="fixed inset-0 z-0 pointer-events-none">
                   <AppBackdrop />
                 </div>
 
-                {/* ✅ všetok obsah nad backdropom */}
+                {/* obsah nad backdropom */}
                 <div className="relative z-10 min-h-dvh flex flex-col">
                   {/* TOPBAR */}
                   <header
@@ -58,7 +54,12 @@ export default function ClientProtectedShell({
                       paddingTop: "env(safe-area-inset-top)" as any,
                     }}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
+                      style={{ color: appColors.textPrimary }}
+                      aria-label="Go to dashboard"
+                    >
                       <Image
                         src="/logo/Selfrace_noname.png"
                         alt="SelfRace"
@@ -67,26 +68,19 @@ export default function ClientProtectedShell({
                         priority
                         className="h-6 w-auto opacity-95"
                       />
-                      <div className="font-semibold">
-                        SelfRace
-                      </div>
-                    </div>
+                      <div className="font-semibold truncate">SelfRace</div>
+                    </Link>
+
                     <UserMenu />
                   </header>
 
                   {/* CONTENT */}
                   <div className="flex-1">
                     {/* Desktop */}
-                    <div
-                      className={["hidden lg:grid h-full", SHELL_GRID].join(
-                        " "
-                      )}
-                    >
+                    <div className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}>
                       <Sidebar />
                       <div className="min-h-dvh flex flex-col">
-                        <main className="flex-1 p-3 lg:p-4 pb-4">
-                          {children}
-                        </main>
+                        <main className="flex-1 p-3 lg:p-4 pb-4">{children}</main>
                       </div>
                     </div>
 
