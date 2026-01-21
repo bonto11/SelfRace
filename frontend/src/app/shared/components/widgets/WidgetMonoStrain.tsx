@@ -1,10 +1,10 @@
-// src/features/widgets/MonoStrainWidget.tsx
+// src/app/shared/components/widgets/WidgetMonoStrain.tsx
 "use client";
 
 import { useMemo } from "react";
-import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
 
 import { appColors } from "@/app/shared/theme/app_colors";
@@ -20,13 +20,61 @@ import {
 
 type Level = "neutral" | "good" | "warn" | "danger";
 
-function levelColor(level: Level) {
-  // ✅ žiadne statické farby, len appColors (existujúce keys)
-  // danger -> red-ish, warn -> amber-ish, good -> teal-ish, neutral -> muted
-  if (level === "danger") return appColors.accentRed ?? appColors.textMuted;
-  if (level === "warn") return appColors.accentAmber ?? appColors.accentTeal ?? appColors.textMuted;
-  if (level === "good") return appColors.accentTeal ?? appColors.textMuted;
-  return appColors.textMuted;
+const C = appColors as any;
+
+function pickFirstColor(...keys: string[]): string {
+  for (const k of keys) {
+    const v = C?.[k];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return ""; // nechytáme sa na hardcoded farby
+}
+
+function levelColor(level: Level): string {
+  // ✅ žiadne statické farby – iba appColors keys (cez safe lookup)
+  // Skúšame viacero možných názvov, lebo ty nemáš "accentRed" atď.
+  if (level === "danger") {
+    return pickFirstColor(
+      "danger",
+      "accentRed",
+      "accentRose",
+      "accentPink",
+      "brandDanger",
+      "brandPrimary",
+      "accentPrimary",
+      "textMuted"
+    );
+  }
+  if (level === "warn") {
+    return pickFirstColor(
+      "warn",
+      "accentAmber",
+      "accentOrange",
+      "brandWarn",
+      "brandSecondary",
+      "accentSecondary",
+      "brandPrimary",
+      "textMuted"
+    );
+  }
+  if (level === "good") {
+    return pickFirstColor(
+      "success",
+      "accentGreen",
+      "accentTeal",
+      "brandSuccess",
+      "brandPrimary",
+      "accentPrimary",
+      "textMuted"
+    );
+  }
+  return pickFirstColor(
+    "neutral",
+    "textMuted",
+    "textSubtle",
+    "textSecondary",
+    "brandPrimary"
+  );
 }
 
 function worstLevel(a: Level, b: Level): Level {
@@ -50,7 +98,7 @@ function classifyStrain(v?: number | null): { label: string; level: Level } {
   return { label: "veľmi vysoký", level: "danger" };
 }
 
-export default function MonoStrainWidget({
+export default function WidgetMonoStrain({
   title = "Indexy záťaže",
   onOpenDetail,
 }: {
@@ -72,9 +120,8 @@ export default function MonoStrainWidget({
   const accentLevel = worstLevel(mC.level, sC.level);
   const accent = levelColor(accentLevel);
 
-  const rangeTxt = r7?.last?.range
-    ? fmtRange(r7.last.range.start, r7.last.range.end)
-    : "—";
+  const rangeTxt =
+    r7?.last?.range ? fmtRange(r7.last.range.start, r7.last.range.end) : "—";
 
   return (
     <WidgetCard
