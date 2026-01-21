@@ -1,3 +1,4 @@
+// src/shared/components/widgets/WidgetExternalEvents.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,7 +9,14 @@ import Pill from "@/app/shared/components/ui/Pill";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_ROW_TOP_XS,
+  WIDGET_META_TEXT,
+  WIDGET_ERROR_LINE,
+  WIDGET_LOADING_LINE,
+  WIDGET_EMPTY_HINT,
+} from "@/app/shared/theme/uiTokens";
 
 import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
@@ -71,7 +79,8 @@ export default function WidgetExternalEvents() {
     };
   }, [userId]);
 
-  const accent = THEME?.chart?.other ?? THEME?.chart?.run ?? "#0EA5E9";
+  // ✅ bez THEME + bez hardcoded hex
+  const accent = appColors.accentTeal;
 
   const label = (() => {
     if (!stats) return "No data";
@@ -79,10 +88,8 @@ export default function WidgetExternalEvents() {
     return `${stats.weekly} weekly · ${stats.singles_upcoming} upcoming singles`;
   })();
 
-  const pillColor =
-    stats && stats.total > 0
-      ? THEME?.chart?.neutral ?? "#64748B"
-      : THEME?.chart?.neutral ?? "#64748B";
+  // ✅ pill bez statických farieb (nech sa chová konzistentne)
+  const pillColor = appColors.textMuted;
 
   return (
     <WidgetCard
@@ -93,30 +100,24 @@ export default function WidgetExternalEvents() {
       minH={120}
       onOpen={() => router.push("/coach/external")}
     >
-      <div className="flex items-center justify-between gap-2 text-xs">
+      <div className={WIDGET_ROW_TOP_XS}>
         <Pill
-          label={
-            loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"
-          }
+          label={loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"}
           color={pillColor}
         />
-        <span className="text-[11px] opacity-80">{label}</span>
+        <span className={WIDGET_META_TEXT}>{label}</span>
       </div>
 
-      {err && (
-        <div className="mt-1 text-[11px] text-red-300 line-clamp-2">{err}</div>
-      )}
+      {err && <div className={WIDGET_ERROR_LINE}>{err}</div>}
 
       {loading && (
-        <div className="mt-3 text-[11px] opacity-80 inline-flex items-center gap-1">
+        <div className={WIDGET_LOADING_LINE}>
           <LoadingSpinner size="button" /> Loading from DB…
         </div>
       )}
 
       {!loading && !err && (!stats || stats.total === 0) && (
-        <div className="mt-3 text-[11px] opacity-70">
-          Tap to add your first external event.
-        </div>
+        <div className={WIDGET_EMPTY_HINT}>Tap to add your first external event.</div>
       )}
     </WidgetCard>
   );
