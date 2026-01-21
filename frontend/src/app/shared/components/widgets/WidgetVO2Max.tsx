@@ -1,3 +1,4 @@
+// src/shared/components/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -7,7 +8,7 @@ import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
-import { NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
+import { NO_X_OVERFLOW, WIDGET_LOADING_WRAP } from "@/app/shared/theme/uiTokens";
 import { fmtDate } from "@/app/shared/utils/time";
 import {
   HistoryRow,
@@ -20,6 +21,7 @@ import {
   apiGetVo2History,
   apiGetVo2Estimate,
 } from "@/app/features/profile/api/metrics";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -80,6 +82,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
             (365.25 * 24 * 3600 * 1000)
         )
       : 0;
+
     const g = (vo2Ref as Group[]).find(
       (x) => x.sex === sex && age >= x.age_min && age <= x.age_max
     );
@@ -108,7 +111,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     levelEstimated?.color ??
     (THEME as any)?.accent?.primary ??
     (THEME as any)?.chart?.neutral ??
-    "#64748B";
+    appColors.textMuted;
 
   return (
     <WidgetCard
@@ -120,7 +123,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       innerClassName={NO_X_OVERFLOW}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
@@ -137,18 +140,19 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
                   : "—"}
               </div>
               {levelEstimated ? (
-                <Pill
-                  label={levelEstimated.label}
-                  color={levelEstimated.color}
-                />
+                <Pill label={levelEstimated.label} color={levelEstimated.color} />
               ) : (
                 <span className="text-xs opacity-60">—</span>
               )}
             </div>
           </div>
 
-          {/* separátor – md+ */}
-          <div className="hidden md:block w-px bg-white/10 mx-auto" />
+          {/* separátor – md+ (bez statických farieb) */}
+          <div
+            className="hidden md:block w-px mx-auto"
+            style={{ background: appColors.surfaceCardBorder, opacity: 0.6 }}
+            aria-hidden="true"
+          />
 
           {/* MERANÉ (pravý blok) */}
           <div className="min-w-0">
