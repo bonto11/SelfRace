@@ -10,6 +10,9 @@ import {
 import { HHMMToMinutes, minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import { WIDGET_LOADING_WRAP } from "@/app/shared/theme/uiTokens";
 
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
 const TOL_MIN = 30;
@@ -17,6 +20,49 @@ const TOL_MIN = 30;
 // hranica, od ktorej berieme spánok ako "večer predtým"
 // všetko pred 18:00 berieme na porovnanie ako +24h (čiže po polnoci)
 const EVENING_START_MIN = 18 * 60; // 18:00
+
+function pickAccentFromCmp(
+  cmpAccent: unknown,
+  opts: { loading: boolean; showNA: boolean }
+) {
+  if (opts.loading || opts.showNA) {
+    return (
+      THEME?.chart?.neutral ??
+      (THEME as any)?.accent?.neutral ??
+      appColors.textMuted
+    );
+  }
+
+  // cmp.accent je dnes zrejme "bg-..." → map na THEME/appColors
+  const a = String(cmpAccent ?? "").toLowerCase();
+  if (a.includes("red"))
+    return (
+      THEME?.chart?.bad ??
+      THEME?.chart?.danger ??
+      (THEME as any)?.chart?.obese ??
+      appColors.brandPrimary
+    );
+  if (a.includes("amber") || a.includes("yellow"))
+    return (
+      THEME?.chart?.fair ??
+      THEME?.chart?.average ??
+      THEME?.chart?.warning ??
+      appColors.accentTeal
+    );
+  if (a.includes("emerald") || a.includes("green"))
+    return (
+      THEME?.chart?.good ??
+      THEME?.chart?.positive ??
+      THEME?.chart?.fitness ??
+      appColors.accentTeal
+    );
+
+  return (
+    THEME?.chart?.neutral ??
+    (THEME as any)?.accent?.primary ??
+    appColors.textSecondary
+  );
+}
 
 export default function WidgetSleepStart({
   onOpenDetail,
@@ -43,14 +89,10 @@ export default function WidgetSleepStart({
     return typeof v === "number" ? v : null;
   }, [values]);
 
-  // úprava: časy po polnoci (napr. 00:30 = 30 min) berieme na porovnanie ako 24:30 (= 1470)
+  // časy po polnoci (napr. 00:30 = 30 min) porovnávame ako 24:30 (= 1470)
   const latestForCompare = useMemo<number | null>(() => {
     if (latest == null) return null;
-    if (latest < EVENING_START_MIN) {
-      // spánok po polnoci - posuň o 24h, aby to bolo "neskôr než 22:30"
-      return latest + 24 * 60;
-    }
-    // normálny večer (18:00–24:00) – nechávame tak
+    if (latest < EVENING_START_MIN) return latest + 24 * 60;
     return latest;
   }, [latest]);
 
@@ -59,6 +101,7 @@ export default function WidgetSleepStart({
     FIX_BASELINE_MIN,
     TOL_MIN
   );
+
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -69,7 +112,9 @@ export default function WidgetSleepStart({
     : "—";
 
   const note = showNA ? freshness.message : cmp.note;
-  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
+
+  // ❌ preč "bg-*" / statické farby
+  const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
@@ -80,7 +125,7 @@ export default function WidgetSleepStart({
       minH={160}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
