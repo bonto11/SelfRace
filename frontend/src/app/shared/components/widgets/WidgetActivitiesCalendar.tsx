@@ -87,10 +87,10 @@ export default function WidgetActivitiesCalendar({
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
 
-  // ✅ FIXNE štýly buniek (dočasne) – aby Tailwind/JIT nerobil “biele rámy”
-  const dayCellBaseBg = "rgba(10, 30, 20, 0.38)";
-  const dayCellHoverBg = "rgba(10, 40, 20, 0.55)";
-  const dayCellBorder = "rgba(18, 48, 37, 0.70)";
+  // ✅ všetko cez appColors (žiadne raw farby)
+  const dayCellBaseBg = appColors.inputBg; // jemné sklo
+  const dayCellHoverBg = appColors.inputBgHover; // hover sklo
+  const dayCellBorder = appColors.surfaceCardBorder; // neutrálna linka (nie widget žltá)
 
   const dayCellStyle: React.CSSProperties = {
     background: dayCellBaseBg,
@@ -219,8 +219,11 @@ export default function WidgetActivitiesCalendar({
 
   const handleOpen = () => router.push(openHref);
 
+  // nech sa držíme konzistentne (bez raw hex fallback)
   const accent =
-    (THEME as any)?.accent?.neutral ?? (THEME as any)?.accent?.primary ?? "#64748B";
+    (THEME as any)?.accent?.neutral ??
+    (THEME as any)?.accent?.primary ??
+    `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
 
   return (
     <WidgetCard
@@ -270,13 +273,14 @@ export default function WidgetActivitiesCalendar({
               className={[
                 "rounded-xl",
                 "px-2 py-1.5 select-none min-h-[64px]",
+                "transition-colors",
                 isToday ? "ring-2 ring-emerald-500/60" : "",
               ].join(" ")}
               style={dayCellStyle}
-              onMouseEnter={(e) => {
+              onPointerEnter={(e) => {
                 (e.currentTarget as HTMLDivElement).style.background = dayCellHoverBg;
               }}
-              onMouseLeave={(e) => {
+              onPointerLeave={(e) => {
                 (e.currentTarget as HTMLDivElement).style.background = dayCellBaseBg;
               }}
             >
