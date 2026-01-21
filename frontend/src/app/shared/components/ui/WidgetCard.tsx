@@ -54,28 +54,32 @@ export default function WidgetCard({
 }: Props) {
   const isInteractive = interactive ?? Boolean(href || onOpen);
 
-  const outer = cx(WIDGET_CARD, isInteractive && WIDGET_CARD_INTERACTIVE, className);
+  // keep existing token classes (padding etc.), but make the OUTER the only “card”
+  const outer = cx(
+    WIDGET_CARD,
+    isInteractive && WIDGET_CARD_INTERACTIVE,
+    "relative overflow-hidden", // ✅ all gradients/background live here (no card-in-card)
+    className
+  );
 
   // ✅ FORCE “landing-like” frame (dočasne fixne)
   const outerStyle: React.CSSProperties = {
     background: appColors.surfaceCard,
-    border: `1px solid ${appColors.surfaceCardBorder}`, // rovnaké ako landing
+    border: `1px solid ${appColors.surfaceCardBorder}`,
     boxShadow: appColors.shadowSoft,
   };
 
   const accentValue =
-    accent ?? `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
+    accent ??
+    `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
 
   const accentIsPaint = isCssPaint(accentValue);
   const accentClass = accentIsPaint ? "" : accentValue;
   const accentStyle = accentIsPaint ? { background: accentValue } : undefined;
 
   const content = (
-    <div
-      className={cx(WIDGET_INNER, "relative overflow-hidden rounded-2xl", innerClassName)}
-      style={{ minHeight: minH }}
-    >
-      {/* Hero/glass backdrop inside the card */}
+    <>
+      {/* ✅ background layers belong to the OUTER card */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -93,10 +97,15 @@ export default function WidgetCard({
         }}
       />
 
-      <div className="relative flex flex-col flex-1">
+      {/* ✅ real content (no extra rounded card inside) */}
+      <div className={cx(WIDGET_INNER, "relative z-10", innerClassName)} style={{ minHeight: minH }}>
         {(title || isInteractive) && (
           <div className="flex items-center justify-between gap-2 mb-2">
-            {title ? <h3 className={WIDGET_TITLE}>{title}</h3> : <span className="sr-only">Widget</span>}
+            {title ? (
+              <h3 className={WIDGET_TITLE}>{title}</h3>
+            ) : (
+              <span className="sr-only">Widget</span>
+            )}
             {isInteractive && <span className={WIDGET_HINT}>otvoriť detail ⟶</span>}
           </div>
         )}
@@ -108,9 +117,17 @@ export default function WidgetCard({
 
         {footer && <div className={WIDGET_FOOTER}>{footer}</div>}
 
-        <div className={cx(WIDGET_ACCENT_BAR, accentClass)} style={accentStyle} />
+        {/* ✅ accent spans the FULL outer card width (no “karta v karte”) */}
+        <div
+          className={cx(
+            WIDGET_ACCENT_BAR,
+            accentClass,
+            "w-full -mx-3 -mb-3 mt-3 rounded-b-2xl" // p-3 in WIDGET_CARD -> extend to edges
+          )}
+          style={accentStyle}
+        />
       </div>
-    </div>
+    </>
   );
 
   if (href) {
@@ -120,13 +137,21 @@ export default function WidgetCard({
       </Link>
     );
   }
+
   if (onOpen) {
     return (
-      <button type="button" onClick={onOpen} className={outer} style={outerStyle} aria-label={title || "Widget"}>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={outer}
+        style={outerStyle}
+        aria-label={title || "Widget"}
+      >
         {content}
       </button>
     );
   }
+
   return (
     <div className={outer} style={outerStyle}>
       {content}
