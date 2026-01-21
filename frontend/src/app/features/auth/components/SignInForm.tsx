@@ -8,8 +8,12 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
-import { CARD, SURFACE_INSET } from "@/app/shared/theme/uiTokens";
-import { THEME } from "@/app/shared/theme/tokens";
+import {
+  CARD,
+  SURFACE_INSET,
+  MUTED_TEXT,
+} from "@/app/shared/theme/uiTokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function SignInForm() {
   const router = useRouter();
@@ -35,6 +39,7 @@ export default function SignInForm() {
       email,
       password: pwd,
     });
+
     setLoading(false);
 
     if (error) {
@@ -61,18 +66,23 @@ export default function SignInForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
+    <main className="min-h-dvh flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <form onSubmit={submit} className={`${CARD} p-5 space-y-4`}>
           <header className="space-y-1">
             <h1 className="text-2xl font-semibold">Prihlásenie</h1>
-            <p className="text-sm text-white/70">
+            <p className={MUTED_TEXT}>
               Vráť sa späť k svojim tréningom, plánom a AI trénerovi.
             </p>
           </header>
 
           {info && (
-            <div className={`${SURFACE_INSET} px-3 py-2 text-xs`}>{info}</div>
+            <div
+              className={`${SURFACE_INSET} px-3 py-2 text-xs`}
+              style={{ color: appColors.textSecondary }}
+            >
+              {info}
+            </div>
           )}
 
           <div className="space-y-3">
@@ -93,7 +103,11 @@ export default function SignInForm() {
               autoComplete="current-password"
             />
 
-            {err && <div className="text-sm text-red-400">{err}</div>}
+            {err && (
+              <div className="text-sm" style={{ color: appColors.statusError }}>
+                {err}
+              </div>
+            )}
 
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Prihlasujem…" : "Prihlásiť sa"}
@@ -102,24 +116,46 @@ export default function SignInForm() {
             <div className="flex items-center justify-between text-xs">
               <Link
                 href="/forgot-password"
-                className="underline"
-                style={{ color: THEME.chart.linePrimary }}
+                className="underline underline-offset-2"
+                style={{ color: appColors.brandPrimary }}
               >
                 Zabudnuté heslo?
               </Link>
-              <span className="text-white/60">
+
+              <span className={MUTED_TEXT}>
                 Nemáš účet?{" "}
-                <Link href="/signup" className="underline">
+                <Link
+                  href="/signup"
+                  className="underline underline-offset-2"
+                  style={{ color: appColors.textPrimary }}
+                >
                   Registruj sa
                 </Link>
               </span>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-[11px] text-white/50">
+          <div
+            className="mt-4 flex items-center justify-between text-[11px]"
+            style={{ color: appColors.textMuted }}
+          >
             <span>SelfRace • AI tréning pre atlétov</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2 py-[2px] uppercase tracking-wide text-[10px]">
-              <span className="h-3 w-3 rounded-full bg-orange-500" />
+
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-[2px] uppercase tracking-wide text-[10px] backdrop-blur"
+              style={{
+                background: appColors.pillBg,
+                border: `1px solid ${appColors.pillBorder}`,
+                color: appColors.textSecondary,
+              }}
+            >
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{
+                  background: appColors.statusWarning,
+                  boxShadow: `0 0 0 3px ${appColors.pillActiveBg}`,
+                }}
+              />
               Powered by Strava
             </span>
           </div>

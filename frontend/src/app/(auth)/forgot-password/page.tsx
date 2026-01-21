@@ -1,9 +1,13 @@
 // src/app/(auth)/forgot-password/page.tsx
 "use client";
 export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
+import TextField from "@/app/shared/components/ui/TextField";
+import { CARD, SURFACE_INSET, MUTED_TEXT } from "@/app/shared/theme/uiTokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function ForgotPasswordPage() {
   const sb = getSupabaseBrowser();
@@ -27,14 +31,10 @@ export default function ForgotPasswordPage() {
       const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const redirectTo = `${origin}/update-password`;
 
-      const { error } = await sb.auth.resetPasswordForEmail(email, {
-        redirectTo,
-      });
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
       if (error) throw error;
 
-      setMsg(
-        "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla."
-      );
+      setMsg("Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.");
     } catch (e: any) {
       setErr(e?.message || "Nepodarilo sa odoslať e-mail.");
     } finally {
@@ -43,29 +43,47 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <div className="mx-auto max-w-md w-full p-6 space-y-4 rounded-xl bg-slate-950/60 border border-white/10">
-        <h1 className="text-xl font-semibold">Zabudnuté heslo</h1>
-        <p className="text-sm text-white/70">
-          Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.
-        </p>
+    <main className="min-h-dvh flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md">
+        <form onSubmit={submit} className={`${CARD} p-5 space-y-4`}>
+          <header className="space-y-1">
+            <h1 className="text-2xl font-semibold">Zabudnuté heslo</h1>
+            <p className={MUTED_TEXT}>
+              Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.
+            </p>
+          </header>
 
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1">E-mail</label>
-            <input
+          <div className="space-y-2">
+            <label className="text-xs font-medium tracking-wide opacity-80 select-none">
+              E-mail
+            </label>
+            <TextField
               type="email"
-              className="w-full rounded-md bg-slate-900 px-3 py-2"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               placeholder="tvoj@email.sk"
+              value={email}
+              onChange={(e) => setEmail(e.currentTarget.value)}
               autoComplete="email"
               required
             />
           </div>
 
-          {msg && <div className="text-sm text-emerald-400">{msg}</div>}
-          {err && <div className="text-sm text-red-400">{err}</div>}
+          {msg && (
+            <div
+              className={`${SURFACE_INSET} px-3 py-2 text-xs`}
+              style={{ color: appColors.statusSuccess }}
+            >
+              {msg}
+            </div>
+          )}
+
+          {err && (
+            <div
+              className={`${SURFACE_INSET} px-3 py-2 text-xs`}
+              style={{ color: appColors.statusError }}
+            >
+              {err}
+            </div>
+          )}
 
           <Button type="submit" variant="primary" block disabled={sending}>
             {sending ? "Posielam…" : "Poslať reset e-mail"}
