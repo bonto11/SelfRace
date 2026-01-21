@@ -7,6 +7,8 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import { THEME } from "@/app/shared/theme/tokens";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
+import { WIDGET_LOADING_WRAP } from "@/app/shared/theme/uiTokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function WeeklyLoadWidget({
   title = "Záťaž – posledných 7 dní",
@@ -30,11 +32,12 @@ export default function WeeklyLoadWidget({
     return ((totalLast - totalPrev) / totalPrev) * 100;
   }, [totalLast, totalPrev]);
 
-  // text + accent (THEME fallbacky)
-  const colNeutral = THEME?.chart?.neutral ?? "#64748B";
-  const colUp = THEME?.chart?.positive ?? "#10B981";
-  const colWarn = THEME?.chart?.warning ?? "#F59E0B";
-  const colDown = THEME?.chart?.cool ?? "#3B82F6";
+  // ✅ žiadne statické farby: len THEME/appColors fallback
+  const colNeutral =
+    THEME?.chart?.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+  const colUp = THEME?.chart?.positive ?? THEME?.chart?.good ?? colNeutral;
+  const colWarn = THEME?.chart?.warning ?? THEME?.chart?.hard20 ?? colNeutral;
+  const colDown = THEME?.chart?.cool ?? THEME?.chart?.lineSecondary ?? colNeutral;
 
   let note = "—";
   let accent: string | undefined = colNeutral;
@@ -45,13 +48,13 @@ export default function WeeklyLoadWidget({
       accent = colNeutral;
     } else if (diffPct > 20) {
       note = "↑ oproti predošlým 7 dňom výrazne viac";
-      accent = colWarn; // jantár
+      accent = colWarn;
     } else if (diffPct < -20) {
       note = "↓ výrazne menej než predchádzajúcich 7 dní";
-      accent = colDown; // modrá
+      accent = colDown;
     } else {
       note = "≈ podobne ako predchádzajúcich 7 dní";
-      accent = colUp; // zelená
+      accent = colUp;
     }
   }
 
@@ -63,16 +66,13 @@ export default function WeeklyLoadWidget({
   return (
     <WidgetCard
       title={title}
-      accent={accent} // ← prijíma hex aj Tailwind class
+      accent={accent} // hex / css paint ok
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
     >
       {loading ? (
-        <div
-          className="w-full flex items-center justify-center py-4"
-          aria-live="polite"
-        >
+        <div className={WIDGET_LOADING_WRAP} aria-live="polite">
           <LoadingSpinner size="widget" />
         </div>
       ) : (
@@ -89,7 +89,8 @@ export default function WeeklyLoadWidget({
           </div>
 
           <div className="opacity-80 text-sm mt-1">
-            {note} {rangeTxt && rangeTxt !== "—" ? ` • ${rangeTxt}` : ""}
+            {note}
+            {rangeTxt && rangeTxt !== "—" ? ` • ${rangeTxt}` : ""}
           </div>
         </>
       )}
