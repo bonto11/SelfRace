@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { useSidebar } from "@/app/features/Toolbars/hooks/useSidebar";
 import { useBodyScrollLock } from "@/app/features/Toolbars/hooks/useBodyScrollLock";
 import NavLink from "./NavLink";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function Sidebar() {
   const { open, setOpen } = useSidebar();
@@ -12,7 +13,6 @@ export default function Sidebar() {
 
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // ESC to close
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -22,53 +22,65 @@ export default function Sidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, setOpen]);
 
-  // focus panel po otvorení
   useEffect(() => {
     if (open) panelRef.current?.focus();
   }, [open]);
 
   return (
     <>
-      {/* Overlay (mobile only) */}
       {open && (
         <button
           aria-label="Close menu overlay"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-[50] bg-black/50 lg:hidden"
+          className="fixed inset-0 z-[50] lg:hidden"
+          style={{ background: appColors.overlay }}
         />
       )}
 
-      {/* Panel */}
       <nav
         ref={panelRef}
         tabIndex={-1}
         aria-label="Primary"
         className={[
           "fixed inset-y-0 left-0 w-[280px]",
-          "bg-neutral-900 text-neutral-100",
           "transform transition-transform duration-200 will-change-transform",
           "z-[55]",
           open ? "translate-x-0" : "-translate-x-full",
-          "lg:static lg:z-auto lg:h-dvh lg:border-r lg:border-neutral-800 lg:translate-x-0",
+          "lg:static lg:z-auto lg:h-dvh lg:translate-x-0",
         ].join(" ")}
+        style={{
+          background: appColors.backgroundAlt,
+          color: appColors.textPrimary,
+          borderRight: `1px solid ${appColors.divider}`,
+        }}
       >
         <div className="p-4 flex items-center justify-between">
           <div className="font-bold">SelfRace</div>
-          {/* Close (mobile) */}
+
           <button
             type="button"
-            className="lg:hidden inline-flex items-center justify-center w-8 h-8 rounded hover:bg-neutral-800"
+            className="lg:hidden inline-flex items-center justify-center w-8 h-8 rounded"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
+            style={{
+              border: `1px solid ${appColors.surfaceCardBorder}`,
+              background: appColors.buttonGhostBg,
+              color: appColors.textPrimary,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                appColors.buttonGhostBgHover;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                appColors.buttonGhostBg;
+            }}
           >
             ✕
           </button>
         </div>
 
-        <ul
-          className="space-y-1 px-2 pb-4"
-          onClick={() => setOpen(false)} // zatvára len pri kliknutí na link
-        >
+        <ul className="space-y-1 px-2 pb-4" onClick={() => setOpen(false)}>
           <li>
             <NavLink href="/dashboard">Dashboard</NavLink>
           </li>
