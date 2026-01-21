@@ -15,6 +15,7 @@ type Item = { id: NavId; href: string; label: string };
 
 const ITEMS: Item[] = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard" },
+  { id: "calendar", href: "/calendar", label: "Kalendár" },
   { id: "activities", href: "/activities", label: "Aktivity" },
   { id: "recovery", href: "/recovery", label: "Recovery" },
   { id: "coach", href: "/coach", label: "AI Coach" },
@@ -142,25 +143,6 @@ export default function Sidebar() {
               padding: 10,
             }}
           >
-            {/* Brand row */}
-            <div
-              className="flex items-center gap-3"
-              style={{ paddingLeft: 8, paddingRight: 8, paddingTop: 6, paddingBottom: 10 }}
-            >
-              <div className="w-10 h-10 rounded-2xl grid place-items-center overflow-hidden">
-                <Image src="/logo/logo.png" alt="SelfRace" width={40} height={40} />
-              </div>
-
-              <div
-                className="overflow-hidden transition-[max-width,opacity] duration-200"
-                style={{ maxWidth: expanded ? 160 : 0, opacity: expanded ? 1 : 0 }}
-              >
-                <div className="font-semibold leading-tight">SelfRace</div>
-                <div className="text-[11px]" style={{ color: appColors.textMuted }}>
-                  AI tréning
-                </div>
-              </div>
-            </div>
 
             {/* Items */}
             <div className="flex flex-col gap-2">
