@@ -4,7 +4,7 @@
 
 export const natur = {
   // --- Backgrounds ---
-  natur_backgroundMain: "#0A3214",   
+  natur_backgroundMain: "#0A2814",   
   natur_backgroundAlt: "#0A1E14",
 
   // --- Glass surfaces (cards, modals) ---
