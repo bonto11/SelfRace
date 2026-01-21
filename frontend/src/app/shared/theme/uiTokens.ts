@@ -402,3 +402,14 @@ export const WIDGET_KV_LABEL = "opacity-75";
 export const WIDGET_KV_VALUE = "font-semibold";
 
 export const WIDGET_SUMMARY_TEXT = "mt-3 text-xs opacity-80";
+
+export const WIDGET_SUMMARY_WRAP = "mt-3 text-xs";
+export const WIDGET_SUMMARY_HEAD = "opacity-80 mb-1";
+
+export const WIDGET_LIST = "space-y-1";
+export const WIDGET_LIST_ITEM = "flex items-center gap-2";
+
+// bullet bez statickej farby – farbu dávame cez style={...}
+export const WIDGET_BULLET = "inline-block h-1.5 w-1.5 rounded-full";
+
+export const WIDGET_MORE_HINT = "mt-1 text-[11px] opacity-70";
