@@ -5,7 +5,7 @@
 export const natur = {
   // --- Backgrounds ---
   natur_backgroundMain: "#0A640A",
-  natur_backgroundAlt: "#0A6414",
+  natur_backgroundAlt: "#091812",
 
   // --- Glass surfaces (cards, modals) ---
   // jemne "zelené sklo" (nie biela hmla)
