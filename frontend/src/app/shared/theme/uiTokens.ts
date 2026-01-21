@@ -390,3 +390,15 @@ export const WIDGET_VALUE_MAIN = "text-4xl font-extrabold tabular-nums";
 export const WIDGET_VALUE_UNIT = "text-base align-top ml-1";
 
 export const WIDGET_PLACEHOLDER = "text-xs opacity-60";
+
+export const WIDGET_ERROR_TEXT = "text-sm text-[${appColors.statusError}]";
+export const WIDGET_ERROR_SUB = "mt-1 text-xs opacity-70";
+
+export const WIDGET_INFO_TEXT = "text-sm opacity-80";
+export const WIDGET_EMPTY_TEXT = "text-sm opacity-80";
+
+export const WIDGET_KV_GRID = "grid grid-cols-2 gap-x-3 gap-y-1 text-sm";
+export const WIDGET_KV_LABEL = "opacity-75";
+export const WIDGET_KV_VALUE = "font-semibold";
+
+export const WIDGET_SUMMARY_TEXT = "mt-3 text-xs opacity-80";
