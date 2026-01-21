@@ -67,7 +67,7 @@ export default function ClientProtectedShell({
                         priority
                         className="h-6 w-auto opacity-95"
                       />
-                      <div className="font-semibold truncate hidden sm:block">
+                      <div className="font-semibold truncate hidden">
                         SelfRace
                       </div>
                     </div>
