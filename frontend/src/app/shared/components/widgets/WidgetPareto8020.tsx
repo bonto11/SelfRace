@@ -8,6 +8,13 @@ import { THEME } from "@/app/shared/theme/tokens";
 import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_LOADING_WRAP,
+  WIDGET_CENTER,
+  WIDGET_FOOTNOTE,
+  WIDGET_NOTE,
+} from "@/app/shared/theme/uiTokens";
 
 type Props = {
   onOpenTrend?: () => void;
@@ -16,10 +23,14 @@ type Props = {
   sport?: string | string[] | null;
 };
 
-const colEasy80 = THEME.chart.easy80;
-const colHard20 = THEME.chart.hard20;
-const colTrack = THEME.chart.track;
-const colTick = THEME.chart.tick;
+function pickAccentFromDeviation(deviation: number, hasData: boolean) {
+  // žiadne bg-* triedy ani hardcoded farby – iba THEME/appColors
+  if (!hasData) return THEME?.chart?.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textMuted;
+
+  if (deviation <= 0.05) return THEME?.chart?.good ?? THEME?.chart?.positive ?? THEME?.chart?.fitness;
+  if (deviation <= 0.1) return THEME?.chart?.fair ?? THEME?.chart?.average ?? THEME?.chart?.warning;
+  return THEME?.chart?.bad ?? THEME?.chart?.danger ?? THEME?.chart?.obese;
+}
 
 export default function WidgetPareto8020({
   onOpenTrend,
@@ -73,20 +84,12 @@ export default function WidgetPareto8020({
 
   const easyPct = T ? Math.round((E / T) * 100) : 0;
   const hardPct = T ? 100 - easyPct : 0;
+
   const targetEasy = 0.8 * T;
   const deltaEasy = Math.round(targetEasy - E);
 
-  // Dynamický accent podľa odchýlky od 80/20 (len pri T>0)
-  // <=5% off => zelená, 5–10% => jantár, >10% => červená, inak neutrál
   const deviation = T ? Math.abs(E - targetEasy) / T : 1;
-  const accent =
-    T === 0
-      ? "bg-slate-700"
-      : deviation <= 0.05
-      ? "bg-emerald-600"
-      : deviation <= 0.1
-      ? "bg-amber-500"
-      : "bg-red-600";
+  const accent = pickAccentFromDeviation(deviation, T > 0);
 
   // --- SVG prstenec ---
   const size = 150;
@@ -117,6 +120,29 @@ export default function WidgetPareto8020({
       ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
       : "Si presne na 80/20 ✔";
 
+  // farby prstenca – iba theme/app_colors (žiadne hardcoded)
+  const colEasy80 =
+    (THEME as any)?.chart?.easy80 ??
+    THEME?.chart?.fitness ??
+    THEME?.chart?.good ??
+    appColors.brandPrimary;
+
+  const colHard20 =
+    (THEME as any)?.chart?.hard20 ??
+    THEME?.chart?.warning ??
+    THEME?.chart?.fair ??
+    appColors.accentTeal;
+
+  const colTrack =
+    (THEME as any)?.chart?.track ??
+    appColors.surfaceCardBorder;
+
+  const colTick =
+    (THEME as any)?.chart?.tick ??
+    appColors.textSecondary;
+
+  const textFill = appColors.textPrimary;
+
   return (
     <WidgetCard
       title={`Posledné ${weeks} týždne – 80/20`}
@@ -126,12 +152,12 @@ export default function WidgetPareto8020({
       minH={200}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <>
-          <div className="w-full flex items-center justify-center">
+          <div className={WIDGET_CENTER}>
             <svg
               width={size}
               height={size}
@@ -148,7 +174,8 @@ export default function WidgetPareto8020({
                 fill="none"
                 transform={startAtTop}
               />
-              {/* HARD segment (20%) */}
+
+              {/* HARD segment */}
               <circle
                 cx={cx}
                 cy={cy}
@@ -160,7 +187,8 @@ export default function WidgetPareto8020({
                 strokeDashoffset={0}
                 transform={startAtTop}
               />
-              {/* EASY segment (80%) */}
+
+              {/* EASY segment */}
               <circle
                 cx={cx}
                 cy={cy}
@@ -172,6 +200,7 @@ export default function WidgetPareto8020({
                 strokeDashoffset={easyLen}
                 transform={startAtTop}
               />
+
               {/* cieľová 80/20 ryska */}
               <line
                 x1={x1}
@@ -182,12 +211,13 @@ export default function WidgetPareto8020({
                 strokeWidth={6}
                 strokeLinecap="round"
               />
+
               <text
                 x={cx}
                 y={cy}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fill="#fff"
+                fill={textFill}
                 fontSize="18"
                 fontWeight={800}
               >
@@ -196,7 +226,7 @@ export default function WidgetPareto8020({
             </svg>
           </div>
 
-          <div className="mt-3 text-xs opacity-85">
+          <div className={WIDGET_FOOTNOTE}>
             Easy: {fmtMinutes(E)} ({easyPct}%){" \u00B7 "}Hard: {fmtMinutes(H)}{" "}
             ({hardPct}%)
             {T ? (
@@ -206,7 +236,8 @@ export default function WidgetPareto8020({
               </>
             ) : null}
           </div>
-          {note && <div className="mt-1 text-xs opacity-70">{note}</div>}
+
+          {note && <div className={WIDGET_NOTE}>{note}</div>}
         </>
       )}
     </WidgetCard>
