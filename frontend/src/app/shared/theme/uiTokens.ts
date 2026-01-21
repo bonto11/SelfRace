@@ -413,3 +413,15 @@ export const WIDGET_LIST_ITEM = "flex items-center gap-2";
 export const WIDGET_BULLET = "inline-block h-1.5 w-1.5 rounded-full";
 
 export const WIDGET_MORE_HINT = "mt-1 text-[11px] opacity-70";
+
+export const WIDGET_STATUS_ROW = "flex items-center justify-between gap-2 text-xs";
+
+export const WIDGET_ERROR_LINE = "mt-1 text-[11px] line-clamp-3";
+
+export const WIDGET_ACTIONS_WRAP = "mt-3 space-y-2 text-xs";
+
+export const WIDGET_ACTION_ROW = "flex items-start justify-between gap-2 rounded-lg px-2 py-2";
+export const WIDGET_ACTION_ROW_INNER = "flex-1 space-y-0.5";
+
+export const WIDGET_ACTION_CHEVRON_BTN =
+  "mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs transition-colors";
