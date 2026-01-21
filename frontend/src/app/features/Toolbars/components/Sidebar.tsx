@@ -55,7 +55,6 @@ export default function Sidebar() {
         }}
       >
         <div className="p-4 flex items-center justify-between">
-          <div className="font-bold">SelfRace</div>
 
           <button
             type="button"

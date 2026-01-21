@@ -16,9 +16,11 @@ import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDa
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 import { appColors } from "@/app/shared/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
+
+// ✅ sem si daj import tvojho AppBackdrop
+import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 
 export default function ClientProtectedShell({ children }: { children: ReactNode }) {
   return (
@@ -29,13 +31,25 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
-              <AppBackdrop>
-                <div className="min-h-dvh flex flex-col">
+              <div
+                className="min-h-dvh flex flex-col relative overflow-hidden"
+                style={{
+                  background: appColors.backgroundMain,
+                  color: appColors.textPrimary,
+                }}
+              >
+                {/* ✅ BACKDROP cez celý viewport */}
+                <div className="fixed inset-0 z-0 pointer-events-none">
+                  <AppBackdrop />
+                </div>
+
+                {/* ✅ všetok obsah nad backdropom */}
+                <div className="relative z-10 min-h-dvh flex flex-col">
                   {/* TOPBAR */}
                   <header
-                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur-xl"
+                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                     style={{
-                      background: appColors.surfaceCard,
+                      background: appColors.backgroundAlt,
                       borderBottom: `1px solid ${appColors.divider}`,
                       paddingTop: "env(safe-area-inset-top)" as any,
                     }}
@@ -64,7 +78,7 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
 
                   <MobileBottomBar />
                 </div>
-              </AppBackdrop>
+              </div>
             </RecoveryDataProvider>
           </ActivityDataProvider>
         </CoachDataProvider>
