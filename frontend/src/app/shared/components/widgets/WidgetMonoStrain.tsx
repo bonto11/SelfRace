@@ -21,10 +21,11 @@ import {
 type Level = "neutral" | "good" | "warn" | "danger";
 
 function levelColor(level: Level) {
-  // ✅ žiadne statické farby, len appColors
-  if (level === "danger") return appColors.danger ?? appColors.accentRed ?? appColors.textMuted;
-  if (level === "warn") return appColors.warn ?? appColors.accentAmber ?? appColors.accentTeal;
-  if (level === "good") return appColors.success ?? appColors.accentTeal;
+  // ✅ žiadne statické farby, len appColors (existujúce keys)
+  // danger -> red-ish, warn -> amber-ish, good -> teal-ish, neutral -> muted
+  if (level === "danger") return appColors.accentRed ?? appColors.textMuted;
+  if (level === "warn") return appColors.accentAmber ?? appColors.accentTeal ?? appColors.textMuted;
+  if (level === "good") return appColors.accentTeal ?? appColors.textMuted;
   return appColors.textMuted;
 }
 
@@ -60,7 +61,10 @@ export default function MonoStrainWidget({
 
   const r7 = rolling7?.("time");
   const mono = useMemo(() => (r7?.last?.mono ?? null) as number | null, [r7]);
-  const strain = useMemo(() => (r7?.last?.strain ?? null) as number | null, [r7]);
+  const strain = useMemo(
+    () => (r7?.last?.strain ?? null) as number | null,
+    [r7]
+  );
 
   const mC = classifyMonotony(mono);
   const sC = classifyStrain(strain);
@@ -68,8 +72,9 @@ export default function MonoStrainWidget({
   const accentLevel = worstLevel(mC.level, sC.level);
   const accent = levelColor(accentLevel);
 
-  const rangeTxt =
-    r7?.last?.range ? fmtRange(r7.last.range.start, r7.last.range.end) : "—";
+  const rangeTxt = r7?.last?.range
+    ? fmtRange(r7.last.range.start, r7.last.range.end)
+    : "—";
 
   return (
     <WidgetCard
@@ -110,7 +115,9 @@ export default function MonoStrainWidget({
           <div className={WIDGET_FOOTNOTE}>Posledných 7 dní • {rangeTxt}</div>
         </>
       ) : (
-        <div className={WIDGET_EMPTY}>Dáta pre posledných 7 dní nie sú k dispozícii.</div>
+        <div className={WIDGET_EMPTY}>
+          Dáta pre posledných 7 dní nie sú k dispozícii.
+        </div>
       )}
     </WidgetCard>
   );
