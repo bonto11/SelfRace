@@ -431,3 +431,66 @@ export const WIDGET_INFO_GRID = "grid grid-cols-2 gap-x-3 gap-y-2 text-sm";
 export const WIDGET_LABEL_MUTED = "opacity-75";
 export const WIDGET_VALUE_STRONG = "font-semibold truncate";
 export const WIDGET_BADGES_WRAP = "flex flex-wrap gap-1.5";
+
+export const WIDGET_CENTER_SPINNER = "grid place-items-center py-6";
+
+export const WIDGET_ERROR_BLOCK = `text-sm text-[${appColors.statusError}]`;
+export const WIDGET_ERROR_SUB = `mt-1 text-xs text-[${appColors.textMuted}]`;
+
+export const WIDGET_EMPTY_TEXT = `text-sm text-[${appColors.textSecondary}]`;
+
+export const WIDGET_HEADLINE = "text-sm font-medium mb-1";
+
+export const WIDGET_BULLET_LIST = "text-xs space-y-1 mb-3";
+export const WIDGET_BULLET_ROW = "flex gap-2";
+export const WIDGET_BULLET_DOT = `mt-[6px] h-1.5 w-1.5 rounded-full bg-[${appColors.textMuted}]`;
+
+export const WIDGET_INFO_GRID_XS = "mt-1 grid grid-cols-2 gap-x-3 gap-y-2 text-xs";
+export const WIDGET_LABEL_MUTED_XS = "opacity-70";
+export const WIDGET_VALUE_STRONG_XS = "font-semibold";
+
+export const WIDGET_INFO_GRID_SM = "grid grid-cols-2 gap-x-3 gap-y-1 text-sm";
+export const WIDGET_LABEL_MUTED_SM = "opacity-75";
+export const WIDGET_VALUE_STRONG_SM = "font-semibold";
+export const WIDGET_NOTE_P_SM = "mt-3 text-xs opacity-80";
+
+export const WIDGET_ROW_TOP_XS = "flex items-center justify-between gap-2 text-xs";
+export const WIDGET_META_TEXT = "text-[11px] opacity-80";
+export const WIDGET_ERROR_LINE = "mt-1 text-[11px] text-red-300 line-clamp-2";
+export const WIDGET_LOADING_LINE =
+  "mt-3 text-[11px] opacity-80 inline-flex items-center gap-1";
+export const WIDGET_EMPTY_HINT = "mt-3 text-[11px] opacity-70";
+
+export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
+
+export const WIDGET_VALUE_ROW = "flex items-baseline gap-2 mb-2";
+export const WIDGET_VALUE_PRIMARY = "text-5xl font-extrabold leading-none";
+export const WIDGET_VALUE_UNIT = "text-xl opacity-80";
+
+export const WIDGET_NOTE = "opacity-80 text-sm";
+
+export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
+
+export const WIDGET_GRID_2 = "grid grid-cols-2 gap-6";
+
+export const WIDGET_METRIC_LABEL = "text-xs opacity-80 mb-1";
+export const WIDGET_METRIC_VALUE =
+  "text-5xl font-extrabold leading-none tabular-nums";
+export const WIDGET_METRIC_NOTE = "opacity-80 text-xs mt-1";
+
+export const WIDGET_FOOTNOTE = "opacity-80 text-sm mt-2";
+export const WIDGET_EMPTY = "opacity-75 text-sm py-6";
+
+export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
+export const WIDGET_METRIC_VALUE =
+  "text-5xl font-extrabold leading-none tabular-nums";
+export const WIDGET_FOOTNOTE = "opacity-80 text-sm mt-2";
+export const WIDGET_EMPTY = "opacity-75 text-sm py-6";
+
+export const WIDGET_CENTER = "w-full flex items-center justify-center";
+export const WIDGET_NOTE = "mt-1 text-xs opacity-70";
+export const WIDGET_FOOTNOTE = "mt-3 text-xs opacity-85";
+
+export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
+
+export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
