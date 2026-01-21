@@ -19,7 +19,6 @@ function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");
 }
 
-// podpor aj gradienty
 const isCssPaint = (v?: string) =>
   !!v &&
   /^(#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})|rgb(a)?\(|hsl(a)?\(|linear-gradient\(|radial-gradient\()/i.test(
@@ -29,7 +28,7 @@ const isCssPaint = (v?: string) =>
 type Props = {
   title?: string;
   note?: string;
-  accent?: string; // môže byť aj linear-gradient(...)
+  accent?: string;
   children?: React.ReactNode;
   className?: string;
   innerClassName?: string;
@@ -57,17 +56,25 @@ export default function WidgetCard({
 
   const outer = cx(WIDGET_CARD, isInteractive && WIDGET_CARD_INTERACTIVE, className);
 
-  // default accent = “landing” bar
+  // ✅ FORCE “landing-like” frame (dočasne fixne)
+  const outerStyle: React.CSSProperties = {
+    background: appColors.surfaceCard,
+    border: `1px solid ${appColors.surfaceCardBorder}`, // rovnaké ako landing
+    boxShadow: appColors.shadowSoft,
+  };
+
   const accentValue =
-    accent ??
-    `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
+    accent ?? `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
 
   const accentIsPaint = isCssPaint(accentValue);
   const accentClass = accentIsPaint ? "" : accentValue;
   const accentStyle = accentIsPaint ? { background: accentValue } : undefined;
 
   const content = (
-    <div className={cx(WIDGET_INNER, "relative overflow-hidden rounded-2xl", innerClassName)} style={{ minHeight: minH }}>
+    <div
+      className={cx(WIDGET_INNER, "relative overflow-hidden rounded-2xl", innerClassName)}
+      style={{ minHeight: minH }}
+    >
       {/* Hero/glass backdrop inside the card */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -86,7 +93,6 @@ export default function WidgetCard({
         }}
       />
 
-      {/* real content */}
       <div className="relative flex flex-col flex-1">
         {(title || isInteractive) && (
           <div className="flex items-center justify-between gap-2 mb-2">
@@ -102,7 +108,6 @@ export default function WidgetCard({
 
         {footer && <div className={WIDGET_FOOTER}>{footer}</div>}
 
-        {/* spodná lišta (landing-like gradient) */}
         <div className={cx(WIDGET_ACCENT_BAR, accentClass)} style={accentStyle} />
       </div>
     </div>
@@ -110,17 +115,21 @@ export default function WidgetCard({
 
   if (href) {
     return (
-      <Link href={href} className={outer} aria-label={title || "Widget"}>
+      <Link href={href} className={outer} style={outerStyle} aria-label={title || "Widget"}>
         {content}
       </Link>
     );
   }
   if (onOpen) {
     return (
-      <button type="button" onClick={onOpen} className={outer} aria-label={title || "Widget"}>
+      <button type="button" onClick={onOpen} className={outer} style={outerStyle} aria-label={title || "Widget"}>
         {content}
       </button>
     );
   }
-  return <div className={outer}>{content}</div>;
+  return (
+    <div className={outer} style={outerStyle}>
+      {content}
+    </div>
+  );
 }

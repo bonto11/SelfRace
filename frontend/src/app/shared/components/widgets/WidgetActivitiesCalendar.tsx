@@ -5,7 +5,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import { CALENDAR_DAY_CELL, NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
+import { NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { THEME } from "@/app/shared/theme/tokens";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -38,8 +38,7 @@ const SPORT_COLORS: Record<string, string> = {
 };
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
-const iso = (y: number, m0: number, d: number) =>
-  `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+const iso = (y: number, m0: number, d: number) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
 
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
@@ -74,7 +73,7 @@ export default function WidgetActivitiesCalendar({
   const { userId } = useUserId();
   const { selectByRange } = useActivityData();
 
-  // NOVÉ: plán z CoachDataProvideru
+  // plán z CoachDataProvideru
   const { plan } = useCoachData();
   const { selectPlanByRange } = plan;
 
@@ -82,15 +81,21 @@ export default function WidgetActivitiesCalendar({
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startIso = iso(
-    monday.getFullYear(),
-    monday.getMonth(),
-    monday.getDate()
-  );
+  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
+
+  // ✅ FIXNE štýly buniek (dočasne) – aby Tailwind/JIT nerobil “biele rámy”
+  const dayCellBaseBg = "rgba(10, 30, 20, 0.38)";
+  const dayCellHoverBg = "rgba(10, 40, 20, 0.55)";
+  const dayCellBorder = "rgba(18, 48, 37, 0.70)";
+
+  const dayCellStyle: React.CSSProperties = {
+    background: dayCellBaseBg,
+    border: `1px solid ${dayCellBorder}`,
+  };
 
   // načítanie externals pre týždeň
   React.useEffect(() => {
@@ -132,9 +137,7 @@ export default function WidgetActivitiesCalendar({
       const k = eventDateIso(ev);
       if (!k || !map.has(k)) continue;
 
-      const sport = safeSportKey(
-        (ev as any).sport ?? (ev as any).sport_type ?? "other"
-      );
+      const sport = safeSportKey((ev as any).sport ?? (ev as any).sport_type ?? "other");
 
       map.get(k)!.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
@@ -150,12 +153,9 @@ export default function WidgetActivitiesCalendar({
       const k = String(r.date ?? "").slice(0, 10);
       if (!k || !map.has(k)) continue;
 
-      const sport = safeSportKey(
-        r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other"
-      );
+      const sport = safeSportKey(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other");
       const aidRaw = r.activity_id;
-      const activityId =
-        aidRaw != null && !Number.isNaN(Number(aidRaw)) ? Number(aidRaw) : null;
+      const activityId = aidRaw != null && !Number.isNaN(Number(aidRaw)) ? Number(aidRaw) : null;
 
       map.get(k)!.push({
         id: activityId ?? Math.floor(Math.random() * 1e9),
@@ -177,29 +177,18 @@ export default function WidgetActivitiesCalendar({
       const duration = p.duration_min ?? null;
 
       const isRest =
-        sType === "rest" ||
-        title.startsWith("rest") ||
-        sport === "other" ||
-        duration === 0;
+        sType === "rest" || title.startsWith("rest") || sport === "other" || duration === 0;
 
       const arr = map.get(k)!;
 
       const actIdRaw = (p as any).activity_id;
       const activityId =
-        actIdRaw != null && !Number.isNaN(Number(actIdRaw))
-          ? Number(actIdRaw)
-          : null;
+        actIdRaw != null && !Number.isNaN(Number(actIdRaw)) ? Number(actIdRaw) : null;
 
       if (activityId) {
-        const idx = arr.findIndex(
-          (it) => it.kind === "activity" && it.activityId === activityId
-        );
+        const idx = arr.findIndex((it) => it.kind === "activity" && it.activityId === activityId);
         if (idx >= 0) {
-          arr[idx] = {
-            ...arr[idx],
-            kind: "done",
-            activityId,
-          };
+          arr[idx] = { ...arr[idx], kind: "done", activityId };
           continue;
         }
       }
@@ -222,31 +211,16 @@ export default function WidgetActivitiesCalendar({
     }
 
     return map;
-  }, [
-    monday,
-    startIso,
-    endIso,
-    selectByRange,
-    selectPlanByRange,
-    externalRows,
-  ]);
+  }, [monday, startIso, endIso, selectByRange, selectPlanByRange, externalRows]);
 
   const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", {
-      month: "short",
-      day: "2-digit",
-    })} – ` +
-    `${sunday.toLocaleDateString("sk-SK", {
-      month: "short",
-      day: "2-digit",
-    })}`;
+    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
+    `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
 
   const handleOpen = () => router.push(openHref);
 
   const accent =
-    (THEME as any)?.accent?.neutral ??
-    (THEME as any)?.accent?.primary ??
-    "#64748B";
+    (THEME as any)?.accent?.neutral ?? (THEME as any)?.accent?.primary ?? "#64748B";
 
   return (
     <WidgetCard
@@ -257,13 +231,9 @@ export default function WidgetActivitiesCalendar({
       minH={160}
       innerClassName={NO_X_OVERFLOW}
     >
-      {extErr && (
-        <div className="mb-2 text-[11px] text-red-300 line-clamp-2">
-          {extErr}
-        </div>
-      )}
+      {extErr && <div className="mb-2 text-[11px] text-red-300 line-clamp-2">{extErr}</div>}
 
-      {/* HLAVIČKA DNÍ – pridané vodorovné paddingy, aby ring nebol na hrane */}
+      {/* HLAVIČKA DNÍ */}
       <div
         className="
           grid grid-cols-7 gap-2
@@ -278,7 +248,7 @@ export default function WidgetActivitiesCalendar({
         ))}
       </div>
 
-      {/* DŇOVÉ BUNKY – tiež odsunuté dovnútra */}
+      {/* DŇOVÉ BUNKY */}
       <div
         className="grid grid-cols-7 gap-2 cursor-pointer px-1.5 sm:px-2"
         onClick={handleOpen}
@@ -298,11 +268,17 @@ export default function WidgetActivitiesCalendar({
             <div
               key={key}
               className={[
-                CALENDAR_DAY_CELL,
+                "rounded-xl",
                 "px-2 py-1.5 select-none min-h-[64px]",
                 isToday ? "ring-2 ring-emerald-500/60" : "",
-                `hover:bg-[${appColors.surfaceCardHover}]`,
               ].join(" ")}
+              style={dayCellStyle}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.background = dayCellHoverBg;
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.background = dayCellBaseBg;
+              }}
             >
               <div className="flex flex-col">
                 <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5">
@@ -311,8 +287,7 @@ export default function WidgetActivitiesCalendar({
 
                 <div className="mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center">
                   {shown.map((it) => {
-                    const color =
-                      SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
+                    const color = SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
 
                     if (it.kind === "activity" || it.kind === "external") {
                       return (
@@ -362,9 +337,7 @@ export default function WidgetActivitiesCalendar({
                   })}
 
                   {items.length > shown.length && (
-                    <span className="text-[10px] opacity-70">
-                      +{items.length - shown.length}
-                    </span>
+                    <span className="text-[10px] opacity-70">+{items.length - shown.length}</span>
                   )}
                 </div>
               </div>
