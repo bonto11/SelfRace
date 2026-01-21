@@ -11,6 +11,9 @@ import {
 import { minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import { WIDGET_LOADING_WRAP } from "@/app/shared/theme/uiTokens";
 
 export default function WidgetSleepDuration({
   onOpenDetail,
@@ -55,9 +58,23 @@ export default function WidgetSleepDuration({
     : Number.isFinite(latest as number)
     ? minutesToHHMM(latest as number)
     : "—";
+
   const note = showNA ? freshness.message : cmp.note;
 
-  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
+  // ❌ preč bg-* triedy / statické farby
+  // cmp.accent je dnes zrejme "bg-..." → map na THEME/appColors
+  const accent = (() => {
+    if (loading || showNA) {
+      return THEME?.chart?.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+    }
+
+    const a = String((cmp as any)?.accent ?? "").toLowerCase();
+    if (a.includes("red")) return THEME?.chart?.bad ?? THEME?.chart?.danger ?? (THEME as any)?.chart?.obese;
+    if (a.includes("amber") || a.includes("yellow")) return THEME?.chart?.fair ?? THEME?.chart?.average ?? THEME?.chart?.warning;
+    if (a.includes("emerald") || a.includes("green")) return THEME?.chart?.good ?? THEME?.chart?.positive ?? THEME?.chart?.fitness;
+
+    return THEME?.chart?.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
+  })();
 
   return (
     <WidgetCard
@@ -68,7 +85,7 @@ export default function WidgetSleepDuration({
       minH={160}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
