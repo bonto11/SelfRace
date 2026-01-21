@@ -5,7 +5,19 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_LOADING_CENTER,
+  WIDGET_ERROR_TEXT,
+  WIDGET_ERROR_SUB,
+  WIDGET_INFO_TEXT,
+  WIDGET_EMPTY_TEXT,
+  WIDGET_KV_GRID,
+  WIDGET_KV_LABEL,
+  WIDGET_KV_VALUE,
+  WIDGET_SUMMARY_TEXT,
+} from "@/app/shared/theme/uiTokens";
+
 import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
@@ -74,12 +86,29 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
     s?.user_summary?.text ??
     null;
 
-  return {
-    lastAnalysisAt,
-    fatigueLabel,
-    injuryLabel,
-    summary,
-  };
+  return { lastAnalysisAt, fatigueLabel, injuryLabel, summary };
+}
+
+// (voliteľné) jemný accent podľa rizika/únavy – bez statických farieb
+function pickAccent(ui: UiState) {
+  const fat = (ui.fatigueLabel || "").toLowerCase();
+  const inj = (ui.injuryLabel || "").toLowerCase();
+
+  const hasHigh =
+    fat.includes("high") ||
+    fat.includes("vysok") ||
+    inj.includes("high") ||
+    inj.includes("vysok");
+  const hasMod =
+    fat.includes("moder") ||
+    fat.includes("stred") ||
+    inj.includes("moder") ||
+    inj.includes("stred");
+
+  if (hasHigh) return appColors.statusError;
+  if (hasMod) return appColors.statusWarning;
+
+  return appColors.brandPrimary;
 }
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
@@ -112,12 +141,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   }, [userId]);
 
   const ui = useMemo(() => extractUiState(row), [row]);
-
-  const accent =
-    THEME?.chart?.athletes ??
-    THEME?.chart?.run ??
-    THEME?.chart?.neutral ??
-    "#22C55E";
+  const accent = useMemo(() => pickAccent(ui), [ui]);
 
   return (
     <WidgetCard
@@ -129,39 +153,39 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       minH={180}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : error ? (
-        <div className="text-sm text-red-300">
+        <div className={WIDGET_ERROR_TEXT}>
           Nepodarilo sa načítať AI analýzu.
-          <div className="mt-1 text-xs opacity-70">{error}</div>
+          <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
-        <div className="text-sm opacity-80">
+        <div className={WIDGET_INFO_TEXT}>
           Chýba userId (useUserId). Skontroluj autentifikáciu.
         </div>
       ) : !row ? (
-        <div className="text-sm opacity-80">
-          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a
-          widget sa automaticky naplní.
+        <div className={WIDGET_EMPTY_TEXT}>
+          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a widget
+          sa automaticky naplní.
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-            <div className="opacity-75">Posledná analýza</div>
-            <div className="font-semibold truncate">
+          <div className={WIDGET_KV_GRID}>
+            <div className={WIDGET_KV_LABEL}>Posledná analýza</div>
+            <div className={[WIDGET_KV_VALUE, "truncate"].join(" ")}>
               {ui.lastAnalysisAt ?? "—"}
             </div>
 
-            <div className="opacity-75">Fatigue</div>
-            <div className="font-semibold">{ui.fatigueLabel ?? "—"}</div>
+            <div className={WIDGET_KV_LABEL}>Fatigue</div>
+            <div className={WIDGET_KV_VALUE}>{ui.fatigueLabel ?? "—"}</div>
 
-            <div className="opacity-75">Injury risk</div>
-            <div className="font-semibold">{ui.injuryLabel ?? "—"}</div>
+            <div className={WIDGET_KV_LABEL}>Injury risk</div>
+            <div className={WIDGET_KV_VALUE}>{ui.injuryLabel ?? "—"}</div>
           </div>
 
-          <p className="mt-3 text-xs opacity-80">
+          <p className={WIDGET_SUMMARY_TEXT}>
             {ui.summary
               ? ui.summary
               : "Krátke AI zhrnutie únavy, formy a rizík sa zobrazí po najbližšej analýze."}
