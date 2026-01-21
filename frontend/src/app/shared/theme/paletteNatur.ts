@@ -4,8 +4,8 @@
 
 export const natur = {
   // --- Backgrounds ---
-  natur_backgroundMain: "#0A2814",   
-  natur_backgroundAlt: "#0A1E14",
+  natur_backgroundMain: "#0A2814",   //main back
+  natur_backgroundAlt: "#0A1E14",     //topbar
 
   // --- Glass surfaces (cards, modals) ---
   // jemne "zelené sklo" (nie biela hmla)
@@ -17,7 +17,7 @@ export const natur = {
 
   // NEW: widget border (soft yellow) – len pre karty/widgety
   // bledá žltá, tlmená, nekričí, ale odlíši “kartu” od pozadia
-  natur_borderWidget: "rgba(232, 213, 135, 0.42)",
+  natur_borderWidget: "rgba(232, 213, 135, 0.42)",      //not seen?
 
   // Optional deeper surface for dense widgets / tables
   natur_surfaceSolid: "#0B1F16",
