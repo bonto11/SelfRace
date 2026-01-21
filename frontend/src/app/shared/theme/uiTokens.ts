@@ -425,3 +425,9 @@ export const WIDGET_ACTION_ROW_INNER = "flex-1 space-y-0.5";
 
 export const WIDGET_ACTION_CHEVRON_BTN =
   "mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs transition-colors";
+
+// app/shared/theme/uiTokens.ts – pridaj (ak ešte nemáš)
+export const WIDGET_INFO_GRID = "grid grid-cols-2 gap-x-3 gap-y-2 text-sm";
+export const WIDGET_LABEL_MUTED = "opacity-75";
+export const WIDGET_VALUE_STRONG = "font-semibold truncate";
+export const WIDGET_BADGES_WRAP = "flex flex-wrap gap-1.5";
