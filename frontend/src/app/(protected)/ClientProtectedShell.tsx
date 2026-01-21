@@ -16,6 +16,7 @@ import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDa
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
+import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 import { appColors } from "@/app/shared/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
 
@@ -28,46 +29,42 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
-              <div
-                className="min-h-dvh flex flex-col"
-                style={{
-                  background: appColors.backgroundMain,
-                  color: appColors.textPrimary,
-                }}
-              >
-                {/* TOPBAR */}
-                <header
-                  className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
-                  style={{
-                    background: appColors.backgroundAlt,
-                    borderBottom: `1px solid ${appColors.divider}`,
-                    paddingTop: "env(safe-area-inset-top)" as any,
-                  }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="font-semibold truncate">SelfRace</div>
-                  </div>
-                  <UserMenu />
-                </header>
+              <AppBackdrop>
+                <div className="min-h-dvh flex flex-col">
+                  {/* TOPBAR */}
+                  <header
+                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur-xl"
+                    style={{
+                      background: appColors.surfaceCard,
+                      borderBottom: `1px solid ${appColors.divider}`,
+                      paddingTop: "env(safe-area-inset-top)" as any,
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="font-semibold truncate">SelfRace</div>
+                    </div>
+                    <UserMenu />
+                  </header>
 
-                {/* CONTENT */}
-                <div className="flex-1">
-                  {/* Desktop */}
-                  <div className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}>
-                    <Sidebar />
-                    <div className="min-h-dvh flex flex-col">
-                      <main className="flex-1 p-3 lg:p-4 pb-4">{children}</main>
+                  {/* CONTENT */}
+                  <div className="flex-1">
+                    {/* Desktop */}
+                    <div className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}>
+                      <Sidebar />
+                      <div className="min-h-dvh flex flex-col">
+                        <main className="flex-1 p-3 lg:p-4 pb-4">{children}</main>
+                      </div>
+                    </div>
+
+                    {/* Mobile */}
+                    <div className="lg:hidden min-h-dvh flex flex-col">
+                      <main className="flex-1 p-3 pb-20">{children}</main>
                     </div>
                   </div>
 
-                  {/* Mobile */}
-                  <div className="lg:hidden min-h-dvh flex flex-col">
-                    <main className="flex-1 p-3 pb-20">{children}</main>
-                  </div>
+                  <MobileBottomBar />
                 </div>
-
-                <MobileBottomBar />
-              </div>
+              </AppBackdrop>
             </RecoveryDataProvider>
           </ActivityDataProvider>
         </CoachDataProvider>

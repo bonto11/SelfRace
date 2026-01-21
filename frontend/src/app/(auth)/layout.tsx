@@ -2,20 +2,17 @@
 import type { ReactNode } from "react";
 import ToastHost from "@/app/shared/components/ui/Toast";
 import ConfirmHost from "@/app/shared/components/ui/Confirm";
-import { appColors } from "@/app/shared/theme/app_colors";
+import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        background: appColors.backgroundMain,
-        color: appColors.textPrimary,
-      }}
-    >
-      {children}
-      <ToastHost />
-      <ConfirmHost />
-    </div>
+    <html lang="sk">
+      <body>
+        <AppBackdrop>{children}</AppBackdrop>
+
+        <ToastHost />
+        <ConfirmHost />
+      </body>
+    </html>
   );
 }
