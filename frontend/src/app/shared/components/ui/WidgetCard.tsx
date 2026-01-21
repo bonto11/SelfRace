@@ -11,7 +11,6 @@ import {
   WIDGET_HINT,
   WIDGET_NOTE,
   WIDGET_FOOTER,
-  WIDGET_ACCENT_BAR,
 } from "@/app/shared/theme/uiTokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
@@ -54,11 +53,14 @@ export default function WidgetCard({
 }: Props) {
   const isInteractive = interactive ?? Boolean(href || onOpen);
 
-  // keep existing token classes (padding etc.), but make the OUTER the only “card”
+  // ✅ dôležité: zrušíme "kartu v karte"
+  // - outer nech je jediná karta (border/shadow/rounded/overflow)
+  // - padding presunieme do vnútra
+  // - accent bar dáme FULL WIDTH na spodok outeru (nie do paddingu)
   const outer = cx(
     WIDGET_CARD,
     isInteractive && WIDGET_CARD_INTERACTIVE,
-    "relative overflow-hidden", // ✅ all gradients/background live here (no card-in-card)
+    "p-0 relative overflow-hidden block", // p-0 prepíše WIDGET_CARD p-3
     className
   );
 
@@ -74,12 +76,11 @@ export default function WidgetCard({
     `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
 
   const accentIsPaint = isCssPaint(accentValue);
-  const accentClass = accentIsPaint ? "" : accentValue;
   const accentStyle = accentIsPaint ? { background: accentValue } : undefined;
 
   const content = (
     <>
-      {/* ✅ background layers belong to the OUTER card */}
+      {/* Backdrop vrstvy priamo v OUTER (nie v inner) */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -93,12 +94,16 @@ export default function WidgetCard({
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: "linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.52))",
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.52))",
         }}
       />
 
-      {/* ✅ real content (no extra rounded card inside) */}
-      <div className={cx(WIDGET_INNER, "relative z-10", innerClassName)} style={{ minHeight: minH }}>
+      {/* Reálny obsah (padding tu) */}
+      <div
+        className={cx(WIDGET_INNER, "relative flex flex-col p-3", innerClassName)}
+        style={{ minHeight: minH }}
+      >
         {(title || isInteractive) && (
           <div className="flex items-center justify-between gap-2 mb-2">
             {title ? (
@@ -116,23 +121,28 @@ export default function WidgetCard({
         </div>
 
         {footer && <div className={WIDGET_FOOTER}>{footer}</div>}
-
-        {/* ✅ accent spans the FULL outer card width (no “karta v karte”) */}
-        <div
-          className={cx(
-            WIDGET_ACCENT_BAR,
-            accentClass,
-            "w-full -mx-3 -mb-3 mt-3 rounded-b-2xl" // p-3 in WIDGET_CARD -> extend to edges
-          )}
-          style={accentStyle}
-        />
       </div>
+
+      {/* ✅ Accent FULL WIDTH na spodku OUTER (už nie je “vnorený”) */}
+      <div
+        className="h-1.5 w-full"
+        style={{
+          ...(accentStyle ?? {}),
+          borderBottomLeftRadius: 16,
+          borderBottomRightRadius: 16,
+        }}
+      />
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className={outer} style={outerStyle} aria-label={title || "Widget"}>
+      <Link
+        href={href}
+        className={outer}
+        style={outerStyle}
+        aria-label={title || "Widget"}
+      >
         {content}
       </Link>
     );
