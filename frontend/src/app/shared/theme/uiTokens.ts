@@ -377,3 +377,16 @@ export const COLOR_PREFS_ACTIVE =
 export const COLOR_PREFS_INACTIVE =
   `bg-[${appColors.pillBg}] text-[${appColors.pillText}] border-[${appColors.pillBorder}] ` +
   `hover:bg-[${appColors.pillBgHover}]`;
+
+export const WIDGET_LOADING_CENTER = "grid place-items-center py-6";
+
+export const WIDGET_META_LABEL =
+  "text-[11px] uppercase tracking-wide opacity-70";
+
+export const WIDGET_VALUE_ROW = "mt-1 flex items-end gap-2";
+
+export const WIDGET_VALUE_MAIN = "text-4xl font-extrabold tabular-nums";
+
+export const WIDGET_VALUE_UNIT = "text-base align-top ml-1";
+
+export const WIDGET_PLACEHOLDER = "text-xs opacity-60";
