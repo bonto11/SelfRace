@@ -18,11 +18,15 @@ import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/Reco
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
-
+import Image from "next/image";
 // ✅ sem si daj import tvojho AppBackdrop
 import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 
-export default function ClientProtectedShell({ children }: { children: ReactNode }) {
+export default function ClientProtectedShell({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <>
       <UserPrefsBootstrapper />
@@ -55,7 +59,17 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
                     }}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="font-semibold truncate">SelfRace</div>
+                      <Image
+                        src="/logo/Selfrace_noname.png"
+                        alt="SelfRace"
+                        width={120}
+                        height={28}
+                        priority
+                        className="h-6 w-auto opacity-95"
+                      />
+                      <div className="font-semibold truncate hidden sm:block">
+                        SelfRace
+                      </div>
                     </div>
                     <UserMenu />
                   </header>
@@ -63,10 +77,16 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
                   {/* CONTENT */}
                   <div className="flex-1">
                     {/* Desktop */}
-                    <div className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}>
+                    <div
+                      className={["hidden lg:grid h-full", SHELL_GRID].join(
+                        " "
+                      )}
+                    >
                       <Sidebar />
                       <div className="min-h-dvh flex flex-col">
-                        <main className="flex-1 p-3 lg:p-4 pb-4">{children}</main>
+                        <main className="flex-1 p-3 lg:p-4 pb-4">
+                          {children}
+                        </main>
                       </div>
                     </div>
 
