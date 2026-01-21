@@ -4,13 +4,13 @@
 
 export const natur = {
   // --- Backgrounds ---
-  natur_backgroundMain: "#0A640A",
-  natur_backgroundAlt: "#091812",
+  natur_backgroundMain: "#0A3214",   
+  natur_backgroundAlt: "#0A1E14",
 
   // --- Glass surfaces (cards, modals) ---
   // jemne "zelené sklo" (nie biela hmla)
-  natur_surfaceGlass: "rgba(10, 26, 19, 0.55)",
-  natur_surfaceGlassHover: "rgba(10, 26, 19, 0.70)",
+  natur_surfaceGlass: "rgba(10, 30, 20, 0.50)",
+  natur_surfaceGlassHover: "rgba(10, 40, 20, 0.70)",
 
   // Default border (globálny, neutrál) – nech kalendár dni nie sú žlté
   natur_borderGlass: "#123025",
