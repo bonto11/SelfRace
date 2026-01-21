@@ -6,7 +6,6 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
-import { THEME } from "@/app/shared/theme/tokens";
 import { NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { fmtDate } from "@/app/shared/utils/time";
 
@@ -17,20 +16,31 @@ import type {
   MetricHistoryRow,
 } from "@/app/features/profile/types/profile";
 
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_LOADING_CENTER,
+  WIDGET_META_LABEL,
+  WIDGET_VALUE_ROW,
+  WIDGET_VALUE_MAIN,
+  WIDGET_VALUE_UNIT,
+  WIDGET_PLACEHOLDER,
+} from "@/app/shared/theme/uiTokens";
+
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
 type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete"))
-    return (THEME as any)?.chart?.athletes ?? "#10B981";
-  if (l.includes("fitness")) return (THEME as any)?.chart?.fitness ?? "#14B8A6";
-  if (l.includes("average")) return (THEME as any)?.chart?.average ?? "#F59E0B";
-  if (l.includes("essential"))
-    return (THEME as any)?.chart?.essential ?? "#22D3EE";
-  if (l.includes("obese")) return (THEME as any)?.chart?.obese ?? "#F43F5E";
-  return (THEME as any)?.chart?.neutral ?? "#64748B";
+
+  // bez statických farieb: napojené na appColors
+  if (l.includes("athlete")) return appColors.brandPrimary;
+  if (l.includes("fitness")) return appColors.accentTeal;
+  if (l.includes("average")) return appColors.statusWarning;
+  if (l.includes("essential")) return appColors.chartLine3;
+  if (l.includes("obese")) return appColors.statusError;
+
+  return appColors.textMuted;
 }
 
 function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
@@ -67,15 +77,9 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
         if (!alive) return;
 
-        if (staticProfile) {
-          setStat(staticProfile);
-        } else {
-          setStat(null);
-        }
+        setStat(staticProfile ?? null);
 
-        const rowsBE: MetricHistoryRow[] = Array.isArray(history)
-          ? history
-          : [];
+        const rowsBE: MetricHistoryRow[] = Array.isArray(history) ? history : [];
         const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
 
         const last: MetricsRowFE | null = lastBE
@@ -100,40 +104,40 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const pct = latest?.body_fat_pct ?? null;
   const level = classifyBodyFat(stat?.sex ?? "M", pct);
 
-  const accentHex =
+  const accent =
     level?.color ??
-    (THEME as any)?.accent?.primary ??
-    (THEME as any)?.chart?.neutral ??
-    "#64748B";
+    appColors.brandPrimary; // konzistentný default, bez THEME fallbackov
 
   return (
     <WidgetCard
       title="Body Fat %"
       onOpen={handleOpen}
       interactive={!!handleOpen}
-      accent={accentHex}
+      accent={accent}
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-[11px] uppercase opacity-70">
+            <div className={WIDGET_META_LABEL}>
               merané: {fmtDate(latest?.updated_at)}
             </div>
-            <div className="mt-1 flex items-end gap-2">
-              <div className="text-4xl font-extrabold tabular-nums">
+
+            <div className={WIDGET_VALUE_ROW}>
+              <div className={WIDGET_VALUE_MAIN}>
                 {pct != null ? pct.toFixed(1) : "—"}
-                <span className="text-base align-top ml-1">%</span>
+                <span className={WIDGET_VALUE_UNIT}>%</span>
               </div>
+
               {level ? (
                 <Pill label={level.label} color={level.color} />
               ) : (
-                <span className="text-xs opacity-60">—</span>
+                <span className={WIDGET_PLACEHOLDER}>—</span>
               )}
             </div>
           </div>
