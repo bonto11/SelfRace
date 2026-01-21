@@ -32,13 +32,6 @@ export default function LandingPage() {
               />
             </div>
 
-            <p
-              className="text-xs uppercase tracking-[0.25em] mb-4"
-              style={{ color: appColors.textMuted }}
-            >
-              SELF-RACE by Patrik Mbontar
-            </p>
-
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight">
               Osobný tréningový coach, ktorý pozná tvoje dáta.
             </h1>
