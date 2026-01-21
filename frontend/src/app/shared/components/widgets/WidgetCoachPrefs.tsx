@@ -3,29 +3,47 @@
 
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import { THEME } from "@/app/shared/theme/tokens";
 import SportBadge from "@/app/shared/components/ui/SportBadge";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_INFO_GRID,
+  WIDGET_LABEL_MUTED,
+  WIDGET_VALUE_STRONG,
+  WIDGET_BADGES_WRAP,
+} from "@/app/shared/theme/uiTokens";
 
 type Props = { onOpenDetail?: () => void };
 
 function pickAccent(goal?: string | null, primarySport?: string | null) {
   const g = (goal || "").toLowerCase();
-  if (
-    g.includes("vo2") ||
-    g.includes("speed") ||
-    g.includes("5k") ||
-    g.includes("10k")
-  )
-    return THEME.chart.athletes;
-  if (g.includes("fat") || g.includes("weight") || g.includes("cut"))
-    return THEME.chart.fair;
-  if (g.includes("base") || g.includes("z2") || g.includes("endurance"))
-    return THEME.chart.fitness;
-  if (primarySport && (THEME.chart as any)[primarySport]) {
-    return (THEME.chart as any)[primarySport] as string;
+
+  // speed/VO2/5k/10k
+  if (g.includes("vo2") || g.includes("speed") || g.includes("5k") || g.includes("10k")) {
+    return appColors.accentTeal;
   }
-  return THEME.chart.neutral;
+
+  // fat loss / cut
+  if (g.includes("fat") || g.includes("weight") || g.includes("cut")) {
+    return appColors.accentLime;
+  }
+
+  // base / z2 / endurance
+  if (g.includes("base") || g.includes("z2") || g.includes("endurance")) {
+    return appColors.brandPrimary;
+  }
+
+  // fallback: main sport accent (keď nemáš sport mapu v appColors, daj konzistentný default)
+  if (primarySport) {
+    // ak chceš neskôr presné farby za šport, tu to napojíš na appColors.sportRun atď.
+    // zatiaľ nech je to stabilné a konzistentné:
+    if (primarySport === "run") return appColors.brandPrimary;
+    if (primarySport === "ride") return appColors.accentTeal;
+    if (primarySport === "swim") return appColors.statusInfo;
+    if (primarySport === "strength") return appColors.accentLime;
+  }
+
+  return appColors.textMuted;
 }
 
 export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
@@ -55,19 +73,19 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={160}
     >
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-        <div className="opacity-75">Goal</div>
-        <div className="font-semibold truncate">{prefs?.goal_kind ?? "—"}</div>
+      <div className={WIDGET_INFO_GRID}>
+        <div className={WIDGET_LABEL_MUTED}>Goal</div>
+        <div className={WIDGET_VALUE_STRONG}>{prefs?.goal_kind ?? "—"}</div>
 
-        <div className="opacity-75">Weeks</div>
-        <div className="font-semibold">{prefs?.weeks ?? "—"}</div>
+        <div className={WIDGET_LABEL_MUTED}>Weeks</div>
+        <div className={WIDGET_VALUE_STRONG}>{prefs?.weeks ?? "—"}</div>
 
-        <div className="opacity-75">Sports</div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className={WIDGET_LABEL_MUTED}>Sports</div>
+        <div className={WIDGET_BADGES_WRAP}>
           {sports.length ? (
             sports.map((sport) => <SportBadge key={sport} sport={sport} />)
           ) : (
-            <span className="font-semibold">—</span>
+            <span className={WIDGET_VALUE_STRONG}>—</span>
           )}
         </div>
       </div>
