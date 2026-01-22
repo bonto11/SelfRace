@@ -4,8 +4,11 @@
 import { useCallback, useState } from "react";
 import TrendWeeklyLoad from "@/app/features/activities/components/TrendWeeklyLoad";
 import ActivityTable from "@/app/features/activities/components/ActivityTable";
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
-import type { WeekPick, Range } from "@/app/features/activities/types/activities";
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import type {
+  WeekPick,
+  Range,
+} from "@/app/features/activities/types/activities";
 
 export default function Page() {
   const [range, setRange] = useState<Range>({});
@@ -18,7 +21,7 @@ export default function Page() {
 
   return (
     <>
-      <ButtonBack title="Weekly Load trend" />
+      <AppHeader title="Weekly load trend" showBack={true} container />
 
       <div className="max-w-screen-lg mx-auto px-3">
         <div className="mt-3">

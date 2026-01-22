@@ -1,6 +1,6 @@
 // src/app/(protected)/trends/vo2max/page.tsx
 "use client";
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/AppHeader";
 import TrendBodyFat from "@/app/features/profile/components/TrendBodyFat";
 export default function Page() {
   return (

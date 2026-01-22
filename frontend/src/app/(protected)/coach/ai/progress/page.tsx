@@ -1,6 +1,6 @@
 "use client";
 
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/AppHeader";
 import DetailAthleteProgress from "@/app/features/coach/components/DetailAthleteProgress";
 
 export default function Page() {

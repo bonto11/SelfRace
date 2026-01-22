@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/AppHeader";
 
 // dynamický import komponentu s grafom
 const RHRDetailClient = dynamic(

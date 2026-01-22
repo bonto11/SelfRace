@@ -1,7 +1,7 @@
 // src/app/coach/ai/athleteState/page.tsx
 "use client";
 
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/AppHeader";
 import DetailAthleteState from "@/app/features/coach/components/DetailAthleteState";
 
 export default function Page() {

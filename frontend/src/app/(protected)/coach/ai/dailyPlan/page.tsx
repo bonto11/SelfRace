@@ -1,7 +1,7 @@
 // src/app/coach/ai/daily/page.tsx
 "use client";
 
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/AppHeader";
 import DetailDailyPlan from "@/app/features/coach/components/DetailDailyPlan";
 
 export default function Page() {

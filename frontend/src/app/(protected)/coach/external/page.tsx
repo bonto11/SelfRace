@@ -1,7 +1,7 @@
 // src/app/coach/external/page.tsx
 "use client";
 
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import ButtonBack from "@/app/shared/components/ui/AppHeader";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import DetailExternalEvents from "@/app/features/coach/components/DetailExternalEvents";
 
