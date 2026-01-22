@@ -46,6 +46,8 @@ export const THEME = {
     essential : '#EF4444', // červená
     obese     : '#EF4444', // červená
 
+    bad       : '#EF4444', // červená
+    danger    : '#60A5FA', // “↓ OK” – modrá (match s bike)
     positive  : '#00E676', // “↑ OK” – zhodné s excellent/athletes
     warning   : '#F59E0B', // pozor – jantár (match so strength)
     cool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
