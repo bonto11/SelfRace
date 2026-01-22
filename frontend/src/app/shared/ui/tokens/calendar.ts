@@ -1,5 +1,7 @@
 // src/app/shared/ui/tokens/calendar.ts
-import { SURFACE_CARD } from "./core";
+import type * as React from "react";
+import { appColors } from "@/app/shared/theme/app_colors";
+import { SURFACE_CARD, SURFACE_CARD_STYLE } from "./core";
 
 /* ============================================================================
    CALENDAR TOKENS
@@ -11,8 +13,21 @@ import { SURFACE_CARD } from "./core";
 
 export const CALENDAR_PAGE_WRAP = "space-y-3";
 
+/** Layout-only */
 export const CALENDAR_CONTAINER = SURFACE_CARD + " p-3";
 export const CALENDAR_HEADER_BAR = SURFACE_CARD + " p-3";
+
+/**
+ * Farby pre container/header (aby si to nemusel riešiť v každom komponente zvlášť)
+ * Default je SURFACE_CARD_STYLE, ale exportujem to tu pre pohodlie.
+ */
+export const CALENDAR_CONTAINER_STYLE: React.CSSProperties = {
+  ...SURFACE_CARD_STYLE,
+};
+
+export const CALENDAR_HEADER_BAR_STYLE: React.CSSProperties = {
+  ...SURFACE_CARD_STYLE,
+};
 
 export const CALENDAR_TITLE_ROW = "flex items-center justify-between gap-3";
 export const CALENDAR_TITLE = "text-lg font-semibold";
@@ -63,7 +78,8 @@ export const CALENDAR_ITEMS_WRAP =
   "mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center";
 
 export const CALENDAR_DOT = "inline-block w-1.5 h-1.5 rounded-full";
-export const CALENDAR_PLAN_DOT = "inline-block w-1.5 h-1.5 rounded-full border"; // border color via style
+export const CALENDAR_PLAN_DOT =
+  "inline-block w-1.5 h-1.5 rounded-full border"; // border color via style
 export const CALENDAR_MARK = "text-[11px] leading-none font-semibold";
 export const CALENDAR_MORE = "text-[10px] opacity-70";
 
@@ -98,7 +114,14 @@ export const CAL_WIDGET_ITEMS_WRAP =
   "mt-1.5 px-0.5 flex flex-wrap gap-1 items-center";
 
 export const CAL_WIDGET_DOT = "inline-block w-1.5 h-1.5 rounded-full";
-export const CAL_WIDGET_PLAN_DOT = "inline-block w-1.5 h-1.5 rounded-full border";
+export const CAL_WIDGET_PLAN_DOT =
+  "inline-block w-1.5 h-1.5 rounded-full border";
 export const CAL_WIDGET_MARK =
   "inline-flex items-center justify-center w-3 h-3 text-[9px] leading-none";
 export const CAL_WIDGET_MORE = "text-[10px] opacity-70";
+
+/* (optional) ak chceš mať aj widget cell style export z jedného miesta */
+export const CAL_WIDGET_DAY_CELL_STYLE: React.CSSProperties = {
+  background: appColors.inputBg ?? appColors.backgroundAlt,
+  borderColor: appColors.surfaceCardBorder,
+};
