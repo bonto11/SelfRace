@@ -1,9 +1,12 @@
 // src/app/shared/ui/tokens/core.ts
+import type * as React from "react";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 /* ===== SURFACES (JEDINÝ ZDROJ PRAVDY PRE KARTY) ======================== */
-// src/app/shared/ui/tokens/core.ts
-import { appColors } from "@/app/shared/theme/app_colors";
+/**
+ * Tokeny sú LEN layout classnames.
+ * Farby idú cez inline style – aby sme nemali runtime Tailwind (bg-[${...}]).
+ */
 
 export const SURFACE_CARD = [
   "rounded-2xl",
@@ -30,6 +33,18 @@ export const SURFACE_SUBCARD_STYLE: React.CSSProperties = {
   borderColor: appColors.surfaceCardBorder,
 };
 
+export const SURFACE_INSET = [
+  "rounded-2xl",
+  "border",
+  "backdrop-blur",
+  "text-left",
+].join(" ");
+
+export const SURFACE_INSET_STYLE: React.CSSProperties = {
+  background: appColors.surfaceSolid,
+  borderColor: appColors.surfaceCardBorder,
+};
+
 export const SURFACE_INLINE = [
   "rounded-xl",
   "border",
@@ -40,16 +55,6 @@ export const SURFACE_INLINE_STYLE: React.CSSProperties = {
   background: appColors.backgroundAlt,
   borderColor: appColors.surfaceCardBorder,
 };
-
-
-export const SURFACE_INSET = [
-  "rounded-2xl",
-  "border",
-  `border-[${appColors.surfaceCardBorder}]`,
-  `bg-[${appColors.surfaceSolid}]`,
-  "backdrop-blur",
-  "text-left",
-].join(" ");
 
 /* ===== PADDING PRE KARTY ============================================== */
 
@@ -67,22 +72,31 @@ export const SUBCARD = SURFACE_SUBCARD;
 export const PANEL = SURFACE_INSET;
 
 /* ===== DETAIL / FLUSH VARIANTY ======================================== */
-
+/** Layout-only */
 export const FLUSH_DETAIL = [
   "mt-2",
   "-mx-5 px-5 pt-2 pb-4",
   "border-t",
-  `border-[${appColors.surfaceCardBorder}]`,
 ].join(" ");
 
+/** Farby pre FLUSH_DETAIL */
+export const FLUSH_DETAIL_STYLE: React.CSSProperties = {
+  borderColor: appColors.surfaceCardBorder,
+};
+
+/** Layout-only */
 export const FLUSH_DETAIL_PB = [
   "mt-2",
   "overflow-hidden rounded-xl",
   "border",
-  `border-[${appColors.surfaceCardBorder}]`,
-  `bg-[${appColors.backgroundAlt}]`,
   "px-3 md:px-4 pb-3",
 ].join(" ");
+
+/** Farby pre FLUSH_DETAIL_PB */
+export const FLUSH_DETAIL_PB_STYLE: React.CSSProperties = {
+  background: appColors.backgroundAlt,
+  borderColor: appColors.surfaceCardBorder,
+};
 
 /* ===== GLOBAL SAFETY =================================================== */
 
