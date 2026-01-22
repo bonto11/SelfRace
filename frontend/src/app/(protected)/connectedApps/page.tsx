@@ -5,10 +5,6 @@ import { PAGE_INTRO, PAGE_INTRO_TITLE, PAGE_INTRO_TEXT } from "@/app/shared/ui/t
 
 import StravaPanel from "@/app/features/strava/components/StravaPanel";
 
-export const metadata = {
-  title: "Connected apps",
-};
-
 export default function ConnectedAppsPage() {
   return (
     <>
