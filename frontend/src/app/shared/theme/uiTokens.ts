@@ -456,3 +456,22 @@ export const WIDGET_EMPTY = "opacity-75 text-sm py-6";
 export const WIDGET_CENTER = "w-full flex items-center justify-center";
 export const WIDGET_FOOTNOTE = "mt-3 text-xs opacity-85";
 export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
+
+/* ===== CALENDAR PANEL / HEADER / LEGEND =============================== */
+export const CALENDAR_PAGE_WRAP = "space-y-3";
+
+export const CALENDAR_TITLE_ROW = "flex items-center justify-between";
+export const CALENDAR_TITLE = "text-lg font-semibold";
+
+export const CALENDAR_NAV_ROW = "flex items-center gap-2";
+export const CALENDAR_NAV_NUDGE = "translate-y-[2px]";
+export const CALENDAR_MONTH_LABEL =
+  "mx-1 text-base font-semibold min-w-[160px] text-center";
+
+export const CALENDAR_LEGEND_WRAP =
+  "mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70";
+export const CALENDAR_LEGEND_ITEM = "flex items-center gap-1";
+export const CALENDAR_LEGEND_DOT = "inline-block w-2 h-2 rounded-full";
+export const CALENDAR_LEGEND_TINY = "text-[9px] leading-none";
+
+export const CALENDAR_ERROR_LINE = "mt-1 mb-1 text-[11px] text-red-300 line-clamp-2";
