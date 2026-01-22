@@ -6,10 +6,6 @@ import { PAGE_INTRO, PAGE_INTRO_TITLE, PAGE_INTRO_TEXT } from "@/app/shared/ui/t
 import PersonalSettingsPanel from "@/app/features/account/components/PersonalSettingsPanel";
 import BillingPanel from "@/app/features/billing/components/BillingPanel";
 
-export const metadata = {
-  title: "Account & Settings",
-};
-
 export default function AccountPage() {
   return (
     <>
