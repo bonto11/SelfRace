@@ -30,3 +30,6 @@ export const PAGE_GRID_3 =
 
 /* ✅ intro text (jednotný štýl pre popisy pod headerom) */
 export const PAGE_INTRO = "text-sm opacity-70";
+
+export const PAGE_INTRO_TITLE = "text-base font-semibold";
+export const PAGE_INTRO_TEXT = "text-sm opacity-70 leading-snug";
