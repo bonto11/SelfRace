@@ -1,8 +1,10 @@
+// src/features/calendar/grid/CalendarGrid.tsx
 "use client";
 
 import * as React from "react";
 import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
 import CalendarDayCell from "@/app/features/calendar/grid/CalendarDayCell";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 type Props = {
   cells: DayCellData[];
@@ -11,10 +13,18 @@ type Props = {
   sportColors: Record<string, string>;
 };
 
-export default function CalendarGrid({ cells, selectedIso, setSelectedIso, sportColors }: Props) {
+export default function CalendarGrid({
+  cells,
+  selectedIso,
+  setSelectedIso,
+  sportColors,
+}: Props) {
   return (
     <>
-      <div className="mt-1 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide opacity-70">
+      <div
+        className="mt-1 grid grid-cols-7 gap-2 text-[11px] uppercase tracking-wide"
+        style={{ color: appColors.textMuted }}
+      >
         {["p", "u", "s", "š", "p", "s", "n"].map((d) => (
           <div key={d} className="text-center">
             {d}
@@ -29,7 +39,9 @@ export default function CalendarGrid({ cells, selectedIso, setSelectedIso, sport
             cell={c}
             isSelected={selectedIso === c.iso}
             sportColors={sportColors}
-            onSelect={(isoVal) => setSelectedIso((cur) => (cur === isoVal ? null : isoVal))}
+            onSelect={(isoVal) =>
+              setSelectedIso((cur) => (cur === isoVal ? null : isoVal))
+            }
           />
         ))}
       </div>

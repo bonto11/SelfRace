@@ -1,10 +1,25 @@
+// src/shared/components/widgets/WidgetCoachProgress.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_CENTER_SPINNER,
+  WIDGET_ERROR_BLOCK,
+  WIDGET_ERROR_SUB,
+  WIDGET_EMPTY_TEXT,
+  WIDGET_HEADLINE,
+  WIDGET_BULLET_LIST,
+  WIDGET_BULLET_ROW,
+  WIDGET_BULLET_DOT,
+  WIDGET_INFO_GRID_XS,
+  WIDGET_LABEL_MUTED_XS,
+  WIDGET_VALUE_STRONG_XS,
+} from "@/app/shared/ui/tokens";
+
 import {
   apiGetLatestAthleteProgress,
   type AthleteProgressRecord,
@@ -41,8 +56,7 @@ function slovakLevel(level?: string | null): string {
 }
 
 function buildUiState(row: AthleteProgressRecord | null): UiState {
-  const payload: any =
-    (row as any)?.report ?? (row as any)?.compare_previous ?? null;
+  const payload: any = (row as any)?.report ?? (row as any)?.compare_previous ?? null;
 
   if (!row || !payload) {
     return {
@@ -59,8 +73,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
 
   const cp = payload;
 
-  const headline: string | null =
-    cp.summary?.headline || cp.headline || null;
+  const headline: string | null = cp.summary?.headline || cp.headline || null;
 
   const bullets: string[] =
     toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
@@ -96,8 +109,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
     volumeLabel = `${fromH} h → ${toH} h / týždeň (min)`;
   }
 
-  let comparedAt: string | null =
-    cp.generated_at || row.created_at || null;
+  let comparedAt: string | null = cp.generated_at || row.created_at || null;
   if (comparedAt) {
     try {
       const d = new Date(comparedAt);
@@ -109,7 +121,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
         minute: "2-digit",
       });
     } catch {
-      // nechaj raw
+      // keep raw
     }
   }
 
@@ -143,10 +155,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteProgress(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive)
-          setError(
-            e?.message ?? "Chyba pri načítaní AI progress reportu."
-          );
+        if (alive) setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -159,11 +168,8 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
-  const accent =
-    THEME?.chart?.neutral ??
-    THEME?.chart?.lineSecondary ??
-    THEME?.chart?.run ??
-    "#3B82F6";
+  // konzistentný accent (bez THEME + bez hardcoded hex)
+  const accent = appColors.accentTeal;
 
   return (
     <WidgetCard
@@ -181,52 +187,50 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
       minH={190}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_CENTER_SPINNER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : error ? (
-        <div className="text-sm text-red-300">
+        <div className={WIDGET_ERROR_BLOCK}>
           Nepodarilo sa načítať progress report.
-          <div className="mt-1 text-xs opacity-70">{error}</div>
+          <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
-        <div className="text-sm opacity-80">
+        <div className={WIDGET_EMPTY_TEXT}>
           Chýba userId (useUserId). Skontroluj autentifikáciu.
         </div>
       ) : !ui.hasData ? (
-        <div className="text-sm opacity-80">
-          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch
-          analyzovaných týždňoch sa tu zobrazí prehľad progresu.
+        <div className={WIDGET_EMPTY_TEXT}>
+          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch analyzovaných týždňoch sa tu
+          zobrazí prehľad progresu.
         </div>
       ) : (
         <>
-          {ui.headline && (
-            <div className="text-sm font-medium mb-1">{ui.headline}</div>
-          )}
+          {ui.headline && <div className={WIDGET_HEADLINE}>{ui.headline}</div>}
 
-          {ui.bullets && ui.bullets.length > 0 && (
-            <ul className="text-xs space-y-1 mb-3">
+          {ui.bullets.length > 0 && (
+            <ul className={WIDGET_BULLET_LIST}>
               {ui.bullets.slice(0, 3).map((b, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-slate-400" />
+                <li key={i} className={WIDGET_BULLET_ROW}>
+                  <span className={WIDGET_BULLET_DOT} />
                   <span className="truncate">{b}</span>
                 </li>
               ))}
             </ul>
           )}
 
-          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-            <div className="opacity-70">Únava</div>
-            <div className="font-semibold">{ui.fatigueLabel ?? "—"}</div>
+          <div className={WIDGET_INFO_GRID_XS}>
+            <div className={WIDGET_LABEL_MUTED_XS}>Únava</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.fatigueLabel ?? "—"}</div>
 
-            <div className="opacity-70">Riziko zranenia</div>
-            <div className="font-semibold">{ui.injuryLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>Riziko zranenia</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.injuryLabel ?? "—"}</div>
 
-            <div className="opacity-70">Blok</div>
-            <div className="font-semibold">{ui.blockLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>Blok</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.blockLabel ?? "—"}</div>
 
-            <div className="opacity-70">Min. týždenný objem</div>
-            <div className="font-semibold">{ui.volumeLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>Min. týždenný objem</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.volumeLabel ?? "—"}</div>
           </div>
         </>
       )}

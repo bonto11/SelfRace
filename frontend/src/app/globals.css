@@ -2,103 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Layout / overflow hardening (nechávame) ===== */
+html,
 body {
-  @apply bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
 }
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* médiá nikdy nech nejdú mimo šírku rodiča */
+img,
+canvas,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-/* ===== Design tokens ===== */
-:root {
-  --background: #0b1020;    /* stránka */
-  --surface:    #131a2b;    /* polia, karty */
-  --border:     #2a3550;    /* okraje */
-  --text:       #e6eaf4;    /* primárny text */
-  --muted:      #9aa4bc;    /* sekundárny text / placeholder */
-
-  --primary:    #3b82f6;    /* tlačidlá, focus ring */
-  --on-primary: #ffffff;
-
-  --success:    #22c55e;
-  --danger:     #ef4444;
-  --warning:    #f59e0b;
-
-  --ring:       #60a5fa;    /* focus ring */
-}
-
-/* (ak používaš light mode, pridaj si aj .light) */
-.dark {
-  /* (môžeš neskôr doladiť, teraz necháme rovnaké) */
-}
-
-/* Utility – zvyš kontrast placeholderov a inputov */
-input::placeholder {
-  color: var(--muted);
-  opacity: 1;
-}
-
-/* --- Chart wrappers: nedovoliť canvasu rásť na výšku --- */
+/* --- Chart wrappers: canvas nesmie rásť na výšku --- */
 .chart-fixed-h {
   position: relative;
   width: 100%;
-  /* výška sa nastavuje inline na wrapper (style={{height: ...}}) */
 }
 .chart-fixed-h canvas {
   width: 100% !important;
-  height: 100% !important; /* kľúčové – nie auto */
+  height: 100% !important;
   display: block;
 }
 
 /* horizontálny scroller pre detail grafu */
 .hscroll {
   overflow-x: auto;
-  overflow-y: hidden;             /* dôležité – inak to „pretečie“ dole */
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 }
-
 .hscroll-inner {
-  display: inline-block;          /* nech minWidth platí len pre vnútro */
+  display: inline-block;
   width: auto;
   height: 100%;
 }
-
 .hscroll-inner canvas {
-  width: 100% !important;         /* drž sa šírky wrappera */
-  height: 100% !important;        /* drž sa výšky wrappera */
-  display: block;                 /* žiadne baseline medzery */
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
 /* Prevent intrinsic-width children (canvas) from widening ancestors */
-.min-w-0 { min-width: 0 !important; }
+.min-w-0 {
+  min-width: 0 !important;
+}
 
-/* Optional: a utility if you prefer a class name */
 .card-clamp {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
 }
 
+/* Toast animácie (nechávame) */
 .toast-enter {
   transform: translateX(28vw);
-  opacity: 0.0;
+  opacity: 0;
   transition: transform 320ms cubic-bezier(.22,.61,.36,1), opacity 320ms ease;
 }
 .toast-hold {
@@ -111,36 +80,23 @@ input::placeholder {
   opacity: 0;
   transition: transform 340ms cubic-bezier(.4,.0,.2,1), opacity 260ms ease;
 }
-@media (min-width: 640px) { /* desktop – kratšia dráha */
+@media (min-width: 640px) {
   .toast-enter { transform: translateX(340px); }
   .toast-exit  { transform: translateX(340px); }
 }
 
-
-/* === Anti-horizontal overflow hardening === */
-html, body {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;          /* istota */
-}
-
-*, *::before, *::after { box-sizing: border-box; }
-
-/* médiá nikdy nech nejdú mimo šírku rodiča */
-img, canvas, svg, video { max-width: 100%; height: auto; }
-
-/* bezpečný kontajner – používaj na page wrappre */
+/* Safe-page wrapper */
 .safe-page {
   position: relative;
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;            /* lepšie než hidden (Safari ok) */
+  overflow-x: clip;
 }
 
-/* pomoc pre flex kontajnery – dieťa sa smie zmenšiť */
-.flex-min-0 > * { min-width: 0; }
+.flex-min-0 > * {
+  min-width: 0;
+}
 
-/* iOS – nedovoľ horizontálny pan na swipe prvkoch mimo karty */
 .touch-pan-y {
   touch-action: pan-y;
 }

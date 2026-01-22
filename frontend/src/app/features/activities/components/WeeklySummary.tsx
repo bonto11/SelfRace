@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { SUBCARD } from "@/app/shared/ui/classes";
+import { SUBCARD } from "@/app/shared/theme/uiTokens";
 import { THEME } from "@/app/shared/theme/tokens";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 import { Metric } from "@/app/features/activities/types/activities";

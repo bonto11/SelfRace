@@ -3,6 +3,10 @@
 // IMPORTANT: This file MUST contain ONLY references to palette tokens.
 // No raw hex/rgba/shadow strings allowed.
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> cf0538bfc6c0d0e5c1dada1f9d088860bc501c80
 import { natur } from "./paletteNatur";
 
 export const appColors = {
@@ -13,10 +17,24 @@ export const appColors = {
   // Surfaces
   surfaceCard: natur.natur_surfaceGlass,
   surfaceCardHover: natur.natur_surfaceGlassHover,
+<<<<<<< HEAD
   surfaceCardBorder: natur.natur_borderGlass,
   surfaceSolid: natur.natur_surfaceSolid,
   surfaceSolidHover: natur.natur_surfaceSolidHover,
 
+=======
+  surfaceSolid: natur.natur_surfaceSolid,
+  surfaceSolidHover: natur.natur_surfaceSolidHover,
+
+   // Borders
+  surfaceCardBorder: natur.natur_borderGlass,  // neutrál (kalendár, bežné línie)
+  widgetBorder: natur.natur_borderWidget,      // NEW: len widgety/karty
+
+  // Accents (optional, keď chceš niečo “žlté miesto bielej”)
+  accentYellowSoft: natur.natur_accentYellowSoft,
+  accentYellowDim: natur.natur_accentYellowDim,
+
+>>>>>>> cf0538bfc6c0d0e5c1dada1f9d088860bc501c80
   divider: natur.natur_divider,
   overlay: natur.natur_overlay,
 

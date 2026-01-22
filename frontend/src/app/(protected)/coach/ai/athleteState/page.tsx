@@ -1,17 +1,20 @@
 // src/app/coach/ai/athleteState/page.tsx
 "use client";
 
-import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
 import DetailAthleteState from "@/app/features/coach/components/DetailAthleteState";
 
 export default function Page() {
   return (
-    <div className="max-w-screen-lg mx-auto px-3">
-      <ButtonBack title="Athlete state" />
+    <>
+      <AppHeader title="Athlete state" showBack container />
 
-      <div className="pt-3">
-        <DetailAthleteState />
+      <div className={PAGE_CONTAINER}>
+        <div className={PAGE_STACK}>
+          <DetailAthleteState />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

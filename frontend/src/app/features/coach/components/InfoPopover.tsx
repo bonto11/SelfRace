@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SURFACE_INSET } from "@/app/shared/ui/classes";
+import { SURFACE_INSET } from "@/app/shared/theme/uiTokens";
 
 export function InfoPopover({ text }: { text: string }) {
   const [open, setOpen] = useState(false);

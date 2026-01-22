@@ -1,3 +1,4 @@
+// src/shared/components/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -7,8 +8,14 @@ import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
-import { NO_X_OVERFLOW } from "@/app/shared/ui/classes";
 import { fmtDate } from "@/app/shared/utils/time";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import {
+  NO_X_OVERFLOW,
+  WIDGET_LOADING_WRAP,
+} from "@/app/shared/ui/tokens";
+
 import {
   HistoryRow,
   EstRow,
@@ -75,11 +82,9 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   let ranges: Range[] = [];
   try {
     const age = birthDate
-      ? Math.floor(
-          (Date.now() - new Date(birthDate).getTime()) /
-            (365.25 * 24 * 3600 * 1000)
-        )
+      ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000))
       : 0;
+
     const g = (vo2Ref as Group[]).find(
       (x) => x.sex === sex && age >= x.age_min && age <= x.age_max
     );
@@ -99,16 +104,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   };
 
   const levelMeasured = pickLevel(mVO2);
-  const levelEstimated = pickLevel(
-    Number.isFinite(est?.value as number) ? Number(est?.value) : null
-  );
+  const levelEstimated = pickLevel(Number.isFinite(est?.value as number) ? Number(est?.value) : null);
 
+  const CH = (THEME as any)?.chart ?? {};
   const accentHex =
     levelMeasured?.color ??
     levelEstimated?.color ??
     (THEME as any)?.accent?.primary ??
-    (THEME as any)?.chart?.neutral ??
-    "#64748B";
+    CH.neutral ??
+    appColors.brandPrimary;
 
   return (
     <WidgetCard
@@ -120,37 +124,33 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       innerClassName={NO_X_OVERFLOW}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] items-start gap-6 md:gap-10">
-          {/* ODHAD (ľavý blok) */}
           <div className="min-w-0">
             <div className="text-[11px] uppercase opacity-70">
               odhad: {fmtDate(est?.updated_at ?? null)}
             </div>
             <div className="mt-1 flex items-end gap-2">
               <div className="text-4xl font-extrabold tabular-nums">
-                {Number.isFinite(est?.value as number)
-                  ? Number(est?.value).toFixed(1)
-                  : "—"}
+                {Number.isFinite(est?.value as number) ? Number(est?.value).toFixed(1) : "—"}
               </div>
               {levelEstimated ? (
-                <Pill
-                  label={levelEstimated.label}
-                  color={levelEstimated.color}
-                />
+                <Pill label={levelEstimated.label} color={levelEstimated.color} />
               ) : (
                 <span className="text-xs opacity-60">—</span>
               )}
             </div>
           </div>
 
-          {/* separátor – md+ */}
-          <div className="hidden md:block w-px bg-white/10 mx-auto" />
+          <div
+            className="hidden md:block w-px mx-auto"
+            style={{ background: appColors.surfaceCardBorder, opacity: 0.6 }}
+            aria-hidden="true"
+          />
 
-          {/* MERANÉ (pravý blok) */}
           <div className="min-w-0">
             <div className="text-[11px] uppercase opacity-70">
               merané: {fmtDate(measured?.updated_at)}

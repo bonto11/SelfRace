@@ -7,7 +7,7 @@ import {
   SURFACE_CARD,
   SURFACE_INLINE,
   FLUSH_DETAIL,
-} from "@/app/shared/ui/classes";
+} from "@/app/shared/theme/uiTokens";
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
@@ -325,10 +325,7 @@ function DetailBody({
   // EXTERNAL
   if (item.kind === "external") {
     return (
-      <ExternalSessionDetail
-        variant={variant}
-        item={item as ExternalSession}
-      />
+      <ExternalSessionDetail variant={variant} item={item as ExternalSession} />
     );
   }
 

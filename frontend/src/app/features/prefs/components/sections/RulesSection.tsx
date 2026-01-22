@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import type { Preferences } from "@/app/features/prefs/types/prefs";
 
@@ -30,10 +30,12 @@ function normalizePrefs(p: any): Preferences {
 
   const two = incoming.two_a_day;
   const enabled = !!(two && typeof two === "object" ? two.enabled : false);
-  const maxRaw = two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
+  const maxRaw =
+    two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
   const max = Number.isFinite(maxRaw) ? Math.max(0, Math.min(2, maxRaw)) : 0;
 
-  const intensity_model = incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
+  const intensity_model =
+    incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
 
   const b = incoming.training_blocks;
   const training_blocks =
@@ -43,12 +45,15 @@ function normalizePrefs(p: any): Preferences {
 
   return {
     days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
-    long_run_days: Array.isArray(incoming.long_run_days) ? incoming.long_run_days : [],
+    long_run_days: Array.isArray(incoming.long_run_days)
+      ? incoming.long_run_days
+      : [],
     avoid_back_to_back_hard:
       typeof incoming.avoid_back_to_back_hard === "boolean"
         ? incoming.avoid_back_to_back_hard
         : true,
-    use_zones: typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
+    use_zones:
+      typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
     two_a_day: { enabled, max_days_per_week: max },
     intensity_model,
     training_blocks,
@@ -100,7 +105,10 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         ...prev,
         preferences: {
           ...cur,
-          two_a_day: { enabled: cur.two_a_day.enabled, max_days_per_week: clamped },
+          two_a_day: {
+            enabled: cur.two_a_day.enabled,
+            max_days_per_week: clamped,
+          },
         },
       };
     });
@@ -132,7 +140,9 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
     });
   };
 
-  const enabledShort = BASE_RULES.filter((r) => !!basePref[r.key]).map((r) => r.short);
+  const enabledShort = BASE_RULES.filter((r) => !!basePref[r.key]).map(
+    (r) => r.short
+  );
   const previewParts = [
     enabledShort.length ? enabledShort.join(", ") : "none",
     `model: ${basePref.intensity_model ?? "polarized"}`,
@@ -156,7 +166,12 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
       </div>
 
       {!open && (
-        <div className={[SURFACE_INLINE, "px-3 py-2 text-xs opacity-80 select-none"].join(" ")}>
+        <div
+          className={[
+            SURFACE_INLINE,
+            "px-3 py-2 text-xs opacity-80 select-none",
+          ].join(" ")}
+        >
           {previewText}
         </div>
       )}

@@ -6,15 +6,18 @@ import type {
   PlanStatus,
 } from "@/app/shared/components/session/SessionCard";
 
-// malé helpers
+/* ---------- small helpers (UI-friendly strings, no hardcoded colors) ---------- */
+
 function fmtMinutes(min?: number | null): string | null {
   if (typeof min !== "number" || !Number.isFinite(min) || min <= 0) return null;
   return `${Math.round(min)} min`;
 }
+
 function fmtDistanceKm(m?: number | null): string | null {
   if (typeof m !== "number" || !Number.isFinite(m) || m <= 0) return null;
   return `${(m / 1000).toFixed(2)} km`;
 }
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -46,10 +49,12 @@ export function buildDayBuckets({
   const tIso = todayIso();
 
   // --- activities for day ---
+  // ✅ FIX: activityId musí byť number (nie null). Nevalidné ID rovno vyhodíme.
   const actsForDay: SessionCardItem[] = actRows
     .filter((r) => String(r.date).slice(0, 10) === selectedIso)
+    .filter((r) => Number.isFinite(Number(r.activity_id))) // <-- fix
     .map((r) => {
-      const aid = Number(r.activity_id);
+      const aid = Number(r.activity_id); // teraz garantovane number
       const sport = safeSportKey(
         (r as any).sport || (r as any).sport_type_fe || "other"
       );
@@ -61,10 +66,10 @@ export function buildDayBuckets({
         dur ? { label: "TIME", value: dur } : null,
         dist ? { label: "DIST", value: dist } : null,
         r.average_heartrate_bpm != null
-          ? { label: "AVG HR", value: String(r.average_heartrate_bpm) }
+          ? { label: "AVG HR", value: String(Math.round(r.average_heartrate_bpm)) }
           : null,
         r.max_heartrate_bpm != null
-          ? { label: "MAX HR", value: String(r.max_heartrate_bpm) }
+          ? { label: "MAX HR", value: String(Math.round(r.max_heartrate_bpm)) }
           : null,
       ]);
 
@@ -81,9 +86,10 @@ export function buildDayBuckets({
         kpis,
         notes: null,
 
+        // ✅ must be number
         activityId: aid,
 
-        // fallbacky (ak summary ešte nie je v provider cache)
+        // fallbacky
         timeStr: dur ?? null,
         distanceStr: dist ?? null,
         avgHr: r.average_heartrate_bpm ?? null,
@@ -103,11 +109,7 @@ export function buildDayBuckets({
       const dIso = selectedIso;
       const hasAct =
         p.activity_id != null && !Number.isNaN(Number(p.activity_id));
-      const status: PlanStatus = hasAct
-        ? "done"
-        : dIso < tIso
-        ? "missed"
-        : "planned";
+      const status: PlanStatus = hasAct ? "done" : dIso < tIso ? "missed" : "planned";
 
       const title = String(
         sess?.title || sess?.name || sess?.session_type || p.title || "Plán"
@@ -122,7 +124,6 @@ export function buildDayBuckets({
 
       const intensity = sess?.intensity ?? p.intensity ?? null;
 
-      // (voliteľné) target – skús vyčítať z pár miest
       const target =
         sess?.target ??
         sess?.target_hr_bpm_range ??
@@ -142,8 +143,7 @@ export function buildDayBuckets({
           ? `power ${target.power}W`
           : null;
 
-      const notes =
-        sess?.notes ?? sess?.structure?.main?.notes ?? p?.notes ?? null;
+      const notes = sess?.notes ?? sess?.structure?.main?.notes ?? p?.notes ?? null;
 
       const kpis = asKpis([
         durStr ? { label: "DURATION", value: durStr } : null,
@@ -170,11 +170,11 @@ export function buildDayBuckets({
 
         planRaw: sess,
         planStructure: sess?.structure ?? null,
-        planExercises: Array.isArray(sess?.exercises) ? sess.exercises : [], // ✅ nikdy null
+        planExercises: Array.isArray(sess?.exercises) ? sess.exercises : [],
       };
     });
 
-  // --- externals (expandované cez occurrence_date) ---
+  // --- externals (expanded via occurrence_date / single_date) ---
   const externalsForDay: SessionCardItem[] = externalRows
     .filter((ev) => {
       const dIso = String(
@@ -213,8 +213,7 @@ export function buildDayBuckets({
       };
     });
 
-  // --- DEDUPE pravidlo ---
-  // Ak existuje activity pre šport S → schovaj plan/external S
+  // --- DEDUPE (vizuálne čistenie) ---
   const plansDeduped = plansForDay.filter((p: any) => !actSports.has(p.sport));
   const externalsDeduped = externalsForDay.filter(
     (e: any) => !actSports.has(e.sport)
@@ -237,12 +236,8 @@ export function buildDayBuckets({
     else planned.push(e);
   }
 
-  // stabilné radenie
-  const kindOrder: Record<string, number> = {
-    activity: 0,
-    plan: 1,
-    external: 2,
-  };
+  // stable sort
+  const kindOrder: Record<string, number> = { activity: 0, plan: 1, external: 2 };
   const sort = (arr: SessionCardItem[]) =>
     arr.sort(
       (a: any, b: any) =>

@@ -3,19 +3,25 @@
 
 import { useMemo } from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+
 import {
   compareLatestToBaseline,
   makeRollingBaseline,
   checkRecoveryFreshness,
 } from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 
-export default function WidgetHRV({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_LOADING_WRAP,
+  WIDGET_VALUE_ROW,
+  WIDGET_VALUE_PRIMARY,
+  WIDGET_VALUE_UNIT,
+  WIDGET_NOTE,
+} from "@/app/shared/ui/tokens";
+
+export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -23,8 +29,7 @@ export default function WidgetHRV({
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
-    () =>
-      rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
+    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
     [rows]
   );
 
@@ -55,9 +60,23 @@ export default function WidgetHRV({
     : Number.isFinite(yesterday)
     ? String(Math.round(yesterday as number))
     : "—";
+
   const note = showNA ? freshness.message : cmp.note;
 
-  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
+  // ✅ žiadne statické farby, žiadne tailwind bg-*
+  // cmp.accent môže byť class (bg-...) alebo paint (#/rgb/gradient). Pre istotu sanitizujeme.
+  const accent = (() => {
+    if (loading || showNA) return appColors.textMuted; // neutrál v loading/NA stave
+
+    const a = (cmp as any)?.accent;
+    if (!a) return appColors.accentTeal;
+
+    // ak je to tailwind class typu "bg-emerald-500" → nepoužívame
+    if (typeof a === "string" && /^bg-/.test(a)) return appColors.accentTeal;
+
+    // ak je to hex/rgb/gradient alebo nejaký token string, necháme (WidgetCard už vie paint vs class)
+    return a as string;
+  })();
 
   return (
     <WidgetCard
@@ -68,18 +87,16 @@ export default function WidgetHRV({
       minH={160}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <>
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl font-extrabold leading-none">
-              {valueText}
-            </span>
-            <span className="text-xl opacity-80">ms</span>
+          <div className={WIDGET_VALUE_ROW}>
+            <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
+            <span className={WIDGET_VALUE_UNIT}>ms</span>
           </div>
-          {note && <p className="opacity-80">{note}</p>}
+          {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>
       )}
     </WidgetCard>

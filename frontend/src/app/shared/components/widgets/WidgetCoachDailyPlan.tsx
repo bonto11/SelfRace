@@ -5,7 +5,26 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import {
+  WIDGET_LOADING_CENTER,
+  WIDGET_ERROR_TEXT,
+  WIDGET_ERROR_SUB,
+  WIDGET_INFO_TEXT,
+  WIDGET_EMPTY_TEXT,
+  WIDGET_KV_GRID,
+  WIDGET_KV_LABEL,
+  WIDGET_KV_VALUE,
+  WIDGET_SUMMARY_WRAP,
+  WIDGET_SUMMARY_HEAD,
+  WIDGET_LIST,
+  WIDGET_LIST_ITEM,
+  WIDGET_BULLET,
+  WIDGET_MORE_HINT,
+  WIDGET_TRUNCATE,
+} from "@/app/shared/ui/tokens";
+
 import {
   apiGetDailyOverview,
   type DailyOverview,
@@ -37,33 +56,26 @@ function buildUiState(overview: DailyOverview | null): UiState {
 
   const days = overview.days;
   const daysCount = days.length;
+
   let sessionsCount = 0;
-  for (const d of days) {
-    sessionsCount += d.sessions?.length ?? 0;
-  }
+  for (const d of days) sessionsCount += d.sessions?.length ?? 0;
 
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
-
-  let todayLabel: string | null = null;
-  let todaySessions: DailyPlanDay["sessions"] | null = null;
-
-  const todayDay = days.find((d) => d.date === todayStr);
-  if (todayDay) {
-    todayLabel = todayDay.date;
-    todaySessions = todayDay.sessions ?? [];
-  } else {
-    todayLabel = days[0]?.date ?? null;
-    todaySessions = days[0]?.sessions ?? [];
-  }
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayDay = days.find((d) => d.date === todayStr) ?? days[0];
 
   return {
     horizonDays: overview.horizon_days ?? daysCount,
     daysCount,
     sessionsCount,
-    todayLabel,
-    todaySessions,
+    todayLabel: todayDay?.date ?? null,
+    todaySessions: todayDay?.sessions ?? [],
   };
+}
+
+function pickAccent(ui: UiState) {
+  if (!ui.daysCount) return appColors.textMuted;
+  if (ui.todaySessions && ui.todaySessions.length > 0) return appColors.brandPrimary;
+  return appColors.accentTeal;
 }
 
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
@@ -96,67 +108,68 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   }, [userId]);
 
   const ui = useMemo(() => buildUiState(overview), [overview]);
+  const accent = useMemo(() => pickAccent(ui), [ui]);
 
-  const accent =
-    THEME?.chart?.run ??
-    THEME?.chart?.linePrimary ??
-    THEME?.chart?.neutral ??
-    "#22C55E";
+  const note = ui.daysCount
+    ? `Najbližších ${ui.daysCount} dní (horizon ${ui.horizonDays} d)`
+    : "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii.";
 
   return (
     <WidgetCard
       title="Coach — Daily plan"
-      note={
-        ui.daysCount
-          ? `Najbližších ${ui.daysCount} dní (horizon ${ui.horizonDays} d)`
-          : "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii."
-      }
+      note={note}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : error ? (
-        <div className="text-sm text-red-300">
+        <div className={WIDGET_ERROR_TEXT}>
           Nepodarilo sa načítať daily plán.
-          <div className="mt-1 text-xs opacity-70">{error}</div>
+          <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
-        <div className="text-sm opacity-80">
+        <div className={WIDGET_INFO_TEXT}>
           Chýba userId (useUserId). Skontroluj autentifikáciu.
         </div>
       ) : !overview || !ui.daysCount ? (
-        <div className="text-sm opacity-80">
-          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa
-          tu zobrazí prehľad najbližších dní.
+        <div className={WIDGET_EMPTY_TEXT}>
+          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa tu
+          zobrazí prehľad najbližších dní.
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-            <div className="opacity-75">Počet dní</div>
-            <div className="font-semibold">{ui.daysCount}</div>
+          <div className={WIDGET_KV_GRID}>
+            <div className={WIDGET_KV_LABEL}>Počet dní</div>
+            <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
 
-            <div className="opacity-75">Počet tréningov</div>
-            <div className="font-semibold">{ui.sessionsCount}</div>
+            <div className={WIDGET_KV_LABEL}>Počet tréningov</div>
+            <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
 
-            <div className="opacity-75">Dnešok / najbližší deň</div>
-            <div className="font-semibold truncate">{ui.todayLabel ?? "—"}</div>
+            <div className={WIDGET_KV_LABEL}>Dnešok / najbližší deň</div>
+            <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
+              {ui.todayLabel ?? "—"}
+            </div>
           </div>
 
           {ui.todaySessions && ui.todaySessions.length > 0 && (
-            <div className="mt-3 text-xs">
-              <div className="opacity-80 mb-1">
+            <div className={WIDGET_SUMMARY_WRAP}>
+              <div className={WIDGET_SUMMARY_HEAD}>
                 Dnešný plán (skrátený prehľad):
               </div>
-              <ul className="space-y-1">
+
+              <ul className={WIDGET_LIST}>
                 {ui.todaySessions.slice(0, 3).map((s, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    <span className="truncate">
+                  <li key={i} className={WIDGET_LIST_ITEM}>
+                    <span
+                      className={WIDGET_BULLET}
+                      style={{ background: appColors.brandPrimary }}
+                    />
+                    <span className={WIDGET_TRUNCATE}>
                       {s.title || s.session_type || s.sport}
                       {s.duration_min ? ` · ${s.duration_min} min` : ""}
                       {s.intensity ? ` · ${s.intensity}` : ""}
@@ -164,8 +177,9 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
                   </li>
                 ))}
               </ul>
+
               {ui.todaySessions.length > 3 && (
-                <div className="mt-1 text-[11px] opacity-70">
+                <div className={WIDGET_MORE_HINT}>
                   + {ui.todaySessions.length - 3} ďalších blokov…
                 </div>
               )}

@@ -8,7 +8,7 @@ import {
   CHART_HR,
   FLUSH_DETAIL_PB,
   SCROLL_X,
-} from "@/app/shared/ui/classes";
+} from "@/app/shared/theme/uiTokens";
 import type { StreamsData } from "@/app/features/activities/types/activities";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 
@@ -314,19 +314,16 @@ export function ActivityStreamCharts({
   metric,
   sportHint,
 }: ActivityStreamChartsProps) {
-  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } =
-    streams;
+  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } = streams;
 
   const hasTime = Array.isArray(time_s) && time_s.length > 0;
   const hasHr = Array.isArray(hr) && hr.length > 0;
-  const hasAlt =
-    Array.isArray(altitude_m) && altitude_m.some((v) => v != null);
+  const hasAlt = Array.isArray(altitude_m) && altitude_m.some((v) => v != null);
   const hasDist =
     Array.isArray(distance_m) && distance_m.some((v) => v != null);
   const hasCad =
     Array.isArray(cadence_rpm) && cadence_rpm.some((v) => v != null);
-  const hasPow =
-    Array.isArray(power_w) && power_w.some((v) => v != null);
+  const hasPow = Array.isArray(power_w) && power_w.some((v) => v != null);
 
   const isRunSport = useMemo(() => {
     if (!sportHint) return false;
@@ -395,14 +392,7 @@ export function ActivityStreamCharts({
           </div>
         );
       }
-      return (
-        <BaseStreamChart
-          {...common}
-          ys={hr}
-          yLabel="bpm"
-          mode="hr"
-        />
-      );
+      return <BaseStreamChart {...common} ys={hr} yLabel="bpm" mode="hr" />;
     }
 
     if (metric === "elevation") {

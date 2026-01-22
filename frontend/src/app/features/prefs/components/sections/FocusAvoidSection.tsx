@@ -5,7 +5,7 @@ import { useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 
 const FOCUS_CHOICES = [
   "ankle_strength",

@@ -7,18 +7,22 @@ import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
 import { apiGetBests } from "@/app/features/bests/api/bests";
 
 import { distanceLabel } from "@/app/features/bests/utils/bests";
-
 import { type UserBest } from "@/app/features/bests/types/bests";
+
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/app/shared/utils/time";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
-export default function WidgetPB({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
+import {
+  WIDGET_LOADING_WRAP,
+  WIDGET_METRIC_VALUE,
+  WIDGET_FOOTNOTE,
+  WIDGET_EMPTY,
+} from "@/app/shared/ui/tokens";
+
+export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { userId } = useUserId();
   const { favM } = useFavoritePBRun();
 
@@ -28,6 +32,7 @@ export default function WidgetPB({
   useEffect(() => {
     if (!userId) return;
     let alive = true;
+
     (async () => {
       setLoading(true);
       try {
@@ -37,6 +42,7 @@ export default function WidgetPB({
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
@@ -48,14 +54,18 @@ export default function WidgetPB({
   );
 
   const main =
-    fav?.best_time_s != null
-      ? secToHHMMSS(fav.best_time_s)
-      : fav?.time_str ?? "—";
+    fav?.best_time_s != null ? secToHHMMSS(fav.best_time_s) : fav?.time_str ?? "—";
 
   const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
-  // farby z témy (fallback na neutrál, ak by chýbali tokens)
-  const accent = THEME?.chart?.run ?? THEME?.chart?.positive ?? "#10B981";
+  const CH = (THEME as any)?.chart ?? {};
+  const accent =
+    CH.run ??
+    CH.positive ??
+    CH.fitness ??
+    CH.neutral ??
+    (THEME as any)?.accent?.primary ??
+    appColors.brandPrimary;
 
   return (
     <WidgetCard
@@ -67,20 +77,18 @@ export default function WidgetPB({
       minH={160}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : fav ? (
         <>
           <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-extrabold leading-none tabular-nums">
-              {main}
-            </span>
+            <span className={WIDGET_METRIC_VALUE}>{main}</span>
           </div>
-          <div className="mt-1 text-xs opacity-80">{sub}</div>
+          <div className={WIDGET_FOOTNOTE}>{sub}</div>
         </>
       ) : (
-        <div className="text-sm opacity-80">
+        <div className={WIDGET_EMPTY}>
           Zatiaľ nemáš PB pre obľúbenú vzdialenosť.
           <br />
           Otvor detail a pridaj svoj rekord.

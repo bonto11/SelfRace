@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 import { safeText } from "./sessionUtils";
 
 export type Metric = { label: ReactNode; value: ReactNode };
@@ -12,7 +12,11 @@ export function MetricGrid({
   cols?: 2 | 3 | 4;
 }) {
   const colCls =
-    cols === 2 ? "sm:grid-cols-2" : cols === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4";
+    cols === 2
+      ? "sm:grid-cols-2"
+      : cols === 3
+      ? "sm:grid-cols-3"
+      : "sm:grid-cols-4";
 
   return (
     <div className={`mt-1 grid grid-cols-1 ${colCls} gap-3`}>

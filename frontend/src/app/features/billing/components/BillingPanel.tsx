@@ -29,7 +29,7 @@ import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/classes";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
 

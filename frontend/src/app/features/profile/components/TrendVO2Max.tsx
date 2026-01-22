@@ -10,7 +10,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/ui/classes";
+import { CARD, SCROLL_X } from "@/app/shared/theme/uiTokens";
 import { inputClass } from "@/app/shared/ui";
 
 import type {
@@ -31,7 +31,7 @@ const DAY = 24 * 3600 * 1000;
 const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
 export default function TrendVO2Max() {
-  const { userId} = useUserId() as {
+  const { userId } = useUserId() as {
     userId: number | null;
   };
 

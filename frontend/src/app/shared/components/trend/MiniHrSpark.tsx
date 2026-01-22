@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { CHART_SPARK } from "@/app/shared/ui/classes";
+import { CHART_SPARK } from "@/app/shared/theme/uiTokens";
 
 type Props = { activityId: number; height?: number };
 

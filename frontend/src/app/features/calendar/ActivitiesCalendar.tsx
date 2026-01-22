@@ -8,17 +8,43 @@ import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataPro
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+
 import Button from "@/app/shared/components/ui/Button";
-import { CALENDAR_CONTAINER, NO_X_OVERFLOW } from "@/app/shared/ui/classes";
+
+import {
+  CALENDAR_CONTAINER,
+  CALENDAR_CONTAINER_STYLE,
+  CALENDAR_PAGE_WRAP,
+  CALENDAR_TITLE_ROW,
+  CALENDAR_TITLE,
+  CALENDAR_NAV_ROW,
+  CALENDAR_NAV_NUDGE,
+  CALENDAR_MONTH_LABEL,
+  CALENDAR_LEGEND_WRAP,
+  CALENDAR_LEGEND_ITEM,
+  CALENDAR_LEGEND_DOT,
+  CALENDAR_LEGEND_TINY,
+  CALENDAR_ERROR_LINE,
+} from "@/app/shared/ui/tokens/calendar";
+
+import {
+  NO_X_OVERFLOW,
+} from "@/app/shared/ui/tokens/core";
+
+
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 import CalendarGrid from "@/app/features/calendar/grid/CalendarGrid";
 import DayDetail from "@/app/features/calendar/detail/DayDetail";
+
 import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarExternals";
 import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
+
+/* ---------- look: consistent sport colors (theme tokens only) ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
@@ -51,7 +77,6 @@ export default function ActivitiesCalendar({
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
-  // === NOVÉ: plán ide z CoachDataProvideru ===
   const { plan } = useCoachData();
   const { rows: planRows } = plan;
 
@@ -68,17 +93,17 @@ export default function ActivitiesCalendar({
   const range = React.useMemo(() => gridRange42(year, month0), [year, month0]);
   const externals = useCalendarExternals(userId, range);
 
-  // ─────────────────────────────
   // 1) sety (date|sportKey), kde už je plán alebo aktivita
-  // ─────────────────────────────
   const planSlots = React.useMemo(() => {
     const slots = new Set<string>();
     for (const p of planRows as any[]) {
       const dIso = String(p.plan_date ?? "").slice(0, 10);
       if (!dIso) continue;
+
       const sess: any = p.payload ?? p;
       if (isRestSession(p, sess)) continue;
-      const sportKey = safeSportKey(sess.sport);
+
+      const sportKey = safeSportKey(sess.sport ?? p.sport);
       slots.add(`${dIso}|${sportKey}`);
     }
     return slots;
@@ -89,15 +114,13 @@ export default function ActivitiesCalendar({
     for (const a of actRows as any[]) {
       const dIso = String(a.date ?? "").slice(0, 10);
       if (!dIso) continue;
-      const sportKey = safeSportKey(a.sport_type_fe ?? a.sport_type);
+      const sportKey = safeSportKey(a.sport_type_fe ?? a.sport_type ?? a.sport);
       slots.add(`${dIso}|${sportKey}`);
     }
     return slots;
   }, [actRows]);
 
-  // ─────────────────────────────
-  // 2) globálne odfiltrujeme external events
-  // ─────────────────────────────
+  // 2) globálne odfiltrujeme external events (len vizuálne prečistíme grid)
   const filteredExternalRows = React.useMemo(() => {
     const rows = (externals.rows ?? []) as ExternalEvent[];
     if (!rows.length) return rows;
@@ -106,9 +129,7 @@ export default function ActivitiesCalendar({
       const dIso = eventDateIso(ev);
       if (!dIso) return false;
 
-      const sportKey = safeSportKey(
-        (ev as any).sport ?? (ev as any).sport_type
-      );
+      const sportKey = safeSportKey((ev as any).sport ?? (ev as any).sport_type);
       const key = `${dIso}|${sportKey}`;
 
       if (planSlots.has(key)) return false;
@@ -118,9 +139,7 @@ export default function ActivitiesCalendar({
     });
   }, [externals.rows, planSlots, activitySlots]);
 
-  // ─────────────────────────────
-  // 3) map pre grid – tu už (v hooku) prebehne dedupeCalendarItems
-  // ─────────────────────────────
+  // 3) map pre grid – dedupe v hooku
   const map = useCalendarMap({
     year,
     month0,
@@ -181,13 +200,18 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
-  return (
-    <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-      <div className={CALENDAR_CONTAINER}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
+  // vizuálne: tiny symbol farby konzistentné (nech nie je vždy run)
+  const colPlan = THEME.chart.run;
+  const colExternal = THEME.chart.other;
+  const colActivity = THEME.chart.run;
 
-          <div className="flex items-center gap-2 translate-y-[2px]">
+  return (
+    <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
+      <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
+        <div className={CALENDAR_TITLE_ROW}>
+          <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
+
+          <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
             <Button
               variant="ghost"
               size="sm"
@@ -198,9 +222,7 @@ export default function ActivitiesCalendar({
               ‹
             </Button>
 
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">
-              {label}
-            </div>
+            <div className={CALENDAR_MONTH_LABEL}>{label}</div>
 
             <Button
               variant="ghost"
@@ -215,44 +237,45 @@ export default function ActivitiesCalendar({
         </div>
 
         {/* legenda */}
-        <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
-          <div className="flex items-center gap-1">
+        <div className={CALENDAR_LEGEND_WRAP}>
+          <div className={CALENDAR_LEGEND_ITEM}>
             <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.other }}
+              className={CALENDAR_LEGEND_DOT}
+              style={{ backgroundColor: colExternal }}
             />
             <span>external</span>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className={CALENDAR_LEGEND_ITEM}>
             <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.run }}
+              className={CALENDAR_LEGEND_DOT}
+              style={{ backgroundColor: colActivity }}
             />
             <span>aktivita</span>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className={CALENDAR_LEGEND_ITEM}>
             <span
-              className="inline-block w-2 h-2 rounded-full border"
-              style={{
-                borderColor: THEME.chart.run,
-                backgroundColor: "transparent",
-              }}
+              className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
+              style={{ borderColor: colPlan, backgroundColor: "transparent" }}
             />
             <span>plán</span>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className={CALENDAR_LEGEND_ITEM}>
             <span
-              className="text-[9px] leading-none"
-              style={{ color: THEME.chart.run }}
+              className={CALENDAR_LEGEND_TINY}
+              style={{ color: appColors.statusInfo }}
             >
               ✓
             </span>
             <span>splnený plán</span>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className={CALENDAR_LEGEND_ITEM}>
             <span
-              className="text-[9px] leading-none"
-              style={{ color: THEME.chart.run }}
+              className={CALENDAR_LEGEND_TINY}
+              style={{ color: appColors.statusWarning }}
             >
               ×
             </span>
@@ -261,9 +284,7 @@ export default function ActivitiesCalendar({
         </div>
 
         {externals.err && (
-          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">
-            {externals.err}
-          </div>
+          <div className={CALENDAR_ERROR_LINE}>{externals.err}</div>
         )}
 
         <CalendarGrid

@@ -5,7 +5,18 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  WIDGET_CENTER_SPINNER,
+  WIDGET_ERROR_BLOCK,
+  WIDGET_ERROR_SUB,
+  WIDGET_EMPTY_TEXT,
+  WIDGET_INFO_GRID_SM,
+  WIDGET_LABEL_MUTED_SM,
+  WIDGET_VALUE_STRONG_SM,
+  WIDGET_NOTE_P_SM,
+} from "@/app/shared/ui/tokens";
+
 import {
   apiGetLatestWeeklyPlan,
   type WeeklyPlanLatest,
@@ -117,19 +128,14 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(plan), [plan]);
 
-  const accent =
-    THEME?.chart?.linePrimary ??
-    THEME?.chart?.lineSecondary ??
-    THEME?.chart?.neutral ??
-    "#F59E0B";
+  // bez THEME + bez hardcoded hex
+  const accent = appColors.brandPrimary;
 
   return (
     <WidgetCard
       title="Coach — Weekly plan"
       note={
-        ui.lastPlanRange
-          ? `Rozsah plánu: ${ui.lastPlanRange}`
-          : "Vygeneruj weekly plán cez AI."
+        ui.lastPlanRange ? `Rozsah plánu: ${ui.lastPlanRange}` : "Vygeneruj weekly plán cez AI."
       }
       accent={accent}
       onOpen={onOpenDetail}
@@ -137,45 +143,40 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
       minH={180}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_CENTER_SPINNER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : error ? (
-        <div className="text-sm text-red-300">
+        <div className={WIDGET_ERROR_BLOCK}>
           Nepodarilo sa načítať weekly plán.
-          <div className="mt-1 text-xs opacity-70">{error}</div>
+          <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
-        <div className="text-sm opacity-80">
+        <div className={WIDGET_EMPTY_TEXT}>
           Chýba userId (useUserId). Skontroluj autentifikáciu.
         </div>
       ) : !plan ? (
-        <div className="text-sm opacity-80">
-          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget
-          sa naplní.
+        <div className={WIDGET_EMPTY_TEXT}>
+          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget sa naplní.
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-            <div className="opacity-75">Počet týždňov</div>
-            <div className="font-semibold">{ui.weeksCount || "—"}</div>
+          <div className={WIDGET_INFO_GRID_SM}>
+            <div className={WIDGET_LABEL_MUTED_SM}>Počet týždňov</div>
+            <div className={WIDGET_VALUE_STRONG_SM}>{ui.weeksCount || "—"}</div>
 
-            <div className="opacity-75">Aktuálny týždeň</div>
-            <div className="font-semibold">{ui.currentWeekLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_SM}>Aktuálny týždeň</div>
+            <div className={WIDGET_VALUE_STRONG_SM}>{ui.currentWeekLabel ?? "—"}</div>
 
-            <div className="opacity-75">Focus</div>
-            <div className="font-semibold truncate">
-              {ui.currentWeekFocus ?? "—"}
-            </div>
+            <div className={WIDGET_LABEL_MUTED_SM}>Focus</div>
+            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekFocus ?? "—"}</div>
 
-            <div className="opacity-75">Fáza</div>
-            <div className="font-semibold truncate">
-              {ui.currentWeekLoad ?? "—"}
-            </div>
+            <div className={WIDGET_LABEL_MUTED_SM}>Fáza</div>
+            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekLoad ?? "—"}</div>
           </div>
 
           {ui.currentWeekFocus && (
-            <p className="mt-3 text-xs opacity-80">
+            <p className={WIDGET_NOTE_P_SM}>
               Tento týždeň: {ui.currentWeekFocus}
               {ui.currentWeekLoad ? ` (${ui.currentWeekLoad})` : ""}
             </p>

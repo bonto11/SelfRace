@@ -6,7 +6,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/components/ui/Button";
 import { Plus, Minus } from "lucide-react";
 import { toast } from "@/app/shared/components/ui/Toast";
-import { CARD, ICON_BUTTON } from "@/app/shared/ui/classes";
+import { CARD, ICON_BUTTON } from "@/app/shared/theme/uiTokens";
 import { inputClass, labelClass } from "@/app/shared/ui";
 
 import {

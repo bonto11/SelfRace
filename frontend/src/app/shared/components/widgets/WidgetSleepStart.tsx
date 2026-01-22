@@ -10,19 +10,48 @@ import {
 import { HHMMToMinutes, minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import {
+  WIDGET_LOADING_WRAP,
+  WIDGET_VALUE_ROW,
+  WIDGET_VALUE_PRIMARY,
+  WIDGET_NOTE,
+} from "@/app/shared/ui/tokens";
 
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
 const TOL_MIN = 30;
 
 // hranica, od ktorej berieme spánok ako "večer predtým"
-// všetko pred 18:00 berieme na porovnanie ako +24h (čiže po polnoci)
 const EVENING_START_MIN = 18 * 60; // 18:00
 
-export default function WidgetSleepStart({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
+function pickAccentFromCmp(
+  cmpAccent: unknown,
+  opts: { loading: boolean; showNA: boolean }
+) {
+  const CH = (THEME as any)?.chart ?? {};
+
+  if (opts.loading || opts.showNA) {
+    return CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+  }
+
+  // cmp.accent často býva "bg-..." alebo text s farbou → mapujeme
+  const a = String(cmpAccent ?? "").toLowerCase();
+
+  if (a.includes("red"))
+    return CH.danger ?? CH.obese ?? CH.warning ?? appColors.statusError;
+
+  if (a.includes("amber") || a.includes("yellow"))
+    return CH.warning ?? CH.average ?? CH.fair ?? appColors.statusWarning;
+
+  if (a.includes("emerald") || a.includes("green"))
+    return CH.positive ?? CH.fitness ?? CH.good ?? appColors.brandPrimary;
+
+  return CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
+}
+
+export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -43,33 +72,24 @@ export default function WidgetSleepStart({
     return typeof v === "number" ? v : null;
   }, [values]);
 
-  // úprava: časy po polnoci (napr. 00:30 = 30 min) berieme na porovnanie ako 24:30 (= 1470)
+  // časy po polnoci porovnávame ako +24h
   const latestForCompare = useMemo<number | null>(() => {
     if (latest == null) return null;
-    if (latest < EVENING_START_MIN) {
-      // spánok po polnoci - posuň o 24h, aby to bolo "neskôr než 22:30"
-      return latest + 24 * 60;
-    }
-    // normálny večer (18:00–24:00) – nechávame tak
+    if (latest < EVENING_START_MIN) return latest + 24 * 60;
     return latest;
   }, [latest]);
 
-  const cmp = compareTimeToBaselineMinutes(
-    latestForCompare,
-    FIX_BASELINE_MIN,
-    TOL_MIN
-  );
+  const cmp = compareTimeToBaselineMinutes(latestForCompare, FIX_BASELINE_MIN, TOL_MIN);
+
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA
-    ? "—"
-    : Number.isFinite(latest as number)
-    ? minutesToHHMM(latest as number)
-    : "—";
+  const valueText =
+    showNA ? "—" : Number.isFinite(latest) ? minutesToHHMM(latest as number) : "—";
 
   const note = showNA ? freshness.message : cmp.note;
-  const accent = loading || showNA ? "bg-slate-700" : cmp.accent;
+
+  const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
@@ -80,17 +100,15 @@ export default function WidgetSleepStart({
       minH={160}
     >
       {loading ? (
-        <div className="grid place-items-center py-6">
+        <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <>
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl font-extrabold leading-none">
-              {valueText}
-            </span>
+          <div className={WIDGET_VALUE_ROW}>
+            <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
           </div>
-          {note && <p className="opacity-80">{note}</p>}
+          {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>
       )}
     </WidgetCard>

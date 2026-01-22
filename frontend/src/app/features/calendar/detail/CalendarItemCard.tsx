@@ -1,12 +1,13 @@
+// src/features/calendar/detail/CalendarItemCard.tsx
 "use client";
 
 import * as React from "react";
-import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/ui/classes";
+
+import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+
 import SportBadge from "@/app/shared/components/ui/SportBadge";
-import type {
-  CalendarItemKind,
-  CalendarPlanStatus,
-} from "@/app/features/calendar/types/calendarTypes";
+import type { CalendarItemKind, CalendarPlanStatus } from "@/app/features/calendar/types/calendarTypes";
 
 type Props = {
   kind: CalendarItemKind;
@@ -16,28 +17,22 @@ type Props = {
   sport: string;
   title: string;
 
-  // pre plan (optional)
   status?: CalendarPlanStatus;
 
-  // meta
-  timeLabel?: string | null; // pre external (start time)
-  distanceKm?: number | null; // activity
-  durationMin?: number | null; // activity
-  kpis?: Array<{ label: string; value: string }>; // plan KPI
+  timeLabel?: string | null;
+  distanceKm?: number | null;
+  durationMin?: number | null;
+  kpis?: Array<{ label: string; value: string }>;
 
-  notes?: string | null; // plan notes / external notes
-  realSummary?: string | null; // "Real: …" pre linked plan (len ak chceš)
+  notes?: string | null;
+  realSummary?: string | null;
 
-  onOpenActivity?: (() => void) | null; // pre activity (ak chceš otvoriť detail)
+  onOpenActivity?: (() => void) | null;
 };
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
@@ -48,12 +43,27 @@ function statusLabel(status: CalendarPlanStatus) {
   return "planned";
 }
 
-function statusCls(status: CalendarPlanStatus): string {
-  if (status === "done")
-    return "border-emerald-500/80 text-emerald-300 bg-emerald-500/5";
-  if (status === "missed")
-    return "border-orange-500/80 text-orange-300 bg-orange-500/5";
-  return "border-slate-500/80 text-slate-200 bg-slate-500/5";
+function statusStyle(status: CalendarPlanStatus): React.CSSProperties {
+  // ✅ no tailwind emerald/orange; use appColors only
+  if (status === "done") {
+    return {
+      borderColor: appColors.statusInfo,
+      color: appColors.statusInfo,
+      background: "transparent",
+    };
+  }
+  if (status === "missed") {
+    return {
+      borderColor: appColors.statusWarning,
+      color: appColors.statusWarning,
+      background: "transparent",
+    };
+  }
+  return {
+    borderColor: appColors.surfaceCardBorder,
+    color: appColors.textMuted,
+    background: "transparent",
+  };
 }
 
 export default function CalendarItemCard({
@@ -97,21 +107,19 @@ export default function CalendarItemCard({
         onClick={() => (hasBody ? setOpen((o) => !o) : null)}
         className="w-full text-left flex items-center justify-between gap-3"
       >
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-0.5 min-w-0">
           <div className="text-[11px] uppercase opacity-70">
             {prettySkDate(dateIso)}
             {timeLabel ? ` • ${timeLabel}` : ""}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-sm">{title}</span>
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="font-semibold text-sm truncate">{title}</span>
 
             {status && (
               <span
-                className={[
-                  "inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border",
-                  statusCls(status),
-                ].join(" ")}
+                className="inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border"
+                style={statusStyle(status)}
               >
                 {statusLabel(status)}
               </span>
@@ -125,33 +133,27 @@ export default function CalendarItemCard({
 
         <div className="flex items-center gap-2">
           <SportBadge sport={sport} />
-          {hasBody && (
-            <span className="text-xs opacity-60">{open ? "▴" : "▾"}</span>
-          )}
+          {hasBody && <span className="text-xs opacity-60">{open ? "▴" : "▾"}</span>}
         </div>
       </button>
 
       {open && hasBody && (
-        <div className="mt-2 pt-2 border-t border-neutral-800 text-xs space-y-3">
+        <div
+          className="mt-2 pt-2 text-xs space-y-3"
+          style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}
+        >
           {kpis && kpis.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {kpis.map((k) => (
-                <div
-                  key={k.label}
-                  className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-                >
+                <div key={k.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
                   <div className="text-[10px] opacity-70">{k.label}</div>
-                  <div className="text-xl font-semibold tabular-nums">
-                    {k.value}
-                  </div>
+                  <div className="text-xl font-semibold tabular-nums">{k.value}</div>
                 </div>
               ))}
             </div>
           )}
 
-          {notes && (
-            <div className="text-xs sm:text-sm opacity-90">{notes}</div>
-          )}
+          {notes && <div className="text-xs sm:text-sm opacity-90">{notes}</div>}
 
           {realSummary && (
             <div className="text-xs sm:text-sm">
@@ -161,11 +163,16 @@ export default function CalendarItemCard({
           )}
 
           {onOpenActivity && (
-            <div className="pt-2 border-t border-neutral-800">
+            <div style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }} className="pt-2">
               <button
                 type="button"
                 onClick={onOpenActivity}
-                className="text-xs px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10"
+                className="text-xs px-3 py-2 rounded-lg"
+                style={{
+                  background: appColors.buttonGhostBgHover,
+                  border: `1px solid ${appColors.surfaceCardBorder}`,
+                  color: appColors.textPrimary,
+                }}
               >
                 Otvoriť aktivitu
               </button>

@@ -7,6 +7,15 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import { THEME } from "@/app/shared/theme/tokens";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import {
+  WIDGET_LOADING_WRAP,
+  WIDGET_VALUE_ROW,
+  WIDGET_VALUE_PRIMARY,
+  WIDGET_VALUE_UNIT,
+  WIDGET_NOTE,
+} from "@/app/shared/ui/tokens";
 
 export default function WeeklyLoadWidget({
   title = "Záťaž – posledných 7 dní",
@@ -17,27 +26,30 @@ export default function WeeklyLoadWidget({
 }) {
   const { rolling7, loading } = useActivityData();
 
-  // môže byť undefined, tak ošetri:
-  const r7 = rolling7?.("time"); // čas v minútach
+  const r7 = rolling7?.("time");
   const totalLast = Number(r7?.last?.sum ?? 0);
   const totalPrev = Number(r7?.prev?.sum ?? 0);
 
   const { h, m } = useMemo(() => minToHM(totalLast), [totalLast]);
 
-  // ak nie je predchádzajúce okno, diffPct = null
   const diffPct: number | null = useMemo(() => {
     if (!totalPrev) return null;
     return ((totalLast - totalPrev) / totalPrev) * 100;
   }, [totalLast, totalPrev]);
 
-  // text + accent (THEME fallbacky)
-  const colNeutral = THEME?.chart?.neutral ?? "#64748B";
-  const colUp = THEME?.chart?.positive ?? "#10B981";
-  const colWarn = THEME?.chart?.warning ?? "#F59E0B";
-  const colDown = THEME?.chart?.cool ?? "#3B82F6";
+  const CH = (THEME as any)?.chart ?? {};
+
+  const colNeutral =
+    CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+  const colUp =
+    CH.positive ?? CH.good ?? CH.fitness ?? colNeutral;
+  const colWarn =
+    CH.warning ?? CH.average ?? CH.hard20 ?? colNeutral;
+  const colDown =
+    CH.cool ?? CH.lineSecondary ?? colNeutral;
 
   let note = "—";
-  let accent: string | undefined = colNeutral;
+  let accent: string = colNeutral;
 
   if (!loading) {
     if (diffPct == null) {
@@ -45,13 +57,13 @@ export default function WeeklyLoadWidget({
       accent = colNeutral;
     } else if (diffPct > 20) {
       note = "↑ oproti predošlým 7 dňom výrazne viac";
-      accent = colWarn; // jantár
+      accent = colWarn;
     } else if (diffPct < -20) {
       note = "↓ výrazne menej než predchádzajúcich 7 dní";
-      accent = colDown; // modrá
+      accent = colDown;
     } else {
       note = "≈ podobne ako predchádzajúcich 7 dní";
-      accent = colUp; // zelená
+      accent = colUp;
     }
   }
 
@@ -60,37 +72,33 @@ export default function WeeklyLoadWidget({
       ? fmtRange(r7.last.range.start, r7.last.range.end)
       : "—";
 
+  const valueText = loading ? "—" : `${h}h ${String(m).padStart(2, "0")}m`;
+
   return (
     <WidgetCard
       title={title}
-      accent={accent} // ← prijíma hex aj Tailwind class
+      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
     >
       {loading ? (
-        <div
-          className="w-full flex items-center justify-center py-4"
-          aria-live="polite"
-        >
+        <div className={WIDGET_LOADING_WRAP} aria-live="polite">
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <>
-          <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-extrabold leading-none tabular-nums">
-              {h}
-            </span>
-            <span className="text-xl opacity-80">h</span>
-            <span className="text-5xl font-extrabold leading-none tabular-nums">
-              {m.toString().padStart(2, "0")}
-            </span>
-            <span className="text-xl opacity-80">m</span>
+          <div className={WIDGET_VALUE_ROW}>
+            <span className={WIDGET_VALUE_PRIMARY}>{h}</span>
+            <span className={WIDGET_VALUE_UNIT}>h</span>
+            <span className={WIDGET_VALUE_PRIMARY}>{String(m).padStart(2, "0")}</span>
+            <span className={WIDGET_VALUE_UNIT}>m</span>
           </div>
 
-          <div className="opacity-80 text-sm mt-1">
-            {note} {rangeTxt && rangeTxt !== "—" ? ` • ${rangeTxt}` : ""}
-          </div>
+          <p className={WIDGET_NOTE}>
+            {note}
+            {rangeTxt && rangeTxt !== "—" ? ` • ${rangeTxt}` : ""}
+          </p>
         </>
       )}
     </WidgetCard>
