@@ -27,10 +27,9 @@ function pickDayCellStyle(opts: {
 }) {
   const { inMonth, isSelected, isToday } = opts;
 
-  // base
   const style: React.CSSProperties = {
     border: `1px solid ${appColors.surfaceCardBorder}`,
-    background: appColors.surfaceCardBg,
+    background: appColors.surfaceCard, // ✅ FIX: surfaceCardBg neexistuje
     color: appColors.textPrimary,
     transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
     boxShadow: "none",
@@ -42,7 +41,7 @@ function pickDayCellStyle(opts: {
     style.borderColor = appColors.textMuted;
   }
 
-  // selected (stronger ring-ish look, but still appColors)
+  // selected (ring-ish)
   if (isSelected) {
     style.borderColor = appColors.brandPrimary;
     style.boxShadow = `0 0 0 2px ${appColors.brandPrimary}33`; // 20% alpha
@@ -73,7 +72,7 @@ export default function CalendarDayCell({
     dots.push({ key: `p-${it.id}`, sport: String(it.sport), kind });
   }
 
-  const style = pickDayCellStyle({
+  const baseStyle = pickDayCellStyle({
     inMonth: !!cell.inMonth,
     isSelected,
     isToday,
@@ -88,32 +87,28 @@ export default function CalendarDayCell({
         CALENDAR_DAY_CELL,
         "min-h-[56px]",
       ].join(" ")}
-      style={style}
+      style={baseStyle}
       aria-pressed={isSelected}
       onMouseEnter={(e) => {
-        // hover look (no tailwind bg-*): slightly brighter bg
         if (isSelected) return;
-        (e.currentTarget.style.background as any) = appColors.buttonGhostBgHover;
-        e.currentTarget.style.borderColor = appColors.surfaceCardBorder;
+        e.currentTarget.style.background = String(appColors.surfaceCardHover);
       }}
       onMouseLeave={(e) => {
-        // reset hover
-        const base = pickDayCellStyle({
+        const reset = pickDayCellStyle({
           inMonth: !!cell.inMonth,
           isSelected,
           isToday,
         });
-        e.currentTarget.style.background = String(base.background ?? "");
-        e.currentTarget.style.borderColor = String(base.borderColor ?? appColors.surfaceCardBorder);
-        e.currentTarget.style.boxShadow = String(base.boxShadow ?? "none");
-        e.currentTarget.style.opacity = String(base.opacity ?? 1);
+        e.currentTarget.style.background = String(reset.background ?? "");
+        e.currentTarget.style.borderColor = String(
+          reset.borderColor ?? appColors.surfaceCardBorder
+        );
+        e.currentTarget.style.boxShadow = String(reset.boxShadow ?? "none");
+        e.currentTarget.style.opacity = String(reset.opacity ?? 1);
       }}
     >
       <div className="flex flex-col">
-        <span
-          className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none"
-          style={{ color: isSelected ? appColors.textPrimary : appColors.textPrimary }}
-        >
+        <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
           {cell.day ?? ""}
         </span>
 
@@ -149,7 +144,7 @@ export default function CalendarDayCell({
                 <span
                   key={it.key}
                   className="text-[11px] leading-none font-semibold"
-                  style={{ color: appColors.statusInfo }}
+                  style={{ color }}
                 >
                   ✓
                 </span>
@@ -160,7 +155,7 @@ export default function CalendarDayCell({
               <span
                 key={it.key}
                 className="text-[11px] leading-none font-semibold"
-                style={{ color: appColors.statusWarning }}
+                style={{ color }}
               >
                 ×
               </span>
