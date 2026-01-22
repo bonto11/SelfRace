@@ -207,7 +207,6 @@ export default function ActivitiesCalendar({
 
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
-      {/* ✅ FIX: štýl kontajnera ide z core (appColors.surfaceCard + surfaceCardBorder) */}
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
         <div className={CALENDAR_TITLE_ROW}>
           <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
