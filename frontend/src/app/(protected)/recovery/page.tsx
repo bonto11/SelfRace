@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import AppHeader from "@/app/shared/components/ui/AppHeader";
-import { PAGE_CONTAINER } from "@/app/shared/ui/tokens/pageTokens";
+import {
+  PAGE_CONTAINER,
+  PAGE_STACK,
+  PAGE_WIDGET_GRID,
+} from "@/app/shared/ui/tokens/pageTokens";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import WidgetRHR from "@/app/shared/components/widgets/WidgetRHR";
@@ -44,19 +48,19 @@ export default function RecoveryPage() {
       />
 
       <div className={PAGE_CONTAINER}>
-        <div className="mt-3">
+        <div className={PAGE_STACK}>
           <InputsCard />
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
-          <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-          <WidgetSleepDuration
-            onOpenDetail={() => router.push("/recovery/sleepDuration")}
-          />
-          <WidgetSleepStart
-            onOpenDetail={() => router.push("/recovery/sleepStart")}
-          />
+          <div className={PAGE_WIDGET_GRID}>
+            <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
+            <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
+            <WidgetSleepDuration
+              onOpenDetail={() => router.push("/recovery/sleepDuration")}
+            />
+            <WidgetSleepStart
+              onOpenDetail={() => router.push("/recovery/sleepStart")}
+            />
+          </div>
         </div>
       </div>
     </>
