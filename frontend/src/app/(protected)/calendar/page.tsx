@@ -2,12 +2,15 @@
 
 import ActivitiesCalendar from "@/app/features/calendar/ActivitiesCalendar";
 import ButtonBack from "@/app/shared/components/ui/ButtonBack";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/page";
 
 export default function CalendarPage() {
   return (
-    <div className="max-w-screen-xl mx-auto px-3">
-      <ButtonBack title="Kalendár aktivít" />
-      <ActivitiesCalendar />
+    <div className={PAGE_CONTAINER}>
+      <div className={PAGE_STACK}>
+        <ButtonBack title="Kalendár aktivít" />
+        <ActivitiesCalendar />
+      </div>
     </div>
   );
 }

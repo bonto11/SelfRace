@@ -1,17 +1,20 @@
 // src/shared/components/ui/ButtonBack.tsx
 "use client";
 
-import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { cx, buttonClass } from "@/app/shared/ui";
 import { appColors } from "@/app/shared/theme/app_colors";
+import { cx, buttonClass, PAGE_CONTAINER } from "@/app/shared/ui";
 import {
-  SURFACE_INLINE,
-  SURFACE_INLINE_STYLE,
-} from "@/app/shared/ui/tokens/core";
+  APPBAR_WRAP,
+  APPBAR_INNER,
+  APPBAR_PILL,
+  APPBAR_ROW,
+  APPBAR_TITLE,
+  APPBAR_RIGHT,
+} from "@/app/shared/ui/tokens/header";
 
 type Props = {
   title?: string;
@@ -23,9 +26,6 @@ type Props = {
   sticky?: boolean;
   container?: boolean;
   onBack?: () => void;
-
-  /** max šírka kontentu (default: max-w-screen-lg) */
-  maxWidthClassName?: string;
 };
 
 export default function ButtonBack({
@@ -38,7 +38,6 @@ export default function ButtonBack({
   sticky = true,
   container = true,
   onBack,
-  maxWidthClassName = "max-w-screen-lg",
 }: Props) {
   const router = useRouter();
 
@@ -62,51 +61,26 @@ export default function ButtonBack({
 
   return (
     <div
-      className={cx(
-        sticky && "sticky top-[max(env(safe-area-inset-top),0px)] z-30",
-        // jemné pozadie pod pillkou (bez bieleho)
-        "w-full",
-        className
-      )}
+      className={cx(sticky && APPBAR_WRAP, className)}
       role="banner"
-      style={{
-        // “appbar haze” - drž sa appColors, nie white/black
-        background: "transparent",
-      }}
     >
-      <div
-        className={cx(
-          container ? `${maxWidthClassName} mx-auto` : "",
-          // konzistentné bočné okraje
-          "px-3"
-        )}
-      >
-        {/* ✅ pill cez celú šírku */}
+      <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER)}>
+        {/* pill cez celú šírku kontajnera (tvoj “Garmin/Strava” look) */}
         <div
-          className={cx(
-            SURFACE_INLINE,
-            "w-full",
-            "px-3 py-2",
-            "mt-2",
-            "mb-2",
-            innerClassName
-          )}
+          className={cx(APPBAR_PILL, innerClassName)}
           style={{
-            ...SURFACE_INLINE_STYLE,
-            // trochu “appbar” feeling (voliteľné)
             background: appColors.surfaceCard,
             borderColor: appColors.surfaceCardBorder,
           }}
         >
-          {/* ✅ grid: title vľavo, back fix vpravo */}
-          <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+          <div className={APPBAR_ROW}>
             {title ? (
-              <h1 className="text-lg font-semibold truncate">{title}</h1>
+              <h1 className={APPBAR_TITLE}>{title}</h1>
             ) : (
               <span className="sr-only">Header</span>
             )}
 
-            <div className="justify-self-end">
+            <div className={APPBAR_RIGHT}>
               {href ? (
                 <Link href={href} aria-label={label}>
                   {BackPill}
@@ -117,6 +91,7 @@ export default function ButtonBack({
                   onClick={goBack}
                   aria-label={label}
                   className="focus:outline-none"
+                  onMouseDown={(e) => e.preventDefault()} // iOS “sticky focus”
                 >
                   {BackPill}
                 </button>

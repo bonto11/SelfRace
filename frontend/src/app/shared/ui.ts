@@ -1,4 +1,5 @@
 // src/shared/ui.ts
+
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
@@ -11,16 +12,15 @@ export type ButtonVariant =
   | "danger"
   | "ghost"
   | "back"
-  | "prefs"; // ⬅️ PRIDANÉ
+  | "prefs";
 
 /** Veľkosti */
 export type ButtonSize = "xs" | "sm" | "md" | "lg";
 
-/** iOS-like kapsuly (plné zaoblenie) + varianty */
+/** iOS-like kapsuly */
 export function buttonClass(
   variant: ButtonVariant = "primary",
   size: ButtonSize = "md",
-  // ⬇️ rozšírené o active (bezpečné – existujúce volania ostávajú platné)
   { circle = false, active = false }: { circle?: boolean; active?: boolean } = {}
 ) {
   const base =
@@ -43,10 +43,9 @@ export function buttonClass(
       ? circle
         ? "h-11 w-11 text-base"
         : "px-5 py-3 text-base"
-      : // md
-        circle
-        ? "h-9 w-9 text-sm"
-        : "px-4 py-2.5 text-sm";
+      : circle
+      ? "h-9 w-9 text-sm"
+      : "px-4 py-2.5 text-sm";
 
   const v =
     variant === "primary"
@@ -60,12 +59,10 @@ export function buttonClass(
       : variant === "back"
       ? "bg-white/8 text-white hover:bg-white/14 border border-white/10"
       : variant === "prefs"
-      ? // ⚠️ „Prefs“: čisté plátno bez borderu/ringu; farbu určuje active flag
-        (active
+      ? (active
           ? "bg-emerald-600 text-white border-0 ring-0 focus-visible:ring-0"
           : "bg-white/10 text-white hover:bg-white/16 border-0 ring-0 focus-visible:ring-0")
-      : // ghost
-        "bg-transparent text-white/90 hover:bg-white/8 border border-white/10";
+      : "bg-transparent text-white/90 hover:bg-white/8 border border-white/10";
 
   return cx(base, sz, v);
 }
@@ -77,3 +74,7 @@ export const inputClass =
 
 export const labelClass = "text-sm text-text/90";
 export const hintClass = "text-xs text-muted";
+
+// ✅ postupne: tokens cez barrel (nezabiješ importy v appke)
+export * from "@/app/shared/ui/tokens/page";
+export * from "@/app/shared/ui/tokens/header";
