@@ -14,6 +14,7 @@ import Button from "@/app/shared/components/ui/Button";
 
 import {
   CALENDAR_CONTAINER,
+  CALENDAR_CONTAINER_STYLE,
   NO_X_OVERFLOW,
   CALENDAR_PAGE_WRAP,
   CALENDAR_TITLE_ROW,
@@ -26,7 +27,7 @@ import {
   CALENDAR_LEGEND_DOT,
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens/calendar";
 
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
@@ -202,7 +203,8 @@ export default function ActivitiesCalendar({
 
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
-      <div className={CALENDAR_CONTAINER}>
+      {/* ✅ FIX: štýl kontajnera ide z core (appColors.surfaceCard + surfaceCardBorder) */}
+      <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
         <div className={CALENDAR_TITLE_ROW}>
           <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
 
@@ -231,15 +233,21 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        {/* legenda (bez hardcoded farieb) */}
+        {/* legenda */}
         <div className={CALENDAR_LEGEND_WRAP}>
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colExternal }} />
+            <span
+              className={CALENDAR_LEGEND_DOT}
+              style={{ backgroundColor: colExternal }}
+            />
             <span>external</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colActivity }} />
+            <span
+              className={CALENDAR_LEGEND_DOT}
+              style={{ backgroundColor: colActivity }}
+            />
             <span>aktivita</span>
           </div>
 
@@ -252,21 +260,29 @@ export default function ActivitiesCalendar({
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusInfo }}>
+            <span
+              className={CALENDAR_LEGEND_TINY}
+              style={{ color: appColors.statusInfo }}
+            >
               ✓
             </span>
             <span>splnený plán</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusWarning }}>
+            <span
+              className={CALENDAR_LEGEND_TINY}
+              style={{ color: appColors.statusWarning }}
+            >
               ×
             </span>
             <span>missed plán</span>
           </div>
         </div>
 
-        {externals.err && <div className={CALENDAR_ERROR_LINE}>{externals.err}</div>}
+        {externals.err && (
+          <div className={CALENDAR_ERROR_LINE}>{externals.err}</div>
+        )}
 
         <CalendarGrid
           cells={map.cells}
