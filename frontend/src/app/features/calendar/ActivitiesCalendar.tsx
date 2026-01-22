@@ -9,7 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import { THEME } from "@/app/shared/theme/tokens";
 import Button from "@/app/shared/components/ui/Button";
-import { CALENDAR_CONTAINER, NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
+
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
@@ -19,9 +19,11 @@ import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarE
 import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
+
+// ✅ jeden import – jeden zdroj pravdy
 import {
-  CALENDAR_CONTAINER,
   NO_X_OVERFLOW,
+  CALENDAR_CONTAINER,
   CALENDAR_PAGE_WRAP,
   CALENDAR_TITLE_ROW,
   CALENDAR_TITLE,
@@ -33,16 +35,19 @@ import {
   CALENDAR_LEGEND_DOT,
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
+
+const CH = (THEME as any)?.chart ?? {};
+
 const SPORT_COLORS: Record<string, string> = {
-  run: THEME.chart.run,
-  ride: THEME.chart.ride,
-  swim: THEME.chart.swim,
-  strength: THEME.chart.strength,
-  mixed: THEME.chart.mixed,
-  skate: THEME.chart.skate,
-  walk: THEME.chart.walk,
-  other: THEME.chart.other,
+  run: CH.run,
+  ride: CH.ride,
+  swim: CH.swim,
+  strength: CH.strength,
+  mixed: CH.mixed,
+  skate: CH.skate,
+  walk: CH.walk,
+  other: CH.other ?? CH.neutral,
 };
 
 function safeSportKey(v: any): string {
@@ -65,7 +70,7 @@ export default function ActivitiesCalendar({
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
-  // === NOVÉ: plán ide z CoachDataProvideru ===
+  // plán z CoachDataProvideru
   const { plan } = useCoachData();
   const { rows: planRows } = plan;
 
@@ -82,9 +87,7 @@ export default function ActivitiesCalendar({
   const range = React.useMemo(() => gridRange42(year, month0), [year, month0]);
   const externals = useCalendarExternals(userId, range);
 
-  // ─────────────────────────────
   // 1) sety (date|sportKey), kde už je plán alebo aktivita
-  // ─────────────────────────────
   const planSlots = React.useMemo(() => {
     const slots = new Set<string>();
     for (const p of planRows as any[]) {
@@ -103,15 +106,13 @@ export default function ActivitiesCalendar({
     for (const a of actRows as any[]) {
       const dIso = String(a.date ?? "").slice(0, 10);
       if (!dIso) continue;
-      const sportKey = safeSportKey(a.sport_type_fe ?? a.sport_type);
+      const sportKey = safeSportKey(a.sport_type_fe ?? a.sport_type ?? a.sport);
       slots.add(`${dIso}|${sportKey}`);
     }
     return slots;
   }, [actRows]);
 
-  // ─────────────────────────────
-  // 2) globálne odfiltrujeme external events
-  // ─────────────────────────────
+  // 2) globálne odfiltrujeme external events (ak už je plán alebo aktivita)
   const filteredExternalRows = React.useMemo(() => {
     const rows = (externals.rows ?? []) as ExternalEvent[];
     if (!rows.length) return rows;
@@ -120,9 +121,7 @@ export default function ActivitiesCalendar({
       const dIso = eventDateIso(ev);
       if (!dIso) return false;
 
-      const sportKey = safeSportKey(
-        (ev as any).sport ?? (ev as any).sport_type
-      );
+      const sportKey = safeSportKey((ev as any).sport ?? (ev as any).sport_type);
       const key = `${dIso}|${sportKey}`;
 
       if (planSlots.has(key)) return false;
@@ -132,9 +131,7 @@ export default function ActivitiesCalendar({
     });
   }, [externals.rows, planSlots, activitySlots]);
 
-  // ─────────────────────────────
-  // 3) map pre grid – tu už (v hooku) prebehne dedupeCalendarItems
-  // ─────────────────────────────
+  // 3) map pre grid (dedupe rieši hook)
   const map = useCalendarMap({
     year,
     month0,
@@ -196,101 +193,101 @@ export default function ActivitiesCalendar({
   }, [actRows]);
 
   return (
-  <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
-    <div className={CALENDAR_CONTAINER}>
-      <div className={CALENDAR_TITLE_ROW}>
-        <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
+    <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
+      <div className={CALENDAR_CONTAINER}>
+        <div className={CALENDAR_TITLE_ROW}>
+          <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
 
-        <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
-          <Button
-            variant="ghost"
-            size="sm"
-            circle
-            aria-label="Predchádzajúci mesiac"
-            onClick={() => jump(-1)}
-          >
-            ‹
-          </Button>
+          <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              circle
+              aria-label="Predchádzajúci mesiac"
+              onClick={() => jump(-1)}
+            >
+              ‹
+            </Button>
 
-          <div className={CALENDAR_MONTH_LABEL}>{label}</div>
+            <div className={CALENDAR_MONTH_LABEL}>{label}</div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            circle
-            aria-label="Nasledujúci mesiac"
-            onClick={() => jump(1)}
-          >
-            ›
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              circle
+              aria-label="Nasledujúci mesiac"
+              onClick={() => jump(1)}
+            >
+              ›
+            </Button>
+          </div>
         </div>
+
+        {/* legenda */}
+        <div className={CALENDAR_LEGEND_WRAP}>
+          <div className={CALENDAR_LEGEND_ITEM}>
+            <span
+              className={CALENDAR_LEGEND_DOT}
+              style={{ backgroundColor: SPORT_COLORS.other }}
+            />
+            <span>external</span>
+          </div>
+
+          <div className={CALENDAR_LEGEND_ITEM}>
+            <span
+              className={CALENDAR_LEGEND_DOT}
+              style={{ backgroundColor: SPORT_COLORS.run }}
+            />
+            <span>aktivita</span>
+          </div>
+
+          <div className={CALENDAR_LEGEND_ITEM}>
+            <span
+              className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
+              style={{
+                borderColor: SPORT_COLORS.run,
+                backgroundColor: "transparent",
+              }}
+            />
+            <span>plán</span>
+          </div>
+
+          <div className={CALENDAR_LEGEND_ITEM}>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: SPORT_COLORS.run }}>
+              ✓
+            </span>
+            <span>splnený plán</span>
+          </div>
+
+          <div className={CALENDAR_LEGEND_ITEM}>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: SPORT_COLORS.run }}>
+              ×
+            </span>
+            <span>missed plán</span>
+          </div>
+        </div>
+
+        {externals.err && <div className={CALENDAR_ERROR_LINE}>{externals.err}</div>}
+
+        <CalendarGrid
+          cells={map.cells}
+          selectedIso={selectedIso}
+          setSelectedIso={setSelectedIso}
+          sportColors={SPORT_COLORS}
+        />
       </div>
 
-      {/* legenda */}
-      <div className={CALENDAR_LEGEND_WRAP}>
-        <div className={CALENDAR_LEGEND_ITEM}>
-          <span
-            className={CALENDAR_LEGEND_DOT}
-            style={{ backgroundColor: THEME.chart.other }}
-          />
-          <span>external</span>
-        </div>
-
-        <div className={CALENDAR_LEGEND_ITEM}>
-          <span
-            className={CALENDAR_LEGEND_DOT}
-            style={{ backgroundColor: THEME.chart.run }}
-          />
-          <span>aktivita</span>
-        </div>
-
-        <div className={CALENDAR_LEGEND_ITEM}>
-          <span
-            className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
-            style={{
-              borderColor: THEME.chart.run,
-              backgroundColor: "transparent",
-            }}
-          />
-          <span>plán</span>
-        </div>
-
-        <div className={CALENDAR_LEGEND_ITEM}>
-          <span className={CALENDAR_LEGEND_TINY} style={{ color: THEME.chart.run }}>
-            ✓
-          </span>
-          <span>splnený plán</span>
-        </div>
-
-        <div className={CALENDAR_LEGEND_ITEM}>
-          <span className={CALENDAR_LEGEND_TINY} style={{ color: THEME.chart.run }}>
-            ×
-          </span>
-          <span>missed plán</span>
-        </div>
-      </div>
-
-      {externals.err && <div className={CALENDAR_ERROR_LINE}>{externals.err}</div>}
-
-      <CalendarGrid
-        cells={map.cells}
-        selectedIso={selectedIso}
-        setSelectedIso={setSelectedIso}
-        sportColors={SPORT_COLORS}
-      />
+      {selectedIso && (
+        <DayDetail
+          selectedIso={selectedIso}
+          selectedLabel={selectedLabel}
+          actRows={actRows}
+          planRowsForDay={selectedPlanRows}
+          externalRows={selectedExternalRows}
+          safeSportKey={safeSportKey}
+          actMap={actMap}
+        />
+      )}
     </div>
-
-    {selectedIso && (
-      <DayDetail
-        selectedIso={selectedIso}
-        selectedLabel={selectedLabel}
-        actRows={actRows}
-        planRowsForDay={selectedPlanRows}
-        externalRows={selectedExternalRows}
-        safeSportKey={safeSportKey}
-        actMap={actMap}
-      />
-    )}
-  </div>
-);
+  );
 }
