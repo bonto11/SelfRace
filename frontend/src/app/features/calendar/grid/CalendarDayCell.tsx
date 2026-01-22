@@ -42,24 +42,21 @@ export default function CalendarDayCell({
 
   const inMonth = !!cell.inMonth;
 
+  // ✅ 1x vypočítaj borderColor (žiadne duplicitné key v objekte)
+  const borderColor = isSelected
+    ? appColors.brandPrimary
+    : isToday
+    ? appColors.textMuted
+    : appColors.surfaceCardBorder;
+
   const style: React.CSSProperties = {
-    // základ
     background: hover || isSelected ? appColors.surfaceCardHover : appColors.surfaceCard,
-    borderColor: appColors.surfaceCardBorder,
+    border: `1px solid ${borderColor}`,
     color: appColors.textPrimary,
     opacity: inMonth ? 1 : 0.45,
+    boxShadow: isSelected ? `0 0 0 2px ${appColors.brandPrimary}33` : "none",
     WebkitTapHighlightColor: "transparent",
-
-    // today
-    ...(isToday ? { borderColor: appColors.textMuted } : null),
-
-    // selected
-    ...(isSelected
-      ? {
-          borderColor: appColors.brandPrimary,
-          boxShadow: `0 0 0 2px ${appColors.brandPrimary}33`,
-        }
-      : { boxShadow: "none" }),
+    outline: "none",
   };
 
   return (
@@ -73,11 +70,12 @@ export default function CalendarDayCell({
       onFocus={() => setHover(true)}
       onBlur={() => setHover(false)}
       onMouseDown={(e) => {
-        // ✅ zabije “sticky focus ring” na iOS/Safari
+        // ✅ zabije “sticky focus” hlavne na mobile
         e.preventDefault();
       }}
       onClick={(e) => {
         onSelect(cell.iso);
+        // ✅ po kliku nechať bez focusu
         (e.currentTarget as HTMLButtonElement).blur();
       }}
     >
@@ -104,22 +102,30 @@ export default function CalendarDayCell({
               return (
                 <span
                   key={it.key}
-                  className="inline-block w-1.5 h-1.5 rounded-full border"
-                  style={{ borderColor: color, backgroundColor: "transparent" }}
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ border: `1px solid ${color}`, backgroundColor: "transparent" }}
                 />
               );
             }
 
             if (it.kind === "done") {
               return (
-                <span key={it.key} className="text-[11px] leading-none font-semibold" style={{ color }}>
+                <span
+                  key={it.key}
+                  className="text-[11px] leading-none font-semibold"
+                  style={{ color }}
+                >
                   ✓
                 </span>
               );
             }
 
             return (
-              <span key={it.key} className="text-[11px] leading-none font-semibold" style={{ color }}>
+              <span
+                key={it.key}
+                className="text-[11px] leading-none font-semibold"
+                style={{ color }}
+              >
                 ×
               </span>
             );
