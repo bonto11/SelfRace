@@ -1,3 +1,13 @@
+// src/app/(protected)/account/connected-apps/page.tsx
+"use client";
+
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import {
+  PAGE_CONTAINER,
+  PAGE_STACK,
+  PAGE_INTRO,
+} from "@/app/shared/ui/tokens/pageTokens";
+
 import StravaPanel from "@/app/features/strava/components/StravaPanel";
 
 export const metadata = {
@@ -6,16 +16,19 @@ export const metadata = {
 
 export default function ConnectedAppsPage() {
   return (
-    <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold">Connected apps</h1>
-        <p className="mt-1 text-sm opacity-70">
-          Prepojenie so Stravou a ďalšími službami. Tu vieš spravovať pripojenie
-          a import tréningov.
-        </p>
-      </header>
+    <>
+      <AppHeader title="Connected apps" showBack={false} container />
 
-      <StravaPanel />
-    </main>
+      <div className={PAGE_CONTAINER}>
+        <div className={PAGE_STACK}>
+          <p className={PAGE_INTRO}>
+            Prepojenie so Stravou a ďalšími službami. Tu vieš spravovať pripojenie
+            a import tréningov.
+          </p>
+
+          <StravaPanel />
+        </div>
+      </div>
+    </>
   );
 }
