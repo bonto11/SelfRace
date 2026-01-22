@@ -6,6 +6,7 @@ import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
+
 import {
   WIDGET_LOADING_CENTER,
   WIDGET_ERROR_TEXT,
@@ -16,7 +17,8 @@ import {
   WIDGET_KV_LABEL,
   WIDGET_KV_VALUE,
   WIDGET_SUMMARY_TEXT,
-} from "@/app/shared/theme/uiTokens";
+  WIDGET_TRUNCATE,
+} from "@/app/shared/ui/tokens";
 
 import {
   apiGetLatestAthleteState,
@@ -89,7 +91,6 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
   return { lastAnalysisAt, fatigueLabel, injuryLabel, summary };
 }
 
-// (voliteľné) jemný accent podľa rizika/únavy – bez statických farieb
 function pickAccent(ui: UiState) {
   const fat = (ui.fatigueLabel || "").toLowerCase();
   const inj = (ui.injuryLabel || "").toLowerCase();
@@ -107,7 +108,6 @@ function pickAccent(ui: UiState) {
 
   if (hasHigh) return appColors.statusError;
   if (hasMod) return appColors.statusWarning;
-
   return appColors.brandPrimary;
 }
 
@@ -174,7 +174,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         <>
           <div className={WIDGET_KV_GRID}>
             <div className={WIDGET_KV_LABEL}>Posledná analýza</div>
-            <div className={[WIDGET_KV_VALUE, "truncate"].join(" ")}>
+            <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
               {ui.lastAnalysisAt ?? "—"}
             </div>
 

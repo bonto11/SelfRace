@@ -6,7 +6,6 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Pill from "@/app/shared/components/ui/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
-import { NO_X_OVERFLOW } from "@/app/shared/theme/uiTokens";
 import { fmtDate } from "@/app/shared/utils/time";
 
 import { apiGetStaticProfile } from "@/app/features/profile/api/static";
@@ -17,14 +16,19 @@ import type {
 } from "@/app/features/profile/types/profile";
 
 import { appColors } from "@/app/shared/theme/app_colors";
+
+// ✅ tokeny
 import {
+  NO_X_OVERFLOW,
   WIDGET_LOADING_CENTER,
   WIDGET_META_LABEL,
   WIDGET_VALUE_ROW,
   WIDGET_VALUE_MAIN,
   WIDGET_VALUE_UNIT,
   WIDGET_PLACEHOLDER,
-} from "@/app/shared/theme/uiTokens";
+  WIDGET_ROW_BETWEEN,
+  WIDGET_BLOCK,
+} from "@/app/shared/ui/tokens";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -104,9 +108,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const pct = latest?.body_fat_pct ?? null;
   const level = classifyBodyFat(stat?.sex ?? "M", pct);
 
-  const accent =
-    level?.color ??
-    appColors.brandPrimary; // konzistentný default, bez THEME fallbackov
+  const accent = level?.color ?? appColors.brandPrimary;
 
   return (
     <WidgetCard
@@ -122,8 +124,8 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="flex items-start justify-between">
-          <div>
+        <div className={WIDGET_ROW_BETWEEN}>
+          <div className={WIDGET_BLOCK}>
             <div className={WIDGET_META_LABEL}>
               merané: {fmtDate(latest?.updated_at)}
             </div>

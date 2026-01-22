@@ -6,6 +6,7 @@ import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
+
 import {
   WIDGET_LOADING_CENTER,
   WIDGET_ERROR_TEXT,
@@ -21,7 +22,8 @@ import {
   WIDGET_LIST_ITEM,
   WIDGET_BULLET,
   WIDGET_MORE_HINT,
-} from "@/app/shared/theme/uiTokens";
+  WIDGET_TRUNCATE,
+} from "@/app/shared/ui/tokens";
 
 import {
   apiGetDailyOverview,
@@ -59,21 +61,17 @@ function buildUiState(overview: DailyOverview | null): UiState {
   for (const d of days) sessionsCount += d.sessions?.length ?? 0;
 
   const todayStr = new Date().toISOString().slice(0, 10);
-
   const todayDay = days.find((d) => d.date === todayStr) ?? days[0];
-  const todayLabel = todayDay?.date ?? null;
-  const todaySessions = todayDay?.sessions ?? [];
 
   return {
     horizonDays: overview.horizon_days ?? daysCount,
     daysCount,
     sessionsCount,
-    todayLabel,
-    todaySessions,
+    todayLabel: todayDay?.date ?? null,
+    todaySessions: todayDay?.sessions ?? [],
   };
 }
 
-// accent bez THEME + bez statických fallback farieb
 function pickAccent(ui: UiState) {
   if (!ui.daysCount) return appColors.textMuted;
   if (ui.todaySessions && ui.todaySessions.length > 0) return appColors.brandPrimary;
@@ -153,7 +151,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
             <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
 
             <div className={WIDGET_KV_LABEL}>Dnešok / najbližší deň</div>
-            <div className={[WIDGET_KV_VALUE, "truncate"].join(" ")}>
+            <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
               {ui.todayLabel ?? "—"}
             </div>
           </div>
@@ -171,7 +169,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
                       className={WIDGET_BULLET}
                       style={{ background: appColors.brandPrimary }}
                     />
-                    <span className="truncate">
+                    <span className={WIDGET_TRUNCATE}>
                       {s.title || s.session_type || s.sport}
                       {s.duration_min ? ` · ${s.duration_min} min` : ""}
                       {s.intensity ? ` · ${s.intensity}` : ""}
