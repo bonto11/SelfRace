@@ -19,7 +19,21 @@ import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarE
 import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
-
+import {
+  CALENDAR_CONTAINER,
+  NO_X_OVERFLOW,
+  CALENDAR_PAGE_WRAP,
+  CALENDAR_TITLE_ROW,
+  CALENDAR_TITLE,
+  CALENDAR_NAV_ROW,
+  CALENDAR_NAV_NUDGE,
+  CALENDAR_MONTH_LABEL,
+  CALENDAR_LEGEND_WRAP,
+  CALENDAR_LEGEND_ITEM,
+  CALENDAR_LEGEND_DOT,
+  CALENDAR_LEGEND_TINY,
+  CALENDAR_ERROR_LINE,
+} from "@/app/shared/theme/uiTokens";
 const SPORT_COLORS: Record<string, string> = {
   run: THEME.chart.run,
   ride: THEME.chart.ride,
@@ -182,109 +196,101 @@ export default function ActivitiesCalendar({
   }, [actRows]);
 
   return (
-    <div className={["space-y-3", NO_X_OVERFLOW].join(" ")}>
-      <div className={CALENDAR_CONTAINER}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Kalendár aktivít</h2>
+  <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
+    <div className={CALENDAR_CONTAINER}>
+      <div className={CALENDAR_TITLE_ROW}>
+        <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
 
-          <div className="flex items-center gap-2 translate-y-[2px]">
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label="Predchádzajúci mesiac"
-              onClick={() => jump(-1)}
-            >
-              ‹
-            </Button>
+        <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            circle
+            aria-label="Predchádzajúci mesiac"
+            onClick={() => jump(-1)}
+          >
+            ‹
+          </Button>
 
-            <div className="mx-1 text-base font-semibold min-w-[160px] text-center">
-              {label}
-            </div>
+          <div className={CALENDAR_MONTH_LABEL}>{label}</div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label="Nasledujúci mesiac"
-              onClick={() => jump(1)}
-            >
-              ›
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            circle
+            aria-label="Nasledujúci mesiac"
+            onClick={() => jump(1)}
+          >
+            ›
+          </Button>
         </div>
-
-        {/* legenda */}
-        <div className="mt-2 mb-1 flex flex-wrap gap-3 text-[11px] opacity-70">
-          <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.other }}
-            />
-            <span>external</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: THEME.chart.run }}
-            />
-            <span>aktivita</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full border"
-              style={{
-                borderColor: THEME.chart.run,
-                backgroundColor: "transparent",
-              }}
-            />
-            <span>plán</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span
-              className="text-[9px] leading-none"
-              style={{ color: THEME.chart.run }}
-            >
-              ✓
-            </span>
-            <span>splnený plán</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span
-              className="text-[9px] leading-none"
-              style={{ color: THEME.chart.run }}
-            >
-              ×
-            </span>
-            <span>missed plán</span>
-          </div>
-        </div>
-
-        {externals.err && (
-          <div className="mt-1 mb-1 text-[11px] text-red-300 line-clamp-2">
-            {externals.err}
-          </div>
-        )}
-
-        <CalendarGrid
-          cells={map.cells}
-          selectedIso={selectedIso}
-          setSelectedIso={setSelectedIso}
-          sportColors={SPORT_COLORS}
-        />
       </div>
 
-      {selectedIso && (
-        <DayDetail
-          selectedIso={selectedIso}
-          selectedLabel={selectedLabel}
-          actRows={actRows}
-          planRowsForDay={selectedPlanRows}
-          externalRows={selectedExternalRows}
-          safeSportKey={safeSportKey}
-          actMap={actMap}
-        />
-      )}
+      {/* legenda */}
+      <div className={CALENDAR_LEGEND_WRAP}>
+        <div className={CALENDAR_LEGEND_ITEM}>
+          <span
+            className={CALENDAR_LEGEND_DOT}
+            style={{ backgroundColor: THEME.chart.other }}
+          />
+          <span>external</span>
+        </div>
+
+        <div className={CALENDAR_LEGEND_ITEM}>
+          <span
+            className={CALENDAR_LEGEND_DOT}
+            style={{ backgroundColor: THEME.chart.run }}
+          />
+          <span>aktivita</span>
+        </div>
+
+        <div className={CALENDAR_LEGEND_ITEM}>
+          <span
+            className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
+            style={{
+              borderColor: THEME.chart.run,
+              backgroundColor: "transparent",
+            }}
+          />
+          <span>plán</span>
+        </div>
+
+        <div className={CALENDAR_LEGEND_ITEM}>
+          <span className={CALENDAR_LEGEND_TINY} style={{ color: THEME.chart.run }}>
+            ✓
+          </span>
+          <span>splnený plán</span>
+        </div>
+
+        <div className={CALENDAR_LEGEND_ITEM}>
+          <span className={CALENDAR_LEGEND_TINY} style={{ color: THEME.chart.run }}>
+            ×
+          </span>
+          <span>missed plán</span>
+        </div>
+      </div>
+
+      {externals.err && <div className={CALENDAR_ERROR_LINE}>{externals.err}</div>}
+
+      <CalendarGrid
+        cells={map.cells}
+        selectedIso={selectedIso}
+        setSelectedIso={setSelectedIso}
+        sportColors={SPORT_COLORS}
+      />
     </div>
-  );
+
+    {selectedIso && (
+      <DayDetail
+        selectedIso={selectedIso}
+        selectedLabel={selectedLabel}
+        actRows={actRows}
+        planRowsForDay={selectedPlanRows}
+        externalRows={selectedExternalRows}
+        safeSportKey={safeSportKey}
+        actMap={actMap}
+      />
+    )}
+  </div>
+);
 }
