@@ -15,7 +15,6 @@ import Button from "@/app/shared/components/ui/Button";
 import {
   CALENDAR_CONTAINER,
   CALENDAR_CONTAINER_STYLE,
-  NO_X_OVERFLOW,
   CALENDAR_PAGE_WRAP,
   CALENDAR_TITLE_ROW,
   CALENDAR_TITLE,
@@ -28,6 +27,11 @@ import {
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
 } from "@/app/shared/ui/tokens/calendar";
+
+import {
+  NO_X_OVERFLOW,
+} from "@/app/shared/ui/tokens/core";
+
 
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
