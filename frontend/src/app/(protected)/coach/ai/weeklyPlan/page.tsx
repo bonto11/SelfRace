@@ -1,17 +1,20 @@
-// src/app/coach/ai/weekly/page.tsx  (alebo tvoja aktuálna cesta)
+// src/app/coach/ai/weekly/page.tsx
 "use client";
 
-import ButtonBack from "@/app/shared/components/ui/AppHeader";
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
 import DetailWeeklyPlan from "@/app/features/coach/components/DetailWeeklyPlan";
 
 export default function Page() {
   return (
-    <div className="max-w-screen-lg mx-auto px-3">
-      <ButtonBack title="Weekly plan" />
+    <>
+      <AppHeader title="Weekly plan" showBack container />
 
-      <div className="pt-3 pb-6">
-        <DetailWeeklyPlan />
+      <div className={PAGE_CONTAINER}>
+        <div className={PAGE_STACK}>
+          <DetailWeeklyPlan />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
