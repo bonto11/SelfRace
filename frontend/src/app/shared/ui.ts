@@ -3,7 +3,7 @@ export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-// nechaj buttonClass zatiaľ tu (nech sa ti nič nerozbije)
+/** Varianty tlačidiel */
 export type ButtonVariant =
   | "primary"
   | "secondary"
@@ -11,13 +11,16 @@ export type ButtonVariant =
   | "danger"
   | "ghost"
   | "back"
-  | "prefs";
+  | "prefs"; // ⬅️ PRIDANÉ
 
+/** Veľkosti */
 export type ButtonSize = "xs" | "sm" | "md" | "lg";
 
+/** iOS-like kapsuly (plné zaoblenie) + varianty */
 export function buttonClass(
   variant: ButtonVariant = "primary",
   size: ButtonSize = "md",
+  // ⬇️ rozšírené o active (bezpečné – existujúce volania ostávajú platné)
   { circle = false, active = false }: { circle?: boolean; active?: boolean } = {}
 ) {
   const base =
@@ -40,9 +43,10 @@ export function buttonClass(
       ? circle
         ? "h-11 w-11 text-base"
         : "px-5 py-3 text-base"
-      : circle
-      ? "h-9 w-9 text-sm"
-      : "px-4 py-2.5 text-sm";
+      : // md
+        circle
+        ? "h-9 w-9 text-sm"
+        : "px-4 py-2.5 text-sm";
 
   const v =
     variant === "primary"
@@ -56,10 +60,20 @@ export function buttonClass(
       : variant === "back"
       ? "bg-white/8 text-white hover:bg-white/14 border border-white/10"
       : variant === "prefs"
-      ? active
-        ? "bg-emerald-600 text-white border-0 ring-0 focus-visible:ring-0"
-        : "bg-white/10 text-white hover:bg-white/16 border-0 ring-0 focus-visible:ring-0"
-      : "bg-transparent text-white/90 hover:bg-white/8 border border-white/10";
+      ? // ⚠️ „Prefs“: čisté plátno bez borderu/ringu; farbu určuje active flag
+        (active
+          ? "bg-emerald-600 text-white border-0 ring-0 focus-visible:ring-0"
+          : "bg-white/10 text-white hover:bg-white/16 border-0 ring-0 focus-visible:ring-0")
+      : // ghost
+        "bg-transparent text-white/90 hover:bg-white/8 border border-white/10";
 
   return cx(base, sz, v);
 }
+
+/* Text inputs */
+export const inputClass =
+  "w-full rounded-lg border border-border bg-surface text-text placeholder:text-muted px-3 py-2 " +
+  "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/60";
+
+export const labelClass = "text-sm text-text/90";
+export const hintClass = "text-xs text-muted";
