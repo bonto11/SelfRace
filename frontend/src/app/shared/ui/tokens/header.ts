@@ -21,8 +21,7 @@ export const APPBAR_PILL = [
   "rounded-2xl",
   "border",
   "backdrop-blur",
-  "px-3",
-  "py-2",
+  "p-3",
 ].join(" ");
 
 // grid aby bol Back vždy fixne vpravo a title neplával

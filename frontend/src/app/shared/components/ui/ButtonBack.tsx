@@ -36,7 +36,7 @@ export default function ButtonBack({
   className,
   innerClassName,
   sticky = true,
-  container = true,
+  container = false,
   onBack,
 }: Props) {
   const router = useRouter();

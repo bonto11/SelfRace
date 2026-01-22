@@ -8,7 +8,7 @@ export default function CalendarPage() {
   return (
     <div className={PAGE_CONTAINER}>
       <div className={PAGE_STACK}>
-        <ButtonBack title="Kalendár aktivít" />
+        <ButtonBack title="Kalendár aktivít" container = {false}/>
         <ActivitiesCalendar />
       </div>
     </div>
