@@ -8,22 +8,13 @@ import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataPro
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+
 import Button from "@/app/shared/components/ui/Button";
 
-import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
-import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
-
-import CalendarGrid from "@/app/features/calendar/grid/CalendarGrid";
-import DayDetail from "@/app/features/calendar/detail/DayDetail";
-import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarExternals";
-import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
-import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
-import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
-
-// ✅ jeden import – jeden zdroj pravdy
 import {
-  NO_X_OVERFLOW,
   CALENDAR_CONTAINER,
+  NO_X_OVERFLOW,
   CALENDAR_PAGE_WRAP,
   CALENDAR_TITLE_ROW,
   CALENDAR_TITLE,
@@ -35,19 +26,30 @@ import {
   CALENDAR_LEGEND_DOT,
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
-} from "@/app/shared/ui/tokens";
+} from "@/app/shared/theme/uiTokens";
 
-const CH = (THEME as any)?.chart ?? {};
+import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
+import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
+
+import CalendarGrid from "@/app/features/calendar/grid/CalendarGrid";
+import DayDetail from "@/app/features/calendar/detail/DayDetail";
+
+import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarExternals";
+import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
+import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
+import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
+
+/* ---------- look: consistent sport colors (theme tokens only) ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
-  run: CH.run,
-  ride: CH.ride,
-  swim: CH.swim,
-  strength: CH.strength,
-  mixed: CH.mixed,
-  skate: CH.skate,
-  walk: CH.walk,
-  other: CH.other ?? CH.neutral,
+  run: THEME.chart.run,
+  ride: THEME.chart.ride,
+  swim: THEME.chart.swim,
+  strength: THEME.chart.strength,
+  mixed: THEME.chart.mixed,
+  skate: THEME.chart.skate,
+  walk: THEME.chart.walk,
+  other: THEME.chart.other,
 };
 
 function safeSportKey(v: any): string {
@@ -70,7 +72,6 @@ export default function ActivitiesCalendar({
   const [month0, setMonth0] = React.useState(mm ?? today.getMonth());
   const [selectedIso, setSelectedIso] = React.useState<string | null>(null);
 
-  // plán z CoachDataProvideru
   const { plan } = useCoachData();
   const { rows: planRows } = plan;
 
@@ -93,9 +94,11 @@ export default function ActivitiesCalendar({
     for (const p of planRows as any[]) {
       const dIso = String(p.plan_date ?? "").slice(0, 10);
       if (!dIso) continue;
+
       const sess: any = p.payload ?? p;
       if (isRestSession(p, sess)) continue;
-      const sportKey = safeSportKey(sess.sport);
+
+      const sportKey = safeSportKey(sess.sport ?? p.sport);
       slots.add(`${dIso}|${sportKey}`);
     }
     return slots;
@@ -112,7 +115,7 @@ export default function ActivitiesCalendar({
     return slots;
   }, [actRows]);
 
-  // 2) globálne odfiltrujeme external events (ak už je plán alebo aktivita)
+  // 2) globálne odfiltrujeme external events (len vizuálne prečistíme grid)
   const filteredExternalRows = React.useMemo(() => {
     const rows = (externals.rows ?? []) as ExternalEvent[];
     if (!rows.length) return rows;
@@ -131,7 +134,7 @@ export default function ActivitiesCalendar({
     });
   }, [externals.rows, planSlots, activitySlots]);
 
-  // 3) map pre grid (dedupe rieši hook)
+  // 3) map pre grid – dedupe v hooku
   const map = useCalendarMap({
     year,
     month0,
@@ -192,6 +195,11 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
+  // vizuálne: tiny symbol farby konzistentné (nech nie je vždy run)
+  const colPlan = THEME.chart.run;
+  const colExternal = THEME.chart.other;
+  const colActivity = THEME.chart.run;
+
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER}>
@@ -223,44 +231,35 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        {/* legenda */}
+        {/* legenda (bez hardcoded farieb) */}
         <div className={CALENDAR_LEGEND_WRAP}>
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={CALENDAR_LEGEND_DOT}
-              style={{ backgroundColor: SPORT_COLORS.other }}
-            />
+            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colExternal }} />
             <span>external</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={CALENDAR_LEGEND_DOT}
-              style={{ backgroundColor: SPORT_COLORS.run }}
-            />
+            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colActivity }} />
             <span>aktivita</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
             <span
               className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
-              style={{
-                borderColor: SPORT_COLORS.run,
-                backgroundColor: "transparent",
-              }}
+              style={{ borderColor: colPlan, backgroundColor: "transparent" }}
             />
             <span>plán</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: SPORT_COLORS.run }}>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusInfo }}>
               ✓
             </span>
             <span>splnený plán</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span className={CALENDAR_LEGEND_TINY} style={{ color: SPORT_COLORS.run }}>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusWarning }}>
               ×
             </span>
             <span>missed plán</span>
