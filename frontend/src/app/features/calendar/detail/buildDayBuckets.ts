@@ -1,6 +1,10 @@
 // src/features/calendar/detail/buildDayBuckets.ts
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
-import type { SessionCardItem, KPI, PlanStatus } from "@/app/shared/components/session/SessionCard";
+import type {
+  SessionCardItem,
+  KPI,
+  PlanStatus,
+} from "@/app/shared/components/session/SessionCard";
 
 /* ---------- small helpers (UI-friendly strings, no hardcoded colors) ---------- */
 
@@ -45,11 +49,15 @@ export function buildDayBuckets({
   const tIso = todayIso();
 
   // --- activities for day ---
+  // ✅ FIX: activityId musí byť number (nie null). Nevalidné ID rovno vyhodíme.
   const actsForDay: SessionCardItem[] = actRows
     .filter((r) => String(r.date).slice(0, 10) === selectedIso)
+    .filter((r) => Number.isFinite(Number(r.activity_id))) // <-- fix
     .map((r) => {
-      const aid = Number(r.activity_id);
-      const sport = safeSportKey((r as any).sport || (r as any).sport_type_fe || "other");
+      const aid = Number(r.activity_id); // teraz garantovane number
+      const sport = safeSportKey(
+        (r as any).sport || (r as any).sport_type_fe || "other"
+      );
 
       const dist = fmtDistanceKm(r.distance_m ?? null);
       const dur = fmtMinutes((r.moving_time_s ?? 0) / 60);
@@ -78,7 +86,8 @@ export function buildDayBuckets({
         kpis,
         notes: null,
 
-        activityId: Number.isFinite(aid) ? aid : null,
+        // ✅ must be number
+        activityId: aid,
 
         // fallbacky
         timeStr: dur ?? null,
@@ -98,10 +107,13 @@ export function buildDayBuckets({
       const sport = safeSportKey((p as any).sport || sess?.sport || "other");
 
       const dIso = selectedIso;
-      const hasAct = p.activity_id != null && !Number.isNaN(Number(p.activity_id));
+      const hasAct =
+        p.activity_id != null && !Number.isNaN(Number(p.activity_id));
       const status: PlanStatus = hasAct ? "done" : dIso < tIso ? "missed" : "planned";
 
-      const title = String(sess?.title || sess?.name || sess?.session_type || p.title || "Plán");
+      const title = String(
+        sess?.title || sess?.name || sess?.session_type || p.title || "Plán"
+      );
 
       const durStr =
         typeof sess?.duration_min === "number"
@@ -151,7 +163,6 @@ export function buildDayBuckets({
 
         status: toPlanStatus(status),
 
-        // tieto polia používajú SessionCard varianty (UI detail)
         planDur: durStr,
         planIntensity: intensity != null ? String(intensity) : null,
         planTarget: planTarget != null ? String(planTarget) : null,
@@ -166,12 +177,16 @@ export function buildDayBuckets({
   // --- externals (expanded via occurrence_date / single_date) ---
   const externalsForDay: SessionCardItem[] = externalRows
     .filter((ev) => {
-      const dIso = String((ev as any).occurrence_date || ev.single_date || "").slice(0, 10);
+      const dIso = String(
+        (ev as any).occurrence_date || ev.single_date || ""
+      ).slice(0, 10);
       return dIso === selectedIso;
     })
     .map((ev, idx) => {
       const sport = safeSportKey((ev as any).sport);
-      const t = (ev as any).start_time_local ? String((ev as any).start_time_local) : null;
+      const t = (ev as any).start_time_local
+        ? String((ev as any).start_time_local)
+        : null;
       const durMin = (ev as any).duration_min ?? null;
       const durTxt = fmtMinutes(durMin);
 
@@ -200,7 +215,9 @@ export function buildDayBuckets({
 
   // --- DEDUPE (vizuálne čistenie) ---
   const plansDeduped = plansForDay.filter((p: any) => !actSports.has(p.sport));
-  const externalsDeduped = externalsForDay.filter((e: any) => !actSports.has(e.sport));
+  const externalsDeduped = externalsForDay.filter(
+    (e: any) => !actSports.has(e.sport)
+  );
 
   // --- buckets ---
   const past: SessionCardItem[] = [];
@@ -219,12 +236,13 @@ export function buildDayBuckets({
     else planned.push(e);
   }
 
-  // stable sort (nice UI ordering)
+  // stable sort
   const kindOrder: Record<string, number> = { activity: 0, plan: 1, external: 2 };
   const sort = (arr: SessionCardItem[]) =>
     arr.sort(
       (a: any, b: any) =>
-        kindOrder[a.kind] - kindOrder[b.kind] || String(a.title).localeCompare(String(b.title))
+        kindOrder[a.kind] - kindOrder[b.kind] ||
+        String(a.title).localeCompare(String(b.title))
     );
 
   return { past: sort(past), planned: sort(planned) };
