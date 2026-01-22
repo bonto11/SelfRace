@@ -1,16 +1,21 @@
+// src/app/coach/pb/page.tsx
 "use client";
 
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
+
 import AccordionBests from "@/app/features/bests/components/AccordionBests";
-import ButtonBack from "@/app/shared/components/ui/AppHeader";
 
 export default function Page() {
   return (
-    <div className="max-w-screen-lg mx-auto px-3">
-      <ButtonBack title="Personal Bests" />
+    <>
+      <AppHeader title="Personal Bests" showBack container />
 
-      <div className="pt-3">
-        <AccordionBests />
+      <div className={PAGE_CONTAINER}>
+        <div className={PAGE_STACK}>
+          <AccordionBests />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
