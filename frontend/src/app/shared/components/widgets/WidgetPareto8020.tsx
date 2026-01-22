@@ -29,7 +29,7 @@ function pickAccentFromDeviation(deviation: number, hasData: boolean) {
 
   if (deviation <= 0.05) return THEME?.chart?.good ?? THEME?.chart?.positive ?? THEME?.chart?.fitness;
   if (deviation <= 0.1) return THEME?.chart?.fair ?? THEME?.chart?.average ?? THEME?.chart?.warning;
-  return THEME?.chart?.bad ?? THEME?.chart?.danger ?? THEME?.chart?.obese;
+  return THEME?.chart?.neutral ?? THEME?.chart?.danger ?? THEME?.chart?.obese;
 }
 
 export default function WidgetPareto8020({
@@ -89,7 +89,14 @@ export default function WidgetPareto8020({
   const deltaEasy = Math.round(targetEasy - E);
 
   const deviation = T ? Math.abs(E - targetEasy) / T : 1;
-  const accent = pickAccentFromDeviation(deviation, T > 0);
+  const accent =
+  T === 0
+    ? THEME.chart.neutral
+    : deviation <= 0.05
+    ? (THEME.chart.positive ?? THEME.chart.fitness ?? THEME.chart.neutral)
+    : deviation <= 0.1
+    ? (THEME.chart.warning ?? THEME.chart.average ?? THEME.chart.neutral)
+    : (THEME.chart.obese ?? THEME.chart.warning ?? THEME.chart.neutral);
 
   // --- SVG prstenec ---
   const size = 150;
