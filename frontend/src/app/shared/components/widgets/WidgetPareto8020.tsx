@@ -22,7 +22,7 @@ type Props = {
   /** null/undefined => BE default whitelist; "all" => všetky; alebo CSV/array */
   sport?: string | string[] | null;
 };
-
+/*
 function pickAccentFromDeviation(deviation: number, hasData: boolean) {
   // žiadne bg-* triedy ani hardcoded farby – iba THEME/appColors
   if (!hasData) return THEME?.chart?.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textMuted;
@@ -31,7 +31,7 @@ function pickAccentFromDeviation(deviation: number, hasData: boolean) {
   if (deviation <= 0.1) return THEME?.chart?.fair ?? THEME?.chart?.average ?? THEME?.chart?.warning;
   return THEME?.chart?.neutral ?? THEME?.chart?.danger ?? THEME?.chart?.obese;
 }
-
+*/
 export default function WidgetPareto8020({
   onOpenTrend,
   weeks = 2,
