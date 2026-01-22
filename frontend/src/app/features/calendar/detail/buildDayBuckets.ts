@@ -1,20 +1,19 @@
 // src/features/calendar/detail/buildDayBuckets.ts
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
-import type {
-  SessionCardItem,
-  KPI,
-  PlanStatus,
-} from "@/app/shared/components/session/SessionCard";
+import type { SessionCardItem, KPI, PlanStatus } from "@/app/shared/components/session/SessionCard";
 
-// malé helpers
+/* ---------- small helpers (UI-friendly strings, no hardcoded colors) ---------- */
+
 function fmtMinutes(min?: number | null): string | null {
   if (typeof min !== "number" || !Number.isFinite(min) || min <= 0) return null;
   return `${Math.round(min)} min`;
 }
+
 function fmtDistanceKm(m?: number | null): string | null {
   if (typeof m !== "number" || !Number.isFinite(m) || m <= 0) return null;
   return `${(m / 1000).toFixed(2)} km`;
 }
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -50,9 +49,7 @@ export function buildDayBuckets({
     .filter((r) => String(r.date).slice(0, 10) === selectedIso)
     .map((r) => {
       const aid = Number(r.activity_id);
-      const sport = safeSportKey(
-        (r as any).sport || (r as any).sport_type_fe || "other"
-      );
+      const sport = safeSportKey((r as any).sport || (r as any).sport_type_fe || "other");
 
       const dist = fmtDistanceKm(r.distance_m ?? null);
       const dur = fmtMinutes((r.moving_time_s ?? 0) / 60);
@@ -61,10 +58,10 @@ export function buildDayBuckets({
         dur ? { label: "TIME", value: dur } : null,
         dist ? { label: "DIST", value: dist } : null,
         r.average_heartrate_bpm != null
-          ? { label: "AVG HR", value: String(r.average_heartrate_bpm) }
+          ? { label: "AVG HR", value: String(Math.round(r.average_heartrate_bpm)) }
           : null,
         r.max_heartrate_bpm != null
-          ? { label: "MAX HR", value: String(r.max_heartrate_bpm) }
+          ? { label: "MAX HR", value: String(Math.round(r.max_heartrate_bpm)) }
           : null,
       ]);
 
@@ -81,9 +78,9 @@ export function buildDayBuckets({
         kpis,
         notes: null,
 
-        activityId: aid,
+        activityId: Number.isFinite(aid) ? aid : null,
 
-        // fallbacky (ak summary ešte nie je v provider cache)
+        // fallbacky
         timeStr: dur ?? null,
         distanceStr: dist ?? null,
         avgHr: r.average_heartrate_bpm ?? null,
@@ -101,17 +98,10 @@ export function buildDayBuckets({
       const sport = safeSportKey((p as any).sport || sess?.sport || "other");
 
       const dIso = selectedIso;
-      const hasAct =
-        p.activity_id != null && !Number.isNaN(Number(p.activity_id));
-      const status: PlanStatus = hasAct
-        ? "done"
-        : dIso < tIso
-        ? "missed"
-        : "planned";
+      const hasAct = p.activity_id != null && !Number.isNaN(Number(p.activity_id));
+      const status: PlanStatus = hasAct ? "done" : dIso < tIso ? "missed" : "planned";
 
-      const title = String(
-        sess?.title || sess?.name || sess?.session_type || p.title || "Plán"
-      );
+      const title = String(sess?.title || sess?.name || sess?.session_type || p.title || "Plán");
 
       const durStr =
         typeof sess?.duration_min === "number"
@@ -122,7 +112,6 @@ export function buildDayBuckets({
 
       const intensity = sess?.intensity ?? p.intensity ?? null;
 
-      // (voliteľné) target – skús vyčítať z pár miest
       const target =
         sess?.target ??
         sess?.target_hr_bpm_range ??
@@ -142,8 +131,7 @@ export function buildDayBuckets({
           ? `power ${target.power}W`
           : null;
 
-      const notes =
-        sess?.notes ?? sess?.structure?.main?.notes ?? p?.notes ?? null;
+      const notes = sess?.notes ?? sess?.structure?.main?.notes ?? p?.notes ?? null;
 
       const kpis = asKpis([
         durStr ? { label: "DURATION", value: durStr } : null,
@@ -163,6 +151,7 @@ export function buildDayBuckets({
 
         status: toPlanStatus(status),
 
+        // tieto polia používajú SessionCard varianty (UI detail)
         planDur: durStr,
         planIntensity: intensity != null ? String(intensity) : null,
         planTarget: planTarget != null ? String(planTarget) : null,
@@ -170,23 +159,19 @@ export function buildDayBuckets({
 
         planRaw: sess,
         planStructure: sess?.structure ?? null,
-        planExercises: Array.isArray(sess?.exercises) ? sess.exercises : [], // ✅ nikdy null
+        planExercises: Array.isArray(sess?.exercises) ? sess.exercises : [],
       };
     });
 
-  // --- externals (expandované cez occurrence_date) ---
+  // --- externals (expanded via occurrence_date / single_date) ---
   const externalsForDay: SessionCardItem[] = externalRows
     .filter((ev) => {
-      const dIso = String(
-        (ev as any).occurrence_date || ev.single_date || ""
-      ).slice(0, 10);
+      const dIso = String((ev as any).occurrence_date || ev.single_date || "").slice(0, 10);
       return dIso === selectedIso;
     })
     .map((ev, idx) => {
       const sport = safeSportKey((ev as any).sport);
-      const t = (ev as any).start_time_local
-        ? String((ev as any).start_time_local)
-        : null;
+      const t = (ev as any).start_time_local ? String((ev as any).start_time_local) : null;
       const durMin = (ev as any).duration_min ?? null;
       const durTxt = fmtMinutes(durMin);
 
@@ -213,12 +198,9 @@ export function buildDayBuckets({
       };
     });
 
-  // --- DEDUPE pravidlo ---
-  // Ak existuje activity pre šport S → schovaj plan/external S
+  // --- DEDUPE (vizuálne čistenie) ---
   const plansDeduped = plansForDay.filter((p: any) => !actSports.has(p.sport));
-  const externalsDeduped = externalsForDay.filter(
-    (e: any) => !actSports.has(e.sport)
-  );
+  const externalsDeduped = externalsForDay.filter((e: any) => !actSports.has(e.sport));
 
   // --- buckets ---
   const past: SessionCardItem[] = [];
@@ -237,17 +219,12 @@ export function buildDayBuckets({
     else planned.push(e);
   }
 
-  // stabilné radenie
-  const kindOrder: Record<string, number> = {
-    activity: 0,
-    plan: 1,
-    external: 2,
-  };
+  // stable sort (nice UI ordering)
+  const kindOrder: Record<string, number> = { activity: 0, plan: 1, external: 2 };
   const sort = (arr: SessionCardItem[]) =>
     arr.sort(
       (a: any, b: any) =>
-        kindOrder[a.kind] - kindOrder[b.kind] ||
-        String(a.title).localeCompare(String(b.title))
+        kindOrder[a.kind] - kindOrder[b.kind] || String(a.title).localeCompare(String(b.title))
     );
 
   return { past: sort(past), planned: sort(planned) };
