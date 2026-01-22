@@ -1,9 +1,10 @@
+// src/app/(protected)/recovery/sleepDuration/page.tsx
 "use client";
 
 import dynamic from "next/dynamic";
-import ButtonBack from "@/app/shared/components/ui/AppHeader";
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
 
-// dynamický import komponentu s grafom
 const SleepDurationDetailClient = dynamic(
   () => import("@/app/features/recovery/components/TrendSleepDuration"),
   { ssr: false }
@@ -11,11 +12,14 @@ const SleepDurationDetailClient = dynamic(
 
 export default function Page() {
   return (
-    <div className="max-w-screen-lg mx-auto px-3">
-      <ButtonBack title="Detail - Sleep Duration" />
-      <div className="pt-3">
-        <SleepDurationDetailClient />
+    <>
+      <AppHeader title="Detail — Sleep Duration" showBack container />
+
+      <div className={PAGE_CONTAINER}>
+        <div className={PAGE_STACK}>
+          <SleepDurationDetailClient />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
