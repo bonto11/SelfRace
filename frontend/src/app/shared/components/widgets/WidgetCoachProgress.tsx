@@ -18,7 +18,7 @@ import {
   WIDGET_INFO_GRID_XS,
   WIDGET_LABEL_MUTED_XS,
   WIDGET_VALUE_STRONG_XS,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
 import {
   apiGetLatestAthleteProgress,

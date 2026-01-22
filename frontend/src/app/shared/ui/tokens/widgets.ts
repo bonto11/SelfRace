@@ -90,3 +90,26 @@ export const WIDGET_LOADING_WRAP = "grid place-items-center py-6";
 export const WIDGET_ROW_BETWEEN = "flex items-start justify-between";
 export const WIDGET_BLOCK = "min-w-0";
 export const WIDGET_TRUNCATE = "truncate";
+
+
+// action row surface (bez inline style)
+export const WIDGET_ACTION_ROW_SURFACE = [
+  `bg-[${appColors.buttonGhostBgHover}]`,
+  `border border-[${appColors.surfaceCardBorder}]`,
+].join(" ");
+
+// chevron button surface (bez inline style)
+export const WIDGET_ACTION_CHEVRON_SURFACE = [
+  `bg-[${appColors.buttonGhostBgHover}]`,
+  `border border-[${appColors.surfaceCardBorder}]`,
+  `text-[${appColors.textPrimary}]`,
+].join(" ");
+
+// malé CTA row v spodku widgetu (aby neboli random layout classy)
+export const WIDGET_CTA_ROW = "mt-3 flex items-center gap-2";
+
+// error line bez statickej farby
+export const WIDGET_ERROR_LINE_COLORED = [
+  "mt-1 text-[11px] line-clamp-2",
+  `text-[${appColors.statusError}]`,
+].join(" ");

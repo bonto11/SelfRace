@@ -13,10 +13,10 @@ import { appColors } from "@/app/shared/theme/app_colors";
 import {
   WIDGET_ROW_TOP_XS,
   WIDGET_META_TEXT,
-  WIDGET_ERROR_LINE,
   WIDGET_LOADING_LINE,
   WIDGET_EMPTY_HINT,
-} from "@/app/shared/theme/uiTokens";
+  WIDGET_ERROR_LINE_COLORED,
+} from "@/app/shared/ui/tokens";
 
 import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
@@ -79,7 +79,6 @@ export default function WidgetExternalEvents() {
     };
   }, [userId]);
 
-  // ✅ bez THEME + bez hardcoded hex
   const accent = appColors.accentTeal;
 
   const label = (() => {
@@ -88,7 +87,6 @@ export default function WidgetExternalEvents() {
     return `${stats.weekly} weekly · ${stats.singles_upcoming} upcoming singles`;
   })();
 
-  // ✅ pill bez statických farieb (nech sa chová konzistentne)
   const pillColor = appColors.textMuted;
 
   return (
@@ -108,7 +106,7 @@ export default function WidgetExternalEvents() {
         <span className={WIDGET_META_TEXT}>{label}</span>
       </div>
 
-      {err && <div className={WIDGET_ERROR_LINE}>{err}</div>}
+      {err && <div className={WIDGET_ERROR_LINE_COLORED}>{err}</div>}
 
       {loading && (
         <div className={WIDGET_LOADING_LINE}>

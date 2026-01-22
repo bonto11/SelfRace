@@ -13,12 +13,15 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
   WIDGET_STATUS_ROW,
-  WIDGET_ERROR_LINE,
   WIDGET_ACTIONS_WRAP,
   WIDGET_ACTION_ROW,
   WIDGET_ACTION_ROW_INNER,
   WIDGET_ACTION_CHEVRON_BTN,
-} from "@/app/shared/theme/uiTokens";
+  WIDGET_ACTION_ROW_SURFACE,
+  WIDGET_ACTION_CHEVRON_SURFACE,
+  WIDGET_CTA_ROW,
+  WIDGET_ERROR_LINE_COLORED,
+} from "@/app/shared/ui/tokens";
 
 import {
   apiFetchUserPref,
@@ -96,13 +99,7 @@ function RowAction({
   onDetail: () => void;
 }) {
   return (
-    <div
-      className={WIDGET_ACTION_ROW}
-      style={{
-        background: appColors.buttonGhostBgHover,
-        border: `1px solid ${appColors.surfaceCardBorder}`,
-      }}
-    >
+    <div className={[WIDGET_ACTION_ROW, WIDGET_ACTION_ROW_SURFACE].join(" ")}>
       <div className={WIDGET_ACTION_ROW_INNER}>
         <Button
           size="xs"
@@ -124,12 +121,9 @@ function RowAction({
       <button
         type="button"
         onClick={onDetail}
-        className={WIDGET_ACTION_CHEVRON_BTN}
-        style={{
-          background: appColors.buttonGhostBgHover,
-          border: `1px solid ${appColors.surfaceCardBorder}`,
-          color: appColors.textPrimary,
-        }}
+        className={[WIDGET_ACTION_CHEVRON_BTN, WIDGET_ACTION_CHEVRON_SURFACE].join(
+          " "
+        )}
         aria-label="Otvoriť detail"
       >
         →
@@ -138,9 +132,6 @@ function RowAction({
   );
 }
 
-/**
- * Formátovanie chýb z AI (vrátane kvóty)
- */
 function formatAiError(e: any): string {
   const code = e?.code ?? (e && (e as any).code);
   if (code === "ai_quota_exceeded") {
@@ -171,7 +162,6 @@ export default function WidgetCoachPlan() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
-  /* ---- init prefs ---- */
   useEffect(() => {
     if (!userId) return;
 
@@ -186,7 +176,6 @@ export default function WidgetCoachPlan() {
     })();
   }, [userId]);
 
-  /* ---- latest athlete_state z DB ---- */
   useEffect(() => {
     if (!userId) return;
 
@@ -207,7 +196,6 @@ export default function WidgetCoachPlan() {
     };
   }, [userId]);
 
-  /* ---- flag "generated" z localStorage ---- */
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -217,7 +205,6 @@ export default function WidgetCoachPlan() {
     }
   }, []);
 
-  /* ---- active plan status Z DB (autorita) ---- */
   useEffect(() => {
     if (!userId) return;
 
@@ -259,10 +246,6 @@ export default function WidgetCoachPlan() {
     }
   }, []);
 
-  /**
-   * Pred generovaním weekly/daily sa postará o to, aby coach.prefs.start_date
-   * nebol v minulosti. Ak je, posunie ho na zajtra a uloží do DB.
-   */
   const ensurePlanStartFuture = useCallback(async () => {
     if (!userId) return;
     try {
@@ -272,8 +255,6 @@ export default function WidgetCoachPlan() {
       console.warn("[CoachPlan] ensurePlanStartFuture error", e);
     }
   }, [userId]);
-
-  /* ---- handlers ---- */
 
   const handleAnalyze = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -324,7 +305,15 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, result, latestStateId, markGenerated, ensurePlanStartFuture]);
+  }, [
+    userId,
+    userUuid,
+    prefs,
+    result,
+    latestStateId,
+    markGenerated,
+    ensurePlanStartFuture,
+  ]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -420,15 +409,9 @@ export default function WidgetCoachPlan() {
   const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
 
-  // accent len z appColors (žiadne THEME / statické fallbacky)
   const accent = activePlanId ? appColors.brandPrimary : appColors.accentTeal;
 
-  const statusLabel = activePlanId
-    ? "active plan ✓"
-    : hasGenerated
-    ? "generated ✓"
-    : "no plan";
-
+  const statusLabel = activePlanId ? "active plan ✓" : hasGenerated ? "generated ✓" : "no plan";
   const statusColor = activePlanId ? appColors.brandPrimary : appColors.textMuted;
 
   return (
@@ -439,20 +422,13 @@ export default function WidgetCoachPlan() {
       interactive={false}
       minH={210}
     >
-      {/* status riadok */}
       <div className={WIDGET_STATUS_ROW}>
         <Pill label={statusLabel} color={statusColor} />
         <PrefsMiniInline prefs={prefs} />
       </div>
 
-      {/* chyba */}
-      {error && (
-        <div className={WIDGET_ERROR_LINE} style={{ color: appColors.statusError }}>
-          {error}
-        </div>
-      )}
+      {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 
-      {/* akcie */}
       <div className={WIDGET_ACTIONS_WRAP}>
         <RowAction
           onPrimary={handleAnalyze}
@@ -478,8 +454,7 @@ export default function WidgetCoachPlan() {
           onDetail={() => router.push("/coach/ai/dailyPlan")}
         />
 
-        {/* START / CANCEL ACTIVE PLAN */}
-        <div className="mt-3 flex items-center gap-2">
+        <div className={WIDGET_CTA_ROW}>
           <Button
             size="xs"
             variant={activePlanId ? "success" : "primary"}

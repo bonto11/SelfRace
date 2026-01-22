@@ -19,7 +19,7 @@ import {
   WIDGET_VALUE_PRIMARY,
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
 export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {

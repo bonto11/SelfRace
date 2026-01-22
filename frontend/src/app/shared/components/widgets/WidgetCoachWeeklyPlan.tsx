@@ -15,7 +15,7 @@ import {
   WIDGET_LABEL_MUTED_SM,
   WIDGET_VALUE_STRONG_SM,
   WIDGET_NOTE_P_SM,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
 import {
   apiGetLatestWeeklyPlan,

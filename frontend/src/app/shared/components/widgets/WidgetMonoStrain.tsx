@@ -16,7 +16,7 @@ import {
   WIDGET_METRIC_NOTE,
   WIDGET_FOOTNOTE,
   WIDGET_EMPTY,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
 type Level = "neutral" | "good" | "warn" | "danger";
 
@@ -27,55 +27,52 @@ function pickFirstColor(...keys: string[]): string {
     const v = C?.[k];
     if (typeof v === "string" && v.trim()) return v;
   }
-  return ""; // nechytáme sa na hardcoded farby
+  return "";
 }
 
 function levelColor(level: Level): string {
-  // ✅ žiadne statické farby – iba appColors keys (cez safe lookup)
-  // Skúšame viacero možných názvov, lebo ty nemáš "accentRed" atď.
   if (level === "danger") {
-    return pickFirstColor(
-      "danger",
-      "accentRed",
-      "accentRose",
-      "accentPink",
-      "brandDanger",
-      "brandPrimary",
-      "accentPrimary",
-      "textMuted"
+    return (
+      pickFirstColor(
+        "statusError",
+        "danger",
+        "brandDanger",
+        "accentRed",
+        "accentRose",
+        "accentPink"
+      ) || appColors.statusError
     );
   }
+
   if (level === "warn") {
-    return pickFirstColor(
-      "warn",
-      "accentAmber",
-      "accentOrange",
-      "brandWarn",
-      "brandSecondary",
-      "accentSecondary",
-      "brandPrimary",
-      "textMuted"
+    return (
+      pickFirstColor(
+        "statusWarning",
+        "warn",
+        "brandWarn",
+        "accentAmber",
+        "accentOrange"
+      ) || appColors.statusWarning
     );
   }
+
   if (level === "good") {
-    return pickFirstColor(
-      "success",
-      "accentGreen",
-      "accentTeal",
-      "brandSuccess",
-      "brandPrimary",
-      "accentPrimary",
-      "textMuted"
+    return (
+      pickFirstColor(
+        "statusSuccess",
+        "success",
+        "brandSuccess",
+        "accentGreen",
+        "accentTeal",
+        "brandPrimary"
+      ) || appColors.brandPrimary
     );
   }
-  return pickFirstColor(
-    "neutral",
-    "textMuted",
-    "textSubtle",
-    "textSecondary",
-    "brandPrimary"
-  );
+
+  return pickFirstColor("textMuted", "textSecondary", "textSubtle") || appColors.textMuted;
 }
+
+// ...zvyšok bez zmeny
 
 function worstLevel(a: Level, b: Level): Level {
   const w: Record<Level, number> = { neutral: 0, good: 1, warn: 2, danger: 3 };
