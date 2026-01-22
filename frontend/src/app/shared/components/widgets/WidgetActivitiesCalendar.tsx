@@ -24,7 +24,8 @@ import {
 import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
 
 // ✅ importuj priamo
-import { NO_X_OVERFLOW, WIDGET_ERROR_LINE } from "@/app/shared/ui/tokens/widgets";
+import { WIDGET_ERROR_LINE } from "@/app/shared/ui/tokens/widgets";
+import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
 import {
   CAL_WIDGET_DOW_ROW,
   CAL_WIDGET_DOW_CELL,
