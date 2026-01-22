@@ -2,25 +2,45 @@
 import { appColors } from "@/app/shared/theme/app_colors";
 
 /* ===== SURFACES (JEDINÝ ZDROJ PRAVDY PRE KARTY) ======================== */
+// src/app/shared/ui/tokens/core.ts
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export const SURFACE_CARD = [
   "rounded-2xl",
   "shadow-lg",
   "border",
-  `border-[${appColors.surfaceCardBorder}]`,
-  `bg-[${appColors.surfaceCard}]`,
   "backdrop-blur",
   "text-left",
 ].join(" ");
 
+export const SURFACE_CARD_STYLE: React.CSSProperties = {
+  background: appColors.surfaceCard,
+  borderColor: appColors.surfaceCardBorder,
+};
+
 export const SURFACE_SUBCARD = [
   "rounded-2xl",
   "border",
-  `border-[${appColors.surfaceCardBorder}]`,
-  `bg-[${appColors.surfaceSolid}]`,
   "backdrop-blur",
   "text-left",
 ].join(" ");
+
+export const SURFACE_SUBCARD_STYLE: React.CSSProperties = {
+  background: appColors.surfaceSolid,
+  borderColor: appColors.surfaceCardBorder,
+};
+
+export const SURFACE_INLINE = [
+  "rounded-xl",
+  "border",
+  "text-left",
+].join(" ");
+
+export const SURFACE_INLINE_STYLE: React.CSSProperties = {
+  background: appColors.backgroundAlt,
+  borderColor: appColors.surfaceCardBorder,
+};
+
 
 export const SURFACE_INSET = [
   "rounded-2xl",
@@ -28,14 +48,6 @@ export const SURFACE_INSET = [
   `border-[${appColors.surfaceCardBorder}]`,
   `bg-[${appColors.surfaceSolid}]`,
   "backdrop-blur",
-  "text-left",
-].join(" ");
-
-export const SURFACE_INLINE = [
-  "rounded-xl",
-  "border",
-  `border-[${appColors.surfaceCardBorder}]`,
-  `bg-[${appColors.backgroundAlt}]`,
   "text-left",
 ].join(" ");
 
