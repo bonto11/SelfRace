@@ -1,16 +1,21 @@
+// src/app/coach/prefs/page.tsx
 "use client";
 
+import AppHeader from "@/app/shared/components/ui/AppHeader";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
+
 import CoachPreferencies from "@/app/features/prefs/components/CoachPreferencies";
-import ButtonBack from "@/app/shared/components/ui/AppHeader";
 
 export default function Page() {
   return (
-    <div className="max-w-screen-lg mx-auto px-3">
-      <ButtonBack title="Coach — Preferences" />
+    <>
+      <AppHeader title="Coach — Preferences" showBack container />
 
-      <div className="pt-3 bg-white/5 dark:bg-gray-800 p-4 rounded shadow">
-        <CoachPreferencies />
+      <div className={PAGE_CONTAINER}>
+        <div className={PAGE_STACK}>
+          <CoachPreferencies />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
