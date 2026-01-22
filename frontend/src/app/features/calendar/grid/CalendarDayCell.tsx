@@ -1,7 +1,6 @@
 // src/features/calendar/grid/CalendarDayCell.tsx
 "use client";
 
-
 import * as React from "react";
 import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
 import { CALENDAR_DAY_CELL } from "@/app/shared/theme/uiTokens";
@@ -37,23 +36,20 @@ function pickDayCellStyle(opts: {
       "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease",
     boxShadow: "none",
     opacity: inMonth ? 1 : 0.45,
+
+    // ✅ kill sticky white outline on iOS focus
+    outline: "none",
+    WebkitTapHighlightColor: "transparent",
   };
 
-  // hover (len ak nie je selected)
-  if (isHovered && !isSelected) {
-    style.background = appColors.surfaceCardHover;
-  }
+  if (isHovered && !isSelected) style.background = appColors.surfaceCardHover;
 
-  // today outline (subtle)
-  if (isToday) {
-    style.borderColor = appColors.textMuted;
-  }
+  if (isToday) style.borderColor = appColors.textMuted;
 
-  // selected (ring-ish) – musí prebiť hover/today
   if (isSelected) {
     style.borderColor = appColors.brandPrimary;
-    style.background = appColors.surfaceCardHover; // nech selected vždy vyzerá "active"
-    style.boxShadow = `0 0 0 2px ${appColors.brandPrimary}33`; // 20% alpha
+    style.background = appColors.surfaceCardHover;
+    style.boxShadow = `0 0 0 2px ${appColors.brandPrimary}33`;
   }
 
   return style;
@@ -68,20 +64,11 @@ export default function CalendarDayCell({
   const isToday = cell.iso === isoToday();
   const [hovered, setHovered] = React.useState(false);
 
-  // keď sa bunka odselectne, vypni hover state (defenzívne proti edge-case)
-  React.useEffect(() => {
-    if (!isSelected) return;
-    // nič
-  }, [isSelected]);
-
   const dots: Dot[] = [];
-
-  for (const it of cell.externals) {
+  for (const it of cell.externals)
     dots.push({ key: `e-${it.id}`, sport: String(it.sport), kind: "external" });
-  }
-  for (const it of cell.activities) {
+  for (const it of cell.activities)
     dots.push({ key: `a-${it.id}`, sport: String(it.sport), kind: "activity" });
-  }
   for (const it of cell.plans) {
     const kind: DotKind =
       it.status === "planned" ? "plan" : it.status === "done" ? "done" : "missed";
@@ -98,11 +85,6 @@ export default function CalendarDayCell({
   return (
     <button
       type="button"
-      onClick={() => onSelect(cell.iso)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
       className={[
         "px-2 py-1.5 text-left w-full focus:outline-none rounded-xl",
         CALENDAR_DAY_CELL,
@@ -110,6 +92,15 @@ export default function CalendarDayCell({
       ].join(" ")}
       style={style}
       aria-pressed={isSelected}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      onClick={(e) => {
+        onSelect(cell.iso);
+        // ✅ critical: remove focus so Safari doesn’t keep “selected outline”
+        (e.currentTarget as HTMLButtonElement).blur();
+      }}
     >
       <div className="flex flex-col">
         <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
@@ -135,32 +126,21 @@ export default function CalendarDayCell({
                 <span
                   key={it.key}
                   className="inline-block w-1.5 h-1.5 rounded-full"
-                  style={{
-                    border: `1px solid ${color}`,
-                    backgroundColor: "transparent",
-                  }}
+                  style={{ border: `1px solid ${color}`, backgroundColor: "transparent" }}
                 />
               );
             }
 
             if (it.kind === "done") {
               return (
-                <span
-                  key={it.key}
-                  className="text-[11px] leading-none font-semibold"
-                  style={{ color }}
-                >
+                <span key={it.key} className="text-[11px] leading-none font-semibold" style={{ color }}>
                   ✓
                 </span>
               );
             }
 
             return (
-              <span
-                key={it.key}
-                className="text-[11px] leading-none font-semibold"
-                style={{ color }}
-              >
+              <span key={it.key} className="text-[11px] leading-none font-semibold" style={{ color }}>
                 ×
               </span>
             );
