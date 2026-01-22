@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/theme/uiTokens";
+import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {

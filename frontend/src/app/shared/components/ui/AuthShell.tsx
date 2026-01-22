@@ -1,0 +1,61 @@
+// src/app/shared/components/ui/AuthShell.tsx
+"use client";
+
+import * as React from "react";
+import {
+  AUTH_PAGE,
+  AUTH_PAGE_PAD,
+  AUTH_SHELL,
+  AUTH_CARD,
+  AUTH_CARD_STYLE,
+  AUTH_HEADER,
+  AUTH_TITLE,
+  AUTH_TEXT,
+  AUTH_STACK,
+  AUTH_FOOTER_ROW,
+  AUTH_FOOTER_TEXT,
+  AUTH_BADGE,
+  AUTH_BADGE_STYLE,
+  AUTH_BADGE_DOT,
+  AUTH_BADGE_DOT_STYLE,
+} from "@/app/shared/ui/tokens/auth";
+
+type Props = {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  footer?: boolean; // default true
+};
+
+export default function AuthShell({
+  title,
+  description,
+  children,
+  footer = true,
+}: Props) {
+  return (
+    <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
+      <div className={AUTH_SHELL}>
+        <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
+          <header className={AUTH_HEADER}>
+            <h1 className={AUTH_TITLE}>{title}</h1>
+            {description ? <p className={AUTH_TEXT}>{description}</p> : null}
+          </header>
+
+          {children}
+
+          {footer ? (
+            <div className={AUTH_FOOTER_ROW}>
+              <span className={AUTH_FOOTER_TEXT}>SelfRace • AI tréning pre atlétov</span>
+
+              <span className={AUTH_BADGE} style={AUTH_BADGE_STYLE}>
+                <span className={AUTH_BADGE_DOT} style={AUTH_BADGE_DOT_STYLE} />
+                Powered by Strava
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </main>
+  );
+}

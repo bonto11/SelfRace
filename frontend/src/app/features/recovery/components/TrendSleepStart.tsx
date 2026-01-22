@@ -17,7 +17,7 @@ import { hexToRgba } from "@/app/shared/utils/color";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/theme/uiTokens";
+import { CARD, SCROLL_X } from "@/app/shared/ui/tokens";
 import { inputClass } from "@/app/shared/ui";
 
 ensureChartJSRegistered();

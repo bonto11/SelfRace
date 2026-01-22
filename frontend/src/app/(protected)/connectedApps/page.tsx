@@ -1,7 +1,7 @@
 // src/app/(protected)/connectedApps/page.tsx
 import AppHeader from "@/app/shared/components/ui/AppHeader";
 import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
-import { PAGE_INTRO, PAGE_INTRO_TITLE, PAGE_INTRO_TEXT } from "@/app/shared/ui/tokens/pageIntro";
+import { PAGE_INTRO, PAGE_INTRO_TITLE, PAGE_INTRO_TEXT } from "@/app/shared/ui/tokens/pageTokens";
 
 import StravaPanel from "@/app/features/strava/components/StravaPanel";
 

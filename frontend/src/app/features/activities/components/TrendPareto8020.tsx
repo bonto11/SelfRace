@@ -19,9 +19,8 @@ import {
 
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
-import { CARD } from "@/app/shared/theme/uiTokens";
 import { inputClass } from "@/app/shared/ui";
-import { SCROLL_X } from "@/app/shared/theme/uiTokens";
+import { SCROLL_X, CARD } from "@/app/shared/ui/tokens";
 import {
   ParetoWeekPick,
   ParetoRow,

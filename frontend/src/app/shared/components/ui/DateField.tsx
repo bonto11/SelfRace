@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { SURFACE_INLINE } from "@/app/shared/ui/tokens";
 
 type Props = {
   label: string;

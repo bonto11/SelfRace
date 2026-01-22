@@ -1,7 +1,7 @@
 "use client";
 
 import Button from "@/app/shared/components/ui/Button";
-import { SECTION } from "@/app/shared/theme/uiTokens";
+import { SECTION } from "@/app/shared/ui/tokens";
 import { inputClass } from "@/app/shared/ui";
 
 function isoTodayPlus(days: number): string {

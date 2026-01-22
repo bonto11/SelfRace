@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import type {
   Injury,
   InjuryArea,

@@ -10,7 +10,7 @@ import {
   TOAST_SUCCESS,
   TOAST_ERROR,
   TOAST_INFO,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
 type ToastType = "success" | "error" | "info";
 type Phase = "in" | "hold" | "out";

@@ -1,19 +1,28 @@
-// src/features/auth/components/SignInForm.tsx
+// src/app/features/auth/components/SignInForm.tsx
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
+import AuthShell from "@/app/shared/components/ui/AuthShell";
+
 import {
-  CARD,
-  SURFACE_INSET,
-  MUTED_TEXT,
-} from "@/app/shared/theme/uiTokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+  AUTH_FORM,
+  AUTH_FIELD,
+  AUTH_FEEDBACK,
+  AUTH_FEEDBACK_INFO_STYLE,
+  AUTH_FEEDBACK_ERROR_STYLE,
+  AUTH_LINK_ROW,
+  AUTH_LINK,
+  AUTH_LINK_STYLE,
+  AUTH_LINK_MUTED_STYLE,
+  AUTH_TEXT,
+} from "@/app/shared/ui/tokens/auth";
 
 export default function SignInForm() {
   const router = useRouter();
@@ -66,101 +75,62 @@ export default function SignInForm() {
   }
 
   return (
-    <main className="min-h-dvh flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <form onSubmit={submit} className={`${CARD} p-5 space-y-4`}>
-          <header className="space-y-1">
-            <h1 className="text-2xl font-semibold">Prihlásenie</h1>
-            <p className={MUTED_TEXT}>
-              Vráť sa späť k svojim tréningom, plánom a AI trénerovi.
-            </p>
-          </header>
-
-          {info && (
-            <div
-              className={`${SURFACE_INSET} px-3 py-2 text-xs`}
-              style={{ color: appColors.textSecondary }}
-            >
-              {info}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <TextField
-              type="email"
-              placeholder="tvoje@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.currentTarget.value)}
-              required
-              autoComplete="email"
-            />
-            <TextField
-              type="password"
-              placeholder="Heslo"
-              value={pwd}
-              onChange={(e) => setPwd(e.currentTarget.value)}
-              required
-              autoComplete="current-password"
-            />
-
-            {err && (
-              <div className="text-sm" style={{ color: appColors.statusError }}>
-                {err}
-              </div>
-            )}
-
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Prihlasujem…" : "Prihlásiť sa"}
-            </Button>
-
-            <div className="flex items-center justify-between text-xs">
-              <Link
-                href="/forgot-password"
-                className="underline underline-offset-2"
-                style={{ color: appColors.brandPrimary }}
-              >
-                Zabudnuté heslo?
-              </Link>
-
-              <span className={MUTED_TEXT}>
-                Nemáš účet?{" "}
-                <Link
-                  href="/signup"
-                  className="underline underline-offset-2"
-                  style={{ color: appColors.textPrimary }}
-                >
-                  Registruj sa
-                </Link>
-              </span>
-            </div>
+    <AuthShell
+      title="Prihlásenie"
+      description="Vráť sa späť k svojim tréningom, plánom a AI trénerovi."
+    >
+      <form onSubmit={submit} className={AUTH_FORM}>
+        {info ? (
+          <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_INFO_STYLE}>
+            {info}
           </div>
+        ) : null}
 
-          <div
-            className="mt-4 flex items-center justify-between text-[11px]"
-            style={{ color: appColors.textMuted }}
-          >
-            <span>SelfRace • AI tréning pre atlétov</span>
+        <div className={AUTH_FIELD}>
+          <TextField
+            type="email"
+            placeholder="tvoje@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.currentTarget.value)}
+            required
+            autoComplete="email"
+          />
+        </div>
 
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-[2px] uppercase tracking-wide text-[10px] backdrop-blur"
-              style={{
-                background: appColors.pillBg,
-                border: `1px solid ${appColors.pillBorder}`,
-                color: appColors.textSecondary,
-              }}
-            >
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{
-                  background: appColors.statusWarning,
-                  boxShadow: `0 0 0 3px ${appColors.pillActiveBg}`,
-                }}
-              />
-              Powered by Strava
-            </span>
+        <div className={AUTH_FIELD}>
+          <TextField
+            type="password"
+            placeholder="Heslo"
+            value={pwd}
+            onChange={(e) => setPwd(e.currentTarget.value)}
+            required
+            autoComplete="current-password"
+          />
+        </div>
+
+        {err ? (
+          <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_ERROR_STYLE}>
+            {err}
           </div>
-        </form>
-      </div>
-    </main>
+        ) : null}
+
+        <Button type="submit" variant="primary" block disabled={loading}>
+          {loading ? "Prihlasujem…" : "Prihlásiť sa"}
+        </Button>
+
+        <div className={AUTH_LINK_ROW}>
+          <Link href="/forgot-password" className={AUTH_LINK} style={AUTH_LINK_STYLE}>
+            Zabudnuté heslo?
+          </Link>
+
+          <span className={AUTH_TEXT}>
+            Nemáš účet?{" "}
+            <Link href="/signup" className={AUTH_LINK} style={AUTH_LINK_MUTED_STYLE}>
+              Registruj sa
+            </Link>
+          </span>
+        </div>
+      </form>
+    </AuthShell>
   );
 }

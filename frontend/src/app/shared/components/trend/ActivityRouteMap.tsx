@@ -7,7 +7,7 @@ import {
   CHART_HR,
   FLUSH_DETAIL_PB,
   SCROLL_X,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 
 type Point = { lat: number; lng: number };

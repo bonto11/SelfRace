@@ -8,7 +8,7 @@ import {
   CHART_HR,
   FLUSH_DETAIL_PB,
   SCROLL_X,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 import type { StreamsData } from "@/app/features/activities/types/activities";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 

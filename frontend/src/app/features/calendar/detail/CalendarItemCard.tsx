@@ -3,7 +3,7 @@
 
 import * as React from "react";
 
-import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import SportBadge from "@/app/shared/components/ui/SportBadge";

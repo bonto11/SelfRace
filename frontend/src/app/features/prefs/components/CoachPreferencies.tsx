@@ -18,7 +18,7 @@ import {
 } from "@/app/features/prefs/utils/prefs";
 
 import Button from "@/app/shared/components/ui/Button";
-import { NO_X, PILL_BUTTON } from "@/app/shared/theme/uiTokens";
+import { NO_X, PILL_BUTTON } from "@/app/shared/ui/tokens";
 
 import {
   apiFetchUserZonesLatest,

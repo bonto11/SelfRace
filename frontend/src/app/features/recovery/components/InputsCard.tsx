@@ -19,7 +19,7 @@ import {
   WIDGET_HEADER_BELOW,
   PILL_BUTTON,
   TEXTAREA_BASE,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
 import { apiSaveRecovery } from "@/app/features/recovery/api/recovery";
 

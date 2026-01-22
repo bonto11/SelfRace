@@ -10,8 +10,24 @@ import {
   DROPDOWN_PANEL,
   DROPDOWN_ITEM,
   DROPDOWN_ITEM_DANGER,
-  ICON_BUTTON,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
+import {
+  USER_MENU_WRAP,
+  USER_MENU_TRIGGER,
+  USER_MENU_LABEL_ROW,
+  USER_MENU_LABEL,
+  USER_MENU_TIER_PILL,
+  USER_MENU_AVATAR_IMG,
+  USER_MENU_DROPDOWN_WRAP,
+  USER_MENU_PANEL_HEAD,
+  USER_MENU_HEAD_ROW,
+  USER_MENU_HEAD_LEFT,
+  USER_MENU_HEAD_NAME,
+  USER_MENU_HEAD_EMAIL,
+  USER_MENU_NAV,
+  USER_MENU_SIGNOUT_DISABLED,
+} from "@/app/shared/ui/tokens/userMenu";
+
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
   getSubscriptionTier,
@@ -91,17 +107,17 @@ export default function UserMenu() {
     }
   }
 
-  // Tier pill – iba cez palette (žiadne slate/purple/s
+  // Tier pill – farby iba cez appColors (žiadne tailwind farby)
   const tierStyle =
     tierCode === "pro"
       ? {
-          background: "rgba(56,189,248,0.16)", // jemný info tint
+          background: "rgba(56,189,248,0.16)",
           border: `1px solid ${appColors.panelBorder}`,
           color: appColors.textPrimary,
         }
       : tierCode === "classic"
       ? {
-          background: "rgba(163,230,53,0.14)", // lime tint
+          background: "rgba(163,230,53,0.14)",
           border: `1px solid ${appColors.pillActiveBorder}`,
           color: appColors.textPrimary,
         }
@@ -112,12 +128,9 @@ export default function UserMenu() {
         };
 
   return (
-    <div ref={boxRef} className="relative">
+    <div ref={boxRef} className={USER_MENU_WRAP}>
       <button
-        className={[
-          "inline-flex items-center gap-2 px-2 py-1 rounded-lg",
-          "transition-colors",
-        ].join(" ")}
+        className={USER_MENU_TRIGGER}
         style={{
           background: open ? appColors.surfaceCardHover : appColors.buttonGhostBg,
           border: `1px solid ${appColors.surfaceCardBorder}`,
@@ -127,12 +140,12 @@ export default function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <div className="flex items-center gap-1 max-w-[160px] min-w-0">
-          <span className="text-sm max-w-[120px] truncate text-right">{label}</span>
+        <div className={USER_MENU_LABEL_ROW}>
+          <span className={USER_MENU_LABEL}>{label}</span>
 
           {tierCode && (
             <span
-              className="inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold"
+              className={USER_MENU_TIER_PILL}
               style={tierStyle}
               onClick={(e) => {
                 e.stopPropagation();
@@ -150,7 +163,7 @@ export default function UserMenu() {
             alt={label || "User avatar"}
             width={28}
             height={28}
-            className="rounded-full"
+            className={USER_MENU_AVATAR_IMG}
           />
         ) : initials ? (
           <div className={AVATAR_BUTTON}>{initials}</div>
@@ -167,32 +180,38 @@ export default function UserMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-64 z-50">
-          {/* panel */}
-          <div className={DROPDOWN_PANEL} style={{ background: appColors.panelBg, border: `1px solid ${appColors.panelBorder}`, boxShadow: appColors.shadowCard }}>
-            <div className="px-3 py-2 text-sm" style={{ borderBottom: `1px solid ${appColors.divider}` }}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-medium truncate" style={{ color: appColors.textPrimary }}>
+        <div className={USER_MENU_DROPDOWN_WRAP}>
+          <div
+            className={DROPDOWN_PANEL}
+            style={{
+              background: appColors.panelBg,
+              border: `1px solid ${appColors.panelBorder}`,
+              boxShadow: appColors.shadowCard,
+            }}
+          >
+            <div
+              className={USER_MENU_PANEL_HEAD}
+              style={{ borderBottom: `1px solid ${appColors.divider}` }}
+            >
+              <div className={USER_MENU_HEAD_ROW}>
+                <div className={USER_MENU_HEAD_LEFT}>
+                  <div className={USER_MENU_HEAD_NAME} style={{ color: appColors.textPrimary }}>
                     {me?.displayName || me?.name || "User"}
                   </div>
-                  <div className="truncate" style={{ color: appColors.textMuted }}>
+                  <div className={USER_MENU_HEAD_EMAIL} style={{ color: appColors.textMuted }}>
                     {me?.email || me?.name || ""}
                   </div>
                 </div>
 
                 {tierCode && (
-                  <span
-                    className="inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold"
-                    style={tierStyle}
-                  >
+                  <span className={USER_MENU_TIER_PILL} style={tierStyle}>
                     {tierCode.toUpperCase()}
                   </span>
                 )}
               </div>
             </div>
 
-            <nav className="py-1 flex flex-col gap-1">
+            <nav className={USER_MENU_NAV}>
               <a className={DROPDOWN_ITEM} href="/account">
                 Account
               </a>
@@ -204,7 +223,7 @@ export default function UserMenu() {
               <div className={DROPDOWN_DIVIDER} />
 
               <button
-                className={[DROPDOWN_ITEM_DANGER, "disabled:opacity-60"].join(" ")}
+                className={[DROPDOWN_ITEM_DANGER, USER_MENU_SIGNOUT_DISABLED].join(" ")}
                 onClick={handleSignOut}
                 disabled={busy === "signout"}
               >

@@ -11,7 +11,7 @@ import {
   WIDGET_HINT,
   WIDGET_NOTE,
   WIDGET_FOOTER,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 function cx(...parts: (string | false | null | undefined)[]) {

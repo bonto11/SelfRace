@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { safeText } from "./sessionUtils";
 
 export type Metric = { label: ReactNode; value: ReactNode };

@@ -19,7 +19,7 @@ import { ActivityDataProvider } from "@/app/shared/components/dataProviders/Acti
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
 import { appColors } from "@/app/shared/theme/app_colors";
-import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
+import { SHELL_GRID } from "@/app/shared/ui/tokens";
 import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
 
 export default function ClientProtectedShell({ children }: { children: ReactNode }) {
