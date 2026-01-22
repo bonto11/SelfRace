@@ -12,13 +12,16 @@ import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryD
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
-import { WIDGET_LOADING_WRAP } from "@/app/shared/theme/uiTokens";
 
-export default function WidgetRHR({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
+import {
+  WIDGET_LOADING_WRAP,
+  WIDGET_VALUE_ROW,
+  WIDGET_VALUE_PRIMARY,
+  WIDGET_VALUE_UNIT,
+  WIDGET_NOTE,
+} from "@/app/shared/ui/tokens";
+
+export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -43,38 +46,26 @@ export default function WidgetRHR({
     return typeof last === "number" ? last : null;
   }, [values]);
 
-  const cmp = compareLatestToBaseline(
-    latest,
-    baselinePoint,
-    "lower-better",
-    0.05
-  );
-
+  const cmp = compareLatestToBaseline(latest, baselinePoint, "lower-better", 0.05);
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText = showNA
-    ? "—"
-    : Number.isFinite(latest)
-    ? String(Math.round(latest as number))
-    : "—";
+  const valueText =
+    showNA ? "—" : Number.isFinite(latest) ? String(Math.round(latest as number)) : "—";
 
   const note = showNA ? freshness.message : cmp.note;
 
-  // ❌ preč bg-* triedy / statické farby
-  // cmp.accent dnes pravdepodobne vracia "bg-..." (WidgetHRV/RHR to tak používali)
-  // → mapneme to na theme farby
+  const CH = (THEME as any)?.chart ?? {};
   const accent = (() => {
-    if (loading || showNA) {
-      return THEME?.chart?.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
-    }
+    if (loading || showNA) return CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
 
     const a = String((cmp as any)?.accent ?? "").toLowerCase();
-    if (a.includes("red")) return THEME?.chart?.bad ?? THEME?.chart?.danger ?? (THEME as any)?.chart?.obese;
-    if (a.includes("amber") || a.includes("yellow")) return THEME?.chart?.fair ?? THEME?.chart?.average ?? THEME?.chart?.warning;
-    if (a.includes("emerald") || a.includes("green")) return THEME?.chart?.good ?? THEME?.chart?.positive ?? THEME?.chart?.fitness;
 
-    return THEME?.chart?.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
+    if (a.includes("red")) return CH.danger ?? CH.obese ?? appColors.statusError;
+    if (a.includes("amber") || a.includes("yellow")) return CH.warning ?? CH.average ?? appColors.statusWarning;
+    if (a.includes("emerald") || a.includes("green")) return CH.positive ?? CH.fitness ?? appColors.brandPrimary;
+
+    return CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
   })();
 
   return (
@@ -91,13 +82,11 @@ export default function WidgetRHR({
         </div>
       ) : (
         <>
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl font-extrabold leading-none">
-              {valueText}
-            </span>
-            <span className="text-xl opacity-80">bpm</span>
+          <div className={WIDGET_VALUE_ROW}>
+            <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
+            <span className={WIDGET_VALUE_UNIT}>bpm</span>
           </div>
-          {note && <p className="opacity-80">{note}</p>}
+          {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>
       )}
     </WidgetCard>

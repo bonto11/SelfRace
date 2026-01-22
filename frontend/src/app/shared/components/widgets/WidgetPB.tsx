@@ -13,18 +13,16 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/app/shared/utils/time";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
+
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_METRIC_VALUE,
   WIDGET_FOOTNOTE,
   WIDGET_EMPTY,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 
-export default function WidgetPB({
-  onOpenDetail,
-}: {
-  onOpenDetail?: () => void;
-}) {
+export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }) {
   const { userId } = useUserId();
   const { favM } = useFavoritePBRun();
 
@@ -56,19 +54,18 @@ export default function WidgetPB({
   );
 
   const main =
-    fav?.best_time_s != null
-      ? secToHHMMSS(fav.best_time_s)
-      : fav?.time_str ?? "—";
+    fav?.best_time_s != null ? secToHHMMSS(fav.best_time_s) : fav?.time_str ?? "—";
 
   const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
-  // ✅ bez statických farieb – iba THEME tokeny (fallback na existujúci neutrál token)
+  const CH = (THEME as any)?.chart ?? {};
   const accent =
-    THEME?.chart?.run ??
-    THEME?.chart?.positive ??
-    THEME?.chart?.neutral ??
+    CH.run ??
+    CH.positive ??
+    CH.fitness ??
+    CH.neutral ??
     (THEME as any)?.accent?.primary ??
-    "#64748B";
+    appColors.brandPrimary;
 
   return (
     <WidgetCard
