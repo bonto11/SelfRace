@@ -13,7 +13,6 @@ type Props = {
   sportColors: Record<string, string>;
 };
 
-
 type DotKind = "external" | "activity" | "plan" | "done" | "missed";
 type Dot = { key: string; sport: string; kind: DotKind };
 
@@ -25,26 +24,34 @@ function pickDayCellStyle(opts: {
   inMonth: boolean;
   isSelected: boolean;
   isToday: boolean;
+  isHovered: boolean;
 }) {
-  const { inMonth, isSelected, isToday } = opts;
+  const { inMonth, isSelected, isToday, isHovered } = opts;
 
   const style: React.CSSProperties = {
     border: `1px solid ${appColors.surfaceCardBorder}`,
-    background: appColors.surfaceCard, // ✅ FIX: surfaceCardBg neexistuje
+    background: appColors.surfaceCard,
     color: appColors.textPrimary,
-    transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+    transition:
+      "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease",
     boxShadow: "none",
     opacity: inMonth ? 1 : 0.45,
   };
+
+  // hover (len ak nie je selected)
+  if (isHovered && !isSelected) {
+    style.background = appColors.surfaceCardHover;
+  }
 
   // today outline (subtle)
   if (isToday) {
     style.borderColor = appColors.textMuted;
   }
 
-  // selected (ring-ish)
+  // selected (ring-ish) – musí prebiť hover/today
   if (isSelected) {
     style.borderColor = appColors.brandPrimary;
+    style.background = appColors.surfaceCardHover; // nech selected vždy vyzerá "active"
     style.boxShadow = `0 0 0 2px ${appColors.brandPrimary}33`; // 20% alpha
   }
 
@@ -58,6 +65,13 @@ export default function CalendarDayCell({
   sportColors,
 }: Props) {
   const isToday = cell.iso === isoToday();
+  const [hovered, setHovered] = React.useState(false);
+
+  // keď sa bunka odselectne, vypni hover state (defenzívne proti edge-case)
+  React.useEffect(() => {
+    if (!isSelected) return;
+    // nič
+  }, [isSelected]);
 
   const dots: Dot[] = [];
 
@@ -73,40 +87,28 @@ export default function CalendarDayCell({
     dots.push({ key: `p-${it.id}`, sport: String(it.sport), kind });
   }
 
-  const baseStyle = pickDayCellStyle({
+  const style = pickDayCellStyle({
     inMonth: !!cell.inMonth,
     isSelected,
     isToday,
+    isHovered: hovered,
   });
 
   return (
     <button
       type="button"
       onClick={() => onSelect(cell.iso)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       className={[
         "px-2 py-1.5 text-left w-full focus:outline-none rounded-xl",
         CALENDAR_DAY_CELL,
         "min-h-[56px]",
       ].join(" ")}
-      style={baseStyle}
+      style={style}
       aria-pressed={isSelected}
-      onMouseEnter={(e) => {
-        if (isSelected) return;
-        e.currentTarget.style.background = String(appColors.surfaceCardHover);
-      }}
-      onMouseLeave={(e) => {
-        const reset = pickDayCellStyle({
-          inMonth: !!cell.inMonth,
-          isSelected,
-          isToday,
-        });
-        e.currentTarget.style.background = String(reset.background ?? "");
-        e.currentTarget.style.borderColor = String(
-          reset.borderColor ?? appColors.surfaceCardBorder
-        );
-        e.currentTarget.style.boxShadow = String(reset.boxShadow ?? "none");
-        e.currentTarget.style.opacity = String(reset.opacity ?? 1);
-      }}
     >
       <div className="flex flex-col">
         <span className="text-sm font-semibold leading-none tracking-tight ml-0.5 mt-0.5 select-none">
