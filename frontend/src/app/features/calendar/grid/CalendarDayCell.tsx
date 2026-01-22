@@ -13,6 +13,7 @@ type Props = {
   sportColors: Record<string, string>;
 };
 
+
 type DotKind = "external" | "activity" | "plan" | "done" | "missed";
 type Dot = { key: string; sport: string; kind: DotKind };
 
