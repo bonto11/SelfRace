@@ -56,3 +56,29 @@ export const PANEL_BAR_HEAD = "flex items-center justify-between gap-2";
 export const PANEL_BAR_TRACK = "h-2 w-full overflow-hidden rounded-full";
 export const PANEL_BAR_FILL = "h-2 rounded-full transition-all duration-300";
 export const PANEL_BAR_FOOT = "flex items-center justify-between gap-2 text-[11px]";
+
+export const SWIPE_ROW = [
+  "relative",
+  "w-full",
+  "overflow-hidden",
+  "select-none",
+].join(" ");
+
+export const SWIPE_ACTIONS = [
+  "absolute",
+  "inset-y-0",
+  "right-0",
+  "z-0",
+  "flex",
+  "items-center",
+  "gap-2",
+  "px-3",
+].join(" ");
+
+export const SWIPE_CONTENT = [
+  "relative",
+  "z-10",
+  "w-full",
+  "box-border",
+  "will-change-transform",
+].join(" ");
