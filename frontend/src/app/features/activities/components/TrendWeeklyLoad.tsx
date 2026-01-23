@@ -9,12 +9,13 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
-import { CARD, SCROLL_X } from "@/app/shared/ui/tokens";
+
+// ✅ doplnené SURFACE_CARD_STYLE
+import { CARD, SCROLL_X, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
+
 import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
-
 import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activities";
-
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 
 ensureChartJSRegistered();
@@ -55,10 +56,7 @@ export default function TrendWeeklyLoad({
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyLoad(userId, {
-          weeks: lookback,
-          sport,
-        });
+        const rows = await apiGetWeeklyLoad(userId, { weeks: lookback, sport });
         if (!alive) return;
         setWeeks(rows);
       } catch (e) {
@@ -98,97 +96,30 @@ export default function TrendWeeklyLoad({
     };
 
     if (metric === "km") {
-      pushBar(
-        "run",
-        "Km (run)",
-        W.map((w) => w.km_run)
-      );
-      pushBar(
-        "ride",
-        "Km (ride)",
-        W.map((w) => w.km_ride)
-      );
-      pushBar(
-        "mixed",
-        "Km (mixed)",
-        W.map((w) => w.km_mixed)
-      );
-      pushBar(
-        "skate",
-        "Km (skate)",
-        W.map((w) => w.km_skate)
-      );
+      pushBar("run", "Km (run)", W.map((w) => w.km_run));
+      pushBar("ride", "Km (ride)", W.map((w) => w.km_ride));
+      pushBar("mixed", "Km (mixed)", W.map((w) => w.km_mixed));
+      pushBar("skate", "Km (skate)", W.map((w) => w.km_skate));
     } else if (metric === "time") {
-      pushBar(
-        "run",
-        "Run",
-        W.map((w) => w.time_run_min)
-      );
-      pushBar(
-        "ride",
-        "Ride",
-        W.map((w) => w.time_ride_min)
-      );
-      pushBar(
-        "strength",
-        "Strength",
-        W.map((w) => w.time_strength_min)
-      );
-      pushBar(
-        "mixed",
-        "Mixed",
-        W.map((w) => w.time_mixed_min)
-      );
-      pushBar(
-        "skate",
-        "Skate",
-        W.map((w) => w.time_skate_min)
-      );
-      pushBar(
-        "other",
-        "Other",
-        W.map((w) => w.time_other_min)
-      );
+      pushBar("run", "Run", W.map((w) => w.time_run_min));
+      pushBar("ride", "Ride", W.map((w) => w.time_ride_min));
+      pushBar("strength", "Strength", W.map((w) => w.time_strength_min));
+      pushBar("mixed", "Mixed", W.map((w) => w.time_mixed_min));
+      pushBar("skate", "Skate", W.map((w) => w.time_skate_min));
+      pushBar("other", "Other", W.map((w) => w.time_other_min));
     } else {
-      pushBar(
-        "run",
-        "TRIMP (run)",
-        W.map((w) => w.trimp_run)
-      );
-      pushBar(
-        "ride",
-        "TRIMP (ride)",
-        W.map((w) => w.trimp_ride)
-      );
-      pushBar(
-        "strength",
-        "TRIMP (strength)",
-        W.map((w) => w.trimp_strength)
-      );
-      pushBar(
-        "mixed",
-        "TRIMP (mixed)",
-        W.map((w) => w.trimp_mixed)
-      );
-      pushBar(
-        "skate",
-        "TRIMP (skate)",
-        W.map((w) => w.trimp_skate)
-      );
-      pushBar(
-        "other",
-        "TRIMP (other)",
-        W.map((w) => w.trimp_other)
-      );
+      pushBar("run", "TRIMP (run)", W.map((w) => w.trimp_run));
+      pushBar("ride", "TRIMP (ride)", W.map((w) => w.trimp_ride));
+      pushBar("strength", "TRIMP (strength)", W.map((w) => w.trimp_strength));
+      pushBar("mixed", "TRIMP (mixed)", W.map((w) => w.trimp_mixed));
+      pushBar("skate", "TRIMP (skate)", W.map((w) => w.trimp_skate));
+      pushBar("other", "TRIMP (other)", W.map((w) => w.trimp_other));
     }
 
     return ds;
   }, [weeks, metric, sport]);
 
-  const data: ChartData<"bar" | "line", number[], string> = {
-    labels,
-    datasets,
-  };
+  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
 
   const options: ChartOptions<"bar" | "line"> = useMemo(
     () => ({
@@ -259,7 +190,8 @@ export default function TrendWeeklyLoad({
   );
 
   return (
-    <div className={`${CARD} relative`}>
+    // ✅ toto je fix na biely rám + konzistentný card surface
+    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       {/* HEADER */}
       <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Týždňová záťaž</h2>
@@ -287,6 +219,7 @@ export default function TrendWeeklyLoad({
               TRIMP
             </Button>
           </div>
+
           <select
             value={sport}
             onChange={(e) => setSport(e.target.value)}
@@ -300,6 +233,7 @@ export default function TrendWeeklyLoad({
             <option value="skate">Skate</option>
             <option value="other">Other</option>
           </select>
+
           {showLookback && (
             <select
               value={lookback}
