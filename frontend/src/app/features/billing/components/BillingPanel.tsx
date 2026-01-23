@@ -32,9 +32,9 @@ import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
   SECTION,
-  SECTION_STYLE,
   SURFACE_INLINE,
   PANEL,
+  PANEL_PAD,
   PANEL_SECTION_HEAD,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
@@ -190,8 +190,8 @@ export default function BillingPanel() {
         plannedChange.kind === "upgrade"
           ? "zvýšenie"
           : plannedChange.kind === "downgrade"
-            ? "zníženie"
-            : "zrušenie";
+          ? "zníženie"
+          : "zrušenie";
 
       const toTier = plannedChange.to_tier_code
         ? plannedChange.to_tier_code.toUpperCase()
@@ -205,10 +205,7 @@ export default function BillingPanel() {
     }
 
     const quota = (status as any)?.ai_quota as
-      | {
-          monthly_limit_tokens?: number | null;
-          used_tokens_this_month?: number | null;
-        }
+      | { monthly_limit_tokens?: number | null; used_tokens_this_month?: number | null }
       | undefined;
 
     if (
@@ -228,19 +225,13 @@ export default function BillingPanel() {
 
   if (!userId) {
     return (
-      <section className={SECTION} style={SECTION_STYLE}>
+      <section className={SECTION}>
         <div className={PANEL_SECTION_HEAD}>
           <div>
-            <div
-              className={PANEL_SECTION_TITLE}
-              style={{ color: appColors.textPrimary }}
-            >
+            <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
               Predplatné
             </div>
-            <div
-              className={PANEL_SECTION_SUBTITLE}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
               Programy, AI limity a história.
             </div>
           </div>
@@ -261,19 +252,13 @@ export default function BillingPanel() {
   }
 
   return (
-    <section className={SECTION} style={SECTION_STYLE}>
+    <section className={SECTION}>
       <div className={PANEL_SECTION_HEAD}>
         <div>
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
+          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
             Predplatné
           </div>
-          <div
-            className={PANEL_SECTION_SUBTITLE}
-            style={{ color: appColors.textMuted }}
-          >
+          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
             Programy, AI limity a história.
           </div>
         </div>
@@ -312,7 +297,7 @@ export default function BillingPanel() {
           />
 
           <section
-            className={PANEL}
+            className={[PANEL, PANEL_PAD].join(" ")}
             style={{
               background: appColors.surfaceCard,
               borderColor: appColors.surfaceCardBorder,
@@ -320,18 +305,11 @@ export default function BillingPanel() {
             }}
           >
             <div>
-              <h2
-                className={PANEL_CARD_TITLE}
-                style={{ color: appColors.textPrimary }}
-              >
+              <h2 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
                 Programy
               </h2>
-              <p
-                className={PANEL_SECTION_SUBTITLE}
-                style={{ color: appColors.textMuted }}
-              >
-                DEV režim: zvýšenie hneď, zníženie alebo prechod na free od
-                ďalšieho obdobia.
+              <p className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+                DEV režim: zvýšenie hneď, zníženie alebo prechod na free od ďalšieho obdobia.
               </p>
             </div>
 
@@ -345,17 +323,14 @@ export default function BillingPanel() {
           </section>
 
           <section
-            className={PANEL}
+            className={[PANEL, PANEL_PAD].join(" ")}
             style={{
               background: appColors.surfaceCard,
               borderColor: appColors.surfaceCardBorder,
               color: appColors.textPrimary,
             }}
           >
-            <h2
-              className={PANEL_CARD_TITLE}
-              style={{ color: appColors.textPrimary }}
-            >
+            <h2 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
               História
             </h2>
 

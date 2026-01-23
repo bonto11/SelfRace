@@ -7,7 +7,14 @@ import BillingUsageBar from "./BillingUsageBar";
 
 import type { BillingStatusCardProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/theme/app_colors";
-import { PANEL, PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_CARD_SUBTITLE, PANEL_KV_STACK } from "@/app/shared/ui/tokens";
+import {
+  PANEL,
+  PANEL_PAD,
+  PANEL_CARD_HEAD,
+  PANEL_CARD_TITLE,
+  PANEL_CARD_SUBTITLE,
+  PANEL_KV_STACK,
+} from "@/app/shared/ui/tokens";
 
 export default function BillingStatusCard({
   status,
@@ -27,7 +34,11 @@ export default function BillingStatusCard({
     !!activeSub.cancel_at_period_end;
 
   const quota = (status as any)?.ai_quota as
-    | { monthly_limit_tokens?: number | null; used_tokens_this_month?: number | null; reset_at?: string | null }
+    | {
+        monthly_limit_tokens?: number | null;
+        used_tokens_this_month?: number | null;
+        reset_at?: string | null;
+      }
     | undefined;
 
   const limitTokens = quota?.monthly_limit_tokens ?? null;
@@ -45,7 +56,7 @@ export default function BillingStatusCard({
 
   return (
     <section
-      className={PANEL}
+      className={[PANEL, PANEL_PAD].join(" ")}
       style={{
         background: appColors.surfaceCard,
         borderColor: appColors.surfaceCardBorder,
@@ -63,11 +74,11 @@ export default function BillingStatusCard({
         {loadingStatus && <LoadingSpinner size="button" />}
       </div>
 
-      {error && (
+      {error ? (
         <p className="text-xs line-clamp-2" style={{ color: appColors.statusError }}>
           {error}
         </p>
-      )}
+      ) : null}
 
       <div className={PANEL_KV_STACK}>
         <div>
@@ -99,7 +110,7 @@ export default function BillingStatusCard({
             />
 
             {hasPlannedChange && plannedLabel ? (
-              <div className="text-xs">
+              <div className="text-xs space-y-2">
                 <div style={{ color: appColors.statusWarning }}>
                   {plannedLabel}
                   {plannedChange?.to_tier_code ? (
