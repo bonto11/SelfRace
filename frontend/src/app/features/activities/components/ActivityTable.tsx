@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CARD, NO_X_OVERFLOW } from "@/app/shared/ui/tokens";
-import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import {
+  CARD,
+  NO_X_OVERFLOW,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_HEADER,
+  PANEL_TITLE,
+  PANEL_PREVIEW,
+  PANEL_LIST,
+} from "@/app/shared/ui/tokens";
+
+import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import type {
   ActivityRow,
   ComponentVariant,
 } from "@/app/features/activities/types/activities";
@@ -15,7 +25,6 @@ import { prettySkDate, fmtSecondsHMS } from "@/app/shared/utils/time";
 
 import SessionCard from "@/app/shared/components/session/SessionCard";
 
-/* props */
 type Props = {
   start?: string;
   end?: string;
@@ -45,10 +54,14 @@ export default function ActivityTable({
 
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
-    if (start && end)
-      return singleDay
+
+    if (start && end) {
+      const t = singleDay
         ? `Aktivity — ${prettySkDate(start)}`
         : `Týždeň ${start} → ${end}`;
+      return t;
+    }
+
     return "História (vyber rozsah)";
   }, [start, end, titleOverride, singleDay]);
 
@@ -59,6 +72,7 @@ export default function ActivityTable({
       setRows([]);
       return;
     }
+
     setLoading(true);
 
     const inRange = selectByRange(start, end);
@@ -76,40 +90,27 @@ export default function ActivityTable({
     setLoading(false);
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
-  // layout – konzistentné povrchy a paddingy z classes
-  const wrapperCls = [
-    CARD,
-    "space-y-4",
-    variant === "calendar" ? "p-3 md:p-4" : "p-4 md:p-5",
-  ].join(" ");
-
-  const headerCls = [
-    "flex justify-between items-center",
-    variant === "calendar" ? "mb-1" : "mb-2",
-  ].join(" ");
-
   return (
-    <div className={wrapperCls}>
-      <div className={headerCls}>
-        <h2 className="text-lg font-bold">{headerTitle}</h2>
+    <div className={[CARD, PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+      <div className={PANEL_HEADER}>
+        <h2 className={PANEL_TITLE}>{headerTitle}</h2>
       </div>
 
-      {loading && <div className="opacity-70 py-4">Načítavam…</div>}
+      {loading && <div className={PANEL_PREVIEW}>Načítavam…</div>}
 
       {!loading && rows.length === 0 && (
-        <div className="opacity-70 py-4 text-sm">
-          Žiadne aktivity v zadanom období.
-        </div>
+        <div className={PANEL_PREVIEW}>Žiadne aktivity v zadanom období.</div>
       )}
 
       {!loading && rows.length > 0 && (
-        <ul className={["space-y-3 pb-1", NO_X_OVERFLOW].join(" ")}>
+        <ul className={[PANEL_LIST, NO_X_OVERFLOW].join(" ")}>
           {rows.map((r) => {
             const eff = toEffSport(r);
             const iso = r.date.slice(0, 10);
 
             const dur =
               r.moving_time_s != null ? fmtSecondsHMS(r.moving_time_s) : null;
+
             const dist =
               r.distance_m != null
                 ? `${((r.distance_m || 0) / 1000).toFixed(2)} km`
@@ -119,11 +120,12 @@ export default function ActivityTable({
               autoOpenActivityId != null &&
               Number(r.activity_id) === Number(autoOpenActivityId);
 
+            const hideDateLine =
+              variant === "calendar" ||
+              (suppressItemHeaderIfSingleDay && singleDay);
+
             return (
-              <li
-                key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}
-                className="px-0"
-              >
+              <li key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}>
                 <SessionCard
                   variant={variant === "calendar" ? "calendar" : "activity"}
                   item={{
@@ -140,7 +142,7 @@ export default function ActivityTable({
                     maxHr: r.max_heartrate_bpm ?? null,
 
                     defaultOpen: isFocused,
-                    hideDateLine: variant === "calendar", // kalendár = dátum často rieši header mimo itemu
+                    hideDateLine,
                   }}
                 />
               </li>
