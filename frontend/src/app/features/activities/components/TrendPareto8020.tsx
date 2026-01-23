@@ -20,7 +20,10 @@ import {
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
 import { inputClass } from "@/app/shared/ui";
-import { SCROLL_X, CARD } from "@/app/shared/ui/tokens";
+
+// ✅ používame už existujúce “surface” style, aby nebol biely rám
+import { SCROLL_X, CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
+
 import {
   ParetoWeekPick,
   ParetoRow,
@@ -141,7 +144,6 @@ export default function TrendPareto8020({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      // malé vnútorné rezervy iba pre osi/legendu, nie „vzduch“ okolo
       layout: { padding: { top: 6, right: 8, bottom: 10, left: 10 } },
       plugins: {
         legend: {
@@ -163,9 +165,9 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(
-                r.easy_min || 0
-              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(
+                r.hard_min || 0
+              )}`;
             },
           },
         },
@@ -199,7 +201,6 @@ export default function TrendPareto8020({
     [rows, selectedSports, onPickWeek]
   );
 
-  // rovnaký scroll pattern ako TrendWeeklyLoad
   const minWidth = Math.max(
     320,
     Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
@@ -218,22 +219,24 @@ export default function TrendPareto8020({
   };
 
   useEffect(() => {
-    if (selectedSports.length === 0)
+    if (selectedSports.length === 0) {
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
+    }
   }, [selectedSports.length]);
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER (má štandardný padding) */}
+    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
+      {/* HEADER: rovnaký padding pattern ako recovery trendy */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold">Trend 80/20</h2>
+
           <div className="ml-auto">
             <select
               className={`${inputClass} h-8 text-xs w-[130px]`}
               value={lookback}
               onChange={(e) =>
-                setLookback(Number(e.target.value) as 4 | 8 | 12)
+                setLookback(Number(e.target.value) as 2 | 4 | 8 | 12)
               }
               title="Lookback"
             >
@@ -245,12 +248,13 @@ export default function TrendPareto8020({
           </div>
         </div>
 
-        {/* športový multi-select */}
+        {/* športový multi-select (stále v header paddingu) */}
         <div className="mt-2 flex flex-wrap gap-2">
           {SPORT_OPTIONS.map((opt) => {
             const norm = normalizeSport(opt.value) ?? "";
             const active = selectedSports.map(normalizeSport).includes(norm);
             const isDefault = isInParetoDefault(norm);
+
             return (
               <Button
                 key={opt.value}
@@ -267,7 +271,7 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* BODY (graf) – bez paddingu, full-width, so scrollom) */}
+      {/* BODY: flush scroll bez paddingu */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
