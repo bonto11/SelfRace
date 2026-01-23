@@ -10,13 +10,20 @@ import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
 
-// ✅ doplnené SURFACE_CARD_STYLE
-import { CARD, SCROLL_X, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
-
 import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
+
+import {
+  CARD,
+  SCROLL_X,
+  SURFACE_CARD_STYLE,
+  PANEL_PAD,
+  PANEL_CARD_HEAD,
+  PANEL_TITLE,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens";
 
 ensureChartJSRegistered();
 
@@ -190,13 +197,12 @@ export default function TrendWeeklyLoad({
   );
 
   return (
-    // ✅ toto je fix na biely rám + konzistentný card surface
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      {/* HEADER */}
-      <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Týždňová záťaž</h2>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
+      <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
+        <h2 className={PANEL_TITLE}>Týždňová záťaž</h2>
+
+        <div className={PANEL_ACTIONS_INLINE}>
+          <div className={PANEL_ACTIONS_INLINE}>
             <Button
               size="xs"
               variant={metric === "km" ? "secondary" : "ghost"}
@@ -249,7 +255,6 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      {/* BODY */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
