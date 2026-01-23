@@ -9,21 +9,12 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
+
+import { CARD, SCROLL_X, SURFACE_CARD_STYLE, PANEL_PAD, PANEL_CARD_HEAD, PANEL_TITLE, PANEL_ACTIONS_INLINE } from "@/app/shared/ui/tokens";
 import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/MonoStrain";
-
-// ✅ iba tokeny – žiadne ručné paddingy
-import {
-  CARD,
-  SCROLL_X,
-  SURFACE_CARD_STYLE,
-  PAD,
-  PANEL_CARD_HEAD,
-  PANEL_CARD_TITLE,
-  PANEL_ACTIONS_INLINE,
-} from "@/app/shared/ui/tokens";
 
 ensureChartJSRegistered();
 
@@ -56,7 +47,10 @@ export default function TrendWeeklyMonoStrain({
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyMonoStrain(userId, { weeks: lookback, sport });
+        const rows = await apiGetWeeklyMonoStrain(userId, {
+          weeks: lookback,
+          sport,
+        });
         if (!alive) return;
         setWeeks(rows);
       } catch (e) {
@@ -72,8 +66,14 @@ export default function TrendWeeklyMonoStrain({
   }, [userId, lookback, sport]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-  const mono = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
-  const strn = useMemo(() => weeks.map((w) => w.strain?.[metric] ?? null), [weeks, metric]);
+  const mono = useMemo(
+    () => weeks.map((w) => w.monotony?.[metric] ?? null),
+    [weeks, metric]
+  );
+  const strn = useMemo(
+    () => weeks.map((w) => w.strain?.[metric] ?? null),
+    [weeks, metric]
+  );
 
   const monoMax = useMemo(() => {
     const vals = mono.filter((v): v is number => Number.isFinite(v as number));
@@ -189,13 +189,15 @@ export default function TrendWeeklyMonoStrain({
 
   const baseHeight = THEME.chart.weeklyHeightCompact ?? 200;
   const height = Math.round(baseHeight * 2);
-  const minWidth = Math.max(320, Math.round(labels.length * THEME.chart.weeklyPxPerLabel));
+  const minWidth = Math.max(
+    320,
+    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+  );
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      {/* HEADER (iba tokeny) */}
-      <div className={[PAD.card, PANEL_CARD_HEAD].join(" ")}>
-        <h2 className={PANEL_CARD_TITLE}>Monotónnosť &amp; Strain</h2>
+      <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
+        <h2 className={PANEL_TITLE}>Monotónnosť & Strain</h2>
 
         <div className={PANEL_ACTIONS_INLINE}>
           <div className={PANEL_ACTIONS_INLINE}>
@@ -251,7 +253,6 @@ export default function TrendWeeklyMonoStrain({
         </div>
       </div>
 
-      {/* BODY (flush, bez paddingov) */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
