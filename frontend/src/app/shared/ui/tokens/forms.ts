@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/forms.ts
 import { appColors } from "@/app/shared/theme/app_colors";
-import { SURFACE_INSET } from "./core";
+import { SURFACE_INSET, SURFACE_INSET_STYLE } from "./core";
 
 /* ===== FORM ELEMENTS =================================================== */
 export const FIELD_BASE = [
@@ -40,6 +40,7 @@ export const inputClass = [
 /* ===== Sekcie a form gridy ============================================ */
 export const SECTION = SURFACE_INSET + " p-3";
 export const SECTION_WIDE = SURFACE_INSET + " p-3 md:p-4";
+export const SECTION_STYLE = SURFACE_INSET_STYLE;
 export const FORM_GRID_TWO = "grid grid-cols-1 md:grid-cols-2 gap-3";
 export const FORM_GRID_SPLIT = "grid grid-cols-1 sm:grid-cols-2 gap-2";
 

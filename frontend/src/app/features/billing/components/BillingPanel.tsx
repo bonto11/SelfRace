@@ -32,6 +32,7 @@ import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
   SECTION,
+  SECTION_STYLE,
   SURFACE_INLINE,
   PANEL,
   PANEL_SECTION_HEAD,
@@ -227,7 +228,7 @@ export default function BillingPanel() {
 
   if (!userId) {
     return (
-      <section className={SECTION}>
+      <section className={SECTION} style={SECTION_STYLE}>
         <div className={PANEL_SECTION_HEAD}>
           <div>
             <div
@@ -260,7 +261,7 @@ export default function BillingPanel() {
   }
 
   return (
-    <section className={SECTION}>
+    <section className={SECTION} style={SECTION_STYLE}>
       <div className={PANEL_SECTION_HEAD}>
         <div>
           <div

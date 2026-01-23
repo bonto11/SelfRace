@@ -5,6 +5,9 @@
 
 export const PANEL_STACK = "space-y-4";
 
+export const PANEL_PAD = "p-3 md:p-4";          // univerzálny padding pre panel
+export const PANEL_INNER_STACK = "space-y-3";   // vnútorné odsadenia v paneli
+
 export const PANEL_HEADER = "flex items-start justify-between gap-3";
 export const PANEL_TITLE = "text-lg font-semibold";
 export const PANEL_SUBTITLE = "mt-1 text-xs";
