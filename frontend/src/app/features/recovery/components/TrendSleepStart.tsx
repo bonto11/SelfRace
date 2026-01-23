@@ -8,7 +8,12 @@ import type { ChartData, ChartOptions, Plugin } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { THEME } from "@/app/shared/theme/tokens";
 import { wrapToLines } from "@/app/shared/utils/recovery";
-import { minutesToHHMM, HHMMToMinutes, dateSeq, iso } from "@/app/shared/utils/time";
+import {
+  minutesToHHMM,
+  HHMMToMinutes,
+  dateSeq,
+  iso,
+} from "@/app/shared/utils/time";
 import { hexToRgba } from "@/app/shared/utils/color";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
@@ -20,6 +25,8 @@ import {
   SURFACE_CARD_STYLE,
   SCROLL_X,
   PANEL_SECTION_HEAD,
+  CARD_HEAD_INSET,
+  CARD_BODY_INSET,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
@@ -57,13 +64,18 @@ export default function DetailSleepStart() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO]
+  );
 
   const startMin = useMemo(
     () =>
       labelsISO.map((d) => {
         const rec = byDate.get(d);
-        const m = rec?.sleep_start_time ? HHMMToMinutes(rec.sleep_start_time) : null;
+        const m = rec?.sleep_start_time
+          ? HHMMToMinutes(rec.sleep_start_time)
+          : null;
         return typeof m === "number" ? m : NaN;
       }),
     [labelsISO, byDate]
@@ -81,7 +93,10 @@ export default function DetailSleepStart() {
     return m;
   }, [labelsISO, byDate]);
 
-  const missingIdx = useMemo(() => startMin.map((v) => !Number.isFinite(v)), [startMin]);
+  const missingIdx = useMemo(
+    () => startMin.map((v) => !Number.isFinite(v)),
+    [startMin]
+  );
 
   const missingY = useMemo(() => {
     const n = startMin.length;
@@ -156,7 +171,9 @@ export default function DetailSleepStart() {
         {
           type: "line" as const,
           label: "Missing",
-          data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
+          data: missingY.map((y, i) =>
+            missingIdx[i] && typeof y === "number" ? y : NaN
+          ),
           showLine: false,
           pointRadius: 0,
           pointHitRadius: 12,
@@ -169,14 +186,26 @@ export default function DetailSleepStart() {
         },
       ],
     }),
-    [labelsISO, lowerBand, upperBand, startMin, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]
+    [
+      labelsISO,
+      lowerBand,
+      upperBand,
+      startMin,
+      missingY,
+      missingIdx,
+      COLOR.bandFill,
+      COLOR.main,
+      COLOR.missing,
+    ]
   );
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
     () => ({
       id: "draw-missing-on-top-sleepstart",
       afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
+        const dsIndex = chart.data.datasets.findIndex(
+          (d) => d.label === "Missing"
+        );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
         const ctx = chart.ctx;
@@ -214,7 +243,8 @@ export default function DetailSleepStart() {
           if (label === "Sleep start") {
             const v = startMin[idx];
             const out: string[] = [];
-            if (Number.isFinite(v)) out.push(`Zaspal: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v))
+              out.push(`Zaspal: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "Zaspal: –";
@@ -235,16 +265,25 @@ export default function DetailSleepStart() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(
+    360,
+    Math.round(labelsISO.length * DAY_PX_PER_LABEL)
+  );
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={PANEL_SECTION_HEAD}>
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             Sleep start
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             Čas zaspania + odporúčané pásmo 22:00–23:00.
           </div>
         </div>
@@ -261,15 +300,27 @@ export default function DetailSleepStart() {
         </select>
       </div>
 
-      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
+      <div className={CARD_BODY_INSET}>
+        <div
+          className={`${SCROLL_X} min-w-0`}
+          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+        >
+          <div
+            className="relative"
+            style={{ height: THEME.chart.weeklyHeight }}
+          >
+            {loading && (
+              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+                <LoadingSpinner size="trend" />
+              </div>
+            )}
+            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+              <Line
+                data={data}
+                options={options}
+                plugins={[drawMissingOnTop]}
+              />
             </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} plugins={[drawMissingOnTop]} />
           </div>
         </div>
       </div>

@@ -103,3 +103,10 @@ export const FLUSH_DETAIL_PB_STYLE: React.CSSProperties = {
 export const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
 export const NO_X = NO_X_OVERFLOW;
 export const FLEX_SHRINK_FIX = "min-w-0";
+
+// src/app/shared/ui/tokens/core.ts
+
+export const CARD_INSET = "px-4 py-4";          // default padding vnútri karty
+export const CARD_INSET_X = "px-4";             // keď chceš riešiť y osobitne
+export const CARD_HEAD_INSET = "px-4 pt-4 pb-2"; // header padding (ako si mal)
+export const CARD_BODY_INSET = "px-4 pb-4";      // body padding

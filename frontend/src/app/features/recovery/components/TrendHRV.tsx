@@ -7,7 +7,11 @@ import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { THEME } from "@/app/shared/theme/tokens";
-import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
+import {
+  rollingMean,
+  bandsAround,
+  wrapToLines,
+} from "@/app/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
@@ -18,6 +22,8 @@ import {
   SURFACE_CARD_STYLE,
   SCROLL_X,
   PANEL_SECTION_HEAD,
+  CARD_HEAD_INSET,
+  CARD_BODY_INSET,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
@@ -34,7 +40,8 @@ function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
   const start = new Date(startISO + "T00:00:00");
   const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    out.push(iso(d));
   return out;
 }
 
@@ -70,7 +77,10 @@ export default function TrendHRV() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO]
+  );
 
   const hrv = useMemo(
     () =>
@@ -91,11 +101,18 @@ export default function TrendHRV() {
   }, [labelsISO, byDate]);
 
   const baselineArr = useMemo(
-    () => rollingMean(hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)), 14),
+    () =>
+      rollingMean(
+        hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)),
+        14
+      ),
     [hrv]
   );
 
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr]
+  );
   const missingIdx = useMemo(() => hrv.map((v) => !Number.isFinite(v)), [hrv]);
 
   const missingY = useMemo(() => {
@@ -130,7 +147,8 @@ export default function TrendHRV() {
   }, [hrv]);
 
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) =>
+      xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
@@ -172,7 +190,9 @@ export default function TrendHRV() {
         {
           type: "line" as const,
           label: "Missing",
-          data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
+          data: missingY.map((y, i) =>
+            missingIdx[i] && typeof y === "number" ? y : NaN
+          ),
           showLine: false,
           pointRadius: 0,
           pointHitRadius: 12,
@@ -185,13 +205,25 @@ export default function TrendHRV() {
         },
       ],
     };
-  }, [labelsISO, lower, upper, hrv, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]);
+  }, [
+    labelsISO,
+    lower,
+    upper,
+    hrv,
+    missingY,
+    missingIdx,
+    COLOR.bandFill,
+    COLOR.main,
+    COLOR.missing,
+  ]);
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
     () => ({
       id: "draw-missing-on-top",
       afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
+        const dsIndex = chart.data.datasets.findIndex(
+          (d) => d.label === "Missing"
+        );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
         const ctx = chart.ctx;
@@ -228,7 +260,8 @@ export default function TrendHRV() {
           if (label === "HRV (RMSSD)") {
             const v = hrv[idx];
             const out: string[] = [];
-            if (Number.isFinite(v)) out.push(`HRV: ${Math.round(v as number)} ms`);
+            if (Number.isFinite(v))
+              out.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "HRV: –";
@@ -249,16 +282,25 @@ export default function TrendHRV() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(
+    360,
+    Math.round(labelsISO.length * DAY_PX_PER_LABEL)
+  );
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={PANEL_SECTION_HEAD}>
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             HRV trend
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             RMSSD + baseline pásmo, chýbajúce dni zvýraznené.
           </div>
         </div>
@@ -275,15 +317,27 @@ export default function TrendHRV() {
         </select>
       </div>
 
-      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
+      <div className={CARD_BODY_INSET}>
+        <div
+          className={`${SCROLL_X} min-w-0`}
+          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+        >
+          <div
+            className="relative"
+            style={{ height: THEME.chart.weeklyHeight }}
+          >
+            {loading && (
+              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+                <LoadingSpinner size="trend" />
+              </div>
+            )}
+            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+              <Line
+                data={data}
+                options={options}
+                plugins={[drawMissingOnTop]}
+              />
             </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} plugins={[drawMissingOnTop]} />
           </div>
         </div>
       </div>
