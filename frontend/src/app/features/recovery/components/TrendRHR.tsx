@@ -4,22 +4,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
+
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { THEME } from "@/app/shared/theme/tokens";
-import {
-  rollingMean,
-  bandsAround,
-  wrapToLines,
-} from "@/app/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/ui/tokens";
+
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  CARD,
+  SURFACE_CARD_STYLE,
+  SCROLL_X,
+  PANEL_SECTION_HEAD,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+} from "@/app/shared/ui/tokens";
 import { inputClass } from "@/app/shared/ui";
 
 ensureChartJSRegistered();
 
-// utily na denné labely
 function iso(d: Date) {
   const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   return z.toISOString().slice(0, 10);
@@ -28,8 +33,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
   const start = new Date(startISO + "T00:00:00");
   const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
-    out.push(iso(d));
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
   return out;
 }
 
@@ -46,13 +50,10 @@ export default function DetailRHR() {
     missing: THEME.chart?.missing ?? "#ef4444",
   };
 
-  useEffect(() => {
-    setLoading(true);
-  }, [weeks]);
+  useEffect(() => setLoading(true), [weeks]);
 
   const days = weeks * 7;
 
-  // --- denzifikácia osi X na denné kroky ---
   const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
@@ -66,12 +67,8 @@ export default function DetailRHR() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(
-    () => dateSeq(startISO, endISO),
-    [startISO, endISO]
-  );
+  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
 
-  // --- RHR séria na zhustenej osi ---
   const rhr = useMemo(
     () =>
       labelsISO.map((d) => {
@@ -90,24 +87,14 @@ export default function DetailRHR() {
     return m;
   }, [labelsISO, byDate]);
 
-  // baseline len pre pásmo ±5 %
   const baselineArr = useMemo(
-    () =>
-      rollingMean(
-        rhr.map((v) => (Number.isFinite(v) ? (v as number) : null)),
-        14
-      ),
+    () => rollingMean(rhr.map((v) => (Number.isFinite(v) ? (v as number) : null)), 14),
     [rhr]
   );
-  const { lower, upper } = useMemo(
-    () => bandsAround(baselineArr, 0.05),
-    [baselineArr]
-  );
+  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  // --- chýbajúce dni ---
   const missingIdx = useMemo(() => rhr.map((v) => !Number.isFinite(v)), [rhr]);
 
-  // Y-pozícia pre chýbajúce (interpolácia, okraje carry-forward/back)
   const missingY = useMemo(() => {
     const n = rhr.length;
     const out = new Array<number | null>(n).fill(null);
@@ -132,26 +119,18 @@ export default function DetailRHR() {
         const vn = rhr[nxt] as number;
         const t = (i - prev) / (nxt - prev);
         y = vp + (vn - vp) * t;
-      } else if (prev !== -1) {
-        y = rhr[prev] as number;
-      } else if (nxt !== -1) {
-        y = rhr[nxt] as number;
-      } else {
-        y = null;
-      }
+      } else if (prev !== -1) y = rhr[prev] as number;
+      else if (nxt !== -1) y = rhr[nxt] as number;
       out[i] = y;
     }
     return out;
   }, [rhr]);
 
-  // --- datasety ---
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) =>
-      xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
-        // pásmo okolo baseline
         {
           type: "line" as const,
           label: "Baseline −5%",
@@ -175,8 +154,6 @@ export default function DetailRHR() {
           fill: "-1" as const,
           order: 1,
         },
-
-        // hlavná RHR línia – rovné segmenty kvôli presnému zarovnaniu markerov
         {
           type: "line" as const,
           label: "Resting HR",
@@ -185,21 +162,16 @@ export default function DetailRHR() {
           backgroundColor: COLOR.main,
           pointRadius: 3,
           borderWidth: 2,
-          tension: 0, // dôležité
+          tension: 0,
           spanGaps: true,
           order: 2,
         },
-
-        // chýbajúce dni – dataset pre tooltip/hit, vizuál kreslí plugin
         {
           type: "line" as const,
           label: "Missing",
-          data: missingY.map((y, i) =>
-            missingIdx[i] && typeof y === "number" ? y : NaN
-          ),
+          data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
           showLine: false,
-          pointStyle: "circle",
-          pointRadius: 0, // vizuál nižšie v plugine
+          pointRadius: 0,
           pointHitRadius: 12,
           pointBackgroundColor: COLOR.missing,
           pointBorderColor: COLOR.missing,
@@ -210,26 +182,13 @@ export default function DetailRHR() {
         },
       ],
     };
-  }, [
-    labelsISO,
-    lower,
-    upper,
-    rhr,
-    missingY,
-    missingIdx,
-    COLOR.bandFill,
-    COLOR.main,
-    COLOR.missing,
-  ]);
+  }, [labelsISO, lower, upper, rhr, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]);
 
-  // plugin: prekreslí Missing kruhy úplne navrch
   const drawMissingOnTop: Plugin<"line"> = useMemo(
     () => ({
       id: "draw-missing-on-top-rhr",
       afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing"
-        );
+        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
         const ctx = chart.ctx;
@@ -251,7 +210,6 @@ export default function DetailRHR() {
     [COLOR.missing]
   );
 
-  // options + tooltipy (Resting HR aj Missing)
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -267,8 +225,7 @@ export default function DetailRHR() {
           if (label === "Resting HR") {
             const v = rhr[idx];
             const out: string[] = [];
-            if (Number.isFinite(v))
-              out.push(`RHR: ${Math.round(v as number)} bpm`);
+            if (Number.isFinite(v)) out.push(`RHR: ${Math.round(v as number)} bpm`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "RHR: –";
@@ -289,16 +246,20 @@ export default function DetailRHR() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(
-    360,
-    Math.round(labelsISO.length * DAY_PX_PER_LABEL)
-  );
+  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Resting HR</h2>
+    <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
+      <div className={PANEL_SECTION_HEAD}>
+        <div className="min-w-0">
+          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+            Resting HR
+          </div>
+          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+            Trend RHR + baseline pásmo, chýbajúce dni zvýraznené.
+          </div>
+        </div>
+
         <select
           value={weeks}
           onChange={(e) => setWeeks(Number(e.target.value))}
@@ -311,11 +272,7 @@ export default function DetailRHR() {
         </select>
       </div>
 
-      {/* BODY – flush + horizontal scroll */}
-      <div
-        className={`${SCROLL_X} min-w-0`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
+      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -327,6 +284,6 @@ export default function DetailRHR() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
