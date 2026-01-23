@@ -82,3 +82,15 @@ export const SWIPE_CONTENT = [
   "box-border",
   "will-change-transform",
 ].join(" ");
+
+export const ACCORDION_TOGGLE = "cursor-pointer select-none";
+
+export const ACCORDION_BODY_NO_TOP = "pt-0";
+
+export const ACCORDION_DISABLED = "opacity-70";
+
+export const ACCORDION_FOOTER_BAR =
+  "h-1.5 rounded-b-2xl bg-slate-700";
+
+export const ACCORDION_FOOTER_BAR_MUTED =
+  "h-1.5 rounded-b-2xl bg-slate-700/60";
