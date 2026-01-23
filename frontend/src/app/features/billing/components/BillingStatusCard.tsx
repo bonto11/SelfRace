@@ -7,8 +7,7 @@ import BillingUsageBar from "./BillingUsageBar";
 
 import type { BillingStatusCardProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/theme/app_colors";
-import { PANEL } from "@/app/shared/ui/tokens/panels";
-import { PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_CARD_SUBTITLE, PANEL_KV_STACK } from "@/app/shared/ui/tokens/panels";
+import { PANEL, PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_CARD_SUBTITLE, PANEL_KV_STACK } from "@/app/shared/ui/tokens";
 
 export default function BillingStatusCard({
   status,

@@ -33,7 +33,7 @@ import {
   PANEL_SECTION_LABEL,
   PANEL_SECTION_TEXT,
   PANEL_ACTIONS_INLINE,
-} from "@/app/shared/ui/tokens/panels";
+} from "@/app/shared/ui/tokens";
 
 type BusyKind = "reload" | "import" | "disconnect" | null;
 

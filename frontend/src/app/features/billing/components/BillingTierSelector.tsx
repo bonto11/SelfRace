@@ -5,7 +5,7 @@ import Button from "@/app/shared/components/ui/Button";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import type { BillingTierSelectorProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/theme/app_colors";
-import { PANEL_GRID_3, PANEL_BADGE } from "@/app/shared/ui/tokens/panels";
+import { PANEL_GRID_3, PANEL_BADGE } from "@/app/shared/ui/tokens";
 
 const TIER_ORDER: Record<string, number> = { free: 0, classic: 1, pro: 2 };
 

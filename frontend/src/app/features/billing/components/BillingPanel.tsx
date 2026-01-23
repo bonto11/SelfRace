@@ -29,17 +29,18 @@ import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
-import { PANEL } from "@/app/shared/ui/tokens/panels";
 import {
+  SECTION,
+  SURFACE_INLINE,
+  PANEL,
   PANEL_SECTION_HEAD,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
   PANEL_STACK,
   PANEL_CARD_TITLE,
-} from "@/app/shared/ui/tokens/panels";
+} from "@/app/shared/ui/tokens";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
 
@@ -188,8 +189,8 @@ export default function BillingPanel() {
         plannedChange.kind === "upgrade"
           ? "zvýšenie"
           : plannedChange.kind === "downgrade"
-          ? "zníženie"
-          : "zrušenie";
+            ? "zníženie"
+            : "zrušenie";
 
       const toTier = plannedChange.to_tier_code
         ? plannedChange.to_tier_code.toUpperCase()
@@ -203,7 +204,10 @@ export default function BillingPanel() {
     }
 
     const quota = (status as any)?.ai_quota as
-      | { monthly_limit_tokens?: number | null; used_tokens_this_month?: number | null }
+      | {
+          monthly_limit_tokens?: number | null;
+          used_tokens_this_month?: number | null;
+        }
       | undefined;
 
     if (
@@ -226,10 +230,16 @@ export default function BillingPanel() {
       <section className={SECTION}>
         <div className={PANEL_SECTION_HEAD}>
           <div>
-            <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+            <div
+              className={PANEL_SECTION_TITLE}
+              style={{ color: appColors.textPrimary }}
+            >
               Predplatné
             </div>
-            <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+            <div
+              className={PANEL_SECTION_SUBTITLE}
+              style={{ color: appColors.textMuted }}
+            >
               Programy, AI limity a história.
             </div>
           </div>
@@ -253,10 +263,16 @@ export default function BillingPanel() {
     <section className={SECTION}>
       <div className={PANEL_SECTION_HEAD}>
         <div>
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             Predplatné
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             Programy, AI limity a história.
           </div>
         </div>
@@ -303,11 +319,18 @@ export default function BillingPanel() {
             }}
           >
             <div>
-              <h2 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
+              <h2
+                className={PANEL_CARD_TITLE}
+                style={{ color: appColors.textPrimary }}
+              >
                 Programy
               </h2>
-              <p className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
-                DEV režim: zvýšenie hneď, zníženie alebo prechod na free od ďalšieho obdobia.
+              <p
+                className={PANEL_SECTION_SUBTITLE}
+                style={{ color: appColors.textMuted }}
+              >
+                DEV režim: zvýšenie hneď, zníženie alebo prechod na free od
+                ďalšieho obdobia.
               </p>
             </div>
 
@@ -328,7 +351,10 @@ export default function BillingPanel() {
               color: appColors.textPrimary,
             }}
           >
-            <h2 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
+            <h2
+              className={PANEL_CARD_TITLE}
+              style={{ color: appColors.textPrimary }}
+            >
               História
             </h2>
 

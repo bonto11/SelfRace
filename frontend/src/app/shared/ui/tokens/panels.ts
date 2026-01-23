@@ -3,13 +3,6 @@
    PANELS (layout only)
 ============================================================================ */
 
-export const PANEL = [
-  "rounded-xl",
-  "border",
-  "px-4",
-  "py-4",
-].join(" ");
-
 export const PANEL_STACK = "space-y-4";
 
 export const PANEL_HEADER = "flex items-start justify-between gap-3";

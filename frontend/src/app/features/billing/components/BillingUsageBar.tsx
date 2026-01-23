@@ -9,7 +9,7 @@ import {
   PANEL_BAR_TRACK,
   PANEL_BAR_FILL,
   PANEL_BAR_FOOT,
-} from "@/app/shared/ui/tokens/panels";
+} from "@/app/shared/ui/tokens";
 
 function pickColor(pct: number) {
   if (pct >= 90) return appColors.statusError;

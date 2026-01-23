@@ -3,7 +3,7 @@
 
 import type { AppUserSubscription } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/theme/app_colors";
-import { PANEL_LIST, PANEL_LIST_ITEM } from "@/app/shared/ui/tokens/panels";
+import { PANEL_LIST, PANEL_LIST_ITEM } from "@/app/shared/ui/tokens";
 
 type BillingHistoryProps = {
   history: AppUserSubscription[];
