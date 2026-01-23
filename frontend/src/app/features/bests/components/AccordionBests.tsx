@@ -1,8 +1,23 @@
+// src/features/bests/components/AccordionBests.tsx
 "use client";
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
+import {
+  SURFACE_CARD,
+  SURFACE_SUBCARD,
+  PANEL_STACK,
+  PANEL_PAD,
+  PANEL_CARD_HEAD,
+  PANEL_CARD_TITLE,
+  PANEL_BADGE,
+  PANEL_PREVIEW,
+  ACCORDION_TOGGLE,
+  ACCORDION_BODY_NO_TOP,
+  ACCORDION_DISABLED,
+  ACCORDION_FOOTER_BAR,
+  ACCORDION_FOOTER_BAR_MUTED,
+} from "@/app/shared/ui/tokens";
 
 // lazy import – nech sa PBRun nenačítava zbytočne
 const PBRun = dynamic(() => import("@/app/features/bests/components/PBRun"), {
@@ -13,27 +28,24 @@ export default function AccordionBests() {
   const [openRun, setOpenRun] = useState(true);
 
   return (
-    <div className="space-y-3">
+    <div className={PANEL_STACK}>
       {/* RUN */}
-      <section className={[SURFACE_CARD].join(" ")}>
+      <section className={SURFACE_CARD}>
         <header
           onClick={() => setOpenRun((v) => !v)}
-          className="px-4 py-3 cursor-pointer flex items-center justify-between select-none"
+          className={[PANEL_PAD, PANEL_CARD_HEAD, ACCORDION_TOGGLE].join(" ")}
         >
-          <h3 className="text-base font-semibold tracking-tight">
-            Personal Bests — Running
-          </h3>
-          <span className="text-sm opacity-75">{openRun ? "▾" : "▸"}</span>
+          <h3 className={PANEL_CARD_TITLE}>Personal Bests — Running</h3>
+          <span className={PANEL_BADGE}>{openRun ? "▾" : "▸"}</span>
         </header>
 
         {openRun && (
-          <div className="px-4 pb-4">
+          <div className={[PANEL_PAD, ACCORDION_BODY_NO_TOP].join(" ")}>
             <PBRun />
           </div>
         )}
 
-        {/* spodná lišta - neutrál */}
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
+        <div className={ACCORDION_FOOTER_BAR} />
       </section>
 
       {/* placeholdery (rovnaký look, disabled) */}
@@ -43,11 +55,17 @@ export default function AccordionBests() {
         "Personal Bests — Swimming",
       ].map((title) => (
         <section key={title} className={SURFACE_SUBCARD}>
-          <header className="px-4 py-3 flex items-center justify-between opacity-70">
-            <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-            <span>soon</span>
+          <header
+            className={[
+              PANEL_PAD,
+              PANEL_CARD_HEAD,
+              ACCORDION_DISABLED,
+            ].join(" ")}
+          >
+            <h3 className={PANEL_CARD_TITLE}>{title}</h3>
+            <span className={PANEL_PREVIEW}>soon</span>
           </header>
-          <div className="h-1.5 rounded-b-2xl bg-slate-700/60" />
+          <div className={ACCORDION_FOOTER_BAR_MUTED} />
         </section>
       ))}
     </div>
