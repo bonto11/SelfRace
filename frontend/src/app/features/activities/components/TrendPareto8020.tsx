@@ -21,8 +21,16 @@ import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
 import Button from "@/app/shared/components/ui/Button";
 import { inputClass } from "@/app/shared/ui";
 
-// ✅ používame už existujúce “surface” style, aby nebol biely rám
-import { SCROLL_X, CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
+import {
+  CARD,
+  SCROLL_X,
+  SURFACE_CARD_STYLE,
+  PANEL_PAD,
+  PANEL_CARD_HEAD,
+  PANEL_TITLE,
+  PANEL_ACTIONS_INLINE,
+  PANEL_INNER_STACK,
+} from "@/app/shared/ui/tokens";
 
 import {
   ParetoWeekPick,
@@ -165,9 +173,9 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(
-                r.hard_min || 0
-              )}`;
+              return `Easy ${fmtSecondsHMS(
+                r.easy_min || 0
+              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
         },
@@ -219,19 +227,18 @@ export default function TrendPareto8020({
   };
 
   useEffect(() => {
-    if (selectedSports.length === 0) {
+    if (selectedSports.length === 0)
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
-    }
   }, [selectedSports.length]);
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      {/* HEADER: rovnaký padding pattern ako recovery trendy */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-bold">Trend 80/20</h2>
+      {/* HEADER = token-only */}
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        <div className={PANEL_CARD_HEAD}>
+          <h2 className={PANEL_TITLE}>Trend 80/20</h2>
 
-          <div className="ml-auto">
+          <div className={PANEL_ACTIONS_INLINE}>
             <select
               className={`${inputClass} h-8 text-xs w-[130px]`}
               value={lookback}
@@ -248,13 +255,11 @@ export default function TrendPareto8020({
           </div>
         </div>
 
-        {/* športový multi-select (stále v header paddingu) */}
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className={PANEL_ACTIONS_INLINE}>
           {SPORT_OPTIONS.map((opt) => {
             const norm = normalizeSport(opt.value) ?? "";
             const active = selectedSports.map(normalizeSport).includes(norm);
             const isDefault = isInParetoDefault(norm);
-
             return (
               <Button
                 key={opt.value}
@@ -271,7 +276,7 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* BODY: flush scroll bez paddingu */}
+      {/* BODY = flush */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
