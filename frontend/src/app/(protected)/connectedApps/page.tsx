@@ -12,14 +12,6 @@ export default function ConnectedAppsPage() {
 
       <div className={PAGE_CONTAINER}>
         <div className={PAGE_STACK}>
-          <header className={PAGE_INTRO}>
-            <h2 className={PAGE_INTRO_TITLE}>Pripojenené aplikácie</h2>
-            <p className={PAGE_INTRO_TEXT}>
-              Prepojenie so Stravou a ďalšími službami. Tu vieš spravovať pripojenie
-              a import tréningov.
-            </p>
-          </header>
-
           <StravaPanel />
         </div>
       </div>

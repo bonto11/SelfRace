@@ -18,6 +18,23 @@ import {
   apiDisconnectStrava,
 } from "../api/strava";
 
+import { appColors } from "@/app/shared/theme/app_colors";
+import {
+  PANEL,
+  PANEL_STACK,
+  PANEL_HEADER,
+  PANEL_TITLE,
+  PANEL_SUBTITLE,
+  PANEL_STATUS_COL,
+  PANEL_STATUS_PILL,
+  PANEL_BRAND_TINY,
+  PANEL_SECTION,
+  PANEL_SECTION_DIVIDER,
+  PANEL_SECTION_LABEL,
+  PANEL_SECTION_TEXT,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens/panels";
+
 type BusyKind = "reload" | "import" | "disconnect" | null;
 
 export default function StravaPanel() {
@@ -34,6 +51,8 @@ export default function StravaPanel() {
   const stravaConnectUrl = userId
     ? `${API_URL}/api/strava/oauth/start?user_id=${userId}`
     : null;
+
+  const connected = !!status?.connected;
 
   // --- načítanie statusu ---
   useEffect(() => {
@@ -71,10 +90,7 @@ export default function StravaPanel() {
 
     if (s === "error") {
       if (reason === "athlete_already_linked") {
-        toast.error(
-          "Tento Strava účet je už pripojený k inému účtu.",
-          Infinity
-        );
+        toast.error("Tento Strava účet je už pripojený k inému účtu.", Infinity);
       } else if (reason === "strava_athlete_limit") {
         toast.error(
           "Strava limit: aplikácia je zatiaľ v test režime (1 pripojený účet).",
@@ -132,7 +148,7 @@ export default function StravaPanel() {
     setBusy("import");
     try {
       const stats: SyncActivitiesStats = await apiSyncActivities(userId, {
-        forceLastDays: 50, // BE má ešte cap na ~200 aktivít
+        forceLastDays: 50,
         fetchDetails: true,
       });
 
@@ -184,7 +200,6 @@ export default function StravaPanel() {
       await apiDisconnectStrava(userId);
       toast.success("Strava účet bol odpojený.");
 
-      // refresh status + cache
       setStatusLoading(true);
       await apiGetStravaStatus(userId).then(setStatus);
       resetClientCache();
@@ -205,61 +220,80 @@ export default function StravaPanel() {
     return `Prepojené (athlete #${status.athlete_id})`;
   })();
 
+  // --- Connect/Disconnect disabled rules (presne ako chceš) ---
+  const connectDisabled =
+    disabled || !stravaConnectUrl || connected || statusLoading;
+
+  const disconnectDisabled =
+    disabled || !userId || !connected || statusLoading || busy === "disconnect";
+
   return (
-    <section className="space-y-4 rounded-xl border border-white/10 bg-black/20 px-4 py-4">
-      <header className="flex items-center justify-between gap-2">
+    <section
+      className={[PANEL, PANEL_STACK].join(" ")}
+      style={{
+        background: appColors.surfaceCard,
+        borderColor: appColors.surfaceCardBorder,
+      }}
+    >
+      <header className={PANEL_HEADER}>
         <div>
-          <h2 className="text-lg font-semibold">Strava</h2>
-          <p className="mt-1 text-xs opacity-70">
-            Prepojenie účtu, reload cache a manuálny import aktivít.
+          <h2 className={PANEL_TITLE} style={{ color: appColors.textPrimary }}>
+            Strava
+          </h2>
+          <p className={PANEL_SUBTITLE} style={{ color: appColors.textMuted }}>
+            Prepojenie účtu, manuálny import aktivít a reload cache.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="rounded-full border border-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide opacity-80">
+
+        <div className={PANEL_STATUS_COL}>
+          <span
+            className={PANEL_STATUS_PILL}
+            style={{
+              borderColor: appColors.pillBorder,
+              color: appColors.textSecondary,
+              background: appColors.pillBg,
+              opacity: 0.95,
+            }}
+          >
             {statusLabel}
           </span>
-          <p className="text-[10px] font-semibold uppercase tracking-wide opacity-60">
+          <span className={PANEL_BRAND_TINY} style={{ color: appColors.textMuted }}>
             Powered by Strava
-          </p>
+          </span>
         </div>
       </header>
 
       <div className="space-y-3 text-sm">
-        {/* 1) Connect with Strava */}
-        <div className="space-y-1">
-          <div className="text-xs font-semibold opacity-80">
+        {/* 1) Connect / Disconnect inline */}
+        <div className={PANEL_SECTION}>
+          <div className={PANEL_SECTION_LABEL} style={{ color: appColors.textSecondary }}>
             1. Prepojenie účtu
           </div>
-          <p className="text-xs opacity-70">
-            Otvorí oficiálne Strava okno na prihlásenie. Po potvrdení ťa Strava
-            presmeruje späť do aplikácie.
+          <p className={PANEL_SECTION_TEXT} style={{ color: appColors.textMuted }}>
+            Pripoj alebo odpoj Stravu. Pri pripojení sa otvorí Strava autorizácia a
+            po potvrdení sa vrátiš späť do aplikácie.
           </p>
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={!stravaConnectUrl || disabled}
-            onClick={() => {
-              if (!stravaConnectUrl || disabled) return;
-              window.location.href = stravaConnectUrl;
-            }}
-          >
-            Connect with Strava
-          </Button>
-        </div>
 
-        {/* 4) Disconnect */}
-        {status?.connected ? (
-          <div className="space-y-1 border-t border-white/10 pt-2">
-            <div className="text-xs font-semibold opacity-80">4. Odpojenie</div>
-            <p className="text-xs opacity-70">
-              Zruší autorizáciu na Strave a vymaže tokeny uložené v aplikácii.
-            </p>
+          <div className={PANEL_ACTIONS_INLINE}>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={connectDisabled}
+              onClick={() => {
+                if (connectDisabled || !stravaConnectUrl) return;
+                window.location.href = stravaConnectUrl;
+              }}
+              title={connected ? "Strava už je pripojená" : undefined}
+            >
+              Connect
+            </Button>
 
             <Button
               size="sm"
               variant="secondary"
-              disabled={busy === "disconnect" || !userId}
+              disabled={disconnectDisabled}
               onClick={handleDisconnectStrava}
+              title={!connected ? "Najprv pripoj Stravu" : undefined}
             >
               {busy === "disconnect" ? (
                 <span className="inline-flex items-center gap-1">
@@ -267,50 +301,29 @@ export default function StravaPanel() {
                   Odpájam…
                 </span>
               ) : (
-                "Disconnect Strava"
+                "Disconnect"
               )}
             </Button>
           </div>
-        ) : null}
-
-        {/* 2) Reload cache */}
-        <div className="space-y-1 border-t border-white/10 pt-2">
-          <div className="text-xs font-semibold opacity-80">2. Reload dát</div>
-          <p className="text-xs opacity-70">
-            Vyčistí lokálnu cache (aktivity, plány, prefs) a natiahne čerstvé
-            dáta z backendu.
-          </p>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy === "reload" || !userId}
-            onClick={handleReloadData}
-          >
-            {busy === "reload" ? (
-              <span className="inline-flex items-center gap-1">
-                <LoadingSpinner size="button" />
-                Reloadujem…
-              </span>
-            ) : (
-              "Reload data"
-            )}
-          </Button>
         </div>
 
-        {/* 3) Manuálny import */}
-        <div className="space-y-1 border-t border-white/10 pt-2">
-          <div className="text-xs font-semibold opacity-80">
-            3. Import zo&nbsp;Stravy
+        {/* 2) Import */}
+        <div
+          className={[PANEL_SECTION, PANEL_SECTION_DIVIDER].join(" ")}
+          style={{ borderColor: appColors.divider }}
+        >
+          <div className={PANEL_SECTION_LABEL} style={{ color: appColors.textSecondary }}>
+            2. Import zo Stravy
           </div>
-          <p className="text-xs opacity-70">
-            Manuálny import približne posledných 50 dní alebo max. ~200
-            najnovších aktivít. Existujúce záznamy sa aktualizujú, nové sa
-            vytvoria.
+          <p className={PANEL_SECTION_TEXT} style={{ color: appColors.textMuted }}>
+            Manuálny import približne posledných 50 dní alebo max. ~200 aktivít. Existujúce
+            záznamy sa aktualizujú, nové sa vytvoria.
           </p>
+
           <Button
             size="sm"
             variant="secondary"
-            disabled={busy === "import" || !userId}
+            disabled={busy === "import" || !userId || statusLoading}
             onClick={handleImportFromStrava}
           >
             {busy === "import" ? (
@@ -319,7 +332,36 @@ export default function StravaPanel() {
                 Importujem…
               </span>
             ) : (
-              "Import from Strava"
+              "Import"
+            )}
+          </Button>
+        </div>
+
+        {/* 3) Reload cache */}
+        <div
+          className={[PANEL_SECTION, PANEL_SECTION_DIVIDER].join(" ")}
+          style={{ borderColor: appColors.divider }}
+        >
+          <div className={PANEL_SECTION_LABEL} style={{ color: appColors.textSecondary }}>
+            3. Reload dát
+          </div>
+          <p className={PANEL_SECTION_TEXT} style={{ color: appColors.textMuted }}>
+            Vyčistí lokálnu cache (aktivity, plány, prefs) a natiahne čerstvé dáta.
+          </p>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy === "reload" || !userId || statusLoading}
+            onClick={handleReloadData}
+          >
+            {busy === "reload" ? (
+              <span className="inline-flex items-center gap-1">
+                <LoadingSpinner size="button" />
+                Reloadujem…
+              </span>
+            ) : (
+              "Reload"
             )}
           </Button>
         </div>

@@ -13,14 +13,6 @@ export default function AccountPage() {
 
       <div className={PAGE_CONTAINER}>
         <div className={PAGE_STACK}>
-          <header className={PAGE_INTRO}>
-            <h2 className={PAGE_INTRO_TITLE}>Učet & nastavenia</h2>
-            <p className={PAGE_INTRO_TEXT}>
-              Nastav si účet, preferencie aplikácie a sprav svoje subscription tiers
-              a AI limity.
-            </p>
-          </header>
-
           <div className={PAGE_STACK}>
             <PersonalSettingsPanel />
             <BillingPanel />
