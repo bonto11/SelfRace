@@ -1,24 +1,21 @@
-//shared/components/ui/LoadingSpinner
+// src/app/shared/components/ui/LoadingSpinner.tsx
 "use client";
 
 import React from "react";
-import { SPINNER_CFG } from "@/app/shared/ui/tokens";
+import { SPINNER_CFG, SPINNER_WRAP } from "@/app/shared/ui/tokens";
 
-/** dostupné veľkosti – doplnené o `button` (najmenší) */
 type SpinnerSize = "button" | "widget" | "trend" | "screen";
 
 type Props = {
-  size?: SpinnerSize; // default: "trend"
-  className?: string; // zarovnanie (flex, mt-2…)
-  ariaLabel?: string; // override ARIA labelu
+  size?: SpinnerSize;
+  className?: string;
+  ariaLabel?: string;
 };
 
-/** jednoduchý helper, nech netreba clsx */
 function cx(...parts: Array<string | undefined | false>) {
   return parts.filter(Boolean).join(" ");
 }
 
-/** bezpečný fallback, ak v SPINNER_CFG chýba niektorý kľúč */
 const FALLBACK_CFG: Record<
   SpinnerSize,
   { px: number; accent: string; track: string; dot?: string | null }
@@ -34,7 +31,6 @@ export default function LoadingSpinner({
   className,
   ariaLabel,
 }: Props) {
-  // vezmi z SPINNER_CFG, ak tam kľúč je; inak fallback
   const base = (SPINNER_CFG as any)?.[size] ?? FALLBACK_CFG[size];
   const px = Number(base.px ?? FALLBACK_CFG[size].px);
   const accent = base.accent ?? FALLBACK_CFG[size].accent;
@@ -49,17 +45,12 @@ export default function LoadingSpinner({
     height: px,
     borderWidth: border,
     borderStyle: "solid",
-    borderColor: track, // stopa
-    borderTopColor: accent, // akcent – točí sa
+    borderColor: track,
+    borderTopColor: accent,
   };
 
   return (
-    <span
-      className={cx(
-        "relative inline-flex items-center justify-center align-middle",
-        className
-      )}
-    >
+    <span className={cx(SPINNER_WRAP, className)}>
       <span
         className="rounded-full animate-spin"
         style={ringStyle}
