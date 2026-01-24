@@ -1,15 +1,15 @@
-// src/features/profile/components/ProfileStaticInputs.tsx
+// src/app/features/profile/components/ProfileStaticInputs.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
+import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import DateField from "@/app/shared/components/ui/DateField";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import { toast } from "@/app/shared/components/ui/Toast";
-
-import InputsCard from "@/app/shared/components/ui/InputsCard";
 
 import {
   apiGetStaticProfile,
@@ -17,6 +17,17 @@ import {
 } from "@/app/features/profile/api/static";
 import type { Sex, StaticProfile } from "@/app/features/profile/types/profile";
 import { summarizeStaticProfile } from "@/app/features/profile/utils/profile";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import {
+  SECTION,
+  FORM_GRID_TWO,
+  PANEL_STACK,
+  SECTION_STYLE,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+  INPUTS_CARD_SAVE_BTN,
+} from "@/app/shared/ui/tokens";
 
 const EMPTY: StaticProfile = {
   sex: null,
@@ -53,11 +64,13 @@ export default function ProfileStaticInputs() {
 
   const summary = useMemo(() => summarizeStaticProfile(data), [data]);
 
-  const previewText = [
-    `Pohlavie: ${String(summary.sex ?? "—")}`,
-    `Narodenie: ${String(summary.bd ?? "—")}`,
-    `Výška: ${String(summary.h ?? "—")}`,
-  ].join(" • ");
+  const previewText = useMemo(() => {
+    return [
+      `Pohlavie: ${String(summary.sex ?? "—")}`,
+      `Narodenie: ${String(summary.bd ?? "—")}`,
+      `Výška: ${String(summary.h ?? "—")}`,
+    ].join(" • ");
+  }, [summary]);
 
   async function handleSave() {
     if (!userId) {
@@ -81,59 +94,104 @@ export default function ProfileStaticInputs() {
     <InputsCard
       title="Základné údaje"
       subtitle="Pohlavie, dátum narodenia a výška."
-      previewText={previewText}
+      preview={previewText}
       open={open}
-      onToggle={() => setOpen((v) => !v)}
-      saving={loading}
-      onSave={handleSave}
-      saveLabel={loading ? "Ukladám…" : "Uložiť"}
-      saveDisabled={loading || !userId}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+      actions={
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleSave}
+          disabled={loading || !userId}
+          className={INPUTS_CARD_SAVE_BTN}
+        >
+          {loading ? "Ukladám…" : "Uložiť"}
+        </Button>
+      }
     >
-      <InputsCard.Grid>
-        <InputsCard.Field label="Pohlavie">
-          <SelectField
-            value={(data.sex ?? "") as any}
-            disabled={loading}
-            onChange={(e: any) => {
-              const v = (e?.target?.value ?? "") as string;
-              setData((s) => ({ ...s, sex: v ? (v as Sex) : null }));
-            }}
-            options={[
-              { value: "", label: "—" },
-              { value: "M", label: "Muž" },
-              { value: "F", label: "Žena" },
-            ]}
-          />
-        </InputsCard.Field>
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Pohlavie
+            </div>
 
-        <InputsCard.Field label="Dátum narodenia">
-          <DateField
-            disabled={loading}
-            value={data.birth_date}
-            onChange={(v) => setData((s) => ({ ...s, birth_date: v || null }))}
-          />
-        </InputsCard.Field>
+            <SelectField
+              value={(data.sex ?? "") as any}
+              disabled={loading}
+              onChange={(e: any) => {
+                const v = (e?.target?.value ?? "") as string;
+                setData((s) => ({
+                  ...s,
+                  sex: v ? (v as Sex) : null,
+                }));
+              }}
+              options={[
+                { value: "", label: "—" },
+                { value: "M", label: "Muž" },
+                { value: "F", label: "Žena" },
+              ]}
+            />
+          </section>
 
-        <InputsCard.Field label="Výška">
-          <TextField
-            type="number"
-            inputMode="numeric"
-            value={data.height_cm ?? ""}
-            onChange={(e) =>
-              setData((s) => ({
-                ...s,
-                height_cm: e.target.value ? Number(e.target.value) : null,
-              }))
-            }
-            placeholder="cm"
-            disabled={loading}
-          />
-        </InputsCard.Field>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Dátum narodenia
+            </div>
 
-        <InputsCard.Field label="Zhrnutie">
-          <TextField value={previewText} disabled />
-        </InputsCard.Field>
-      </InputsCard.Grid>
+            <DateField
+              disabled={loading}
+              value={data.birth_date}
+              onChange={(v) =>
+                setData((s) => ({
+                  ...s,
+                  birth_date: v || null,
+                }))
+              }
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Výška
+            </div>
+
+            <TextField
+              type="number"
+              inputMode="numeric"
+              value={data.height_cm ?? ""}
+              onChange={(e) =>
+                setData((s) => ({
+                  ...s,
+                  height_cm: e.target.value ? Number(e.target.value) : null,
+                }))
+              }
+              placeholder="cm"
+              disabled={loading}
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Zhrnutie
+            </div>
+            <TextField value={previewText} disabled />
+          </section>
+        </div>
+      </div>
     </InputsCard>
   );
 }
