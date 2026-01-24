@@ -1,7 +1,15 @@
-// src/shared/components/ui/TextField.tsx
+// src/app/shared/components/ui/TextField.tsx
 "use client";
+
 import * as React from "react";
-import { inputClass, labelClass, hintClass, cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui";
+import {
+  FIELD_BASE,
+  FIELD_LABEL,
+  FIELD_HINT,
+  FIELD_ERROR,
+  FIELD_ERROR_TEXT,
+} from "@/app/shared/ui/tokens";
 
 type Props = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
@@ -20,16 +28,18 @@ export default function TextField({
 }: Props) {
   return (
     <div className={cx("space-y-1", containerClassName)}>
-      {label && <label className={labelClass}>{label}</label>}
+      {label ? <label className={FIELD_LABEL}>{label}</label> : null}
+
       <input
-        className={cx(inputClass, className, error && "border-red-600")}
         {...rest}
+        className={cx(FIELD_BASE, error && FIELD_ERROR, className)}
       />
+
       {error ? (
-        <div className="text-xs text-red-400">{error}</div>
-      ) : (
-        hint && <div className={hintClass}>{hint}</div>
-      )}
+        <div className={FIELD_ERROR_TEXT}>{error}</div>
+      ) : hint ? (
+        <div className={FIELD_HINT}>{hint}</div>
+      ) : null}
     </div>
   );
 }
