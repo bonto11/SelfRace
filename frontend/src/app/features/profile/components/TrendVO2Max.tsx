@@ -10,7 +10,6 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/ui/tokens";
 import { inputClass } from "@/app/shared/ui";
 
 import type {
@@ -25,15 +24,24 @@ import {
   hexWithAlpha,
 } from "@/app/features/profile/utils/profile";
 
+import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
+import {
+  SURFACE_CARD,
+  SCROLL_X,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_CARD_HEAD,
+  PANEL_CARD_TITLE,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens";
+
 ensureChartJSRegistered();
 
 const DAY = 24 * 3600 * 1000;
 const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
 export default function TrendVO2Max() {
-  const { userId } = useUserId() as {
-    userId: number | null;
-  };
+  const { userId } = useUserId() as { userId: number | null };
 
   const [loading, setLoading] = React.useState(false);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
@@ -53,11 +61,10 @@ export default function TrendVO2Max() {
           apiGetMetricHistory(userId, "VO2Max_estimated"),
           apiGetMetricHistory(userId, "VO2Max_measured"),
         ]);
-        if (alive) {
-          if (s) setStat(s);
-          setEstHist(est ?? []);
-          setMeasHist(meas ?? []);
-        }
+        if (!alive) return;
+        if (s) setStat(s);
+        setEstHist(est ?? []);
+        setMeasHist(meas ?? []);
       } finally {
         if (alive) setLoading(false);
       }
@@ -71,12 +78,10 @@ export default function TrendVO2Max() {
   const lookbackDays = weeks * 7;
 
   const estDays = new Set<string>();
-  for (const r of estHist)
-    if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
+  for (const r of estHist) if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
 
   const measDays = new Set<string>();
-  for (const r of measHist)
-    if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
+  for (const r of measHist) if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
 
   let allDays = Array.from(new Set<string>([...estDays, ...measDays])).sort();
 
@@ -92,7 +97,13 @@ export default function TrendVO2Max() {
   }
 
   if (!allDays.length) {
-    return <div className={`${CARD} p-4`}>Žiadne dáta VO₂Max.</div>;
+    return (
+      <section className={SURFACE_CARD}>
+        <div className={[PANEL_PAD, "text-sm"].join(" ")}>
+          Žiadne dáta VO₂Max.
+        </div>
+      </section>
+    );
   }
 
   const estMap = new Map<string, number>();
@@ -120,40 +131,32 @@ export default function TrendVO2Max() {
   const labels = labelsISO.map((d) =>
     new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK")
   );
-  const seriesEst = labelsISO.map((d) =>
-    estMap.has(d) ? Number(estMap.get(d)) : NaN
-  );
-  const seriesMeas = labelsISO.map((d) =>
-    measMap.has(d) ? Number(measMap.get(d)) : NaN
-  );
 
-  // pásma podľa pohlavia + veku
+  const seriesEst = labelsISO.map((d) => (estMap.has(d) ? Number(estMap.get(d)) : NaN));
+  const seriesMeas = labelsISO.map((d) => (measMap.has(d) ? Number(measMap.get(d)) : NaN));
+
   const sex = stat?.sex === "F" ? "F" : "M";
   const birthDate = stat?.birth_date || "";
   const age = birthDate
-    ? Math.floor(
-        (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)
-      )
+    ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000))
     : 0;
 
   const group = (vo2Ref as Group[]).find(
     (g) => g.sex === sex && age >= g.age_min && age <= g.age_max
   );
+
   const ranges =
     group?.ranges?.map((r) => ({
       ...r,
       color: colorForVo2RangeLabel(r.label),
     })) ?? [];
 
-  const finiteVals = [...seriesEst, ...seriesMeas].filter(
-    Number.isFinite
-  ) as number[];
+  const finiteVals = [...seriesEst, ...seriesMeas].filter(Number.isFinite) as number[];
   const rangeMaxes = ranges.map((r) => (typeof r.max === "number" ? r.max : 0));
+
   const suggestedTop = Math.max(
     60,
-    Math.ceil(
-      Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1
-    )
+    Math.ceil(Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1)
   );
 
   const finiteEst = seriesEst.filter(Number.isFinite) as number[];
@@ -162,21 +165,17 @@ export default function TrendVO2Max() {
   const oneMeas = finiteMeas.length === 1 ? finiteMeas[0] : null;
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
-    // pásma
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
-      data: labels.map(() =>
-        typeof r.max === "number" ? r.max : suggestedTop
-      ),
+      data: labels.map(() => (typeof r.max === "number" ? r.max : suggestedTop)),
       borderColor: hexWithAlpha(r.color, 0),
       backgroundColor: hexWithAlpha(r.color, 0.18),
       pointRadius: 0,
       borderWidth: 0,
-      fill: i === 0 ? "origin" : "-1",
+      fill: i === 0 ? ("origin" as const) : ("-1" as const),
       order: 1,
     })),
-    // Estimated – single-level / krivka
     ...(oneEst != null
       ? [
           {
@@ -206,7 +205,6 @@ export default function TrendVO2Max() {
       spanGaps: true,
       order: 3,
     },
-    // Measured – single-level / krivka
     ...(oneMeas != null
       ? [
           {
@@ -242,71 +240,59 @@ export default function TrendVO2Max() {
 
   const data: ChartData<"line", number[], string> = { labels, datasets };
 
-  const options: ChartOptions<"line"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    elements: { point: { radius: 2, hoverRadius: 6 } },
-    plugins: {
-      legend: {
-        position: THEME.chart.legendPosition,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          boxWidth: 6,
-          boxHeight: 6,
-          padding: 8,
-        },
-      },
-      tooltip: {
-        enabled: true,
-        backgroundColor: "#0B1220F2",
-        borderColor: "#FFFFFF66",
-        borderWidth: 1,
-        titleColor: "#FFFFFF",
-        bodyColor: "#FFFFFF",
-        padding: 10,
-        usePointStyle: true,
-        boxPadding: 4,
-        displayColors: true,
-        caretSize: 6,
-        cornerRadius: 8,
-      },
+  const options: ChartOptions<"line"> = buildRecoveryLineOptions({
+    labelsISO,
+    yTitle: "ml/kg/min",
+    tooltipTitleForIndex: (i) =>
+      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
+        THEME.i18n?.dateLocale ?? "sk-SK"
+      ),
+    tooltipLabelForItem: (ctx) => {
+      const idx = ctx.dataIndex ?? 0;
+      const label = ctx.dataset?.label ?? "";
+      if (label === "VO₂Max (estimated)") {
+        const v = seriesEst[idx];
+        return Number.isFinite(v) ? `Estimated: ${Number(v).toFixed(1)}` : "—";
+      }
+      if (label === "VO₂Max (measured)") {
+        const v = seriesMeas[idx];
+        return Number.isFinite(v) ? `Measured: ${Number(v).toFixed(1)}` : "—";
+      }
+      // pásma neukazuj (noise)
+      return "";
     },
-    scales: {
-      y: {
-        beginAtZero: true,
-        suggestedMax: suggestedTop,
-        grid: { color: THEME.chart.grid },
-        ticks: { color: THEME.color.text },
-        title: { display: true, text: "ml/kg/min" },
-      },
-      x: { grid: { color: THEME.chart.gridSoft } },
+    tooltipFilter: (item) => {
+      const l = item.dataset?.label ?? "";
+      return l === "VO₂Max (estimated)" || l === "VO₂Max (measured)";
     },
-  };
+    yMin: 0,
+    yMax: suggestedTop,
+  });
 
   const minWidth = Math.max(360, Math.round(labels.length * DAY_PX_PER_LABEL));
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Detail – VO₂Max</h2>
-        <select
-          value={weeks}
-          onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
-          className={`${inputClass} h-8 text-xs w-[132px]`}
-          aria-label="Lookback"
-        >
-          <option value={4}>4 týždne</option>
-          <option value={8}>8 týždňov</option>
-          <option value={12}>12 týždňov</option>
-        </select>
+    <section className={SURFACE_CARD}>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        <div className={PANEL_CARD_HEAD}>
+          <h2 className={PANEL_CARD_TITLE}>Detail – VO₂Max</h2>
+          <div className={PANEL_ACTIONS_INLINE}>
+            <select
+              value={weeks}
+              onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
+              className={[inputClass, "h-8 text-xs w-[132px]"].join(" ")}
+              aria-label="Lookback"
+            >
+              <option value={4}>4 týždne</option>
+              <option value={8}>8 týždňov</option>
+              <option value={12}>12 týždňov</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* GRAPH */}
       <div
-        className={`${SCROLL_X} min-w-0`}
+        className={[SCROLL_X, "min-w-0"].join(" ")}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
         <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
@@ -320,6 +306,6 @@ export default function TrendVO2Max() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
