@@ -1,41 +1,60 @@
 // src/app/shared/components/ui/DateField.tsx
 "use client";
 
-import type { ChangeEvent } from "react";
+import * as React from "react";
+import { cx } from "@/app/shared/ui";
 import {
-  FIELD_INLINE,
-  DATE_FIELD_LABEL,
-  DATE_INPUT_INNER,
+  FIELD_BASE,
+  FIELD_LABEL,
+  FIELD_HINT,
+  FIELD_ERROR,
+  FIELD_ERROR_TEXT,
 } from "@/app/shared/ui/tokens";
 
-type Props = {
-  label: string;
+type Props = Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "type" | "value" | "onChange"
+> & {
+  label?: string;
+  hint?: string;
+  error?: string;
+  containerClassName?: string;
   value: string | null;
   onChange: (value: string | null) => void;
-  min?: string;
-  max?: string;
 };
 
-export default function DateField({ label, value, onChange, min, max }: Props) {
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value.trim();
-    onChange(v || null);
-  };
-
+export default function DateField({
+  label,
+  hint,
+  error,
+  containerClassName,
+  className,
+  value,
+  onChange,
+  ...rest
+}: Props) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className={DATE_FIELD_LABEL}>{label}</span>
+    <div className={cx("space-y-1", containerClassName)}>
+      {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
-      <div className={FIELD_INLINE}>
-        <input
-          type="date"
-          value={value ?? ""}
-          onChange={handleChange}
-          min={min}
-          max={max}
-          className={DATE_INPUT_INNER}
-        />
-      </div>
-    </label>
+      <input
+        {...rest}
+        type="date"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className={cx(
+          FIELD_BASE,
+          "[color-scheme:dark]",
+          error && FIELD_ERROR,
+          className
+        )}
+      />
+
+      {error ? (
+        <div className={FIELD_ERROR_TEXT}>{error}</div>
+      ) : hint ? (
+        <div className={FIELD_HINT}>{hint}</div>
+      ) : null}
+    </div>
   );
 }
