@@ -1,9 +1,8 @@
 // src/app/(protected)/account/page.tsx
 import AppHeader from "@/app/shared/components/ui/AppHeader";
 import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
-import { PAGE_INTRO, PAGE_INTRO_TITLE, PAGE_INTRO_TEXT } from "@/app/shared/ui/tokens/pageTokens";
 
-import PersonalSettingsPanel from "@/app/features/account/components/PersonalSettingsPanel";
+import SettingsInputs from "@/app/features/account/components/SettingsInputs";
 import BillingPanel from "@/app/features/billing/components/BillingPanel";
 
 export default function AccountPage() {
@@ -14,7 +13,7 @@ export default function AccountPage() {
       <div className={PAGE_CONTAINER}>
         <div className={PAGE_STACK}>
           <div className={PAGE_STACK}>
-            <PersonalSettingsPanel />
+            <SettingsInputs />
             <BillingPanel />
           </div>
         </div>
