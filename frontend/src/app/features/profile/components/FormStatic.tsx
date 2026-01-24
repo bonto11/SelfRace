@@ -102,133 +102,140 @@ export default function FormStatic() {
   }
 
   return (
-    <section className={CARD} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
-        <div className="min-w-0">
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
-            Základné údaje
-          </div>
-          <div
-            className={PANEL_SECTION_SUBTITLE}
-            style={{ color: appColors.textMuted }}
-          >
-            Pohlavie, dátum narodenia a výška.
-          </div>
+  <section className={CARD} style={SURFACE_CARD_STYLE}>
+    <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
+      <div className="min-w-0">
+        <div
+          className={PANEL_SECTION_TITLE}
+          style={{ color: appColors.textPrimary }}
+        >
+          Základné údaje
+        </div>
+        <div
+          className={PANEL_SECTION_SUBTITLE}
+          style={{ color: appColors.textMuted }}
+        >
+          Pohlavie, dátum narodenia a výška.
         </div>
       </div>
+    </div>
 
-      <div className={CARD_BODY_INSET}>
-        {!open && (
-          <div
-            className={["mt-3", PANEL_PREVIEW].join(" ")}
-            style={{ color: appColors.textMuted }}
-          >
-            {previewText}
-          </div>
-        )}
+    <div className={CARD_BODY_INSET}>
+      {!open && (
+        <div
+          className={["mt-3", PANEL_PREVIEW].join(" ")}
+          style={{ color: appColors.textMuted }}
+        >
+          {previewText}
+        </div>
+      )}
 
-        {open && (
-          <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-            <div className={FORM_GRID_TWO}>
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
-                  Pohlavie
-                </div>
-
-                <SelectField
-                  value={data.sex}
-                  disabled={loading}
-                  onChange={(v) =>
-                    setData((s) => ({ ...s, sex: (v as Sex) || null }))
-                  }
-                  options={[
-                    { value: "", label: "—" },
-                    { value: "M", label: "Muž" },
-                    { value: "F", label: "Žena" },
-                  ]}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
-                  Dátum narodenia
-                </div>
-
-                <DateField
-                  value={data.birth_date}
-                  disabled={loading}
-                  onChange={(v) => setData((s) => ({ ...s, birth_date: v }))}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
-                  Výška
-                </div>
-
-                <TextField
-                  type="number"
-                  inputMode="numeric"
-                  value={data.height_cm ?? ""}
-                  onChange={(e) =>
-                    setData((s) => ({
-                      ...s,
-                      height_cm: e.target.value ? Number(e.target.value) : null,
-                    }))
-                  }
-                  placeholder="cm"
-                  disabled={loading}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
-                  Zhrnutie
-                </div>
-
-                <TextField value={previewText} disabled />
-              </section>
-            </div>
-          </div>
-        )}
-
-        <div className={INPUTS_CARD_FOOTER}>
-          {open && (
-            <div className={INPUTS_CARD_SAVE_WRAP}>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleSave}
-                disabled={loading || !userId}
-                className={INPUTS_CARD_SAVE_BTN}
+      {open && (
+        <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+          <div className={FORM_GRID_TWO}>
+            <section className={SECTION} style={SECTION_STYLE}>
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
               >
-                {loading ? "Ukladám…" : "Uložiť"}
-              </Button>
-            </div>
-          )}
+                Pohlavie
+              </div>
 
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((v) => !v)}
-            className={INPUTS_CARD_TOGGLE}
-          />
+              <SelectField
+                value={(data.sex ?? "") as string}
+                disabled={loading}
+                onChange={(v) =>
+                  setData((s) => ({
+                    ...s,
+                    sex: ((v || null) as Sex | null) ?? null,
+                  }))
+                }
+                options={[
+                  { value: "", label: "—" },
+                  { value: "M", label: "Muž" },
+                  { value: "F", label: "Žena" },
+                ]}
+              />
+            </section>
+
+            <section className={SECTION} style={SECTION_STYLE}>
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
+                Dátum narodenia
+              </div>
+
+              <DateField
+                disabled={loading}
+                value={data.birth_date}
+                onChange={(v) =>
+                  setData((s) => ({
+                    ...s,
+                    birth_date: v || null,
+                  }))
+                }
+              />
+            </section>
+
+            <section className={SECTION} style={SECTION_STYLE}>
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
+                Výška
+              </div>
+
+              <TextField
+                type="number"
+                inputMode="numeric"
+                value={data.height_cm ?? ""}
+                onChange={(e) =>
+                  setData((s) => ({
+                    ...s,
+                    height_cm: e.target.value ? Number(e.target.value) : null,
+                  }))
+                }
+                placeholder="cm"
+                disabled={loading}
+              />
+            </section>
+
+            <section className={SECTION} style={SECTION_STYLE}>
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
+                Zhrnutie
+              </div>
+              <TextField value={previewText} disabled />
+            </section>
+          </div>
         </div>
+      )}
+
+      <div className={INPUTS_CARD_FOOTER}>
+        {open && (
+          <div className={INPUTS_CARD_SAVE_WRAP}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleSave}
+              disabled={loading || !userId}
+              className={INPUTS_CARD_SAVE_BTN}
+            >
+              {loading ? "Ukladám…" : "Uložiť"}
+            </Button>
+          </div>
+        )}
+
+        <DisclosureToggle
+          open={open}
+          onToggle={() => setOpen((v) => !v)}
+          className={INPUTS_CARD_TOGGLE}
+        />
       </div>
-    </section>
-  );
+    </div>
+  </section>
+);
 }
