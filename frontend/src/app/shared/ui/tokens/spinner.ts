@@ -29,3 +29,7 @@ export const SPINNER_CFG: Record<"widget" | "trend" | "screen", SpinnerPreset> =
     dot: appColors.accentLime,
   },
 };
+
+// src/app/shared/ui/tokens/spinner.ts
+export const SPINNER_WRAP =
+  "relative inline-flex items-center justify-center";
