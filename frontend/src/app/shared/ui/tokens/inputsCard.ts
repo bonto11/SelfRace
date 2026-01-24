@@ -34,7 +34,7 @@ export const SELECT_ICON = "shrink-0 h-3.5 w-3.5 opacity-60";
 export const SELECT_MENU_WRAP = "relative";
 
 export const SELECT_MENU =
-  "absolute z-50 mt-2 w-full rounded-xl border border-white/10 bg-gray-900/95 backdrop-blur p-1 shadow-lg";
+  "rounded-xl border border-white/10 bg-gray-900/95 backdrop-blur p-1 shadow-lg";
 
 export const SELECT_OPT =
   "w-full px-3 py-2 rounded-lg text-sm hover:bg-white/8 active:bg-white/10";
