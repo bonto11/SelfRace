@@ -12,5 +12,13 @@ export const INPUTS_CARD_FOOTER = "mt-4 flex flex-col items-center gap-2";
 export const INPUTS_CARD_SAVE_WRAP = "w-full";
 export const INPUTS_CARD_SAVE_BTN = "w-full";
 
-// ak chceš jemne upraviť kruh, nech je konzistentný (voliteľné)
-export const INPUTS_CARD_TOGGLE = ""; // nechaj prázdne alebo sem daj napr. "mt-1"
+// labels (opakované "text-sm mb-x")
+export const INPUTS_CARD_LABEL_SM_1 = "text-sm mb-1";
+export const INPUTS_CARD_LABEL_SM_2 = "text-sm mb-2";
+
+// checkbox rows (opakované "flex items-center ...")
+export const INPUTS_CARD_CHECK_ROW = "flex items-center gap-2 text-sm";
+export const INPUTS_CARD_CHECK_ROW_MB = "flex items-center gap-2 mb-2 text-sm";
+
+// DisclosureToggle je circle, takže sem nedávaj padding typu px-6
+export const INPUTS_CARD_TOGGLE = "";
