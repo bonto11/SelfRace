@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import Button from "@/app/shared/components/ui/Button";
+import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
 
@@ -24,9 +25,9 @@ import {
   formatBmiFromLatest,
 } from "@/app/features/profile/utils/profile";
 import { formatMetricDate } from "@/app/shared/utils/time";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
-  // layout
   CARD,
   SECTION,
   FORM_GRID_TWO,
@@ -37,12 +38,17 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_STACK,
-  PANEL_ACTIONS_INLINE,
   PANEL_PREVIEW,
-
-  // styles
   SURFACE_CARD_STYLE,
   SECTION_STYLE,
+
+  // reuse inputsCard tokens (from Recovery)
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_FOOTER,
+  INPUTS_CARD_SAVE_WRAP,
+  INPUTS_CARD_SAVE_BTN,
+  INPUTS_CARD_LABEL_SM_1,
+  INPUTS_CARD_TOGGLE,
 } from "@/app/shared/ui/tokens";
 
 const UNIT_MAP: Record<EditableMetricKey, string> = {
@@ -168,52 +174,50 @@ export default function FormMetrics() {
       ? `${latest?.HR_max?.value} bpm (${formatMetricDate(latest?.HR_max?.updated_at)})`
       : "—";
     const vo2 = Number.isFinite(latest?.VO2Max_estimated?.value as number)
-      ? `${latest?.VO2Max_estimated?.value} est`
+      ? `${latest?.VO2Max_estimated?.value}`
       : "—";
-    return `Weight: ${w} • Body fat: ${bf} • HR max: ${hr} • VO₂: ${vo2}`;
+    return `Hmotnosť: ${w} • Tuk: ${bf} • HR max: ${hr} • VO₂Max: ${vo2}`;
   }, [latest]);
 
   return (
     <section className={CARD} style={SURFACE_CARD_STYLE}>
-      {/* HEAD (ako Recovery) */}
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE}>Metrics</div>
-          <div className={PANEL_SECTION_SUBTITLE}>
-            Hmotnosť, tuk, HRmax a VO₂Max.
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
+            Metriky
           </div>
-        </div>
-
-        <div className={PANEL_ACTIONS_INLINE}>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setOpen((v) => !v)}
-            disabled={loading}
-            aria-label={open ? "Zbaliť" : "Rozbaliť"}
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
           >
-            {open ? "Zbaliť" : "Rozbaliť"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={handleSave}
-            disabled={loading || !userId}
-          >
-            {loading ? "Ukladám…" : "Uložiť"}
-          </Button>
+            Hmotnosť, tuk, HR max a VO₂Max.
+          </div>
         </div>
       </div>
 
       <div className={CARD_BODY_INSET}>
-        {!open && <div className={["mt-3", PANEL_PREVIEW].join(" ")}>{previewText}</div>}
+        {!open && (
+          <div
+            className={["mt-3", PANEL_PREVIEW].join(" ")}
+            style={{ color: appColors.textMuted }}
+          >
+            {previewText}
+          </div>
+        )}
 
         {open && (
-          <div className={["mt-4", PANEL_STACK].join(" ")}>
+          <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
             <div className={FORM_GRID_TWO}>
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Weight</div>
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Hmotnosť
+                </div>
                 <TextField
                   type="number"
                   inputMode="decimal"
@@ -225,19 +229,31 @@ export default function FormMetrics() {
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Body fat</div>
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Telesný tuk
+                </div>
                 <TextField
                   type="number"
                   inputMode="decimal"
                   value={m.body_fat_pct ?? ""}
                   placeholder={ph.body_fat_pct || "%"}
-                  onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
+                  onChange={(e) =>
+                    onChangeNumber("body_fat_pct", e.target.value)
+                  }
                   disabled={loading}
                 />
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">HR max</div>
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  HR max
+                </div>
                 <TextField
                   type="number"
                   inputMode="numeric"
@@ -249,13 +265,18 @@ export default function FormMetrics() {
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">VO₂Max</div>
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  VO₂Max
+                </div>
                 <div className={FORM_GRID_SPLIT}>
                   <TextField
                     type="number"
                     inputMode="decimal"
                     value={m.VO2Max_estimated ?? ""}
-                    placeholder={ph.VO2Max_estimated || "estimated"}
+                    placeholder={ph.VO2Max_estimated || "odhad"}
                     onChange={(e) =>
                       onChangeNumber("VO2Max_estimated", e.target.value)
                     }
@@ -265,7 +286,7 @@ export default function FormMetrics() {
                     type="number"
                     inputMode="decimal"
                     value={m.VO2Max_measured ?? ""}
-                    placeholder={ph.VO2Max_measured || "measured"}
+                    placeholder={ph.VO2Max_measured || "merané"}
                     onChange={(e) =>
                       onChangeNumber("VO2Max_measured", e.target.value)
                     }
@@ -275,19 +296,52 @@ export default function FormMetrics() {
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">BMI (computed)</div>
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  BMI (výpočet)
+                </div>
                 <TextField value={bmiText || "—"} disabled />
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Tip</div>
-                <div className="text-sm opacity-75">
-                  Zadaj len to, čo chceš uložiť – ostatné nechaj prázdne.
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Tip
                 </div>
+                <TextField
+                  value="Zadaj len to, čo chceš uložiť – ostatné nechaj prázdne."
+                  disabled
+                />
               </section>
             </div>
           </div>
         )}
+
+        <div className={INPUTS_CARD_FOOTER}>
+          {open && (
+            <div className={INPUTS_CARD_SAVE_WRAP}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleSave}
+                disabled={loading || !userId}
+                className={INPUTS_CARD_SAVE_BTN}
+              >
+                {loading ? "Ukladám…" : "Uložiť"}
+              </Button>
+            </div>
+          )}
+
+          <DisclosureToggle
+            open={open}
+            onToggle={() => setOpen((v) => !v)}
+            className={INPUTS_CARD_TOGGLE}
+          />
+        </div>
       </div>
     </section>
   );
