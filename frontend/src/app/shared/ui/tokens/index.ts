@@ -5,6 +5,7 @@ export * from "./charts";
 export * from "./core";
 export * from "./forms";
 export * from "./header";
+export * from "./inputsCard";
 export * from "./misc";
 export * from "./pageTokens";
 export * from "./panels";
