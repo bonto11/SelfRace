@@ -59,10 +59,14 @@ export default function SelectField({
   const selected = options.find((o) => o.value === value) ?? null;
   const display = selected?.label ?? (value ? value : placeholder);
 
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+
   React.useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return; // ✅ portal menu
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -135,6 +139,7 @@ export default function SelectField({
         {open && !disabled && pos
           ? createPortal(
               <div
+                ref={menuRef}
                 className={SELECT_MENU}
                 role="listbox"
                 style={{
