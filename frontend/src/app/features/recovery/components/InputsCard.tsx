@@ -13,7 +13,6 @@ import { apiSaveRecovery } from "@/app/features/recovery/api/recovery";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
-  // layout
   CARD,
   SECTION,
   FORM_GRID_TWO,
@@ -24,14 +23,9 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_STACK,
-  PANEL_ACTIONS_INLINE,
   PANEL_PREVIEW,
-
-  // styles
   SURFACE_CARD_STYLE,
   SECTION_STYLE,
-
-  // misc
   PILL_BUTTON,
   TEXTAREA_BASE,
 } from "@/app/shared/ui/tokens";
@@ -86,7 +80,8 @@ export default function InputsCard() {
     try {
       setSaving(true);
       await apiSaveRecovery(userId, payload as any);
-      toast.success("Recovery uložené.");
+      toast.success("Regenerácia uložená.");
+      setOpen(false);
     } catch (e: any) {
       toast.error("Chyba: " + (e?.message ?? e));
     } finally {
@@ -105,35 +100,15 @@ export default function InputsCard() {
             className={PANEL_SECTION_TITLE}
             style={{ color: appColors.textPrimary }}
           >
-            Recovery
+            Regenerácia
           </div>
           <div
             className={PANEL_SECTION_SUBTITLE}
             style={{ color: appColors.textMuted }}
           >
-            RHR, HRV, spánok a faktory večera.
+            Tu môžeš zadať údaje o tvojej regenerácii (RHR, HRV, spánok a večerné
+            faktory).
           </div>
-        </div>
-
-        <div className={PANEL_ACTIONS_INLINE}>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setOpen((v) => !v)}
-            disabled={saving}
-            aria-label={open ? "Zbaliť" : "Rozbaliť"}
-          >
-            {open ? "Zbaliť" : "Rozbaliť"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={handleSave}
-            disabled={saving || !userId}
-          >
-            {saving ? "Ukladám…" : "Uložiť"}
-          </Button>
         </div>
       </div>
 
@@ -191,13 +166,13 @@ export default function InputsCard() {
                   className="text-sm mb-1"
                   style={{ color: appColors.textMuted }}
                 >
-                  Resting HR
+                  RHR
                 </div>
                 <TextField
                   type="number"
                   value={rhr}
                   onChange={(e) => setRhr(e.target.value)}
-                  placeholder="bpm"
+                  placeholder="údery/min"
                   disabled={saving}
                 />
               </section>
@@ -214,14 +189,14 @@ export default function InputsCard() {
                     type="number"
                     value={hrvAvg}
                     onChange={(e) => setHrvAvg(e.target.value)}
-                    placeholder="avg ms"
+                    placeholder="priemer (ms)"
                     disabled={saving}
                   />
                   <TextField
                     type="number"
                     value={hrvMax}
                     onChange={(e) => setHrvMax(e.target.value)}
-                    placeholder="max ms"
+                    placeholder="maximum (ms)"
                     disabled={saving}
                   />
                 </div>
@@ -235,12 +210,12 @@ export default function InputsCard() {
                   className="text-sm mb-1"
                   style={{ color: appColors.textMuted }}
                 >
-                  Sleep
+                  Spánok
                 </div>
                 <div className={FORM_GRID_SPLIT}>
                   <TextField
                     type="text"
-                    placeholder="HH:MM duration"
+                    placeholder="HH:MM trvanie"
                     value={sleepDuration}
                     onChange={(e) => handleTimeInput(e, setSleepDuration)}
                     inputMode="numeric"
@@ -248,7 +223,7 @@ export default function InputsCard() {
                   />
                   <TextField
                     type="text"
-                    placeholder="HH:MM start"
+                    placeholder="HH:MM začiatok"
                     value={sleepStart}
                     onChange={(e) => handleTimeInput(e, setSleepStart)}
                     inputMode="numeric"
@@ -262,7 +237,7 @@ export default function InputsCard() {
                   className="text-sm mb-2"
                   style={{ color: appColors.textMuted }}
                 >
-                  Evening factors
+                  Večerné faktory
                 </div>
 
                 <label className="flex items-center gap-2 mb-2 text-sm">
@@ -272,7 +247,7 @@ export default function InputsCard() {
                     onChange={(e) => setLateFood(e.target.checked)}
                     disabled={saving}
                   />
-                  <span>Food ≤ 2h before bed</span>
+                  <span>Jedlo ≤ 2 h pred spaním</span>
                 </label>
 
                 <label className="flex items-center gap-2 text-sm">
@@ -282,7 +257,7 @@ export default function InputsCard() {
                     onChange={(e) => setLateCaffeine(e.target.checked)}
                     disabled={saving}
                   />
-                  <span>Caffeine ≤ 8h before bed</span>
+                  <span>Kofeín ≤ 8 h pred spaním</span>
                 </label>
               </section>
 
@@ -291,7 +266,7 @@ export default function InputsCard() {
                   className="text-sm mb-1"
                   style={{ color: appColors.textMuted }}
                 >
-                  Alcohol
+                  Alkohol
                 </div>
                 <div className={FORM_GRID_SPLIT}>
                   <TextField
@@ -319,13 +294,13 @@ export default function InputsCard() {
                   className="text-sm mb-1"
                   style={{ color: appColors.textMuted }}
                 >
-                  Comment
+                  Poznámka
                 </div>
                 <textarea
                   rows={3}
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
-                  placeholder="Poznámka k dňu (jet lag, svadba, preťaž.)"
+                  placeholder="Poznámka k dňu (jet lag, svadba, preťaženie...)"
                   disabled={saving}
                   className={TEXTAREA_BASE}
                 />
@@ -333,6 +308,34 @@ export default function InputsCard() {
             </div>
           </div>
         )}
+
+        {/* BOTTOM ACTIONS */}
+        <div className="mt-4 flex flex-col items-center gap-2">
+          {open && (
+            <div className="w-full">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleSave}
+                disabled={saving || !userId}
+                className="w-full"
+              >
+                {saving ? "Ukladám…" : "Uložiť"}
+              </Button>
+            </div>
+          )}
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setOpen((v) => !v)}
+            disabled={saving}
+            aria-label={open ? "Zbaliť" : "Rozbaliť"}
+            className="px-6"
+          >
+            {open ? "Zbaliť" : "Rozbaliť"}
+          </Button>
+        </div>
       </div>
     </section>
   );
