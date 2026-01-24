@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 
 import Button from "@/app/shared/components/ui/Button";
+import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import TextField from "@/app/shared/components/ui/TextField";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
@@ -28,6 +29,16 @@ import {
   SECTION_STYLE,
   PILL_BUTTON,
   TEXTAREA_BASE,
+
+  // inputsCard tokens
+  INPUTS_CARD_DATE_ROW,
+  INPUTS_CARD_DATE_INNER,
+  INPUTS_CARD_DATE_PILL,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_FOOTER,
+  INPUTS_CARD_SAVE_WRAP,
+  INPUTS_CARD_SAVE_BTN,
+  INPUTS_CARD_TOGGLE_BTN,
 } from "@/app/shared/ui/tokens";
 
 export default function InputsCard() {
@@ -114,8 +125,8 @@ export default function InputsCard() {
 
       <div className={CARD_BODY_INSET}>
         {/* DATE ROW (always visible) */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between gap-2">
+        <div className={INPUTS_CARD_DATE_ROW}>
+          <div className={INPUTS_CARD_DATE_INNER}>
             <Button
               size="sm"
               variant="ghost"
@@ -130,10 +141,7 @@ export default function InputsCard() {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               disabled={saving}
-              className={[
-                PILL_BUTTON,
-                "text-center px-3 py-2 !rounded-xl w-[min(220px,60vw)] [color-scheme:dark]",
-              ].join(" ")}
+              className={[PILL_BUTTON, INPUTS_CARD_DATE_PILL].join(" ")}
             />
 
             <Button
@@ -159,7 +167,7 @@ export default function InputsCard() {
 
         {/* BODY */}
         {open && (
-          <div className={["mt-4", PANEL_STACK].join(" ")}>
+          <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
             <div className={FORM_GRID_TWO}>
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
@@ -309,32 +317,29 @@ export default function InputsCard() {
           </div>
         )}
 
-        {/* BOTTOM ACTIONS */}
-        <div className="mt-4 flex flex-col items-center gap-2">
+        {/* FOOTER ACTIONS */}
+        <div className={INPUTS_CARD_FOOTER}>
           {open && (
-            <div className="w-full">
+            <div className={INPUTS_CARD_SAVE_WRAP}>
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={handleSave}
                 disabled={saving || !userId}
-                className="w-full"
+                className={INPUTS_CARD_SAVE_BTN}
               >
                 {saving ? "Ukladám…" : "Uložiť"}
               </Button>
             </div>
           )}
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setOpen((v) => !v)}
-            disabled={saving}
-            aria-label={open ? "Zbaliť" : "Rozbaliť"}
-            className="px-6"
-          >
-            {open ? "Zbaliť" : "Rozbaliť"}
-          </Button>
+          <DisclosureToggle
+            open={open}
+            onToggle={() => setOpen((v) => !v)}
+            className={INPUTS_CARD_TOGGLE_BTN}
+            labelWhenOpen="Zbaliť"
+            labelWhenClosed="Rozbaliť"
+          />
         </div>
       </div>
     </section>
