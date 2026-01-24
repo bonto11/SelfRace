@@ -1,13 +1,13 @@
-// src/features/profile/components/ProfileMetricInputs.tsx
+// src/app/features/profile/components/ProfileMetricInputs.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
+import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
-
-import InputsCard from "@/app/shared/components/ui/InputsCard";
 
 import {
   apiGetLatestMetrics,
@@ -25,6 +25,18 @@ import {
   formatBmiFromLatest,
 } from "@/app/features/profile/utils/profile";
 import { formatMetricDate } from "@/app/shared/utils/time";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import {
+  SECTION,
+  FORM_GRID_TWO,
+  FORM_GRID_SPLIT,
+  PANEL_STACK,
+  SECTION_STYLE,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+  INPUTS_CARD_SAVE_BTN,
+} from "@/app/shared/ui/tokens";
 
 const UNIT_MAP: Record<EditableMetricKey, string> = {
   weight_kg: "kg",
@@ -164,84 +176,130 @@ export default function ProfileMetricInputs() {
     <InputsCard
       title="Metriky"
       subtitle="Hmotnosť, tuk, HR max a VO₂Max."
-      previewText={previewText}
+      preview={previewText}
       open={open}
-      onToggle={() => setOpen((v) => !v)}
-      saving={loading}
-      onSave={handleSave}
-      saveLabel={loading ? "Ukladám…" : "Uložiť"}
-      saveDisabled={loading || !userId}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+      actions={
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleSave}
+          disabled={loading || !userId}
+          className={INPUTS_CARD_SAVE_BTN}
+        >
+          {loading ? "Ukladám…" : "Uložiť"}
+        </Button>
+      }
     >
-      <InputsCard.Grid>
-        <InputsCard.Field label="Hmotnosť">
-          <TextField
-            type="number"
-            inputMode="decimal"
-            value={m.weight_kg ?? ""}
-            placeholder={ph.weight_kg || "kg"}
-            onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
-            disabled={loading}
-          />
-        </InputsCard.Field>
-
-        <InputsCard.Field label="Telesný tuk">
-          <TextField
-            type="number"
-            inputMode="decimal"
-            value={m.body_fat_pct ?? ""}
-            placeholder={ph.body_fat_pct || "%"}
-            onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
-            disabled={loading}
-          />
-        </InputsCard.Field>
-
-        <InputsCard.Field label="HR max">
-          <TextField
-            type="number"
-            inputMode="numeric"
-            value={m.HR_max ?? ""}
-            placeholder={ph.HR_max || "bpm"}
-            onChange={(e) => onChangeNumber("HR_max", e.target.value)}
-            disabled={loading}
-          />
-        </InputsCard.Field>
-
-        <InputsCard.Field label="VO₂Max">
-          <div className="grid grid-cols-2 gap-2">
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Hmotnosť
+            </div>
             <TextField
               type="number"
               inputMode="decimal"
-              value={m.VO2Max_estimated ?? ""}
-              placeholder={ph.VO2Max_estimated || "odhad"}
-              onChange={(e) =>
-                onChangeNumber("VO2Max_estimated", e.target.value)
-              }
+              value={m.weight_kg ?? ""}
+              placeholder={ph.weight_kg || "kg"}
+              onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
               disabled={loading}
             />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Telesný tuk
+            </div>
             <TextField
               type="number"
               inputMode="decimal"
-              value={m.VO2Max_measured ?? ""}
-              placeholder={ph.VO2Max_measured || "merané"}
-              onChange={(e) =>
-                onChangeNumber("VO2Max_measured", e.target.value)
-              }
+              value={m.body_fat_pct ?? ""}
+              placeholder={ph.body_fat_pct || "%"}
+              onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
               disabled={loading}
             />
-          </div>
-        </InputsCard.Field>
+          </section>
 
-        <InputsCard.Field label="BMI (výpočet)">
-          <TextField value={bmiText || "—"} disabled />
-        </InputsCard.Field>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              HR max
+            </div>
+            <TextField
+              type="number"
+              inputMode="numeric"
+              value={m.HR_max ?? ""}
+              placeholder={ph.HR_max || "bpm"}
+              onChange={(e) => onChangeNumber("HR_max", e.target.value)}
+              disabled={loading}
+            />
+          </section>
 
-        <InputsCard.Field label="Tip">
-          <TextField
-            value="Zadaj len to, čo chceš uložiť – ostatné nechaj prázdne."
-            disabled
-          />
-        </InputsCard.Field>
-      </InputsCard.Grid>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              VO₂Max
+            </div>
+            <div className={FORM_GRID_SPLIT}>
+              <TextField
+                type="number"
+                inputMode="decimal"
+                value={m.VO2Max_estimated ?? ""}
+                placeholder={ph.VO2Max_estimated || "odhad"}
+                onChange={(e) =>
+                  onChangeNumber("VO2Max_estimated", e.target.value)
+                }
+                disabled={loading}
+              />
+              <TextField
+                type="number"
+                inputMode="decimal"
+                value={m.VO2Max_measured ?? ""}
+                placeholder={ph.VO2Max_measured || "merané"}
+                onChange={(e) =>
+                  onChangeNumber("VO2Max_measured", e.target.value)
+                }
+                disabled={loading}
+              />
+            </div>
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              BMI (výpočet)
+            </div>
+            <TextField value={bmiText || "—"} disabled />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Tip
+            </div>
+            <TextField
+              value="Zadaj len to, čo chceš uložiť – ostatné nechaj prázdne."
+              disabled
+            />
+          </section>
+        </div>
+      </div>
     </InputsCard>
   );
 }
