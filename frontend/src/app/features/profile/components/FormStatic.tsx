@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import Button from "@/app/shared/components/ui/Button";
+import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import TextField from "@/app/shared/components/ui/TextField";
 import { toast } from "@/app/shared/components/ui/Toast";
 
@@ -14,28 +15,30 @@ import {
 } from "@/app/features/profile/api/static";
 import type { Sex, StaticProfile } from "@/app/features/profile/types/profile";
 import { summarizeStaticProfile } from "@/app/features/profile/utils/profile";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
-  // layout
   CARD,
   SECTION,
   FORM_GRID_TWO,
-  FORM_GRID_SPLIT,
   PANEL_SECTION_HEAD,
   CARD_HEAD_INSET,
   CARD_BODY_INSET,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_STACK,
-  PANEL_ACTIONS_INLINE,
   PANEL_PREVIEW,
-
-  // styles
   SURFACE_CARD_STYLE,
   SECTION_STYLE,
-
-  // misc
   PILL_BUTTON,
+
+  // reuse inputsCard tokens (from Recovery)
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_FOOTER,
+  INPUTS_CARD_SAVE_WRAP,
+  INPUTS_CARD_SAVE_BTN,
+  INPUTS_CARD_LABEL_SM_1,
+  INPUTS_CARD_TOGGLE,
 } from "@/app/shared/ui/tokens";
 
 const EMPTY: StaticProfile = {
@@ -49,7 +52,6 @@ export default function FormStatic() {
 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-
   const [data, setData] = useState<StaticProfile>(EMPTY);
 
   useEffect(() => {
@@ -75,9 +77,9 @@ export default function FormStatic() {
   const summary = useMemo(() => summarizeStaticProfile(data), [data]);
 
   const previewText = [
-    `Sex: ${String(summary.sex ?? "—")}`,
-    `Birth: ${String(summary.bd ?? "—")}`,
-    `Height: ${String(summary.h ?? "—")}`,
+    `Pohlavie: ${String(summary.sex ?? "—")}`,
+    `Narodenie: ${String(summary.bd ?? "—")}`,
+    `Výška: ${String(summary.h ?? "—")}`,
   ].join(" • ");
 
   async function handleSave() {
@@ -89,7 +91,7 @@ export default function FormStatic() {
       setLoading(true);
       const saved = await apiSaveStaticProfile(userId, data);
       setData(saved);
-      toast.success("Static profile uložený.");
+      toast.success("Profil uložený.");
       setOpen(false);
     } catch (e: any) {
       toast.error("Chyba: " + (e?.message ?? e));
@@ -100,49 +102,43 @@ export default function FormStatic() {
 
   return (
     <section className={CARD} style={SURFACE_CARD_STYLE}>
-      {/* HEAD (ako Recovery) */}
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE}>Static Profile</div>
-          <div className={PANEL_SECTION_SUBTITLE}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
+            Základné údaje
+          </div>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             Pohlavie, dátum narodenia a výška.
           </div>
-        </div>
-
-        <div className={PANEL_ACTIONS_INLINE}>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setOpen((v) => !v)}
-            disabled={loading}
-            aria-label={open ? "Zbaliť" : "Rozbaliť"}
-          >
-            {open ? "Zbaliť" : "Rozbaliť"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={handleSave}
-            disabled={loading || !userId}
-          >
-            {loading ? "Ukladám…" : "Uložiť"}
-          </Button>
         </div>
       </div>
 
       <div className={CARD_BODY_INSET}>
-        {/* COLLAPSED PREVIEW (ako Recovery) */}
-        {!open && <div className={["mt-3", PANEL_PREVIEW].join(" ")}>{previewText}</div>}
+        {!open && (
+          <div
+            className={["mt-3", PANEL_PREVIEW].join(" ")}
+            style={{ color: appColors.textMuted }}
+          >
+            {previewText}
+          </div>
+        )}
 
-        {/* BODY (ako Recovery) */}
         {open && (
-          <div className={["mt-4", PANEL_STACK].join(" ")}>
+          <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
             <div className={FORM_GRID_TWO}>
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Sex</div>
-
-                {/* select štýlujeme rovnakým PILL_BUTTON ako date v Recovery */}
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Pohlavie
+                </div>
                 <select
                   value={data.sex ?? ""}
                   onChange={(e) =>
@@ -152,11 +148,9 @@ export default function FormStatic() {
                     }))
                   }
                   disabled={loading}
-                  className={[
-                    PILL_BUTTON,
-                    "w-full px-3 py-2 !rounded-xl",
-                    "[color-scheme:dark]",
-                  ].join(" ")}
+                  className={[PILL_BUTTON, "w-full [color-scheme:dark]"].join(
+                    " "
+                  )}
                 >
                   <option value="">—</option>
                   <option value="M">Muž</option>
@@ -165,29 +159,38 @@ export default function FormStatic() {
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Birth date</div>
-
-                {/* date presne ako Recovery (pill + color-scheme) */}
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Dátum narodenia
+                </div>
                 <input
                   type="date"
                   value={data.birth_date ?? ""}
                   onChange={(e) =>
-                    setData((s) => ({ ...s, birth_date: e.target.value || null }))
+                    setData((s) => ({
+                      ...s,
+                      birth_date: e.target.value || null,
+                    }))
                   }
                   disabled={loading}
-                  className={[
-                    PILL_BUTTON,
-                    "w-full text-center px-3 py-2 !rounded-xl",
-                    "[color-scheme:dark]",
-                  ].join(" ")}
+                  className={[PILL_BUTTON, "w-full [color-scheme:dark]"].join(
+                    " "
+                  )}
                 />
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Height</div>
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Výška
+                </div>
                 <TextField
                   type="number"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   value={data.height_cm ?? ""}
                   onChange={(e) =>
                     setData((s) => ({
@@ -200,17 +203,40 @@ export default function FormStatic() {
                 />
               </section>
 
-              {/* nech to pekne sadne v mriežke ako v Recovery */}
               <section className={SECTION} style={SECTION_STYLE}>
-                <div className="text-sm mb-1 opacity-80">Quick summary</div>
-                <div className={FORM_GRID_SPLIT}>
-                  <TextField value={String(summary.sex ?? "—")} disabled />
-                  <TextField value={String(summary.h ?? "—")} disabled />
+                <div
+                  className={INPUTS_CARD_LABEL_SM_1}
+                  style={{ color: appColors.textMuted }}
+                >
+                  Zhrnutie
                 </div>
+                <TextField value={previewText} disabled />
               </section>
             </div>
           </div>
         )}
+
+        <div className={INPUTS_CARD_FOOTER}>
+          {open && (
+            <div className={INPUTS_CARD_SAVE_WRAP}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleSave}
+                disabled={loading || !userId}
+                className={INPUTS_CARD_SAVE_BTN}
+              >
+                {loading ? "Ukladám…" : "Uložiť"}
+              </Button>
+            </div>
+          )}
+
+          <DisclosureToggle
+            open={open}
+            onToggle={() => setOpen((v) => !v)}
+            className={INPUTS_CARD_TOGGLE}
+          />
+        </div>
       </div>
     </section>
   );
