@@ -6,7 +6,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/components/ui/Button";
 import { Plus, Minus } from "lucide-react";
 import { toast } from "@/app/shared/components/ui/Toast";
-import { inputClass, labelClass } from "@/app/shared/ui";
+import TextField from "@/app/shared/components/ui/TextField";
 
 import {
   apiGetStaticProfile,
@@ -25,6 +25,9 @@ import {
   PANEL_LIST_ITEM,
   PANEL_ACTION_ROW,
   ICON_BUTTON,
+  FIELD_LABEL,
+  FORM_GRID_THREE,
+  SELECT_BASE,
 } from "@/app/shared/ui/tokens";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -108,9 +111,9 @@ export default function FormStatic() {
             <Row label="Height" value={String(summary.h ?? "—")} />
           </div>
         ) : (
-          <div className={["grid gap-3 sm:grid-cols-3", "items-start"].join(" ")}>
+          <div className={FORM_GRID_THREE}>
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>Sex</label>
+              <div className={FIELD_LABEL}>Sex</div>
               <select
                 value={staticData.sex ?? ""}
                 onChange={(e) =>
@@ -119,7 +122,8 @@ export default function FormStatic() {
                     sex: (e.target.value || null) as Sex,
                   }))
                 }
-                className={[inputClass, "h-9 text-sm"].join(" ")}
+                className={SELECT_BASE}
+                disabled={loading}
               >
                 <option value="">—</option>
                 <option value="M">Muž</option>
@@ -128,10 +132,9 @@ export default function FormStatic() {
             </div>
 
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
-                Birth date
-              </label>
-              <input
+              <div className={FIELD_LABEL}>Birth date</div>
+              {/* TextField drží konzistentný input style ako Recovery */}
+              <TextField
                 type="date"
                 value={staticData.birth_date ?? ""}
                 onChange={(e) =>
@@ -140,15 +143,13 @@ export default function FormStatic() {
                     birth_date: e.target.value || null,
                   }))
                 }
-                className={[inputClass, "h-9 text-sm"].join(" ")}
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
-                Height (cm)
-              </label>
-              <input
+              <div className={FIELD_LABEL}>Height (cm)</div>
+              <TextField
                 type="number"
                 inputMode="decimal"
                 value={staticData.height_cm ?? ""}
@@ -158,7 +159,7 @@ export default function FormStatic() {
                     height_cm: e.target.value ? Number(e.target.value) : null,
                   }))
                 }
-                className={[inputClass, "h-9 text-sm text-center"].join(" ")}
+                disabled={loading}
               />
             </div>
 
