@@ -38,7 +38,11 @@ import {
   INPUTS_CARD_FOOTER,
   INPUTS_CARD_SAVE_WRAP,
   INPUTS_CARD_SAVE_BTN,
-  INPUTS_CARD_TOGGLE_BTN,
+  INPUTS_CARD_LABEL_SM_1,
+  INPUTS_CARD_LABEL_SM_2,
+  INPUTS_CARD_CHECK_ROW,
+  INPUTS_CARD_CHECK_ROW_MB,
+  INPUTS_CARD_TOGGLE,
 } from "@/app/shared/ui/tokens";
 
 export default function InputsCard() {
@@ -171,7 +175,7 @@ export default function InputsCard() {
             <div className={FORM_GRID_TWO}>
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
-                  className="text-sm mb-1"
+                  className={INPUTS_CARD_LABEL_SM_1}
                   style={{ color: appColors.textMuted }}
                 >
                   RHR
@@ -187,7 +191,7 @@ export default function InputsCard() {
 
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
-                  className="text-sm mb-1"
+                  className={INPUTS_CARD_LABEL_SM_1}
                   style={{ color: appColors.textMuted }}
                 >
                   HRV (RMSSD)
@@ -215,7 +219,7 @@ export default function InputsCard() {
                 style={SECTION_STYLE}
               >
                 <div
-                  className="text-sm mb-1"
+                  className={INPUTS_CARD_LABEL_SM_1}
                   style={{ color: appColors.textMuted }}
                 >
                   Spánok
@@ -242,13 +246,13 @@ export default function InputsCard() {
 
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
-                  className="text-sm mb-2"
+                  className={INPUTS_CARD_LABEL_SM_2}
                   style={{ color: appColors.textMuted }}
                 >
                   Večerné faktory
                 </div>
 
-                <label className="flex items-center gap-2 mb-2 text-sm">
+                <label className={INPUTS_CARD_CHECK_ROW_MB}>
                   <input
                     type="checkbox"
                     checked={lateFood}
@@ -258,7 +262,7 @@ export default function InputsCard() {
                   <span>Jedlo ≤ 2 h pred spaním</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-sm">
+                <label className={INPUTS_CARD_CHECK_ROW}>
                   <input
                     type="checkbox"
                     checked={lateCaffeine}
@@ -271,7 +275,7 @@ export default function InputsCard() {
 
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
-                  className="text-sm mb-1"
+                  className={INPUTS_CARD_LABEL_SM_1}
                   style={{ color: appColors.textMuted }}
                 >
                   Alkohol
@@ -299,7 +303,7 @@ export default function InputsCard() {
                 style={SECTION_STYLE}
               >
                 <div
-                  className="text-sm mb-1"
+                  className={INPUTS_CARD_LABEL_SM_1}
                   style={{ color: appColors.textMuted }}
                 >
                   Poznámka
@@ -336,9 +340,7 @@ export default function InputsCard() {
           <DisclosureToggle
             open={open}
             onToggle={() => setOpen((v) => !v)}
-            className={INPUTS_CARD_TOGGLE_BTN}
-            labelWhenOpen="Zbaliť"
-            labelWhenClosed="Rozbaliť"
+            className={INPUTS_CARD_TOGGLE}
           />
         </div>
       </div>
