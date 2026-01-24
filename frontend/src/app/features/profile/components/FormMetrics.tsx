@@ -3,9 +3,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
-import { Plus, Minus } from "lucide-react";
 import { toast } from "@/app/shared/components/ui/Toast";
 
 import {
@@ -26,31 +26,24 @@ import {
 import { formatMetricDate } from "@/app/shared/utils/time";
 
 import {
-  SURFACE_CARD,
-  PANEL_PAD,
-  PANEL_INNER_STACK,
-  PANEL_CARD_HEAD,
-  PANEL_CARD_TITLE,
-  PANEL_LIST,
-  PANEL_LIST_ITEM,
-  PANEL_ACTION_ROW,
-  ICON_BUTTON,
-  FIELD_LABEL,
-  FORM_GRID_THREE,
-  SELECT_BASE,
-} from "@/app/shared/ui/tokens";
+  // layout
+  CARD,
+  SECTION,
+  FORM_GRID_TWO,
+  FORM_GRID_SPLIT,
+  PANEL_SECTION_HEAD,
+  CARD_HEAD_INSET,
+  CARD_BODY_INSET,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+  PANEL_STACK,
+  PANEL_ACTIONS_INLINE,
+  PANEL_PREVIEW,
 
-function SummaryRow({ k, v, extra }: { k: string; v: string; extra?: string }) {
-  return (
-    <div className={PANEL_LIST_ITEM}>
-      <span className="opacity-70">{k}</span>
-      <span className="font-medium">
-        {v}
-        {extra ? <span className="opacity-60 ml-1">({extra})</span> : null}
-      </span>
-    </div>
-  );
-}
+  // styles
+  SURFACE_CARD_STYLE,
+  SECTION_STYLE,
+} from "@/app/shared/ui/tokens";
 
 const UNIT_MAP: Record<EditableMetricKey, string> = {
   weight_kg: "kg",
@@ -91,7 +84,8 @@ export default function FormMetrics() {
       setLoading(true);
       try {
         const data = await apiGetLatestMetrics(userId);
-        if (alive) setLatest(data);
+        if (!alive) return;
+        setLatest(data);
       } finally {
         if (alive) setLoading(false);
       }
@@ -111,7 +105,10 @@ export default function FormMetrics() {
   }
 
   async function handleSave() {
-    if (!userId) return;
+    if (!userId) {
+      toast.error("Chýba používateľ.");
+      return;
+    }
 
     const entries = (Object.keys(UNIT_MAP) as EditableMetricKey[])
       .filter((k) => dirty[k])
@@ -132,7 +129,7 @@ export default function FormMetrics() {
     try {
       setLoading(true);
       const res = await apiSaveMetrics(userId, entries);
-      toast.success(`✅ Uložené${res.inserted ? ` (${res.inserted})` : ""}`);
+      toast.success(`Uložené${res.inserted ? ` (${res.inserted})` : ""}`);
 
       const data = await apiGetLatestMetrics(userId);
       setLatest(data);
@@ -151,164 +148,143 @@ export default function FormMetrics() {
         VO2Max_measured: false,
         VO2Max_estimated: false,
       });
+
       setOpen(false);
     } catch (e: any) {
-      toast.error(`❌ Chyba: ${e?.message || e}`);
+      toast.error("Chyba: " + (e?.message ?? e));
     } finally {
       setLoading(false);
     }
   }
 
+  const previewText = useMemo(() => {
+    const w = Number.isFinite(latest?.weight_kg?.value as number)
+      ? `${latest?.weight_kg?.value} kg (${formatMetricDate(latest?.weight_kg?.updated_at)})`
+      : "—";
+    const bf = Number.isFinite(latest?.body_fat_pct?.value as number)
+      ? `${latest?.body_fat_pct?.value}% (${formatMetricDate(latest?.body_fat_pct?.updated_at)})`
+      : "—";
+    const hr = Number.isFinite(latest?.HR_max?.value as number)
+      ? `${latest?.HR_max?.value} bpm (${formatMetricDate(latest?.HR_max?.updated_at)})`
+      : "—";
+    const vo2 = Number.isFinite(latest?.VO2Max_estimated?.value as number)
+      ? `${latest?.VO2Max_estimated?.value} est`
+      : "—";
+    return `Weight: ${w} • Body fat: ${bf} • HR max: ${hr} • VO₂: ${vo2}`;
+  }, [latest]);
+
   return (
-    <section className={SURFACE_CARD}>
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className={PANEL_CARD_HEAD}>
-          <h2 className={PANEL_CARD_TITLE}>Metrics</h2>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className={ICON_BUTTON}
-            aria-label={open ? "Zbaliť" : "Rozbaliť"}
-            title={open ? "Zbaliť" : "Rozbaliť"}
-          >
-            {open ? <Minus size={16} /> : <Plus size={16} />}
-          </button>
+    <section className={CARD} style={SURFACE_CARD_STYLE}>
+      {/* HEAD (ako Recovery) */}
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
+        <div className="min-w-0">
+          <div className={PANEL_SECTION_TITLE}>Metrics</div>
+          <div className={PANEL_SECTION_SUBTITLE}>
+            Hmotnosť, tuk, HRmax a VO₂Max.
+          </div>
         </div>
 
-        {!open ? (
-          <div className={PANEL_LIST}>
-            <SummaryRow
-              k="Weight"
-              v={
-                Number.isFinite(latest?.weight_kg?.value as number)
-                  ? `${latest?.weight_kg?.value} kg`
-                  : "—"
-              }
-              extra={formatMetricDate(latest?.weight_kg?.updated_at)}
-            />
-            <SummaryRow
-              k="Body fat %"
-              v={
-                Number.isFinite(latest?.body_fat_pct?.value as number)
-                  ? `${latest?.body_fat_pct?.value}%`
-                  : "—"
-              }
-              extra={formatMetricDate(latest?.body_fat_pct?.updated_at)}
-            />
-            <SummaryRow
-              k="HR max"
-              v={
-                Number.isFinite(latest?.HR_max?.value as number)
-                  ? `${latest?.HR_max?.value} bpm`
-                  : "—"
-              }
-              extra={formatMetricDate(latest?.HR_max?.updated_at)}
-            />
-            <SummaryRow
-              k="VO₂Max (measured)"
-              v={
-                Number.isFinite(latest?.VO2Max_measured?.value as number)
-                  ? `${latest?.VO2Max_measured?.value} mL/kg/min`
-                  : "—"
-              }
-              extra={formatMetricDate(latest?.VO2Max_measured?.updated_at)}
-            />
-            <SummaryRow
-              k="VO₂Max (estimated)"
-              v={
-                Number.isFinite(latest?.VO2Max_estimated?.value as number)
-                  ? `${latest?.VO2Max_estimated?.value} mL/kg/min`
-                  : "—"
-              }
-              extra={formatMetricDate(latest?.VO2Max_estimated?.updated_at)}
-            />
-            <SummaryRow
-              k="BMI"
-              v={bmiText}
-              extra={formatMetricDate(latest?.BMI?.updated_at)}
-            />
-          </div>
-        ) : (
-          <div className={FORM_GRID_THREE}>
-            <div>
-              <div className={FIELD_LABEL}>
-                Weight <span className="opacity-60">(kg)</span>
-              </div>
-              <TextField
-                type="number"
-                inputMode="decimal"
-                value={m.weight_kg ?? ""}
-                placeholder={ph.weight_kg}
-                onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
-                disabled={loading}
-              />
-            </div>
+        <div className={PANEL_ACTIONS_INLINE}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setOpen((v) => !v)}
+            disabled={loading}
+            aria-label={open ? "Zbaliť" : "Rozbaliť"}
+          >
+            {open ? "Zbaliť" : "Rozbaliť"}
+          </Button>
 
-            <div>
-              <div className={FIELD_LABEL}>
-                Body fat <span className="opacity-60">(%)</span>
-              </div>
-              <TextField
-                type="number"
-                inputMode="decimal"
-                value={m.body_fat_pct ?? ""}
-                placeholder={ph.body_fat_pct}
-                onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
-                disabled={loading}
-              />
-            </div>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={handleSave}
+            disabled={loading || !userId}
+          >
+            {loading ? "Ukladám…" : "Uložiť"}
+          </Button>
+        </div>
+      </div>
 
-            <div>
-              <div className={FIELD_LABEL}>
-                HR max <span className="opacity-60">(bpm)</span>
-              </div>
-              <TextField
-                type="number"
-                inputMode="numeric"
-                value={m.HR_max ?? ""}
-                placeholder={ph.HR_max}
-                onChange={(e) => onChangeNumber("HR_max", e.target.value)}
-                disabled={loading}
-              />
-            </div>
+      <div className={CARD_BODY_INSET}>
+        {!open && <div className={["mt-3", PANEL_PREVIEW].join(" ")}>{previewText}</div>}
 
-            <div>
-              <div className={FIELD_LABEL}>
-                VO₂Max (measured) <span className="opacity-60">(mL/kg/min)</span>
-              </div>
-              <TextField
-                type="number"
-                inputMode="decimal"
-                value={m.VO2Max_measured ?? ""}
-                placeholder={ph.VO2Max_measured}
-                onChange={(e) =>
-                  onChangeNumber("VO2Max_measured", e.target.value)
-                }
-                disabled={loading}
-              />
-            </div>
+        {open && (
+          <div className={["mt-4", PANEL_STACK].join(" ")}>
+            <div className={FORM_GRID_TWO}>
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className="text-sm mb-1 opacity-80">Weight</div>
+                <TextField
+                  type="number"
+                  inputMode="decimal"
+                  value={m.weight_kg ?? ""}
+                  placeholder={ph.weight_kg || "kg"}
+                  onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
+                  disabled={loading}
+                />
+              </section>
 
-            <div>
-              <div className={FIELD_LABEL}>
-                VO₂Max (estimated){" "}
-                <span className="opacity-60">(mL/kg/min)</span>
-              </div>
-              <TextField
-                type="number"
-                inputMode="decimal"
-                value={m.VO2Max_estimated ?? ""}
-                placeholder={ph.VO2Max_estimated}
-                onChange={(e) =>
-                  onChangeNumber("VO2Max_estimated", e.target.value)
-                }
-                disabled={loading}
-              />
-            </div>
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className="text-sm mb-1 opacity-80">Body fat</div>
+                <TextField
+                  type="number"
+                  inputMode="decimal"
+                  value={m.body_fat_pct ?? ""}
+                  placeholder={ph.body_fat_pct || "%"}
+                  onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
+                  disabled={loading}
+                />
+              </section>
 
-            <div className={PANEL_ACTION_ROW}>
-              <Button onClick={handleSave} disabled={loading}>
-                {loading ? "Ukladám…" : "Save new entry"}
-              </Button>
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className="text-sm mb-1 opacity-80">HR max</div>
+                <TextField
+                  type="number"
+                  inputMode="numeric"
+                  value={m.HR_max ?? ""}
+                  placeholder={ph.HR_max || "bpm"}
+                  onChange={(e) => onChangeNumber("HR_max", e.target.value)}
+                  disabled={loading}
+                />
+              </section>
+
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className="text-sm mb-1 opacity-80">VO₂Max</div>
+                <div className={FORM_GRID_SPLIT}>
+                  <TextField
+                    type="number"
+                    inputMode="decimal"
+                    value={m.VO2Max_estimated ?? ""}
+                    placeholder={ph.VO2Max_estimated || "estimated"}
+                    onChange={(e) =>
+                      onChangeNumber("VO2Max_estimated", e.target.value)
+                    }
+                    disabled={loading}
+                  />
+                  <TextField
+                    type="number"
+                    inputMode="decimal"
+                    value={m.VO2Max_measured ?? ""}
+                    placeholder={ph.VO2Max_measured || "measured"}
+                    onChange={(e) =>
+                      onChangeNumber("VO2Max_measured", e.target.value)
+                    }
+                    disabled={loading}
+                  />
+                </div>
+              </section>
+
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className="text-sm mb-1 opacity-80">BMI (computed)</div>
+                <TextField value={bmiText || "—"} disabled />
+              </section>
+
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className="text-sm mb-1 opacity-80">Tip</div>
+                <div className="text-sm opacity-75">
+                  Zadaj len to, čo chceš uložiť – ostatné nechaj prázdne.
+                </div>
+              </section>
             </div>
           </div>
         )}
