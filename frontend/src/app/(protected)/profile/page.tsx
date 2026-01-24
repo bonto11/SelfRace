@@ -9,10 +9,11 @@ import {
   PAGE_SECTION_STACK,
 } from "@/app/shared/ui/tokens/pageTokens";
 
-import TableMetrics from "@/app/features/profile/components/FormMetrics";
+import ProfileMetricInputs from "@/app/features/profile/components/ProfileMetricInputs";
+import ProfileStaticInputs from "@/app/features/profile/components/ProfileStaticInputs";
+
 import WidgetBodyFat from "@/app/shared/components/widgets/WidgetBodyFat";
 import WidgetVO2Max from "@/app/shared/components/widgets/WidgetVO2Max";
-import TableStatic from "@/app/features/profile/components/FormStatic";
 
 export default function Page() {
   const router = useRouter();
@@ -29,10 +30,10 @@ export default function Page() {
             <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
           </div>
 
-          {/* Tabuľky */}
+          {/* Inputs panely */}
           <div className={PAGE_SECTION_STACK}>
-            <TableStatic />
-            <TableMetrics />
+            <ProfileStaticInputs />
+            <ProfileMetricInputs />
           </div>
         </div>
       </div>
