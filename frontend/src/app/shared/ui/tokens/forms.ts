@@ -151,3 +151,36 @@ export const FIELD_SELECT = [
 
 // option background (inak iOS/desktop často dá bielu)
 export const FIELD_OPTION = "bg-emerald-950 text-amber-100";
+
+// --- disclosure / icons ---
+export const DISCLOSURE_ICON_BASE = [
+  "w-3.5",
+  "h-3.5",
+  "transition-transform",
+  "duration-150",
+  "text-amber-100/80",
+].join(" ");
+
+export const DISCLOSURE_ICON_OPEN = "rotate-180";
+export const DISCLOSURE_ICON_CLOSED = "rotate-0";
+
+// --- date field ---
+export const DATE_FIELD_LABEL = "text-xs font-medium text-amber-200/80";
+
+export const DATE_INPUT_INNER = [
+  "w-full",
+  "bg-transparent",
+  "text-sm",
+  "text-amber-100",
+  "outline-none",
+  "border-none",
+  "focus:outline-none",
+  "[color-scheme:dark]",
+].join(" ");
+
+// --- button misc (ponecháme buttonClass, ale “common” veci cez tokeny) ---
+export const BUTTON_BLOCK = "w-full";
+export const BUTTON_DISABLED = "opacity-40 cursor-not-allowed";
+
+// --- spinner wrapper ---
+export const SPINNER_WRAP = "relative inline-flex items-center justify-center align-middle";
