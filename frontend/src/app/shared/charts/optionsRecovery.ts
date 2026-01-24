@@ -88,6 +88,8 @@ export function buildRecoveryLineOptions({
         },
       },
       y: {
+        min: typeof p.yMin === "number" ? p.yMin : undefined,
+        max: typeof p.yMax === "number" ? p.yMax : undefined,
         beginAtZero: false,
         title: { display: true, text: yTitle },
         grid: { color: THEME.chart.grid },
