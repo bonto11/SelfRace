@@ -1,8 +1,9 @@
-// shared/components/ui/WidgetCard.tsx
+// src/app/shared/components/ui/WidgetCard.tsx
 "use client";
 
 import Link from "next/link";
 import React from "react";
+import CardBackdrop from "@/app/shared/components/ui/CardBackdrop";
 import {
   WIDGET_CARD,
   WIDGET_CARD_INTERACTIVE,
@@ -53,18 +54,13 @@ export default function WidgetCard({
 }: Props) {
   const isInteractive = interactive ?? Boolean(href || onOpen);
 
-  // ✅ dôležité: zrušíme "kartu v karte"
-  // - outer nech je jediná karta (border/shadow/rounded/overflow)
-  // - padding presunieme do vnútra
-  // - accent bar dáme FULL WIDTH na spodok outeru (nie do paddingu)
   const outer = cx(
     WIDGET_CARD,
     isInteractive && WIDGET_CARD_INTERACTIVE,
-    "p-0 relative overflow-hidden block", // p-0 prepíše WIDGET_CARD p-3
+    "p-0 relative overflow-hidden block",
     className
   );
 
-  // ✅ FORCE “landing-like” frame (dočasne fixne)
   const outerStyle: React.CSSProperties = {
     background: appColors.surfaceCard,
     border: `1px solid ${appColors.surfaceCardBorder}`,
@@ -80,24 +76,8 @@ export default function WidgetCard({
 
   const content = (
     <>
-      {/* Backdrop vrstvy priamo v OUTER (nie v inner) */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `
-            radial-gradient(520px 260px at 30% 20%, rgba(63,225,166,0.12), transparent 60%),
-            radial-gradient(520px 300px at 80% 70%, rgba(45,212,191,0.10), transparent 62%)
-          `,
-          opacity: 0.95,
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.52))",
-        }}
-      />
+      {/* Backdrop shared */}
+      <CardBackdrop />
 
       {/* Reálny obsah (padding tu) */}
       <div
@@ -123,7 +103,7 @@ export default function WidgetCard({
         {footer && <div className={WIDGET_FOOTER}>{footer}</div>}
       </div>
 
-      {/* ✅ Accent FULL WIDTH na spodku OUTER (už nie je “vnorený”) */}
+      {/* Accent FULL WIDTH */}
       <div
         className="h-1.5 w-full"
         style={{
