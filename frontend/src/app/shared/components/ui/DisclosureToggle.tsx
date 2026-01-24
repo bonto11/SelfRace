@@ -1,15 +1,19 @@
-// src/shared/components/ui/DisclosureToggle.tsx
+// src/app/shared/components/ui/DisclosureToggle.tsx
 "use client";
 
 import * as React from "react";
 import Button from "@/app/shared/components/ui/Button";
 import { cx } from "@/app/shared/ui";
+import {
+  DISCLOSURE_ICON_BASE,
+  DISCLOSURE_ICON_OPEN,
+  DISCLOSURE_ICON_CLOSED,
+} from "@/app/shared/ui/tokens";
 
 type Props = {
   open: boolean;
   onToggle: () => void;
   className?: string;
-  /** voliteľné override textov pre screen readery */
   labelWhenOpen?: string;
   labelWhenClosed?: string;
 };
@@ -37,11 +41,10 @@ export default function DisclosureToggle({
         viewBox="0 0 16 16"
         aria-hidden="true"
         className={cx(
-          "w-3.5 h-3.5 transition-transform duration-150 text-white/80",
-          open ? "rotate-180" : "rotate-0"
+          DISCLOSURE_ICON_BASE,
+          open ? DISCLOSURE_ICON_OPEN : DISCLOSURE_ICON_CLOSED
         )}
       >
-        {/* Širší “V”, ako si chcel – keď je closed, je to V; pri open sa otočí na ∧ */}
         <path
           d="M3 6.25L8 11l5-4.75"
           fill="none"
