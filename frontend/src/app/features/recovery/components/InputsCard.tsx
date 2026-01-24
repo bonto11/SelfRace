@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import TextField from "@/app/shared/components/ui/TextField";
+import CardBackdrop from "@/app/shared/components/ui/CardBackdrop";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/components/ui/Toast";
@@ -107,9 +108,12 @@ export default function InputsCard() {
   const previewText = `Dátum: ${date}${userId ? "" : " • neprihlásený"}`;
 
   return (
-    <section className={CARD} style={SURFACE_CARD_STYLE}>
+    <section className={CARD + " relative overflow-hidden"} style={SURFACE_CARD_STYLE}>
+      {/* Backdrop shared */}
+      <CardBackdrop />
+
       {/* HEAD */}
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} relative`}>
         <div className="min-w-0">
           <div
             className={PANEL_SECTION_TITLE}
@@ -127,7 +131,7 @@ export default function InputsCard() {
         </div>
       </div>
 
-      <div className={CARD_BODY_INSET}>
+      <div className={CARD_BODY_INSET + " relative"}>
         {/* DATE ROW (always visible) */}
         <div className={INPUTS_CARD_DATE_ROW}>
           <div className={INPUTS_CARD_DATE_INNER}>
