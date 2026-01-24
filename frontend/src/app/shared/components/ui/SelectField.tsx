@@ -3,7 +3,6 @@
 
 import * as React from "react";
 import { cx } from "@/app/shared/ui";
-import Button from "@/app/shared/components/ui/Button";
 import {
   FIELD_BASE,
   FIELD_ERROR,
@@ -21,17 +20,44 @@ import {
 
 type Option = { value: string; label: string };
 
+type LegacyChangeEvent = {
+  target: { value: string };
+  currentTarget: { value: string };
+  preventDefault: () => void;
+  stopPropagation: () => void;
+};
+
 type Props = {
   label?: string;
   hint?: string;
   error?: string;
   disabled?: boolean;
 
+  /** New style (current): controlled value */
   value: string | null;
+
+  /**
+   * New style handler (current): gets value directly.
+   * (kept as main API to avoid breaking your newer screens)
+   */
   onChange: (value: string | null) => void;
+
+  /**
+   * Optional alias for clarity (modern usage).
+   * If provided, both onChange + onValueChange will be called.
+   */
+  onValueChange?: (value: string | null) => void;
+
+  /**
+   * Legacy compatibility:
+   * Some old code expects onChange(e) and reads e.target.value.
+   * We'll call this with a small synthetic event.
+   */
+  onLegacyChange?: (e: LegacyChangeEvent) => void;
 
   options: Option[];
   placeholder?: string; // keď value je null
+  containerClassName?: string;
 };
 
 export default function SelectField({
@@ -41,8 +67,11 @@ export default function SelectField({
   disabled,
   value,
   onChange,
+  onValueChange,
+  onLegacyChange,
   options,
   placeholder = "—",
+  containerClassName,
 }: Props) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
@@ -59,8 +88,24 @@ export default function SelectField({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  function commit(next: string | null) {
+    onChange(next);
+    onValueChange?.(next);
+
+    if (onLegacyChange) {
+      const v = next ?? "";
+      const evt: LegacyChangeEvent = {
+        target: { value: v },
+        currentTarget: { value: v },
+        preventDefault: () => {},
+        stopPropagation: () => {},
+      };
+      onLegacyChange(evt);
+    }
+  }
+
   return (
-    <div className="space-y-1" ref={ref}>
+    <div className={cx("space-y-1", containerClassName)} ref={ref}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       <div className={SELECT_MENU_WRAP}>
@@ -100,7 +145,7 @@ export default function SelectField({
                   className={cx(SELECT_OPT, active && SELECT_OPT_ACTIVE)}
                   onClick={() => {
                     setOpen(false);
-                    onChange(o.value ? o.value : null);
+                    commit(o.value ? o.value : null);
                   }}
                 >
                   {o.label}
