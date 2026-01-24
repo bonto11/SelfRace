@@ -11,4 +11,6 @@ export const INPUTS_CARD_BODY = "mt-4";
 export const INPUTS_CARD_FOOTER = "mt-4 flex flex-col items-center gap-2";
 export const INPUTS_CARD_SAVE_WRAP = "w-full";
 export const INPUTS_CARD_SAVE_BTN = "w-full";
-export const INPUTS_CARD_TOGGLE_BTN = "px-6";
+
+// ak chceš jemne upraviť kruh, nech je konzistentný (voliteľné)
+export const INPUTS_CARD_TOGGLE = ""; // nechaj prázdne alebo sem daj napr. "mt-1"
