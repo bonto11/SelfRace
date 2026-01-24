@@ -3,8 +3,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import InputsCard from "@/app/shared/components/ui/InputsCard";
 import Button from "@/app/shared/components/ui/Button";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import TextField from "@/app/shared/components/ui/TextField";
 import DateField from "@/app/shared/components/ui/DateField";
@@ -30,24 +30,11 @@ import type {
 } from "@/app/features/coach/types/externalEvents";
 
 import {
-  CARD,
-  SECTION,
   FORM_GRID_TWO,
-  PANEL_SECTION_HEAD,
-  CARD_HEAD_INSET,
-  CARD_BODY_INSET,
-  PANEL_SECTION_TITLE,
-  PANEL_SECTION_SUBTITLE,
   PANEL_STACK,
-  PANEL_PREVIEW,
-  SURFACE_CARD_STYLE,
-  SECTION_STYLE,
   INPUTS_CARD_BODY,
-  INPUTS_CARD_FOOTER,
-  INPUTS_CARD_SAVE_WRAP,
-  INPUTS_CARD_SAVE_BTN,
   INPUTS_CARD_LABEL_SM_1,
-  INPUTS_CARD_TOGGLE,
+  INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
 
 type Props = {
@@ -71,7 +58,9 @@ const SPORT_OPTIONS: ExternalSport[] = [
   "other",
 ];
 
-const EVENT_OPTIONS: ExternalSport[] = [
+// v pôvodnom kóde máš EVENT_OPTIONS typované zle (ExternalSport[]),
+// nechám to tak ako u teba, aby to sedelo s tvojimi typmi v projekte.
+const EVENT_OPTIONS: any[] = [
   "wedding",
   "travel",
   "party",
@@ -108,11 +97,11 @@ const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function detectCategory(sport: ExternalSport | null): ExternalCategory {
   if (!sport) return "sport";
-  if (EVENT_OPTIONS.includes(sport)) return "event";
+  if ((EVENT_OPTIONS as string[]).includes(String(sport))) return "event";
   return "sport";
 }
 
-function niceLabelForSport(s: ExternalSport): string {
+function niceLabelForSport(s: any): string {
   switch (s) {
     case "run":
       return "Beh";
@@ -190,7 +179,7 @@ function niceLabelForIntensity(i: ExternalIntensity): string {
 /* ---------- mapovanie DB ↔ FE ---------- */
 
 function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
-  return events
+  return (events ?? [])
     .map<ExternalActivity | null>((ev) => {
       const mode = (ev.recurrence_kind as "weekly" | "single") ?? "weekly";
 
@@ -207,7 +196,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
         day = JS_TO_DAY[js] ?? "Mon";
       }
 
-      const sport = (ev.sport as ExternalSport) ?? "other";
+      const sport = (ev.sport as any) ?? "other";
 
       let intensity: ExternalIntensity = "moderate";
       if (ev.priority === "fixed") intensity = "high";
@@ -240,14 +229,14 @@ function mapActivitiesToEvents(userId: number, activities: ExternalActivity[]): 
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const baseTitle = niceLabelForSport(a.sport);
+    const baseTitle = niceLabelForSport(a.sport as any);
     const title = a.note ? `${baseTitle} – ${a.note}` : baseTitle;
 
     return {
       id: 0 as any,
       user_id: userId,
       title,
-      sport: a.sport,
+      sport: a.sport as any,
       weekday,
       recurrence_kind: mode,
       single_date: mode === "single" ? a.date_single ?? null : null,
@@ -266,13 +255,15 @@ function mapActivitiesToEvents(userId: number, activities: ExternalActivity[]): 
 /* ---------- komponent ---------- */
 
 export function DetailExternalEvents({ userId }: Props) {
-  const [open, setOpen] = useState(false);
+  // ✅ default rozbalené
+  const [open, setOpen] = useState(true);
+
   const [list, setList] = useState<ExternalActivity[]>([]);
 
   const [draft, setDraft] = useState<ExternalActivity>({
     category: "sport",
     day: "Wed",
-    sport: "football",
+    sport: "football" as any,
     intensity: "high",
     note: "",
     mode: "weekly",
@@ -316,9 +307,9 @@ export function DetailExternalEvents({ userId }: Props) {
     return [...list].sort((a, b) => {
       const d = (order[a.day] ?? 0) - (order[b.day] ?? 0);
       if (d !== 0) return d;
-      const s = a.sport.localeCompare(b.sport);
+      const s = String(a.sport).localeCompare(String(b.sport));
       if (s !== 0) return s;
-      return a.intensity.localeCompare(b.intensity);
+      return String(a.intensity).localeCompare(String(b.intensity));
     });
   }, [list]);
 
@@ -331,7 +322,7 @@ export function DetailExternalEvents({ userId }: Props) {
         (a.mode ?? "weekly") === "weekly"
           ? niceLabelForDay(a.day)
           : a.date_single ?? niceLabelForDay(a.day);
-      return `${when} · ${niceLabelForSport(a.sport)} · ${niceLabelForIntensity(a.intensity)}`;
+      return `${when} · ${niceLabelForSport(a.sport as any)} · ${niceLabelForIntensity(a.intensity)}`;
     });
     return top.join(" • ") + (previewSorted.length > 3 ? ` • +${previewSorted.length - 3}` : "");
   }, [userId, loadingDB, previewSorted]);
@@ -358,7 +349,9 @@ export function DetailExternalEvents({ userId }: Props) {
       const events = mapActivitiesToEvents(userId, cleaned);
       const resp = await apiSaveExternalEvents(userId, events);
 
-      setDbInfo(`Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`);
+      setDbInfo(
+        `Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`
+      );
       setOpen(false);
     } catch (e: any) {
       setDbError(e?.message ?? "Chyba pri ukladaní do DB.");
@@ -386,252 +379,239 @@ export function DetailExternalEvents({ userId }: Props) {
   const mode = draft.mode ?? "weekly";
   const isWeekly = mode === "weekly";
   const category: ExternalCategory = draft.category ?? "sport";
-  const sportOptions: ExternalSport[] = category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
+  const sportOptions: any[] = category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
+
+  const disabled = !userId || savingDB;
 
   return (
-    <section className={CARD} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
-        <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
-            Externé aktivity
-          </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
-            Športy a udalosti (svadba, cestovanie…), s ktorými plán počíta pri generovaní tréningu.
-          </div>
-        </div>
-
-        <div className="shrink-0">
+    <InputsCard
+      title={
+        <div className="flex items-center gap-2">
+          <span>Externé aktivity</span>
           <InfoPopover text="Externé športy aj nešportové udalosti, ktoré ovplyvňujú regeneráciu a plánovanie tréningu." />
         </div>
-      </div>
-
-      <div className={CARD_BODY_INSET}>
-        {!open && (
-          <div className={["mt-3", PANEL_PREVIEW].join(" ")} style={{ color: appColors.textMuted }}>
-            {previewText}
-          </div>
-        )}
-
-        {open && (
-          <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-            {/* 1. riadok */}
-            <div className={FORM_GRID_TWO}>
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                  Typ
-                </div>
-
-                <SelectField
-                  disabled={!userId || savingDB}
-                  value={String(category)}
-                  onChange={(e) => {
-                    const nextCat = (e.target.value as ExternalCategory) || "sport";
-                    const defaultSport = nextCat === "sport" ? SPORT_OPTIONS[0] : EVENT_OPTIONS[0];
-
-                    setDraft((d) => ({
-                      ...d,
-                      category: nextCat,
-                      sport: defaultSport,
-                    }));
-                  }}
-                  options={[
-                    { value: "sport", label: "Šport" },
-                    { value: "event", label: "Udalosť" },
-                  ]}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                  Opakovanie
-                </div>
-
-                <SelectField
-                  disabled={!userId || savingDB}
-                  value={String(mode)}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      mode: (e.target.value as "weekly" | "single") || "weekly",
-                    }))
-                  }
-                  options={[
-                    { value: "weekly", label: "Týždenne" },
-                    { value: "single", label: "Jednorazovo" },
-                  ]}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                  {isWeekly ? "Deň" : "Dátum"}
-                </div>
-
-                {isWeekly ? (
-                  <SelectField
-                    disabled={!userId || savingDB}
-                    value={String(draft.day)}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        day: (e.target.value as DayAbbrev) || "Mon",
-                      }))
-                    }
-                    options={ALL_DAYS.map((d) => ({ value: d, label: niceLabelForDay(d) }))}
-                  />
-                ) : (
-                // ...v tom mieste kde máš single date:
-
-<DateField
-  disabled={!userId || savingDB}
-  value={draft.date_single} // už môže byť aj undefined
-  onChange={(v) =>
-    setDraft((d) => ({
-      ...d,
-      date_single: v || null,
-    }))
-  }
-/>
-                )}
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                  {category === "sport" ? "Šport" : "Udalosť"}
-                </div>
-
-                <SelectField
-                  disabled={!userId || savingDB}
-                  value={String(draft.sport)}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      sport: (e.target.value as ExternalSport) || "other",
-                    }))
-                  }
-                  options={sportOptions.map((s) => ({ value: s, label: niceLabelForSport(s) }))}
-                />
-              </section>
+      }
+      subtitle="Športy a udalosti (svadba, cestovanie…), s ktorými plán počíta pri generovaní tréningu."
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      // ✅ nech je to “ready” hneď, ale stále si to vieš zavrieť
+      backdropVariant="default"
+      actions={
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleSaveToDB}
+          disabled={savingDB || !userId}
+          className={INPUTS_CARD_SAVE_BTN}
+        >
+          {savingDB ? "Ukladám…" : "Uložiť do DB"}
+        </Button>
+      }
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* FORM */}
+        <div className={FORM_GRID_TWO}>
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              Typ
             </div>
 
-            {/* 2. riadok */}
-            <div className={FORM_GRID_TWO}>
-              <section className={SECTION} style={SECTION_STYLE}>
-                <TimeField24
-                  label="Čas"
-                  value={draft.time ?? ""}
-                  onChange={(v) => setDraft((d) => ({ ...d, time: v || null }))}
-                />
-              </section>
+            <SelectField
+              disabled={disabled}
+              value={String(category)}
+              onChange={(e) => {
+                const nextCat = (e.target.value as ExternalCategory) || "sport";
+                const defaultSport = nextCat === "sport" ? SPORT_OPTIONS[0] : (EVENT_OPTIONS[0] as any);
 
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                  Intenzita / záťaž
-                </div>
+                setDraft((d) => ({
+                  ...d,
+                  category: nextCat,
+                  sport: defaultSport as any,
+                }));
+              }}
+              options={[
+                { value: "sport", label: "Šport" },
+                { value: "event", label: "Udalosť" },
+              ]}
+            />
+          </section>
 
-                <SelectField
-                  disabled={!userId || savingDB}
-                  value={String(draft.intensity)}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      intensity: (e.target.value as ExternalIntensity) || "moderate",
-                    }))
-                  }
-                  options={EXT_INTENS.map((i) => ({ value: i, label: niceLabelForIntensity(i) }))}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <TextField
-                  label="Poznámka"
-                  placeholder="voliteľné"
-                  value={draft.note ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      note: (e.target as HTMLInputElement).value,
-                    }))
-                  }
-                  disabled={!userId || savingDB}
-                />
-              </section>
-
-              <section className={SECTION} style={SECTION_STYLE}>
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={handleAdd} size="sm" variant="success" disabled={!userId || savingDB}>
-                    Pridať
-                  </Button>
-
-                  <Button size="sm" variant="danger" onClick={handleClearDB} disabled={!userId || savingDB}>
-                    Vymazať všetko
-                  </Button>
-                </div>
-
-                {dbError ? <div className="mt-2 text-[11px] text-red-300">{dbError}</div> : null}
-                {dbInfo && !dbError ? <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div> : null}
-              </section>
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              Opakovanie
             </div>
 
-            {/* LIST */}
-            {list.length > 0 && (
-              <div className="mt-2">
-                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                  Zoznam
-                </div>
+            <SelectField
+              disabled={disabled}
+              value={String(mode)}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  mode: (e.target.value as "weekly" | "single") || "weekly",
+                }))
+              }
+              options={[
+                { value: "weekly", label: "Týždenne" },
+                { value: "single", label: "Jednorazovo" },
+              ]}
+            />
+          </section>
 
-                <ul className="mt-2 space-y-2">
-                  {list.map((a, idx) => {
-                    const when =
-                      (a.mode ?? "weekly") === "weekly"
-                        ? niceLabelForDay(a.day)
-                        : a.date_single || niceLabelForDay(a.day);
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              {isWeekly ? "Deň" : "Dátum"}
+            </div>
 
-                    return (
-                      <li
-                        key={`${a.day}-${a.sport}-${idx}`}
-                        className={[
-                          "rounded-xl border border-white/10 bg-white/5",
-                          "px-3 py-2 flex items-center justify-between gap-3",
-                        ].join(" ")}
-                      >
-                        <span className="text-sm">
-                          {when} · {niceLabelForSport(a.sport)} · {niceLabelForIntensity(a.intensity)}
-                          {a.time ? ` · ${a.time}` : ""}
-                          {a.note ? ` — ${a.note}` : ""}
-                        </span>
-
-                        <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>
-                          odstrániť
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+            {isWeekly ? (
+              <SelectField
+                disabled={disabled}
+                value={String(draft.day)}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    day: (e.target.value as DayAbbrev) || "Mon",
+                  }))
+                }
+                options={ALL_DAYS.map((d) => ({ value: d, label: niceLabelForDay(d) }))}
+              />
+            ) : (
+              <DateField
+                disabled={disabled}
+                value={draft.date_single}
+                onChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    date_single: v || null,
+                  }))
+                }
+              />
             )}
-          </div>
-        )}
+          </section>
 
-        <div className={INPUTS_CARD_FOOTER}>
-          {open && (
-            <div className={INPUTS_CARD_SAVE_WRAP}>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleSaveToDB}
-                disabled={savingDB || !userId}
-                className={INPUTS_CARD_SAVE_BTN}
-              >
-                {savingDB ? "Ukladám…" : "Uložiť do DB"}
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              {category === "sport" ? "Šport" : "Udalosť"}
+            </div>
+
+            <SelectField
+              disabled={disabled}
+              value={String(draft.sport)}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  sport: (e.target.value as any) || "other",
+                }))
+              }
+              options={sportOptions.map((s) => ({ value: String(s), label: niceLabelForSport(s) }))}
+            />
+          </section>
+
+          <section>
+            <TimeField24
+              label="Čas"
+              value={draft.time ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, time: v || null }))}
+            />
+          </section>
+
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              Intenzita / záťaž
+            </div>
+
+            <SelectField
+              disabled={disabled}
+              value={String(draft.intensity)}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  intensity: (e.target.value as ExternalIntensity) || "moderate",
+                }))
+              }
+              options={EXT_INTENS.map((i) => ({ value: i, label: niceLabelForIntensity(i) }))}
+            />
+          </section>
+
+          <section>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              Poznámka
+            </div>
+
+            <TextField
+              placeholder="voliteľné"
+              value={draft.note ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  note: e.target.value,
+                }))
+              }
+              disabled={disabled}
+            />
+          </section>
+
+          <section>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleAdd} size="sm" variant="success" disabled={disabled}>
+                Pridať
+              </Button>
+
+              <Button size="sm" variant="danger" onClick={handleClearDB} disabled={disabled}>
+                Vymazať všetko
               </Button>
             </div>
-          )}
 
-          <DisclosureToggle open={open} onToggle={() => setOpen((v) => !v)} className={INPUTS_CARD_TOGGLE} />
+            {dbError ? <div className="mt-2 text-[11px] text-red-300">{dbError}</div> : null}
+            {dbInfo && !dbError ? <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div> : null}
+          </section>
         </div>
+
+        {/* LIST */}
+        {list.length > 0 ? (
+          <div className="mt-2">
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              Zoznam
+            </div>
+
+            <ul className="mt-2 space-y-2">
+              {list.map((a, idx) => {
+                const when =
+                  (a.mode ?? "weekly") === "weekly"
+                    ? niceLabelForDay(a.day)
+                    : a.date_single || niceLabelForDay(a.day);
+
+                return (
+                  <li
+                    key={`${a.day}-${String(a.sport)}-${idx}`}
+                    className={[
+                      "rounded-xl border border-white/10 bg-white/5",
+                      "px-3 py-2 flex items-center justify-between gap-3",
+                    ].join(" ")}
+                  >
+                    <span className="text-sm">
+                      {when} · {niceLabelForSport(a.sport as any)} · {niceLabelForIntensity(a.intensity)}
+                      {a.time ? ` · ${a.time}` : ""}
+                      {a.note ? ` — ${a.note}` : ""}
+                    </span>
+
+                    <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>
+                      odstrániť
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        {!userId ? (
+          <div className="text-xs mt-2" style={{ color: appColors.textMuted }}>
+            Najprv sa prihlás, aby sa dali externé aktivity ukladať.
+          </div>
+        ) : null}
       </div>
-    </section>
+    </InputsCard>
   );
 }
 
