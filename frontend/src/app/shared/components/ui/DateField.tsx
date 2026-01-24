@@ -1,7 +1,12 @@
+// src/app/shared/components/ui/DateField.tsx
 "use client";
 
 import type { ChangeEvent } from "react";
-import { SURFACE_INLINE } from "@/app/shared/ui/tokens";
+import {
+  FIELD_INLINE,
+  DATE_FIELD_LABEL,
+  DATE_INPUT_INNER,
+} from "@/app/shared/ui/tokens";
 
 type Props = {
   label: string;
@@ -18,16 +23,17 @@ export default function DateField({ label, value, onChange, min, max }: Props) {
   };
 
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="opacity-80">{label}</span>
-      <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+    <label className="flex flex-col gap-1">
+      <span className={DATE_FIELD_LABEL}>{label}</span>
+
+      <div className={FIELD_INLINE}>
         <input
           type="date"
           value={value ?? ""}
           onChange={handleChange}
           min={min}
           max={max}
-          className="w-full bg-transparent text-sm outline-none border-none focus:outline-none"
+          className={DATE_INPUT_INNER}
         />
       </div>
     </label>
