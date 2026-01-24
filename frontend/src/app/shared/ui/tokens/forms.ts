@@ -87,3 +87,67 @@ export const SELECT_BASE = [
   "focus:ring-2",
   "focus:ring-white/10",
 ].join(" ");
+
+// --- form fields (green/yellow theme) ---
+export const FIELD_LABEL = "text-xs font-medium text-amber-200/80";
+
+export const FIELD_HINT = "text-[11px] text-amber-200/55";
+
+export const FIELD_ERROR_TEXT = "text-xs text-rose-300";
+
+export const FIELD_BASE = [
+  "w-full",
+  "h-10",
+  "px-3",
+  "rounded-xl",
+  "border",
+  "border-emerald-200/15",
+  "bg-emerald-950/28",
+  "text-amber-100",
+  "placeholder:text-amber-200/35",
+  "outline-none",
+  "ring-0",
+  "focus:border-emerald-200/30",
+  "focus:ring-2",
+  "focus:ring-emerald-400/18",
+  "disabled:opacity-60",
+  "disabled:cursor-not-allowed",
+  "[color-scheme:dark]",
+].join(" ");
+
+export const FIELD_ERROR = [
+  "border-rose-400/50",
+  "focus:border-rose-300/60",
+  "focus:ring-rose-400/18",
+].join(" ");
+
+// wrapper pre inline select (napr. TimeField24)
+export const FIELD_INLINE = [
+  "w-full",
+  "px-3",
+  "py-2",
+  "rounded-xl",
+  "border",
+  "border-emerald-200/15",
+  "bg-emerald-950/28",
+  "text-amber-100",
+  "outline-none",
+  "focus-within:border-emerald-200/30",
+  "focus-within:ring-2",
+  "focus-within:ring-emerald-400/18",
+  "[color-scheme:dark]",
+].join(" ");
+
+// select vnútri inline wrapperu
+export const FIELD_SELECT = [
+  "bg-transparent",
+  "text-sm",
+  "text-amber-100",
+  "outline-none",
+  "border-none",
+  "focus:outline-none",
+  "[color-scheme:dark]",
+].join(" ");
+
+// option background (inak iOS/desktop často dá bielu)
+export const FIELD_OPTION = "bg-emerald-950 text-amber-100";
