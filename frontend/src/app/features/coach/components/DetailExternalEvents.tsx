@@ -42,8 +42,6 @@ import {
   PANEL_PREVIEW,
   SURFACE_CARD_STYLE,
   SECTION_STYLE,
-
-  // reuse inputsCard tokens (from Recovery)
   INPUTS_CARD_BODY,
   INPUTS_CARD_FOOTER,
   INPUTS_CARD_SAVE_WRAP,
@@ -60,7 +58,6 @@ type Props = {
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** športové aktivity */
 const SPORT_OPTIONS: ExternalSport[] = [
   "run",
   "ride",
@@ -74,7 +71,6 @@ const SPORT_OPTIONS: ExternalSport[] = [
   "other",
 ];
 
-/** eventy / životné veci */
 const EVENT_OPTIONS: ExternalSport[] = [
   "wedding",
   "travel",
@@ -106,15 +102,7 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
   7: "Sun",
 };
 
-const JS_TO_DAY: DayAbbrev[] = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-];
+const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /* ---------- helpers ---------- */
 
@@ -209,9 +197,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
       let day: DayAbbrev = "Mon";
 
       if (mode === "weekly") {
-        const weekdayNum = Number(
-          (ev as any).weekday ?? (ev as any).weekday_int
-        );
+        const weekdayNum = Number((ev as any).weekday ?? (ev as any).weekday_int);
         day = INT_TO_DAY[weekdayNum] ?? "Mon";
       } else {
         const iso = (ev as any).single_date as string | null;
@@ -246,10 +232,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
     .filter(Boolean) as ExternalActivity[];
 }
 
-function mapActivitiesToEvents(
-  userId: number,
-  activities: ExternalActivity[]
-): ExternalEvent[] {
+function mapActivitiesToEvents(userId: number, activities: ExternalActivity[]): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
     const weekday = mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : 1;
@@ -284,7 +267,6 @@ function mapActivitiesToEvents(
 
 export function DetailExternalEvents({ userId }: Props) {
   const [open, setOpen] = useState(false);
-
   const [list, setList] = useState<ExternalActivity[]>([]);
 
   const [draft, setDraft] = useState<ExternalActivity>({
@@ -348,30 +330,23 @@ export function DetailExternalEvents({ userId }: Props) {
       const when =
         (a.mode ?? "weekly") === "weekly"
           ? niceLabelForDay(a.day)
-          : (a.date_single ?? niceLabelForDay(a.day));
+          : a.date_single ?? niceLabelForDay(a.day);
       return `${when} · ${niceLabelForSport(a.sport)} · ${niceLabelForIntensity(a.intensity)}`;
     });
     return top.join(" • ") + (previewSorted.length > 3 ? ` • +${previewSorted.length - 3}` : "");
   }, [userId, loadingDB, previewSorted]);
 
   const handleAdd = () => {
-    const next: ExternalActivity = {
-      ...draft,
-      note: draft.note?.trim() || undefined,
-    };
+    const next: ExternalActivity = { ...draft, note: draft.note?.trim() || undefined };
 
-    // basic guard: single musí mať dátum
     if ((next.mode ?? "weekly") === "single" && !next.date_single) {
       toast.error("Pri jednorazovej udalosti zadaj dátum.");
       return;
     }
-
     setList((cur) => [...cur, next]);
   };
 
-  const handleRemove = (idx: number) => {
-    setList((cur) => cur.filter((_, i) => i !== idx));
-  };
+  const handleRemove = (idx: number) => setList((cur) => cur.filter((_, i) => i !== idx));
 
   const handleSaveToDB = async () => {
     if (!userId) return;
@@ -383,9 +358,7 @@ export function DetailExternalEvents({ userId }: Props) {
       const events = mapActivitiesToEvents(userId, cleaned);
       const resp = await apiSaveExternalEvents(userId, events);
 
-      setDbInfo(
-        `Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`
-      );
+      setDbInfo(`Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`);
       setOpen(false);
     } catch (e: any) {
       setDbError(e?.message ?? "Chyba pri ukladaní do DB.");
@@ -413,25 +386,16 @@ export function DetailExternalEvents({ userId }: Props) {
   const mode = draft.mode ?? "weekly";
   const isWeekly = mode === "weekly";
   const category: ExternalCategory = draft.category ?? "sport";
-
-  const sportOptions: ExternalSport[] =
-    category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
+  const sportOptions: ExternalSport[] = category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
 
   return (
     <section className={CARD} style={SURFACE_CARD_STYLE}>
-      {/* HEAD (ako InputsCard) */}
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
+          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
             Externé aktivity
           </div>
-          <div
-            className={PANEL_SECTION_SUBTITLE}
-            style={{ color: appColors.textMuted }}
-          >
+          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
             Športy a udalosti (svadba, cestovanie…), s ktorými plán počíta pri generovaní tréningu.
           </div>
         </div>
@@ -442,36 +406,27 @@ export function DetailExternalEvents({ userId }: Props) {
       </div>
 
       <div className={CARD_BODY_INSET}>
-        {/* PREVIEW (ako InputsCard) */}
         {!open && (
-          <div
-            className={["mt-3", PANEL_PREVIEW].join(" ")}
-            style={{ color: appColors.textMuted }}
-          >
+          <div className={["mt-3", PANEL_PREVIEW].join(" ")} style={{ color: appColors.textMuted }}>
             {previewText}
           </div>
         )}
 
-        {/* BODY */}
         {open && (
           <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
             {/* 1. riadok */}
             <div className={FORM_GRID_TWO}>
               <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   Typ
                 </div>
 
                 <SelectField
                   disabled={!userId || savingDB}
-                  value={category}
-                  onChange={(v) => {
-                    const nextCat = (v as ExternalCategory) ?? "sport";
-                    const defaultSport =
-                      nextCat === "sport" ? SPORT_OPTIONS[0] : EVENT_OPTIONS[0];
+                  value={String(category)}
+                  onChange={(e) => {
+                    const nextCat = (e.target.value as ExternalCategory) || "sport";
+                    const defaultSport = nextCat === "sport" ? SPORT_OPTIONS[0] : EVENT_OPTIONS[0];
 
                     setDraft((d) => ({
                       ...d,
@@ -487,20 +442,17 @@ export function DetailExternalEvents({ userId }: Props) {
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   Opakovanie
                 </div>
 
                 <SelectField
                   disabled={!userId || savingDB}
-                  value={mode}
-                  onChange={(v) =>
+                  value={String(mode)}
+                  onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
-                      mode: ((v as any) || "weekly") as "weekly" | "single",
+                      mode: (e.target.value as "weekly" | "single") || "weekly",
                     }))
                   }
                   options={[
@@ -511,63 +463,46 @@ export function DetailExternalEvents({ userId }: Props) {
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {isWeekly ? "Deň" : "Dátum"}
                 </div>
 
                 {isWeekly ? (
                   <SelectField
                     disabled={!userId || savingDB}
-                    value={draft.day}
-                    onChange={(v) =>
+                    value={String(draft.day)}
+                    onChange={(e) =>
                       setDraft((d) => ({
                         ...d,
-                        day: ((v as DayAbbrev) || "Mon") as DayAbbrev,
+                        day: (e.target.value as DayAbbrev) || "Mon",
                       }))
                     }
-                    options={ALL_DAYS.map((d) => ({
-                      value: d,
-                      label: niceLabelForDay(d),
-                    }))}
+                    options={ALL_DAYS.map((d) => ({ value: d, label: niceLabelForDay(d) }))}
                   />
                 ) : (
                   <DateField
                     disabled={!userId || savingDB}
                     value={draft.date_single}
-                    onChange={(v) =>
-                      setDraft((d) => ({
-                        ...d,
-                        date_single: v || null,
-                      }))
-                    }
+                    onChange={(v) => setDraft((d) => ({ ...d, date_single: v || null }))}
                   />
                 )}
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {category === "sport" ? "Šport" : "Udalosť"}
                 </div>
 
                 <SelectField
                   disabled={!userId || savingDB}
-                  value={draft.sport}
-                  onChange={(v) =>
+                  value={String(draft.sport)}
+                  onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
-                      sport: (v as ExternalSport) ?? "other",
+                      sport: (e.target.value as ExternalSport) || "other",
                     }))
                   }
-                  options={sportOptions.map((s) => ({
-                    value: s,
-                    label: niceLabelForSport(s),
-                  }))}
+                  options={sportOptions.map((s) => ({ value: s, label: niceLabelForSport(s) }))}
                 />
               </section>
             </div>
@@ -578,36 +513,25 @@ export function DetailExternalEvents({ userId }: Props) {
                 <TimeField24
                   label="Čas"
                   value={draft.time ?? ""}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      time: v || null,
-                    }))
-                  }
+                  onChange={(v) => setDraft((d) => ({ ...d, time: v || null }))}
                 />
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   Intenzita / záťaž
                 </div>
 
                 <SelectField
                   disabled={!userId || savingDB}
-                  value={draft.intensity}
-                  onChange={(v) =>
+                  value={String(draft.intensity)}
+                  onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
-                      intensity: (v as ExternalIntensity) ?? "moderate",
+                      intensity: (e.target.value as ExternalIntensity) || "moderate",
                     }))
                   }
-                  options={EXT_INTENS.map((i) => ({
-                    value: i,
-                    label: niceLabelForIntensity(i),
-                  }))}
+                  options={EXT_INTENS.map((i) => ({ value: i, label: niceLabelForIntensity(i) }))}
                 />
               </section>
 
@@ -628,41 +552,24 @@ export function DetailExternalEvents({ userId }: Props) {
 
               <section className={SECTION} style={SECTION_STYLE}>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={handleAdd}
-                    size="sm"
-                    variant="success"
-                    disabled={!userId || savingDB}
-                  >
+                  <Button onClick={handleAdd} size="sm" variant="success" disabled={!userId || savingDB}>
                     Pridať
                   </Button>
 
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={handleClearDB}
-                    disabled={!userId || savingDB}
-                  >
+                  <Button size="sm" variant="danger" onClick={handleClearDB} disabled={!userId || savingDB}>
                     Vymazať všetko
                   </Button>
                 </div>
 
-                {dbError && (
-                  <div className="mt-2 text-[11px] text-red-300">{dbError}</div>
-                )}
-                {dbInfo && !dbError && (
-                  <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div>
-                )}
+                {dbError ? <div className="mt-2 text-[11px] text-red-300">{dbError}</div> : null}
+                {dbInfo && !dbError ? <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div> : null}
               </section>
             </div>
 
             {/* LIST */}
             {list.length > 0 && (
               <div className="mt-2">
-                <div
-                  className={INPUTS_CARD_LABEL_SM_1}
-                  style={{ color: appColors.textMuted }}
-                >
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   Zoznam
                 </div>
 
@@ -682,21 +589,12 @@ export function DetailExternalEvents({ userId }: Props) {
                         ].join(" ")}
                       >
                         <span className="text-sm">
-                          {when}
-                          {" · "}
-                          {niceLabelForSport(a.sport)}
-                          {" · "}
-                          {niceLabelForIntensity(a.intensity)}
+                          {when} · {niceLabelForSport(a.sport)} · {niceLabelForIntensity(a.intensity)}
                           {a.time ? ` · ${a.time}` : ""}
                           {a.note ? ` — ${a.note}` : ""}
                         </span>
 
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleRemove(idx)}
-                          disabled={savingDB}
-                        >
+                        <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>
                           odstrániť
                         </Button>
                       </li>
@@ -708,7 +606,6 @@ export function DetailExternalEvents({ userId }: Props) {
           </div>
         )}
 
-        {/* FOOTER (ako InputsCard) */}
         <div className={INPUTS_CARD_FOOTER}>
           {open && (
             <div className={INPUTS_CARD_SAVE_WRAP}>
@@ -724,11 +621,7 @@ export function DetailExternalEvents({ userId }: Props) {
             </div>
           )}
 
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((v) => !v)}
-            className={INPUTS_CARD_TOGGLE}
-          />
+          <DisclosureToggle open={open} onToggle={() => setOpen((v) => !v)} className={INPUTS_CARD_TOGGLE} />
         </div>
       </div>
     </section>
