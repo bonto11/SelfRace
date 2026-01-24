@@ -480,11 +480,18 @@ export function DetailExternalEvents({ userId }: Props) {
                     options={ALL_DAYS.map((d) => ({ value: d, label: niceLabelForDay(d) }))}
                   />
                 ) : (
-                  <DateField
-                    disabled={!userId || savingDB}
-                    value={draft.date_single}
-                    onChange={(v) => setDraft((d) => ({ ...d, date_single: v || null }))}
-                  />
+                // ...v tom mieste kde máš single date:
+
+<DateField
+  disabled={!userId || savingDB}
+  value={draft.date_single} // už môže byť aj undefined
+  onChange={(v) =>
+    setDraft((d) => ({
+      ...d,
+      date_single: v || null,
+    }))
+  }
+/>
                 )}
               </section>
 
