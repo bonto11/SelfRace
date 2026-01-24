@@ -70,8 +70,6 @@ export const PILL_BUTTON = [
 
 export const FORM_GRID_THREE = "grid gap-3 sm:grid-cols-3 items-start";
 
-export const FIELD_LABEL = "text-xs font-semibold opacity-80 mb-1";
-
 export const SELECT_BASE = [
   "w-full",
   "h-10",
