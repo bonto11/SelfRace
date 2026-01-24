@@ -4,9 +4,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/components/ui/Button";
+import TextField from "@/app/shared/components/ui/TextField";
 import { Plus, Minus } from "lucide-react";
 import { toast } from "@/app/shared/components/ui/Toast";
-import { inputClass, labelClass } from "@/app/shared/ui";
 
 import {
   apiGetLatestMetrics,
@@ -35,6 +35,9 @@ import {
   PANEL_LIST_ITEM,
   PANEL_ACTION_ROW,
   ICON_BUTTON,
+  FIELD_LABEL,
+  FORM_GRID_THREE,
+  SELECT_BASE,
 } from "@/app/shared/ui/tokens";
 
 function SummaryRow({ k, v, extra }: { k: string; v: string; extra?: string }) {
@@ -226,55 +229,54 @@ export default function FormMetrics() {
             />
           </div>
         ) : (
-          <div className={["grid gap-3 md:grid-cols-3", "items-start"].join(" ")}>
+          <div className={FORM_GRID_THREE}>
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
+              <div className={FIELD_LABEL}>
                 Weight <span className="opacity-60">(kg)</span>
-              </label>
-              <input
+              </div>
+              <TextField
                 type="number"
                 inputMode="decimal"
                 value={m.weight_kg ?? ""}
                 placeholder={ph.weight_kg}
                 onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
-                className={[inputClass, "h-9 text-sm text-center"].join(" ")}
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
+              <div className={FIELD_LABEL}>
                 Body fat <span className="opacity-60">(%)</span>
-              </label>
-              <input
+              </div>
+              <TextField
                 type="number"
                 inputMode="decimal"
                 value={m.body_fat_pct ?? ""}
                 placeholder={ph.body_fat_pct}
                 onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
-                className={[inputClass, "h-9 text-sm text-center"].join(" ")}
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
+              <div className={FIELD_LABEL}>
                 HR max <span className="opacity-60">(bpm)</span>
-              </label>
-              <input
+              </div>
+              <TextField
                 type="number"
                 inputMode="numeric"
                 value={m.HR_max ?? ""}
                 placeholder={ph.HR_max}
                 onChange={(e) => onChangeNumber("HR_max", e.target.value)}
-                className={[inputClass, "h-9 text-sm text-center"].join(" ")}
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
-                VO₂Max (measured){" "}
-                <span className="opacity-60">(mL/kg/min)</span>
-              </label>
-              <input
+              <div className={FIELD_LABEL}>
+                VO₂Max (measured) <span className="opacity-60">(mL/kg/min)</span>
+              </div>
+              <TextField
                 type="number"
                 inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
@@ -282,16 +284,16 @@ export default function FormMetrics() {
                 onChange={(e) =>
                   onChangeNumber("VO2Max_measured", e.target.value)
                 }
-                className={[inputClass, "h-9 text-sm text-center"].join(" ")}
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className={[labelClass, "block mb-1"].join(" ")}>
+              <div className={FIELD_LABEL}>
                 VO₂Max (estimated){" "}
                 <span className="opacity-60">(mL/kg/min)</span>
-              </label>
-              <input
+              </div>
+              <TextField
                 type="number"
                 inputMode="decimal"
                 value={m.VO2Max_estimated ?? ""}
@@ -299,7 +301,7 @@ export default function FormMetrics() {
                 onChange={(e) =>
                   onChangeNumber("VO2Max_estimated", e.target.value)
                 }
-                className={[inputClass, "h-9 text-sm text-center"].join(" ")}
+                disabled={loading}
               />
             </div>
 
