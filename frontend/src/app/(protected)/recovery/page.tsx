@@ -13,7 +13,9 @@ import WidgetRHR from "@/app/shared/components/widgets/WidgetRHR";
 import WidgetHRV from "@/app/shared/components/widgets/WidgetHRV";
 import WidgetSleepDuration from "@/app/shared/components/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
-import InputsCard from "@/app/features/recovery/components/InputsCard";
+
+// ✅ new recovery inputs (built on shared InputsCard skeleton)
+import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 
 import Button from "@/app/shared/components/ui/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -49,7 +51,7 @@ export default function RecoveryPage() {
 
       <div className={PAGE_CONTAINER}>
         <div className={PAGE_STACK}>
-          <InputsCard />
+          <RecoveryInputs />
 
           <div className={PAGE_WIDGET_GRID}>
             <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
