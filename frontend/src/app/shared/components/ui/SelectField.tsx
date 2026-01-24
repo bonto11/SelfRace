@@ -20,7 +20,12 @@ import {
 
 type Option = { value: string; label: string };
 
-type LegacyChangeEvent = {
+/**
+ * Legacy event-like shape (enough for your current code):
+ * - e.target.value
+ * - e.currentTarget.value
+ */
+type SelectChangeEvent = {
   target: { value: string };
   currentTarget: { value: string };
   preventDefault: () => void;
@@ -33,30 +38,23 @@ type Props = {
   error?: string;
   disabled?: boolean;
 
-  /** New style (current): controlled value */
-  value: string | null;
+  /** LEGACY-compatible controlled value (matches PersonalSettingsPanel usage) */
+  value: string;
 
   /**
-   * New style handler (current): gets value directly.
-   * (kept as main API to avoid breaking your newer screens)
+   * LEGACY-compatible onChange.
+   * PersonalSettingsPanel expects (e) => e.target.value
    */
-  onChange: (value: string | null) => void;
+  onChange: (e: SelectChangeEvent) => void;
 
   /**
-   * Optional alias for clarity (modern usage).
-   * If provided, both onChange + onValueChange will be called.
+   * Optional helper for newer code (value-based).
+   * (Not used by PersonalSettings; safe to ignore.)
    */
-  onValueChange?: (value: string | null) => void;
-
-  /**
-   * Legacy compatibility:
-   * Some old code expects onChange(e) and reads e.target.value.
-   * We'll call this with a small synthetic event.
-   */
-  onLegacyChange?: (e: LegacyChangeEvent) => void;
+  onValueChange?: (value: string) => void;
 
   options: Option[];
-  placeholder?: string; // keď value je null
+  placeholder?: string; // keď value je prázdny string
   containerClassName?: string;
 };
 
@@ -68,7 +66,6 @@ export default function SelectField({
   value,
   onChange,
   onValueChange,
-  onLegacyChange,
   options,
   placeholder = "—",
   containerClassName,
@@ -76,8 +73,8 @@ export default function SelectField({
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
 
-  const selected = options.find((o) => o.value === (value ?? "")) ?? null;
-  const display = selected?.label ?? placeholder;
+  const selected = options.find((o) => o.value === value) ?? null;
+  const display = selected?.label ?? (value ? value : placeholder);
 
   React.useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -88,20 +85,15 @@ export default function SelectField({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  function commit(next: string | null) {
-    onChange(next);
+  function emit(next: string) {
+    const evt: SelectChangeEvent = {
+      target: { value: next },
+      currentTarget: { value: next },
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    };
+    onChange(evt);
     onValueChange?.(next);
-
-    if (onLegacyChange) {
-      const v = next ?? "";
-      const evt: LegacyChangeEvent = {
-        target: { value: v },
-        currentTarget: { value: v },
-        preventDefault: () => {},
-        stopPropagation: () => {},
-      };
-      onLegacyChange(evt);
-    }
   }
 
   return (
@@ -116,7 +108,7 @@ export default function SelectField({
           className={cx(
             FIELD_BASE,
             SELECT_BTN,
-            !selected && SELECT_OPT_EMPTY,
+            !selected && !value && SELECT_OPT_EMPTY,
             error && FIELD_ERROR
           )}
           aria-expanded={open}
@@ -137,7 +129,7 @@ export default function SelectField({
         {open && !disabled && (
           <div className={SELECT_MENU} role="listbox">
             {options.map((o) => {
-              const active = (value ?? "") === o.value;
+              const active = value === o.value;
               return (
                 <button
                   key={o.value}
@@ -145,7 +137,7 @@ export default function SelectField({
                   className={cx(SELECT_OPT, active && SELECT_OPT_ACTIVE)}
                   onClick={() => {
                     setOpen(false);
-                    commit(o.value ? o.value : null);
+                    emit(o.value);
                   }}
                 >
                   {o.label}
