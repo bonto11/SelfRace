@@ -65,3 +65,25 @@ export const PILL_BUTTON = [
   `hover:bg-[${appColors.pillBgHover}]`,
   `text-[${appColors.pillText}]`,
 ].join(" ");
+
+// src/app/shared/ui/tokens/forms.ts  (alebo tam kde máš FORM_* tokeny)
+
+export const FORM_GRID_THREE = "grid gap-3 sm:grid-cols-3 items-start";
+
+export const FIELD_LABEL = "text-xs font-semibold opacity-80 mb-1";
+
+export const SELECT_BASE = [
+  "w-full",
+  "h-10",
+  "px-3",
+  "rounded-xl",
+  "border",
+  "border-white/10",
+  "bg-black/20",
+  "text-slate-100",
+  "appearance-none",
+  "[color-scheme:dark]",
+  "focus:outline-none",
+  "focus:ring-2",
+  "focus:ring-white/10",
+].join(" ");
