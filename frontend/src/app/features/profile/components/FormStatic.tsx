@@ -7,6 +7,8 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/components/ui/Button";
 import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import TextField from "@/app/shared/components/ui/TextField";
+import DateField from "@/app/shared/components/ui/DateField";
+import SelectField from "@/app/shared/components/ui/SelectField";
 import { toast } from "@/app/shared/components/ui/Toast";
 
 import {
@@ -30,7 +32,6 @@ import {
   PANEL_PREVIEW,
   SURFACE_CARD_STYLE,
   SECTION_STYLE,
-  PILL_BUTTON,
 
   // reuse inputsCard tokens (from Recovery)
   INPUTS_CARD_BODY,
@@ -139,23 +140,23 @@ export default function FormStatic() {
                 >
                   Pohlavie
                 </div>
-                <select
+
+                <SelectField
                   value={data.sex ?? ""}
                   onChange={(e) =>
                     setData((s) => ({
                       ...s,
-                      sex: (e.target.value || null) as Sex,
+                      sex: ((e.target as HTMLSelectElement).value ||
+                        null) as Sex,
                     }))
                   }
                   disabled={loading}
-                  className={[PILL_BUTTON, "w-full [color-scheme:dark]"].join(
-                    " "
-                  )}
-                >
-                  <option value="">—</option>
-                  <option value="M">Muž</option>
-                  <option value="F">Žena</option>
-                </select>
+                  options={[
+                    { value: "", label: "—" },
+                    { value: "M", label: "Muž" },
+                    { value: "F", label: "Žena" },
+                  ]}
+                />
               </section>
 
               <section className={SECTION} style={SECTION_STYLE}>
@@ -165,19 +166,16 @@ export default function FormStatic() {
                 >
                   Dátum narodenia
                 </div>
-                <input
-                  type="date"
-                  value={data.birth_date ?? ""}
-                  onChange={(e) =>
+
+                <DateField
+                  value={data.birth_date}
+                  onChange={(v) =>
                     setData((s) => ({
                       ...s,
-                      birth_date: e.target.value || null,
+                      birth_date: v,
                     }))
                   }
                   disabled={loading}
-                  className={[PILL_BUTTON, "w-full [color-scheme:dark]"].join(
-                    " "
-                  )}
                 />
               </section>
 
@@ -188,6 +186,7 @@ export default function FormStatic() {
                 >
                   Výška
                 </div>
+
                 <TextField
                   type="number"
                   inputMode="numeric"
@@ -210,6 +209,7 @@ export default function FormStatic() {
                 >
                   Zhrnutie
                 </div>
+
                 <TextField value={previewText} disabled />
               </section>
             </div>
