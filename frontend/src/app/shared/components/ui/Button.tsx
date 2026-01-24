@@ -1,5 +1,6 @@
-//shared/components/ui/Button
+// src/app/shared/components/ui/Button.tsx
 "use client";
+
 import * as React from "react";
 import {
   buttonClass,
@@ -7,6 +8,7 @@ import {
   type ButtonSize,
   cx,
 } from "@/app/shared/ui";
+import { BUTTON_BLOCK, BUTTON_DISABLED } from "@/app/shared/ui/tokens";
 
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -14,9 +16,7 @@ type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   block?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
-  /** vynútiť kruh (napr. čisto ikonové tlačidlo) */
   circle?: boolean;
-  /** pre variant="prefs" – určuje zelený/nezelený stav */
   active?: boolean;
 };
 
@@ -33,7 +33,6 @@ export default function Button({
   disabled,
   ...rest
 }: Props) {
-  // auto-kruh pre krátky text/ikonu; pre "prefs" nikdy nechceme kruh
   const text = typeof children === "string" ? children.trim() : "";
   const autoCircle =
     circle ?? (!!children && text.length > 0 ? text.length <= 2 : !children);
@@ -41,16 +40,14 @@ export default function Button({
 
   const cls = cx(
     buttonClass(variant, size, { circle: useCircle, active }),
-    block && "w-full",
-    disabled && "opacity-40 cursor-not-allowed",
+    block && BUTTON_BLOCK,
+    disabled && BUTTON_DISABLED,
     className
   );
 
   return (
     <button className={cls} disabled={disabled} {...rest}>
-      {leftIcon && !useCircle && (
-        <span className="inline-flex">{leftIcon}</span>
-      )}
+      {leftIcon && !useCircle && <span className="inline-flex">{leftIcon}</span>}
       {!useCircle && children}
       {rightIcon && !useCircle && (
         <span className="inline-flex">{rightIcon}</span>
