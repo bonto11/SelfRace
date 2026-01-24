@@ -14,6 +14,10 @@ type RecoveryLineOptsParams = {
   tooltipTitleForIndex?: (i: number) => string;
   tooltipLabelForItem?: (ctx: any) => string | string[];
   tooltipFilter?: (item: any) => boolean;
+
+/** pevné limity osi Y (ak chceš override) */
+  yMin?: number;
+  yMax?: number;
 };
 
 export function buildRecoveryLineOptions({
