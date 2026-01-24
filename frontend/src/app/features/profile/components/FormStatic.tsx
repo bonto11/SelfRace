@@ -33,7 +33,7 @@ import {
   SURFACE_CARD_STYLE,
   SECTION_STYLE,
 
-  // reuse inputsCard tokens (from Recovery)
+  // reuse inputsCard tokens
   INPUTS_CARD_BODY,
   INPUTS_CARD_FOOTER,
   INPUTS_CARD_SAVE_WRAP,
@@ -142,15 +142,11 @@ export default function FormStatic() {
                 </div>
 
                 <SelectField
-                  value={data.sex ?? ""}
-                  onChange={(e) =>
-                    setData((s) => ({
-                      ...s,
-                      sex: ((e.target as HTMLSelectElement).value ||
-                        null) as Sex,
-                    }))
-                  }
+                  value={data.sex}
                   disabled={loading}
+                  onChange={(v) =>
+                    setData((s) => ({ ...s, sex: (v as Sex) || null }))
+                  }
                   options={[
                     { value: "", label: "—" },
                     { value: "M", label: "Muž" },
@@ -169,13 +165,8 @@ export default function FormStatic() {
 
                 <DateField
                   value={data.birth_date}
-                  onChange={(v) =>
-                    setData((s) => ({
-                      ...s,
-                      birth_date: v,
-                    }))
-                  }
                   disabled={loading}
+                  onChange={(v) => setData((s) => ({ ...s, birth_date: v }))}
                 />
               </section>
 
