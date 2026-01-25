@@ -10,6 +10,9 @@ type Props = {
   showBack?: boolean;
   headerContainer?: boolean;
 
+  /** optional slot on the right side of header (e.g. refresh button) */
+  rightSlot?: React.ReactNode;
+
   /** default: stack = PAGE_STACK wrapper */
   variant?: "stack" | "raw";
 
@@ -26,6 +29,7 @@ export default function PageShell({
   title,
   showBack = false,
   headerContainer = true,
+  rightSlot,
   variant = "stack",
   className,
   contentClassName,
@@ -33,11 +37,18 @@ export default function PageShell({
 }: Props) {
   return (
     <>
-      <AppHeader title={title} showBack={showBack} container={headerContainer} />
+      <AppHeader
+        title={title}
+        showBack={showBack}
+        container={headerContainer}
+        rightSlot={rightSlot}
+      />
 
       <div className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}>
         {variant === "stack" ? (
-          <div className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}>
+          <div
+            className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}
+          >
             {children}
           </div>
         ) : (
