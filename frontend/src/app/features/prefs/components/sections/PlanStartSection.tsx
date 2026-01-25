@@ -3,13 +3,29 @@
 
 import { useMemo, useState } from "react";
 
-import Button from "@/app/shared/components/ui/Button";
 import InputsCard from "@/app/shared/components/ui/InputsCard";
-import { inputClass } from "@/app/shared/ui";
+import Button from "@/app/shared/components/ui/Button";
+import TextField from "@/app/shared/components/ui/TextField";
+import DateField from "@/app/shared/components/ui/DateField";
+
+import { toast } from "@/app/shared/components/ui/Toast";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+import {
+  PANEL_STACK,
+  FORM_GRID_TWO,
+  FORM_GRID_SPLIT,
+  SECTION,
+  SECTION_STYLE,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+  INPUTS_CARD_DATE_ROW,
+  INPUTS_CARD_DATE_INNER,
+  INPUTS_CARD_DATE_PILL,
+  PILL_BUTTON,
+} from "@/app/shared/ui/tokens";
 
+/* ---------------- date helpers (noon to avoid TZ weirdness) ---------------- */
 function isoTodayPlus(days: number): string {
   const d = new Date();
   d.setHours(12, 0, 0, 0);
@@ -23,7 +39,6 @@ function isoTodayPlus(days: number): string {
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
 const MIN_PLAN_START = () => isoTodayPlus(1);
 
-// helpers na prácu s dátumami (všetko na obed, aby neblbli timezóny)
 function parseISO(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -48,7 +63,6 @@ function addWeeksISO(startISO: string, weeks: number): string {
   return toISO(d);
 }
 
-// zaokrúhlený počet týždňov medzi dátumami (min 1)
 function diffWeeks(startISO: string, endISO: string): number | undefined {
   const s = parseISO(startISO);
   const e = parseISO(endISO);
@@ -79,7 +93,6 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     setLocal((prev) => {
       const base = { ...prev, start_date: nextStart || null };
 
-      // ak už máme weeks, prepočítaj end
       if (base.weeks && Number(base.weeks) > 0) {
         return {
           ...base,
@@ -87,7 +100,6 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
         };
       }
 
-      // ak máme end, prepočítaj weeks
       if (base.end_date) {
         const w = diffWeeks(nextStart, base.end_date);
         return { ...base, weeks: w };
@@ -113,18 +125,14 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     markDirty();
     setLocal((prev) => {
       const v = nextWeeksRaw.trim();
-      if (!v) {
-        return { ...prev, weeks: undefined };
-      }
+      if (!v) return { ...prev, weeks: undefined };
+
       const n = Number(v);
-      if (!Number.isFinite(n) || n <= 0) {
-        return { ...prev, weeks: undefined };
-      }
+      if (!Number.isFinite(n) || n <= 0) return { ...prev, weeks: undefined };
 
       const weeks = Math.round(n);
       const base = { ...prev, weeks };
 
-      // ak máme start_date, dopočítaj end_date
       if (base.start_date) {
         return {
           ...base,
@@ -137,16 +145,31 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
   };
 
   const previewText = useMemo(() => {
-    const s = start ? start : "—";
-    const e = end ? end : "—";
+    const s = start || "—";
+    const e = end || "—";
     const w = weeksVal ? `${weeksVal}w` : "—";
     return `${s} · ${e} · ${w}`;
   }, [start, end, weeksVal]);
+
+  // sanity guard when user picks invalid dates
+  const guardStart = (iso: string | null) => {
+    const next = iso || "";
+    if (next && next < minStart) {
+      toast.error(`Start date must be ≥ ${minStart}`);
+      applyStart(minStart);
+      return;
+    }
+    applyStart(next);
+  };
 
   return (
     <InputsCard
       title="Plan duration"
       subtitle="Start, end a plánovací horizont (weeks)."
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
       always={
         <div className="flex items-center justify-between">
           <div className="text-xs" style={{ color: appColors.textMuted }}>
@@ -154,63 +177,84 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
           </div>
         </div>
       }
-      preview={previewText}
-      open={open}
-      onOpenChange={setOpen}
-      backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {/* START */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] opacity-70">Start date</label>
-            <input
-              type="date"
-              value={start}
-              min={minStart}
-              onChange={(e) => applyStart((e.target as HTMLInputElement).value)}
-              className={inputClass}
-            />
-          </div>
+        {/* DATE ROW (pill look, not wide white inputs) */}
+        <div className={INPUTS_CARD_DATE_ROW}>
+          <div className={INPUTS_CARD_DATE_INNER}>
+            <div className="flex flex-col gap-1">
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
+                Start
+              </div>
+              <div className={[PILL_BUTTON, INPUTS_CARD_DATE_PILL].join(" ")}>
+                <DateField value={start || null} onChange={(v) => guardStart(v)} />
+              </div>
+            </div>
 
-          {/* END */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] opacity-70">End date</label>
-            <input
-              type="date"
-              value={end}
-              min={start || minStart}
-              onChange={(e) => applyEnd((e.target as HTMLInputElement).value)}
-              className={inputClass}
-            />
+            <div className="flex flex-col gap-1">
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
+                End
+              </div>
+              <div className={[PILL_BUTTON, INPUTS_CARD_DATE_PILL].join(" ")}>
+                <DateField
+                  value={end || null}
+                  onChange={(v) => applyEnd(v || "")}
+                />
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* WEEKS */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] opacity-70">
+        {/* WEEKS + shortcuts (aligned like other panels) */}
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Planning horizon (weeks)
-            </label>
-            <input
+            </div>
+            <TextField
               type="number"
               min={1}
               step={1}
               inputMode="numeric"
               value={weeksVal}
-              onChange={(e) => applyWeeks((e.target as HTMLInputElement).value)}
-              className={inputClass}
+              onChange={(e) => applyWeeks(e.target.value)}
               placeholder="e.g. 12"
             />
-          </div>
-        </div>
+          </section>
 
-        {/* shortcuts */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={() => applyStart(DEFAULT_PLAN_START())}>
-            Set default (D+2)
-          </Button>
-          <Button variant="secondary" onClick={() => applyStart(MIN_PLAN_START())}>
-            Start tomorrow
-          </Button>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Quick actions
+            </div>
+            <div className={FORM_GRID_SPLIT}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyStart(DEFAULT_PLAN_START())}
+              >
+                D+2
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyStart(MIN_PLAN_START())}
+              >
+                Tomorrow
+              </Button>
+            </div>
+          </section>
         </div>
       </div>
     </InputsCard>
