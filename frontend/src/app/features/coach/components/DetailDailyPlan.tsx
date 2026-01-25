@@ -9,10 +9,19 @@ import {
   type DailyOverview,
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
-import SessionCard, {
-  type KPI,
-  type PlanSession,
-} from "@/app/shared/components/session/SessionCard";
+import SessionCard, { type KPI, type PlanSession } from "@/app/shared/components/session/SessionCard";
+
+import {
+  PANEL_STACK,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_SECTION_HEAD,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+  PANEL_PREVIEW,
+  PANEL_GRID_3,
+  ACCORDION_FOOTER_BAR_MUTED,
+} from "@/app/shared/ui/tokens";
 
 /* ---------- helpers ---------- */
 
@@ -36,9 +45,7 @@ function formatDate(value: string | null | undefined): string | null {
 function weekdayLabel(value: string | null | undefined): string | null {
   const d = toDate(value);
   if (!d) return null;
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-  });
+  return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
 type ViewModel = {
@@ -50,6 +57,43 @@ type ViewModel = {
   startDateLabel: string | null;
   endDateLabel: string | null;
 };
+
+/* ---------- tiny Card wrapper (token-first) ---------- */
+
+function Card({
+  title,
+  subtitle,
+  children,
+  footerTone = "muted",
+}: {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+  footerTone?: "muted" | "accent";
+}) {
+  return (
+    <section className={SURFACE_CARD}>
+      {(title || subtitle) && (
+        <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
+          <div className="min-w-0">
+            {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
+            {subtitle ? (
+              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
+            ) : null}
+          </div>
+        </header>
+      )}
+
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+
+      {footerTone === "accent" ? (
+        <div className="h-1.5 rounded-b-2xl bg-emerald-500/80" />
+      ) : (
+        <div className={ACCORDION_FOOTER_BAR_MUTED} />
+      )}
+    </section>
+  );
+}
 
 /* ---------- hlavný komponent ---------- */
 
@@ -63,7 +107,6 @@ export default function DetailDailyPlan() {
     if (!userId) return;
 
     let alive = true;
-
     (async () => {
       setLoading(true);
       setError(null);
@@ -71,9 +114,7 @@ export default function DetailDailyPlan() {
         const r = await apiGetDailyOverview(userId);
         if (alive) setOverview(r ?? null);
       } catch (e: any) {
-        if (alive) {
-          setError(e?.message ?? "Chyba pri načítaní AI daily plánu.");
-        }
+        if (alive) setError(e?.message ?? "Chyba pri načítaní AI daily plánu.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -100,9 +141,7 @@ export default function DetailDailyPlan() {
     const days = overview.days;
     const daysCount = days.length;
     let sessionsCount = 0;
-    for (const d of days) {
-      sessionsCount += d.sessions?.length ?? 0;
-    }
+    for (const d of days) sessionsCount += d.sessions?.length ?? 0;
 
     const startDateLabel = formatDate(days[0]?.date);
     const endDateLabel = formatDate(days[days.length - 1]?.date);
@@ -128,135 +167,109 @@ export default function DetailDailyPlan() {
     endDateLabel,
   } = view;
 
-  /* ---------- stavy bez usera / loading / error ---------- */
+  /* ---------- stavy ---------- */
 
   if (!userId) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm">
-          Chýba <code>userId</code> z <code>useUserId</code>. Skontroluj
-          prihlásenie používateľa.
+      <Card title="AI Daily plan" subtitle="Chýba userId (useUserId)." footerTone="muted">
+        <div className={PANEL_PREVIEW}>
+          Skontroluj prihlásenie používateľa.
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (loading) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 flex items-center gap-2 text-sm">
+      <section className={SURFACE_CARD}>
+        <div className={[PANEL_PAD, "flex items-center gap-2"].join(" ")}>
           <LoadingSpinner size="button" />
-          <span>Načítavam tvoj AI daily plán…</span>
+          <div className={PANEL_PREVIEW}>Načítavam tvoj AI daily plán…</div>
         </div>
-      </div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm text-red-300">
-          Nepodarilo sa načítať AI daily plán.
-          <div className="mt-1 text-xs opacity-75">{error}</div>
-        </div>
-      </div>
+      <Card title="AI Daily plan" subtitle="Nepodarilo sa načítať plán." footerTone="muted">
+        <div className={PANEL_PREVIEW}>{error}</div>
+      </Card>
     );
   }
 
   /* ---------- UI ---------- */
 
   return (
-    <div className="space-y-4">
-      {/* HLAVNÝ POPIS */}
-      <section className={SURFACE_CARD}>
-        <div className="px-4 pt-4 pb-3">
-          <h2 className="text-lg font-semibold tracking-tight">
-            AI Daily plan – detail
-          </h2>
-          <p className="mt-1 text-xs text-slate-400 max-w-xl">
-            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu
-            (generovanie, spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
+    <div className={PANEL_STACK}>
+      <Card
+        title="AI Daily plan – detail"
+        subtitle={
+          <>
+            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu (generovanie,
+            spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
             <strong>Coach — Plan</strong> na hlavnom coach dashboarde.
-          </p>
-        </div>
-
-        {hasPlan && (
-          <div className="px-4 pb-4 grid gap-2 text-sm sm:grid-cols-3">
-            <div>
-              <div className="text-xs opacity-70">Rozsah plánu</div>
-              <div className="font-semibold">
+          </>
+        }
+        footerTone="accent"
+      >
+        {hasPlan ? (
+          <div className={PANEL_GRID_3}>
+            <div className={PANEL_INNER_STACK}>
+              <div className={PANEL_SECTION_SUBTITLE}>Rozsah plánu</div>
+              <div className={PANEL_SECTION_TITLE}>
                 {startDateLabel && endDateLabel
                   ? `${startDateLabel} – ${endDateLabel}`
                   : "—"}
               </div>
             </div>
-            <div>
-              <div className="text-xs opacity-70">Počet dní / horizon</div>
-              <div className="font-semibold">
+
+            <div className={PANEL_INNER_STACK}>
+              <div className={PANEL_SECTION_SUBTITLE}>Počet dní / horizon</div>
+              <div className={PANEL_SECTION_TITLE}>
                 {daysCount} dní (horizon {horizonDays} d)
               </div>
             </div>
-            <div>
-              <div className="text-xs opacity-70">Počet tréningov</div>
-              <div className="font-semibold">{sessionsCount}</div>
+
+            <div className={PANEL_INNER_STACK}>
+              <div className={PANEL_SECTION_SUBTITLE}>Počet tréningov</div>
+              <div className={PANEL_SECTION_TITLE}>{sessionsCount}</div>
             </div>
           </div>
-        )}
-
-        <div className="h-1.5 rounded-b-2xl bg-emerald-500/80" />
-      </section>
-
-      {!hasPlan && (
-        <section className={SURFACE_CARD}>
-          <div className="px-4 py-4 text-sm">
+        ) : (
+          <div className={PANEL_PREVIEW}>
             Zatiaľ nemáš žiadny aktívny AI daily plán uložený v DB. Vygeneruj ho
-            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu
-            zobrazí detailný prehľad jednotlivých tréningov.
+            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu zobrazí
+            detail.
           </div>
-        </section>
-      )}
+        )}
+      </Card>
 
-      {hasPlan && (
-        <section className={SURFACE_CARD}>
-          <header className="px-4 pt-4 pb-2">
-            <h3 className="text-base font-semibold tracking-tight">
-              Denný rozpis tréningov
-            </h3>
-            <p className="mt-1 text-xs text-slate-400">
-              Každá karta predstavuje jeden tréning z AI plánu – používa sa
-              rovnaká Session card ako v kalendári.
-            </p>
-          </header>
+      {hasPlan ? (
+        <Card
+          title="Denný rozpis tréningov"
+          subtitle="Každá karta predstavuje jeden tréning z AI plánu – rovnaká Session card ako v kalendári."
+          footerTone="muted"
+        >
+          <div className={PANEL_STACK}>
+            {days.flatMap((d) => {
+              if (!d.sessions || d.sessions.length === 0) return [];
 
-          <div className="px-4 pb-4 space-y-3">
-            {days.map((d) => {
               const dateIso = d.date ?? null;
-              const dateLabel = formatDate(d.date) ?? d.date;
+              const dateLabel = formatDate(d.date) ?? d.date ?? "";
               const wd = weekdayLabel(d.date) ?? "";
-
-              if (!d.sessions || d.sessions.length === 0) {
-                return null;
-              }
 
               return d.sessions.map((s, idx) => {
                 const kpis: KPI[] = [];
+
                 if (s.duration_min) {
-                  kpis.push({
-                    label: "DURATION",
-                    value: `${s.duration_min} min`,
-                  });
+                  kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
                 }
                 if (s.intensity) {
-                  kpis.push({
-                    label: "INTENSITY",
-                    value: String(s.intensity),
-                  });
+                  kpis.push({ label: "INTENSITY", value: String(s.intensity) });
                 }
                 if (s.zone_text) {
-                  kpis.push({
-                    label: "TARGET",
-                    value: String(s.zone_text),
-                  });
+                  kpis.push({ label: "TARGET", value: String(s.zone_text) });
                 }
 
                 const item: PlanSession = {
@@ -266,31 +279,26 @@ export default function DetailDailyPlan() {
                   title: s.title || s.session_type || s.sport || "Tréning",
                   dateIso,
                   sport: s.sport || "other",
-                  subtitle: `${dateLabel ?? ""}${
-                    wd ? ` · ${wd.toUpperCase()}` : ""
-                  }`,
+                  subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
                   kpis,
                   notes: s.notes ?? null,
+
                   planDur: s.duration_min ? `${s.duration_min} min` : null,
                   planIntensity: s.intensity ?? null,
                   planTarget: s.zone_text ?? null,
                   planNotes: s.notes ?? null,
+
                   planRaw: s,
                   planStructure: s.structure ?? null,
-                  planExercises:
-                    (s.structure?.strength_exercises as any[]) ?? [],
+                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
                 };
 
-                return (
-                  <SessionCard key={item.id} variant="calendar" item={item} />
-                );
+                return <SessionCard key={item.id} variant="calendar" item={item} />;
               });
             })}
           </div>
-
-          <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-        </section>
-      )}
+        </Card>
+      ) : null}
     </div>
   );
 }
