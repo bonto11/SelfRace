@@ -2,13 +2,24 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/tokens";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
+
+import InputsCard from "@/app/shared/components/ui/InputsCard";
 import SelectField from "@/app/shared/components/ui/SelectField";
 import TextField from "@/app/shared/components/ui/TextField";
 import Button from "@/app/shared/components/ui/Button";
 import { toast } from "@/app/shared/components/ui/Toast";
+
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
+import {
+  SECTION,
+  SECTION_STYLE,
+  FORM_GRID_TWO,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+  PANEL_STACK,
+  SURFACE_INLINE,
+} from "@/app/shared/ui/tokens";
 
 export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
 
@@ -29,7 +40,7 @@ const SPORT_OPTIONS: { value: string; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const ZONE_KEYS: Array<keyof any> = [
+const ZONE_KEYS: Array<string> = [
   "z1_min",
   "z1_max",
   "z2_min",
@@ -45,9 +56,10 @@ const ZONE_KEYS: Array<keyof any> = [
 function validateZones(z: any): string[] {
   if (!z) return ["Zones payload is empty"];
   const e: string[] = [];
-  for (const k of ZONE_KEYS)
-    if (z[k] == null || Number.isNaN(Number(z[k])))
-      e.push(`${String(k)} must be a number`);
+  for (const k of ZONE_KEYS) {
+    if (z[k] == null || Number.isNaN(Number(z[k]))) e.push(`${String(k)} must be a number`);
+  }
+
   const {
     z1_min,
     z1_max,
@@ -61,6 +73,7 @@ function validateZones(z: any): string[] {
     z5_max,
     hr_max,
   } = z as Record<string, number>;
+
   if (
     z1_min >= z1_max ||
     z2_min >= z2_max ||
@@ -70,16 +83,11 @@ function validateZones(z: any): string[] {
   ) {
     e.push("Each zone: min < max");
   }
-  if (
-    !(
-      z1_max < z2_min &&
-      z2_max <= z3_min &&
-      z3_max <= z4_min &&
-      z4_max <= z5_min
-    )
-  ) {
+
+  if (!(z1_max < z2_min && z2_max <= z3_min && z3_max <= z4_min && z4_max <= z5_min)) {
     e.push("Zones must be ordered");
   }
+
   if (hr_max && z5_max > hr_max) e.push(`Z5 max ≤ HRmax (${hr_max})`);
   return e;
 }
@@ -121,12 +129,7 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
   return out;
 }
 
-export default function ZonesSection({
-  zones,
-  lthrBpm,
-  onZonesChange,
-  onSaveZonesToDB,
-}: Props) {
+export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZonesToDB }: Props) {
   const [open, setOpen] = useState(false);
   const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
 
@@ -151,186 +154,159 @@ export default function ZonesSection({
   const zonesLocked = calcMode !== "manual";
 
   const fmtRange = (a: any, b: any) =>
-    Number.isFinite(Number(a)) && Number.isFinite(Number(b))
-      ? `${Number(a)}–${Number(b)} bpm`
-      : "—";
-  const previewZ2 = fmtRange(z.z2_min, z.z2_max);
-  const previewZ4 = fmtRange(z.z4_min, z.z4_max);
-  const previewHRM =
-    z.hr_max != null && Number.isFinite(Number(z.hr_max))
-      ? `${Number(z.hr_max)} bpm`
-      : "—";
+    Number.isFinite(Number(a)) && Number.isFinite(Number(b)) ? `${Number(a)}–${Number(b)} bpm` : "—";
 
-  // automatický prepočet pri zmene režimu/HRmax/LTHR
+  const previewNode = (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3">
+      <div>
+        <span className="opacity-70 mr-1">Aerobic (Z2):</span>
+        <span className="font-semibold">{fmtRange(z.z2_min, z.z2_max)}</span>
+      </div>
+      <div>
+        <span className="opacity-70 mr-1">Anaerobic (Z4):</span>
+        <span className="font-semibold">{fmtRange(z.z4_min, z.z4_max)}</span>
+      </div>
+      <div>
+        <span className="opacity-70 mr-1">HRmax:</span>
+        <span className="font-semibold">
+          {z.hr_max != null && Number.isFinite(Number(z.hr_max)) ? `${Number(z.hr_max)} bpm` : "—"}
+        </span>
+      </div>
+    </div>
+  );
+
+  // automatický prepočet pri zmene režimu/HRmax/LTHR/sport
   useEffect(() => {
     if (!zones) return;
-    onZonesChange(
-      recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm)
-    );
+    onZonesChange(recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calcMode, zones?.hr_max, lthrBpm, z.sport]);
 
   return (
-    <section className={SECTION}>
-      {/* HEADER */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Heart-rate zones</div>
+    <InputsCard
+      title={
         <div className="flex items-center gap-2">
+          <span>Heart-rate zones</span>
           <InfoPopover text="Zóny podľa HRmax alebo %LTHR. Šport sa ukladá k záznamu." />
-          <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
         </div>
-      </div>
+      }
+      subtitle="Výpočet zón (manual / HRmax / %LTHR) + uloženie do DB."
+      preview={previewNode}
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* sport + calc + HRmax + LTHR */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Sport</div>
+            <SelectField
+              label=""
+              value={z.sport}
+              onChange={(e) => onZonesChange({ ...(zones ?? {}), sport: e.target.value })}
+              options={SPORT_OPTIONS}
+              hint=""
+            />
+          </section>
 
-      {/* PREVIEW */}
-      {!open && (
-        <div
-          className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(
-            " "
-          )}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 text-center">
-            <div>
-              <span className="opacity-70 mr-1">Aerobic (Z2):</span>
-              <span className="font-semibold">{previewZ2}</span>
-            </div>
-            <div>
-              <span className="opacity-70 mr-1">Anaerobic (Z4):</span>
-              <span className="font-semibold">{previewZ4}</span>
-            </div>
-            <div>
-              <span className="opacity-70 mr-1">HRmax:</span>
-              <span className="font-semibold">{previewHRM}</span>
-            </div>
-          </div>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Zone calculation</div>
+            <SelectField
+              label=""
+              value={calcMode}
+              onChange={(e) => setCalcMode(e.target.value as ZoneCalcMode)}
+              options={[
+                { value: "manual", label: "Manual" },
+                { value: "hrmax", label: "From HRmax (%)" },
+                { value: "percent_lthr", label: "From % LTHR" },
+                { value: "default", label: "Internal default" },
+              ]}
+              hint={
+                calcMode === "percent_lthr" && !Number.isFinite(Number(lthrBpm))
+                  ? "Zadaj LT2 HR v Thresholds pre tento šport."
+                  : undefined
+              }
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>HRmax (bpm)</div>
+            <TextField
+              label=""
+              type="number"
+              value={z.hr_max ?? ""}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null;
+                const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };
+                onZonesChange(calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm));
+              }}
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>LTHR (bpm)</div>
+            <TextField
+              label=""
+              value={Number.isFinite(Number(lthrBpm)) ? String(lthrBpm) : ""}
+              disabled
+              hint="Zdroj: Thresholds (LT2 HR)"
+            />
+          </section>
         </div>
-      )}
 
-      {/* EDIT */}
-      {open && (
-        <div className="space-y-4">
-          {/* šport + výpočet + HRmax + LTHR */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <SelectField
-                label="Sport"
-                value={z.sport}
-                onChange={(e) =>
-                  onZonesChange({ ...(zones ?? {}), sport: e.target.value })
-                }
-                options={SPORT_OPTIONS}
-                hint=""
-              />
-            </div>
+        {/* zones */}
+        <div className={INPUTS_CARD_LABEL_SM_1}>Zones (bpm)</div>
 
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <SelectField
-                label="Zone calculation"
-                value={calcMode}
-                onChange={(e) => setCalcMode(e.target.value as ZoneCalcMode)}
-                options={[
-                  { value: "manual", label: "Manual" },
-                  { value: "hrmax", label: "From HRmax (%)" },
-                  { value: "percent_lthr", label: "From % LTHR" },
-                  { value: "default", label: "Internal default" },
-                ]}
-                hint={
-                  calcMode === "percent_lthr" &&
-                  !Number.isFinite(Number(lthrBpm))
-                    ? "Zadaj LT2 HR v Thresholds pre tento šport."
-                    : undefined
-                }
-              />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {(["z1", "z2", "z3", "z4", "z5"] as const).map((key) => {
+            const minKey = `${key}_min` as const;
+            const maxKey = `${key}_max` as const;
 
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField
-                label="HRmax (bpm)"
-                type="number"
-                value={z.hr_max ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value ? Number(e.target.value) : null;
-                  const next = {
-                    ...(zones ?? {}),
-                    sport: z.sport,
-                    hr_max: val,
-                  };
-                  onZonesChange(
-                    calcMode === "manual"
-                      ? next
-                      : recalc(calcMode, next, lthrBpm)
-                  );
-                }}
-              />
-            </div>
-
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField
-                label="LTHR (bpm)"
-                value={Number.isFinite(Number(lthrBpm)) ? String(lthrBpm) : ""}
-                disabled
-                hint="Zdroj: Thresholds (LT2 HR)"
-              />
-            </div>
-          </div>
-
-          {/* ručná editácia */}
-          <div className="text-xs opacity-70">Zones (bpm)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {(["z1", "z2", "z3", "z4", "z5"] as const).map((key) => {
-              const minKey = `${key}_min` as const,
-                maxKey = `${key}_max` as const;
-              return (
-                <div
-                  key={key}
-                  className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-                >
-                  <div className="text-xs opacity-70 uppercase mb-1">
-                    {key.toUpperCase()}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TextField
-                      type="number"
-                      disabled={zonesLocked}
-                      className="w-20 disabled:opacity-40"
-                      value={z[minKey] ?? ""}
-                      onChange={(e) =>
-                        onZonesChange({
-                          ...(zones ?? {}),
-                          sport: z.sport,
-                          [minKey]: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        })
-                      }
-                    />
-                    <span className="opacity-60">–</span>
-                    <TextField
-                      type="number"
-                      disabled={zonesLocked}
-                      className="w-20 disabled:opacity-40"
-                      value={z[maxKey] ?? ""}
-                      onChange={(e) =>
-                        onZonesChange({
-                          ...(zones ?? {}),
-                          sport: z.sport,
-                          [maxKey]: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        })
-                      }
-                    />
-                  </div>
+            return (
+              <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div className="text-xs opacity-70 uppercase mb-1">{key.toUpperCase()}</div>
+                <div className="flex items-center gap-2">
+                  <TextField
+                    label=""
+                    type="number"
+                    disabled={zonesLocked}
+                    className="w-20 disabled:opacity-40"
+                    value={(z as any)[minKey] ?? ""}
+                    onChange={(e) =>
+                      onZonesChange({
+                        ...(zones ?? {}),
+                        sport: z.sport,
+                        [minKey]: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  />
+                  <span className="opacity-60">–</span>
+                  <TextField
+                    label=""
+                    type="number"
+                    disabled={zonesLocked}
+                    className="w-20 disabled:opacity-40"
+                    value={(z as any)[maxKey] ?? ""}
+                    onChange={(e) =>
+                      onZonesChange({
+                        ...(zones ?? {}),
+                        sport: z.sport,
+                        [maxKey]: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  />
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
+        </div>
 
-          {onSaveZonesToDB && (
+        {onSaveZonesToDB ? (
+          <div className="pt-1">
             <Button
               type="button"
               size="sm"
               variant="success"
-              className="mt-1"
               onClick={async () => {
                 const payload = { ...(zones ?? {}), ...z };
                 const errs = validateZones(payload);
@@ -343,9 +319,9 @@ export default function ZonesSection({
             >
               Save zones to DB
             </Button>
-          )}
-        </div>
-      )}
-    </section>
+          </div>
+        ) : null}
+      </div>
+    </InputsCard>
   );
 }
