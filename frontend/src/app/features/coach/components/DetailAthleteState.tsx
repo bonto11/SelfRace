@@ -129,7 +129,7 @@ function Card({
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   topRight?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode; // ✅ optional
   footer?: boolean;
 }) {
   return (
@@ -146,7 +146,12 @@ function Card({
         </header>
       )}
 
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+      {/* ✅ render body len keď existuje */}
+      {children ? (
+        <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+          {children}
+        </div>
+      ) : null}
 
       {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
     </section>
