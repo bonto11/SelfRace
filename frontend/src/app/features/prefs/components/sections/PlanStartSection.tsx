@@ -1,8 +1,14 @@
+// src/features/coach/components/prefs/PlanStartSection.tsx
 "use client";
 
+import { useMemo, useState } from "react";
+
 import Button from "@/app/shared/components/ui/Button";
-import { SECTION } from "@/app/shared/ui/tokens";
+import InputsCard from "@/app/shared/components/ui/InputsCard";
 import { inputClass } from "@/app/shared/ui";
+import { appColors } from "@/app/shared/theme/app_colors";
+
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 function isoTodayPlus(days: number): string {
   const d = new Date();
@@ -60,13 +66,13 @@ type Props = {
 };
 
 export function PlanStartSection({ local, setLocal, markDirty }: Props) {
+  const [open, setOpen] = useState(true);
+
   const minStart = MIN_PLAN_START();
   const start = (local.start_date as string | undefined) ?? "";
   const end = (local.end_date as string | undefined) ?? "";
   const weeksVal =
-    local.weeks != null && !Number.isNaN(local.weeks)
-      ? String(local.weeks)
-      : "";
+    local.weeks != null && !Number.isNaN(local.weeks) ? String(local.weeks) : "";
 
   const applyStart = (nextStart: string) => {
     markDirty();
@@ -130,71 +136,83 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     });
   };
 
+  const previewText = useMemo(() => {
+    const s = start ? start : "—";
+    const e = end ? end : "—";
+    const w = weeksVal ? `${weeksVal}w` : "—";
+    return `${s} · ${e} · ${w}`;
+  }, [start, end, weeksVal]);
+
   return (
-    <section className={SECTION}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Plan duration</div>
-        <div className="text-xs opacity-70">Min start: {minStart}</div>
-      </div>
+    <InputsCard
+      title="Plan duration"
+      subtitle="Start, end a plánovací horizont (weeks)."
+      always={
+        <div className="flex items-center justify-between">
+          <div className="text-xs" style={{ color: appColors.textMuted }}>
+            Min start: {minStart}
+          </div>
+        </div>
+      }
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* START */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] opacity-70">Start date</label>
+            <input
+              type="date"
+              value={start}
+              min={minStart}
+              onChange={(e) => applyStart((e.target as HTMLInputElement).value)}
+              className={inputClass}
+            />
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-        {/* START */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] opacity-70">Start date</label>
-          <input
-            type="date"
-            value={start}
-            min={minStart}
-            onChange={(e) => applyStart((e.target as HTMLInputElement).value)}
-            className={inputClass}
-          />
+          {/* END */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] opacity-70">End date</label>
+            <input
+              type="date"
+              value={end}
+              min={start || minStart}
+              onChange={(e) => applyEnd((e.target as HTMLInputElement).value)}
+              className={inputClass}
+            />
+          </div>
+
+          {/* WEEKS */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] opacity-70">
+              Planning horizon (weeks)
+            </label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={weeksVal}
+              onChange={(e) => applyWeeks((e.target as HTMLInputElement).value)}
+              className={inputClass}
+              placeholder="e.g. 12"
+            />
+          </div>
         </div>
 
-        {/* END */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] opacity-70">End date</label>
-          <input
-            type="date"
-            value={end}
-            min={start || minStart}
-            onChange={(e) => applyEnd((e.target as HTMLInputElement).value)}
-            className={inputClass}
-          />
-        </div>
-
-        {/* WEEKS */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] opacity-70">
-            Planning horizon (weeks)
-          </label>
-          <input
-            type="number"
-            min={1}
-            step={1}
-            inputMode="numeric"
-            value={weeksVal}
-            onChange={(e) => applyWeeks((e.target as HTMLInputElement).value)}
-            className={inputClass}
-            placeholder="e.g. 12"
-          />
+        {/* shortcuts */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={() => applyStart(DEFAULT_PLAN_START())}>
+            Set default (D+2)
+          </Button>
+          <Button variant="secondary" onClick={() => applyStart(MIN_PLAN_START())}>
+            Start tomorrow
+          </Button>
         </div>
       </div>
-
-      {/* shortcut tlačidlá len pre start_date */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <Button
-          variant="secondary"
-          onClick={() => applyStart(DEFAULT_PLAN_START())}
-        >
-          Set default (D+2)
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => applyStart(MIN_PLAN_START())}
-        >
-          Start tomorrow
-        </Button>
-      </div>
-    </section>
+    </InputsCard>
   );
 }
