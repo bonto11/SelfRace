@@ -1,8 +1,7 @@
-// src/app/(protected)/activities/page.tsx (alebo kde to máš)
+// src/app/(protected)/activities/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
-
 import PageShell from "@/app/shared/components/ui/PageShell";
 
 import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
@@ -19,7 +18,7 @@ export default function ActivitiesPage() {
 
   return (
     <PageShell title="Aktivity" showBack={false}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
         <MonoStrainWidget onOpenDetail={openDetailMono} />
         <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
