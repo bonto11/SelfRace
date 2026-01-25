@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import SelectField from "@/app/shared/components/ui/SelectField";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/tokens";
+import InputsCard from "@/app/shared/components/ui/InputsCard";
+
+import { appColors } from "@/app/shared/theme/app_colors";
+import { PANEL_STACK, INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
 
 /* ─────────────────────── constants ─────────────────────── */
 
@@ -238,300 +240,284 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   /* ─────────────────────── render ─────────────────────── */
 
   return (
-    <section className={SECTION}>
-      {/* header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Goal</div>
-        <div className="flex items-center gap-2">
-          <div className="text-xs opacity-70 hidden sm:block">
-            Key races & overall training goal.
-          </div>
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen(!open)}
-            labelWhenOpen="Collapse Goal section"
-            labelWhenClosed="Expand Goal section"
-          />
-        </div>
-      </div>
-
-      {/* closed preview */}
-      {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-70 select-none",
-          ].join(" ")}
-        >
-          {previewText}
-        </div>
-      )}
-
-      {open && (
-        <div className="space-y-5">
-          {/* 1. KEY RACES */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-medium opacity-70">
-                1. Key races (A/B/C)
-              </div>
-              <Button size="xs" variant="success" onClick={addRace}>
-                Add race
-              </Button>
+    <InputsCard
+      title="Goal"
+      subtitle={
+        <span style={{ color: appColors.textMuted }}>
+          Key races & overall training goal.
+        </span>
+      }
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* 1. KEY RACES */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-medium opacity-70">
+              1. Key races (A/B/C)
             </div>
+            <Button size="xs" variant="success" onClick={addRace}>
+              Add race
+            </Button>
+          </div>
 
-            {races.length === 0 && (
-              <div className="text-xs opacity-60">
-                No races yet. Add at least one A-race if máš konkrétny cieľ.
-              </div>
-            )}
+          {races.length === 0 && (
+            <div className="text-xs opacity-60">
+              No races yet. Add at least one A-race if máš konkrétny cieľ.
+            </div>
+          )}
 
-            <div className="space-y-4">
-              {races.map((race, index) => {
-                const raceGoal = race.race_goal as
-                  | (typeof RACE_GOALS)[number]
-                  | null
-                  | undefined;
-                const showCustom = raceGoal === "other" || raceGoal === "ultra";
+          <div className="space-y-4">
+            {races.map((race, index) => {
+              const raceGoal = race.race_goal as
+                | (typeof RACE_GOALS)[number]
+                | null
+                | undefined;
+              const showCustom = raceGoal === "other" || raceGoal === "ultra";
 
-                const rt = race.race_type as
-                  | (typeof RACE_TYPES)[number]
-                  | null
-                  | undefined;
-                const terr = race.terrain as
-                  | (typeof TERRAIN)[number]
-                  | null
-                  | undefined;
-                const elev = race.elevation_profile as
-                  | (typeof ELEVATION)[number]
-                  | null
-                  | undefined;
+              const rt = race.race_type as
+                | (typeof RACE_TYPES)[number]
+                | null
+                | undefined;
+              const terr = race.terrain as
+                | (typeof TERRAIN)[number]
+                | null
+                | undefined;
+              const elev = race.elevation_profile as
+                | (typeof ELEVATION)[number]
+                | null
+                | undefined;
 
-                return (
-                  <div
-                    key={race.id ?? index}
-                    className="rounded-lg border border-white/10 px-3 py-3 space-y-3 bg-black/10"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <TextField
-                        containerClassName="flex-1"
-                        label={`Race ${index + 1} name (optional)`}
-                        placeholder="e.g. Bratislava 10k"
-                        value={race.name ?? ""}
-                        onChange={(e) =>
-                          updateRaceAt(index, {
-                            name: e.currentTarget.value || null,
-                          })
-                        }
-                      />
+              return (
+                <div
+                  key={race.id ?? index}
+                  className="rounded-xl border border-white/10 px-3 py-3 space-y-3 bg-black/10"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <TextField
+                      containerClassName="flex-1"
+                      label={`Race ${index + 1} name (optional)`}
+                      placeholder="e.g. Bratislava 10k"
+                      value={race.name ?? ""}
+                      onChange={(e) =>
+                        updateRaceAt(index, {
+                          name: e.currentTarget.value || null,
+                        })
+                      }
+                    />
 
-                      <Button
-                        size="xs"
-                        variant="danger"
-                        onClick={() => removeRace(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
+                    <Button
+                      size="xs"
+                      variant="danger"
+                      onClick={() => removeRace(index)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <TextField
+                      label="Race date"
+                      type="date"
+                      value={race.date ?? ""}
+                      onChange={(e) =>
+                        updateRaceAt(index, {
+                          date: e.currentTarget.value || null,
+                        })
+                      }
+                    />
+
+                    <SelectField
+                      label="Race priority"
+                      value={race.priority ?? ""}
+                      onChange={(e) =>
+                        updateRaceAt(index, {
+                          priority: e.currentTarget.value
+                            ? (e.currentTarget.value as "A" | "B" | "C")
+                            : null,
+                        })
+                      }
+                      options={[
+                        { value: "", label: "—" },
+                        ...PRIORITIES.map((p) => ({
+                          value: p,
+                          label: p,
+                        })),
+                      ]}
+                    />
+
+                    <TextField
+                      label="Target time (hh:mm:ss)"
+                      placeholder="e.g. 00:39:00"
+                      value={race.target_time ?? ""}
+                      onChange={(e) =>
+                        updateRaceAt(index, {
+                          target_time: e.currentTarget.value || null,
+                        })
+                      }
+                    />
+
+                    <TextField
+                      label="Elevation gain (m)"
+                      placeholder="e.g. 1200"
+                      value={
+                        race.elevation_gain_m != null
+                          ? String(race.elevation_gain_m)
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const v = e.currentTarget.value.trim();
+                        updateRaceAt(index, {
+                          elevation_gain_m: v ? Number(v) || null : null,
+                        });
+                      }}
+                      inputMode="decimal"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs opacity-70">Distance & terrain</div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                      <TextField
-                        label="Race date"
-                        type="date"
-                        value={race.date ?? ""}
-                        onChange={(e) =>
-                          updateRaceAt(index, {
-                            date: e.currentTarget.value || null,
-                          })
-                        }
-                      />
+                      {/* distance pills */}
+                      <div className="sm:col-span-2 space-y-1">
+                        <div className="text-xs opacity-70">
+                          Target race distance
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {RACE_GOALS.map((rg) => (
+                            <Button
+                              key={rg}
+                              size="xs"
+                              variant="prefs"
+                              active={raceGoal === rg}
+                              onClick={() => handleRaceGoalClick(index, rg)}
+                            >
+                              {RACE_GOAL_LABEL[rg]}
+                            </Button>
+                          ))}
+                        </div>
+
+                        {showCustom && (
+                          <div className="mt-2">
+                            <TextField
+                              label="Custom distance (km)"
+                              placeholder="e.g. 7, 25, 50"
+                              value={
+                                race.custom_distance_km != null
+                                  ? String(race.custom_distance_km)
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                const v = e.currentTarget.value.trim();
+                                updateRaceAt(index, {
+                                  custom_distance_km: v
+                                    ? Number(v) || null
+                                    : null,
+                                });
+                              }}
+                              inputMode="decimal"
+                            />
+                          </div>
+                        )}
+                      </div>
 
                       <SelectField
-                        label="Race priority"
-                        value={race.priority ?? ""}
+                        label="Race type"
+                        value={rt ?? ""}
                         onChange={(e) =>
                           updateRaceAt(index, {
-                            priority: e.currentTarget.value
-                              ? (e.currentTarget.value as "A" | "B" | "C")
-                              : null,
+                            race_type: e.currentTarget.value || null,
                           })
                         }
                         options={[
                           { value: "", label: "—" },
-                          ...PRIORITIES.map((p) => ({
-                            value: p,
-                            label: p,
+                          ...RACE_TYPES.map((t) => ({
+                            value: t,
+                            label: RACE_TYPE_LABEL[t],
                           })),
                         ]}
                       />
 
-                      <TextField
-                        label="Target time (hh:mm:ss)"
-                        placeholder="e.g. 00:39:00"
-                        value={race.target_time ?? ""}
-                        onChange={(e) =>
-                          updateRaceAt(index, {
-                            target_time: e.currentTarget.value || null,
-                          })
-                        }
-                      />
-
-                      <TextField
-                        label="Elevation gain (m)"
-                        placeholder="e.g. 1200"
-                        value={
-                          race.elevation_gain_m != null
-                            ? String(race.elevation_gain_m)
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const v = e.currentTarget.value.trim();
-                          updateRaceAt(index, {
-                            elevation_gain_m: v ? Number(v) || null : null,
-                          });
-                        }}
-                        inputMode="decimal"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="text-xs opacity-70">
-                        Distance & terrain
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        {/* distance pills */}
-                        <div className="sm:col-span-2 space-y-1">
-                          <div className="text-xs opacity-70">
-                            Target race distance
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {RACE_GOALS.map((rg) => (
-                              <Button
-                                key={rg}
-                                size="xs"
-                                variant="prefs"
-                                active={raceGoal === rg}
-                                onClick={() => handleRaceGoalClick(index, rg)}
-                              >
-                                {RACE_GOAL_LABEL[rg]}
-                              </Button>
-                            ))}
-                          </div>
-                          {showCustom && (
-                            <div className="mt-2">
-                              <TextField
-                                label="Custom distance (km)"
-                                placeholder="e.g. 7, 25, 50"
-                                value={
-                                  race.custom_distance_km != null
-                                    ? String(race.custom_distance_km)
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  const v = e.currentTarget.value.trim();
-                                  updateRaceAt(index, {
-                                    custom_distance_km: v
-                                      ? Number(v) || null
-                                      : null,
-                                  });
-                                }}
-                                inputMode="decimal"
-                              />
-                            </div>
-                          )}
-                        </div>
-
+                      <div className="space-y-2">
                         <SelectField
-                          label="Race type"
-                          value={rt ?? ""}
+                          label="Terrain"
+                          value={terr ?? ""}
                           onChange={(e) =>
                             updateRaceAt(index, {
-                              race_type: e.currentTarget.value || null,
+                              terrain: e.currentTarget.value || null,
                             })
                           }
                           options={[
                             { value: "", label: "—" },
-                            ...RACE_TYPES.map((t) => ({
+                            ...TERRAIN.map((t) => ({
                               value: t,
-                              label: RACE_TYPE_LABEL[t],
+                              label: TERRAIN_LABEL[t],
                             })),
                           ]}
                         />
 
-                        <div className="space-y-2">
-                          <SelectField
-                            label="Terrain"
-                            value={terr ?? ""}
-                            onChange={(e) =>
-                              updateRaceAt(index, {
-                                terrain: e.currentTarget.value || null,
-                              })
-                            }
-                            options={[
-                              { value: "", label: "—" },
-                              ...TERRAIN.map((t) => ({
-                                value: t,
-                                label: TERRAIN_LABEL[t],
-                              })),
-                            ]}
-                          />
-                          <SelectField
-                            label="Elevation profile"
-                            value={elev ?? ""}
-                            onChange={(e) =>
-                              updateRaceAt(index, {
-                                elevation_profile:
-                                  e.currentTarget.value || null,
-                              })
-                            }
-                            options={[
-                              { value: "", label: "—" },
-                              ...ELEVATION.map((t) => ({
-                                value: t,
-                                label: ELEVATION_LABEL[t],
-                              })),
-                            ]}
-                          />
-                        </div>
+                        <SelectField
+                          label="Elevation profile"
+                          value={elev ?? ""}
+                          onChange={(e) =>
+                            updateRaceAt(index, {
+                              elevation_profile: e.currentTarget.value || null,
+                            })
+                          }
+                          options={[
+                            { value: "", label: "—" },
+                            ...ELEVATION.map((t) => ({
+                              value: t,
+                              label: ELEVATION_LABEL[t],
+                            })),
+                          ]}
+                        />
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 2. OVERALL GOAL */}
-          <div className="space-y-3">
-            <div className="text-xs font-medium opacity-70">
-              2. Overall training goal
-            </div>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {OVERALL_GOALS.map((g) => (
-                <Button
-                  key={g}
-                  size="sm"
-                  variant="prefs"
-                  active={overallGoal === g}
-                  onClick={() =>
-                    setPref("goal_kind", overallGoal === g ? undefined : g)
-                  }
-                >
-                  {OVERALL_LABEL[g]}
-                </Button>
-              ))}
-              <Button
-                size="sm"
-                variant="prefs"
-                active={!overallGoal}
-                onClick={() => setPref("goal_kind", undefined)}
-              >
-                None
-              </Button>
-            </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
-    </section>
+
+        {/* 2. OVERALL GOAL */}
+        <div className="space-y-3 pt-2">
+          <div className="text-xs font-medium opacity-70">
+            2. Overall training goal
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {OVERALL_GOALS.map((g) => (
+              <Button
+                key={g}
+                size="sm"
+                variant="prefs"
+                active={overallGoal === g}
+                onClick={() =>
+                  setPref("goal_kind", overallGoal === g ? undefined : g)
+                }
+              >
+                {OVERALL_LABEL[g]}
+              </Button>
+            ))}
+
+            <Button
+              size="sm"
+              variant="prefs"
+              active={!overallGoal}
+              onClick={() => setPref("goal_kind", undefined)}
+            >
+              None
+            </Button>
+          </div>
+        </div>
+      </div>
+    </InputsCard>
   );
 }
