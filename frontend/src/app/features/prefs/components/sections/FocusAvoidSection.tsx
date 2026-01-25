@@ -3,9 +3,11 @@
 
 import { useState } from "react";
 import Button from "@/app/shared/components/ui/Button";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/ui/tokens";
+import InputsCard from "@/app/shared/components/ui/InputsCard";
+
+import { appColors } from "@/app/shared/theme/app_colors";
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 const FOCUS_CHOICES = [
   "ankle_strength",
@@ -37,42 +39,34 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
   const focusArr = (local.focus_areas as string[] | undefined) ?? [];
   const avoidArr = (local.avoid_zones as string[] | undefined) ?? [];
 
+  const preview = `Focus: ${focusArr.length || 0} · Avoid: ${avoidArr.length || 0}`;
+
   return (
-    <section className={SECTION}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Focus & avoid</div>
-        <div className="flex items-center gap-2">
+    <InputsCard
+      title="Focus & avoid"
+      subtitle={
+        <span style={{ color: appColors.textMuted }}>
+          Vyber oblasti na posilnenie a veci, ktorým sa má plán vyhýbať.
+        </span>
+      }
+      preview={preview}
+      open={open}
+      onOpenChange={setOpen}
+      always={
+        <div className="flex items-start justify-end">
           <InfoPopover text="Pick strength/mobility focus areas and elements to avoid; planner will adapt sessions." />
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((o) => !o)}
-            labelWhenOpen="Collapse Focus & Avoid"
-            labelWhenClosed="Expand Focus & Avoid"
-          />
         </div>
-      </div>
-
-      {/* Closed preview */}
-      {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-70 select-none",
-          ].join(" ")}
-        >
-          Focus: {focusArr.length || 0} · Avoid: {avoidArr.length || 0}
-        </div>
-      )}
-
-      {/* Body */}
-      {open && (
-        <>
-          {/* Focus */}
-          <div className="mb-1 flex items-center justify-between">
-            <div className="text-xs opacity-80">Focus areas</div>
+      }
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Focus */}
+        <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-xs font-medium opacity-80">Focus areas</div>
             <InfoPopover text="Areas to emphasize in plans (strength, mobility, stability)." />
           </div>
+
           <div className="flex flex-wrap gap-2">
             {FOCUS_CHOICES.map((k) => {
               const active = focusArr.includes(k);
@@ -91,12 +85,15 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
               );
             })}
           </div>
+        </div>
 
-          {/* Avoid */}
-          <div className="mt-3 mb-1 flex items-center justify-between">
-            <div className="text-xs opacity-80">Avoid</div>
+        {/* Avoid */}
+        <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-xs font-medium opacity-80">Avoid</div>
             <InfoPopover text="Elements to reduce/avoid (impact, downhills, hard surfaces, etc.)." />
           </div>
+
           <div className="flex flex-wrap gap-2">
             {AVOID_CHOICES.map((k) => {
               const active = avoidArr.includes(k);
@@ -115,8 +112,8 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
               );
             })}
           </div>
-        </>
-      )}
-    </section>
+        </div>
+      </div>
+    </InputsCard>
   );
 }
