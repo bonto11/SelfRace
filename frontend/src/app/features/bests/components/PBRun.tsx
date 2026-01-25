@@ -23,7 +23,9 @@ import { toast } from "@/app/shared/components/ui/Toast";
 import { confirm } from "@/app/shared/components/ui/Confirm";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
-import { inputClass } from "@/app/shared/ui";
+import SelectField from "@/app/shared/components/ui/SelectField";
+import DateField from "@/app/shared/components/ui/DateField";
+
 import { NO_X, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
@@ -36,6 +38,8 @@ import {
   PANEL_SECTION,
   PANEL_SECTION_LABEL,
   PANEL_SECTION_TEXT,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
   SWIPE_ROW,
   SWIPE_ACTIONS,
   SWIPE_CONTENT,
@@ -50,7 +54,6 @@ const EMPTY: PBRunFormState = {
 };
 
 const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
-const prettyDate = (s?: string) => (s ? s.replaceAll("-", ".") : "YYYY-MM-DD");
 
 export default function PBRun() {
   const { userId } = useUserId();
@@ -83,6 +86,13 @@ export default function PBRun() {
     const m = Number(form.distance_m);
     return Number.isFinite(m) && m > 0 && !!form.time_str.trim() && !saving;
   }, [form.distance_m, form.time_str, saving]);
+
+  const distanceSelectOptions = useMemo(() => {
+    return [
+      { value: "", label: "— choose distance —" },
+      ...distanceOptions("run").map((o) => ({ value: String(o.m), label: o.label })),
+    ];
+  }, []);
 
   const handleSave = async () => {
     if (!userId || !canSave) return;
@@ -142,21 +152,17 @@ export default function PBRun() {
       </div>
 
       {/* FORM */}
-      <div className={[SURFACE_INLINE, NO_X, PANEL_STACK].join(" ")}>
-        {/* grid nechávam ako minimum utility (nemáme na to zatiaľ token) */}
-        <div className={["grid gap-3 sm:grid-cols-12 items-start", NO_X].join(" ")}>
-          <select
-            className={[inputClass, "sm:col-span-3"].join(" ")}
-            value={form.distance_m}
-            onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
-          >
-            <option value="">— choose distance —</option>
-            {distanceOptions("run").map((o) => (
-              <option key={o.m} value={o.m}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+      <div className={[SURFACE_INLINE, PANEL_PAD, PANEL_INNER_STACK, NO_X].join(" ")}>
+        <div className="grid gap-3 sm:grid-cols-12 items-start">
+          <div className="sm:col-span-3">
+            <SelectField
+              value={form.distance_m}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, distance_m: (e.target as HTMLSelectElement).value }))
+              }
+              options={distanceSelectOptions as any}
+            />
+          </div>
 
           <TextField
             placeholder="hh:mm:ss"
@@ -171,17 +177,10 @@ export default function PBRun() {
             containerClassName="sm:col-span-3"
           />
 
-          {/* date picker – tu ostane 1x relative + absolute (nemáme na to token) */}
-          <div className="relative sm:col-span-2 w-full">
-            <div className={[inputClass, "text-center select-none truncate"].join(" ")}>
-              {prettyDate(form.achieved_at)}
-            </div>
-            <input
-              type="date"
-              className="absolute inset-0 opacity-0 w-full h-full"
-              value={form.achieved_at}
-              onChange={(e) => setForm((f) => ({ ...f, achieved_at: e.target.value }))}
-              aria-label="Pick date"
+          <div className="sm:col-span-2">
+            <DateField
+              value={form.achieved_at || null}
+              onChange={(v) => setForm((f) => ({ ...f, achieved_at: v || "" }))}
             />
           </div>
 
@@ -292,7 +291,7 @@ export default function PBRun() {
   );
 }
 
-/* --- SwipeRow (token-first) --- */
+/* --- SwipeRow unchanged --- */
 function SwipeRow({
   children,
   onEdit,
