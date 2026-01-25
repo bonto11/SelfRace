@@ -94,3 +94,18 @@ export const ACCORDION_FOOTER_BAR =
 
 export const ACCORDION_FOOTER_BAR_MUTED =
   "h-1.5 rounded-b-2xl bg-slate-700/60";
+
+export const POPOVER_BTN = [
+  "px-2",
+  "py-1",
+  "rounded-lg",
+  "border",
+  "text-xs",
+  "select-none",
+].join(" ");
+
+export const POPOVER_BODY = [
+  "p-3",
+  "text-xs",
+  "leading-snug",
+].join(" ");
