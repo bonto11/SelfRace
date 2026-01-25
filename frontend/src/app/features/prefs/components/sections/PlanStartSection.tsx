@@ -7,22 +7,16 @@ import InputsCard from "@/app/shared/components/ui/InputsCard";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
 import DateField from "@/app/shared/components/ui/DateField";
-
 import { toast } from "@/app/shared/components/ui/Toast";
-import { appColors } from "@/app/shared/theme/app_colors";
 
+import { appColors } from "@/app/shared/theme/app_colors";
 import {
   PANEL_STACK,
-  FORM_GRID_TWO,
-  FORM_GRID_SPLIT,
-  SECTION,
-  SECTION_STYLE,
   INPUTS_CARD_BODY,
   INPUTS_CARD_LABEL_SM_1,
-  INPUTS_CARD_DATE_ROW,
-  INPUTS_CARD_DATE_INNER,
-  INPUTS_CARD_DATE_PILL,
-  PILL_BUTTON,
+  SECTION,
+  SECTION_STYLE,
+  FORM_GRID_SPLIT,
 } from "@/app/shared/ui/tokens";
 
 /* ---------------- date helpers (noon to avoid TZ weirdness) ---------------- */
@@ -94,10 +88,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
       const base = { ...prev, start_date: nextStart || null };
 
       if (base.weeks && Number(base.weeks) > 0) {
-        return {
-          ...base,
-          end_date: addWeeksISO(nextStart, Number(base.weeks)),
-        };
+        return { ...base, end_date: addWeeksISO(nextStart, Number(base.weeks)) };
       }
 
       if (base.end_date) {
@@ -134,10 +125,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
       const base = { ...prev, weeks };
 
       if (base.start_date) {
-        return {
-          ...base,
-          end_date: addWeeksISO(base.start_date, weeks),
-        };
+        return { ...base, end_date: addWeeksISO(base.start_date, weeks) };
       }
 
       return base;
@@ -151,7 +139,6 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     return `${s} · ${e} · ${w}`;
   }, [start, end, weeksVal]);
 
-  // sanity guard when user picks invalid dates
   const guardStart = (iso: string | null) => {
     const next = iso || "";
     if (next && next < minStart) {
@@ -171,48 +158,37 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
       onOpenChange={setOpen}
       backdropVariant="default"
       always={
-        <div className="flex items-center justify-between">
-          <div className="text-xs" style={{ color: appColors.textMuted }}>
-            Min start: {minStart}
-          </div>
+        <div className="text-xs" style={{ color: appColors.textMuted }}>
+          Min start: {minStart}
         </div>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* DATE ROW (pill look, not wide white inputs) */}
-        <div className={INPUTS_CARD_DATE_ROW}>
-          <div className={INPUTS_CARD_DATE_INNER}>
-            <div className="flex flex-col gap-1">
-              <div
-                className={INPUTS_CARD_LABEL_SM_1}
-                style={{ color: appColors.textMuted }}
-              >
-                Start
-              </div>
-              <div className={[PILL_BUTTON, INPUTS_CARD_DATE_PILL].join(" ")}>
-                <DateField value={start || null} onChange={(v) => guardStart(v)} />
-              </div>
+        {/* Start / End */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Start
             </div>
+            <DateField value={start || null} onChange={guardStart} />
+          </section>
 
-            <div className="flex flex-col gap-1">
-              <div
-                className={INPUTS_CARD_LABEL_SM_1}
-                style={{ color: appColors.textMuted }}
-              >
-                End
-              </div>
-              <div className={[PILL_BUTTON, INPUTS_CARD_DATE_PILL].join(" ")}>
-                <DateField
-                  value={end || null}
-                  onChange={(v) => applyEnd(v || "")}
-                />
-              </div>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              End
             </div>
-          </div>
+            <DateField value={end || null} onChange={(v) => applyEnd(v || "")} />
+          </section>
         </div>
 
-        {/* WEEKS + shortcuts (aligned like other panels) */}
-        <div className={FORM_GRID_TWO}>
+        {/* Weeks + actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_1}
