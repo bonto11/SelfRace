@@ -1,10 +1,10 @@
+// src/app/(protected)/profile/page.tsx  (alebo kde to reálne máš)
 "use client";
 
 import { useRouter } from "next/navigation";
-import AppHeader from "@/app/shared/components/ui/AppHeader";
+import PageShell from "@/app/shared/components/ui/PageShell";
+
 import {
-  PAGE_CONTAINER,
-  PAGE_STACK,
   PAGE_WIDGET_GRID,
   PAGE_SECTION_STACK,
 } from "@/app/shared/ui/tokens/pageTokens";
@@ -19,24 +19,18 @@ export default function Page() {
   const router = useRouter();
 
   return (
-    <>
-      <AppHeader title="User profile" showBack={false} container />
-
-      <div className={PAGE_CONTAINER}>
-        <div className={PAGE_STACK}>
-          {/* Widgety */}
-          <div className={PAGE_WIDGET_GRID}>
-            <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
-            <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
-          </div>
-
-          {/* Inputs panely */}
-          <div className={PAGE_SECTION_STACK}>
-            <ProfileStaticInputs />
-            <ProfileMetricInputs />
-          </div>
-        </div>
+    <PageShell title="User profile" showBack={false}>
+      {/* Widgety */}
+      <div className={PAGE_WIDGET_GRID}>
+        <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
+        <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
       </div>
-    </>
+
+      {/* Inputs panely */}
+      <div className={PAGE_SECTION_STACK}>
+        <ProfileStaticInputs />
+        <ProfileMetricInputs />
+      </div>
+    </PageShell>
   );
 }
