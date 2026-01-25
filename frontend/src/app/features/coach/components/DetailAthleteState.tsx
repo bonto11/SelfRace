@@ -1,4 +1,3 @@
-// src/features/coach/components/DetailAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,6 +8,20 @@ import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
+
+import {
+  PANEL_STACK,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_SECTION_HEAD,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+  PANEL_GRID_3,
+  PANEL_PREVIEW,
+  PANEL_STATUS_COL,
+  PANEL_STATUS_PILL,
+  ACCORDION_FOOTER_BAR_MUTED,
+} from "@/app/shared/ui/tokens";
 
 /* ---------- helper typy ---------- */
 
@@ -61,6 +74,8 @@ function formatLevelLabel(level?: string | null): string {
   return l;
 }
 
+// NOTE: colors are still hardcoded here; layout is token-first.
+// When you add tokens for status variants, swap them in here only.
 function pillClass(
   level?: string | null,
   kind: "fatigue" | "injury" = "fatigue"
@@ -100,6 +115,94 @@ function formatMinutesRange(min?: number | null, max?: number | null): string {
     return `${Math.round(min / 60)}–${Math.round(max / 60)} h / týždeň`;
   if (max) return `do ${Math.round(max / 60)} h / týždeň`;
   return `${Math.round((min || 0) / 60)} h / týždeň`;
+}
+
+/* ---------- tiny building blocks ---------- */
+
+function Card({
+  title,
+  subtitle,
+  topRight,
+  children,
+  footer = true,
+}: {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  topRight?: React.ReactNode;
+  children: React.ReactNode;
+  footer?: boolean;
+}) {
+  return (
+    <section className={SURFACE_CARD}>
+      {(title || subtitle || topRight) && (
+        <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
+          <div className="min-w-0">
+            {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
+            {subtitle ? (
+              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
+            ) : null}
+          </div>
+          {topRight ? <div className={PANEL_STATUS_COL}>{topRight}</div> : null}
+        </header>
+      )}
+
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+
+      {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
+    </section>
+  );
+}
+
+function Subcard({
+  title,
+  value,
+  children,
+}: {
+  title: string;
+  value?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={SURFACE_SUBCARD}>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
+        {value != null ? <div className={PANEL_SECTION_TITLE}>{value}</div> : null}
+        {children ? <div className={PANEL_INNER_STACK}>{children}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function Bar({
+  value01, // 0..1
+  labelLeft,
+  labelRight,
+  fillClassName,
+}: {
+  value01: number;
+  labelLeft?: React.ReactNode;
+  labelRight?: React.ReactNode;
+  fillClassName: string;
+}) {
+  const pct = Math.max(0, Math.min(1, value01)) * 100;
+
+  return (
+    <div className={PANEL_INNER_STACK}>
+      {(labelLeft || labelRight) && (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="min-w-0 truncate">{labelLeft}</div>
+          <div className="shrink-0">{labelRight}</div>
+        </div>
+      )}
+
+      <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
+        <div
+          className={["h-full rounded-full", fillClassName].join(" ")}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 /* ---------- hlavný komponent ---------- */
@@ -180,380 +283,239 @@ export default function DetailAthleteState() {
   const acute = aiState.metrics?.acute_load_score ?? null;
   const chronic = aiState.metrics?.chronic_load_score ?? null;
 
-  /* ---------- UI ---------- */
+  /* ---------- states ---------- */
 
   if (!userId) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm">
-          Chýba userId (useUserId). Skontroluj prihlásenie používateľa.
-        </div>
-      </div>
+      <Card title="Athlete state" subtitle="Chýba userId (useUserId).">
+        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
+      </Card>
     );
   }
 
   if (loading) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-8 grid place-items-center">
+      <section className={SURFACE_CARD}>
+        <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
           <LoadingSpinner size="widget" />
         </div>
-      </div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm text-red-300">
-          Nepodarilo sa načítať AI analýzu atleta.
-          <div className="mt-1 text-xs opacity-75">{error}</div>
-        </div>
-      </div>
+      <Card title="Athlete state" subtitle="Nepodarilo sa načítať AI analýzu.">
+        <div className={PANEL_PREVIEW}>{error}</div>
+      </Card>
     );
   }
 
   if (!row || !row.state) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm">
-          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť{" "}
-          <strong>Analyze Athlete state</strong> vo widgete{" "}
-          <strong>Coach — Plan</strong> a po uložení sa tu zobrazí detailný
-          prehľad tvojho stavu.
+      <Card
+        title="Athlete state"
+        subtitle="Zatiaľ nemáš uloženú AI analýzu."
+      >
+        <div className={PANEL_PREVIEW}>
+          Spusť <strong>Analyze Athlete state</strong> vo widgete{" "}
+          <strong>Coach — Plan</strong> a po uložení sa tu zobrazí detail.
         </div>
-      </div>
+      </Card>
     );
   }
 
+  /* ---------- UI ---------- */
+
+  const statusPills = (
+    <>
+      <div className={[PANEL_STATUS_PILL, pillClass(aiState.fatigue_level, "fatigue")].join(" ")}>
+        Fatigue: {formatLevelLabel(aiState.fatigue_level)}
+      </div>
+
+      <div className={[PANEL_STATUS_PILL, pillClass(aiState.injury_risk, "injury")].join(" ")}>
+        Injury: {formatLevelLabel(aiState.injury_risk)}
+      </div>
+
+      {aiState.suggested_block_kind ? (
+        <div
+          className={[
+            PANEL_STATUS_PILL,
+            "bg-sky-900/60 text-sky-100 border border-sky-500/70",
+          ].join(" ")}
+        >
+          Blok: {aiState.suggested_block_kind}
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
-    <div className="space-y-4 pb-6">
-      {/* HLAVNÝ PREHĽAD */}
-      <section className={SURFACE_CARD}>
-        <div className="px-4 pt-4 pb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              Stav atleta – detailná AI analýza
-            </h2>
-            {generatedAt && (
-              <p className="text-xs text-slate-400 mt-1">
-                Posledná AI analýza: {generatedAt}
-              </p>
-            )}
-            {userSummary.headline && (
-              <p className="mt-2 text-sm text-slate-100">
-                {userSummary.headline}
-              </p>
-            )}
-          </div>
+    <div className={PANEL_STACK}>
+      <Card
+        title="Stav atleta – detailná AI analýza"
+        subtitle={
+          [
+            generatedAt ? `Posledná AI analýza: ${generatedAt}` : null,
+            userSummary.headline ? userSummary.headline : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        }
+        topRight={statusPills}
+        footer
+      />
 
-          <div className="flex flex-wrap gap-2 mt-2 md:mt-0">
-            <div
-              className={[
-                "px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide",
-                pillClass(aiState.fatigue_level, "fatigue"),
-              ].join(" ")}
-            >
-              Fatigue: {formatLevelLabel(aiState.fatigue_level)}
-            </div>
-            <div
-              className={[
-                "px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide",
-                pillClass(aiState.injury_risk, "injury"),
-              ].join(" ")}
-            >
-              Injury risk: {formatLevelLabel(aiState.injury_risk)}
-            </div>
-            {aiState.suggested_block_kind && (
-              <div className="px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide bg-sky-900/60 text-sky-100 border border-sky-500/70">
-                Blok: {aiState.suggested_block_kind}
-              </div>
-            )}
-          </div>
+      <Card
+        title="Fitness úroveň (1–10)"
+        subtitle="Jednoduchá stupnica: 5 = priemer, 8+ = veľmi dobrá úroveň."
+        footer
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          <Subcard title="Beh" value={runLevel ? `${runLevel}/10` : "—"}>
+            <Bar
+              value01={runLevel / 10}
+              fillClassName="bg-emerald-500"
+              labelLeft={aiState.fitness_level?.run?.comment ?? null}
+            />
+          </Subcard>
+
+          <Subcard title="Sila" value={strengthLevel ? `${strengthLevel}/10` : "—"}>
+            <Bar
+              value01={strengthLevel / 10}
+              fillClassName="bg-violet-500"
+              labelLeft={aiState.fitness_level?.strength?.comment ?? null}
+            />
+          </Subcard>
+        </div>
+      </Card>
+
+      <Card
+        title="Koľko tréningu zvládneš"
+        subtitle="Bezpečné rozpätie objemu a odporúčaný počet ťažkých tréningov."
+        footer
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          <Subcard title="Týždenný objem" value={volumeRangeLabel}>
+            <Bar value01={0.7} fillClassName="bg-sky-500" labelLeft={aiState.volume_tolerance?.note ?? null} />
+          </Subcard>
+
+          <Subcard
+            title="Ťažké tréningy / týždeň"
+            value={
+              aiState.intensity_tolerance?.hard_sessions_per_week_max != null
+                ? `1–${aiState.intensity_tolerance.hard_sessions_per_week_max}`
+                : "—"
+            }
+          >
+            <Bar
+              value01={0.5}
+              fillClassName="bg-amber-500"
+              labelLeft={aiState.intensity_tolerance?.comment ?? null}
+            />
+          </Subcard>
         </div>
 
-        {/* spodná lišta */}
-        <div className="h-1.5 rounded-b-2xl bg-emerald-500/80" />
-      </section>
-
-      {/* FITNESS LEVEL – MINI GRAFY */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Fitness úroveň (1–10)
-          </h3>
-          <p className="mt-1 text-xs text-slate-400">
-            Jednoduchá stupnica 1–10: 5 = priemer, 8+ = veľmi dobrá úroveň.
-          </p>
-        </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2">
-          {/* RUN */}
+        {(acute != null || chronic != null) ? (
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium">Beh</span>
-                <span className="text-sm font-semibold">
-                  {runLevel ? `${runLevel}/10` : "—"}
-                </span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-emerald-500"
-                  style={{ width: `${(runLevel / 10) * 100}%` }}
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Tréningová záťaž</div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <Bar
+                  value01={Math.min(1, ((chronic ?? 0) / 400))}
+                  fillClassName="bg-emerald-500"
+                  labelLeft="Chronic load"
+                  labelRight={chronic != null ? chronic : "—"}
+                />
+                <Bar
+                  value01={Math.min(1, ((acute ?? 0) / 400))}
+                  fillClassName="bg-rose-500"
+                  labelLeft="Acute load"
+                  labelRight={acute != null ? acute : "—"}
                 />
               </div>
-              {aiState.fitness_level?.run?.comment && (
-                <p className="mt-2 text-xs text-slate-300">
-                  {aiState.fitness_level.run.comment}
-                </p>
-              )}
+
+              <div className={PANEL_PREVIEW}>
+                Chronic = dlhodobejší priemer záťaže, Acute = posledné obdobie.
+                Ak je A výrazne nad C, rastie riziko únavy a zranení.
+              </div>
             </div>
           </div>
+        ) : null}
+      </Card>
 
-          {/* STRENGTH */}
+      <Card title="Silné stránky a limitácie" footer>
+        <div className="grid gap-3 md:grid-cols-2">
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium">Sila</span>
-                <span className="text-sm font-semibold">
-                  {strengthLevel ? `${strengthLevel}/10` : "—"}
-                </span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-violet-500"
-                  style={{ width: `${(strengthLevel / 10) * 100}%` }} // ← opravená zátvorka
-                />
-              </div>
-              {aiState.fitness_level?.strength?.comment && (
-                <p className="mt-2 text-xs text-slate-300">
-                  {aiState.fitness_level.strength.comment}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* spodná lišta */}
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
-
-      {/* TOLERANCIA OBJEMU A INTENZITY */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Koľko tréningu zvládneš
-          </h3>
-          <p className="mt-1 text-xs text-slate-400">
-            Bezpečné rozpätie tréningového objemu a odporúčaný počet ťažkých
-            tréningov.
-          </p>
-        </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2">
-          {/* OBJEM */}
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Týždenný objem</span>
-                <span className="text-sm font-semibold">
-                  {volumeRangeLabel}
-                </span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-sky-500"
-                  style={{ width: "70%" }}
-                />
-              </div>
-              {aiState.volume_tolerance?.note && (
-                <p className="text-xs text-slate-300">
-                  {aiState.volume_tolerance.note}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* INTENZITA */}
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">
-                  Ťažké tréningy / týždeň
-                </span>
-                <span className="text-sm font-semibold">
-                  {aiState.intensity_tolerance?.hard_sessions_per_week_max !=
-                  null
-                    ? `1–${aiState.intensity_tolerance.hard_sessions_per_week_max}`
-                    : "—"}
-                </span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500"
-                  style={{ width: "50%" }}
-                />
-              </div>
-              {aiState.intensity_tolerance?.comment && (
-                <p className="text-xs text-slate-300">
-                  {aiState.intensity_tolerance.comment}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ACUTE vs CHRONIC load mini graf */}
-        {(acute != null || chronic != null) && (
-          <div className="px-4 pb-4">
-            <div className={SURFACE_SUBCARD}>
-              <div className="px-3 pt-3 pb-3">
-                <h4 className="text-sm font-medium mb-2">
-                  Tréningová záťaž (posledné obdobie)
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-slate-300">Chronic load</span>
-                      <span className="font-semibold">
-                        {chronic != null ? chronic : "—"}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-emerald-500"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            ((chronic ?? 0) / 400) * 100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-slate-300">Acute load</span>
-                      <span className="font-semibold">
-                        {acute != null ? acute : "—"}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-rose-500"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            ((acute ?? 0) / 400) * 100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-2 text-[11px] text-slate-400">
-                  Chronic = dlhodobejší priemer záťaže, Acute = posledné
-                  obdobie. Ak je A výrazne nad C, rastie riziko únavy a zranení.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
-
-      {/* SILNÉ STRÁNKY & LIMITÁCIE */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Silné stránky a limitácie
-          </h3>
-        </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2">
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">Silné stránky</h4>
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Silné stránky</div>
               {aiState.key_strengths?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-emerald-100">
+                <ul className="list-disc list-inside text-sm space-y-1">
                   {aiState.key_strengths.map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">Zatiaľ bez záznamu.</p>
+                <div className={PANEL_PREVIEW}>Zatiaľ bez záznamu.</div>
               )}
             </div>
           </div>
+
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">Limitácie / riziká</h4>
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Limitácie / riziká</div>
               {aiState.key_limitations?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-amber-100">
+                <ul className="list-disc list-inside text-sm space-y-1">
                   {aiState.key_limitations.map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">Zatiaľ bez záznamu.</p>
+                <div className={PANEL_PREVIEW}>Zatiaľ bez záznamu.</div>
               )}
             </div>
           </div>
         </div>
+      </Card>
 
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
-
-      {/* RISKS + SUGGESTIONS z user_summary */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Odporúčania pre tréning
-          </h3>
-        </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2">
+      <Card title="Odporúčania pre tréning" footer>
+        <div className="grid gap-3 md:grid-cols-2">
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">Hlavné riziká</h4>
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Hlavné riziká</div>
               {userSummary.risks?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-amber-100">
+                <ul className="list-disc list-inside text-sm space-y-1">
                   {userSummary.risks.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">
+                <div className={PANEL_PREVIEW}>
                   AI pri poslednej analýze nezvýraznila konkrétne riziká.
-                </p>
+                </div>
               )}
             </div>
           </div>
 
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">
-                Rýchle tipy na ďalšie týždne
-              </h4>
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Rýchle tipy na ďalšie týždne</div>
               {userSummary.suggestions_short?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1 text-emerald-100">
+                <ul className="list-disc list-inside text-sm space-y-1">
                   {userSummary.suggestions_short.map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">
+                <div className={PANEL_PREVIEW}>
                   Po ďalšej analýze sa tu zobrazia konkrétne odporúčania.
-                </p>
+                </div>
               )}
             </div>
           </div>
         </div>
-
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
+      </Card>
     </div>
   );
 }
