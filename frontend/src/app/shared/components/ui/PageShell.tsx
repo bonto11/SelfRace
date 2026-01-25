@@ -8,18 +8,16 @@ import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
 type Props = {
   title: string;
   showBack?: boolean;
-  /** AppHeader container prop */
   headerContainer?: boolean;
 
-  /** optional short intro under header (if you use PAGE_INTRO tokens elsewhere) */
-  intro?: React.ReactNode;
+  /** default: stack = PAGE_STACK wrapper */
+  variant?: "stack" | "raw";
 
-  /** outer container className */
-  className?: string;
-
-  /** content wrapper behavior */
-  contentVariant?: "stack" | "none";
+  /** applied on inner wrapper (stack/raw) */
   contentClassName?: string;
+
+  /** applied on PAGE_CONTAINER */
+  className?: string;
 
   children: React.ReactNode;
 };
@@ -28,9 +26,8 @@ export default function PageShell({
   title,
   showBack = false,
   headerContainer = true,
-  intro,
+  variant = "stack",
   className,
-  contentVariant = "stack",
   contentClassName,
   children,
 }: Props) {
@@ -39,9 +36,7 @@ export default function PageShell({
       <AppHeader title={title} showBack={showBack} container={headerContainer} />
 
       <div className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}>
-        {intro ? <div className="mt-3">{intro}</div> : null}
-
-        {contentVariant === "stack" ? (
+        {variant === "stack" ? (
           <div className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}>
             {children}
           </div>
