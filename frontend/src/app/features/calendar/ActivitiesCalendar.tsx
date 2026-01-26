@@ -6,8 +6,6 @@ import * as React from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-
-import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import Button from "@/app/shared/ui/components/Button";
@@ -44,14 +42,14 @@ import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 /* ---------- look: consistent sport colors (theme tokens only) ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
-  run: THEME.chart.run,
-  ride: THEME.chart.ride,
-  swim: THEME.chart.swim,
-  strength: THEME.chart.strength,
-  mixed: THEME.chart.mixed,
-  skate: THEME.chart.skate,
-  walk: THEME.chart.walk,
-  other: THEME.chart.other,
+  run: appColors.chartRun,
+  ride: appColors.chartBike,
+  swim: appColors.chartSwim,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed, 
+  skate: appColors.chartSkate,
+  walk: appColors.chartWalk,
+  other: appColors.chartOther,
 };
 
 function safeSportKey(v: any): string {
@@ -200,9 +198,9 @@ export default function ActivitiesCalendar({
   }, [actRows]);
 
   // vizuálne: tiny symbol farby konzistentné (nech nie je vždy run)
-  const colPlan = THEME.chart.run;
-  const colExternal = THEME.chart.other;
-  const colActivity = THEME.chart.run;
+  const colPlan = appColors.chartRun;
+  const colExternal = appColors.chartOther;
+  const colActivity = appColors.chartRun;
 
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
