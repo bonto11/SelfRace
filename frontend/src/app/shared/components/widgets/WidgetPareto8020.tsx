@@ -2,12 +2,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { THEME } from "@/app/shared/theme/tokens";
 import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,

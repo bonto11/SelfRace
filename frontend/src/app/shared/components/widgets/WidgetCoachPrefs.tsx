@@ -1,9 +1,9 @@
 // src/features/widgets/WidgetCoachPrefs.tsx
 "use client";
 
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import SportBadge from "@/app/shared/components/components/SportBadge";
+import SportBadge from "@/app/shared/ui/components/SportBadge";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {

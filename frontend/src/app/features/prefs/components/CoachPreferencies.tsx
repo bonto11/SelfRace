@@ -18,7 +18,7 @@ import {
 } from "@/app/features/prefs/utils/prefs";
 
 import Button from "@/app/shared/ui/components/Button";
-import { NO_X, PILL_BUTTON } from "@/app/shared/ui/tokens";
+import { NO_X } from "@/app/shared/ui/tokens";
 
 import {
   apiFetchUserZonesLatest,
@@ -626,7 +626,6 @@ export default function CoachPreferencies() {
         <button
           type="button"
           onClick={() => setShowAdv((s) => !s)}
-          className={PILL_BUTTON}
           aria-expanded={showAdv}
         >
           {showAdv ? "Hide advanced preferences" : "Show advanced preferences"}

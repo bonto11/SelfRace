@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
 import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";

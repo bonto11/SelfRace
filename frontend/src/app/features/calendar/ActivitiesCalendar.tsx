@@ -10,7 +10,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-import Button from "@/app/shared/components/components/Button";
+import Button from "@/app/shared/ui/components/Button";
 
 import {
   CALENDAR_CONTAINER,

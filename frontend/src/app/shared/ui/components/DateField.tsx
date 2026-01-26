@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
 import { cx } from "@/app/shared/ui";
-import { FIELD_BASE_READONLY } from "@/app/shared/ui/tokens";
+import { FIELD_READONLY_BASE } from "@/app/shared/ui/tokens";
 
 type Props = {
   value?: string | null;
@@ -34,7 +33,7 @@ export default function DateField({
     : "—";
 
   return (
-    <div className={cx(FIELD_BASE_READONLY, "relative w-full", className)}>
+    <div className={cx(FIELD_READONLY_BASE, "relative w-full", className)}>
       <span className={cx("block truncate", !value && "text-white/50")}>
         {display}
       </span>

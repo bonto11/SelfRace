@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  FIELD_INLINE,
+  FIELD_INLINE_EDITABLE,
   FIELD_LABEL,
   FIELD_SELECT,
-  FIELD_OPTION,
+  FIELD_OPTION_EDITABLE,
 } from "@/app/shared/ui/tokens";
 
 type Props = {
@@ -38,14 +38,14 @@ export default function TimeField24({ label, value, onChange }: Props) {
     <label className="flex flex-col gap-1">
       <span className={FIELD_LABEL}>{label}</span>
 
-      <div className={[FIELD_INLINE, "flex items-center gap-2"].join(" ")}>
+      <div className={[FIELD_INLINE_EDITABLE, "flex items-center gap-2"].join(" ")}>
         <select
           value={h}
           onChange={(e) => onChange(`${e.target.value}:${m}`)}
           className={FIELD_SELECT}
         >
           {HOURS.map((hh) => (
-            <option key={hh} value={hh} className={FIELD_OPTION}>
+            <option key={hh} value={hh} className={FIELD_OPTION_EDITABLE}>
               {hh}
             </option>
           ))}
@@ -59,7 +59,7 @@ export default function TimeField24({ label, value, onChange }: Props) {
           className={FIELD_SELECT}
         >
           {MINUTES.map((mm) => (
-            <option key={mm} value={mm} className={FIELD_OPTION}>
+            <option key={mm} value={mm} className={FIELD_OPTION_EDITABLE}>
               {mm}
             </option>
           ))}

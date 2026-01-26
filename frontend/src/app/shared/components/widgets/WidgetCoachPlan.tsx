@@ -4,10 +4,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
-import Pill from "@/app/shared/components/components/Pill";
-import Button from "@/app/shared/components/components/Button";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import Pill from "@/app/shared/ui/components/Pill";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
@@ -42,7 +42,7 @@ import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_dai
 
 import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
-import { confirm } from "@/app/shared/components/components/Confirm";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 
 /* ---------- helpers ---------- */
 

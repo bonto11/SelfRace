@@ -1,7 +1,7 @@
 // src/app/coach/ai/daily/page.tsx
 "use client";
 
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 import DetailDailyPlan from "@/app/features/coach/components/DetailDailyPlan";
 
 export default function Page() {

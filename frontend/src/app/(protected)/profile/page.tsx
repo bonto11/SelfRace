@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
 import {
   PAGE_WIDGET_GRID,

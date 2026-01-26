@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { JSX } from "react";
 
 import { CHART_HR, FLUSH_DETAIL_PB, SCROLL_X } from "@/app/shared/ui/tokens";
 import DisclosureToggle from "@/app/shared/ui/components/DisclosureToggle";

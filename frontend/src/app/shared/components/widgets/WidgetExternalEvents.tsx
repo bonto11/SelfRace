@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
-import Pill from "@/app/shared/components/components/Pill";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import Pill from "@/app/shared/ui/components/Pill";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";

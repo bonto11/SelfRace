@@ -3,8 +3,8 @@
 
 import { useMemo } from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { THEME } from "@/app/shared/theme/tokens";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/theme/app_colors";

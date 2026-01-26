@@ -2,9 +2,9 @@
 "use client";
 
 import * as React from "react";
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
-import Pill from "@/app/shared/components/components/Pill";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Pill from "@/app/shared/ui/components/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";

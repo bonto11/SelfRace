@@ -2,7 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
 const RHRDetailClient = dynamic(
   () => import("@/app/features/recovery/components/TrendRHR"),

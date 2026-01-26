@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import React from "react";
-import CardBackdrop from "@/app/shared/components/components/CardBackdrop";
+import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
 import {
   WIDGET_CARD,
   WIDGET_CARD_INTERACTIVE,

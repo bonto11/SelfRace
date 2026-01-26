@@ -4,7 +4,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 

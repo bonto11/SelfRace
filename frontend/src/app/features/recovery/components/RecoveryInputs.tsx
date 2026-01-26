@@ -18,8 +18,6 @@ import {
   FORM_GRID_SPLIT,
   PANEL_STACK,
   SECTION_STYLE,
-  PILL_BUTTON,
-  TEXTAREA_BASE,
 
   // inputsCard tokens
   INPUTS_CARD_DATE_ROW,
@@ -28,7 +26,6 @@ import {
   INPUTS_CARD_BODY,
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_LABEL_SM_2,
-  INPUTS_CARD_CHECK_ROW,
   INPUTS_CARD_CHECK_ROW_MB,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
@@ -119,7 +116,7 @@ export default function RecoveryInputs() {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               disabled={saving}
-              className={[PILL_BUTTON, INPUTS_CARD_DATE_PILL].join(" ")}
+              className={[INPUTS_CARD_DATE_PILL].join(" ")}
             />
 
             <Button
@@ -278,7 +275,6 @@ export default function RecoveryInputs() {
               onChange={(e) => setComments(e.target.value)}
               placeholder="Poznámka k dňu (jet lag, svadba, preťaženie...)"
               disabled={saving}
-              className={TEXTAREA_BASE}
             />
           </section>
         </div>

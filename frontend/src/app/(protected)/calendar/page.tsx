@@ -1,7 +1,7 @@
 // src/app/(protected)/calendar/page.tsx
 "use client";
 
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 import ActivitiesCalendar from "@/app/features/calendar/ActivitiesCalendar";
 
 export default function CalendarPage() {

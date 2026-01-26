@@ -1,7 +1,7 @@
 //shared/components/ui/SportBadge
 "use client";
 
-import Pill from "@/app/shared/components/components/Pill";
+import Pill from "@/app/shared/ui/components/Pill";
 import { THEME } from "@/app/shared/theme/tokens";
 
 export const SPORT_COLORS: Record<string, string> = {

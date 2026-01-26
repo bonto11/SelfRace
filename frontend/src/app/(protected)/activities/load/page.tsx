@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
 import TrendWeeklyLoad from "@/app/features/activities/components/TrendWeeklyLoad";
 import ActivityTable from "@/app/features/activities/components/ActivityTable";

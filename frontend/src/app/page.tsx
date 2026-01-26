@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import AppBackdrop from "@/app/shared/components/components/AppBackdrop";
+import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function LandingPage() {

@@ -11,8 +11,8 @@ import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
 import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
 
 import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
-import ToastHost from "@/app/shared/components/components/Toast";
-import ConfirmHost from "@/app/shared/components/components/Confirm";
+import ToastHost from "@/app/shared/ui/components/Toast";
+import ConfirmHost from "@/app/shared/ui/components/Confirm";
 
 import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -20,7 +20,7 @@ import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/Reco
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
-import AppBackdrop from "@/app/shared/components/components/AppBackdrop";
+import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 
 export default function ClientProtectedShell({
   children,

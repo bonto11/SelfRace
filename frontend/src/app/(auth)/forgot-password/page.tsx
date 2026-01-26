@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
-import Button from "@/app/shared/components/components/Button";
-import TextField from "@/app/shared/components/components/TextField";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
 
 import {
   AUTH_PAGE,

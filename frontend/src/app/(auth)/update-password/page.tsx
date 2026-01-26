@@ -7,7 +7,7 @@ import {
   AUTH_LOADING_CARD,
   AUTH_LOADING_CARD_STYLE,
   AUTH_LOADING_TEXT,
-} from "@/app/shared/ui/tokens/auth";
+} from "@/app/shared/ui/tokens";
 
 export const dynamic = "force-dynamic";
 

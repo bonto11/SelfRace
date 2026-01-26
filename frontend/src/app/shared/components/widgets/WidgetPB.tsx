@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
 import { apiGetBests } from "@/app/features/bests/api/bests";
 
@@ -11,7 +11,7 @@ import { type UserBest } from "@/app/features/bests/types/bests";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/app/shared/utils/time";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 

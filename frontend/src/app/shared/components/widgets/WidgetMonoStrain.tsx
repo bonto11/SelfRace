@@ -2,8 +2,8 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/components/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
 

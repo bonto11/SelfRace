@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import PageShell from "@/app/shared/components/components/PageShell";
+import PageShell from "@/app/shared/ui/components/PageShell";
 import { PAGE_WIDGET_GRID } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
@@ -13,7 +13,7 @@ import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 
-import Button from "@/app/shared/components/components/Button";
+import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
 
 function RefreshIconBtn() {
