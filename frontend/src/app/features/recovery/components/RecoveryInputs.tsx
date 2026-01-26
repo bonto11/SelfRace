@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
+import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/CheckBox";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
@@ -111,12 +112,13 @@ export default function RecoveryInputs() {
               −1
             </Button>
 
-            <input
-              type="date"
+            {/* ✅ clickable full pill + centered text */}
+            <DateField
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(v) => setDate(v ?? todayIso)}
               disabled={saving}
-              className={[INPUTS_CARD_DATE_PILL].join(" ")}
+              className={INPUTS_CARD_DATE_PILL}
+              variant="editable"
             />
 
             <Button
@@ -275,6 +277,7 @@ export default function RecoveryInputs() {
               onChange={(e) => setComments(e.target.value)}
               placeholder="Poznámka k dňu (jet lag, svadba, preťaženie...)"
               disabled={saving}
+              className="w-full"
             />
           </section>
         </div>

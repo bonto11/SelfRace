@@ -30,7 +30,14 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
-import { inputClass } from "@/app/shared/ui";
+import SelectField from "@/app/shared/ui/components/SelectField";
+
+const WEEK_OPTIONS = [
+  { value: "2", label: "2 týždne" },
+  { value: "4", label: "4 týždne" },
+  { value: "8", label: "8 týždňov" },
+  { value: "12", label: "12 týždňov" },
+];
 
 ensureChartJSRegistered();
 
@@ -288,16 +295,13 @@ export default function DetailSleepStart() {
           </div>
         </div>
 
-        <select
-          value={weeks}
+        <SelectField
+          value={String(weeks)}
           onChange={(e) => setWeeks(Number(e.target.value))}
-          className={`${inputClass} h-8 text-xs w-[132px]`}
-        >
-          <option value={2}>2 týždne</option>
-          <option value={4}>4 týždne</option>
-          <option value={8}>8 týždňov</option>
-          <option value={12}>12 týždňov</option>
-        </select>
+          options={WEEK_OPTIONS}
+          variant="readonly"
+          containerClassName="w-[152px]"
+        />
       </div>
 
       <div className={CARD_BODY_INSET}>

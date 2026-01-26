@@ -99,6 +99,25 @@ export const natur = {
   chartGrid: "rgba(18, 48, 37, 0.55)",
   chartAxis: "rgba(178, 199, 190, 0.70)",
 
+  stateExcellent : '#00E676', // neon green (jasne TOP)
+  stateSuperior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)
+  stateGood      : '#14B8A6', // teal (prechod k modrej)
+  stateFair      : '#60A5FA', // sky-400 (naša bežná modrá)
+  statePoor      : '#EF4444', // red (jasné varovanie)
+  stateNeutral   : '#64748B', // sivá
+
+  stateAthletes  : '#00E676', // TOP = rovnaké ako excellent
+  stateFitness   : '#16A34A', // 2. zelené
+  stateAverage   : '#22C55E', // emerald-500 (stále “ok”, ale nie teal)
+  stateEssential : '#EF4444', // červená
+  stateObese     : '#EF4444', // červená
+
+  stateBad       : '#EF4444', // červená
+  stateDanger    : '#60A5FA', // “↓ OK” – modrá (match s bike)
+  statePositive  : '#00E676', // “↑ OK” – zhodné s excellent/athletes
+  stateWarning   : '#F59E0B', // pozor – jantár (match so strength)
+  stateCool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
+
   // --- Tooltip / toast / panels ---
   panelBg: "rgba(9, 24, 18, 0.92)",
   panelBorder: "#123025",

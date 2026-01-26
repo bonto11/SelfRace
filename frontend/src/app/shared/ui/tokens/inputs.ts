@@ -410,3 +410,5 @@ export const INPUTS_CARD_CHECK_ROW_MB = "flex items-center gap-2 mb-2 text-sm";
 export const INPUTS_CARD_TOGGLE = "";
 
 export const DATE_TEXT_INPUT = "";
+
+export const DATEFIELD_DISPLAY = "h-full flex items-center";

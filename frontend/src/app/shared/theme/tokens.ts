@@ -11,20 +11,6 @@ export const THEME = {
 
   chart: {
     // série
-    run:      '#22C55E',
-    ride:     '#38BDF8',
-    bike:     '#38BDF8',
-    swim:     '#60A5FA',
-    strength: '#F59E0B',
-    mixed:    '#A78BFA',
-    skate:    '#F472B6',
-    hike:     '#34D399',
-    walk:     '#9CA3AF',
-    other:    '#94A3B8',
-
-    monotony: '#84CC16',
-    strain:   '#FDE047',
-
     easy80:   '#00E676',
     hard20:   '#FF5252',
     track:    '#FFFFFF14', // rgba(255,255,255,0.08)

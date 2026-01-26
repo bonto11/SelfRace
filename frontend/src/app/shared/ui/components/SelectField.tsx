@@ -1,4 +1,3 @@
-// src/app/shared/components/ui/SelectField.tsx
 "use client";
 
 import * as React from "react";
@@ -73,7 +72,6 @@ export default function SelectField({
 
   const editable = variant === "editable";
   const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
-
   const effectiveDisabled = disabled || !editable;
 
   const selected = options.find((o) => o.value === value) ?? null;
@@ -92,15 +90,29 @@ export default function SelectField({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
+  function close() {
+    setOpen(false);
+    setPos(null);
+  }
+
   React.useEffect(() => {
     function onDocClick(e: MouseEvent) {
       const t = e.target as Node;
       if (wrapRef.current?.contains(t)) return;
       if (menuRef.current?.contains(t)) return;
-      setOpen(false);
+      close();
     }
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   function emit(next: string) {
@@ -192,7 +204,7 @@ export default function SelectField({
                       type="button"
                       className={cx(SELECT_OPT, active && SELECT_OPT_ACTIVE)}
                       onClick={() => {
-                        setOpen(false);
+                        close();
                         emit(o.value);
                       }}
                     >

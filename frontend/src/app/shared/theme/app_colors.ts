@@ -132,6 +132,26 @@ export const appColors = {
   chartWalk: natur.chartLine7,
   chartOther: natur.chartLine8,
 
+  //State
+  stateExcellent: natur.stateExcellent,
+  stateSuperior: natur.stateSuperior,
+  stateGood: natur.stateGood,
+  stateFair: natur.stateFair,
+  statePoor: natur.statePoor,
+  stateNeutral: natur.stateNeutral,
+
+  stateAthletes: natur.stateAthletes,
+  stateFitness: natur.stateFitness,
+  stateAverage: natur.stateAverage,
+  stateEssential: natur.stateEssential,
+  stateObese: natur.stateObese,
+
+  stateBad: natur.stateBad,
+  stateDanger: natur.stateDanger,
+  statePositive: natur.statePositive,
+  stateWarning: natur.stateWarning,
+  stateCool: natur.stateCool,
+
   // Panels
   panelBg: natur.panelBg,
   panelBorder: natur.panelBorder,
