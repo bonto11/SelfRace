@@ -51,9 +51,14 @@ export const appColors = {
   statusInfo: natur.natur_statusInfo,
 
   // Buttons
+  //buttonPrimaryBg: natur.natur_greenPrimary,
+  //buttonPrimaryBgHover: natur.natur_greenSoft,
+  //buttonPrimaryText: natur.natur_textInverse,
+
+  // Buttons (primary = “save” vibe)
   buttonPrimaryBg: natur.natur_greenPrimary,
   buttonPrimaryBgHover: natur.natur_greenSoft,
-  buttonPrimaryText: natur.natur_textInverse,
+  buttonPrimaryText: natur.natur_buttonPrimaryText,
 
   buttonSecondaryBg: natur.natur_surfaceGlass,
   buttonSecondaryBgHover: natur.natur_surfaceGlassHover,
@@ -78,12 +83,20 @@ export const appColors = {
   pillActiveText: natur.natur_textPrimary,
 
   // Inputs
+  //inputBg: natur.natur_inputBg,
+  //inputBgHover: natur.natur_inputBgHover,
+  //inputBorder: natur.natur_inputBorder,
+  //inputBorderFocus: natur.natur_inputBorderFocus,
+  //inputText: natur.natur_textPrimary,
+  //inputPlaceholder: natur.natur_textMuted,
+
+  // Inputs
   inputBg: natur.natur_inputBg,
   inputBgHover: natur.natur_inputBgHover,
   inputBorder: natur.natur_inputBorder,
   inputBorderFocus: natur.natur_inputBorderFocus,
-  inputText: natur.natur_textPrimary,
-  inputPlaceholder: natur.natur_textMuted,
+  inputText: natur.natur_inputText,
+  inputPlaceholder: natur.natur_inputPlaceholder,
 
   // Slider
   sliderTrack: natur.natur_sliderTrack,

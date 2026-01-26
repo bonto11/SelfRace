@@ -36,7 +36,8 @@ export const FIELD_BASE = [
   `border-[${appColors.inputBorder}]`,
   `bg-[${appColors.inputBg}]`,
   `text-[${appColors.inputText}]`,
-  "placeholder:opacity-60",
+  `placeholder:text-[${appColors.inputPlaceholder}]`,
+  "placeholder:opacity-70",
   "outline-none",
   "ring-0",
   `focus:border-[${appColors.inputBorderFocus}]`,
@@ -44,7 +45,10 @@ export const FIELD_BASE = [
   `focus:ring-[${appColors.focusRing}]`,
   "disabled:opacity-60",
   "disabled:cursor-not-allowed",
-  "[color-scheme:dark]",
+  `hover:bg-[${appColors.inputBgHover}]`,
+
+  // toto je dôležité pre date input a celkový feel:
+  "[color-scheme:light]",
 ].join(" ");
 
 export const FIELD_ERROR = [
@@ -159,3 +163,41 @@ export const MUTED_TEXT = ["text-xs", `text-[${appColors.textMuted}]`].join(" ")
 export const inputClass = FIELD_BASE;
 export const labelClass = FIELD_LABEL;
 export const hintClass = FIELD_HINT;
+
+/* ===== Checkbox ======================================================= */
+export const CHECKBOX_ROW = [
+  "flex items-start gap-2 select-none",
+].join(" ");
+
+export const CHECKBOX_BOX = [
+  "relative mt-0.5 h-5 w-5 shrink-0",
+  "appearance-none rounded-md border outline-none",
+  `border-[${appColors.inputBorder}]`,
+  `bg-[${appColors.inputBg}]`,
+  `focus:ring-2 focus:ring-[${appColors.focusRing}]`,
+  "focus:ring-offset-0",
+  "disabled:opacity-60 disabled:cursor-not-allowed",
+
+  // hover (len keď nie je disabled)
+  `enabled:hover:bg-[${appColors.inputBgHover}]`,
+
+  // checked state
+  `checked:border-[${appColors.inputBorderFocus}]`,
+  `checked:bg-[${appColors.inputBg}]`,
+
+  // check mark
+  "checked:after:content-[''] checked:after:absolute checked:after:left-1.5 checked:after:top-[5px]",
+  "checked:after:h-[8px] checked:after:w-[5px] checked:after:rotate-45",
+  "checked:after:border-r-2 checked:after:border-b-2",
+  `checked:after:border-[${appColors.inputText}]`,
+].join(" ");
+
+export const CHECKBOX_LABEL = [
+  "min-w-0",
+  "text-sm",
+].join(" ");
+
+export const CHECKBOX_HINT = [
+  "block text-[11px] mt-0.5",
+  `text-[${appColors.textMuted}]`,
+].join(" ");

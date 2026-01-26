@@ -28,20 +28,11 @@ import BillingStatusCard from "./BillingStatusCard";
 import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { appColors } from "@/app/shared/theme/app_colors";
+import InputsCard from "@/app/shared/components/ui/InputsCard";
+
 import {
-  SECTION,
-  SURFACE_INLINE,
-  PANEL,
-  PANEL_PAD,
-  PANEL_SECTION_HEAD,
-  PANEL_SECTION_TITLE,
-  PANEL_SECTION_SUBTITLE,
-  PANEL_PREVIEW,
+  INPUTS_CARD_BODY,
   PANEL_STACK,
-  PANEL_CARD_TITLE,
-  SECTION_STYLE,
 } from "@/app/shared/ui/tokens";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
@@ -54,14 +45,18 @@ type PlannedChange = {
 
 export default function BillingPanel() {
   const { userId } = useUserId();
+
   const [status, setStatus] = useState<AppSubscriptionStatus | null>(null);
   const [history, setHistory] = useState<AppUserSubscription[]>([]);
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
+
   const [activeTierCode, setActiveTierCode] = useState<string>(
     () => getSubscriptionTier() || "free"
   );
-  const [open, setOpen] = useState(true);
+
+  // InputsCard default: closed
+  const [open, setOpen] = useState(false);
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
   const tiers: AppSubscriptionTier[] = status?.tiers ?? [];
@@ -69,8 +64,15 @@ export default function BillingPanel() {
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
 
+  // --- load status ---
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setStatus(null);
+      setError(null);
+      setLoading(null);
+      return;
+    }
+
     let alive = true;
 
     (async () => {
@@ -79,11 +81,15 @@ export default function BillingPanel() {
       try {
         const st = await apiGetAppSubscriptionStatus(userId);
         if (!alive) return;
+
         if (st) {
           const code = st.tier_code || "free";
           setStatus(st);
           setActiveTierCode(code);
           setSubscriptionTier(code);
+        } else {
+          // fallback
+          setStatus(null);
         }
       } catch (e: any) {
         if (!alive) return;
@@ -99,11 +105,17 @@ export default function BillingPanel() {
     };
   }, [userId]);
 
+  // --- load history ---
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setHistory([]);
+      return;
+    }
+
     let alive = true;
 
     (async () => {
+      // nech neprepisuje "status" loading ak beží
       setLoading((prev) => prev || "history");
       try {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
@@ -181,7 +193,10 @@ export default function BillingPanel() {
   }
 
   const previewText = useMemo(() => {
-    if (!userId) return "Musíš byť prihlásený, aby si videl predplatné.";
+    if (!userId) return "Neprihlásený.";
+
+    // keď je zatvorené, toto je dosť podstatné aby to neklamalo
+    if (loading === "status" && !status) return "Načítavam stav predplatného…";
 
     const tier = status?.tier_code || activeTierCode || "free";
     const parts: string[] = [`Program: ${tier.toUpperCase()}`];
@@ -225,145 +240,66 @@ export default function BillingPanel() {
     }
 
     return parts.join(" • ");
-  }, [userId, status, activeTierCode, plannedChange]);
+  }, [userId, loading, status, activeTierCode, plannedChange]);
 
-  if (!userId) {
-    return (
-      <section className={SECTION}>
-        <div className={PANEL_SECTION_HEAD}>
-          <div>
-            <div
-              className={PANEL_SECTION_TITLE}
-              style={{ color: appColors.textPrimary }}
-            >
-              Predplatné
-            </div>
-            <div
-              className={PANEL_SECTION_SUBTITLE}
-              style={{ color: appColors.textMuted }}
-            >
-              Programy, AI limity a história.
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={[SURFACE_INLINE, PANEL_PREVIEW].join(" ")}
-          style={{
-            background: appColors.surfaceCard,
-            borderColor: appColors.surfaceCardBorder,
-            color: appColors.textMuted,
-          }}
-        >
-          Musíš byť prihlásený, aby si videl nastavenia účtu.
-        </div>
-      </section>
-    );
-  }
+  const disabledNoUser = !userId;
 
   return (
-    <section className={SECTION} style={SECTION_STYLE}>
-      <div className={PANEL_SECTION_HEAD}>
-        <div>
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
-            Predplatné
+    <InputsCard
+      title="Predplatné"
+      subtitle="Programy, AI limity a história."
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+      actions={null}
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {disabledNoUser ? (
+          <div className="text-sm opacity-80">
+            Musíš byť prihlásený, aby si videl nastavenia účtu.
           </div>
-          <div
-            className={PANEL_SECTION_SUBTITLE}
-            style={{ color: appColors.textMuted }}
-          >
-            Programy, AI limity a história.
-          </div>
-        </div>
-
-        <DisclosureToggle
-          open={open}
-          onToggle={() => setOpen((v) => !v)}
-          labelWhenOpen="Zbaliť predplatné"
-          labelWhenClosed="Rozbaliť predplatné"
-        />
-      </div>
-
-      {!open && (
-        <div
-          className={[SURFACE_INLINE, PANEL_PREVIEW, "mt-2"].join(" ")}
-          style={{
-            background: appColors.surfaceCard,
-            borderColor: appColors.surfaceCardBorder,
-            color: appColors.textMuted,
-          }}
-        >
-          {previewText}
-        </div>
-      )}
-
-      {open && (
-        <div className={["mt-3", PANEL_STACK].join(" ")}>
-          <BillingStatusCard
-            status={status}
-            activeTierCode={activeTierCode}
-            plannedChange={plannedChange}
-            loadingStatus={isStatusLoading}
-            loadingAny={isAnyActionLoading}
-            error={error}
-            onCancelPlannedChange={handleCancelPlannedChange}
-          />
-
-          <section
-            className={[PANEL, PANEL_PAD].join(" ")}
-            style={{
-              background: appColors.surfaceCard,
-              borderColor: appColors.surfaceCardBorder,
-              color: appColors.textPrimary,
-            }}
-          >
-            <div>
-              <h2
-                className={PANEL_CARD_TITLE}
-                style={{ color: appColors.textPrimary }}
-              >
-                Programy
-              </h2>
-              <p
-                className={PANEL_SECTION_SUBTITLE}
-                style={{ color: appColors.textMuted }}
-              >
-                DEV režim: zvýšenie hneď, zníženie alebo prechod na free od
-                ďalšieho obdobia.
-              </p>
-            </div>
-
-            <BillingTierSelector
-              tiers={tiers}
+        ) : (
+          <>
+            <BillingStatusCard
+              status={status}
               activeTierCode={activeTierCode}
               plannedChange={plannedChange}
-              isBusy={isAnyActionLoading}
-              onSetTier={handleSetTier}
+              loadingStatus={isStatusLoading}
+              loadingAny={isAnyActionLoading}
+              error={error}
+              onCancelPlannedChange={handleCancelPlannedChange}
             />
-          </section>
 
-          <section
-            className={[PANEL, PANEL_PAD].join(" ")}
-            style={{
-              background: appColors.surfaceCard,
-              borderColor: appColors.surfaceCardBorder,
-              color: appColors.textPrimary,
-            }}
-          >
-            <h2
-              className={PANEL_CARD_TITLE}
-              style={{ color: appColors.textPrimary }}
-            >
-              História
-            </h2>
+            <div className={PANEL_STACK}>
+              <section>
+                <div className="text-sm font-semibold">Programy</div>
+                <div className="mt-1 text-xs opacity-75">
+                  DEV režim: zvýšenie hneď, zníženie alebo prechod na free od
+                  ďalšieho obdobia.
+                </div>
 
-            <BillingHistory history={history} />
-          </section>
-        </div>
-      )}
-    </section>
+                <div className="mt-2">
+                  <BillingTierSelector
+                    tiers={tiers}
+                    activeTierCode={activeTierCode}
+                    plannedChange={plannedChange}
+                    isBusy={isAnyActionLoading}
+                    onSetTier={handleSetTier}
+                  />
+                </div>
+              </section>
+
+              <section>
+                <div className="text-sm font-semibold">História</div>
+                <div className="mt-2">
+                  <BillingHistory history={history} />
+                </div>
+              </section>
+            </div>
+          </>
+        )}
+      </div>
+    </InputsCard>
   );
 }

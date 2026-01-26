@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import InputsCard from "@/app/shared/components/ui/InputsCard";
 import Button from "@/app/shared/components/ui/Button";
 import TextField from "@/app/shared/components/ui/TextField";
+import Checkbox  from "@/app/shared/components/ui/CheckBox";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/components/ui/Toast";
@@ -210,25 +211,21 @@ export default function RecoveryInputs() {
               Večerné faktory
             </div>
 
-            <label className={INPUTS_CARD_CHECK_ROW_MB}>
-              <input
-                type="checkbox"
-                checked={lateFood}
-                onChange={(e) => setLateFood(e.target.checked)}
-                disabled={saving}
-              />
-              <span>Jedlo ≤ 2 h pred spaním</span>
-            </label>
+            <Checkbox
+              containerClassName={INPUTS_CARD_CHECK_ROW_MB}
+              checked={lateFood}
+              onChange={(e) => setLateFood(e.currentTarget.checked)}
+              disabled={saving}
+              label="Jedlo ≤ 2 h pred spaním"
+            />
 
-            <label className={INPUTS_CARD_CHECK_ROW}>
-              <input
-                type="checkbox"
-                checked={lateCaffeine}
-                onChange={(e) => setLateCaffeine(e.target.checked)}
-                disabled={saving}
-              />
-              <span>Kofeín ≤ 8 h pred spaním</span>
-            </label>
+            <Checkbox
+              containerClassName={INPUTS_CARD_CHECK_ROW_MB}
+              checked={lateCaffeine}
+              onChange={(e) => setLateCaffeine(e.currentTarget.checked)}
+              disabled={saving}
+              label="Kofeín ≤ 8 h pred spaním"
+            />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
