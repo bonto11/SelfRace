@@ -1,15 +1,18 @@
-// src/app/shared/components/ui/TextField.tsx
+// TextField.tsx
 "use client";
-
 import * as React from "react";
 import { cx } from "@/app/shared/ui";
 import {
-  FIELD_BASE, // readonly alias (legacy)
   FIELD_EDITABLE_BASE,
+  FIELD_READONLY_BASE,
+  FIELD_EDITABLE_STYLE,
+  FIELD_READONLY_STYLE,
+  FIELD_ERROR,
+  FIELD_ERROR_STYLE,
   FIELD_LABEL,
   FIELD_HINT,
-  FIELD_ERROR,
   FIELD_ERROR_TEXT,
+  FORM_TEXT_VARS,
 } from "@/app/shared/ui/tokens";
 
 type Props = React.InputHTMLAttributes<HTMLInputElement> & {
@@ -27,17 +30,30 @@ export default function TextField({
   containerClassName,
   className,
   variant = "editable",
+  disabled,
   ...rest
 }: Props) {
-  const base = variant === "editable" ? FIELD_EDITABLE_BASE : FIELD_BASE;
+  const editable = variant === "editable";
+  const effectiveDisabled = disabled || !editable;
 
-  // readonly variant = UX readonly (still focusable if needed) — necháme na callerovi
-  // Ak chceš tvrdý readonly, daj `readOnly` v props.
+  const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
+
+  // vars = (variant vars) + (error vars) + (text vars)
+  const style = {
+    ...(editable ? FIELD_EDITABLE_STYLE : FIELD_READONLY_STYLE),
+    ...(error ? FIELD_ERROR_STYLE : null),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
+
   return (
-    <div className={cx("space-y-1", containerClassName)}>
+    <div className={cx("space-y-1", containerClassName)} style={style}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
-      <input {...rest} className={cx(base, error && FIELD_ERROR, className)} />
+      <input
+        {...rest}
+        disabled={effectiveDisabled}
+        className={cx(baseClass, error && FIELD_ERROR, className)}
+      />
 
       {error ? (
         <div className={FIELD_ERROR_TEXT}>{error}</div>

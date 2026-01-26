@@ -3,16 +3,17 @@
 
 import Pill from "@/app/shared/ui/components/Pill";
 import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 export const SPORT_COLORS: Record<string, string> = {
-  run: THEME.chart.run,
-  ride: THEME.chart.ride,
-  swim: THEME.chart.swim,
-  strength: THEME.chart.strength,
-  mixed: THEME.chart.mixed,
-  skate: THEME.chart.skate,
-  walk: THEME.chart.walk,
-  other: THEME.chart.other,
+  run: appColors.chartRun,
+  ride: appColors.chartBike,
+  swim: appColors.chartSwim,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed,
+  skate: appColors.chartSkate,
+  walk: appColors.chartWalk,
+  other: appColors.chartOther,
 };
 
 const SPORT_LABELS: Record<string, string> = {

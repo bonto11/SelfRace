@@ -116,8 +116,21 @@ export const appColors = {
   chartLine2: natur.chartLine2,
   chartLine3: natur.chartLine3,
   chartLine4: natur.chartLine4,
+  chartLine5: natur.chartLine5,
+  chartLine6: natur.chartLine6,
+  chartLine7: natur.chartLine7,
+  chartLine8: natur.chartLine8,
   chartGrid: natur.chartGrid,
   chartAxis: natur.chartAxis,
+
+  chartRun: natur.chartLine1,
+  chartStrength: natur.chartLine2,
+  chartBike: natur.chartLine3,
+  chartSwim: natur.chartLine4,
+  chartMixed: natur.chartLine5,
+  chartSkate: natur.chartLine6,
+  chartWalk: natur.chartLine7,
+  chartOther: natur.chartLine8,
 
   // Panels
   panelBg: natur.panelBg,

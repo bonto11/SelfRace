@@ -1,7 +1,6 @@
 // src/app/shared/components/ui/DisclosureToggle.tsx
 "use client";
 
-import * as React from "react";
 import Button from "@/app/shared/ui/components/Button";
 import { cx } from "@/app/shared/ui";
 import {

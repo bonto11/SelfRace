@@ -7,8 +7,11 @@ import {
   CHECKBOX_ROW,
   CHECKBOX_BOX_READONLY,
   CHECKBOX_BOX_EDITABLE,
+  CHECKBOX_BOX_READONLY_STYLE,
+  CHECKBOX_BOX_EDITABLE_STYLE,
   CHECKBOX_LABEL,
   CHECKBOX_HINT,
+  FORM_TEXT_VARS,
 } from "@/app/shared/ui/tokens";
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
@@ -35,14 +38,21 @@ export default function Checkbox({
   const autoId = React.useId();
   const inputId = id ?? autoId;
 
-  const boxClass =
-    variant === "editable" ? CHECKBOX_BOX_EDITABLE : CHECKBOX_BOX_READONLY;
+  const editable = variant === "editable";
+  const boxClass = editable ? CHECKBOX_BOX_EDITABLE : CHECKBOX_BOX_READONLY;
+  const boxStyle = {
+    ...(editable ? CHECKBOX_BOX_EDITABLE_STYLE : CHECKBOX_BOX_READONLY_STYLE),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
 
-  // readonly = non-interactive by default
-  const effectiveDisabled = disabled || variant === "readonly";
+  const effectiveDisabled = disabled || !editable;
 
   return (
-    <label className={cx(CHECKBOX_ROW, containerClassName)} htmlFor={inputId}>
+    <label
+      className={cx(CHECKBOX_ROW, containerClassName)}
+      htmlFor={inputId}
+      style={boxStyle}
+    >
       <input
         {...rest}
         id={inputId}

@@ -88,10 +88,14 @@ export const natur = {
   sliderThumbRing: "rgba(63, 225, 166, 0.35)",
 
   // --- Charts ---
-  chartLine1: "#3FE1A6",
-  chartLine2: "#2DD4BF",
-  chartLine3: "#4FB6FF",
-  chartLine4: "#A3E635",
+  chartLine1: "#D5BC79",
+  chartLine2: "#924819",
+  chartLine3: "#C38032",
+  chartLine4: "#888343",
+  chartLine5: "#A7735E",
+  chartLine6: "#554954",
+  chartLine7: "#65452C",
+  chartLine8: "#636C73",
   chartGrid: "rgba(18, 48, 37, 0.55)",
   chartAxis: "rgba(178, 199, 190, 0.70)",
 

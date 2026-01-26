@@ -1,9 +1,17 @@
-//shared/components/ui/Confirm
+// shared/components/ui/Confirm.tsx
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Button from "./Button";
 import { cx } from "@/app/shared/ui";
+import {
+  SURFACE_CARD,
+  SURFACE_CARD_STYLE,
+  CARD_HEAD_INSET,
+  CARD_BODY_INSET,
+  MUTED_TEXT,
+  MUTED_TEXT_STYLE,
+} from "@/app/shared/ui/tokens";
 
 /* ---------- verejné API (hook + singleton) ---------- */
 type Options = {
@@ -56,7 +64,7 @@ export default function ConfirmHost() {
     return () => window.removeEventListener(BUS, onBus as EventListener);
   }, []);
 
-  const ask: Ask = (opts) => confirm(opts); // hook smeruje na singleton
+  const ask: Ask = (opts) => confirm(opts);
 
   const node = (
     <>
@@ -75,9 +83,7 @@ export default function ConfirmHost() {
 
   return (
     <Ctx.Provider value={ask}>
-      {typeof document !== "undefined"
-        ? createPortal(node, document.body)
-        : null}
+      {typeof document !== "undefined" ? createPortal(node, document.body) : null}
     </Ctx.Provider>
   );
 }
@@ -97,8 +103,8 @@ function Sheet({
     cancelText = "Zrušiť",
     tone = "default",
   } = item.opts;
-  const [show, setShow] = React.useState(false);
 
+  const [show, setShow] = React.useState(false);
   React.useEffect(() => {
     const t = setTimeout(() => setShow(true), 10);
     return () => clearTimeout(t);
@@ -114,6 +120,7 @@ function Sheet({
           show ? "opacity-100" : "opacity-0"
         )}
       />
+
       {/* card */}
       <div
         className={cx(
@@ -121,15 +128,20 @@ function Sheet({
           show ? "top-[22vh] opacity-100" : "top-[20vh] opacity-0"
         )}
       >
-        <div className="w-[92vw] max-w-[420px] mx-auto rounded-3xl bg-neutral-900 text-white border border-white/10 shadow-xl">
-          <div className="px-5 pt-5 pb-3 text-center">
+        <div
+          className={cx(SURFACE_CARD, "w-[92vw] max-w-[420px] mx-auto rounded-3xl shadow-xl")}
+          style={SURFACE_CARD_STYLE}
+        >
+          <div className={cx(CARD_HEAD_INSET, "text-center")}>
             <div className="text-base font-semibold">{title}</div>
-            {message && (
-              <div className="text-sm opacity-90 mt-1">{message}</div>
-            )}
+            {message ? (
+              <div className={cx("text-sm mt-1", MUTED_TEXT)} style={MUTED_TEXT_STYLE}>
+                {message}
+              </div>
+            ) : null}
           </div>
 
-          <div className="px-4 pb-4 flex gap-3 justify-center">
+          <div className={cx(CARD_BODY_INSET, "pt-0 flex gap-3 justify-center")}>
             <Button
               variant="secondary"
               size="sm"

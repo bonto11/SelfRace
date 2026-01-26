@@ -1,8 +1,6 @@
 // src/app/shared/components/ui/CardBackdrop.tsx
 "use client";
 
-import * as React from "react";
-
 type Props = {
   /**
    * Default = widget-like green/teal glow.

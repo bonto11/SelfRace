@@ -1,7 +1,7 @@
 // src/app/shared/ui/tokens/toast.ts
+import type * as React from "react";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-/* ===== TOAST =========================================================== */
 export const TOAST_LAYER =
   "pointer-events-none fixed inset-0 z-[60] flex justify-center pt-[12vh]";
 export const TOAST_STACK = "w-full flex flex-col items-center gap-2";
@@ -14,9 +14,20 @@ export const TOAST_PILL_BASE = [
   "text-[15px] leading-snug font-medium",
 ].join(" ");
 
-export const TOAST_SUCCESS =
-  `bg-[${appColors.statusSuccess}] text-[${appColors.textInverse}] border-[${appColors.statusSuccess}]`;
-export const TOAST_ERROR =
-  `bg-[${appColors.statusError}] text-[${appColors.textInverse}] border-[${appColors.statusError}]`;
-export const TOAST_INFO =
-  `bg-[${appColors.panelBg}] text-[${appColors.panelText}] border-[${appColors.panelBorder}]`;
+export const TOAST_SUCCESS_STYLE: React.CSSProperties = {
+  background: appColors.statusSuccess,
+  color: appColors.textInverse,
+  borderColor: appColors.statusSuccess,
+};
+
+export const TOAST_ERROR_STYLE: React.CSSProperties = {
+  background: appColors.statusError,
+  color: appColors.textInverse,
+  borderColor: appColors.statusError,
+};
+
+export const TOAST_INFO_STYLE: React.CSSProperties = {
+  background: appColors.panelBg,
+  color: appColors.panelText,
+  borderColor: appColors.panelBorder,
+};

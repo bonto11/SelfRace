@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import { cx, buttonClass } from "@/app/shared/ui";
-import { PAGE_CONTAINER } from "@/app/shared/ui/tokens/pageTokens";
+import { PAGE_CONTAINER } from "@/app/shared/ui/tokens";
 import {
   APPBAR_WRAP,
   APPBAR_INNER,
@@ -19,33 +19,15 @@ import {
 
 type Props = {
   title?: string;
-
-  /** zobrazí späť pill vpravo (default true) */
   showBack?: boolean;
-
-  /** ak nastavíš, back ide sem (inak router.back / fallbackHref) */
   href?: string;
-
-  /** kam ísť, keď nie je history (pri priamom vstupe) */
   fallbackHref?: string;
-
-  /** text na back tlačidle */
   backLabel?: string;
-
-  /** extra class pre wrapper/pill */
   className?: string;
   innerClassName?: string;
-
-  /** sticky bar (default true) */
   sticky?: boolean;
-
-  /** obaliť obsah PAGE_CONTAINER (default false, lebo page už často má kontajner) */
   container?: boolean;
-
-  /** callback pred návratom */
   onBack?: () => void;
-
-  /** voliteľný obsah vpravo namiesto backu (napr. buttons) */
   rightSlot?: React.ReactNode;
 };
 
@@ -65,12 +47,9 @@ export default function AppHeader({
   const router = useRouter();
 
   const goBack = () => {
-    if (onBack) onBack();
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-    } else {
-      router.push(fallbackHref);
-    }
+    onBack?.();
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push(fallbackHref);
   };
 
   const backCls = buttonClass("back", "sm", { circle: false });
@@ -95,7 +74,7 @@ export default function AppHeader({
         onClick={goBack}
         aria-label={backLabel}
         className="focus:outline-none"
-        onMouseDown={(e) => e.preventDefault()} // iOS “sticky focus”
+        onMouseDown={(e) => e.preventDefault()}
       >
         {BackPill}
       </button>

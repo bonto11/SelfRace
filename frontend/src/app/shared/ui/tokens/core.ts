@@ -2,11 +2,7 @@
 import type * as React from "react";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-/* ===== SURFACES (JEDINÝ ZDROJ PRAVDY PRE KARTY) ======================== */
-/**
- * Tokeny sú LEN layout classnames.
- * Farby idú cez inline style – aby sme nemali runtime Tailwind (bg-[${...}]).
- */
+/* ===== SURFACES (layout-only classnames) =============================== */
 
 export const SURFACE_CARD = [
   "rounded-2xl",
@@ -45,18 +41,14 @@ export const SURFACE_INSET_STYLE: React.CSSProperties = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-export const SURFACE_INLINE = [
-  "rounded-xl",
-  "border",
-  "text-left",
-].join(" ");
+export const SURFACE_INLINE = ["rounded-xl", "border", "text-left"].join(" ");
 
 export const SURFACE_INLINE_STYLE: React.CSSProperties = {
   background: appColors.backgroundAlt,
   borderColor: appColors.surfaceCardBorder,
 };
 
-/* ===== PADDING PRE KARTY ============================================== */
+/* ===== PADDING ========================================================= */
 
 export const PAD = {
   card: "p-3",
@@ -65,26 +57,22 @@ export const PAD = {
   note: "mt-1.5",
 };
 
-/* ===== KOMPAT ALIASY =================================================== */
+/* ===== COMPAT ALIASES ================================================== */
 
 export const CARD = SURFACE_CARD;
 export const SUBCARD = SURFACE_SUBCARD;
 export const PANEL = SURFACE_INSET;
 
-/* ===== DETAIL / FLUSH VARIANTY ======================================== */
-/** Layout-only */
-export const FLUSH_DETAIL = [
-  "mt-2",
-  "-mx-5 px-5 pt-2 pb-4",
-  "border-t",
-].join(" ");
+/* ===== DETAIL / FLUSH VARIANTS ======================================== */
 
-/** Farby pre FLUSH_DETAIL */
+export const FLUSH_DETAIL = ["mt-2", "-mx-5 px-5 pt-2 pb-4", "border-t"].join(
+  " "
+);
+
 export const FLUSH_DETAIL_STYLE: React.CSSProperties = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-/** Layout-only */
 export const FLUSH_DETAIL_PB = [
   "mt-2",
   "overflow-hidden rounded-xl",
@@ -92,27 +80,16 @@ export const FLUSH_DETAIL_PB = [
   "px-3 md:px-4 pb-3",
 ].join(" ");
 
-/** Farby pre FLUSH_DETAIL_PB */
 export const FLUSH_DETAIL_PB_STYLE: React.CSSProperties = {
   background: appColors.backgroundAlt,
   borderColor: appColors.surfaceCardBorder,
 };
 
-/* ===== GLOBAL SAFETY =================================================== */
+/* ===== SAFETY / LAYOUT UTILS ========================================== */
 
 export const NO_X_OVERFLOW = "max-w-full overflow-x-hidden";
 export const NO_X = NO_X_OVERFLOW;
 export const FLEX_SHRINK_FIX = "min-w-0";
-
-// src/app/shared/ui/tokens/core.ts
-
-export const CARD_INSET = "px-4 py-4";          // default padding vnútri karty
-export const CARD_INSET_X = "px-4";             // keď chceš riešiť y osobitne
-export const CARD_HEAD_INSET = "px-4 pt-4 pb-2"; // header padding (ako si mal)
-export const CARD_BODY_INSET = "px-4 pb-4";      // body padding
-
-export const MUTED_TEXT = appColors.textMuted;
-
 
 export const SCROLL_X = [
   "w-full",
@@ -123,3 +100,15 @@ export const SCROLL_X = [
   "touch-pan-x",
   "[scrollbar-gutter:stable]",
 ].join(" ");
+
+/* ===== CARD INSETS (consistent padding) ================================ */
+
+export const CARD_INSET = "px-4 py-4";
+export const CARD_INSET_X = "px-4";
+export const CARD_HEAD_INSET = "px-4 pt-4 pb-2";
+export const CARD_BODY_INSET = "px-4 pb-4";
+
+/* ===== TEXT HELPERS ==================================================== */
+/** trieda pre “muted text”; farba ide cez MUTED_TEXT_STYLE */
+export const MUTED_TEXT = "opacity-70";
+export const MUTED_TEXT_STYLE: React.CSSProperties = { color: appColors.textMuted };

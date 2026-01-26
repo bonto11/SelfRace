@@ -3,25 +3,16 @@
 
 import * as React from "react";
 import AppHeader from "@/app/shared/ui/components/AppHeader";
-import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
+import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens";
 
 type Props = {
   title: string;
   showBack?: boolean;
   headerContainer?: boolean;
-
-  /** optional slot on the right side of header (e.g. refresh button) */
   rightSlot?: React.ReactNode;
-
-  /** default: stack = PAGE_STACK wrapper */
   variant?: "stack" | "raw";
-
-  /** applied on inner wrapper (stack/raw) */
   contentClassName?: string;
-
-  /** applied on PAGE_CONTAINER */
   className?: string;
-
   children: React.ReactNode;
 };
 
@@ -46,9 +37,7 @@ export default function PageShell({
 
       <div className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}>
         {variant === "stack" ? (
-          <div
-            className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}
-          >
+          <div className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}>
             {children}
           </div>
         ) : (

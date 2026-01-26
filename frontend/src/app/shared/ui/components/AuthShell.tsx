@@ -11,6 +11,7 @@ import {
   AUTH_HEADER,
   AUTH_TITLE,
   AUTH_TEXT,
+  AUTH_TEXT_STYLE,
   AUTH_STACK,
   AUTH_FOOTER_ROW,
   AUTH_FOOTER_TEXT,
@@ -24,7 +25,7 @@ type Props = {
   title: string;
   description?: string;
   children: React.ReactNode;
-  footer?: boolean; // default true
+  footer?: boolean;
 };
 
 export default function AuthShell({
@@ -39,14 +40,20 @@ export default function AuthShell({
         <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
           <header className={AUTH_HEADER}>
             <h1 className={AUTH_TITLE}>{title}</h1>
-            {description ? <p className={AUTH_TEXT}>{description}</p> : null}
+            {description ? (
+              <p className={AUTH_TEXT} style={AUTH_TEXT_STYLE}>
+                {description}
+              </p>
+            ) : null}
           </header>
 
           {children}
 
           {footer ? (
             <div className={AUTH_FOOTER_ROW}>
-              <span className={AUTH_FOOTER_TEXT}>SelfRace • Priestor pre tvoj osobný rast</span>
+              <span className={AUTH_FOOTER_TEXT}>
+                SelfRace • Priestor pre tvoj osobný rast
+              </span>
 
               <span className={AUTH_BADGE} style={AUTH_BADGE_STYLE}>
                 <span className={AUTH_BADGE_DOT} style={AUTH_BADGE_DOT_STYLE} />

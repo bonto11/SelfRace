@@ -5,21 +5,29 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/app/shared/ui";
 import {
-  FIELD_BASE, // readonly alias (legacy)
+  FIELD_READONLY_BASE,
   FIELD_EDITABLE_BASE,
+  FIELD_READONLY_STYLE,
+  FIELD_EDITABLE_STYLE,
   FIELD_ERROR,
+  FIELD_ERROR_STYLE,
   FIELD_ERROR_TEXT,
   FIELD_HINT,
   FIELD_LABEL,
+  FORM_TEXT_VARS,
   SELECT_BTN,
   SELECT_ICON,
   SELECT_MENU,
   SELECT_MENU_WRAP,
   SELECT_MENU_READONLY,
   SELECT_MENU_EDITABLE,
+  SELECT_MENU_READONLY_STYLE,
+  SELECT_MENU_EDITABLE_STYLE,
   SELECT_OPT,
   SELECT_OPT_ACTIVE,
   SELECT_OPT_EMPTY,
+  SELECT_OPT_READONLY_STYLE,
+  SELECT_OPT_EDITABLE_STYLE,
 } from "@/app/shared/ui/tokens";
 
 type Option = { value: string; label: string };
@@ -63,19 +71,32 @@ export default function SelectField({
   const btnRef = React.useRef<HTMLButtonElement | null>(null);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
 
+  const editable = variant === "editable";
+  const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
+
+  const effectiveDisabled = disabled || !editable;
+
   const selected = options.find((o) => o.value === value) ?? null;
   const display = selected?.label ?? (value ? value : placeholder);
 
-  const base = variant === "editable" ? FIELD_EDITABLE_BASE : FIELD_BASE;
-  const effectiveDisabled = disabled || variant === "readonly";
-  const menuVariantClass =
-    variant === "editable" ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const wrapStyle = {
+    ...(editable ? FIELD_EDITABLE_STYLE : FIELD_READONLY_STYLE),
+    ...(error ? FIELD_ERROR_STYLE : null),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
+
+  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const menuStyle = {
+    ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
+    ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
 
   React.useEffect(() => {
     function onDocClick(e: MouseEvent) {
       const t = e.target as Node;
       if (wrapRef.current?.contains(t)) return;
-      if (menuRef.current?.contains(t)) return; // portal menu
+      if (menuRef.current?.contains(t)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
@@ -93,12 +114,7 @@ export default function SelectField({
     onValueChange?.(next);
   }
 
-  // portal position
-  const [pos, setPos] = React.useState<{
-    left: number;
-    top: number;
-    width: number;
-  } | null>(null);
+  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -120,7 +136,7 @@ export default function SelectField({
   }, [open]);
 
   return (
-    <div className={cx("space-y-1", containerClassName)} ref={wrapRef}>
+    <div className={cx("space-y-1", containerClassName)} ref={wrapRef} style={wrapStyle}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       <div className={SELECT_MENU_WRAP}>
@@ -133,7 +149,7 @@ export default function SelectField({
             setOpen((v) => !v);
           }}
           className={cx(
-            base,
+            baseClass,
             SELECT_BTN,
             !selected && !value && SELECT_OPT_EMPTY,
             error && FIELD_ERROR
@@ -160,6 +176,7 @@ export default function SelectField({
                 className={cx(SELECT_MENU, menuVariantClass)}
                 role="listbox"
                 style={{
+                  ...menuStyle,
                   position: "fixed",
                   left: pos.left,
                   top: pos.top,
