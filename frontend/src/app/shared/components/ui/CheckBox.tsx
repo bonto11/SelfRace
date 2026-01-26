@@ -29,13 +29,17 @@ export default function Checkbox({
   checkboxClassName,
   className,
   id,
+  disabled,
   ...rest
 }: Props) {
-  const boxClass = variant === "editable" ? CHECKBOX_BOX_EDITABLE : CHECKBOX_BOX_READONLY;
-
-  // ak user nedá id, vygenerujeme stabilný (React 18)
   const autoId = React.useId();
   const inputId = id ?? autoId;
+
+  const boxClass =
+    variant === "editable" ? CHECKBOX_BOX_EDITABLE : CHECKBOX_BOX_READONLY;
+
+  // readonly = non-interactive by default
+  const effectiveDisabled = disabled || variant === "readonly";
 
   return (
     <label className={cx(CHECKBOX_ROW, containerClassName)} htmlFor={inputId}>
@@ -43,6 +47,7 @@ export default function Checkbox({
         {...rest}
         id={inputId}
         type="checkbox"
+        disabled={effectiveDisabled}
         className={cx(boxClass, checkboxClassName, className)}
       />
 
