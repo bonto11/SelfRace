@@ -1,5 +1,6 @@
 import type { ChartOptions } from "chart.js";
 import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 type BuildOpts = {
   onClick?: ChartOptions<"bar" | "line">["onClick"];
@@ -78,9 +79,9 @@ export function buildWeeklyOptions(
         min: 0,
         max: Math.max(3, Math.ceil(monoMax + 0.3)),
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Monotony", color: THEME.chart.monotony },
-        ticks: { color: THEME.chart.monotony },
-        border: { color: THEME.chart.monotony },
+        title: { display: true, text: "Monotony", color: appColors.chartLine1 },
+        ticks: { color: appColors.chartLine1 },
+        border: { color: appColors.chartLine1},
         weight: 1,
       },
       y2: {
@@ -88,9 +89,9 @@ export function buildWeeklyOptions(
         min: 0,
         max: Math.ceil(strainMax * 1.1),
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Strain", color: THEME.chart.strain },
-        ticks: { color: THEME.chart.strain },
-        border: { color: THEME.chart.strain },
+        title: { display: true, text: "Strain", color: appColors.chartLine2 },
+        ticks: { color:appColors.chartLine2 },
+        border: { color: appColors.chartLine2 },
         weight: 1,
       },
       x: {
