@@ -4,7 +4,6 @@
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { THEME } from "@/app/shared/theme/tokens";
 import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -79,16 +78,14 @@ export default function WidgetPareto8020({
   const deltaEasy = Math.round(targetEasy - E);
   const deviation = T ? Math.abs(E - targetEasy) / T : 1;
 
-  const CH = (THEME as any)?.chart ?? {};
-
   const accent =
     T === 0
-      ? (CH.neutral ?? appColors.textMuted)
+      ? (appColors.stateNeutral ?? appColors.textMuted)
       : deviation <= 0.05
-        ? (CH.positive ?? CH.fitness ?? appColors.brandPrimary)
+        ? (appColors.stateFitness)
         : deviation <= 0.1
-          ? (CH.warning ?? CH.average ?? appColors.statusWarning)
-          : (CH.obese ?? CH.danger ?? appColors.statusError);
+          ? (appColors.stateBad)
+          : (appColors.stateBad);
 
   const note =
     T === 0
@@ -98,12 +95,11 @@ export default function WidgetPareto8020({
         : deltaEasy < 0
           ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
           : "Si presne na 80/20 ✔";
-
-  // farby prstenca – iba theme/app_colors (bez hardcoded)
-  const colEasy80 = CH.easy80 ?? CH.fitness ?? appColors.brandPrimary;
-  const colHard20 = CH.hard20 ?? CH.warning ?? appColors.accentTeal;
-  const colTrack = CH.track ?? appColors.surfaceCardBorder;
-  const colTick = CH.tick ?? appColors.textSecondary;
+          
+  const colEasy80 = appColors.chartLine1;
+  const colHard20 = appColors.chartLine2;
+  const colTrack = appColors.chartAxis;
+  const colTick = appColors.textSecondary;
 
   const textFill = appColors.textPrimary;
 

@@ -64,20 +64,10 @@ export default function WidgetPB({
 
   const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
-  const CH = (THEME as any)?.chart ?? {};
-  const accent =
-    CH.run ??
-    CH.positive ??
-    CH.fitness ??
-    CH.neutral ??
-    (THEME as any)?.accent?.primary ??
-    appColors.brandPrimary;
-
   return (
     <WidgetCard
       title="Personal Bests — Run"
       note="TAP pre detail a úpravy rekordov."
-      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}

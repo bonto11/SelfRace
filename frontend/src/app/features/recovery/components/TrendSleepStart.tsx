@@ -14,7 +14,6 @@ import {
   dateSeq,
   iso,
 } from "@/app/shared/utils/time";
-import { hexToRgba } from "@/app/shared/utils/color";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -49,9 +48,9 @@ export default function DetailSleepStart() {
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
   const COLOR = {
-    main: THEME.chart?.linePrimary ?? "#FFFFFF",
-    bandFill: hexToRgba(THEME.chart?.positive, 0.15),
-    missing: THEME.chart?.missing ?? "#ef4444",
+    main: appColors.chartLine1,
+    bandFill: appColors.chartBandFill,
+    missing: appColors.stateBad,
   };
 
   useEffect(() => setLoading(true), [weeks]);

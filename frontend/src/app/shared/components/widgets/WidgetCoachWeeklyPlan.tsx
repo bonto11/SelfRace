@@ -128,9 +128,6 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(plan), [plan]);
 
-  // bez THEME + bez hardcoded hex
-  const accent = appColors.brandPrimary;
-
   return (
     <WidgetCard
       title="Coach — Weekly plan"
@@ -139,7 +136,6 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
           ? `Rozsah plánu: ${ui.lastPlanRange}`
           : "Vygeneruj weekly plán cez AI."
       }
-      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={180}

@@ -170,9 +170,6 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
-  // konzistentný accent (bez THEME + bez hardcoded hex)
-  const accent = appColors.accentTeal;
-
   return (
     <WidgetCard
       title="Coach — Weekly progress"
@@ -183,7 +180,6 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
             : "Posledné porovnanie AI stavov atleta."
           : "Potrebujeme aspoň dve AI analýzy stavu – potom sa tu zobrazí progress."
       }
-      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}

@@ -122,6 +122,7 @@ export const appColors = {
   chartLine8: natur.chartLine8,
   chartGrid: natur.chartGrid,
   chartAxis: natur.chartAxis,
+  chartBandFill: natur.chartBandFill,
 
   chartRun: natur.chartLine1,
   chartStrength: natur.chartLine2,

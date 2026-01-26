@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import { THEME } from "@/app/shared/theme/tokens";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/theme/app_colors";
 
@@ -37,13 +36,10 @@ export default function WeeklyLoadWidget({
     return ((totalLast - totalPrev) / totalPrev) * 100;
   }, [totalLast, totalPrev]);
 
-  const CH = (THEME as any)?.chart ?? {};
-
-  const colNeutral =
-    CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
-  const colUp = CH.positive ?? CH.good ?? CH.fitness ?? colNeutral;
-  const colWarn = CH.warning ?? CH.average ?? CH.hard20 ?? colNeutral;
-  const colDown = CH.cool ?? CH.lineSecondary ?? colNeutral;
+  const colNeutral = appColors.stateNeutral;
+  const colUp = appColors.statePositive;
+  const colWarn = appColors.stateWarning;
+  const colDown = appColors.stateCool;
 
   let note = "—";
   let accent: string = colNeutral;

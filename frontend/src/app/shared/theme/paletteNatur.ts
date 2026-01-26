@@ -98,6 +98,7 @@ export const natur = {
   chartLine8: "#636C73",
   chartGrid: "rgba(18, 48, 37, 0.55)",
   chartAxis: "rgba(178, 199, 190, 0.70)",
+  chartBandFill: "rgba(16,185,129,0.15)",
 
   stateExcellent : '#00E676', // neon green (jasne TOP)
   stateSuperior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)

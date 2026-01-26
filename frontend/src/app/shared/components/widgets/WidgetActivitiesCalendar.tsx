@@ -5,7 +5,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -42,14 +41,14 @@ import {
 /* ---------- helpers ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
-  run: (THEME as any)?.sport?.run ?? THEME.chart.run,
-  ride: (THEME as any)?.sport?.ride ?? THEME.chart.ride,
-  swim: (THEME as any)?.sport?.swim ?? THEME.chart.swim,
-  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
-  mixed: (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
-  skate: (THEME as any)?.sport?.skate ?? THEME.chart.skate,
-  walk: (THEME as any)?.sport?.walk ?? THEME.chart.walk,
-  other: (THEME as any)?.sport?.other ?? THEME.chart.other,
+  run: appColors.chartRun,
+  ride:  appColors.chartBike,
+  swim:  appColors.chartSwim,
+  strength:  appColors.chartStrength,
+  mixed:  appColors.chartMixed,
+  skate:  appColors.chartSkate,
+  walk:  appColors.chartWalk,
+  other:  appColors.chartOther,
 };
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -235,10 +234,7 @@ export default function WidgetActivitiesCalendar({
 
   const handleOpen = () => router.push(openHref);
 
-  const accent =
-    (THEME as any)?.accent?.neutral ??
-    (THEME as any)?.accent?.primary ??
-    `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
+  const accent = `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
 
   const todayStr = new Date().toDateString();
   const dow = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"] as const;

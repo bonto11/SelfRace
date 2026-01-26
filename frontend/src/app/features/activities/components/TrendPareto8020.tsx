@@ -36,7 +36,7 @@ import {
   ParetoWeekPick,
   ParetoRow,
 } from "@/app/features/activities/types/pareto";
-
+import { appColors } from "@/app/shared/theme/app_colors";
 ensureChartJSRegistered();
 
 export default function TrendPareto8020({
@@ -49,11 +49,11 @@ export default function TrendPareto8020({
   const [loading, setLoading] = useState(false);
 
   const [selectedSports, setSelectedSports] = useState<string[]>(
-    Array.from(PARETO_DEFAULT_SET)
+    Array.from(PARETO_DEFAULT_SET),
   );
   const sportParam = useMemo(
     () => sportsToCSV(selectedSports),
-    [selectedSports]
+    [selectedSports],
   );
 
   const [rows, setRows] = useState<ParetoRow[]>([]);
@@ -101,8 +101,8 @@ export default function TrendPareto8020({
           type: "line",
           label: "Easy %",
           data: rows.map((r) => (Number.isFinite(r.easy_pct) ? r.easy_pct : 0)),
-          borderColor: THEME.chart.easy80,
-          backgroundColor: THEME.chart.easy80,
+          borderColor: appColors.chartLine1,
+          backgroundColor: appColors.chartLine1,
           tension: 0.25,
           pointRadius: 2,
           order: 2,
@@ -111,8 +111,8 @@ export default function TrendPareto8020({
           type: "line",
           label: "Hard %",
           data: rows.map((r) => (Number.isFinite(r.hard_pct) ? r.hard_pct : 0)),
-          borderColor: THEME.chart.hard20,
-          backgroundColor: THEME.chart.hard20,
+          borderColor: appColors.chartLine2,
+          backgroundColor: appColors.chartLine2,
           tension: 0.25,
           pointRadius: 2,
           borderDash: [4, 4],
@@ -144,7 +144,7 @@ export default function TrendPareto8020({
         },
       ],
     }),
-    [rows, labels, ref80, ref20]
+    [rows, labels, ref80, ref20],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -174,7 +174,7 @@ export default function TrendPareto8020({
               const r = rows[i];
               if (!r) return "";
               return `Easy ${fmtSecondsHMS(
-                r.easy_min || 0
+                r.easy_min || 0,
               )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
             },
           },
@@ -206,12 +206,12 @@ export default function TrendPareto8020({
         });
       },
     }),
-    [rows, selectedSports, onPickWeek]
+    [rows, selectedSports, onPickWeek],
   );
 
   const minWidth = Math.max(
     320,
-    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+    Math.round(labels.length * THEME.chart.weeklyPxPerLabel),
   );
   const heightPx = THEME.chart.weeklyHeightCompact ?? 200;
 

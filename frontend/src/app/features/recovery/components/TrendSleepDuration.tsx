@@ -14,7 +14,6 @@ import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryD
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
 
-import { hexToRgba } from "@/app/shared/utils/color";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
   CARD,
@@ -55,10 +54,10 @@ export default function DetailSleepDuration() {
 
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
-  const COLOR = {
-    main: THEME.chart?.linePrimary ?? "#FFFFFF",
-    bandFill: hexToRgba(THEME.chart?.positive, 0.15),
-    missing: THEME.chart?.missing ?? "#ef4444",
+    const COLOR = {
+    main: appColors.chartLine1,
+    bandFill: appColors.chartBandFill,
+    missing: appColors.stateBad,
   };
 
   useEffect(() => setLoading(true), [weeks]);

@@ -34,11 +34,11 @@ type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
 
-  if (l.includes("athlete")) return appColors.brandPrimary;
-  if (l.includes("fitness")) return appColors.accentTeal;
-  if (l.includes("average")) return appColors.statusWarning;
-  if (l.includes("essential")) return appColors.chartLine3;
-  if (l.includes("obese")) return appColors.statusError;
+  if (l.includes("athlete")) return appColors.stateAthletes;
+  if (l.includes("fitness")) return appColors.stateFitness;
+  if (l.includes("average")) return appColors.stateAverage;
+  if (l.includes("essential")) return appColors.stateEssential;
+  if (l.includes("obese")) return appColors.stateObese;
 
   return appColors.textMuted;
 }

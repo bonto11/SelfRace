@@ -14,7 +14,7 @@ import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
-
+import { appColors } from "@/app/shared/theme/app_colors";
 import {
   CARD,
   SCROLL_X,
@@ -28,12 +28,12 @@ import {
 ensureChartJSRegistered();
 
 const C = {
-  run: THEME.chart.run,
-  ride: THEME.chart.ride,
-  strength: THEME.chart.strength,
-  mixed: THEME.chart.mixed,
-  skate: THEME.chart.skate,
-  other: THEME.chart.other,
+  run: appColors.chartRun,
+  ride: appColors.chartBike,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed,
+  skate: appColors.chartSkate,
+  other: appColors.chartOther,
 };
 
 export default function TrendWeeklyLoad({

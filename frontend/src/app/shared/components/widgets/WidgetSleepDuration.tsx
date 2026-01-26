@@ -11,7 +11,6 @@ import {
 import { minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
@@ -67,24 +66,23 @@ export default function WidgetSleepDuration({
 
   const note = showNA ? freshness.message : cmp.note;
 
-  const CH = (THEME as any)?.chart ?? {};
   const accent = (() => {
     if (loading || showNA)
       return (
-        CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted
+        appColors.stateNeutral
       );
 
     const a = String((cmp as any)?.accent ?? "").toLowerCase();
 
     if (a.includes("red"))
-      return CH.danger ?? CH.obese ?? appColors.statusError;
+      return appColors.stateDanger;
     if (a.includes("amber") || a.includes("yellow"))
-      return CH.warning ?? CH.average ?? appColors.statusWarning;
+      return appColors.stateWarning;
     if (a.includes("emerald") || a.includes("green"))
-      return CH.positive ?? CH.fitness ?? appColors.brandPrimary;
+      return appColors.stateGood;
 
     return (
-      CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary
+      appColors.stateNeutral
     );
   })();
 

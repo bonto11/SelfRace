@@ -30,27 +30,23 @@ function pickAccentFromCmp(
   cmpAccent: unknown,
   opts: { loading: boolean; showNA: boolean }
 ) {
-  const CH = (THEME as any)?.chart ?? {};
-
   if (opts.loading || opts.showNA) {
-    return CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+    return appColors.stateNeutral;
   }
 
   // cmp.accent často býva "bg-..." alebo text s farbou → mapujeme
   const a = String(cmpAccent ?? "").toLowerCase();
 
   if (a.includes("red"))
-    return CH.danger ?? CH.obese ?? CH.warning ?? appColors.statusError;
+      return appColors.stateDanger;
+    if (a.includes("amber") || a.includes("yellow"))
+      return appColors.stateWarning;
+    if (a.includes("emerald") || a.includes("green"))
+      return appColors.stateGood;
 
-  if (a.includes("amber") || a.includes("yellow"))
-    return CH.warning ?? CH.average ?? CH.fair ?? appColors.statusWarning;
-
-  if (a.includes("emerald") || a.includes("green"))
-    return CH.positive ?? CH.fitness ?? CH.good ?? appColors.brandPrimary;
-
-  return (
-    CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary
-  );
+    return (
+      appColors.stateNeutral
+    );
 }
 
 export default function WidgetSleepStart({

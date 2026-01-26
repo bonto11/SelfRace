@@ -55,9 +55,9 @@ export default function TrendHRV() {
   const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
   const COLOR = {
-    main: THEME.chart?.linePrimary ?? "#FFFFFF",
-    bandFill: THEME.chart?.bandFill ?? "rgba(16,185,129,0.15)",
-    missing: THEME.chart?.missing ?? "#ef4444",
+    main: appColors.chartLine1,
+    bandFill: appColors.chartBandFill,
+    missing: appColors.stateBad,
   };
 
   useEffect(() => {

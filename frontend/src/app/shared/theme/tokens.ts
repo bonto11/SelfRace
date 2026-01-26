@@ -11,32 +11,10 @@ export const THEME = {
 
   chart: {
     // série
-    easy80:   '#00E676',
-    hard20:   '#FF5252',
     track:    '#FFFFFF14', // rgba(255,255,255,0.08)
     tick:     '#FFFFFFF2', // rgba(255,255,255,0.95)
     ref80:    '#4ADE8059', // rgba(74,222,128,0.35)
     ref20:    '#F8717159', // rgba(248,113,113,0.35)
-
-    // lepšie oddelené pásma (čisto HEX)
-    excellent : '#00E676', // neon green (jasne TOP)
-    superior  : '#16A34A', // deep emerald (2. v poradí, stále zelené)
-    good      : '#14B8A6', // teal (prechod k modrej)
-    fair      : '#60A5FA', // sky-400 (naša bežná modrá)
-    poor      : '#EF4444', // red (jasné varovanie)
-    neutral   : '#64748B', // sivá
-
-    athletes  : '#00E676', // TOP = rovnaké ako excellent
-    fitness   : '#16A34A', // 2. zelené
-    average   : '#22C55E', // emerald-500 (stále “ok”, ale nie teal)
-    essential : '#EF4444', // červená
-    obese     : '#EF4444', // červená
-
-    bad       : '#EF4444', // červená
-    danger    : '#60A5FA', // “↓ OK” – modrá (match s bike)
-    positive  : '#00E676', // “↑ OK” – zhodné s excellent/athletes
-    warning   : '#F59E0B', // pozor – jantár (match so strength)
-    cool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
 
     linePrimary: '#FFFFFF', //biela
     lineSecondary: '#FDE047', //zlta

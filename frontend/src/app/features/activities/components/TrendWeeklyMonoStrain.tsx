@@ -9,7 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
-
+import { appColors } from "@/app/shared/theme/app_colors";
 import {
   CARD,
   SCROLL_X,
@@ -26,7 +26,7 @@ import { WeekRow } from "@/app/features/activities/types/MonoStrain";
 
 ensureChartJSRegistered();
 
-const C = { monotony: THEME.chart.monotony, strain: THEME.chart.strain };
+const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 
 export default function TrendWeeklyMonoStrain({
   onPickWeek,
