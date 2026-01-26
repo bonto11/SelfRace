@@ -5,7 +5,7 @@ import * as React from "react";
 import { cx } from "@/app/shared/ui";
 import {
   CHECKBOX_ROW,
-  CHECKBOX_BOX,
+  CHECKBOX_BOX_READONLY,
   CHECKBOX_BOX_EDITABLE,
   CHECKBOX_LABEL,
   CHECKBOX_HINT,
@@ -14,7 +14,7 @@ import {
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label?: React.ReactNode;
   hint?: React.ReactNode;
-  variant?: "default" | "editable";
+  variant?: "readonly" | "editable";
   containerClassName?: string;
   labelClassName?: string;
   checkboxClassName?: string;
@@ -23,7 +23,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
 export default function Checkbox({
   label,
   hint,
-  variant = "default",
+  variant = "editable",
   containerClassName,
   labelClassName,
   checkboxClassName,
@@ -31,7 +31,7 @@ export default function Checkbox({
   id,
   ...rest
 }: Props) {
-  const boxClass = variant === "editable" ? CHECKBOX_BOX_EDITABLE : CHECKBOX_BOX;
+  const boxClass = variant === "editable" ? CHECKBOX_BOX_EDITABLE : CHECKBOX_BOX_READONLY;
 
   // ak user nedá id, vygenerujeme stabilný (React 18)
   const autoId = React.useId();

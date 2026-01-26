@@ -188,7 +188,7 @@ export const CHECKBOX_ROW = [
   "flex items-start gap-2 select-none",
 ].join(" ");
 
-export const CHECKBOX_BOX = [
+export const CHECKBOX_BOX_READONLY = [
   "relative mt-0.5 h-5 w-5 shrink-0",
   "appearance-none rounded-md border outline-none",
   `border-[${appColors.inputBorder}]`,
