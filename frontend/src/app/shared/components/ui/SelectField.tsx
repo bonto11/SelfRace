@@ -1,10 +1,12 @@
+// src/app/shared/components/ui/SelectField.tsx
 "use client";
 
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/app/shared/ui";
 import {
-  FIELD_BASE_READONLY,
+  FIELD_BASE, // readonly alias (legacy)
+  FIELD_EDITABLE_BASE,
   FIELD_ERROR,
   FIELD_ERROR_TEXT,
   FIELD_HINT,
@@ -13,6 +15,8 @@ import {
   SELECT_ICON,
   SELECT_MENU,
   SELECT_MENU_WRAP,
+  SELECT_MENU_READONLY,
+  SELECT_MENU_EDITABLE,
   SELECT_OPT,
   SELECT_OPT_ACTIVE,
   SELECT_OPT_EMPTY,
@@ -38,6 +42,7 @@ type Props = {
   options: Option[];
   placeholder?: string;
   containerClassName?: string;
+  variant?: "readonly" | "editable";
 };
 
 export default function SelectField({
@@ -51,21 +56,26 @@ export default function SelectField({
   options,
   placeholder = "—",
   containerClassName,
+  variant = "editable",
 }: Props) {
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef<HTMLDivElement | null>(null);
   const btnRef = React.useRef<HTMLButtonElement | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
 
   const selected = options.find((o) => o.value === value) ?? null;
   const display = selected?.label ?? (value ? value : placeholder);
 
-  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const base = variant === "editable" ? FIELD_EDITABLE_BASE : FIELD_BASE;
+  const effectiveDisabled = disabled || variant === "readonly";
+  const menuVariantClass =
+    variant === "editable" ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
 
   React.useEffect(() => {
     function onDocClick(e: MouseEvent) {
       const t = e.target as Node;
       if (wrapRef.current?.contains(t)) return;
-      if (menuRef.current?.contains(t)) return; // ✅ portal menu
+      if (menuRef.current?.contains(t)) return; // portal menu
       setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
@@ -83,8 +93,12 @@ export default function SelectField({
     onValueChange?.(next);
   }
 
-  // vypočítaj pozíciu pre portal menu
-  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
+  // portal position
+  const [pos, setPos] = React.useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -113,10 +127,13 @@ export default function SelectField({
         <button
           ref={btnRef}
           type="button"
-          disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
+          disabled={effectiveDisabled}
+          onClick={() => {
+            if (effectiveDisabled) return;
+            setOpen((v) => !v);
+          }}
           className={cx(
-            FIELD_BASE_READONLY,
+            base,
             SELECT_BTN,
             !selected && !value && SELECT_OPT_EMPTY,
             error && FIELD_ERROR
@@ -136,11 +153,11 @@ export default function SelectField({
           </svg>
         </button>
 
-        {open && !disabled && pos
+        {open && !effectiveDisabled && pos
           ? createPortal(
               <div
                 ref={menuRef}
-                className={SELECT_MENU}
+                className={cx(SELECT_MENU, menuVariantClass)}
                 role="listbox"
                 style={{
                   position: "fixed",
