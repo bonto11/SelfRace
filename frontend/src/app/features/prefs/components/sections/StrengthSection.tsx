@@ -3,8 +3,8 @@
 
 import { useMemo } from "react";
 
-import Button from "@/app/shared/components/ui/Button";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
@@ -30,8 +30,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
     typeof settings.sessions_per_week === "number"
       ? settings.sessions_per_week
       : settings.sessions_per_week != null
-      ? Number(settings.sessions_per_week) || null
-      : null;
+        ? Number(settings.sessions_per_week) || null
+        : null;
 
   const previewText = useMemo(() => {
     const locText = location ?? "—";
@@ -42,8 +42,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
       gearCount === 0
         ? "none"
         : gearCount <= 3
-        ? available.join(", ")
-        : `${available.slice(0, 3).join(", ")} +${gearCount - 3} more`;
+          ? available.join(", ")
+          : `${available.slice(0, 3).join(", ")} +${gearCount - 3} more`;
 
     return `Sessions/week: ${spw} • Location: ${locText} • Mode: ${modeText} | Gear (${gearCount}): ${listShort}`;
   }, [location, mode, available, sessionsPerWeek]);
@@ -70,7 +70,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
     }));
   };
 
-  const setMode = (next: "none" | "bodyweight" | "minimal" | "full_gym" | null) => {
+  const setMode = (
+    next: "none" | "bodyweight" | "minimal" | "full_gym" | null
+  ) => {
     markDirty();
     setLocal((p: any) => ({
       ...p,
@@ -83,7 +85,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
 
   const toggleGear = (key: string) => {
     const active = available.includes(key);
-    const next = active ? available.filter((k) => k !== key) : [...available, key];
+    const next = active
+      ? available.filter((k) => k !== key)
+      : [...available, key];
 
     markDirty();
     setLocal((p: any) => ({
@@ -187,21 +191,23 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           <div>
             <div className="text-xs opacity-80 mb-1">Equipment mode</div>
             <div className="flex flex-wrap gap-2">
-              {(["none", "bodyweight", "minimal", "full_gym"] as const).map((m) => {
-                const active = mode === m;
-                return (
-                  <Button
-                    key={m}
-                    type="button"
-                    size="sm"
-                    variant="prefs"
-                    active={active}
-                    onClick={() => setMode(active ? null : m)}
-                  >
-                    {m}
-                  </Button>
-                );
-              })}
+              {(["none", "bodyweight", "minimal", "full_gym"] as const).map(
+                (m) => {
+                  const active = mode === m;
+                  return (
+                    <Button
+                      key={m}
+                      type="button"
+                      size="sm"
+                      variant="prefs"
+                      active={active}
+                      onClick={() => setMode(active ? null : m)}
+                    >
+                      {m}
+                    </Button>
+                  );
+                }
+              )}
             </div>
           </div>
 

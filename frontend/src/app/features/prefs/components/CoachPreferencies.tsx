@@ -11,13 +11,13 @@ import type {
 } from "@/app/features/prefs/types/prefs";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { toast } from "@/app/shared/components/ui/Toast";
+import { toast } from "@/app/shared/ui/components/Toast";
 import {
   refreshCoachPrefsFromDB,
   saveCoachPrefs,
 } from "@/app/features/prefs/utils/prefs";
 
-import Button from "@/app/shared/components/ui/Button";
+import Button from "@/app/shared/ui/components/Button";
 import { NO_X, PILL_BUTTON } from "@/app/shared/ui/tokens";
 
 import {

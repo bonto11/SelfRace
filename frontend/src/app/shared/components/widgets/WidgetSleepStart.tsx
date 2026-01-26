@@ -2,14 +2,14 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
 import {
   checkRecoveryFreshness,
   compareTimeToBaselineMinutes,
 } from "@/app/shared/utils/recovery";
 import { HHMMToMinutes, minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
@@ -48,10 +48,16 @@ function pickAccentFromCmp(
   if (a.includes("emerald") || a.includes("green"))
     return CH.positive ?? CH.fitness ?? CH.good ?? appColors.brandPrimary;
 
-  return CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
+  return (
+    CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary
+  );
 }
 
-export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetSleepStart({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -79,13 +85,20 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
     return latest;
   }, [latest]);
 
-  const cmp = compareTimeToBaselineMinutes(latestForCompare, FIX_BASELINE_MIN, TOL_MIN);
+  const cmp = compareTimeToBaselineMinutes(
+    latestForCompare,
+    FIX_BASELINE_MIN,
+    TOL_MIN
+  );
 
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText =
-    showNA ? "—" : Number.isFinite(latest) ? minutesToHHMM(latest as number) : "—";
+  const valueText = showNA
+    ? "—"
+    : Number.isFinite(latest)
+      ? minutesToHHMM(latest as number)
+      : "—";
 
   const note = showNA ? freshness.message : cmp.note;
 

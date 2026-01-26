@@ -3,11 +3,11 @@
 
 import { useMemo, useState } from "react";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import DateField from "@/app/shared/components/ui/DateField";
-import { toast } from "@/app/shared/components/ui/Toast";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import DateField from "@/app/shared/ui/components/DateField";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
@@ -80,7 +80,9 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
   const start = (local.start_date as string | undefined) ?? "";
   const end = (local.end_date as string | undefined) ?? "";
   const weeksVal =
-    local.weeks != null && !Number.isNaN(local.weeks) ? String(local.weeks) : "";
+    local.weeks != null && !Number.isNaN(local.weeks)
+      ? String(local.weeks)
+      : "";
 
   const applyStart = (nextStart: string) => {
     markDirty();
@@ -88,7 +90,10 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
       const base = { ...prev, start_date: nextStart || null };
 
       if (base.weeks && Number(base.weeks) > 0) {
-        return { ...base, end_date: addWeeksISO(nextStart, Number(base.weeks)) };
+        return {
+          ...base,
+          end_date: addWeeksISO(nextStart, Number(base.weeks)),
+        };
       }
 
       if (base.end_date) {
@@ -183,7 +188,10 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
             >
               End
             </div>
-            <DateField value={end || null} onChange={(v) => applyEnd(v || "")} />
+            <DateField
+              value={end || null}
+              onChange={(v) => applyEnd(v || "")}
+            />
           </section>
         </div>
 

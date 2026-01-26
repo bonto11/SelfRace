@@ -3,8 +3,8 @@
 
 import { useMemo } from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
 import { THEME } from "@/app/shared/theme/tokens";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/theme/app_colors";
@@ -41,12 +41,9 @@ export default function WeeklyLoadWidget({
 
   const colNeutral =
     CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
-  const colUp =
-    CH.positive ?? CH.good ?? CH.fitness ?? colNeutral;
-  const colWarn =
-    CH.warning ?? CH.average ?? CH.hard20 ?? colNeutral;
-  const colDown =
-    CH.cool ?? CH.lineSecondary ?? colNeutral;
+  const colUp = CH.positive ?? CH.good ?? CH.fitness ?? colNeutral;
+  const colWarn = CH.warning ?? CH.average ?? CH.hard20 ?? colNeutral;
+  const colDown = CH.cool ?? CH.lineSecondary ?? colNeutral;
 
   let note = "—";
   let accent: string = colNeutral;
@@ -91,7 +88,9 @@ export default function WeeklyLoadWidget({
           <div className={WIDGET_VALUE_ROW}>
             <span className={WIDGET_VALUE_PRIMARY}>{h}</span>
             <span className={WIDGET_VALUE_UNIT}>h</span>
-            <span className={WIDGET_VALUE_PRIMARY}>{String(m).padStart(2, "0")}</span>
+            <span className={WIDGET_VALUE_PRIMARY}>
+              {String(m).padStart(2, "0")}
+            </span>
             <span className={WIDGET_VALUE_UNIT}>m</span>
           </div>
 

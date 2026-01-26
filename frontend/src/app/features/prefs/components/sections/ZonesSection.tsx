@@ -3,11 +3,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import TextField from "@/app/shared/components/ui/TextField";
-import Button from "@/app/shared/components/ui/Button";
-import { toast } from "@/app/shared/components/ui/Toast";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import TextField from "@/app/shared/ui/components/TextField";
+import Button from "@/app/shared/ui/components/Button";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
@@ -57,7 +57,8 @@ function validateZones(z: any): string[] {
   if (!z) return ["Zones payload is empty"];
   const e: string[] = [];
   for (const k of ZONE_KEYS) {
-    if (z[k] == null || Number.isNaN(Number(z[k]))) e.push(`${String(k)} must be a number`);
+    if (z[k] == null || Number.isNaN(Number(z[k])))
+      e.push(`${String(k)} must be a number`);
   }
 
   const {
@@ -84,7 +85,14 @@ function validateZones(z: any): string[] {
     e.push("Each zone: min < max");
   }
 
-  if (!(z1_max < z2_min && z2_max <= z3_min && z3_max <= z4_min && z4_max <= z5_min)) {
+  if (
+    !(
+      z1_max < z2_min &&
+      z2_max <= z3_min &&
+      z3_max <= z4_min &&
+      z4_max <= z5_min
+    )
+  ) {
     e.push("Zones must be ordered");
   }
 
@@ -129,7 +137,12 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
   return out;
 }
 
-export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZonesToDB }: Props) {
+export default function ZonesSection({
+  zones,
+  lthrBpm,
+  onZonesChange,
+  onSaveZonesToDB,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
 
@@ -154,7 +167,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
   const zonesLocked = calcMode !== "manual";
 
   const fmtRange = (a: any, b: any) =>
-    Number.isFinite(Number(a)) && Number.isFinite(Number(b)) ? `${Number(a)}–${Number(b)} bpm` : "—";
+    Number.isFinite(Number(a)) && Number.isFinite(Number(b))
+      ? `${Number(a)}–${Number(b)} bpm`
+      : "—";
 
   const previewNode = (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3">
@@ -169,7 +184,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
       <div>
         <span className="opacity-70 mr-1">HRmax:</span>
         <span className="font-semibold">
-          {z.hr_max != null && Number.isFinite(Number(z.hr_max)) ? `${Number(z.hr_max)} bpm` : "—"}
+          {z.hr_max != null && Number.isFinite(Number(z.hr_max))
+            ? `${Number(z.hr_max)} bpm`
+            : "—"}
         </span>
       </div>
     </div>
@@ -178,7 +195,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
   // automatický prepočet pri zmene režimu/HRmax/LTHR/sport
   useEffect(() => {
     if (!zones) return;
-    onZonesChange(recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm));
+    onZonesChange(
+      recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm)
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calcMode, zones?.hr_max, lthrBpm, z.sport]);
 
@@ -203,7 +222,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
             <SelectField
               label=""
               value={z.sport}
-              onChange={(e) => onZonesChange({ ...(zones ?? {}), sport: e.target.value })}
+              onChange={(e) =>
+                onZonesChange({ ...(zones ?? {}), sport: e.target.value })
+              }
               options={SPORT_OPTIONS}
               hint=""
             />
@@ -238,7 +259,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
               onChange={(e) => {
                 const val = e.target.value ? Number(e.target.value) : null;
                 const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };
-                onZonesChange(calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm));
+                onZonesChange(
+                  calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm)
+                );
               }}
             />
           </section>
@@ -263,8 +286,13 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
             const maxKey = `${key}_max` as const;
 
             return (
-              <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-                <div className="text-xs opacity-70 uppercase mb-1">{key.toUpperCase()}</div>
+              <div
+                key={key}
+                className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+              >
+                <div className="text-xs opacity-70 uppercase mb-1">
+                  {key.toUpperCase()}
+                </div>
                 <div className="flex items-center gap-2">
                   <TextField
                     label=""
@@ -276,7 +304,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
                       onZonesChange({
                         ...(zones ?? {}),
                         sport: z.sport,
-                        [minKey]: e.target.value ? Number(e.target.value) : null,
+                        [minKey]: e.target.value
+                          ? Number(e.target.value)
+                          : null,
                       })
                     }
                   />
@@ -291,7 +321,9 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
                       onZonesChange({
                         ...(zones ?? {}),
                         sport: z.sport,
-                        [maxKey]: e.target.value ? Number(e.target.value) : null,
+                        [maxKey]: e.target.value
+                          ? Number(e.target.value)
+                          : null,
                       })
                     }
                   />

@@ -7,10 +7,18 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Button from "@/app/shared/components/ui/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
 
-import { CARD, SCROLL_X, SURFACE_CARD_STYLE, PANEL_PAD, PANEL_CARD_HEAD, PANEL_TITLE, PANEL_ACTIONS_INLINE } from "@/app/shared/ui/tokens";
+import {
+  CARD,
+  SCROLL_X,
+  SURFACE_CARD_STYLE,
+  PANEL_PAD,
+  PANEL_CARD_HEAD,
+  PANEL_TITLE,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens";
 import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_activities";

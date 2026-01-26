@@ -46,7 +46,7 @@ export default function AuthShell({
 
           {footer ? (
             <div className={AUTH_FOOTER_ROW}>
-              <span className={AUTH_FOOTER_TEXT}>SelfRace • AI tréning pre atlétov</span>
+              <span className={AUTH_FOOTER_TEXT}>SelfRace • Priestor pre tvoj osobný rast</span>
 
               <span className={AUTH_BADGE} style={AUTH_BADGE_STYLE}>
                 <span className={AUTH_BADGE_DOT} style={AUTH_BADGE_DOT_STYLE} />

@@ -3,9 +3,9 @@
 
 import { useMemo } from "react";
 
-import Button from "@/app/shared/components/ui/Button";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
@@ -23,7 +23,12 @@ type Props = {
   setPref: (key: any, value: any) => void;
 };
 
-export function SportsSection({ local, mainSport, addOnSports, setPref }: Props) {
+export function SportsSection({
+  local,
+  mainSport,
+  addOnSports,
+  setPref,
+}: Props) {
   const preview = useMemo(() => {
     const main = mainSport || "— none —";
     const addons = Array.isArray(addOnSports) ? addOnSports : [];
@@ -38,7 +43,9 @@ export function SportsSection({ local, mainSport, addOnSports, setPref }: Props)
     if (main && sport === main) return; // add-on nesmie byť rovnaký ako main
 
     const cur = safeAddOns.filter((s) => s !== main); // safety
-    const next = cur.includes(sport) ? cur.filter((s) => s !== sport) : [...cur, sport];
+    const next = cur.includes(sport)
+      ? cur.filter((s) => s !== sport)
+      : [...cur, sport];
     setPref("add_on_sports", next);
   };
 
@@ -72,7 +79,9 @@ export function SportsSection({ local, mainSport, addOnSports, setPref }: Props)
                 const curAddOns = Array.isArray(local.add_on_sports)
                   ? (local.add_on_sports as SportKind[])
                   : [];
-                const cleaned = nextMain ? curAddOns.filter((s) => s !== nextMain) : curAddOns;
+                const cleaned = nextMain
+                  ? curAddOns.filter((s) => s !== nextMain)
+                  : curAddOns;
                 setPref("add_on_sports", cleaned);
               }}
               options={[
@@ -83,8 +92,8 @@ export function SportsSection({ local, mainSport, addOnSports, setPref }: Props)
           </div>
 
           <div className="sm:col-span-2 text-xs opacity-70 flex items-end">
-            Ak riešiš hlavne beh, nastav <b>run</b>. Add-ons použiješ keď chceš, aby coach občas
-            pridal ride/swim ako doplnok (regenerácia, objem).
+            Ak riešiš hlavne beh, nastav <b>run</b>. Add-ons použiješ keď chceš,
+            aby coach občas pridal ride/swim ako doplnok (regenerácia, objem).
           </div>
         </div>
 
@@ -92,7 +101,9 @@ export function SportsSection({ local, mainSport, addOnSports, setPref }: Props)
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs opacity-80">Add-on sports</div>
-            <div className="text-[11px] opacity-60">(bez strength; to je samostatne)</div>
+            <div className="text-[11px] opacity-60">
+              (bez strength; to je samostatne)
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

@@ -11,7 +11,7 @@ import { wrapToLines } from "@/app/shared/utils/recovery";
 import { minutesToHHMM } from "@/app/shared/utils/time";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { hexToRgba } from "@/app/shared/utils/color";
 import { appColors } from "@/app/shared/theme/app_colors";

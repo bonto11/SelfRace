@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
+import AppBackdrop from "@/app/shared/components/components/AppBackdrop";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 export default function LandingPage() {
@@ -40,8 +40,9 @@ export default function LandingPage() {
               className="text-sm sm:text-base max-w-xl mx-auto mt-4 leading-relaxed"
               style={{ color: appColors.textSecondary }}
             >
-              Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové
-              bloky, sledovať únavu a zónu komfortu. Žiadne random plány z internetu.
+              Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať
+              tréningové bloky, sledovať únavu a zónu komfortu. Žiadne random
+              plány z internetu.
             </p>
 
             {/* CTA buttons */}
@@ -71,8 +72,12 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <p className="text-[11px] mt-6" style={{ color: appColors.textMuted }}>
-              Powered by Strava • detailné metriky behu, tréningové zóny a AI coach.
+            <p
+              className="text-[11px] mt-6"
+              style={{ color: appColors.textMuted }}
+            >
+              Powered by Strava • detailné metriky behu, tréningové zóny a AI
+              coach.
             </p>
           </div>
 

@@ -3,9 +3,9 @@
 
 import { useMemo, useState } from "react";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import TextField from "@/app/shared/components/ui/TextField";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import TextField from "@/app/shared/ui/components/TextField";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 import type { VolumePrefs } from "@/app/features/prefs/types/prefs";
@@ -37,7 +37,10 @@ export function VolumeSection({ volume, setPref }: Props) {
 
   const { weeklyHours, dailyMinutes } = useMemo(() => {
     if (!Number.isFinite(safeVal) || safeVal <= 0) {
-      return { weeklyHours: null as number | null, dailyMinutes: null as number | null };
+      return {
+        weeklyHours: null as number | null,
+        dailyMinutes: null as number | null,
+      };
     }
 
     if (mode === "weekly_hours") {
@@ -81,7 +84,8 @@ export function VolumeSection({ volume, setPref }: Props) {
     setPref("volume", { mode, value: num } as VolumePrefs);
   };
 
-  const valueLabel = mode === "weekly_hours" ? "Value [h / týždeň]" : "Value [min / deň]";
+  const valueLabel =
+    mode === "weekly_hours" ? "Value [h / týždeň]" : "Value [min / deň]";
 
   const previewNode = <span>{previewText}</span>;
 
@@ -104,7 +108,9 @@ export function VolumeSection({ volume, setPref }: Props) {
             <div className={INPUTS_CARD_LABEL_SM_1}>Input mode</div>
             <SelectField
               value={mode}
-              onChange={(e) => handleModeChange(e.target.value as VolumeInputMode)}
+              onChange={(e) =>
+                handleModeChange(e.target.value as VolumeInputMode)
+              }
               options={[
                 { value: "weekly_hours", label: "Total weekly [h]" },
                 { value: "daily_minutes", label: "Average daily [min]" },

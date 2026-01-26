@@ -6,8 +6,11 @@ import * as React from "react";
 import { SURFACE_CARD, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-import SportBadge from "@/app/shared/components/ui/SportBadge";
-import type { CalendarItemKind, CalendarPlanStatus } from "@/app/features/calendar/types/calendarTypes";
+import SportBadge from "@/app/shared/ui/components/SportBadge";
+import type {
+  CalendarItemKind,
+  CalendarPlanStatus,
+} from "@/app/features/calendar/types/calendarTypes";
 
 type Props = {
   kind: CalendarItemKind;
@@ -32,7 +35,11 @@ type Props = {
 
 function prettySkDate(iso: string) {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
 }
@@ -133,7 +140,9 @@ export default function CalendarItemCard({
 
         <div className="flex items-center gap-2">
           <SportBadge sport={sport} />
-          {hasBody && <span className="text-xs opacity-60">{open ? "▴" : "▾"}</span>}
+          {hasBody && (
+            <span className="text-xs opacity-60">{open ? "▴" : "▾"}</span>
+          )}
         </div>
       </button>
 
@@ -145,15 +154,22 @@ export default function CalendarItemCard({
           {kpis && kpis.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {kpis.map((k) => (
-                <div key={k.label} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
+                <div
+                  key={k.label}
+                  className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
+                >
                   <div className="text-[10px] opacity-70">{k.label}</div>
-                  <div className="text-xl font-semibold tabular-nums">{k.value}</div>
+                  <div className="text-xl font-semibold tabular-nums">
+                    {k.value}
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
-          {notes && <div className="text-xs sm:text-sm opacity-90">{notes}</div>}
+          {notes && (
+            <div className="text-xs sm:text-sm opacity-90">{notes}</div>
+          )}
 
           {realSummary && (
             <div className="text-xs sm:text-sm">
@@ -163,7 +179,10 @@ export default function CalendarItemCard({
           )}
 
           {onOpenActivity && (
-            <div style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }} className="pt-2">
+            <div
+              style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}
+              className="pt-2"
+            >
               <button
                 type="button"
                 onClick={onOpenActivity}

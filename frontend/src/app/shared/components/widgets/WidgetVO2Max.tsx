@@ -2,19 +2,16 @@
 "use client";
 
 import * as React from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Pill from "@/app/shared/components/ui/Pill";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import Pill from "@/app/shared/components/components/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
 import { fmtDate } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-import {
-  NO_X_OVERFLOW,
-  WIDGET_LOADING_WRAP,
-} from "@/app/shared/ui/tokens";
+import { NO_X_OVERFLOW, WIDGET_LOADING_WRAP } from "@/app/shared/ui/tokens";
 
 import {
   HistoryRow,
@@ -82,7 +79,10 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   let ranges: Range[] = [];
   try {
     const age = birthDate
-      ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000))
+      ? Math.floor(
+          (Date.now() - new Date(birthDate).getTime()) /
+            (365.25 * 24 * 3600 * 1000)
+        )
       : 0;
 
     const g = (vo2Ref as Group[]).find(
@@ -104,7 +104,9 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   };
 
   const levelMeasured = pickLevel(mVO2);
-  const levelEstimated = pickLevel(Number.isFinite(est?.value as number) ? Number(est?.value) : null);
+  const levelEstimated = pickLevel(
+    Number.isFinite(est?.value as number) ? Number(est?.value) : null
+  );
 
   const CH = (THEME as any)?.chart ?? {};
   const accentHex =
@@ -135,10 +137,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
             </div>
             <div className="mt-1 flex items-end gap-2">
               <div className="text-4xl font-extrabold tabular-nums">
-                {Number.isFinite(est?.value as number) ? Number(est?.value).toFixed(1) : "—"}
+                {Number.isFinite(est?.value as number)
+                  ? Number(est?.value).toFixed(1)
+                  : "—"}
               </div>
               {levelEstimated ? (
-                <Pill label={levelEstimated.label} color={levelEstimated.color} />
+                <Pill
+                  label={levelEstimated.label}
+                  color={levelEstimated.color}
+                />
               ) : (
                 <span className="text-xs opacity-60">—</span>
               )}

@@ -4,10 +4,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import { toast } from "@/app/shared/components/ui/Toast";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
   apiGetLatestMetrics,

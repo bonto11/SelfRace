@@ -13,18 +13,21 @@ import {
   distanceLabel,
 } from "@/app/features/bests/utils/bests";
 
-import type { UserBest, PBRunFormState } from "@/app/features/bests/types/bests";
+import type {
+  UserBest,
+  PBRunFormState,
+} from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
 import ActivitySelector from "@/app/shared/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
-import { toast } from "@/app/shared/components/ui/Toast";
-import { confirm } from "@/app/shared/components/ui/Confirm";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import DateField from "@/app/shared/components/ui/DateField";
+import { toast } from "@/app/shared/ui/components/Toast";
+import { confirm } from "@/app/shared/ui/components/Confirm";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import DateField from "@/app/shared/ui/components/DateField";
 
 import { NO_X, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { useIsTouch } from "@/app/shared/utils/detection";
@@ -90,7 +93,10 @@ export default function PBRun() {
   const distanceSelectOptions = useMemo(() => {
     return [
       { value: "", label: "— choose distance —" },
-      ...distanceOptions("run").map((o) => ({ value: String(o.m), label: o.label })),
+      ...distanceOptions("run").map((o) => ({
+        value: String(o.m),
+        label: o.label,
+      })),
     ];
   }, []);
 
@@ -108,9 +114,12 @@ export default function PBRun() {
           : { time_str: form.time_str.trim() }),
       };
 
-      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "")
+        payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined)
+        payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at)
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await apiSaveBest(userId, payload);
       toast.success("Personal best saved");
@@ -152,13 +161,20 @@ export default function PBRun() {
       </div>
 
       {/* FORM */}
-      <div className={[SURFACE_INLINE, PANEL_PAD, PANEL_INNER_STACK, NO_X].join(" ")}>
+      <div
+        className={[SURFACE_INLINE, PANEL_PAD, PANEL_INNER_STACK, NO_X].join(
+          " "
+        )}
+      >
         <div className="grid gap-3 sm:grid-cols-12 items-start">
           <div className="sm:col-span-3">
             <SelectField
               value={form.distance_m}
               onChange={(e) =>
-                setForm((f) => ({ ...f, distance_m: (e.target as HTMLSelectElement).value }))
+                setForm((f) => ({
+                  ...f,
+                  distance_m: (e.target as HTMLSelectElement).value,
+                }))
               }
               options={distanceSelectOptions as any}
             />
@@ -191,7 +207,10 @@ export default function PBRun() {
               sports={["run", "mixed"]}
               value={form.activity_id ? Number(form.activity_id) : ""}
               onChange={(v) =>
-                setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))
+                setForm((f) => ({
+                  ...f,
+                  activity_id: v === "" ? "" : String(v),
+                }))
               }
               onPicked={(a: MiniActivity | null) =>
                 setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
@@ -200,13 +219,27 @@ export default function PBRun() {
           </div>
 
           <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
-            <Button onClick={handleSave} disabled={!canSave} variant="success" size="xs">
+            <Button
+              onClick={handleSave}
+              disabled={!canSave}
+              variant="success"
+              size="xs"
+            >
               {saving ? "Ukladám…" : "Uložiť"}
             </Button>
-            <Button variant="secondary" onClick={() => setForm(EMPTY)} size="xs">
+            <Button
+              variant="secondary"
+              onClick={() => setForm(EMPTY)}
+              size="xs"
+            >
               Clear
             </Button>
-            <Button variant="ghost" onClick={refresh} disabled={loading} size="xs">
+            <Button
+              variant="ghost"
+              onClick={refresh}
+              disabled={loading}
+              size="xs"
+            >
               {loading ? "Načítavam…" : "Refresh"}
             </Button>
           </div>
@@ -221,14 +254,18 @@ export default function PBRun() {
           .map((b) => {
             const actId = b.activity_id != null ? Number(b.activity_id) : null;
             const timeDB =
-              b.best_time_s != null ? secToHHMMSS(b.best_time_s) : b.time_str ?? "—";
+              b.best_time_s != null
+                ? secToHHMMSS(b.best_time_s)
+                : (b.time_str ?? "—");
             const dist = distanceLabel(b.distance_m, "run");
             const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
                 distance_m: String(b.distance_m),
-                time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                time_str:
+                  b.time_str ??
+                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",

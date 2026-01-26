@@ -110,3 +110,16 @@ export const CARD_INSET = "px-4 py-4";          // default padding vnútri karty
 export const CARD_INSET_X = "px-4";             // keď chceš riešiť y osobitne
 export const CARD_HEAD_INSET = "px-4 pt-4 pb-2"; // header padding (ako si mal)
 export const CARD_BODY_INSET = "px-4 pb-4";      // body padding
+
+export const MUTED_TEXT = appColors.textMuted;
+
+
+export const SCROLL_X = [
+  "w-full",
+  "max-w-full",
+  "overflow-x-auto",
+  "overflow-y-hidden",
+  "min-w-0",
+  "touch-pan-x",
+  "[scrollbar-gutter:stable]",
+].join(" ");

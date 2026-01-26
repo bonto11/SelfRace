@@ -2,8 +2,8 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 
 import {
   compareLatestToBaseline,
@@ -21,7 +21,11 @@ import {
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
 
-export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetHRV({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -29,7 +33,8 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
-    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
+    () =>
+      rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
     [rows]
   );
 
@@ -58,8 +63,8 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   const valueText = showNA
     ? "—"
     : Number.isFinite(yesterday)
-    ? String(Math.round(yesterday as number))
-    : "—";
+      ? String(Math.round(yesterday as number))
+      : "—";
 
   const note = showNA ? freshness.message : cmp.note;
 

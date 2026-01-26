@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import Button from "@/app/shared/components/ui/Button";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { toast } from "@/app/shared/components/ui/Toast";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { toast } from "@/app/shared/ui/components/Toast";
 import { resetClientCache } from "@/app/shared/utils/resetClientCache";
 import { apiSyncActivities } from "@/app/features/activities/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
-import { confirm } from "@/app/shared/components/ui/Confirm";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 import { API_URL } from "@/app/shared/config";
 import {
   apiGetStravaStatus,

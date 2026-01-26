@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import SportBadge from "@/app/shared/components/ui/SportBadge";
+import SportBadge from "@/app/shared/ui/components/SportBadge";
 import {
   SURFACE_CARD,
   SURFACE_INLINE,

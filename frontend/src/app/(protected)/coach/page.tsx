@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 import { PAGE_GRID_3 } from "@/app/shared/ui/tokens/pageTokens";
 
 import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
@@ -30,10 +30,18 @@ function ClientPage() {
         <WidgetCoachPlan />
 
         {/* AI widgety */}
-        <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
-        <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
-        <WidgetCoachAIDaily onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
-        <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
+        <WidgetCoachAIAnalyze
+          onOpenDetail={() => router.push("/coach/ai/athleteState")}
+        />
+        <WidgetCoachAIWeekly
+          onOpenDetail={() => router.push("/coach/ai/weeklyPlan")}
+        />
+        <WidgetCoachAIDaily
+          onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
+        />
+        <WidgetCoachAIProgress
+          onOpenDetail={() => router.push("/coach/ai/progress")}
+        />
       </div>
     </PageShell>
   );

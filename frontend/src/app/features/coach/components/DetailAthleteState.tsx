@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteState,
@@ -171,7 +171,9 @@ function Subcard({
     <div className={SURFACE_SUBCARD}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
-        {value != null ? <div className={PANEL_SECTION_TITLE}>{value}</div> : null}
+        {value != null ? (
+          <div className={PANEL_SECTION_TITLE}>{value}</div>
+        ) : null}
         {children ? <div className={PANEL_INNER_STACK}>{children}</div> : null}
       </div>
     </div>
@@ -318,10 +320,7 @@ export default function DetailAthleteState() {
 
   if (!row || !row.state) {
     return (
-      <Card
-        title="Athlete state"
-        subtitle="Zatiaľ nemáš uloženú AI analýzu."
-      >
+      <Card title="Athlete state" subtitle="Zatiaľ nemáš uloženú AI analýzu.">
         <div className={PANEL_PREVIEW}>
           Spusť <strong>Analyze Athlete state</strong> vo widgete{" "}
           <strong>Coach — Plan</strong> a po uložení sa tu zobrazí detail.
@@ -334,11 +333,21 @@ export default function DetailAthleteState() {
 
   const statusPills = (
     <>
-      <div className={[PANEL_STATUS_PILL, pillClass(aiState.fatigue_level, "fatigue")].join(" ")}>
+      <div
+        className={[
+          PANEL_STATUS_PILL,
+          pillClass(aiState.fatigue_level, "fatigue"),
+        ].join(" ")}
+      >
         Fatigue: {formatLevelLabel(aiState.fatigue_level)}
       </div>
 
-      <div className={[PANEL_STATUS_PILL, pillClass(aiState.injury_risk, "injury")].join(" ")}>
+      <div
+        className={[
+          PANEL_STATUS_PILL,
+          pillClass(aiState.injury_risk, "injury"),
+        ].join(" ")}
+      >
         Injury: {formatLevelLabel(aiState.injury_risk)}
       </div>
 
@@ -359,14 +368,12 @@ export default function DetailAthleteState() {
     <div className={PANEL_STACK}>
       <Card
         title="Stav atleta – detailná AI analýza"
-        subtitle={
-          [
-            generatedAt ? `Posledná AI analýza: ${generatedAt}` : null,
-            userSummary.headline ? userSummary.headline : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        }
+        subtitle={[
+          generatedAt ? `Posledná AI analýza: ${generatedAt}` : null,
+          userSummary.headline ? userSummary.headline : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         topRight={statusPills}
         footer
       />
@@ -385,7 +392,10 @@ export default function DetailAthleteState() {
             />
           </Subcard>
 
-          <Subcard title="Sila" value={strengthLevel ? `${strengthLevel}/10` : "—"}>
+          <Subcard
+            title="Sila"
+            value={strengthLevel ? `${strengthLevel}/10` : "—"}
+          >
             <Bar
               value01={strengthLevel / 10}
               fillClassName="bg-violet-500"
@@ -402,7 +412,11 @@ export default function DetailAthleteState() {
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Subcard title="Týždenný objem" value={volumeRangeLabel}>
-            <Bar value01={0.7} fillClassName="bg-sky-500" labelLeft={aiState.volume_tolerance?.note ?? null} />
+            <Bar
+              value01={0.7}
+              fillClassName="bg-sky-500"
+              labelLeft={aiState.volume_tolerance?.note ?? null}
+            />
           </Subcard>
 
           <Subcard
@@ -421,20 +435,20 @@ export default function DetailAthleteState() {
           </Subcard>
         </div>
 
-        {(acute != null || chronic != null) ? (
+        {acute != null || chronic != null ? (
           <div className={SURFACE_SUBCARD}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Tréningová záťaž</div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <Bar
-                  value01={Math.min(1, ((chronic ?? 0) / 400))}
+                  value01={Math.min(1, (chronic ?? 0) / 400)}
                   fillClassName="bg-emerald-500"
                   labelLeft="Chronic load"
                   labelRight={chronic != null ? chronic : "—"}
                 />
                 <Bar
-                  value01={Math.min(1, ((acute ?? 0) / 400))}
+                  value01={Math.min(1, (acute ?? 0) / 400)}
                   fillClassName="bg-rose-500"
                   labelLeft="Acute load"
                   labelRight={acute != null ? acute : "—"}
@@ -505,7 +519,9 @@ export default function DetailAthleteState() {
 
           <div className={SURFACE_SUBCARD}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Rýchle tipy na ďalšie týždne</div>
+              <div className={PANEL_SECTION_TITLE}>
+                Rýchle tipy na ďalšie týždne
+              </div>
               {userSummary.suggestions_short?.length ? (
                 <ul className="list-disc list-inside text-sm space-y-1">
                   {userSummary.suggestions_short.map((s, i) => (

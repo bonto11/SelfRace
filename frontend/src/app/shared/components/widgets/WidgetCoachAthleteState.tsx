@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
 
@@ -167,8 +167,8 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a widget
-          sa automaticky naplní.
+          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a
+          widget sa automaticky naplní.
         </div>
       ) : (
         <>

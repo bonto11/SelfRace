@@ -6,10 +6,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import { toast } from "@/app/shared/components/ui/Toast";
-import AuthShell from "@/app/shared/components/ui/AuthShell";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import { toast } from "@/app/shared/ui/components/Toast";
+import AuthShell from "@/app/shared/ui/components/AuthShell";
 
 import {
   AUTH_FORM,
@@ -119,13 +119,21 @@ export default function SignInForm() {
         </Button>
 
         <div className={AUTH_LINK_ROW}>
-          <Link href="/forgot-password" className={AUTH_LINK} style={AUTH_LINK_STYLE}>
+          <Link
+            href="/forgot-password"
+            className={AUTH_LINK}
+            style={AUTH_LINK_STYLE}
+          >
             Zabudnuté heslo?
           </Link>
 
           <span className={AUTH_TEXT}>
             Nemáš účet?{" "}
-            <Link href="/signup" className={AUTH_LINK} style={AUTH_LINK_MUTED_STYLE}>
+            <Link
+              href="/signup"
+              className={AUTH_LINK}
+              style={AUTH_LINK_MUTED_STYLE}
+            >
               Registruj sa
             </Link>
           </span>

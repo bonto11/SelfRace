@@ -9,7 +9,7 @@ import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { THEME } from "@/app/shared/theme/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { inputClass } from "@/app/shared/ui";
 
 import type {
@@ -78,10 +78,12 @@ export default function TrendVO2Max() {
   const lookbackDays = weeks * 7;
 
   const estDays = new Set<string>();
-  for (const r of estHist) if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
+  for (const r of estHist)
+    if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
 
   const measDays = new Set<string>();
-  for (const r of measHist) if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
+  for (const r of measHist)
+    if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
 
   let allDays = Array.from(new Set<string>([...estDays, ...measDays])).sort();
 
@@ -132,13 +134,19 @@ export default function TrendVO2Max() {
     new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK")
   );
 
-  const seriesEst = labelsISO.map((d) => (estMap.has(d) ? Number(estMap.get(d)) : NaN));
-  const seriesMeas = labelsISO.map((d) => (measMap.has(d) ? Number(measMap.get(d)) : NaN));
+  const seriesEst = labelsISO.map((d) =>
+    estMap.has(d) ? Number(estMap.get(d)) : NaN
+  );
+  const seriesMeas = labelsISO.map((d) =>
+    measMap.has(d) ? Number(measMap.get(d)) : NaN
+  );
 
   const sex = stat?.sex === "F" ? "F" : "M";
   const birthDate = stat?.birth_date || "";
   const age = birthDate
-    ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000))
+    ? Math.floor(
+        (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)
+      )
     : 0;
 
   const group = (vo2Ref as Group[]).find(
@@ -151,12 +159,16 @@ export default function TrendVO2Max() {
       color: colorForVo2RangeLabel(r.label),
     })) ?? [];
 
-  const finiteVals = [...seriesEst, ...seriesMeas].filter(Number.isFinite) as number[];
+  const finiteVals = [...seriesEst, ...seriesMeas].filter(
+    Number.isFinite
+  ) as number[];
   const rangeMaxes = ranges.map((r) => (typeof r.max === "number" ? r.max : 0));
 
   const suggestedTop = Math.max(
     60,
-    Math.ceil(Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1)
+    Math.ceil(
+      Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1
+    )
   );
 
   const finiteEst = seriesEst.filter(Number.isFinite) as number[];
@@ -168,7 +180,9 @@ export default function TrendVO2Max() {
     ...ranges.map((r, i) => ({
       type: "line" as const,
       label: r.label,
-      data: labels.map(() => (typeof r.max === "number" ? r.max : suggestedTop)),
+      data: labels.map(() =>
+        typeof r.max === "number" ? r.max : suggestedTop
+      ),
       borderColor: hexWithAlpha(r.color, 0),
       backgroundColor: hexWithAlpha(r.color, 0.18),
       pointRadius: 0,

@@ -1,7 +1,7 @@
 // src/app/coach/pb/page.tsx
 "use client";
 
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 import AccordionBests from "@/app/features/bests/components/AccordionBests";
 
 export default function Page() {

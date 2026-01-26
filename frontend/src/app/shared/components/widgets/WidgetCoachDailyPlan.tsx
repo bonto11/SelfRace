@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
 
@@ -74,7 +74,8 @@ function buildUiState(overview: DailyOverview | null): UiState {
 
 function pickAccent(ui: UiState) {
   if (!ui.daysCount) return appColors.textMuted;
-  if (ui.todaySessions && ui.todaySessions.length > 0) return appColors.brandPrimary;
+  if (ui.todaySessions && ui.todaySessions.length > 0)
+    return appColors.brandPrimary;
   return appColors.accentTeal;
 }
 
@@ -138,8 +139,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         </div>
       ) : !overview || !ui.daysCount ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa tu
-          zobrazí prehľad najbližších dní.
+          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa
+          tu zobrazí prehľad najbližších dní.
         </div>
       ) : (
         <>

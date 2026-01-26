@@ -17,7 +17,7 @@ import {
 import { hexToRgba } from "@/app/shared/utils/color";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import {

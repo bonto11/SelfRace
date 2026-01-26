@@ -2,9 +2,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 import { appColors } from "@/app/shared/theme/app_colors";

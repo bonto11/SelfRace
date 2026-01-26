@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 import { PAGE_WIDGET_GRID } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
@@ -13,7 +13,7 @@ import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 
-import Button from "@/app/shared/components/ui/Button";
+import Button from "@/app/shared/components/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
 
 function RefreshIconBtn() {
@@ -43,8 +43,12 @@ export default function RecoveryPage() {
       <div className={PAGE_WIDGET_GRID}>
         <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
         <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-        <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
-        <WidgetSleepStart onOpenDetail={() => router.push("/recovery/sleepStart")} />
+        <WidgetSleepDuration
+          onOpenDetail={() => router.push("/recovery/sleepDuration")}
+        />
+        <WidgetSleepStart
+          onOpenDetail={() => router.push("/recovery/sleepStart")}
+        />
       </div>
     </PageShell>
   );

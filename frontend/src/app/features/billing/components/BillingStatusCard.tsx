@@ -1,20 +1,14 @@
-// src/features/billing/components/BillingStatusCard.tsx
 "use client";
 
-import Button from "@/app/shared/components/ui/Button";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import BillingUsageBar from "./BillingUsageBar";
 
-import type { BillingStatusCardProps } from "@/app/features/billing/types/billing";
-import { appColors } from "@/app/shared/theme/app_colors";
-import {
-  PANEL,
-  PANEL_PAD,
-  PANEL_CARD_HEAD,
-  PANEL_CARD_TITLE,
-  PANEL_CARD_SUBTITLE,
-  PANEL_KV_STACK,
-} from "@/app/shared/ui/tokens";
+import type {
+  AppSubscriptionStatus,
+  PlannedChange,
+  BillingStatusCardProps,
+} from "@/app/features/billing/types/billing";
 
 export default function BillingStatusCard({
   status,
@@ -31,8 +25,9 @@ export default function BillingStatusCard({
     !!plannedChange &&
     !!activeSub &&
     !!activeSub.current_period_end &&
-    !!activeSub.cancel_at_period_end;
+    activeSub.cancel_at_period_end;
 
+  // ai_quota berieme voľne z backu, typ riešime cez any, aby to neblokovalo TS
   const quota = (status as any)?.ai_quota as
     | {
         monthly_limit_tokens?: number | null;
@@ -45,63 +40,49 @@ export default function BillingStatusCard({
   const usedTokens = quota?.used_tokens_this_month ?? null;
   const resetAt = quota?.reset_at ?? null;
 
-  const plannedLabel =
-    plannedChange?.kind === "cancel"
-      ? "Plánované zrušenie"
-      : plannedChange?.kind === "downgrade"
-      ? "Plánované zníženie"
-      : plannedChange?.kind === "upgrade"
-      ? "Plánované zvýšenie"
-      : null;
-
   return (
-    <section
-      className={[PANEL, PANEL_PAD].join(" ")}
-      style={{
-        background: appColors.surfaceCard,
-        borderColor: appColors.surfaceCardBorder,
-        color: appColors.textPrimary,
-      }}
-    >
-      <div className={PANEL_CARD_HEAD}>
+    <section className="rounded-xl border border-white/10 bg-black/40 p-4">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className={PANEL_CARD_TITLE}>Stav predplatného</h2>
-          <p className={PANEL_CARD_SUBTITLE} style={{ color: appColors.textMuted }}>
-            Aktuálny program a AI limity.
+          <h2 className="text-base font-semibold">Subscription status</h2>
+          <p className="text-xs opacity-70">
+            Aktuálny mód aplikácie a AI limity.
           </p>
         </div>
-
         {loadingStatus && <LoadingSpinner size="button" />}
       </div>
 
-      {error ? (
-        <p className="text-xs line-clamp-2" style={{ color: appColors.statusError }}>
-          {error}
-        </p>
-      ) : null}
+      {error && (
+        <p className="mt-2 text-xs text-red-400 line-clamp-2">{error}</p>
+      )}
 
-      <div className={PANEL_KV_STACK}>
+      <div className="mt-3 text-sm space-y-1">
         <div>
-          <span style={{ color: appColors.textMuted }}>Aktuálny program: </span>
-          <span className="font-semibold uppercase">{activeTierCode || "free"}</span>
+          <span className="opacity-70">Current tier: </span>
+          <span className="font-semibold uppercase">
+            {activeTierCode || "free"}
+          </span>
         </div>
 
         {activeSub ? (
           <>
             <div>
-              <span style={{ color: appColors.textMuted }}>Stav: </span>
+              <span className="opacity-70">Status: </span>
               <span className="font-semibold">
-                {String(activeSub.status || "").toUpperCase()}
-                {activeSub.cancel_at_period_end ? " (zruší sa na konci obdobia)" : ""}
+                {activeSub.status}
+                {activeSub.cancel_at_period_end && " (cancel at period end)"}
               </span>
             </div>
-
-            {activeSub.current_period_start && activeSub.current_period_end ? (
-              <div className="text-xs" style={{ color: appColors.textMuted }}>
-                Obdobie: {activeSub.current_period_start.slice(0, 10)} →{" "}
-                {activeSub.current_period_end.slice(0, 10)}
-              </div>
-            ) : null}
+            <div className="text-xs opacity-75">
+              {activeSub.current_period_start &&
+                activeSub.current_period_end && (
+                  <>
+                    Billing period:{" "}
+                    {activeSub.current_period_start.slice(0, 10)} →{" "}
+                    {activeSub.current_period_end.slice(0, 10)}
+                  </>
+                )}
+            </div>
 
             <BillingUsageBar
               limitTokens={limitTokens ?? undefined}
@@ -109,52 +90,54 @@ export default function BillingStatusCard({
               resetAt={resetAt ?? undefined}
             />
 
-            {hasPlannedChange && plannedLabel ? (
-              <div className="text-xs space-y-2">
-                <div style={{ color: appColors.statusWarning }}>
-                  {plannedLabel}
-                  {plannedChange?.to_tier_code ? (
+            {hasPlannedChange && (
+              <div className="mt-2 text-xs">
+                <div className="text-amber-300">
+                  {plannedChange!.kind === "cancel"
+                    ? "Planned cancellation"
+                    : "Planned downgrade"}{" "}
+                  {plannedChange!.to_tier_code && (
                     <>
-                      {" "}
-                      →{" "}
+                      to{" "}
                       <span className="font-semibold uppercase">
-                        {plannedChange.to_tier_code}
+                        {plannedChange!.to_tier_code}
                       </span>
                     </>
-                  ) : null}
-                  {plannedChange?.effective_from ? (
+                  )}{" "}
+                  {plannedChange!.effective_from && (
                     <>
-                      {" "}
-                      od{" "}
+                      from{" "}
                       <span className="font-mono">
-                        {plannedChange.effective_from.slice(0, 10)}
+                        {plannedChange!.effective_from.slice(0, 10)}
                       </span>
                     </>
-                  ) : null}
+                  )}
                   .
                 </div>
 
-                <Button
-                  size="xs"
-                  variant="secondary"
-                  disabled={loadingAny}
-                  onClick={onCancelPlannedChange}
-                >
-                  {loadingAny ? (
-                    <span className="inline-flex items-center gap-1">
-                      <LoadingSpinner size="button" />
-                      Potvrdzujem…
-                    </span>
-                  ) : (
-                    "Ponechať aktuálny program"
-                  )}
-                </Button>
+                <div className="mt-1">
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    disabled={loadingAny}
+                    onClick={onCancelPlannedChange}
+                  >
+                    {loadingAny ? (
+                      <span className="inline-flex items-center gap-1">
+                        <LoadingSpinner size="button" />
+                        Keeping current…
+                      </span>
+                    ) : (
+                      "Keep current program"
+                    )}
+                  </Button>
+                </div>
               </div>
-            ) : null}
+            )}
           </>
         ) : (
-          <p className="text-xs" style={{ color: appColors.textMuted }}>
-            Nemáš aktívne platené členstvo. Používaš free program.
+          <p className="text-xs opacity-75">
+            Nemáš aktívne platené členstvo. Používaš free tier.
           </p>
         )}
       </div>

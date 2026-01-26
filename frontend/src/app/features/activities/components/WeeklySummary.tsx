@@ -18,7 +18,6 @@ import {
   PANEL_SECTION_LABEL,
 } from "@/app/shared/ui/tokens";
 
-import { THEME } from "@/app/shared/theme/tokens";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 import { Metric } from "@/app/features/activities/types/activities";
 

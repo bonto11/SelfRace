@@ -3,14 +3,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import Button from "@/app/shared/components/ui/Button";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import TextField from "@/app/shared/components/ui/TextField";
-import DateField from "@/app/shared/components/ui/DateField";
-import TimeField24 from "@/app/shared/components/ui/TimeField24";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import TextField from "@/app/shared/ui/components/TextField";
+import DateField from "@/app/shared/ui/components/DateField";
+import TimeField24 from "@/app/shared/ui/components/TimeField24";
 
-import { toast } from "@/app/shared/components/ui/Toast";
+import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import type { DayAbbrev } from "@/app/shared/types/day";
@@ -91,7 +91,15 @@ const INT_TO_DAY: Record<number, DayAbbrev> = {
   7: "Sun",
 };
 
-const JS_TO_DAY: DayAbbrev[] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const JS_TO_DAY: DayAbbrev[] = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+];
 
 /* ---------- helpers ---------- */
 
@@ -186,7 +194,9 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
       let day: DayAbbrev = "Mon";
 
       if (mode === "weekly") {
-        const weekdayNum = Number((ev as any).weekday ?? (ev as any).weekday_int);
+        const weekdayNum = Number(
+          (ev as any).weekday ?? (ev as any).weekday_int
+        );
         day = INT_TO_DAY[weekdayNum] ?? "Mon";
       } else {
         const iso = (ev as any).single_date as string | null;
@@ -221,10 +231,13 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
     .filter(Boolean) as ExternalActivity[];
 }
 
-function mapActivitiesToEvents(userId: number, activities: ExternalActivity[]): ExternalEvent[] {
+function mapActivitiesToEvents(
+  userId: number,
+  activities: ExternalActivity[]
+): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
-    const weekday = mode === "weekly" ? DAY_TO_INT[a.day] ?? 1 : 1;
+    const weekday = mode === "weekly" ? (DAY_TO_INT[a.day] ?? 1) : 1;
 
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
@@ -239,7 +252,7 @@ function mapActivitiesToEvents(userId: number, activities: ExternalActivity[]): 
       sport: a.sport as any,
       weekday,
       recurrence_kind: mode,
-      single_date: mode === "single" ? a.date_single ?? null : null,
+      single_date: mode === "single" ? (a.date_single ?? null) : null,
       start_time_local: a.time ?? null,
       duration_min: null,
       priority,
@@ -290,7 +303,9 @@ export function DetailExternalEvents({ userId }: Props) {
         setList(mapEventsToActivities(events ?? []));
       } catch (e: any) {
         if (!alive) return;
-        setDbError(e?.message ?? "Nepodarilo sa načítať externé aktivity z DB.");
+        setDbError(
+          e?.message ?? "Nepodarilo sa načítať externé aktivity z DB."
+        );
       } finally {
         if (!alive) return;
         setLoadingDB(false);
@@ -314,21 +329,29 @@ export function DetailExternalEvents({ userId }: Props) {
   }, [list]);
 
   const previewText = useMemo(() => {
-    if (!userId) return "Najprv sa prihlás, aby sme vedeli načítať a uložiť externé udalosti.";
+    if (!userId)
+      return "Najprv sa prihlás, aby sme vedeli načítať a uložiť externé udalosti.";
     if (loadingDB) return "Načítavam externé aktivity z DB…";
-    if (!previewSorted.length) return "Zatiaľ nemáš uložené žiadne externé aktivity.";
+    if (!previewSorted.length)
+      return "Zatiaľ nemáš uložené žiadne externé aktivity.";
     const top = previewSorted.slice(0, 3).map((a) => {
       const when =
         (a.mode ?? "weekly") === "weekly"
           ? niceLabelForDay(a.day)
-          : a.date_single ?? niceLabelForDay(a.day);
+          : (a.date_single ?? niceLabelForDay(a.day));
       return `${when} · ${niceLabelForSport(a.sport as any)} · ${niceLabelForIntensity(a.intensity)}`;
     });
-    return top.join(" • ") + (previewSorted.length > 3 ? ` • +${previewSorted.length - 3}` : "");
+    return (
+      top.join(" • ") +
+      (previewSorted.length > 3 ? ` • +${previewSorted.length - 3}` : "")
+    );
   }, [userId, loadingDB, previewSorted]);
 
   const handleAdd = () => {
-    const next: ExternalActivity = { ...draft, note: draft.note?.trim() || undefined };
+    const next: ExternalActivity = {
+      ...draft,
+      note: draft.note?.trim() || undefined,
+    };
 
     if ((next.mode ?? "weekly") === "single" && !next.date_single) {
       toast.error("Pri jednorazovej udalosti zadaj dátum.");
@@ -337,7 +360,8 @@ export function DetailExternalEvents({ userId }: Props) {
     setList((cur) => [...cur, next]);
   };
 
-  const handleRemove = (idx: number) => setList((cur) => cur.filter((_, i) => i !== idx));
+  const handleRemove = (idx: number) =>
+    setList((cur) => cur.filter((_, i) => i !== idx));
 
   const handleSaveToDB = async () => {
     if (!userId) return;
@@ -379,7 +403,8 @@ export function DetailExternalEvents({ userId }: Props) {
   const mode = draft.mode ?? "weekly";
   const isWeekly = mode === "weekly";
   const category: ExternalCategory = draft.category ?? "sport";
-  const sportOptions: any[] = category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
+  const sportOptions: any[] =
+    category === "sport" ? SPORT_OPTIONS : EVENT_OPTIONS;
 
   const disabled = !userId || savingDB;
 
@@ -413,7 +438,10 @@ export function DetailExternalEvents({ userId }: Props) {
         {/* FORM */}
         <div className={FORM_GRID_TWO}>
           <section>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Typ
             </div>
 
@@ -422,7 +450,10 @@ export function DetailExternalEvents({ userId }: Props) {
               value={String(category)}
               onChange={(e) => {
                 const nextCat = (e.target.value as ExternalCategory) || "sport";
-                const defaultSport = nextCat === "sport" ? SPORT_OPTIONS[0] : (EVENT_OPTIONS[0] as any);
+                const defaultSport =
+                  nextCat === "sport"
+                    ? SPORT_OPTIONS[0]
+                    : (EVENT_OPTIONS[0] as any);
 
                 setDraft((d) => ({
                   ...d,
@@ -438,7 +469,10 @@ export function DetailExternalEvents({ userId }: Props) {
           </section>
 
           <section>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Opakovanie
             </div>
 
@@ -459,7 +493,10 @@ export function DetailExternalEvents({ userId }: Props) {
           </section>
 
           <section>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {isWeekly ? "Deň" : "Dátum"}
             </div>
 
@@ -473,7 +510,10 @@ export function DetailExternalEvents({ userId }: Props) {
                     day: (e.target.value as DayAbbrev) || "Mon",
                   }))
                 }
-                options={ALL_DAYS.map((d) => ({ value: d, label: niceLabelForDay(d) }))}
+                options={ALL_DAYS.map((d) => ({
+                  value: d,
+                  label: niceLabelForDay(d),
+                }))}
               />
             ) : (
               <DateField
@@ -490,7 +530,10 @@ export function DetailExternalEvents({ userId }: Props) {
           </section>
 
           <section>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {category === "sport" ? "Šport" : "Udalosť"}
             </div>
 
@@ -503,7 +546,10 @@ export function DetailExternalEvents({ userId }: Props) {
                   sport: (e.target.value as any) || "other",
                 }))
               }
-              options={sportOptions.map((s) => ({ value: String(s), label: niceLabelForSport(s) }))}
+              options={sportOptions.map((s) => ({
+                value: String(s),
+                label: niceLabelForSport(s),
+              }))}
             />
           </section>
 
@@ -516,7 +562,10 @@ export function DetailExternalEvents({ userId }: Props) {
           </section>
 
           <section>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Intenzita / záťaž
             </div>
 
@@ -526,15 +575,22 @@ export function DetailExternalEvents({ userId }: Props) {
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
-                  intensity: (e.target.value as ExternalIntensity) || "moderate",
+                  intensity:
+                    (e.target.value as ExternalIntensity) || "moderate",
                 }))
               }
-              options={EXT_INTENS.map((i) => ({ value: i, label: niceLabelForIntensity(i) }))}
+              options={EXT_INTENS.map((i) => ({
+                value: i,
+                label: niceLabelForIntensity(i),
+              }))}
             />
           </section>
 
           <section>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Poznámka
             </div>
 
@@ -553,24 +609,41 @@ export function DetailExternalEvents({ userId }: Props) {
 
           <section>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleAdd} size="sm" variant="success" disabled={disabled}>
+              <Button
+                onClick={handleAdd}
+                size="sm"
+                variant="success"
+                disabled={disabled}
+              >
                 Pridať
               </Button>
 
-              <Button size="sm" variant="danger" onClick={handleClearDB} disabled={disabled}>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={handleClearDB}
+                disabled={disabled}
+              >
                 Vymazať všetko
               </Button>
             </div>
 
-            {dbError ? <div className="mt-2 text-[11px] text-red-300">{dbError}</div> : null}
-            {dbInfo && !dbError ? <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div> : null}
+            {dbError ? (
+              <div className="mt-2 text-[11px] text-red-300">{dbError}</div>
+            ) : null}
+            {dbInfo && !dbError ? (
+              <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div>
+            ) : null}
           </section>
         </div>
 
         {/* LIST */}
         {list.length > 0 ? (
           <div className="mt-2">
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Zoznam
             </div>
 
@@ -590,12 +663,18 @@ export function DetailExternalEvents({ userId }: Props) {
                     ].join(" ")}
                   >
                     <span className="text-sm">
-                      {when} · {niceLabelForSport(a.sport as any)} · {niceLabelForIntensity(a.intensity)}
+                      {when} · {niceLabelForSport(a.sport as any)} ·{" "}
+                      {niceLabelForIntensity(a.intensity)}
                       {a.time ? ` · ${a.time}` : ""}
                       {a.note ? ` — ${a.note}` : ""}
                     </span>
 
-                    <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleRemove(idx)}
+                      disabled={savingDB}
+                    >
                       odstrániť
                     </Button>
                   </li>

@@ -2,8 +2,8 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
 
@@ -69,7 +69,10 @@ function levelColor(level: Level): string {
     );
   }
 
-  return pickFirstColor("textMuted", "textSecondary", "textSubtle") || appColors.textMuted;
+  return (
+    pickFirstColor("textMuted", "textSecondary", "textSubtle") ||
+    appColors.textMuted
+  );
 }
 
 // ...zvyšok bez zmeny
@@ -117,8 +120,9 @@ export default function WidgetMonoStrain({
   const accentLevel = worstLevel(mC.level, sC.level);
   const accent = levelColor(accentLevel);
 
-  const rangeTxt =
-    r7?.last?.range ? fmtRange(r7.last.range.start, r7.last.range.end) : "—";
+  const rangeTxt = r7?.last?.range
+    ? fmtRange(r7.last.range.start, r7.last.range.end)
+    : "—";
 
   return (
     <WidgetCard

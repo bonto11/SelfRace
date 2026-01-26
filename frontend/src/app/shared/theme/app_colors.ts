@@ -6,129 +6,127 @@ import { natur } from "./paletteNatur";
 
 export const appColors = {
   // Core backgrounds
-  backgroundMain: natur.natur_backgroundMain,
-  backgroundAlt: natur.natur_backgroundAlt,
+  backgroundMain: natur.backgroundMain,
+  backgroundAlt: natur.backgroundAlt,
 
   // Surfaces
-  surfaceCard: natur.natur_surfaceGlass,
-  surfaceCardHover: natur.natur_surfaceGlassHover,
-  surfaceSolid: natur.natur_surfaceSolid,
-  surfaceSolidHover: natur.natur_surfaceSolidHover,
+  surfaceCard: natur.surfaceGlass,
+  surfaceCardHover: natur.surfaceGlassHover,
+  surfaceSolid: natur.surfaceSolid,
+  surfaceSolidHover: natur.surfaceSolidHover,
 
   // Borders
-  surfaceCardBorder: natur.natur_borderGlass, // neutrál (kalendár, línie)
-  widgetBorder: natur.natur_borderWidget, // len widgety/karty
+  surfaceCardBorder: natur.borderGlass,
+  widgetBorder: natur.borderWidget,
 
   // Accents
-  accentYellowSoft: natur.natur_accentYellowSoft,
-  accentYellowDim: natur.natur_accentYellowDim,
+  accentYellowSoft: natur.accentYellowSoft,
+  accentYellowDim: natur.accentYellowDim,
 
-  divider: natur.natur_divider,
-  overlay: natur.natur_overlay,
+  divider: natur.divider,
+  overlay: natur.overlay,
 
   // Typography
-  textPrimary: natur.natur_textPrimary,
-  textSecondary: natur.natur_textSecondary,
-  textMuted: natur.natur_textMuted,
-  textInverse: natur.natur_textInverse,
+  textPrimary: natur.textPrimary,
+  textSecondary: natur.textSecondary,
+  textMuted: natur.textMuted,
+  textInverse: natur.textInverse,
 
   // Brand / accents
-  brandPrimary: natur.natur_greenPrimary,
-  brandSecondary: natur.natur_greenSoft,
-  brandMuted: natur.natur_greenMuted,
-  accentTeal: natur.natur_accentTeal,
-  accentLime: natur.natur_accentLime,
+  brandPrimary: natur.greenPrimary,
+  brandSecondary: natur.greenSoft,
+  brandMuted: natur.greenMuted,
+  accentTeal: natur.accentTeal,
+  accentLime: natur.accentLime,
 
-  // Focus (global)
-  focusRing: natur.natur_focusRing,
+  // Focus
+  focusRing: natur.focusRing,
 
   // Status
-  statusSuccess: natur.natur_statusSuccess,
-  statusWarning: natur.natur_statusWarning,
-  statusError: natur.natur_statusError,
-  statusInfo: natur.natur_statusInfo,
+  statusSuccess: natur.statusSuccess,
+  statusWarning: natur.statusWarning,
+  statusError: natur.statusError,
+  statusInfo: natur.statusInfo,
 
-  // Buttons (existing semantics stay)
-  buttonPrimaryBg: natur.natur_greenPrimary,
-  buttonPrimaryBgHover: natur.natur_greenSoft,
-  buttonPrimaryText: natur.natur_textInverse,
+  // Buttons
+  buttonPrimaryBg: natur.greenPrimary,
+  buttonPrimaryBgHover: natur.greenSoft,
+  buttonPrimaryText: natur.textInverse,
 
-  buttonSecondaryBg: natur.natur_surfaceGlass,
-  buttonSecondaryBgHover: natur.natur_surfaceGlassHover,
-  buttonSecondaryBorder: natur.natur_borderGlass,
-  buttonSecondaryText: natur.natur_textPrimary,
+  buttonSecondaryBg: natur.surfaceGlass,
+  buttonSecondaryBgHover: natur.surfaceGlassHover,
+  buttonSecondaryBorder: natur.borderGlass,
+  buttonSecondaryText: natur.textPrimary,
 
-  buttonGhostBg: natur.natur_buttonGhostBg,
-  buttonGhostBgHover: natur.natur_buttonGhostBgHover,
-  buttonGhostText: natur.natur_textPrimary,
+  buttonGhostBg: natur.buttonGhostBg,
+  buttonGhostBgHover: natur.buttonGhostBgHover,
+  buttonGhostText: natur.textPrimary,
 
-  buttonDangerBg: natur.natur_statusError,
-  buttonDangerBgHover: natur.natur_statusErrorHover,
-  buttonDangerText: natur.natur_textPrimary,
+  buttonDangerBg: natur.statusError,
+  buttonDangerBgHover: natur.statusErrorHover,
+  buttonDangerText: natur.textPrimary,
 
-  // MAIN button (new: save vibe)
-  buttonMainBg: natur.natur_main,
-  buttonMainBgHover: natur.natur_mainSoft,
-  buttonMainText: natur.natur_mainButtonText,
+  buttonMainBg: natur.main,
+  buttonMainBgHover: natur.mainSoft,
+  buttonMainText: natur.mainButtonText,
 
   // Pills
-  pillBg: natur.natur_pillBg,
-  pillBgHover: natur.natur_pillBgHover,
-  pillBorder: natur.natur_pillBorder,
-  pillText: natur.natur_textSecondary,
-  pillActiveBg: natur.natur_pillActiveBg,
-  pillActiveBorder: natur.natur_pillActiveBorder,
-  pillActiveText: natur.natur_textPrimary,
+  pillBg: natur.pillBg,
+  pillBgHover: natur.pillBgHover,
+  pillBorder: natur.pillBorder,
+  pillText: natur.textSecondary,
+  pillActiveBg: natur.pillActiveBg,
+  pillActiveBorder: natur.pillActiveBorder,
+  pillActiveText: natur.textPrimary,
 
-  // Inputs (DEFAULT – nemeníme; používa kalendár/dashboards/readonly UI)
-  inputBg: natur.natur_inputBg,
-  inputBgHover: natur.natur_inputBgHover,
-  inputBorder: natur.natur_inputBorder,
-  inputBorderFocus: natur.natur_inputBorderFocus,
-  inputText: natur.natur_textPrimary,
-  inputPlaceholder: natur.natur_textMuted,
+  // Inputs (default)
+  inputBg: natur.inputBg,
+  inputBgHover: natur.inputBgHover,
+  inputBorder: natur.inputBorder,
+  inputBorderFocus: natur.inputBorderFocus,
+  inputText: natur.textPrimary,
+  inputPlaceholder: natur.textMuted,
 
-  // Inputs (READONLY semantics) — mapované na default inputy (safe)
-  readonlyBg: natur.natur_inputBg,
-  readonlyBgHover: natur.natur_inputBgHover,
-  readonlyBorder: natur.natur_inputBorder,
-  readonlyBorderFocus: natur.natur_inputBorderFocus,
-  readonlyText: natur.natur_textPrimary,
-  readonlyPlaceholder: natur.natur_textMuted,
-  readonlyRing: natur.natur_focusRing,
+  // Inputs (readonly)
+  readonlyBg: natur.inputBg,
+  readonlyBgHover: natur.inputBgHover,
+  readonlyBorder: natur.inputBorder,
+  readonlyBorderFocus: natur.inputBorderFocus,
+  readonlyText: natur.textPrimary,
+  readonlyPlaceholder: natur.textMuted,
+  readonlyRing: natur.focusRing,
 
-  // Inputs (EDITABLE – svetlozelené; len tam kde user upravuje)
-  editableBg: natur.natur_editableBg,
-  editableBgHover: natur.natur_editableBgHover,
-  editableBorder: natur.natur_editableBorder,
-  editableBorderFocus: natur.natur_editableBorderFocus,
-  editableText: natur.natur_editableText,
-  editablePlaceholder: natur.natur_editablePlaceholder,
-  // optional, nech je ring rovnaký vibe ako borderFocus
-  editableRing: natur.natur_editableBorderFocus,
+  // Inputs (editable)
+  editableBg: natur.editableBg,
+  editableBgHover: natur.editableBgHover,
+  editableBorder: natur.editableBorder,
+  editableBorderFocus: natur.editableBorderFocus,
+  editableText: natur.editableText,
+  editablePlaceholder: natur.editablePlaceholder,
+  editableRing: natur.editableBorderFocus,
 
   // Slider
-  sliderTrack: natur.natur_sliderTrack,
-  sliderTrackActive: natur.natur_sliderTrackActive,
-  sliderThumb: natur.natur_sliderThumb,
-  sliderThumbRing: natur.natur_sliderThumbRing,
+  sliderTrack: natur.sliderTrack,
+  sliderTrackActive: natur.sliderTrackActive,
+  sliderThumb: natur.sliderThumb,
+  sliderThumbRing: natur.sliderThumbRing,
 
   // Charts
-  chartLine1: natur.natur_chartLine1,
-  chartLine2: natur.natur_chartLine2,
-  chartLine3: natur.natur_chartLine3,
-  chartLine4: natur.natur_chartLine4,
-  chartGrid: natur.natur_chartGrid,
-  chartAxis: natur.natur_chartAxis,
+  chartLine1: natur.chartLine1,
+  chartLine2: natur.chartLine2,
+  chartLine3: natur.chartLine3,
+  chartLine4: natur.chartLine4,
+  chartGrid: natur.chartGrid,
+  chartAxis: natur.chartAxis,
 
   // Panels
-  panelBg: natur.natur_panelBg,
-  panelBorder: natur.natur_panelBorder,
-  panelText: natur.natur_textPrimary,
+  panelBg: natur.panelBg,
+  panelBorder: natur.panelBorder,
+  panelText: natur.textPrimary,
 
   // Shadows
-  shadowSoft: natur.natur_shadowSoft,
-  shadowCard: natur.natur_shadowCard,
+  shadowSoft: natur.shadowSoft,
+  shadowCard: natur.shadowCard,
 } as const;
 
 export type AppColors = typeof appColors;

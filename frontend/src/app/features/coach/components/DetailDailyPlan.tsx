@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SURFACE_CARD } from "@/app/shared/ui/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetDailyOverview,
   type DailyOverview,
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
-import SessionCard, { type KPI, type PlanSession } from "@/app/shared/components/session/SessionCard";
+import SessionCard, {
+  type KPI,
+  type PlanSession,
+} from "@/app/shared/components/session/SessionCard";
 
 import {
   PANEL_STACK,
@@ -171,10 +174,12 @@ export default function DetailDailyPlan() {
 
   if (!userId) {
     return (
-      <Card title="AI Daily plan" subtitle="Chýba userId (useUserId)." footerTone="muted">
-        <div className={PANEL_PREVIEW}>
-          Skontroluj prihlásenie používateľa.
-        </div>
+      <Card
+        title="AI Daily plan"
+        subtitle="Chýba userId (useUserId)."
+        footerTone="muted"
+      >
+        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
       </Card>
     );
   }
@@ -192,7 +197,11 @@ export default function DetailDailyPlan() {
 
   if (error) {
     return (
-      <Card title="AI Daily plan" subtitle="Nepodarilo sa načítať plán." footerTone="muted">
+      <Card
+        title="AI Daily plan"
+        subtitle="Nepodarilo sa načítať plán."
+        footerTone="muted"
+      >
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );
@@ -206,8 +215,8 @@ export default function DetailDailyPlan() {
         title="AI Daily plan – detail"
         subtitle={
           <>
-            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu (generovanie,
-            spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
+            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu
+            (generovanie, spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
             <strong>Coach — Plan</strong> na hlavnom coach dashboarde.
           </>
         }
@@ -239,8 +248,8 @@ export default function DetailDailyPlan() {
         ) : (
           <div className={PANEL_PREVIEW}>
             Zatiaľ nemáš žiadny aktívny AI daily plán uložený v DB. Vygeneruj ho
-            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu zobrazí
-            detail.
+            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu
+            zobrazí detail.
           </div>
         )}
       </Card>
@@ -263,7 +272,10 @@ export default function DetailDailyPlan() {
                 const kpis: KPI[] = [];
 
                 if (s.duration_min) {
-                  kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
+                  kpis.push({
+                    label: "DURATION",
+                    value: `${s.duration_min} min`,
+                  });
                 }
                 if (s.intensity) {
                   kpis.push({ label: "INTENSITY", value: String(s.intensity) });
@@ -290,10 +302,13 @@ export default function DetailDailyPlan() {
 
                   planRaw: s,
                   planStructure: s.structure ?? null,
-                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
+                  planExercises:
+                    (s.structure?.strength_exercises as any[]) ?? [],
                 };
 
-                return <SessionCard key={item.id} variant="calendar" item={item} />;
+                return (
+                  <SessionCard key={item.id} variant="calendar" item={item} />
+                );
               });
             })}
           </div>

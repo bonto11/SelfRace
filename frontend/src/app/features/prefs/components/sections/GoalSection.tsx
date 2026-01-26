@@ -2,10 +2,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import { PANEL_STACK, INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";

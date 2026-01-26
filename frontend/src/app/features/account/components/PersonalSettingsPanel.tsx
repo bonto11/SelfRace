@@ -5,11 +5,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
-import Button from "@/app/shared/components/ui/Button";
-import { toast } from "@/app/shared/components/ui/Toast";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import { confirm } from "@/app/shared/components/ui/Confirm";
+import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
+import Button from "@/app/shared/ui/components/Button";
+import { toast } from "@/app/shared/ui/components/Toast";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 
 import {
   apiGetAccountDeleteStatus,
@@ -17,7 +20,10 @@ import {
   apiCancelAccountDelete,
 } from "@/app/features/account/api/accountDelete";
 
-import type { UserSettings, AccountDeleteStatus } from "@/app/features/account/types/account";
+import type {
+  UserSettings,
+  AccountDeleteStatus,
+} from "@/app/features/account/types/account";
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
@@ -66,7 +72,10 @@ const TIMEZONE_OPTIONS = [
   { value: "UTC", label: "(UTC±00:00) Londýn, Reykjavík" },
   { value: "Atlantic/Canary", label: "(UTC±00:00) Kanárske ostrovy" },
 
-  { value: "Europe/Bratislava", label: "(UTC+01:00) Bratislava, Praha, Berlín" },
+  {
+    value: "Europe/Bratislava",
+    label: "(UTC+01:00) Bratislava, Praha, Berlín",
+  },
   { value: "Europe/Vienna", label: "(UTC+01:00) Viedeň, Budapešť, Varšava" },
   { value: "Europe/Paris", label: "(UTC+01:00) Paríž, Madrid, Rím" },
 
@@ -101,7 +110,9 @@ export default function PersonalSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
+    null
+  );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
 
@@ -113,12 +124,17 @@ export default function PersonalSettingsPanel() {
 
     (async () => {
       try {
-        const raw = await apiFetchUserPref(userId, "user.settings").catch(() => null);
+        const raw = await apiFetchUserPref(userId, "user.settings").catch(
+          () => null
+        );
 
         if (!alive) return;
 
         if (raw && typeof raw === "object") {
-          setSettings((prev) => ({ ...prev, ...(raw as Partial<UserSettings>) }));
+          setSettings((prev) => ({
+            ...prev,
+            ...(raw as Partial<UserSettings>),
+          }));
         } else {
           await apiUpsertUserPref(userId, "user.settings", DEFAULT_SETTINGS);
           setSettings(DEFAULT_SETTINGS);
@@ -150,7 +166,9 @@ export default function PersonalSettingsPanel() {
         if (!alive) return;
         setDeleteStatus(st);
       })
-      .catch((e) => console.error("[PersonalSettingsPanel] delete status error", e))
+      .catch((e) =>
+        console.error("[PersonalSettingsPanel] delete status error", e)
+      )
       .finally(() => {
         if (alive) setLoadingDelete(false);
       });
@@ -216,7 +234,8 @@ export default function PersonalSettingsPanel() {
 
     const ok = await confirm({
       title: "Zrušiť plánované zmazanie účtu?",
-      message: "Ak zrušíš plánované zmazanie, tvoj účet ostane aktívny a dáta sa nevymažú.",
+      message:
+        "Ak zrušíš plánované zmazanie, tvoj účet ostane aktívny a dáta sa nevymažú.",
       okText: "Áno, ponechať účet",
       cancelText: "Nechať zmazanie",
     });
@@ -257,15 +276,27 @@ export default function PersonalSettingsPanel() {
       {/* header */}
       <div className={PANEL_SECTION_HEAD}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             Osobné nastavenia
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
-            Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé rozhranie.
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
+            Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé
+            rozhranie.
           </div>
         </div>
 
-        <Button size="sm" variant="primary" disabled={disabled} onClick={handleSave}>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={disabled}
+          onClick={handleSave}
+        >
           {saving ? "Ukladám…" : "Uložiť"}
         </Button>
       </div>
@@ -323,7 +354,10 @@ export default function PersonalSettingsPanel() {
           />
 
           <div>
-            <label className="text-xs font-medium" style={{ color: appColors.textMuted }}>
+            <label
+              className="text-xs font-medium"
+              style={{ color: appColors.textMuted }}
+            >
               Formát dátumu
             </label>
             <input
@@ -331,7 +365,9 @@ export default function PersonalSettingsPanel() {
               type="text"
               placeholder="yyyy-MM-dd"
               value={settings.date_format}
-              onChange={(e) => setSettings((s) => ({ ...s, date_format: e.target.value }))}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, date_format: e.target.value }))
+              }
             />
           </div>
 
@@ -350,8 +386,14 @@ export default function PersonalSettingsPanel() {
       </div>
 
       {/* účet – akcie */}
-      <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-        <h3 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
+      <div
+        className="mt-4 pt-3 border-t"
+        style={{ borderColor: appColors.divider }}
+      >
+        <h3
+          className={PANEL_CARD_TITLE}
+          style={{ color: appColors.textPrimary }}
+        >
           Akcie účtu
         </h3>
         <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
@@ -359,19 +401,33 @@ export default function PersonalSettingsPanel() {
         </p>
 
         <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
-          <Button size="xs" variant="secondary" onClick={() => router.push("/forgot-password")}>
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => router.push("/forgot-password")}
+          >
             Zmeniť heslo (e-mailom)
           </Button>
 
-          <Button size="xs" variant="secondary" onClick={() => router.push("/profile")}>
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => router.push("/profile")}
+          >
             Zmeniť e-mail / profil
           </Button>
         </div>
       </div>
 
       {/* zrušenie účtu */}
-      <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-        <h3 className={PANEL_CARD_TITLE} style={{ color: appColors.statusError }}>
+      <div
+        className="mt-4 pt-3 border-t"
+        style={{ borderColor: appColors.divider }}
+      >
+        <h3
+          className={PANEL_CARD_TITLE}
+          style={{ color: appColors.statusError }}
+        >
           Zrušenie účtu (nezvratné)
         </h3>
 
@@ -384,20 +440,26 @@ export default function PersonalSettingsPanel() {
           }}
         >
           {loadingDelete ? (
-            <p style={{ color: appColors.textMuted }}>Kontrolujem stav zmazania účtu…</p>
+            <p style={{ color: appColors.textMuted }}>
+              Kontrolujem stav zmazania účtu…
+            </p>
           ) : deletePending ? (
             <>
               <p>
-                Účet je <span className="font-semibold">označený na zmazanie</span>.
+                Účet je{" "}
+                <span className="font-semibold">označený na zmazanie</span>.
               </p>
               <p className="mt-1" style={{ color: appColors.textMuted }}>
-                Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia so Stravou) sa po 30
-                dňoch trvalo vymažú.
+                Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia
+                so Stravou) sa po 30 dňoch trvalo vymažú.
                 {deleteAtLabel ? (
                   <>
                     {" "}
                     Odhadovaný dátum zmazania:{" "}
-                    <span className="font-semibold" style={{ color: appColors.textPrimary }}>
+                    <span
+                      className="font-semibold"
+                      style={{ color: appColors.textPrimary }}
+                    >
                       {deleteAtLabel}
                     </span>
                     .
@@ -410,11 +472,12 @@ export default function PersonalSettingsPanel() {
           ) : (
             <>
               <p>
-                Zmazanie účtu je <span className="font-semibold">nezvratné</span>.
+                Zmazanie účtu je{" "}
+                <span className="font-semibold">nezvratné</span>.
               </p>
               <p className="mt-1" style={{ color: appColors.textMuted }}>
-                Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho môžeš ešte zachrániť,
-                potom sa všetky dáta odstránia.
+                Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho
+                môžeš ešte zachrániť, potom sa všetky dáta odstránia.
               </p>
             </>
           )}
@@ -428,7 +491,9 @@ export default function PersonalSettingsPanel() {
               disabled={processingDelete || !userId}
               onClick={handleCancelDelete}
             >
-              {processingDelete ? "Ruším plánované zmazanie…" : "Zrušiť plánované zmazanie"}
+              {processingDelete
+                ? "Ruším plánované zmazanie…"
+                : "Zrušiť plánované zmazanie"}
             </Button>
           ) : (
             <Button
@@ -437,7 +502,9 @@ export default function PersonalSettingsPanel() {
               disabled={processingDelete || !userId}
               onClick={handleRequestDelete}
             >
-              {processingDelete ? "Označujem na zmazanie…" : "Označiť účet na zmazanie"}
+              {processingDelete
+                ? "Označujem na zmazanie…"
+                : "Označiť účet na zmazanie"}
             </Button>
           )}
         </div>

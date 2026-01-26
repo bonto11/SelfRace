@@ -7,8 +7,8 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Button from "@/app/shared/components/ui/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
 
 import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
@@ -103,30 +103,97 @@ export default function TrendWeeklyLoad({
     };
 
     if (metric === "km") {
-      pushBar("run", "Km (run)", W.map((w) => w.km_run));
-      pushBar("ride", "Km (ride)", W.map((w) => w.km_ride));
-      pushBar("mixed", "Km (mixed)", W.map((w) => w.km_mixed));
-      pushBar("skate", "Km (skate)", W.map((w) => w.km_skate));
+      pushBar(
+        "run",
+        "Km (run)",
+        W.map((w) => w.km_run)
+      );
+      pushBar(
+        "ride",
+        "Km (ride)",
+        W.map((w) => w.km_ride)
+      );
+      pushBar(
+        "mixed",
+        "Km (mixed)",
+        W.map((w) => w.km_mixed)
+      );
+      pushBar(
+        "skate",
+        "Km (skate)",
+        W.map((w) => w.km_skate)
+      );
     } else if (metric === "time") {
-      pushBar("run", "Run", W.map((w) => w.time_run_min));
-      pushBar("ride", "Ride", W.map((w) => w.time_ride_min));
-      pushBar("strength", "Strength", W.map((w) => w.time_strength_min));
-      pushBar("mixed", "Mixed", W.map((w) => w.time_mixed_min));
-      pushBar("skate", "Skate", W.map((w) => w.time_skate_min));
-      pushBar("other", "Other", W.map((w) => w.time_other_min));
+      pushBar(
+        "run",
+        "Run",
+        W.map((w) => w.time_run_min)
+      );
+      pushBar(
+        "ride",
+        "Ride",
+        W.map((w) => w.time_ride_min)
+      );
+      pushBar(
+        "strength",
+        "Strength",
+        W.map((w) => w.time_strength_min)
+      );
+      pushBar(
+        "mixed",
+        "Mixed",
+        W.map((w) => w.time_mixed_min)
+      );
+      pushBar(
+        "skate",
+        "Skate",
+        W.map((w) => w.time_skate_min)
+      );
+      pushBar(
+        "other",
+        "Other",
+        W.map((w) => w.time_other_min)
+      );
     } else {
-      pushBar("run", "TRIMP (run)", W.map((w) => w.trimp_run));
-      pushBar("ride", "TRIMP (ride)", W.map((w) => w.trimp_ride));
-      pushBar("strength", "TRIMP (strength)", W.map((w) => w.trimp_strength));
-      pushBar("mixed", "TRIMP (mixed)", W.map((w) => w.trimp_mixed));
-      pushBar("skate", "TRIMP (skate)", W.map((w) => w.trimp_skate));
-      pushBar("other", "TRIMP (other)", W.map((w) => w.trimp_other));
+      pushBar(
+        "run",
+        "TRIMP (run)",
+        W.map((w) => w.trimp_run)
+      );
+      pushBar(
+        "ride",
+        "TRIMP (ride)",
+        W.map((w) => w.trimp_ride)
+      );
+      pushBar(
+        "strength",
+        "TRIMP (strength)",
+        W.map((w) => w.trimp_strength)
+      );
+      pushBar(
+        "mixed",
+        "TRIMP (mixed)",
+        W.map((w) => w.trimp_mixed)
+      );
+      pushBar(
+        "skate",
+        "TRIMP (skate)",
+        W.map((w) => w.trimp_skate)
+      );
+      pushBar(
+        "other",
+        "TRIMP (other)",
+        W.map((w) => w.trimp_other)
+      );
     }
 
     return ds;
   }, [weeks, metric, sport]);
 
-  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
+  const data: ChartData<"bar" | "line", number[], string> = {
+    labels,
+    datasets,
+  };
 
   const options: ChartOptions<"bar" | "line"> = useMemo(
     () => ({

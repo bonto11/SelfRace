@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import Checkbox  from "@/app/shared/components/ui/CheckBox";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import Checkbox from "@/app/shared/ui/components/CheckBox";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
-import { toast } from "@/app/shared/components/ui/Toast";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 import { apiSaveRecovery } from "@/app/features/recovery/api/recovery";
 
@@ -148,7 +148,10 @@ export default function RecoveryInputs() {
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               RHR
             </div>
             <TextField
@@ -161,7 +164,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               HRV (RMSSD)
             </div>
             <div className={FORM_GRID_SPLIT}>
@@ -183,7 +189,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Spánok
             </div>
             <div className={FORM_GRID_SPLIT}>
@@ -207,7 +216,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_2} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_2}
+              style={{ color: appColors.textMuted }}
+            >
               Večerné faktory
             </div>
 
@@ -229,7 +241,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Alkohol
             </div>
             <div className={FORM_GRID_SPLIT}>
@@ -251,7 +266,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               Poznámka
             </div>
             <textarea

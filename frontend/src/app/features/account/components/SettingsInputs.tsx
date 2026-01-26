@@ -5,14 +5,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import { toast } from "@/app/shared/components/ui/Toast";
-import { confirm } from "@/app/shared/components/ui/Confirm";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import { toast } from "@/app/shared/ui/components/Toast";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 
 import {
   apiGetAccountDeleteStatus,
@@ -20,7 +23,10 @@ import {
   apiCancelAccountDelete,
 } from "@/app/features/account/api/accountDelete";
 
-import type { UserSettings, AccountDeleteStatus } from "@/app/features/account/types/account";
+import type {
+  UserSettings,
+  AccountDeleteStatus,
+} from "@/app/features/account/types/account";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
@@ -65,7 +71,10 @@ const TIMEZONE_OPTIONS = [
   { value: "UTC", label: "(UTC±00:00) Londýn, Reykjavík" },
   { value: "Atlantic/Canary", label: "(UTC±00:00) Kanárske ostrovy" },
 
-  { value: "Europe/Bratislava", label: "(UTC+01:00) Bratislava, Praha, Berlín" },
+  {
+    value: "Europe/Bratislava",
+    label: "(UTC+01:00) Bratislava, Praha, Berlín",
+  },
   { value: "Europe/Vienna", label: "(UTC+01:00) Viedeň, Budapešť, Varšava" },
   { value: "Europe/Paris", label: "(UTC+01:00) Paríž, Madrid, Rím" },
 
@@ -102,7 +111,9 @@ export default function SettingsInputs() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
+    null
+  );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
 
@@ -114,12 +125,17 @@ export default function SettingsInputs() {
 
     (async () => {
       try {
-        const raw = await apiFetchUserPref(userId, "user.settings").catch(() => null);
+        const raw = await apiFetchUserPref(userId, "user.settings").catch(
+          () => null
+        );
 
         if (!alive) return;
 
         if (raw && typeof raw === "object") {
-          setSettings((prev) => ({ ...prev, ...(raw as Partial<UserSettings>) }));
+          setSettings((prev) => ({
+            ...prev,
+            ...(raw as Partial<UserSettings>),
+          }));
         } else {
           await apiUpsertUserPref(userId, "user.settings", DEFAULT_SETTINGS);
           setSettings(DEFAULT_SETTINGS);
@@ -202,7 +218,9 @@ export default function SettingsInputs() {
     try {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
-      toast.success("Účet je označený na zmazanie. Po 30 dňoch sa dáta odstránia.");
+      toast.success(
+        "Účet je označený na zmazanie. Po 30 dňoch sa dáta odstránia."
+      );
     } catch (e: any) {
       console.error("[SettingsInputs] delete request error", e);
       toast.error(e?.message || "Nepodarilo sa označiť účet na zmazanie.");
@@ -216,7 +234,8 @@ export default function SettingsInputs() {
 
     const ok = await confirm({
       title: "Zrušiť plánované zmazanie účtu?",
-      message: "Ak zrušíš plánované zmazanie, účet ostane aktívny a dáta sa nevymažú.",
+      message:
+        "Ak zrušíš plánované zmazanie, účet ostane aktívny a dáta sa nevymažú.",
       okText: "Áno, ponechať účet",
       cancelText: "Nechať zmazanie",
     });
@@ -258,7 +277,11 @@ export default function SettingsInputs() {
     const wk = settings.week_start;
     const tf = settings.time_format_24h ? "24h" : "12h";
     const tz = settings.timezone || "—";
-    const del = loadingDelete ? "delete: …" : deletePending ? `delete: ${deleteAtLabel ?? "pending"}` : "delete: —";
+    const del = loadingDelete
+      ? "delete: …"
+      : deletePending
+        ? `delete: ${deleteAtLabel ?? "pending"}`
+        : "delete: —";
     return `${lang} • ${units} • ${tz} • week ${wk} • ${tf} • ${del}`;
   }, [
     settings.language,
@@ -344,14 +367,19 @@ export default function SettingsInputs() {
           />
 
           <div>
-            <div className="text-xs font-medium" style={{ color: appColors.textMuted }}>
+            <div
+              className="text-xs font-medium"
+              style={{ color: appColors.textMuted }}
+            >
               Formát dátumu
             </div>
             <div className="mt-1">
               <TextField
                 type="text"
                 value={settings.date_format}
-                onChange={(e) => setSettings((s) => ({ ...s, date_format: e.target.value }))}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, date_format: e.target.value }))
+                }
                 placeholder="yyyy-MM-dd"
                 disabled={disabled}
               />
@@ -372,8 +400,14 @@ export default function SettingsInputs() {
         </div>
 
         {/* Účet – akcie */}
-        <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-          <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+        <div
+          className="mt-4 pt-3 border-t"
+          style={{ borderColor: appColors.divider }}
+        >
+          <div
+            className="text-sm font-semibold"
+            style={{ color: appColors.textPrimary }}
+          >
             Akcie účtu
           </div>
           <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
@@ -402,8 +436,14 @@ export default function SettingsInputs() {
         </div>
 
         {/* Zrušenie účtu */}
-        <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-          <div className="text-sm font-semibold" style={{ color: appColors.statusError }}>
+        <div
+          className="mt-4 pt-3 border-t"
+          style={{ borderColor: appColors.divider }}
+        >
+          <div
+            className="text-sm font-semibold"
+            style={{ color: appColors.statusError }}
+          >
             Zrušenie účtu (nezvratné)
           </div>
 
@@ -416,20 +456,26 @@ export default function SettingsInputs() {
             }}
           >
             {loadingDelete ? (
-              <p style={{ color: appColors.textMuted }}>Kontrolujem stav zmazania účtu…</p>
+              <p style={{ color: appColors.textMuted }}>
+                Kontrolujem stav zmazania účtu…
+              </p>
             ) : deletePending ? (
               <>
                 <p>
-                  Účet je <span className="font-semibold">označený na zmazanie</span>.
+                  Účet je{" "}
+                  <span className="font-semibold">označený na zmazanie</span>.
                 </p>
                 <p className="mt-1" style={{ color: appColors.textMuted }}>
-                  Ak nič neurobíš, dáta (tréningy, plány, prepojenia so Stravou) sa po 30 dňoch trvalo
-                  vymažú.
+                  Ak nič neurobíš, dáta (tréningy, plány, prepojenia so Stravou)
+                  sa po 30 dňoch trvalo vymažú.
                   {deleteAtLabel ? (
                     <>
                       {" "}
                       Odhadovaný dátum zmazania:{" "}
-                      <span className="font-semibold" style={{ color: appColors.textPrimary }}>
+                      <span
+                        className="font-semibold"
+                        style={{ color: appColors.textPrimary }}
+                      >
                         {deleteAtLabel}
                       </span>
                       .
@@ -442,11 +488,12 @@ export default function SettingsInputs() {
             ) : (
               <>
                 <p>
-                  Zmazanie účtu je <span className="font-semibold">nezvratné</span>.
+                  Zmazanie účtu je{" "}
+                  <span className="font-semibold">nezvratné</span>.
                 </p>
                 <p className="mt-1" style={{ color: appColors.textMuted }}>
-                  Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho môžeš ešte zachrániť,
-                  potom sa všetky dáta odstránia.
+                  Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní
+                  ho môžeš ešte zachrániť, potom sa všetky dáta odstránia.
                 </p>
               </>
             )}
@@ -460,7 +507,9 @@ export default function SettingsInputs() {
                 disabled={processingDelete || !userId}
                 onClick={handleCancelDelete}
               >
-                {processingDelete ? "Ruším plánované zmazanie…" : "Zrušiť plánované zmazanie"}
+                {processingDelete
+                  ? "Ruším plánované zmazanie…"
+                  : "Zrušiť plánované zmazanie"}
               </Button>
             ) : (
               <Button
@@ -469,7 +518,9 @@ export default function SettingsInputs() {
                 disabled={processingDelete || !userId}
                 onClick={handleRequestDelete}
               >
-                {processingDelete ? "Označujem na zmazanie…" : "Označiť účet na zmazanie"}
+                {processingDelete
+                  ? "Označujem na zmazanie…"
+                  : "Označiť účet na zmazanie"}
               </Button>
             )}
           </div>

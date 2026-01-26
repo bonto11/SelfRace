@@ -1,9 +1,9 @@
 // src/features/widgets/WidgetCoachPrefs.tsx
 "use client";
 
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import SportBadge from "@/app/shared/components/ui/SportBadge";
+import SportBadge from "@/app/shared/components/components/SportBadge";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
@@ -18,7 +18,12 @@ type Props = { onOpenDetail?: () => void };
 function pickAccent(goal?: string | null, primarySport?: string | null) {
   const g = (goal || "").toLowerCase();
 
-  if (g.includes("vo2") || g.includes("speed") || g.includes("5k") || g.includes("10k")) {
+  if (
+    g.includes("vo2") ||
+    g.includes("speed") ||
+    g.includes("5k") ||
+    g.includes("10k")
+  ) {
     return appColors.accentTeal;
   }
 

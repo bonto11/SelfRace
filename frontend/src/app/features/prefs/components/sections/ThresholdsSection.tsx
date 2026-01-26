@@ -3,11 +3,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import TextField from "@/app/shared/components/ui/TextField";
-import Button from "@/app/shared/components/ui/Button";
-import { toast } from "@/app/shared/components/ui/Toast";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import TextField from "@/app/shared/ui/components/TextField";
+import Button from "@/app/shared/ui/components/Button";
+import { toast } from "@/app/shared/ui/components/Toast";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 import {
@@ -178,7 +178,12 @@ export default function ThresholdsSection({
       onOpenChange={setOpen}
       actions={
         onSaveToDB ? (
-          <Button type="button" size="sm" variant="secondary" onClick={handleSaveToDB}>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleSaveToDB}
+          >
             Save threshold to DB
           </Button>
         ) : null
@@ -200,7 +205,9 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>Threshold type</div>
             <SelectField
               value={t.threshold_type ?? "LT2"}
-              onChange={(e) => onChange({ ...t, threshold_type: e.target.value })}
+              onChange={(e) =>
+                onChange({ ...t, threshold_type: e.target.value })
+              }
               options={[
                 { value: "LT1", label: "LT1 (aerobic)" },
                 { value: "LT2", label: "LT2 (anaerobic)" },
@@ -251,7 +258,8 @@ export default function ThresholdsSection({
               onChange={(e) =>
                 onChange({
                   ...t,
-                  power_watt: e.target.value === "" ? null : Number(e.target.value),
+                  power_watt:
+                    e.target.value === "" ? null : Number(e.target.value),
                 })
               }
               placeholder="W"
@@ -262,7 +270,9 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>Measurement type</div>
             <SelectField
               value={t.measurement_type ?? "estimate garmin"}
-              onChange={(e) => onChange({ ...t, measurement_type: e.target.value })}
+              onChange={(e) =>
+                onChange({ ...t, measurement_type: e.target.value })
+              }
               options={[
                 { value: "lab test", label: "Lab test" },
                 { value: "field test", label: "Field test" },
@@ -289,8 +299,12 @@ export default function ThresholdsSection({
                   <span className="font-medium">{r.sport}</span>
                   <span> · {r.threshold_type}</span>
                   {r.hr_bpm ? <span> · HR {Math.round(r.hr_bpm)}</span> : null}
-                  {r.pace_sec_km ? <span> · {secToPace(r.pace_sec_km)} /km</span> : null}
-                  {r.power_watt ? <span> · {Math.round(r.power_watt)} W</span> : null}
+                  {r.pace_sec_km ? (
+                    <span> · {secToPace(r.pace_sec_km)} /km</span>
+                  ) : null}
+                  {r.power_watt ? (
+                    <span> · {Math.round(r.power_watt)} W</span>
+                  ) : null}
                 </li>
               ))}
             </ul>

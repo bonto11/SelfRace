@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import React from "react";
-import CardBackdrop from "@/app/shared/components/ui/CardBackdrop";
+import CardBackdrop from "@/app/shared/components/components/CardBackdrop";
 import {
   WIDGET_CARD,
   WIDGET_CARD_INTERACTIVE,
@@ -81,7 +81,11 @@ export default function WidgetCard({
 
       {/* Reálny obsah (padding tu) */}
       <div
-        className={cx(WIDGET_INNER, "relative flex flex-col p-3", innerClassName)}
+        className={cx(
+          WIDGET_INNER,
+          "relative flex flex-col p-3",
+          innerClassName
+        )}
         style={{ minHeight: minH }}
       >
         {(title || isInteractive) && (
@@ -91,7 +95,9 @@ export default function WidgetCard({
             ) : (
               <span className="sr-only">Widget</span>
             )}
-            {isInteractive && <span className={WIDGET_HINT}>otvoriť detail ⟶</span>}
+            {isInteractive && (
+              <span className={WIDGET_HINT}>otvoriť detail ⟶</span>
+            )}
           </div>
         )}
 

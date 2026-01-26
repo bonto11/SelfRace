@@ -3,9 +3,9 @@
 
 import * as React from "react";
 
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import type { RehabFocus } from "@/app/features/prefs/types/prefs";
 

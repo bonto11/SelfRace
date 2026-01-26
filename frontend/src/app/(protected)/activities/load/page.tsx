@@ -2,12 +2,15 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 
 import TrendWeeklyLoad from "@/app/features/activities/components/TrendWeeklyLoad";
 import ActivityTable from "@/app/features/activities/components/ActivityTable";
 
-import type { WeekPick, Range } from "@/app/features/activities/types/activities";
+import type {
+  WeekPick,
+  Range,
+} from "@/app/features/activities/types/activities";
 
 export default function Page() {
   const [range, setRange] = useState<Range>({});
@@ -20,7 +23,10 @@ export default function Page() {
 
   return (
     <PageShell title="Weekly load trend" showBack>
-      <TrendWeeklyLoad onPickWeek={handlePick} onSportChange={(s) => setSport(s)} />
+      <TrendWeeklyLoad
+        onPickWeek={handlePick}
+        onSportChange={(s) => setSport(s)}
+      />
       <ActivityTable start={range.start} end={range.end} sport={sport} />
     </PageShell>
   );

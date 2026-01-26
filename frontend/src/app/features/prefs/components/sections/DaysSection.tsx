@@ -2,10 +2,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Button from "@/app/shared/components/ui/Button";
+import Button from "@/app/shared/ui/components/Button";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 
 import { appColors } from "@/app/shared/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";

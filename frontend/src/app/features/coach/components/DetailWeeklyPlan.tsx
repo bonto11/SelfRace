@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestWeeklyPlan,
@@ -235,13 +235,18 @@ export default function DetailWeeklyPlan() {
     return { weeksSorted, rangeLabel, totalKm, totalMin, phaseCounts, maxKm };
   }, [plan]);
 
-  const { weeksSorted, rangeLabel, totalKm, totalMin, phaseCounts, maxKm } = view;
+  const { weeksSorted, rangeLabel, totalKm, totalMin, phaseCounts, maxKm } =
+    view;
 
   /* ---------- stavy ---------- */
 
   if (!userId) {
     return (
-      <Card title="Weekly plán" subtitle="Chýba userId (useUserId)." footerTone="muted">
+      <Card
+        title="Weekly plán"
+        subtitle="Chýba userId (useUserId)."
+        footerTone="muted"
+      >
         <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
       </Card>
     );
@@ -259,7 +264,11 @@ export default function DetailWeeklyPlan() {
 
   if (error) {
     return (
-      <Card title="Weekly plán" subtitle="Nepodarilo sa načítať weekly plán." footerTone="muted">
+      <Card
+        title="Weekly plán"
+        subtitle="Nepodarilo sa načítať weekly plán."
+        footerTone="muted"
+      >
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );
@@ -267,10 +276,14 @@ export default function DetailWeeklyPlan() {
 
   if (!plan || !weeksSorted.length) {
     return (
-      <Card title="Weekly plán" subtitle="Zatiaľ nemáš uložený weekly plán." footerTone="muted">
+      <Card
+        title="Weekly plán"
+        subtitle="Zatiaľ nemáš uložený weekly plán."
+        footerTone="muted"
+      >
         <div className={PANEL_PREVIEW}>
-          Vygeneruj ho cez widget <strong>Coach — Plan</strong> (tlačidlo „Generate Weekly plan“),
-          potom sa tu objaví rozpis týždňov.
+          Vygeneruj ho cez widget <strong>Coach — Plan</strong> (tlačidlo
+          „Generate Weekly plan“), potom sa tu objaví rozpis týždňov.
         </div>
       </Card>
     );
@@ -279,7 +292,9 @@ export default function DetailWeeklyPlan() {
   const weeksCount = weeksSorted.length;
   const avgKm = weeksCount ? Math.round((totalKm / weeksCount) * 10) / 10 : 0;
   const totalHours = Math.round((totalMin / 60) * 10) / 10;
-  const avgHours = weeksCount ? Math.round((totalHours / weeksCount) * 10) / 10 : 0;
+  const avgHours = weeksCount
+    ? Math.round((totalHours / weeksCount) * 10) / 10
+    : 0;
 
   /* ---------- UI ---------- */
 
@@ -291,7 +306,9 @@ export default function DetailWeeklyPlan() {
           <>
             Tento prehľad ukáže, ako AI rozdelila nasledujúce týždne – fázy,
             približný objem a cieľ každého týždňa.
-            {rangeLabel ? <span className="block">Rozsah plánu: {rangeLabel}</span> : null}
+            {rangeLabel ? (
+              <span className="block">Rozsah plánu: {rangeLabel}</span>
+            ) : null}
           </>
         }
         headRight={
@@ -385,7 +402,9 @@ export default function DetailWeeklyPlan() {
                   </div>
 
                   {w.focus ? (
-                    <div className="text-xs text-slate-300">Focus: {w.focus}</div>
+                    <div className="text-xs text-slate-300">
+                      Focus: {w.focus}
+                    </div>
                   ) : null}
 
                   <div className={PANEL_INNER_STACK}>

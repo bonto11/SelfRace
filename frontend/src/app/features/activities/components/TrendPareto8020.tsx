@@ -17,8 +17,8 @@ import {
   isInParetoDefault,
 } from "@/app/configs/config_sports";
 
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Button from "@/app/shared/components/ui/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
 import { inputClass } from "@/app/shared/ui";
 
 import {

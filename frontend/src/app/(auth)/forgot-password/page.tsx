@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
+import Button from "@/app/shared/components/components/Button";
+import TextField from "@/app/shared/components/components/TextField";
 
 import {
   AUTH_PAGE,
@@ -46,10 +46,14 @@ export default function ForgotPasswordPage() {
       const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const redirectTo = `${origin}/update-password`;
 
-      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
       if (error) throw error;
 
-      setMsg("Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.");
+      setMsg(
+        "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla."
+      );
     } catch (e: any) {
       setErr(e?.message || "Nepodarilo sa odoslať e-mail.");
     } finally {
@@ -64,7 +68,8 @@ export default function ForgotPasswordPage() {
           <header className={AUTH_HEADER}>
             <h1 className={AUTH_TITLE}>Zabudnuté heslo</h1>
             <p className={AUTH_TEXT}>
-              Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.
+              Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového
+              hesla.
             </p>
           </header>
 

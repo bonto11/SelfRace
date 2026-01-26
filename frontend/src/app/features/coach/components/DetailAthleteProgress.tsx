@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteProgress,
@@ -197,7 +197,8 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     blockPrev: block.previous || null,
     blockCurr: block.current || null,
     blockComment: block.comment || null,
-    fitnessRunPrev: typeof fitRun.previous === "number" ? fitRun.previous : null,
+    fitnessRunPrev:
+      typeof fitRun.previous === "number" ? fitRun.previous : null,
     fitnessRunCurr: typeof fitRun.current === "number" ? fitRun.current : null,
     fitnessRunComment: fitRun.comment || null,
     fitnessRidePrev:
@@ -325,9 +326,7 @@ export default function DetailAthleteProgress() {
   if (!userId) {
     return (
       <Card title="Weekly progress" subtitle="Chýba userId (useUserId).">
-        <div className={PANEL_PREVIEW}>
-          Skontroluj prihlásenie používateľa.
-        </div>
+        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
       </Card>
     );
   }
@@ -368,16 +367,14 @@ export default function DetailAthleteProgress() {
     <div className={PANEL_STACK}>
       <Card
         title="Weekly progress – porovnanie posledných AI stavov"
-        subtitle={
-          [
-            p.generatedAt ? `Porovnanie vytvorené: ${p.generatedAt}` : null,
-            p.model || p.schemaVersion
-              ? `Model: ${p.model ?? "—"}, schema v${p.schemaVersion ?? "?"}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        }
+        subtitle={[
+          p.generatedAt ? `Porovnanie vytvorené: ${p.generatedAt}` : null,
+          p.model || p.schemaVersion
+            ? `Model: ${p.model ?? "—"}, schema v${p.schemaVersion ?? "?"}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         footer
       >
         {p.headline ? <div className={PANEL_PREVIEW}>{p.headline}</div> : null}
@@ -473,10 +470,16 @@ export default function DetailAthleteProgress() {
           <div className={SURFACE_SUBCARD}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_SUBTITLE}>Zmeny v pláne</div>
-              {p.planSoften ? <div className={PANEL_PREVIEW}>{p.planSoften}</div> : null}
-              {p.planWeekly ? <div className={PANEL_PREVIEW}>{p.planWeekly}</div> : null}
+              {p.planSoften ? (
+                <div className={PANEL_PREVIEW}>{p.planSoften}</div>
+              ) : null}
+              {p.planWeekly ? (
+                <div className={PANEL_PREVIEW}>{p.planWeekly}</div>
+              ) : null}
               {!p.planSoften && !p.planWeekly ? (
-                <div className={PANEL_PREVIEW}>AI neodporúča meniť štruktúru plánu.</div>
+                <div className={PANEL_PREVIEW}>
+                  AI neodporúča meniť štruktúru plánu.
+                </div>
               ) : null}
             </div>
           </div>
@@ -495,7 +498,9 @@ export default function DetailAthleteProgress() {
                   ))}
                 </ul>
               ) : (
-                <div className={PANEL_PREVIEW}>Zatiaľ žiadne špecifické oslavy.</div>
+                <div className={PANEL_PREVIEW}>
+                  Zatiaľ žiadne špecifické oslavy.
+                </div>
               )}
             </div>
           </div>
@@ -510,14 +515,18 @@ export default function DetailAthleteProgress() {
                   ))}
                 </ul>
               ) : (
-                <div className={PANEL_PREVIEW}>Momentálne bez konkrétnych varovaní.</div>
+                <div className={PANEL_PREVIEW}>
+                  Momentálne bez konkrétnych varovaní.
+                </div>
               )}
             </div>
           </div>
 
           <div className={SURFACE_SUBCARD}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Fokus na najbližšie týždne</div>
+              <div className={PANEL_SECTION_TITLE}>
+                Fokus na najbližšie týždne
+              </div>
               {p.focusNextWeeks.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
                   {p.focusNextWeeks.map((f, i) => (
@@ -537,7 +546,9 @@ export default function DetailAthleteProgress() {
       <section className={SURFACE_CARD}>
         <div className={[PANEL_PAD].join(" ")}>
           <details className="text-xs">
-            <summary className="cursor-pointer">Debug – raw JSON progress report</summary>
+            <summary className="cursor-pointer">
+              Debug – raw JSON progress report
+            </summary>
             <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-900/80 p-3 text-[10px] leading-tight">
               {JSON.stringify(p.raw, null, 2)}
             </pre>

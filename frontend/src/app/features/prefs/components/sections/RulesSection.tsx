@@ -3,8 +3,8 @@
 
 import { useMemo } from "react";
 
-import Button from "@/app/shared/components/ui/Button";
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 import type { Preferences } from "@/app/features/prefs/types/prefs";
@@ -104,7 +104,10 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         ...prev,
         preferences: {
           ...cur,
-          two_a_day: { enabled: cur.two_a_day.enabled, max_days_per_week: clamped },
+          two_a_day: {
+            enabled: cur.two_a_day.enabled,
+            max_days_per_week: clamped,
+          },
         },
       };
     });

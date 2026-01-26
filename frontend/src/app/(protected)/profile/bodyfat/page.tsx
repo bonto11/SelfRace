@@ -1,7 +1,7 @@
 // src/app/(protected)/trends/bodyfat/page.tsx
 "use client";
 
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 import TrendBodyFat from "@/app/features/profile/components/TrendBodyFat";
 
 export default function Page() {

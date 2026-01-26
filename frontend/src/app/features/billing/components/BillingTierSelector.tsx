@@ -1,8 +1,8 @@
 // src/features/billing/components/BillingTierSelector.tsx
 "use client";
 
-import Button from "@/app/shared/components/ui/Button";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import type { BillingTierSelectorProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/theme/app_colors";
 import { PANEL_GRID_3, PANEL_BADGE } from "@/app/shared/ui/tokens";
@@ -28,7 +28,11 @@ export default function BillingTierSelector({
   const activeRank = tierRank(activeTierCode);
 
   if (tiers.length === 0) {
-    return <p className="text-sm" style={{ color: appColors.textMuted }}>Zatiaľ nemáš nakonfigurované žiadne programy.</p>;
+    return (
+      <p className="text-sm" style={{ color: appColors.textMuted }}>
+        Zatiaľ nemáš nakonfigurované žiadne programy.
+      </p>
+    );
   }
 
   return (
@@ -46,26 +50,37 @@ export default function BillingTierSelector({
           plannedChange.to_tier_code === tier.code &&
           plannedChange.kind === "downgrade";
 
-        const isPlannedCancel = tier.code === "free" && plannedChange?.kind === "cancel";
+        const isPlannedCancel =
+          tier.code === "free" && plannedChange?.kind === "cancel";
 
         let buttonLabel = "Zvoliť program";
         if (isCurrent) buttonLabel = "Aktuálny program";
-        else if (isPlannedCancel) buttonLabel = plannedChange?.effective_from ? `Zruší sa ${d10(plannedChange.effective_from)}` : "Zrušenie je naplánované";
-        else if (isPlannedTarget) buttonLabel = plannedChange?.effective_from ? `Zníži sa ${d10(plannedChange.effective_from)}` : "Zníženie je naplánované";
+        else if (isPlannedCancel)
+          buttonLabel = plannedChange?.effective_from
+            ? `Zruší sa ${d10(plannedChange.effective_from)}`
+            : "Zrušenie je naplánované";
+        else if (isPlannedTarget)
+          buttonLabel = plannedChange?.effective_from
+            ? `Zníži sa ${d10(plannedChange.effective_from)}`
+            : "Zníženie je naplánované";
         else if (tier.code === "free") buttonLabel = "Naplánovať zrušenie";
         else if (isDowngrade) buttonLabel = "Naplánovať zníženie";
         else if (isUpgrade) buttonLabel = "Zvýšiť teraz";
 
-        const disabled = isBusy || isCurrent || isPlannedTarget || isPlannedCancel;
+        const disabled =
+          isBusy || isCurrent || isPlannedTarget || isPlannedCancel;
 
         const borderColor = isCurrent
           ? appColors.statusSuccess
           : isPlannedTarget || isPlannedCancel
-          ? appColors.statusWarning
-          : appColors.surfaceCardBorder;
+            ? appColors.statusWarning
+            : appColors.surfaceCardBorder;
 
-        const badge =
-          isCurrent ? "aktuálny" : isPlannedTarget || isPlannedCancel ? "naplánované" : null;
+        const badge = isCurrent
+          ? "aktuálny"
+          : isPlannedTarget || isPlannedCancel
+            ? "naplánované"
+            : null;
 
         return (
           <div
@@ -79,8 +94,12 @@ export default function BillingTierSelector({
           >
             <div className="flex items-center justify-between gap-2">
               <div>
-                <div className="font-semibold uppercase tracking-wide text-xs">{tier.code}</div>
-                <div className="text-xs" style={{ color: appColors.textMuted }}>{tier.name}</div>
+                <div className="font-semibold uppercase tracking-wide text-xs">
+                  {tier.code}
+                </div>
+                <div className="text-xs" style={{ color: appColors.textMuted }}>
+                  {tier.name}
+                </div>
               </div>
 
               {badge ? (
@@ -88,7 +107,9 @@ export default function BillingTierSelector({
                   className={PANEL_BADGE}
                   style={{
                     borderColor,
-                    color: isCurrent ? appColors.statusSuccess : appColors.statusWarning,
+                    color: isCurrent
+                      ? appColors.statusSuccess
+                      : appColors.statusWarning,
                     background: appColors.pillBg,
                   }}
                 >
@@ -97,19 +118,29 @@ export default function BillingTierSelector({
               ) : null}
             </div>
 
-            <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+            <div
+              className="text-sm font-semibold"
+              style={{ color: appColors.textPrimary }}
+            >
               {priceEur === 0 ? "Zdarma" : `${priceEur.toFixed(2)} € / mesiac`}
             </div>
 
             <div className="text-[11px]" style={{ color: appColors.textMuted }}>
               AI limit:{" "}
-              <span className="font-semibold" style={{ color: appColors.textPrimary }}>
-                {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")} tokenov / mesiac
+              <span
+                className="font-semibold"
+                style={{ color: appColors.textPrimary }}
+              >
+                {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")} tokenov /
+                mesiac
               </span>
             </div>
 
             {tier.description ? (
-              <p className="text-[11px] line-clamp-3" style={{ color: appColors.textSecondary }}>
+              <p
+                className="text-[11px] line-clamp-3"
+                style={{ color: appColors.textSecondary }}
+              >
                 {tier.description}
               </p>
             ) : null}

@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import AppHeader from "@/app/shared/components/ui/AppHeader";
+import AppHeader from "@/app/shared/components/components/AppHeader";
 import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
 
 type Props = {

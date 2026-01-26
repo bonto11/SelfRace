@@ -5,10 +5,10 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import { toast } from "@/app/shared/components/ui/Toast";
-import AuthShell from "@/app/shared/components/ui/AuthShell";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import { toast } from "@/app/shared/ui/components/Toast";
+import AuthShell from "@/app/shared/ui/components/AuthShell";
 
 import {
   AUTH_FORM,
@@ -101,7 +101,9 @@ export default function SignUpForm() {
         {msg ? (
           <div
             className={AUTH_FEEDBACK}
-            style={isOk ? AUTH_FEEDBACK_SUCCESS_STYLE : AUTH_FEEDBACK_ERROR_STYLE}
+            style={
+              isOk ? AUTH_FEEDBACK_SUCCESS_STYLE : AUTH_FEEDBACK_ERROR_STYLE
+            }
           >
             {msg}
           </div>
@@ -113,7 +115,11 @@ export default function SignUpForm() {
 
         <div className={["text-xs text-center", AUTH_TEXT].join(" ")}>
           Už máš účet?{" "}
-          <Link className={AUTH_LINK} href="/signin" style={AUTH_LINK_MUTED_STYLE}>
+          <Link
+            className={AUTH_LINK}
+            href="/signin"
+            style={AUTH_LINK_MUTED_STYLE}
+          >
             Prihlás sa
           </Link>
         </div>

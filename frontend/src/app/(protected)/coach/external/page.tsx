@@ -1,7 +1,7 @@
 // src/app/coach/external/page.tsx
 "use client";
 
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import DetailExternalEvents from "@/app/features/coach/components/DetailExternalEvents";

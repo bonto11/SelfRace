@@ -5,8 +5,6 @@ import {
   CARD,
   SURFACE_INSET,
   MUTED_TEXT,
-  SURFACE_CARD,
-  SURFACE_CARD_STYLE,
   SURFACE_SUBCARD,
   SURFACE_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";

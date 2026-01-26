@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import Button from "@/app/shared/components/ui/Button";
+import Button from "@/app/shared/components/components/Button";
 import { cx } from "@/app/shared/ui";
 import {
   DISCLOSURE_ICON_BASE,
@@ -49,7 +49,7 @@ export default function DisclosureToggle({
           d="M3 6.25L8 11l5-4.75"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.6"
+          strokeWidth="1.0"
           strokeLinecap="round"
           strokeLinejoin="round"
         />

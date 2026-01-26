@@ -1,5 +1,5 @@
 // src/app/(protected)/account/page.tsx
-import PageShell from "@/app/shared/components/ui/PageShell";
+import PageShell from "@/app/shared/components/components/PageShell";
 
 import SettingsInputs from "@/app/features/account/components/SettingsInputs";
 import BillingPanel from "@/app/features/billing/components/BillingPanel";

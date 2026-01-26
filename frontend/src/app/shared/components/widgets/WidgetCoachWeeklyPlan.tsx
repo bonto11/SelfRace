@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
 import {
@@ -135,7 +135,9 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
     <WidgetCard
       title="Coach — Weekly plan"
       note={
-        ui.lastPlanRange ? `Rozsah plánu: ${ui.lastPlanRange}` : "Vygeneruj weekly plán cez AI."
+        ui.lastPlanRange
+          ? `Rozsah plánu: ${ui.lastPlanRange}`
+          : "Vygeneruj weekly plán cez AI."
       }
       accent={accent}
       onOpen={onOpenDetail}
@@ -157,7 +159,8 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
         </div>
       ) : !plan ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget sa naplní.
+          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget
+          sa naplní.
         </div>
       ) : (
         <>
@@ -166,13 +169,19 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
             <div className={WIDGET_VALUE_STRONG_SM}>{ui.weeksCount || "—"}</div>
 
             <div className={WIDGET_LABEL_MUTED_SM}>Aktuálny týždeň</div>
-            <div className={WIDGET_VALUE_STRONG_SM}>{ui.currentWeekLabel ?? "—"}</div>
+            <div className={WIDGET_VALUE_STRONG_SM}>
+              {ui.currentWeekLabel ?? "—"}
+            </div>
 
             <div className={WIDGET_LABEL_MUTED_SM}>Focus</div>
-            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekFocus ?? "—"}</div>
+            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
+              {ui.currentWeekFocus ?? "—"}
+            </div>
 
             <div className={WIDGET_LABEL_MUTED_SM}>Fáza</div>
-            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekLoad ?? "—"}</div>
+            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
+              {ui.currentWeekLoad ?? "—"}
+            </div>
           </div>
 
           {ui.currentWeekFocus && (

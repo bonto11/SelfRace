@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SURFACE_INSET } from "@/app/shared/ui/tokens";
-import { POPOVER_BTN, POPOVER_BODY } from "@/app/shared/ui/tokens/panels";
+import { POPOVER_BTN, POPOVER_BODY } from "@/app/shared/ui/tokens";
 
 export function InfoPopover({ text }: { text: string }) {
   const [open, setOpen] = useState(false);

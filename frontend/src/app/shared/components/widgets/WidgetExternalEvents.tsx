@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import Pill from "@/app/shared/components/ui/Pill";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import Pill from "@/app/shared/components/components/Pill";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/theme/app_colors";
@@ -100,7 +100,9 @@ export default function WidgetExternalEvents() {
     >
       <div className={WIDGET_ROW_TOP_XS}>
         <Pill
-          label={loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"}
+          label={
+            loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"
+          }
           color={pillColor}
         />
         <span className={WIDGET_META_TEXT}>{label}</span>
@@ -115,7 +117,9 @@ export default function WidgetExternalEvents() {
       )}
 
       {!loading && !err && (!stats || stats.total === 0) && (
-        <div className={WIDGET_EMPTY_HINT}>Tap to add your first external event.</div>
+        <div className={WIDGET_EMPTY_HINT}>
+          Tap to add your first external event.
+        </div>
       )}
     </WidgetCard>
   );

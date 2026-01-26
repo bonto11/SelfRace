@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
+import Button from "@/app/shared/components/components/Button";
+import TextField from "@/app/shared/components/components/TextField";
 
 import {
   AUTH_PAGE,
@@ -153,10 +153,15 @@ export default function ClientPage() {
     return (
       <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
         <div className={AUTH_SHELL}>
-          <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
+          <div
+            className={[AUTH_CARD, AUTH_STACK].join(" ")}
+            style={AUTH_CARD_STYLE}
+          >
             <header className={AUTH_HEADER}>
               <h1 className={AUTH_TITLE}>Zmeniť heslo</h1>
-              <p className={AUTH_TEXT}>O chvíľu ťa prihlásime a zobrazíme formulár…</p>
+              <p className={AUTH_TEXT}>
+                O chvíľu ťa prihlásime a zobrazíme formulár…
+              </p>
             </header>
 
             {err && (
@@ -174,7 +179,10 @@ export default function ClientPage() {
     return (
       <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
         <div className={AUTH_SHELL}>
-          <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
+          <div
+            className={[AUTH_CARD, AUTH_STACK].join(" ")}
+            style={AUTH_CARD_STYLE}
+          >
             <header className={AUTH_HEADER}>
               <h1 className={AUTH_TITLE}>Hotovo</h1>
               <p className={AUTH_TEXT}>Heslo je zmenené. Prihlasujeme ťa…</p>
@@ -188,7 +196,10 @@ export default function ClientPage() {
   return (
     <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
       <div className={AUTH_SHELL}>
-        <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
+        <div
+          className={[AUTH_CARD, AUTH_STACK].join(" ")}
+          style={AUTH_CARD_STYLE}
+        >
           <header className={AUTH_HEADER}>
             <h1 className={AUTH_TITLE}>Nastaviť nové heslo</h1>
           </header>
@@ -311,8 +322,11 @@ function PasswordStrengthMeter({
       </div>
 
       <div className={[AUTH_METER_LABEL, "text-muted"].join(" ")}>
-        Sila hesla: <span className="text-text font-medium">{strength.label}</span>
-        {strength.hint && <span className="opacity-80"> — {strength.hint}</span>}
+        Sila hesla:{" "}
+        <span className="text-text font-medium">{strength.label}</span>
+        {strength.hint && (
+          <span className="opacity-80"> — {strength.hint}</span>
+        )}
       </div>
     </div>
   );
@@ -361,7 +375,9 @@ function scorePassword(pwd: string, email?: string) {
 
   score = Math.max(0, Math.min(4, score));
 
-  const label = ["veľmi slabé", "slabé", "stredné", "silné", "veľmi silné"][score];
+  const label = ["veľmi slabé", "slabé", "stredné", "silné", "veľmi silné"][
+    score
+  ];
   let hint = "";
 
   if (score < 3) {

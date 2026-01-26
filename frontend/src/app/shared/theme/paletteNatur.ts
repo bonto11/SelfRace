@@ -1,109 +1,107 @@
 // src/shared/theme/paletteNatur.ts
 // Palette: NATUR (Forest Glass + Soft Yellow accents)
-// IMPORTANT: raw values only, prefixed natur_
+// IMPORTANT: raw values only, prefixed 
 
 export const natur = {
   // --- Backgrounds ---
-  natur_backgroundMain: "#0A2814",
-  natur_backgroundAlt: "#0A1E14",
+  backgroundMain: "#0A2814",
+  backgroundAlt: "#0A1E14",
 
   // --- Glass surfaces (cards, modals) ---
-  natur_surfaceGlass: "rgba(10, 30, 20, 0.50)",
-  natur_surfaceGlassHover: "rgba(10, 40, 20, 0.70)",
+  surfaceGlass: "rgba(10, 30, 20, 0.50)",
+  surfaceGlassHover: "rgba(10, 40, 20, 0.70)",
 
+  // --- Solid surfaces (optional deeper surface) ---
+  surfaceSolid: "#0B1F16",
+  surfaceSolidHover: "#0E261B",
+
+  // --- Borders ---
   // Default border (globálny, neutrál)
-  natur_borderGlass: "#123025",
-
+  borderGlass: "#123025",
   // Widget border (soft yellow)
-  natur_borderWidget: "rgba(232, 213, 135, 0.42)",
-
-  // Optional deeper surface
-  natur_surfaceSolid: "#0B1F16",
-  natur_surfaceSolidHover: "#0E261B",
+  borderWidget: "rgba(232, 213, 135, 0.42)",
 
   // --- Text ---
-  natur_textPrimary: "#EAF4EF",
-  natur_textSecondary: "#B2C7BE",
-  natur_textMuted: "#86A196",
-  natur_textInverse: "#07110D",
+  textPrimary: "#EAF4EF",
+  textSecondary: "#B2C7BE",
+  textMuted: "#86A196",
+  textInverse: "#07110D",
 
   // --- Accents ---
-  natur_accentTeal: "#2DD4BF",
-  natur_accentLime: "#A3E635",
-
-  natur_accentYellowSoft: "#E8D587",
-  natur_accentYellowDim: "rgba(232, 213, 135, 0.18)",
+  accentTeal: "#2DD4BF",
+  accentLime: "#A3E635",
+  accentYellowSoft: "#E8D587",
+  accentYellowDim: "rgba(232, 213, 135, 0.18)",
 
   // --- Neutral lines / overlays ---
-  natur_divider: "rgba(18, 48, 37, 0.55)",
-  natur_overlay: "rgba(0,0,0,0.45)",
+  divider: "rgba(18, 48, 37, 0.55)",
+  overlay: "rgba(0,0,0,0.45)",
 
   // --- Status colors ---
-  natur_statusSuccess: "#2BBE8D",
-  natur_statusWarning: "#D8B24A",
-  natur_statusError: "#F0545E",
-  natur_statusErrorHover: "#E04852",
-  natur_statusInfo: "#4FB6FF",
+  statusSuccess: "#2BBE8D",
+  statusWarning: "#D8B24A",
+  statusError: "#F0545E",
+  statusErrorHover: "#E04852",
+  statusInfo: "#4FB6FF",
 
   // --- Focus / ring ---
-  natur_focusRing: "rgba(63, 225, 166, 0.28)",
+  focusRing: "rgba(63, 225, 166, 0.28)",
 
   // --- Buttons / pills (raw values) ---
-  natur_buttonGhostBg: "rgba(0,0,0,0.00)",
-  natur_buttonGhostBgHover: "rgba(232, 213, 135, 0.10)",
+  buttonGhostBg: "rgba(0,0,0,0.00)",
+  buttonGhostBgHover: "rgba(232, 213, 135, 0.10)",
 
-  natur_pillBg: "rgba(10, 26, 19, 0.55)",
-  natur_pillBgHover: "rgba(10, 26, 19, 0.70)",
-  natur_pillBorder: "#123025",
-
-  natur_pillActiveBg: "rgba(63, 225, 166, 0.16)",
-  natur_pillActiveBorder: "rgba(63, 225, 166, 0.38)",
+  pillBg: "rgba(10, 26, 19, 0.55)",
+  pillBgHover: "rgba(10, 26, 19, 0.70)",
+  pillBorder: "#123025",
+  pillActiveBg: "rgba(63, 225, 166, 0.16)",
+  pillActiveBorder: "rgba(63, 225, 166, 0.38)",
 
   // --- Inputs (DEFAULT – tmavé/glass) ---
-  natur_inputBg: "rgba(10, 26, 19, 0.42)",
-  natur_inputBgHover: "rgba(10, 26, 19, 0.55)",
-  natur_inputBorder: "#123025",
-  natur_inputBorderFocus: "rgba(63, 225, 166, 0.55)",
+  inputBg: "rgba(10, 26, 19, 0.42)",
+  inputBgHover: "rgba(10, 26, 19, 0.55)",
+  inputBorder: "#123025",
+  inputBorderFocus: "rgba(63, 225, 166, 0.55)",
 
   // --- Inputs (EDITABLE – svetlozelené, len na edit) ---
-  natur_editableBg: "#C0DDA1",
-  natur_editableBgHover: "#B7D595",
-  natur_editableBorder: "#7FA35B",
-  natur_editableBorderFocus: "#BFF159",
-  natur_editableText: "#16240F",
-  natur_editablePlaceholder: "#2A3A1C",
+  editableBg: "#C0DDA1",
+  editableBgHover: "#B7D595",
+  editableBorder: "#7FA35B",
+  editableBorderFocus: "#BFF159",
+  editableText: "#16240F",
+  editablePlaceholder: "#2A3A1C",
 
   // --- Brand greens ---
-  natur_greenPrimary: "#3FE1A6",
-  natur_greenSoft: "#2BBE8D",
-  natur_greenMuted: "#1E7F61",
+  greenPrimary: "#3FE1A6",
+  greenSoft: "#2BBE8D",
+  greenMuted: "#1E7F61",
 
   // --- MAIN button (save vibe) ---
-  natur_main: "#BFF159",
-  natur_mainSoft: "#B2EA53",
-  natur_mainButtonText: "#16240F",
+  main: "#BFF159",
+  mainSoft: "#B2EA53",
+  mainButtonText: "#16240F",
 
   // --- Slider ---
-  natur_sliderTrack: "rgba(18, 48, 37, 0.55)",
-  natur_sliderTrackActive: "rgba(63, 225, 166, 0.65)",
-  natur_sliderThumb: "#3FE1A6",
-  natur_sliderThumbRing: "rgba(63, 225, 166, 0.35)",
+  sliderTrack: "rgba(18, 48, 37, 0.55)",
+  sliderTrackActive: "rgba(63, 225, 166, 0.65)",
+  sliderThumb: "#3FE1A6",
+  sliderThumbRing: "rgba(63, 225, 166, 0.35)",
 
   // --- Charts ---
-  natur_chartLine1: "#3FE1A6",
-  natur_chartLine2: "#2DD4BF",
-  natur_chartLine3: "#4FB6FF",
-  natur_chartLine4: "#A3E635",
-  natur_chartGrid: "rgba(18, 48, 37, 0.55)",
-  natur_chartAxis: "rgba(178, 199, 190, 0.70)",
+  chartLine1: "#3FE1A6",
+  chartLine2: "#2DD4BF",
+  chartLine3: "#4FB6FF",
+  chartLine4: "#A3E635",
+  chartGrid: "rgba(18, 48, 37, 0.55)",
+  chartAxis: "rgba(178, 199, 190, 0.70)",
 
-  // --- Tooltip / toast ---
-  natur_panelBg: "rgba(9, 24, 18, 0.92)",
-  natur_panelBorder: "#123025",
+  // --- Tooltip / toast / panels ---
+  panelBg: "rgba(9, 24, 18, 0.92)",
+  panelBorder: "#123025",
 
   // --- Shadows ---
-  natur_shadowSoft: "0 10px 30px rgba(0,0,0,0.35)",
-  natur_shadowCard: "0 14px 50px rgba(0,0,0,0.55)",
+  shadowSoft: "0 10px 30px rgba(0,0,0,0.35)",
+  shadowCard: "0 14px 50px rgba(0,0,0,0.55)",
 } as const;
 
 export type NaturPalette = typeof natur;

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import CardBackdrop from "@/app/shared/components/ui/CardBackdrop";
+import DisclosureToggle from "@/app/shared/ui/components/DisclosureToggle";
+import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
@@ -72,7 +72,9 @@ export default function InputsCard({
 
   return (
     <section
-      className={[CARD, "relative overflow-hidden", className].filter(Boolean).join(" ")}
+      className={[CARD, "relative overflow-hidden", className]
+        .filter(Boolean)
+        .join(" ")}
       style={SURFACE_CARD_STYLE}
     >
       {/* unified card background (same vibe as widgets) */}
@@ -81,11 +83,17 @@ export default function InputsCard({
       {/* HEAD */}
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} relative`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             {title}
           </div>
           {subtitle ? (
-            <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+            <div
+              className={PANEL_SECTION_SUBTITLE}
+              style={{ color: appColors.textMuted }}
+            >
               {subtitle}
             </div>
           ) : null}
@@ -97,7 +105,10 @@ export default function InputsCard({
         {always ? <div>{always}</div> : null}
 
         {!isOpen && preview ? (
-          <div className={["mt-3", PANEL_PREVIEW].join(" ")} style={{ color: appColors.textMuted }}>
+          <div
+            className={["mt-3", PANEL_PREVIEW].join(" ")}
+            style={{ color: appColors.textMuted }}
+          >
             {preview}
           </div>
         ) : null}
@@ -106,7 +117,9 @@ export default function InputsCard({
 
         {/* FOOTER */}
         <div className={INPUTS_CARD_FOOTER}>
-          {isOpen && actions ? <div className={INPUTS_CARD_SAVE_WRAP}>{actions}</div> : null}
+          {isOpen && actions ? (
+            <div className={INPUTS_CARD_SAVE_WRAP}>{actions}</div>
+          ) : null}
 
           <DisclosureToggle
             open={isOpen}

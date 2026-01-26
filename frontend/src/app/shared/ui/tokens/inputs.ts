@@ -1,4 +1,4 @@
-// src/app/shared/ui/tokens/forms.ts
+// src/app/shared/ui/tokens/inputs.ts
 import { appColors } from "@/app/shared/theme/app_colors";
 import { SURFACE_INSET, SURFACE_INSET_STYLE } from "./core";
 
@@ -189,18 +189,6 @@ export const FORM_GRID_TWO = "grid grid-cols-1 md:grid-cols-2 gap-3";
 export const FORM_GRID_SPLIT = "grid grid-cols-1 sm:grid-cols-2 gap-2";
 export const FORM_GRID_THREE = "grid gap-3 sm:grid-cols-3 items-start";
 
-/* =========================================================================
-   Select (custom portal select) — neutral tokens
-   ========================================================================= */
-export const SELECT_MENU_WRAP = "relative";
-export const SELECT_BTN = "flex items-center justify-between gap-2";
-export const SELECT_ICON = "h-4 w-4 shrink-0 opacity-70";
-export const SELECT_MENU =
-  "rounded-xl border shadow-lg overflow-hidden";
-export const SELECT_OPT =
-  "w-full text-left px-3 py-2 text-sm hover:brightness-110";
-export const SELECT_OPT_ACTIVE = "font-semibold";
-export const SELECT_OPT_EMPTY = "opacity-60";
 
 /* NOTE: menu background/border are variant-specific; handled in component via inline style or extra class if chceš */
 export const SELECT_MENU_READONLY = [
@@ -266,3 +254,70 @@ export const FIELD_DISABLED = "opacity-60 cursor-not-allowed";
 export const inputClass = FIELD_BASE;
 export const labelClass = FIELD_LABEL;
 export const hintClass = FIELD_HINT;
+
+export const BUTTON_BLOCK =
+  "inline-flex items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition select-none";
+
+export const BUTTON_DISABLED =
+  "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
+
+export const DATE_FIELD_LABEL =
+  "block text-xs font-medium opacity-80";
+
+export const DATE_INPUT_INNER =
+  "w-full rounded px-3 py-2 text-sm bg-transparent outline-none";
+
+export const DISCLOSURE_ICON_BASE =
+  "inline-flex items-center justify-center transition-transform";
+
+export const DISCLOSURE_ICON_OPEN =
+  "rotate-180";
+
+export const DISCLOSURE_ICON_CLOSED =
+  "rotate-0";
+
+export const FIELD_HELP =
+  "mt-1 text-xs opacity-70";
+
+  export const INPUTS_CARD_DATE_ROW = "mt-3";
+export const INPUTS_CARD_DATE_INNER = "flex items-center justify-between gap-2";
+
+export const INPUTS_CARD_DATE_PILL =
+  "text-center px-3 py-2 !rounded-xl w-[min(220px,60vw)] [color-scheme:dark]";
+
+export const INPUTS_CARD_BODY = "mt-4";
+
+export const INPUTS_CARD_FOOTER = "mt-4 flex flex-col items-center gap-2";
+export const INPUTS_CARD_SAVE_WRAP = "w-full";
+export const INPUTS_CARD_SAVE_BTN = "w-full";
+
+// labels (opakované "text-sm mb-x")
+export const INPUTS_CARD_LABEL_SM_1 = "text-sm mb-1";
+export const INPUTS_CARD_LABEL_SM_2 = "text-sm mb-2";
+
+// checkbox rows (opakované "flex items-center ...")
+export const INPUTS_CARD_CHECK_ROW = "flex items-center gap-2 text-sm";
+export const INPUTS_CARD_CHECK_ROW_MB = "flex items-center gap-2 mb-2 text-sm";
+
+// DisclosureToggle je circle, takže sem nedávaj padding typu px-6
+export const INPUTS_CARD_TOGGLE = "";
+
+export const DATE_TEXT_INPUT = ""; 
+// prázdne – spoliehame sa na FIELD_BASE z TextField (t.j. rovnaké farby/height)
+
+export const SELECT_BTN =
+  "w-full flex items-center justify-between gap-2 text-left";
+
+export const SELECT_ICON = "shrink-0 h-3.5 w-3.5 opacity-60";
+
+export const SELECT_MENU_WRAP = "relative";
+
+export const SELECT_MENU =
+  "rounded-xl border border-white/10 bg-gray-900/95 backdrop-blur p-1 shadow-lg";
+
+export const SELECT_OPT =
+  "w-full px-3 py-2 rounded-lg text-sm hover:bg-white/8 active:bg-white/10";
+
+export const SELECT_OPT_ACTIVE = "bg-white/10";
+
+export const SELECT_OPT_EMPTY = "text-white/60";

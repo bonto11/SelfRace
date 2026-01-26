@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Pill from "@/app/shared/components/ui/Pill";
+import WidgetCard from "@/app/shared/components/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/components/components/LoadingSpinner";
+import Pill from "@/app/shared/components/components/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { fmtDate } from "@/app/shared/utils/time";
@@ -83,7 +83,9 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
         setStat(staticProfile ?? null);
 
-        const rowsBE: MetricHistoryRow[] = Array.isArray(history) ? history : [];
+        const rowsBE: MetricHistoryRow[] = Array.isArray(history)
+          ? history
+          : [];
         const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
 
         const last: MetricsRowFE | null = lastBE

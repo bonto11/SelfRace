@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { toast } from "@/app/shared/components/ui/Toast";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
   apiGetAppSubscriptionStatus,
@@ -28,12 +28,9 @@ import BillingStatusCard from "./BillingStatusCard";
 import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
-import InputsCard from "@/app/shared/components/ui/InputsCard";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 
-import {
-  INPUTS_CARD_BODY,
-  PANEL_STACK,
-} from "@/app/shared/ui/tokens";
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
 

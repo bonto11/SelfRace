@@ -10,7 +10,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
-import Button from "@/app/shared/components/ui/Button";
+import Button from "@/app/shared/components/components/Button";
 
 import {
   CALENDAR_CONTAINER,
@@ -28,10 +28,7 @@ import {
   CALENDAR_ERROR_LINE,
 } from "@/app/shared/ui/tokens/calendar";
 
-import {
-  NO_X_OVERFLOW,
-} from "@/app/shared/ui/tokens/core";
-
+import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
 
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
@@ -129,7 +126,9 @@ export default function ActivitiesCalendar({
       const dIso = eventDateIso(ev);
       if (!dIso) return false;
 
-      const sportKey = safeSportKey((ev as any).sport ?? (ev as any).sport_type);
+      const sportKey = safeSportKey(
+        (ev as any).sport ?? (ev as any).sport_type
+      );
       const key = `${dIso}|${sportKey}`;
 
       if (planSlots.has(key)) return false;
