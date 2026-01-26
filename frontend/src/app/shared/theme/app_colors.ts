@@ -3,7 +3,6 @@
 // IMPORTANT: This file MUST contain ONLY references to palette tokens.
 // No raw hex/rgba/shadow strings allowed.
 
-
 import { natur } from "./paletteNatur";
 
 export const appColors = {
@@ -17,9 +16,9 @@ export const appColors = {
   surfaceSolid: natur.natur_surfaceSolid,
   surfaceSolidHover: natur.natur_surfaceSolidHover,
 
-   // Borders
-  surfaceCardBorder: natur.natur_borderGlass,  // neutrál (kalendár, bežné línie)
-  widgetBorder: natur.natur_borderWidget,      // NEW: len widgety/karty
+  // Borders
+  surfaceCardBorder: natur.natur_borderGlass, // neutrál (kalendár, bežné línie)
+  widgetBorder: natur.natur_borderWidget, // NEW: len widgety/karty
 
   // Accents (optional, keď chceš niečo “žlté miesto bielej”)
   accentYellowSoft: natur.natur_accentYellowSoft,
@@ -50,16 +49,6 @@ export const appColors = {
   statusError: natur.natur_statusError,
   statusInfo: natur.natur_statusInfo,
 
-  // Buttons
-  //buttonPrimaryBg: natur.natur_greenPrimary,
-  //buttonPrimaryBgHover: natur.natur_greenSoft,
-  //buttonPrimaryText: natur.natur_textInverse,
-
-  // Buttons (primary = “save” vibe)
-  buttonPrimaryBg: natur.natur_greenPrimary,
-  buttonPrimaryBgHover: natur.natur_greenSoft,
-  buttonPrimaryText: natur.natur_buttonPrimaryText,
-
   buttonSecondaryBg: natur.natur_surfaceGlass,
   buttonSecondaryBgHover: natur.natur_surfaceGlassHover,
   buttonSecondaryBorder: natur.natur_borderGlass,
@@ -82,21 +71,31 @@ export const appColors = {
   pillActiveBorder: natur.natur_pillActiveBorder,
   pillActiveText: natur.natur_textPrimary,
 
-  // Inputs
-  //inputBg: natur.natur_inputBg,
-  //inputBgHover: natur.natur_inputBgHover,
-  //inputBorder: natur.natur_inputBorder,
-  //inputBorderFocus: natur.natur_inputBorderFocus,
-  //inputText: natur.natur_textPrimary,
-  //inputPlaceholder: natur.natur_textMuted,
-
-  // Inputs
+  // Inputs (DEFAULT – nemeníme)
   inputBg: natur.natur_inputBg,
   inputBgHover: natur.natur_inputBgHover,
   inputBorder: natur.natur_inputBorder,
   inputBorderFocus: natur.natur_inputBorderFocus,
-  inputText: natur.natur_inputText,
-  inputPlaceholder: natur.natur_inputPlaceholder,
+  inputText: natur.natur_textPrimary,
+  inputPlaceholder: natur.natur_textMuted,
+
+  // Inputs (EDITABLE – nové, používame len tam kde chceš svetlozelené)
+  editableBg: natur.natur_editableBg,
+  editableBgHover: natur.natur_editableBgHover,
+  editableBorder: natur.natur_editableBorder,
+  editableBorderFocus: natur.natur_editableBorderFocus,
+  editableText: natur.natur_editableText,
+  editablePlaceholder: natur.natur_editablePlaceholder,
+
+  // Buttons
+  buttonPrimaryBg: natur.natur_greenPrimary,
+  buttonPrimaryBgHover: natur.natur_greenSoft,
+  buttonPrimaryText: natur.natur_textInverse,
+
+  // MAIN button (nové, len keď chceš “save” vibe)
+  buttonMainBg: natur.natur_main,
+  buttonMainBgHover: natur.natur_mainSoft,
+  buttonMainText: natur.natur_mainButtonText,
 
   // Slider
   sliderTrack: natur.natur_sliderTrack,

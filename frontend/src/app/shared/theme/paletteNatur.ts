@@ -70,31 +70,31 @@ export const natur = {
   natur_pillActiveBorder: "rgba(63, 225, 166, 0.38)",
 
   // --- Inputs (raw values) ---
-  //natur_inputBg: "rgba(10, 26, 19, 0.42)",
-  //natur_inputBgHover: "rgba(10, 26, 19, 0.55)",
-  //natur_inputBorder: "#123025",
-  //natur_inputBorderFocus: "rgba(63, 225, 166, 0.55)",
+  natur_inputBg: "rgba(10, 26, 19, 0.42)",
+  natur_inputBgHover: "rgba(10, 26, 19, 0.55)",
+  natur_inputBorder: "#123025",
+  natur_inputBorderFocus: "rgba(63, 225, 166, 0.55)",
 
-    // Inputs (light green)
-  natur_inputBg: "#C0DDA1",
-  natur_inputBgHover: "#B7D595",
-  natur_inputBorder: "#7FA35B",
-  natur_inputBorderFocus: "#BFF159",
-  natur_inputText: "#16240F",
-  natur_inputPlaceholder: "#2A3A1C",
+    // Inputs (light green) - new editable
+  natur_editableBg: "#C0DDA1",
+  natur_editableBgHover: "#B7D595",
+  natur_editableBorder: "#7FA35B",
+  natur_editableBorderFocus: "#BFF159",
+  natur_editableText: "#16240F",
+  natur_editablePlaceholder: "#2A3A1C",
 
 
-    // --- Brand greens (bledšie, moderné) ---
-  //natur_greenPrimary: "#3FE1A6",
-  //natur_greenSoft: "#2BBE8D",
+  // --- Brand greens (bledšie, moderné) ---
+  natur_greenPrimary: "#3FE1A6",
+  natur_greenSoft: "#2BBE8D",
   natur_greenMuted: "#1E7F61",
 
-  natur_greenPrimary: "#BFF159",
-  natur_greenSoft: "#B2EA53", // hover (kľudne jemne iné)
-  natur_buttonPrimaryText: "#16240F",
+  //nove farby pre main
+  natur_main: "#BFF159",
+  natur_mainSoft: "#B2EA53", 
+  natur_mainButtonText: "#16240F",
 
-  // Focus ring (ak chceš rovnaký vibe)
-  natur_focusRing: "#BFF159",
+  natur_focusRing: "rgba(63, 225, 166, 0.28)",
 
   // --- Slider (raw values) ---
   natur_sliderTrack: "rgba(18, 48, 37, 0.55)",
