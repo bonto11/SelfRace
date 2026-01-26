@@ -17,7 +17,7 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
   hint?: string;
   error?: string;
   containerClassName?: string;
-  variant?: "default" | "editable";
+  variant?: "readonly" | "editable";
 };
 
 export default function TextField({
@@ -26,7 +26,7 @@ export default function TextField({
   error,
   containerClassName,
   className,
-  variant = "default",
+  variant = "editable",
   ...rest
 }: Props) {
   const base = variant === "editable" ? FIELD_EDITABLE_BASE : FIELD_BASE;
