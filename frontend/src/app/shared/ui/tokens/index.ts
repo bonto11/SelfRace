@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/index.ts
 export * from "./core";
-export * from "./layout";
+export * from "./layoutTokens";
 export * from "./auth";
 export * from "./calendar";
 export * from "./charts";
