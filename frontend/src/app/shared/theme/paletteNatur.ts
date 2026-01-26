@@ -4,22 +4,20 @@
 
 export const natur = {
   // --- Backgrounds ---
-  natur_backgroundMain: "#0A2814",   //main back
-  natur_backgroundAlt: "#0A1E14",     //topbar
+  natur_backgroundMain: "#0A2814",
+  natur_backgroundAlt: "#0A1E14",
 
   // --- Glass surfaces (cards, modals) ---
-  // jemne "zelené sklo" (nie biela hmla)
   natur_surfaceGlass: "rgba(10, 30, 20, 0.50)",
   natur_surfaceGlassHover: "rgba(10, 40, 20, 0.70)",
 
-  // Default border (globálny, neutrál) – nech kalendár dni nie sú žlté
+  // Default border (globálny, neutrál)
   natur_borderGlass: "#123025",
 
-  // NEW: widget border (soft yellow) – len pre karty/widgety
-  // bledá žltá, tlmená, nekričí, ale odlíši “kartu” od pozadia
-  natur_borderWidget: "rgba(232, 213, 135, 0.42)",      //not seen?
+  // Widget border (soft yellow)
+  natur_borderWidget: "rgba(232, 213, 135, 0.42)",
 
-  // Optional deeper surface for dense widgets / tables
+  // Optional deeper surface
   natur_surfaceSolid: "#0B1F16",
   natur_surfaceSolidHover: "#0E261B",
 
@@ -29,13 +27,10 @@ export const natur = {
   natur_textMuted: "#86A196",
   natur_textInverse: "#07110D",
 
-
-
-  // --- Accents (use sparingly) ---
+  // --- Accents ---
   natur_accentTeal: "#2DD4BF",
   natur_accentLime: "#A3E635",
 
-  // NEW: Soft yellow accents (namiesto bielej na UI prvkoch, nie text)
   natur_accentYellowSoft: "#E8D587",
   natur_accentYellowDim: "rgba(232, 213, 135, 0.18)",
 
@@ -45,37 +40,32 @@ export const natur = {
 
   // --- Status colors ---
   natur_statusSuccess: "#2BBE8D",
-  natur_statusWarning: "#D8B24A", // tlmené “gold-ish”, používať jemne
+  natur_statusWarning: "#D8B24A",
   natur_statusError: "#F0545E",
   natur_statusErrorHover: "#E04852",
   natur_statusInfo: "#4FB6FF",
 
   // --- Focus / ring ---
-  // ring ostáva zelený (prirodzenejší)
-  //natur_focusRing: "rgba(63, 225, 166, 0.40)",
-  natur_ringSoft: "rgba(63, 225, 166, 0.28)",
+  natur_focusRing: "rgba(63, 225, 166, 0.28)",
 
   // --- Buttons / pills (raw values) ---
   natur_buttonGhostBg: "rgba(0,0,0,0.00)",
-
-  // NEW: ghost hover môže ísť do jemnej žltej (namiesto bielej)
   natur_buttonGhostBgHover: "rgba(232, 213, 135, 0.10)",
 
   natur_pillBg: "rgba(10, 26, 19, 0.55)",
   natur_pillBgHover: "rgba(10, 26, 19, 0.70)",
   natur_pillBorder: "#123025",
 
-  // Active pill má jemný zelený “glow” – nech žltá nie je všade
   natur_pillActiveBg: "rgba(63, 225, 166, 0.16)",
   natur_pillActiveBorder: "rgba(63, 225, 166, 0.38)",
 
-  // --- Inputs (raw values) ---
+  // --- Inputs (DEFAULT – tmavé/glass) ---
   natur_inputBg: "rgba(10, 26, 19, 0.42)",
   natur_inputBgHover: "rgba(10, 26, 19, 0.55)",
   natur_inputBorder: "#123025",
   natur_inputBorderFocus: "rgba(63, 225, 166, 0.55)",
 
-    // Inputs (light green) - new editable
+  // --- Inputs (EDITABLE – svetlozelené, len na edit) ---
   natur_editableBg: "#C0DDA1",
   natur_editableBgHover: "#B7D595",
   natur_editableBorder: "#7FA35B",
@@ -83,26 +73,23 @@ export const natur = {
   natur_editableText: "#16240F",
   natur_editablePlaceholder: "#2A3A1C",
 
-
-  // --- Brand greens (bledšie, moderné) ---
+  // --- Brand greens ---
   natur_greenPrimary: "#3FE1A6",
   natur_greenSoft: "#2BBE8D",
   natur_greenMuted: "#1E7F61",
 
-  //nove farby pre main
+  // --- MAIN button (save vibe) ---
   natur_main: "#BFF159",
-  natur_mainSoft: "#B2EA53", 
+  natur_mainSoft: "#B2EA53",
   natur_mainButtonText: "#16240F",
 
-  natur_focusRing: "rgba(63, 225, 166, 0.28)",
-
-  // --- Slider (raw values) ---
+  // --- Slider ---
   natur_sliderTrack: "rgba(18, 48, 37, 0.55)",
   natur_sliderTrackActive: "rgba(63, 225, 166, 0.65)",
   natur_sliderThumb: "#3FE1A6",
   natur_sliderThumbRing: "rgba(63, 225, 166, 0.35)",
 
-  // --- Charts (raw tokens) ---
+  // --- Charts ---
   natur_chartLine1: "#3FE1A6",
   natur_chartLine2: "#2DD4BF",
   natur_chartLine3: "#4FB6FF",
@@ -110,7 +97,7 @@ export const natur = {
   natur_chartGrid: "rgba(18, 48, 37, 0.55)",
   natur_chartAxis: "rgba(178, 199, 190, 0.70)",
 
-  // --- Tooltip / toast (raw tokens) ---
+  // --- Tooltip / toast ---
   natur_panelBg: "rgba(9, 24, 18, 0.92)",
   natur_panelBorder: "#123025",
 
