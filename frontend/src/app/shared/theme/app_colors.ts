@@ -1,7 +1,6 @@
 // src/shared/theme/app_colors.ts
 // App semantic color map.
-// IMPORTANT: This file MUST contain ONLY references to palette tokens.
-// No raw hex/rgba/shadow strings allowed.
+// IMPORTANT: references to palette tokens only.
 
 import { natur } from "./paletteNatur";
 
@@ -17,10 +16,10 @@ export const appColors = {
   surfaceSolidHover: natur.natur_surfaceSolidHover,
 
   // Borders
-  surfaceCardBorder: natur.natur_borderGlass, // neutrál (kalendár, bežné línie)
-  widgetBorder: natur.natur_borderWidget, // NEW: len widgety/karty
+  surfaceCardBorder: natur.natur_borderGlass, // neutrál (kalendár, línie)
+  widgetBorder: natur.natur_borderWidget, // len widgety/karty
 
-  // Accents (optional, keď chceš niečo “žlté miesto bielej”)
+  // Accents
   accentYellowSoft: natur.natur_accentYellowSoft,
   accentYellowDim: natur.natur_accentYellowDim,
 
@@ -40,7 +39,7 @@ export const appColors = {
   accentTeal: natur.natur_accentTeal,
   accentLime: natur.natur_accentLime,
 
-  // Focus
+  // Focus (global)
   focusRing: natur.natur_focusRing,
 
   // Status
@@ -48,6 +47,11 @@ export const appColors = {
   statusWarning: natur.natur_statusWarning,
   statusError: natur.natur_statusError,
   statusInfo: natur.natur_statusInfo,
+
+  // Buttons (existing semantics stay)
+  buttonPrimaryBg: natur.natur_greenPrimary,
+  buttonPrimaryBgHover: natur.natur_greenSoft,
+  buttonPrimaryText: natur.natur_textInverse,
 
   buttonSecondaryBg: natur.natur_surfaceGlass,
   buttonSecondaryBgHover: natur.natur_surfaceGlassHover,
@@ -62,7 +66,12 @@ export const appColors = {
   buttonDangerBgHover: natur.natur_statusErrorHover,
   buttonDangerText: natur.natur_textPrimary,
 
-  // Pills (prefs toggles)
+  // MAIN button (new: save vibe)
+  buttonMainBg: natur.natur_main,
+  buttonMainBgHover: natur.natur_mainSoft,
+  buttonMainText: natur.natur_mainButtonText,
+
+  // Pills
   pillBg: natur.natur_pillBg,
   pillBgHover: natur.natur_pillBgHover,
   pillBorder: natur.natur_pillBorder,
@@ -71,7 +80,7 @@ export const appColors = {
   pillActiveBorder: natur.natur_pillActiveBorder,
   pillActiveText: natur.natur_textPrimary,
 
-  // Inputs (DEFAULT – nemeníme)
+  // Inputs (DEFAULT – nemeníme; používa kalendár/dashboards/readonly UI)
   inputBg: natur.natur_inputBg,
   inputBgHover: natur.natur_inputBgHover,
   inputBorder: natur.natur_inputBorder,
@@ -79,23 +88,24 @@ export const appColors = {
   inputText: natur.natur_textPrimary,
   inputPlaceholder: natur.natur_textMuted,
 
-  // Inputs (EDITABLE – nové, používame len tam kde chceš svetlozelené)
+  // Inputs (READONLY semantics) — mapované na default inputy (safe)
+  readonlyBg: natur.natur_inputBg,
+  readonlyBgHover: natur.natur_inputBgHover,
+  readonlyBorder: natur.natur_inputBorder,
+  readonlyBorderFocus: natur.natur_inputBorderFocus,
+  readonlyText: natur.natur_textPrimary,
+  readonlyPlaceholder: natur.natur_textMuted,
+  readonlyRing: natur.natur_focusRing,
+
+  // Inputs (EDITABLE – svetlozelené; len tam kde user upravuje)
   editableBg: natur.natur_editableBg,
   editableBgHover: natur.natur_editableBgHover,
   editableBorder: natur.natur_editableBorder,
   editableBorderFocus: natur.natur_editableBorderFocus,
   editableText: natur.natur_editableText,
   editablePlaceholder: natur.natur_editablePlaceholder,
-
-  // Buttons
-  buttonPrimaryBg: natur.natur_greenPrimary,
-  buttonPrimaryBgHover: natur.natur_greenSoft,
-  buttonPrimaryText: natur.natur_textInverse,
-
-  // MAIN button (nové, len keď chceš “save” vibe)
-  buttonMainBg: natur.natur_main,
-  buttonMainBgHover: natur.natur_mainSoft,
-  buttonMainText: natur.natur_mainButtonText,
+  // optional, nech je ring rovnaký vibe ako borderFocus
+  editableRing: natur.natur_editableBorderFocus,
 
   // Slider
   sliderTrack: natur.natur_sliderTrack,
@@ -111,7 +121,7 @@ export const appColors = {
   chartGrid: natur.natur_chartGrid,
   chartAxis: natur.natur_chartAxis,
 
-  // Panels (tooltip/toast/popover)
+  // Panels
   panelBg: natur.natur_panelBg,
   panelBorder: natur.natur_panelBorder,
   panelText: natur.natur_textPrimary,
