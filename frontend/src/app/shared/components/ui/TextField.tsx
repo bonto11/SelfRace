@@ -4,8 +4,8 @@
 import * as React from "react";
 import { cx } from "@/app/shared/ui";
 import {
-  FIELD_BASE_READONLY,
-  FIELD_BASE_EDITABLE,
+  FIELD_BASE, // readonly alias (legacy)
+  FIELD_EDITABLE_BASE,
   FIELD_LABEL,
   FIELD_HINT,
   FIELD_ERROR,
@@ -29,16 +29,15 @@ export default function TextField({
   variant = "editable",
   ...rest
 }: Props) {
-  const base = variant === "editable" ? FIELD_BASE_EDITABLE : FIELD_BASE_READONLY;
+  const base = variant === "editable" ? FIELD_EDITABLE_BASE : FIELD_BASE;
 
+  // readonly variant = UX readonly (still focusable if needed) — necháme na callerovi
+  // Ak chceš tvrdý readonly, daj `readOnly` v props.
   return (
     <div className={cx("space-y-1", containerClassName)}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
-      <input
-        {...rest}
-        className={cx(base, error && FIELD_ERROR, className)}
-      />
+      <input {...rest} className={cx(base, error && FIELD_ERROR, className)} />
 
       {error ? (
         <div className={FIELD_ERROR_TEXT}>{error}</div>
