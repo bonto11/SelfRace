@@ -1,4 +1,3 @@
-import { THEME } from "@/app/shared/theme/tokens";
 import type {
   StaticProfile,
   LatestMetricsMap,
