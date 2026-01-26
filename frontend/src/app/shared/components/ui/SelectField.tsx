@@ -4,7 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/app/shared/ui";
 import {
-  FIELD_BASE,
+  FIELD_BASE_READONLY,
   FIELD_ERROR,
   FIELD_ERROR_TEXT,
   FIELD_HINT,
@@ -116,7 +116,7 @@ export default function SelectField({
           disabled={disabled}
           onClick={() => setOpen((v) => !v)}
           className={cx(
-            FIELD_BASE,
+            FIELD_BASE_READONLY,
             SELECT_BTN,
             !selected && !value && SELECT_OPT_EMPTY,
             error && FIELD_ERROR

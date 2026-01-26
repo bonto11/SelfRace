@@ -4,8 +4,8 @@
 import * as React from "react";
 import { cx } from "@/app/shared/ui";
 import {
-  FIELD_BASE,
-  FIELD_EDITABLE_BASE,
+  FIELD_BASE_READONLY,
+  FIELD_BASE_EDITABLE,
   FIELD_LABEL,
   FIELD_HINT,
   FIELD_ERROR,
@@ -29,7 +29,7 @@ export default function TextField({
   variant = "editable",
   ...rest
 }: Props) {
-  const base = variant === "editable" ? FIELD_EDITABLE_BASE : FIELD_BASE;
+  const base = variant === "editable" ? FIELD_BASE_EDITABLE : FIELD_BASE_READONLY;
 
   return (
     <div className={cx("space-y-1", containerClassName)}>

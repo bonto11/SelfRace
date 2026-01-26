@@ -8,7 +8,7 @@ import type {
   SportFE,
 } from "@/app/features/activities/types/activities";
 import {
-  FIELD_BASE,
+  FIELD_BASE_READONLY,
   FIELD_DISABLED,
   FIELD_HELP,
 } from "@/app/shared/ui/tokens";
@@ -121,7 +121,7 @@ export default function ActivitySelector({
   return (
     <div className={className}>
       <select
-        className={[FIELD_BASE, disabled ? FIELD_DISABLED : ""].join(" ")}
+        className={[FIELD_BASE_READONLY, disabled ? FIELD_DISABLED : ""].join(" ")}
         value={value === "" ? "" : String(value)}
         onFocus={() => setOpen(true)}
         onChange={(e) => {

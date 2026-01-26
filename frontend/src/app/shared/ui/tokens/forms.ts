@@ -27,7 +27,7 @@ export const FIELD_ERROR_TEXT = [
 ].join(" ");
 
 /* ===== Base input ====================================================== */
-export const FIELD_BASE = [
+export const FIELD_BASE_READONLY = [
   "w-full",
   "h-10",
   "px-3",
@@ -58,7 +58,7 @@ export const FIELD_ERROR = [
 export const FIELD_DISABLED = "opacity-60 cursor-not-allowed";
 
 
-export const FIELD_EDITABLE_BASE = [
+export const FIELD_BASE_EDITABLE = [
   "w-full",
   "h-10",
   "px-3",
@@ -145,7 +145,7 @@ export const FORM_GRID_SPLIT = "grid grid-cols-1 sm:grid-cols-2 gap-2";
 export const FORM_GRID_THREE = "grid gap-3 sm:grid-cols-3 items-start";
 
 /* ===== Select base (standalone select) ================================= */
-export const SELECT_BASE = [FIELD_BASE, "appearance-none"].join(" ");
+export const SELECT_BASE = [FIELD_BASE_READONLY, "appearance-none"].join(" ");
 
 /* ===== Prefs pills (palettes only) ===================================== */
 export const PREFS_PILL =
@@ -179,7 +179,7 @@ export const PILL_BUTTON = [
 export const MUTED_TEXT = ["text-xs", `text-[${appColors.textMuted}]`].join(" ");
 
 /* ===== Legacy aliases (keep old imports working) ======================= */
-export const inputClass = FIELD_BASE;
+export const inputClass = FIELD_BASE_READONLY;
 export const labelClass = FIELD_LABEL;
 export const hintClass = FIELD_HINT;
 
