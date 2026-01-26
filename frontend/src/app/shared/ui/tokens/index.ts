@@ -41,3 +41,22 @@ export const DISCLOSURE_ICON_CLOSED =
 
 export const FIELD_HELP =
   "mt-1 text-xs opacity-70";
+
+// frontend/src/app/shared/ui/tokens/index.ts
+
+export * from "./core";
+export * from "./auth";
+// export * from "./forms"; ... (čo tam už máš)
+
+// --- Backward-compat aliases (dočasne, kým neupraceš importy) ---
+export { FIELD_BASE as FIELD_BASE_READONLY } from "./core";
+// ak FIELD_BASE nie je v core, tak z toho súboru kde je
+
+export { FIELD_INLINE_READONLY as FIELD_INLINE } from "./core";
+export { FIELD_OPTION_READONLY as FIELD_OPTION } from "./core";
+
+// ak PILL_BUTTON si zrušil, dočasne mapni na najbližšie tlačidlo:
+export { ICON_BUTTON as PILL_BUTTON } from "./core";
+
+// MUTED_TEXT – ak si ho premenoval:
+export { AUTH_TEXT as MUTED_TEXT } from "./auth";
