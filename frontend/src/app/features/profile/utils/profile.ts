@@ -7,14 +7,14 @@ import { appColors } from "@/app/shared/theme/app_colors";
 export function levelColor(label: string) {
   const l = label.toLowerCase();
   if (l.includes("excellent") || l.includes("elite"))
-    return appColors.chartExcellent;
+    return appColors.stateExcellent;
   if (l.includes("superior"))
-    return appColors.chartSuperior;
-  if (l.includes("good")) appColors.chartGood;
+    return appColors.stateSuperior;
+  if (l.includes("good")) appColors.stateGood;
   if (l.includes("fair") || l.includes("average"))
-    return appColors.chartAverage;
-  if (l.includes("poor")) return appColors.chartPoor;
-  return appColors.chartNeutral;
+    return appColors.stateAverage;
+  if (l.includes("poor")) return appColors.statePoor;
+  return appColors.stateNeutral;
 }
 
 export function summarizeStaticProfile(profile: StaticProfile | null) {
@@ -83,21 +83,21 @@ export function hexWithAlpha(hex?: string, a = 0.18): string {
 
 export function colorForBodyFatBand(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete")) return appColors.chartAthletes;
-  if (l.includes("fitness")) return appColors.chartFitness;
-  if (l.includes("average")) return appColors.chartAverage;
-  if (l.includes("essential")) return appColors.chartEssential;
-  if (l.includes("obese")) return appColors.chartObese;
-  return appColors.chartNeutral;
+  if (l.includes("athlete")) return appColors.stateAthletes;
+  if (l.includes("fitness")) return appColors.stateFitness;
+  if (l.includes("average")) return appColors.stateAverage;
+  if (l.includes("essential")) return appColors.stateEssential;
+  if (l.includes("obese")) return appColors.stateObese;
+  return appColors.stateNeutral;
 }
 
 export function colorForVo2RangeLabel(label: string) {
   const l = (label || "").toLowerCase();
   if (l.includes("excellent") || l.includes("elite"))
-    return appColors.chartExcellent;
-  if (l.includes("superior")) return appColors.chartSuperior;
-  if (l.includes("good")) return appColors.chartGood;
-  if (l.includes("fair") || l.includes("average")) return appColors.chartFair;
-  if (l.includes("poor")) return appColors.chartPoor;
-  return appColors.chartNeutral;
+    return appColors.stateExcellent;
+  if (l.includes("superior")) return appColors.stateSuperior;
+  if (l.includes("good")) return appColors.stateGood;
+  if (l.includes("fair") || l.includes("average")) return appColors.stateFair;
+  if (l.includes("poor")) return appColors.statePoor;
+  return appColors.stateNeutral;
 }
