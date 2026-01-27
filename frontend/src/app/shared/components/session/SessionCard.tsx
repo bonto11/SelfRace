@@ -3,17 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import SportBadge from "@/app/shared/ui/components/SportBadge";
-import {
-  SURFACE_CARD,
-  SURFACE_INLINE,
-  FLUSH_DETAIL,
-} from "@/app/shared/ui/tokens";
+import { SURFACE_CARD, FLUSH_DETAIL } from "@/app/shared/ui/tokens";
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
 import PlanSessionDetail from "@/app/shared/components/session/PlanSessionDetail";
 import ExternalSessionDetail from "@/app/shared/components/session/ExternalSessionDetail";
 import BestsSessionDetail from "@/app/shared/components/session/BestsSessionDetail";
+import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
 
 import { safeText } from "@/app/shared/components/session/sessionUtils";
 
@@ -54,8 +51,6 @@ export type ActivitySession = Base & {
   onDelete?: () => void;
 };
 
-// PB – vlastný typ, ale polia sú rovnaké ako pri activity,
-// aby si vedel ľahko linknúť späť na konkrétnu aktivitu.
 export type BestsSession = Base & {
   kind: "bests";
   activityId: number;
@@ -94,16 +89,13 @@ export type SessionCardItem =
   | ExternalSession;
 
 export type SessionCardProps = {
-  variant?: ComponentVariant; // "activity" | "calendar" | "pb" | "plan"
+  variant?: ComponentVariant;
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
 };
 
-const PRESET: Record<
-  ComponentVariant,
-  { outerPadding: string; compactChart: boolean }
-> = {
+const PRESET: Record<ComponentVariant, { outerPadding: string; compactChart: boolean }> = {
   activity: { outerPadding: "px-5 py-4", compactChart: false },
   calendar: { outerPadding: "px-5 py-4", compactChart: true },
   pb: { outerPadding: "px-5 py-4", compactChart: true },
@@ -180,11 +172,7 @@ export default function SessionCard({
 
       case "plan": {
         const plan = item as PlanSession;
-        const bits = [
-          plan.planDur ?? "",
-          plan.planIntensity ?? "",
-          plan.planTarget ?? "",
-        ].filter(Boolean);
+        const bits = [plan.planDur ?? "", plan.planIntensity ?? "", plan.planTarget ?? ""].filter(Boolean);
         return bits.length ? bits.join(" · ") : null;
       }
 
@@ -203,19 +191,14 @@ export default function SessionCard({
   }, [item, variant]);
 
   return (
-    <section
-      className={[SURFACE_CARD, "overflow-hidden", cfg.outerPadding].join(" ")}
-    >
+    <section className={[SURFACE_CARD, "overflow-hidden", cfg.outerPadding].join(" ")}>
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium truncate">{dateLine}</div>
 
         <div className="flex items-center gap-2">
           {item.kind === "activity" && (item as ActivitySession).isFavorite && (
-            <span
-              className="text-[12px] leading-none opacity-90"
-              title="Favorite"
-            >
+            <span className="text-[12px] leading-none opacity-90" title="Favorite">
               ★
             </span>
           )}
@@ -295,23 +278,17 @@ function DetailBody({
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
   const hasKpis = kpis.length > 0;
 
+  // ✅ iba vizuál: KPI blok ide cez MetricGrid (tokeny rieši on)
   const kpiBlock = hasKpis ? (
-    <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
-      {kpis.map((k) => (
-        <div
-          key={String(k.label)}
-          className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-        >
-          <div className="text-[10px] opacity-70">{safeText(k.label)}</div>
-          <div className="text-xl font-semibold tabular-nums">
-            {safeText(k.value)}
-          </div>
-        </div>
-      ))}
-    </div>
+    <MetricGrid
+      cols={4}
+      metrics={kpis.map((k) => ({
+        label: safeText(k.label),
+        value: safeText(k.value),
+      }))}
+    />
   ) : null;
 
-  // PLAN
   if (item.kind === "plan") {
     return (
       <PlanSessionDetail
@@ -322,14 +299,12 @@ function DetailBody({
     );
   }
 
-  // EXTERNAL
   if (item.kind === "external") {
     return (
       <ExternalSessionDetail variant={variant} item={item as ExternalSession} />
     );
   }
 
-  // BESTS
   if (item.kind === "bests") {
     return (
       <BestsSessionDetail
@@ -342,7 +317,6 @@ function DetailBody({
     );
   }
 
-  // ACTIVITY
   const act = item as ActivitySession;
 
   return (

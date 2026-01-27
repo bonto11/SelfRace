@@ -2,13 +2,18 @@
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
-import {
-  fmtMin,
-  safeText,
-  tgtToStr,
-} from "@/app/shared/components/session/sessionUtils";
+import { fmtMin, safeText, tgtToStr } from "@/app/shared/components/session/sessionUtils";
 
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
+import {
+  SESSION_MINIGRID_BASE,
+  SESSION_MINIGRID_2COL,
+  SESSION_MINIGRID_3COL,
+  SESSION_MINITILE,
+  SESSION_MINITILE_STYLE,
+  SESSION_MINITILE_LABEL,
+  SESSION_MINITILE_VALUE,
+} from "@/app/shared/ui/tokens";
 
 type Props = {
   variant: ComponentVariant;
@@ -36,24 +41,18 @@ function valOrDash(v: string | number | null): string {
 function MiniMetricGrid({ metrics, cols = 3 }: MiniMetricGridProps) {
   if (!metrics || metrics.length === 0) return null;
 
-  const colClass =
-    cols === 2
-      ? "grid-cols-2 sm:grid-cols-4"
-      : "grid-cols-3 sm:grid-cols-6";
+  const colClass = cols === 2 ? SESSION_MINIGRID_2COL : SESSION_MINIGRID_3COL;
 
   return (
-    <div className={`mt-3 grid ${colClass} gap-2`}>
+    <div className={[SESSION_MINIGRID_BASE, colClass].join(" ")}>
       {metrics.map((m) => (
         <div
           key={m.label}
-          className="rounded-lg border border-white/5 bg-white/5 px-2.5 py-1.5"
+          className={SESSION_MINITILE}
+          style={SESSION_MINITILE_STYLE}
         >
-          <div className="text-[10px] opacity-70 leading-tight">
-            {m.label}
-          </div>
-          <div className="text-sm font-semibold tabular-nums leading-tight">
-            {valOrDash(m.value as any)}
-          </div>
+          <div className={SESSION_MINITILE_LABEL}>{m.label}</div>
+          <div className={SESSION_MINITILE_VALUE}>{valOrDash(m.value)}</div>
         </div>
       ))}
     </div>
@@ -111,9 +110,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
 
   const fallbackMetrics: MiniMetric[] = [
     item.planDur ? { label: "Duration", value: item.planDur } : null,
-    item.planIntensity
-      ? { label: "Intensity", value: item.planIntensity }
-      : null,
+    item.planIntensity ? { label: "Intensity", value: item.planIntensity } : null,
     item.planTarget ? { label: "Target", value: item.planTarget } : null,
   ].filter(Boolean) as MiniMetric[];
 
@@ -179,9 +176,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                       >
                         <div>{line}</div>
                         {tgt && <div className="opacity-90">target: {tgt}</div>}
-                        {noteText && (
-                          <div className="opacity-90">{noteText}</div>
-                        )}
+                        {noteText && <div className="opacity-90">{noteText}</div>}
                       </div>
                     );
                   })}
@@ -246,9 +241,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                   <div className="text-sm font-medium">{name}</div>
                   <div className="mt-0.5 text-xs opacity-85">{line}</div>
                   {notesText && (
-                    <div className="mt-0.5 text-xs opacity-85">
-                      {notesText}
-                    </div>
+                    <div className="mt-0.5 text-xs opacity-85">{notesText}</div>
                   )}
                 </li>
               );

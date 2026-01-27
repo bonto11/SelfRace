@@ -1,8 +1,20 @@
+// src/app/shared/components/session/ActivitySessionDetail.tsx
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type CSSProperties } from "react";
 
-import { SURFACE_INLINE } from "@/app/shared/ui/tokens";
+import {
+  SURFACE_INLINE,
+  SURFACE_INLINE_STYLE,
+  SESSION_DIVIDER,
+  SESSION_DIVIDER_STYLE,
+  SESSION_PILL,
+  SESSION_PILL_STYLE,
+  SESSION_PILL_ACTIVE_STYLE,
+  SESSION_PILL_DANGER_STYLE,
+} from "@/app/shared/ui/tokens";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
@@ -13,6 +25,7 @@ import { ActivitySplitsSection } from "./ActivitySplitsSection";
 
 import type { ActivitySession } from "./SessionCard";
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
+
 /** ================= helpers ================= */
 
 type InfoItem = {
@@ -116,6 +129,23 @@ type SectionProps = {
   children?: ReactNode;
 };
 
+const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(
+  " ",
+);
+const INLINE_WRAP_STYLE: CSSProperties = SURFACE_INLINE_STYLE;
+
+const INFO_TILE_CLASS = "rounded-lg border px-2.5 py-1.5";
+const INFO_TILE_STYLE: CSSProperties = {
+  background: appColors.backgroundAlt,
+  borderColor: appColors.surfaceCardBorder,
+};
+
+const ACTION_DANGER_STYLE: CSSProperties & Record<`--${string}`, string> = {
+  "--pill-bg": "rgba(0,0,0,0)", // neutral fallback if someone strips vars
+  "--pill-border": appColors.statusError,
+  "--pill-text": appColors.statusError,
+};
+
 function ActivitySectionShell({
   title,
   defaultOpen,
@@ -126,13 +156,13 @@ function ActivitySectionShell({
 
   return (
     <section className="mt-3">
-      <div className={[SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(" ")}>
+      <div className={INLINE_WRAP_CLASS} style={INLINE_WRAP_STYLE}>
         <button
           type="button"
           onClick={() => setOpen((s) => !s)}
           className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold tracking-tight"
         >
-          <span>{title}</span>
+          <span className="min-w-0">{title}</span>
           <span
             className={[
               "text-base leading-none select-none transition-transform",
@@ -144,13 +174,17 @@ function ActivitySectionShell({
         </button>
 
         {open && (
-          <div className="border-t border-white/10 px-3 py-2 text-sm">
+          <div
+            className={[SESSION_DIVIDER, "px-3 py-2 text-sm"].join(" ")}
+            style={SESSION_DIVIDER_STYLE}
+          >
             {items && items.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {items.map((t) => (
                   <div
                     key={t.label}
-                    className="rounded-lg bg-white/5/5 border border-white/5 px-2.5 py-1.5"
+                    className={INFO_TILE_CLASS}
+                    style={INFO_TILE_STYLE}
                   >
                     <div className="text-[10px] opacity-70 leading-tight">
                       {t.label}
@@ -196,13 +230,13 @@ export function ActivitySessionDetail({
 
   const distTxt = s
     ? formatDistance(s.distance_m ?? null)
-    : act.distanceStr ?? "—";
+    : (act.distanceStr ?? "—");
   const timeTxt =
     s && s.moving_time_s != null
       ? fmtSecondsHMS(s.moving_time_s)
-      : act.timeStr ?? "—";
-  const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
-  const maxHrTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
+      : (act.timeStr ?? "—");
+  const avgHrTxt = s ? (s.average_heartrate_bpm ?? "—") : (act.avgHr ?? "—");
+  const maxHrTxt = s ? (s.max_heartrate_bpm ?? "—") : (act.maxHr ?? "—");
   const cadenceLabel = formatCadenceSummary(s);
   const workoutTypeLabel = workoutTypeLabelFromSummary(s);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
@@ -214,7 +248,7 @@ export function ActivitySessionDetail({
     act.sport ??
     "") as string;
 
-  // ⬅️ NOVÉ – Strava URL
+  // Strava URL
   const stravaActivityId =
     (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
 
@@ -257,49 +291,49 @@ export function ActivitySessionDetail({
           const time_s: number[] = Array.isArray(raw.time_s)
             ? raw.time_s
             : Array.isArray(raw.time)
-            ? raw.time
-            : [];
+              ? raw.time
+              : [];
 
           const hr: (number | null)[] = Array.isArray(raw.hr)
             ? raw.hr
             : Array.isArray(raw.heartrate_bpm)
-            ? raw.heartrate_bpm
-            : [];
+              ? raw.heartrate_bpm
+              : [];
 
           const cadence_rpm: (number | null)[] =
             Array.isArray(raw.cadence_rpm) && raw.cadence_rpm.length
               ? raw.cadence_rpm
               : Array.isArray(raw.cadence)
-              ? raw.cadence
-              : [];
+                ? raw.cadence
+                : [];
 
           const power_w: (number | null)[] =
             Array.isArray(raw.power_w) && raw.power_w.length
               ? raw.power_w
               : Array.isArray(raw.watts)
-              ? raw.watts
-              : [];
+                ? raw.watts
+                : [];
 
           const distance_m: (number | null)[] =
             Array.isArray(raw.distance_m) && raw.distance_m.length
               ? raw.distance_m
               : Array.isArray(raw.distance)
-              ? raw.distance
-              : [];
+                ? raw.distance
+                : [];
 
           const altitude_m: (number | null)[] =
             Array.isArray(raw.altitude_m) && raw.altitude_m.length
               ? raw.altitude_m
               : Array.isArray(raw.altitude)
-              ? raw.altitude
-              : [];
+                ? raw.altitude
+                : [];
 
           const duration_s: number =
             typeof raw.duration_s === "number"
               ? raw.duration_s
               : time_s.length
-              ? Number(time_s[time_s.length - 1]) || 0
-              : 0;
+                ? Number(time_s[time_s.length - 1]) || 0
+                : 0;
 
           const pts: { lat: number; lng: number }[] = [];
           const latlngRaw = raw.latlng;
@@ -354,7 +388,7 @@ export function ActivitySessionDetail({
       } catch (err) {
         console.error(
           "[ActivitySessionDetail] getStreams/getDetail error",
-          err
+          err,
         );
         setStreams({
           time_s: [],
@@ -462,41 +496,50 @@ export function ActivitySessionDetail({
   const hasSplits = splits.length > 0;
   const hasLaps = laps.length > 0;
 
+  const canShowActions =
+    "onEdit" in act && (act.onEdit || act.onDelete || act.onToggleFavorite);
+
   return (
     <div>
       {/* Akčné tlačidlá – HORE */}
-      {"onEdit" in act &&
-        (act.onEdit || act.onDelete || act.onToggleFavorite) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {act.onToggleFavorite && (
-              <button
-                type="button"
-                onClick={act.onToggleFavorite}
-                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-              >
-                {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
-              </button>
-            )}
-            {act.onEdit && (
-              <button
-                type="button"
-                onClick={act.onEdit}
-                className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
-              >
-                Edit
-              </button>
-            )}
-            {act.onDelete && (
-              <button
-                type="button"
-                onClick={act.onDelete}
-                className="h-8 px-3 rounded-full text-sm font-semibold bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 transition-colors"
-              >
-                Delete
-              </button>
-            )}
-          </div>
-        )}
+      {canShowActions && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {act.onToggleFavorite && (
+            <button
+              type="button"
+              onClick={act.onToggleFavorite}
+              className={SESSION_PILL}
+              style={
+                act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE
+              }
+            >
+              {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
+            </button>
+          )}
+
+          {act.onEdit && (
+            <button
+              type="button"
+              onClick={act.onEdit}
+              className={SESSION_PILL}
+              style={SESSION_PILL_STYLE}
+            >
+              Edit
+            </button>
+          )}
+
+          {act.onDelete && (
+            <button
+              type="button"
+              onClick={act.onDelete}
+              className={SESSION_PILL}
+              style={SESSION_PILL_DANGER_STYLE}
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
 
       {(onOpenActivity || stravaUrl) && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -504,7 +547,8 @@ export function ActivitySessionDetail({
             <button
               type="button"
               onClick={() => onOpenActivity(act.activityId)}
-              className="h-8 px-3 rounded-full text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
+              className={SESSION_PILL}
+              style={SESSION_PILL_STYLE}
             >
               Otvoriť aktivitu
             </button>
@@ -515,7 +559,8 @@ export function ActivitySessionDetail({
               href={stravaUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center h-8 px-3 rounded-full text-sm font-semibold border border-white/20 bg-transparent hover:bg-white/10 transition-colors"
+              className={SESSION_PILL}
+              style={SESSION_PILL_STYLE}
             >
               View on Strava
             </a>

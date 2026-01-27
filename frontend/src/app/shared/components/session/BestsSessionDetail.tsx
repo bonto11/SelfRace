@@ -1,10 +1,9 @@
+// src/app/shared/components/session/BestsSessionDetail.tsx
 "use client";
 
 import { ReactNode } from "react";
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
-import type {
-  BestsSession,
-} from "@/app/shared/components/session/SessionCard";
+import type { BestsSession } from "@/app/shared/components/session/SessionCard";
 
 type Props = {
   item: BestsSession;

@@ -9,6 +9,7 @@ export * from "./inputs";
 export * from "./panels";
 export * from "./shell";
 export * from "./spinner";
+export * from "./sessionCard";
 export * from "./toast";
 export * from "./userMenu";
 export * from "./widgets";
