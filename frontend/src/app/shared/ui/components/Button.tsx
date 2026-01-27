@@ -53,7 +53,7 @@ export default function Button({
     return (
       <button className={cls} disabled={disabled} {...rest}>
         <img
-          src={STRAVA_ASSETS.connectSvg}
+          src={STRAVA_ASSETS.connectSvg_orange}
           alt="Connect with Strava"
           // presný guideline: height 48px @1x
           style={{ height: 48, width: "auto", display: "block" }}

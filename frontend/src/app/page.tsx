@@ -76,7 +76,7 @@ export default function LandingPage() {
             {/* Strava branding: SVG namiesto textu */}
             <div className="mt-7 flex justify-center">
               <Image
-                src={STRAVA_ASSETS.poweredBySvg}
+                src={STRAVA_ASSETS.poweredBySvg_white}
                 alt="Powered by Strava"
                 width={220}
                 height={28}

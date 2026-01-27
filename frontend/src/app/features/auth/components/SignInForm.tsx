@@ -145,7 +145,7 @@ export default function SignInForm() {
         {/* Strava branding (SVG, neruší, ale je compliant) */}
         <div className="mt-6 flex justify-center">
           <Image
-            src={STRAVA_ASSETS.poweredBySvg}
+            src={STRAVA_ASSETS.poweredBySvg_white}
             alt="Powered by Strava"
             width={190}
             height={24}
