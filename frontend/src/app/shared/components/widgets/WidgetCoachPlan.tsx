@@ -427,6 +427,7 @@ export default function WidgetCoachPlan() {
   return (
     <WidgetCard
       title="Coach — Plan"
+      accent="none"
       note="Analyzuj stav, vygeneruj weekly/daily a spusti aktívny plán."
       interactive={false}
       minH={210}

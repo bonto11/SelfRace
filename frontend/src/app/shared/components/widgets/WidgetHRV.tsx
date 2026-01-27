@@ -71,7 +71,7 @@ export default function WidgetHRV({
   // ✅ žiadne statické farby, žiadne tailwind bg-*
   // cmp.accent môže byť class (bg-...) alebo paint (#/rgb/gradient). Pre istotu sanitizujeme.
   const accent = (() => {
-    if (loading || showNA) return "";
+    if (loading || showNA) return "none";
 
     const a = (cmp as any)?.accent;
     if (!a) return appColors.accentTeal;

@@ -108,7 +108,7 @@ function pickAccent(ui: UiState) {
 
   if (hasHigh) return appColors.statusError;
   if (hasMod) return appColors.statusWarning;
-  return "";
+  return "none";
 }
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {

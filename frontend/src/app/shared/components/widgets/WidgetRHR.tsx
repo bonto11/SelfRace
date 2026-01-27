@@ -67,7 +67,7 @@ export default function WidgetRHR({
   const note = showNA ? freshness.message : cmp.note;
 
   const accent = (() => {
-    if (loading || showNA) return "";
+    if (loading || showNA) return "none";
 
     const a = String((cmp as any)?.accent ?? "").toLowerCase();
 
@@ -75,9 +75,9 @@ export default function WidgetRHR({
     if (a.includes("amber") || a.includes("yellow"))
       return appColors.stateWarning;
     if (a.includes("emerald") || a.includes("green"))
-      return appColors.stateGood;
+      return "none";
 
-    return appColors.stateNeutral;
+    return "none";
   })();
 
   return (

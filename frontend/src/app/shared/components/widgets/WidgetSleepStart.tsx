@@ -39,9 +39,9 @@ function pickAccentFromCmp(
   if (a.includes("red")) return appColors.stateDanger;
   if (a.includes("amber") || a.includes("yellow"))
     return appColors.stateWarning;
-  if (a.includes("emerald") || a.includes("green")) return appColors.stateGood;
+  if (a.includes("emerald") || a.includes("green")) return "none";
 
-  return appColors.stateNeutral;
+  return "none";
 }
 
 export default function WidgetSleepStart({

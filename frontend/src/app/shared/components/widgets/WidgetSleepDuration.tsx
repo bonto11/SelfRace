@@ -75,9 +75,9 @@ export default function WidgetSleepDuration({
     if (a.includes("amber") || a.includes("yellow"))
       return appColors.stateWarning;
     if (a.includes("emerald") || a.includes("green"))
-      return appColors.stateGood;
+      return "none";
 
-    return appColors.stateNeutral;
+    return "none";
   })();
 
   return (

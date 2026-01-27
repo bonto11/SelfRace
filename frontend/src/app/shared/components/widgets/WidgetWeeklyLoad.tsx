@@ -42,7 +42,7 @@ export default function WeeklyLoadWidget({
   if (!loading) {
     if (diffPct == null) {
       note = "—";
-      accent = appColors.stateNeutral;
+      accent = "none";
     } else if (diffPct > 20) {
       note = "↑ oproti predošlým 7 dňom výrazne viac";
       accent = appColors.stateWarning;
@@ -51,7 +51,7 @@ export default function WeeklyLoadWidget({
       accent = appColors.stateWarning;
     } else {
       note = "≈ podobne ako predchádzajúcich 7 dní";
-      accent = appColors.statePositive;
+      accent = "none";
     }
   }
 

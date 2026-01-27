@@ -34,6 +34,7 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
     <WidgetCard
       title="Coach — Preferences"
       note="Tapni pre detail nastavení."
+      accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}

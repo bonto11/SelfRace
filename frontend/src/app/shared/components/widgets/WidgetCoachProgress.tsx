@@ -173,6 +173,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Coach — Weekly progress"
+      accent="none"
       note={
         ui.hasData
           ? ui.comparedAt

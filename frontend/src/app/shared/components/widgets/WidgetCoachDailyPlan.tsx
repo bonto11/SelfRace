@@ -112,6 +112,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     <WidgetCard
       title="Coach — Daily plan"
       note={note}
+      accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}

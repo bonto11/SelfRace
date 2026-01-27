@@ -25,8 +25,8 @@ const C = appColors as any;
 function levelColor(level: Level): string {
   if (level === "danger") return appColors.stateDanger;
   else if (level === "warn") return appColors.stateWarning;
-  else if (level === "good") return "";
-  else return "";
+  else if (level === "good") return "none";
+  else return "none";
 }
 
 // ...zvyšok bez zmeny

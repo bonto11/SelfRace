@@ -241,6 +241,7 @@ export default function WidgetActivitiesCalendar({
     <WidgetCard
       title={`Týždenná agenda • ${weekLabel}`}
       onOpen={handleOpen}
+      accent="none"
       interactive
       minH={160}
       innerClassName={NO_X_OVERFLOW}
