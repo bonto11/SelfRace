@@ -415,8 +415,6 @@ export default function WidgetCoachPlan() {
   const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
 
-  const accent = activePlanId ? appColors.brandPrimary : appColors.accentTeal;
-
   const statusLabel = activePlanId
     ? "active plan ✓"
     : hasGenerated
@@ -430,7 +428,6 @@ export default function WidgetCoachPlan() {
     <WidgetCard
       title="Coach — Plan"
       note="Analyzuj stav, vygeneruj weekly/daily a spusti aktívny plán."
-      accent={accent}
       interactive={false}
       minH={210}
     >

@@ -79,7 +79,6 @@ export default function WidgetExternalEvents() {
     };
   }, [userId]);
 
-  const accent = appColors.accentTeal;
 
   const label = (() => {
     if (!stats) return "No data";
@@ -93,7 +92,6 @@ export default function WidgetExternalEvents() {
     <WidgetCard
       title="External events"
       note="Externé športy a časové bloky, s ktorými plán počíta."
-      accent={accent}
       interactive
       minH={120}
       onOpen={() => router.push("/coach/external")}

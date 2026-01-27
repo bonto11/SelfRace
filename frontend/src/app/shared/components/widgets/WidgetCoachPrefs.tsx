@@ -15,36 +15,6 @@ import {
 
 type Props = { onOpenDetail?: () => void };
 
-function pickAccent(goal?: string | null, primarySport?: string | null) {
-  const g = (goal || "").toLowerCase();
-
-  if (
-    g.includes("vo2") ||
-    g.includes("speed") ||
-    g.includes("5k") ||
-    g.includes("10k")
-  ) {
-    return appColors.accentTeal;
-  }
-
-  if (g.includes("fat") || g.includes("weight") || g.includes("cut")) {
-    return appColors.accentLime;
-  }
-
-  if (g.includes("base") || g.includes("z2") || g.includes("endurance")) {
-    return appColors.brandPrimary;
-  }
-
-  if (primarySport) {
-    if (primarySport === "run") return appColors.brandPrimary;
-    if (primarySport === "ride") return appColors.accentTeal;
-    if (primarySport === "swim") return appColors.statusInfo;
-    if (primarySport === "strength") return appColors.accentLime;
-  }
-
-  return appColors.textMuted;
-}
-
 export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
   const { prefs } = useCoachData();
 
@@ -59,13 +29,11 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
     .filter((s, i, arr) => arr.indexOf(s) === i)
     .filter((s) => s !== "other");
 
-  const accentHex = pickAccent(prefs?.goal_kind ?? null, mainSport);
 
   return (
     <WidgetCard
       title="Coach — Preferences"
       note="Tapni pre detail nastavení."
-      accent={accentHex}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}

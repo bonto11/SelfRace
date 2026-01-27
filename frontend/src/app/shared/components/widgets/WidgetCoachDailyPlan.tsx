@@ -72,12 +72,6 @@ function buildUiState(overview: DailyOverview | null): UiState {
   };
 }
 
-function pickAccent(ui: UiState) {
-  if (!ui.daysCount) return appColors.textMuted;
-  if (ui.todaySessions && ui.todaySessions.length > 0)
-    return appColors.brandPrimary;
-  return appColors.accentTeal;
-}
 
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
@@ -109,7 +103,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   }, [userId]);
 
   const ui = useMemo(() => buildUiState(overview), [overview]);
-  const accent = useMemo(() => pickAccent(ui), [ui]);
 
   const note = ui.daysCount
     ? `Najbližších ${ui.daysCount} dní (horizon ${ui.horizonDays} d)`
@@ -119,7 +112,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     <WidgetCard
       title="Coach — Daily plan"
       note={note}
-      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}

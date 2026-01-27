@@ -22,57 +22,11 @@ type Level = "neutral" | "good" | "warn" | "danger";
 
 const C = appColors as any;
 
-function pickFirstColor(...keys: string[]): string {
-  for (const k of keys) {
-    const v = C?.[k];
-    if (typeof v === "string" && v.trim()) return v;
-  }
-  return "";
-}
-
 function levelColor(level: Level): string {
-  if (level === "danger") {
-    return (
-      pickFirstColor(
-        "statusError",
-        "danger",
-        "brandDanger",
-        "accentRed",
-        "accentRose",
-        "accentPink",
-      ) || appColors.statusError
-    );
-  }
-
-  if (level === "warn") {
-    return (
-      pickFirstColor(
-        "statusWarning",
-        "warn",
-        "brandWarn",
-        "accentAmber",
-        "accentOrange",
-      ) || appColors.statusWarning
-    );
-  }
-
-  if (level === "good") {
-    return (
-      pickFirstColor(
-        "statusSuccess",
-        "success",
-        "brandSuccess",
-        "accentGreen",
-        "accentTeal",
-        "brandPrimary",
-      ) || appColors.brandPrimary
-    );
-  }
-
-  return (
-    pickFirstColor("textMuted", "textSecondary", "textSubtle") ||
-    appColors.textMuted
-  );
+  if (level === "danger") return appColors.stateDanger;
+  else if (level === "warn") return appColors.stateWarning;
+  else if (level === "good") return "";
+  else return "";
 }
 
 // ...zvyšok bez zmeny

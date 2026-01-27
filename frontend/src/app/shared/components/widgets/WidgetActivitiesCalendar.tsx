@@ -234,8 +234,6 @@ export default function WidgetActivitiesCalendar({
 
   const handleOpen = () => router.push(openHref);
 
-  const accent = `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
-
   const todayStr = new Date().toDateString();
   const dow = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"] as const;
 
@@ -244,7 +242,6 @@ export default function WidgetActivitiesCalendar({
       title={`Týždenná agenda • ${weekLabel}`}
       onOpen={handleOpen}
       interactive
-      accent={accent}
       minH={160}
       innerClassName={NO_X_OVERFLOW}
     >

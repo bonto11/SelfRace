@@ -80,12 +80,10 @@ export default function WidgetPareto8020({
 
   const accent =
     T === 0
-      ? (appColors.stateNeutral ?? appColors.textMuted)
-      : deviation <= 0.05
-        ? appColors.stateFitness
-        : deviation <= 0.1
-          ? appColors.stateBad
-          : appColors.stateBad;
+      ? ""
+      : deviation <= 0.1
+          ? appColors.stateWarning
+          : appColors.stateWarning;
 
   const note =
     T === 0
