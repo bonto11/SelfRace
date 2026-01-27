@@ -18,6 +18,7 @@ import {
 
   // ✅ NEW tokens
   APPBAR_TITLE_STACK,
+  APPBAR_BRAND_WRAP,
   APPBAR_BRAND_IMG,
 } from "@/app/shared/ui/tokens/header";
 
