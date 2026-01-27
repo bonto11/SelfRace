@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -71,7 +71,7 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   }
 
   const weeks = [...plan.weeks].sort(
-    (a, b) => (a.week_index || 0) - (b.week_index || 0)
+    (a, b) => (a.week_index || 0) - (b.week_index || 0),
   );
 
   const first = weeks[0];

@@ -16,7 +16,7 @@ import {
   WIDGET_NOTE_STYLE,
   WIDGET_FOOTER,
 } from "@/app/shared/ui/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 function cxLocal(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");
@@ -25,7 +25,7 @@ function cxLocal(...parts: (string | false | null | undefined)[]) {
 const isCssPaint = (v?: string) =>
   !!v &&
   /^(#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})|rgb(a)?\(|hsl(a)?\(|linear-gradient\(|radial-gradient\()/i.test(
-    v
+    v,
   );
 
 type Props = {
@@ -61,7 +61,7 @@ export default function WidgetCard({
     WIDGET_CARD,
     isInteractive && WIDGET_CARD_INTERACTIVE,
     "p-0 relative overflow-hidden block",
-    className
+    className,
   );
 
   const outerStyle: React.CSSProperties = {
@@ -82,12 +82,20 @@ export default function WidgetCard({
       <CardBackdrop />
 
       <div
-        className={cxLocal(WIDGET_INNER, "relative flex flex-col p-3", innerClassName)}
+        className={cxLocal(
+          WIDGET_INNER,
+          "relative flex flex-col p-3",
+          innerClassName,
+        )}
         style={{ minHeight: minH }}
       >
         {(title || isInteractive) && (
           <div className="flex items-center justify-between gap-2 mb-2">
-            {title ? <h3 className={WIDGET_TITLE}>{title}</h3> : <span className="sr-only">Widget</span>}
+            {title ? (
+              <h3 className={WIDGET_TITLE}>{title}</h3>
+            ) : (
+              <span className="sr-only">Widget</span>
+            )}
             {isInteractive && (
               <span className={WIDGET_HINT} style={WIDGET_HINT_STYLE}>
                 otvoriť detail ⟶
@@ -121,7 +129,12 @@ export default function WidgetCard({
 
   if (href) {
     return (
-      <Link href={href} className={outer} style={outerStyle} aria-label={title || "Widget"}>
+      <Link
+        href={href}
+        className={outer}
+        style={outerStyle}
+        aria-label={title || "Widget"}
+      >
         {content}
       </Link>
     );

@@ -4,7 +4,7 @@
 import * as React from "react";
 import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
 import { CALENDAR_DAY_CELL } from "@/app/shared/ui/tokens/calendar";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type Props = {
   cell: DayCellData;
@@ -36,7 +36,11 @@ export default function CalendarDayCell({
     dots.push({ key: `a-${it.id}`, sport: String(it.sport), kind: "activity" });
   for (const it of cell.plans) {
     const kind: DotKind =
-      it.status === "planned" ? "plan" : it.status === "done" ? "done" : "missed";
+      it.status === "planned"
+        ? "plan"
+        : it.status === "done"
+          ? "done"
+          : "missed";
     dots.push({ key: `p-${it.id}`, sport: String(it.sport), kind });
   }
 
@@ -46,11 +50,12 @@ export default function CalendarDayCell({
   const borderColor = isSelected
     ? appColors.brandPrimary
     : isToday
-    ? appColors.textMuted
-    : appColors.surfaceCardBorder;
+      ? appColors.textMuted
+      : appColors.surfaceCardBorder;
 
   const style: React.CSSProperties = {
-    background: hover || isSelected ? appColors.surfaceCardHover : appColors.surfaceCard,
+    background:
+      hover || isSelected ? appColors.surfaceCardHover : appColors.surfaceCard,
     border: `1px solid ${borderColor}`,
     color: appColors.textPrimary,
     opacity: inMonth ? 1 : 0.45,
@@ -103,7 +108,10 @@ export default function CalendarDayCell({
                 <span
                   key={it.key}
                   className="inline-block w-1.5 h-1.5 rounded-full"
-                  style={{ border: `1px solid ${color}`, backgroundColor: "transparent" }}
+                  style={{
+                    border: `1px solid ${color}`,
+                    backgroundColor: "transparent",
+                  }}
                 />
               );
             }
@@ -132,7 +140,10 @@ export default function CalendarDayCell({
           })}
 
           {dots.length > 8 && (
-            <span className="text-[10px]" style={{ color: appColors.textMuted }}>
+            <span
+              className="text-[10px]"
+              style={{ color: appColors.textMuted }}
+            >
               +{dots.length - 8}
             </span>
           )}

@@ -7,7 +7,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 import type {
@@ -58,7 +58,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
 
   const preview = useMemo(
     () => list.map((i) => `${i.area} — ${i.type}`),
-    [list]
+    [list],
   );
 
   const previewNode =
@@ -199,7 +199,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
                     setLocal((p: any) => ({
                       ...p,
                       injuries: (p.injuries ?? []).filter(
-                        (_: any, i: number) => i !== idx
+                        (_: any, i: number) => i !== idx,
                       ),
                     }))
                   }

@@ -14,7 +14,7 @@ import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryD
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -36,7 +36,8 @@ function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
   const start = new Date(startISO + "T00:00:00");
   const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    out.push(iso(d));
   return out;
 }
 
@@ -55,7 +56,7 @@ export default function DetailSleepDuration() {
   const _pxPerLabel = OPTIONS.pxPerLabel;
   const _height = OPTIONS.Height;
 
-    const COLOR = {
+  const COLOR = {
     main: appColors.chartLine1,
     bandFill: appColors.chartBandFill,
     missing: appColors.stateBad,
@@ -78,15 +79,20 @@ export default function DetailSleepDuration() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO],
+  );
 
   const sleepMin = useMemo(
     () =>
       labelsISO.map((d) => {
         const rec = byDate.get(d);
-        return typeof rec?.sleep_duration_min === "number" ? rec.sleep_duration_min : NaN;
+        return typeof rec?.sleep_duration_min === "number"
+          ? rec.sleep_duration_min
+          : NaN;
       }),
-    [labelsISO, byDate]
+    [labelsISO, byDate],
   );
 
   const lowerBand = useMemo(() => labelsISO.map(() => 420), [labelsISO]);
@@ -101,7 +107,10 @@ export default function DetailSleepDuration() {
     return m;
   }, [labelsISO, byDate]);
 
-  const missingIdx = useMemo(() => sleepMin.map((v) => !Number.isFinite(v)), [sleepMin]);
+  const missingIdx = useMemo(
+    () => sleepMin.map((v) => !Number.isFinite(v)),
+    [sleepMin],
+  );
 
   const missingY = useMemo(() => {
     const n = sleepMin.length;
@@ -176,7 +185,9 @@ export default function DetailSleepDuration() {
         {
           type: "line" as const,
           label: "Missing",
-          data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
+          data: missingY.map((y, i) =>
+            missingIdx[i] && typeof y === "number" ? y : NaN,
+          ),
           showLine: false,
           pointRadius: 0,
           pointHitRadius: 12,
@@ -189,14 +200,26 @@ export default function DetailSleepDuration() {
         },
       ],
     }),
-    [labelsISO, lowerBand, upperBand, sleepMin, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]
+    [
+      labelsISO,
+      lowerBand,
+      upperBand,
+      sleepMin,
+      missingY,
+      missingIdx,
+      COLOR.bandFill,
+      COLOR.main,
+      COLOR.missing,
+    ],
   );
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
     () => ({
       id: "draw-missing-on-top-sleepduration",
       afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
+        const dsIndex = chart.data.datasets.findIndex(
+          (d) => d.label === "Missing",
+        );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
         const ctx = chart.ctx;
@@ -215,7 +238,7 @@ export default function DetailSleepDuration() {
         ctx.restore();
       },
     }),
-    [COLOR.missing]
+    [COLOR.missing],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -225,14 +248,17 @@ export default function DetailSleepDuration() {
         yTitle: "min",
         yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
+            "sk-SK",
+          ),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
           if (label === "Sleep duration") {
             const v = sleepMin[idx];
             const out: string[] = [];
-            if (Number.isFinite(v)) out.push(`Spánok: ${minutesToHHMM(v as number)}`);
+            if (Number.isFinite(v))
+              out.push(`Spánok: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "Spánok: –";
@@ -245,7 +271,7 @@ export default function DetailSleepDuration() {
           return l === "Sleep duration" || l === "Missing";
         },
       }),
-    [labelsISO, sleepMin, comments]
+    [labelsISO, sleepMin, comments],
   );
 
   useEffect(() => {
@@ -259,10 +285,16 @@ export default function DetailSleepDuration() {
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             Sleep duration
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             Spánok v čase + odporúčané pásmo 7–9h.
           </div>
         </div>
@@ -277,7 +309,10 @@ export default function DetailSleepDuration() {
       </div>
 
       <div className={CARD_BODY_INSET}>
-        <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+        <div
+          className={`${SCROLL_X} min-w-0`}
+          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+        >
           <div className="relative" style={{ height: _height }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -285,7 +320,11 @@ export default function DetailSleepDuration() {
               </div>
             )}
             <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <Line data={data} options={options} plugins={[drawMissingOnTop]} />
+              <Line
+                data={data}
+                options={options}
+                plugins={[drawMissingOnTop]}
+              />
             </div>
           </div>
         </div>

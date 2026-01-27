@@ -14,7 +14,7 @@ import { inputClass } from "@/app/shared/ui";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SCROLL_X,
@@ -94,7 +94,7 @@ export default function TrendWeeklyLoad({
     const pushBar = (
       key: "run" | "ride" | "strength" | "mixed" | "skate" | "other",
       label: string,
-      data: number[]
+      data: number[],
     ) => {
       if (sport !== "all" && sport !== key) return;
       const color = (C as any)[key];
@@ -113,84 +113,84 @@ export default function TrendWeeklyLoad({
       pushBar(
         "run",
         "Km (run)",
-        W.map((w) => w.km_run)
+        W.map((w) => w.km_run),
       );
       pushBar(
         "ride",
         "Km (ride)",
-        W.map((w) => w.km_ride)
+        W.map((w) => w.km_ride),
       );
       pushBar(
         "mixed",
         "Km (mixed)",
-        W.map((w) => w.km_mixed)
+        W.map((w) => w.km_mixed),
       );
       pushBar(
         "skate",
         "Km (skate)",
-        W.map((w) => w.km_skate)
+        W.map((w) => w.km_skate),
       );
     } else if (metric === "time") {
       pushBar(
         "run",
         "Run",
-        W.map((w) => w.time_run_min)
+        W.map((w) => w.time_run_min),
       );
       pushBar(
         "ride",
         "Ride",
-        W.map((w) => w.time_ride_min)
+        W.map((w) => w.time_ride_min),
       );
       pushBar(
         "strength",
         "Strength",
-        W.map((w) => w.time_strength_min)
+        W.map((w) => w.time_strength_min),
       );
       pushBar(
         "mixed",
         "Mixed",
-        W.map((w) => w.time_mixed_min)
+        W.map((w) => w.time_mixed_min),
       );
       pushBar(
         "skate",
         "Skate",
-        W.map((w) => w.time_skate_min)
+        W.map((w) => w.time_skate_min),
       );
       pushBar(
         "other",
         "Other",
-        W.map((w) => w.time_other_min)
+        W.map((w) => w.time_other_min),
       );
     } else {
       pushBar(
         "run",
         "TRIMP (run)",
-        W.map((w) => w.trimp_run)
+        W.map((w) => w.trimp_run),
       );
       pushBar(
         "ride",
         "TRIMP (ride)",
-        W.map((w) => w.trimp_ride)
+        W.map((w) => w.trimp_ride),
       );
       pushBar(
         "strength",
         "TRIMP (strength)",
-        W.map((w) => w.trimp_strength)
+        W.map((w) => w.trimp_strength),
       );
       pushBar(
         "mixed",
         "TRIMP (mixed)",
-        W.map((w) => w.trimp_mixed)
+        W.map((w) => w.trimp_mixed),
       );
       pushBar(
         "skate",
         "TRIMP (skate)",
-        W.map((w) => w.trimp_skate)
+        W.map((w) => w.trimp_skate),
       );
       pushBar(
         "other",
         "TRIMP (other)",
-        W.map((w) => w.trimp_other)
+        W.map((w) => w.trimp_other),
       );
     }
 
@@ -262,13 +262,10 @@ export default function TrendWeeklyLoad({
         },
       },
     }),
-    [metric, weeks, onPickWeek, sport]
+    [metric, weeks, onPickWeek, sport],
   );
 
-  const minWidth = Math.max(
-    320,
-    Math.round(labels.length * _pxPerLabel)
-  );
+  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>

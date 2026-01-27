@@ -18,7 +18,7 @@ import {
   apiDisconnectStrava,
 } from "../api/strava";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   PANEL,
   PANEL_PAD,
@@ -94,12 +94,12 @@ export default function StravaPanel() {
       if (reason === "athlete_already_linked") {
         toast.error(
           "Tento Strava účet je už pripojený k inému účtu.",
-          Infinity
+          Infinity,
         );
       } else if (reason === "strava_athlete_limit") {
         toast.error(
           "Strava limit: aplikácia je zatiaľ v test režime (1 pripojený účet).",
-          Infinity
+          Infinity,
         );
       } else if (reason === "strava_denied") {
         toast.error("Pripojenie bolo zrušené na Strave.");
@@ -162,7 +162,7 @@ export default function StravaPanel() {
       const skp = stats.skipped ?? 0;
 
       toast.success(
-        `Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`
+        `Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`,
       );
 
       resetClientCache();

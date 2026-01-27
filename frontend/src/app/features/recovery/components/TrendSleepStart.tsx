@@ -18,7 +18,7 @@ import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -73,7 +73,7 @@ export default function DetailSleepStart() {
 
   const labelsISO = useMemo(
     () => dateSeq(startISO, endISO),
-    [startISO, endISO]
+    [startISO, endISO],
   );
 
   const startMin = useMemo(
@@ -85,7 +85,7 @@ export default function DetailSleepStart() {
           : null;
         return typeof m === "number" ? m : NaN;
       }),
-    [labelsISO, byDate]
+    [labelsISO, byDate],
   );
 
   const lowerBand = useMemo(() => labelsISO.map(() => 22 * 60), [labelsISO]); // 22:00
@@ -102,7 +102,7 @@ export default function DetailSleepStart() {
 
   const missingIdx = useMemo(
     () => startMin.map((v) => !Number.isFinite(v)),
-    [startMin]
+    [startMin],
   );
 
   const missingY = useMemo(() => {
@@ -179,7 +179,7 @@ export default function DetailSleepStart() {
           type: "line" as const,
           label: "Missing",
           data: missingY.map((y, i) =>
-            missingIdx[i] && typeof y === "number" ? y : NaN
+            missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
           showLine: false,
           pointRadius: 0,
@@ -203,7 +203,7 @@ export default function DetailSleepStart() {
       COLOR.bandFill,
       COLOR.main,
       COLOR.missing,
-    ]
+    ],
   );
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
@@ -211,7 +211,7 @@ export default function DetailSleepStart() {
       id: "draw-missing-on-top-sleepstart",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing"
+          (d) => d.label === "Missing",
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -231,7 +231,7 @@ export default function DetailSleepStart() {
         ctx.restore();
       },
     }),
-    [COLOR.missing]
+    [COLOR.missing],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -241,7 +241,9 @@ export default function DetailSleepStart() {
         yTitle: "čas",
         yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
+            "sk-SK",
+          ),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
@@ -262,7 +264,7 @@ export default function DetailSleepStart() {
           return l === "Sleep start" || l === "Missing";
         },
       }),
-    [labelsISO, startMin, comments]
+    [labelsISO, startMin, comments],
   );
 
   useEffect(() => {
@@ -270,10 +272,7 @@ export default function DetailSleepStart() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(
-    360,
-    Math.round(labelsISO.length * _pxPerLabel)
-  );
+  const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -307,10 +306,7 @@ export default function DetailSleepStart() {
           className={`${SCROLL_X} min-w-0`}
           style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
         >
-          <div
-            className="relative"
-            style={{ height: _height }}
-          >
+          <div className="relative" style={{ height: _height }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
                 <LoadingSpinner size="trend" />

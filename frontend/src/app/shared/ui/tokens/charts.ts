@@ -1,5 +1,5 @@
 // src/app/shared/ui/tokens/charts.ts
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 /* ===== CHART TOKENS ==================================================== */
 export const CHART_HR = {

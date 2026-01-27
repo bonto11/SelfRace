@@ -1,5 +1,5 @@
 import type { ChartOptions } from "chart.js";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type BuildOpts = {
   onClick?: ChartOptions<"bar" | "line">["onClick"];
@@ -8,10 +8,9 @@ type BuildOpts = {
 };
 
 export const OPTIONS = {
+  legendPosition: "top" as const,
 
-  legendPosition: 'top' as const,
-
-  weeklyPxPerLabel: 56,  /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
+  weeklyPxPerLabel: 56 /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */,
 
   Height: 360,
   HeightCompact: 180,
@@ -21,18 +20,18 @@ export const OPTIONS = {
     categoryPct: 0.6,
     barPct: 0.7,
   },
-  pxPerLabel: 26,  // 🔒 konzistencia barov + vodorovný layout
+  pxPerLabel: 26, // 🔒 konzistencia barov + vodorovný layout
 
   sportLabels: {
-    run: 'Run',
-    bike: 'Bike',
-    strength: 'Strength',
-    mixed: 'Mixed',
-    skate: 'Skate',
-    walk: 'Walk',
-    hike: 'Hike',
-    swim: 'Swim',
-    other: 'Other',
+    run: "Run",
+    bike: "Bike",
+    strength: "Strength",
+    mixed: "Mixed",
+    skate: "Skate",
+    walk: "Walk",
+    hike: "Hike",
+    swim: "Swim",
+    other: "Other",
   } as Record<string, string>,
 };
 
@@ -40,7 +39,7 @@ export function buildWeeklyOptions(
   metric: "km" | "time" | "trimp",
   monoMax: number,
   strainMax: number,
-  extra?: BuildOpts
+  extra?: BuildOpts,
 ): ChartOptions<"bar" | "line"> {
   return {
     responsive: true,
@@ -109,7 +108,7 @@ export function buildWeeklyOptions(
         grid: { drawOnChartArea: false },
         title: { display: true, text: "Monotony", color: appColors.chartLine1 },
         ticks: { color: appColors.chartLine1 },
-        border: { color: appColors.chartLine1},
+        border: { color: appColors.chartLine1 },
         weight: 1,
       },
       y2: {
@@ -118,7 +117,7 @@ export function buildWeeklyOptions(
         max: Math.ceil(strainMax * 1.1),
         grid: { drawOnChartArea: false },
         title: { display: true, text: "Strain", color: appColors.chartLine2 },
-        ticks: { color:appColors.chartLine2 },
+        ticks: { color: appColors.chartLine2 },
         border: { color: appColors.chartLine2 },
         weight: 1,
       },

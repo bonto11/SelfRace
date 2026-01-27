@@ -7,7 +7,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_STACK, INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
 
 /* ─────────────────────── constants ─────────────────────── */
@@ -96,7 +96,7 @@ type Props = {
   local: any;
   setPref: (key: any, value: any) => void;
   upsertRunTargets: (
-    patch: Partial<NonNullable<any["targets"]>["run"]>
+    patch: Partial<NonNullable<any["targets"]>["run"]>,
   ) => void;
 };
 
@@ -112,7 +112,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   const races: any[] = useMemo(
     () => (Array.isArray(runTargets.races) ? runTargets.races : []),
-    [runTargets.races]
+    [runTargets.races],
   );
 
   /* ---------- closed preview ---------- */
@@ -225,7 +225,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   const handleRaceGoalClick = (
     index: number,
-    g: (typeof RACE_GOALS)[number]
+    g: (typeof RACE_GOALS)[number],
   ) => {
     const race = races[index] ?? {};
     const current = race.race_goal as (typeof RACE_GOALS)[number] | null;

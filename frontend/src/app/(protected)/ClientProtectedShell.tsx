@@ -18,7 +18,7 @@ import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDa
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 
@@ -83,7 +83,7 @@ export default function ClientProtectedShell({
                     {/* Desktop */}
                     <div
                       className={["hidden lg:grid h-full", SHELL_GRID].join(
-                        " "
+                        " ",
                       )}
                     >
                       <Sidebar />

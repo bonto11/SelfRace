@@ -9,7 +9,7 @@ import {
   type WeeklyPlanLatest,
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   PANEL_STACK,
@@ -82,15 +82,15 @@ function phaseColor(phase: PhaseKey): string {
 function phaseLabel(phase: PhaseKey): string {
   switch (phase) {
     case "base":
-      return 'Base (budovanie základu)';
+      return "Base (budovanie základu)";
     case "build":
-      return 'Build (zvyšovanie intenzity)';
+      return "Build (zvyšovanie intenzity)";
     case "peak":
-      return 'Peak (vrchol / preteky)';
+      return "Peak (vrchol / preteky)";
     case "recovery":
-      return 'Recovery (regenerácia)';
+      return "Recovery (regenerácia)";
     default:
-      return 'Iné / mix';
+      return "Iné / mix";
   }
 }
 
@@ -193,7 +193,7 @@ export default function DetailWeeklyPlan() {
     }
 
     const weeksSorted = [...plan.weeks].sort(
-      (a, b) => (a.week_index || 0) - (b.week_index || 0)
+      (a, b) => (a.week_index || 0) - (b.week_index || 0),
     );
 
     const first = weeksSorted.find((w) => w.week_start) ?? weeksSorted[0];

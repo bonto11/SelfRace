@@ -12,7 +12,7 @@ import {
 } from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_VALUE_ROW,
@@ -35,7 +35,7 @@ export default function WidgetHRV({
   const values = useMemo<(number | null)[]>(
     () =>
       rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
-    [rows]
+    [rows],
   );
 
   const yesterday = useMemo<number | null>(() => {
@@ -55,7 +55,7 @@ export default function WidgetHRV({
     yesterday,
     baselinePoint,
     "higher-better",
-    0.05
+    0.05,
   );
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;

@@ -3,8 +3,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { appColors } from "@/app/shared/theme/app_colors";
-import { NavIcon, type NavId } from "@/app/features/Toolbars/components/navIcons";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  NavIcon,
+  type NavId,
+} from "@/app/features/Toolbars/components/navIcons";
 
 type ItemDef = {
   id: NavId;
@@ -25,7 +28,11 @@ function BottomNavItem({ id, href, label }: ItemDef) {
   const isActive = pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <Link href={href} className="flex flex-col items-center min-w-[60px]" aria-label={label}>
+    <Link
+      href={href}
+      className="flex flex-col items-center min-w-[60px]"
+      aria-label={label}
+    >
       <div
         className="flex items-center justify-center rounded-2xl w-[60px] h-9 transition-colors"
         style={{
@@ -38,7 +45,9 @@ function BottomNavItem({ id, href, label }: ItemDef) {
 
       <span
         className="mt-1 text-[11px] leading-none truncate"
-        style={{ color: isActive ? appColors.textPrimary : appColors.textMuted }}
+        style={{
+          color: isActive ? appColors.textPrimary : appColors.textMuted,
+        }}
       >
         {label}
       </span>

@@ -11,7 +11,7 @@ import {
 import { minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_WRAP,
@@ -34,9 +34,9 @@ export default function WidgetSleepDuration({
   const values = useMemo<(number | null)[]>(
     () =>
       rows.map((r) =>
-        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null
+        typeof r.sleep_duration_min === "number" ? r.sleep_duration_min : null,
       ),
-    [rows]
+    [rows],
   );
 
   const latest = useMemo<number | null>(() => {
@@ -46,14 +46,14 @@ export default function WidgetSleepDuration({
 
   const baselinePoint = useMemo(
     () => makeBaselinePoint(values, 14, true),
-    [values]
+    [values],
   );
 
   const cmp = compareLatestToBaseline(
     latest,
     baselinePoint,
     "higher-better",
-    0.05
+    0.05,
   );
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
@@ -67,23 +67,17 @@ export default function WidgetSleepDuration({
   const note = showNA ? freshness.message : cmp.note;
 
   const accent = (() => {
-    if (loading || showNA)
-      return (
-        appColors.stateNeutral
-      );
+    if (loading || showNA) return appColors.stateNeutral;
 
     const a = String((cmp as any)?.accent ?? "").toLowerCase();
 
-    if (a.includes("red"))
-      return appColors.stateDanger;
+    if (a.includes("red")) return appColors.stateDanger;
     if (a.includes("amber") || a.includes("yellow"))
       return appColors.stateWarning;
     if (a.includes("emerald") || a.includes("green"))
       return appColors.stateGood;
 
-    return (
-      appColors.stateNeutral
-    );
+    return appColors.stateNeutral;
   })();
 
   return (

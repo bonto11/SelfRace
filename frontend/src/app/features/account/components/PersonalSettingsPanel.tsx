@@ -25,7 +25,7 @@ import type {
   AccountDeleteStatus,
 } from "@/app/features/account/types/account";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   SECTION,
   SECTION_STYLE,
@@ -111,7 +111,7 @@ export default function PersonalSettingsPanel() {
   const [saving, setSaving] = useState(false);
 
   const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
-    null
+    null,
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
@@ -125,7 +125,7 @@ export default function PersonalSettingsPanel() {
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(
-          () => null
+          () => null,
         );
 
         if (!alive) return;
@@ -167,7 +167,7 @@ export default function PersonalSettingsPanel() {
         setDeleteStatus(st);
       })
       .catch((e) =>
-        console.error("[PersonalSettingsPanel] delete status error", e)
+        console.error("[PersonalSettingsPanel] delete status error", e),
       )
       .finally(() => {
         if (alive) setLoadingDelete(false);
@@ -219,7 +219,7 @@ export default function PersonalSettingsPanel() {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
       toast.success(
-        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia."
+        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia.",
       );
     } catch (e: any) {
       console.error("[PersonalSettingsPanel] delete request error", e);

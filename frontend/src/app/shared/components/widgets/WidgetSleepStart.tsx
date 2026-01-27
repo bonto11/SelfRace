@@ -10,7 +10,7 @@ import {
 import { HHMMToMinutes, minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_WRAP,
@@ -27,7 +27,7 @@ const EVENING_START_MIN = 18 * 60; // 18:00
 
 function pickAccentFromCmp(
   cmpAccent: unknown,
-  opts: { loading: boolean; showNA: boolean }
+  opts: { loading: boolean; showNA: boolean },
 ) {
   if (opts.loading || opts.showNA) {
     return appColors.stateNeutral;
@@ -36,16 +36,12 @@ function pickAccentFromCmp(
   // cmp.accent často býva "bg-..." alebo text s farbou → mapujeme
   const a = String(cmpAccent ?? "").toLowerCase();
 
-  if (a.includes("red"))
-      return appColors.stateDanger;
-    if (a.includes("amber") || a.includes("yellow"))
-      return appColors.stateWarning;
-    if (a.includes("emerald") || a.includes("green"))
-      return appColors.stateGood;
+  if (a.includes("red")) return appColors.stateDanger;
+  if (a.includes("amber") || a.includes("yellow"))
+    return appColors.stateWarning;
+  if (a.includes("emerald") || a.includes("green")) return appColors.stateGood;
 
-    return (
-      appColors.stateNeutral
-    );
+  return appColors.stateNeutral;
 }
 
 export default function WidgetSleepStart({
@@ -65,7 +61,7 @@ export default function WidgetSleepStart({
         const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
         return typeof m === "number" ? m : null;
       }),
-    [rows]
+    [rows],
   );
 
   const latest = useMemo<number | null>(() => {
@@ -83,7 +79,7 @@ export default function WidgetSleepStart({
   const cmp = compareTimeToBaselineMinutes(
     latestForCompare,
     FIX_BASELINE_MIN,
-    TOL_MIN
+    TOL_MIN,
   );
 
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);

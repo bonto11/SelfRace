@@ -7,7 +7,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_GRID_2,
@@ -39,7 +39,7 @@ function levelColor(level: Level): string {
         "brandDanger",
         "accentRed",
         "accentRose",
-        "accentPink"
+        "accentPink",
       ) || appColors.statusError
     );
   }
@@ -51,7 +51,7 @@ function levelColor(level: Level): string {
         "warn",
         "brandWarn",
         "accentAmber",
-        "accentOrange"
+        "accentOrange",
       ) || appColors.statusWarning
     );
   }
@@ -64,7 +64,7 @@ function levelColor(level: Level): string {
         "brandSuccess",
         "accentGreen",
         "accentTeal",
-        "brandPrimary"
+        "brandPrimary",
       ) || appColors.brandPrimary
     );
   }
@@ -111,7 +111,7 @@ export default function WidgetMonoStrain({
   const mono = useMemo(() => (r7?.last?.mono ?? null) as number | null, [r7]);
   const strain = useMemo(
     () => (r7?.last?.strain ?? null) as number | null,
-    [r7]
+    [r7],
   );
 
   const mC = classifyMonotony(mono);

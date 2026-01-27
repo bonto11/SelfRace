@@ -6,7 +6,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_WRAP,

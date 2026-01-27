@@ -17,7 +17,7 @@ import {
 } from "@/app/features/profile/api/static";
 import type { Sex, StaticProfile } from "@/app/features/profile/types/profile";
 import { summarizeStaticProfile } from "@/app/features/profile/utils/profile";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   SECTION,

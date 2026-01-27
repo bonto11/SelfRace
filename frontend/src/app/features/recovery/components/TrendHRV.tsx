@@ -7,13 +7,17 @@ import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { OPTIONS } from "@/app/shared/charts/optionsRecovery";
-import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
+import {
+  rollingMean,
+  bandsAround,
+  wrapToLines,
+} from "@/app/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -36,7 +40,8 @@ function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
   const start = new Date(startISO + "T00:00:00");
   const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push(iso(d));
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    out.push(iso(d));
   return out;
 }
 
@@ -80,7 +85,10 @@ export default function TrendHRV() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO],
+  );
 
   const hrv = useMemo(
     () =>
@@ -88,7 +96,7 @@ export default function TrendHRV() {
         const rec = byDate.get(d);
         return typeof rec?.HRV_avg_ms === "number" ? rec.HRV_avg_ms : NaN;
       }),
-    [labelsISO, byDate]
+    [labelsISO, byDate],
   );
 
   const comments = useMemo(() => {
@@ -104,12 +112,15 @@ export default function TrendHRV() {
     () =>
       rollingMean(
         hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)),
-        14
+        14,
       ),
-    [hrv]
+    [hrv],
   );
 
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr],
+  );
   const missingIdx = useMemo(() => hrv.map((v) => !Number.isFinite(v)), [hrv]);
 
   const missingY = useMemo(() => {
@@ -144,7 +155,8 @@ export default function TrendHRV() {
   }, [hrv]);
 
   const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) => xs.map((v) => (typeof v === "number" ? v : NaN));
+    const toNum = (xs: (number | null)[]) =>
+      xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
@@ -186,7 +198,9 @@ export default function TrendHRV() {
         {
           type: "line" as const,
           label: "Missing",
-          data: missingY.map((y, i) => (missingIdx[i] && typeof y === "number" ? y : NaN)),
+          data: missingY.map((y, i) =>
+            missingIdx[i] && typeof y === "number" ? y : NaN,
+          ),
           showLine: false,
           pointRadius: 0,
           pointHitRadius: 12,
@@ -199,13 +213,25 @@ export default function TrendHRV() {
         },
       ],
     };
-  }, [labelsISO, lower, upper, hrv, missingY, missingIdx, COLOR.bandFill, COLOR.main, COLOR.missing]);
+  }, [
+    labelsISO,
+    lower,
+    upper,
+    hrv,
+    missingY,
+    missingIdx,
+    COLOR.bandFill,
+    COLOR.main,
+    COLOR.missing,
+  ]);
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
     () => ({
       id: "draw-missing-on-top",
       afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex((d) => d.label === "Missing");
+        const dsIndex = chart.data.datasets.findIndex(
+          (d) => d.label === "Missing",
+        );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
         const ctx = chart.ctx;
@@ -224,7 +250,7 @@ export default function TrendHRV() {
         ctx.restore();
       },
     }),
-    [COLOR.missing]
+    [COLOR.missing],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -233,14 +259,17 @@ export default function TrendHRV() {
         labelsISO,
         yTitle: "ms",
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
+            "sk-SK",
+          ),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
           if (label === "HRV (RMSSD)") {
             const v = hrv[idx];
             const out: string[] = [];
-            if (Number.isFinite(v)) out.push(`HRV: ${Math.round(v as number)} ms`);
+            if (Number.isFinite(v))
+              out.push(`HRV: ${Math.round(v as number)} ms`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "HRV: –";
@@ -253,7 +282,7 @@ export default function TrendHRV() {
           return l === "HRV (RMSSD)" || l === "Missing";
         },
       }),
-    [labelsISO, hrv, comments]
+    [labelsISO, hrv, comments],
   );
 
   useEffect(() => {
@@ -267,10 +296,16 @@ export default function TrendHRV() {
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             HRV trend
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             RMSSD + baseline pásmo, chýbajúce dni zvýraznené.
           </div>
         </div>
@@ -285,7 +320,10 @@ export default function TrendHRV() {
       </div>
 
       <div className={CARD_BODY_INSET}>
-        <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+        <div
+          className={`${SCROLL_X} min-w-0`}
+          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+        >
           <div className="relative" style={{ height: _height }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -293,7 +331,11 @@ export default function TrendHRV() {
               </div>
             )}
             <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <Line data={data} options={options} plugins={[drawMissingOnTop]} />
+              <Line
+                data={data}
+                options={options}
+                plugins={[drawMissingOnTop]}
+              />
             </div>
           </div>
         </div>

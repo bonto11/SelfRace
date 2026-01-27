@@ -34,10 +34,8 @@ import {
   PANEL_CARD_TITLE,
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 ensureChartJSRegistered();
-
-
 
 export default function TrendVO2Max() {
   const { userId } = useUserId() as { userId: number | null };
@@ -51,7 +49,7 @@ export default function TrendVO2Max() {
   const _height = THEME.chart.Height;
   const _pxPerLabel = THEME.chart.pxPerLabel;
   const DAY = 24 * 3600 * 1000;
-  
+
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -133,27 +131,25 @@ export default function TrendVO2Max() {
   }
 
   const labelsISO = allDays;
-  const labels = labelsISO.map((d) =>
-    new Date(d).toLocaleDateString("sk-SK")
-  );
+  const labels = labelsISO.map((d) => new Date(d).toLocaleDateString("sk-SK"));
 
   const seriesEst = labelsISO.map((d) =>
-    estMap.has(d) ? Number(estMap.get(d)) : NaN
+    estMap.has(d) ? Number(estMap.get(d)) : NaN,
   );
   const seriesMeas = labelsISO.map((d) =>
-    measMap.has(d) ? Number(measMap.get(d)) : NaN
+    measMap.has(d) ? Number(measMap.get(d)) : NaN,
   );
 
   const sex = stat?.sex === "F" ? "F" : "M";
   const birthDate = stat?.birth_date || "";
   const age = birthDate
     ? Math.floor(
-        (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)
+        (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000),
       )
     : 0;
 
   const group = (vo2Ref as Group[]).find(
-    (g) => g.sex === sex && age >= g.age_min && age <= g.age_max
+    (g) => g.sex === sex && age >= g.age_min && age <= g.age_max,
   );
 
   const ranges =
@@ -163,15 +159,15 @@ export default function TrendVO2Max() {
     })) ?? [];
 
   const finiteVals = [...seriesEst, ...seriesMeas].filter(
-    Number.isFinite
+    Number.isFinite,
   ) as number[];
   const rangeMaxes = ranges.map((r) => (typeof r.max === "number" ? r.max : 0));
 
   const suggestedTop = Math.max(
     60,
     Math.ceil(
-      Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1
-    )
+      Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1,
+    ),
   );
 
   const finiteEst = seriesEst.filter(Number.isFinite) as number[];
@@ -184,7 +180,7 @@ export default function TrendVO2Max() {
       type: "line" as const,
       label: r.label,
       data: labels.map(() =>
-        typeof r.max === "number" ? r.max : suggestedTop
+        typeof r.max === "number" ? r.max : suggestedTop,
       ),
       borderColor: hexWithAlpha(r.color, 0),
       backgroundColor: hexWithAlpha(r.color, 0.18),

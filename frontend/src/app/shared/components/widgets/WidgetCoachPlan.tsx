@@ -10,7 +10,7 @@ import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_STATUS_ROW,
   WIDGET_ACTIONS_WRAP,
@@ -139,7 +139,7 @@ function formatAiError(e: any): string {
     const used = (e as any).usedTokensThisMonth;
     if (typeof used === "number") {
       return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString(
-        "sk-SK"
+        "sk-SK",
       )}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
     }
     return `AI limit pre tento mesiac je vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
@@ -169,7 +169,7 @@ export default function WidgetCoachPlan() {
     (async () => {
       try {
         const p = await apiFetchUserPref(userId, "coach.prefs").catch(
-          () => null
+          () => null,
         );
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff as CoachPrefs | null);
@@ -229,7 +229,7 @@ export default function WidgetCoachPlan() {
         if (!alive) return;
         console.warn(
           "[CoachPlan] active status error:",
-          e?.message || String(e)
+          e?.message || String(e),
         );
       } finally {
         if (!alive) return;

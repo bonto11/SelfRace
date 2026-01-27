@@ -11,7 +11,7 @@ import DateField from "@/app/shared/ui/components/DateField";
 import TimeField24 from "@/app/shared/ui/components/TimeField24";
 
 import { toast } from "@/app/shared/ui/components/Toast";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
@@ -195,7 +195,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
 
       if (mode === "weekly") {
         const weekdayNum = Number(
-          (ev as any).weekday ?? (ev as any).weekday_int
+          (ev as any).weekday ?? (ev as any).weekday_int,
         );
         day = INT_TO_DAY[weekdayNum] ?? "Mon";
       } else {
@@ -233,7 +233,7 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
 
 function mapActivitiesToEvents(
   userId: number,
-  activities: ExternalActivity[]
+  activities: ExternalActivity[],
 ): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
@@ -304,7 +304,7 @@ export function DetailExternalEvents({ userId }: Props) {
       } catch (e: any) {
         if (!alive) return;
         setDbError(
-          e?.message ?? "Nepodarilo sa načítať externé aktivity z DB."
+          e?.message ?? "Nepodarilo sa načítať externé aktivity z DB.",
         );
       } finally {
         if (!alive) return;
@@ -374,7 +374,7 @@ export function DetailExternalEvents({ userId }: Props) {
       const resp = await apiSaveExternalEvents(userId, events);
 
       setDbInfo(
-        `Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`
+        `Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`,
       );
       setOpen(false);
     } catch (e: any) {

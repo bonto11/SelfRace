@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/shell.ts
 import type * as React from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SURFACE_INSET, SURFACE_INSET_STYLE } from "./core";
 
 /* ===== SHELL ROOT ====================================================== */
@@ -46,8 +46,7 @@ export const ICON_BUTTON_HOVER_STYLE: React.CSSProperties = {
 
 /* ===== SIDEBAR ========================================================= */
 
-export const SIDEBAR_DESKTOP =
-  "hidden lg:block border-r sticky top-0 h-dvh";
+export const SIDEBAR_DESKTOP = "hidden lg:block border-r sticky top-0 h-dvh";
 
 export const SIDEBAR_DESKTOP_STYLE: React.CSSProperties = {
   borderColor: appColors.divider,
@@ -86,11 +85,16 @@ export const AVATAR_BUTTON_STYLE: React.CSSProperties = {
 
 /* ===== DROPDOWN ======================================================== */
 
-export const DROPDOWN_PANEL = SURFACE_INSET + " absolute right-0 mt-2 w-56 p-2 z-30";
-export const DROPDOWN_PANEL_STYLE: React.CSSProperties = { ...SURFACE_INSET_STYLE };
+export const DROPDOWN_PANEL =
+  SURFACE_INSET + " absolute right-0 mt-2 w-56 p-2 z-30";
+export const DROPDOWN_PANEL_STYLE: React.CSSProperties = {
+  ...SURFACE_INSET_STYLE,
+};
 
 export const DROPDOWN_DIVIDER = "my-1 border-t";
-export const DROPDOWN_DIVIDER_STYLE: React.CSSProperties = { borderColor: appColors.divider };
+export const DROPDOWN_DIVIDER_STYLE: React.CSSProperties = {
+  borderColor: appColors.divider,
+};
 
 export const DROPDOWN_ITEM = "w-full text-left px-2 py-1 rounded";
 export const DROPDOWN_ITEM_HOVER_STYLE: React.CSSProperties = {

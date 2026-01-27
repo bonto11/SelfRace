@@ -27,7 +27,7 @@ import type {
   UserSettings,
   AccountDeleteStatus,
 } from "@/app/features/account/types/account";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   FORM_GRID_TWO,
@@ -112,7 +112,7 @@ export default function SettingsInputs() {
   const [saving, setSaving] = useState(false);
 
   const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
-    null
+    null,
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
@@ -126,7 +126,7 @@ export default function SettingsInputs() {
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(
-          () => null
+          () => null,
         );
 
         if (!alive) return;
@@ -219,7 +219,7 @@ export default function SettingsInputs() {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
       toast.success(
-        "Účet je označený na zmazanie. Po 30 dňoch sa dáta odstránia."
+        "Účet je označený na zmazanie. Po 30 dňoch sa dáta odstránia.",
       );
     } catch (e: any) {
       console.error("[SettingsInputs] delete request error", e);

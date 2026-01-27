@@ -8,7 +8,7 @@ import Pill from "@/app/shared/ui/components/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { fmtDate } from "@/app/shared/utils/time";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   NO_X_OVERFLOW,
@@ -19,9 +19,17 @@ import {
   WIDGET_PLACEHOLDER,
 } from "@/app/shared/ui/tokens";
 
-import type { HistoryRow, EstRow, Group, Range } from "@/app/features/profile/types/profile";
+import type {
+  HistoryRow,
+  EstRow,
+  Group,
+  Range,
+} from "@/app/features/profile/types/profile";
 import { levelColor } from "@/app/features/profile/utils/profile";
-import { apiGetVo2History, apiGetVo2Estimate } from "@/app/features/profile/api/metrics";
+import {
+  apiGetVo2History,
+  apiGetVo2Estimate,
+} from "@/app/features/profile/api/metrics";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -29,7 +37,10 @@ function safeAgeYears(birthDate?: string) {
   if (!birthDate) return 0;
   const t = new Date(birthDate).getTime();
   if (!Number.isFinite(t)) return 0;
-  return Math.max(0, Math.floor((Date.now() - t) / (365.25 * 24 * 3600 * 1000)));
+  return Math.max(
+    0,
+    Math.floor((Date.now() - t) / (365.25 * 24 * 3600 * 1000)),
+  );
 }
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
@@ -86,7 +97,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   try {
     const age = safeAgeYears(birthDate);
     const g = (vo2Ref as Group[]).find(
-      (x) => x.sex === sex && age >= x.age_min && age <= x.age_max
+      (x) => x.sex === sex && age >= x.age_min && age <= x.age_max,
     );
     ranges = g?.ranges ?? [];
   } catch {
@@ -95,21 +106,24 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
   const pickLevel = (v?: number | null) => {
     if (v == null || !Number.isFinite(v)) return null;
-    const hit = ranges.find((rr) => (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max));
+    const hit = ranges.find(
+      (rr) =>
+        (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max),
+    );
     if (!hit) return null;
     const label = hit.label.trim();
     return { label, color: levelColor(label) };
   };
 
-  const estVal = Number.isFinite(est?.value as number) ? Number(est?.value) : null;
+  const estVal = Number.isFinite(est?.value as number)
+    ? Number(est?.value)
+    : null;
 
   const levelMeasured = pickLevel(mVO2);
   const levelEstimated = pickLevel(estVal);
 
   const accent =
-    levelMeasured?.color ??
-    levelEstimated?.color ??
-    appColors.brandPrimary;
+    levelMeasured?.color ?? levelEstimated?.color ?? appColors.brandPrimary;
 
   return (
     <WidgetCard
@@ -137,7 +151,10 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
                 {estVal != null ? estVal.toFixed(1) : "—"}
               </div>
               {levelEstimated ? (
-                <Pill label={levelEstimated.label} color={levelEstimated.color} />
+                <Pill
+                  label={levelEstimated.label}
+                  color={levelEstimated.color}
+                />
               ) : (
                 <span className={WIDGET_PLACEHOLDER}>—</span>
               )}

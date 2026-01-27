@@ -4,7 +4,7 @@ import * as React from "react";
 
 import DisclosureToggle from "@/app/shared/ui/components/DisclosureToggle";
 import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   CARD,

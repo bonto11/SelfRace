@@ -7,7 +7,7 @@ import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 
 import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type Props = {
   selectedIso: string;
@@ -38,7 +38,7 @@ export default function DayDetail({
         externalRows,
         safeSportKey,
       }),
-    [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey]
+    [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey],
   );
 
   // vizuálne: rovnaká sekčná hlavička (bez raw farieb)
@@ -54,12 +54,17 @@ export default function DayDetail({
     <div className="mt-3 ml-1 space-y-4">
       {/* PAST */}
       <div className="space-y-2">
-        <div className="text-[11px] uppercase tracking-wide" style={sectionStyle}>
+        <div
+          className="text-[11px] uppercase tracking-wide"
+          style={sectionStyle}
+        >
           Past — {selectedLabel}
         </div>
 
         {past.length === 0 ? (
-          <div className="text-sm opacity-70">Žiadne položky v minulosti pre tento deň.</div>
+          <div className="text-sm opacity-70">
+            Žiadne položky v minulosti pre tento deň.
+          </div>
         ) : (
           <ul className="space-y-2">
             {past.map((it: any) => (
@@ -75,12 +80,17 @@ export default function DayDetail({
 
       {/* PLANNED */}
       <div className="space-y-2">
-        <div className="text-[11px] uppercase tracking-wide" style={sectionStyle}>
+        <div
+          className="text-[11px] uppercase tracking-wide"
+          style={sectionStyle}
+        >
           Planned — {selectedLabel}
         </div>
 
         {planned.length === 0 ? (
-          <div className="text-sm opacity-70">Žiadne plánované položky pre tento deň.</div>
+          <div className="text-sm opacity-70">
+            Žiadne plánované položky pre tento deň.
+          </div>
         ) : (
           <ul className="space-y-2">
             {planned.map((it: any) => (

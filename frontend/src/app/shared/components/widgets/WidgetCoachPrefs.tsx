@@ -5,7 +5,7 @@ import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_INFO_GRID,
   WIDGET_LABEL_MUTED,

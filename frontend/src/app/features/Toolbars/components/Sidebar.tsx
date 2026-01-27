@@ -8,8 +8,11 @@ import { usePathname } from "next/navigation";
 
 import { useSidebar } from "@/app/features/Toolbars/hooks/useSidebar";
 import { useBodyScrollLock } from "@/app/features/Toolbars/hooks/useBodyScrollLock";
-import { appColors } from "@/app/shared/theme/app_colors";
-import { NavIcon, type NavId } from "@/app/features/Toolbars/components/navIcons";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  NavIcon,
+  type NavId,
+} from "@/app/features/Toolbars/components/navIcons";
 
 type Item = { id: NavId; href: string; label: string };
 
@@ -31,7 +34,8 @@ function PillItem({
   closeMobile: () => void;
 }) {
   const pathname = usePathname();
-  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const isActive =
+    pathname === item.href || pathname.startsWith(item.href + "/");
 
   return (
     <Link
@@ -142,11 +146,15 @@ export default function Sidebar() {
               padding: 10,
             }}
           >
-
             {/* Items */}
             <div className="flex flex-col gap-2">
               {ITEMS.map((item) => (
-                <PillItem key={item.id} item={item} expanded={expanded} closeMobile={() => {}} />
+                <PillItem
+                  key={item.id}
+                  item={item}
+                  expanded={expanded}
+                  closeMobile={() => {}}
+                />
               ))}
             </div>
           </div>
@@ -163,7 +171,12 @@ export default function Sidebar() {
         >
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Image src="/logo/logo.png" alt="SelfRace" width={28} height={28} />
+              <Image
+                src="/logo/logo.png"
+                alt="SelfRace"
+                width={28}
+                height={28}
+              />
               <div className="font-semibold">SelfRace</div>
             </div>
 
@@ -191,7 +204,10 @@ export default function Sidebar() {
                 className="flex items-center gap-3 rounded-2xl px-3 py-2"
                 style={{ color: appColors.textPrimary }}
               >
-                <span className="w-10 h-10 grid place-items-center rounded-2xl" style={{ border: `1px solid ${appColors.divider}` }}>
+                <span
+                  className="w-10 h-10 grid place-items-center rounded-2xl"
+                  style={{ border: `1px solid ${appColors.divider}` }}
+                >
                   {NavIcon({ id: it.id })}
                 </span>
                 <span className="font-semibold">{it.label}</span>

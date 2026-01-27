@@ -7,7 +7,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_CENTER,
@@ -56,7 +56,7 @@ export default function WidgetPareto8020({
         const d = await getParetoWidget(7 * weeks, sportParam);
         if (!alive) return;
         setData(
-          d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks }
+          d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks },
         );
       } finally {
         if (alive) setLoading(false);
@@ -82,10 +82,10 @@ export default function WidgetPareto8020({
     T === 0
       ? (appColors.stateNeutral ?? appColors.textMuted)
       : deviation <= 0.05
-        ? (appColors.stateFitness)
+        ? appColors.stateFitness
         : deviation <= 0.1
-          ? (appColors.stateBad)
-          : (appColors.stateBad);
+          ? appColors.stateBad
+          : appColors.stateBad;
 
   const note =
     T === 0
@@ -95,7 +95,7 @@ export default function WidgetPareto8020({
         : deltaEasy < 0
           ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
           : "Si presne na 80/20 ✔";
-          
+
   const colEasy80 = appColors.chartLine1;
   const colHard20 = appColors.chartLine2;
   const colTrack = appColors.chartAxis;

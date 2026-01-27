@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { cx, buttonClass } from "@/app/shared/ui";
 import { PAGE_CONTAINER } from "@/app/shared/ui/tokens";
 import {
@@ -48,7 +48,8 @@ export default function AppHeader({
 
   const goBack = () => {
     onBack?.();
-    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    if (typeof window !== "undefined" && window.history.length > 1)
+      router.back();
     else router.push(fallbackHref);
   };
 

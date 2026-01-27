@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/inputs.ts
 import type { CSSProperties } from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SURFACE_INSET, SURFACE_INSET_STYLE } from "./core";
 
 /* =========================================================================
@@ -22,9 +22,10 @@ export const FIELD_LABEL = [
 
 export const FIELD_HINT = ["text-[11px]", "text-[var(--field-hint)]"].join(" ");
 
-export const FIELD_ERROR_TEXT = ["text-xs", "text-[var(--field-err-text)]"].join(
-  " "
-);
+export const FIELD_ERROR_TEXT = [
+  "text-xs",
+  "text-[var(--field-err-text)]",
+].join(" ");
 
 /* These are used via style on wrappers/containers */
 export const FORM_TEXT_VARS: VarStyle = {
@@ -75,7 +76,7 @@ export const FIELD_READONLY_STYLE: VarStyle = {
 
 export const FIELD_EDITABLE_STYLE: VarStyle = {
   "--field-border": appColors.editableBorder,
-  "--field-bg":appColors.editableBg,
+  "--field-bg": appColors.editableBg,
   "--field-bg-hover": appColors.editableBgHover,
   "--field-text": appColors.editableText,
   "--field-ph": appColors.editablePlaceholder,
@@ -223,8 +224,7 @@ export const TEXTAREA_READONLY_STYLE: VarStyle = {
   "--ta-bg": appColors.readonlyBg,
   "--ta-text": appColors.readonlyText,
   "--ta-ph": appColors.readonlyPlaceholder,
-  "--ta-border-focus":
-    appColors.readonlyBorderFocus,
+  "--ta-border-focus": appColors.readonlyBorderFocus,
   "--ta-ring": appColors.readonlyRing,
 };
 
@@ -281,7 +281,8 @@ export const SELECT_MENU_EDITABLE_STYLE: VarStyle = {
   "--menu-text": appColors.editableText,
 };
 
-export const SELECT_BTN = "w-full flex items-center justify-between gap-2 text-left";
+export const SELECT_BTN =
+  "w-full flex items-center justify-between gap-2 text-left";
 export const SELECT_ICON = "shrink-0 h-3.5 w-3.5 opacity-60";
 
 export const SELECT_OPT = [
@@ -328,20 +329,21 @@ const CHECKBOX_ANATOMY = [
   "checked:after:border-[var(--cb-check)]",
 ].join(" ");
 
-export const CHECKBOX_BOX_READONLY = [CHECKBOX_ANATOMY, "[color-scheme:dark]"].join(
-  " "
-);
-export const CHECKBOX_BOX_EDITABLE = [CHECKBOX_ANATOMY, "[color-scheme:light]"].join(
-  " "
-);
+export const CHECKBOX_BOX_READONLY = [
+  CHECKBOX_ANATOMY,
+  "[color-scheme:dark]",
+].join(" ");
+export const CHECKBOX_BOX_EDITABLE = [
+  CHECKBOX_ANATOMY,
+  "[color-scheme:light]",
+].join(" ");
 
 export const CHECKBOX_BOX_READONLY_STYLE: VarStyle = {
   "--cb-border": appColors.readonlyBorder,
   "--cb-bg": appColors.readonlyBg,
   "--cb-bg-hover": appColors.readonlyBgHover,
   "--cb-ring": appColors.readonlyRing,
-  "--cb-border-focus":
-    appColors.readonlyBorderFocus,
+  "--cb-border-focus": appColors.readonlyBorderFocus,
   "--cb-check": appColors.readonlyText,
 };
 
@@ -380,7 +382,8 @@ export const BUTTON_DISABLED =
   "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
 
 export const DATE_FIELD_LABEL = "block text-xs font-medium opacity-80";
-export const DATE_INPUT_INNER = "w-full rounded px-3 py-2 text-sm bg-transparent outline-none";
+export const DATE_INPUT_INNER =
+  "w-full rounded px-3 py-2 text-sm bg-transparent outline-none";
 
 export const DISCLOSURE_ICON_BASE =
   "inline-flex items-center justify-center transition-transform";

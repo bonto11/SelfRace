@@ -6,7 +6,7 @@ import * as React from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import Button from "@/app/shared/ui/components/Button";
 
@@ -24,7 +24,7 @@ import {
   CALENDAR_LEGEND_DOT,
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
-  NO_X_OVERFLOW
+  NO_X_OVERFLOW,
 } from "@/app/shared/ui/tokens";
 
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
@@ -43,7 +43,7 @@ const SPORT_COLORS: Record<string, string> = {
   ride: appColors.chartBike,
   swim: appColors.chartSwim,
   strength: appColors.chartStrength,
-  mixed: appColors.chartMixed, 
+  mixed: appColors.chartMixed,
   skate: appColors.chartSkate,
   walk: appColors.chartWalk,
   other: appColors.chartOther,
@@ -122,7 +122,7 @@ export default function ActivitiesCalendar({
       if (!dIso) return false;
 
       const sportKey = safeSportKey(
-        (ev as any).sport ?? (ev as any).sport_type
+        (ev as any).sport ?? (ev as any).sport_type,
       );
       const key = `${dIso}|${sportKey}`;
 

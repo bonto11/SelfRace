@@ -25,7 +25,7 @@ import {
   formatBmiFromLatest,
 } from "@/app/features/profile/utils/profile";
 import { formatMetricDate } from "@/app/shared/utils/time";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   SECTION,
@@ -153,17 +153,17 @@ export default function ProfileMetricInputs() {
   const previewText = useMemo(() => {
     const w = Number.isFinite(latest?.weight_kg?.value as number)
       ? `${latest?.weight_kg?.value} kg (${formatMetricDate(
-          latest?.weight_kg?.updated_at
+          latest?.weight_kg?.updated_at,
         )})`
       : "—";
     const bf = Number.isFinite(latest?.body_fat_pct?.value as number)
       ? `${latest?.body_fat_pct?.value}% (${formatMetricDate(
-          latest?.body_fat_pct?.updated_at
+          latest?.body_fat_pct?.updated_at,
         )})`
       : "—";
     const hr = Number.isFinite(latest?.HR_max?.value as number)
       ? `${latest?.HR_max?.value} bpm (${formatMetricDate(
-          latest?.HR_max?.updated_at
+          latest?.HR_max?.updated_at,
         )})`
       : "—";
     const vo2 = Number.isFinite(latest?.VO2Max_estimated?.value as number)

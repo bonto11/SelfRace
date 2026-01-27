@@ -30,7 +30,7 @@ import {
   INPUTS_CARD_CHECK_ROW_MB,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export default function RecoveryInputs() {
   const { userId } = useUserId();

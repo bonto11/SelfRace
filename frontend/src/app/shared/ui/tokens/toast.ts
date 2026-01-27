@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/toast.ts
 import type * as React from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export const TOAST_LAYER =
   "pointer-events-none fixed inset-0 z-[60] flex justify-center pt-[12vh]";

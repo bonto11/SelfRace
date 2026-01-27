@@ -33,7 +33,7 @@ import {
   PANEL_CARD_TITLE,
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 ensureChartJSRegistered();
 
 export default function TrendBodyFat() {

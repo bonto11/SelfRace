@@ -9,7 +9,7 @@ import Pill from "@/app/shared/ui/components/Pill";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_ROW_TOP_XS,
   WIDGET_META_TEXT,
@@ -57,7 +57,7 @@ export default function WidgetExternalEvents() {
         }).length;
 
         const weekly = events.filter(
-          (ev) => (ev.recurrence_kind ?? "weekly") === "weekly"
+          (ev) => (ev.recurrence_kind ?? "weekly") === "weekly",
         ).length;
 
         setStats({

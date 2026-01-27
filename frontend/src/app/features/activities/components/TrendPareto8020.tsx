@@ -36,7 +36,7 @@ import {
   ParetoWeekPick,
   ParetoRow,
 } from "@/app/features/activities/types/pareto";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 ensureChartJSRegistered();
 
 export default function TrendPareto8020({
@@ -213,11 +213,7 @@ export default function TrendPareto8020({
     [rows, selectedSports, onPickWeek],
   );
 
-  const minWidth = Math.max(
-    320,
-    Math.round(labels.length * _pxPerLabel),
-  );
-  
+  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
 
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);

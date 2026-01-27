@@ -6,7 +6,7 @@ import Button from "@/app/shared/ui/components/Button";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 const FOCUS_CHOICES = [

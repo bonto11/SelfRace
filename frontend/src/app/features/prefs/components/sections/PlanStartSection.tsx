@@ -9,7 +9,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   PANEL_STACK,
   INPUTS_CARD_BODY,

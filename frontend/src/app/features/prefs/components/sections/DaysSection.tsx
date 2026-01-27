@@ -7,7 +7,7 @@ import type { DayAbbrev } from "@/app/shared/types/day";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -18,7 +18,7 @@ type Props = {
   toggleInArray: <T>(arr: T[] | undefined, v: T) => T[];
   setPrefNested: (
     path: "preferences.days_off" | "preferences.long_run_days",
-    v: DayAbbrev[]
+    v: DayAbbrev[],
   ) => void;
 };
 

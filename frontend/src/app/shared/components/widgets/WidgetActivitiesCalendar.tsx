@@ -5,7 +5,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -42,13 +42,13 @@ import {
 
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
-  ride:  appColors.chartBike,
-  swim:  appColors.chartSwim,
-  strength:  appColors.chartStrength,
-  mixed:  appColors.chartMixed,
-  skate:  appColors.chartSkate,
-  walk:  appColors.chartWalk,
-  other:  appColors.chartOther,
+  ride: appColors.chartBike,
+  swim: appColors.chartSwim,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed,
+  skate: appColors.chartSkate,
+  walk: appColors.chartWalk,
+  other: appColors.chartOther,
 };
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -97,7 +97,7 @@ export default function WidgetActivitiesCalendar({
   const startIso = iso(
     monday.getFullYear(),
     monday.getMonth(),
-    monday.getDate()
+    monday.getDate(),
   );
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
@@ -141,7 +141,7 @@ export default function WidgetActivitiesCalendar({
       if (!k || !map.has(k)) continue;
 
       const sport = safeSportKey(
-        (ev as any).sport ?? (ev as any).sport_type ?? "other"
+        (ev as any).sport ?? (ev as any).sport_type ?? "other",
       );
       map.get(k)!.push({
         id: Number((ev as any).id ?? 0) || Math.floor(Math.random() * 1e9),
@@ -157,7 +157,7 @@ export default function WidgetActivitiesCalendar({
       if (!k || !map.has(k)) continue;
 
       const sport = safeSportKey(
-        r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other"
+        r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other",
       );
       const aidRaw = r.activity_id;
       const activityId =
@@ -194,7 +194,7 @@ export default function WidgetActivitiesCalendar({
 
       if (activityId) {
         const idx = arr.findIndex(
-          (it) => it.kind === "activity" && it.activityId === activityId
+          (it) => it.kind === "activity" && it.activityId === activityId,
         );
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done", activityId };

@@ -9,7 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { OPTIONS } from "@/app/shared/charts/optionsActivity";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SCROLL_X,
@@ -80,11 +80,11 @@ export default function TrendWeeklyMonoStrain({
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
   const mono = useMemo(
     () => weeks.map((w) => w.monotony?.[metric] ?? null),
-    [weeks, metric]
+    [weeks, metric],
   );
   const strn = useMemo(
     () => weeks.map((w) => w.strain?.[metric] ?? null),
-    [weeks, metric]
+    [weeks, metric],
   );
 
   const monoMax = useMemo(() => {
@@ -132,7 +132,7 @@ export default function TrendWeeklyMonoStrain({
         },
       ],
     }),
-    [labels, mono, strn]
+    [labels, mono, strn],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -196,14 +196,11 @@ export default function TrendWeeklyMonoStrain({
         },
       },
     }),
-    [monoMax, strainMax, weeks, onPickWeek, sport]
+    [monoMax, strainMax, weeks, onPickWeek, sport],
   );
 
   const height = Math.round(_heightCompact * 2);
-  const minWidth = Math.max(
-    320,
-    Math.round(labels.length * _pxPerLabel)
-  );
+  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>

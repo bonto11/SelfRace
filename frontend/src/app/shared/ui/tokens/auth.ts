@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/auth.ts
 import type React from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SURFACE_INSET,
@@ -12,7 +12,9 @@ import {
 } from "@/app/shared/ui/tokens";
 
 /* Notices */
-export const AUTH_NOTICE = [SURFACE_SUBCARD, "px-3", "py-2", "text-xs"].join(" ");
+export const AUTH_NOTICE = [SURFACE_SUBCARD, "px-3", "py-2", "text-xs"].join(
+  " ",
+);
 
 export const AUTH_NOTICE_SUCCESS_STYLE: React.CSSProperties = {
   ...SURFACE_SUBCARD_STYLE,
@@ -28,10 +30,14 @@ export const AUTH_NOTICE_ERROR_STYLE: React.CSSProperties = {
 export const AUTH_HINT = "text-xs opacity-70";
 
 export const AUTH_ERROR_TEXT = "text-sm";
-export const AUTH_ERROR_STYLE: React.CSSProperties = { color: appColors.statusError };
+export const AUTH_ERROR_STYLE: React.CSSProperties = {
+  color: appColors.statusError,
+};
 
 export const AUTH_SUCCESS_TEXT = "text-sm";
-export const AUTH_SUCCESS_STYLE: React.CSSProperties = { color: appColors.statusSuccess };
+export const AUTH_SUCCESS_STYLE: React.CSSProperties = {
+  color: appColors.statusSuccess,
+};
 
 export const AUTH_CARD_SM = "max-w-sm";
 
@@ -61,21 +67,37 @@ export const AUTH_LABEL =
   "text-xs font-medium tracking-wide opacity-80 select-none";
 
 /* Feedback */
-export const AUTH_FEEDBACK = [SURFACE_INSET, "px-3 py-2 text-xs leading-snug"].join(" ");
-export const AUTH_FEEDBACK_STYLE: React.CSSProperties = { ...SURFACE_INSET_STYLE };
+export const AUTH_FEEDBACK = [
+  SURFACE_INSET,
+  "px-3 py-2 text-xs leading-snug",
+].join(" ");
+export const AUTH_FEEDBACK_STYLE: React.CSSProperties = {
+  ...SURFACE_INSET_STYLE,
+};
 
-export const AUTH_FEEDBACK_SUCCESS_STYLE: React.CSSProperties = { color: appColors.statusSuccess };
-export const AUTH_FEEDBACK_ERROR_STYLE: React.CSSProperties = { color: appColors.statusError };
-export const AUTH_FEEDBACK_INFO_STYLE: React.CSSProperties = { color: appColors.textSecondary };
+export const AUTH_FEEDBACK_SUCCESS_STYLE: React.CSSProperties = {
+  color: appColors.statusSuccess,
+};
+export const AUTH_FEEDBACK_ERROR_STYLE: React.CSSProperties = {
+  color: appColors.statusError,
+};
+export const AUTH_FEEDBACK_INFO_STYLE: React.CSSProperties = {
+  color: appColors.textSecondary,
+};
 
 /* Links */
 export const AUTH_LINK_ROW = "flex items-center justify-between text-xs";
 export const AUTH_LINK = "underline underline-offset-2";
-export const AUTH_LINK_STYLE: React.CSSProperties = { color: appColors.brandPrimary };
-export const AUTH_LINK_MUTED_STYLE: React.CSSProperties = { color: appColors.textPrimary };
+export const AUTH_LINK_STYLE: React.CSSProperties = {
+  color: appColors.brandPrimary,
+};
+export const AUTH_LINK_MUTED_STYLE: React.CSSProperties = {
+  color: appColors.textPrimary,
+};
 
 /* Footer */
-export const AUTH_FOOTER_ROW = "pt-2 flex items-center justify-between text-[11px]";
+export const AUTH_FOOTER_ROW =
+  "pt-2 flex items-center justify-between text-[11px]";
 export const AUTH_FOOTER_TEXT = "opacity-80";
 
 /* Badge */
@@ -113,4 +135,6 @@ export const AUTH_LOADING = [AUTH_PAGE, "px-4"].join(" ");
 export const AUTH_LOADING_CARD = [CARD, "p-5"].join(" ");
 export const AUTH_LOADING_CARD_STYLE: React.CSSProperties = AUTH_CARD_STYLE;
 export const AUTH_LOADING_TEXT = MUTED_TEXT;
-export const AUTH_LOADING_TEXT_STYLE: React.CSSProperties = { ...MUTED_TEXT_STYLE };
+export const AUTH_LOADING_TEXT_STYLE: React.CSSProperties = {
+  ...MUTED_TEXT_STYLE,
+};

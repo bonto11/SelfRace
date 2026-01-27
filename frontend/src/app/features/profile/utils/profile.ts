@@ -2,14 +2,13 @@ import type {
   StaticProfile,
   LatestMetricsMap,
 } from "@/app/features/profile/types/profile";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export function levelColor(label: string) {
   const l = label.toLowerCase();
   if (l.includes("excellent") || l.includes("elite"))
     return appColors.stateExcellent;
-  if (l.includes("superior"))
-    return appColors.stateSuperior;
+  if (l.includes("superior")) return appColors.stateSuperior;
   if (l.includes("good")) appColors.stateGood;
   if (l.includes("fair") || l.includes("average"))
     return appColors.stateAverage;
@@ -72,7 +71,7 @@ export function hexWithAlpha(hex?: string, a = 0.18): string {
             .split("")
             .map((c) => c + c)
             .join(""),
-          16
+          16,
         )
       : parseInt(h, 16);
   const r = (v >> 16) & 255;

@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export default function AppBackdrop({ children }: { children?: ReactNode }) {
   return (

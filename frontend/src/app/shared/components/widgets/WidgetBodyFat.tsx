@@ -11,9 +11,12 @@ import { fmtDate } from "@/app/shared/utils/time";
 
 import { apiGetStaticProfile } from "@/app/features/profile/api/static";
 import { apiGetMetricHistory } from "@/app/features/profile/api/metrics";
-import type { StaticProfile, MetricHistoryRow } from "@/app/features/profile/types/profile";
+import type {
+  StaticProfile,
+  MetricHistoryRow,
+} from "@/app/features/profile/types/profile";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   NO_X_OVERFLOW,
@@ -46,7 +49,9 @@ function colorForLevel(labelRaw: string) {
 function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
   if (pct == null || !Number.isFinite(pct)) return null;
   const bands = getBodyFatBands(sex);
-  const hit = bands.find((b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max));
+  const hit = bands.find(
+    (b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max),
+  );
   if (!hit) return null;
   return { label: hit.label.trim(), color: colorForLevel(hit.label) };
 }
@@ -76,13 +81,16 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
         setStat(staticProfile ?? null);
 
-        const rowsBE: MetricHistoryRow[] = Array.isArray(history) ? history : [];
+        const rowsBE: MetricHistoryRow[] = Array.isArray(history)
+          ? history
+          : [];
         const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
 
         const last: MetricsRowFE | null = lastBE
           ? {
               updated_at: lastBE.measured_at,
-              body_fat_pct: typeof lastBE.value_num === "number" ? lastBE.value_num : null,
+              body_fat_pct:
+                typeof lastBE.value_num === "number" ? lastBE.value_num : null,
             }
           : null;
 
@@ -127,7 +135,11 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
                 <span className={WIDGET_VALUE_UNIT}>%</span>
               </div>
 
-              {level ? <Pill label={level.label} color={level.color} /> : <span className={WIDGET_PLACEHOLDER}>—</span>}
+              {level ? (
+                <Pill label={level.label} color={level.color} />
+              ) : (
+                <span className={WIDGET_PLACEHOLDER}>—</span>
+              )}
             </div>
           </div>
         </div>

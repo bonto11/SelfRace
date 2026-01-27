@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/core.ts
 import type * as React from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 /* ===== SURFACES (layout-only classnames) =============================== */
 
@@ -66,7 +66,7 @@ export const PANEL = SURFACE_INSET;
 /* ===== DETAIL / FLUSH VARIANTS ======================================== */
 
 export const FLUSH_DETAIL = ["mt-2", "-mx-5 px-5 pt-2 pb-4", "border-t"].join(
-  " "
+  " ",
 );
 
 export const FLUSH_DETAIL_STYLE: React.CSSProperties = {
@@ -111,4 +111,6 @@ export const CARD_BODY_INSET = "px-4 pb-4";
 /* ===== TEXT HELPERS ==================================================== */
 /** trieda pre “muted text”; farba ide cez MUTED_TEXT_STYLE */
 export const MUTED_TEXT = "opacity-70";
-export const MUTED_TEXT_STYLE: React.CSSProperties = { color: appColors.textMuted };
+export const MUTED_TEXT_STYLE: React.CSSProperties = {
+  color: appColors.textMuted,
+};
