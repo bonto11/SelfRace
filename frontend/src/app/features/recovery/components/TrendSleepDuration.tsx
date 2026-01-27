@@ -6,7 +6,7 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { OPTIONS } from "@/app/shared/charts/optionsRecovery";
+import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsRecovery";
 import { wrapToLines } from "@/app/shared/utils/recovery";
 import { minutesToHHMM } from "@/app/shared/utils/time";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
@@ -40,13 +40,6 @@ function dateSeq(startISO: string, endISO: string): string[] {
     out.push(iso(d));
   return out;
 }
-
-const WEEK_OPTIONS = [
-  { value: "2", label: "2 týždne" },
-  { value: "4", label: "4 týždne" },
-  { value: "8", label: "8 týždňov" },
-  { value: "12", label: "12 týždňov" },
-];
 
 export default function DetailSleepDuration() {
   const { rows: all } = useRecoveryData();
@@ -303,7 +296,7 @@ export default function DetailSleepDuration() {
           value={String(weeks)}
           onChange={(e) => setWeeks(Number(e.target.value))}
           options={WEEK_OPTIONS}
-          variant="readonly"
+          variant="editable"
           containerClassName="w-[152px]"
         />
       </div>

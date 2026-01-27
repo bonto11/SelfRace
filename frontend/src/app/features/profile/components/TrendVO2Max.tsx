@@ -8,9 +8,9 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
-import { OPTIONS } from "@/app/shared/charts/optionsProfile";
+import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsProfile";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { inputClass } from "@/app/shared/ui";
+import SelectField from "@/app/shared/ui/components/SelectField";
 
 import type {
   StaticProfile,
@@ -35,13 +35,14 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+
 ensureChartJSRegistered();
 
 export default function TrendVO2Max() {
   const { userId } = useUserId() as { userId: number | null };
 
   const [loading, setLoading] = React.useState(false);
-  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(8);
+  const [weeks, setWeeks] = React.useState<number>(4);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
   const [estHist, setEstHist] = React.useState<MetricHistoryRow[]>([]);
   const [measHist, setMeasHist] = React.useState<MetricHistoryRow[]>([]);
@@ -269,7 +270,6 @@ export default function TrendVO2Max() {
         const v = seriesMeas[idx];
         return Number.isFinite(v) ? `Measured: ${Number(v).toFixed(1)}` : "—";
       }
-      // pásma neukazuj (noise)
       return "";
     },
     tooltipFilter: (item) => {
@@ -288,16 +288,14 @@ export default function TrendVO2Max() {
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_CARD_TITLE}>Detail – VO₂Max</h2>
           <div className={PANEL_ACTIONS_INLINE}>
-            <select
-              value={weeks}
-              onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
-              className={[inputClass, "h-8 text-xs w-[132px]"].join(" ")}
-              aria-label="Lookback"
-            >
-              <option value={4}>4 týždne</option>
-              <option value={8}>8 týždňov</option>
-              <option value={12}>12 týždňov</option>
-            </select>
+            <SelectField
+              value={String(weeks)}
+              onChange={(e) => setWeeks(Number(e.target.value))}
+              options={WEEK_OPTIONS}
+              containerClassName="w-[132px]"
+              variant="editable"
+              placeholder="—"
+            />
           </div>
         </div>
       </div>

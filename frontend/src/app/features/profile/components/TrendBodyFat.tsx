@@ -8,9 +8,9 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
-import { OPTIONS } from "@/app/shared/charts/optionsProfile";
+import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsProfile";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { inputClass } from "@/app/shared/ui";
+import SelectField from "@/app/shared/ui/components/SelectField";
 
 import type {
   StaticProfile,
@@ -34,6 +34,7 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+
 ensureChartJSRegistered();
 
 export default function TrendBodyFat() {
@@ -42,8 +43,7 @@ export default function TrendBodyFat() {
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
   const [hist, setHist] = React.useState<MetricHistoryRow[]>([]);
-  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
-
+  const [weeks, setWeeks] = React.useState<number>(4);
   const _height = OPTIONS.Height;
   const _pxPerLabel = OPTIONS.pxPerLabel;
 
@@ -107,11 +107,11 @@ export default function TrendBodyFat() {
   const labelsISO = points.map((p) => p.dISO);
   const labels = labelsISO.map((d) => new Date(d).toLocaleDateString("sk-SK"));
   const values = points.map((p) => p.v);
+
   const seriesMax = Math.max(
     0,
     ...((values.filter(Number.isFinite) as number[]) || [0]),
   );
-
   const bands = stat ? getBodyFatBands(stat.sex ?? null) : [];
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
@@ -163,11 +163,9 @@ export default function TrendBodyFat() {
         const v = values[idx];
         return Number.isFinite(v) ? `Body Fat: ${Number(v).toFixed(1)}%` : "—";
       }
-      // pásma len ako kontext (nech to nie je spam)
       return "";
     },
     tooltipFilter: (item) => (item.dataset?.label ?? "") === "Body Fat %",
-    // špecifiká osi
     yMin: 0,
     yMax: suggestedTop,
   });
@@ -180,16 +178,14 @@ export default function TrendBodyFat() {
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_CARD_TITLE}>Detail – Body Fat %</h2>
           <div className={PANEL_ACTIONS_INLINE}>
-            <select
-              value={weeks}
-              onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
-              className={[inputClass, "h-8 text-xs w-[132px]"].join(" ")}
-              aria-label="Lookback"
-            >
-              <option value={4}>4 týždne</option>
-              <option value={8}>8 týždňov</option>
-              <option value={12}>12 týždňov</option>
-            </select>
+            <SelectField
+              value={String(weeks)}
+              onChange={(e) => setWeeks(Number(e.target.value))}
+              options={WEEK_OPTIONS}
+              containerClassName="w-[132px]"
+              variant="editable"
+              placeholder="—"
+            />
           </div>
         </div>
       </div>

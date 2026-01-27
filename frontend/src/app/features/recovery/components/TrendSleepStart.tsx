@@ -14,7 +14,10 @@ import {
   dateSeq,
   iso,
 } from "@/app/shared/utils/time";
-import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
+import {
+  buildRecoveryLineOptions,
+  WEEK_OPTIONS,
+} from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
@@ -30,13 +33,6 @@ import {
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
 import SelectField from "@/app/shared/ui/components/SelectField";
-
-const WEEK_OPTIONS = [
-  { value: "2", label: "2 týždne" },
-  { value: "4", label: "4 týždne" },
-  { value: "8", label: "8 týždňov" },
-  { value: "12", label: "12 týždňov" },
-];
 
 ensureChartJSRegistered();
 
@@ -296,7 +292,7 @@ export default function DetailSleepStart() {
           value={String(weeks)}
           onChange={(e) => setWeeks(Number(e.target.value))}
           options={WEEK_OPTIONS}
-          variant="readonly"
+          variant="editable"
           containerClassName="w-[152px]"
         />
       </div>

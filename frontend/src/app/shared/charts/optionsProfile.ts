@@ -13,3 +13,10 @@ export const OPTIONS = {
   },
   pxPerLabel: 26, // 🔒 konzistencia barov + vodorovný layout
 };
+
+export const WEEK_OPTIONS = [
+  { value: "2", label: "2 týždne" },
+  { value: "4", label: "4 týždne" },
+  { value: "8", label: "8 týždňov" },
+  { value: "12", label: "12 týždňov" },
+];
