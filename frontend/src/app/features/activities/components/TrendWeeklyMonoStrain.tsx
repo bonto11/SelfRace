@@ -44,6 +44,10 @@ export default function TrendWeeklyMonoStrain({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const _pxPerLabel = THEME.chart.weeklyPxPerLabel;
+  const _heightCompact = THEME.chart.HeightCompact;
+  const _legendPos = THEME.chart.legendPosition;
+
   useEffect(() => {
     onSportChange?.(sport);
   }, [sport, onSportChange]);
@@ -139,7 +143,7 @@ export default function TrendWeeklyMonoStrain({
       layout: { padding: { bottom: 12 } },
       plugins: {
         legend: {
-          position: THEME.chart.legendPosition,
+          position: _legendPos,
           labels: {
             usePointStyle: true,
             pointStyle: "circle",
@@ -195,11 +199,10 @@ export default function TrendWeeklyMonoStrain({
     [monoMax, strainMax, weeks, onPickWeek, sport]
   );
 
-  const baseHeight = THEME.chart.weeklyHeightCompact ?? 200;
-  const height = Math.round(baseHeight * 2);
+  const height = Math.round(_heightCompact * 2);
   const minWidth = Math.max(
     320,
-    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+    Math.round(labels.length * _pxPerLabel)
   );
 
   return (

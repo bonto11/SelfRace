@@ -52,7 +52,8 @@ export default function DetailSleepDuration() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+  const _pxPerLabel = THEME.chart.pxPerLabel;
+  const _height = THEME.chart.Height;
 
     const COLOR = {
     main: appColors.chartLine1,
@@ -224,7 +225,7 @@ export default function DetailSleepDuration() {
         yTitle: "min",
         yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK"),
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
@@ -252,7 +253,7 @@ export default function DetailSleepDuration() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -277,7 +278,7 @@ export default function DetailSleepDuration() {
 
       <div className={CARD_BODY_INSET}>
         <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-          <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          <div className="relative" style={{ height: _height }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
                 <LoadingSpinner size="trend" />

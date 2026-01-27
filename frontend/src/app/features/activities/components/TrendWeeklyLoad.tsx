@@ -52,6 +52,13 @@ export default function TrendWeeklyLoad({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const _pxPerLabel = THEME.chart.weeklyPxPerLabel;
+  const _height = THEME.chart.Height;
+  const _legendPos = THEME.chart.legendPosition;
+  const _maxBarThickness = THEME.chart.bar.maxThickness;
+  const _categoryPercentage = THEME.chart.bar.categoryPct;
+  const _barPercentage = THEME.chart.bar.barPct;
+
   useEffect(() => {
     onSportChange?.(sport);
   }, [sport, onSportChange]);
@@ -203,15 +210,15 @@ export default function TrendWeeklyLoad({
       elements: { point: { radius: 2, hitRadius: 8 } },
       datasets: {
         bar: {
-          maxBarThickness: THEME.chart.bar?.maxThickness ?? 12,
-          categoryPercentage: THEME.chart.bar?.categoryPct ?? 0.6,
-          barPercentage: THEME.chart.bar?.barPct ?? 0.7,
+          maxBarThickness: _maxBarThickness,
+          categoryPercentage: _categoryPercentage,
+          barPercentage: _barPercentage,
         },
       },
       layout: { padding: { bottom: 12 } },
       plugins: {
         legend: {
-          position: THEME.chart.legendPosition,
+          position: _legendPos,
           labels: {
             usePointStyle: true,
             pointStyle: "circle",
@@ -260,7 +267,7 @@ export default function TrendWeeklyLoad({
 
   const minWidth = Math.max(
     320,
-    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
+    Math.round(labels.length * _pxPerLabel)
   );
 
   return (
@@ -326,7 +333,7 @@ export default function TrendWeeklyLoad({
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+        <div className="relative" style={{ height: _height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

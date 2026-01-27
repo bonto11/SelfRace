@@ -45,7 +45,8 @@ export default function DetailSleepStart() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+  const _pxPerLabel = THEME.chart.pxPerLabel;
+  const _height = THEME.chart.Height;
 
   const COLOR = {
     main: appColors.chartLine1,
@@ -240,9 +241,7 @@ export default function DetailSleepStart() {
         yTitle: "čas",
         yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-            THEME.i18n?.dateLocale ?? "sk-SK"
-          ),
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
@@ -273,7 +272,7 @@ export default function DetailSleepStart() {
 
   const minWidth = Math.max(
     360,
-    Math.round(labelsISO.length * DAY_PX_PER_LABEL)
+    Math.round(labelsISO.length * _pxPerLabel)
   );
 
   return (
@@ -310,7 +309,7 @@ export default function DetailSleepStart() {
         >
           <div
             className="relative"
-            style={{ height: THEME.chart.weeklyHeight }}
+            style={{ height: _height }}
           >
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">

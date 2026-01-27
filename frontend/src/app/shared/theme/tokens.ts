@@ -6,8 +6,8 @@ export const THEME = {
     weeklyPxPerLabel: 56,
 
     // výšky
-    weeklyHeight: 360,
-    weeklyHeightCompact: 180,
+    Height: 360,
+    HeightCompact: 180,
 
     // 🔒 konzistencia barov + vodorovný layout
     bar: {

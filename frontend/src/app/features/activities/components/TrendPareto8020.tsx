@@ -59,6 +59,10 @@ export default function TrendPareto8020({
   const [rows, setRows] = useState<ParetoRow[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
+  const _pxPerLabel = THEME.chart.weeklyPxPerLabel;
+  const _height = THEME.chart.Height;
+  const _legendPos = THEME.chart.legendPosition;
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -155,7 +159,7 @@ export default function TrendPareto8020({
       layout: { padding: { top: 6, right: 8, bottom: 10, left: 10 } },
       plugins: {
         legend: {
-          position: THEME.chart.legendPosition,
+          position: _legendPos,
           labels: {
             usePointStyle: true,
             pointStyle: "circle",
@@ -211,9 +215,9 @@ export default function TrendPareto8020({
 
   const minWidth = Math.max(
     320,
-    Math.round(labels.length * THEME.chart.weeklyPxPerLabel),
+    Math.round(labels.length * _pxPerLabel),
   );
-  const heightPx = THEME.chart.weeklyHeightCompact ?? 200;
+  
 
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
@@ -281,7 +285,7 @@ export default function TrendPareto8020({
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div className="relative" style={{ height: heightPx }}>
+        <div className="relative" style={{ height: _height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

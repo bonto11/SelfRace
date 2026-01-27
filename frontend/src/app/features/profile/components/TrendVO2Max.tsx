@@ -34,11 +34,10 @@ import {
   PANEL_CARD_TITLE,
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
-
+import { appColors } from "@/app/shared/theme/app_colors";
 ensureChartJSRegistered();
 
-const DAY = 24 * 3600 * 1000;
-const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+
 
 export default function TrendVO2Max() {
   const { userId } = useUserId() as { userId: number | null };
@@ -49,6 +48,10 @@ export default function TrendVO2Max() {
   const [estHist, setEstHist] = React.useState<MetricHistoryRow[]>([]);
   const [measHist, setMeasHist] = React.useState<MetricHistoryRow[]>([]);
 
+  const _height = THEME.chart.Height;
+  const _pxPerLabel = THEME.chart.pxPerLabel;
+  const DAY = 24 * 3600 * 1000;
+  
   React.useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -131,7 +134,7 @@ export default function TrendVO2Max() {
 
   const labelsISO = allDays;
   const labels = labelsISO.map((d) =>
-    new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK")
+    new Date(d).toLocaleDateString("sk-SK")
   );
 
   const seriesEst = labelsISO.map((d) =>
@@ -196,8 +199,8 @@ export default function TrendVO2Max() {
             type: "line" as const,
             label: "VO₂Max (estimated) – level",
             data: labels.map(() => oneEst as number),
-            borderColor: THEME.chart.linePrimary,
-            backgroundColor: THEME.chart.linePrimary,
+            borderColor: appColors.chartLine1,
+            backgroundColor: appColors.chartLine1,
             pointRadius: 0,
             borderWidth: 2,
             tension: 0,
@@ -210,8 +213,8 @@ export default function TrendVO2Max() {
       type: "line" as const,
       label: "VO₂Max (estimated)",
       data: seriesEst,
-      borderColor: THEME.chart.linePrimary,
-      backgroundColor: THEME.chart.linePrimary,
+      borderColor: appColors.chartLine1,
+      backgroundColor: appColors.chartLine1,
       pointRadius: 2,
       borderWidth: oneEst != null ? 0 : 2,
       showLine: oneEst == null,
@@ -225,8 +228,8 @@ export default function TrendVO2Max() {
             type: "line" as const,
             label: "VO₂Max (measured) – level",
             data: labels.map(() => oneMeas as number),
-            borderColor: THEME.chart.lineSecondary,
-            backgroundColor: THEME.chart.lineSecondary,
+            borderColor: appColors.chartLine2,
+            backgroundColor: appColors.chartLine2,
             pointRadius: 0,
             borderWidth: 2,
             borderDash: [6, 4],
@@ -240,8 +243,8 @@ export default function TrendVO2Max() {
       type: "line" as const,
       label: "VO₂Max (measured)",
       data: seriesMeas,
-      borderColor: THEME.chart.lineSecondary,
-      backgroundColor: THEME.chart.lineSecondary,
+      borderColor: appColors.chartLine2,
+      backgroundColor: appColors.chartLine2,
       pointRadius: 2,
       borderDash: [6, 4],
       borderWidth: oneMeas != null ? 0 : 2,
@@ -258,9 +261,7 @@ export default function TrendVO2Max() {
     labelsISO,
     yTitle: "ml/kg/min",
     tooltipTitleForIndex: (i) =>
-      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-        THEME.i18n?.dateLocale ?? "sk-SK"
-      ),
+      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
     tooltipLabelForItem: (ctx) => {
       const idx = ctx.dataIndex ?? 0;
       const label = ctx.dataset?.label ?? "";
@@ -283,7 +284,7 @@ export default function TrendVO2Max() {
     yMax: suggestedTop,
   });
 
-  const minWidth = Math.max(360, Math.round(labels.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(360, Math.round(labels.length * _pxPerLabel));
 
   return (
     <section className={SURFACE_CARD}>
@@ -309,7 +310,7 @@ export default function TrendVO2Max() {
         className={[SCROLL_X, "min-w-0"].join(" ")}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+        <div className="relative" style={{ height: _height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

@@ -33,10 +33,8 @@ import {
   PANEL_CARD_TITLE,
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
-
+import { appColors } from "@/app/shared/theme/app_colors";
 ensureChartJSRegistered();
-
-const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
 
 export default function TrendBodyFat() {
   const { userId } = useUserId() as { userId: number | null };
@@ -45,6 +43,9 @@ export default function TrendBodyFat() {
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
   const [hist, setHist] = React.useState<MetricHistoryRow[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
+
+  const _height = THEME.chart.Height;
+  const _pxPerLabel = THEME.chart.pxPerLabel;
 
   React.useEffect(() => {
     if (!userId) return;
@@ -104,13 +105,11 @@ export default function TrendBodyFat() {
   }
 
   const labelsISO = points.map((p) => p.dISO);
-  const labels = labelsISO.map((d) =>
-    new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK")
-  );
+  const labels = labelsISO.map((d) => new Date(d).toLocaleDateString("sk-SK"));
   const values = points.map((p) => p.v);
   const seriesMax = Math.max(
     0,
-    ...((values.filter(Number.isFinite) as number[]) || [0])
+    ...((values.filter(Number.isFinite) as number[]) || [0]),
   );
 
   const bands = stat ? getBodyFatBands(stat.sex ?? null) : [];
@@ -138,8 +137,8 @@ export default function TrendBodyFat() {
       type: "line" as const,
       label: "Body Fat %",
       data: values,
-      borderColor: THEME.chart.linePrimary,
-      backgroundColor: THEME.chart.linePrimary,
+      borderColor: appColors.chartLine1,
+      backgroundColor: appColors.chartLine1,
       pointRadius: 2,
       borderWidth: 2,
       showLine: true,
@@ -156,9 +155,7 @@ export default function TrendBodyFat() {
     labelsISO,
     yTitle: "%",
     tooltipTitleForIndex: (i) =>
-      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-        THEME.i18n?.dateLocale ?? "sk-SK"
-      ),
+      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
     tooltipLabelForItem: (ctx) => {
       const idx = ctx.dataIndex ?? 0;
       const label = ctx.dataset?.label ?? "";
@@ -175,7 +172,7 @@ export default function TrendBodyFat() {
     yMax: suggestedTop,
   });
 
-  const minWidth = Math.max(360, Math.round(labels.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(360, Math.round(labels.length * _pxPerLabel));
 
   return (
     <section className={SURFACE_CARD}>
@@ -201,7 +198,7 @@ export default function TrendBodyFat() {
         className={[SCROLL_X, "min-w-0"].join(" ")}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+        <div className="relative" style={{ height: _height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />

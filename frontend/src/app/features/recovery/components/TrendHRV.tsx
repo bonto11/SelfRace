@@ -52,7 +52,8 @@ export default function TrendHRV() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+  const _pxPerLabel = THEME.chart.pxPerLabel;
+  const _height = THEME.chart.Height;
 
   const COLOR = {
     main: appColors.chartLine1,
@@ -262,7 +263,7 @@ export default function TrendHRV() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(360, Math.round(labelsISO.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -287,7 +288,7 @@ export default function TrendHRV() {
 
       <div className={CARD_BODY_INSET}>
         <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
-          <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+          <div className="relative" style={{ height: _height }}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
                 <LoadingSpinner size="trend" />
