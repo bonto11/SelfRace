@@ -2,13 +2,40 @@
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
-import {
-  fmtMin,
-  safeText,
-  tgtToStr,
-} from "@/app/shared/components/session/sessionUtils";
+import { fmtMin, safeText, tgtToStr } from "@/app/shared/components/session/sessionUtils";
 
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
+
+import {
+  SESSION_MINIGRID_BASE,
+  SESSION_MINIGRID_2COL,
+  SESSION_MINIGRID_3COL,
+  SESSION_MINITILE,
+  SESSION_MINITILE_STYLE,
+  SESSION_MINITILE_LABEL,
+  SESSION_MINITILE_VALUE,
+
+  PLAN_STRUCT_STACK,
+  PLAN_BLOCK,
+  PLAN_BLOCK_LABEL,
+  PLAN_BLOCK_TEXT,
+
+  PLAN_MAIN_STACK,
+  PLAN_MAIN_ITEM,
+  PLAN_MAIN_ITEM_STYLE,
+  PLAN_MAIN_TGT,
+  PLAN_MAIN_NOTE,
+
+  PLAN_EX_LIST,
+  PLAN_EX_ITEM,
+  PLAN_EX_ITEM_STYLE,
+  PLAN_EX_NAME,
+  PLAN_EX_LINE,
+  PLAN_EX_NOTE,
+
+  PLAN_NOTES,
+  PLAN_DEBUG_PRE,
+} from "@/app/shared/ui/tokens";
 
 type Props = {
   variant: ComponentVariant;
@@ -16,7 +43,7 @@ type Props = {
   showPlanDebug: boolean;
 };
 
-/** ==== shared mini KPI grid (rovnaký štýl ako pri aktivitách) ==== */
+/** ==== shared mini KPI grid ==== */
 
 type MiniMetric = {
   label: string;
@@ -36,24 +63,18 @@ function valOrDash(v: string | number | null): string {
 function MiniMetricGrid({ metrics, cols = 3 }: MiniMetricGridProps) {
   if (!metrics || metrics.length === 0) return null;
 
-  const colClass =
-    cols === 2
-      ? "grid-cols-2 sm:grid-cols-4"
-      : "grid-cols-3 sm:grid-cols-6";
+  const colClass = cols === 2 ? SESSION_MINIGRID_2COL : SESSION_MINIGRID_3COL;
 
   return (
-    <div className={`mt-3 grid ${colClass} gap-2`}>
+    <div className={[SESSION_MINIGRID_BASE, colClass].join(" ")}>
       {metrics.map((m) => (
         <div
           key={m.label}
-          className="rounded-lg border border-white/5 bg-white/5 px-2.5 py-1.5"
+          className={SESSION_MINITILE}
+          style={SESSION_MINITILE_STYLE}
         >
-          <div className="text-[10px] opacity-70 leading-tight">
-            {m.label}
-          </div>
-          <div className="text-sm font-semibold tabular-nums leading-tight">
-            {valOrDash(m.value as any)}
-          </div>
+          <div className={SESSION_MINITILE_LABEL}>{m.label}</div>
+          <div className={SESSION_MINITILE_VALUE}>{valOrDash(m.value)}</div>
         </div>
       ))}
     </div>
@@ -86,24 +107,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
     : [];
   const cd = (structure as any)?.cooldown ?? undefined;
 
-  console.log("[PlanSessionDetail] PLAN item", {
-    title: item.title,
-    planDur: item.planDur,
-    planIntensity: item.planIntensity,
-    planTarget: item.planTarget,
-    raw,
-    structure,
-  });
-  console.log("[PlanSessionDetail] PLAN exercises", {
-    title: item.title,
-    count: Array.isArray(exercises) ? exercises.length : 0,
-    sample:
-      Array.isArray(exercises) && exercises.length > 0
-        ? exercises[0]
-        : undefined,
-  });
-
-  // KPI blok – rovnaký štýl ako activity detail
+  // KPI blok
   const metricsFromKpis: MiniMetric[] = kpis.map((k) => ({
     label: k.label,
     value: k.value,
@@ -111,9 +115,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
 
   const fallbackMetrics: MiniMetric[] = [
     item.planDur ? { label: "Duration", value: item.planDur } : null,
-    item.planIntensity
-      ? { label: "Intensity", value: item.planIntensity }
-      : null,
+    item.planIntensity ? { label: "Intensity", value: item.planIntensity } : null,
     item.planTarget ? { label: "Target", value: item.planTarget } : null,
   ].filter(Boolean) as MiniMetric[];
 
@@ -129,13 +131,11 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
 
       {(wu || mainBlocks.length || cd) && (
         <DetailSection title="Štruktúra tréningu">
-          <div className="space-y-3">
+          <div className={PLAN_STRUCT_STACK}>
             {wu && (
-              <div className="px-1">
-                <div className="text-[11px] font-semibold opacity-80">
-                  WARM-UP
-                </div>
-                <div className="mt-0.5 text-sm">
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>WARM-UP</div>
+                <div className={PLAN_BLOCK_TEXT}>
                   {[
                     fmtMin((wu as any).minutes),
                     typeof (wu as any).notes === "string"
@@ -151,9 +151,9 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
             )}
 
             {mainBlocks.length > 0 && (
-              <div className="px-1">
-                <div className="text-[11px] font-semibold opacity-80">MAIN</div>
-                <div className="mt-0.5 space-y-1 text-sm">
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>MAIN</div>
+                <div className={PLAN_MAIN_STACK}>
                   {mainBlocks.map((mn: any, idx: number) => {
                     const line =
                       [
@@ -175,13 +175,12 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                     return (
                       <div
                         key={idx}
-                        className="border-t border-white/5 pt-1 first:border-t-0 first:pt-0"
+                        className={PLAN_MAIN_ITEM}
+                        style={PLAN_MAIN_ITEM_STYLE}
                       >
                         <div>{line}</div>
-                        {tgt && <div className="opacity-90">target: {tgt}</div>}
-                        {noteText && (
-                          <div className="opacity-90">{noteText}</div>
-                        )}
+                        {tgt && <div className={PLAN_MAIN_TGT}>target: {tgt}</div>}
+                        {noteText && <div className={PLAN_MAIN_NOTE}>{noteText}</div>}
                       </div>
                     );
                   })}
@@ -190,11 +189,9 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
             )}
 
             {cd && (
-              <div className="px-1">
-                <div className="text-[11px] font-semibold opacity-80">
-                  COOL-DOWN
-                </div>
-                <div className="mt-0.5 text-sm">
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>COOL-DOWN</div>
+                <div className={PLAN_BLOCK_TEXT}>
                   {[
                     fmtMin((cd as any).minutes),
                     typeof (cd as any).notes === "string"
@@ -214,7 +211,7 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
 
       {Array.isArray(exercises) && exercises.length > 0 && (
         <DetailSection title="Exercises">
-          <ul className="space-y-1.5">
+          <ul className={PLAN_EX_LIST}>
             {exercises.map((e: any, i: number) => {
               const name = e?.exercise_name || e?.name || `Exercise ${i + 1}`;
 
@@ -239,17 +236,10 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
                   : null;
 
               return (
-                <li
-                  key={`${name}-${i}`}
-                  className="rounded-md border border-white/10 px-3 py-2"
-                >
-                  <div className="text-sm font-medium">{name}</div>
-                  <div className="mt-0.5 text-xs opacity-85">{line}</div>
-                  {notesText && (
-                    <div className="mt-0.5 text-xs opacity-85">
-                      {notesText}
-                    </div>
-                  )}
+                <li key={`${name}-${i}`} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
+                  <div className={PLAN_EX_NAME}>{name}</div>
+                  <div className={PLAN_EX_LINE}>{line}</div>
+                  {notesText && <div className={PLAN_EX_NOTE}>{notesText}</div>}
                 </li>
               );
             })}
@@ -258,16 +248,12 @@ export default function PlanSessionDetail({ item, showPlanDebug }: Props) {
       )}
 
       {(item.planNotes || item.notes) && (
-        <div className="mt-3 text-sm opacity-90">
-          {safeText(item.planNotes ?? item.notes)}
-        </div>
+        <div className={PLAN_NOTES}>{safeText(item.planNotes ?? item.notes)}</div>
       )}
 
       {showPlanDebug && (
         <DetailSection title="Plan debug" defaultOpen={false}>
-          <pre className="text-[11px] whitespace-pre-wrap break-words opacity-85">
-            {safeText({ structure, exercises, raw })}
-          </pre>
+          <pre className={PLAN_DEBUG_PRE}>{safeText({ structure, exercises, raw })}</pre>
         </DetailSection>
       )}
     </div>

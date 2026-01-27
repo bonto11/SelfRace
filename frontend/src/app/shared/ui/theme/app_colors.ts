@@ -167,6 +167,9 @@ export const appColors = {
   // Shadows
   shadowSoft: natur.shadowSoft,
   shadowCard: natur.shadowCard,
+
+  //Strava
+  backgroundStrava: natur.backgroundStrava,
 } as const;
 
 export type AppColors = typeof appColors;

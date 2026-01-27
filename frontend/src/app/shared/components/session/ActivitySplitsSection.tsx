@@ -1,6 +1,30 @@
+// src/app/shared/components/session/ActivitySplitsSection.tsx
 "use client";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
+import {
+  SESSION_SPLITS_WRAP,
+  SESSION_SPLITS_TOTAL,
+  SESSION_SPLITS_BARS_STACK,
+  SESSION_SPLITS_TABLE_WRAP,
+  SESSION_SPLITS_TABLE,
+  SESSION_SPLITS_THEAD,
+  SESSION_SPLITS_THEAD_STYLE,
+  SESSION_SPLITS_THEAD_ROW,
+  SESSION_SPLITS_TH,
+  SESSION_SPLITS_TR,
+  SESSION_SPLITS_TR_STYLE,
+  SESSION_SPLITS_TD,
+  SESSION_SPLITS_TD_RIGHT,
+  SESSION_SPLITS_EMPTY,
+  SESSION_METRIC_ROW,
+  SESSION_METRIC_LABEL,
+  SESSION_METRIC_LABEL_TEXT,
+  SESSION_METRIC_AXIS,
+  SESSION_METRIC_BARS,
+  SESSION_METRIC_BAR,
+  SESSION_METRIC_BAR_STYLE,
+} from "@/app/shared/ui/tokens";
 
 type Props = {
   kind: any[]; // splits alebo laps
@@ -80,15 +104,10 @@ function formatElev(elev: number | null): string {
 
 function buildRows(data: any[]): SplitRow[] {
   return data.map((sp, i) => {
-    const distance_m =
-      toNumber(sp.distance_m) ??
-      toNumber(sp.distance) ??
-      null;
+    const distance_m = toNumber(sp.distance_m) ?? toNumber(sp.distance) ?? null;
 
     const time_s =
-      toNumber(sp.moving_time_s) ??
-      toNumber(sp.elapsed_time_s) ??
-      null;
+      toNumber(sp.moving_time_s) ?? toNumber(sp.elapsed_time_s) ?? null;
 
     const pace_s_per_km =
       toNumber(sp.pace_s_per_km) ??
@@ -175,88 +194,74 @@ export function ActivitySplitsSection({ kind }: Props) {
   );
 
   if (!rows.length) {
-    return <div className="text-sm opacity-80">Žiadne dáta.</div>;
+    return <div className={SESSION_SPLITS_EMPTY}>Žiadne dáta.</div>;
   }
 
-  const totalTime =
-    rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
-
-  const segmentWidthPct = rows.length ? 100 / (rows.length + 8) : 0;
+  const totalTime = rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
 
   return (
-    <div className="text-[11px] sm:text-xs">
-      <div className="mb-3">
-        <div className="mb-1 text-[11px] opacity-70">
-          Total time: {fmtSecondsHMS(totalTime)}
-        </div>
-
-        <div className="space-y-4">
-          <MetricBarRow
-            label="Heart rate"
-            rows={rows}
-            colorClass="bg-rose-500/80"
-            getValue={(r) => r.avg_hr_bpm}
-            getStatValue={(r) => r.avg_hr_bpm}
-            formatStat={(v) => formatHr(v)}
-            statMode="hr"
-          />
-
-          <MetricBarRow
-            label="Pace"
-            rows={rows}
-            colorClass="bg-sky-500/80"
-            getValue={(r) => r.pace_s_per_km}
-            getStatValue={(r) => r.pace_s_per_km}
-            formatStat={(v) => formatPace(v)}
-            statMode="pace"
-          />
-
-          <MetricBarRow
-            label="Elevation"
-            rows={rows}
-            colorClass="bg-amber-500/80"
-            getValue={(r) =>
-              r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
-            }
-            getStatValue={(r) => r.elev_delta_m}
-            formatStat={(v) => formatElev(v)}
-            statMode="elev"
-          />
-
-          <MetricBarRow
-            label="Time"
-            rows={rows}
-            colorClass="bg-emerald-500/80"
-            getValue={(r) => r.time_s}
-            getStatValue={(r) => r.time_s}
-            formatStat={(v) => formatTimeShort(v)}
-            statMode="time"
-          />
-        </div>
+    <div className={SESSION_SPLITS_WRAP}>
+      <div className={SESSION_SPLITS_TOTAL}>
+        Total time: {fmtSecondsHMS(totalTime)}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse">
-          <thead className="border-b border-white/10">
-            <tr className="opacity-70">
-              <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                #
-              </th>
-              <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                Dist. (km)
-              </th>
-              <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                Avg HR (bpm)
-              </th>
-              <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                Pace (min/km)
-              </th>
-              <th className="py-1 pl-1 pr-0.5 text-right align-bottom text-[10px]">
-                Elev. Δm
-              </th>
-              <th className="py-1 px-1 text-center align-bottom text-[10px]">
-                Time (h:mm:ss)
-              </th>
+      <div className={SESSION_SPLITS_BARS_STACK}>
+        <MetricBarRow
+          label="Heart rate"
+          rows={rows}
+          metric="hr"
+          getValue={(r) => r.avg_hr_bpm}
+          getStatValue={(r) => r.avg_hr_bpm}
+          formatStat={(v) => formatHr(v)}
+          statMode="hr"
+        />
+
+        <MetricBarRow
+          label="Pace"
+          rows={rows}
+          metric="pace"
+          getValue={(r) => r.pace_s_per_km}
+          getStatValue={(r) => r.pace_s_per_km}
+          formatStat={(v) => formatPace(v)}
+          statMode="pace"
+        />
+
+        <MetricBarRow
+          label="Elevation"
+          rows={rows}
+          metric="elev"
+          getValue={(r) =>
+            r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
+          }
+          getStatValue={(r) => r.elev_delta_m}
+          formatStat={(v) => formatElev(v)}
+          statMode="elev"
+        />
+
+        <MetricBarRow
+          label="Time"
+          rows={rows}
+          metric="time"
+          getValue={(r) => r.time_s}
+          getStatValue={(r) => r.time_s}
+          formatStat={(v) => formatTimeShort(v)}
+          statMode="time"
+        />
+      </div>
+
+      <div className={SESSION_SPLITS_TABLE_WRAP}>
+        <table className={SESSION_SPLITS_TABLE}>
+          <thead
+            className={SESSION_SPLITS_THEAD}
+            style={SESSION_SPLITS_THEAD_STYLE}
+          >
+            <tr className={SESSION_SPLITS_THEAD_ROW}>
+              <th className={SESSION_SPLITS_TH}>#</th>
+              <th className={SESSION_SPLITS_TH}>Dist. (km)</th>
+              <th className={SESSION_SPLITS_TH}>Avg HR (bpm)</th>
+              <th className={SESSION_SPLITS_TH}>Pace (min/km)</th>
+              <th className={SESSION_SPLITS_TD_RIGHT}>Elev. Δm</th>
+              <th className={SESSION_SPLITS_TH}>Time (h:mm:ss)</th>
             </tr>
           </thead>
 
@@ -264,13 +269,12 @@ export function ActivitySplitsSection({ kind }: Props) {
             {rows.map((r) => (
               <tr
                 key={r.index}
-                className="border-b border-white/5 last:border-b-0"
+                className={SESSION_SPLITS_TR}
+                style={SESSION_SPLITS_TR_STYLE}
               >
-                <td className="py-1 px-1 text-center tabular-nums">
-                  {r.index}
-                </td>
+                <td className={SESSION_SPLITS_TD}>{r.index}</td>
 
-                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                <td className={SESSION_SPLITS_TD}>
                   <span className="sm:hidden">
                     {formatSplitDistanceShort(r.distance_m)}
                   </span>
@@ -279,19 +283,17 @@ export function ActivitySplitsSection({ kind }: Props) {
                   </span>
                 </td>
 
-                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
-                  {formatHr(r.avg_hr_bpm)}
-                </td>
+                <td className={SESSION_SPLITS_TD}>{formatHr(r.avg_hr_bpm)}</td>
 
-                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                <td className={SESSION_SPLITS_TD}>
                   {formatPace(r.pace_s_per_km)}
                 </td>
 
-                <td className="py-1 pl-1 pr-0.5 text-right tabular-nums whitespace-nowrap">
+                <td className={SESSION_SPLITS_TD_RIGHT}>
                   {formatElev(r.elev_delta_m)}
                 </td>
 
-                <td className="py-1 px-1 text-center tabular-nums whitespace-nowrap">
+                <td className={SESSION_SPLITS_TD}>
                   {formatTimeShort(r.time_s)}
                 </td>
               </tr>
@@ -306,7 +308,7 @@ export function ActivitySplitsSection({ kind }: Props) {
 type MetricBarRowProps = {
   label: string;
   rows: SplitRow[];
-  colorClass: string;
+  metric: "hr" | "pace" | "elev" | "time";
   getValue: (r: SplitRow) => number | null;
   getStatValue?: (r: SplitRow) => number | null;
   formatStat: (v: number | null) => string;
@@ -316,7 +318,7 @@ type MetricBarRowProps = {
 function MetricBarRow({
   label,
   rows,
-  colorClass,
+  metric,
   getValue,
   getStatValue,
   formatStat,
@@ -352,30 +354,26 @@ function MetricBarRow({
   const bottomLabel = formatStat(bottomVal);
 
   return (
-    <div className="pt-1">
-      {/* názov metriky – centrovaný */}
-      <div className="mb-1 text-center">
-        <span className="text-[11px] opacity-80">{label}</span>
+    <div className={SESSION_METRIC_ROW}>
+      <div className={SESSION_METRIC_LABEL}>
+        <span className={SESSION_METRIC_LABEL_TEXT}>{label}</span>
       </div>
 
-      {/* čísla vľavo, fixná malá medzera, bary vyplnia zvyšok */}
       <div className="flex items-stretch">
-        {/* pseudo-osa so štatistikami – vľavo */}
-        <div className="flex flex-col justify-between items-start text-[9px] opacity-80 leading-tight mr-2">
+        <div className={SESSION_METRIC_AXIS}>
           <span>{topLabel}</span>
           <span>{midLabel}</span>
           <span>{bottomLabel}</span>
         </div>
 
-        {/* bary – rovnomerne po celej šírke */}
-        <div className="flex-1 flex items-end gap-[6px] h-24">
+        <div className={SESSION_METRIC_BARS}>
           {rows.map((r) => {
             const hPx = heightFor(getValue(r));
             return (
               <div
                 key={`${label}-${r.index}`}
-                className={`flex-1 basis-0 rounded-sm ${colorClass}`}
-                style={{ height: `${hPx}px` }}
+                className={SESSION_METRIC_BAR}
+                style={{ ...SESSION_METRIC_BAR_STYLE[metric], height: `${hPx}px` }}
               />
             );
           })}

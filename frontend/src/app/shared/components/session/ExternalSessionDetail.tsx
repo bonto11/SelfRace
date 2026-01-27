@@ -1,10 +1,18 @@
+// src/app/shared/components/session/ExternalSessionDetail.tsx
 "use client";
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import { safeText } from "@/app/shared/components/session/sessionUtils";
 import type { ExternalSession } from "@/app/shared/components/session/SessionCard";
-
-/** rovnaký mini grid ako pri pláne / aktivitách */
+import {
+  SESSION_MINIGRID_BASE,
+  SESSION_MINIGRID_2COL,
+  SESSION_MINIGRID_3COL,
+  SESSION_MINITILE,
+  SESSION_MINITILE_STYLE,
+  SESSION_MINITILE_LABEL,
+  SESSION_MINITILE_VALUE,
+} from "@/app/shared/ui/tokens";
 
 type MiniMetric = {
   label: string;
@@ -24,24 +32,14 @@ function valOrDash(v: string | number | null): string {
 function MiniMetricGrid({ metrics, cols = 2 }: MiniMetricGridProps) {
   if (!metrics || metrics.length === 0) return null;
 
-  const colClass =
-    cols === 2
-      ? "grid-cols-2 sm:grid-cols-4"
-      : "grid-cols-3 sm:grid-cols-6";
+  const colClass = cols === 2 ? SESSION_MINIGRID_2COL : SESSION_MINIGRID_3COL;
 
   return (
-    <div className={`mt-3 grid ${colClass} gap-2`}>
+    <div className={[SESSION_MINIGRID_BASE, colClass].join(" ")}>
       {metrics.map((m) => (
-        <div
-          key={m.label}
-          className="rounded-lg border border-white/5 bg-white/5 px-2.5 py-1.5"
-        >
-          <div className="text-[10px] opacity-70 leading-tight">
-            {m.label}
-          </div>
-          <div className="text-sm font-semibold tabular-nums leading-tight">
-            {valOrDash(m.value as any)}
-          </div>
+        <div key={m.label} className={SESSION_MINITILE} style={SESSION_MINITILE_STYLE}>
+          <div className={SESSION_MINITILE_LABEL}>{m.label}</div>
+          <div className={SESSION_MINITILE_VALUE}>{valOrDash(m.value)}</div>
         </div>
       ))}
     </div>

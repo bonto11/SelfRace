@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  CARD,
+  // CARD,  <-- preč
   NO_X_OVERFLOW,
   PANEL_PAD,
   PANEL_INNER_STACK,
@@ -10,6 +10,8 @@ import {
   PANEL_TITLE,
   PANEL_PREVIEW,
   PANEL_LIST,
+  PANEL_SURFACE,
+  PANEL_SURFACE_STYLE,
 } from "@/app/shared/ui/tokens";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -91,7 +93,10 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    <div className={[CARD, PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+  <div
+    className={[PANEL_SURFACE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
+    style={PANEL_SURFACE_STYLE}
+  >
       <div className={PANEL_HEADER}>
         <h2 className={PANEL_TITLE}>{headerTitle}</h2>
       </div>

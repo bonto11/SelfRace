@@ -72,7 +72,7 @@ export const natur = {
   editablePlaceholder: "#2A3A1C",
 
   // --- Brand greens ---
-  greenPrimary: "#3FE1A6",
+  greenPrimary: "#BFF159",
   greenSoft: "#2BBE8D",
   greenMuted: "#1E7F61",
 
@@ -134,6 +134,10 @@ export const natur = {
   // --- Shadows ---
   shadowSoft: "0 10px 30px rgba(0,0,0,0.35)",
   shadowCard: "0 14px 50px rgba(0,0,0,0.55)",
+
+  //Strava
+  backgroundStrava: "#FC5200"
+
 } as const;
 
 export type NaturPalette = typeof natur;

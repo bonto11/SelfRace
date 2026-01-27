@@ -2,7 +2,18 @@
 /* ============================================================================
    PANELS (layout only)
 ============================================================================ */
+import type { CSSProperties } from "react";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { SURFACE_INSET } from "./core";
 
+/* ===== Panel surface (semantic, greenish) ============================== */
+
+export const PANEL_SURFACE = [SURFACE_INSET, "overflow-hidden"].join(" ");
+
+export const PANEL_SURFACE_STYLE: CSSProperties = {
+  background: appColors.panelBg,
+  borderColor: appColors.panelBorder,
+};
 export const PANEL_STACK = "space-y-4";
 
 export const PANEL_PAD = "p-3 md:p-4";          // univerzálny padding pre panel

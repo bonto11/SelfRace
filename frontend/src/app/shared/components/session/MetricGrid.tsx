@@ -1,6 +1,18 @@
+// src/app/shared/components/session/MetricGrid.tsx
+"use client";
+
 import { ReactNode } from "react";
-import { SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { safeText } from "./sessionUtils";
+import {
+  SESSION_METRICGRID,
+  SESSION_METRICGRID_COLS_2,
+  SESSION_METRICGRID_COLS_3,
+  SESSION_METRICGRID_COLS_4,
+  SESSION_METRICTILE,
+  SESSION_METRICTILE_STYLE,
+  SESSION_METRICTILE_LABEL,
+  SESSION_METRICTILE_VALUE,
+} from "@/app/shared/ui/tokens";
 
 export type Metric = { label: ReactNode; value: ReactNode };
 
@@ -13,13 +25,13 @@ export function MetricGrid({
 }) {
   const colCls =
     cols === 2
-      ? "sm:grid-cols-2"
+      ? SESSION_METRICGRID_COLS_2
       : cols === 3
-      ? "sm:grid-cols-3"
-      : "sm:grid-cols-4";
+      ? SESSION_METRICGRID_COLS_3
+      : SESSION_METRICGRID_COLS_4;
 
   return (
-    <div className={`mt-1 grid grid-cols-1 ${colCls} gap-3`}>
+    <div className={[SESSION_METRICGRID, colCls].join(" ")}>
       {metrics.map((m, idx) => (
         <MetricTile
           key={`${String(m.label)}-${idx}`}
@@ -33,9 +45,9 @@ export function MetricGrid({
 
 export function MetricTile({ label, value }: Metric) {
   return (
-    <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-      <div className="text-[10px] opacity-70">{safeText(label)}</div>
-      <div className="text-xl font-semibold tabular-nums truncate">
+    <div className={SESSION_METRICTILE} style={SESSION_METRICTILE_STYLE}>
+      <div className={SESSION_METRICTILE_LABEL}>{safeText(label)}</div>
+      <div className={SESSION_METRICTILE_VALUE}>
         {value != null ? safeText(value) : "—"}
       </div>
     </div>
