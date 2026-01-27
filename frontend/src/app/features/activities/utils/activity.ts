@@ -1,7 +1,7 @@
 // src/features/activities/utils/activity.ts
 "use client";
 
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsActivity";
 import { isoDate, isoWeekInfo } from "@/app/shared/utils/time";
 import {
   ActivityRow,
@@ -443,6 +443,6 @@ export function toEffSport(row: {
 }
 
 export function sportUiLabel(s: string): string {
-  const L = THEME.sportLabels;
+  const L = OPTIONS.sportLabels;
   return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

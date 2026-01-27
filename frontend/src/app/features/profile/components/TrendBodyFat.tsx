@@ -8,7 +8,7 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsProfile";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { inputClass } from "@/app/shared/ui";
 
@@ -44,8 +44,8 @@ export default function TrendBodyFat() {
   const [hist, setHist] = React.useState<MetricHistoryRow[]>([]);
   const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
 
-  const _height = THEME.chart.Height;
-  const _pxPerLabel = THEME.chart.pxPerLabel;
+  const _height = OPTIONS.Height;
+  const _pxPerLabel = OPTIONS.pxPerLabel;
 
   React.useEffect(() => {
     if (!userId) return;

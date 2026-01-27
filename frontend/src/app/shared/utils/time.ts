@@ -1,6 +1,4 @@
 // src/utils/time.ts
-import { THEME } from "@/app/shared/theme/tokens";
-
 export function parseHHMMSS(s?: string | null): number | null {
   if (!s) return null;
   const parts = s.trim().split(":").map(Number);
@@ -331,6 +329,6 @@ export function formatDate(value: string | null | undefined): string | null {
 
 /** Lokalizovaný dátum pre summary. */
 export function formatMetricDate(d?: string | null): string {
-  const loc = THEME.i18n?.dateLocale ?? "sk-SK";
+  const loc = "sk-SK";
   return d ? new Date(d).toLocaleDateString(loc) : "—";
 }

@@ -8,7 +8,7 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsProfile";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { inputClass } from "@/app/shared/ui";
 
@@ -46,8 +46,8 @@ export default function TrendVO2Max() {
   const [estHist, setEstHist] = React.useState<MetricHistoryRow[]>([]);
   const [measHist, setMeasHist] = React.useState<MetricHistoryRow[]>([]);
 
-  const _height = THEME.chart.Height;
-  const _pxPerLabel = THEME.chart.pxPerLabel;
+  const _height = OPTIONS.Height;
+  const _pxPerLabel = OPTIONS.pxPerLabel;
   const DAY = 24 * 3600 * 1000;
 
   React.useEffect(() => {
