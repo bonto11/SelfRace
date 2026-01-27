@@ -237,14 +237,14 @@ export default function TrendWeeklyLoad({
         y: {
           beginAtZero: true,
           position: "left",
-          grid: { color: THEME.chart.grid },
+          grid: { color: appColors.chartAxis },
           title: {
             display: true,
             text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
           },
         },
         x: {
-          grid: { color: THEME.chart.gridSoft },
+          grid: { color: appColors.chartAxis },
           ticks: {
             autoSkip: true,
             minRotation: 55,

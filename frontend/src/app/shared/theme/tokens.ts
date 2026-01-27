@@ -1,35 +1,6 @@
 export const THEME = {
-  color: {
-    bgApp:    '#0A0A0A',
-    bgTopbar: '#0A0A0AE6', // rgba(10,10,10,0.9)
-    border:   '#27272A',
-    text:     '#E5E7EB',
-    card:     '#111827',
-    sidebar:  '#111111',
-    panel:    '#1F2937',
-  },
-
   chart: {
-    // série
-    track:    '#FFFFFF14', // rgba(255,255,255,0.08)
-    tick:     '#FFFFFFF2', // rgba(255,255,255,0.95)
-    ref80:    '#4ADE8059', // rgba(74,222,128,0.35)
-    ref20:    '#F8717159', // rgba(248,113,113,0.35)
-
-    linePrimary: '#FFFFFF', //biela
-    lineSecondary: '#FDE047', //zlta
-    lineBase: '#4ADE8059',
-    bandFill: "rgba(16,185,129,0.15)",
-    missing: "#ef4444", // tailwind red-500
-    grid:        '#FFFFFF12',
-    gridSoft:    '#FFFFFF0D',
     legendPosition: 'top' as const,
-
-    base: "bg-sky-400",
-    build: "bg-violet-400",
-    peak: "bg-emerald-400",
-    recovery: "bg-amber-400",
-    default: "bg-slate-400",
 
     /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
     weeklyPxPerLabel: 56,

@@ -24,9 +24,8 @@ import {
   CALENDAR_LEGEND_DOT,
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
-} from "@/app/shared/ui/tokens/calendar";
-
-import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
+  NO_X_OVERFLOW
+} from "@/app/shared/ui/tokens";
 
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
@@ -38,8 +37,6 @@ import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarE
 import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
-
-/* ---------- look: consistent sport colors (theme tokens only) ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,

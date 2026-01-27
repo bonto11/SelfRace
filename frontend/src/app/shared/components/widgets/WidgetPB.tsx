@@ -12,8 +12,6 @@ import { type UserBest } from "@/app/features/bests/types/bests";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/app/shared/utils/time";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { THEME } from "@/app/shared/theme/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
   WIDGET_LOADING_WRAP,

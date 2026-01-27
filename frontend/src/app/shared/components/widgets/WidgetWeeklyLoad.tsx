@@ -36,27 +36,22 @@ export default function WeeklyLoadWidget({
     return ((totalLast - totalPrev) / totalPrev) * 100;
   }, [totalLast, totalPrev]);
 
-  const colNeutral = appColors.stateNeutral;
-  const colUp = appColors.statePositive;
-  const colWarn = appColors.stateWarning;
-  const colDown = appColors.stateCool;
-
   let note = "—";
-  let accent: string = colNeutral;
+  let accent: string = appColors.stateNeutral;
 
   if (!loading) {
     if (diffPct == null) {
       note = "—";
-      accent = colNeutral;
+      accent = appColors.stateNeutral;
     } else if (diffPct > 20) {
       note = "↑ oproti predošlým 7 dňom výrazne viac";
-      accent = colWarn;
+      accent = appColors.stateWarning;
     } else if (diffPct < -20) {
       note = "↓ výrazne menej než predchádzajúcich 7 dní";
-      accent = colDown;
+      accent = appColors.stateWarning;
     } else {
       note = "≈ podobne ako predchádzajúcich 7 dní";
-      accent = colUp;
+      accent = appColors.statePositive;
     }
   }
 
@@ -64,8 +59,6 @@ export default function WeeklyLoadWidget({
     r7?.last?.range?.start && r7?.last?.range?.end
       ? fmtRange(r7.last.range.start, r7.last.range.end)
       : "—";
-
-  const valueText = loading ? "—" : `${h}h ${String(m).padStart(2, "0")}m`;
 
   return (
     <WidgetCard

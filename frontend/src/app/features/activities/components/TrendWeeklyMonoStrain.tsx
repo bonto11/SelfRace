@@ -167,7 +167,7 @@ export default function TrendWeeklyMonoStrain({
           weight: 2,
           min: 0,
           max: monoMax,
-          grid: { color: THEME.chart.grid, drawOnChartArea: true },
+          grid: { color: appColors.chartAxis, drawOnChartArea: true },
           ticks: { color: C.monotony, padding: 8 },
           title: { display: true, text: "Monotony", color: C.monotony },
         },
@@ -181,7 +181,7 @@ export default function TrendWeeklyMonoStrain({
           title: { display: true, text: "Strain", color: C.strain },
         },
         x: {
-          grid: { color: THEME.chart.gridSoft },
+          grid: { color: appColors.chartAxis },
           ticks: {
             autoSkip: true,
             minRotation: 55,
