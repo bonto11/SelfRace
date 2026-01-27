@@ -6,7 +6,7 @@ import TrendVO2Max from "@/app/features/profile/components/TrendVO2Max";
 
 export default function Page() {
   return (
-    <PageShell title="Detail — VO₂Max" showBack>
+    <PageShell title="VO₂Max" showBack>
       <TrendVO2Max />
     </PageShell>
   );

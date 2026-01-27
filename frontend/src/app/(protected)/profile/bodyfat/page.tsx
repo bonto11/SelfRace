@@ -6,7 +6,7 @@ import TrendBodyFat from "@/app/features/profile/components/TrendBodyFat";
 
 export default function Page() {
   return (
-    <PageShell title="Detail — Body Fat" showBack>
+    <PageShell title="Telesný tuk" showBack>
       <TrendBodyFat />
     </PageShell>
   );

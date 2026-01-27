@@ -4,11 +4,7 @@
 import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
 
-import {
-  PAGE_WIDGET_GRID,
-  PAGE_SECTION_STACK,
-  PAGE_GRID_2,
-} from "@/app/shared/ui/tokens/pageTokens";
+import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import ProfileMetricInputs from "@/app/features/profile/components/ProfileMetricInputs";
 import ProfileStaticInputs from "@/app/features/profile/components/ProfileStaticInputs";
@@ -20,20 +16,14 @@ export default function Page() {
   const router = useRouter();
 
   return (
-    <PageShell title="User profile" showBack={false}>
-      {/* Widgety */}
+    <PageShell title="Profil" showBack={false}>
       <div className={PAGE_GRID_2}>
-        <div className={PAGE_WIDGET_GRID}>
-          <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
-          <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
-        </div>
-
-        {/* Inputs panely */}
-        <div className={PAGE_SECTION_STACK}>
-          <ProfileStaticInputs />
-          <ProfileMetricInputs />
-        </div>
+        <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
+        <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
       </div>
+
+      <ProfileStaticInputs />
+      <ProfileMetricInputs />
     </PageShell>
   );
 }
