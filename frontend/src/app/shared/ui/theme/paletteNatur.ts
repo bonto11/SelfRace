@@ -72,7 +72,7 @@ export const natur = {
   editablePlaceholder: "#2A3A1C",
 
   // --- Brand greens ---
-  greenPrimary: "#3FE1A6",
+  greenPrimary: "#BFF159",
   greenSoft: "#2BBE8D",
   greenMuted: "#1E7F61",
 
