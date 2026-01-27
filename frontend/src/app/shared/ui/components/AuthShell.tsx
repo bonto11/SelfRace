@@ -15,10 +15,6 @@ import {
   AUTH_STACK,
   AUTH_FOOTER_ROW,
   AUTH_FOOTER_TEXT,
-  AUTH_BADGE,
-  AUTH_BADGE_STYLE,
-  AUTH_BADGE_DOT,
-  AUTH_BADGE_DOT_STYLE,
 } from "@/app/shared/ui/tokens/auth";
 
 type Props = {
@@ -53,11 +49,6 @@ export default function AuthShell({
             <div className={AUTH_FOOTER_ROW}>
               <span className={AUTH_FOOTER_TEXT}>
                 SelfRace • Priestor pre tvoj osobný rast
-              </span>
-
-              <span className={AUTH_BADGE} style={AUTH_BADGE_STYLE}>
-                <span className={AUTH_BADGE_DOT} style={AUTH_BADGE_DOT_STYLE} />
-                Powered by Strava
               </span>
             </div>
           ) : null}
