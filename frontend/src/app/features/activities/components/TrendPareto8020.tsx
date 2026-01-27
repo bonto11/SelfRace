@@ -4,11 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
+
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { OPTIONS } from "@/app/shared/charts/optionsActivity";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { API_URL } from "@/app/shared/config";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+
 import {
   SPORT_OPTIONS,
   PARETO_DEFAULT_SET,
@@ -32,11 +33,11 @@ import {
   PANEL_INNER_STACK,
 } from "@/app/shared/ui/tokens";
 
-import {
-  ParetoWeekPick,
-  ParetoRow,
-} from "@/app/features/activities/types/pareto";
+import type { ParetoWeekPick, ParetoRow } from "@/app/features/activities/types/pareto";
+import { apiFetchParetoTrend } from "@/app/features/activities/api/analytics_activities";
+
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+
 ensureChartJSRegistered();
 
 export default function TrendPareto8020({
@@ -51,10 +52,12 @@ export default function TrendPareto8020({
   const [selectedSports, setSelectedSports] = useState<string[]>(
     Array.from(PARETO_DEFAULT_SET),
   );
-  const sportParam = useMemo(
-    () => sportsToCSV(selectedSports),
-    [selectedSports],
-  );
+
+  const sportCsv = useMemo(() => {
+    const csv = sportsToCSV(selectedSports);
+    // ak je "all", tak backend necháme bez filtra
+    return !csv || csv === "all" ? null : csv;
+  }, [selectedSports]);
 
   const [rows, setRows] = useState<ParetoRow[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
@@ -67,20 +70,15 @@ export default function TrendPareto8020({
     if (!userId) return;
     let alive = true;
 
-    setLoading(true);
-    const q = new URLSearchParams({ weeks: String(lookback) });
-    q.set("sport", sportParam && sportParam !== "all" ? sportParam : "all");
-    const url = `${API_URL}/analytics/pareto8020/${userId}?${q.toString()}`;
-
     (async () => {
+      setLoading(true);
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const data: ParetoRow[] = Array.isArray(json?.data) ? json.data : [];
+        const data = await apiFetchParetoTrend(userId, lookback, sportCsv);
         if (!alive) return;
-        setRows(data);
+        setRows(Array.isArray(data) ? (data as ParetoRow[]) : []);
         setPickedIdx(null);
-      } catch {
+      } catch (e) {
+        console.error("Pareto trend fetch failed:", e);
         if (!alive) return;
         setRows([]);
       } finally {
@@ -91,7 +89,7 @@ export default function TrendPareto8020({
     return () => {
       alive = false;
     };
-  }, [userId, lookback, sportParam]);
+  }, [userId, lookback, sportCsv]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
@@ -177,9 +175,9 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(
-                r.easy_min || 0,
-              )} • Hard ${fmtSecondsHMS(r.hard_min || 0)}`;
+              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(
+                r.hard_min || 0
+              )}`;
             },
           },
         },
@@ -210,7 +208,7 @@ export default function TrendPareto8020({
         });
       },
     }),
-    [rows, selectedSports, onPickWeek],
+    [_legendPos, rows, selectedSports, onPickWeek],
   );
 
   const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
@@ -227,13 +225,14 @@ export default function TrendPareto8020({
   };
 
   useEffect(() => {
-    if (selectedSports.length === 0)
+    if (selectedSports.length === 0) {
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
+    }
   }, [selectedSports.length]);
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      {/* HEADER = token-only */}
+      {/* HEADER */}
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_TITLE}>Trend 80/20</h2>
@@ -276,7 +275,7 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* BODY = flush */}
+      {/* BODY */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
