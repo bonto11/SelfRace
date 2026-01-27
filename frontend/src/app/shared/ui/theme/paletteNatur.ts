@@ -134,6 +134,10 @@ export const natur = {
   // --- Shadows ---
   shadowSoft: "0 10px 30px rgba(0,0,0,0.35)",
   shadowCard: "0 14px 50px rgba(0,0,0,0.55)",
+
+  //Strava
+  backgroundStrava: "#FC5200"
+
 } as const;
 
 export type NaturPalette = typeof natur;
