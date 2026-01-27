@@ -2,7 +2,6 @@
 "use client";
 
 import Pill from "@/app/shared/ui/components/Pill";
-import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export const SPORT_COLORS: Record<string, string> = {
