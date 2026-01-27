@@ -15,7 +15,7 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-import Button from "@/app/shared/components/ui/Button"; // ✅ NEW
+import Button from "@/app/shared/ui/components/Button"; // ✅ NEW
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
