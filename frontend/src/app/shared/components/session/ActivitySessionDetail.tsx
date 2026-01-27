@@ -15,6 +15,8 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
+import Button from "@/app/shared/components/ui/Button"; // ✅ NEW
+
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
@@ -129,21 +131,13 @@ type SectionProps = {
   children?: ReactNode;
 };
 
-const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(
-  " ",
-);
+const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(" ");
 const INLINE_WRAP_STYLE: CSSProperties = SURFACE_INLINE_STYLE;
 
 const INFO_TILE_CLASS = "rounded-lg border px-2.5 py-1.5";
 const INFO_TILE_STYLE: CSSProperties = {
   background: appColors.backgroundAlt,
   borderColor: appColors.surfaceCardBorder,
-};
-
-const ACTION_DANGER_STYLE: CSSProperties & Record<`--${string}`, string> = {
-  "--pill-bg": "rgba(0,0,0,0)", // neutral fallback if someone strips vars
-  "--pill-border": appColors.statusError,
-  "--pill-text": appColors.statusError,
 };
 
 function ActivitySectionShell({
@@ -181,14 +175,8 @@ function ActivitySectionShell({
             {items && items.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {items.map((t) => (
-                  <div
-                    key={t.label}
-                    className={INFO_TILE_CLASS}
-                    style={INFO_TILE_STYLE}
-                  >
-                    <div className="text-[10px] opacity-70 leading-tight">
-                      {t.label}
-                    </div>
+                  <div key={t.label} className={INFO_TILE_CLASS} style={INFO_TILE_STYLE}>
+                    <div className="text-[10px] opacity-70 leading-tight">{t.label}</div>
                     <div className="text-sm font-semibold tabular-nums leading-tight">
                       {valOrDash(t.value)}
                     </div>
@@ -228,36 +216,31 @@ export function ActivitySessionDetail({
   const s: any | null =
     act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
-  const distTxt = s
-    ? formatDistance(s.distance_m ?? null)
-    : (act.distanceStr ?? "—");
+  const distTxt = s ? formatDistance(s.distance_m ?? null) : (act.distanceStr ?? "—");
   const timeTxt =
-    s && s.moving_time_s != null
-      ? fmtSecondsHMS(s.moving_time_s)
-      : (act.timeStr ?? "—");
+    s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (act.timeStr ?? "—");
   const avgHrTxt = s ? (s.average_heartrate_bpm ?? "—") : (act.avgHr ?? "—");
   const maxHrTxt = s ? (s.max_heartrate_bpm ?? "—") : (act.maxHr ?? "—");
   const cadenceLabel = formatCadenceSummary(s);
   const workoutTypeLabel = workoutTypeLabelFromSummary(s);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
 
-  // hint na šport pre grafy (kadencia steps/min vs rpm)
-  const sportHint = (s?.sport_type_ovrd ??
-    s?.sport_type_fe ??
-    s?.sport_type ??
-    act.sport ??
-    "") as string;
+  const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
 
   // Strava URL
-  const stravaActivityId =
-    (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
+  const stravaActivityId = (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
 
   const stravaUrl =
     stravaActivityId !== null &&
-    (typeof stravaActivityId === "number" ||
-      typeof stravaActivityId === "string")
+    (typeof stravaActivityId === "number" || typeof stravaActivityId === "string")
       ? getStravaActivityUrl(stravaActivityId)
       : null;
+
+  // ✅ NEW: otvorenie Strava linku cez button
+  const openStrava = () => {
+    if (!stravaUrl) return;
+    window.open(stravaUrl, "_blank", "noopener,noreferrer");
+  };
 
   const [streams, setStreams] = useState<StreamsData>({
     time_s: [],
@@ -268,9 +251,7 @@ export function ActivitySessionDetail({
     distance_m: [],
     altitude_m: [],
   });
-  const [routePoints, setRoutePoints] = useState<
-    { lat: number; lng: number }[]
-  >([]);
+  const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([]);
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
@@ -340,32 +321,15 @@ export function ActivitySessionDetail({
 
           if (Array.isArray(latlngRaw)) {
             for (const p of latlngRaw) {
-              if (
-                Array.isArray(p) &&
-                p.length >= 2 &&
-                typeof p[0] === "number" &&
-                typeof p[1] === "number"
-              ) {
+              if (Array.isArray(p) && p.length >= 2 && typeof p[0] === "number" && typeof p[1] === "number") {
                 pts.push({ lat: p[0], lng: p[1] });
-              } else if (
-                p &&
-                typeof p.lat === "number" &&
-                typeof p.lng === "number"
-              ) {
+              } else if (p && typeof p.lat === "number" && typeof p.lng === "number") {
                 pts.push({ lat: p.lat, lng: p.lng });
               }
             }
           }
 
-          setStreams({
-            time_s,
-            hr,
-            duration_s,
-            cadence_rpm,
-            power_w,
-            distance_m,
-            altitude_m,
-          });
+          setStreams({ time_s, hr, duration_s, cadence_rpm, power_w, distance_m, altitude_m });
           setRoutePoints(pts);
         } else {
           setStreams({
@@ -386,10 +350,7 @@ export function ActivitySessionDetail({
           setSplits(anyDt.splits || []);
         }
       } catch (err) {
-        console.error(
-          "[ActivitySessionDetail] getStreams/getDetail error",
-          err,
-        );
+        console.error("[ActivitySessionDetail] getStreams/getDetail error", err);
         setStreams({
           time_s: [],
           hr: [],
@@ -422,58 +383,25 @@ export function ActivitySessionDetail({
   ];
 
   const elevItems: InfoItem[] = [
-    {
-      label: "ELEV GAIN",
-      value: s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—",
-    },
-    {
-      label: "ELEV HIGH",
-      value: s?.elev_high_m != null ? `${s.elev_high_m} m` : "—",
-    },
-    {
-      label: "ELEV LOW",
-      value: s?.elev_low_m != null ? `${s.elev_low_m} m` : "—",
-    },
+    { label: "ELEV GAIN", value: s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—" },
+    { label: "ELEV HIGH", value: s?.elev_high_m != null ? `${s.elev_high_m} m` : "—" },
+    { label: "ELEV LOW", value: s?.elev_low_m != null ? `${s.elev_low_m} m` : "—" },
     cadenceLabel ? { label: "CADENCE", value: cadenceLabel } : null,
   ].filter(Boolean) as InfoItem[];
 
   const powerItems: InfoItem[] = [
-    {
-      label: "AVG SPEED",
-      value:
-        s?.average_speed_mps != null
-          ? `${s.average_speed_mps.toFixed(3)} m/s`
-          : "—",
-    },
-    {
-      label: "MAX SPEED",
-      value:
-        s?.max_speed_mps != null ? `${s.max_speed_mps.toFixed(3)} m/s` : "—",
-    },
-    {
-      label: "AVG POWER",
-      value: s?.average_watts != null ? `${s.average_watts} W` : "—",
-    },
-    {
-      label: "MAX POWER",
-      value: s?.max_watts != null ? `${s.max_watts} W` : "—",
-    },
+    { label: "AVG SPEED", value: s?.average_speed_mps != null ? `${s.average_speed_mps.toFixed(3)} m/s` : "—" },
+    { label: "MAX SPEED", value: s?.max_speed_mps != null ? `${s.max_speed_mps.toFixed(3)} m/s` : "—" },
+    { label: "AVG POWER", value: s?.average_watts != null ? `${s.average_watts} W` : "—" },
+    { label: "MAX POWER", value: s?.max_watts != null ? `${s.max_watts} W` : "—" },
   ];
 
   const envItems: InfoItem[] = [
-    {
-      label: "AVG TEMP",
-      value: s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—",
-    },
-    {
-      label: "CALORIES",
-      value: s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—",
-    },
+    { label: "AVG TEMP", value: s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—" },
+    { label: "CALORIES", value: s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—" },
   ];
 
-  const workoutItems: InfoItem[] = [
-    { label: "WORKOUT TYPE", value: workoutTypeLabel ?? "—" },
-  ];
+  const workoutItems: InfoItem[] = [{ label: "WORKOUT TYPE", value: workoutTypeLabel ?? "—" }];
 
   const showOverview = hasNonEmptyValue(overviewItems);
   const showHr = hasNonEmptyValue(hrItems);
@@ -509,32 +437,20 @@ export function ActivitySessionDetail({
               type="button"
               onClick={act.onToggleFavorite}
               className={SESSION_PILL}
-              style={
-                act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE
-              }
+              style={act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE}
             >
               {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
             </button>
           )}
 
           {act.onEdit && (
-            <button
-              type="button"
-              onClick={act.onEdit}
-              className={SESSION_PILL}
-              style={SESSION_PILL_STYLE}
-            >
+            <button type="button" onClick={act.onEdit} className={SESSION_PILL} style={SESSION_PILL_STYLE}>
               Edit
             </button>
           )}
 
           {act.onDelete && (
-            <button
-              type="button"
-              onClick={act.onDelete}
-              className={SESSION_PILL}
-              style={SESSION_PILL_DANGER_STYLE}
-            >
+            <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>
               Delete
             </button>
           )}
@@ -554,39 +470,31 @@ export function ActivitySessionDetail({
             </button>
           )}
 
+          {/* ✅ NEW: View on Strava ako náš Button variant */}
           {stravaUrl && (
-            <a
-              href={stravaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={SESSION_PILL}
-              style={SESSION_PILL_STYLE}
+            <Button
+              type="button"
+              variant="viewOnStrava"
+              size="sm"
+              onClick={openStrava}
+              title="View on Strava"
             >
               View on Strava
-            </a>
+            </Button>
           )}
         </div>
       )}
 
       {/* PREHĽAD – hlavné veci (default otvorené) */}
       {showOverview && (
-        <ActivitySectionShell
-          title="Prehľad"
-          defaultOpen={true}
-          items={overviewItems}
-        />
+        <ActivitySectionShell title="Prehľad" defaultOpen={true} items={overviewItems} />
       )}
 
       {/* HEART RATE – graf HR */}
       {showHr && (
         <ActivitySectionShell title="Heart rate" items={hrItems}>
           {hasStreams && (
-            <ActivityStreamCharts
-              streams={streams}
-              compact={compactChart}
-              metric="hr"
-              sportHint={sportHint}
-            />
+            <ActivityStreamCharts streams={streams} compact={compactChart} metric="hr" sportHint={sportHint} />
           )}
         </ActivitySectionShell>
       )}
@@ -595,22 +503,12 @@ export function ActivitySessionDetail({
       {showElev && (
         <ActivitySectionShell title="Elevácia & kadencia" items={elevItems}>
           {hasStreams && (
-            <ActivityStreamCharts
-              streams={streams}
-              compact={compactChart}
-              metric="elevation"
-              sportHint={sportHint}
-            />
+            <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" sportHint={sportHint} />
           )}
 
           {hasCadStream && (
             <div className="mt-4">
-              <ActivityStreamCharts
-                streams={streams}
-                compact={compactChart}
-                metric="cadence"
-                sportHint={sportHint}
-              />
+              <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
             </div>
           )}
         </ActivitySectionShell>
@@ -620,28 +518,16 @@ export function ActivitySessionDetail({
       {showPower && (
         <ActivitySectionShell title="Rýchlosť & výkon" items={powerItems}>
           {hasStreams && (
-            <ActivityStreamCharts
-              streams={streams}
-              compact={compactChart}
-              metric="power"
-              sportHint={sportHint}
-            />
+            <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" sportHint={sportHint} />
           )}
         </ActivitySectionShell>
       )}
 
       {/* PROSTREDIE & ŠTATISTIKY – zatiaľ bez grafu */}
-      {showEnv && (
-        <ActivitySectionShell
-          title="Prostredie & štatistiky"
-          items={envItems}
-        />
-      )}
+      {showEnv && <ActivitySectionShell title="Prostredie & štatistiky" items={envItems} />}
 
       {/* TYP TRÉNINGU – bez grafu */}
-      {showWorkout && (
-        <ActivitySectionShell title="Typ tréningu" items={workoutItems} />
-      )}
+      {showWorkout && <ActivitySectionShell title="Typ tréningu" items={workoutItems} />}
 
       {/* MAPA TRASY */}
       {hasRoute && (
@@ -664,9 +550,7 @@ export function ActivitySessionDetail({
         </ActivitySectionShell>
       )}
 
-      {act.notes && (
-        <div className="mt-3 text-sm opacity-90">{safeText(act.notes)}</div>
-      )}
+      {act.notes && <div className="mt-3 text-sm opacity-90">{safeText(act.notes)}</div>}
     </div>
   );
 }
