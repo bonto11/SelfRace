@@ -22,7 +22,7 @@ export default function Page() {
   }, []);
 
   return (
-    <PageShell title="Weekly load trend" showBack>
+    <PageShell title="Týždňová záťaž" showBack>
       <TrendWeeklyLoad
         onPickWeek={handlePick}
         onSportChange={(s) => setSport(s)}

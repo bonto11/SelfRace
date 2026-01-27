@@ -96,8 +96,8 @@ export const natur = {
   chartLine6: "#554954",
   chartLine7: "#65452C",
   chartLine8: "#636C73",
-  chartGrid:  "#FFFFFF12",
-  chartGridSoft: "#FFFFFF0D",
+  chartGrid:  "rgba(255, 255, 255, 0.30)",
+  chartGridSoft: "rgba(255, 255, 255, 0.20)",
   chartAxis: "rgba(178, 199, 190, 0.70)",
   chartBandFill: "rgba(16,185,129,0.15)",
 

@@ -7,6 +7,23 @@ type BuildOpts = {
   showLegend?: boolean;
 };
 
+export const LOOKBACK_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "2", label: "2 týždne" },
+  { value: "4", label: "4 týždne" },
+  { value: "8", label: "8 týždňov" },
+  { value: "12", label: "12 týždňov" },
+];
+
+export const SPORT_SELECT_OPTIONS = [
+  { value: "all", label: "Všetko" },
+  { value: "run", label: "Beh" },
+  { value: "ride", label: "Bicykel" },
+  { value: "strength", label: "Sila" },
+  { value: "mixed", label: "Zmiešané" },
+  { value: "skate", label: "Korčule" },
+  { value: "other", label: "Iné" },
+];
+
 export const OPTIONS = {
   legendPosition: "top" as const,
 

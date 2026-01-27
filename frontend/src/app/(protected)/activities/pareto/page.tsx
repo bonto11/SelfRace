@@ -20,7 +20,7 @@ export default function ParetoPage() {
   }, []);
 
   return (
-    <PageShell title="80/20 mins" showBack>
+    <PageShell title="Pomer 80/20 času v zónach" showBack>
       <TrendPareto8020 onPickWeek={handlePick} />
       <ActivityTable start={range.start} end={range.end} sport={sport} />
     </PageShell>

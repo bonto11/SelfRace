@@ -6,7 +6,7 @@ import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { OPTIONS } from "@/app/shared/charts/optionsActivity";
+import { OPTIONS, LOOKBACK_OPTIONS } from "@/app/shared/charts/optionsActivity";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -20,7 +20,7 @@ import {
 
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
-import { inputClass } from "@/app/shared/ui";
+import SelectField from "@/app/shared/ui/components/SelectField";
 
 import {
   CARD,
@@ -33,12 +33,17 @@ import {
   PANEL_INNER_STACK,
 } from "@/app/shared/ui/tokens";
 
-import type { ParetoWeekPick, ParetoRow } from "@/app/features/activities/types/pareto";
+import type {
+  ParetoWeekPick,
+  ParetoRow,
+} from "@/app/features/activities/types/pareto";
 import { apiFetchParetoTrend } from "@/app/features/activities/api/analytics_activities";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 ensureChartJSRegistered();
+
+type Lookback = 2 | 4 | 8 | 12;
 
 export default function TrendPareto8020({
   onPickWeek,
@@ -46,16 +51,15 @@ export default function TrendPareto8020({
   onPickWeek?: (w: ParetoWeekPick) => void;
 }) {
   const { userId } = useUserId();
-  const [lookback, setLookback] = useState<2 | 4 | 8 | 12>(2);
+  const [lookback, setLookback] = useState<Lookback>(2);
   const [loading, setLoading] = useState(false);
 
   const [selectedSports, setSelectedSports] = useState<string[]>(
-    Array.from(PARETO_DEFAULT_SET),
+    Array.from(PARETO_DEFAULT_SET)
   );
 
   const sportCsv = useMemo(() => {
     const csv = sportsToCSV(selectedSports);
-    // ak je "all", tak backend necháme bez filtra
     return !csv || csv === "all" ? null : csv;
   }, [selectedSports]);
 
@@ -146,7 +150,7 @@ export default function TrendPareto8020({
         },
       ],
     }),
-    [rows, labels, ref80, ref20],
+    [rows, labels, ref80, ref20]
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -208,7 +212,7 @@ export default function TrendPareto8020({
         });
       },
     }),
-    [_legendPos, rows, selectedSports, onPickWeek],
+    [_legendPos, rows, selectedSports, onPickWeek]
   );
 
   const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
@@ -238,19 +242,16 @@ export default function TrendPareto8020({
           <h2 className={PANEL_TITLE}>Trend 80/20</h2>
 
           <div className={PANEL_ACTIONS_INLINE}>
-            <select
-              className={`${inputClass} h-8 text-xs w-[130px]`}
-              value={lookback}
-              onChange={(e) =>
-                setLookback(Number(e.target.value) as 2 | 4 | 8 | 12)
+            <SelectField
+              value={String(lookback)}
+              onValueChange={(value: string) =>
+                setLookback(Number(value) as Lookback)
               }
-              title="Lookback"
-            >
-              <option value={2}>2 týždne</option>
-              <option value={4}>4 týždne</option>
-              <option value={8}>8 týždňov</option>
-              <option value={12}>12 týždňov</option>
-            </select>
+              options={LOOKBACK_OPTIONS}
+              placeholder="—"
+              containerClassName="w-[130px]"
+              variant="editable"
+            />
           </div>
         </div>
 

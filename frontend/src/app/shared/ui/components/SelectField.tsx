@@ -1,3 +1,4 @@
+// src/app/shared/components/ui/SelectField.tsx
 "use client";
 
 import * as React from "react";
@@ -31,7 +32,7 @@ import {
 
 type Option = { value: string; label: string };
 
-type SelectChangeEvent = {
+export type SelectChangeEvent = {
   target: { value: string };
   currentTarget: { value: string };
   preventDefault: () => void;
@@ -44,8 +45,13 @@ type Props = {
   error?: string;
   disabled?: boolean;
   value: string;
-  onChange: (e: SelectChangeEvent) => void;
+
+  /** HTML-like API (optional) */
+  onChange?: (e: SelectChangeEvent) => void;
+
+  /** Preferované API */
   onValueChange?: (value: string) => void;
+
   options: Option[];
   placeholder?: string;
   containerClassName?: string;
@@ -90,6 +96,8 @@ export default function SelectField({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
+  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
+
   function close() {
     setOpen(false);
     setPos(null);
@@ -122,11 +130,13 @@ export default function SelectField({
       preventDefault: () => {},
       stopPropagation: () => {},
     };
-    onChange(evt);
+
+    // ✅ nič nerozbije: staré usage s onChange funguje
+    onChange?.(evt);
+
+    // ✅ nové usage (TrendPareto8020) funguje aj bez onChange
     onValueChange?.(next);
   }
-
-  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
