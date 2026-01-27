@@ -117,12 +117,14 @@ export default function AppHeader({
                 <h1 className={APPBAR_TITLE}>{title}</h1>
 
                 {showPoweredByStrava && (
-                  <img
-                    src={poweredSrc}
-                    alt="Powered by Strava"
-                    className={APPBAR_BRAND_IMG}
-                    draggable={false}
-                  />
+                  <div className={APPBAR_BRAND_WRAP}>
+                    <img
+                      src={poweredSrc}
+                      alt="Powered by Strava"
+                      className={APPBAR_BRAND_IMG}
+                      draggable={false}
+                    />
+                  </div>
                 )}
               </div>
             ) : (
