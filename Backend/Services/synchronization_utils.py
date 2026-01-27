@@ -200,23 +200,6 @@ def _normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
     name = to_str(a.get("name"))
     sport_type_fe = infer_sport_type_fe(sport_type, name, distance_m, moving_s)
 
-    # --- NOVÉ: workout_type + map summary/polyline ---
-    workout_type_raw = a.get("workout_type")
-    workout_type = None
-    if workout_type_raw is not None:
-        try:
-            workout_type = int(workout_type_raw)
-        except Exception:
-            workout_type = None
-
-    map_summary_polyline = None
-    map_polyline = None
-    m = a.get("map")
-    if isinstance(m, dict):
-        map_summary_polyline = m.get("summary_polyline")
-        # pri /athlete/activities tu väčšinou polyline nie je, pri detaile áno
-        map_polyline = m.get("polyline")
-
     return {
         "user_id": user_id,
         "activity_id": to_int(a.get("id")),
@@ -249,10 +232,6 @@ def _normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
         "pr_count": to_int(a.get("pr_count")),
         "calories_kcal": calories_kcal,
         "user_uid": None,
-        # NOVÉ polia:
-        "workout_type": workout_type,
-        "map_summary_polyline": map_summary_polyline,
-        "map_polyline": map_polyline,
     }
 
 

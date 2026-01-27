@@ -11,7 +11,6 @@ from Routes_DB.activities_summary import (
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
     db_get_recent_activity_ids,
-    db_update_activity_map_and_workout,  # ⬅️ map + workout_type
 )
 from Routes_DB.activities_laps import (
     db_delete_laps_for_activity,
@@ -164,19 +163,6 @@ def _import_activities_from_strava(
         for a in items:
             row = _normalize_summary(user_id, a)
 
-            wt = a.get("workout_type", None)
-            if wt is not None:
-                try:
-                    row["workout_type"] = int(wt)
-                except Exception:
-                    pass
-
-            m = a.get("map") or {}
-            if isinstance(m, dict):
-                sp = m.get("summary_polyline")
-                if sp is not None:
-                    row["map_summary_polyline"] = sp
-
             aid = int(row["activity_id"]) if row.get("activity_id") else None
             if not aid:
                 skipped += 1
@@ -235,24 +221,6 @@ def _import_activities_from_strava(
                 # ✅ typing fix
                 laps_raw: List[Dict[str, Any]] = _to_list_of_dicts(laps_any)
                 splits_raw: List[Dict[str, Any]] = _to_list_of_dicts(splits_any)
-
-                m = detail.get("map") or {}
-                map_summary_polyline = None
-                map_polyline = None
-                if isinstance(m, dict):
-                    map_summary_polyline = m.get("summary_polyline")
-                    map_polyline = m.get("polyline")
-
-                detail_wt = detail.get("workout_type", None)
-
-                db_update_activity_map_and_workout(
-                    activity_id=aid,
-                    workout_type=detail_wt,
-                    map_summary_polyline=map_summary_polyline,
-                    map_polyline=map_polyline,
-                    user_jwt=user_jwt,
-                    service=service_mode,
-                )
 
                 mode = _decide_laps_or_splits(laps_raw, splits_raw)
 

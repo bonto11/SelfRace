@@ -15,10 +15,9 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-import Button from "@/app/shared/ui/components/Button"; // ✅ NEW
+import Button from "@/app/shared/ui/components/Button";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
@@ -56,44 +55,43 @@ function safeText(value: any): string {
   }
 }
 
-// má sekcia aspoň jednu „reálnu“ hodnotu?
-function hasNonEmptyValue(items?: InfoItem[]): boolean {
+function isMeaningfulNumber(n: any, { allowZero = false } = {}): n is number {
+  if (n == null) return false;
+  const x = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(x)) return false;
+  if (!allowZero && x === 0) return false;
+  return true;
+}
+
+function valOrNullNumber(
+  n: any,
+  {
+    allowZero = false,
+    fmt,
+  }: { allowZero?: boolean; fmt?: (x: number) => string } = {},
+): string | null {
+  if (!isMeaningfulNumber(n, { allowZero })) return null;
+  const x = typeof n === "number" ? n : Number(n);
+  return fmt ? fmt(x) : String(x);
+}
+
+function nonEmptyText(v: any): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s || s === "—") return null;
+  if (s === "0" || s === "0.0" || s === "0.00" || s === "0.000") return null;
+  return s;
+}
+
+// sekcia má aspoň jednu „reálnu“ hodnotu (číslo != 0 alebo text != 0/—)
+function hasMeaningfulValue(items?: InfoItem[]): boolean {
   if (!items || items.length === 0) return false;
   return items.some((it) => {
     const v = it.value;
     if (v === null || v === undefined) return false;
-    const s = String(v).trim();
-    return s !== "" && s !== "—";
+    if (typeof v === "number") return Number.isFinite(v) && v !== 0;
+    return nonEmptyText(v) != null;
   });
-}
-
-// workout_type → pekný label
-function workoutTypeLabelFromSummary(s: any | null): string | null {
-  if (!s || s.workout_type == null) return null;
-  const wt = s.workout_type;
-  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
-    .toString()
-    .toLowerCase();
-
-  if (sport.includes("run")) {
-    if (wt === 1) return "Race";
-    if (wt === 2) return "Long run";
-    if (wt === 3) return "Workout";
-    return `Run type ${wt}`;
-  }
-
-  if (
-    sport.includes("ride") ||
-    sport.includes("bike") ||
-    sport.includes("cycle")
-  ) {
-    if (wt === 1) return "Race";
-    if (wt === 2) return "Long ride";
-    if (wt === 3) return "Workout";
-    return `Ride type ${wt}`;
-  }
-
-  return `Type ${wt}`;
 }
 
 // kadencia – run → steps/min, bike → rpm
@@ -131,7 +129,9 @@ type SectionProps = {
   children?: ReactNode;
 };
 
-const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(" ");
+const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(
+  " ",
+);
 const INLINE_WRAP_STYLE: CSSProperties = SURFACE_INLINE_STYLE;
 
 const INFO_TILE_CLASS = "rounded-lg border px-2.5 py-1.5";
@@ -147,6 +147,13 @@ function ActivitySectionShell({
   children,
 }: SectionProps) {
   const [open, setOpen] = useState(!!defaultOpen);
+
+  // ak nie je nič meaningful, neukazuj sekciu vôbec
+  const hasItems = hasMeaningfulValue(items);
+
+  // umožni sekcie bez items (mapa, splits, laps, atď.)
+  const showShell = hasItems || !!children;
+  if (!showShell) return null;
 
   return (
     <section className="mt-3">
@@ -172,11 +179,17 @@ function ActivitySectionShell({
             className={[SESSION_DIVIDER, "px-3 py-2 text-sm"].join(" ")}
             style={SESSION_DIVIDER_STYLE}
           >
-            {items && items.length > 0 && (
+            {hasItems && items && items.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {items.map((t) => (
-                  <div key={t.label} className={INFO_TILE_CLASS} style={INFO_TILE_STYLE}>
-                    <div className="text-[10px] opacity-70 leading-tight">{t.label}</div>
+                  <div
+                    key={t.label}
+                    className={INFO_TILE_CLASS}
+                    style={INFO_TILE_STYLE}
+                  >
+                    <div className="text-[10px] opacity-70 leading-tight">
+                      {t.label}
+                    </div>
                     <div className="text-sm font-semibold tabular-nums leading-tight">
                       {valOrDash(t.value)}
                     </div>
@@ -216,27 +229,38 @@ export function ActivitySessionDetail({
   const s: any | null =
     act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
-  const distTxt = s ? formatDistance(s.distance_m ?? null) : (act.distanceStr ?? "—");
+  const distTxt = s
+    ? formatDistance(s.distance_m ?? null)
+    : (act.distanceStr ?? "—");
+
   const timeTxt =
-    s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (act.timeStr ?? "—");
+    s && s.moving_time_s != null
+      ? fmtSecondsHMS(s.moving_time_s)
+      : (act.timeStr ?? "—");
+
   const avgHrTxt = s ? (s.average_heartrate_bpm ?? "—") : (act.avgHr ?? "—");
   const maxHrTxt = s ? (s.max_heartrate_bpm ?? "—") : (act.maxHr ?? "—");
+
   const cadenceLabel = formatCadenceSummary(s);
-  const workoutTypeLabel = workoutTypeLabelFromSummary(s);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
 
-  const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
+  const sportHint = (s?.sport_type_ovrd ??
+    s?.sport_type_fe ??
+    s?.sport_type ??
+    act.sport ??
+    "") as string;
 
   // Strava URL
-  const stravaActivityId = (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
+  const stravaActivityId =
+    (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
 
   const stravaUrl =
     stravaActivityId !== null &&
-    (typeof stravaActivityId === "number" || typeof stravaActivityId === "string")
+    (typeof stravaActivityId === "number" ||
+      typeof stravaActivityId === "string")
       ? getStravaActivityUrl(stravaActivityId)
       : null;
 
-  // ✅ NEW: otvorenie Strava linku cez button
   const openStrava = () => {
     if (!stravaUrl) return;
     window.open(stravaUrl, "_blank", "noopener,noreferrer");
@@ -251,7 +275,11 @@ export function ActivitySessionDetail({
     distance_m: [],
     altitude_m: [],
   });
-  const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([]);
+
+  const [routePoints, setRoutePoints] = useState<
+    { lat: number; lng: number }[]
+  >([]);
+
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
@@ -321,15 +349,32 @@ export function ActivitySessionDetail({
 
           if (Array.isArray(latlngRaw)) {
             for (const p of latlngRaw) {
-              if (Array.isArray(p) && p.length >= 2 && typeof p[0] === "number" && typeof p[1] === "number") {
+              if (
+                Array.isArray(p) &&
+                p.length >= 2 &&
+                typeof p[0] === "number" &&
+                typeof p[1] === "number"
+              ) {
                 pts.push({ lat: p[0], lng: p[1] });
-              } else if (p && typeof p.lat === "number" && typeof p.lng === "number") {
+              } else if (
+                p &&
+                typeof p.lat === "number" &&
+                typeof p.lng === "number"
+              ) {
                 pts.push({ lat: p.lat, lng: p.lng });
               }
             }
           }
 
-          setStreams({ time_s, hr, duration_s, cadence_rpm, power_w, distance_m, altitude_m });
+          setStreams({
+            time_s,
+            hr,
+            duration_s,
+            cadence_rpm,
+            power_w,
+            distance_m,
+            altitude_m,
+          });
           setRoutePoints(pts);
         } else {
           setStreams({
@@ -346,8 +391,8 @@ export function ActivitySessionDetail({
 
         if (dt) {
           const anyDt: any = dt;
-          setLaps(anyDt.laps || []);
-          setSplits(anyDt.splits || []);
+          setLaps(Array.isArray(anyDt.laps) ? anyDt.laps : []);
+          setSplits(Array.isArray(anyDt.splits) ? anyDt.splits : []);
         }
       } catch (err) {
         console.error("[ActivitySessionDetail] getStreams/getDetail error", err);
@@ -361,6 +406,8 @@ export function ActivitySessionDetail({
           altitude_m: [],
         });
         setRoutePoints([]);
+        setLaps([]);
+        setSplits([]);
       }
     })();
 
@@ -378,37 +425,59 @@ export function ActivitySessionDetail({
   ].filter(Boolean) as InfoItem[];
 
   const hrItems: InfoItem[] = [
-    { label: "AVG HR", value: avgHrTxt },
-    { label: "MAX HR", value: maxHrTxt },
-  ];
+    // HR 0 nechceme zobrazovať
+    isMeaningfulNumber(avgHrTxt) ? { label: "AVG HR", value: avgHrTxt } : null,
+    isMeaningfulNumber(maxHrTxt) ? { label: "MAX HR", value: maxHrTxt } : null,
+  ].filter(Boolean) as InfoItem[];
+
+  const elevGain = valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` });
+  const elevHigh = valOrNullNumber(s?.elev_high_m, { fmt: (x) => `${x} m` });
+  const elevLow = valOrNullNumber(s?.elev_low_m, { fmt: (x) => `${x} m` });
 
   const elevItems: InfoItem[] = [
-    { label: "ELEV GAIN", value: s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—" },
-    { label: "ELEV HIGH", value: s?.elev_high_m != null ? `${s.elev_high_m} m` : "—" },
-    { label: "ELEV LOW", value: s?.elev_low_m != null ? `${s.elev_low_m} m` : "—" },
+    elevGain ? { label: "ELEV GAIN", value: elevGain } : null,
+    elevHigh ? { label: "ELEV HIGH", value: elevHigh } : null,
+    elevLow ? { label: "ELEV LOW", value: elevLow } : null,
     cadenceLabel ? { label: "CADENCE", value: cadenceLabel } : null,
   ].filter(Boolean) as InfoItem[];
 
+  const avgSpeed = valOrNullNumber(s?.average_speed_mps, {
+    fmt: (x) => `${x.toFixed(3)} m/s`,
+  });
+  const maxSpeed = valOrNullNumber(s?.max_speed_mps, {
+    fmt: (x) => `${x.toFixed(3)} m/s`,
+  });
+  const avgPower = valOrNullNumber(s?.average_watts, { fmt: (x) => `${x} W` });
+  const maxPower = valOrNullNumber(s?.max_watts, { fmt: (x) => `${x} W` });
+
   const powerItems: InfoItem[] = [
-    { label: "AVG SPEED", value: s?.average_speed_mps != null ? `${s.average_speed_mps.toFixed(3)} m/s` : "—" },
-    { label: "MAX SPEED", value: s?.max_speed_mps != null ? `${s.max_speed_mps.toFixed(3)} m/s` : "—" },
-    { label: "AVG POWER", value: s?.average_watts != null ? `${s.average_watts} W` : "—" },
-    { label: "MAX POWER", value: s?.max_watts != null ? `${s.max_watts} W` : "—" },
-  ];
+    avgSpeed ? { label: "AVG SPEED", value: avgSpeed } : null,
+    maxSpeed ? { label: "MAX SPEED", value: maxSpeed } : null,
+    avgPower ? { label: "AVG POWER", value: avgPower } : null,
+    maxPower ? { label: "MAX POWER", value: maxPower } : null,
+  ].filter(Boolean) as InfoItem[];
+
+  // temp: 0°C môže byť legit, preto allowZero: true
+  const avgTemp = valOrNullNumber(s?.average_temp_c, {
+    allowZero: true,
+    fmt: (x) => `${x} °C`,
+  });
+  // calories 0 je takmer vždy šum -> nech sa nezobrazuje
+  const calories = valOrNullNumber(s?.calories_kcal, {
+    allowZero: false,
+    fmt: (x) => `${x} kcal`,
+  });
 
   const envItems: InfoItem[] = [
-    { label: "AVG TEMP", value: s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—" },
-    { label: "CALORIES", value: s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—" },
-  ];
+    avgTemp ? { label: "AVG TEMP", value: avgTemp } : null,
+    calories ? { label: "CALORIES", value: calories } : null,
+  ].filter(Boolean) as InfoItem[];
 
-  const workoutItems: InfoItem[] = [{ label: "WORKOUT TYPE", value: workoutTypeLabel ?? "—" }];
-
-  const showOverview = hasNonEmptyValue(overviewItems);
-  const showHr = hasNonEmptyValue(hrItems);
-  const showElev = hasNonEmptyValue(elevItems);
-  const showPower = hasNonEmptyValue(powerItems);
-  const showEnv = hasNonEmptyValue(envItems);
-  const showWorkout = hasNonEmptyValue(workoutItems);
+  const showOverview = hasMeaningfulValue(overviewItems);
+  const showHr = hasMeaningfulValue(hrItems);
+  const showElev = hasMeaningfulValue(elevItems);
+  const showPower = hasMeaningfulValue(powerItems);
+  const showEnv = hasMeaningfulValue(envItems);
 
   const hasStreams =
     (streams.time_s?.length ?? 0) > 0 ||
@@ -420,9 +489,9 @@ export function ActivitySessionDetail({
 
   const hasCadStream = (streams.cadence_rpm?.length ?? 0) > 0;
 
-  const hasRoute = routePoints.length > 0;
-  const hasSplits = splits.length > 0;
-  const hasLaps = laps.length > 0;
+  // ✅ presne podľa zadania: zobraz len ak je viac ako 1
+  const hasSplits = Array.isArray(splits) && splits.length > 1;
+  const hasLaps = Array.isArray(laps) && laps.length > 1;
 
   const canShowActions =
     "onEdit" in act && (act.onEdit || act.onDelete || act.onToggleFavorite);
@@ -437,20 +506,32 @@ export function ActivitySessionDetail({
               type="button"
               onClick={act.onToggleFavorite}
               className={SESSION_PILL}
-              style={act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE}
+              style={
+                act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE
+              }
             >
               {act.isFavorite ? "★ Favorite" : "☆ Set favorite"}
             </button>
           )}
 
           {act.onEdit && (
-            <button type="button" onClick={act.onEdit} className={SESSION_PILL} style={SESSION_PILL_STYLE}>
+            <button
+              type="button"
+              onClick={act.onEdit}
+              className={SESSION_PILL}
+              style={SESSION_PILL_STYLE}
+            >
               Edit
             </button>
           )}
 
           {act.onDelete && (
-            <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>
+            <button
+              type="button"
+              onClick={act.onDelete}
+              className={SESSION_PILL}
+              style={SESSION_PILL_DANGER_STYLE}
+            >
               Delete
             </button>
           )}
@@ -470,7 +551,6 @@ export function ActivitySessionDetail({
             </button>
           )}
 
-          {/* ✅ NEW: View on Strava ako náš Button variant */}
           {stravaUrl && (
             <Button
               type="button"
@@ -487,53 +567,72 @@ export function ActivitySessionDetail({
 
       {/* PREHĽAD – hlavné veci (default otvorené) */}
       {showOverview && (
-        <ActivitySectionShell title="Prehľad" defaultOpen={true} items={overviewItems} />
+        <ActivitySectionShell
+          title="Prehľad"
+          defaultOpen={true}
+          items={overviewItems}
+        />
       )}
 
       {/* HEART RATE – graf HR */}
       {showHr && (
         <ActivitySectionShell title="Heart rate" items={hrItems}>
           {hasStreams && (
-            <ActivityStreamCharts streams={streams} compact={compactChart} metric="hr" sportHint={sportHint} />
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="hr"
+              sportHint={sportHint}
+            />
           )}
         </ActivitySectionShell>
       )}
 
-      {/* ELEVÁCIA & KADENCIA – graf elevation + (ak je) graf kadencie */}
+      {/* ELEVÁCIA & KADENCIA */}
       {showElev && (
         <ActivitySectionShell title="Elevácia & kadencia" items={elevItems}>
           {hasStreams && (
-            <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" sportHint={sportHint} />
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="elevation"
+              sportHint={sportHint}
+            />
           )}
 
           {hasCadStream && (
             <div className="mt-4">
-              <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
+              <ActivityStreamCharts
+                streams={streams}
+                compact={compactChart}
+                metric="cadence"
+                sportHint={sportHint}
+              />
             </div>
           )}
         </ActivitySectionShell>
       )}
 
-      {/* RÝCHLOSŤ & VÝKON – graf power (príp. neskôr pace) */}
+      {/* RÝCHLOSŤ & VÝKON */}
       {showPower && (
         <ActivitySectionShell title="Rýchlosť & výkon" items={powerItems}>
           {hasStreams && (
-            <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" sportHint={sportHint} />
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="power"
+              sportHint={sportHint}
+            />
           )}
         </ActivitySectionShell>
       )}
 
-      {/* PROSTREDIE & ŠTATISTIKY – zatiaľ bez grafu */}
-      {showEnv && <ActivitySectionShell title="Prostredie & štatistiky" items={envItems} />}
-
-      {/* TYP TRÉNINGU – bez grafu */}
-      {showWorkout && <ActivitySectionShell title="Typ tréningu" items={workoutItems} />}
-
-      {/* MAPA TRASY */}
-      {hasRoute && (
-        <ActivitySectionShell title="Mapa trasy">
-          <ActivityRouteMap points={routePoints} />
-        </ActivitySectionShell>
+      {/* PROSTREDIE & ŠTATISTIKY */}
+      {showEnv && (
+        <ActivitySectionShell
+          title="Prostredie & štatistiky"
+          items={envItems}
+        />
       )}
 
       {/* SPLITS */}
@@ -550,7 +649,9 @@ export function ActivitySessionDetail({
         </ActivitySectionShell>
       )}
 
-      {act.notes && <div className="mt-3 text-sm opacity-90">{safeText(act.notes)}</div>}
+      {act.notes && (
+        <div className="mt-3 text-sm opacity-90">{safeText(act.notes)}</div>
+      )}
     </div>
   );
 }
