@@ -1,9 +1,25 @@
+// src/features/coach/components/prefs/PlanStartSection.tsx
 "use client";
 
-import Button from "@/app/shared/components/ui/Button";
-import { SECTION } from "@/app/shared/theme/uiTokens";
-import { inputClass } from "@/app/shared/ui";
+import { useMemo, useState } from "react";
 
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import DateField from "@/app/shared/ui/components/DateField";
+import { toast } from "@/app/shared/ui/components/Toast";
+
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  PANEL_STACK,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+  SECTION,
+  SECTION_STYLE,
+  FORM_GRID_SPLIT,
+} from "@/app/shared/ui/tokens";
+
+/* ---------------- date helpers (noon to avoid TZ weirdness) ---------------- */
 function isoTodayPlus(days: number): string {
   const d = new Date();
   d.setHours(12, 0, 0, 0);
@@ -17,7 +33,6 @@ function isoTodayPlus(days: number): string {
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
 const MIN_PLAN_START = () => isoTodayPlus(1);
 
-// helpers na prácu s dátumami (všetko na obed, aby neblbli timezóny)
 function parseISO(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -42,7 +57,6 @@ function addWeeksISO(startISO: string, weeks: number): string {
   return toISO(d);
 }
 
-// zaokrúhlený počet týždňov medzi dátumami (min 1)
 function diffWeeks(startISO: string, endISO: string): number | undefined {
   const s = parseISO(startISO);
   const e = parseISO(endISO);
@@ -60,6 +74,8 @@ type Props = {
 };
 
 export function PlanStartSection({ local, setLocal, markDirty }: Props) {
+  const [open, setOpen] = useState(true);
+
   const minStart = MIN_PLAN_START();
   const start = (local.start_date as string | undefined) ?? "";
   const end = (local.end_date as string | undefined) ?? "";
@@ -73,7 +89,6 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     setLocal((prev) => {
       const base = { ...prev, start_date: nextStart || null };
 
-      // ak už máme weeks, prepočítaj end
       if (base.weeks && Number(base.weeks) > 0) {
         return {
           ...base,
@@ -81,7 +96,6 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
         };
       }
 
-      // ak máme end, prepočítaj weeks
       if (base.end_date) {
         const w = diffWeeks(nextStart, base.end_date);
         return { ...base, weeks: w };
@@ -107,94 +121,126 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     markDirty();
     setLocal((prev) => {
       const v = nextWeeksRaw.trim();
-      if (!v) {
-        return { ...prev, weeks: undefined };
-      }
+      if (!v) return { ...prev, weeks: undefined };
+
       const n = Number(v);
-      if (!Number.isFinite(n) || n <= 0) {
-        return { ...prev, weeks: undefined };
-      }
+      if (!Number.isFinite(n) || n <= 0) return { ...prev, weeks: undefined };
 
       const weeks = Math.round(n);
       const base = { ...prev, weeks };
 
-      // ak máme start_date, dopočítaj end_date
       if (base.start_date) {
-        return {
-          ...base,
-          end_date: addWeeksISO(base.start_date, weeks),
-        };
+        return { ...base, end_date: addWeeksISO(base.start_date, weeks) };
       }
 
       return base;
     });
   };
 
+  const previewText = useMemo(() => {
+    const s = start || "—";
+    const e = end || "—";
+    const w = weeksVal ? `${weeksVal}w` : "—";
+    return `${s} · ${e} · ${w}`;
+  }, [start, end, weeksVal]);
+
+  const guardStart = (iso: string | null) => {
+    const next = iso || "";
+    if (next && next < minStart) {
+      toast.error(`Start date must be ≥ ${minStart}`);
+      applyStart(minStart);
+      return;
+    }
+    applyStart(next);
+  };
+
   return (
-    <section className={SECTION}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Plan duration</div>
-        <div className="text-xs opacity-70">Min start: {minStart}</div>
-      </div>
+    <InputsCard
+      title="Plan duration"
+      subtitle="Start, end a plánovací horizont (weeks)."
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+      always={
+        <div className="text-xs" style={{ color: appColors.textMuted }}>
+          Min start: {minStart}
+        </div>
+      }
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Start / End */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Start
+            </div>
+            <DateField value={start || null} onChange={guardStart} />
+          </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-        {/* START */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] opacity-70">Start date</label>
-          <input
-            type="date"
-            value={start}
-            min={minStart}
-            onChange={(e) => applyStart((e.target as HTMLInputElement).value)}
-            className={inputClass}
-          />
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              End
+            </div>
+            <DateField
+              value={end || null}
+              onChange={(v) => applyEnd(v || "")}
+            />
+          </section>
         </div>
 
-        {/* END */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] opacity-70">End date</label>
-          <input
-            type="date"
-            value={end}
-            min={start || minStart}
-            onChange={(e) => applyEnd((e.target as HTMLInputElement).value)}
-            className={inputClass}
-          />
-        </div>
+        {/* Weeks + actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Planning horizon (weeks)
+            </div>
+            <TextField
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={weeksVal}
+              onChange={(e) => applyWeeks(e.target.value)}
+              placeholder="e.g. 12"
+            />
+          </section>
 
-        {/* WEEKS */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[11px] opacity-70">
-            Planning horizon (weeks)
-          </label>
-          <input
-            type="number"
-            min={1}
-            step={1}
-            inputMode="numeric"
-            value={weeksVal}
-            onChange={(e) => applyWeeks((e.target as HTMLInputElement).value)}
-            className={inputClass}
-            placeholder="e.g. 12"
-          />
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              Quick actions
+            </div>
+            <div className={FORM_GRID_SPLIT}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyStart(DEFAULT_PLAN_START())}
+              >
+                D+2
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => applyStart(MIN_PLAN_START())}
+              >
+                Tomorrow
+              </Button>
+            </div>
+          </section>
         </div>
       </div>
-
-      {/* shortcut tlačidlá len pre start_date */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <Button
-          variant="secondary"
-          onClick={() => applyStart(DEFAULT_PLAN_START())}
-        >
-          Set default (D+2)
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => applyStart(MIN_PLAN_START())}
-        >
-          Start tomorrow
-        </Button>
-      </div>
-    </section>
+    </InputsCard>
   );
 }

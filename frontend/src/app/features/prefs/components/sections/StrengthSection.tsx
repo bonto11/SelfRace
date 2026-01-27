@@ -1,11 +1,13 @@
 // src/features/coach/components/StrengthSection.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import Button from "@/app/shared/components/ui/Button";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { useMemo } from "react";
+
+import Button from "@/app/shared/ui/components/Button";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 type Props = {
   local: any;
@@ -14,23 +16,24 @@ type Props = {
 };
 
 export function StrengthSection({ local, setLocal, markDirty }: Props) {
-  const [open, setOpen] = useState(false);
-
   const settings = local.strength_settings ?? {};
+
   const location: "gym" | "home" | "outdoor" | null = settings.location ?? null;
   const mode: "none" | "bodyweight" | "minimal" | "full_gym" | null =
     settings.equipment_mode ?? null;
+
   const available: string[] = Array.isArray(settings.available)
     ? settings.available
     : [];
+
   const sessionsPerWeek: number | null =
     typeof settings.sessions_per_week === "number"
       ? settings.sessions_per_week
       : settings.sessions_per_week != null
-      ? Number(settings.sessions_per_week) || null
-      : null;
+        ? Number(settings.sessions_per_week) || null
+        : null;
 
-  const preview = useMemo(() => {
+  const previewText = useMemo(() => {
     const locText = location ?? "—";
     const modeText = mode ?? "—";
     const spw = sessionsPerWeek ?? "—";
@@ -39,13 +42,10 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
       gearCount === 0
         ? "none"
         : gearCount <= 3
-        ? available.join(", ")
-        : `${available.slice(0, 3).join(", ")} +${gearCount - 3} more`;
+          ? available.join(", ")
+          : `${available.slice(0, 3).join(", ")} +${gearCount - 3} more`;
 
-    return {
-      line1: `Sessions/week: ${spw} • Location: ${locText} • Mode: ${modeText}`,
-      line2: `Gear (${gearCount}): ${listShort}`,
-    };
+    return `Sessions/week: ${spw} • Location: ${locText} • Mode: ${modeText} | Gear (${gearCount}): ${listShort}`;
   }, [location, mode, available, sessionsPerWeek]);
 
   const setSessionsPerWeek = (next: number | null) => {
@@ -59,36 +59,60 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
     }));
   };
 
+  const setLocation = (next: "gym" | "home" | "outdoor" | null) => {
+    markDirty();
+    setLocal((p: any) => ({
+      ...p,
+      strength_settings: {
+        ...(p.strength_settings ?? {}),
+        location: next,
+      },
+    }));
+  };
+
+  const setMode = (
+    next: "none" | "bodyweight" | "minimal" | "full_gym" | null
+  ) => {
+    markDirty();
+    setLocal((p: any) => ({
+      ...p,
+      strength_settings: {
+        ...(p.strength_settings ?? {}),
+        equipment_mode: next,
+      },
+    }));
+  };
+
+  const toggleGear = (key: string) => {
+    const active = available.includes(key);
+    const next = active
+      ? available.filter((k) => k !== key)
+      : [...available, key];
+
+    markDirty();
+    setLocal((p: any) => ({
+      ...p,
+      strength_settings: {
+        ...(p.strength_settings ?? {}),
+        available: next,
+      },
+    }));
+  };
+
   return (
-    <section className={SECTION}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Strength setup</div>
+    <InputsCard
+      title={
         <div className="flex items-center gap-2">
+          <span>Strength setup</span>
           <InfoPopover text="Nastav koľko silových tréningov chceš týždenne a aké máš vybavenie. Detail cvikov doplní backend mapper." />
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((o) => !o)}
-            labelWhenOpen="Collapse Strength setup"
-            labelWhenClosed="Expand Strength setup"
-          />
         </div>
-      </div>
-
-      {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-80 select-none",
-          ].join(" ")}
-        >
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <span>{preview.line1}</span>
-            <span>{preview.line2}</span>
-          </div>
-        </div>
-      )}
-
-      {open && (
+      }
+      subtitle="Frekvencia, miesto, vybavenie a dostupné náradie."
+      preview={previewText}
+      defaultOpen={false}
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* Sessions per week */}
           <div>
@@ -106,9 +130,11 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
               >
                 −
               </Button>
+
               <div className="min-w-[42px] text-center text-sm">
                 {sessionsPerWeek ?? 2}
               </div>
+
               <Button
                 type="button"
                 size="sm"
@@ -121,6 +147,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
               >
                 +
               </Button>
+
               <Button
                 type="button"
                 size="sm"
@@ -132,6 +159,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                 —
               </Button>
             </div>
+
             <div className="text-[11px] opacity-60 mt-1">
               Odporúčanie: 1–3. Nula = nechceš silu v pláne.
             </div>
@@ -150,16 +178,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                     size="sm"
                     variant="prefs"
                     active={active}
-                    onClick={() => {
-                      markDirty();
-                      setLocal((p: any) => ({
-                        ...p,
-                        strength_settings: {
-                          ...(p.strength_settings ?? {}),
-                          location: active ? null : loc,
-                        },
-                      }));
-                    }}
+                    onClick={() => setLocation(active ? null : loc)}
                   >
                     {loc}
                   </Button>
@@ -182,16 +201,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                       size="sm"
                       variant="prefs"
                       active={active}
-                      onClick={() => {
-                        markDirty();
-                        setLocal((p: any) => ({
-                          ...p,
-                          strength_settings: {
-                            ...(p.strength_settings ?? {}),
-                            equipment_mode: active ? null : m,
-                          },
-                        }));
-                      }}
+                      onClick={() => setMode(active ? null : m)}
                     >
                       {m}
                     </Button>
@@ -221,9 +231,6 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                 ] as const
               ).map((key) => {
                 const active = available.includes(key);
-                const next = active
-                  ? available.filter((k: string) => k !== key)
-                  : [...available, key];
                 return (
                   <Button
                     key={key}
@@ -231,16 +238,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                     size="xs"
                     variant="prefs"
                     active={active}
-                    onClick={() => {
-                      markDirty();
-                      setLocal((p: any) => ({
-                        ...p,
-                        strength_settings: {
-                          ...(p.strength_settings ?? {}),
-                          available: next,
-                        },
-                      }));
-                    }}
+                    onClick={() => toggleGear(key)}
                     className="text-xs"
                   >
                     {key}
@@ -250,7 +248,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             </div>
           </div>
         </div>
-      )}
-    </section>
+      </div>
+    </InputsCard>
   );
 }

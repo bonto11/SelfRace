@@ -1,20 +1,19 @@
-import { THEME } from "@/app/shared/theme/tokens";
 import type {
   StaticProfile,
   LatestMetricsMap,
 } from "@/app/features/profile/types/profile";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export function levelColor(label: string) {
   const l = label.toLowerCase();
   if (l.includes("excellent") || l.includes("elite"))
-    return (THEME as any)?.chart?.excellent ?? "#10B981";
-  if (l.includes("superior"))
-    return (THEME as any)?.chart?.superior ?? "#14B8A6";
-  if (l.includes("good")) return (THEME as any)?.chart?.good ?? "#22D3EE";
+    return appColors.stateExcellent;
+  if (l.includes("superior")) return appColors.stateSuperior;
+  if (l.includes("good")) appColors.stateGood;
   if (l.includes("fair") || l.includes("average"))
-    return (THEME as any)?.chart?.fair ?? "#F59E0B";
-  if (l.includes("poor")) return (THEME as any)?.chart?.poor ?? "#F43F5E";
-  return (THEME as any)?.chart?.neutral ?? "#64748B";
+    return appColors.stateAverage;
+  if (l.includes("poor")) return appColors.statePoor;
+  return appColors.stateNeutral;
 }
 
 export function summarizeStaticProfile(profile: StaticProfile | null) {
@@ -72,7 +71,7 @@ export function hexWithAlpha(hex?: string, a = 0.18): string {
             .split("")
             .map((c) => c + c)
             .join(""),
-          16
+          16,
         )
       : parseInt(h, 16);
   const r = (v >> 16) & 255;
@@ -83,21 +82,21 @@ export function hexWithAlpha(hex?: string, a = 0.18): string {
 
 export function colorForBodyFatBand(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-  if (l.includes("athlete")) return THEME.chart.athletes;
-  if (l.includes("fitness")) return THEME.chart.fitness;
-  if (l.includes("average")) return THEME.chart.average;
-  if (l.includes("essential")) return THEME.chart.essential;
-  if (l.includes("obese")) return THEME.chart.obese;
-  return THEME.chart.neutral;
+  if (l.includes("athlete")) return appColors.stateAthletes;
+  if (l.includes("fitness")) return appColors.stateFitness;
+  if (l.includes("average")) return appColors.stateAverage;
+  if (l.includes("essential")) return appColors.stateEssential;
+  if (l.includes("obese")) return appColors.stateObese;
+  return appColors.stateNeutral;
 }
 
 export function colorForVo2RangeLabel(label: string) {
   const l = (label || "").toLowerCase();
   if (l.includes("excellent") || l.includes("elite"))
-    return THEME.chart.excellent;
-  if (l.includes("superior")) return THEME.chart.superior;
-  if (l.includes("good")) return THEME.chart.good;
-  if (l.includes("fair") || l.includes("average")) return THEME.chart.fair;
-  if (l.includes("poor")) return THEME.chart.poor;
-  return THEME.chart.neutral;
+    return appColors.stateExcellent;
+  if (l.includes("superior")) return appColors.stateSuperior;
+  if (l.includes("good")) return appColors.stateGood;
+  if (l.includes("fair") || l.includes("average")) return appColors.stateFair;
+  if (l.includes("poor")) return appColors.statePoor;
+  return appColors.stateNeutral;
 }

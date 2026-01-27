@@ -117,7 +117,7 @@ class StravaActivitiesClient:
             params={
                 "keys": (
                     "time,heartrate,distance,altitude,"
-                    "velocity_smooth,cadence,watts,latlng,"
+                    "velocity_smooth,cadence,watts,"
                     "grade_smooth,temp,moving"
                 ),
                 "key_by_type": "true",

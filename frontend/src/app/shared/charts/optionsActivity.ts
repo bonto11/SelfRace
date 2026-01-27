@@ -1,5 +1,5 @@
 import type { ChartOptions } from "chart.js";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type BuildOpts = {
   onClick?: ChartOptions<"bar" | "line">["onClick"];
@@ -7,11 +7,56 @@ type BuildOpts = {
   showLegend?: boolean;
 };
 
+export const LOOKBACK_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "2", label: "2 týždne" },
+  { value: "4", label: "4 týždne" },
+  { value: "8", label: "8 týždňov" },
+  { value: "12", label: "12 týždňov" },
+];
+
+export const SPORT_SELECT_OPTIONS = [
+  { value: "all", label: "Všetko" },
+  { value: "run", label: "Beh" },
+  { value: "ride", label: "Bicykel" },
+  { value: "strength", label: "Sila" },
+  { value: "mixed", label: "Zmiešané" },
+  { value: "skate", label: "Korčule" },
+  { value: "other", label: "Iné" },
+];
+
+export const OPTIONS = {
+  legendPosition: "top" as const,
+
+  weeklyPxPerLabel: 56 /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */,
+
+  Height: 360,
+  HeightCompact: 180,
+
+  bar: {
+    maxThickness: 12,
+    categoryPct: 0.6,
+    barPct: 0.7,
+  },
+  pxPerLabel: 26, // 🔒 konzistencia barov + vodorovný layout
+
+  sportLabels: {
+    run: "Run",
+    bike: "Bike",
+    strength: "Strength",
+    mixed: "Mixed",
+    skate: "Skate",
+    walk: "Walk",
+    hike: "Hike",
+    swim: "Swim",
+    other: "Other",
+  } as Record<string, string>,
+};
+
 export function buildWeeklyOptions(
   metric: "km" | "time" | "trimp",
   monoMax: number,
   strainMax: number,
-  extra?: BuildOpts
+  extra?: BuildOpts,
 ): ChartOptions<"bar" | "line"> {
   return {
     responsive: true,
@@ -21,9 +66,9 @@ export function buildWeeklyOptions(
     // ✅ konzistentné bary (rovnaké ako widgety)
     datasets: {
       bar: {
-        maxBarThickness: THEME.chart.bar.maxThickness,
-        categoryPercentage: THEME.chart.bar.categoryPct,
-        barPercentage: THEME.chart.bar.barPct,
+        maxBarThickness: OPTIONS.bar.maxThickness,
+        categoryPercentage: OPTIONS.bar.categoryPct,
+        barPercentage: OPTIONS.bar.barPct,
       },
     },
 
@@ -33,7 +78,7 @@ export function buildWeeklyOptions(
 
     plugins: {
       legend: {
-        position: THEME.chart.legendPosition,
+        position: OPTIONS.legendPosition,
         display: extra?.showLegend ?? true,
         labels: {
           usePointStyle: true,
@@ -68,19 +113,19 @@ export function buildWeeklyOptions(
         title: {
           display: true,
           text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
-          color: THEME.color.text,
+          color: appColors.chartGrid,
         },
-        ticks: { color: THEME.color.text },
-        grid: { color: THEME.chart.grid },
+        ticks: { color: appColors.chartGrid },
+        grid: { color: appColors.chartGrid },
       },
       y1: {
         position: "right",
         min: 0,
         max: Math.max(3, Math.ceil(monoMax + 0.3)),
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Monotony", color: THEME.chart.monotony },
-        ticks: { color: THEME.chart.monotony },
-        border: { color: THEME.chart.monotony },
+        title: { display: true, text: "Monotony", color: appColors.chartLine1 },
+        ticks: { color: appColors.chartLine1 },
+        border: { color: appColors.chartLine1 },
         weight: 1,
       },
       y2: {
@@ -88,13 +133,13 @@ export function buildWeeklyOptions(
         min: 0,
         max: Math.ceil(strainMax * 1.1),
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Strain", color: THEME.chart.strain },
-        ticks: { color: THEME.chart.strain },
-        border: { color: THEME.chart.strain },
+        title: { display: true, text: "Strain", color: appColors.chartLine2 },
+        ticks: { color: appColors.chartLine2 },
+        border: { color: appColors.chartLine2 },
         weight: 1,
       },
       x: {
-        grid: { color: THEME.chart.gridSoft },
+        grid: { color: appColors.chartGrid },
         ticks: {
           autoSkip: false,
           maxRotation: 90,

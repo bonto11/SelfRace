@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { toast } from "@/app/shared/components/ui/Toast";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
   apiGetAppSubscriptionStatus,
@@ -28,8 +28,9 @@ import BillingStatusCard from "./BillingStatusCard";
 import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
 
@@ -41,14 +42,18 @@ type PlannedChange = {
 
 export default function BillingPanel() {
   const { userId } = useUserId();
+
   const [status, setStatus] = useState<AppSubscriptionStatus | null>(null);
   const [history, setHistory] = useState<AppUserSubscription[]>([]);
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
+
   const [activeTierCode, setActiveTierCode] = useState<string>(
     () => getSubscriptionTier() || "free"
   );
-  const [open, setOpen] = useState(true);
+
+  // InputsCard default: closed
+  const [open, setOpen] = useState(false);
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
   const tiers: AppSubscriptionTier[] = status?.tiers ?? [];
@@ -56,9 +61,15 @@ export default function BillingPanel() {
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
 
-  // --------- LOAD STATUS ----------
+  // --- load status ---
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setStatus(null);
+      setError(null);
+      setLoading(null);
+      return;
+    }
+
     let alive = true;
 
     (async () => {
@@ -67,15 +78,19 @@ export default function BillingPanel() {
       try {
         const st = await apiGetAppSubscriptionStatus(userId);
         if (!alive) return;
+
         if (st) {
           const code = st.tier_code || "free";
           setStatus(st);
           setActiveTierCode(code);
           setSubscriptionTier(code);
+        } else {
+          // fallback
+          setStatus(null);
         }
       } catch (e: any) {
         if (!alive) return;
-        setError(e?.message || "Failed to load subscription status.");
+        setError(e?.message || "Nepodarilo sa načítať stav predplatného.");
       } finally {
         if (!alive) return;
         setLoading(null);
@@ -87,19 +102,24 @@ export default function BillingPanel() {
     };
   }, [userId]);
 
-  // --------- LOAD HISTORY ----------
+  // --- load history ---
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setHistory([]);
+      return;
+    }
+
     let alive = true;
 
     (async () => {
+      // nech neprepisuje "status" loading ak beží
       setLoading((prev) => prev || "history");
       try {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
         if (!alive) return;
         setHistory(h);
       } catch {
-        // history je len info, chybu ignorujeme
+        // len info
       } finally {
         if (!alive) return;
         setLoading(null);
@@ -111,10 +131,9 @@ export default function BillingPanel() {
     };
   }, [userId]);
 
-  // --------- ACTIONS ----------
   async function handleSetTier(tierCode: string) {
     if (!userId) {
-      toast.error("Missing user id.");
+      toast.error("Chýba používateľ – prihlás sa znova.");
       return;
     }
     if (!tierCode) return;
@@ -123,7 +142,7 @@ export default function BillingPanel() {
     setError(null);
     try {
       await apiSetAppSubscriptionTierManual(userId, tierCode);
-      toast.success(`Tier switched to "${tierCode}".`);
+      toast.success("Program bol zmenený.");
 
       const st = await apiGetAppSubscriptionStatus(userId);
       const code = st?.tier_code || tierCode;
@@ -135,7 +154,7 @@ export default function BillingPanel() {
       const h = await apiGetAppSubscriptionHistory(userId, 20);
       setHistory(h);
     } catch (e: any) {
-      const msg = e?.message || "Failed to set subscription tier.";
+      const msg = e?.message || "Nepodarilo sa zmeniť program.";
       setError(msg);
       toast.error(msg);
     } finally {
@@ -150,7 +169,7 @@ export default function BillingPanel() {
     setError(null);
     try {
       await apiCancelPlannedSubscriptionChange(userId);
-      toast.success("Plánovaná zmena zrušená. Zostáva aktuálny program.");
+      toast.success("Plánovaná zmena bola zrušená.");
 
       const st = await apiGetAppSubscriptionStatus(userId);
       const code = st?.tier_code || "free";
@@ -162,7 +181,7 @@ export default function BillingPanel() {
       const h = await apiGetAppSubscriptionHistory(userId, 20);
       setHistory(h);
     } catch (e: any) {
-      const msg = e?.message || "Failed to cancel scheduled change.";
+      const msg = e?.message || "Nepodarilo sa zrušiť plánovanú zmenu.";
       setError(msg);
       toast.error(msg);
     } finally {
@@ -171,26 +190,31 @@ export default function BillingPanel() {
   }
 
   const previewText = useMemo(() => {
-    if (!userId) return "Musíš byť prihlásený, aby si videl billing.";
+    if (!userId) return "Neprihlásený.";
+
+    // keď je zatvorené, toto je dosť podstatné aby to neklamalo
+    if (loading === "status" && !status) return "Načítavam stav predplatného…";
 
     const tier = status?.tier_code || activeTierCode || "free";
-
-    const parts: string[] = [`Tier: ${tier.toUpperCase()}`];
+    const parts: string[] = [`Program: ${tier.toUpperCase()}`];
 
     if (plannedChange?.kind) {
       const kindLabel =
         plannedChange.kind === "upgrade"
-          ? "upgrade"
+          ? "zvýšenie"
           : plannedChange.kind === "downgrade"
-          ? "downgrade"
-          : "cancel";
+            ? "zníženie"
+            : "zrušenie";
+
       const toTier = plannedChange.to_tier_code
         ? plannedChange.to_tier_code.toUpperCase()
         : "FREE";
+
       const when = plannedChange.effective_from
         ? plannedChange.effective_from.slice(0, 10)
         : null;
-      parts.push(`Planned ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
+
+      parts.push(`Plán: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
     }
 
     const quota = (status as any)?.ai_quota as
@@ -209,112 +233,70 @@ export default function BillingPanel() {
       const pct = Math.round(
         (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100
       );
-      parts.push(`AI usage ~${pct}%`);
+      parts.push(`AI: ~${pct}%`);
     }
 
     return parts.join(" • ");
-  }, [userId, status, activeTierCode, plannedChange]);
+  }, [userId, loading, status, activeTierCode, plannedChange]);
 
-  // --------- RENDER ----------
-
-  if (!userId) {
-    return (
-      <section className={SECTION}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm font-medium opacity-90">
-            Billing & Subscription
-          </div>
-        </div>
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-70 select-none",
-          ].join(" ")}
-        >
-          Musíš byť prihlásený, aby si videl nastavenia účtu.
-        </div>
-      </section>
-    );
-  }
+  const disabledNoUser = !userId;
 
   return (
-    <section className={SECTION}>
-      {/* header */}
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <div className="text-sm font-medium opacity-90">
-            Billing & Subscription
+    <InputsCard
+      title="Predplatné"
+      subtitle="Programy, AI limity a história."
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+      actions={null}
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {disabledNoUser ? (
+          <div className="text-sm opacity-80">
+            Musíš byť prihlásený, aby si videl nastavenia účtu.
           </div>
-          <div className="text-xs opacity-70">
-            Tiers, AI limity a história fakturácie.
-          </div>
-        </div>
-
-        <DisclosureToggle
-          open={open}
-          onToggle={() => setOpen((v) => !v)}
-          labelWhenOpen="Collapse billing section"
-          labelWhenClosed="Expand billing section"
-        />
-      </div>
-
-      {/* closed preview */}
-      {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-70 select-none",
-          ].join(" ")}
-        >
-          {previewText}
-        </div>
-      )}
-
-      {/* obsah billing-u */}
-      {open && (
-        <div className="space-y-6">
-          {/* 1) Status + usage bar + cancel planned change */}
-          <BillingStatusCard
-            status={status}
-            activeTierCode={activeTierCode}
-            plannedChange={plannedChange}
-            loadingStatus={isStatusLoading}
-            loadingAny={isAnyActionLoading}
-            error={error}
-            onCancelPlannedChange={handleCancelPlannedChange}
-          />
-
-          {/* 2) Tiers grid */}
-          <section className="rounded-xl border border-white/10 bg-black/40 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-base font-semibold">Tiers</h2>
-                <p className="text-xs opacity-70">
-                  DEV: upgrade hneď, downgrade alebo prechod na free od ďalšieho
-                  obdobia.
-                </p>
-              </div>
-            </div>
-
-            <BillingTierSelector
-              tiers={tiers}
+        ) : (
+          <>
+            <BillingStatusCard
+              status={status}
               activeTierCode={activeTierCode}
               plannedChange={plannedChange}
-              isBusy={isAnyActionLoading}
-              onSetTier={handleSetTier}
+              loadingStatus={isStatusLoading}
+              loadingAny={isAnyActionLoading}
+              error={error}
+              onCancelPlannedChange={handleCancelPlannedChange}
             />
-          </section>
 
-          {/* 3) History */}
-          <section className="rounded-xl border border-white/10 bg-black/40 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">History</h2>
+            <div className={PANEL_STACK}>
+              <section>
+                <div className="text-sm font-semibold">Programy</div>
+                <div className="mt-1 text-xs opacity-75">
+                  DEV režim: zvýšenie hneď, zníženie alebo prechod na free od
+                  ďalšieho obdobia.
+                </div>
+
+                <div className="mt-2">
+                  <BillingTierSelector
+                    tiers={tiers}
+                    activeTierCode={activeTierCode}
+                    plannedChange={plannedChange}
+                    isBusy={isAnyActionLoading}
+                    onSetTier={handleSetTier}
+                  />
+                </div>
+              </section>
+
+              <section>
+                <div className="text-sm font-semibold">História</div>
+                <div className="mt-2">
+                  <BillingHistory history={history} />
+                </div>
+              </section>
             </div>
-
-            <BillingHistory history={history} />
-          </section>
-        </div>
-      )}
-    </section>
+          </>
+        )}
+      </div>
+    </InputsCard>
   );
 }

@@ -1,0 +1,172 @@
+// src/shared/theme/app_colors.ts
+// App semantic color map.
+// IMPORTANT: references to palette tokens only.
+
+import { natur } from "./paletteNatur";
+
+export const appColors = {
+  // Core backgrounds
+  backgroundMain: natur.backgroundMain,
+  backgroundAlt: natur.backgroundAlt,
+
+  // Surfaces
+  surfaceCard: natur.surfaceGlass,
+  surfaceCardHover: natur.surfaceGlassHover,
+  surfaceSolid: natur.surfaceSolid,
+  surfaceSolidHover: natur.surfaceSolidHover,
+
+  // Borders
+  surfaceCardBorder: natur.borderGlass,
+  widgetBorder: natur.borderWidget,
+
+  // Accents
+  accentYellowSoft: natur.accentYellowSoft,
+  accentYellowDim: natur.accentYellowDim,
+
+  divider: natur.divider,
+  overlay: natur.overlay,
+
+  // Typography
+  textPrimary: natur.textPrimary,
+  textSecondary: natur.textSecondary,
+  textMuted: natur.textMuted,
+  textInverse: natur.textInverse,
+
+  // Brand / accents
+  brandPrimary: natur.greenPrimary,
+  brandSecondary: natur.greenSoft,
+  brandMuted: natur.greenMuted,
+  accentTeal: natur.accentTeal,
+  accentLime: natur.accentLime,
+
+  // Focus
+  focusRing: natur.focusRing,
+
+  // Status
+  statusSuccess: natur.statusSuccess,
+  statusWarning: natur.statusWarning,
+  statusError: natur.statusError,
+  statusInfo: natur.statusInfo,
+
+  // Buttons
+  buttonPrimaryBg: natur.greenPrimary,
+  buttonPrimaryBgHover: natur.greenSoft,
+  buttonPrimaryText: natur.textInverse,
+
+  buttonSecondaryBg: natur.surfaceGlass,
+  buttonSecondaryBgHover: natur.surfaceGlassHover,
+  buttonSecondaryBorder: natur.borderGlass,
+  buttonSecondaryText: natur.textPrimary,
+
+  buttonGhostBg: natur.buttonGhostBg,
+  buttonGhostBgHover: natur.buttonGhostBgHover,
+  buttonGhostText: natur.textPrimary,
+
+  buttonDangerBg: natur.statusError,
+  buttonDangerBgHover: natur.statusErrorHover,
+  buttonDangerText: natur.textPrimary,
+
+  buttonMainBg: natur.main,
+  buttonMainBgHover: natur.mainSoft,
+  buttonMainText: natur.mainButtonText,
+
+  // Pills
+  pillBg: natur.pillBg,
+  pillBgHover: natur.pillBgHover,
+  pillBorder: natur.pillBorder,
+  pillText: natur.textSecondary,
+  pillActiveBg: natur.pillActiveBg,
+  pillActiveBorder: natur.pillActiveBorder,
+  pillActiveText: natur.textPrimary,
+
+  // Inputs (default)
+  inputBg: natur.inputBg,
+  inputBgHover: natur.inputBgHover,
+  inputBorder: natur.inputBorder,
+  inputBorderFocus: natur.inputBorderFocus,
+  inputText: natur.textPrimary,
+  inputPlaceholder: natur.textMuted,
+
+  // Inputs (readonly)
+  readonlyBg: natur.inputBg,
+  readonlyBgHover: natur.inputBgHover,
+  readonlyBorder: natur.inputBorder,
+  readonlyBorderFocus: natur.inputBorderFocus,
+  readonlyText: natur.textPrimary,
+  readonlyPlaceholder: natur.textMuted,
+  readonlyRing: natur.focusRing,
+
+  // Inputs (editable)
+  editableBg: natur.editableBg,
+  editableBgHover: natur.editableBgHover,
+  editableBorder: natur.editableBorder,
+  editableBorderFocus: natur.editableBorderFocus,
+  editableText: natur.editableText,
+  editablePlaceholder: natur.editablePlaceholder,
+  editableRing: natur.editableBorderFocus,
+
+  // Slider
+  sliderTrack: natur.sliderTrack,
+  sliderTrackActive: natur.sliderTrackActive,
+  sliderThumb: natur.sliderThumb,
+  sliderThumbRing: natur.sliderThumbRing,
+
+  // Charts
+  chartLine1: natur.chartLine1,
+  chartLine2: natur.chartLine2,
+  chartLine3: natur.chartLine3,
+  chartLine4: natur.chartLine4,
+  chartLine5: natur.chartLine5,
+  chartLine6: natur.chartLine6,
+  chartLine7: natur.chartLine7,
+  chartLine8: natur.chartLine8,
+  chartGrid: natur.chartGrid,
+  chartAxis: natur.chartAxis,
+  chartBandFill: natur.chartBandFill,
+
+  chartRun: natur.chartLine1,
+  chartStrength: natur.chartLine2,
+  chartBike: natur.chartLine3,
+  chartSwim: natur.chartLine4,
+  chartMixed: natur.chartLine5,
+  chartSkate: natur.chartLine6,
+  chartWalk: natur.chartLine7,
+  chartOther: natur.chartLine8,
+
+  //State
+  stateExcellent: natur.stateExcellent,
+  stateSuperior: natur.stateSuperior,
+  stateGood: natur.stateGood,
+  stateFair: natur.stateFair,
+  statePoor: natur.statePoor,
+  stateNeutral: natur.stateNeutral,
+
+  stateAthletes: natur.stateAthletes,
+  stateFitness: natur.stateFitness,
+  stateAverage: natur.stateAverage,
+  stateEssential: natur.stateEssential,
+  stateObese: natur.stateObese,
+
+  stateBad: natur.stateBad,
+  stateDanger: natur.stateDanger,
+  statePositive: natur.statePositive,
+  stateWarning: natur.stateWarning,
+  stateCool: natur.stateCool,
+
+  //phase
+  phaseBase: natur.phaseBase,
+  phaseBuild: natur.phaseBuild,
+  phasePeak: natur.phasePeak,
+  phaseRecovery: natur.phaseRecovery,
+
+  // Panels
+  panelBg: natur.panelBg,
+  panelBorder: natur.panelBorder,
+  panelText: natur.textPrimary,
+
+  // Shadows
+  shadowSoft: natur.shadowSoft,
+  shadowCard: natur.shadowCard,
+} as const;
+
+export type AppColors = typeof appColors;

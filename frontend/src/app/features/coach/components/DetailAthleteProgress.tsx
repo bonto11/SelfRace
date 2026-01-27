@@ -1,13 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/theme/uiTokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteProgress,
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
+
+import {
+  PANEL_STACK,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_SECTION_HEAD,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+  PANEL_GRID_3,
+  PANEL_PREVIEW,
+  ACCORDION_FOOTER_BAR_MUTED,
+} from "@/app/shared/ui/tokens";
 
 /* ---------- helper typy ---------- */
 
@@ -87,7 +99,6 @@ function formatMinutesRange(min?: number | null, max?: number | null): string {
 }
 
 function parseProgress(row: AthleteProgressRecord | null): Parsed {
-  // payload z DB je v stĺpci compare_previous → v API ho mapujeme na "report"
   const payload: any =
     (row as any)?.report ?? (row as any)?.compare_previous ?? null;
 
@@ -164,9 +175,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
         hour: "2-digit",
         minute: "2-digit",
       });
-    } catch {
-      // nechaj raw
-    }
+    } catch {}
   }
 
   const celebrations = toStringArray(cp.recommendations?.celebrations);
@@ -228,6 +237,61 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   };
 }
 
+/* ---------- tiny building blocks (no padding in JSX) ---------- */
+
+function Card({
+  title,
+  subtitle,
+  children,
+  footer = true,
+}: {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+  footer?: boolean;
+}) {
+  return (
+    <section className={SURFACE_CARD}>
+      {(title || subtitle) && (
+        <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
+          <div className="min-w-0">
+            {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
+            {subtitle ? (
+              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
+            ) : null}
+          </div>
+        </header>
+      )}
+
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+
+      {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
+    </section>
+  );
+}
+
+function Subcard({
+  title,
+  value,
+  text,
+}: {
+  title: string;
+  value: React.ReactNode;
+  text?: React.ReactNode;
+}) {
+  return (
+    <div className={SURFACE_SUBCARD}>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
+        <div className={PANEL_SECTION_TITLE}>{value}</div>
+        {text ? <div className={PANEL_SECTION_SUBTITLE}>{text}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- component ---------- */
+
 export default function DetailAthleteProgress() {
   const { userId } = useUserId();
   const [row, setRow] = useState<AthleteProgressRecord | null>(null);
@@ -257,149 +321,107 @@ export default function DetailAthleteProgress() {
     };
   }, [userId]);
 
-  const parsed = useMemo(() => parseProgress(row), [row]);
-  const p = parsed;
+  const p = useMemo(() => parseProgress(row), [row]);
 
   if (!userId) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm">
-          Chýba userId (useUserId). Skontroluj prihlásenie používateľa.
-        </div>
-      </div>
+      <Card title="Weekly progress" subtitle="Chýba userId (useUserId).">
+        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
+      </Card>
     );
   }
 
   if (loading) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-8 grid place-items-center">
+      <section className={SURFACE_CARD}>
+        <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
           <LoadingSpinner size="widget" />
         </div>
-      </div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm text-red-300">
-          Nepodarilo sa načítať AI progress report.
-          <div className="mt-1 text-xs opacity-75">{error}</div>
-        </div>
-      </div>
+      <Card title="Weekly progress" subtitle="Nepodarilo sa načítať report.">
+        <div className={PANEL_PREVIEW}>{error}</div>
+      </Card>
     );
   }
 
-  // žiadne dáta
   if (!row || !(row as any).report) {
     return (
-      <div className={SURFACE_CARD}>
-        <div className="px-4 py-4 text-sm">
-          Zatiaľ nemáš žiadne uložené porovnanie analýz. Potrebujeme aspoň dve
-          AI analýzy stavu (cron weekly refresh), potom sa tu zobrazí detail.
+      <Card
+        title="Weekly progress"
+        subtitle="Zatiaľ nemáš uložené porovnanie analýz."
+      >
+        <div className={PANEL_PREVIEW}>
+          Potrebujeme aspoň dve AI analýzy stavu (cron weekly refresh), potom sa
+          tu zobrazí detail.
         </div>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4 pb-6">
-      {/* HLAVNÝ PREHĽAD */}
-      <section className={SURFACE_CARD}>
-        <div className="px-4 pt-4 pb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              Weekly progress – porovnanie posledných AI stavov
-            </h2>
-            {p.generatedAt && (
-              <p className="text-xs text-slate-400 mt-1">
-                Porovnanie vytvorené: {p.generatedAt}
-              </p>
-            )}
-            {(p.model || p.schemaVersion) && (
-              <p className="text-[11px] text-slate-500 mt-1">
-                Model: {p.model ?? "—"}, schema v{p.schemaVersion ?? "?"}
-              </p>
-            )}
-            {p.headline && (
-              <p className="mt-2 text-sm text-slate-100">{p.headline}</p>
-            )}
-            {p.summaryBullets.length > 0 && (
-              <ul className="mt-3 text-sm space-y-1 list-disc list-inside text-slate-100">
-                {p.summaryBullets.map((b, i) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-        <div className="h-1.5 rounded-b-2xl bg-sky-500/80" />
-      </section>
+    <div className={PANEL_STACK}>
+      <Card
+        title="Weekly progress – porovnanie posledných AI stavov"
+        subtitle={[
+          p.generatedAt ? `Porovnanie vytvorené: ${p.generatedAt}` : null,
+          p.model || p.schemaVersion
+            ? `Model: ${p.model ?? "—"}, schema v${p.schemaVersion ?? "?"}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        footer
+      >
+        {p.headline ? <div className={PANEL_PREVIEW}>{p.headline}</div> : null}
 
-      {/* ÚNAVA / INJURY / BLOK */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Únava, riziko zranenia a tréningový blok
-          </h3>
-        </header>
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">Únava</div>
-              <div className="font-semibold mb-1">
-                {p.fatiguePrev || p.fatigueCurr
-                  ? `${slovakLevel(p.fatiguePrev)} → ${slovakLevel(
-                      p.fatigueCurr
-                    )}`
-                  : "—"}
-              </div>
-              {p.fatigueComment && (
-                <p className="text-xs text-slate-300">{p.fatigueComment}</p>
-              )}
-            </div>
-          </div>
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">Riziko zranenia</div>
-              <div className="font-semibold mb-1">
-                {p.injuryPrev || p.injuryCurr
-                  ? `${slovakLevel(p.injuryPrev)} → ${slovakLevel(
-                      p.injuryCurr
-                    )}`
-                  : "—"}
-              </div>
-              {p.injuryComment && (
-                <p className="text-xs text-slate-300">{p.injuryComment}</p>
-              )}
-            </div>
-          </div>
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <div className="text-xs text-slate-400 mb-1">Odporúčaný blok</div>
-              <div className="font-semibold mb-1">
-                {p.blockPrev || p.blockCurr
-                  ? `${p.blockPrev || "—"} → ${p.blockCurr || "—"}`
-                  : "—"}
-              </div>
-              {p.blockComment && (
-                <p className="text-xs text-slate-300">{p.blockComment}</p>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
+        {p.summaryBullets.length > 0 ? (
+          <ul className="list-disc list-inside text-sm space-y-1">
+            {p.summaryBullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        ) : null}
+      </Card>
 
-      {/* FITNESS LEVELS */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Fitness úroveň (1–10): predchádzajúca vs. aktuálna
-          </h3>
-        </header>
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
+      <Card title="Únava, riziko zranenia a tréningový blok" footer>
+        <div className={PANEL_GRID_3}>
+          <Subcard
+            title="Únava"
+            value={
+              p.fatiguePrev || p.fatigueCurr
+                ? `${slovakLevel(p.fatiguePrev)} → ${slovakLevel(p.fatigueCurr)}`
+                : "—"
+            }
+            text={p.fatigueComment || undefined}
+          />
+          <Subcard
+            title="Riziko zranenia"
+            value={
+              p.injuryPrev || p.injuryCurr
+                ? `${slovakLevel(p.injuryPrev)} → ${slovakLevel(p.injuryCurr)}`
+                : "—"
+            }
+            text={p.injuryComment || undefined}
+          />
+          <Subcard
+            title="Odporúčaný blok"
+            value={
+              p.blockPrev || p.blockCurr
+                ? `${p.blockPrev || "—"} → ${p.blockCurr || "—"}`
+                : "—"
+            }
+            text={p.blockComment || undefined}
+          />
+        </div>
+      </Card>
+
+      <Card title="Fitness úroveň (1–10): predchádzajúca vs. aktuálna" footer>
+        <div className={PANEL_GRID_3}>
           {[
             {
               label: "Beh",
@@ -419,146 +441,115 @@ export default function DetailAthleteProgress() {
               curr: p.fitnessStrengthCurr,
               comment: p.fitnessStrengthComment,
             },
-          ].map((row, idx) => (
-            <div key={idx} className={SURFACE_SUBCARD}>
-              <div className="px-3 pt-3 pb-3">
-                <div className="text-xs text-slate-400 mb-1">{row.label}</div>
-                <div className="font-semibold mb-1">
-                  {row.prev != null || row.curr != null
-                    ? `${row.prev ?? "—"}/10 → ${row.curr ?? "—"}/10`
-                    : "—"}
-                </div>
-                {row.comment && (
-                  <p className="text-xs text-slate-300">{row.comment}</p>
-                )}
-              </div>
-            </div>
+          ].map((r) => (
+            <Subcard
+              key={r.label}
+              title={r.label}
+              value={
+                r.prev != null || r.curr != null
+                  ? `${r.prev ?? "—"}/10 → ${r.curr ?? "—"}/10`
+                  : "—"
+              }
+              text={r.comment || undefined}
+            />
           ))}
         </div>
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
+      </Card>
 
-      {/* OBJEM + PLAN ADJUSTMENT */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Tréningový objem a úpravy plánu
-          </h3>
-        </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-2 text-sm">
-          <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3 space-y-2">
-              <div className="text-xs text-slate-400">Týždenný objem (min)</div>
-              <div className="font-semibold">
-                {formatMinutesRange(p.volPrevMin, p.volPrevMax)} →{" "}
-                {formatMinutesRange(p.volCurrMin, p.volCurrMax)}
-              </div>
-              {p.volComment && (
-                <p className="text-xs text-slate-300">{p.volComment}</p>
-              )}
-            </div>
-          </div>
+      <Card title="Tréningový objem a úpravy plánu" footer>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Subcard
+            title="Týždenný objem"
+            value={`${formatMinutesRange(p.volPrevMin, p.volPrevMax)} → ${formatMinutesRange(
+              p.volCurrMin,
+              p.volCurrMax
+            )}`}
+            text={p.volComment || undefined}
+          />
 
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3 space-y-2">
-              <div className="text-xs text-slate-400">
-                Zmeny v tréningovom pláne
-              </div>
-              {p.planSoften && (
-                <p className="text-xs text-slate-300">{p.planSoften}</p>
-              )}
-              {p.planWeekly && (
-                <p className="text-xs text-slate-300">{p.planWeekly}</p>
-              )}
-              {!p.planSoften && !p.planWeekly && (
-                <p className="text-xs text-slate-400">
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_SUBTITLE}>Zmeny v pláne</div>
+              {p.planSoften ? (
+                <div className={PANEL_PREVIEW}>{p.planSoften}</div>
+              ) : null}
+              {p.planWeekly ? (
+                <div className={PANEL_PREVIEW}>{p.planWeekly}</div>
+              ) : null}
+              {!p.planSoften && !p.planWeekly ? (
+                <div className={PANEL_PREVIEW}>
                   AI neodporúča meniť štruktúru plánu.
-                </p>
-              )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
+      </Card>
 
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
-
-      {/* RECOMMENDATIONS */}
-      <section className={SURFACE_CARD}>
-        <header className="px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold tracking-tight">
-            Odporúčania z posledného porovnania
-          </h3>
-        </header>
-
-        <div className="px-4 pb-4 grid gap-4 md:grid-cols-3 text-sm">
+      <Card title="Odporúčania z posledného porovnania" footer>
+        <div className={PANEL_GRID_3}>
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">Čo osláviť</h4>
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Čo osláviť</div>
               {p.celebrations.length ? (
-                <ul className="list-disc list-inside text-xs space-y-1 text-emerald-100">
+                <ul className="list-disc list-inside text-xs space-y-1">
                   {p.celebrations.map((c, i) => (
                     <li key={i}>{c}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">
+                <div className={PANEL_PREVIEW}>
                   Zatiaľ žiadne špecifické oslavy.
-                </p>
+                </div>
               )}
             </div>
           </div>
 
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">
-                Riziká, ktoré sledovať
-              </h4>
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>Riziká, ktoré sledovať</div>
               {p.risksToWatch.length ? (
-                <ul className="list-disc list-inside text-xs space-y-1 text-amber-100">
+                <ul className="list-disc list-inside text-xs space-y-1">
                   {p.risksToWatch.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">
+                <div className={PANEL_PREVIEW}>
                   Momentálne bez konkrétnych varovaní.
-                </p>
+                </div>
               )}
             </div>
           </div>
 
           <div className={SURFACE_SUBCARD}>
-            <div className="px-3 pt-3 pb-3">
-              <h4 className="text-sm font-semibold mb-2">
+            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+              <div className={PANEL_SECTION_TITLE}>
                 Fokus na najbližšie týždne
-              </h4>
+              </div>
               {p.focusNextWeeks.length ? (
-                <ul className="list-disc list-inside text-xs space-y-1 text-emerald-100">
+                <ul className="list-disc list-inside text-xs space-y-1">
                   {p.focusNextWeeks.map((f, i) => (
                     <li key={i}>{f}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-400">
+                <div className={PANEL_PREVIEW}>
                   Po ďalších porovnaniach sem pribudnú konkrétne priority.
-                </p>
+                </div>
               )}
             </div>
           </div>
         </div>
+      </Card>
 
-        <div className="h-1.5 rounded-b-2xl bg-slate-700" />
-      </section>
-
-      {/* RAW JSON (debug) */}
       <section className={SURFACE_CARD}>
-        <div className="px-4 py-3">
+        <div className={[PANEL_PAD].join(" ")}>
           <details className="text-xs">
-            <summary className="cursor-pointer text-slate-300">
+            <summary className="cursor-pointer">
               Debug – raw JSON progress report
             </summary>
-            <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-900/80 p-3 text-[10px] leading-tight text-slate-100">
+            <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-900/80 p-3 text-[10px] leading-tight">
               {JSON.stringify(p.raw, null, 2)}
             </pre>
           </details>

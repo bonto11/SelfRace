@@ -2,21 +2,24 @@
 "use client";
 
 import * as React from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Pill from "@/app/shared/components/ui/Pill";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Pill from "@/app/shared/ui/components/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
-import { THEME } from "@/app/shared/theme/tokens";
 import { fmtDate } from "@/app/shared/utils/time";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   NO_X_OVERFLOW,
-  WIDGET_LOADING_WRAP,
+  WIDGET_LOADING_CENTER,
+  WIDGET_META_LABEL,
+  WIDGET_VALUE_ROW,
+  WIDGET_VALUE_MAIN,
+  WIDGET_PLACEHOLDER,
 } from "@/app/shared/ui/tokens";
 
-import {
+import type {
   HistoryRow,
   EstRow,
   Group,
@@ -30,6 +33,16 @@ import {
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
+function safeAgeYears(birthDate?: string) {
+  if (!birthDate) return 0;
+  const t = new Date(birthDate).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(
+    0,
+    Math.floor((Date.now() - t) / (365.25 * 24 * 3600 * 1000)),
+  );
+}
+
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const { userId } = useUserId();
@@ -42,7 +55,6 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
   React.useEffect(() => {
     if (!userId) return;
-
     let alive = true;
 
     (async () => {
@@ -62,6 +74,8 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           setBirthDate(histRes.birth_date || "");
         } else {
           setHistory([]);
+          setSex("M");
+          setBirthDate("");
         }
 
         setEst(estRes ?? null);
@@ -78,15 +92,12 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const measured = history.length ? history[history.length - 1] : null;
   const mVO2 = measured?.VO2Max ?? null;
 
-  // nájdi pásma podľa veku/pohlavia
+  // pásma podľa veku/pohlavia
   let ranges: Range[] = [];
   try {
-    const age = birthDate
-      ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000))
-      : 0;
-
+    const age = safeAgeYears(birthDate);
     const g = (vo2Ref as Group[]).find(
-      (x) => x.sex === sex && age >= x.age_min && age <= x.age_max
+      (x) => x.sex === sex && age >= x.age_min && age <= x.age_max,
     );
     ranges = g?.ranges ?? [];
   } catch {
@@ -96,51 +107,56 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const pickLevel = (v?: number | null) => {
     if (v == null || !Number.isFinite(v)) return null;
     const hit = ranges.find(
-      (rr) => (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max)
+      (rr) =>
+        (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max),
     );
     if (!hit) return null;
     const label = hit.label.trim();
     return { label, color: levelColor(label) };
   };
 
-  const levelMeasured = pickLevel(mVO2);
-  const levelEstimated = pickLevel(Number.isFinite(est?.value as number) ? Number(est?.value) : null);
+  const estVal = Number.isFinite(est?.value as number)
+    ? Number(est?.value)
+    : null;
 
-  const CH = (THEME as any)?.chart ?? {};
-  const accentHex =
-    levelMeasured?.color ??
-    levelEstimated?.color ??
-    (THEME as any)?.accent?.primary ??
-    CH.neutral ??
-    appColors.brandPrimary;
+  const levelMeasured = pickLevel(mVO2);
+  const levelEstimated = pickLevel(estVal);
+
+  const accent =
+    levelMeasured?.color ?? levelEstimated?.color ?? appColors.brandPrimary;
 
   return (
     <WidgetCard
       title="VO₂Max"
       onOpen={handleOpen}
       interactive={!!handleOpen}
-      accent={accentHex}
+      accent={accent}
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
       {loading ? (
-        <div className={WIDGET_LOADING_WRAP}>
+        <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] items-start gap-6 md:gap-10">
+          {/* estimated */}
           <div className="min-w-0">
-            <div className="text-[11px] uppercase opacity-70">
+            <div className={WIDGET_META_LABEL}>
               odhad: {fmtDate(est?.updated_at ?? null)}
             </div>
-            <div className="mt-1 flex items-end gap-2">
-              <div className="text-4xl font-extrabold tabular-nums">
-                {Number.isFinite(est?.value as number) ? Number(est?.value).toFixed(1) : "—"}
+
+            <div className={WIDGET_VALUE_ROW}>
+              <div className={WIDGET_VALUE_MAIN}>
+                {estVal != null ? estVal.toFixed(1) : "—"}
               </div>
               {levelEstimated ? (
-                <Pill label={levelEstimated.label} color={levelEstimated.color} />
+                <Pill
+                  label={levelEstimated.label}
+                  color={levelEstimated.color}
+                />
               ) : (
-                <span className="text-xs opacity-60">—</span>
+                <span className={WIDGET_PLACEHOLDER}>—</span>
               )}
             </div>
           </div>
@@ -151,18 +167,20 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
             aria-hidden="true"
           />
 
+          {/* measured */}
           <div className="min-w-0">
-            <div className="text-[11px] uppercase opacity-70">
-              merané: {fmtDate(measured?.updated_at)}
+            <div className={WIDGET_META_LABEL}>
+              merané: {fmtDate(measured?.updated_at ?? null)}
             </div>
-            <div className="mt-1 flex items-end gap-2">
-              <div className="text-4xl font-extrabold tabular-nums">
+
+            <div className={WIDGET_VALUE_ROW}>
+              <div className={WIDGET_VALUE_MAIN}>
                 {mVO2 != null ? mVO2.toFixed(1) : "—"}
               </div>
               {levelMeasured ? (
                 <Pill label={levelMeasured.label} color={levelMeasured.color} />
               ) : (
-                <span className="text-xs opacity-60">—</span>
+                <span className={WIDGET_PLACEHOLDER}>—</span>
               )}
             </div>
           </div>

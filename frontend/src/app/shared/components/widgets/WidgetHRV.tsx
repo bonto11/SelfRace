@@ -2,8 +2,8 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import {
   compareLatestToBaseline,
@@ -12,7 +12,7 @@ import {
 } from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_VALUE_ROW,
@@ -21,7 +21,11 @@ import {
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
 
-export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetHRV({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -29,8 +33,9 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   const loading = !!loadingRaw;
 
   const values = useMemo<(number | null)[]>(
-    () => rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
-    [rows]
+    () =>
+      rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
+    [rows],
   );
 
   const yesterday = useMemo<number | null>(() => {
@@ -50,7 +55,7 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
     yesterday,
     baselinePoint,
     "higher-better",
-    0.05
+    0.05,
   );
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
@@ -58,15 +63,15 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   const valueText = showNA
     ? "—"
     : Number.isFinite(yesterday)
-    ? String(Math.round(yesterday as number))
-    : "—";
+      ? String(Math.round(yesterday as number))
+      : "—";
 
   const note = showNA ? freshness.message : cmp.note;
 
   // ✅ žiadne statické farby, žiadne tailwind bg-*
   // cmp.accent môže byť class (bg-...) alebo paint (#/rgb/gradient). Pre istotu sanitizujeme.
   const accent = (() => {
-    if (loading || showNA) return appColors.textMuted; // neutrál v loading/NA stave
+    if (loading || showNA) return "none";
 
     const a = (cmp as any)?.accent;
     if (!a) return appColors.accentTeal;

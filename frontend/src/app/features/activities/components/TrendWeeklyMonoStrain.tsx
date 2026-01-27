@@ -1,4 +1,5 @@
 // src/features/activity/components/TrendWeeklyMonoStrain.tsx
+// src/features/activity/components/TrendWeeklyMonoStrain.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,20 +7,27 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Button from "@/app/shared/components/ui/Button";
-import { CARD, SCROLL_X } from "@/app/shared/theme/uiTokens";
-import { inputClass } from "@/app/shared/ui";
+import { OPTIONS, LOOKBACK_OPTIONS, SPORT_SELECT_OPTIONS } from "@/app/shared/charts/optionsActivity";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  CARD,
+  SCROLL_X,
+  SURFACE_CARD_STYLE,
+  PANEL_PAD,
+  PANEL_CARD_HEAD,
+  PANEL_TITLE,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
-
 import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_activities";
-
 import { WeekRow } from "@/app/features/activities/types/MonoStrain";
 
 ensureChartJSRegistered();
 
-const C = { monotony: THEME.chart.monotony, strain: THEME.chart.strain };
+const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 
 export default function TrendWeeklyMonoStrain({
   onPickWeek,
@@ -37,6 +45,10 @@ export default function TrendWeeklyMonoStrain({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
+  const _heightCompact = OPTIONS.HeightCompact;
+  const _legendPos = OPTIONS.legendPosition;
+
   useEffect(() => {
     onSportChange?.(sport);
   }, [sport, onSportChange]);
@@ -48,14 +60,10 @@ export default function TrendWeeklyMonoStrain({
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyMonoStrain(userId, {
-          weeks: lookback,
-          sport,
-        });
+        const rows = await apiGetWeeklyMonoStrain(userId, { weeks: lookback, sport });
         if (!alive) return;
         setWeeks(rows);
       } catch (e) {
-        // tu môžeš prípadne dorobiť toast/error log
         console.error("Weekly mono/strain load failed:", e);
       } finally {
         if (alive) setLoading(false);
@@ -68,14 +76,8 @@ export default function TrendWeeklyMonoStrain({
   }, [userId, lookback, sport]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-  const mono = useMemo(
-    () => weeks.map((w) => w.monotony?.[metric] ?? null),
-    [weeks, metric]
-  );
-  const strn = useMemo(
-    () => weeks.map((w) => w.strain?.[metric] ?? null),
-    [weeks, metric]
-  );
+  const mono = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
+  const strn = useMemo(() => weeks.map((w) => w.strain?.[metric] ?? null), [weeks, metric]);
 
   const monoMax = useMemo(() => {
     const vals = mono.filter((v): v is number => Number.isFinite(v as number));
@@ -95,7 +97,7 @@ export default function TrendWeeklyMonoStrain({
       datasets: [
         {
           type: "line",
-          label: "Monotony",
+          label: "Monotónnosť",
           data: mono,
           yAxisID: "y1",
           borderColor: C.monotony,
@@ -108,7 +110,7 @@ export default function TrendWeeklyMonoStrain({
         },
         {
           type: "line",
-          label: "Strain",
+          label: "Úsilie",
           data: strn,
           yAxisID: "y2",
           borderColor: C.strain,
@@ -133,7 +135,7 @@ export default function TrendWeeklyMonoStrain({
       layout: { padding: { bottom: 12 } },
       plugins: {
         legend: {
-          position: THEME.chart.legendPosition,
+          position: _legendPos,
           labels: {
             usePointStyle: true,
             pointStyle: "circle",
@@ -161,9 +163,9 @@ export default function TrendWeeklyMonoStrain({
           weight: 2,
           min: 0,
           max: monoMax,
-          grid: { color: THEME.chart.grid, drawOnChartArea: true },
+          grid: { color: appColors.chartAxis, drawOnChartArea: true },
           ticks: { color: C.monotony, padding: 8 },
-          title: { display: true, text: "Monotony", color: C.monotony },
+          title: { display: true, text: "Monotónnosť", color: C.monotony },
         },
         y2: {
           position: "left",
@@ -172,10 +174,10 @@ export default function TrendWeeklyMonoStrain({
           max: strainMax,
           grid: { drawOnChartArea: false },
           ticks: { color: C.strain, padding: 36 },
-          title: { display: true, text: "Strain", color: C.strain },
+          title: { display: true, text: "Úsilie", color: C.strain },
         },
         x: {
-          grid: { color: THEME.chart.gridSoft },
+          grid: { color: appColors.chartAxis },
           ticks: {
             autoSkip: true,
             minRotation: 55,
@@ -186,76 +188,53 @@ export default function TrendWeeklyMonoStrain({
         },
       },
     }),
-    [monoMax, strainMax, weeks, onPickWeek, sport]
+    [monoMax, strainMax, weeks, onPickWeek, sport, _legendPos]
   );
 
-  const baseHeight = THEME.chart.weeklyHeightCompact ?? 200;
-  const height = Math.round(baseHeight * 2);
-  const minWidth = Math.max(
-    320,
-    Math.round(labels.length * THEME.chart.weeklyPxPerLabel)
-  );
+  const height = Math.round(_heightCompact * 2);
+  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
 
   return (
-    <div className={`${CARD} relative`}>
-      <div className="px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Monotónnosť & Strain</h2>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Button
-              size="xs"
-              variant={metric === "km" ? "secondary" : "ghost"}
-              onClick={() => setMetric("km")}
-            >
+    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
+      <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
+        <h2 className={PANEL_TITLE}>Monotónnosť & Strain</h2>
+
+        <div className={PANEL_ACTIONS_INLINE}>
+          <div className={PANEL_ACTIONS_INLINE}>
+            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>
               Km
             </Button>
-            <Button
-              size="xs"
-              variant={metric === "time" ? "secondary" : "ghost"}
-              onClick={() => setMetric("time")}
-            >
+            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>
               Čas
             </Button>
-            <Button
-              size="xs"
-              variant={metric === "trimp" ? "secondary" : "ghost"}
-              onClick={() => setMetric("trimp")}
-            >
+            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>
               TRIMP
             </Button>
           </div>
-          <select
+
+          <SelectField
             value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            className={`${inputClass} h-8 text-xs w-[130px]`}
-          >
-            <option value="all">Všetko</option>
-            <option value="run">Run</option>
-            <option value="ride">Ride</option>
-            <option value="strength">Strength</option>
-            <option value="mixed">Mixed</option>
-            <option value="skate">Skate</option>
-            <option value="other">Other</option>
-          </select>
+            onValueChange={(v) => setSport(v)}
+            options={SPORT_SELECT_OPTIONS}
+            containerClassName="w-[130px]"
+            variant="editable"
+            placeholder="—"
+          />
+
           {showLookback && (
-            <select
-              value={lookback}
-              onChange={(e) => setLookback(Number(e.target.value))}
-              className={`${inputClass} h-8 text-xs w-[130px]`}
-            >
-              <option value={2}>2 týždne</option>
-              <option value={4}>4 týždne</option>
-              <option value={8}>8 týždňov</option>
-              <option value={12}>12 týždňov</option>
-            </select>
+            <SelectField
+              value={String(lookback)}
+              onValueChange={(v) => setLookback(Number(v))}
+              options={LOOKBACK_OPTIONS}
+              containerClassName="w-[130px]"
+              variant="editable"
+              placeholder="—"
+            />
           )}
         </div>
       </div>
 
-      <div
-        className={`${SCROLL_X} min-w-0`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
+      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
         <div className="relative" style={{ height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">

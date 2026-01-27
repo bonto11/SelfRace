@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_CENTER,
@@ -108,7 +108,7 @@ function pickAccent(ui: UiState) {
 
   if (hasHigh) return appColors.statusError;
   if (hasMod) return appColors.statusWarning;
-  return appColors.brandPrimary;
+  return "none";
 }
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
@@ -167,8 +167,8 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a widget
-          sa automaticky naplní.
+          Zatiaľ nemáš žiadnu uloženú AI analýzu tr0novanosti. Spusť ju v coach sekcii a
+          widget sa automaticky naplní.
         </div>
       ) : (
         <>

@@ -9,11 +9,10 @@ import {
   apiFetchUserPref,
   apiUpsertUserPref,
 } from "@/app/features/prefs/api/prefs";
-import Button from "@/app/shared/components/ui/Button";
-import { toast } from "@/app/shared/components/ui/Toast";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import { inputClass } from "@/app/shared/ui";
-import { confirm } from "@/app/shared/components/ui/Confirm";
+import Button from "@/app/shared/ui/components/Button";
+import { toast } from "@/app/shared/ui/components/Toast";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 
 import {
   apiGetAccountDeleteStatus,
@@ -26,6 +25,19 @@ import type {
   AccountDeleteStatus,
 } from "@/app/features/account/types/account";
 
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  SECTION,
+  SECTION_STYLE,
+  FORM_GRID_TWO,
+  inputClass,
+  PANEL_SECTION_HEAD,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+  PANEL_CARD_TITLE,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens";
+
 const DEFAULT_SETTINGS: UserSettings = {
   units: "metric",
   language: "sk",
@@ -37,7 +49,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 const LANGUAGE_OPTIONS = [
   { value: "sk", label: "Slovenčina" },
-  { value: "en", label: "English" },
+  { value: "en", label: "Angličtina" },
 ];
 
 const UNIT_OPTIONS = [
@@ -55,36 +67,25 @@ const TIME_FORMAT_OPTIONS = [
   { value: "12", label: "12 h (1:37 PM)" },
 ];
 
-// kurátorovaný zoznam – reálne IANA názvy, v labeloch offset + mestá
+// kurátorovaný zoznam – IANA názvy, v labeloch offset + mestá
 const TIMEZONE_OPTIONS = [
-  // západ
-  { value: "UTC", label: "(UTC±00:00) London, Reykjavik" },
-  { value: "Atlantic/Canary", label: "(UTC±00:00) Canary Islands" },
+  { value: "UTC", label: "(UTC±00:00) Londýn, Reykjavík" },
+  { value: "Atlantic/Canary", label: "(UTC±00:00) Kanárske ostrovy" },
 
-  // +1
   {
     value: "Europe/Bratislava",
-    label: "(UTC+01:00) Bratislava, Prague, Berlin",
+    label: "(UTC+01:00) Bratislava, Praha, Berlín",
   },
-  {
-    value: "Europe/Vienna",
-    label: "(UTC+01:00) Vienna, Budapest, Warsaw",
-  },
-  {
-    value: "Europe/Paris",
-    label: "(UTC+01:00) Paris, Madrid, Rome",
-  },
+  { value: "Europe/Vienna", label: "(UTC+01:00) Viedeň, Budapešť, Varšava" },
+  { value: "Europe/Paris", label: "(UTC+01:00) Paríž, Madrid, Rím" },
 
-  // +2
-  { value: "Europe/Athens", label: "(UTC+02:00) Athens, Bucharest" },
+  { value: "Europe/Athens", label: "(UTC+02:00) Atény, Bukurešť" },
   { value: "Europe/Helsinki", label: "(UTC+02:00) Helsinki, Riga" },
-  { value: "Africa/Cairo", label: "(UTC+02:00) Cairo" },
+  { value: "Africa/Cairo", label: "(UTC+02:00) Káhira" },
 
-  // +3
-  { value: "Europe/Moscow", label: "(UTC+03:00) Moscow" },
-  { value: "Asia/Riyadh", label: "(UTC+03:00) Riyadh" },
+  { value: "Europe/Moscow", label: "(UTC+03:00) Moskva" },
+  { value: "Asia/Riyadh", label: "(UTC+03:00) Rijád" },
 
-  // -3 / -4 / -5 ...
   { value: "America/Sao_Paulo", label: "(UTC−03:00) São Paulo" },
   { value: "America/Halifax", label: "(UTC−04:00) Halifax" },
   { value: "America/New_York", label: "(UTC−05:00) New York" },
@@ -92,13 +93,12 @@ const TIMEZONE_OPTIONS = [
   { value: "America/Denver", label: "(UTC−07:00) Denver" },
   { value: "America/Los_Angeles", label: "(UTC−08:00) Los Angeles" },
 
-  // Ázia / Pacifik
-  { value: "Asia/Dubai", label: "(UTC+04:00) Dubai" },
-  { value: "Asia/Karachi", label: "(UTC+05:00) Karachi" },
+  { value: "Asia/Dubai", label: "(UTC+04:00) Dubaj" },
+  { value: "Asia/Karachi", label: "(UTC+05:00) Karáčí" },
   { value: "Asia/Kolkata", label: "(UTC+05:30) India (Kolkata)" },
   { value: "Asia/Bangkok", label: "(UTC+07:00) Bangkok" },
-  { value: "Asia/Shanghai", label: "(UTC+08:00) Shanghai, Hong Kong" },
-  { value: "Asia/Tokyo", label: "(UTC+09:00) Tokyo, Seoul" },
+  { value: "Asia/Shanghai", label: "(UTC+08:00) Šanghaj, Hong Kong" },
+  { value: "Asia/Tokyo", label: "(UTC+09:00) Tokio, Soul" },
   { value: "Australia/Sydney", label: "(UTC+10:00) Sydney" },
 ];
 
@@ -111,7 +111,7 @@ export default function PersonalSettingsPanel() {
   const [saving, setSaving] = useState(false);
 
   const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
-    null
+    null,
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
@@ -125,7 +125,7 @@ export default function PersonalSettingsPanel() {
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(
-          () => null
+          () => null,
         );
 
         if (!alive) return;
@@ -166,9 +166,9 @@ export default function PersonalSettingsPanel() {
         if (!alive) return;
         setDeleteStatus(st);
       })
-      .catch((e) => {
-        console.error("[PersonalSettingsPanel] delete status error", e);
-      })
+      .catch((e) =>
+        console.error("[PersonalSettingsPanel] delete status error", e),
+      )
       .finally(() => {
         if (alive) setLoadingDelete(false);
       });
@@ -219,7 +219,7 @@ export default function PersonalSettingsPanel() {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
       toast.success(
-        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia."
+        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia.",
       );
     } catch (e: any) {
       console.error("[PersonalSettingsPanel] delete request error", e);
@@ -256,7 +256,7 @@ export default function PersonalSettingsPanel() {
 
   const disabled = !userId || loading || saving;
 
-  const deletePending = deleteStatus?.pending;
+  const deletePending = !!deleteStatus?.pending;
   const deleteAtLabel =
     deleteStatus?.delete_at &&
     (() => {
@@ -272,14 +272,23 @@ export default function PersonalSettingsPanel() {
     })();
 
   return (
-    <section className="rounded-xl border border-white/10 bg-black/20 px-4 py-4 space-y-4">
-      <header className="flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-semibold">Personal settings</h2>
-          <p className="mt-1 text-xs opacity-70">
+    <section className={SECTION} style={SECTION_STYLE}>
+      {/* header */}
+      <div className={PANEL_SECTION_HEAD}>
+        <div className="min-w-0">
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
+            Osobné nastavenia
+          </div>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé
             rozhranie.
-          </p>
+          </div>
         </div>
 
         <Button
@@ -290,93 +299,108 @@ export default function PersonalSettingsPanel() {
         >
           {saving ? "Ukladám…" : "Uložiť"}
         </Button>
-      </header>
-
-      {/* APP PREFERENCIE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-        <SelectField
-          label="Jazyk rozhrania"
-          value={settings.language}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              language: (e.target.value as "sk" | "en") || "sk",
-            }))
-          }
-          options={LANGUAGE_OPTIONS}
-        />
-
-        <SelectField
-          label="Jednotky"
-          value={settings.units}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              units: (e.target.value as "metric" | "imperial") || "metric",
-            }))
-          }
-          options={UNIT_OPTIONS}
-        />
-
-        <SelectField
-          label="Timezone"
-          hint="Vyber časové pásmo podľa mesta / offsetu."
-          value={settings.timezone}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              timezone: e.target.value || "Europe/Bratislava",
-            }))
-          }
-          options={TIMEZONE_OPTIONS}
-        />
-
-        <SelectField
-          label="Začiatok týždňa"
-          value={settings.week_start}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              week_start: (e.target.value as "Mon" | "Sun") || "Mon",
-            }))
-          }
-          options={WEEK_START_OPTIONS}
-        />
-
-        <div>
-          <label className="text-xs opacity-80">Formát dátumu</label>
-          <input
-            className={`${inputClass} mt-1`}
-            type="text"
-            placeholder="yyyy-MM-dd"
-            value={settings.date_format}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, date_format: e.target.value }))
-            }
-          />
-        </div>
-
-        <SelectField
-          label="Formát času"
-          value={settings.time_format_24h ? "24" : "12"}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              time_format_24h: e.target.value === "24",
-            }))
-          }
-          options={TIME_FORMAT_OPTIONS}
-        />
       </div>
 
-      {/* ÚČET – heslo, e-mail */}
-      <div className="pt-3 border-t border-white/10 space-y-2">
-        <h3 className="text-sm font-semibold opacity-90">Account actions</h3>
-        <p className="text-xs opacity-70">
+      {/* preferencie */}
+      <div className="mt-3">
+        <div className={FORM_GRID_TWO}>
+          <SelectField
+            label="Jazyk rozhrania"
+            value={settings.language}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                language: (e.target.value as "sk" | "en") || "sk",
+              }))
+            }
+            options={LANGUAGE_OPTIONS}
+          />
+
+          <SelectField
+            label="Jednotky"
+            value={settings.units}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                units: (e.target.value as "metric" | "imperial") || "metric",
+              }))
+            }
+            options={UNIT_OPTIONS}
+          />
+
+          <SelectField
+            label="Časové pásmo"
+            hint="Vyber časové pásmo podľa mesta / offsetu."
+            value={settings.timezone}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                timezone: e.target.value || "Europe/Bratislava",
+              }))
+            }
+            options={TIMEZONE_OPTIONS}
+          />
+
+          <SelectField
+            label="Začiatok týždňa"
+            value={settings.week_start}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                week_start: (e.target.value as "Mon" | "Sun") || "Mon",
+              }))
+            }
+            options={WEEK_START_OPTIONS}
+          />
+
+          <div>
+            <label
+              className="text-xs font-medium"
+              style={{ color: appColors.textMuted }}
+            >
+              Formát dátumu
+            </label>
+            <input
+              className={[inputClass, "mt-1"].join(" ")}
+              type="text"
+              placeholder="yyyy-MM-dd"
+              value={settings.date_format}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, date_format: e.target.value }))
+              }
+            />
+          </div>
+
+          <SelectField
+            label="Formát času"
+            value={settings.time_format_24h ? "24" : "12"}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                time_format_24h: e.target.value === "24",
+              }))
+            }
+            options={TIME_FORMAT_OPTIONS}
+          />
+        </div>
+      </div>
+
+      {/* účet – akcie */}
+      <div
+        className="mt-4 pt-3 border-t"
+        style={{ borderColor: appColors.divider }}
+      >
+        <h3
+          className={PANEL_CARD_TITLE}
+          style={{ color: appColors.textPrimary }}
+        >
+          Akcie účtu
+        </h3>
+        <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
           Rýchle akcie pre zmenu hesla a e-mailu (otvoria samostatnú stránku).
         </p>
 
-        <div className="flex flex-wrap gap-2 mt-1">
+        <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
           <Button
             size="xs"
             variant="secondary"
@@ -395,40 +419,63 @@ export default function PersonalSettingsPanel() {
         </div>
       </div>
 
-      {/* ZRUŠENIE ÚČTU */}
-      <div className="pt-3 border-t border-white/10 space-y-2">
-        <h3 className="text-sm font-semibold text-red-400">
-          Delete account (nezvratné)
+      {/* zrušenie účtu */}
+      <div
+        className="mt-4 pt-3 border-t"
+        style={{ borderColor: appColors.divider }}
+      >
+        <h3
+          className={PANEL_CARD_TITLE}
+          style={{ color: appColors.statusError }}
+        >
+          Zrušenie účtu (nezvratné)
         </h3>
 
-        <div className="rounded-lg border border-red-500/60 bg-red-950/40 px-3 py-2 text-xs">
+        <div
+          className="mt-2 rounded-lg border px-3 py-2 text-xs"
+          style={{
+            borderColor: "rgba(239,68,68,0.55)",
+            background: "rgba(127,29,29,0.35)",
+            color: appColors.textPrimary,
+          }}
+        >
           {loadingDelete ? (
-            <p className="opacity-80">Kontrolujem stav zmazania účtu…</p>
+            <p style={{ color: appColors.textMuted }}>
+              Kontrolujem stav zmazania účtu…
+            </p>
           ) : deletePending ? (
             <>
-              <p className="opacity-90">
+              <p>
                 Účet je{" "}
                 <span className="font-semibold">označený na zmazanie</span>.
               </p>
-              <p className="mt-1 opacity-80">
+              <p className="mt-1" style={{ color: appColors.textMuted }}>
                 Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia
                 so Stravou) sa po 30 dňoch trvalo vymažú.
-                {deleteAtLabel && (
+                {deleteAtLabel ? (
                   <>
                     {" "}
                     Odhadovaný dátum zmazania:{" "}
-                    <span className="font-semibold">{deleteAtLabel}</span>.
+                    <span
+                      className="font-semibold"
+                      style={{ color: appColors.textPrimary }}
+                    >
+                      {deleteAtLabel}
+                    </span>
+                    .
                   </>
+                ) : (
+                  "."
                 )}
               </p>
             </>
           ) : (
             <>
-              <p className="opacity-90">
+              <p>
                 Zmazanie účtu je{" "}
                 <span className="font-semibold">nezvratné</span>.
               </p>
-              <p className="mt-1 opacity-80">
+              <p className="mt-1" style={{ color: appColors.textMuted }}>
                 Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho
                 môžeš ešte zachrániť, potom sa všetky dáta odstránia.
               </p>
@@ -436,7 +483,7 @@ export default function PersonalSettingsPanel() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-1">
+        <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
           {deletePending ? (
             <Button
               size="xs"

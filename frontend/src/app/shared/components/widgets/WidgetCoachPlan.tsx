@@ -4,13 +4,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import Pill from "@/app/shared/components/ui/Pill";
-import Button from "@/app/shared/components/ui/Button";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import Pill from "@/app/shared/ui/components/Pill";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_STATUS_ROW,
   WIDGET_ACTIONS_WRAP,
@@ -42,7 +42,7 @@ import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_dai
 
 import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
-import { confirm } from "@/app/shared/components/ui/Confirm";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 
 /* ---------- helpers ---------- */
 
@@ -121,9 +121,10 @@ function RowAction({
       <button
         type="button"
         onClick={onDetail}
-        className={[WIDGET_ACTION_CHEVRON_BTN, WIDGET_ACTION_CHEVRON_SURFACE].join(
-          " "
-        )}
+        className={[
+          WIDGET_ACTION_CHEVRON_BTN,
+          WIDGET_ACTION_CHEVRON_SURFACE,
+        ].join(" ")}
         aria-label="Otvoriť detail"
       >
         →
@@ -138,7 +139,7 @@ function formatAiError(e: any): string {
     const used = (e as any).usedTokensThisMonth;
     if (typeof used === "number") {
       return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString(
-        "sk-SK"
+        "sk-SK",
       )}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
     }
     return `AI limit pre tento mesiac je vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
@@ -167,7 +168,9 @@ export default function WidgetCoachPlan() {
 
     (async () => {
       try {
-        const p = await apiFetchUserPref(userId, "coach.prefs").catch(() => null);
+        const p = await apiFetchUserPref(userId, "coach.prefs").catch(
+          () => null,
+        );
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff as CoachPrefs | null);
       } catch {
@@ -215,7 +218,7 @@ export default function WidgetCoachPlan() {
         const s = await apiActivePlanStatus(userId);
         if (!alive) return;
 
-        const pid = s.has_active ? s.plan_id ?? null : null;
+        const pid = s.has_active ? (s.plan_id ?? null) : null;
         setActivePlanId(pid);
 
         if (typeof window !== "undefined") {
@@ -224,7 +227,10 @@ export default function WidgetCoachPlan() {
         }
       } catch (e: any) {
         if (!alive) return;
-        console.warn("[CoachPlan] active status error:", e?.message || String(e));
+        console.warn(
+          "[CoachPlan] active status error:",
+          e?.message || String(e),
+        );
       } finally {
         if (!alive) return;
         setLoadingKind(null);
@@ -342,7 +348,7 @@ export default function WidgetCoachPlan() {
     setError(null);
 
     if (!latestStateId) {
-      setError("Najprv spusti AI analýzu atleta.");
+      setError("Najprv spusti analýzu trénovanosti.");
       return;
     }
     if (!hasGenerated) {
@@ -375,7 +381,7 @@ export default function WidgetCoachPlan() {
     const ok = await confirm({
       title: "Ukončiť tréningový plán?",
       message:
-        "Táto akcia je nezvratná. Weekly aj daily plán budú zrušené a plán sa presunie medzi ukončené.",
+        "Táto akcia je nezvratná. Týždenný aj denný plán budú zrušené a plán sa presunie medzi ukončené.",
       okText: "Ukončiť plán",
       cancelText: "Zrušiť",
       tone: "danger",
@@ -395,7 +401,7 @@ export default function WidgetCoachPlan() {
 
       try {
         const stat = await apiActivePlanStatus(userId);
-        setActivePlanId(stat.has_active ? stat.plan_id ?? null : null);
+        setActivePlanId(stat.has_active ? (stat.plan_id ?? null) : null);
       } catch {
         // ignore
       }
@@ -409,16 +415,20 @@ export default function WidgetCoachPlan() {
   const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
 
-  const accent = activePlanId ? appColors.brandPrimary : appColors.accentTeal;
-
-  const statusLabel = activePlanId ? "active plan ✓" : hasGenerated ? "generated ✓" : "no plan";
-  const statusColor = activePlanId ? appColors.brandPrimary : appColors.textMuted;
+  const statusLabel = activePlanId
+    ? "Aktívny plán ✓"
+    : hasGenerated
+      ? "Vygenerovaný ✓"
+      : "Žiadny plán";
+  const statusColor = activePlanId
+    ? appColors.brandPrimary
+    : appColors.textMuted;
 
   return (
     <WidgetCard
-      title="Coach — Plan"
-      note="Analyzuj stav, vygeneruj weekly/daily a spusti aktívny plán."
-      accent={accent}
+      title="Plánovanie trénera"
+      accent="none"
+      note="Analyzuj stav, vygeneruj týždenný a denný plán a začni plán."
       interactive={false}
       minH={210}
     >
@@ -432,7 +442,11 @@ export default function WidgetCoachPlan() {
       <div className={WIDGET_ACTIONS_WRAP}>
         <RowAction
           onPrimary={handleAnalyze}
-          primaryLabel={loadingKind === "analyze" ? "Analyzing…" : "Analyze athlete state"}
+          primaryLabel={
+            loadingKind === "analyze"
+              ? "Analyzujem…"
+              : "Analyzuj stav trénovanosti"
+          }
           loading={loadingKind === "analyze"}
           disabled={disabled}
           onDetail={() => router.push("/coach/ai/athleteState")}
@@ -440,7 +454,9 @@ export default function WidgetCoachPlan() {
 
         <RowAction
           onPrimary={handleGenerateWeekly}
-          primaryLabel={loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"}
+          primaryLabel={
+            loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"
+          }
           loading={loadingKind === "weekly"}
           disabled={disabled}
           onDetail={() => router.push("/coach/ai/weeklyPlan")}
@@ -448,7 +464,9 @@ export default function WidgetCoachPlan() {
 
         <RowAction
           onPrimary={handleGenerateDaily}
-          primaryLabel={loadingKind === "daily" ? "Generating…" : "Generate daily plan"}
+          primaryLabel={
+            loadingKind === "daily" ? "Generating…" : "Generate daily plan"
+          }
           loading={loadingKind === "daily"}
           disabled={disabled}
           onDetail={() => router.push("/coach/ai/dailyPlan")}

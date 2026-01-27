@@ -1,6 +1,9 @@
+// src/features/billing/components/BillingHistory.tsx
 "use client";
 
 import type { AppUserSubscription } from "@/app/features/billing/types/billing";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { PANEL_LIST, PANEL_LIST_ITEM } from "@/app/shared/ui/tokens";
 
 type BillingHistoryProps = {
   history: AppUserSubscription[];
@@ -9,29 +12,38 @@ type BillingHistoryProps = {
 export default function BillingHistory({ history }: BillingHistoryProps) {
   if (history.length === 0) {
     return (
-      <p className="mt-2 text-xs opacity-70">
-        Zatiaľ žiadne záznamy o subscriptionoch.
+      <p style={{ color: appColors.textMuted }} className="text-xs">
+        Zatiaľ žiadne záznamy o predplatnom.
       </p>
     );
   }
 
   return (
-    <div className="mt-3 space-y-2 text-xs">
+    <div className={PANEL_LIST}>
       {history.map((s) => (
         <div
           key={s.id}
-          className="flex items-center justify-between rounded-md border border-white/10 px-3 py-2"
+          className={PANEL_LIST_ITEM}
+          style={{
+            background: appColors.surfaceCard,
+            borderColor: appColors.surfaceCardBorder,
+            color: appColors.textPrimary,
+          }}
         >
           <div>
             <div className="font-semibold uppercase">
-              {s.tier_code} • {s.status}
+              {String(s.tier_code || "").toUpperCase()} •{" "}
+              {String(s.status || "").toUpperCase()}
             </div>
-            <div className="opacity-70">
+            <div style={{ color: appColors.textMuted }} className="text-xs">
               {s.current_period_start?.slice(0, 10)} →{" "}
               {s.current_period_end?.slice(0, 10)}
             </div>
           </div>
-          <div className="opacity-60">{s.created_at.slice(0, 10)}</div>
+
+          <div style={{ color: appColors.textMuted }} className="text-xs">
+            {s.created_at?.slice(0, 10)}
+          </div>
         </div>
       ))}
     </div>

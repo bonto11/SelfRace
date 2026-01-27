@@ -1,12 +1,15 @@
 // src/features/prefs/components/RulesSection.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import Button from "@/app/shared/components/ui/Button";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import { useMemo } from "react";
+
+import Button from "@/app/shared/ui/components/Button";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
 import type { Preferences } from "@/app/features/prefs/types/prefs";
+
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 type Props = {
   pref: any; // prefDefaults(local) (recommended) or local.preferences
@@ -61,17 +64,13 @@ function normalizePrefs(p: any): Preferences {
 }
 
 export function RulesSection({ pref, setLocal, markDirty }: Props) {
-  const [open, setOpen] = useState(false);
   const basePref = useMemo(() => normalizePrefs(pref), [pref]);
 
   const toggleRule = (key: RuleKey) => {
     markDirty();
     setLocal((prev) => {
       const cur = normalizePrefs(prev?.preferences);
-      return {
-        ...prev,
-        preferences: { ...cur, [key]: !cur[key] },
-      };
+      return { ...prev, preferences: { ...cur, [key]: !cur[key] } };
     });
   };
 
@@ -118,10 +117,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
     markDirty();
     setLocal((prev) => {
       const cur = normalizePrefs(prev?.preferences);
-      return {
-        ...prev,
-        preferences: { ...cur, intensity_model: model },
-      };
+      return { ...prev, preferences: { ...cur, intensity_model: model } };
     });
   };
 
@@ -133,172 +129,166 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         ...(cur.training_blocks ?? {}),
         [key]: !(cur.training_blocks as any)?.[key],
       };
-      return {
-        ...prev,
-        preferences: { ...cur, training_blocks: nextBlocks },
-      };
+      return { ...prev, preferences: { ...cur, training_blocks: nextBlocks } };
     });
   };
 
-  const enabledShort = BASE_RULES.filter((r) => !!basePref[r.key]).map(
+  const enabledShort = BASE_RULES.filter((r) => !!(basePref as any)[r.key]).map(
     (r) => r.short
   );
-  const previewParts = [
-    enabledShort.length ? enabledShort.join(", ") : "none",
-    `model: ${basePref.intensity_model ?? "polarized"}`,
-  ];
-  const previewText = previewParts.join(" | ");
-
   const twoEnabled = !!basePref.two_a_day?.enabled;
   const twoMax = Number(basePref.two_a_day?.max_days_per_week) || 0;
 
   const model = basePref.intensity_model ?? "polarized";
   const blocks = basePref.training_blocks ?? {};
 
+  const previewText = [
+    enabledShort.length ? enabledShort.join(", ") : "none",
+    `model: ${model}`,
+    twoEnabled ? `two-a-day: ${twoMax}/wk` : "two-a-day: off",
+    [
+      blocks.vo2max ? "VO₂" : null,
+      blocks.ftp ? "FTP" : null,
+      blocks.threshold ? "THR" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "blocks: —",
+  ].join(" | ");
+
   return (
-    <section className={SECTION}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Rules</div>
+    <InputsCard
+      title={
         <div className="flex items-center gap-2">
+          <span>Rules</span>
           <InfoPopover text="Rules + intensity + blocks. Všetko je v preferences.* (ukladá sa do coach.prefs)." />
-          <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
+        </div>
+      }
+      subtitle="Pravidlá plánovania, intenzitný model a tréningové bloky."
+      preview={previewText}
+      defaultOpen={false}
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Base rules */}
+        <div className="flex flex-wrap gap-2">
+          {BASE_RULES.map(({ key, label, short }) => (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant="prefs"
+              active={!!(basePref as any)[key]}
+              title={label}
+              onClick={() => toggleRule(key)}
+            >
+              {short}
+            </Button>
+          ))}
+        </div>
+
+        {/* Two-a-day */}
+        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs opacity-80">Two-a-day</div>
+            <Button
+              type="button"
+              size="sm"
+              variant="prefs"
+              active={twoEnabled}
+              onClick={toggleTwoADay}
+            >
+              {twoEnabled ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+
+          {twoEnabled && (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="text-[11px] opacity-70">Max days/week:</div>
+              {[0, 1, 2].map((n) => (
+                <Button
+                  key={n}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={twoMax === n}
+                  onClick={() => setTwoADayMax(n)}
+                >
+                  {n}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Intensity model */}
+        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs opacity-80">Intensity model</div>
+            <InfoPopover text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="xs"
+              variant="prefs"
+              active={model === "polarized"}
+              onClick={() => setIntensityModel("polarized")}
+            >
+              Polarized (80/20)
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              variant="prefs"
+              active={model === "pyramidal"}
+              onClick={() => setIntensityModel("pyramidal")}
+            >
+              Pyramidal
+            </Button>
+          </div>
+        </div>
+
+        {/* Training blocks */}
+        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs opacity-80">Training blocks</div>
+            <InfoPopover text="Len flagy v preferences.training_blocks.*" />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="xs"
+              variant="prefs"
+              active={!!blocks.vo2max}
+              onClick={() => toggleBlock("vo2max")}
+            >
+              VO₂max (run)
+            </Button>
+
+            <Button
+              type="button"
+              size="xs"
+              variant="prefs"
+              active={!!blocks.ftp}
+              onClick={() => toggleBlock("ftp")}
+            >
+              FTP (ride)
+            </Button>
+
+            <Button
+              type="button"
+              size="xs"
+              variant="prefs"
+              active={!!blocks.threshold}
+              onClick={() => toggleBlock("threshold")}
+            >
+              Threshold focus
+            </Button>
+          </div>
         </div>
       </div>
-
-      {!open && (
-        <div
-          className={[
-            SURFACE_INLINE,
-            "px-3 py-2 text-xs opacity-80 select-none",
-          ].join(" ")}
-        >
-          {previewText}
-        </div>
-      )}
-
-      {open && (
-        <div className="space-y-3">
-          {/* Base rules */}
-          <div className="flex flex-wrap gap-2">
-            {BASE_RULES.map(({ key, label, short }) => (
-              <Button
-                key={key}
-                type="button"
-                size="sm"
-                variant="prefs"
-                active={!!basePref[key]}
-                title={label}
-                onClick={() => toggleRule(key)}
-              >
-                {short}
-              </Button>
-            ))}
-          </div>
-
-          {/* Two-a-day */}
-          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
-            <div className="flex items-center justify-between">
-              <div className="text-xs opacity-80">Two-a-day</div>
-              <Button
-                type="button"
-                size="sm"
-                variant="prefs"
-                active={twoEnabled}
-                onClick={toggleTwoADay}
-              >
-                {twoEnabled ? "Enabled" : "Disabled"}
-              </Button>
-            </div>
-
-            {twoEnabled && (
-              <div className="mt-2 flex items-center gap-2">
-                <div className="text-[11px] opacity-70">Max days/week:</div>
-                {[0, 1, 2].map((n) => (
-                  <Button
-                    key={n}
-                    type="button"
-                    size="xs"
-                    variant="prefs"
-                    active={twoMax === n}
-                    onClick={() => setTwoADayMax(n)}
-                  >
-                    {n}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Intensity model */}
-          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs opacity-80">Intensity model</div>
-              <InfoPopover text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="xs"
-                variant="prefs"
-                active={model === "polarized"}
-                onClick={() => setIntensityModel("polarized")}
-              >
-                Polarized (80/20)
-              </Button>
-              <Button
-                type="button"
-                size="xs"
-                variant="prefs"
-                active={model === "pyramidal"}
-                onClick={() => setIntensityModel("pyramidal")}
-              >
-                Pyramidal
-              </Button>
-            </div>
-          </div>
-
-          {/* Training blocks */}
-          <div className={[SURFACE_INLINE, "px-3 py-3"].join(" ")}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs opacity-80">Training blocks</div>
-              <InfoPopover text="Len flagy v preferences.training_blocks.*" />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="xs"
-                variant="prefs"
-                active={!!blocks.vo2max}
-                onClick={() => toggleBlock("vo2max")}
-              >
-                VO₂max (run)
-              </Button>
-
-              <Button
-                type="button"
-                size="xs"
-                variant="prefs"
-                active={!!blocks.ftp}
-                onClick={() => toggleBlock("ftp")}
-              >
-                FTP (ride)
-              </Button>
-
-              <Button
-                type="button"
-                size="xs"
-                variant="prefs"
-                active={!!blocks.threshold}
-                onClick={() => toggleBlock("threshold")}
-              >
-                Threshold focus
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
+    </InputsCard>
   );
 }

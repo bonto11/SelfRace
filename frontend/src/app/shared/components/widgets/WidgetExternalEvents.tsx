@@ -4,12 +4,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import Pill from "@/app/shared/components/ui/Pill";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import Pill from "@/app/shared/ui/components/Pill";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_ROW_TOP_XS,
   WIDGET_META_TEXT,
@@ -57,7 +57,7 @@ export default function WidgetExternalEvents() {
         }).length;
 
         const weekly = events.filter(
-          (ev) => (ev.recurrence_kind ?? "weekly") === "weekly"
+          (ev) => (ev.recurrence_kind ?? "weekly") === "weekly",
         ).length;
 
         setStats({
@@ -79,7 +79,6 @@ export default function WidgetExternalEvents() {
     };
   }, [userId]);
 
-  const accent = appColors.accentTeal;
 
   const label = (() => {
     if (!stats) return "No data";
@@ -91,16 +90,18 @@ export default function WidgetExternalEvents() {
 
   return (
     <WidgetCard
-      title="External events"
+      title="Externé udalosti"
+      accent="none"
       note="Externé športy a časové bloky, s ktorými plán počíta."
-      accent={accent}
       interactive
       minH={120}
       onOpen={() => router.push("/coach/external")}
     >
       <div className={WIDGET_ROW_TOP_XS}>
         <Pill
-          label={loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"}
+          label={
+            loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"
+          }
           color={pillColor}
         />
         <span className={WIDGET_META_TEXT}>{label}</span>
@@ -115,7 +116,9 @@ export default function WidgetExternalEvents() {
       )}
 
       {!loading && !err && (!stats || stats.total === 0) && (
-        <div className={WIDGET_EMPTY_HINT}>Tap to add your first external event.</div>
+        <div className={WIDGET_EMPTY_HINT}>
+          Tap to add your first external event.
+        </div>
       )}
     </WidgetCard>
   );

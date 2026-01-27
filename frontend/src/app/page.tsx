@@ -3,8 +3,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
-import { appColors } from "@/app/shared/theme/app_colors";
+import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 
 export default function LandingPage() {
   return (
@@ -40,8 +41,9 @@ export default function LandingPage() {
               className="text-sm sm:text-base max-w-xl mx-auto mt-4 leading-relaxed"
               style={{ color: appColors.textSecondary }}
             >
-              Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové
-              bloky, sledovať únavu a zónu komfortu. Žiadne random plány z internetu.
+              Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať
+              tréningové bloky, sledovať únavu a zónu komfortu. Žiadne random
+              plány z internetu.
             </p>
 
             {/* CTA buttons */}
@@ -71,8 +73,31 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <p className="text-[11px] mt-6" style={{ color: appColors.textMuted }}>
-              Powered by Strava • detailné metriky behu, tréningové zóny a AI coach.
+            {/* Strava branding: SVG namiesto textu */}
+            <div className="mt-7 flex justify-center">
+              <Image
+                src={STRAVA_ASSETS.poweredBySvg_white}
+                alt="Powered by Strava"
+                width={220}
+                height={28}
+                style={{
+                  height: 18,
+                  width: "auto",
+                  opacity: 0.9,
+                }}
+                priority={false}
+              />
+              {/* ak chceš radšej "compatible", prehoď na:
+                  src={STRAVA_ASSETS.compatibleWithSvg}
+                  alt="Compatible with Strava"
+              */}
+            </div>
+
+            <p
+              className="text-[11px] mt-3"
+              style={{ color: appColors.textMuted }}
+            >
+              Detailné metriky behu, tréningové zóny a AI coach po prepojení účtu.
             </p>
           </div>
 

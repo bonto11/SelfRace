@@ -1,8 +1,9 @@
+// src/app/(protected)/coach/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
-import AppHeader from "@/app/shared/components/ui/AppHeader";
-import { PAGE_CONTAINER, PAGE_STACK, PAGE_GRID_3 } from "@/app/shared/ui/tokens/pageTokens";
+import PageShell from "@/app/shared/ui/components/PageShell";
+import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
@@ -20,27 +21,29 @@ function ClientPage() {
   const router = useRouter();
 
   return (
-    <>
-      <AppHeader title="Coach" showBack={false} container />
+    <PageShell title="Coach" showBack={false}>
+      <div className={PAGE_GRID_2}>
+        {/* existujúce widgety */}
+        <WidgetExternalEvents />
+        <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
+        <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
+        <WidgetCoachPlan />
 
-      <div className={PAGE_CONTAINER}>
-        <div className={PAGE_STACK}>
-          <div className={PAGE_GRID_3}>
-            {/* existujúce widgety */}
-            <WidgetExternalEvents />
-            <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
-            <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-            <WidgetCoachPlan />
-
-            {/* AI widgety */}
-            <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
-            <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
-            <WidgetCoachAIDaily onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
-            <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
-          </div>
-        </div>
+        {/* AI widgety */}
+        <WidgetCoachAIAnalyze
+          onOpenDetail={() => router.push("/coach/ai/athleteState")}
+        />
+        <WidgetCoachAIWeekly
+          onOpenDetail={() => router.push("/coach/ai/weeklyPlan")}
+        />
+        <WidgetCoachAIDaily
+          onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
+        />
+        <WidgetCoachAIProgress
+          onOpenDetail={() => router.push("/coach/ai/progress")}
+        />
       </div>
-    </>
+    </PageShell>
   );
 }
 

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
 import { apiGetBests } from "@/app/features/bests/api/bests";
 
@@ -11,9 +11,7 @@ import { type UserBest } from "@/app/features/bests/types/bests";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { secToHHMMSS } from "@/app/shared/utils/time";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { THEME } from "@/app/shared/theme/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import {
   WIDGET_LOADING_WRAP,
@@ -22,7 +20,11 @@ import {
   WIDGET_EMPTY,
 } from "@/app/shared/ui/tokens";
 
-export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetPB({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { userId } = useUserId();
   const { favM } = useFavoritePBRun();
 
@@ -49,29 +51,21 @@ export default function WidgetPB({ onOpenDetail }: { onOpenDetail?: () => void }
   }, [userId]);
 
   const fav = useMemo(
-    () => (favM ? rows.find((r) => r.distance_m === favM) ?? null : null),
+    () => (favM ? (rows.find((r) => r.distance_m === favM) ?? null) : null),
     [rows, favM]
   );
 
   const main =
-    fav?.best_time_s != null ? secToHHMMSS(fav.best_time_s) : fav?.time_str ?? "—";
+    fav?.best_time_s != null
+      ? secToHHMMSS(fav.best_time_s)
+      : (fav?.time_str ?? "—");
 
   const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
-  const CH = (THEME as any)?.chart ?? {};
-  const accent =
-    CH.run ??
-    CH.positive ??
-    CH.fitness ??
-    CH.neutral ??
-    (THEME as any)?.accent?.primary ??
-    appColors.brandPrimary;
-
   return (
     <WidgetCard
-      title="Personal Bests — Run"
-      note="TAP pre detail a úpravy rekordov."
-      accent={accent}
+      title="Osobné rekordy"
+      accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}

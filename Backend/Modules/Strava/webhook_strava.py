@@ -323,7 +323,7 @@ async def strava_oauth_start(
 
     # Scope:
     # - read (basic)
-    # - activity:read_all (aby si vedel korektne rešpektovať privacy a dostať update pri "Only You")  [oai_citation:4‡developers.strava.com](https://developers.strava.com/docs/webhooks)
+    # - activity:read_all (Respect privacy and get "Only You")
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,

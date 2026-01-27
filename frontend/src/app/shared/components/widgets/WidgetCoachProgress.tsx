@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -56,7 +56,8 @@ function slovakLevel(level?: string | null): string {
 }
 
 function buildUiState(row: AthleteProgressRecord | null): UiState {
-  const payload: any = (row as any)?.report ?? (row as any)?.compare_previous ?? null;
+  const payload: any =
+    (row as any)?.report ?? (row as any)?.compare_previous ?? null;
 
   if (!row || !payload) {
     return {
@@ -155,7 +156,8 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteProgress(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
+        if (alive)
+          setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -168,12 +170,10 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
-  // konzistentný accent (bez THEME + bez hardcoded hex)
-  const accent = appColors.accentTeal;
-
   return (
     <WidgetCard
       title="Coach — Weekly progress"
+      accent="none"
       note={
         ui.hasData
           ? ui.comparedAt
@@ -181,7 +181,6 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
             : "Posledné porovnanie AI stavov atleta."
           : "Potrebujeme aspoň dve AI analýzy stavu – potom sa tu zobrazí progress."
       }
-      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
@@ -201,8 +200,8 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         </div>
       ) : !ui.hasData ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch analyzovaných týždňoch sa tu
-          zobrazí prehľad progresu.
+          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch
+          analyzovaných týždňoch sa tu zobrazí prehľad progresu.
         </div>
       ) : (
         <>
@@ -221,16 +220,22 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
           <div className={WIDGET_INFO_GRID_XS}>
             <div className={WIDGET_LABEL_MUTED_XS}>Únava</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.fatigueLabel ?? "—"}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>
+              {ui.fatigueLabel ?? "—"}
+            </div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>Riziko zranenia</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.injuryLabel ?? "—"}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>
+              {ui.injuryLabel ?? "—"}
+            </div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>Blok</div>
             <div className={WIDGET_VALUE_STRONG_XS}>{ui.blockLabel ?? "—"}</div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>Min. týždenný objem</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.volumeLabel ?? "—"}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>
+              {ui.volumeLabel ?? "—"}
+            </div>
           </div>
         </>
       )}

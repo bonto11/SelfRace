@@ -8,10 +8,10 @@ import type {
   SportFE,
 } from "@/app/features/activities/types/activities";
 import {
-  FIELD_BASE,
+  FIELD_READONLY_BASE,
   FIELD_DISABLED,
   FIELD_HELP,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 import { fmtShortDate } from "@/app/shared/utils/time";
 
 type Props = {
@@ -121,7 +121,7 @@ export default function ActivitySelector({
   return (
     <div className={className}>
       <select
-        className={[FIELD_BASE, disabled ? FIELD_DISABLED : ""].join(" ")}
+        className={[FIELD_READONLY_BASE, disabled ? FIELD_DISABLED : ""].join(" ")}
         value={value === "" ? "" : String(value)}
         onFocus={() => setOpen(true)}
         onChange={(e) => {

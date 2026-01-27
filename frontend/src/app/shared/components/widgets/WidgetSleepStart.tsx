@@ -2,16 +2,15 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import {
   checkRecoveryFreshness,
   compareTimeToBaselineMinutes,
 } from "@/app/shared/utils/recovery";
 import { HHMMToMinutes, minutesToHHMM } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { THEME } from "@/app/shared/theme/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_WRAP,
@@ -28,30 +27,28 @@ const EVENING_START_MIN = 18 * 60; // 18:00
 
 function pickAccentFromCmp(
   cmpAccent: unknown,
-  opts: { loading: boolean; showNA: boolean }
+  opts: { loading: boolean; showNA: boolean },
 ) {
-  const CH = (THEME as any)?.chart ?? {};
-
   if (opts.loading || opts.showNA) {
-    return CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+    return appColors.stateNeutral;
   }
 
   // cmp.accent často býva "bg-..." alebo text s farbou → mapujeme
   const a = String(cmpAccent ?? "").toLowerCase();
 
-  if (a.includes("red"))
-    return CH.danger ?? CH.obese ?? CH.warning ?? appColors.statusError;
-
+  if (a.includes("red")) return appColors.stateDanger;
   if (a.includes("amber") || a.includes("yellow"))
-    return CH.warning ?? CH.average ?? CH.fair ?? appColors.statusWarning;
+    return appColors.stateWarning;
+  if (a.includes("emerald") || a.includes("green")) return "none";
 
-  if (a.includes("emerald") || a.includes("green"))
-    return CH.positive ?? CH.fitness ?? CH.good ?? appColors.brandPrimary;
-
-  return CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
+  return "none";
 }
 
-export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetSleepStart({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -64,7 +61,7 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
         const m = r.sleep_start_time ? HHMMToMinutes(r.sleep_start_time) : null;
         return typeof m === "number" ? m : null;
       }),
-    [rows]
+    [rows],
   );
 
   const latest = useMemo<number | null>(() => {
@@ -79,13 +76,20 @@ export default function WidgetSleepStart({ onOpenDetail }: { onOpenDetail?: () =
     return latest;
   }, [latest]);
 
-  const cmp = compareTimeToBaselineMinutes(latestForCompare, FIX_BASELINE_MIN, TOL_MIN);
+  const cmp = compareTimeToBaselineMinutes(
+    latestForCompare,
+    FIX_BASELINE_MIN,
+    TOL_MIN,
+  );
 
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText =
-    showNA ? "—" : Number.isFinite(latest) ? minutesToHHMM(latest as number) : "—";
+  const valueText = showNA
+    ? "—"
+    : Number.isFinite(latest)
+      ? minutesToHHMM(latest as number)
+      : "—";
 
   const note = showNA ? freshness.message : cmp.note;
 

@@ -1,22 +1,21 @@
+// src/features/billing/components/BillingTierSelector.tsx
 "use client";
 
-import Button from "@/app/shared/components/ui/Button";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import type {
-   AppSubscriptionTier,
-   PlannedChange,
-   BillingTierSelectorProps,
-} from "@/app/features/billing/types/billing";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import type { BillingTierSelectorProps } from "@/app/features/billing/types/billing";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { PANEL_GRID_3, PANEL_BADGE } from "@/app/shared/ui/tokens";
 
-const TIER_ORDER: Record<string, number> = {
-  free: 0,
-  classic: 1,
-  pro: 2,
-};
+const TIER_ORDER: Record<string, number> = { free: 0, classic: 1, pro: 2 };
 
 function tierRank(code: string | null | undefined): number {
   if (!code) return 0;
   return TIER_ORDER[code] ?? 0;
+}
+
+function d10(s?: string | null) {
+  return s ? s.slice(0, 10) : "";
 }
 
 export default function BillingTierSelector({
@@ -30,17 +29,18 @@ export default function BillingTierSelector({
 
   if (tiers.length === 0) {
     return (
-      <p className="mt-3 text-sm opacity-70">
-        Zatiaľ nemáš v DB nakonfigurované žiadne subscription tiers.
+      <p className="text-sm" style={{ color: appColors.textMuted }}>
+        Zatiaľ nemáš nakonfigurované žiadne programy.
       </p>
     );
   }
 
   return (
-    <div className="mt-4 grid gap-3 md:grid-cols-3">
+    <div className={PANEL_GRID_3}>
       {tiers.map((tier) => {
         const isCurrent = tier.code === activeTierCode;
         const priceEur = (tier.monthly_price_cents || 0) / 100;
+
         const rank = tierRank(tier.code);
         const isUpgrade = rank > activeRank;
         const isDowngrade = rank < activeRank;
@@ -50,105 +50,116 @@ export default function BillingTierSelector({
           plannedChange.to_tier_code === tier.code &&
           plannedChange.kind === "downgrade";
 
-        let buttonLabel = "Switch to this tier";
-        if (isCurrent) {
-          buttonLabel = "Current tier";
-        } else if (tier.code === "free" && plannedChange?.kind === "cancel") {
-          buttonLabel = plannedChange.effective_from
-            ? `Cancel on ${plannedChange.effective_from.slice(0, 10)}`
-            : "Cancel scheduled";
-        } else if (isPlannedTarget) {
+        const isPlannedCancel =
+          tier.code === "free" && plannedChange?.kind === "cancel";
+
+        let buttonLabel = "Zvoliť program";
+        if (isCurrent) buttonLabel = "Aktuálny program";
+        else if (isPlannedCancel)
           buttonLabel = plannedChange?.effective_from
-            ? `Downgrade on ${plannedChange.effective_from.slice(0, 10)}`
-            : "Downgrade scheduled";
-        } else if (tier.code === "free") {
-          buttonLabel = "Schedule cancel";
-        } else if (isDowngrade) {
-          buttonLabel = "Schedule downgrade";
-        } else if (isUpgrade) {
-          buttonLabel = "Upgrade now";
-        }
+            ? `Zruší sa ${d10(plannedChange.effective_from)}`
+            : "Zrušenie je naplánované";
+        else if (isPlannedTarget)
+          buttonLabel = plannedChange?.effective_from
+            ? `Zníži sa ${d10(plannedChange.effective_from)}`
+            : "Zníženie je naplánované";
+        else if (tier.code === "free") buttonLabel = "Naplánovať zrušenie";
+        else if (isDowngrade) buttonLabel = "Naplánovať zníženie";
+        else if (isUpgrade) buttonLabel = "Zvýšiť teraz";
 
         const disabled =
-          isBusy ||
-          isCurrent ||
-          isPlannedTarget ||
-          (tier.code === "free" && plannedChange?.kind === "cancel");
+          isBusy || isCurrent || isPlannedTarget || isPlannedCancel;
+
+        const borderColor = isCurrent
+          ? appColors.statusSuccess
+          : isPlannedTarget || isPlannedCancel
+            ? appColors.statusWarning
+            : appColors.surfaceCardBorder;
+
+        const badge = isCurrent
+          ? "aktuálny"
+          : isPlannedTarget || isPlannedCancel
+            ? "naplánované"
+            : null;
 
         return (
           <div
             key={tier.id}
-            className={`rounded-lg border px-3 py-3 text-sm bg-black/40 ${
-              isCurrent
-                ? "border-emerald-400/70"
-                : isPlannedTarget ||
-                  (tier.code === "free" && plannedChange?.kind === "cancel")
-                ? "border-amber-400/70"
-                : "border-white/10 opacity-90"
-            }`}
+            className="rounded-lg border px-3 py-3"
+            style={{
+              background: appColors.surfaceCard,
+              borderColor,
+              color: appColors.textPrimary,
+            }}
           >
             <div className="flex items-center justify-between gap-2">
               <div>
                 <div className="font-semibold uppercase tracking-wide text-xs">
                   {tier.code}
                 </div>
-                <div className="text-xs opacity-70">{tier.name}</div>
+                <div className="text-xs" style={{ color: appColors.textMuted }}>
+                  {tier.name}
+                </div>
               </div>
-              {isCurrent && (
-                <span className="text-[10px] rounded-full border border-emerald-400/70 px-2 py-0.5 text-emerald-300">
-                  current
+
+              {badge ? (
+                <span
+                  className={PANEL_BADGE}
+                  style={{
+                    borderColor,
+                    color: isCurrent
+                      ? appColors.statusSuccess
+                      : appColors.statusWarning,
+                    background: appColors.pillBg,
+                  }}
+                >
+                  {badge}
                 </span>
-              )}
-              {!isCurrent &&
-                (isPlannedTarget ||
-                  (tier.code === "free" && plannedChange?.kind === "cancel")) && (
-                  <span className="text-[10px] rounded-full border border-amber-400/70 px-2 py-0.5 text-amber-300">
-                    scheduled
-                  </span>
-                )}
+              ) : null}
             </div>
 
-            <div className="mt-2 text-sm">
-              {priceEur === 0 ? (
-                <span className="font-semibold">Free</span>
-              ) : (
-                <span className="font-semibold">
-                  {priceEur.toFixed(2)} € / mesiac
-                </span>
-              )}
+            <div
+              className="text-sm font-semibold"
+              style={{ color: appColors.textPrimary }}
+            >
+              {priceEur === 0 ? "Zdarma" : `${priceEur.toFixed(2)} € / mesiac`}
             </div>
 
-            <div className="mt-1 text-[11px] opacity-70">
+            <div className="text-[11px]" style={{ color: appColors.textMuted }}>
               AI limit:{" "}
-              <span className="font-semibold">
+              <span
+                className="font-semibold"
+                style={{ color: appColors.textPrimary }}
+              >
                 {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")} tokenov /
                 mesiac
               </span>
             </div>
 
-            {tier.description && (
-              <p className="mt-1 text-[11px] opacity-80 line-clamp-3">
+            {tier.description ? (
+              <p
+                className="text-[11px] line-clamp-3"
+                style={{ color: appColors.textSecondary }}
+              >
                 {tier.description}
               </p>
-            )}
+            ) : null}
 
-            <div className="mt-3">
-              <Button
-                size="xs"
-                variant={isCurrent ? "secondary" : "primary"}
-                disabled={disabled}
-                onClick={() => onSetTier(tier.code)}
-              >
-                {isBusy && !isCurrent ? (
-                  <span className="inline-flex items-center gap-1">
-                    <LoadingSpinner size="button" />
-                    Switching…
-                  </span>
-                ) : (
-                  buttonLabel
-                )}
-              </Button>
-            </div>
+            <Button
+              size="xs"
+              variant={isCurrent ? "secondary" : "primary"}
+              disabled={disabled}
+              onClick={() => onSetTier(tier.code)}
+            >
+              {isBusy && !isCurrent ? (
+                <span className="inline-flex items-center gap-1">
+                  <LoadingSpinner size="button" />
+                  Ukladám…
+                </span>
+              ) : (
+                buttonLabel
+              )}
+            </Button>
           </div>
         );
       })}

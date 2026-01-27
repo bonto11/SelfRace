@@ -2,16 +2,15 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import {
   compareLatestToBaseline,
   makeRollingBaseline,
   checkRecoveryFreshness,
 } from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { THEME } from "@/app/shared/theme/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_WRAP,
@@ -21,7 +20,11 @@ import {
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
 
-export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void }) {
+export default function WidgetRHR({
+  onOpenDetail,
+}: {
+  onOpenDetail?: () => void;
+}) {
   const { rows, loading: loadingRaw } = useRecoveryData() as {
     rows: any[];
     loading?: boolean;
@@ -30,7 +33,7 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
 
   const values = useMemo<(number | null)[]>(
     () => rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)),
-    [rows]
+    [rows],
   );
 
   const latest = useMemo<number | null>(() => {
@@ -46,26 +49,35 @@ export default function WidgetRHR({ onOpenDetail }: { onOpenDetail?: () => void 
     return typeof last === "number" ? last : null;
   }, [values]);
 
-  const cmp = compareLatestToBaseline(latest, baselinePoint, "lower-better", 0.05);
+  const cmp = compareLatestToBaseline(
+    latest,
+    baselinePoint,
+    "lower-better",
+    0.05,
+  );
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
-  const valueText =
-    showNA ? "—" : Number.isFinite(latest) ? String(Math.round(latest as number)) : "—";
+  const valueText = showNA
+    ? "—"
+    : Number.isFinite(latest)
+      ? String(Math.round(latest as number))
+      : "—";
 
   const note = showNA ? freshness.message : cmp.note;
 
-  const CH = (THEME as any)?.chart ?? {};
   const accent = (() => {
-    if (loading || showNA) return CH.neutral ?? (THEME as any)?.accent?.neutral ?? appColors.textMuted;
+    if (loading || showNA) return "none";
 
     const a = String((cmp as any)?.accent ?? "").toLowerCase();
 
-    if (a.includes("red")) return CH.danger ?? CH.obese ?? appColors.statusError;
-    if (a.includes("amber") || a.includes("yellow")) return CH.warning ?? CH.average ?? appColors.statusWarning;
-    if (a.includes("emerald") || a.includes("green")) return CH.positive ?? CH.fitness ?? appColors.brandPrimary;
+    if (a.includes("red")) return appColors.stateDanger;
+    if (a.includes("amber") || a.includes("yellow"))
+      return appColors.stateWarning;
+    if (a.includes("emerald") || a.includes("green"))
+      return "none";
 
-    return CH.neutral ?? (THEME as any)?.accent?.primary ?? appColors.textSecondary;
+    return "none";
   })();
 
   return (

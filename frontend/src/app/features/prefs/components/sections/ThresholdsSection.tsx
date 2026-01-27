@@ -2,13 +2,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import TextField from "@/app/shared/ui/components/TextField";
+import Button from "@/app/shared/ui/components/Button";
+import { toast } from "@/app/shared/ui/components/Toast";
 import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import SelectField from "@/app/shared/components/ui/SelectField";
-import TextField from "@/app/shared/components/ui/TextField";
-import Button from "@/app/shared/components/ui/Button";
-import { toast } from "@/app/shared/components/ui/Toast";
+
+import {
+  SECTION,
+  SECTION_STYLE,
+  FORM_GRID_TWO,
+  FORM_GRID_SPLIT,
+  PANEL_STACK,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+} from "@/app/shared/ui/tokens";
 
 /* ---------- pace helpers (mm:ss) ---------- */
 function normalizePaceInput(v: string): string {
@@ -104,214 +114,203 @@ export default function ThresholdsSection({
     };
   }, [t, latestByCombo]);
 
-  return (
-    <section className={SECTION}>
-      {/* HEADER */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">Thresholds</div>
-        <div className="flex items-center gap-2">
-          <InfoPopover text="Prahy zadávaj per šport × typ (LT1/LT2/FTP). HR pole je hr_bpm." />
-          <DisclosureToggle open={open} onToggle={() => setOpen((o) => !o)} />
-        </div>
+  const previewNode = (
+    <div className="flex flex-wrap gap-4">
+      <div>
+        <span className="opacity-70 mr-1">Sport:</span>
+        <span className="font-semibold">{preview.sport}</span>
       </div>
-
-      {/* CLOSED PREVIEW */}
-      {!open && (
-        <div
-          className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(
-            " "
-          )}
-        >
-          <div className="flex flex-wrap gap-4 justify-center">
-            <div>
-              <span className="opacity-70 mr-1">Sport:</span>
-              <span className="font-semibold">{preview.sport}</span>
-            </div>
-            <div>
-              <span className="opacity-70 mr-1">Type:</span>
-              <span className="font-semibold">{preview.type}</span>
-            </div>
-            {preview.hr != null && (
-              <div>
-                <span className="opacity-70 mr-1">HR:</span>
-                <span className="font-semibold">
-                  {Math.round(preview.hr)} bpm
-                </span>
-              </div>
-            )}
-            {preview.pace && (
-              <div>
-                <span className="opacity-70 mr-1">Pace:</span>
-                <span className="font-semibold">{preview.pace} /km</span>
-              </div>
-            )}
-            {preview.pow != null && (
-              <div>
-                <span className="opacity-70 mr-1">Power:</span>
-                <span className="font-semibold">
-                  {Math.round(preview.pow)} W
-                </span>
-              </div>
-            )}
-          </div>
+      <div>
+        <span className="opacity-70 mr-1">Type:</span>
+        <span className="font-semibold">{preview.type}</span>
+      </div>
+      {preview.hr != null && (
+        <div>
+          <span className="opacity-70 mr-1">HR:</span>
+          <span className="font-semibold">{Math.round(preview.hr)} bpm</span>
         </div>
       )}
-
-      {/* OPEN EDITOR */}
-      {open && (
-        <>
-          {/* sport + type */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <SelectField
-                label="Sport"
-                value={t.sport ?? "running"}
-                onChange={(e) => onChange({ ...t, sport: e.target.value })}
-                options={THR_SPORTS as any}
-              />
-            </div>
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <SelectField
-                label="Threshold type"
-                value={t.threshold_type ?? "LT2"}
-                onChange={(e) =>
-                  onChange({ ...t, threshold_type: e.target.value })
-                }
-                options={[
-                  { value: "LT1", label: "LT1 (aerobic)" },
-                  { value: "LT2", label: "LT2 (anaerobic)" },
-                  { value: "FTP", label: "FTP (cycling)" },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* HR / Pace / Power */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField
-                label="Threshold HR (bpm)"
-                type="number"
-                value={t.hr_bpm ?? ""}
-                onChange={(e) =>
-                  onChange({
-                    ...t,
-                    hr_bpm:
-                      e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-            </div>
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField
-                label="Threshold pace (min/km)"
-                value={paceStr}
-                placeholder="04:55"
-                hint="mm:ss"
-                onChange={(e) => {
-                  const v = normalizePaceInput(e.target.value);
-                  setPaceStr(v);
-                  onChange({ ...t, pace_sec_km: paceToSec(v) });
-                }}
-              />
-            </div>
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <TextField
-                label="Threshold power (W)"
-                type="number"
-                value={t.power_watt ?? ""}
-                onChange={(e) =>
-                  onChange({
-                    ...t,
-                    power_watt:
-                      e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-            </div>
-          </div>
-
-          {/* Measurement */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-            <div className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
-              <SelectField
-                label="Measurement type"
-                value={t.measurement_type ?? "estimate garmin"}
-                onChange={(e) =>
-                  onChange({ ...t, measurement_type: e.target.value })
-                }
-                options={[
-                  { value: "lab test", label: "Lab test" },
-                  { value: "field test", label: "Field test" },
-                  { value: "estimate garmin", label: "Estimate – Garmin" },
-                  { value: "estimate strava", label: "Estimate – Strava" },
-                  { value: "coach estimate", label: "Coach estimate" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </div>
-          </div>
-
-          {onSaveToDB && (
-            <Button
-              type="button"
-              size="sm"
-              variant="success"
-              className="mt-2"
-              onClick={async () => {
-                const hrOk =
-                  t.hr_bpm == null || Number.isFinite(Number(t.hr_bpm));
-                const paceOk =
-                  t.pace_sec_km == null ||
-                  (Number.isFinite(Number(t.pace_sec_km)) &&
-                    Number(t.pace_sec_km) > 0);
-                const powOk =
-                  t.power_watt == null ||
-                  (Number.isFinite(Number(t.power_watt)) &&
-                    Number(t.power_watt) > 0);
-                if (!hrOk || !paceOk || !powOk) {
-                  toast.error("Invalid threshold values");
-                  return;
-                }
-                await onSaveToDB(t);
-              }}
-            >
-              Save threshold to DB
-            </Button>
-          )}
-
-          {/* uložené v DB */}
-          {latestByCombo.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs opacity-70 mb-1">
-                Aktuálne uložené v DB
-              </div>
-              <ul className="flex flex-wrap gap-2">
-                {latestByCombo.map((r, i) => (
-                  <li
-                    key={`${r.sport}-${r.threshold_type}-${i}`}
-                    className={[SURFACE_INLINE, "px-3 py-1.5 text-xs"].join(
-                      " "
-                    )}
-                  >
-                    <span className="font-medium">{r.sport}</span>
-                    <span> · {r.threshold_type}</span>
-                    {r.hr_bpm ? (
-                      <span> · HR {Math.round(r.hr_bpm)}</span>
-                    ) : null}
-                    {r.pace_sec_km ? (
-                      <span> · {secToPace(r.pace_sec_km)} /km</span>
-                    ) : null}
-                    {r.power_watt ? (
-                      <span> · {Math.round(r.power_watt)} W</span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+      {preview.pace && (
+        <div>
+          <span className="opacity-70 mr-1">Pace:</span>
+          <span className="font-semibold">{preview.pace} /km</span>
+        </div>
       )}
-    </section>
+      {preview.pow != null && (
+        <div>
+          <span className="opacity-70 mr-1">Power:</span>
+          <span className="font-semibold">{Math.round(preview.pow)} W</span>
+        </div>
+      )}
+    </div>
+  );
+
+  const handleSaveToDB = async () => {
+    if (!onSaveToDB) return;
+
+    const hrOk = t.hr_bpm == null || Number.isFinite(Number(t.hr_bpm));
+    const paceOk =
+      t.pace_sec_km == null ||
+      (Number.isFinite(Number(t.pace_sec_km)) && Number(t.pace_sec_km) > 0);
+    const powOk =
+      t.power_watt == null ||
+      (Number.isFinite(Number(t.power_watt)) && Number(t.power_watt) > 0);
+
+    if (!hrOk || !paceOk || !powOk) {
+      toast.error("Invalid threshold values");
+      return;
+    }
+
+    await onSaveToDB(t);
+  };
+
+  return (
+    <InputsCard
+      title={
+        <div className="flex items-center gap-2">
+          <span>Thresholds</span>
+          <InfoPopover text="Prahy zadávaj per šport × typ (LT1/LT2/FTP). HR pole je hr_bpm." />
+        </div>
+      }
+      subtitle="Prahy pre zóny a intenzity (draft + uložené z DB)."
+      preview={previewNode}
+      open={open}
+      onOpenChange={setOpen}
+      actions={
+        onSaveToDB ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleSaveToDB}
+          >
+            Save threshold to DB
+          </Button>
+        ) : null
+      }
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* sport + type */}
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Sport</div>
+            <SelectField
+              value={t.sport ?? "running"}
+              onChange={(e) => onChange({ ...t, sport: e.target.value })}
+              options={THR_SPORTS as any}
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold type</div>
+            <SelectField
+              value={t.threshold_type ?? "LT2"}
+              onChange={(e) =>
+                onChange({ ...t, threshold_type: e.target.value })
+              }
+              options={[
+                { value: "LT1", label: "LT1 (aerobic)" },
+                { value: "LT2", label: "LT2 (anaerobic)" },
+                { value: "FTP", label: "FTP (cycling)" },
+              ]}
+            />
+          </section>
+        </div>
+
+        {/* HR / Pace / Power */}
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold HR</div>
+            <TextField
+              type="number"
+              inputMode="numeric"
+              value={t.hr_bpm ?? ""}
+              onChange={(e) =>
+                onChange({
+                  ...t,
+                  hr_bpm: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="bpm"
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold pace</div>
+            <TextField
+              value={paceStr}
+              placeholder="04:55"
+              hint="mm:ss /km"
+              onChange={(e) => {
+                const v = normalizePaceInput(e.target.value);
+                setPaceStr(v);
+                onChange({ ...t, pace_sec_km: paceToSec(v) });
+              }}
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold power</div>
+            <TextField
+              type="number"
+              inputMode="numeric"
+              value={t.power_watt ?? ""}
+              onChange={(e) =>
+                onChange({
+                  ...t,
+                  power_watt:
+                    e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="W"
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Measurement type</div>
+            <SelectField
+              value={t.measurement_type ?? "estimate garmin"}
+              onChange={(e) =>
+                onChange({ ...t, measurement_type: e.target.value })
+              }
+              options={[
+                { value: "lab test", label: "Lab test" },
+                { value: "field test", label: "Field test" },
+                { value: "estimate garmin", label: "Estimate – Garmin" },
+                { value: "estimate strava", label: "Estimate – Strava" },
+                { value: "coach estimate", label: "Coach estimate" },
+                { value: "other", label: "Other" },
+              ]}
+            />
+          </section>
+        </div>
+
+        {/* uložené v DB */}
+        {latestByCombo.length > 0 && (
+          <div className="mt-1">
+            <div className={INPUTS_CARD_LABEL_SM_1}>Aktuálne uložené v DB</div>
+
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {latestByCombo.map((r, i) => (
+                <li
+                  key={`${r.sport}-${r.threshold_type}-${i}`}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs"
+                >
+                  <span className="font-medium">{r.sport}</span>
+                  <span> · {r.threshold_type}</span>
+                  {r.hr_bpm ? <span> · HR {Math.round(r.hr_bpm)}</span> : null}
+                  {r.pace_sec_km ? (
+                    <span> · {secToPace(r.pace_sec_km)} /km</span>
+                  ) : null}
+                  {r.power_watt ? (
+                    <span> · {Math.round(r.power_watt)} W</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </InputsCard>
   );
 }

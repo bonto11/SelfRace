@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -71,7 +71,7 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   }
 
   const weeks = [...plan.weeks].sort(
-    (a, b) => (a.week_index || 0) - (b.week_index || 0)
+    (a, b) => (a.week_index || 0) - (b.week_index || 0),
   );
 
   const first = weeks[0];
@@ -128,16 +128,15 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(plan), [plan]);
 
-  // bez THEME + bez hardcoded hex
-  const accent = appColors.brandPrimary;
-
   return (
     <WidgetCard
-      title="Coach — Weekly plan"
+      title="Tréner — Týždenný plán"
+      accent="none"
       note={
-        ui.lastPlanRange ? `Rozsah plánu: ${ui.lastPlanRange}` : "Vygeneruj weekly plán cez AI."
+        ui.lastPlanRange
+          ? `Rozsah plánu: ${ui.lastPlanRange}`
+          : "Vygeneruj weekly plán cez AI."
       }
-      accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={180}
@@ -157,7 +156,8 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
         </div>
       ) : !plan ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget sa naplní.
+          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget
+          sa naplní.
         </div>
       ) : (
         <>
@@ -166,13 +166,19 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
             <div className={WIDGET_VALUE_STRONG_SM}>{ui.weeksCount || "—"}</div>
 
             <div className={WIDGET_LABEL_MUTED_SM}>Aktuálny týždeň</div>
-            <div className={WIDGET_VALUE_STRONG_SM}>{ui.currentWeekLabel ?? "—"}</div>
+            <div className={WIDGET_VALUE_STRONG_SM}>
+              {ui.currentWeekLabel ?? "—"}
+            </div>
 
             <div className={WIDGET_LABEL_MUTED_SM}>Focus</div>
-            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekFocus ?? "—"}</div>
+            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
+              {ui.currentWeekFocus ?? "—"}
+            </div>
 
             <div className={WIDGET_LABEL_MUTED_SM}>Fáza</div>
-            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekLoad ?? "—"}</div>
+            <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
+              {ui.currentWeekLoad ?? "—"}
+            </div>
           </div>
 
           {ui.currentWeekFocus && (

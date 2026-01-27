@@ -1,11 +1,11 @@
 // src/features/widgets/WidgetCoachPrefs.tsx
 "use client";
 
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
-import SportBadge from "@/app/shared/components/ui/SportBadge";
+import SportBadge from "@/app/shared/ui/components/SportBadge";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_INFO_GRID,
   WIDGET_LABEL_MUTED,
@@ -14,31 +14,6 @@ import {
 } from "@/app/shared/ui/tokens";
 
 type Props = { onOpenDetail?: () => void };
-
-function pickAccent(goal?: string | null, primarySport?: string | null) {
-  const g = (goal || "").toLowerCase();
-
-  if (g.includes("vo2") || g.includes("speed") || g.includes("5k") || g.includes("10k")) {
-    return appColors.accentTeal;
-  }
-
-  if (g.includes("fat") || g.includes("weight") || g.includes("cut")) {
-    return appColors.accentLime;
-  }
-
-  if (g.includes("base") || g.includes("z2") || g.includes("endurance")) {
-    return appColors.brandPrimary;
-  }
-
-  if (primarySport) {
-    if (primarySport === "run") return appColors.brandPrimary;
-    if (primarySport === "ride") return appColors.accentTeal;
-    if (primarySport === "swim") return appColors.statusInfo;
-    if (primarySport === "strength") return appColors.accentLime;
-  }
-
-  return appColors.textMuted;
-}
 
 export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
   const { prefs } = useCoachData();
@@ -54,13 +29,12 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
     .filter((s, i, arr) => arr.indexOf(s) === i)
     .filter((s) => s !== "other");
 
-  const accentHex = pickAccent(prefs?.goal_kind ?? null, mainSport);
 
   return (
     <WidgetCard
-      title="Coach — Preferences"
+      title="Tréningové preferencie"
       note="Tapni pre detail nastavení."
-      accent={accentHex}
+      accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}

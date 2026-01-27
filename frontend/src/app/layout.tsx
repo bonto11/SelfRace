@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import type { ReactNode } from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 export const metadata: Metadata = {
   title: "SelfRace",

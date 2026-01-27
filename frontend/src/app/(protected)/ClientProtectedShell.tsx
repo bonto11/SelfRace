@@ -11,18 +11,22 @@ import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
 import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
 
 import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
-import ToastHost from "@/app/shared/components/ui/Toast";
-import ConfirmHost from "@/app/shared/components/ui/Confirm";
+import ToastHost from "@/app/shared/ui/components/Toast";
+import ConfirmHost from "@/app/shared/ui/components/Confirm";
 
 import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
-import { appColors } from "@/app/shared/theme/app_colors";
-import { SHELL_GRID } from "@/app/shared/theme/uiTokens";
-import AppBackdrop from "@/app/shared/components/ui/AppBackdrop";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { SHELL_GRID } from "@/app/shared/ui/tokens";
+import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 
-export default function ClientProtectedShell({ children }: { children: ReactNode }) {
+export default function ClientProtectedShell({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <>
       <UserPrefsBootstrapper />
@@ -77,10 +81,16 @@ export default function ClientProtectedShell({ children }: { children: ReactNode
                   {/* CONTENT */}
                   <div className="flex-1">
                     {/* Desktop */}
-                    <div className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}>
+                    <div
+                      className={["hidden lg:grid h-full", SHELL_GRID].join(
+                        " ",
+                      )}
+                    >
                       <Sidebar />
                       <div className="min-h-dvh flex flex-col">
-                        <main className="flex-1 p-3 lg:p-4 pb-4">{children}</main>
+                        <main className="flex-1 p-3 lg:p-4 pb-4">
+                          {children}
+                        </main>
                       </div>
                     </div>
 

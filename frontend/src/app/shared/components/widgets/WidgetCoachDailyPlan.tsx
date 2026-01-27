@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   WIDGET_LOADING_CENTER,
@@ -72,11 +72,6 @@ function buildUiState(overview: DailyOverview | null): UiState {
   };
 }
 
-function pickAccent(ui: UiState) {
-  if (!ui.daysCount) return appColors.textMuted;
-  if (ui.todaySessions && ui.todaySessions.length > 0) return appColors.brandPrimary;
-  return appColors.accentTeal;
-}
 
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
@@ -108,7 +103,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   }, [userId]);
 
   const ui = useMemo(() => buildUiState(overview), [overview]);
-  const accent = useMemo(() => pickAccent(ui), [ui]);
 
   const note = ui.daysCount
     ? `Najbližších ${ui.daysCount} dní (horizon ${ui.horizonDays} d)`
@@ -118,7 +112,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     <WidgetCard
       title="Coach — Daily plan"
       note={note}
-      accent={accent}
+      accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
@@ -138,8 +132,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         </div>
       ) : !overview || !ui.daysCount ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa tu
-          zobrazí prehľad najbližších dní.
+          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa
+          tu zobrazí prehľad najbližších dní.
         </div>
       ) : (
         <>

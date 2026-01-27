@@ -1,26 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { SURFACE_INSET } from "@/app/shared/theme/uiTokens";
+import { useEffect, useRef, useState } from "react";
+import { SURFACE_INSET } from "@/app/shared/ui/tokens";
+import { POPOVER_BTN, POPOVER_BODY } from "@/app/shared/ui/tokens";
 
 export function InfoPopover({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // klik mimo => zavri (aby to neostávalo otvorené)
+  useEffect(() => {
+    if (!open) return;
+
+    function onDocDown(e: MouseEvent | TouchEvent) {
+      const el = rootRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) setOpen(false);
+    }
+
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("touchstart", onDocDown, { passive: true });
+
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("touchstart", onDocDown as any);
+    };
+  }, [open]);
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="px-2 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-xs"
+        aria-expanded={open}
+        aria-label="Info"
+        className={[POPOVER_BTN, "bg-transparent hover:bg-white/5"].join(" ")}
       >
         i
       </button>
+
       {open && (
         <div
           className={[
             SURFACE_INSET,
-            "absolute right-0 mt-2 w-[min(74vw,360px)] p-3 text-xs leading-snug z-30",
+            POPOVER_BODY,
+            "absolute right-0 mt-2 w-[min(74vw,360px)] z-30",
           ].join(" ")}
+          role="dialog"
         >
           {text}
         </div>

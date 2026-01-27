@@ -6,11 +6,9 @@ import * as React from "react";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-import { THEME } from "@/app/shared/theme/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
-
-import Button from "@/app/shared/components/ui/Button";
+import Button from "@/app/shared/ui/components/Button";
 
 import {
   CALENDAR_CONTAINER,
@@ -26,12 +24,8 @@ import {
   CALENDAR_LEGEND_DOT,
   CALENDAR_LEGEND_TINY,
   CALENDAR_ERROR_LINE,
-} from "@/app/shared/ui/tokens/calendar";
-
-import {
   NO_X_OVERFLOW,
-} from "@/app/shared/ui/tokens/core";
-
+} from "@/app/shared/ui/tokens";
 
 import { eventDateIso } from "@/app/features/calendar/utils/calendarSlots";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
@@ -44,17 +38,15 @@ import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
 
-/* ---------- look: consistent sport colors (theme tokens only) ---------- */
-
 const SPORT_COLORS: Record<string, string> = {
-  run: THEME.chart.run,
-  ride: THEME.chart.ride,
-  swim: THEME.chart.swim,
-  strength: THEME.chart.strength,
-  mixed: THEME.chart.mixed,
-  skate: THEME.chart.skate,
-  walk: THEME.chart.walk,
-  other: THEME.chart.other,
+  run: appColors.chartRun,
+  ride: appColors.chartBike,
+  swim: appColors.chartSwim,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed,
+  skate: appColors.chartSkate,
+  walk: appColors.chartWalk,
+  other: appColors.chartOther,
 };
 
 function safeSportKey(v: any): string {
@@ -129,7 +121,9 @@ export default function ActivitiesCalendar({
       const dIso = eventDateIso(ev);
       if (!dIso) return false;
 
-      const sportKey = safeSportKey((ev as any).sport ?? (ev as any).sport_type);
+      const sportKey = safeSportKey(
+        (ev as any).sport ?? (ev as any).sport_type,
+      );
       const key = `${dIso}|${sportKey}`;
 
       if (planSlots.has(key)) return false;
@@ -201,9 +195,9 @@ export default function ActivitiesCalendar({
   }, [actRows]);
 
   // vizuálne: tiny symbol farby konzistentné (nech nie je vždy run)
-  const colPlan = THEME.chart.run;
-  const colExternal = THEME.chart.other;
-  const colActivity = THEME.chart.run;
+  const colPlan = appColors.chartRun;
+  const colExternal = appColors.chartOther;
+  const colActivity = appColors.chartRun;
 
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import SportBadge from "@/app/shared/components/ui/SportBadge";
+import SportBadge from "@/app/shared/ui/components/SportBadge";
 import {
   SURFACE_CARD,
   SURFACE_INLINE,
   FLUSH_DETAIL,
-} from "@/app/shared/theme/uiTokens";
+} from "@/app/shared/ui/tokens";
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";

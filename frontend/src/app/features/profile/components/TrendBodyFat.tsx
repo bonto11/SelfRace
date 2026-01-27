@@ -8,10 +8,9 @@ import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
-import { THEME } from "@/app/shared/theme/tokens";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/theme/uiTokens";
-import { inputClass } from "@/app/shared/ui";
+import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsProfile";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import SelectField from "@/app/shared/ui/components/SelectField";
 
 import type {
   StaticProfile,
@@ -24,19 +23,29 @@ import {
   hexWithAlpha,
 } from "@/app/features/profile/utils/profile";
 
+import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
+import {
+  SURFACE_CARD,
+  SCROLL_X,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_CARD_HEAD,
+  PANEL_CARD_TITLE,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+
 ensureChartJSRegistered();
 
-const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
-
 export default function TrendBodyFat() {
-  const { userId } = useUserId() as {
-    userId: number | null;
-  };
+  const { userId } = useUserId() as { userId: number | null };
 
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
   const [hist, setHist] = React.useState<MetricHistoryRow[]>([]);
-  const [weeks, setWeeks] = React.useState<4 | 8 | 12>(12);
+  const [weeks, setWeeks] = React.useState<number>(4);
+  const _height = OPTIONS.Height;
+  const _pxPerLabel = OPTIONS.pxPerLabel;
 
   React.useEffect(() => {
     if (!userId) return;
@@ -49,10 +58,9 @@ export default function TrendBodyFat() {
           apiGetStaticProfile(userId),
           apiGetMetricHistory(userId, "body_fat_pct"),
         ]);
-        if (alive) {
-          if (s) setStat(s);
-          setHist(m ?? []);
-        }
+        if (!alive) return;
+        if (s) setStat(s);
+        setHist(m ?? []);
       } finally {
         if (alive) setLoading(false);
       }
@@ -75,14 +83,19 @@ export default function TrendBodyFat() {
     }))
     .filter((x) => !!x.dISO && Number.isFinite(x.v))
     .sort((a, b) => (a.dISO < b.dISO ? -1 : a.dISO > b.dISO ? 1 : 0))
-    // nechávame aj staršie + posledné merania
+    // keep anything >= cutoff (and we keep historical anyway via data points)
     .filter((x) => x.dISO >= cutoffISO || true);
 
   if (samples.length === 0) {
-    return <div className={`${CARD} p-4`}>Žiadne dáta Body Fat %.</div>;
+    return (
+      <section className={SURFACE_CARD}>
+        <div className={[PANEL_PAD, "text-sm"].join(" ")}>
+          Žiadne dáta Body Fat %.
+        </div>
+      </section>
+    );
   }
 
-  // ak je len 1 meranie -> pridáme bod dnes
   let points: { dISO: string; v: number }[] = [...samples];
   if (samples.length === 1) {
     const todayISO = new Date().toISOString().slice(0, 10);
@@ -92,15 +105,13 @@ export default function TrendBodyFat() {
   }
 
   const labelsISO = points.map((p) => p.dISO);
-  const labels = labelsISO.map((d) =>
-    new Date(d).toLocaleDateString(THEME.i18n?.dateLocale ?? "sk-SK")
-  );
+  const labels = labelsISO.map((d) => new Date(d).toLocaleDateString("sk-SK"));
   const values = points.map((p) => p.v);
+
   const seriesMax = Math.max(
     0,
-    ...((values.filter(Number.isFinite) as number[]) || [0])
+    ...((values.filter(Number.isFinite) as number[]) || [0]),
   );
-
   const bands = stat ? getBodyFatBands(stat.sex ?? null) : [];
 
   const datasets: ChartData<"line", number[], string>["datasets"] = [
@@ -118,7 +129,7 @@ export default function TrendBodyFat() {
         backgroundColor: hexWithAlpha(color, 0.18),
         pointRadius: 0,
         borderWidth: 0,
-        fill: i === 0 ? "origin" : "-1",
+        fill: i === 0 ? ("origin" as const) : ("-1" as const),
         order: 1,
       };
     }),
@@ -126,8 +137,8 @@ export default function TrendBodyFat() {
       type: "line" as const,
       label: "Body Fat %",
       data: values,
-      borderColor: THEME.chart.linePrimary,
-      backgroundColor: THEME.chart.linePrimary,
+      borderColor: appColors.chartLine1,
+      backgroundColor: appColors.chartLine1,
       pointRadius: 2,
       borderWidth: 2,
       showLine: true,
@@ -140,75 +151,50 @@ export default function TrendBodyFat() {
   const data: ChartData<"line", number[], string> = { labels, datasets };
   const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
-  const options: ChartOptions<"line"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    elements: { point: { radius: 2, hoverRadius: 6 } },
-    plugins: {
-      legend: {
-        position: THEME.chart.legendPosition,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          boxWidth: 6,
-          boxHeight: 6,
-          padding: 8,
-        },
-      },
-      tooltip: {
-        enabled: true,
-        backgroundColor: "#0B1220F2",
-        borderColor: "#FFFFFF66",
-        borderWidth: 1,
-        titleColor: "#FFFFFF",
-        bodyColor: "#FFFFFF",
-        padding: 10,
-        usePointStyle: true,
-        boxPadding: 4,
-        displayColors: true,
-        caretSize: 6,
-        cornerRadius: 8,
-      },
+  const options: ChartOptions<"line"> = buildRecoveryLineOptions({
+    labelsISO,
+    yTitle: "%",
+    tooltipTitleForIndex: (i) =>
+      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
+    tooltipLabelForItem: (ctx) => {
+      const idx = ctx.dataIndex ?? 0;
+      const label = ctx.dataset?.label ?? "";
+      if (label === "Body Fat %") {
+        const v = values[idx];
+        return Number.isFinite(v) ? `Body Fat: ${Number(v).toFixed(1)}%` : "—";
+      }
+      return "";
     },
-    scales: {
-      y: {
-        beginAtZero: true,
-        suggestedMin: 0,
-        suggestedMax: suggestedTop,
-        grid: { color: THEME.chart.grid },
-        ticks: { color: THEME.color.text },
-        title: { display: true, text: "%" },
-      },
-      x: { grid: { color: THEME.chart.gridSoft } },
-    },
-  };
+    tooltipFilter: (item) => (item.dataset?.label ?? "") === "Body Fat %",
+    yMin: 0,
+    yMax: suggestedTop,
+  });
 
-  const minWidth = Math.max(360, Math.round(labels.length * DAY_PX_PER_LABEL));
+  const minWidth = Math.max(360, Math.round(labels.length * _pxPerLabel));
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Detail – Body Fat %</h2>
-        <select
-          value={weeks}
-          onChange={(e) => setWeeks(Number(e.target.value) as 4 | 8 | 12)}
-          className={`${inputClass} h-8 text-xs w-[132px]`}
-          aria-label="Lookback"
-        >
-          <option value={4}>4 týždne</option>
-          <option value={8}>8 týždňov</option>
-          <option value={12}>12 týždňov</option>
-        </select>
+    <section className={SURFACE_CARD}>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        <div className={PANEL_CARD_HEAD}>
+          <h2 className={PANEL_CARD_TITLE}>Detail – Body Fat %</h2>
+          <div className={PANEL_ACTIONS_INLINE}>
+            <SelectField
+              value={String(weeks)}
+              onChange={(e) => setWeeks(Number(e.target.value))}
+              options={WEEK_OPTIONS}
+              containerClassName="w-[132px]"
+              variant="editable"
+              placeholder="—"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* GRAPH */}
       <div
-        className={`${SCROLL_X} min-w-0`}
+        className={[SCROLL_X, "min-w-0"].join(" ")}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
       >
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
+        <div className="relative" style={{ height: _height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
@@ -219,6 +205,6 @@ export default function TrendBodyFat() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

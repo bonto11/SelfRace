@@ -4,9 +4,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import { THEME } from "@/app/shared/theme/tokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -42,14 +41,14 @@ import {
 /* ---------- helpers ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
-  run: (THEME as any)?.sport?.run ?? THEME.chart.run,
-  ride: (THEME as any)?.sport?.ride ?? THEME.chart.ride,
-  swim: (THEME as any)?.sport?.swim ?? THEME.chart.swim,
-  strength: (THEME as any)?.sport?.strength ?? THEME.chart.strength,
-  mixed: (THEME as any)?.sport?.mixed ?? THEME.chart.mixed,
-  skate: (THEME as any)?.sport?.skate ?? THEME.chart.skate,
-  walk: (THEME as any)?.sport?.walk ?? THEME.chart.walk,
-  other: (THEME as any)?.sport?.other ?? THEME.chart.other,
+  run: appColors.chartRun,
+  ride: appColors.chartBike,
+  swim: appColors.chartSwim,
+  strength: appColors.chartStrength,
+  mixed: appColors.chartMixed,
+  skate: appColors.chartSkate,
+  walk: appColors.chartWalk,
+  other: appColors.chartOther,
 };
 
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -95,7 +94,11 @@ export default function WidgetActivitiesCalendar({
     return d;
   }, [monday]);
 
-  const startIso = iso(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const startIso = iso(
+    monday.getFullYear(),
+    monday.getMonth(),
+    monday.getDate(),
+  );
   const endIso = iso(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
@@ -137,7 +140,9 @@ export default function WidgetActivitiesCalendar({
       const k = eventDateIso(ev);
       if (!k || !map.has(k)) continue;
 
-      const sport = safeSportKey((ev as any).sport ?? (ev as any).sport_type ?? "other");
+      const sport = safeSportKey(
+        (ev as any).sport ?? (ev as any).sport_type ?? "other",
+      );
       map.get(k)!.push({
         id: Number((ev as any).id ?? 0) || Math.floor(Math.random() * 1e9),
         sport,
@@ -151,7 +156,9 @@ export default function WidgetActivitiesCalendar({
       const k = String(r.date ?? "").slice(0, 10);
       if (!k || !map.has(k)) continue;
 
-      const sport = safeSportKey(r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other");
+      const sport = safeSportKey(
+        r.sport ?? r.sport_type_fe ?? r.sport_type ?? "other",
+      );
       const aidRaw = r.activity_id;
       const activityId =
         aidRaw != null && !Number.isNaN(Number(aidRaw)) ? Number(aidRaw) : null;
@@ -181,10 +188,14 @@ export default function WidgetActivitiesCalendar({
 
       const actIdRaw = (p as any).activity_id;
       const activityId =
-        actIdRaw != null && !Number.isNaN(Number(actIdRaw)) ? Number(actIdRaw) : null;
+        actIdRaw != null && !Number.isNaN(Number(actIdRaw))
+          ? Number(actIdRaw)
+          : null;
 
       if (activityId) {
-        const idx = arr.findIndex((it) => it.kind === "activity" && it.activityId === activityId);
+        const idx = arr.findIndex(
+          (it) => it.kind === "activity" && it.activityId === activityId,
+        );
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done", activityId };
           continue;
@@ -208,18 +219,20 @@ export default function WidgetActivitiesCalendar({
     }
 
     return map;
-  }, [monday, startIso, endIso, selectByRange, selectPlanByRange, externalRows]);
+  }, [
+    monday,
+    startIso,
+    endIso,
+    selectByRange,
+    selectPlanByRange,
+    externalRows,
+  ]);
 
   const weekLabel =
     `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
     `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
 
   const handleOpen = () => router.push(openHref);
-
-  const accent =
-    (THEME as any)?.accent?.neutral ??
-    (THEME as any)?.accent?.primary ??
-    `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`;
 
   const todayStr = new Date().toDateString();
   const dow = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"] as const;
@@ -228,14 +241,17 @@ export default function WidgetActivitiesCalendar({
     <WidgetCard
       title={`Týždenná agenda • ${weekLabel}`}
       onOpen={handleOpen}
+      accent="none"
       interactive
-      accent={accent}
       minH={160}
       innerClassName={NO_X_OVERFLOW}
     >
       {extErr && <div className={WIDGET_ERROR_LINE}>{extErr}</div>}
 
-      <div className={CAL_WIDGET_DOW_ROW} style={{ color: appColors.textMuted }}>
+      <div
+        className={CAL_WIDGET_DOW_ROW}
+        style={{ color: appColors.textMuted }}
+      >
         {dow.map((d) => (
           <div key={d} className={CAL_WIDGET_DOW_CELL}>
             {d}
@@ -243,7 +259,11 @@ export default function WidgetActivitiesCalendar({
         ))}
       </div>
 
-      <div className={CAL_WIDGET_GRID} onClick={handleOpen} aria-label="otvoriť kalendár">
+      <div
+        className={CAL_WIDGET_GRID}
+        onClick={handleOpen}
+        aria-label="otvoriť kalendár"
+      >
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(monday);
           d.setDate(monday.getDate() + i);
@@ -254,7 +274,7 @@ export default function WidgetActivitiesCalendar({
           const isToday = d.toDateString() === todayStr;
 
           const cellStyle: React.CSSProperties = {
-            background: appColors.inputBg,            // rovnaký vibe ako widgety
+            background: appColors.inputBg, // rovnaký vibe ako widgety
             borderColor: appColors.surfaceCardBorder, // žiadny biely rám
             color: appColors.textPrimary,
             WebkitTapHighlightColor: "transparent",
@@ -270,7 +290,8 @@ export default function WidgetActivitiesCalendar({
 
                 <div className={CAL_WIDGET_ITEMS_WRAP}>
                   {shown.map((it) => {
-                    const color = SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
+                    const color =
+                      SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
 
                     if (it.kind === "activity" || it.kind === "external") {
                       return (
@@ -287,7 +308,10 @@ export default function WidgetActivitiesCalendar({
                         <span
                           key={`${it.kind}-${it.id}`}
                           className={CAL_WIDGET_PLAN_DOT}
-                          style={{ borderColor: color, backgroundColor: "transparent" }}
+                          style={{
+                            borderColor: color,
+                            backgroundColor: "transparent",
+                          }}
                         />
                       );
                     }
@@ -316,7 +340,10 @@ export default function WidgetActivitiesCalendar({
                   })}
 
                   {items.length > shown.length && (
-                    <span className={CAL_WIDGET_MORE} style={{ color: appColors.textMuted }}>
+                    <span
+                      className={CAL_WIDGET_MORE}
+                      style={{ color: appColors.textMuted }}
+                    >
                       +{items.length - shown.length}
                     </span>
                   )}

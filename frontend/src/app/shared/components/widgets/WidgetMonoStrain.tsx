@@ -2,12 +2,12 @@
 "use client";
 
 import { useMemo } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_GRID_2,
@@ -22,54 +22,11 @@ type Level = "neutral" | "good" | "warn" | "danger";
 
 const C = appColors as any;
 
-function pickFirstColor(...keys: string[]): string {
-  for (const k of keys) {
-    const v = C?.[k];
-    if (typeof v === "string" && v.trim()) return v;
-  }
-  return "";
-}
-
 function levelColor(level: Level): string {
-  if (level === "danger") {
-    return (
-      pickFirstColor(
-        "statusError",
-        "danger",
-        "brandDanger",
-        "accentRed",
-        "accentRose",
-        "accentPink"
-      ) || appColors.statusError
-    );
-  }
-
-  if (level === "warn") {
-    return (
-      pickFirstColor(
-        "statusWarning",
-        "warn",
-        "brandWarn",
-        "accentAmber",
-        "accentOrange"
-      ) || appColors.statusWarning
-    );
-  }
-
-  if (level === "good") {
-    return (
-      pickFirstColor(
-        "statusSuccess",
-        "success",
-        "brandSuccess",
-        "accentGreen",
-        "accentTeal",
-        "brandPrimary"
-      ) || appColors.brandPrimary
-    );
-  }
-
-  return pickFirstColor("textMuted", "textSecondary", "textSubtle") || appColors.textMuted;
+  if (level === "danger") return appColors.stateDanger;
+  else if (level === "warn") return appColors.stateWarning;
+  else if (level === "good") return "none";
+  else return "none";
 }
 
 // ...zvyšok bez zmeny
@@ -108,7 +65,7 @@ export default function WidgetMonoStrain({
   const mono = useMemo(() => (r7?.last?.mono ?? null) as number | null, [r7]);
   const strain = useMemo(
     () => (r7?.last?.strain ?? null) as number | null,
-    [r7]
+    [r7],
   );
 
   const mC = classifyMonotony(mono);
@@ -117,8 +74,9 @@ export default function WidgetMonoStrain({
   const accentLevel = worstLevel(mC.level, sC.level);
   const accent = levelColor(accentLevel);
 
-  const rangeTxt =
-    r7?.last?.range ? fmtRange(r7.last.range.start, r7.last.range.end) : "—";
+  const rangeTxt = r7?.last?.range
+    ? fmtRange(r7.last.range.start, r7.last.range.end)
+    : "—";
 
   return (
     <WidgetCard

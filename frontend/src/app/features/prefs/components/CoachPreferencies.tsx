@@ -11,14 +11,14 @@ import type {
 } from "@/app/features/prefs/types/prefs";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { toast } from "@/app/shared/components/ui/Toast";
+import { toast } from "@/app/shared/ui/components/Toast";
 import {
   refreshCoachPrefsFromDB,
   saveCoachPrefs,
 } from "@/app/features/prefs/utils/prefs";
 
-import Button from "@/app/shared/components/ui/Button";
-import { NO_X, PILL_BUTTON } from "@/app/shared/theme/uiTokens";
+import Button from "@/app/shared/ui/components/Button";
+import { NO_X } from "@/app/shared/ui/tokens";
 
 import {
   apiFetchUserZonesLatest,
@@ -41,6 +41,12 @@ import { InjuriesSection } from "@/app/features/prefs/components/sections/Injuri
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+
+// ✅ panel layout tokens (no styling logic, only layout)
+import {
+  PANEL_STACK,
+  PANEL_ACTIONS_INLINE,
+} from "@/app/shared/ui/tokens/panels";
 
 /* ---- local DTOs ---- */
 
@@ -564,7 +570,7 @@ export default function CoachPreferencies() {
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
   return (
-    <div className={["space-y-4", NO_X].join(" ")}>
+    <div className={[PANEL_STACK, NO_X].join(" ")}>
       <PlanStartSection
         local={local}
         setLocal={setLocal}
@@ -615,11 +621,11 @@ export default function CoachPreferencies() {
         onSaveToDB={handleSaveThresholdsToDB}
       />
 
-      <div className="flex">
+      {/* advanced toggle row */}
+      <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
         <button
           type="button"
           onClick={() => setShowAdv((s) => !s)}
-          className={[PILL_BUTTON, "mx-auto"].join(" ")}
           aria-expanded={showAdv}
         >
           {showAdv ? "Hide advanced preferences" : "Show advanced preferences"}
@@ -638,7 +644,8 @@ export default function CoachPreferencies() {
         </>
       )}
 
-      <div className="flex flex-wrap gap-2 pt-1">
+      {/* actions */}
+      <div className={[PANEL_ACTIONS_INLINE, "pt-1"].join(" ")}>
         <Button onClick={onSave} variant="success">
           Save
         </Button>

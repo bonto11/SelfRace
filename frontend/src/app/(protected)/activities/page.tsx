@@ -1,8 +1,9 @@
+// src/app/(protected)/activities/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
-import AppHeader from "@/app/shared/components/ui/AppHeader";
-import { PAGE_CONTAINER } from "@/app/shared/ui/tokens/pageTokens";
+import PageShell from "@/app/shared/ui/components/PageShell";
+import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
@@ -17,17 +18,13 @@ export default function ActivitiesPage() {
   const openDetail8020 = () => router.push("/activities/pareto");
 
   return (
-    <>
-      <AppHeader title="Aktivity" showBack={false} container />
-
-      <div className={PAGE_CONTAINER}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-          <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
-          <MonoStrainWidget onOpenDetail={openDetailMono} />
-          <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
-          <WidgetActivitiesCalendar />
-        </div>
+    <PageShell title="Aktivity" showBack={false}>
+       <div className={PAGE_GRID_2}>
+        <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
+        <MonoStrainWidget onOpenDetail={openDetailMono} />
+        <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
+        <WidgetActivitiesCalendar />
       </div>
-    </>
+    </PageShell>
   );
 }

@@ -4,8 +4,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
+
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsRecovery";
 import {
   rollingMean,
   bandsAround,
@@ -13,9 +14,20 @@ import {
 } from "@/app/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { CARD, SCROLL_X } from "@/app/shared/theme/uiTokens";
-import { inputClass } from "@/app/shared/ui";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import SelectField from "@/app/shared/ui/components/SelectField";
+
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import {
+  CARD,
+  SURFACE_CARD_STYLE,
+  SCROLL_X,
+  PANEL_SECTION_HEAD,
+  CARD_HEAD_INSET,
+  CARD_BODY_INSET,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+} from "@/app/shared/ui/tokens";
 
 ensureChartJSRegistered();
 
@@ -38,12 +50,13 @@ export default function TrendHRV() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const DAY_PX_PER_LABEL = THEME.chart?.pxPerLabel ?? 26;
+  const _pxPerLabel = OPTIONS.pxPerLabel;
+  const _height = OPTIONS.Height;
 
   const COLOR = {
-    main: THEME.chart?.linePrimary ?? "#FFFFFF",
-    bandFill: THEME.chart?.bandFill ?? "rgba(16,185,129,0.15)",
-    missing: THEME.chart?.missing ?? "#ef4444", // red-500
+    main: appColors.chartLine1,
+    bandFill: appColors.chartBandFill,
+    missing: appColors.stateBad,
   };
 
   useEffect(() => {
@@ -52,7 +65,6 @@ export default function TrendHRV() {
 
   const days = weeks * 7;
 
-  // --- denzifikácia osi X na denné kroky ---
   const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
@@ -68,17 +80,16 @@ export default function TrendHRV() {
 
   const labelsISO = useMemo(
     () => dateSeq(startISO, endISO),
-    [startISO, endISO]
+    [startISO, endISO],
   );
 
-  // --- HRV séria na zhustenej osi ---
   const hrv = useMemo(
     () =>
       labelsISO.map((d) => {
         const rec = byDate.get(d);
         return typeof rec?.HRV_avg_ms === "number" ? rec.HRV_avg_ms : NaN;
       }),
-    [labelsISO, byDate]
+    [labelsISO, byDate],
   );
 
   const comments = useMemo(() => {
@@ -90,29 +101,25 @@ export default function TrendHRV() {
     return m;
   }, [labelsISO, byDate]);
 
-  // --- baseline pásmo (±5 %) ---
   const baselineArr = useMemo(
     () =>
       rollingMean(
         hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)),
-        14
+        14,
       ),
-    [hrv]
+    [hrv],
   );
+
   const { lower, upper } = useMemo(
     () => bandsAround(baselineArr, 0.05),
-    [baselineArr]
+    [baselineArr],
   );
-
-  // --- chýbajúce dni ---
   const missingIdx = useMemo(() => hrv.map((v) => !Number.isFinite(v)), [hrv]);
 
-  // Y-pozícia pre chýbajúce (lineárna interpolácia; okraje carry-forward/back)
   const missingY = useMemo(() => {
     const n = hrv.length;
     const out = new Array<number | null>(n).fill(null);
 
-    // najbližší známy index sprava
     const nextKnown: number[] = new Array(n).fill(-1);
     let last = -1;
     for (let i = n - 1; i >= 0; i--) {
@@ -120,7 +127,6 @@ export default function TrendHRV() {
       nextKnown[i] = last;
     }
 
-    // zľava a výpočet
     let prev = -1;
     for (let i = 0; i < n; i++) {
       if (Number.isFinite(hrv[i])) {
@@ -134,26 +140,19 @@ export default function TrendHRV() {
         const vn = hrv[nxt] as number;
         const t = (i - prev) / (nxt - prev);
         y = vp + (vn - vp) * t;
-      } else if (prev !== -1) {
-        y = hrv[prev] as number;
-      } else if (nxt !== -1) {
-        y = hrv[nxt] as number;
-      } else {
-        y = null;
-      }
+      } else if (prev !== -1) y = hrv[prev] as number;
+      else if (nxt !== -1) y = hrv[nxt] as number;
       out[i] = y;
     }
     return out;
   }, [hrv]);
 
-  // --- datasety ---
   const data: ChartData<"line", number[], string> = useMemo(() => {
     const toNum = (xs: (number | null)[]) =>
       xs.map((v) => (typeof v === "number" ? v : NaN));
     return {
       labels: labelsISO,
       datasets: [
-        // pásmo okolo baseline
         {
           type: "line" as const,
           label: "Baseline −5%",
@@ -177,8 +176,6 @@ export default function TrendHRV() {
           fill: "-1" as const,
           order: 1,
         },
-
-        // HRV línia – rovné segmenty kvôli presnému zarovnaniu
         {
           type: "line" as const,
           label: "HRV (RMSSD)",
@@ -187,22 +184,19 @@ export default function TrendHRV() {
           backgroundColor: COLOR.main,
           pointRadius: 3,
           borderWidth: 2,
-          tension: 0, // <<< dôležité
+          tension: 0,
           spanGaps: true,
           order: 2,
         },
-
-        // chýbajúce dni – dataset len pre tooltip/hit-detekciu
         {
           type: "line" as const,
           label: "Missing",
           data: missingY.map((y, i) =>
-            missingIdx[i] && typeof y === "number" ? y : NaN
+            missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
           showLine: false,
-          pointStyle: "circle",
-          pointRadius: 0, // vizuál kreslí plugin (navrch)
-          pointHitRadius: 12, // ale nech sa dá chytiť tooltip
+          pointRadius: 0,
+          pointHitRadius: 12,
           pointBackgroundColor: COLOR.missing,
           pointBorderColor: COLOR.missing,
           pointBorderWidth: 2,
@@ -224,13 +218,12 @@ export default function TrendHRV() {
     COLOR.missing,
   ]);
 
-  // --- plugin: prekreslí Missing kruhy úplne navrch, v správnych XY ---
   const drawMissingOnTop: Plugin<"line"> = useMemo(
     () => ({
       id: "draw-missing-on-top",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing"
+          (d) => d.label === "Missing",
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -239,7 +232,6 @@ export default function TrendHRV() {
         ctx.fillStyle = COLOR.missing;
         ctx.strokeStyle = COLOR.missing;
         ctx.lineWidth = 2;
-        // meta.data obsahuje PointElement-y pre tie indexy, kde nie je NaN
         for (const el of meta.data as any[]) {
           if (!el || el.skip) continue;
           const { x, y } = el.tooltipPosition(true);
@@ -251,10 +243,9 @@ export default function TrendHRV() {
         ctx.restore();
       },
     }),
-    [COLOR.missing]
+    [COLOR.missing],
   );
 
-  // --- options + tooltippy (HRV aj Missing) ---
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
@@ -262,7 +253,7 @@ export default function TrendHRV() {
         yTitle: "ms",
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-            THEME.i18n?.dateLocale ?? "sk-SK"
+            "sk-SK",
           ),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
@@ -284,7 +275,7 @@ export default function TrendHRV() {
           return l === "HRV (RMSSD)" || l === "Missing";
         },
       }),
-    [labelsISO, hrv, comments]
+    [labelsISO, hrv, comments],
   );
 
   useEffect(() => {
@@ -292,44 +283,56 @@ export default function TrendHRV() {
     return () => cancelAnimationFrame(t);
   }, [labelsISO.join("|")]);
 
-  const minWidth = Math.max(
-    360,
-    Math.round(labelsISO.length * DAY_PX_PER_LABEL)
-  );
+  const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
 
   return (
-    <div className={`${CARD} relative`}>
-      {/* HEADER */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">HR Variability</h2>
-        <select
-          value={weeks}
+    <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
+        <div className="min-w-0">
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
+            HRV trend
+          </div>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
+            RMSSD + baseline pásmo, chýbajúce dni zvýraznené.
+          </div>
+        </div>
+
+        <SelectField
+          value={String(weeks)}
           onChange={(e) => setWeeks(Number(e.target.value))}
-          className={`${inputClass} h-8 text-xs w-[132px]`}
-        >
-          <option value={2}>2 týždne</option>
-          <option value={4}>4 týždne</option>
-          <option value={8}>8 týždňov</option>
-          <option value={12}>12 týždňov</option>
-        </select>
+          options={WEEK_OPTIONS}
+          variant="editable"
+          containerClassName="w-[152px]"
+        />
       </div>
 
-      {/* BODY – flush + horizontal scroll */}
-      <div
-        className={`${SCROLL_X} min-w-0`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
-        <div className="relative" style={{ height: THEME.chart.weeklyHeight }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
+      <div className={CARD_BODY_INSET}>
+        <div
+          className={`${SCROLL_X} min-w-0`}
+          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+        >
+          <div className="relative" style={{ height: _height }}>
+            {loading && (
+              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+                <LoadingSpinner size="trend" />
+              </div>
+            )}
+            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
+              <Line
+                data={data}
+                options={options}
+                plugins={[drawMissingOnTop]}
+              />
             </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} plugins={[drawMissingOnTop]} />
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

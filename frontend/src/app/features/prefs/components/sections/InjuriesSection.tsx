@@ -2,16 +2,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Button from "@/app/shared/components/ui/Button";
-import TextField from "@/app/shared/components/ui/TextField";
-import DisclosureToggle from "@/app/shared/components/ui/DisclosureToggle";
-import { SECTION, SURFACE_INLINE } from "@/app/shared/theme/uiTokens";
+import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+
 import type {
   Injury,
   InjuryArea,
   InjuryType,
 } from "@/app/features/prefs/types/prefs";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 
 const INJ_AREAS: InjuryArea[] = [
   "foot",
@@ -25,6 +28,7 @@ const INJ_AREAS: InjuryArea[] = [
   "shoulder",
   "other",
 ];
+
 const INJ_TYPES: InjuryType[] = [
   "overuse",
   "acute",
@@ -54,169 +58,159 @@ export function InjuriesSection({ local, setLocal }: Props) {
 
   const preview = useMemo(
     () => list.map((i) => `${i.area} — ${i.type}`),
-    [list]
+    [list],
   );
 
-  return (
-    <section className={SECTION}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium opacity-90">
-          Injuries / limitations
-        </div>
-        <div className="flex items-center gap-2">
-          <InfoPopover text="Planner reduces risky elements and adds compensations." />
-          <DisclosureToggle
-            open={open}
-            onToggle={() => setOpen((o) => !o)}
-            labelWhenOpen="Collapse injuries"
-            labelWhenClosed="Expand injuries"
-          />
-        </div>
+  const previewNode =
+    preview.length === 0 ? (
+      <span className="opacity-70">No injuries recorded</span>
+    ) : (
+      <div className="flex flex-wrap gap-1.5">
+        {preview.map((txt, idx) => (
+          <span
+            key={`${txt}-${idx}`}
+            className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
+          >
+            {txt}
+          </span>
+        ))}
       </div>
+    );
 
-      {/* Closed preview */}
-      {!open && (
-        <div
-          className={[SURFACE_INLINE, "px-3 py-2 text-xs select-none"].join(
-            " "
-          )}
-        >
-          {preview.length === 0 ? (
-            <span className="opacity-70">No injuries recorded</span>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {preview.map((txt, idx) => (
-                <span
-                  key={`${txt}-${idx}`}
-                  className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
-                >
-                  {txt}
-                </span>
-              ))}
-            </div>
-          )}
+  return (
+    <InputsCard
+      title="Injuries / limitations"
+      subtitle={
+        <span style={{ color: appColors.textMuted }}>
+          Planner zníži rizikové prvky a doplní kompenzácie.
+        </span>
+      }
+      preview={previewNode}
+      open={open}
+      onOpenChange={setOpen}
+      always={
+        <div className="flex items-start justify-end">
+          <InfoPopover text="Planner reduces risky elements and adds compensations." />
         </div>
-      )}
-
-      {/* Open body */}
-      {open && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            {/* AREA pill box */}
-            <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
-              <div className="text-xs font-medium opacity-80 mb-2">Area</div>
-              <div className="flex flex-wrap gap-2">
-                {INJ_AREAS.map((a) => {
-                  const active = injDraft.area === a;
-                  return (
-                    <Button
-                      key={a}
-                      type="button"
-                      size="xs"
-                      variant="prefs"
-                      active={active}
-                      onClick={() => setInjDraft((d) => ({ ...d, area: a }))}
-                      className="text-xs"
-                    >
-                      {a}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* TYPE pill box */}
-            <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
-              <div className="text-xs font-medium opacity-80 mb-2">Type</div>
-              <div className="flex flex-wrap gap-2">
-                {INJ_TYPES.map((t) => {
-                  const active = injDraft.type === t;
-                  return (
-                    <Button
-                      key={t}
-                      type="button"
-                      size="xs"
-                      variant="prefs"
-                      active={active}
-                      onClick={() => setInjDraft((d) => ({ ...d, type: t }))}
-                      className="text-xs"
-                    >
-                      {t}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* NOTE */}
-            <div className={[SURFACE_INLINE, "px-3 py-2 rounded-xl"].join(" ")}>
-              <TextField
-                label="Note"
-                placeholder="e.g., foot pain after long runs"
-                value={injDraft.note ?? ""}
-                onChange={(e) =>
-                  setInjDraft((d) => ({
-                    ...d,
-                    note: (e.target as HTMLInputElement).value,
-                  }))
-                }
-              />
+      }
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Draft row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {/* AREA */}
+          <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+            <div className="text-xs font-medium opacity-80 mb-2">Area</div>
+            <div className="flex flex-wrap gap-2">
+              {INJ_AREAS.map((a) => {
+                const active = injDraft.area === a;
+                return (
+                  <Button
+                    key={a}
+                    type="button"
+                    size="xs"
+                    variant="prefs"
+                    active={active}
+                    onClick={() => setInjDraft((d) => ({ ...d, area: a }))}
+                    className="text-xs"
+                  >
+                    {a}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="mt-2">
-            <Button
-              size="sm"
-              variant="success"
-              onClick={() =>
-                setLocal((p: any) => ({
-                  ...p,
-                  injuries: [
-                    ...(p.injuries ?? []),
-                    { ...injDraft, note: injDraft.note?.trim() || undefined },
-                  ],
+          {/* TYPE */}
+          <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+            <div className="text-xs font-medium opacity-80 mb-2">Type</div>
+            <div className="flex flex-wrap gap-2">
+              {INJ_TYPES.map((t) => {
+                const active = injDraft.type === t;
+                return (
+                  <Button
+                    key={t}
+                    type="button"
+                    size="xs"
+                    variant="prefs"
+                    active={active}
+                    onClick={() => setInjDraft((d) => ({ ...d, type: t }))}
+                    className="text-xs"
+                  >
+                    {t}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* NOTE */}
+          <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+            <TextField
+              label="Note"
+              placeholder="e.g., foot pain after long runs"
+              value={injDraft.note ?? ""}
+              onChange={(e) =>
+                setInjDraft((d) => ({
+                  ...d,
+                  note: (e.target as HTMLInputElement).value,
                 }))
               }
-            >
-              Add injury
-            </Button>
+            />
           </div>
+        </div>
 
-          {list.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {list.map((it, idx) => (
-                <li
-                  key={`${it.area}-${it.type}-${idx}`}
-                  className={[
-                    SURFACE_INLINE,
-                    "px-3 py-2 flex items-center justify-between",
-                  ].join(" ")}
+        {/* Actions */}
+        <div className="mt-1">
+          <Button
+            size="sm"
+            variant="success"
+            onClick={() =>
+              setLocal((p: any) => ({
+                ...p,
+                injuries: [
+                  ...(p.injuries ?? []),
+                  { ...injDraft, note: injDraft.note?.trim() || undefined },
+                ],
+              }))
+            }
+          >
+            Add injury
+          </Button>
+        </div>
+
+        {/* List */}
+        {list.length > 0 && (
+          <ul className="mt-2 space-y-2">
+            {list.map((it, idx) => (
+              <li
+                key={`${it.area}-${it.type}-${idx}`}
+                className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 flex items-center justify-between gap-3"
+              >
+                <span className="text-sm">
+                  {it.area} · {it.type}
+                  {it.note ? ` — ${it.note}` : ""}
+                </span>
+
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() =>
+                    setLocal((p: any) => ({
+                      ...p,
+                      injuries: (p.injuries ?? []).filter(
+                        (_: any, i: number) => i !== idx,
+                      ),
+                    }))
+                  }
                 >
-                  <span className="text-sm">
-                    {it.area} · {it.type}
-                    {it.note ? ` — ${it.note}` : ""}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() =>
-                      setLocal((p: any) => ({
-                        ...p,
-                        injuries: (p.injuries ?? []).filter(
-                          (_: any, i: number) => i !== idx
-                        ),
-                      }))
-                    }
-                  >
-                    remove
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </section>
+                  remove
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </InputsCard>
   );
 }

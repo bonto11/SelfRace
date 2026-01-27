@@ -1,33 +1,14 @@
 // src/app/(protected)/account/page.tsx
-import AppHeader from "@/app/shared/components/ui/AppHeader";
-import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
-import { PAGE_INTRO, PAGE_INTRO_TITLE, PAGE_INTRO_TEXT } from "@/app/shared/ui/tokens/pageIntro";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
-
-import PersonalSettingsPanel from "@/app/features/account/components/PersonalSettingsPanel";
+import SettingsInputs from "@/app/features/account/components/SettingsInputs";
 import BillingPanel from "@/app/features/billing/components/BillingPanel";
 
 export default function AccountPage() {
   return (
-    <>
-      <AppHeader title="Account & Settings" showBack={false} container />
-
-      <div className={PAGE_CONTAINER}>
-        <div className={PAGE_STACK}>
-          <header className={PAGE_INTRO}>
-            <h2 className={PAGE_INTRO_TITLE}>Account & Settings</h2>
-            <p className={PAGE_INTRO_TEXT}>
-              Nastav si účet, preferencie aplikácie a sprav svoje subscription tiers
-              a AI limity.
-            </p>
-          </header>
-
-          <div className={PAGE_STACK}>
-            <PersonalSettingsPanel />
-            <BillingPanel />
-          </div>
-        </div>
-      </div>
-    </>
+    <PageShell title="Účet & nastavenia" showBack={false}>
+      <SettingsInputs />
+      <BillingPanel />
+    </PageShell>
   );
 }

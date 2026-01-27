@@ -1,9 +1,10 @@
+// src/shared/components/widgets/WidgetBodyFat.tsx
 "use client";
 
 import * as React from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import Pill from "@/app/shared/components/ui/Pill";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Pill from "@/app/shared/ui/components/Pill";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { fmtDate } from "@/app/shared/utils/time";
@@ -15,9 +16,8 @@ import type {
   MetricHistoryRow,
 } from "@/app/features/profile/types/profile";
 
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-// ✅ tokeny
 import {
   NO_X_OVERFLOW,
   WIDGET_LOADING_CENTER,
@@ -37,12 +37,11 @@ type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
 
-  // bez statických farieb: napojené na appColors
-  if (l.includes("athlete")) return appColors.brandPrimary;
-  if (l.includes("fitness")) return appColors.accentTeal;
-  if (l.includes("average")) return appColors.statusWarning;
-  if (l.includes("essential")) return appColors.chartLine3;
-  if (l.includes("obese")) return appColors.statusError;
+  if (l.includes("athlete")) return appColors.stateAthletes;
+  if (l.includes("fitness")) return appColors.stateFitness;
+  if (l.includes("average")) return appColors.stateAverage;
+  if (l.includes("essential")) return appColors.stateEssential;
+  if (l.includes("obese")) return appColors.stateObese;
 
   return appColors.textMuted;
 }
@@ -51,7 +50,7 @@ function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
   if (pct == null || !Number.isFinite(pct)) return null;
   const bands = getBodyFatBands(sex);
   const hit = bands.find(
-    (b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max)
+    (b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max),
   );
   if (!hit) return null;
   return { label: hit.label.trim(), color: colorForLevel(hit.label) };
@@ -67,7 +66,6 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
   React.useEffect(() => {
     if (!userId) return;
-
     let alive = true;
 
     (async () => {
@@ -83,7 +81,9 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
         setStat(staticProfile ?? null);
 
-        const rowsBE: MetricHistoryRow[] = Array.isArray(history) ? history : [];
+        const rowsBE: MetricHistoryRow[] = Array.isArray(history)
+          ? history
+          : [];
         const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
 
         const last: MetricsRowFE | null = lastBE
@@ -106,8 +106,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   }, [userId]);
 
   const pct = latest?.body_fat_pct ?? null;
-  const level = classifyBodyFat(stat?.sex ?? "M", pct);
-
+  const level = classifyBodyFat(stat?.sex === "F" ? "F" : "M", pct);
   const accent = level?.color ?? appColors.brandPrimary;
 
   return (
@@ -127,7 +126,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
         <div className={WIDGET_ROW_BETWEEN}>
           <div className={WIDGET_BLOCK}>
             <div className={WIDGET_META_LABEL}>
-              merané: {fmtDate(latest?.updated_at)}
+              merané: {fmtDate(latest?.updated_at ?? null)}
             </div>
 
             <div className={WIDGET_VALUE_ROW}>

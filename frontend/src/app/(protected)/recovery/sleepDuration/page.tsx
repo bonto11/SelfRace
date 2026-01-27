@@ -2,8 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import AppHeader from "@/app/shared/components/ui/AppHeader";
-import { PAGE_CONTAINER, PAGE_STACK } from "@/app/shared/ui/tokens/pageTokens";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
 const SleepDurationDetailClient = dynamic(
   () => import("@/app/features/recovery/components/TrendSleepDuration"),
@@ -12,14 +11,8 @@ const SleepDurationDetailClient = dynamic(
 
 export default function Page() {
   return (
-    <>
-      <AppHeader title="Detail — Sleep Duration" showBack container />
-
-      <div className={PAGE_CONTAINER}>
-        <div className={PAGE_STACK}>
-          <SleepDurationDetailClient />
-        </div>
-      </div>
-    </>
+    <PageShell title="Detail — Sleep Duration" showBack>
+      <SleepDurationDetailClient />
+    </PageShell>
   );
 }

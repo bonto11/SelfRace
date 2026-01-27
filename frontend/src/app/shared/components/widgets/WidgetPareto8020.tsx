@@ -2,13 +2,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { THEME } from "@/app/shared/theme/tokens";
 import { fmtMinutes } from "@/app/shared/utils/time";
 import { sportsToCSV, normalizeSportList } from "@/app/configs/config_sports";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
-import { appColors } from "@/app/shared/theme/app_colors";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_CENTER,
@@ -22,7 +21,11 @@ type Props = {
   sport?: string | string[] | null;
 };
 
-export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null }: Props) {
+export default function WidgetPareto8020({
+  onOpenTrend,
+  weeks = 2,
+  sport = null,
+}: Props) {
   const { getParetoWidget } = useActivityData();
 
   const sportParam = useMemo(() => {
@@ -30,12 +33,20 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
     if (Array.isArray(sport)) return sportsToCSV(sport);
     const s = String(sport).trim();
     if (!s || s.toLowerCase() === "all") return "all";
-    const list = s.split(",").map((x) => x.trim()).filter(Boolean);
+    const list = s
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
     return sportsToCSV(normalizeSportList(list));
   }, [sport]);
 
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<{ easy_min: number; hard_min: number; total_min: number; days: number } | null>(null);
+  const [data, setData] = useState<{
+    easy_min: number;
+    hard_min: number;
+    total_min: number;
+    days: number;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -44,12 +55,16 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
       try {
         const d = await getParetoWidget(7 * weeks, sportParam);
         if (!alive) return;
-        setData(d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks });
+        setData(
+          d ?? { easy_min: 0, hard_min: 0, total_min: 0, days: 7 * weeks },
+        );
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [getParetoWidget, weeks, sportParam]);
 
   const E = Math.max(0, Number(data?.easy_min ?? 0));
@@ -63,31 +78,26 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
   const deltaEasy = Math.round(targetEasy - E);
   const deviation = T ? Math.abs(E - targetEasy) / T : 1;
 
-  const CH = (THEME as any)?.chart ?? {};
-
   const accent =
     T === 0
-      ? (CH.neutral ?? appColors.textMuted)
-      : deviation <= 0.05
-      ? (CH.positive ?? CH.fitness ?? appColors.brandPrimary)
+      ? "none"
       : deviation <= 0.1
-      ? (CH.warning ?? CH.average ?? appColors.statusWarning)
-      : (CH.obese ?? CH.danger ?? appColors.statusError);
+          ? appColors.stateWarning
+          : appColors.stateWarning;
 
   const note =
     T === 0
       ? ""
       : deltaEasy > 0
-      ? `Chýba ti ${deltaEasy} min Easy do 80/20.`
-      : deltaEasy < 0
-      ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
-      : "Si presne na 80/20 ✔";
+        ? `Chýba ti ${deltaEasy} min Easy do 80/20.`
+        : deltaEasy < 0
+          ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
+          : "Si presne na 80/20 ✔";
 
-  // farby prstenca – iba theme/app_colors (bez hardcoded)
-  const colEasy80 = CH.easy80 ?? CH.fitness ?? appColors.brandPrimary;
-  const colHard20 = CH.hard20 ?? CH.warning ?? appColors.accentTeal;
-  const colTrack = CH.track ?? appColors.surfaceCardBorder;
-  const colTick = CH.tick ?? appColors.textSecondary;
+  const colEasy80 = appColors.chartLine1;
+  const colHard20 = appColors.chartLine2;
+  const colTrack = appColors.chartAxis;
+  const colTick = appColors.textSecondary;
 
   const textFill = appColors.textPrimary;
 
@@ -124,8 +134,22 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
       ) : (
         <>
           <div className={WIDGET_CENTER}>
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="80/20 prstenec">
-              <circle cx={cx} cy={cy} r={r} stroke={colTrack} strokeWidth={stroke} fill="none" transform={startAtTop} />
+            <svg
+              width={size}
+              height={size}
+              viewBox={`0 0 ${size} ${size}`}
+              role="img"
+              aria-label="80/20 prstenec"
+            >
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                stroke={colTrack}
+                strokeWidth={stroke}
+                fill="none"
+                transform={startAtTop}
+              />
 
               <circle
                 cx={cx}
@@ -151,7 +175,15 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
                 transform={startAtTop}
               />
 
-              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={colTick} strokeWidth={6} strokeLinecap="round" />
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={colTick}
+                strokeWidth={6}
+                strokeLinecap="round"
+              />
 
               <text
                 x={cx}
@@ -168,8 +200,14 @@ export default function WidgetPareto8020({ onOpenTrend, weeks = 2, sport = null 
           </div>
 
           <div className={WIDGET_FOOTNOTE}>
-            Easy: {fmtMinutes(E)} ({easyPct}%){" \u00B7 "}Hard: {fmtMinutes(H)} ({hardPct}%)
-            {T ? <>{" \u00B7 "}{fmtMinutes(T)} spolu</> : null}
+            Easy: {fmtMinutes(E)} ({easyPct}%){" \u00B7 "}Hard: {fmtMinutes(H)}{" "}
+            ({hardPct}%)
+            {T ? (
+              <>
+                {" \u00B7 "}
+                {fmtMinutes(T)} spolu
+              </>
+            ) : null}
           </div>
 
           {note && <div className={WIDGET_NOTE}>{note}</div>}

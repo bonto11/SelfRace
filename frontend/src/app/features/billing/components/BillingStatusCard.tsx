@@ -1,7 +1,7 @@
 "use client";
 
-import Button from "@/app/shared/components/ui/Button";
-import LoadingSpinner from "@/app/shared/components/ui/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import BillingUsageBar from "./BillingUsageBar";
 
 import type {

@@ -4,7 +4,7 @@
 import * as React from "react";
 import type { DayCellData } from "@/app/features/calendar/types/calendarTypes";
 import CalendarDayCell from "@/app/features/calendar/grid/CalendarDayCell";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type Props = {
   cells: DayCellData[];

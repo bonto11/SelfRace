@@ -1,6 +1,6 @@
 // src/app/shared/ui/tokens/calendar.ts
 import type * as React from "react";
-import { appColors } from "@/app/shared/theme/app_colors";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SURFACE_CARD, SURFACE_CARD_STYLE } from "./core";
 
 /* ============================================================================
@@ -78,8 +78,7 @@ export const CALENDAR_ITEMS_WRAP =
   "mt-1.5 pl-0.5 pr-0.5 flex flex-wrap gap-1 items-center";
 
 export const CALENDAR_DOT = "inline-block w-1.5 h-1.5 rounded-full";
-export const CALENDAR_PLAN_DOT =
-  "inline-block w-1.5 h-1.5 rounded-full border"; // border color via style
+export const CALENDAR_PLAN_DOT = "inline-block w-1.5 h-1.5 rounded-full border"; // border color via style
 export const CALENDAR_MARK = "text-[11px] leading-none font-semibold";
 export const CALENDAR_MORE = "text-[10px] opacity-70";
 

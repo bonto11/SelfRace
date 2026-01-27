@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
 import {
@@ -10,9 +11,24 @@ import {
   DROPDOWN_PANEL,
   DROPDOWN_ITEM,
   DROPDOWN_ITEM_DANGER,
-  ICON_BUTTON,
-} from "@/app/shared/theme/uiTokens";
-import { appColors } from "@/app/shared/theme/app_colors";
+} from "@/app/shared/ui/tokens";
+import {
+  USER_MENU_WRAP,
+  USER_MENU_TRIGGER,
+  USER_MENU_LABEL_ROW,
+  USER_MENU_LABEL,
+  USER_MENU_TIER_PILL,
+  USER_MENU_AVATAR_IMG,
+  USER_MENU_PANEL_HEAD,
+  USER_MENU_HEAD_ROW,
+  USER_MENU_HEAD_LEFT,
+  USER_MENU_HEAD_NAME,
+  USER_MENU_HEAD_EMAIL,
+  USER_MENU_NAV,
+  USER_MENU_SIGNOUT_DISABLED,
+} from "@/app/shared/ui/tokens/userMenu";
+
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   getSubscriptionTier,
   subscribeSubscriptionTier,
@@ -31,14 +47,28 @@ export default function UserMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"signout" | null>(null);
   const [me, setMe] = useState<LocalUser | null>(null);
-  const [tierCode, setTierCode] = useState<string>(() => getSubscriptionTier() || "free");
-  const boxRef = useRef<HTMLDivElement | null>(null);
+  const [tierCode, setTierCode] = useState<string>(
+    () => getSubscriptionTier() || "free",
+  );
+
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const [pos, setPos] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const r = await fetch("/api/auth/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
         const j = await r.json();
         if (!alive) return;
         if (j?.ok && j.user) setMe(j.user as LocalUser);
@@ -50,13 +80,15 @@ export default function UserMenu() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = subscribeSubscriptionTier((next) => setTierCode(next || "free"));
+    const unsubscribe = subscribeSubscriptionTier((next) =>
+      setTierCode(next || "free"),
+    );
     return unsubscribe;
   }, []);
 
   const label = useMemo(
     () => me?.displayName || me?.name || me?.email || "",
-    [me?.displayName, me?.name, me?.email]
+    [me?.displayName, me?.name, me?.email],
   );
 
   const initials = useMemo(() => {
@@ -68,19 +100,59 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.name, me?.displayName, me?.email]);
 
+  // close on outside click (portal-safe)
   useEffect(() => {
+    if (!open) return;
+
     const onDoc = (ev: MouseEvent) => {
-      if (!boxRef.current) return;
-      if (!boxRef.current.contains(ev.target as Node)) setOpen(false);
+      const t = ev.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
-    const onEsc = (ev: KeyboardEvent) => ev.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
+
+    const onEsc = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDoc, true);
     document.addEventListener("keydown", onEsc);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("mousedown", onDoc, true);
       document.removeEventListener("keydown", onEsc);
     };
-  }, []);
+  }, [open]);
+
+  // compute fixed position (portal)
+  useEffect(() => {
+    if (!open) return;
+    const el = btnRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const r = el.getBoundingClientRect();
+
+      // menu width: at least trigger width, but keep nice readable max
+      const w = Math.max(r.width, 260);
+      const margin = 10;
+
+      // align right edge to trigger right edge
+      let left = r.right - w;
+      left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+
+      const top = r.bottom + 10;
+
+      setPos({ left, top, width: w });
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
 
   async function handleSignOut() {
     setBusy("signout");
@@ -91,53 +163,138 @@ export default function UserMenu() {
     }
   }
 
-  // Tier pill – iba cez palette (žiadne slate/purple/s
   const tierStyle =
     tierCode === "pro"
       ? {
-          background: "rgba(56,189,248,0.16)", // jemný info tint
+          background: "rgba(56,189,248,0.16)",
           border: `1px solid ${appColors.panelBorder}`,
           color: appColors.textPrimary,
         }
       : tierCode === "classic"
-      ? {
-          background: "rgba(163,230,53,0.14)", // lime tint
-          border: `1px solid ${appColors.pillActiveBorder}`,
-          color: appColors.textPrimary,
-        }
-      : {
-          background: appColors.pillBg,
-          border: `1px solid ${appColors.pillBorder}`,
-          color: appColors.textSecondary,
-        };
+        ? {
+            background: "rgba(163,230,53,0.14)",
+            border: `1px solid ${appColors.pillActiveBorder}`,
+            color: appColors.textPrimary,
+          }
+        : {
+            background: appColors.pillBg,
+            border: `1px solid ${appColors.pillBorder}`,
+            color: appColors.textSecondary,
+          };
+
+  const Panel =
+    !open || !pos
+      ? null
+      : createPortal(
+          <div
+            ref={panelRef}
+            className={DROPDOWN_PANEL}
+            role="menu"
+            aria-label="User menu"
+            style={{
+              position: "fixed",
+              left: pos.left,
+              top: pos.top,
+              width: pos.width,
+              // MUST be above sticky header (z-30) + cards/backdrop contexts
+              zIndex: 1000000,
+
+              background: appColors.panelBg,
+              border: `1px solid ${appColors.panelBorder}`,
+              boxShadow: appColors.shadowCard,
+            }}
+          >
+            <div
+              className={USER_MENU_PANEL_HEAD}
+              style={{ borderBottom: `1px solid ${appColors.divider}` }}
+            >
+              <div className={USER_MENU_HEAD_ROW}>
+                <div className={USER_MENU_HEAD_LEFT}>
+                  <div
+                    className={USER_MENU_HEAD_NAME}
+                    style={{ color: appColors.textPrimary }}
+                  >
+                    {me?.displayName || me?.name || "User"}
+                  </div>
+                  <div
+                    className={USER_MENU_HEAD_EMAIL}
+                    style={{ color: appColors.textMuted }}
+                  >
+                    {me?.email || me?.name || ""}
+                  </div>
+                </div>
+
+                {tierCode && (
+                  <span className={USER_MENU_TIER_PILL} style={tierStyle}>
+                    {tierCode.toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <nav className={USER_MENU_NAV}>
+              <a className={DROPDOWN_ITEM} href="/account" role="menuitem">
+                Account
+              </a>
+
+              <a
+                className={DROPDOWN_ITEM}
+                href="/connectedApps"
+                role="menuitem"
+              >
+                Connected apps
+              </a>
+
+              <div className={DROPDOWN_DIVIDER} />
+
+              <button
+                className={[
+                  DROPDOWN_ITEM_DANGER,
+                  USER_MENU_SIGNOUT_DISABLED,
+                ].join(" ")}
+                onClick={handleSignOut}
+                disabled={busy === "signout"}
+                role="menuitem"
+                type="button"
+              >
+                {busy === "signout" ? "Odhlasujem…" : "Odhlásiť sa"}
+              </button>
+            </nav>
+          </div>,
+          document.body,
+        );
 
   return (
-    <div ref={boxRef} className="relative">
+    <div ref={wrapRef} className={USER_MENU_WRAP}>
       <button
-        className={[
-          "inline-flex items-center gap-2 px-2 py-1 rounded-lg",
-          "transition-colors",
-        ].join(" ")}
+        ref={btnRef}
+        className={USER_MENU_TRIGGER}
         style={{
-          background: open ? appColors.surfaceCardHover : appColors.buttonGhostBg,
+          background: open
+            ? appColors.surfaceCardHover
+            : appColors.buttonGhostBg,
           border: `1px solid ${appColors.surfaceCardBorder}`,
           color: appColors.textPrimary,
         }}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        type="button"
+        onMouseDown={(e) => e.preventDefault()} // iOS “sticky focus”
       >
-        <div className="flex items-center gap-1 max-w-[160px] min-w-0">
-          <span className="text-sm max-w-[120px] truncate text-right">{label}</span>
+        <div className={USER_MENU_LABEL_ROW}>
+          <span className={USER_MENU_LABEL}>{label}</span>
 
           {tierCode && (
             <span
-              className="inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold"
+              className={USER_MENU_TIER_PILL}
               style={tierStyle}
               onClick={(e) => {
                 e.stopPropagation();
                 window.location.href = "/account";
               }}
+              role="button"
+              tabIndex={0}
             >
               {tierCode.toUpperCase()}
             </span>
@@ -150,7 +307,7 @@ export default function UserMenu() {
             alt={label || "User avatar"}
             width={28}
             height={28}
-            className="rounded-full"
+            className={USER_MENU_AVATAR_IMG}
           />
         ) : initials ? (
           <div className={AVATAR_BUTTON}>{initials}</div>
@@ -166,54 +323,7 @@ export default function UserMenu() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 mt-2 w-64 z-50">
-          {/* panel */}
-          <div className={DROPDOWN_PANEL} style={{ background: appColors.panelBg, border: `1px solid ${appColors.panelBorder}`, boxShadow: appColors.shadowCard }}>
-            <div className="px-3 py-2 text-sm" style={{ borderBottom: `1px solid ${appColors.divider}` }}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-medium truncate" style={{ color: appColors.textPrimary }}>
-                    {me?.displayName || me?.name || "User"}
-                  </div>
-                  <div className="truncate" style={{ color: appColors.textMuted }}>
-                    {me?.email || me?.name || ""}
-                  </div>
-                </div>
-
-                {tierCode && (
-                  <span
-                    className="inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-semibold"
-                    style={tierStyle}
-                  >
-                    {tierCode.toUpperCase()}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <nav className="py-1 flex flex-col gap-1">
-              <a className={DROPDOWN_ITEM} href="/account">
-                Account
-              </a>
-
-              <a className={DROPDOWN_ITEM} href="/connectedApps">
-                Connected apps
-              </a>
-
-              <div className={DROPDOWN_DIVIDER} />
-
-              <button
-                className={[DROPDOWN_ITEM_DANGER, "disabled:opacity-60"].join(" ")}
-                onClick={handleSignOut}
-                disabled={busy === "signout"}
-              >
-                {busy === "signout" ? "Odhlasujem…" : "Odhlásiť sa"}
-              </button>
-            </nav>
-          </div>
-        </div>
-      )}
+      {Panel}
     </div>
   );
 }

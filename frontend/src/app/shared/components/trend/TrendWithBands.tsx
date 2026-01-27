@@ -13,8 +13,8 @@ import {
 } from "chart.js";
 import annotationPlugin from "chartjs-plugin-annotation";
 import { useMemo } from "react";
-import { SURFACE_SUBCARD } from "@/app/shared/theme/uiTokens";
-import { CHART_TREND } from "@/app/shared/theme/uiTokens";
+import { SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
+import { CHART_TREND } from "@/app/shared/ui/tokens";
 
 ChartJS.register(
   CategoryScale,
