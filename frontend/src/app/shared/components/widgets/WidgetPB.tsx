@@ -64,9 +64,8 @@ export default function WidgetPB({
 
   return (
     <WidgetCard
-      title="Personal Bests — Run"
+      title="Osobné rekordy"
       accent="none"
-      note="TAP pre detail a úpravy rekordov."
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}

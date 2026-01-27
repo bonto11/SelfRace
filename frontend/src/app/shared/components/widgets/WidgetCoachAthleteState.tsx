@@ -167,7 +167,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš žiadnu uloženú AI analýzu. Spusť ju v coach sekcii a
+          Zatiaľ nemáš žiadnu uloženú AI analýzu tr0novanosti. Spusť ju v coach sekcii a
           widget sa automaticky naplní.
         </div>
       ) : (

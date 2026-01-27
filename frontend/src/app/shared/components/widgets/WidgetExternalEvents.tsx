@@ -90,7 +90,7 @@ export default function WidgetExternalEvents() {
 
   return (
     <WidgetCard
-      title="External events"
+      title="Externé udalosti"
       accent="none"
       note="Externé športy a časové bloky, s ktorými plán počíta."
       interactive

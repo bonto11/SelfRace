@@ -130,7 +130,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title="Coach — Weekly plan"
+      title="Tréner — Týždenný plán"
       accent="none"
       note={
         ui.lastPlanRange

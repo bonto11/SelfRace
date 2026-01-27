@@ -32,7 +32,7 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title="Coach — Preferences"
+      title="Tréningové preferencie"
       note="Tapni pre detail nastavení."
       accent="none"
       onOpen={onOpenDetail}

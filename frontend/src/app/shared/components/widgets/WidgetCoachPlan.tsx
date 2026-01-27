@@ -348,7 +348,7 @@ export default function WidgetCoachPlan() {
     setError(null);
 
     if (!latestStateId) {
-      setError("Najprv spusti AI analýzu atleta.");
+      setError("Najprv spusti analýzu trénovanosti.");
       return;
     }
     if (!hasGenerated) {
@@ -381,7 +381,7 @@ export default function WidgetCoachPlan() {
     const ok = await confirm({
       title: "Ukončiť tréningový plán?",
       message:
-        "Táto akcia je nezvratná. Weekly aj daily plán budú zrušené a plán sa presunie medzi ukončené.",
+        "Táto akcia je nezvratná. Týždenný aj denný plán budú zrušené a plán sa presunie medzi ukončené.",
       okText: "Ukončiť plán",
       cancelText: "Zrušiť",
       tone: "danger",
@@ -416,19 +416,19 @@ export default function WidgetCoachPlan() {
   const disabled = !userId || loading;
 
   const statusLabel = activePlanId
-    ? "active plan ✓"
+    ? "Aktívny plán ✓"
     : hasGenerated
-      ? "generated ✓"
-      : "no plan";
+      ? "Vygenerovaný ✓"
+      : "Žiadny plán";
   const statusColor = activePlanId
     ? appColors.brandPrimary
     : appColors.textMuted;
 
   return (
     <WidgetCard
-      title="Coach — Plan"
+      title="Plánovanie trénera"
       accent="none"
-      note="Analyzuj stav, vygeneruj weekly/daily a spusti aktívny plán."
+      note="Analyzuj stav, vygeneruj týždenný a denný plán a začni plán."
       interactive={false}
       minH={210}
     >
@@ -443,7 +443,9 @@ export default function WidgetCoachPlan() {
         <RowAction
           onPrimary={handleAnalyze}
           primaryLabel={
-            loadingKind === "analyze" ? "Analyzing…" : "Analyze athlete state"
+            loadingKind === "analyze"
+              ? "Analyzujem…"
+              : "Analyzuj stav trénovanosti"
           }
           loading={loadingKind === "analyze"}
           disabled={disabled}
