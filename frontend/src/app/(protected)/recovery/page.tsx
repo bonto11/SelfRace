@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
-import { PAGE_WIDGET_GRID } from "@/app/shared/ui/tokens/pageTokens";
+import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import WidgetRHR from "@/app/shared/components/widgets/WidgetRHR";
@@ -40,7 +40,7 @@ export default function RecoveryPage() {
     <PageShell title="Recovery" showBack={false} rightSlot={<RefreshIconBtn />}>
       <RecoveryInputs />
 
-      <div className={PAGE_WIDGET_GRID}>
+      <div className={PAGE_GRID_2}>
         <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
         <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
         <WidgetSleepDuration

@@ -3,6 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
+import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
@@ -18,7 +19,7 @@ export default function ActivitiesPage() {
 
   return (
     <PageShell title="Aktivity" showBack={false}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+       <div className={PAGE_GRID_2}>
         <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
         <MonoStrainWidget onOpenDetail={openDetailMono} />
         <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />

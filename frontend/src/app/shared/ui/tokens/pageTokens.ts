@@ -28,6 +28,9 @@ export const PAGE_SECTION_STACK = "space-y-4";
 export const PAGE_GRID_3 =
   "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4";
 
+export const PAGE_GRID_2 =
+  "grid grid-cols-1 md:grid-cols-2 gap-4";
+
 /* ✅ intro text (jednotný štýl pre popisy pod headerom) */
 export const PAGE_INTRO = "text-sm opacity-70";
 

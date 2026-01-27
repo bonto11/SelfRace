@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
-import { PAGE_GRID_3 } from "@/app/shared/ui/tokens/pageTokens";
+import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
@@ -22,7 +22,7 @@ function ClientPage() {
 
   return (
     <PageShell title="Coach" showBack={false}>
-      <div className={PAGE_GRID_3}>
+      <div className={PAGE_GRID_2}>
         {/* existujúce widgety */}
         <WidgetExternalEvents />
         <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
