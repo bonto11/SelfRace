@@ -271,3 +271,106 @@ export const SESSION_METRIC_BAR_STYLE: Record<
   elev: { background: appColors.statusWarning }, // žltá-ish
   time: { background: appColors.statusSuccess }, // zelená-ish
 };
+
+/* ============================================================================
+   SESSION CARD — VARIANT PADDING (remove px-5 py-4 from components)
+============================================================================ */
+
+export const SESSION_VARIANT_PAD: Record<
+  "activity" | "calendar" | "pb" | "plan",
+  string
+> = {
+  activity: "px-5 py-4",
+  calendar: "px-5 py-4",
+  pb: "px-5 py-4",
+  plan: "px-5 py-4",
+};
+
+/* ============================================================================
+   SESSION HEADER ATOMS (remove mt/text sizes from components)
+============================================================================ */
+
+export const SESSION_DATE = "text-sm font-medium truncate";
+
+export const SESSION_FAVORITE_STAR = "text-[12px] leading-none opacity-90";
+
+export const SESSION_TOGGLE_BTN = [
+  "h-8 w-8",
+  "grid place-items-center",
+  "rounded-full",
+  "border",
+  "transition",
+  "select-none",
+].join(" ");
+
+export const SESSION_TOGGLE_BTN_STYLE: CSSProperties = {
+  background: "rgba(255,255,255,0.08)",
+  borderColor: appColors.surfaceCardBorder,
+};
+
+export const SESSION_TOGGLE_BTN_HOVER = "hover:bg-white/15";
+
+export const SESSION_TOGGLE_ICON = [
+  "text-base leading-none",
+  "select-none transition-transform",
+].join(" ");
+
+/* ============================================================================
+   PLAN STATUS (so SessionCard has 0 status classes)
+============================================================================ */
+
+export const SESSION_PLAN_STATUS_STYLE: Record<
+  "planned" | "done" | "missed",
+  VarStyle
+> = {
+  planned: {
+    ...SESSION_PILL_STYLE,
+  },
+  done: {
+    ...SESSION_PILL_STYLE,
+    "--pill-bg": "rgba(16,185,129,0.10)",
+    "--pill-border": appColors.statusSuccess,
+    "--pill-text": appColors.statusSuccess,
+  },
+  missed: {
+    ...SESSION_PILL_STYLE,
+    "--pill-bg": "rgba(245,158,11,0.10)",
+    "--pill-border": appColors.statusWarning,
+    "--pill-text": appColors.statusWarning,
+  },
+};
+
+/* ============================================================================
+   PLAN DETAIL (remove mt/text/border tokens from PlanSessionDetail)
+============================================================================ */
+
+export const PLAN_STRUCT_STACK = "space-y-3";
+
+export const PLAN_BLOCK = "px-1";
+export const PLAN_BLOCK_LABEL = "text-[11px] font-semibold opacity-80";
+export const PLAN_BLOCK_TEXT = "mt-0.5 text-sm";
+
+export const PLAN_MAIN_STACK = "mt-0.5 space-y-1 text-sm";
+export const PLAN_MAIN_ITEM = "border-t pt-1 first:border-t-0 first:pt-0";
+export const PLAN_MAIN_ITEM_STYLE: CSSProperties = {
+  borderColor: appColors.surfaceCardBorder,
+};
+
+export const PLAN_MAIN_TGT = "opacity-90";
+export const PLAN_MAIN_NOTE = "opacity-90";
+
+export const PLAN_EX_LIST = "space-y-1.5";
+
+export const PLAN_EX_ITEM = "rounded-md border px-3 py-2";
+export const PLAN_EX_ITEM_STYLE: CSSProperties = {
+  borderColor: appColors.surfaceCardBorder,
+};
+
+export const PLAN_EX_NAME = "text-sm font-medium";
+export const PLAN_EX_LINE = "mt-0.5 text-xs opacity-85";
+export const PLAN_EX_NOTE = "mt-0.5 text-xs opacity-85";
+
+export const PLAN_NOTES = "mt-3 text-sm opacity-90";
+
+export const PLAN_DEBUG_PRE =
+  "text-[11px] whitespace-pre-wrap break-words opacity-85";
