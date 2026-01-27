@@ -6,7 +6,7 @@ import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsActivity";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 
@@ -52,12 +52,12 @@ export default function TrendWeeklyLoad({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const _pxPerLabel = THEME.chart.weeklyPxPerLabel;
-  const _height = THEME.chart.Height;
-  const _legendPos = THEME.chart.legendPosition;
-  const _maxBarThickness = THEME.chart.bar.maxThickness;
-  const _categoryPercentage = THEME.chart.bar.categoryPct;
-  const _barPercentage = THEME.chart.bar.barPct;
+  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
+  const _height = OPTIONS.Height;
+  const _legendPos = OPTIONS.legendPosition;
+  const _maxBarThickness = OPTIONS.bar.maxThickness;
+  const _categoryPercentage = OPTIONS.bar.categoryPct;
+  const _barPercentage = OPTIONS.bar.barPct;
 
   useEffect(() => {
     onSportChange?.(sport);

@@ -6,7 +6,7 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsRecovery";
 import { wrapToLines } from "@/app/shared/utils/recovery";
 import { minutesToHHMM } from "@/app/shared/utils/time";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
@@ -52,8 +52,8 @@ export default function DetailSleepDuration() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const _pxPerLabel = THEME.chart.pxPerLabel;
-  const _height = THEME.chart.Height;
+  const _pxPerLabel = OPTIONS.pxPerLabel;
+  const _height = OPTIONS.Height;
 
     const COLOR = {
     main: appColors.chartLine1,

@@ -4,8 +4,26 @@
 // - nič nepretečie (maintainAspectRatio:false; výška cez wrapper)
 
 import type { ChartOptions } from "chart.js";
-import { THEME } from "@/app/shared/theme/tokens";
 import { isMonday, formatWeekRange } from "@/app/shared/utils/time";
+import { appColors } from "../theme/app_colors";
+
+export const OPTIONS = {
+
+  legendPosition: 'top' as const,
+
+  weeklyPxPerLabel: 56, /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
+
+  Height: 360,
+  HeightCompact: 180,
+
+  
+  bar: {
+    maxThickness: 12,
+    categoryPct: 0.6,
+    barPct: 0.7,
+  },
+  pxPerLabel: 26,// 🔒 konzistencia barov + vodorovný layout
+};
 
 type RecoveryLineOptsParams = {
   labelsISO: string[]; // "YYYY-MM-DD" pre každý DEŇ v grafe (x-os zobrazuje len týždne)
@@ -35,7 +53,7 @@ export function buildRecoveryLineOptions({
     interaction: { mode: "nearest", axis: "x", intersect: false },
     plugins: {
       legend: {
-        position: THEME.chart.legendPosition,
+        position: OPTIONS.legendPosition,
         labels: {
           usePointStyle: true,
           pointStyle: "circle",
@@ -73,7 +91,7 @@ export function buildRecoveryLineOptions({
           color: (ctx: any) => {
             const idx = ctx?.index ?? 0;
             const iso = labelsISO[idx] ?? "";
-            return isMonday(iso) ? THEME.chart.grid : "transparent";
+            return isMonday(iso) ? appColors.chartGrid : "transparent";
           },
         },
         ticks: {
@@ -90,7 +108,7 @@ export function buildRecoveryLineOptions({
       y: {
         beginAtZero: false,
         title: { display: true, text: yTitle },
-        grid: { color: THEME.chart.grid },
+        grid: { color: appColors.chartGrid },
         ticks: {
           callback: (v: any) => {
             const num = Number(v);

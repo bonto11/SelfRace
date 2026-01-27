@@ -1,11 +1,39 @@
 import type { ChartOptions } from "chart.js";
-import { THEME } from "@/app/shared/theme/tokens";
 import { appColors } from "@/app/shared/theme/app_colors";
 
 type BuildOpts = {
   onClick?: ChartOptions<"bar" | "line">["onClick"];
   tooltipLabel?: (label: string, v: number) => string;
   showLegend?: boolean;
+};
+
+export const OPTIONS = {
+
+  legendPosition: 'top' as const,
+
+  weeklyPxPerLabel: 56,  /** ✅ koľko px pripadá na 1 týždeň v detaile (match s widgetom) */
+
+  Height: 360,
+  HeightCompact: 180,
+
+  bar: {
+    maxThickness: 12,
+    categoryPct: 0.6,
+    barPct: 0.7,
+  },
+  pxPerLabel: 26,  // 🔒 konzistencia barov + vodorovný layout
+
+  sportLabels: {
+    run: 'Run',
+    bike: 'Bike',
+    strength: 'Strength',
+    mixed: 'Mixed',
+    skate: 'Skate',
+    walk: 'Walk',
+    hike: 'Hike',
+    swim: 'Swim',
+    other: 'Other',
+  } as Record<string, string>,
 };
 
 export function buildWeeklyOptions(
@@ -22,9 +50,9 @@ export function buildWeeklyOptions(
     // ✅ konzistentné bary (rovnaké ako widgety)
     datasets: {
       bar: {
-        maxBarThickness: THEME.chart.bar.maxThickness,
-        categoryPercentage: THEME.chart.bar.categoryPct,
-        barPercentage: THEME.chart.bar.barPct,
+        maxBarThickness: OPTIONS.bar.maxThickness,
+        categoryPercentage: OPTIONS.bar.categoryPct,
+        barPercentage: OPTIONS.bar.barPct,
       },
     },
 
@@ -34,7 +62,7 @@ export function buildWeeklyOptions(
 
     plugins: {
       legend: {
-        position: THEME.chart.legendPosition,
+        position: OPTIONS.legendPosition,
         display: extra?.showLegend ?? true,
         labels: {
           usePointStyle: true,
@@ -69,10 +97,10 @@ export function buildWeeklyOptions(
         title: {
           display: true,
           text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
-          color: THEME.color.text,
+          color: appColors.chartGrid,
         },
-        ticks: { color: THEME.color.text },
-        grid: { color: THEME.chart.grid },
+        ticks: { color: appColors.chartGrid },
+        grid: { color: appColors.chartGrid },
       },
       y1: {
         position: "right",
@@ -95,7 +123,7 @@ export function buildWeeklyOptions(
         weight: 1,
       },
       x: {
-        grid: { color: THEME.chart.gridSoft },
+        grid: { color: appColors.chartGrid },
         ticks: {
           autoSkip: false,
           maxRotation: 90,

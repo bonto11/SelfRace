@@ -6,7 +6,7 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsRecovery";
 import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
@@ -52,8 +52,8 @@ export default function TrendHRV() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const _pxPerLabel = THEME.chart.pxPerLabel;
-  const _height = THEME.chart.Height;
+  const _pxPerLabel = OPTIONS.pxPerLabel;
+  const _height = OPTIONS.Height;
 
   const COLOR = {
     main: appColors.chartLine1,
@@ -233,9 +233,7 @@ export default function TrendHRV() {
         labelsISO,
         yTitle: "ms",
         tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-            THEME.i18n?.dateLocale ?? "sk-SK"
-          ),
+          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";

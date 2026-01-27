@@ -9,7 +9,7 @@ import {
   type WeeklyPlanLatest,
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
-import { THEME } from "@/app/shared/theme/tokens";
+import { appColors } from "@/app/shared/theme/app_colors";
 
 import {
   PANEL_STACK,
@@ -65,34 +65,32 @@ function phaseKey(load_phase?: string | null): PhaseKey {
 }
 
 function phaseColor(phase: PhaseKey): string {
-  const chart = (THEME as any)?.chart ?? {};
   switch (phase) {
     case "base":
-      return chart.base ?? chart.fitness ?? chart.run ?? "#10B981";
+      return appColors.phaseBase;
     case "build":
-      return chart.build ?? chart.athletes ?? "#6366F1";
+      return appColors.phaseBuild;
     case "peak":
-      return chart.peak ?? chart.race ?? "#F59E0B";
+      return appColors.phasePeak;
     case "recovery":
-      return chart.recovery ?? chart.fair ?? "#22C55E";
+      return appColors.phaseRecovery;
     default:
-      return chart.neutral ?? "#64748B";
+      return appColors.stateNeutral;
   }
 }
 
 function phaseLabel(phase: PhaseKey): string {
-  const weekLabels = (THEME as any)?.weekLabels ?? {};
   switch (phase) {
     case "base":
-      return weekLabels.base ?? "Base";
+      return 'Base (budovanie základu)';
     case "build":
-      return weekLabels.build ?? "Build";
+      return 'Build (zvyšovanie intenzity)';
     case "peak":
-      return weekLabels.peak ?? "Peak";
+      return 'Peak (vrchol / preteky)';
     case "recovery":
-      return weekLabels.recovery ?? "Recovery";
+      return 'Recovery (regenerácia)';
     default:
-      return weekLabels.default ?? "Other";
+      return 'Iné / mix';
   }
 }
 

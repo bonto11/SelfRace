@@ -153,6 +153,12 @@ export const appColors = {
   stateWarning: natur.stateWarning,
   stateCool: natur.stateCool,
 
+  //phase
+  phaseBase: natur.phaseBase,
+  phaseBuild: natur.phaseBuild,
+  phasePeak: natur.phasePeak,
+  phaseRecovery: natur.phaseRecovery,
+
   // Panels
   panelBg: natur.panelBg,
   panelBorder: natur.panelBorder,

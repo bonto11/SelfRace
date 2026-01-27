@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsActivity";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { API_URL } from "@/app/shared/config";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -59,9 +59,9 @@ export default function TrendPareto8020({
   const [rows, setRows] = useState<ParetoRow[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
-  const _pxPerLabel = THEME.chart.weeklyPxPerLabel;
-  const _height = THEME.chart.Height;
-  const _legendPos = THEME.chart.legendPosition;
+  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
+  const _height = OPTIONS.Height;
+  const _legendPos = OPTIONS.legendPosition;
 
   useEffect(() => {
     if (!userId) return;

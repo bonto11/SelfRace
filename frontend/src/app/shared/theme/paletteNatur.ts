@@ -108,6 +108,7 @@ export const natur = {
   statePoor      : '#EF4444', // red (jasné varovanie)
   stateNeutral   : '#64748B', // sivá
 
+  //STATE
   stateAthletes  : '#00E676', // TOP = rovnaké ako excellent
   stateFitness   : '#16A34A', // 2. zelené
   stateAverage   : '#22C55E', // emerald-500 (stále “ok”, ale nie teal)
@@ -119,6 +120,12 @@ export const natur = {
   statePositive  : '#00E676', // “↑ OK” – zhodné s excellent/athletes
   stateWarning   : '#F59E0B', // pozor – jantár (match so strength)
   stateCool      : '#38BDF8', // “↓ OK” – modrá (match s bike)
+
+  //phase
+  phaseBase: "#10B981",
+  phaseBuild: "#6366F1",
+  phasePeak: "#F59E0B",
+  phaseRecovery: "##22C55E",
 
   // --- Tooltip / toast / panels ---
   panelBg: "rgba(9, 24, 18, 0.92)",

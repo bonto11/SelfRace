@@ -6,7 +6,7 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { THEME } from "@/app/shared/theme/tokens";
+import { OPTIONS } from "@/app/shared/charts/optionsActivity";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { appColors } from "@/app/shared/theme/app_colors";
@@ -44,9 +44,9 @@ export default function TrendWeeklyMonoStrain({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const _pxPerLabel = THEME.chart.weeklyPxPerLabel;
-  const _heightCompact = THEME.chart.HeightCompact;
-  const _legendPos = THEME.chart.legendPosition;
+  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
+  const _heightCompact = OPTIONS.HeightCompact;
+  const _legendPos = OPTIONS.legendPosition;
 
   useEffect(() => {
     onSportChange?.(sport);
