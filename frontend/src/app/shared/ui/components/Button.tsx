@@ -10,7 +10,8 @@ import {
   cx,
 } from "@/app/shared/ui";
 import { BUTTON_BLOCK, BUTTON_DISABLED } from "@/app/shared/ui/tokens";
-import  { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import { appColors } from "@/app/shared/ui/theme/app_colors"; // ✅ NEW
 
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -21,7 +22,6 @@ type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   circle?: boolean;
   active?: boolean;
 };
-
 
 export default function Button({
   variant = "primary",
@@ -34,11 +34,13 @@ export default function Button({
   className,
   children,
   disabled,
+  style,
   ...rest
 }: Props) {
   // ---- Special variants (Strava) ----
   const isStravaConnect = variant === "connectStrava";
   const isStravaDisconnect = variant === "disconnectStrava";
+  const isViewOnStrava = variant === "viewOnStrava"; // ✅ NEW
 
   // Strava connect button má byť presne podľa SVG (48px height @1x)
   // -> ignoruj children a renderuj image.
@@ -76,8 +78,13 @@ export default function Button({
     className
   );
 
+  // ✅ viewOnStrava: background z appColors (žiadne CSS vars v komponentoch)
+  const mergedStyle: React.CSSProperties | undefined = isViewOnStrava
+    ? { background: appColors.backgroundStrava, ...style }
+    : style;
+
   return (
-    <button className={cls} disabled={disabled} {...rest}>
+    <button className={cls} disabled={disabled} style={mergedStyle} {...rest}>
       {leftIcon && !useCircle && <span className="inline-flex">{leftIcon}</span>}
       {!useCircle && children}
       {rightIcon && !useCircle && (
@@ -87,4 +94,3 @@ export default function Button({
     </button>
   );
 }
-
