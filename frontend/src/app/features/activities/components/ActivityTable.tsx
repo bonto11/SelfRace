@@ -93,7 +93,6 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-    return (
   <div
     className={[PANEL_SURFACE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
     style={PANEL_SURFACE_STYLE}
