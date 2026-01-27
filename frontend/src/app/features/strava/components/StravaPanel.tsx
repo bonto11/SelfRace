@@ -260,13 +260,12 @@ export default function StravaPanel() {
           >
             {statusLabel}
           </span>
-          // v headeri, namiesto textu:
           <p
             className={PANEL_BRAND_TINY}
             style={{ color: appColors.textMuted }}
           >
             <img
-              src={STRAVA_ASSETS.poweredBySvg}
+              src={STRAVA_ASSETS.poweredBySvg_white}
               alt="Powered by Strava"
               style={{
                 height: 16,
