@@ -1,5 +1,6 @@
-// src/app/shared/components/ui/Button.tsx
 "use client";
+
+// src/app/shared/components/ui/Button.tsx
 
 import * as React from "react";
 import {
@@ -9,6 +10,7 @@ import {
   cx,
 } from "@/app/shared/ui";
 import { BUTTON_BLOCK, BUTTON_DISABLED } from "@/app/shared/ui/tokens";
+import  { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -19,6 +21,7 @@ type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   circle?: boolean;
   active?: boolean;
 };
+
 
 export default function Button({
   variant = "primary",
@@ -33,6 +36,34 @@ export default function Button({
   disabled,
   ...rest
 }: Props) {
+  // ---- Special variants (Strava) ----
+  const isStravaConnect = variant === "connectStrava";
+  const isStravaDisconnect = variant === "disconnectStrava";
+
+  // Strava connect button má byť presne podľa SVG (48px height @1x)
+  // -> ignoruj children a renderuj image.
+  if (isStravaConnect) {
+    const cls = cx(
+      buttonClass(variant, size, { circle: false, active }),
+      block && BUTTON_BLOCK,
+      disabled && BUTTON_DISABLED,
+      className
+    );
+
+    return (
+      <button className={cls} disabled={disabled} {...rest}>
+        <img
+          src={STRAVA_ASSETS.connectSvg}
+          alt="Connect with Strava"
+          // presný guideline: height 48px @1x
+          style={{ height: 48, width: "auto", display: "block" }}
+          draggable={false}
+        />
+      </button>
+    );
+  }
+
+  // ---- Default button rendering ----
   const text = typeof children === "string" ? children.trim() : "";
   const autoCircle =
     circle ?? (!!children && text.length > 0 ? text.length <= 2 : !children);
@@ -56,3 +87,4 @@ export default function Button({
     </button>
   );
 }
+

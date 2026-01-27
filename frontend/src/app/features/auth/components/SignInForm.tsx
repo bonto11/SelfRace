@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
@@ -10,6 +11,8 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import { toast } from "@/app/shared/ui/components/Toast";
 import AuthShell from "@/app/shared/ui/components/AuthShell";
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   AUTH_FORM,
@@ -138,6 +141,29 @@ export default function SignInForm() {
             </Link>
           </span>
         </div>
+
+        {/* Strava branding (SVG, neruší, ale je compliant) */}
+        <div className="mt-6 flex justify-center">
+          <Image
+            src={STRAVA_ASSETS.poweredBySvg}
+            alt="Powered by Strava"
+            width={190}
+            height={24}
+            style={{
+              height: 16,
+              width: "auto",
+              opacity: 0.9,
+              filter: "none",
+            }}
+          />
+        </div>
+
+        <p
+          className="mt-2 text-[11px] text-center"
+          style={{ color: appColors.textMuted }}
+        >
+          Import aktivít a detailné metriky sú dostupné po prepojení Stravy.
+        </p>
       </form>
     </AuthShell>
   );

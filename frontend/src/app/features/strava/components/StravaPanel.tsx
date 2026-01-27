@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/ui/components/Button";
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { resetClientCache } from "@/app/shared/utils/resetClientCache";
@@ -259,11 +260,22 @@ export default function StravaPanel() {
           >
             {statusLabel}
           </span>
+          // v headeri, namiesto textu:
           <p
             className={PANEL_BRAND_TINY}
             style={{ color: appColors.textMuted }}
           >
-            Powered by Strava
+            <img
+              src={STRAVA_ASSETS.poweredBySvg}
+              alt="Powered by Strava"
+              style={{
+                height: 16,
+                width: "auto",
+                display: "block",
+                opacity: 0.9,
+              }}
+              draggable={false}
+            />
           </p>
         </div>
       </header>
@@ -287,26 +299,21 @@ export default function StravaPanel() {
 
           <div className={PANEL_ACTIONS_INLINE}>
             <Button
-              size="sm"
-              variant="primary"
-              disabled={!stravaConnectUrl || disabled || !!status?.connected}
+              variant="connectStrava"
+              size="md"
+              disabled={connectDisabled}
               onClick={() => {
-                if (!stravaConnectUrl || disabled || status?.connected) return;
+                if (!stravaConnectUrl || connectDisabled) return;
                 window.location.href = stravaConnectUrl;
               }}
-            >
-              Pripojiť
-            </Button>
+              aria-label="Connect with Strava"
+              title="Connect with Strava"
+            />
 
             <Button
               size="sm"
-              variant="secondary"
-              disabled={
-                !userId ||
-                disabled ||
-                !status?.connected ||
-                busy === "disconnect"
-              }
+              variant="disconnectStrava"
+              disabled={disconnectDisabled}
               onClick={handleDisconnectStrava}
             >
               {busy === "disconnect" ? (
