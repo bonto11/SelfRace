@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode, type CSSProperties } from "react";
-
 import {
   SURFACE_INLINE,
   SURFACE_INLINE_STYLE,
@@ -395,7 +394,10 @@ export function ActivitySessionDetail({
           setSplits(Array.isArray(anyDt.splits) ? anyDt.splits : []);
         }
       } catch (err) {
-        console.error("[ActivitySessionDetail] getStreams/getDetail error", err);
+        console.error(
+          "[ActivitySessionDetail] getStreams/getDetail error",
+          err,
+        );
         setStreams({
           time_s: [],
           hr: [],
@@ -430,7 +432,9 @@ export function ActivitySessionDetail({
     isMeaningfulNumber(maxHrTxt) ? { label: "MAX HR", value: maxHrTxt } : null,
   ].filter(Boolean) as InfoItem[];
 
-  const elevGain = valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` });
+  const elevGain = valOrNullNumber(s?.elevation_gain_m, {
+    fmt: (x) => `${x} m`,
+  });
   const elevHigh = valOrNullNumber(s?.elev_high_m, { fmt: (x) => `${x} m` });
   const elevLow = valOrNullNumber(s?.elev_low_m, { fmt: (x) => `${x} m` });
 

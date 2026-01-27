@@ -32,38 +32,6 @@ export function valOrDash(v: any): string {
   return String(v);
 }
 
-// workout_type → pekný label
-export function workoutTypeLabelFromSummary(
-  s: ActivityRow | null
-): string | null {
-  if (!s || s.workout_type == null) return null;
-  const wt = s.workout_type;
-  const sport = (
-    s.sport_type_ovrd ??
-    s.sport_type_fe ??
-    s.sport_type ??
-    ""
-  )
-    .toString()
-    .toLowerCase();
-
-  if (sport.includes("run")) {
-    if (wt === 1) return "Race";
-    if (wt === 2) return "Long run";
-    if (wt === 3) return "Workout";
-    return `Run type ${wt}`;
-  }
-
-  if (sport.includes("ride") || sport.includes("bike") || sport.includes("cycle")) {
-    if (wt === 1) return "Race";
-    if (wt === 2) return "Long ride";
-    if (wt === 3) return "Workout";
-    return `Ride type ${wt}`;
-  }
-
-  return `Type ${wt}`;
-}
-
 // kadencia – run → steps/min, bike → rpm
 export function formatCadenceSummary(s: ActivityRow | null): string | null {
   if (!s || s.average_cadence_rpm == null) return null;

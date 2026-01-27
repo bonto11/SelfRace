@@ -4,13 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
 import PlanSessionDetail from "@/app/shared/components/session/PlanSessionDetail";
 import ExternalSessionDetail from "@/app/shared/components/session/ExternalSessionDetail";
 import BestsSessionDetail from "@/app/shared/components/session/BestsSessionDetail";
 import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
-
 import { safeText } from "@/app/shared/components/session/sessionUtils";
 
 import {
