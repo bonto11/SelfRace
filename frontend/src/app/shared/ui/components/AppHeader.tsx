@@ -15,7 +15,13 @@ import {
   APPBAR_ROW,
   APPBAR_TITLE,
   APPBAR_RIGHT,
+
+  // ✅ NEW tokens
+  APPBAR_TITLE_STACK,
+  APPBAR_BRAND_IMG,
 } from "@/app/shared/ui/tokens/header";
+
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava"; // ✅ NEW
 
 type Props = {
   title?: string;
@@ -29,6 +35,10 @@ type Props = {
   container?: boolean;
   onBack?: () => void;
   rightSlot?: React.ReactNode;
+
+  // ✅ NEW
+  showPoweredByStrava?: boolean;
+  poweredByStravaVariant?: "white" | "orange";
 };
 
 export default function AppHeader({
@@ -43,6 +53,10 @@ export default function AppHeader({
   container = false,
   onBack,
   rightSlot,
+
+  // ✅ NEW
+  showPoweredByStrava = true,
+  poweredByStravaVariant = "white",
 }: Props) {
   const router = useRouter();
 
@@ -82,6 +96,11 @@ export default function AppHeader({
     )
   ) : null;
 
+  const poweredSrc =
+    poweredByStravaVariant === "orange"
+      ? STRAVA_ASSETS.poweredBySvg_orange
+      : STRAVA_ASSETS.poweredBySvg_white;
+
   return (
     <div className={cx(sticky && APPBAR_WRAP, className)} role="banner">
       <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER)}>
@@ -93,7 +112,23 @@ export default function AppHeader({
           }}
         >
           <div className={APPBAR_ROW}>
-            {title ? <h1 className={APPBAR_TITLE}>{title}</h1> : <span />}
+            {title ? (
+              <div className={APPBAR_TITLE_STACK}>
+                <h1 className={APPBAR_TITLE}>{title}</h1>
+
+                {showPoweredByStrava && (
+                  <img
+                    src={poweredSrc}
+                    alt="Powered by Strava"
+                    className={APPBAR_BRAND_IMG}
+                    draggable={false}
+                  />
+                )}
+              </div>
+            ) : (
+              <span />
+            )}
+
             <div className={APPBAR_RIGHT}>{Right}</div>
           </div>
         </div>
