@@ -280,10 +280,10 @@ export const SESSION_VARIANT_PAD: Record<
   "activity" | "calendar" | "pb" | "plan",
   string
 > = {
-  activity: "px-5 py-4",
-  calendar: "px-5 py-4",
-  pb: "px-5 py-4",
-  plan: "px-5 py-4",
+  activity: "py-0",
+  calendar: "py-0",
+  pb: "py-0",
+  plan: "py-0",
 };
 
 /* ============================================================================
