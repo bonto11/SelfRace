@@ -517,7 +517,7 @@ export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
 
   editable: {
     "--btn-bg": appColors.editableBg,
-    "--btn-bg-hover": appColors.editableBgHover,
+    "--btn-bg-hover": appColors.brandPrimary,
     "--btn-text": appColors.editableText,
     "--btn-border": appColors.editableBorder,
     "--btn-ring": appColors.editableRing,
@@ -526,7 +526,7 @@ export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
 
   active: {
     "--btn-bg": appColors.brandPrimary,
-    "--btn-bg-hover": appColors.brandSecondary,
+    "--btn-bg-hover": appColors.brandPrimary,
     "--btn-text": appColors.textInverse,
     "--btn-border": "transparent",
     "--btn-ring": appColors.focusRing,
