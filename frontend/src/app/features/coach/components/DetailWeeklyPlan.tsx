@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
@@ -27,7 +26,13 @@ import {
   PANEL_PHASE_BAR_STYLE,
 } from "@/app/shared/ui/tokens";
 
-import { SESSION_PILL } from "@/app/shared/ui/tokens/sessionCard";
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+  SESSION_SUBCARD,
+  SESSION_SUBCARD_STYLE,
+  SESSION_PILL,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 /* ---------- helpery ---------- */
 
@@ -90,17 +95,15 @@ function Card({
   title,
   subtitle,
   children,
-  footerTone = "muted",
   headRight,
 }: {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   children: React.ReactNode;
-  footerTone?: "muted" | "accent";
   headRight?: React.ReactNode;
 }) {
   return (
-    <section className={SURFACE_CARD}>
+    <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
       {(title || subtitle || headRight) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
@@ -115,7 +118,6 @@ function Card({
 
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
 
-      {/* nechávame token-muted footer; accent neriešime farbou v komponente */}
       <div className={ACCORDION_FOOTER_BAR_MUTED} />
     </section>
   );
@@ -219,7 +221,7 @@ export default function DetailWeeklyPlan() {
 
   if (loading) {
     return (
-      <section className={SURFACE_CARD}>
+      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
           <LoadingSpinner size="widget" />
         </div>
@@ -270,16 +272,16 @@ export default function DetailWeeklyPlan() {
         }
         headRight={
           <div className={[PANEL_INNER_STACK, "text-right"].join(" ")}>
-            <div className={[PANEL_SECTION_SUBTITLE, "opacity-80"].join(" ")}>
+            <div className={PANEL_SECTION_SUBTITLE}>
               Počet týždňov: <span className="font-semibold">{weeksCount}</span>
             </div>
-            <div className={[PANEL_SECTION_SUBTITLE, "opacity-80"].join(" ")}>
+            <div className={PANEL_SECTION_SUBTITLE}>
               Celkový objem:{" "}
               <span className="font-semibold">
                 ~{Math.round(totalKm)} km / {totalHours} h
               </span>
             </div>
-            <div className={[PANEL_SECTION_SUBTITLE, "opacity-80"].join(" ")}>
+            <div className={PANEL_SECTION_SUBTITLE}>
               Priemer:{" "}
               <span className="font-semibold">
                 ~{avgKm} km / {avgHours} h
@@ -292,11 +294,7 @@ export default function DetailWeeklyPlan() {
           {(Object.keys(phaseCounts) as PhaseKey[])
             .filter((k) => phaseCounts[k] > 0)
             .map((k) => (
-              <div
-                key={k}
-                className={SESSION_PILL}
-                style={PANEL_PHASE_PILL_STYLE[k]}
-              >
+              <div key={k} className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[k]}>
                 <span className="opacity-90">{phaseLabel(k)}</span>
                 <span className="font-semibold tabular-nums">
                   {phaseCounts[k]}×
@@ -329,7 +327,11 @@ export default function DetailWeeklyPlan() {
             })();
 
             return (
-              <div key={w.week_index} className={SURFACE_SUBCARD}>
+              <div
+                key={w.week_index}
+                className={SESSION_SUBCARD}
+                style={SESSION_SUBCARD_STYLE}
+              >
                 <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -337,10 +339,8 @@ export default function DetailWeeklyPlan() {
                         Week {w.week_index}
                       </span>
 
-                      <span
-                        className={SESSION_PILL}
-                        style={PANEL_PHASE_PILL_STYLE[pk]}
-                      >
+                      {/* pill MUST be styled via tokens -> different per phase */}
+                      <span className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[pk]}>
                         {w.load_phase || "phase ?"}
                       </span>
                     </div>
