@@ -21,6 +21,7 @@ import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/Reco
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
+import Footer from "@/app/shared/ui/components/Footer"; // ✅ NEW
 
 export default function ClientProtectedShell({
   children,
@@ -91,12 +92,20 @@ export default function ClientProtectedShell({
                         <main className="flex-1 p-3 lg:p-4 pb-4">
                           {children}
                         </main>
+
+                        {/* ✅ footer aj pre prihlásených (desktop) */}
+                        <Footer />
                       </div>
                     </div>
 
                     {/* Mobile */}
                     <div className="lg:hidden min-h-dvh flex flex-col">
                       <main className="flex-1 p-3 pb-20">{children}</main>
+
+                      {/* ✅ footer aj pre prihlásených (mobile) */}
+                      <div className="pb-20">
+                        <Footer />
+                      </div>
                     </div>
                   </div>
 
