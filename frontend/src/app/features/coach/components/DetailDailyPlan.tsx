@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD } from "@/app/shared/ui/tokens";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
@@ -25,6 +24,11 @@ import {
   PANEL_GRID_3,
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
+
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 /* ---------- helpers ---------- */
 
@@ -67,15 +71,13 @@ function Card({
   title,
   subtitle,
   children,
-  footerTone = "muted",
 }: {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   children: React.ReactNode;
-  footerTone?: "muted" | "accent";
 }) {
   return (
-    <section className={SURFACE_CARD}>
+    <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
       {(title || subtitle) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
@@ -87,13 +89,11 @@ function Card({
         </header>
       )}
 
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        {children}
+      </div>
 
-      {footerTone === "accent" ? (
-        <div className="h-1.5 rounded-b-2xl bg-emerald-500/80" />
-      ) : (
-        <div className={ACCORDION_FOOTER_BAR_MUTED} />
-      )}
+      <div className={ACCORDION_FOOTER_BAR_MUTED} />
     </section>
   );
 }
@@ -143,6 +143,7 @@ export default function DetailDailyPlan() {
 
     const days = overview.days;
     const daysCount = days.length;
+
     let sessionsCount = 0;
     for (const d of days) sessionsCount += d.sessions?.length ?? 0;
 
@@ -174,11 +175,7 @@ export default function DetailDailyPlan() {
 
   if (!userId) {
     return (
-      <Card
-        title="AI Daily plan"
-        subtitle="Chýba userId (useUserId)."
-        footerTone="muted"
-      >
+      <Card title="AI Daily plan" subtitle="Chýba userId (useUserId).">
         <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
       </Card>
     );
@@ -186,22 +183,19 @@ export default function DetailDailyPlan() {
 
   if (loading) {
     return (
-      <section className={SURFACE_CARD}>
+      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "flex items-center gap-2"].join(" ")}>
           <LoadingSpinner size="button" />
           <div className={PANEL_PREVIEW}>Načítavam tvoj AI daily plán…</div>
         </div>
+        <div className={ACCORDION_FOOTER_BAR_MUTED} />
       </section>
     );
   }
 
   if (error) {
     return (
-      <Card
-        title="AI Daily plan"
-        subtitle="Nepodarilo sa načítať plán."
-        footerTone="muted"
-      >
+      <Card title="AI Daily plan" subtitle="Nepodarilo sa načítať plán.">
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );
@@ -215,12 +209,11 @@ export default function DetailDailyPlan() {
         title="AI Daily plan – detail"
         subtitle={
           <>
-            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu
-            (generovanie, spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
+            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu (generovanie,
+            spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
             <strong>Coach — Plan</strong> na hlavnom coach dashboarde.
           </>
         }
-        footerTone="accent"
       >
         {hasPlan ? (
           <div className={PANEL_GRID_3}>
@@ -248,8 +241,7 @@ export default function DetailDailyPlan() {
         ) : (
           <div className={PANEL_PREVIEW}>
             Zatiaľ nemáš žiadny aktívny AI daily plán uložený v DB. Vygeneruj ho
-            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu
-            zobrazí detail.
+            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu zobrazí detail.
           </div>
         )}
       </Card>
@@ -258,7 +250,6 @@ export default function DetailDailyPlan() {
         <Card
           title="Denný rozpis tréningov"
           subtitle="Každá karta predstavuje jeden tréning z AI plánu – rovnaká Session card ako v kalendári."
-          footerTone="muted"
         >
           <div className={PANEL_STACK}>
             {days.flatMap((d) => {
@@ -272,10 +263,7 @@ export default function DetailDailyPlan() {
                 const kpis: KPI[] = [];
 
                 if (s.duration_min) {
-                  kpis.push({
-                    label: "DURATION",
-                    value: `${s.duration_min} min`,
-                  });
+                  kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
                 }
                 if (s.intensity) {
                   kpis.push({ label: "INTENSITY", value: String(s.intensity) });
@@ -302,13 +290,10 @@ export default function DetailDailyPlan() {
 
                   planRaw: s,
                   planStructure: s.structure ?? null,
-                  planExercises:
-                    (s.structure?.strength_exercises as any[]) ?? [],
+                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
                 };
 
-                return (
-                  <SessionCard key={item.id} variant="calendar" item={item} />
-                );
+                return <SessionCard key={item.id} variant="calendar" item={item} />;
               });
             })}
           </div>
