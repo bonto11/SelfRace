@@ -1,5 +1,4 @@
 // src/features/activity/components/TrendWeeklyLoad.tsx
-// src/features/activity/components/TrendWeeklyLoad.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,7 +6,7 @@ import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { OPTIONS, LOOKBACK_OPTIONS, SPORT_SELECT_OPTIONS } from "@/app/shared/charts/optionsActivity";
+import { OPTIONS, LOOKBACK_OPTIONS } from "@/app/shared/charts/optionsActivity";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -37,6 +36,8 @@ const C = {
   other: appColors.chartOther,
 };
 
+const DEFAULT_SPORT = "all" as const;
+
 export default function TrendWeeklyLoad({
   onPickWeek,
   onSportChange,
@@ -49,7 +50,6 @@ export default function TrendWeeklyLoad({
   const { userId } = useUserId();
   const [metric, setMetric] = useState<Metric>("km");
   const [lookback, setLookback] = useState<number>(2);
-  const [sport, setSport] = useState<string>("all");
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -60,9 +60,10 @@ export default function TrendWeeklyLoad({
   const _categoryPercentage = OPTIONS.bar.categoryPct;
   const _barPercentage = OPTIONS.bar.barPct;
 
+  // Ak niekde vyššie počúvaš na sport, tak ho explicitne nastavíme na "all"
   useEffect(() => {
-    onSportChange?.(sport);
-  }, [sport, onSportChange]);
+    onSportChange?.(DEFAULT_SPORT);
+  }, [onSportChange]);
 
   useEffect(() => {
     if (!userId) return;
@@ -71,7 +72,10 @@ export default function TrendWeeklyLoad({
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyLoad(userId, { weeks: lookback, sport });
+        const rows = await apiGetWeeklyLoad(userId, {
+          weeks: lookback,
+          sport: DEFAULT_SPORT,
+        });
         if (!alive) return;
         setWeeks(rows);
       } catch (e) {
@@ -84,7 +88,7 @@ export default function TrendWeeklyLoad({
     return () => {
       alive = false;
     };
-  }, [userId, lookback, sport]);
+  }, [userId, lookback]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
 
@@ -95,9 +99,8 @@ export default function TrendWeeklyLoad({
     const pushBar = (
       key: "run" | "ride" | "strength" | "mixed" | "skate" | "other",
       label: string,
-      data: number[]
+      data: number[],
     ) => {
-      if (sport !== "all" && sport !== key) return;
       const color = (C as any)[key];
       ds.push({
         type: "bar" as const,
@@ -132,7 +135,7 @@ export default function TrendWeeklyLoad({
     }
 
     return ds;
-  }, [weeks, metric, sport]);
+  }, [weeks, metric]);
 
   const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
 
@@ -171,7 +174,7 @@ export default function TrendWeeklyLoad({
           week: w.week || w.label || w.start || "",
           start: w.start,
           end: w.end,
-          sport,
+          sport: DEFAULT_SPORT,
         });
       },
       scales: {
@@ -196,7 +199,15 @@ export default function TrendWeeklyLoad({
         },
       },
     }),
-    [metric, weeks, onPickWeek, sport, _legendPos, _maxBarThickness, _categoryPercentage, _barPercentage]
+    [
+      metric,
+      weeks,
+      onPickWeek,
+      _legendPos,
+      _maxBarThickness,
+      _categoryPercentage,
+      _barPercentage,
+    ],
   );
 
   const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
@@ -206,27 +217,31 @@ export default function TrendWeeklyLoad({
       <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
         <h2 className={PANEL_TITLE}>Týždňová záťaž</h2>
 
-        <div className={PANEL_ACTIONS_INLINE}>
+        {/* ✅ vždy vpravo */}
+        <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
           <div className={PANEL_ACTIONS_INLINE}>
-            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>
+            <Button
+              size="xs"
+              variant={metric === "km" ? "secondary" : "ghost"}
+              onClick={() => setMetric("km")}
+            >
               Km
             </Button>
-            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>
+            <Button
+              size="xs"
+              variant={metric === "time" ? "secondary" : "ghost"}
+              onClick={() => setMetric("time")}
+            >
               Čas
             </Button>
-            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>
+            <Button
+              size="xs"
+              variant={metric === "trimp" ? "secondary" : "ghost"}
+              onClick={() => setMetric("trimp")}
+            >
               TRIMP
             </Button>
           </div>
-
-          <SelectField
-            value={sport}
-            onValueChange={(v) => setSport(v)}
-            options={SPORT_SELECT_OPTIONS}
-            containerClassName="w-[130px]"
-            variant="editable"
-            placeholder="—"
-          />
 
           {showLookback && (
             <SelectField
@@ -241,7 +256,10 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+      <div
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
         <div className="relative" style={{ height: _height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
