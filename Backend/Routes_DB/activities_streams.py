@@ -19,18 +19,12 @@ def db_get_streams_one(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Jedna row so streamami pre danú aktivitu.
-    Vracia len platné dáta:
-      - deleted_at IS NULL
-      - expires_at > now()
-    """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
-    now = _now_iso()
 
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select(
+            "expires_at,"  # ✅ NEW
             "time_s,"
             "heartrate_bpm,"
             "cadence_rpm,"
@@ -44,8 +38,7 @@ def db_get_streams_one(
         )
         .eq("user_id", user_id)
         .eq("activity_id", activity_id)
-        .is_("deleted_at", "null")
-        .gt("expires_at", now)
+        .gt("expires_at", "now()")  # ✅ kľúčové (Supabase/Postg REST vie now())
         .limit(1)
         .execute()
     )
@@ -53,8 +46,8 @@ def db_get_streams_one(
     data = res.data or []
     if not data:
         return None
-    return data[0]
 
+    return data[0]
 
 def db_get_streams_ids_present(
     user_id: int,
