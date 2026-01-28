@@ -1,6 +1,6 @@
-// src/app/privacy/page.tsx
 import {
-  SURFACE_CARD,
+  CARD,
+  SURFACE_CARD_STYLE,
   PANEL_PAD,
   PANEL_INNER_STACK,
   PANEL_CARD_HEAD,
@@ -8,18 +8,15 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-const PDF_URL = "/documents/PrivacyPolicy_SelfRace.pdf";
-
 export default function PrivacyPage() {
   return (
     <main className="max-w-screen-lg mx-auto px-3 py-4">
-      <section className={SURFACE_CARD}>
+      <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           <div className={PANEL_CARD_HEAD}>
             <h1 className={PANEL_CARD_TITLE}>Privacy Policy</h1>
-
             <a
-              href={PDF_URL}
+              href="/documents/PrivacyPolicy_SelfRace.pdf"
               className="text-xs hover:underline"
               style={{ color: appColors.textSecondary }}
             >
@@ -34,32 +31,27 @@ export default function PrivacyPage() {
               background: appColors.backgroundAlt,
             }}
           >
-            <iframe
-              title="Privacy Policy PDF"
-              src={PDF_URL}
-              className="block w-full"
-              style={{
-                height: 780,
-                background: appColors.backgroundAlt,
-                border: "0",
-              }}
-            />
-
-            {/* fallback */}
-            <div
-              className="p-3 text-sm"
-              style={{ color: appColors.textSecondary }}
+            <object
+              data="/documents/PrivacyPolicy_SelfRace.pdf"
+              type="application/pdf"
+              width="100%"
+              height="780"
             >
-              If your browser can’t display PDFs inline,&nbsp;
-              <a
-                href={PDF_URL}
-                className="underline"
-                style={{ color: appColors.textPrimary }}
+              <div
+                className="p-3 text-sm"
+                style={{ color: appColors.textSecondary }}
               >
-                download the PDF
-              </a>
-              .
-            </div>
+                Your browser can’t display PDFs inline.
+                <a
+                  href="/documents/PrivacyPolicy_SelfRace.pdf"
+                  className="ml-2 underline"
+                  style={{ color: appColors.textPrimary }}
+                >
+                  Download the PDF
+                </a>
+                .
+              </div>
+            </object>
           </div>
         </div>
       </section>
