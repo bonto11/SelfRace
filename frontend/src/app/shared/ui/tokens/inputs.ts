@@ -547,16 +547,14 @@ export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
     "--btn-text": appColors.textPrimary,
     "--btn-border": appColors.widgetBorder,
     "--btn-ring": "transparent",
-    // old: "bg-transparent text-white/90 border border-white/15 hover:bg-white/8 ring-0"
   },
 
   viewOnStrava: {
     "--btn-bg": appColors.backgroundStrava,
     "--btn-bg-hover": appColors.backgroundStrava,
-    "--btn-text": appColors.textInverse, // ✅ musí byť biely
-    "--btn-border": "transparent", // ✅ zruší zelený/žltý okraj
+    "--btn-text": appColors.textStrava,
+    "--btn-border": "transparent",
     "--btn-ring": "transparent",
-    // old: border white/15 + brightness
   },
 };
 

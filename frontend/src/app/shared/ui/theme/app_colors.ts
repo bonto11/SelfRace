@@ -170,6 +170,7 @@ export const appColors = {
 
   //Strava
   backgroundStrava: natur.backgroundStrava,
+  textStrava: natur.textStrava,
 } as const;
 
 export type AppColors = typeof appColors;
