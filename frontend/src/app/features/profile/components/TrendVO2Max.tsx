@@ -26,7 +26,8 @@ import {
 
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import {
-  SURFACE_CARD,
+  CARD,
+  SURFACE_CARD_STYLE,
   SCROLL_X,
   PANEL_PAD,
   PANEL_INNER_STACK,
@@ -102,11 +103,11 @@ export default function TrendVO2Max() {
 
   if (!allDays.length) {
     return (
-      <section className={SURFACE_CARD}>
+      <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, "text-sm"].join(" ")}>
           Žiadne dáta VO₂Max.
         </div>
-      </section>
+      </div>
     );
   }
 
@@ -283,7 +284,7 @@ export default function TrendVO2Max() {
   const minWidth = Math.max(360, Math.round(labels.length * _pxPerLabel));
 
   return (
-    <section className={SURFACE_CARD}>
+    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_CARD_TITLE}>Detail – VO₂Max</h2>
@@ -315,6 +316,6 @@ export default function TrendVO2Max() {
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }

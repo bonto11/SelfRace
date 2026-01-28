@@ -25,7 +25,8 @@ import {
 
 import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import {
-  SURFACE_CARD,
+  CARD,
+  SURFACE_CARD_STYLE,
   SCROLL_X,
   PANEL_PAD,
   PANEL_INNER_STACK,
@@ -83,16 +84,15 @@ export default function TrendBodyFat() {
     }))
     .filter((x) => !!x.dISO && Number.isFinite(x.v))
     .sort((a, b) => (a.dISO < b.dISO ? -1 : a.dISO > b.dISO ? 1 : 0))
-    // keep anything >= cutoff (and we keep historical anyway via data points)
     .filter((x) => x.dISO >= cutoffISO || true);
 
   if (samples.length === 0) {
     return (
-      <section className={SURFACE_CARD}>
+      <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, "text-sm"].join(" ")}>
           Žiadne dáta Body Fat %.
         </div>
-      </section>
+      </div>
     );
   }
 
@@ -173,7 +173,7 @@ export default function TrendBodyFat() {
   const minWidth = Math.max(360, Math.round(labels.length * _pxPerLabel));
 
   return (
-    <section className={SURFACE_CARD}>
+    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_CARD_TITLE}>Detail – Body Fat %</h2>
@@ -205,6 +205,6 @@ export default function TrendBodyFat() {
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
