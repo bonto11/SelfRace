@@ -21,6 +21,13 @@ import {
   PANEL_STATUS_COL,
   PANEL_STATUS_PILL,
   ACCORDION_FOOTER_BAR_MUTED,
+  COACH_CARD,
+  COACH_CARD_STYLE,
+  COACH_SUBCARD,
+  COACH_SUBCARD_STYLE,
+  COACH_BAR_TRACK,
+  COACH_BAR_TRACK_STYLE,
+  
 } from "@/app/shared/ui/tokens";
 
 /* ---------- helper typy ---------- */
@@ -129,11 +136,11 @@ function Card({
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   topRight?: React.ReactNode;
-  children?: React.ReactNode; // ✅ optional
+  children?: React.ReactNode;
   footer?: boolean;
 }) {
   return (
-    <section className={SURFACE_CARD}>
+    <section className={COACH_CARD} style={COACH_CARD_STYLE}>
       {(title || subtitle || topRight) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
@@ -146,7 +153,6 @@ function Card({
         </header>
       )}
 
-      {/* ✅ render body len keď existuje */}
       {children ? (
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           {children}
@@ -168,7 +174,7 @@ function Subcard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={SURFACE_SUBCARD}>
+    <div className={COACH_SUBCARD} style={COACH_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
         {value != null ? (
@@ -181,7 +187,7 @@ function Subcard({
 }
 
 function Bar({
-  value01, // 0..1
+  value01,
   labelLeft,
   labelRight,
   fillClassName,
@@ -202,7 +208,7 @@ function Bar({
         </div>
       )}
 
-      <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
+      <div className={COACH_BAR_TRACK} style={COACH_BAR_TRACK_STYLE}>
         <div
           className={["h-full rounded-full", fillClassName].join(" ")}
           style={{ width: `${pct}%` }}
