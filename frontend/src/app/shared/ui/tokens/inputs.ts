@@ -553,8 +553,8 @@ export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
   viewOnStrava: {
     "--btn-bg": appColors.backgroundStrava,
     "--btn-bg-hover": appColors.backgroundStrava,
-    "--btn-text": appColors.textInverse,
-    "--btn-border": appColors.widgetBorder,
+    "--btn-text": appColors.textInverse, // ✅ musí byť biely
+    "--btn-border": "transparent", // ✅ zruší zelený/žltý okraj
     "--btn-ring": "transparent",
     // old: border white/15 + brightness
   },
