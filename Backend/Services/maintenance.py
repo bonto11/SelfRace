@@ -9,6 +9,7 @@ from Services.async_jobs import service_enqueue_ai_analyze_job_service
 from Routes_DB.maintenance import (
     db_cleanup_deleted_activities,
     db_account_hard_delete,
+    db_cleanup_expired_activity_details,
 )
 from Services.supabase_auth_admin import admin_delete_auth_users
 
@@ -102,3 +103,9 @@ def service_account_hard_delete(
         **result,
         "auth_delete": auth_report,
     }
+
+def service_cleanup_expired_activity_details() -> Dict[str, Any]:
+    """
+    Hard delete expirovaných detailov (streams/laps/splits) podľa expires_at.
+    """
+    return db_cleanup_expired_activity_details()
