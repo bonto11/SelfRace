@@ -263,7 +263,7 @@ export default function TrendPareto8020({
               <Button
                 key={opt.value}
                 size="xs"
-                variant={active ? "success" : "ghost"}
+                variant={active ? "active" : "editable"}
                 onClick={() => toggleSport(opt.value)}
                 title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
               >

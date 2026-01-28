@@ -213,21 +213,21 @@ export default function TrendWeeklyMonoStrain({
           <div className={PANEL_ACTIONS_INLINE}>
             <Button
               size="xs"
-              variant={metric === "km" ? "success" : "ghost"}
+              variant={metric === "km" ? "active" : "editable"}
               onClick={() => setMetric("km")}
             >
               Km
             </Button>
             <Button
               size="xs"
-              variant={metric === "time" ? "success" : "ghost"}
+              variant={metric === "time" ? "active" : "editable"}
               onClick={() => setMetric("time")}
             >
               Čas
             </Button>
             <Button
               size="xs"
-              variant={metric === "trimp" ? "success" : "ghost"}
+              variant={metric === "trimp" ? "active" : "editable"}
               onClick={() => setMetric("trimp")}
             >
               TRIMP
