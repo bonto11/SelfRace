@@ -60,7 +60,6 @@ export default function TrendWeeklyLoad({
   const _categoryPercentage = OPTIONS.bar.categoryPct;
   const _barPercentage = OPTIONS.bar.barPct;
 
-  // Ak niekde vyššie počúvaš na sport, tak ho explicitne nastavíme na "all"
   useEffect(() => {
     onSportChange?.(DEFAULT_SPORT);
   }, [onSportChange]);
@@ -217,26 +216,25 @@ export default function TrendWeeklyLoad({
       <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
         <h2 className={PANEL_TITLE}>Týždňová záťaž</h2>
 
-        {/* ✅ vždy vpravo */}
         <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
           <div className={PANEL_ACTIONS_INLINE}>
             <Button
               size="xs"
-              variant={metric === "km" ? "secondary" : "ghost"}
+              variant={metric === "km" ? "success" : "ghost"}
               onClick={() => setMetric("km")}
             >
               Km
             </Button>
             <Button
               size="xs"
-              variant={metric === "time" ? "secondary" : "ghost"}
+              variant={metric === "time" ? "success" : "ghost"}
               onClick={() => setMetric("time")}
             >
               Čas
             </Button>
             <Button
               size="xs"
-              variant={metric === "trimp" ? "secondary" : "ghost"}
+              variant={metric === "trimp" ? "success" : "ghost"}
               onClick={() => setMetric("trimp")}
             >
               TRIMP

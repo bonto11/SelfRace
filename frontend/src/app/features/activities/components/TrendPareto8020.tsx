@@ -33,10 +33,7 @@ import {
   PANEL_INNER_STACK,
 } from "@/app/shared/ui/tokens";
 
-import type {
-  ParetoWeekPick,
-  ParetoRow,
-} from "@/app/features/activities/types/pareto";
+import type { ParetoWeekPick, ParetoRow } from "@/app/features/activities/types/pareto";
 import { apiFetchParetoTrend } from "@/app/features/activities/api/analytics_activities";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -55,7 +52,7 @@ export default function TrendPareto8020({
   const [loading, setLoading] = useState(false);
 
   const [selectedSports, setSelectedSports] = useState<string[]>(
-    Array.from(PARETO_DEFAULT_SET)
+    Array.from(PARETO_DEFAULT_SET),
   );
 
   const sportCsv = useMemo(() => {
@@ -150,7 +147,7 @@ export default function TrendPareto8020({
         },
       ],
     }),
-    [rows, labels, ref80, ref20]
+    [rows, labels, ref80, ref20],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -180,7 +177,7 @@ export default function TrendPareto8020({
               const r = rows[i];
               if (!r) return "";
               return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(
-                r.hard_min || 0
+                r.hard_min || 0,
               )}`;
             },
           },
@@ -212,7 +209,7 @@ export default function TrendPareto8020({
         });
       },
     }),
-    [_legendPos, rows, selectedSports, onPickWeek]
+    [_legendPos, rows, selectedSports, onPickWeek],
   );
 
   const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
@@ -241,7 +238,8 @@ export default function TrendPareto8020({
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_TITLE}>Trend 80/20</h2>
 
-          <div className={PANEL_ACTIONS_INLINE}>
+          {/* ✅ doprava */}
+          <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
             <SelectField
               value={String(lookback)}
               onValueChange={(value: string) =>
@@ -260,11 +258,12 @@ export default function TrendPareto8020({
             const norm = normalizeSport(opt.value) ?? "";
             const active = selectedSports.map(normalizeSport).includes(norm);
             const isDefault = isInParetoDefault(norm);
+
             return (
               <Button
                 key={opt.value}
                 size="xs"
-                variant={active ? "secondary" : "ghost"}
+                variant={active ? "success" : "ghost"}
                 onClick={() => toggleSport(opt.value)}
                 title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
               >
