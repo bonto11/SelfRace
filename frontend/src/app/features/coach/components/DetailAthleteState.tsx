@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
@@ -9,25 +9,28 @@ import {
   type AthleteStateRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+
 import {
+  // PANELS (layout + panel surface style)
+  PANEL_SURFACE,
+  PANEL_SURFACE_STYLE,
   PANEL_STACK,
   PANEL_PAD,
   PANEL_INNER_STACK,
   PANEL_SECTION_HEAD,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
-  PANEL_GRID_3,
   PANEL_PREVIEW,
   PANEL_STATUS_COL,
   PANEL_STATUS_PILL,
+  PANEL_BAR_TRACK,
+  PANEL_BAR_FILL,
   ACCORDION_FOOTER_BAR_MUTED,
-  COACH_CARD,
-  COACH_CARD_STYLE,
-  COACH_SUBCARD,
-  COACH_SUBCARD_STYLE,
-  COACH_BAR_TRACK,
-  COACH_BAR_TRACK_STYLE,
-  
+
+  // SESSION (subcard surface + style)
+  SESSION_SUBCARD,
+  SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
 
 /* ---------- helper typy ---------- */
@@ -81,34 +84,6 @@ function formatLevelLabel(level?: string | null): string {
   return l;
 }
 
-// NOTE: colors are still hardcoded here; layout is token-first.
-// When you add tokens for status variants, swap them in here only.
-function pillClass(
-  level?: string | null,
-  kind: "fatigue" | "injury" = "fatigue"
-) {
-  const l = (level || "").toLowerCase();
-  if (!l) return "bg-slate-800 text-slate-100 border border-slate-600";
-
-  if (kind === "fatigue") {
-    if (l === "low")
-      return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/70";
-    if (l === "moderate" || l === "medium")
-      return "bg-amber-900/60 text-amber-100 border border-amber-500/70";
-    if (l === "high")
-      return "bg-rose-900/60 text-rose-100 border border-rose-500/70";
-  } else {
-    if (l === "low")
-      return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/70";
-    if (l === "moderate" || l === "medium")
-      return "bg-amber-900/60 text-amber-100 border border-amber-500/70";
-    if (l === "high")
-      return "bg-rose-900/60 text-rose-100 border border-rose-500/70";
-  }
-
-  return "bg-slate-800 text-slate-100 border border-slate-600";
-}
-
 function normalizeLevel(level?: number | null): number {
   const n = typeof level === "number" ? level : 0;
   if (n < 0) return 0;
@@ -124,7 +99,72 @@ function formatMinutesRange(min?: number | null, max?: number | null): string {
   return `${Math.round((min || 0) / 60)} h / týždeň`;
 }
 
-/* ---------- tiny building blocks ---------- */
+/* ---------- styles (NO tailwind colors) ---------- */
+
+type PillStyle = CSSProperties;
+
+function statusPillStyle(level?: string | null): PillStyle {
+  const l = (level || "").toLowerCase();
+
+  // neutral / unknown
+  if (!l) {
+    return {
+      background: "rgba(0,0,0,0)",
+      borderColor: appColors.surfaceCardBorder,
+      color: appColors.textMuted,
+    };
+  }
+
+  // use appColors.* (NOT tailwind classes)
+  if (l === "low") {
+    return {
+      background: "rgba(16,185,129,0.10)",
+      borderColor: appColors.statusSuccess,
+      color: appColors.statusSuccess,
+    };
+  }
+  if (l === "moderate" || l === "medium") {
+    return {
+      background: "rgba(245,158,11,0.10)",
+      borderColor: appColors.statusWarning,
+      color: appColors.statusWarning,
+    };
+  }
+  if (l === "high") {
+    return {
+      background: "rgba(239,68,68,0.10)",
+      borderColor: appColors.statusError,
+      color: appColors.statusError,
+    };
+  }
+
+  return {
+    background: "rgba(0,0,0,0)",
+    borderColor: appColors.surfaceCardBorder,
+    color: appColors.textMuted,
+  };
+}
+
+function blockPillStyle(): PillStyle {
+  return {
+    background: "rgba(59,130,246,0.10)",
+    borderColor: appColors.statusInfo,
+    color: appColors.statusInfo,
+  };
+}
+
+const BAR_TRACK_STYLE: CSSProperties = {
+  background: appColors.backgroundAlt,
+};
+
+function barFillStyle(kind: "success" | "info" | "warning" | "danger"): CSSProperties {
+  if (kind === "success") return { background: appColors.statusSuccess };
+  if (kind === "info") return { background: appColors.statusInfo };
+  if (kind === "warning") return { background: appColors.statusWarning };
+  return { background: appColors.statusError };
+}
+
+/* ---------- tiny building blocks (token-first) ---------- */
 
 function Card({
   title,
@@ -140,7 +180,7 @@ function Card({
   footer?: boolean;
 }) {
   return (
-    <section className={COACH_CARD} style={COACH_CARD_STYLE}>
+    <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}>
       {(title || subtitle || topRight) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
@@ -154,9 +194,7 @@ function Card({
       )}
 
       {children ? (
-        <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-          {children}
-        </div>
+        <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
       ) : null}
 
       {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
@@ -174,12 +212,10 @@ function Subcard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={COACH_SUBCARD} style={COACH_SUBCARD_STYLE}>
+    <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
-        {value != null ? (
-          <div className={PANEL_SECTION_TITLE}>{value}</div>
-        ) : null}
+        {value != null ? <div className={PANEL_SECTION_TITLE}>{value}</div> : null}
         {children ? <div className={PANEL_INNER_STACK}>{children}</div> : null}
       </div>
     </div>
@@ -187,15 +223,15 @@ function Subcard({
 }
 
 function Bar({
-  value01,
+  value01, // 0..1
   labelLeft,
   labelRight,
-  fillClassName,
+  fillKind,
 }: {
   value01: number;
   labelLeft?: React.ReactNode;
   labelRight?: React.ReactNode;
-  fillClassName: string;
+  fillKind: "success" | "info" | "warning" | "danger";
 }) {
   const pct = Math.max(0, Math.min(1, value01)) * 100;
 
@@ -208,10 +244,10 @@ function Bar({
         </div>
       )}
 
-      <div className={COACH_BAR_TRACK} style={COACH_BAR_TRACK_STYLE}>
+      <div className={PANEL_BAR_TRACK} style={BAR_TRACK_STYLE}>
         <div
-          className={["h-full rounded-full", fillClassName].join(" ")}
-          style={{ width: `${pct}%` }}
+          className={PANEL_BAR_FILL}
+          style={{ width: `${pct}%`, ...barFillStyle(fillKind) }}
         />
       </div>
     </div>
@@ -308,7 +344,7 @@ export default function DetailAthleteState() {
 
   if (loading) {
     return (
-      <section className={SURFACE_CARD}>
+      <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}>
         <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
           <LoadingSpinner size="widget" />
         </div>
@@ -339,31 +375,16 @@ export default function DetailAthleteState() {
 
   const statusPills = (
     <>
-      <div
-        className={[
-          PANEL_STATUS_PILL,
-          pillClass(aiState.fatigue_level, "fatigue"),
-        ].join(" ")}
-      >
+      <div className={PANEL_STATUS_PILL} style={statusPillStyle(aiState.fatigue_level)}>
         Fatigue: {formatLevelLabel(aiState.fatigue_level)}
       </div>
 
-      <div
-        className={[
-          PANEL_STATUS_PILL,
-          pillClass(aiState.injury_risk, "injury"),
-        ].join(" ")}
-      >
+      <div className={PANEL_STATUS_PILL} style={statusPillStyle(aiState.injury_risk)}>
         Injury: {formatLevelLabel(aiState.injury_risk)}
       </div>
 
       {aiState.suggested_block_kind ? (
-        <div
-          className={[
-            PANEL_STATUS_PILL,
-            "bg-sky-900/60 text-sky-100 border border-sky-500/70",
-          ].join(" ")}
-        >
+        <div className={PANEL_STATUS_PILL} style={blockPillStyle()}>
           Blok: {aiState.suggested_block_kind}
         </div>
       ) : null}
@@ -389,22 +410,19 @@ export default function DetailAthleteState() {
         subtitle="Jednoduchá stupnica: 5 = priemer, 8+ = veľmi dobrá úroveň."
         footer
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 min-w-0">
           <Subcard title="Beh" value={runLevel ? `${runLevel}/10` : "—"}>
             <Bar
               value01={runLevel / 10}
-              fillClassName="bg-emerald-500"
+              fillKind="success"
               labelLeft={aiState.fitness_level?.run?.comment ?? null}
             />
           </Subcard>
 
-          <Subcard
-            title="Sila"
-            value={strengthLevel ? `${strengthLevel}/10` : "—"}
-          >
+          <Subcard title="Sila" value={strengthLevel ? `${strengthLevel}/10` : "—"}>
             <Bar
               value01={strengthLevel / 10}
-              fillClassName="bg-violet-500"
+              fillKind="info"
               labelLeft={aiState.fitness_level?.strength?.comment ?? null}
             />
           </Subcard>
@@ -416,11 +434,11 @@ export default function DetailAthleteState() {
         subtitle="Bezpečné rozpätie objemu a odporúčaný počet ťažkých tréningov."
         footer
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 min-w-0">
           <Subcard title="Týždenný objem" value={volumeRangeLabel}>
             <Bar
               value01={0.7}
-              fillClassName="bg-sky-500"
+              fillKind="info"
               labelLeft={aiState.volume_tolerance?.note ?? null}
             />
           </Subcard>
@@ -435,27 +453,27 @@ export default function DetailAthleteState() {
           >
             <Bar
               value01={0.5}
-              fillClassName="bg-amber-500"
+              fillKind="warning"
               labelLeft={aiState.intensity_tolerance?.comment ?? null}
             />
           </Subcard>
         </div>
 
         {acute != null || chronic != null ? (
-          <div className={SURFACE_SUBCARD}>
+          <div className={[SESSION_SUBCARD, "mt-3 min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Tréningová záťaž</div>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 min-w-0">
                 <Bar
                   value01={Math.min(1, (chronic ?? 0) / 400)}
-                  fillClassName="bg-emerald-500"
+                  fillKind="success"
                   labelLeft="Chronic load"
                   labelRight={chronic != null ? chronic : "—"}
                 />
                 <Bar
                   value01={Math.min(1, (acute ?? 0) / 400)}
-                  fillClassName="bg-rose-500"
+                  fillKind="danger"
                   labelLeft="Acute load"
                   labelRight={acute != null ? acute : "—"}
                 />
@@ -471,8 +489,8 @@ export default function DetailAthleteState() {
       </Card>
 
       <Card title="Silné stránky a limitácie" footer>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className={SURFACE_SUBCARD}>
+        <div className="grid gap-3 md:grid-cols-2 min-w-0">
+          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Silné stránky</div>
               {aiState.key_strengths?.length ? (
@@ -487,7 +505,7 @@ export default function DetailAthleteState() {
             </div>
           </div>
 
-          <div className={SURFACE_SUBCARD}>
+          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Limitácie / riziká</div>
               {aiState.key_limitations?.length ? (
@@ -505,8 +523,8 @@ export default function DetailAthleteState() {
       </Card>
 
       <Card title="Odporúčania pre tréning" footer>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className={SURFACE_SUBCARD}>
+        <div className="grid gap-3 md:grid-cols-2 min-w-0">
+          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Hlavné riziká</div>
               {userSummary.risks?.length ? (
@@ -523,11 +541,9 @@ export default function DetailAthleteState() {
             </div>
           </div>
 
-          <div className={SURFACE_SUBCARD}>
+          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>
-                Rýchle tipy na ďalšie týždne
-              </div>
+              <div className={PANEL_SECTION_TITLE}>Rýchle tipy na ďalšie týždne</div>
               {userSummary.suggestions_short?.length ? (
                 <ul className="list-disc list-inside text-sm space-y-1">
                   {userSummary.suggestions_short.map((s, i) => (
