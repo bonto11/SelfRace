@@ -3,9 +3,8 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+
 import {
-  SURFACE_CARD,
-  SURFACE_SUBCARD,
   PANEL_STACK,
   PANEL_PAD,
   PANEL_CARD_HEAD,
@@ -19,7 +18,13 @@ import {
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 
-// lazy import – nech sa PBRun nenačítava zbytočne
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+  SESSION_SUBCARD,
+  SESSION_SUBCARD_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
+
 const PBRun = dynamic(() => import("@/app/features/bests/components/PBRun"), {
   ssr: false,
 });
@@ -30,7 +35,7 @@ export default function AccordionBests() {
   return (
     <div className={PANEL_STACK}>
       {/* RUN */}
-      <section className={SURFACE_CARD}>
+      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <header
           onClick={() => setOpenRun((v) => !v)}
           className={[PANEL_PAD, PANEL_CARD_HEAD, ACCORDION_TOGGLE].join(" ")}
@@ -48,19 +53,19 @@ export default function AccordionBests() {
         <div className={ACCORDION_FOOTER_BAR} />
       </section>
 
-      {/* placeholdery (rovnaký look, disabled) */}
+      {/* placeholdery */}
       {[
         "Personal Bests — Cycling",
         "Personal Bests — Strength",
         "Personal Bests — Swimming",
       ].map((title) => (
-        <section key={title} className={SURFACE_SUBCARD}>
+        <section
+          key={title}
+          className={SESSION_SUBCARD}
+          style={SESSION_SUBCARD_STYLE}
+        >
           <header
-            className={[
-              PANEL_PAD,
-              PANEL_CARD_HEAD,
-              ACCORDION_DISABLED,
-            ].join(" ")}
+            className={[PANEL_PAD, PANEL_CARD_HEAD, ACCORDION_DISABLED].join(" ")}
           >
             <h3 className={PANEL_CARD_TITLE}>{title}</h3>
             <span className={PANEL_PREVIEW}>soon</span>
