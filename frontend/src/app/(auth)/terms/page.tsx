@@ -1,6 +1,14 @@
 // src/app/terms/page.tsx
-import { SURFACE_CARD, PANEL_PAD, PANEL_INNER_STACK, PANEL_CARD_HEAD, PANEL_CARD_TITLE } from "@/app/shared/ui/tokens";
+import {
+  SURFACE_CARD,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_CARD_HEAD,
+  PANEL_CARD_TITLE,
+} from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+
+const PDF_URL = "/documents/TermsOfService_SelfRace.pdf";
 
 export default function TermsPage() {
   return (
@@ -9,8 +17,9 @@ export default function TermsPage() {
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           <div className={PANEL_CARD_HEAD}>
             <h1 className={PANEL_CARD_TITLE}>Terms</h1>
+
             <a
-              href="/documents/TermsOfService_SelfRace.pdf"
+              href={PDF_URL}
               className="text-xs hover:underline"
               style={{ color: appColors.textSecondary }}
             >
@@ -20,21 +29,37 @@ export default function TermsPage() {
 
           <div
             className="w-full overflow-hidden rounded-xl border"
-            style={{ borderColor: appColors.divider, background: appColors.backgroundAlt }}
+            style={{
+              borderColor: appColors.divider,
+              background: appColors.backgroundAlt,
+            }}
           >
-            <object data="/documents/TermsOfService_SelfRace.pdf" type="application/pdf" width="100%" height="780">
-              <div className="p-3 text-sm" style={{ color: appColors.textSecondary }}>
-                Your browser can’t display PDFs inline.
-                <a
-                  href="/documents/TermsOfService_SelfRace.pdf"
-                  className="ml-2 underline"
-                  style={{ color: appColors.textPrimary }}
-                >
-                  Download the PDF
-                </a>
-                .
-              </div>
-            </object>
+            <iframe
+              title="Terms of Service PDF"
+              src={PDF_URL}
+              className="block w-full"
+              style={{
+                height: 780,
+                background: appColors.backgroundAlt,
+                border: "0",
+              }}
+            />
+
+            {/* fallback (keď iframe/pdf viewer zlyhá) */}
+            <div
+              className="p-3 text-sm"
+              style={{ color: appColors.textSecondary }}
+            >
+              If your browser can’t display PDFs inline,&nbsp;
+              <a
+                href={PDF_URL}
+                className="underline"
+                style={{ color: appColors.textPrimary }}
+              >
+                download the PDF
+              </a>
+              .
+            </div>
           </div>
         </div>
       </section>
