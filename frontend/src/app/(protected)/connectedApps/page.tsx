@@ -4,7 +4,7 @@ import StravaPanel from "@/app/features/strava/components/StravaPanel";
 
 export default function ConnectedAppsPage() {
   return (
-    <PageShell title="Pripojenené aplikácie" showBack={false}>
+    <PageShell title="Pripojenené aplikácie" showBack={false} showPoweredByStrava={false}>
       <StravaPanel />
     </PageShell>
   );

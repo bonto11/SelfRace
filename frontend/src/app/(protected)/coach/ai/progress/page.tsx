@@ -6,7 +6,7 @@ import DetailAthleteProgress from "@/app/features/coach/components/DetailAthlete
 
 export default function Page() {
   return (
-    <PageShell title="Weekly progress" showBack>
+    <PageShell title="Weekly progress" showBack showPoweredByStrava={false}>
       <DetailAthleteProgress />
     </PageShell>
   );

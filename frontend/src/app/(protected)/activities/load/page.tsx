@@ -22,7 +22,7 @@ export default function Page() {
   }, []);
 
   return (
-    <PageShell title="Týždňová záťaž" showBack>
+    <PageShell title="Týždňová záťaž" showBack showPoweredByStrava>
       <TrendWeeklyLoad
         onPickWeek={handlePick}
         onSportChange={(s) => setSport(s)}

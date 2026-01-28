@@ -6,7 +6,7 @@ import BillingPanel from "@/app/features/billing/components/BillingPanel";
 
 export default function AccountPage() {
   return (
-    <PageShell title="Účet & nastavenia" showBack={false}>
+    <PageShell title="Účet & nastavenia" showBack={false} showPoweredByStrava={false}>
       <SettingsInputs />
       <BillingPanel />
     </PageShell>

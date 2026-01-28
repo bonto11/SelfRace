@@ -22,7 +22,7 @@ export default function Page() {
   }, []);
 
   return (
-    <PageShell title="Týždňová monotónnosť a úsilie" showBack>
+    <PageShell title="Týždňová monotónnosť a úsilie" showBack showPoweredByStrava>
       <TrendWeeklyMonoStrain
         onPickWeek={handlePick}
         onSportChange={(s) => setSport(s)}

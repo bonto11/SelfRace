@@ -11,7 +11,7 @@ const HRVDetailClient = dynamic(
 
 export default function Page() {
   return (
-    <PageShell title="Detail — HRV" showBack>
+    <PageShell title="Detail — HRV" showBack showPoweredByStrava={false}>
       <HRVDetailClient />
     </PageShell>
   );

@@ -21,7 +21,7 @@ function ClientPage() {
   const router = useRouter();
 
   return (
-    <PageShell title="Coach" showBack={false}>
+    <PageShell title="Coach" showBack={false} showPoweredByStrava={false}>
       <div className={PAGE_GRID_2}>
         {/* existujúce widgety */}
         <WidgetExternalEvents />

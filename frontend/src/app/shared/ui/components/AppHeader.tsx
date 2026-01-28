@@ -56,7 +56,7 @@ export default function AppHeader({
   rightSlot,
 
   // ✅ NEW
-  showPoweredByStrava = true,
+  showPoweredByStrava = false,
   poweredByStravaVariant = "white",
 }: Props) {
   const router = useRouter();

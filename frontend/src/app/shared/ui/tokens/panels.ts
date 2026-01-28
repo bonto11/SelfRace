@@ -6,6 +6,8 @@ import type { CSSProperties } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SURFACE_INSET } from "./core";
 
+type VarStyle = CSSProperties & Record<`--${string}`, string>;
+
 /* ===== Panel surface (semantic, greenish) ============================== */
 
 export const PANEL_SURFACE = [SURFACE_INSET, "overflow-hidden"].join(" ");
@@ -120,3 +122,48 @@ export const POPOVER_BODY = [
   "text-xs",
   "leading-snug",
 ].join(" ");
+
+type PhaseKey = "base" | "build" | "peak" | "recovery" | "other";
+
+
+/** Phase pill uses the same CSS vars as SESSION_PILL (bg/border/text) */
+export const PANEL_PHASE_PILL_STYLE: Record<PhaseKey, VarStyle> = {
+  base: {
+    "--pill-bg": "rgba(0,0,0,0)",
+    "--pill-border": appColors.phaseBase,
+    "--pill-text": appColors.phaseBase,
+  },
+  build: {
+    "--pill-bg": "rgba(0,0,0,0)",
+    "--pill-border": appColors.phaseBuild,
+    "--pill-text": appColors.phaseBuild,
+  },
+  peak: {
+    "--pill-bg": "rgba(0,0,0,0)",
+    "--pill-border": appColors.phasePeak,
+    "--pill-text": appColors.phasePeak,
+  },
+  recovery: {
+    "--pill-bg": "rgba(0,0,0,0)",
+    "--pill-border": appColors.phaseRecovery,
+    "--pill-text": appColors.phaseRecovery,
+  },
+  other: {
+    "--pill-bg": "rgba(0,0,0,0)",
+    "--pill-border": appColors.stateNeutral,
+    "--pill-text": appColors.stateNeutral,
+  },
+};
+
+export const PANEL_PHASE_BAR_STYLE: Record<PhaseKey, CSSProperties> = {
+  base: { background: appColors.phaseBase },
+  build: { background: appColors.phaseBuild },
+  peak: { background: appColors.phasePeak },
+  recovery: { background: appColors.phaseRecovery },
+  other: { background: appColors.stateNeutral },
+};
+
+/** Track bg for bars (no hardcoded tailwind colors in components) */
+export const PANEL_BAR_TRACK_STYLE: CSSProperties = {
+  background: appColors.surfaceSolid,
+};

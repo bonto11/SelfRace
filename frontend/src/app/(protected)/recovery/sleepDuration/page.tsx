@@ -11,7 +11,7 @@ const SleepDurationDetailClient = dynamic(
 
 export default function Page() {
   return (
-    <PageShell title="Detail — Sleep Duration" showBack>
+    <PageShell title="Detail — Sleep Duration" showBack showPoweredByStrava={false}>
       <SleepDurationDetailClient />
     </PageShell>
   );

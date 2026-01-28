@@ -18,7 +18,7 @@ export default function ActivitiesPage() {
   const openDetail8020 = () => router.push("/activities/pareto");
 
   return (
-    <PageShell title="Aktivity" showBack={false}>
+    <PageShell title="Aktivity" showBack={false} showPoweredByStrava>
        <div className={PAGE_GRID_2}>
         <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
         <MonoStrainWidget onOpenDetail={openDetailMono} />

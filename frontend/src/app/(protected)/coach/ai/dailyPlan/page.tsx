@@ -6,7 +6,7 @@ import DetailDailyPlan from "@/app/features/coach/components/DetailDailyPlan";
 
 export default function Page() {
   return (
-    <PageShell title="Daily plan" showBack>
+    <PageShell title="Daily plan" showBack showPoweredByStrava={false}>
       <DetailDailyPlan />
     </PageShell>
   );

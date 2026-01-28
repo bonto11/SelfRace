@@ -6,7 +6,7 @@ import AccordionBests from "@/app/features/bests/components/AccordionBests";
 
 export default function Page() {
   return (
-    <PageShell title="Personal Bests" showBack>
+    <PageShell title="Personal Bests" showBack showPoweredByStrava={false}>
       <AccordionBests />
     </PageShell>
   );
