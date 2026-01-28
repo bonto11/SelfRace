@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SURFACE_INSET, SURFACE_INSET_STYLE } from "./core";
-import type {ButtonSize, ButtonVariant} from "@/app/shared/ui";
+import type { ButtonSize, ButtonVariant } from "@/app/shared/ui/utils/inputs";
 /* =========================================================================
    FORM TOKENS (single source of truth)
    - Tailwind CANNOT compile runtime strings like bg-[${...}]
@@ -441,7 +441,8 @@ export const BUTTON_BASE = [
 export function buttonSizeClass(size: ButtonSize, circle?: boolean) {
   if (size === "xs") return circle ? "h-7 w-7 text-xs" : "px-3 py-1.5 text-xs";
   if (size === "sm") return circle ? "h-8 w-8 text-sm" : "px-3.5 py-2 text-sm";
-  if (size === "lg") return circle ? "h-11 w-11 text-base" : "px-5 py-3 text-base";
+  if (size === "lg")
+    return circle ? "h-11 w-11 text-base" : "px-5 py-3 text-base";
   return circle ? "h-9 w-9 text-sm" : "px-4 py-2.5 text-sm";
 }
 

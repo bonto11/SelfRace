@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   CHECKBOX_ROW,
   CHECKBOX_BOX_READONLY,

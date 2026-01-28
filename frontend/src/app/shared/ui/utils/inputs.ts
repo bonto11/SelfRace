@@ -1,4 +1,4 @@
-// src/app/shared/ui.ts
+// src/app/shared/ui/utils/inputs.ts
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }

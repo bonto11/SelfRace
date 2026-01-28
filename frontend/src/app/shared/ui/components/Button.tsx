@@ -8,7 +8,7 @@ import {
   type ButtonVariant,
   type ButtonSize,
   cx,
-} from "@/app/shared/ui";
+} from "@/app/shared/ui/utils/inputs";
 import { BUTTON_BLOCK, BUTTON_DISABLED } from "@/app/shared/ui/tokens";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import { appColors } from "@/app/shared/ui/theme/app_colors"; // ✅ NEW
@@ -49,7 +49,7 @@ export default function Button({
       buttonClass(variant, size, { circle: false, active }),
       block && BUTTON_BLOCK,
       disabled && BUTTON_DISABLED,
-      className
+      className,
     );
 
     return (
@@ -75,7 +75,7 @@ export default function Button({
     buttonClass(variant, size, { circle: useCircle, active }),
     block && BUTTON_BLOCK,
     disabled && BUTTON_DISABLED,
-    className
+    className,
   );
 
   // ✅ viewOnStrava: background z appColors (žiadne CSS vars v komponentoch)
@@ -85,7 +85,9 @@ export default function Button({
 
   return (
     <button className={cls} disabled={disabled} style={mergedStyle} {...rest}>
-      {leftIcon && !useCircle && <span className="inline-flex">{leftIcon}</span>}
+      {leftIcon && !useCircle && (
+        <span className="inline-flex">{leftIcon}</span>
+      )}
       {!useCircle && children}
       {rightIcon && !useCircle && (
         <span className="inline-flex">{rightIcon}</span>

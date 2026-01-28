@@ -2,7 +2,7 @@
 "use client";
 
 import Button from "@/app/shared/ui/components/Button";
-import { cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   DISCLOSURE_ICON_BASE,
   DISCLOSURE_ICON_OPEN,
@@ -41,7 +41,7 @@ export default function DisclosureToggle({
         aria-hidden="true"
         className={cx(
           DISCLOSURE_ICON_BASE,
-          open ? DISCLOSURE_ICON_OPEN : DISCLOSURE_ICON_CLOSED
+          open ? DISCLOSURE_ICON_OPEN : DISCLOSURE_ICON_CLOSED,
         )}
       >
         <path

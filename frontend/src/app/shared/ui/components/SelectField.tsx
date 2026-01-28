@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   FIELD_READONLY_BASE,
   FIELD_EDITABLE_BASE,
@@ -89,14 +89,20 @@ export default function SelectField({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const menuVariantClass = editable
+    ? SELECT_MENU_EDITABLE
+    : SELECT_MENU_READONLY;
   const menuStyle = {
     ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
     ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
+  const [pos, setPos] = React.useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
 
   function close() {
     setOpen(false);
@@ -158,7 +164,11 @@ export default function SelectField({
   }, [open]);
 
   return (
-    <div className={cx("space-y-1", containerClassName)} ref={wrapRef} style={wrapStyle}>
+    <div
+      className={cx("space-y-1", containerClassName)}
+      ref={wrapRef}
+      style={wrapStyle}
+    >
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       <div className={SELECT_MENU_WRAP}>
@@ -174,7 +184,7 @@ export default function SelectField({
             baseClass,
             SELECT_BTN,
             !selected && !value && SELECT_OPT_EMPTY,
-            error && FIELD_ERROR
+            error && FIELD_ERROR,
           )}
           aria-expanded={open}
         >
@@ -223,7 +233,7 @@ export default function SelectField({
                   );
                 })}
               </div>,
-              document.body
+              document.body,
             )
           : null}
       </div>

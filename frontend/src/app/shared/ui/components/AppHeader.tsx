@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { cx, buttonClass } from "@/app/shared/ui";
+import { cx, buttonClass } from "@/app/shared/ui/utils/inputs";
 import { PAGE_CONTAINER } from "@/app/shared/ui/tokens";
 import {
   APPBAR_WRAP,

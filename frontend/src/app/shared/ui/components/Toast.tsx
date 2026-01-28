@@ -2,7 +2,7 @@
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   TOAST_LAYER,
   TOAST_STACK,
@@ -65,7 +65,7 @@ export default function ToastHost() {
 
   const dismiss = React.useCallback((id: number) => {
     setItems((arr) =>
-      arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x))
+      arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x)),
     );
     window.setTimeout(() => {
       setItems((arr) => arr.filter((x) => x.id !== id));
@@ -87,7 +87,7 @@ export default function ToastHost() {
 
       window.setTimeout(() => {
         setItems((arr) =>
-          arr.map((x) => (x.id === id ? { ...x, phase: "hold" } : x))
+          arr.map((x) => (x.id === id ? { ...x, phase: "hold" } : x)),
         );
       }, 20);
 
@@ -96,7 +96,7 @@ export default function ToastHost() {
       const outAt = Math.max(600, ttl - 360);
       window.setTimeout(() => {
         setItems((arr) =>
-          arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x))
+          arr.map((x) => (x.id === id ? { ...x, phase: "out" } : x)),
         );
       }, outAt);
 
@@ -104,7 +104,7 @@ export default function ToastHost() {
         setItems((arr) => arr.filter((x) => x.id !== id));
       }, ttl);
     },
-    []
+    [],
   );
 
   React.useEffect(() => {
@@ -124,8 +124,8 @@ export default function ToastHost() {
             t.type === "success"
               ? TOAST_SUCCESS_STYLE
               : t.type === "error"
-              ? TOAST_ERROR_STYLE
-              : TOAST_INFO_STYLE;
+                ? TOAST_ERROR_STYLE
+                : TOAST_INFO_STYLE;
 
           return (
             <div
@@ -135,7 +135,7 @@ export default function ToastHost() {
                 t.phase === "in" && "toast-enter",
                 t.phase === "hold" && "toast-hold",
                 t.phase === "out" && "toast-exit",
-                "flex items-center justify-between gap-3"
+                "flex items-center justify-between gap-3",
               )}
               style={pillStyle}
             >
@@ -158,7 +158,9 @@ export default function ToastHost() {
 
   return (
     <Ctx.Provider value={{ show }}>
-      {typeof document !== "undefined" ? createPortal(node, document.body) : null}
+      {typeof document !== "undefined"
+        ? createPortal(node, document.body)
+        : null}
     </Ctx.Provider>
   );
 }
