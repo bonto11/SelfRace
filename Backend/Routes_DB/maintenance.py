@@ -66,3 +66,24 @@ def db_account_hard_delete(
         raise RuntimeError(str(err))
 
     return data or {}
+    
+    
+def db_cleanup_expired_activity_details(
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Dict[str, Any]:
+    """
+    Volá SQL funkciu cleanup_expired_activity_details()
+    a vracia jej JSON výsledok.
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="maintenance_cleanup_expired_details")
+
+    resp = sb.rpc("cleanup_expired_activity_details", {}).execute()
+
+    data = getattr(resp, "data", None)
+    err = getattr(resp, "error", None)
+    if err:
+        raise RuntimeError(str(err))
+
+    return data or {}
