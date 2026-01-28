@@ -6,7 +6,7 @@ import ActivitiesCalendar from "@/app/features/calendar/ActivitiesCalendar";
 
 export default function CalendarPage() {
   return (
-    <PageShell title="Kalendár" showBack={false} showPoweredByStrava={false}>
+    <PageShell title="Kalendár" showBack={false} showPoweredByStrava={true}>
       <ActivitiesCalendar />
     </PageShell>
   );
