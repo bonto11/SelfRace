@@ -1,0 +1,22 @@
+name: Cleanup expired activity details (dev)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # TODO: nastav si vlastný čas
+    - cron: "15 3 * * *"
+
+jobs:
+  run-cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cleanup-expired-activity-details endpoint (dev)
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+        run: |
+          set -e
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            -d '{}' \
+            https://api-dev.patrikmbontar.eu/maintenance/cleanup-expired-activity-details
