@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/ui/components/Button";
-import Checkbox from "@/app/shared/ui/components/Checkbox";
+import Checkbox from "@/app/shared/ui/components/CheckBox";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";

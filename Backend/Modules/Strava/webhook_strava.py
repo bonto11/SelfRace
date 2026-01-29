@@ -77,11 +77,6 @@ def get_oauth_state_secret() -> str:
 
 
 def get_expected_subscription_id() -> Optional[int]:
-    """
-    Anti-spam / anti-forgery:
-    - Ak nastavíš STRAVA_SUBSCRIPTION_ID, tak budeme akceptovať LEN eventy s týmto subscription_id.
-    (Je to najlepší praktický filter, ktorý Strava reálne posiela.)
-    """
     v = _get_env_opt("STRAVA_SUBSCRIPTION_ID")
     if not v:
         return None
@@ -95,7 +90,6 @@ def get_expected_subscription_id() -> Optional[int]:
 # Reconnect / policy knobs
 # =================================================
 def _cooldown_seconds() -> int:
-    # default 24h
     v = _get_env_opt("STRAVA_RECONNECT_COOLDOWN_SECONDS")
     if not v:
         return 24 * 3600
@@ -106,7 +100,6 @@ def _cooldown_seconds() -> int:
 
 
 def _manual_import_days_default() -> int:
-    # first-time / normal connect: 50
     v = _get_env_opt("STRAVA_MANUAL_IMPORT_DEFAULT_DAYS")
     if not v:
         return 50
@@ -117,7 +110,6 @@ def _manual_import_days_default() -> int:
 
 
 def _manual_import_days_after_reconnect() -> int:
-    # reconnect after disconnect: 7
     v = _get_env_opt("STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS")
     if not v:
         return 7
@@ -131,9 +123,7 @@ def _parse_iso_dt(v: Any) -> Optional[datetime]:
     if not v:
         return None
     try:
-        # supabase returns ISO with tz "Z" or "+00:00"
         s = str(v)
-        # python fromisoformat doesn't accept "Z"
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         return datetime.fromisoformat(s)
@@ -146,16 +136,12 @@ def _calc_reconnect_after(deauthorized_at: Any) -> Optional[str]:
     if not dt:
         return None
     after = dt + timedelta(seconds=_cooldown_seconds())
-    # always UTC ISO
     if after.tzinfo is None:
         after = after.replace(tzinfo=timezone.utc)
     return after.astimezone(timezone.utc).isoformat()
 
 
 def _can_connect_now(row: Optional[Mapping[str, Any]]) -> tuple[bool, Optional[str]]:
-    """
-    Returns (allowed, reconnect_after_iso_if_blocked)
-    """
     if not row:
         return True, None
     deauth_at = row.get("deauthorized_at")
@@ -180,7 +166,11 @@ def _can_connect_now(row: Optional[Mapping[str, Any]]) -> tuple[bool, Optional[s
 # =================================================
 # Redirect helper
 # =================================================
-def _fe_redirect(status: str, reason: str | None = None, extra: Optional[Dict[str, str]] = None) -> RedirectResponse:
+def _fe_redirect(
+    status: str,
+    reason: str | None = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> RedirectResponse:
     params: Dict[str, str] = {"strava": status}
     if reason:
         params["reason"] = reason
@@ -209,9 +199,7 @@ def make_oauth_state(user_id: int, ttl_seconds: int = 600) -> str:
     now = int(time.time())
     payload = {"uid": int(user_id), "iat": now, "exp": now + int(ttl_seconds), "v": 1}
 
-    payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(
-        "utf-8"
-    )
+    payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     payload_b64 = _b64url_encode(payload_bytes)
 
     sig = hmac.new(
@@ -253,7 +241,7 @@ def parse_oauth_state(state: str) -> int:
 
 
 # =================================================
-# 1) WEBHOOK – VERIFY (subscription handshake)
+# 1) WEBHOOK – VERIFY
 # =================================================
 @router.get("/webhook")
 async def strava_webhook_verify(
@@ -280,11 +268,8 @@ def _insert_event_from_dict(data: dict) -> dict:
     status = "pending"
     error: Optional[str] = None
 
-    # Hard filter ak je nakonfigurovaný subscription_id
     if expected_sub_id is not None:
-        if event.subscription_id is None or int(event.subscription_id) != int(
-            expected_sub_id
-        ):
+        if event.subscription_id is None or int(event.subscription_id) != int(expected_sub_id):
             status = "ignored"
             error = "unexpected_subscription_id"
 
@@ -351,17 +336,8 @@ async def _process_pending_events_core(limit: int = 20) -> dict:
 # =================================================
 @router.post("/webhook")
 async def strava_webhook_handler(request: Request):
-    """
-    Strava vyžaduje 200 OK do 2 sekúnd; spracovanie musí ísť async.
-    """
     raw_body = await request.body()
 
-    print("[STRAVA] headers keys:", sorted(list(request.headers.keys())))
-    print("[STRAVA] x-strava-signature:", request.headers.get("X-Strava-Signature"))
-    print("[STRAVA] x-forwarded-for:", request.headers.get("X-Forwarded-For"))
-    print("[STRAVA] user-agent:", request.headers.get("User-Agent"))
-
-    # Basic sanity
     if not raw_body:
         raise HTTPException(status_code=400, detail="empty_body")
 
@@ -375,10 +351,8 @@ async def strava_webhook_handler(request: Request):
         row = _insert_event_from_dict(data)
     except Exception as e:  # noqa: BLE001
         print("[STRAVA] insert failed:", repr(e))
-        # 500 -> Strava retry (max 3 pokusy)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
-    # Ak sme event ignorovali (zlá subscription_id), aj tak vrátime 200 – nech nás nespamujú retrymi.
     if row.get("status") == "ignored":
         return JSONResponse({"ok": True, "ignored": True})
 
@@ -393,9 +367,6 @@ async def strava_webhook_handler(request: Request):
     return JSONResponse({"ok": True})
 
 
-# =================================================
-# 5) MANUÁLNY PROCESSOR TRIGGER (fallback)
-# =================================================
 @router.post("/webhook/process-pending")
 async def process_pending_events(limit: int = 20):
     return JSONResponse(await _process_pending_events_core(limit=limit))
@@ -405,10 +376,8 @@ async def process_pending_events(limit: int = 20):
 # 6) OAUTH FLOW: START + CALLBACK
 # =================================================
 @router.get("/oauth/start")
-async def strava_oauth_start(
-    user_id: int = Query(..., description="SelfRace user_id"),
-):
-    # ✅ PRECHECK: vynútime 24h cooldown na BE (neobídeš to direct linkom)
+async def strava_oauth_start(user_id: int = Query(..., description="SelfRace user_id")):
+    # ✅ PRECHECK cooldown (server-side)
     try:
         st = (
             supabase.table("strava_accounts")
@@ -424,19 +393,12 @@ async def strava_oauth_start(
 
     allowed, reconnect_after = _can_connect_now(row)
     if not allowed:
-        return _fe_redirect(
-            "error",
-            "reconnect_cooldown",
-            extra={"reconnect_after": reconnect_after or ""},
-        )
+        return _fe_redirect("error", "reconnect_cooldown", extra={"reconnect_after": reconnect_after or ""})
 
     client_id = get_strava_client_id()
     callback_url = f"{BACKEND_URL}/api/strava/oauth/callback"
     state = make_oauth_state(user_id=user_id, ttl_seconds=600)
 
-    # Scope:
-    # - read (basic)
-    # - activity:read_all (Respect privacy and get "Only You")
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
@@ -491,7 +453,6 @@ async def strava_oauth_callback(
         return _fe_redirect("error", "token_exchange_bad_status")
 
     token_data = resp.json()
-
     access_token = token_data.get("access_token")
     refresh_token = token_data.get("refresh_token")
     expires_at_ts = token_data.get("expires_at")
@@ -511,9 +472,7 @@ async def strava_oauth_callback(
 
     expires_at_iso = None
     if isinstance(expires_at_ts, (int, float)):
-        expires_at_iso = datetime.fromtimestamp(
-            expires_at_ts, tz=timezone.utc
-        ).isoformat()
+        expires_at_iso = datetime.fromtimestamp(expires_at_ts, tz=timezone.utc).isoformat()
 
     athlete_id_int = int(athlete_id)
 
@@ -544,11 +503,7 @@ async def strava_oauth_callback(
     }
 
     try:
-        upsert_resp = (
-            supabase.table("strava_accounts")
-            .upsert(upsert_row, on_conflict="user_id")
-            .execute()
-        )
+        upsert_resp = supabase.table("strava_accounts").upsert(upsert_row, on_conflict="user_id").execute()
         err = getattr(upsert_resp, "error", None)
         if err:
             return _fe_redirect("error", "upsert_failed")
@@ -565,9 +520,7 @@ async def strava_oauth_callback(
 # 7) STATUS
 # =================================================
 @router.get("/status")
-async def strava_status(
-    user_id: int = Query(..., description="SelfRace user_id"),
-):
+async def strava_status(user_id: int = Query(..., description="SelfRace user_id")):
     try:
         resp = (
             supabase.table("strava_accounts")
@@ -596,7 +549,6 @@ async def strava_status(
     connected = not bool(row.get("deauthorized_at"))
     reconnect_after = _calc_reconnect_after(row.get("deauthorized_at"))
 
-    # ak bolo niekedy odpojené a teraz nie je connected, manual import po reconnect chceme “tvrdší”
     manual_days = _manual_import_days_default()
     if row.get("deauthorized_at"):
         manual_days = _manual_import_days_after_reconnect()
@@ -619,23 +571,25 @@ class DisconnectBody(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=64)
 
 
-def _purge_strava_user_data_best_effort(user_id: int) -> Dict[str, Any]:
+def _purge_strava_user_data(user_id: int, athlete_id: Optional[int]) -> Dict[str, Any]:
     """
-    Best-effort purge. Nechcem ti tu rozbiť disconnect, keď sa náhodou zmení schema.
-    Uprav si zoznam tabuliek podľa reality. Každý delete je v try/except.
+    Best-effort purge.
+    - user-scoped tables delete by user_id
+    - strava_webhook_events delete by owner_id (= athlete_id), lebo user_id tam nemáš
     """
     results: Dict[str, Any] = {"deleted": {}, "errors": {}}
 
-    # ✅ UPRAV podľa tvojich skutočných tabuliek / stĺpcov.
-    # Tip: ak máš “source='strava'”, filtruj tým. Ak nie, aspoň user_id.
     candidates = [
-        # ("activities", {"user_id": user_id, "source": "strava"}),  # príklad
-        ("activities", {"user_id": user_id}),
+        ("activities_summary", {"user_id": user_id}),
         ("activity_streams", {"user_id": user_id}),
         ("activity_splits", {"user_id": user_id}),
         ("activity_laps", {"user_id": user_id}),
-        ("strava_webhook_events", {"user_id": user_id}),  # ak máš user_id v eventoch
+        ("activities_enrichment", {"user_id": user_id}),
     ]
+
+    # webhook events -> owner_id == athlete_id
+    if athlete_id:
+        candidates.append(("strava_webhook_events", {"owner_id": int(athlete_id)}))
 
     for table, filters in candidates:
         try:
@@ -658,9 +612,8 @@ def _purge_strava_user_data_best_effort(user_id: int) -> Dict[str, Any]:
 @router.post("/disconnect")
 async def strava_disconnect(
     user_id: int = Query(..., description="SelfRace user_id"),
-    body: DisconnectBody = None,
+    body: Optional[DisconnectBody] = None,  # ✅ FIX: Optional
 ):
-    # ✅ vynútime explicitný consent (FE checkbox)
     if body is None or body.consent is not True:
         raise HTTPException(status_code=400, detail="consent_required")
 
@@ -678,11 +631,11 @@ async def strava_disconnect(
 
     row = (getattr(resp, "data", None) or [None])[0]
     if not row:
-        # nič nie je pripojené => ok
         return {"ok": True, "already": True}
 
     access_token = row.get("access_token")
     deauth_at = row.get("deauthorized_at")
+    athlete_id = row.get("athlete_id")
 
     # 1) Strava deauthorize (best effort)
     if access_token and not deauth_at:
@@ -698,9 +651,9 @@ async def strava_disconnect(
             print("[STRAVA DISCONNECT] deauthorize error:", repr(e))
 
     # 2) Purge Strava data (best effort)
-    purge_res = _purge_strava_user_data_best_effort(int(user_id))
+    purge_res = _purge_strava_user_data(int(user_id), int(athlete_id) if athlete_id else None)
 
-    # 3) Invalidate tokens & mark deauthorized_at
+    # 3) Invalidate tokens & mark deauthorized_at (keep row for lock)
     now_iso = datetime.now(timezone.utc).isoformat()
     payload = {
         "deauthorized_at": now_iso,
@@ -711,12 +664,7 @@ async def strava_disconnect(
     }
 
     try:
-        upd = (
-            supabase.table("strava_accounts")
-            .update(payload)
-            .eq("user_id", user_id)
-            .execute()
-        )
+        upd = supabase.table("strava_accounts").update(payload).eq("user_id", user_id).execute()
     except Exception as e:  # noqa: BLE001
         print("[STRAVA DISCONNECT] update exception:", repr(e))
         raise HTTPException(status_code=500, detail="db_update_exception")
@@ -726,9 +674,7 @@ async def strava_disconnect(
 
     if err:
         print("[STRAVA DISCONNECT] update error:", err)
-        raise HTTPException(
-            status_code=500, detail={"code": "db_update_failed", "error": str(err)}
-        )
+        raise HTTPException(status_code=500, detail={"code": "db_update_failed", "error": str(err)})
 
     reconnect_after = _calc_reconnect_after(now_iso)
 
