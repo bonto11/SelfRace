@@ -347,3 +347,4 @@ def service_sync_single_activity(
         "skipped": int(skipped),
         "fetched": int(fetched),
     }
+

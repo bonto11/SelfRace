@@ -36,3 +36,16 @@ export type WeeklyLoadOptions = {
 };
 
 export type WeekRow = WeeklyLoadRow;
+
+ export type WeeklyLoadApiRow = {
+  week?: string;
+  label?: string;
+  start?: string;
+  end?: string;
+  km_run?: number;
+  km_ride?: number;
+  time_run_min?: number;
+  time_ride_min?: number;
+  trimp_run?: number;
+  trimp_ride?: number;
+};

@@ -36,3 +36,12 @@ export type Rolling7 = {
     range: { start: string; end: string };
   };
 };
+
+export type MonoStrainApiRow = {
+  week?: string;
+  label?: string;
+  start?: string;
+  end?: string;
+  monotony?: number;
+  strain?: number;
+};

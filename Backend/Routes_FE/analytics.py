@@ -13,16 +13,10 @@ from Services.analytics_pareto8020 import (
 )
 
 from Services.analytics import (
-    service_get_activity_detail,
+    service_get_activity_detail,service_get_activity_extras_cached_or_fetch
 )
-
-from Services.activity_zones import (
-    preview_zones_for_activities,
-    upsert_enrichment_minutes,
-    backfill_enrichment_for_period,
-)
-
 from Schemas.analytics import WeeklyAnalyticsResponse
+from Services.activities_streams import service_get_streams_cached_or_fetch  # podľa toho kde to dáš
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -179,5 +173,48 @@ def get_activity_detail(
             "success": True,
             **payload,
         }
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@router.post("/activityStreams/{user_id}/{activity_id}")
+def activity_streams_fetch(
+    user_id: int,
+    activity_id: int,
+    fetch: bool = Query(False),  # fetch=true => natiahni zo Stravy ak chýba
+    authorization: Optional[str] = Header(None),
+):
+    user_jwt = _extract_user_jwt(authorization)
+
+    try:
+        payload = service_get_streams_cached_or_fetch(
+            user_id=user_id,
+            activity_id=activity_id,
+            fetch_if_missing=bool(fetch),
+            user_jwt=user_jwt,
+        )
+        return {"success": True, **payload}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/activityExtras/{user_id}/{activity_id}")
+def activity_extras_fetch(
+    user_id: int,
+    activity_id: int,
+    fetch: bool = Query(False),
+    authorization: Optional[str] = Header(None),
+):
+    user_jwt = _extract_user_jwt(authorization)
+
+    try:
+        payload = service_get_activity_extras_cached_or_fetch(
+            user_id=user_id,
+            activity_id=activity_id,
+            fetch_if_missing=bool(fetch),
+            user_jwt=user_jwt,
+        )
+        return {"success": True, **payload}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
