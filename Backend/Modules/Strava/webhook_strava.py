@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from Configs.config import BACKEND_URL, FRONTEND_URL
 from Modules.Strava.webhook_strava_processor import _process_single_event
+from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Modules.Supabase.client import get_service_client
 
 supabase = get_service_client()
@@ -562,7 +563,6 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         "manual_import_window_days": manual_days,
     }
 
-
 # =================================================
 # 8) DISCONNECT
 # =================================================
@@ -571,116 +571,24 @@ class DisconnectBody(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=64)
 
 
-def _purge_strava_user_data(user_id: int, athlete_id: Optional[int]) -> Dict[str, Any]:
-    """
-    Best-effort purge.
-    - user-scoped tables delete by user_id
-    - strava_webhook_events delete by owner_id (= athlete_id), lebo user_id tam nemáš
-    """
-    results: Dict[str, Any] = {"deleted": {}, "errors": {}}
-
-    candidates = [
-        ("activities_summary", {"user_id": user_id}),
-        ("activity_streams", {"user_id": user_id}),
-        ("activity_splits", {"user_id": user_id}),
-        ("activity_laps", {"user_id": user_id}),
-        ("activities_enrichment", {"user_id": user_id}),
-    ]
-
-    # webhook events -> owner_id == athlete_id
-    if athlete_id:
-        candidates.append(("strava_webhook_events", {"owner_id": int(athlete_id)}))
-
-    for table, filters in candidates:
-        try:
-            q = supabase.table(table).delete()
-            for k, v in filters.items():
-                q = q.eq(k, v)
-            resp = q.execute()
-            data = getattr(resp, "data", None) or []
-            err = getattr(resp, "error", None)
-            if err:
-                results["errors"][table] = str(err)
-            else:
-                results["deleted"][table] = len(data)
-        except Exception as e:  # noqa: BLE001
-            results["errors"][table] = repr(e)
-
-    return results
-
-
 @router.post("/disconnect")
 async def strava_disconnect(
     user_id: int = Query(..., description="SelfRace user_id"),
-    body: Optional[DisconnectBody] = None,  # ✅ FIX: Optional
+    body: Optional[DisconnectBody] = None,
 ):
+    # ✅ vynútime explicitný consent (FE checkbox)
     if body is None or body.consent is not True:
         raise HTTPException(status_code=400, detail="consent_required")
 
-    try:
-        resp = (
-            supabase.table("strava_accounts")
-            .select("user_id, athlete_id, access_token, deauthorized_at")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA DISCONNECT] select failed:", repr(e))
-        raise HTTPException(status_code=500, detail="db_select_failed")
+    # ✅ safe unified flow
+    res = disconnect_strava_account(
+        user_id=int(user_id),
+        reason=body.reason or "user_disconnect",
+        purge_data=True,
+    )
 
-    row = (getattr(resp, "data", None) or [None])[0]
-    if not row:
-        return {"ok": True, "already": True}
+    # ak update na strava_accounts zlyhalo, je to pre nás chyba
+    if not res.get("ok"):
+        raise HTTPException(status_code=500, detail="disconnect_failed")
 
-    access_token = row.get("access_token")
-    deauth_at = row.get("deauthorized_at")
-    athlete_id = row.get("athlete_id")
-
-    # 1) Strava deauthorize (best effort)
-    if access_token and not deauth_at:
-        try:
-            r = requests.post(
-                "https://www.strava.com/oauth/deauthorize",
-                data={"access_token": access_token},
-                timeout=15,
-            )
-            if r.status_code not in (200, 201):
-                print("[STRAVA DISCONNECT] deauthorize non-200:", r.status_code, r.text)
-        except Exception as e:  # noqa: BLE001
-            print("[STRAVA DISCONNECT] deauthorize error:", repr(e))
-
-    # 2) Purge Strava data (best effort)
-    purge_res = _purge_strava_user_data(int(user_id), int(athlete_id) if athlete_id else None)
-
-    # 3) Invalidate tokens & mark deauthorized_at (keep row for lock)
-    now_iso = datetime.now(timezone.utc).isoformat()
-    payload = {
-        "deauthorized_at": now_iso,
-        "access_token": None,
-        "refresh_token": None,
-        "expires_at": None,
-        "scope": [],
-    }
-
-    try:
-        upd = supabase.table("strava_accounts").update(payload).eq("user_id", user_id).execute()
-    except Exception as e:  # noqa: BLE001
-        print("[STRAVA DISCONNECT] update exception:", repr(e))
-        raise HTTPException(status_code=500, detail="db_update_exception")
-
-    err = getattr(upd, "error", None)
-    data = getattr(upd, "data", None)
-
-    if err:
-        print("[STRAVA DISCONNECT] update error:", err)
-        raise HTTPException(status_code=500, detail={"code": "db_update_failed", "error": str(err)})
-
-    reconnect_after = _calc_reconnect_after(now_iso)
-
-    return {
-        "ok": True,
-        "updated": len(data or []),
-        "purge": purge_res,
-        "reconnect_after": reconnect_after,
-    }
+    return res
