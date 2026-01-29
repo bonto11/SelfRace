@@ -393,7 +393,7 @@ export default function StravaPanel() {
               Odpojením Stravy:
               <ul className="list-disc ml-5 mt-2 space-y-1">
                 <li>vymažeme všetky dáta importované zo Stravy (aktivity, streamy, splits/laps)</li>
-                <li>zrušíme autorizáciu a uložené tokeny</li>
+                <li>zrušíme autorizáciu</li>
                 <li>znovu pripojenie bude možné najskôr o 24 hodín</li>
               </ul>
             </div>
