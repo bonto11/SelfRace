@@ -1,4 +1,5 @@
 // src/features/account/components/PersonalSettingsPanel.tsx
+// src/features/account/components/PersonalSettingsPanel.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -71,28 +72,23 @@ const TIME_FORMAT_OPTIONS = [
 const TIMEZONE_OPTIONS = [
   { value: "UTC", label: "(UTC±00:00) Londýn, Reykjavík" },
   { value: "Atlantic/Canary", label: "(UTC±00:00) Kanárske ostrovy" },
-
   {
     value: "Europe/Bratislava",
     label: "(UTC+01:00) Bratislava, Praha, Berlín",
   },
   { value: "Europe/Vienna", label: "(UTC+01:00) Viedeň, Budapešť, Varšava" },
   { value: "Europe/Paris", label: "(UTC+01:00) Paríž, Madrid, Rím" },
-
   { value: "Europe/Athens", label: "(UTC+02:00) Atény, Bukurešť" },
   { value: "Europe/Helsinki", label: "(UTC+02:00) Helsinki, Riga" },
   { value: "Africa/Cairo", label: "(UTC+02:00) Káhira" },
-
   { value: "Europe/Moscow", label: "(UTC+03:00) Moskva" },
   { value: "Asia/Riyadh", label: "(UTC+03:00) Rijád" },
-
   { value: "America/Sao_Paulo", label: "(UTC−03:00) São Paulo" },
   { value: "America/Halifax", label: "(UTC−04:00) Halifax" },
   { value: "America/New_York", label: "(UTC−05:00) New York" },
   { value: "America/Chicago", label: "(UTC−06:00) Chicago" },
   { value: "America/Denver", label: "(UTC−07:00) Denver" },
   { value: "America/Los_Angeles", label: "(UTC−08:00) Los Angeles" },
-
   { value: "Asia/Dubai", label: "(UTC+04:00) Dubaj" },
   { value: "Asia/Karachi", label: "(UTC+05:00) Karáčí" },
   { value: "Asia/Kolkata", label: "(UTC+05:30) India (Kolkata)" },
@@ -115,6 +111,9 @@ export default function PersonalSettingsPanel() {
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
+
+  // ✅ NEW: explicit consent checkbox for account delete request
+  const [deleteConsent, setDeleteConsent] = useState(false);
 
   // load user.settings
   useEffect(() => {
@@ -195,19 +194,28 @@ export default function PersonalSettingsPanel() {
   async function handleRequestDelete() {
     if (!userId || processingDelete) return;
 
+    // ✅ hard stop without consent checkbox
+    if (!deleteConsent) {
+      toast.error(
+        "Najprv potvrď súhlas (checkbox) – bez toho účet neoznačím na zmazanie.",
+      );
+      return;
+    }
+
     const first = await confirm({
       title: "Zrušiť účet?",
       message:
-        "Účet nebude hneď vymazaný. Najprv sa označí na zmazanie a po 30 dňoch sa všetky tvoje dáta z aplikácie odstránia.",
+        "Označíme účet na zmazanie. Počas ochrannej lehoty ho vieš ešte zrušiť, potom sa dáta trvalo odstránia.",
       okText: "Pokračovať",
       cancelText: "Zrušiť",
+      tone: "danger",
     });
     if (!first) return;
 
     const second = await confirm({
-      title: "Naozaj chceš zrušiť účet?",
+      title: "Naozaj označiť účet na zmazanie?",
       message:
-        "Toto je nezvratná akcia. Po 30 dňoch sa trvalo vymažú tréningy, plány aj prepojenia (napr. Strava). Do tej doby môžeš zrušenie ešte odvolať.",
+        "Toto je vážna akcia. Po uplynutí lehoty sa trvalo vymažú tréningy, plány a aj prepojenia (napr. Strava). Počas lehoty to ešte môžeš odvolať.",
       okText: "Áno, označiť na zmazanie",
       cancelText: "Nechcem mazať",
       tone: "danger",
@@ -218,8 +226,12 @@ export default function PersonalSettingsPanel() {
     try {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
+
+      // po úspechu zruš consent checkbox (nech user omylom nekliká ďalej)
+      setDeleteConsent(false);
+
       toast.success(
-        "Účet je označený na zmazanie. Po 30 dňoch sa tvoje dáta automaticky odstránia.",
+        "Účet je označený na zmazanie. Do lehoty to vieš ešte zrušiť.",
       );
     } catch (e: any) {
       console.error("[PersonalSettingsPanel] delete request error", e);
@@ -235,7 +247,7 @@ export default function PersonalSettingsPanel() {
     const ok = await confirm({
       title: "Zrušiť plánované zmazanie účtu?",
       message:
-        "Ak zrušíš plánované zmazanie, tvoj účet ostane aktívny a dáta sa nevymažú.",
+        "Ak zrušíš plánované zmazanie, účet ostane aktívny a dáta sa nevymažú.",
       okText: "Áno, ponechať účet",
       cancelText: "Nechať zmazanie",
     });
@@ -450,8 +462,8 @@ export default function PersonalSettingsPanel() {
                 <span className="font-semibold">označený na zmazanie</span>.
               </p>
               <p className="mt-1" style={{ color: appColors.textMuted }}>
-                Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia
-                so Stravou) sa po 30 dňoch trvalo vymažú.
+                Ak nič neurobíš, po uplynutí lehoty sa trvalo vymažú všetky
+                tvoje dáta v aplikácii (tréningy, plány, nastavenia).
                 {deleteAtLabel ? (
                   <>
                     {" "}
@@ -476,12 +488,37 @@ export default function PersonalSettingsPanel() {
                 <span className="font-semibold">nezvratné</span>.
               </p>
               <p className="mt-1" style={{ color: appColors.textMuted }}>
-                Najprv sa účet označí na zmazanie. Počas nasledujúcich 30 dní ho
-                môžeš ešte zachrániť, potom sa všetky dáta odstránia.
+                Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte
+                zrušiť, potom sa trvalo odstránia všetky tvoje dáta v aplikácii.
+                Pozor: Prepojenie so službou Strava sa zruší okamžite a všetky
+                dáta o aktivitách importované zo Stravy sa z tejto aplikácie
+                hneď vymažú.
               </p>
             </>
           )}
         </div>
+
+        {/* ✅ CONSENT CHECKBOX (iba keď delete ešte nie je pending) */}
+        {!deletePending && (
+          <label
+            className="mt-2 flex items-start gap-2 text-xs"
+            style={{ color: appColors.textPrimary }}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={deleteConsent}
+              onChange={(e) => setDeleteConsent(e.target.checked)}
+            />
+            <span style={{ color: appColors.textMuted }}>
+              Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na
+              vedomie, že po uplynutí lehoty sa moje dáta v tejto aplikácii
+              trvalo vymažú. Zároveň beriem na vedomie, že budem okamžite
+              odpojený od služby Strava v tejto aplikácii a všetky dáta
+              importované zo Stravy sa z nej vymažú.
+            </span>
+          </label>
+        )}
 
         <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
           {deletePending ? (
@@ -498,8 +535,10 @@ export default function PersonalSettingsPanel() {
           ) : (
             <Button
               size="xs"
-              variant="secondary"
-              disabled={processingDelete || !userId}
+              // ✅ “danger button” style – ak tvoj Button podporuje variant="danger", použi ho.
+              // Ak nie, nechaj secondary a spoliehaj sa na confirm tone:"danger".
+              variant={"danger" as any}
+              disabled={processingDelete || !userId || !deleteConsent}
               onClick={handleRequestDelete}
             >
               {processingDelete
@@ -508,6 +547,15 @@ export default function PersonalSettingsPanel() {
             </Button>
           )}
         </div>
+
+        {!deletePending && !deleteConsent && (
+          <p
+            className="text-[11px] mt-1"
+            style={{ color: appColors.textMuted }}
+          >
+            Pre pokračovanie musíš zaškrtnúť súhlas.
+          </p>
+        )}
       </div>
     </section>
   );
