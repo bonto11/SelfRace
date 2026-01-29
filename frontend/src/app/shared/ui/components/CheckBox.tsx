@@ -1,4 +1,4 @@
-// src/app/shared/components/ui/Checkbox.tsx
+// src/app/shared/ui/components/Checkbox.tsx
 "use client";
 
 import * as React from "react";
