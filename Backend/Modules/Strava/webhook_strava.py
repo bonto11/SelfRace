@@ -17,7 +17,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
-from Configs.config import BACKEND_URL, FRONTEND_URL, STRAVA_MANUAL_IMPORT_DEFAULT_DAYS, STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS, STRAVA_RECONNECT_COOLDOWN_SECONDS
+from Configs.config import (
+    BACKEND_URL,
+    FRONTEND_URL,
+    STRAVA_MANUAL_IMPORT_DEFAULT_DAYS,
+    STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS,
+    STRAVA_RECONNECT_COOLDOWN_SECONDS,
+)
 from Modules.Strava.webhook_strava_processor import _process_single_event
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Modules.Supabase.client import get_service_client
@@ -90,7 +96,6 @@ def get_expected_subscription_id() -> Optional[int]:
 # =================================================
 # Reconnect / policy knobs
 # =================================================
-
 def _parse_iso_dt(v: Any) -> Optional[datetime]:
     if not v:
         return None
@@ -471,7 +476,7 @@ async def strava_oauth_callback(
         "refresh_token": refresh_token,
         "expires_at": expires_at_iso,
         "scope": scopes,
-        "deauthorized_at": None,  # reset on connect
+        "deauthorized_at": None,
     }
 
     try:
@@ -492,9 +497,7 @@ async def strava_oauth_callback(
 # 7) STATUS
 # =================================================
 @router.get("/status")
-async def strava_status(
-    user_id: int = Query(..., description="SelfRace user_id"),
-):
+async def strava_status(user_id: int = Query(..., description="SelfRace user_id")):
     try:
         resp = (
             supabase.table("strava_accounts")
@@ -510,7 +513,6 @@ async def strava_status(
     rows = getattr(resp, "data", None) or []
     row = rows[0] if rows else None
 
-    # defaulty
     default_manual_days = STRAVA_MANUAL_IMPORT_DEFAULT_DAYS
 
     if not row:
@@ -528,20 +530,17 @@ async def strava_status(
 
     deauth_at = row.get("deauthorized_at")
     connected = not bool(deauth_at)
-
     reconnect_after = _calc_reconnect_after(deauth_at)
 
     manual_days = default_manual_days
     if deauth_at:
         manual_days = STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS
 
-    # ✅ can_connect = false ak sme v cooldown okne
     can_connect = True
     if not connected:
         allowed, _after = _can_connect_now(row)
         can_connect = bool(allowed)
 
-    # ✅ can_manual_import len keď je connected
     can_manual_import = bool(connected)
 
     return {
@@ -549,8 +548,6 @@ async def strava_status(
         "athlete_id": row.get("athlete_id"),
         "scopes": row.get("scope") or [],
         "expires_at": row.get("expires_at"),
-
-        # ✅ FE-friendly
         "disconnected_at": deauth_at,
         "reconnect_after": reconnect_after,
         "can_connect": can_connect,
@@ -558,8 +555,9 @@ async def strava_status(
         "manual_import_window_days": manual_days,
     }
 
+
 # =================================================
-# 8) DISCONNECT
+# 8) DISCONNECT (+ DRY RUN)
 # =================================================
 class DisconnectBody(BaseModel):
     consent: bool = Field(default=False)
@@ -569,20 +567,21 @@ class DisconnectBody(BaseModel):
 @router.post("/disconnect")
 async def strava_disconnect(
     user_id: int = Query(..., description="SelfRace user_id"),
+    dry_run: bool = Query(False, description="If true: do not deauthorize, purge, or update DB"),
     body: Optional[DisconnectBody] = None,
 ):
-    # ✅ vynútime explicitný consent (FE checkbox)
     if body is None or body.consent is not True:
         raise HTTPException(status_code=400, detail="consent_required")
 
-    # ✅ safe unified flow
     res = disconnect_strava_account(
         user_id=int(user_id),
         reason=body.reason or "user_disconnect",
         purge_data=True,
+        dry_run=bool(dry_run),
     )
 
-    # ak update na strava_accounts zlyhalo, je to pre nás chyba
+    # v dry-run nikdy nefailujeme "disconnect_failed" len kvôli tomu,
+    # že sme nič nemenili. Fail len keď helper explicitne vráti ok=False.
     if not res.get("ok"):
         raise HTTPException(status_code=500, detail="disconnect_failed")
 

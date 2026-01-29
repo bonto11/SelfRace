@@ -36,6 +36,10 @@ export type DisconnectResult = {
   disconnected_at?: string | null;
   reconnect_after?: string | null;
   purge?: any;
+
+  // ✅ nové (pre dry-run debug)
+  dry_run?: boolean;
+  plan?: any;
 };
 
 export type ImportLimits = {
@@ -90,14 +94,27 @@ export async function apiGetStravaStatus(userId: number): Promise<StravaStatus> 
   }
 }
 
+export type DisconnectOptions = {
+  /**
+   * Ak true, BE iba vráti plán (nič neodpojí, nič nevymaže).
+   * Implementované cez query param: dry_run=1
+   */
+  dryRun?: boolean;
+};
+
 export async function apiDisconnectStrava(
   userId: number,
-  payload: DisconnectPayload
+  payload: DisconnectPayload,
+  opts?: DisconnectOptions
 ): Promise<DisconnectResult> {
   if (!userId) throw new Error("Missing userId in apiDisconnectStrava");
   if (!payload?.consent) throw new Error("Consent is required to disconnect Strava");
 
-  const path = `${STRAVA_BASE}/disconnect?user_id=${enc(userId)}`;
+  const qs = new URLSearchParams();
+  qs.set("user_id", String(userId));
+  if (opts?.dryRun) qs.set("dry_run", "1");
+
+  const path = `${STRAVA_BASE}/disconnect?${qs.toString()}`;
   console.debug("[Strava][apiDisconnectStrava] ->", path, "payload:", payload);
 
   try {
@@ -109,10 +126,22 @@ export async function apiDisconnectStrava(
     });
 
     return {
-      ok: true,
-      disconnected_at: json?.disconnected_at ?? json?.deauthorized_at ?? null,
+      ok: !!json?.ok,
+
+      // ✅ real-run: disconnect endpoint vracia account_update.deauthorized_at
+      // ✅ dry-run: vracia plan.would_set_deauthorized_at
+      disconnected_at:
+        json?.disconnected_at ??
+        json?.account_update?.deauthorized_at ??
+        json?.plan?.would_set_deauthorized_at ??
+        null,
+
       reconnect_after: json?.reconnect_after ?? null,
       purge: json?.purge ?? null,
+
+      // ✅ dry-run debug
+      dry_run: json?.dry_run ?? false,
+      plan: json?.plan ?? null,
     };
   } catch (e: any) {
     console.error("[Strava][apiDisconnectStrava] ERROR", e);

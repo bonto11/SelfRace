@@ -1,7 +1,8 @@
+# Modules/Strava/strava_disconnect_helpers.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple, List
 
 import requests
 
@@ -49,6 +50,22 @@ def strava_deauthorize_best_effort(access_token: Optional[str]) -> Dict[str, Any
         return {"attempted": True, "ok": False, "error": repr(e)}
 
 
+def _purge_plan(*, user_id: int, athlete_id: Optional[int]) -> List[Dict[str, Any]]:
+    """
+    Vráti plán mazania (pre dry_run / debug), bez vykonania.
+    """
+    items: List[Dict[str, Any]] = [
+        {"table": "activities_summary", "filters": {"user_id": int(user_id)}},
+        {"table": "activities_streams", "filters": {"user_id": int(user_id)}},
+        {"table": "activities_splits", "filters": {"user_id": int(user_id)}},
+        {"table": "activities_laps", "filters": {"user_id": int(user_id)}},
+        {"table": "activities_enrichment", "filters": {"user_id": int(user_id)}},
+    ]
+    if athlete_id is not None:
+        items.append({"table": "strava_webhook_events", "filters": {"owner_id": int(athlete_id)}})
+    return items
+
+
 def purge_strava_user_data_best_effort(
     *,
     user_id: int,
@@ -61,19 +78,7 @@ def purge_strava_user_data_best_effort(
     """
     results: Dict[str, Any] = {"deleted": {}, "errors": {}}
 
-    # ⚠️ uprav si ak treba názvy tabuliek podľa reality
-    # (tu používam presne to čo si písal, len webhook events opravujem na owner_id)
-    candidates = [
-        ("activities_summary", {"user_id": int(user_id)}),
-        ("activities_streams", {"user_id": int(user_id)}),
-        ("activities_splits", {"user_id": int(user_id)}),
-        ("activities_laps", {"user_id": int(user_id)}),
-        ("activities_enrichment", {"user_id": int(user_id)}),
-    ]
-
-    # webhook events: u teba je owner_id == athlete_id
-    if athlete_id is not None:
-        candidates.append(("strava_webhook_events", {"owner_id": int(athlete_id)}))
+    candidates = [(p["table"], p["filters"]) for p in _purge_plan(user_id=user_id, athlete_id=athlete_id)]
 
     for table, filters in candidates:
         try:
@@ -131,6 +136,7 @@ def disconnect_strava_account(
     user_id: int,
     reason: str,
     purge_data: bool = True,
+    dry_run: bool = False,
 ) -> Dict[str, Any]:
     """
     Jeden “safe” entrypoint pre:
@@ -138,18 +144,49 @@ def disconnect_strava_account(
     - purge dát
     - invalidácia tokenov + deauthorized_at
 
-    Použiješ ho:
-    - z /api/strava/disconnect (s consentom)
-    - z account delete requestu (bez consentu – interný flow)
+    dry_run=True:
+    - nevykoná nič destruktívne (ani request na Stravu, ani DB delete/update)
+    - vráti plán (čo by sa spravilo)
     """
     row = _select_strava_account(int(user_id))
     if not row:
-        return {"ok": True, "already": True, "note": "no_strava_account_row"}
+        return {
+            "ok": True,
+            "dry_run": bool(dry_run),
+            "already": True,
+            "note": "no_strava_account_row",
+            "purge_plan": _purge_plan(user_id=int(user_id), athlete_id=None),
+        }
 
     athlete_id = row.get("athlete_id")
     access_token = row.get("access_token")
     already_deauthed = bool(row.get("deauthorized_at"))
 
+    # --- DRY RUN ---
+    if dry_run:
+        plan = {
+            "would_deauthorize_strava": bool(access_token and not already_deauthed),
+            "would_purge_data": bool(purge_data),
+            "would_invalidate_tokens": True,
+            "would_set_deauthorized_at": _now_iso(),
+            "purge_plan": _purge_plan(user_id=int(user_id), athlete_id=int(athlete_id) if athlete_id is not None else None),
+        }
+
+        return {
+            "ok": True,
+            "dry_run": True,
+            "user_id": int(user_id),
+            "athlete_id": athlete_id,
+            "reason": reason,
+            "current": {
+                "has_access_token": bool(access_token),
+                "already_deauthorized": bool(already_deauthed),
+                "deauthorized_at": row.get("deauthorized_at"),
+            },
+            "plan": plan,
+        }
+
+    # --- REAL RUN ---
     deauth_res = {"attempted": False, "ok": True}
     if access_token and not already_deauthed:
         deauth_res = strava_deauthorize_best_effort(access_token)
@@ -168,6 +205,7 @@ def disconnect_strava_account(
 
     return {
         "ok": bool(ok_update),
+        "dry_run": False,
         "user_id": int(user_id),
         "athlete_id": athlete_id,
         "reason": reason,

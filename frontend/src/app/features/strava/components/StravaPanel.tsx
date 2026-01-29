@@ -180,7 +180,7 @@ export default function StravaPanel() {
       const res = await apiDisconnectStrava(userId, {
         consent: true,
         reason: "user_request",
-      });
+      },{dryRun: true});
 
       toast.success("Strava účet bol odpojený. Dáta zo Stravy boli vymazané.");
       closeDisconnectModal();
