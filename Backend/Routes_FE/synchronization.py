@@ -32,8 +32,6 @@ def sync_activities_endpoint(
     try:
         stats = service_sync_activities(
             user_id=user_id,
-            force_last_days=payload.force_last_days,
-            fetch_details=payload.fetch_details,
             user_jwt=user_jwt,
         )
         return {
