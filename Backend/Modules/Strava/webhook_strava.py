@@ -527,21 +527,30 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
             "can_manual_import": False,
             "manual_import_window_days": default_manual_days,
         }
-
+    
     deauth_at = row.get("deauthorized_at")
-    connected = not bool(deauth_at)
-    reconnect_after = _calc_reconnect_after(deauth_at)
+
+    has_tokens = bool(row.get("access_token")) and bool(row.get("refresh_token"))
+    connected = bool(has_tokens) and (not bool(deauth_at))
+
+    # reconnect_after dáva zmysel len keď je deauthorized
+    reconnect_after = _calc_reconnect_after(deauth_at) if deauth_at else None
+
+    # can_connect: keď nie si connected, tak buď nemáš tokeny (OK pripojiť hneď),
+    # alebo si deauthorized a platí cooldown
+    if connected:
+        can_connect = False
+    else:
+        allowed, _after = _can_connect_now(row)
+        can_connect = bool(allowed)
+
+    # manuálny import len keď connected (a neskôr si to ešte sprísnime)
+    can_manual_import = bool(connected)
+
 
     manual_days = default_manual_days
     if deauth_at:
         manual_days = STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS
-
-    can_connect = True
-    if not connected:
-        allowed, _after = _can_connect_now(row)
-        can_connect = bool(allowed)
-
-    can_manual_import = bool(connected)
 
     return {
         "connected": connected,
