@@ -501,7 +501,7 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     try:
         resp = (
             supabase.table("strava_accounts")
-            .select("athlete_id, scope, expires_at, deauthorized_at")
+            .select("athlete_id, scope, expires_at, deauthorized_at, access_token, refresh_token")
             .eq("user_id", user_id)
             .limit(1)
             .execute()
@@ -529,9 +529,8 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         }
     
     deauth_at = row.get("deauthorized_at")
-
     has_tokens = bool(row.get("access_token")) and bool(row.get("refresh_token"))
-    connected = bool(has_tokens) and (not bool(deauth_at))
+    connected = (not bool(deauth_at)) and has_tokens
 
     # reconnect_after dáva zmysel len keď je deauthorized
     reconnect_after = _calc_reconnect_after(deauth_at) if deauth_at else None
@@ -544,13 +543,11 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         allowed, _after = _can_connect_now(row)
         can_connect = bool(allowed)
 
-    # manuálny import len keď connected (a neskôr si to ešte sprísnime)
-    can_manual_import = bool(connected)
-
-
-    manual_days = default_manual_days
-    if deauth_at:
+    manual_days = STRAVA_MANUAL_IMPORT_DEFAULT_DAYS
+    if not connected:
         manual_days = STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS
+
+    can_manual_import = bool(connected)
 
     return {
         "connected": connected,
