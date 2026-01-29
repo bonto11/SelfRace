@@ -253,10 +253,6 @@ export function ActivitySessionDetail({
 
   const applyExtrasToState = (ex: any) => {
 
-    console.log("EX keys", Object.keys(ex ?? {}));
-    console.log("streams keys", Object.keys(ex?.streams ?? {}));
-    console.log("hr len", ex?.streams?.hr?.length, ex?.streams?.heartrate?.length);
-
     const rawStreams: any = ex?.streams ?? null;
 
     if (rawStreams && Array.isArray(rawStreams.time_s)) {
