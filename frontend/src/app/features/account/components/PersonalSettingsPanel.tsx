@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+
 import Button from "@/app/shared/ui/components/Button";
+import Checkbox from "@/app/shared/ui/components/CheckBox";
+import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import { confirm } from "@/app/shared/ui/components/Confirm";
 
 import {
   apiGetAccountDeleteStatus,
@@ -17,7 +19,10 @@ import {
   apiCancelAccountDelete,
 } from "@/app/features/account/api/accountDelete";
 
-import type { UserSettings, AccountDeleteStatus } from "@/app/features/account/types/account";
+import type {
+  UserSettings,
+  AccountDeleteStatus,
+} from "@/app/features/account/types/account";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
@@ -88,6 +93,8 @@ const TIMEZONE_OPTIONS = [
   { value: "Australia/Sydney", label: "(UTC+10:00) Sydney" },
 ];
 
+type DeleteStep = "none" | "step1" | "step2";
+
 export default function PersonalSettingsPanel() {
   const router = useRouter();
   const { userId } = useUserId();
@@ -96,12 +103,15 @@ export default function PersonalSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
+    null
+  );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
 
-  // ✅ NEW: explicit consent checkbox for account delete request
-  const [deleteConsent, setDeleteConsent] = useState(false);
+  // modal state (Strava-like)
+  const [deleteStep, setDeleteStep] = useState<DeleteStep>("none");
+  const [deleteConsent, setDeleteConsent] = useState(false); // checkbox inside modal
 
   // load user.settings
   useEffect(() => {
@@ -111,7 +121,9 @@ export default function PersonalSettingsPanel() {
 
     (async () => {
       try {
-        const raw = await apiFetchUserPref(userId, "user.settings").catch(() => null);
+        const raw = await apiFetchUserPref(userId, "user.settings").catch(
+          () => null
+        );
 
         if (!alive) return;
 
@@ -151,7 +163,9 @@ export default function PersonalSettingsPanel() {
         if (!alive) return;
         setDeleteStatus(st);
       })
-      .catch((e) => console.error("[PersonalSettingsPanel] delete status error", e))
+      .catch((e) =>
+        console.error("[PersonalSettingsPanel] delete status error", e)
+      )
       .finally(() => {
         if (alive) setLoadingDelete(false);
       });
@@ -175,44 +189,43 @@ export default function PersonalSettingsPanel() {
     }
   }
 
-  async function handleRequestDelete() {
+  // ===== Delete flow (Strava-like modal) =====
+  function openDeleteModal() {
     if (!userId || processingDelete) return;
+    setDeleteConsent(false);
+    setDeleteStep("step1");
+  }
 
-    // ✅ hard stop without consent checkbox
+  function closeDeleteModal() {
+    if (processingDelete) return;
+    setDeleteStep("none");
+    setDeleteConsent(false);
+  }
+
+  function goDeleteStep2() {
     if (!deleteConsent) {
-      toast.error("Najprv potvrď súhlas (checkbox) – bez toho účet neoznačím na zmazanie.");
+      toast.error("Najprv zaškrtni súhlas – bez toho nepokračujem.");
       return;
     }
+    setDeleteStep("step2");
+  }
 
-    const first = await confirm({
-      title: "Zrušiť účet?",
-      message:
-        "Označíme účet na zmazanie. Počas ochrannej lehoty ho vieš ešte zrušiť, potom sa dáta trvalo odstránia.",
-      okText: "Pokračovať",
-      cancelText: "Zrušiť",
-      tone: "danger",
-    });
-    if (!first) return;
+  async function handleConfirmDelete() {
+    if (!userId || processingDelete) return;
 
-    const second = await confirm({
-      title: "Naozaj označiť účet na zmazanie?",
-      message:
-        "Toto je vážna akcia. Po uplynutí lehoty sa trvalo vymažú tréningy, plány a aj prepojenia (napr. Strava). Počas lehoty to ešte môžeš odvolať.",
-      okText: "Áno, označiť na zmazanie",
-      cancelText: "Nechcem mazať",
-      tone: "danger",
-    });
-    if (!second) return;
+    // hard stop without consent
+    if (!deleteConsent) {
+      toast.error("Najprv zaškrtni súhlas – bez toho účet neoznačím na zmazanie.");
+      return;
+    }
 
     setProcessingDelete(true);
     try {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
 
-      // po úspechu zruš consent checkbox (nech user omylom nekliká ďalej)
-      setDeleteConsent(false);
-
       toast.success("Účet je označený na zmazanie. Do lehoty to vieš ešte zrušiť.");
+      closeDeleteModal();
     } catch (e: any) {
       console.error("[PersonalSettingsPanel] delete request error", e);
       toast.error(e?.message || "Nepodarilo sa označiť účet na zmazanie.");
@@ -223,14 +236,6 @@ export default function PersonalSettingsPanel() {
 
   async function handleCancelDelete() {
     if (!userId || processingDelete) return;
-
-    const ok = await confirm({
-      title: "Zrušiť plánované zmazanie účtu?",
-      message: "Ak zrušíš plánované zmazanie, účet ostane aktívny a dáta sa nevymažú.",
-      okText: "Áno, ponechať účet",
-      cancelText: "Nechať zmazanie",
-    });
-    if (!ok) return;
 
     setProcessingDelete(true);
     try {
@@ -263,219 +268,341 @@ export default function PersonalSettingsPanel() {
     })();
 
   return (
-    <section className={SECTION} style={SECTION_STYLE}>
-      {/* header */}
-      <div className={PANEL_SECTION_HEAD}>
-        <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
-            Osobné nastavenia
-          </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
-            Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé rozhranie.
-          </div>
-        </div>
-
-        <Button size="sm" variant="primary" disabled={disabled} onClick={handleSave}>
-          {saving ? "Ukladám…" : "Uložiť"}
-        </Button>
-      </div>
-
-      {/* preferencie */}
-      <div className="mt-3">
-        <div className={FORM_GRID_TWO}>
-          <SelectField
-            label="Jazyk rozhrania"
-            value={settings.language}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                language: (e.target.value as "sk" | "en") || "sk",
-              }))
-            }
-            options={LANGUAGE_OPTIONS}
-          />
-
-          <SelectField
-            label="Jednotky"
-            value={settings.units}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                units: (e.target.value as "metric" | "imperial") || "metric",
-              }))
-            }
-            options={UNIT_OPTIONS}
-          />
-
-          <SelectField
-            label="Časové pásmo"
-            hint="Vyber časové pásmo podľa mesta / offsetu."
-            value={settings.timezone}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                timezone: e.target.value || "Europe/Bratislava",
-              }))
-            }
-            options={TIMEZONE_OPTIONS}
-          />
-
-          <SelectField
-            label="Začiatok týždňa"
-            value={settings.week_start}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                week_start: (e.target.value as "Mon" | "Sun") || "Mon",
-              }))
-            }
-            options={WEEK_START_OPTIONS}
-          />
-
-          <div>
-            <label className="text-xs font-medium" style={{ color: appColors.textMuted }}>
-              Formát dátumu
-            </label>
-            <input
-              className={[inputClass, "mt-1"].join(" ")}
-              type="text"
-              placeholder="yyyy-MM-dd"
-              value={settings.date_format}
-              onChange={(e) => setSettings((s) => ({ ...s, date_format: e.target.value }))}
-            />
+    <>
+      <section className={SECTION} style={SECTION_STYLE}>
+        {/* header */}
+        <div className={PANEL_SECTION_HEAD}>
+          <div className="min-w-0">
+            <div
+              className={PANEL_SECTION_TITLE}
+              style={{ color: appColors.textPrimary }}
+            >
+              Osobné nastavenia
+            </div>
+            <div
+              className={PANEL_SECTION_SUBTITLE}
+              style={{ color: appColors.textMuted }}
+            >
+              Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé rozhranie.
+            </div>
           </div>
 
-          <SelectField
-            label="Formát času"
-            value={settings.time_format_24h ? "24" : "12"}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                time_format_24h: e.target.value === "24",
-              }))
-            }
-            options={TIME_FORMAT_OPTIONS}
-          />
-        </div>
-      </div>
-
-      {/* účet – akcie */}
-      <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-        <h3 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
-          Akcie účtu
-        </h3>
-        <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
-          Rýchle akcie pre zmenu hesla a e-mailu (otvoria samostatnú stránku).
-        </p>
-
-        <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
-          <Button size="xs" variant="secondary" onClick={() => router.push("/forgot-password")}>
-            Zmeniť heslo (e-mailom)
-          </Button>
-
-          <Button size="xs" variant="secondary" onClick={() => router.push("/profile")}>
-            Zmeniť e-mail / profil
+          <Button size="sm" variant="primary" disabled={disabled} onClick={handleSave}>
+            {saving ? "Ukladám…" : "Uložiť"}
           </Button>
         </div>
-      </div>
 
-      {/* zrušenie účtu */}
-      <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-        <h3 className={PANEL_CARD_TITLE} style={{ color: appColors.statusError }}>
-          Zrušenie účtu (nezvratné)
-        </h3>
+        {/* preferencie */}
+        <div className="mt-3">
+          <div className={FORM_GRID_TWO}>
+            <SelectField
+              label="Jazyk rozhrania"
+              value={settings.language}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  language: (e.target.value as "sk" | "en") || "sk",
+                }))
+              }
+              options={LANGUAGE_OPTIONS}
+            />
 
-        <div
-          className="mt-2 rounded-lg border px-3 py-2 text-xs"
-          style={{
-            borderColor: "rgba(239,68,68,0.55)",
-            background: "rgba(127,29,29,0.35)",
-            color: appColors.textPrimary,
-          }}
-        >
-          {loadingDelete ? (
-            <p style={{ color: appColors.textMuted }}>Kontrolujem stav zmazania účtu…</p>
-          ) : deletePending ? (
-            <>
-              <p>
-                Účet je <span className="font-semibold">označený na zmazanie</span>.
-              </p>
-              <p className="mt-1" style={{ color: appColors.textMuted }}>
-                Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia so Stravou) sa po
-                lehote trvalo vymažú.
-                {deleteAtLabel ? (
-                  <>
-                    {" "}
-                    Odhadovaný dátum zmazania:{" "}
-                    <span className="font-semibold" style={{ color: appColors.textPrimary }}>
-                      {deleteAtLabel}
-                    </span>
-                    .
-                  </>
-                ) : (
-                  "."
-                )}
-              </p>
-            </>
-          ) : (
-            <>
-              <p>
-                Zmazanie účtu je <span className="font-semibold">nezvratné</span>.
-              </p>
-              <p className="mt-1" style={{ color: appColors.textMuted }}>
-                Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte zrušiť, potom sa
-                odstránia všetky dáta.
-              </p>
-            </>
-          )}
+            <SelectField
+              label="Jednotky"
+              value={settings.units}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  units: (e.target.value as "metric" | "imperial") || "metric",
+                }))
+              }
+              options={UNIT_OPTIONS}
+            />
+
+            <SelectField
+              label="Časové pásmo"
+              hint="Vyber časové pásmo podľa mesta / offsetu."
+              value={settings.timezone}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  timezone: e.target.value || "Europe/Bratislava",
+                }))
+              }
+              options={TIMEZONE_OPTIONS}
+            />
+
+            <SelectField
+              label="Začiatok týždňa"
+              value={settings.week_start}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  week_start: (e.target.value as "Mon" | "Sun") || "Mon",
+                }))
+              }
+              options={WEEK_START_OPTIONS}
+            />
+
+            <div>
+              <label className="text-xs font-medium" style={{ color: appColors.textMuted }}>
+                Formát dátumu
+              </label>
+              <input
+                className={[inputClass, "mt-1"].join(" ")}
+                type="text"
+                placeholder="yyyy-MM-dd"
+                value={settings.date_format}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, date_format: e.target.value }))
+                }
+              />
+            </div>
+
+            <SelectField
+              label="Formát času"
+              value={settings.time_format_24h ? "24" : "12"}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  time_format_24h: e.target.value === "24",
+                }))
+              }
+              options={TIME_FORMAT_OPTIONS}
+            />
+          </div>
         </div>
 
-        {/* ✅ CONSENT CHECKBOX (iba keď delete ešte nie je pending) */}
-        {!deletePending && (
-          <label className="mt-2 flex items-start gap-2 text-xs" style={{ color: appColors.textPrimary }}>
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={deleteConsent}
-              onChange={(e) => setDeleteConsent(e.target.checked)}
-            />
-            <span style={{ color: appColors.textMuted }}>
-              Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí lehoty
-              sa moje dáta trvalo vymažú (vrátane prepojení ako Strava).
-            </span>
-          </label>
-        )}
+        {/* účet – akcie */}
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
+          <h3 className={PANEL_CARD_TITLE} style={{ color: appColors.textPrimary }}>
+            Akcie účtu
+          </h3>
+          <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
+            Rýchle akcie pre zmenu hesla a e-mailu (otvoria samostatnú stránku).
+          </p>
 
-        <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
-          {deletePending ? (
+          <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
             <Button
               size="xs"
               variant="secondary"
-              disabled={processingDelete || !userId}
-              onClick={handleCancelDelete}
+              onClick={() => router.push("/forgot-password")}
             >
-              {processingDelete ? "Ruším plánované zmazanie…" : "Zrušiť plánované zmazanie"}
+              Zmeniť heslo (e-mailom)
             </Button>
-          ) : (
-            <Button
-              size="xs"
-              // ✅ “danger button” style – ak tvoj Button podporuje variant="danger", použi ho.
-              // Ak nie, nechaj secondary a spoliehaj sa na confirm tone:"danger".
-              variant={"danger" as any}
-              disabled={processingDelete || !userId || !deleteConsent}
-              onClick={handleRequestDelete}
-            >
-              {processingDelete ? "Označujem na zmazanie…" : "Označiť účet na zmazanie"}
+
+            <Button size="xs" variant="secondary" onClick={() => router.push("/profile")}>
+              Zmeniť e-mail / profil
             </Button>
-          )}
+          </div>
         </div>
 
-        {!deletePending && !deleteConsent && (
-          <p className="text-[11px] mt-1" style={{ color: appColors.textMuted }}>
-            Pre pokračovanie musíš zaškrtnúť súhlas.
-          </p>
-        )}
-      </div>
-    </section>
+        {/* zrušenie účtu */}
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
+          <h3 className={PANEL_CARD_TITLE} style={{ color: appColors.statusError }}>
+            Zrušenie účtu (nezvratné)
+          </h3>
+
+          <div
+            className="mt-2 rounded-lg border px-3 py-2 text-xs"
+            style={{
+              borderColor: "rgba(239,68,68,0.55)",
+              background: "rgba(127,29,29,0.35)",
+              color: appColors.textPrimary,
+            }}
+          >
+            {loadingDelete ? (
+              <p style={{ color: appColors.textMuted }}>
+                Kontrolujem stav zmazania účtu…
+              </p>
+            ) : deletePending ? (
+              <>
+                <p>
+                  Účet je <span className="font-semibold">označený na zmazanie</span>.
+                </p>
+                <p className="mt-1" style={{ color: appColors.textMuted }}>
+                  Ak nič neurobíš, všetky tvoje dáta (tréningy, plány, prepojenia ako Strava) sa po
+                  lehote trvalo vymažú.
+                  {deleteAtLabel ? (
+                    <>
+                      {" "}
+                      Odhadovaný dátum zmazania:{" "}
+                      <span className="font-semibold" style={{ color: appColors.textPrimary }}>
+                        {deleteAtLabel}
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    "."
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Zmazanie účtu je <span className="font-semibold">nezvratné</span>.
+                </p>
+                <p className="mt-1" style={{ color: appColors.textMuted }}>
+                  Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte zrušiť, potom sa
+                  odstránia všetky dáta.
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className={[PANEL_ACTIONS_INLINE, "mt-2"].join(" ")}>
+            {deletePending ? (
+              <Button
+                size="xs"
+                variant="secondary"
+                disabled={processingDelete || !userId}
+                onClick={handleCancelDelete}
+              >
+                {processingDelete ? (
+                  <span className="inline-flex items-center gap-1">
+                    <LoadingSpinner size="button" />
+                    Ruším…
+                  </span>
+                ) : (
+                  "Zrušiť plánované zmazanie"
+                )}
+              </Button>
+            ) : (
+              <Button
+                size="xs"
+                variant={"danger" as any}
+                disabled={processingDelete || !userId}
+                onClick={openDeleteModal}
+              >
+                Označiť účet na zmazanie
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Delete modal (Strava-like, 2-step) ===== */}
+      {deleteStep !== "none" && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-md rounded-xl border p-4"
+            style={{
+              background: appColors.surfaceCard,
+              borderColor: "rgba(239, 68, 68, 0.35)",
+              color: appColors.textPrimary,
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div
+                  className="text-base font-semibold"
+                  style={{ color: "rgba(254, 202, 202, 0.95)" }}
+                >
+                  {deleteStep === "step1" ? "Zrušenie účtu" : "Naozaj označiť účet na zmazanie?"}
+                </div>
+                <div className="text-[12px] mt-1" style={{ color: appColors.textMuted }}>
+                  Toto je vážna akcia.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                className="text-xl leading-none opacity-70 hover:opacity-100"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
+              {deleteStep === "step1" ? (
+                <>
+                  Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte zrušiť, potom sa
+                  odstránia všetky dáta.
+                </>
+              ) : (
+                <>
+                  Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí
+                  lehoty sa moje dáta v aplikácii trvalo vymažú.
+                  <div className="mt-2">
+                    Pozor: Prepojenie so Stravou sa zruší a dáta importované zo Stravy v tejto aplikácii
+                    sa vymažú. Strava účet ako taký sa týmto nemaže.
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* checkbox gate (rovnaké v oboch krokoch) */}
+            <div className="mt-4">
+              <Checkbox
+                checked={deleteConsent}
+                onChange={(e) => setDeleteConsent(e.currentTarget.checked)}
+                label={
+                  <span className="text-sm">
+                    Rozumiem dôsledkom a súhlasím so zrušením účtu a vymazaním dát v tejto aplikácii.
+                  </span>
+                }
+                hint={
+                  <span className="text-[11px]">
+                    Bez tohto súhlasu pokračovanie nepovolíme.
+                  </span>
+                }
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={closeDeleteModal}
+                disabled={processingDelete}
+              >
+                Zrušiť
+              </Button>
+
+              {deleteStep === "step1" ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={!deleteConsent || processingDelete}
+                  onClick={goDeleteStep2}
+                  title={!deleteConsent ? "Zaškrtni súhlas, aby sa pokračovalo." : "Pokračovať"}
+                >
+                  Pokračovať
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={!deleteConsent || processingDelete}
+                  onClick={handleConfirmDelete}
+                  title={!deleteConsent ? "Zaškrtni súhlas, aby sa zmazanie povolilo." : "Označiť na zmazanie"}
+                >
+                  {processingDelete ? (
+                    <span className="inline-flex items-center gap-1">
+                      <LoadingSpinner size="button" />
+                      Označujem…
+                    </span>
+                  ) : (
+                    "Áno, označiť na zmazanie"
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {!deleteConsent && (
+              <p className="text-[11px] mt-2" style={{ color: appColors.textMuted }}>
+                Pre pokračovanie musíš zaškrtnúť súhlas.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
