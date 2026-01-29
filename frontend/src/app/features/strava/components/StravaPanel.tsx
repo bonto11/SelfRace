@@ -139,7 +139,7 @@ export default function StravaPanel() {
     if (busy) return;
 
     // ✅ window podľa statusu (default 50)
-    const days = status?.manual_import_window_days ?? 50;
+    const days = status?.manual_import_window_days ?? 7;
 
     setBusy("import");
     try {
@@ -237,7 +237,7 @@ export default function StravaPanel() {
 
   const importDisabled = !userId || busy === "import" || !connected;
 
-  const importDaysLabel = status?.manual_import_window_days ?? 50;
+  const importDaysLabel = status?.manual_import_window_days ?? 10;
 
   return (
     <>
