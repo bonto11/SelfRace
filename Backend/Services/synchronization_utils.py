@@ -533,3 +533,43 @@ def generate_splits_from_laps(
             }
         )
     return out
+
+# ---- CONFIG (neskôr môžeš presunúť do env/config) ----
+FIRST_SYNC_MAX_DAYS = 365        # 1 rok
+RECONNECT_DAYS = 14
+MANUAL_IMPORT_DAYS = 30
+FIRST_SYNC_MAX_ACTIVITIES = 200
+
+
+def decide_bulk_sync_window(
+    *,
+    last_activity_dt: Optional[datetime],
+    mode: str,  # "auto" | "manual"
+) -> Tuple[int, Optional[int]]:
+    """
+    Rozhodne:
+      - days_back: koľko dní dozadu sťahujeme
+      - max_activities: limit (len pri first sync)
+
+    mode:
+      - auto   → initial / reconnect
+      - manual → FE button
+    """
+
+    now = datetime.now(timezone.utc)
+
+    if last_activity_dt is None:
+        # FIRST SYNC
+        return FIRST_SYNC_MAX_DAYS, FIRST_SYNC_MAX_ACTIVITIES
+
+    days_since_last = (now - last_activity_dt).days
+
+    if days_since_last >= 30:
+        # návrat po neaktivite
+        return RECONNECT_DAYS, None
+
+    if mode == "manual":
+        return MANUAL_IMPORT_DAYS, None
+
+    # bežný auto sync (cron / future)
+    return RECONNECT_DAYS, None
