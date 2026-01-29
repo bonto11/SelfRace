@@ -114,7 +114,14 @@ def service_get_activity_extras_cached_or_fetch(
     """
     jwt = require_jwt(user_jwt)
 
-    _dbg("ENTER", {"user_id": user_id, "activity_id": activity_id, "fetch_if_missing": fetch_if_missing})
+    _dbg(
+        "ENTER",
+        {
+            "user_id": user_id,
+            "activity_id": activity_id,
+            "fetch_if_missing": fetch_if_missing,
+        },
+    )
 
     # 1) DB READ
     laps = db_get_activity_laps(
@@ -133,7 +140,19 @@ def service_get_activity_extras_cached_or_fetch(
 
     if not fetch_if_missing:
         _dbg("RETURN DB (fetch_if_missing=false)")
-        return {"laps": laps or [], "splits": splits or [], "source": "db", "fetched": False}
+        return {
+            "laps": laps or [],
+            "splits": splits or [],
+            "source": "db",
+            "fetched": False,
+        }
+    
+    if fetch_if_missing and (laps or splits):
+        # ak už niečo máme, nechceme znovu prepisovať/generovať
+        _dbg("CACHE HIT -> return without recompute", {"laps_n": len(laps or []), "splits_n": len(splits or [])})
+        if splits:
+            return {"laps": [], "splits": splits, "source": "db", "fetched": False, "decision": "splits"}
+        return {"laps": laps, "splits": [], "source": "db", "fetched": False, "decision": "laps"}
 
     # 2) FETCH LAPS AK CHÝBAJÚ
     fetched_from_strava = False
@@ -145,18 +164,23 @@ def service_get_activity_extras_cached_or_fetch(
 
         _dbg("STRAVA laps fetched", {"count": len(laps_json or [])})
 
-        db_delete_laps_for_activity(activity_id=activity_id, user_jwt=jwt, service=False)
+        db_delete_laps_for_activity(
+            activity_id=activity_id, user_jwt=jwt, service=False
+        )
         _dbg("DB delete laps done")
 
         for i, row in enumerate(laps_json or []):
             if i < 3:
-                _dbg("RAW lap row", {
-                    "i": i,
-                    "lap_index": row.get("lap_index"),
-                    "distance": row.get("distance"),
-                    "avg_hr": row.get("average_heartrate"),
-                    "max_hr": row.get("max_heartrate"),
-                })
+                _dbg(
+                    "RAW lap row",
+                    {
+                        "i": i,
+                        "lap_index": row.get("lap_index"),
+                        "distance": row.get("distance"),
+                        "avg_hr": row.get("average_heartrate"),
+                        "max_hr": row.get("max_heartrate"),
+                    },
+                )
 
             payload = {
                 "user_id": int(user_id),
@@ -177,13 +201,16 @@ def service_get_activity_extras_cached_or_fetch(
             }
 
             if i < 3:
-                _dbg("UPSERT lap payload", {
-                    "i": i,
-                    "lap_index": payload["lap_index"],
-                    "distance_m": payload["distance_m"],
-                    "avg_hr_bpm": payload["avg_hr_bpm"],
-                    "max_hr_bpm": payload["max_hr_bpm"],
-                })
+                _dbg(
+                    "UPSERT lap payload",
+                    {
+                        "i": i,
+                        "lap_index": payload["lap_index"],
+                        "distance_m": payload["distance_m"],
+                        "avg_hr_bpm": payload["avg_hr_bpm"],
+                        "max_hr_bpm": payload["max_hr_bpm"],
+                    },
+                )
 
             try:
                 db_upsert_lap(payload, user_jwt=jwt, service=False)
@@ -200,16 +227,20 @@ def service_get_activity_extras_cached_or_fetch(
         _dbg("DB re-read laps", {"laps_n": len(laps or [])})
 
     # 3) ROZHODNUTIE
+
+
     decision = decide_use_laps_or_generate_splits(laps or [])
     _dbg("DECISION", {"decision": decision, "laps_n": len(laps or [])})
 
-    # 4) SPLITS – LEN AK TREBA
     if decision == "splits":
-        _dbg("SPLITS path -> delete old + generate from laps")
+        # ✅ chceme len splits -> laps musia zmiznúť (DB aj response)
+        _dbg("SPLITS path -> ensure ONLY splits (delete laps + rebuild splits)")
 
+        # zruš staré splits
         db_delete_splits_for_activity(activity_id=activity_id, user_jwt=jwt, service=False)
         _dbg("DB delete splits done")
 
+        # vygeneruj splits z laps
         splits_rows = generate_splits_from_laps(
             user_id=user_id,
             activity_id=activity_id,
@@ -217,14 +248,12 @@ def service_get_activity_extras_cached_or_fetch(
         )
         _dbg("Generated splits", {"count": len(splits_rows or [])})
 
-        for i, row in enumerate(splits_rows or []):
-            if i < 3:
-                _dbg("UPSERT split row (raw)", {"i": i, "keys": list(row.keys()) if isinstance(row, dict) else None})
-            try:
-                db_upsert_split(row, user_jwt=jwt, service=False)
-            except Exception as e:
-                _dbg("UPSERT split FAILED", {"i": i, "err": str(e), "row": row})
-                raise
+        for row in splits_rows or []:
+            db_upsert_split(row, user_jwt=jwt, service=False)
+
+        # ✅ vymaž laps (exkluzivita)
+        db_delete_laps_for_activity(activity_id=activity_id, user_jwt=jwt, service=False)
+        _dbg("DB delete laps done (because decision=splits)")
 
         splits = db_get_activity_splits(
             user_id=user_id,
@@ -232,18 +261,26 @@ def service_get_activity_extras_cached_or_fetch(
             user_jwt=jwt,
             service=False,
         )
-        _dbg("DB re-read splits", {"splits_n": len(splits or [])})
-    else:
-        _dbg("LAPS path -> splits empty")
-        splits = []
 
-    source = "db"
-    if fetched_from_strava and decision == "splits":
-        source = "derived"
-    elif fetched_from_strava:
-        source = "strava"
-    elif decision == "splits":
-        source = "derived"
+        laps = []  # ✅ response
+
+    else:
+        # ✅ chceme len laps -> splits musia zmiznúť (DB aj response)
+        _dbg("LAPS path -> ensure ONLY laps (delete splits)")
+
+        db_delete_splits_for_activity(activity_id=activity_id, user_jwt=jwt, service=False)
+        _dbg("DB delete splits done (because decision=laps)")
+
+        splits = []  # response nech je prázdne
+        # laps ostávajú
+
+        source = "db"
+        if fetched_from_strava and decision == "splits":
+            source = "derived"
+        elif fetched_from_strava:
+            source = "strava"
+        elif decision == "splits":
+            source = "derived"
 
     _dbg("RETURN", {"source": source, "fetched": True, "decision": decision})
 
