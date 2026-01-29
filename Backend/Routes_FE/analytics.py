@@ -194,6 +194,8 @@ def activity_streams_fetch(
             fetch_if_missing=bool(fetch),
             user_jwt=user_jwt,
         )
+
+        print("activity_streams_fetch payload", payload)
         return {"success": True, **payload}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

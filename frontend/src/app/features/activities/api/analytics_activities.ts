@@ -12,6 +12,20 @@ import {
 } from "@/app/features/activities/types/MonoStrain";
 import type { StreamsData } from "@/app/features/activities/types/activities";
 
+function wlNum(v: any): number {
+  return Number.isFinite(+v) ? +v : 0;
+}
+function wlRangeLabel(start?: string, end?: string): string {
+  if (!start || !end) return "";
+  const s = new Date(start);
+  const e = new Date(end);
+  const sd = s.getDate();
+  const sm = s.getMonth() + 1;
+  const ed = e.getDate();
+  const em = e.getMonth() + 1;
+  return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
+}
+
 /* ========================= WEEKLY ========================= */
 
 export async function apiGetWeeklyMonoStrain(
@@ -47,20 +61,6 @@ export async function apiGetWeeklyMonoStrain(
     monotony: w.monotony ?? {},
     strain: w.strain ?? {},
   }));
-}
-
-function wlNum(v: any): number {
-  return Number.isFinite(+v) ? +v : 0;
-}
-function wlRangeLabel(start?: string, end?: string): string {
-  if (!start || !end) return "";
-  const s = new Date(start);
-  const e = new Date(end);
-  const sd = s.getDate();
-  const sm = s.getMonth() + 1;
-  const ed = e.getDate();
-  const em = e.getMonth() + 1;
-  return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
 
 export async function apiGetWeeklyLoad(
@@ -163,6 +163,7 @@ export async function apiFetchActivityStreams(
   const js = await callBackend<any>(path, { method: "POST", cache: "no-store" });
   if (!js?.success) return null;
 
+  console.log("js", js);
   return {
     streams: js.streams ?? null,
     source: js.source ?? "unknown",
@@ -217,7 +218,9 @@ export async function apiFetchActivityExtrasCombined(
     apiFetchActivityExtras(userId, activityId, fetchIfMissing),
   ]);
 
+  console.log("stRes", stRes);
   const streams = (stRes?.streams ?? null) as StreamsData | null;
+  console.log("streams", streams);
   const laps = Array.isArray(exRes?.laps) ? exRes!.laps : [];
   const splits = Array.isArray(exRes?.splits) ? exRes!.splits : [];
 
