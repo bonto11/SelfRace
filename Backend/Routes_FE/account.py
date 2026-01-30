@@ -14,7 +14,7 @@ router = APIRouter(prefix="/account", tags=["account"])
 
 
 # -------------------- user-facing endpointy (JWT) --------------------
-@router.get("/{user_id}/delete/status")
+@router.get("/delete/status/{user_id}")
 def get_account_delete_status(
     user_id: int,
     user_jwt: str = Depends(require_user_jwt),
@@ -32,7 +32,7 @@ def get_account_delete_status(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{user_id}/delete/request")
+@router.post("/delete/request/{user_id}")
 def request_account_delete(
     user_id: int,
     user_jwt: str = Depends(require_user_jwt),
@@ -50,7 +50,7 @@ def request_account_delete(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{user_id}/delete/cancel")
+@router.post("/delete/cancel/{user_id}")
 def cancel_account_delete(
     user_id: int,
     user_jwt: str = Depends(require_user_jwt),
