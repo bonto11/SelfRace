@@ -27,6 +27,7 @@ from Services.synchronization_utils import (
     _normalize_split,
     _decide_laps_or_splits,
 )
+from Modules.Strava.webhook_strava import mark_strava_ever_synced_now
 from Services.synchronization_utils import enrich_activities_for_ids
 
 
@@ -341,6 +342,7 @@ def service_sync_single_activity(
         f"updated={updated} skipped={skipped} fetched={fetched}"
     )
 
+    mark_strava_ever_synced_now(user_id=user_id)
     return {
         "imported": int(imported),
         "updated": int(updated),

@@ -463,8 +463,6 @@ def service_run_job_now(
 
             from Services.synchronization_bulk import import_activities_bulk
             
-            # voliteľné override z FE (fallback), ale ty chceš primárne decide_sync_plan
-            # takže v import_activities_bulk to môžeš ignorovať, alebo si to nechaj pre budúcnosť
             result_payload = import_activities_bulk(
                 user_id=user_id,
                 user_jwt=payload_jwt,

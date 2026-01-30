@@ -44,9 +44,9 @@ MANUAL_MAX = 100        # nech manuál nikdy nespadne na 10 (ak chceš len days,
 def decide_sync_plan(
     *,
     last_activity_dt: Optional[datetime],
-    trigger: str,   # "panel_init" | "manual" | "reconnect" | "quick"
+    ever_synced_at: Optional[datetime],
 ) -> SyncPlan:
-    if last_activity_dt is None:
+    if (last_activity_dt is None) and (ever_synced_at is None):
         return SyncPlan(
             kind="first",
             days_back=FIRST_SYNC_DAYS,
@@ -54,7 +54,7 @@ def decide_sync_plan(
             reason="no activities in DB",
         )
 
-    if trigger == "reconnect":
+    if (last_activity_dt is None) and (ever_synced_at is not None):
         return SyncPlan(
             kind="reconnect",
             days_back=RECONNECT_DAYS,
@@ -62,7 +62,7 @@ def decide_sync_plan(
             reason="strava reconnected",
         )
 
-    if trigger == "manual":
+    if (last_activity_dt is not None) and (ever_synced_at is not None):
         return SyncPlan(
             kind="manual",
             days_back=MANUAL_DAYS,
@@ -75,7 +75,7 @@ def decide_sync_plan(
         kind="quick",
         days_back=QUICK_DAYS,
         max_activities=QUICK_MAX,
-        reason=f"trigger={trigger}",
+        reason="quick",
     )
 
 # ---------------------------------------------------------------------

@@ -19,6 +19,7 @@ from Services.synchronization_utils import (
 
 )
 
+from Modules.Strava.webhook_strava import mark_strava_ever_synced_now, get_strava_ever_synced_at_service
 from Services.synchronization_single import _get_access_token_for_user
 
 # -----------------------------------------------------------------------------
@@ -32,15 +33,12 @@ def import_activities_bulk(
 ) -> Dict[str, Any]:
 
     now = datetime.now(timezone.utc)
-
     last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
 
-    now = datetime.now(timezone.utc)
-    last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
-
+    ever_synced_at = get_strava_ever_synced_at_service(user_id=user_id)
     plan = decide_sync_plan(
-        last_activity_dt=last_dt,
-        trigger=trigger,
+        ever_synced_at=ever_synced_at,
+        last_activity_dt=last_dt
     )
 
     before_epoch = int(now.timestamp())
@@ -123,6 +121,7 @@ def import_activities_bulk(
 
         page += 1
 
+
     print(f"[SYNC][BULK] fetched={fetched} imported={imported} updated={updated}")
 
     # ---------- ENRICHMENT ----------
@@ -131,6 +130,9 @@ def import_activities_bulk(
         since_iso_for_scan=since_iso,
         user_jwt=user_jwt,
     )
+
+
+    mark_strava_ever_synced_now(user_id=user_id)
 
     return {
         "ok": True,

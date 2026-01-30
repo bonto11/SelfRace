@@ -502,7 +502,7 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     try:
         resp = (
             supabase.table("strava_accounts")
-            .select("athlete_id, scope, expires_at, deauthorized_at, access_token, refresh_token")
+            .select("athlete_id, scope, expires_at, deauthorized_at, access_token, refresh_token, ever_synced_at")
             .eq("user_id", user_id)
             .limit(1)
             .execute()
@@ -524,10 +524,11 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
             "reconnect_after": None,
             "can_connect": True,
             "can_manual_import": False,
-             "sync_import_window_days": 0,
-             "sync_import_max_activities": 0,
+            "sync_import_window_days": 0,
+            "sync_import_max_activities": 0,
         }
     
+    ever_synced_at = row.get("ever_synced_at")
     deauth_at = row.get("deauthorized_at")
     has_tokens = bool(row.get("access_token")) and bool(row.get("refresh_token"))
     connected = (not bool(deauth_at)) and has_tokens
@@ -548,10 +549,15 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     sync_days = None
     sync_max = None
 
+    if ever_synced_at is None:
+        trigger="firstConnect"
+    else:
+        trigger="reconnect"
+
     if connected:
         # rovnaká autorita ako bulk
         last_dt = db_get_last_activity_start(user_id, user_jwt=None, service=True)
-        plan = decide_sync_plan(last_activity_dt=last_dt, trigger="reconnect")
+        plan = decide_sync_plan(last_activity_dt=last_dt, ever_synced_at=ever_synced_at)
 
         sync_days = int(plan.days_back)
         sync_max = int(plan.max_activities)
@@ -599,3 +605,64 @@ async def strava_disconnect(
         raise HTTPException(status_code=500, detail="disconnect_failed")
 
     return res
+
+
+def mark_strava_ever_synced_now(*, user_id: int) -> bool:
+    """
+    Nastaví ever_synced_at = now() pre usera.
+    Volaj iba po úspešnom importe.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    resp = (
+        supabase.table("strava_accounts")
+        .update({"ever_synced_at": now_iso})
+        .eq("user_id", int(user_id))
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    return bool(rows)
+
+
+def _parse_timestamptz_to_dt(v: Any) -> Optional[datetime]:
+    if not v:
+        return None
+
+    s = str(v).strip()
+
+    # supabase často vracia "2026-01-05 12:33:35.08823+00"
+    # Python chce ideálne "+00:00" a T medzi dátumom/časom
+    s = s.replace(" ", "T")
+    s = s.replace("Z", "+00:00")
+    if s.endswith("+00"):
+        s = s[:-3] + "+00:00"
+
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def get_strava_ever_synced_at_service(*, user_id: int) -> Optional[datetime]:
+    """
+    Service-only:
+      - vráti ever_synced_at ako datetime UTC (alebo None)
+    """
+    resp = (
+        supabase.table("strava_accounts")
+        .select("ever_synced_at")
+        .eq("user_id", int(user_id))
+        .limit(1)
+        .execute()
+    )
+
+    rows = getattr(resp, "data", None) or []
+    row = rows[0] if rows else None
+    if not isinstance(row, dict):
+        return None
+
+    return _parse_timestamptz_to_dt(row.get("ever_synced_at"))
