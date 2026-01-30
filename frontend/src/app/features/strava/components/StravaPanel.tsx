@@ -42,6 +42,12 @@ import {
 
 type BusyKind = "import" | "disconnect" | null;
 
+function fmtIsoLocal(iso?: string | null): string | null {
+  if (!iso) return null;
+  // necháme to jednoduché: zobrazíme raw ISO (backend už posiela ISO-ish)
+  return iso;
+}
+
 export default function StravaPanel() {
   const { userId } = useUserId();
   const [busy, setBusy] = useState<BusyKind>(null);
@@ -65,18 +71,30 @@ export default function StravaPanel() {
 
   const connected = !!status?.connected;
 
+  // ✅ nové čísla zo statusu (žiadne staré manual_import_window_days)
+  const syncDays = status?.sync_import_window_days ?? null;
+  const syncMax = status?.sync_import_max_activities ?? null;
+
+  async function reloadStatus(uid: number) {
+    setStatusLoading(true);
+    try {
+      const s = await apiGetStravaStatus(uid);
+      setStatus(s);
+    } catch (e) {
+      console.error("[StravaPanel] status error:", e);
+    } finally {
+      setStatusLoading(false);
+    }
+  }
+
   // --- load status ---
   useEffect(() => {
     if (!userId) {
       setStatus(null);
       return;
     }
-
-    setStatusLoading(true);
-    apiGetStravaStatus(userId)
-      .then(setStatus)
-      .catch((e) => console.error("[StravaPanel] status error:", e))
-      .finally(() => setStatusLoading(false));
+    reloadStatus(userId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   // --- OAuth callback (?strava=ok|error) ---
@@ -89,13 +107,7 @@ export default function StravaPanel() {
 
     if (s === "ok") {
       toast.success("Strava účet bol úspešne prepojený.");
-      if (userId) {
-        setStatusLoading(true);
-        apiGetStravaStatus(userId)
-          .then(setStatus)
-          .catch((e) => console.error("[StravaPanel] status reload error:", e))
-          .finally(() => setStatusLoading(false));
-      }
+      if (userId) reloadStatus(userId);
     }
 
     if (s === "error") {
@@ -127,12 +139,13 @@ export default function StravaPanel() {
     if (!userId) return toast.error("Chýba user id – skús sa znova prihlásiť.");
     if (busy) return;
 
-    // ✅ BE rozhoduje, či manuálny import vôbec povolí
+    // ✅ BE rozhoduje, či import povolí
     if (status?.can_manual_import !== true) {
       return toast.error("Manuálny import nie je momentálne povolený.");
     }
 
-    const days = status?.manual_import_window_days ?? 7;
+    // ✅ používa sa iba nové okno zo statusu
+    const days = typeof syncDays === "number" && syncDays > 0 ? syncDays : 7;
 
     setBusy("import");
     try {
@@ -145,11 +158,10 @@ export default function StravaPanel() {
       const upd = stats.updated ?? 0;
       const skp = stats.skipped ?? 0;
 
-      toast.success(
-        `Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`
-      );
+      toast.success(`Import zo Stravy OK • nové: ${imp} • upravené: ${upd} • preskočené: ${skp}`);
 
-      // ❌ resetClientCache preč (rieši sa v Activities headeri)
+      // po importe refresh status (nech sedí aj "sync okno" / info)
+      await reloadStatus(userId);
     } catch (e: any) {
       toast.error(e?.message || "Import zo Stravy zlyhal.");
     } finally {
@@ -173,25 +185,18 @@ export default function StravaPanel() {
 
     setBusy("disconnect");
     try {
-      // NOTE: ak máš v BE podporu query dry_run, doplň to do apiDisconnectStrava ako optional param.
-      await apiDisconnectStrava(userId, {
-        consent: true,
-        reason: "user_request",
-      });
+      await apiDisconnectStrava(userId, { consent: true, reason: "user_request" });
 
       toast.success("Strava účet bol odpojený. Dáta zo Stravy boli vymazané.");
       closeDisconnectModal();
 
-      setStatusLoading(true);
-      await apiGetStravaStatus(userId).then(setStatus);
+      await reloadStatus(userId);
 
-      if (status?.reconnect_after) {
-        toast.success(`Znovu pripojenie možné najskôr po: ${status.reconnect_after}`, 6000);
-      }
+      // pozor: status sa práve reloadol, takže čítaj z reloadnutého stavu cez fresh call
+      // (jednoducho: ukáž reconnect_after z aktuálneho statusu ak existuje)
     } catch (e: any) {
       toast.error(e?.message || "Odpojenie Stravy zlyhalo.");
     } finally {
-      setStatusLoading(false);
       setBusy(null);
     }
   }
@@ -227,14 +232,27 @@ export default function StravaPanel() {
   })();
 
   const canConnect = canConnectStravaNow(status);
-  const connectDisabled = disabled || !stravaConnectUrl || connected || statusLoading || !canConnect;
-  const disconnectDisabled = disabled || !userId || !connected || statusLoading || busy === "disconnect";
+  const connectDisabled =
+    disabled || !stravaConnectUrl || connected || statusLoading || !canConnect;
+
+  const disconnectDisabled =
+    disabled || !userId || !connected || statusLoading || busy === "disconnect";
 
   // ✅ Import default disabled; iba keď BE explicitne povolí
   const importAllowed = status?.can_manual_import === true;
+
+  // ✅ ak nemáme číslo okna, stále dovolíme klik (days fallback 7), ale len keď BE povolí
   const importDisabled = !userId || busy === "import" || !connected || !importAllowed;
 
-  const importDaysLabel = status?.manual_import_window_days ?? 7;
+  const reconnectAfterLabel = fmtIsoLocal(status?.reconnect_after ?? null);
+
+  const syncWindowLabel =
+    connected && typeof syncDays === "number" && syncDays > 0
+      ? `${syncDays} dní`
+      : null;
+
+  const syncMaxLabel =
+    connected && typeof syncMax === "number" && syncMax > 0 ? `max ${syncMax} aktivít` : null;
 
   return (
     <>
@@ -251,10 +269,20 @@ export default function StravaPanel() {
               Prepojenie účtu a manuálny import aktivít.
             </p>
 
-            {!connected && status?.reconnect_after ? (
+            {!connected && reconnectAfterLabel ? (
               <p className="text-[12px] mt-2" style={{ color: appColors.textMuted }}>
                 Znovu pripojenie možné najskôr po:{" "}
-                <span style={{ color: appColors.textSecondary }}>{status.reconnect_after}</span>
+                <span style={{ color: appColors.textSecondary }}>{reconnectAfterLabel}</span>
+              </p>
+            ) : null}
+
+            {connected && (syncWindowLabel || syncMaxLabel) ? (
+              <p className="text-[12px] mt-2" style={{ color: appColors.textMuted }}>
+                Sync okno:{" "}
+                <span style={{ color: appColors.textSecondary }}>
+                  <b>{syncWindowLabel ?? "—"}</b>
+                  {syncMaxLabel ? ` • ${syncMaxLabel}` : null}
+                </span>
               </p>
             ) : null}
           </div>
@@ -330,21 +358,27 @@ export default function StravaPanel() {
             </div>
             <p className={PANEL_SECTION_TEXT} style={{ color: appColors.textMuted }}>
               Manuálny import je štandardne vypnutý a povoľuje sa len v špecifických prípadoch (riadi backend).
-              {importAllowed ? (
+              {importAllowed && syncWindowLabel ? (
                 <>
-                  {" "}Aktuálne okno: <b>{importDaysLabel} dní</b>.
+                  {" "}Aktuálne okno: <b>{syncWindowLabel}</b>
+                  {syncMaxLabel ? <> • <b>{syncMaxLabel}</b></> : null}.
                 </>
               ) : null}
             </p>
 
-            <Button size="sm" variant="secondary" disabled={importDisabled} onClick={handleImportFromStrava}>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={importDisabled}
+              onClick={handleImportFromStrava}
+            >
               {busy === "import" ? (
                 <span className="inline-flex items-center gap-1">
                   <LoadingSpinner size="button" />
                   Importujem…
                 </span>
               ) : (
-                `Importovať${importAllowed ? ` (${importDaysLabel} dní)` : ""}`
+                `Importovať${importAllowed && syncWindowLabel ? ` (${syncWindowLabel})` : ""}`
               )}
             </Button>
           </div>
@@ -412,7 +446,12 @@ export default function StravaPanel() {
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">
-              <Button size="sm" variant="secondary" onClick={closeDisconnectModal} disabled={busy === "disconnect"}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={closeDisconnectModal}
+                disabled={busy === "disconnect"}
+              >
                 Zrušiť
               </Button>
 

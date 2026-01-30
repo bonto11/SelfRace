@@ -11,7 +11,8 @@ import { callBackend } from "@/app/shared/utils/callBackend";
  * - reconnect_after: ISO string | null
  * - can_connect: bool | null
  * - can_manual_import: bool | null
- * - manual_import_window_days: number | null
+ * - sync_import_window_days?: number | null;
+ * - sync_import_max_activities?: number | null;
  */
 export type StravaStatus = {
   connected: boolean;
@@ -23,7 +24,8 @@ export type StravaStatus = {
   reconnect_after?: string | null;
   can_connect?: boolean | null;
   can_manual_import?: boolean | null;
-  manual_import_window_days?: number | null;
+  sync_import_window_days?: number | null;
+  sync_import_max_activities?: number | null;
 };
 
 export type DisconnectPayload = {
@@ -79,11 +81,11 @@ export async function apiGetStravaStatus(userId: number): Promise<StravaStatus> 
       can_connect: typeof json?.can_connect === "boolean" ? json.can_connect : null,
       can_manual_import:
         typeof json?.can_manual_import === "boolean" ? json.can_manual_import : null,
-      manual_import_window_days:
-        typeof json?.manual_import_window_days === "number"
-          ? json.manual_import_window_days
-          : null,
-    };
+      sync_import_window_days:
+        typeof json?.sync_import_window_days === "number" ? json.sync_import_window_days : null,
+      sync_import_max_activities:
+        typeof json?.sync_import_max_activities === "number" ? json.sync_import_max_activities : null,
+        };
   } catch (e: any) {
     console.error("[Strava][apiGetStravaStatus] ERROR", e);
     const msg =
@@ -150,31 +152,6 @@ export async function apiDisconnectStrava(
         ? e.message
         : "Failed to disconnect Strava (apiDisconnectStrava)";
     throw new Error(msg);
-  }
-}
-
-/**
- * Voliteľné – ak BE endpoint nemáš, nech to nezabije UI (fallback default 50).
- * (endpoint nižšie v BE kóde nepridávam, lebo status už nesie manual_import_window_days)
- */
-export async function apiGetStravaImportLimits(
-  userId: number
-): Promise<ImportLimits | null> {
-  if (!userId) return null;
-
-  const path = `${STRAVA_BASE}/import-limits?user_id=${enc(userId)}`;
-  console.debug("[Strava][apiGetStravaImportLimits] ->", path);
-
-  try {
-    const json = await callBackend<any>(path, { method: "GET", cache: "no-store" });
-
-    const manual_window_days =
-      typeof json?.manual_window_days === "number" ? json.manual_window_days : 50;
-
-    return { manual_window_days, reconnect_after: json?.reconnect_after ?? null };
-  } catch (e) {
-    console.warn("[Strava][apiGetStravaImportLimits] WARN -> fallback", e);
-    return { manual_window_days: 50, reconnect_after: null };
   }
 }
 

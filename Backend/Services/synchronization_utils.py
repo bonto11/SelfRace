@@ -1,3 +1,4 @@
+#Services/synchronization_utils
 from __future__ import annotations
 
 import statistics
@@ -17,6 +18,65 @@ from Routes_DB.activities_summary import (
 
 from Services.users import require_jwt
 from Services.async_jobs import service_enqueue_job, service_run_job_now
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class SyncPlan:
+    kind: str            # "first" | "reconnect" | "quick"
+    days_back: int
+    max_activities: int
+    reason: str
+
+
+FIRST_SYNC_DAYS = 365
+FIRST_SYNC_MAX = 200
+
+RECONNECT_DAYS = 30
+RECONNECT_MAX = 20
+
+QUICK_DAYS = 14
+QUICK_MAX = 10
+
+MANUAL_DAYS = 30        # alebo si to natiahni z configu
+MANUAL_MAX = 100        # nech manuál nikdy nespadne na 10 (ak chceš len days, daj 9999)
+
+def decide_sync_plan(
+    *,
+    last_activity_dt: Optional[datetime],
+    trigger: str,   # "panel_init" | "manual" | "reconnect" | "quick"
+) -> SyncPlan:
+    if last_activity_dt is None:
+        return SyncPlan(
+            kind="first",
+            days_back=FIRST_SYNC_DAYS,
+            max_activities=FIRST_SYNC_MAX,
+            reason="no activities in DB",
+        )
+
+    if trigger == "reconnect":
+        return SyncPlan(
+            kind="reconnect",
+            days_back=RECONNECT_DAYS,
+            max_activities=RECONNECT_MAX,
+            reason="strava reconnected",
+        )
+
+    if trigger == "manual":
+        return SyncPlan(
+            kind="manual",
+            days_back=MANUAL_DAYS,
+            max_activities=MANUAL_MAX,
+            reason="manual import from FE",
+        )
+
+    # panel_init / quick / default
+    return SyncPlan(
+        kind="quick",
+        days_back=QUICK_DAYS,
+        max_activities=QUICK_MAX,
+        reason=f"trigger={trigger}",
+    )
 
 # ---------------------------------------------------------------------
 # Pomocné konverzie
@@ -533,43 +593,3 @@ def generate_splits_from_laps(
             }
         )
     return out
-
-# ---- CONFIG (neskôr môžeš presunúť do env/config) ----
-FIRST_SYNC_MAX_DAYS = 365        # 1 rok
-RECONNECT_DAYS = 14
-MANUAL_IMPORT_DAYS = 30
-FIRST_SYNC_MAX_ACTIVITIES = 200
-
-
-def decide_bulk_sync_window(
-    *,
-    last_activity_dt: Optional[datetime],
-    mode: str,  # "auto" | "manual"
-) -> Tuple[int, Optional[int]]:
-    """
-    Rozhodne:
-      - days_back: koľko dní dozadu sťahujeme
-      - max_activities: limit (len pri first sync)
-
-    mode:
-      - auto   → initial / reconnect
-      - manual → FE button
-    """
-
-    now = datetime.now(timezone.utc)
-
-    if last_activity_dt is None:
-        # FIRST SYNC
-        return FIRST_SYNC_MAX_DAYS, FIRST_SYNC_MAX_ACTIVITIES
-
-    days_since_last = (now - last_activity_dt).days
-
-    if days_since_last >= 30:
-        # návrat po neaktivite
-        return RECONNECT_DAYS, None
-
-    if mode == "manual":
-        return MANUAL_IMPORT_DAYS, None
-
-    # bežný auto sync (cron / future)
-    return RECONNECT_DAYS, None

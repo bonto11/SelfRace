@@ -20,10 +20,11 @@ from pydantic import BaseModel, Field
 from Configs.config import (
     BACKEND_URL,
     FRONTEND_URL,
-    STRAVA_MANUAL_IMPORT_DEFAULT_DAYS,
-    STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS,
     STRAVA_RECONNECT_COOLDOWN_SECONDS,
 )
+
+from Routes_DB.activities_summary import db_get_last_activity_start
+from Services.synchronization_utils import decide_sync_plan
 from Modules.Strava.webhook_strava_processor import _process_single_event
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Modules.Supabase.client import get_service_client
@@ -513,8 +514,6 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     rows = getattr(resp, "data", None) or []
     row = rows[0] if rows else None
 
-    default_manual_days = STRAVA_MANUAL_IMPORT_DEFAULT_DAYS
-
     if not row:
         return {
             "connected": False,
@@ -525,7 +524,8 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
             "reconnect_after": None,
             "can_connect": True,
             "can_manual_import": False,
-            "manual_import_window_days": default_manual_days,
+             "sync_import_window_days": 0,
+             "sync_import_max_activities": 0,
         }
     
     deauth_at = row.get("deauthorized_at")
@@ -543,11 +543,18 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         allowed, _after = _can_connect_now(row)
         can_connect = bool(allowed)
 
-    manual_days = STRAVA_MANUAL_IMPORT_DEFAULT_DAYS
-    if not connected:
-        manual_days = STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS
-
     can_manual_import = bool(connected)
+
+    sync_days = None
+    sync_max = None
+
+    if connected:
+        # rovnaká autorita ako bulk
+        last_dt = db_get_last_activity_start(user_id, user_jwt=None, service=True)
+        plan = decide_sync_plan(last_activity_dt=last_dt, trigger="panel_init")
+
+        sync_days = int(plan.days_back)
+        sync_max = int(plan.max_activities)
 
     return {
         "connected": connected,
@@ -558,9 +565,11 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         "reconnect_after": reconnect_after,
         "can_connect": can_connect,
         "can_manual_import": can_manual_import,
-        "manual_import_window_days": manual_days,
-    }
 
+        # ✅ NOVÉ – len čísla, FE len zobrazí:
+        "sync_import_window_days": sync_days,
+        "sync_import_max_activities": sync_max,
+    }
 
 # =================================================
 # 8) DISCONNECT (+ DRY RUN)

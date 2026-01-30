@@ -15,16 +15,11 @@ from Routes_DB.activities_summary import (
 from Services.synchronization_utils import (
     _normalize_summary,
     _enrich_activities_after_import,
-    decide_bulk_sync_window,
+     decide_sync_plan,
+
 )
 
 from Services.synchronization_single import _get_access_token_for_user
-
-MAX_FULL_DETAILS_PER_RUN = 150
-HISTORICAL_MAX_ACTIVITIES = 200
-HISTORICAL_PER_PAGE = 100
-BACKFILL_MAX_DAYS = 50
-
 
 # -----------------------------------------------------------------------------
 # Core: import aktivity zo Stravy (summary + detaily)
@@ -33,26 +28,38 @@ def import_activities_bulk(
     *,
     user_id: int,
     user_jwt: Optional[str],
-    mode: str = "auto",  # "auto" | "manual"
-) -> Dict[str, int]:
+    trigger: str,  # "panel_init" | "manual" | "reconnect" | "quick"
+) -> Dict[str, Any]:
 
     now = datetime.now(timezone.utc)
 
     last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
 
-    days_back, max_activities = decide_bulk_sync_window(
+    now = datetime.now(timezone.utc)
+    last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
+
+    plan = decide_sync_plan(
         last_activity_dt=last_dt,
-        mode=mode,
+        trigger=trigger,
     )
 
-    after_epoch = int((now - timedelta(days=days_back)).timestamp())
-    since_iso = (now - timedelta(days=days_back)).strftime("%Y-%m-%d")
-    before_epoch = int(now.timestamp())
+    after_epoch = int((now - timedelta(days=plan.days_back)).timestamp())
+    since_iso = (now - timedelta(days=plan.days_back)).strftime("%Y-%m-%d")
 
     print(
-        f"[SYNC][BULK] user={user_id} mode={mode} "
-        f"days_back={days_back} max_activities={max_activities}"
+        "[SYNC][BULK]",
+        {
+            "user": user_id,
+            "plan": plan.kind,
+            "days_back": plan.days_back,
+            "max_activities": plan.max_activities,
+            "reason": plan.reason,
+        },
     )
+
+    
+    before_epoch = int(now.timestamp())
+
 
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
@@ -75,7 +82,6 @@ def import_activities_bulk(
     while True:
         items = client.fetch_athlete_activities_page(
             after_epoch=after_epoch,
-            before_epoch=before_epoch,
             page=page,
             per_page=100,
         )
@@ -84,7 +90,7 @@ def import_activities_bulk(
             break
 
         for a in items:
-            if max_activities and total_fetched >= max_activities:
+            if total_fetched >= plan.max_activities:
                 break
 
             total_fetched += 1
@@ -114,8 +120,8 @@ def import_activities_bulk(
             )
             to_upsert.clear()
 
-        if max_activities and total_fetched >= max_activities:
-            break
+        if total_fetched >= plan.max_activities:
+                break
 
         page += 1
 
@@ -129,10 +135,23 @@ def import_activities_bulk(
     )
 
     return {
-        "imported": imported,
-        "updated": updated,
-        "skipped": skipped,
-        "fetched": fetched,
+        "ok": True,
+        "plan": {
+            "kind": plan.kind,
+            "days_back": plan.days_back,
+            "max_activities": plan.max_activities,
+            "reason": plan.reason,
+        },
+        "stats": {
+            "imported": imported,
+            "updated": updated,
+            "skipped": skipped,
+            "fetched": fetched,
+        },
+        "range": {
+            "since": since_iso,
+            "after_epoch": after_epoch,
+        },
     }
 
 
@@ -150,5 +169,5 @@ def service_sync_activities(
     return import_activities_bulk(
         user_id=user_id,
         user_jwt=jwt,
-        mode="manual",
+        trigger="manual",
     )
