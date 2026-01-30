@@ -95,3 +95,67 @@ def db_cancel_account_delete_request(
         }
 
     return data[0]
+
+
+def mark_strava_ever_synced_now(*, user_id: int) -> bool:
+    """
+    Nastaví ever_synced_at = now() pre usera.
+    Volaj iba po úspešnom importe.
+    """
+
+    sb = get_sb(user_jwt="", service=True, caller="mark_strava_ever_synced_now")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    resp = (
+        sb.table("strava_accounts")
+        .update({"ever_synced_at": now_iso})
+        .eq("user_id", int(user_id))
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    return bool(rows)
+
+
+def _parse_timestamptz_to_dt(v: Any) -> Optional[datetime]:
+    if not v:
+        return None
+
+    s = str(v).strip()
+
+    # supabase často vracia "2026-01-05 12:33:35.08823+00"
+    # Python chce ideálne "+00:00" a T medzi dátumom/časom
+    s = s.replace(" ", "T")
+    s = s.replace("Z", "+00:00")
+    if s.endswith("+00"):
+        s = s[:-3] + "+00:00"
+
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def get_strava_ever_synced_at_service(*, user_id: int) -> Optional[datetime]:
+    """
+    Service-only:
+      - vráti ever_synced_at ako datetime UTC (alebo None)
+    """
+    sb = get_sb(user_jwt="", service=True, caller="get_strava_ever_synced_at_service")
+    resp = (
+        sb.table("strava_accounts")
+        .select("ever_synced_at")
+        .eq("user_id", int(user_id))
+        .limit(1)
+        .execute()
+    )
+
+    rows = getattr(resp, "data", None) or []
+    row = rows[0] if rows else None
+    if not isinstance(row, dict):
+        return None
+
+    return _parse_timestamptz_to_dt(row.get("ever_synced_at"))

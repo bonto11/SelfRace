@@ -27,7 +27,8 @@ from Services.synchronization_utils import (
     _normalize_split,
     _decide_laps_or_splits,
 )
-from Modules.Strava.webhook_strava import mark_strava_ever_synced_now
+
+from Routes_DB.account import mark_strava_ever_synced_now
 from Services.synchronization_utils import enrich_activities_for_ids
 
 

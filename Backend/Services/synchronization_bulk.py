@@ -19,7 +19,7 @@ from Services.synchronization_utils import (
 
 )
 
-from Modules.Strava.webhook_strava import mark_strava_ever_synced_now, get_strava_ever_synced_at_service
+from Routes_DB.account import mark_strava_ever_synced_now, get_strava_ever_synced_at_service
 from Services.synchronization_single import _get_access_token_for_user
 
 # -----------------------------------------------------------------------------
