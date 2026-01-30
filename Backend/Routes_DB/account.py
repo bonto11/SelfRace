@@ -144,7 +144,7 @@ def get_strava_ever_synced_at_service(*, user_id: int) -> Optional[datetime]:
     Service-only:
       - vráti ever_synced_at ako datetime UTC (alebo None)
     """
-    sb = get_sb(user_jwt="", service=True, caller="get_strava_ever_synced_at_service")
+    sb = get_sb(service=True, caller="get_strava_ever_synced_at_service")
     resp = (
         sb.table("strava_accounts")
         .select("ever_synced_at")
