@@ -105,7 +105,6 @@ def service_request_account_delete(
     return {
         "ok": True,
         "user_id": int(user_id),
-        "status": "pending",
         "delete_at": row.get("delete_at"),
         "requested_at": row.get("requested_at"),
         "grace_days": DELETE_GRACE_DAYS,
@@ -127,7 +126,6 @@ def service_cancel_account_delete(
     return {
         "ok": True,
         "user_id": int(user_id),
-        "status": "deleted",
         "cancelled_at": row.get("cancelled_at"),
         "delete_at": row.get("delete_at"),
     }
