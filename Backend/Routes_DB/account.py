@@ -103,7 +103,7 @@ def mark_strava_ever_synced_now(*, user_id: int) -> bool:
     Volaj iba po úspešnom importe.
     """
 
-    sb = get_sb(user_jwt="", service=True, caller="mark_strava_ever_synced_now")
+    sb = get_sb(service=True, caller="mark_strava_ever_synced_now")
     now_iso = datetime.now(timezone.utc).isoformat()
     resp = (
         sb.table("strava_accounts")
