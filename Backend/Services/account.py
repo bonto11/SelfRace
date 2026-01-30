@@ -35,10 +35,12 @@ def service_get_account_delete_status(
         user_jwt=user_jwt,
         service=service,
     )
+
     if not row:
         return {
             "user_id": int(user_id),
             "pending": False,
+            "status": "none",
             "requested_at": None,
             "delete_at": None,
             "cancelled_at": None,
@@ -49,11 +51,23 @@ def service_get_account_delete_status(
     cancelled_at = row.get("cancelled_at")
     hard_deleted_at = row.get("hard_deleted_at")
 
-    pending = bool(delete_at) and not cancelled_at and not hard_deleted_at
+    # status precedence
+    if hard_deleted_at:
+        status = "deleted"
+    elif cancelled_at:
+        status = "cancelled"
+    elif delete_at:
+        status = "pending"
+    else:
+        # prakticky nenastane, lebo delete_at je NOT NULL, ale nech je to safe
+        status = "none"
+
+    pending = status == "pending"
 
     return {
         "user_id": int(user_id),
         "pending": pending,
+        "status": status,
         "requested_at": row.get("requested_at"),
         "delete_at": delete_at,
         "cancelled_at": cancelled_at,
@@ -91,6 +105,7 @@ def service_request_account_delete(
     return {
         "ok": True,
         "user_id": int(user_id),
+        "status": "pending",
         "delete_at": row.get("delete_at"),
         "requested_at": row.get("requested_at"),
         "grace_days": DELETE_GRACE_DAYS,
@@ -112,6 +127,7 @@ def service_cancel_account_delete(
     return {
         "ok": True,
         "user_id": int(user_id),
+        "status": "deleted",
         "cancelled_at": row.get("cancelled_at"),
         "delete_at": row.get("delete_at"),
     }

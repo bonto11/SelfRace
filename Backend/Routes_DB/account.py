@@ -71,28 +71,21 @@ def db_cancel_account_delete_request(
 ) -> Dict[str, Any]:
     """
     Zruší plánované zmazanie:
-      - delete_at = NULL
       - cancelled_at = now
+      - delete_at nechávame tak (DB môže mať NOT NULL)
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
-
     now_iso = datetime.now(timezone.utc).isoformat()
 
     resp = (
         sb.table("account_delete_requests")
-        .update(
-            {
-                "delete_at": None,
-                "cancelled_at": now_iso,
-            }
-        )
+        .update({"cancelled_at": now_iso})
         .eq("user_id", int(user_id))
         .execute()
     )
 
     data = getattr(resp, "data", None) or []
     if not data:
-        # Ak user nemal žiadny riadok, vrátime “prázdny” stav
         return {
             "user_id": int(user_id),
             "requested_at": None,

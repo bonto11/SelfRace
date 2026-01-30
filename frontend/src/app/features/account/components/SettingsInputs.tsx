@@ -95,6 +95,20 @@ const TIMEZONE_OPTIONS = [
 
 type DeleteModalKind = "request" | "cancel" | null;
 
+// robust fallback (kým BE všade nevracia status)
+type DeleteState = "none" | "pending" | "cancelled" | "deleted";
+function getDeleteState(st: AccountDeleteStatus | null): DeleteState {
+  const anySt = st as any;
+  const status = (anySt?.status as DeleteState | undefined) ?? undefined;
+  if (status) return status;
+
+  // fallback
+  if (anySt?.hard_deleted_at) return "deleted";
+  if (anySt?.cancelled_at) return "cancelled";
+  if (anySt?.pending || anySt?.delete_at) return "pending";
+  return "none";
+}
+
 export default function SettingsInputs() {
   const router = useRouter();
   const { userId } = useUserId();
@@ -243,8 +257,12 @@ export default function SettingsInputs() {
   }
 
   const disabled = !userId || loading || saving;
+  const busyAny = saving || processingDelete;
 
-  const deletePending = !!deleteStatus?.pending;
+  const deleteState = getDeleteState(deleteStatus);
+  const deletePending = deleteState === "pending";
+  const deleteCancelled = deleteState === "cancelled";
+
   const deleteAtLabel =
     deleteStatus?.delete_at &&
     (() => {
@@ -255,7 +273,7 @@ export default function SettingsInputs() {
           day: "numeric",
         });
       } catch {
-        return deleteStatus.delete_at;
+        return deleteStatus.delete_at as any;
       }
     })();
 
@@ -265,11 +283,15 @@ export default function SettingsInputs() {
     const wk = settings.week_start;
     const tf = settings.time_format_24h ? "24h" : "12h";
     const tz = settings.timezone || "—";
+
     const del = loadingDelete
       ? "delete: …"
-      : deletePending
+      : deleteState === "pending"
         ? `delete: ${deleteAtLabel ?? "pending"}`
-        : "delete: —";
+        : deleteState === "cancelled"
+          ? "delete: cancelled"
+          : "delete: —";
+
     return `${lang} • ${units} • ${tz} • week ${wk} • ${tf} • ${del}`;
   }, [
     settings.language,
@@ -278,11 +300,9 @@ export default function SettingsInputs() {
     settings.week_start,
     settings.time_format_24h,
     loadingDelete,
-    deletePending,
+    deleteState,
     deleteAtLabel,
   ]);
-
-  const busyAny = saving || processingDelete;
 
   return (
     <>
@@ -421,11 +441,13 @@ export default function SettingsInputs() {
               Zrušenie účtu (nezvratné)
             </div>
 
+            {/* Status box: pending = red, cancelled = neutral, none = red info */}
             <div
               className="mt-2 rounded-lg border px-3 py-2 text-xs"
               style={{
-                borderColor: "rgba(239,68,68,0.55)",
-                background: "rgba(127,29,29,0.35)",
+                borderColor:
+                  deleteCancelled ? "rgba(148,163,184,0.35)" : "rgba(239,68,68,0.55)",
+                background: deleteCancelled ? "rgba(30,41,59,0.35)" : "rgba(127,29,29,0.35)",
                 color: appColors.textPrimary,
               }}
             >
@@ -455,6 +477,15 @@ export default function SettingsInputs() {
                     Poznámka: Nevymaže sa tvoj Strava účet – odstránia sa len importované dáta a prepojenie v tejto aplikácii.
                   </p>
                 </>
+              ) : deleteCancelled ? (
+                <>
+                  <p>
+                    Plánované zmazanie účtu bolo <span className="font-semibold">zrušené</span>.
+                  </p>
+                  <p className="mt-1" style={{ color: appColors.textMuted }}>
+                    Účet je aktívny a tvoje dáta v aplikácii sa nevymažú.
+                  </p>
+                </>
               ) : (
                 <>
                   <p>
@@ -470,7 +501,7 @@ export default function SettingsInputs() {
               )}
             </div>
 
-            <div className="mt-2">
+            <div className="mt-2 flex items-center gap-2">
               {deletePending ? (
                 <Button
                   size="xs"
@@ -488,6 +519,24 @@ export default function SettingsInputs() {
                   onClick={openDeleteRequestModal}
                 >
                   Označiť účet na zmazanie
+                </Button>
+              )}
+
+              {/* keď je cancelled, nech má user jasný návrat do normálu */}
+              {deleteCancelled && (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  disabled={loadingDelete || !userId}
+                  onClick={() => {
+                    setLoadingDelete(true);
+                    apiGetAccountDeleteStatus(userId!)
+                      .then(setDeleteStatus)
+                      .catch((e) => console.error("[SettingsInputs] delete status refresh error", e))
+                      .finally(() => setLoadingDelete(false));
+                  }}
+                >
+                  Obnoviť stav
                 </Button>
               )}
             </div>
@@ -512,7 +561,10 @@ export default function SettingsInputs() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-base font-semibold" style={{ color: "rgba(254, 202, 202, 0.95)" }}>
+                <div
+                  className="text-base font-semibold"
+                  style={{ color: "rgba(254, 202, 202, 0.95)" }}
+                >
                   {deleteModal === "request" ? "Zrušenie účtu" : "Zrušiť plánované zmazanie"}
                 </div>
                 <div className="text-[12px] mt-1" style={{ color: appColors.textMuted }}>
@@ -532,7 +584,8 @@ export default function SettingsInputs() {
 
             {deleteModal === "request" ? (
               <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
-                Najprv sa účet označí na zmazanie. Strava sa ale odpojí okamžite a vymažú sa importované dáta zo Stravy v tejto aplikácii. Počas lehoty to môžeš ešte odvolať, ak nie tak potom sa odstránia všetky dáta v aplikácii. 
+                Najprv sa účet označí na zmazanie. Strava sa ale odpojí okamžite a vymažú sa importované dáta zo Stravy v tejto aplikácii.
+                Počas lehoty to môžeš ešte odvolať, ak nie tak potom sa odstránia všetky dáta v aplikácii.
                 <ul className="list-disc ml-5 mt-2 space-y-1">
                   <li>trvalo sa vymažú tréningy, plány a nastavenia uložené v tejto aplikácii</li>
                   <li>odpojí sa Strava a vymažú sa importované dáta zo Stravy v tejto aplikácii</li>
@@ -541,7 +594,8 @@ export default function SettingsInputs() {
               </div>
             ) : (
               <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
-                Zrušením plánovaného zmazania zostane účet aktívny a tvoje dáta v aplikácii sa nevymažú. Strava sa ale bude musieť opať pripojiť a budeš mať možnosť skráteného reimportu.
+                Zrušením plánovaného zmazania zostane účet aktívny a tvoje dáta v aplikácii sa nevymažú.
+                Strava sa ale bude musieť opäť pripojiť a budeš mať možnosť skráteného reimportu.
               </div>
             )}
 
@@ -552,7 +606,7 @@ export default function SettingsInputs() {
                 label={
                   <span className="text-sm">
                     {deleteModal === "request"
-                      ? "Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí lehoty sa moje dáta v aplikácii trvalo vymažú a že Strava dáta v SelfRace aplikácii budu zmazané okamžite."
+                      ? "Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí lehoty sa moje dáta v aplikácii trvalo vymažú a že Strava dáta v SelfRace aplikácii budú zmazané okamžite."
                       : "Rozumiem a chcem zrušiť plánované zmazanie účtu."}
                   </span>
                 }

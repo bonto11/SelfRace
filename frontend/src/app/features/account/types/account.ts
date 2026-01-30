@@ -7,7 +7,14 @@ export type UserSettings = {
   time_format_24h: boolean;
 };
 
+export type AccountDeleteState = "none" | "pending" | "cancelled" | "deleted";
+
 export type AccountDeleteStatus = {
+  user_id: number;
   pending: boolean;
-  delete_at: string | null; // ISO dátum v UTC alebo s offsetom
+  status: AccountDeleteState;
+  requested_at: string | null;
+  delete_at: string | null;
+  cancelled_at: string | null;
+  hard_deleted_at: string | null;
 };
