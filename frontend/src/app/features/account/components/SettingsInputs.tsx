@@ -19,7 +19,7 @@ import {
   apiGetAccountDeleteStatus,
   apiRequestAccountDelete,
   apiCancelAccountDelete,
-} from "@/app/features/account/api/accountDelete";
+} from "@/app/features/account/api/account";
 
 import type { UserSettings, AccountDeleteStatus } from "@/app/features/account/types/account";
 import { appColors } from "@/app/shared/ui/theme/app_colors";

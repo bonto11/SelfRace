@@ -1,5 +1,5 @@
 // src/app/features/account/api/accountDelete.ts
-import { API_URL } from "@/app/shared/config";
+import { callBackend } from "@/app/shared/utils/callBackend";
 import type { AccountDeleteStatus } from "@/app/features/account/types/account";
 
 function inferStatus(json: any): AccountDeleteStatus["status"] {
@@ -14,14 +14,15 @@ function inferStatus(json: any): AccountDeleteStatus["status"] {
 }
 
 function normalizeStatus(json: any, userId: number): AccountDeleteStatus {
+  const status = inferStatus(json);
+
   return {
     user_id: typeof json?.user_id === "number" ? json.user_id : userId,
 
-    // nové pole, FE ho chce
-    status: inferStatus(json),
+    // FE typ vyžaduje
+    status,
 
-    // tieto polia FE typ vyžaduje
-    pending: !!json?.pending || inferStatus(json) === "pending",
+    pending: !!json?.pending || status === "pending",
     requested_at: typeof json?.requested_at === "string" ? json.requested_at : null,
     delete_at: typeof json?.delete_at === "string" ? json.delete_at : null,
     cancelled_at: typeof json?.cancelled_at === "string" ? json.cancelled_at : null,
@@ -30,49 +31,34 @@ function normalizeStatus(json: any, userId: number): AccountDeleteStatus {
 }
 
 export async function apiGetAccountDeleteStatus(userId: number): Promise<AccountDeleteStatus> {
-  const res = await fetch(`${API_URL}/account/delete/status/${userId}`, {
+  const path = `/account/delete/status/${userId}`;
+
+  const json = await callBackend<any>(path, {
     method: "GET",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
-  }
-
-  const json = await res.json().catch(() => ({}));
   return normalizeStatus(json, userId);
 }
 
 export async function apiRequestAccountDelete(userId: number): Promise<AccountDeleteStatus> {
-  const res = await fetch(`${API_URL}/account/delete/request/${userId}`, {
+  const path = `/account/delete/request/${userId}`;
+
+  const json = await callBackend<any>(path, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
-  }
-
-  const json = await res.json().catch(() => ({}));
   return normalizeStatus(json, userId);
 }
 
 export async function apiCancelAccountDelete(userId: number): Promise<AccountDeleteStatus> {
-  const res = await fetch(`${API_URL}/account/delete/cancel/${userId}`, {
+  const path = `/account/delete/cancel/${userId}`;
+
+  const json = await callBackend<any>(path, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
-  }
-
-  const json = await res.json().catch(() => ({}));
   return normalizeStatus(json, userId);
 }
