@@ -1,76 +1,78 @@
 // src/app/features/account/api/accountDelete.ts
-import { callBackend } from "@/app/shared/utils/callBackend";
+import { API_URL } from "@/app/shared/config";
 import type { AccountDeleteStatus } from "@/app/features/account/types/account";
 
-async function handleAccountDeleteCall(
-  path: string,
-  init: RequestInit,
-  defaultMsg: string,
-): Promise<AccountDeleteStatus> {
-  console.debug("[AccountDelete] ->", path, init.method);
+function inferStatus(json: any): AccountDeleteStatus["status"] {
+  // preferuj explicitný status z BE (keď už bude)
+  if (typeof json?.status === "string") return json.status;
 
-  try {
-    const json = await callBackend<
-      AccountDeleteStatus & { detail?: string }
-    >(path, {
-      cache: "no-store",
-      ...init,
-    });
-
-    return {
-      pending: !!json.pending,
-      delete_at:
-        typeof json.delete_at === "string" ? json.delete_at : null,
-    };
-  } catch (e: any) {
-    console.error("[AccountDelete] ERROR", e);
-    const msg =
-      e instanceof Error ? e.message : defaultMsg;
-    throw new Error(msg);
-  }
+  // fallback logika pre dnešný BE
+  if (json?.hard_deleted_at) return "deleted";
+  if (json?.cancelled_at) return "cancelled";
+  if (!!json?.pending || !!json?.delete_at) return "pending";
+  return "none";
 }
 
-export async function apiGetAccountDeleteStatus(
-  userId: number,
-): Promise<AccountDeleteStatus> {
-  if (!userId) {
-    throw new Error("Missing userId in apiGetAccountDeleteStatus");
-  }
+function normalizeStatus(json: any, userId: number): AccountDeleteStatus {
+  return {
+    user_id: typeof json?.user_id === "number" ? json.user_id : userId,
 
-  const path = `/account/${encodeURIComponent(String(userId))}/delete/status`;
-  return handleAccountDeleteCall(
-    path,
-    { method: "GET" },
-    "Nepodarilo sa načítať stav vymazania účtu.",
-  );
+    // nové pole, FE ho chce
+    status: inferStatus(json),
+
+    // tieto polia FE typ vyžaduje
+    pending: !!json?.pending || inferStatus(json) === "pending",
+    requested_at: typeof json?.requested_at === "string" ? json.requested_at : null,
+    delete_at: typeof json?.delete_at === "string" ? json.delete_at : null,
+    cancelled_at: typeof json?.cancelled_at === "string" ? json.cancelled_at : null,
+    hard_deleted_at: typeof json?.hard_deleted_at === "string" ? json.hard_deleted_at : null,
+  };
 }
 
-export async function apiRequestAccountDelete(
-  userId: number,
-): Promise<AccountDeleteStatus> {
-  if (!userId) {
-    throw new Error("Missing userId in apiRequestAccountDelete");
+export async function apiGetAccountDeleteStatus(userId: number): Promise<AccountDeleteStatus> {
+  const res = await fetch(`${API_URL}/account/delete/status/${userId}`, {
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `HTTP ${res.status}`);
   }
 
-  const path = `/account/${encodeURIComponent(String(userId))}/delete/request`;
-  return handleAccountDeleteCall(
-    path,
-    { method: "POST" },
-    "Nepodarilo sa označiť účet na vymazanie.",
-  );
+  const json = await res.json().catch(() => ({}));
+  return normalizeStatus(json, userId);
 }
 
-export async function apiCancelAccountDelete(
-  userId: number,
-): Promise<AccountDeleteStatus> {
-  if (!userId) {
-    throw new Error("Missing userId in apiCancelAccountDelete");
+export async function apiRequestAccountDelete(userId: number): Promise<AccountDeleteStatus> {
+  const res = await fetch(`${API_URL}/account/delete/request/${userId}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `HTTP ${res.status}`);
   }
 
-  const path = `/account/${encodeURIComponent(String(userId))}/delete/cancel`;
-  return handleAccountDeleteCall(
-    path,
-    { method: "POST" },
-    "Nepodarilo sa zrušiť vymazanie účtu.",
-  );
+  const json = await res.json().catch(() => ({}));
+  return normalizeStatus(json, userId);
+}
+
+export async function apiCancelAccountDelete(userId: number): Promise<AccountDeleteStatus> {
+  const res = await fetch(`${API_URL}/account/delete/cancel/${userId}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `HTTP ${res.status}`);
+  }
+
+  const json = await res.json().catch(() => ({}));
+  return normalizeStatus(json, userId);
 }
