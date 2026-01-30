@@ -57,6 +57,7 @@ def weekly(
             weeks=weeks,
             user_jwt=user_jwt,
         )
+        print("weekly payload",payload)
         return {
             "success": True,
             **payload,
@@ -116,6 +117,7 @@ def pareto_widget(
             sport=sport,
             user_jwt=user_jwt,
         )
+        print("pareto_widget payload",data)
         return {
             "success": True,
             "data": data,
@@ -146,6 +148,7 @@ def pareto_trend(
             sport=sport,
             user_jwt=user_jwt,
         )
+        print("pareto_trend payload",rows)
         return {
             "success": True,
             "data": rows,
