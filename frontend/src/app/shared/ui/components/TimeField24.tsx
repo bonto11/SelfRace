@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   FIELD_LABEL,
   FIELD_SELECT,
@@ -35,7 +35,9 @@ function parseTime(v: string | null): { h: string; m: string } {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+const MINUTES = Array.from({ length: 12 }, (_, i) =>
+  String(i * 5).padStart(2, "0"),
+);
 
 export default function TimeField24({
   label,
@@ -55,7 +57,9 @@ export default function TimeField24({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  const optStyle = editable ? FIELD_OPTION_EDITABLE_STYLE : FIELD_OPTION_READONLY_STYLE;
+  const optStyle = editable
+    ? FIELD_OPTION_EDITABLE_STYLE
+    : FIELD_OPTION_READONLY_STYLE;
 
   return (
     <label className="flex flex-col gap-1" style={wrapStyle}>
@@ -69,7 +73,12 @@ export default function TimeField24({
           className={FIELD_SELECT}
         >
           {HOURS.map((hh) => (
-            <option key={hh} value={hh} className={FIELD_OPTION} style={optStyle}>
+            <option
+              key={hh}
+              value={hh}
+              className={FIELD_OPTION}
+              style={optStyle}
+            >
               {hh}
             </option>
           ))}
@@ -84,7 +93,12 @@ export default function TimeField24({
           className={FIELD_SELECT}
         >
           {MINUTES.map((mm) => (
-            <option key={mm} value={mm} className={FIELD_OPTION} style={optStyle}>
+            <option
+              key={mm}
+              value={mm}
+              className={FIELD_OPTION}
+              style={optStyle}
+            >
               {mm}
             </option>
           ))}

@@ -1,105 +1,131 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import os
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional
 
-from Services.users import require_jwt
 from Routes_DB.account import (
     db_get_account_delete_row,
     db_upsert_account_delete_request,
     db_cancel_account_delete_request,
 )
-from Configs.config import DELETE_GRACE_DAYS
-from Modules.Supabase.client import get_sb
+
+# ✅ NEW: okamžité odpojenie Stravy pri delete requeste
+from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
+
+DELETE_GRACE_DAYS = int(os.getenv("DELETE_GRACE_DAYS", "7"))
 
 
-def _row_to_status(row: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Mapuje raw DB riadok -> shape pre FE:
-      { pending: bool, delete_at: str | null }
-    """
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def service_get_account_delete_status(
+    *,
+    user_id: int,
+    user_jwt: Optional[str],
+    service: bool,
+) -> Dict[str, Any]:
+    row = db_get_account_delete_row(
+        user_id=int(user_id),
+        user_jwt=user_jwt,
+        service=service,
+    )
+
     if not row:
-        return {"pending": False, "delete_at": None}
+        return {
+            "user_id": int(user_id),
+            "pending": False,
+            "status": "none",
+            "requested_at": None,
+            "delete_at": None,
+            "cancelled_at": None,
+            "hard_deleted_at": None,
+        }
 
     delete_at = row.get("delete_at")
     cancelled_at = row.get("cancelled_at")
     hard_deleted_at = row.get("hard_deleted_at")
 
-    pending = bool(delete_at and not cancelled_at and not hard_deleted_at)
+    # status precedence
+    if hard_deleted_at:
+        status = "deleted"
+    elif cancelled_at:
+        status = "cancelled"
+    elif delete_at:
+        status = "pending"
+    else:
+        # prakticky nenastane, lebo delete_at je NOT NULL, ale nech je to safe
+        status = "none"
+
+    pending = status == "pending"
 
     return {
+        "user_id": int(user_id),
         "pending": pending,
+        "status": status,
+        "requested_at": row.get("requested_at"),
         "delete_at": delete_at,
+        "cancelled_at": cancelled_at,
+        "hard_deleted_at": hard_deleted_at,
     }
 
 
-# -------------------------------------------------------
-# 1) User-úroveň (volané z FE, cez JWT)
-# -------------------------------------------------------
-
-
-def service_get_account_delete_status(
-    user_id: int,
+def service_request_account_delete(
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    user_id: int,
+    user_jwt: Optional[str],
+    service: bool,
 ) -> Dict[str, Any]:
     """
-    Stav vymazania účtu pre daného usera.
-    - service=False -> RLS (JWT povinné)
-    - service=True  -> service klient (cron, admin, atď.)
+    ✅ nový safe flow:
+    - okamžite odpoj Stravu + vymaž Strava data (best effort)
+    - až potom vytvor delete request (grace 7 dní)
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
-
-    row = db_get_account_delete_row(
+    # 1) Strava disconnect (best effort, bez checkboxu – je to interný flow)
+    strava_res = disconnect_strava_account(
         user_id=int(user_id),
-        user_jwt=jwt,
-        service=service,
+        reason="account_delete_request",
+        purge_data=True,
     )
 
-    return _row_to_status(row)
-
-
-def service_request_account_delete(
-    user_id: int,
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Dict[str, Any]:
-    """
-    Označí účet na zmazanie po DELETE_GRACE_DAYS.
-    """
-    jwt = user_jwt if service else require_jwt(user_jwt)
-
-    now = datetime.now(timezone.utc)
-    delete_at = now + timedelta(days=DELETE_GRACE_DAYS)
-    delete_at_iso = delete_at.isoformat()
-
+    # 2) vytvor delete request
+    delete_at = _now_utc() + timedelta(days=DELETE_GRACE_DAYS)
     row = db_upsert_account_delete_request(
         user_id=int(user_id),
-        delete_at_iso=delete_at_iso,
-        user_jwt=jwt,
+        delete_at_iso=_iso(delete_at),
+        user_jwt=user_jwt,
         service=service,
     )
 
-    return _row_to_status(row)
+    return {
+        "ok": True,
+        "user_id": int(user_id),
+        "delete_at": row.get("delete_at"),
+        "requested_at": row.get("requested_at"),
+        "grace_days": DELETE_GRACE_DAYS,
+        "strava_disconnect": strava_res,
+    }
 
 
 def service_cancel_account_delete(
-    user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    user_id: int,
+    user_jwt: Optional[str],
+    service: bool,
 ) -> Dict[str, Any]:
-    """
-    Zruší plánované zmazanie účtu.
-    """
-    jwt = user_jwt if service else require_jwt(user_jwt)
-
     row = db_cancel_account_delete_request(
         user_id=int(user_id),
-        user_jwt=jwt,
+        user_jwt=user_jwt,
         service=service,
     )
-
-    return _row_to_status(row)
+    return {
+        "ok": True,
+        "user_id": int(user_id),
+        "cancelled_at": row.get("cancelled_at"),
+        "delete_at": row.get("delete_at"),
+    }

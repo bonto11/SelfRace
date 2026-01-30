@@ -20,7 +20,7 @@ export default function ParetoPage() {
   }, []);
 
   return (
-    <PageShell title="Pomer 80/20 času v zónach" showBack>
+    <PageShell title="Pomer 80/20 času v zónach" showBack showPoweredByStrava>
       <TrendPareto8020 onPickWeek={handlePick} />
       <ActivityTable start={range.start} end={range.end} sport={sport} />
     </PageShell>

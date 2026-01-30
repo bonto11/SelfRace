@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from Modules.Strava import webhook_strava
 from Routes_FE import (
     users,
-    activities_streams,
     activities_summary,
     analytics,
     synchronization,
@@ -62,7 +61,6 @@ app.include_router(user_zones.router)
 app.include_router(user_thresholds.router)
 
 app.include_router(activities_summary.router)
-app.include_router(activities_streams.router)
 app.include_router(analytics.router)
 app.include_router(synchronization.router)
 

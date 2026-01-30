@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SURFACE_INSET, SURFACE_INSET_STYLE } from "./core";
-
+import type { ButtonSize, ButtonVariant } from "@/app/shared/ui/utils/inputs";
 /* =========================================================================
    FORM TOKENS (single source of truth)
    - Tailwind CANNOT compile runtime strings like bg-[${...}]
@@ -415,3 +415,163 @@ export const INPUTS_CARD_TOGGLE = "";
 export const DATE_TEXT_INPUT = "";
 
 export const DATEFIELD_DISPLAY = "h-full flex items-center";
+
+/* =========================================================================
+   Button tokens (single source of truth)
+   - NO runtime Tailwind strings
+   - Colors via CSS vars only
+   ========================================================================= */
+
+export const BUTTON_BASE = [
+  "inline-flex items-center justify-center gap-2",
+  "font-medium select-none",
+  "transition-colors duration-200",
+  "focus:outline-none focus-visible:ring-2 ring-offset-0",
+  "rounded-full",
+  // vars
+  "bg-[var(--btn-bg)]",
+  "text-[var(--btn-text)]",
+  "border border-[var(--btn-border)]",
+  "hover:bg-[var(--btn-bg-hover)]",
+  "active:brightness-95",
+  "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+  "focus-visible:ring-[var(--btn-ring)]",
+].join(" ");
+
+export function buttonSizeClass(size: ButtonSize, circle?: boolean) {
+  if (size === "xs") return circle ? "h-7 w-7 text-xs" : "px-3 py-1.5 text-xs";
+  if (size === "sm") return circle ? "h-8 w-8 text-sm" : "px-3.5 py-2 text-sm";
+  if (size === "lg")
+    return circle ? "h-11 w-11 text-base" : "px-5 py-3 text-base";
+  return circle ? "h-9 w-9 text-sm" : "px-4 py-2.5 text-sm";
+}
+
+/* =========================================================================
+   Variant styles
+   ========================================================================= */
+
+export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
+  primary: {
+    "--btn-bg": appColors.buttonPrimaryBg,
+    "--btn-bg-hover": appColors.buttonPrimaryBgHover,
+    "--btn-text": appColors.buttonPrimaryText,
+    "--btn-border": "transparent",
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-primary text-[color:var(--on-primary)] hover:brightness-110"
+  },
+
+  secondary: {
+    "--btn-bg": appColors.buttonSecondaryBg,
+    "--btn-bg-hover": appColors.buttonSecondaryBgHover,
+    "--btn-text": appColors.buttonSecondaryText,
+    "--btn-border": appColors.buttonSecondaryBorder,
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-white/10 text-white hover:bg-white/16 border border-white/15"
+  },
+
+  ghost: {
+    "--btn-bg": appColors.buttonGhostBg,
+    "--btn-bg-hover": appColors.buttonGhostBgHover,
+    "--btn-text": appColors.buttonGhostText,
+    "--btn-border": appColors.widgetBorder,
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-transparent text-white/90 hover:bg-white/8 border border-white/10"
+  },
+
+  success: {
+    "--btn-bg": appColors.statusSuccess,
+    "--btn-bg-hover": appColors.statusSuccess, // ak máš hover token, daj sem
+    "--btn-text": appColors.textInverse,
+    "--btn-border": "transparent",
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-emerald-600 text-white hover:bg-emerald-500"
+  },
+
+  danger: {
+    "--btn-bg": appColors.buttonDangerBg,
+    "--btn-bg-hover": appColors.buttonDangerBgHover,
+    "--btn-text": appColors.buttonDangerText,
+    "--btn-border": "transparent",
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-red-600 text-white hover:bg-red-500"
+  },
+
+  back: {
+    "--btn-bg": appColors.buttonGhostBg,
+    "--btn-bg-hover": appColors.buttonGhostBgHover,
+    "--btn-text": appColors.textPrimary,
+    "--btn-border": appColors.widgetBorder,
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-white/8 text-white hover:bg-white/14 border border-white/10"
+  },
+
+  prefs: {
+    // default (inactive) — aktívny stav riešime v helperi nižšie
+    "--btn-bg": appColors.buttonSecondaryBg,
+    "--btn-bg-hover": appColors.buttonSecondaryBgHover,
+    "--btn-text": appColors.buttonSecondaryText,
+    "--btn-border": "transparent",
+    "--btn-ring": "transparent",
+    // old inactive: "bg-white/10 text-white hover:bg-white/16 border-0 ring-0"
+  },
+
+  editable: {
+    "--btn-bg": appColors.editableBg,
+    "--btn-bg-hover": appColors.brandPrimary,
+    "--btn-text": appColors.editableText,
+    "--btn-border": appColors.editableBorder,
+    "--btn-ring": appColors.editableRing,
+    // old-ish: secondary look, ale “zelené inputy”
+  },
+
+  active: {
+    "--btn-bg": appColors.brandPrimary,
+    "--btn-bg-hover": appColors.brandPrimary,
+    "--btn-text": appColors.textInverse,
+    "--btn-border": "transparent",
+    "--btn-ring": appColors.focusRing,
+    // old: "bg-emerald-600 text-white hover:bg-emerald-500"
+  },
+
+  connectStrava: {
+    "--btn-bg": "transparent",
+    "--btn-bg-hover": "transparent",
+    "--btn-text": appColors.textPrimary,
+    "--btn-border": "transparent",
+    "--btn-ring": "transparent",
+  },
+
+  disconnectStrava: {
+    "--btn-bg": "transparent",
+    "--btn-bg-hover": appColors.overlay,
+    "--btn-text": appColors.textPrimary,
+    "--btn-border": appColors.widgetBorder,
+    "--btn-ring": "transparent",
+  },
+
+  viewOnStrava: {
+    "--btn-bg": appColors.backgroundStrava,
+    "--btn-bg-hover": appColors.backgroundStrava,
+    "--btn-text": appColors.textStrava,
+    "--btn-border": "transparent",
+    "--btn-ring": "transparent",
+  },
+};
+
+/* prefs ACTIVE override (keď používaš active flag) */
+export function buttonVariantStyle(
+  variant: ButtonVariant,
+  { active }: { active?: boolean } = {},
+): VarStyle {
+  if (variant === "prefs" && active) {
+    return {
+      "--btn-bg": appColors.brandPrimary,
+      "--btn-bg-hover": appColors.brandSecondary,
+      "--btn-text": appColors.textInverse,
+      "--btn-border": "transparent",
+      "--btn-ring": "transparent",
+      // old active prefs: "bg-emerald-600 text-white border-0 ring-0"
+    };
+  }
+  return BUTTON_STYLE[variant];
+}

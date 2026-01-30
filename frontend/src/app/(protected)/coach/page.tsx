@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
+import { CoachDataProvider, useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+
 import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
 import WidgetCoachPlan from "@/app/shared/components/widgets/WidgetCoachPlan";
@@ -15,13 +17,37 @@ import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeek
 import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
 import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
 
-import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import Button from "@/app/shared/ui/components/Button";
+import IconRefresh from "@/app/shared/svg/Refresh";
+
+function RefreshIconBtn() {
+  const { refresh, loading } = useCoachData();
+
+  return (
+    <Button
+      circle
+      size="sm"
+      variant="ghost"
+      aria-label="Refresh data"
+      title="Refresh data"
+      onClick={() => refresh(true)}
+      disabled={loading}
+    >
+      <IconRefresh className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+    </Button>
+  );
+}
 
 function ClientPage() {
   const router = useRouter();
 
   return (
-    <PageShell title="Coach" showBack={false}>
+    <PageShell
+      title="Coach"
+      showBack={false}
+      showPoweredByStrava={false}
+      rightSlot={<RefreshIconBtn />}
+    >
       <div className={PAGE_GRID_2}>
         {/* existujúce widgety */}
         <WidgetExternalEvents />

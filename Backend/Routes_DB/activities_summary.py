@@ -18,8 +18,7 @@ FIELDS = (
     "average_watts,max_watts,"
     "calories_kcal,achievement_count,pr_count,"
     "gear_id,gear_name,"
-    "timezone,utc_offset_s,"
-    "workout_type,map_summary_polyline,map_polyline"
+    "timezone,utc_offset_s"
 )
 
 # ───────────────────────────── basic summary helpers ─────────────────────────────
@@ -191,9 +190,6 @@ def db_get_activities_recent(
 ) -> List[Dict[str, Any]]:
     """
     Aktivity od since_iso_date (YYYY-MM-DD) – payload pre FE list / range.
-
-    Na želanie: vraciame všetky stĺpce (*), aby bol k dispozícii aj
-    workout_type + map polylines.
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_summary")
     res = (
@@ -354,64 +350,3 @@ def db_get_summary_for_activities(
     data = res.data or []
 
     return data
-
-
-# ───────────────────────────── update map/workout_type ─────────────────────────────
-
-
-def db_update_activity_map(
-    activity_id: int,
-    *,
-    workout_type: Optional[int] = None,
-    map_summary_polyline: Optional[str] = None,
-    map_polyline: Optional[str] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> None:
-    """
-    Update mapových polí a workout_type pre danú aktivitu.
-    """
-    update_fields: Dict[str, Any] = {}
-
-    if workout_type is not None:
-        update_fields["workout_type"] = int(workout_type)
-    if map_summary_polyline is not None:
-        update_fields["map_summary_polyline"] = map_summary_polyline
-    if map_polyline is not None:
-        update_fields["map_polyline"] = map_polyline
-
-    if not update_fields:
-        return
-
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_summary")
-    (
-        sb.table(TABLE_ACTIVITIES_SUMMARY)
-        .update(update_fields)
-        .eq("activity_id", activity_id)
-        .execute()
-    )
-
-
-def db_update_activity_map_and_workout(
-    activity_id: int,
-    *,
-    workout_type: Optional[int] = None,
-    map_summary_polyline: Optional[str] = None,
-    map_polyline: Optional[str] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> None:
-    """
-    Starší názov, ktorý používa synchronization_single.py.
-
-    Wrapper na db_update_activity_map, aby import
-    `db_update_activity_map_and_workout` fungoval bez ďalších zásahov.
-    """
-    db_update_activity_map(
-        activity_id,
-        workout_type=workout_type,
-        map_summary_polyline=map_summary_polyline,
-        map_polyline=map_polyline,
-        user_jwt=user_jwt,
-        service=service,
-    )

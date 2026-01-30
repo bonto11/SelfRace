@@ -6,7 +6,7 @@ import TrendVO2Max from "@/app/features/profile/components/TrendVO2Max";
 
 export default function Page() {
   return (
-    <PageShell title="VO₂Max" showBack>
+    <PageShell title="VO₂Max" showBack showPoweredByStrava={false}>
       <TrendVO2Max />
     </PageShell>
   );

@@ -1,3 +1,4 @@
+#Services/synchronization_utils
 from __future__ import annotations
 
 import statistics
@@ -16,7 +17,66 @@ from Routes_DB.activities_summary import (
 )
 
 from Services.users import require_jwt
-from Services.async_jobs import service_enqueue_job, service_run_job_now
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class SyncPlan:
+    kind: str            # "first" | "reconnect" | "quick"
+    days_back: int
+    max_activities: int
+    reason: str
+
+
+FIRST_SYNC_DAYS = 365
+FIRST_SYNC_MAX = 200
+
+RECONNECT_DAYS = 30
+RECONNECT_MAX = 20
+
+QUICK_DAYS = 14
+QUICK_MAX = 10
+
+MANUAL_DAYS = 30        # alebo si to natiahni z configu
+MANUAL_MAX = 100        # nech manuál nikdy nespadne na 10 (ak chceš len days, daj 9999)
+
+def decide_sync_plan(
+    *,
+    last_activity_dt: Optional[datetime],
+    trigger: str,   # "panel_init" | "manual" | "reconnect" | "quick"
+) -> SyncPlan:
+    if last_activity_dt is None:
+        return SyncPlan(
+            kind="first",
+            days_back=FIRST_SYNC_DAYS,
+            max_activities=FIRST_SYNC_MAX,
+            reason="no activities in DB",
+        )
+
+    if trigger == "reconnect":
+        return SyncPlan(
+            kind="reconnect",
+            days_back=RECONNECT_DAYS,
+            max_activities=RECONNECT_MAX,
+            reason="strava reconnected",
+        )
+
+    if trigger == "manual":
+        return SyncPlan(
+            kind="manual",
+            days_back=MANUAL_DAYS,
+            max_activities=MANUAL_MAX,
+            reason="manual import from FE",
+        )
+
+    # panel_init / quick / default
+    return SyncPlan(
+        kind="quick",
+        days_back=QUICK_DAYS,
+        max_activities=QUICK_MAX,
+        reason=f"trigger={trigger}",
+    )
 
 # ---------------------------------------------------------------------
 # Pomocné konverzie
@@ -200,23 +260,6 @@ def _normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
     name = to_str(a.get("name"))
     sport_type_fe = infer_sport_type_fe(sport_type, name, distance_m, moving_s)
 
-    # --- NOVÉ: workout_type + map summary/polyline ---
-    workout_type_raw = a.get("workout_type")
-    workout_type = None
-    if workout_type_raw is not None:
-        try:
-            workout_type = int(workout_type_raw)
-        except Exception:
-            workout_type = None
-
-    map_summary_polyline = None
-    map_polyline = None
-    m = a.get("map")
-    if isinstance(m, dict):
-        map_summary_polyline = m.get("summary_polyline")
-        # pri /athlete/activities tu väčšinou polyline nie je, pri detaile áno
-        map_polyline = m.get("polyline")
-
     return {
         "user_id": user_id,
         "activity_id": to_int(a.get("id")),
@@ -249,10 +292,6 @@ def _normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
         "pr_count": to_int(a.get("pr_count")),
         "calories_kcal": calories_kcal,
         "user_uid": None,
-        # NOVÉ polia:
-        "workout_type": workout_type,
-        "map_summary_polyline": map_summary_polyline,
-        "map_polyline": map_polyline,
     }
 
 
@@ -425,7 +464,11 @@ def enrich_activities_for_ids(
         )
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
 
+
         try:
+
+            from Services.async_jobs import service_enqueue_job, service_run_job_now
+            
             enqueue = service_enqueue_job(
                 user_id=user_id,
                 user_uid="",
@@ -502,3 +545,55 @@ def _enrich_activities_after_import(
         )
     except Exception as e:
         print(f"[SYNC] enrich wrapper failed: {e}")
+
+def decide_use_laps_or_generate_splits(
+    laps_raw: List[Dict[str, Any]],
+) -> str:
+    """
+    Vráti:
+      - "laps"   → intervalový tréning (použijeme laps)
+      - "splits" → long run / auto-lap (vygenerujeme splits)
+      - "none"   → nič nemá zmysel
+    """
+    if not laps_raw or len(laps_raw) < 2:
+        return "splits"
+
+    laps_dt = _extract_dt_pairs_from_laps(laps_raw)
+    if len(laps_dt) < 2:
+        return "splits"
+
+    distances = [d for d, _ in laps_dt]
+    mean = statistics.mean(distances)
+    spread = max(abs(d - mean) for d in distances) / mean
+
+    # intervaly: rovnaké úseky
+    if len(distances) >= 3 and spread <= 0.05:
+        return "laps"
+
+    return "splits"
+
+def generate_splits_from_laps(
+    *,
+    user_id: int,
+    activity_id: int,
+    laps: list[dict],
+) -> list[dict]:
+    """
+    Z laps spraví 1–km splits (alebo lap-based fallback).
+    """
+    out = []
+    for i, L in enumerate(laps):
+        out.append(
+            {
+                "user_id": user_id,
+                "activity_id": activity_id,
+                "split_index": i + 1,
+                "distance_m": L.get("distance_m"),
+                "moving_time_s": L.get("moving_time_s"),
+                "elapsed_time_s": L.get("elapsed_time_s"),
+                "pace_s_per_km": L.get("pace_s_per_km"),
+                "avg_speed_mps": L.get("avg_speed_mps"),
+                "avg_hr_bpm": L.get("avg_hr_bpm"),
+            }
+        )
+    return out

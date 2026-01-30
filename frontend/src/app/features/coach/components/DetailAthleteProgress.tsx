@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
@@ -20,6 +19,13 @@ import {
   PANEL_PREVIEW,
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
+
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+  SESSION_SUBCARD,
+  SESSION_SUBCARD_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 /* ---------- helper typy ---------- */
 
@@ -237,7 +243,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   };
 }
 
-/* ---------- tiny building blocks (no padding in JSX) ---------- */
+/* ---------- tiny building blocks (token-first) ---------- */
 
 function Card({
   title,
@@ -251,7 +257,7 @@ function Card({
   footer?: boolean;
 }) {
   return (
-    <section className={SURFACE_CARD}>
+    <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
       {(title || subtitle) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
@@ -263,7 +269,9 @@ function Card({
         </header>
       )}
 
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        {children}
+      </div>
 
       {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
     </section>
@@ -280,7 +288,7 @@ function Subcard({
   text?: React.ReactNode;
 }) {
   return (
-    <div className={SURFACE_SUBCARD}>
+    <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
         <div className={PANEL_SECTION_TITLE}>{value}</div>
@@ -333,10 +341,11 @@ export default function DetailAthleteProgress() {
 
   if (loading) {
     return (
-      <section className={SURFACE_CARD}>
+      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
           <LoadingSpinner size="widget" />
         </div>
+        <div className={ACCORDION_FOOTER_BAR_MUTED} />
       </section>
     );
   }
@@ -462,20 +471,23 @@ export default function DetailAthleteProgress() {
             title="Týždenný objem"
             value={`${formatMinutesRange(p.volPrevMin, p.volPrevMax)} → ${formatMinutesRange(
               p.volCurrMin,
-              p.volCurrMax
+              p.volCurrMax,
             )}`}
             text={p.volComment || undefined}
           />
 
-          <div className={SURFACE_SUBCARD}>
+          <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_SUBTITLE}>Zmeny v pláne</div>
+
               {p.planSoften ? (
                 <div className={PANEL_PREVIEW}>{p.planSoften}</div>
               ) : null}
+
               {p.planWeekly ? (
                 <div className={PANEL_PREVIEW}>{p.planWeekly}</div>
               ) : null}
+
               {!p.planSoften && !p.planWeekly ? (
                 <div className={PANEL_PREVIEW}>
                   AI neodporúča meniť štruktúru plánu.
@@ -488,7 +500,7 @@ export default function DetailAthleteProgress() {
 
       <Card title="Odporúčania z posledného porovnania" footer>
         <div className={PANEL_GRID_3}>
-          <div className={SURFACE_SUBCARD}>
+          <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Čo osláviť</div>
               {p.celebrations.length ? (
@@ -505,7 +517,7 @@ export default function DetailAthleteProgress() {
             </div>
           </div>
 
-          <div className={SURFACE_SUBCARD}>
+          <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>Riziká, ktoré sledovať</div>
               {p.risksToWatch.length ? (
@@ -522,7 +534,7 @@ export default function DetailAthleteProgress() {
             </div>
           </div>
 
-          <div className={SURFACE_SUBCARD}>
+          <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               <div className={PANEL_SECTION_TITLE}>
                 Fokus na najbližšie týždne
@@ -543,17 +555,18 @@ export default function DetailAthleteProgress() {
         </div>
       </Card>
 
-      <section className={SURFACE_CARD}>
-        <div className={[PANEL_PAD].join(" ")}>
+      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
+        <div className={PANEL_PAD}>
           <details className="text-xs">
             <summary className="cursor-pointer">
               Debug – raw JSON progress report
             </summary>
-            <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-900/80 p-3 text-[10px] leading-tight">
+            <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] opacity-85">
               {JSON.stringify(p.raw, null, 2)}
             </pre>
           </details>
         </div>
+        <div className={ACCORDION_FOOTER_BAR_MUTED} />
       </section>
     </div>
   );

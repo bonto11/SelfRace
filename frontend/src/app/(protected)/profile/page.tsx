@@ -16,7 +16,7 @@ export default function Page() {
   const router = useRouter();
 
   return (
-    <PageShell title="Profil" showBack={false}>
+    <PageShell title="Profil" showBack={false} showPoweredByStrava={false}>
       <div className={PAGE_GRID_2}>
         <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
         <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />

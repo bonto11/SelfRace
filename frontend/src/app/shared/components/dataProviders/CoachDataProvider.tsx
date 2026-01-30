@@ -1,4 +1,5 @@
 // src/features/coach/data/CoachDataProvider.tsx
+// src/features/coach/data/CoachDataProvider.tsx
 "use client";
 
 import React, {
@@ -69,13 +70,16 @@ type PlanSubCtx = {
 /* ----------------- Typ kontextu ----------------- */
 
 type CoachCtx = {
-  // coach prefs + PB (existujúce)
+  // ✅ nový agregát
+  loading: boolean;
+
+  // coach prefs + PB
   prefs: CoachPrefs;
   pbRun: typePB[];
-  refresh: () => Promise<void>;
+  refresh: (force?: boolean) => Promise<void>;
   savePrefs: (next: CoachPrefs) => Promise<void>;
 
-  // nový blok: plán
+  // plán
   plan: PlanSubCtx;
 };
 
@@ -104,20 +108,25 @@ export function CoachDataProvider({
   // -------- prefs + PB --------
   const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
   const [pbRun, setPbRun] = useState<typePB[]>([]);
+  const [coachLoading, setCoachLoading] = useState(false); // ✅ NEW
 
   const refreshCoachCore = useCallback(async () => {
     if (!userId) return;
 
-    // prefs
-    const p =
-      (await apiFetchUserPref(userId, "coach.prefs").catch(() => null)) ?? DEFAULT_PREFS;
-    setPrefs(p);
+    setCoachLoading(true);
+    try {
+      // prefs
+      const p =
+        (await apiFetchUserPref(userId, "coach.prefs").catch(() => null)) ??
+        DEFAULT_PREFS;
+      setPrefs(p);
 
-    // PB – RUN
-    const runBests: UserBest[] = await apiGetBests(userId, "run").catch(
-      () => []
-    );
-    setPbRun(runBests.map(mapRunBest));
+      // PB – RUN
+      const runBests: UserBest[] = await apiGetBests(userId, "run").catch(() => []);
+      setPbRun(runBests.map(mapRunBest));
+    } finally {
+      setCoachLoading(false);
+    }
   }, [userId]);
 
   const savePrefs = useCallback(
@@ -144,7 +153,7 @@ export function CoachDataProvider({
         return;
       }
 
-      // force tu zatiaľ nerozlišujeme – nechávame parameter kvôli budúcnosti
+      // force zatiaľ nerozlišujeme – nechávame parameter kvôli budúcnosti
       setPlanLoading(true);
       try {
         const norm = await fetchPlanRangeApi(userId, rangeStart, rangeEnd);
@@ -168,9 +177,12 @@ export function CoachDataProvider({
   );
 
   // -------- spoločný refresh --------
-  const refresh = useCallback(async () => {
-    await Promise.all([refreshCoachCore(), refreshPlan(true)]);
-  }, [refreshCoachCore, refreshPlan]);
+  const refresh = useCallback(
+    async (force = false) => {
+      await Promise.all([refreshCoachCore(), refreshPlan(force)]);
+    },
+    [refreshCoachCore, refreshPlan]
+  );
 
   // init / zmena usera alebo rozsahu
   useEffect(() => {
@@ -178,17 +190,21 @@ export function CoachDataProvider({
       setPrefs(DEFAULT_PREFS);
       setPbRun([]);
       setPlanRows([]);
+      setCoachLoading(false);
       return;
     }
-    void refresh();
+    void refresh(true);
   }, [userId, refresh]);
 
   const value = useMemo<CoachCtx>(
     () => ({
+      loading: coachLoading || planLoading, // ✅ NEW agregát
+
       prefs,
       pbRun,
       refresh,
       savePrefs,
+
       plan: {
         rangeStart,
         rangeEnd,
@@ -200,6 +216,8 @@ export function CoachDataProvider({
       },
     }),
     [
+      coachLoading,
+      planLoading,
       prefs,
       pbRun,
       refresh,
@@ -207,7 +225,6 @@ export function CoachDataProvider({
       rangeStart,
       rangeEnd,
       planRows,
-      planLoading,
       refreshPlan,
       selectPlanByRange,
     ]

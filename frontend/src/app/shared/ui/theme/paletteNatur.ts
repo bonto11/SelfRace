@@ -136,7 +136,8 @@ export const natur = {
   shadowCard: "0 14px 50px rgba(0,0,0,0.55)",
 
   //Strava
-  backgroundStrava: "#FC5200"
+  backgroundStrava: "#FC5200",
+  textStrava: "#FFFFFF",
 
 } as const;
 

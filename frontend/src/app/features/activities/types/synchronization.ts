@@ -1,13 +1,13 @@
 export type SyncActivitiesOptions = {
-  forceLastDays?: number | null;
+  forceLastDays?: number;
   fetchDetails?: boolean;
 };
 
 export type SyncActivitiesStats = {
-  imported: number;
-  updated: number;
-  skipped: number;
-  fetched: number;
+  imported?: number;
+  updated?: number;
+  skipped?: number;
+  fetched?: number;
 };
 
 export type SyncActivitiesResponse = {
@@ -15,3 +15,4 @@ export type SyncActivitiesResponse = {
   stats: SyncActivitiesStats;
   note?: string | null;
 };
+

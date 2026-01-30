@@ -9,6 +9,7 @@ from Services.maintenance import (
     service_cleanup_deleted_activities,
     service_weekly_athlete_state_analysis,
     service_account_hard_delete,
+    service_cleanup_expired_activity_details,  # ✅ NEW
 )
 from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
@@ -17,25 +18,50 @@ from Configs.config import MAINTENANCE_API_KEY
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
-@router.post("/cleanup-deleted-activities")
-async def cleanup_deleted_activities_endpoint(
-    cutoff_days: int = Body(30, embed=True),
-    x_api_key: str | None = Header(default=None),
-):
+
+def _require_api_key(x_api_key: str | None) -> None:
     if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid or missing API key",
         )
 
+
+@router.post("/cleanup-deleted-activities")
+async def cleanup_deleted_activities_endpoint(
+    cutoff_days: int = Body(30, embed=True),
+    x_api_key: str | None = Header(default=None),
+):
+    _require_api_key(x_api_key)
+
     try:
         result = service_cleanup_deleted_activities(cutoff_days=cutoff_days)
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
-        return JSONResponse(
-            {"ok": False, "error": str(e)},
-            status_code=500,
-        )
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@router.post("/cleanup-expired-activity-details")
+async def cleanup_expired_activity_details_endpoint(
+    x_api_key: str | None = Header(default=None),
+):
+    """
+    Hard delete expirovaných detailov aktivít:
+    - activities_streams
+    - activities_laps
+    - activities_splits
+
+    Mazanie ide podľa:
+      - expires_at <= now()
+      - OR deleted_at IS NOT NULL
+    """
+    _require_api_key(x_api_key)
+
+    try:
+        result = service_cleanup_expired_activity_details()
+        return JSONResponse({"ok": True, "result": result})
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @router.post("/weekly-athlete-state-refresh")
@@ -49,11 +75,7 @@ async def weekly_athlete_state_refresh_endpoint(
 
     Beží v SERVICE režime (service=True), teda cez service klienta na DB.
     """
-    if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid or missing API key",
-        )
+    _require_api_key(x_api_key)
 
     try:
         # 1) zoznam userov
@@ -77,7 +99,6 @@ async def weekly_athlete_state_refresh_endpoint(
                 continue
 
             try:
-                # SERVICE režim – cron/maintenance: service=True, user_jwt=None
                 resp = service_analyze_athlete(
                     user_id=int(uid),
                     user_jwt=None,
@@ -106,20 +127,12 @@ async def weekly_athlete_state_refresh_endpoint(
                     }
                 )
 
-        return JSONResponse(
-            {
-                "ok": True,
-                "processed": processed,
-                "results": results,
-            }
-        )
+        return JSONResponse({"ok": True, "processed": processed, "results": results})
 
     except Exception as e:  # noqa: BLE001
-        return JSONResponse(
-            {"ok": False, "error": str(e)},
-            status_code=500,
-        )
-    
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 @router.post("/app-subscriptions/apply-due")
 async def maintenance_apply_due_app_subscriptions(
     x_api_key: str | None = Header(default=None),
@@ -128,11 +141,7 @@ async def maintenance_apply_due_app_subscriptions(
     Cron endpoint – volaný raz denne zvonka (GitHub Actions / Railway cron).
     Vykoná všetky naplánované zmeny subscriptionov.
     """
-    if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid or missing API key",
-        )
+    _require_api_key(x_api_key)
 
     try:
         result = service_apply_due_subscription_changes(
@@ -141,14 +150,13 @@ async def maintenance_apply_due_app_subscriptions(
         )
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
-        return JSONResponse(
-            {"ok": False, "error": str(e)},
-            status_code=500,
-        )
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
 
 class AccountHardDeletePayload(BaseModel):
-  dry_run: bool = False
-  only_user_id: int | None = None
+    dry_run: bool = False
+    only_user_id: int | None = None
+
 
 @router.post("/account-hard-delete")
 async def maintenance_account_hard_delete(
@@ -157,15 +165,8 @@ async def maintenance_account_hard_delete(
 ):
     """
     Cron endpoint pre hard delete účtov označených na zmazanie.
-
-    - dry_run=True  → len simuluje, koho by mazalo
-    - only_user_id  → ak je zadané, mazanie sa obmedzí len na daného usera
     """
-    if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid or missing API key",
-        )
+    _require_api_key(x_api_key)
 
     try:
         result = service_account_hard_delete(
@@ -174,7 +175,4 @@ async def maintenance_account_hard_delete(
         )
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
-        return JSONResponse(
-            {"ok": False, "error": str(e)},
-            status_code=500,
-        )
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

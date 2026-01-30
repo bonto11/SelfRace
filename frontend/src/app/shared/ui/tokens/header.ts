@@ -34,3 +34,11 @@ export const APPBAR_ROW = [
 
 export const APPBAR_TITLE = "text-lg font-semibold truncate";
 export const APPBAR_RIGHT = "justify-self-end";
+
+// ===== Title stack + Strava sub-brand =====
+export const APPBAR_TITLE_STACK = "flex flex-col gap-1 min-w-0";
+
+export const APPBAR_BRAND_IMG =
+  "h-2.5 w-auto max-w-[120px] opacity-70 select-none"; // ✅ výrazne menšie
+
+export const APPBAR_BRAND_WRAP = "flex items-center justify-start";

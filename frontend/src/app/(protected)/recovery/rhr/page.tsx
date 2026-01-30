@@ -11,7 +11,7 @@ const RHRDetailClient = dynamic(
 
 export default function Page() {
   return (
-    <PageShell title="Detail — Resting Heart Rate (RHR)" showBack>
+    <PageShell title="Detail — Resting Heart Rate (RHR)" showBack showPoweredByStrava={false}>
       <RHRDetailClient />
     </PageShell>
   );

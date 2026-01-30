@@ -20,10 +20,18 @@ import {
   AUTH_FEEDBACK_SUCCESS_STYLE,
   AUTH_FEEDBACK_ERROR_STYLE,
   AUTH_LINK,
-  AUTH_LINK_STYLE,
   AUTH_LINK_MUTED_STYLE,
   AUTH_TEXT,
 } from "@/app/shared/ui/tokens/auth";
+
+import {
+  CHECKBOX_ROW,
+  CHECKBOX_BOX_EDITABLE,
+  CHECKBOX_BOX_EDITABLE_STYLE,
+  CHECKBOX_LABEL,
+  CHECKBOX_HINT,
+  FORM_TEXT_VARS,
+} from "@/app/shared/ui/tokens/inputs";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
@@ -34,8 +42,18 @@ export default function SignUpForm() {
   const [msg, setMsg] = useState<string | null>(null);
   const [isOk, setIsOk] = useState<boolean>(false);
 
+  // ✅ explicit consent
+  const [agreeRisk, setAgreeRisk] = useState(false);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+
+    // hard gate (aj keby niekto hackol disabled)
+    if (!agreeRisk) {
+      toast.error("Prosím potvrď, že rozumieš podmienkam používania.");
+      return;
+    }
+
     setBusy(true);
     setMsg(null);
     setIsOk(false);
@@ -64,6 +82,8 @@ export default function SignUpForm() {
     setIsOk(true);
     toast.success(okMsg);
   }
+
+  const canSubmit = !busy && agreeRisk;
 
   return (
     <AuthShell
@@ -101,6 +121,50 @@ export default function SignUpForm() {
           />
         </div>
 
+        {/* ✅ legal line (pod heslom, nad checkboxom/submitom) */}
+        <div
+          className="text-[11px] leading-relaxed"
+          style={{ color: appColors.textMuted }}
+        >
+          By clicking Sign Up, you agree to our{" "}
+          <Link
+            href="/terms"
+            className={AUTH_LINK}
+            style={AUTH_LINK_MUTED_STYLE}
+          >
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            className={AUTH_LINK}
+            style={AUTH_LINK_MUTED_STYLE}
+          >
+            Privacy Policy
+          </Link>
+          .
+        </div>
+
+        {/* ✅ explicitný checkbox (must-check) */}
+        <label
+          className={CHECKBOX_ROW}
+          style={{ ...(FORM_TEXT_VARS as any), ...(CHECKBOX_BOX_EDITABLE_STYLE as any) }}
+        >
+          <input
+            type="checkbox"
+            className={CHECKBOX_BOX_EDITABLE}
+            checked={agreeRisk}
+            onChange={(e) => setAgreeRisk(e.currentTarget.checked)}
+          />
+          <span className={CHECKBOX_LABEL} style={{ color: appColors.textSecondary }}>
+            I understand that SelfRace is not a medical tool and I use the
+            training insights at my own risk.
+            <span className={CHECKBOX_HINT}>
+              (Required to create an account)
+            </span>
+          </span>
+        </label>
+
         {msg ? (
           <div
             className={AUTH_FEEDBACK}
@@ -110,7 +174,8 @@ export default function SignUpForm() {
           </div>
         ) : null}
 
-        <Button type="submit" variant="primary" block disabled={busy}>
+        {/* ✅ disabled kým nie je checkbox */}
+        <Button type="submit" variant="primary" block disabled={!canSubmit}>
           {busy ? "Vytváram…" : "Registrovať"}
         </Button>
 

@@ -6,7 +6,7 @@ import DetailAthleteState from "@/app/features/coach/components/DetailAthleteSta
 
 export default function Page() {
   return (
-    <PageShell title="Athlete state" showBack>
+    <PageShell title="Athlete state" showBack showPoweredByStrava={false}>
       <DetailAthleteState />
     </PageShell>
   );

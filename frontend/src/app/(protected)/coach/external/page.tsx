@@ -10,7 +10,7 @@ export default function Page() {
   const { userId } = useUserId();
 
   return (
-    <PageShell title="External activities & events" showBack>
+    <PageShell title="External activities & events" showBack showPoweredByStrava={false}>
       <DetailExternalEvents userId={userId ?? undefined} />
     </PageShell>
   );

@@ -6,7 +6,7 @@ import CoachPreferencies from "@/app/features/prefs/components/CoachPreferencies
 
 export default function Page() {
   return (
-    <PageShell title="Coach — Preferences" showBack>
+    <PageShell title="Coach — Preferences" showBack showPoweredByStrava={false}> 
       <CoachPreferencies />
     </PageShell>
   );

@@ -100,11 +100,6 @@ export type ActivityRow = {
   pace_seconds_per_km: number | null;
   deleted_at?: string | null;
 
-  // workout / mapa
-  workout_type: number | null;
-  map_summary_polyline: string | null;
-  map_polyline: string | null;
-
   // interné veci (zónový / AI enrichment)
   trimp: number | null;
 };

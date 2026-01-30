@@ -3,7 +3,6 @@
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
 import { fmtMin, safeText, tgtToStr } from "@/app/shared/components/session/sessionUtils";
-
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 
 import {

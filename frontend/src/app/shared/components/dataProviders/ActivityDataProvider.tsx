@@ -1,4 +1,4 @@
-// src/features/activity/data/ActivityDataProvider.tsx
+// src/app/shared/components/dataProviders/ActivityDataProvider.tsx
 "use client";
 
 import React, {
@@ -14,21 +14,21 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { aggregateWeeks } from "@/app/features/activities/utils/activity";
 import { addDays, todayISO } from "@/app/shared/utils/time";
 
-import {
+import type {
   ActivityRow,
-  ActivityDetailExtra,
   WeekRow,
   StreamsData,
   Metric,
 } from "@/app/features/activities/types/activities";
-import { Rolling7 } from "@/app/features/activities/types/MonoStrain";
+import type { Rolling7 } from "@/app/features/activities/types/MonoStrain";
 
 import {
-  apiFetchDetail,
   apiFetchParetoWidget,
   apiFetchParetoTrend,
+  apiFetchActivityExtrasCombined,
+  type ActivityExtrasCombined,
 } from "@/app/features/activities/api/analytics_activities";
-import { apiFetchStreams } from "@/app/features/activities/api/activities_streams";
+
 import { apiFetchRange } from "@/app/features/activities/api/activities_summary";
 import { hasSesssioStorage } from "@/app/shared/utils/sessionStorage";
 
@@ -37,135 +37,141 @@ import { hasSesssioStorage } from "@/app/shared/utils/sessionStorage";
 function rangeKey(userId: number, start: string, end: string) {
   return `ACT:RANGE:${userId}:${start}:${end}`;
 }
-function detailKey(activityId: number) {
-  return `ACT:DETAIL:${activityId}`;
+function extrasKey(activityId: number) {
+  return `ACT:EXTRAS:v1:${activityId}`;
 }
 
-// --- convert FE input (string | string[] | null) -> CSV string | null
-function toCsvSportParam(
-  s: string | string[] | null | undefined
-): string | null {
-  if (s == null) return null; // necháme BE použiť default whitelist
+function saveRange(userId: number, start: string, end: string, rows: ActivityRow[]) {
+  if (!hasSesssioStorage()) return;
+  try {
+    sessionStorage.setItem(
+      rangeKey(userId, start, end),
+      JSON.stringify({ at: Date.now(), rows })
+    );
+  } catch {}
+}
+
+function loadRange(userId: number, start: string, end: string): ActivityRow[] | null {
+  if (!hasSesssioStorage()) return null;
+  try {
+    const raw = sessionStorage.getItem(rangeKey(userId, start, end));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.rows) ? (parsed.rows as ActivityRow[]) : [];
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------ streams normalize ------------------------------ */
+
+/**
+ * BE/DB/Strava transport -> FE model (StreamsData)
+ * - podporuje oba kľúče: hr aj heartrate_bpm
+ */
+function normalizeStreams(raw: any): StreamsData | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const time_s = Array.isArray(raw?.time_s) ? (raw.time_s as number[]) : [];
+  if (!time_s.length) {
+    // bez time_s to v UI aj tak nechceš (grafy, pace derivácie, ...)
+    return null;
+  }
+
+  const hr =
+    Array.isArray(raw?.hr) ? (raw.hr as (number | null)[]) :
+    Array.isArray(raw?.heartrate_bpm) ? (raw.heartrate_bpm as (number | null)[]) :
+    [];
+
+  const altitude_m = Array.isArray(raw?.altitude_m) ? (raw.altitude_m as (number | null)[]) : [];
+  const distance_m = Array.isArray(raw?.distance_m) ? (raw.distance_m as (number | null)[]) : [];
+  const cadence_rpm = Array.isArray(raw?.cadence_rpm) ? (raw.cadence_rpm as (number | null)[]) : [];
+  const power_w = Array.isArray(raw?.power_w) ? (raw.power_w as (number | null)[]) : [];
+
+  const lastT = time_s.length ? Number(time_s[time_s.length - 1]) : 0;
+  const duration_s = Number.isFinite(lastT) ? (lastT || 0) : 0;
+
+  return {
+    time_s,
+    hr,
+    altitude_m,
+    distance_m,
+    cadence_rpm,
+    power_w,
+    duration_s,
+  };
+}
+
+function saveExtras(activityId: number, data: ActivityExtrasCombined) {
+  if (!hasSesssioStorage()) return;
+  try {
+    // uložíme už normalizované streams (nie transport shape)
+    const normStreams = normalizeStreams((data as any)?.streams) ?? null;
+
+    sessionStorage.setItem(
+      extrasKey(activityId),
+      JSON.stringify({
+        at: Date.now(),
+        source: (data as any)?.source ?? "unknown",
+        fetched: !!(data as any)?.fetched,
+        streams: normStreams,
+        laps: Array.isArray((data as any)?.laps) ? (data as any).laps : [],
+        splits: Array.isArray((data as any)?.splits) ? (data as any).splits : [],
+      })
+    );
+  } catch {}
+}
+
+function loadExtras(activityId: number): ActivityExtrasCombined | null {
+  if (!hasSesssioStorage()) return null;
+  try {
+    const raw = sessionStorage.getItem(extrasKey(activityId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+
+    // spätná kompatibilita:
+    // - ak by v cache náhodou bol starý transport shape, normalizeStreams ho zoberie
+    const streams = normalizeStreams(parsed?.streams) ?? null;
+    const laps = Array.isArray(parsed?.laps) ? parsed.laps : [];
+    const splits = Array.isArray(parsed?.splits) ? parsed.splits : [];
+
+    return {
+      streams: streams as any,
+      laps,
+      splits,
+      source: String(parsed?.source ?? "unknown"),
+      fetched: !!parsed?.fetched,
+    } as any;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------ helpers ------------------------------ */
+
+function toCsvSportParam(s: string | string[] | null | undefined): string | null {
+  if (s == null) return null;
   if (Array.isArray(s)) {
     const list = s.map((x) => String(x).trim()).filter(Boolean);
     return list.length ? list.join(",") : "all";
   }
   const raw = String(s).trim();
   if (!raw || raw.toLowerCase() === "all") return "all";
-  const list = raw
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
+  const list = raw.split(",").map((x) => x.trim()).filter(Boolean);
   return list.length ? list.join(",") : "all";
 }
 
-// ---- 80/20 cache keys na CSV (nie pole!) ----
-function paretoWidgetKey(
-  userId: number,
-  days: number,
-  sportCsv: string | null
-) {
-  return `PARETO:W:${userId}:${days}:${sportCsv ?? "all"}`;
-}
-
-function paretoTrendKey(
-  userId: number,
-  weeks: number,
-  sportCsv: string | null
-) {
-  return `PARETO:T:${userId}:${weeks}:${sportCsv ?? "all"}`;
-}
-
-function saveRange(
-  userId: number,
-  start: string,
-  end: string,
-  rows: ActivityRow[]
-) {
-  if (!hasSesssioStorage()) return;
-  try {
-    const key = rangeKey(userId, start, end);
-    sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), rows }));
-  } catch (e) {
-    console.warn("[ACT][cache] saveRange error:", e);
-  }
-}
-
-function loadRange(
-  userId: number,
-  start: string,
-  end: string
-): ActivityRow[] | null {
-  if (!hasSesssioStorage()) return null;
-  try {
-    const key = rangeKey(userId, start, end);
-    const raw = sessionStorage.getItem(key);
-    if (!raw) {
-      console.warn("[ACT][cache] loadRange miss", { key });
-      return null;
-    }
-    const parsed = JSON.parse(raw);
-    const rows = Array.isArray(parsed?.rows)
-      ? (parsed.rows as ActivityRow[])
-      : [];
-    return rows;
-  } catch (e) {
-    console.warn("[ACT][cache] loadRange error:", e);
-    return null;
-  }
-}
-
-function saveDetail(activityId: number, extra: ActivityDetailExtra) {
-  if (!hasSesssioStorage()) return;
-  try {
-    const key = detailKey(activityId);
-    sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), ...extra }));
-  } catch (e) {
-    console.warn("[ACT][cache] saveDetail error:", e);
-  }
-}
-
-function loadDetail(activityId: number): ActivityDetailExtra | null {
-  if (!hasSesssioStorage()) return null;
-  try {
-    const key = detailKey(activityId);
-    const raw = sessionStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return {
-      laps: Array.isArray(parsed?.laps) ? parsed.laps : [],
-      splits: Array.isArray(parsed?.splits) ? parsed.splits : [],
-    };
-  } catch {
-    return null;
-  }
-}
-
-// --- streams cache (HR) ---
-function streamsKey(activityId: number) {
-  return `ACT:STREAMS:${activityId}`;
-}
-
-function saveStreams(activityId: number, data: StreamsData) {
-  if (!hasSesssioStorage()) return;
-  try {
-    sessionStorage.setItem(streamsKey(activityId), JSON.stringify(data));
-  } catch {
-    // swallow
-  }
-}
-
-function loadStreams(activityId: number): StreamsData | null {
-  if (!hasSesssioStorage()) return null;
-  try {
-    const raw = sessionStorage.getItem(streamsKey(activityId));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 /* ------------------------------ Context ------------------------------ */
+
+type FetchOpts = { fetch?: boolean };
+
+export type ActivityExtras = {
+  streams: StreamsData | null;
+  laps: any[];
+  splits: any[];
+  source?: string;
+  fetched?: boolean;
+};
 
 type Ctx = {
   rangeStart: string;
@@ -173,23 +179,21 @@ type Ctx = {
   rows: ActivityRow[];
   weeks: WeekRow[];
   loading: boolean;
+
   refresh: (force?: boolean) => Promise<void>;
   selectByRange: (start: string, end: string) => ActivityRow[];
   getSummary: (activityId: number) => ActivityRow | null;
-  getDetail: (activityId: number) => Promise<ActivityDetailExtra>;
-  getStreams: (activityId: number) => Promise<StreamsData>;
+
+  // ✅ jediné “detail” API
+  getExtras: (activityId: number, opts?: FetchOpts) => Promise<ActivityExtras>;
+
   rolling7: (metric: Metric) => Rolling7;
 
-  // 80/20
   getParetoWidget: (
     days: number,
     sport?: string | string[] | null
-  ) => Promise<{
-    easy_min: number;
-    hard_min: number;
-    total_min: number;
-    days: number;
-  } | null>;
+  ) => Promise<{ easy_min: number; hard_min: number; total_min: number; days: number } | null>;
+
   getParetoTrend: (
     weeks: number,
     sport?: string | string[] | null
@@ -210,10 +214,7 @@ const ActivityDataContext = createContext<Ctx | null>(null);
 
 export function useActivityData() {
   const ctx = useContext(ActivityDataContext);
-  if (!ctx)
-    throw new Error(
-      "useActivityData must be used within <ActivityDataProvider>"
-    );
+  if (!ctx) throw new Error("useActivityData must be used within <ActivityDataProvider>");
   return ctx;
 }
 
@@ -230,24 +231,19 @@ export function ActivityDataProvider({
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // posledných N dní: [start..today]
   const rangeEnd = todayISO();
   const rangeStart = addDays(rangeEnd, -(days - 1));
 
   const fetchRange = useCallback(
-    async (force = false): Promise<void> => {
+    async (force = false) => {
       if (userId == null) {
-        console.warn("[ACT][provider] no userId -> skip fetchRange");
         setRows([]);
         return;
       }
 
-      // najprv skús cache (iba ak nie force)
       if (!force) {
         const cached = loadRange(userId, rangeStart, rangeEnd);
-        if (cached) {
-          setRows(cached);
-        }
+        if (cached) setRows(cached);
       }
 
       setLoading(true);
@@ -255,8 +251,6 @@ export function ActivityDataProvider({
         const norm = await apiFetchRange(userId, rangeStart, rangeEnd);
         setRows(norm);
         saveRange(userId, rangeStart, rangeEnd, norm);
-      } catch (e) {
-        console.error("[ACT][fetchRange] ERROR", e);
       } finally {
         setLoading(false);
       }
@@ -264,7 +258,6 @@ export function ActivityDataProvider({
     [userId, rangeStart, rangeEnd]
   );
 
-  // init + refresh pri zmene usera / range
   useEffect(() => {
     if (userId == null) {
       setRows([]);
@@ -273,10 +266,7 @@ export function ActivityDataProvider({
     void fetchRange(false);
   }, [userId, rangeStart, rangeEnd, fetchRange]);
 
-  const weeks = useMemo(() => {
-    const w = aggregateWeeks(rows);
-    return w;
-  }, [rows]);
+  const weeks = useMemo(() => aggregateWeeks(rows), [rows]);
 
   const selectByRange = useCallback(
     (start: string, end: string) => {
@@ -287,63 +277,51 @@ export function ActivityDataProvider({
   );
 
   const getSummary = useCallback(
-    (activityId: number) =>
-      rows.find((r) => r.activity_id === activityId) ?? null,
+    (activityId: number) => rows.find((r) => r.activity_id === activityId) ?? null,
     [rows]
   );
 
-  const getDetail = useCallback(
-    async (activityId: number): Promise<ActivityDetailExtra> => {
-      if (userId == null) return { laps: [], splits: [] };
+  // ✅ jediný vstup: extras
+  const getExtras = useCallback(
+    async (activityId: number, opts?: FetchOpts): Promise<ActivityExtras> => {
+      if (userId == null || !activityId) return { streams: null, laps: [], splits: [] };
 
-      const cached = loadDetail(activityId);
-      if (cached) {
-        return cached;
-      }
+      const fetch = !!opts?.fetch;
 
-      try {
-        const extra = await apiFetchDetail(userId, activityId);
-        saveDetail(activityId, extra);
-        return extra;
-      } catch (e) {
-        console.error("[ACT][detail] fetch ERROR", e);
-        return { laps: [], splits: [] };
-      }
-    },
-    [userId]
-  );
-
-  const getStreams = useCallback(
-    async (activityId: number): Promise<StreamsData> => {
-      if (userId == null) return { time_s: [], hr: [], duration_s: 0 };
-
-      const cached = loadStreams(activityId);
-      if (cached && Array.isArray(cached.time_s) && cached.time_s.length > 0) {
-        return cached;
-      }
-
-      try {
-        const data = await apiFetchStreams(userId, activityId, {
-          fetch: true,
-          max: 400,
-        });
-
-        // základná sanity check – ak je to úplne prázdne, necacheujeme
-        if (Array.isArray(data.time_s) && data.time_s.length > 0) {
-          saveStreams(activityId, data);
-          return data;
+      // 1) cache (iba keď fetch=false)
+      if (!fetch) {
+        const cached = loadExtras(activityId);
+        if (cached) {
+          return {
+            streams: (cached as any).streams ?? null,
+            laps: (cached as any).laps ?? [],
+            splits: (cached as any).splits ?? [],
+            source: (cached as any).source,
+            fetched: (cached as any).fetched,
+          };
         }
-
-        return { time_s: [], hr: [], duration_s: 0 };
-      } catch (e) {
-        console.error("[ACT][streams] fetch ERROR", e);
-        return { time_s: [], hr: [], duration_s: 0 };
       }
+
+      // 2) API (db alebo strava podľa fetch)
+      const res = await apiFetchActivityExtrasCombined(userId, activityId, fetch);
+
+      // res.streams je transport shape -> normalizujeme
+      const normStreams = normalizeStreams((res as any)?.streams) ?? null;
+
+      const out: ActivityExtras = {
+        streams: normStreams,
+        laps: (res as any)?.laps ?? [],
+        splits: (res as any)?.splits ?? [],
+        source: (res as any)?.source,
+        fetched: (res as any)?.fetched,
+      };
+
+      // 3) cache len pre fetch=false (DB path)
+      if (!fetch && res) saveExtras(activityId, res);
+      return out;
     },
     [userId]
   );
-
-  /* --------- Rolling 7 dní (z ActivityRow, nie z WeekRow!) --------- */
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
@@ -356,9 +334,10 @@ export function ActivityDataProvider({
       for (const r of rows) {
         const d = r.date.slice(0, 10);
         if (!daily.has(d)) continue;
+
         let inc = 0;
-        if (metric === "time") inc = (Number(r.moving_time_s) || 0) / 60;
-        else if (metric === "km") inc = (Number(r.distance_m) || 0) / 1000;
+        if (metric === "time") inc = (Number((r as any).moving_time_s) || 0) / 60;
+        else if (metric === "km") inc = (Number((r as any).distance_m) || 0) / 1000;
         else {
           const trimp =
             (r as any).trimp_total ??
@@ -416,31 +395,11 @@ export function ActivityDataProvider({
     [rows]
   );
 
-  /* --------- 80/20 fetchery s vlastnou cache (CSV) --------- */
-
   const getParetoWidget = useCallback(
     async (daysParam: number, sportSel: string | string[] | null = null) => {
       if (userId == null) return null;
-
       const sportCsv = toCsvSportParam(sportSel);
-      const key = paretoWidgetKey(userId, daysParam, sportCsv);
-
-      if (hasSesssioStorage()) {
-        const raw = sessionStorage.getItem(key);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed && Number.isFinite(parsed.easy_min)) return parsed;
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      const data = await apiFetchParetoWidget(userId, daysParam, sportCsv);
-      if (data && hasSesssioStorage())
-        sessionStorage.setItem(key, JSON.stringify(data));
-      return data;
+      return apiFetchParetoWidget(userId, daysParam, sportCsv);
     },
     [userId]
   );
@@ -448,25 +407,8 @@ export function ActivityDataProvider({
   const getParetoTrend = useCallback(
     async (weeksParam: number, sportSel: string | string[] | null = null) => {
       if (userId == null) return [];
-
       const sportCsv = toCsvSportParam(sportSel);
-      const key = paretoTrendKey(userId, weeksParam, sportCsv);
-
-      if (hasSesssioStorage()) {
-        const raw = sessionStorage.getItem(key);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed;
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      const rws = await apiFetchParetoTrend(userId, weeksParam, sportCsv);
-      if (hasSesssioStorage()) sessionStorage.setItem(key, JSON.stringify(rws));
-      return rws;
+      return apiFetchParetoTrend(userId, weeksParam, sportCsv);
     },
     [userId]
   );
@@ -481,8 +423,7 @@ export function ActivityDataProvider({
       refresh: fetchRange,
       selectByRange,
       getSummary,
-      getDetail,
-      getStreams,
+      getExtras,
       rolling7,
       getParetoWidget,
       getParetoTrend,
@@ -496,17 +437,12 @@ export function ActivityDataProvider({
       fetchRange,
       selectByRange,
       getSummary,
-      getDetail,
-      getStreams,
+      getExtras,
       rolling7,
       getParetoWidget,
       getParetoTrend,
     ]
   );
 
-  return (
-    <ActivityDataContext.Provider value={value}>
-      {children}
-    </ActivityDataContext.Provider>
-  );
+  return <ActivityDataContext.Provider value={value}>{children}</ActivityDataContext.Provider>;
 }

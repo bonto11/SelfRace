@@ -37,7 +37,7 @@ export default function RecoveryPage() {
   const router = useRouter();
 
   return (
-    <PageShell title="Recovery" showBack={false} rightSlot={<RefreshIconBtn />}>
+    <PageShell title="Recovery" showBack={false} rightSlot={<RefreshIconBtn />} showPoweredByStrava={false}>
       <RecoveryInputs />
 
       <div className={PAGE_GRID_2}>

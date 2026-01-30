@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Button from "./Button";
-import { cx } from "@/app/shared/ui";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   SURFACE_CARD,
   SURFACE_CARD_STYLE,
@@ -83,7 +83,9 @@ export default function ConfirmHost() {
 
   return (
     <Ctx.Provider value={ask}>
-      {typeof document !== "undefined" ? createPortal(node, document.body) : null}
+      {typeof document !== "undefined"
+        ? createPortal(node, document.body)
+        : null}
     </Ctx.Provider>
   );
 }
@@ -117,7 +119,7 @@ function Sheet({
         onClick={() => onClose(false)}
         className={cx(
           "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200",
-          show ? "opacity-100" : "opacity-0"
+          show ? "opacity-100" : "opacity-0",
         )}
       />
 
@@ -125,23 +127,31 @@ function Sheet({
       <div
         className={cx(
           "absolute left-1/2 -translate-x-1/2 transition-all duration-250",
-          show ? "top-[22vh] opacity-100" : "top-[20vh] opacity-0"
+          show ? "top-[22vh] opacity-100" : "top-[20vh] opacity-0",
         )}
       >
         <div
-          className={cx(SURFACE_CARD, "w-[92vw] max-w-[420px] mx-auto rounded-3xl shadow-xl")}
+          className={cx(
+            SURFACE_CARD,
+            "w-[92vw] max-w-[420px] mx-auto rounded-3xl shadow-xl",
+          )}
           style={SURFACE_CARD_STYLE}
         >
           <div className={cx(CARD_HEAD_INSET, "text-center")}>
             <div className="text-base font-semibold">{title}</div>
             {message ? (
-              <div className={cx("text-sm mt-1", MUTED_TEXT)} style={MUTED_TEXT_STYLE}>
+              <div
+                className={cx("text-sm mt-1", MUTED_TEXT)}
+                style={MUTED_TEXT_STYLE}
+              >
                 {message}
               </div>
             ) : null}
           </div>
 
-          <div className={cx(CARD_BODY_INSET, "pt-0 flex gap-3 justify-center")}>
+          <div
+            className={cx(CARD_BODY_INSET, "pt-0 flex gap-3 justify-center")}
+          >
             <Button
               variant="secondary"
               size="sm"

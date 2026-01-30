@@ -14,6 +14,7 @@ type Props = {
   contentClassName?: string;
   className?: string;
   children: React.ReactNode;
+  showPoweredByStrava: boolean;
 };
 
 export default function PageShell({
@@ -25,6 +26,7 @@ export default function PageShell({
   className,
   contentClassName,
   children,
+  showPoweredByStrava,
 }: Props) {
   return (
     <>
@@ -33,6 +35,7 @@ export default function PageShell({
         showBack={showBack}
         container={headerContainer}
         rightSlot={rightSlot}
+        showPoweredByStrava={showPoweredByStrava}
       />
 
       <div className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}>

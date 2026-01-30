@@ -6,6 +6,7 @@ export * from "./calendar";
 export * from "./charts";
 export * from "./header";
 export * from "./inputs";
+export * from "./coachPanel";
 export * from "./panels";
 export * from "./shell";
 export * from "./spinner";

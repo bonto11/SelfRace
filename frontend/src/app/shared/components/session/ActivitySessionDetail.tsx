@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode, type CSSProperties } from "react";
-
 import {
   SURFACE_INLINE,
   SURFACE_INLINE_STYLE,
@@ -15,10 +14,9 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-import Button from "@/app/shared/ui/components/Button"; // ✅ NEW
+import Button from "@/app/shared/ui/components/Button";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-import { ActivityRouteMap } from "@/app/shared/components/trend/ActivityRouteMap";
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
@@ -56,47 +54,44 @@ function safeText(value: any): string {
   }
 }
 
-// má sekcia aspoň jednu „reálnu“ hodnotu?
-function hasNonEmptyValue(items?: InfoItem[]): boolean {
+function isMeaningfulNumber(n: any, { allowZero = false } = {}): n is number {
+  if (n == null) return false;
+  const x = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(x)) return false;
+  if (!allowZero && x === 0) return false;
+  return true;
+}
+
+function valOrNullNumber(
+  n: any,
+  {
+    allowZero = false,
+    fmt,
+  }: { allowZero?: boolean; fmt?: (x: number) => string } = {},
+): string | null {
+  if (!isMeaningfulNumber(n, { allowZero })) return null;
+  const x = typeof n === "number" ? n : Number(n);
+  return fmt ? fmt(x) : String(x);
+}
+
+function nonEmptyText(v: any): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s || s === "—") return null;
+  if (s === "0" || s === "0.0" || s === "0.00" || s === "0.000") return null;
+  return s;
+}
+
+function hasMeaningfulValue(items?: InfoItem[]): boolean {
   if (!items || items.length === 0) return false;
   return items.some((it) => {
     const v = it.value;
     if (v === null || v === undefined) return false;
-    const s = String(v).trim();
-    return s !== "" && s !== "—";
+    if (typeof v === "number") return Number.isFinite(v) && v !== 0;
+    return nonEmptyText(v) != null;
   });
 }
 
-// workout_type → pekný label
-function workoutTypeLabelFromSummary(s: any | null): string | null {
-  if (!s || s.workout_type == null) return null;
-  const wt = s.workout_type;
-  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
-    .toString()
-    .toLowerCase();
-
-  if (sport.includes("run")) {
-    if (wt === 1) return "Race";
-    if (wt === 2) return "Long run";
-    if (wt === 3) return "Workout";
-    return `Run type ${wt}`;
-  }
-
-  if (
-    sport.includes("ride") ||
-    sport.includes("bike") ||
-    sport.includes("cycle")
-  ) {
-    if (wt === 1) return "Race";
-    if (wt === 2) return "Long ride";
-    if (wt === 3) return "Workout";
-    return `Ride type ${wt}`;
-  }
-
-  return `Type ${wt}`;
-}
-
-// kadencia – run → steps/min, bike → rpm
 function formatCadenceSummary(s: any | null): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
   const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
@@ -140,13 +135,11 @@ const INFO_TILE_STYLE: CSSProperties = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-function ActivitySectionShell({
-  title,
-  defaultOpen,
-  items,
-  children,
-}: SectionProps) {
+function ActivitySectionShell({ title, defaultOpen, items, children }: SectionProps) {
   const [open, setOpen] = useState(!!defaultOpen);
+  const hasItems = hasMeaningfulValue(items);
+  const showShell = hasItems || !!children;
+  if (!showShell) return null;
 
   return (
     <section className="mt-3">
@@ -172,7 +165,7 @@ function ActivitySectionShell({
             className={[SESSION_DIVIDER, "px-3 py-2 text-sm"].join(" ")}
             style={SESSION_DIVIDER_STYLE}
           >
-            {items && items.length > 0 && (
+            {hasItems && items && items.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {items.map((t) => (
                   <div key={t.label} className={INFO_TILE_CLASS} style={INFO_TILE_STYLE}>
@@ -184,7 +177,6 @@ function ActivitySectionShell({
                 ))}
               </div>
             )}
-
             {children}
           </div>
         )}
@@ -197,8 +189,8 @@ function ActivitySectionShell({
 
 type ActivitySessionDetailProps = {
   item: ActivitySession;
-  kpiBlock: ReactNode; // z parenta, ale už ho nevykresľujeme
-  hasKpis: boolean; // nechávam v type kvôli kompatibilite
+  kpiBlock: ReactNode;
+  hasKpis: boolean;
   compactChart: boolean;
   onOpenActivity?: (activityId: number) => void;
 };
@@ -211,23 +203,26 @@ export function ActivitySessionDetail({
   onOpenActivity,
 }: ActivitySessionDetailProps) {
   const act = item;
-  const { getSummary, getStreams, getDetail } = useActivityData();
+
+  // ✅ zmena: používame getExtras
+  const { getSummary, getExtras } = useActivityData();
 
   const s: any | null =
     act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
   const distTxt = s ? formatDistance(s.distance_m ?? null) : (act.distanceStr ?? "—");
+
   const timeTxt =
     s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (act.timeStr ?? "—");
+
   const avgHrTxt = s ? (s.average_heartrate_bpm ?? "—") : (act.avgHr ?? "—");
   const maxHrTxt = s ? (s.max_heartrate_bpm ?? "—") : (act.maxHr ?? "—");
+
   const cadenceLabel = formatCadenceSummary(s);
-  const workoutTypeLabel = workoutTypeLabelFromSummary(s);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
 
   const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
 
-  // Strava URL
   const stravaActivityId = (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
 
   const stravaUrl =
@@ -236,7 +231,6 @@ export function ActivitySessionDetail({
       ? getStravaActivityUrl(stravaActivityId)
       : null;
 
-  // ✅ NEW: otvorenie Strava linku cez button
   const openStrava = () => {
     if (!stravaUrl) return;
     window.open(stravaUrl, "_blank", "noopener,noreferrer");
@@ -251,123 +245,81 @@ export function ActivitySessionDetail({
     distance_m: [],
     altitude_m: [],
   });
-  const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([]);
+
   const [laps, setLaps] = useState<any[]>([]);
   const [splits, setSplits] = useState<any[]>([]);
 
+  const [busyFetch, setBusyFetch] = useState(false);
+
+  const applyExtrasToState = (ex: any) => {
+
+    const rawStreams: any = ex?.streams ?? null;
+
+    if (rawStreams && Array.isArray(rawStreams.time_s)) {
+      setStreams({
+        time_s: Array.isArray(rawStreams.time_s) ? rawStreams.time_s : [],
+        hr: Array.isArray(rawStreams.hr) ? rawStreams.hr : [],
+        duration_s:
+          typeof rawStreams.duration_s === "number"
+            ? rawStreams.duration_s
+            : rawStreams.time_s?.length
+              ? Number(rawStreams.time_s[rawStreams.time_s.length - 1]) || 0
+              : 0,
+        cadence_rpm: Array.isArray(rawStreams.cadence_rpm) ? rawStreams.cadence_rpm : [],
+        power_w: Array.isArray(rawStreams.power_w) ? rawStreams.power_w : [],
+        distance_m: Array.isArray(rawStreams.distance_m) ? rawStreams.distance_m : [],
+        altitude_m: Array.isArray(rawStreams.altitude_m) ? rawStreams.altitude_m : [],
+      });
+    } else {
+      setStreams({
+        time_s: [],
+        hr: [],
+        duration_s: 0,
+        cadence_rpm: [],
+        power_w: [],
+        distance_m: [],
+        altitude_m: [],
+      });
+    }
+
+    setLaps(Array.isArray(ex?.laps) ? ex.laps : []);
+    setSplits(Array.isArray(ex?.splits) ? ex.splits : []);
+  };
+
+  // init: iba DB (fetch=false)
   useEffect(() => {
     let alive = true;
     if (!act.activityId) return;
 
     (async () => {
       try {
-        const st = await getStreams(act.activityId);
-        const dt = await getDetail(act.activityId);
-
+        const ex = await getExtras(act.activityId, { fetch: false });
         if (!alive) return;
-
-        if (st) {
-          const raw: any = st ?? {};
-
-          const time_s: number[] = Array.isArray(raw.time_s)
-            ? raw.time_s
-            : Array.isArray(raw.time)
-              ? raw.time
-              : [];
-
-          const hr: (number | null)[] = Array.isArray(raw.hr)
-            ? raw.hr
-            : Array.isArray(raw.heartrate_bpm)
-              ? raw.heartrate_bpm
-              : [];
-
-          const cadence_rpm: (number | null)[] =
-            Array.isArray(raw.cadence_rpm) && raw.cadence_rpm.length
-              ? raw.cadence_rpm
-              : Array.isArray(raw.cadence)
-                ? raw.cadence
-                : [];
-
-          const power_w: (number | null)[] =
-            Array.isArray(raw.power_w) && raw.power_w.length
-              ? raw.power_w
-              : Array.isArray(raw.watts)
-                ? raw.watts
-                : [];
-
-          const distance_m: (number | null)[] =
-            Array.isArray(raw.distance_m) && raw.distance_m.length
-              ? raw.distance_m
-              : Array.isArray(raw.distance)
-                ? raw.distance
-                : [];
-
-          const altitude_m: (number | null)[] =
-            Array.isArray(raw.altitude_m) && raw.altitude_m.length
-              ? raw.altitude_m
-              : Array.isArray(raw.altitude)
-                ? raw.altitude
-                : [];
-
-          const duration_s: number =
-            typeof raw.duration_s === "number"
-              ? raw.duration_s
-              : time_s.length
-                ? Number(time_s[time_s.length - 1]) || 0
-                : 0;
-
-          const pts: { lat: number; lng: number }[] = [];
-          const latlngRaw = raw.latlng;
-
-          if (Array.isArray(latlngRaw)) {
-            for (const p of latlngRaw) {
-              if (Array.isArray(p) && p.length >= 2 && typeof p[0] === "number" && typeof p[1] === "number") {
-                pts.push({ lat: p[0], lng: p[1] });
-              } else if (p && typeof p.lat === "number" && typeof p.lng === "number") {
-                pts.push({ lat: p.lat, lng: p.lng });
-              }
-            }
-          }
-
-          setStreams({ time_s, hr, duration_s, cadence_rpm, power_w, distance_m, altitude_m });
-          setRoutePoints(pts);
-        } else {
-          setStreams({
-            time_s: [],
-            hr: [],
-            duration_s: 0,
-            cadence_rpm: [],
-            power_w: [],
-            distance_m: [],
-            altitude_m: [],
-          });
-          setRoutePoints([]);
-        }
-
-        if (dt) {
-          const anyDt: any = dt;
-          setLaps(anyDt.laps || []);
-          setSplits(anyDt.splits || []);
-        }
+        applyExtrasToState(ex);
       } catch (err) {
-        console.error("[ActivitySessionDetail] getStreams/getDetail error", err);
-        setStreams({
-          time_s: [],
-          hr: [],
-          duration_s: 0,
-          cadence_rpm: [],
-          power_w: [],
-          distance_m: [],
-          altitude_m: [],
-        });
-        setRoutePoints([]);
+        console.error("[ActivitySessionDetail] getExtras error", err);
+        if (!alive) return;
+        applyExtrasToState(null);
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [act.activityId, getStreams, getDetail]);
+  }, [act.activityId, getExtras]);
+
+  const onFetchMore = async () => {
+    if (!act.activityId || busyFetch) return;
+    setBusyFetch(true);
+    try {
+      const ex = await getExtras(act.activityId, { fetch: true }); // ✅ môže ísť na Stravu
+      applyExtrasToState(ex);
+    } catch (e) {
+      console.error("[ActivitySessionDetail] fetchMore error", e);
+    } finally {
+      setBusyFetch(false);
+    }
+  };
 
   /** ====== data pre jednotlivé sekcie ====== */
 
@@ -378,37 +330,46 @@ export function ActivitySessionDetail({
   ].filter(Boolean) as InfoItem[];
 
   const hrItems: InfoItem[] = [
-    { label: "AVG HR", value: avgHrTxt },
-    { label: "MAX HR", value: maxHrTxt },
-  ];
+    isMeaningfulNumber(avgHrTxt) ? { label: "AVG HR", value: avgHrTxt } : null,
+    isMeaningfulNumber(maxHrTxt) ? { label: "MAX HR", value: maxHrTxt } : null,
+  ].filter(Boolean) as InfoItem[];
+
+  const elevGain = valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` });
+  const elevHigh = valOrNullNumber(s?.elev_high_m, { fmt: (x) => `${x} m` });
+  const elevLow = valOrNullNumber(s?.elev_low_m, { fmt: (x) => `${x} m` });
 
   const elevItems: InfoItem[] = [
-    { label: "ELEV GAIN", value: s?.elevation_gain_m != null ? `${s.elevation_gain_m} m` : "—" },
-    { label: "ELEV HIGH", value: s?.elev_high_m != null ? `${s.elev_high_m} m` : "—" },
-    { label: "ELEV LOW", value: s?.elev_low_m != null ? `${s.elev_low_m} m` : "—" },
+    elevGain ? { label: "ELEV GAIN", value: elevGain } : null,
+    elevHigh ? { label: "ELEV HIGH", value: elevHigh } : null,
+    elevLow ? { label: "ELEV LOW", value: elevLow } : null,
     cadenceLabel ? { label: "CADENCE", value: cadenceLabel } : null,
   ].filter(Boolean) as InfoItem[];
 
+  const avgSpeed = valOrNullNumber(s?.average_speed_mps, { fmt: (x) => `${x.toFixed(3)} m/s` });
+  const maxSpeed = valOrNullNumber(s?.max_speed_mps, { fmt: (x) => `${x.toFixed(3)} m/s` });
+  const avgPower = valOrNullNumber(s?.average_watts, { fmt: (x) => `${x} W` });
+  const maxPower = valOrNullNumber(s?.max_watts, { fmt: (x) => `${x} W` });
+
   const powerItems: InfoItem[] = [
-    { label: "AVG SPEED", value: s?.average_speed_mps != null ? `${s.average_speed_mps.toFixed(3)} m/s` : "—" },
-    { label: "MAX SPEED", value: s?.max_speed_mps != null ? `${s.max_speed_mps.toFixed(3)} m/s` : "—" },
-    { label: "AVG POWER", value: s?.average_watts != null ? `${s.average_watts} W` : "—" },
-    { label: "MAX POWER", value: s?.max_watts != null ? `${s.max_watts} W` : "—" },
-  ];
+    avgSpeed ? { label: "AVG SPEED", value: avgSpeed } : null,
+    maxSpeed ? { label: "MAX SPEED", value: maxSpeed } : null,
+    avgPower ? { label: "AVG POWER", value: avgPower } : null,
+    maxPower ? { label: "MAX POWER", value: maxPower } : null,
+  ].filter(Boolean) as InfoItem[];
+
+  const avgTemp = valOrNullNumber(s?.average_temp_c, { allowZero: true, fmt: (x) => `${x} °C` });
+  const calories = valOrNullNumber(s?.calories_kcal, { allowZero: false, fmt: (x) => `${x} kcal` });
 
   const envItems: InfoItem[] = [
-    { label: "AVG TEMP", value: s?.average_temp_c != null ? `${s.average_temp_c} °C` : "—" },
-    { label: "CALORIES", value: s?.calories_kcal != null ? `${s.calories_kcal} kcal` : "—" },
-  ];
+    avgTemp ? { label: "AVG TEMP", value: avgTemp } : null,
+    calories ? { label: "CALORIES", value: calories } : null,
+  ].filter(Boolean) as InfoItem[];
 
-  const workoutItems: InfoItem[] = [{ label: "WORKOUT TYPE", value: workoutTypeLabel ?? "—" }];
-
-  const showOverview = hasNonEmptyValue(overviewItems);
-  const showHr = hasNonEmptyValue(hrItems);
-  const showElev = hasNonEmptyValue(elevItems);
-  const showPower = hasNonEmptyValue(powerItems);
-  const showEnv = hasNonEmptyValue(envItems);
-  const showWorkout = hasNonEmptyValue(workoutItems);
+  const showOverview = hasMeaningfulValue(overviewItems);
+  const showHr = hasMeaningfulValue(hrItems);
+  const showElev = hasMeaningfulValue(elevItems);
+  const showPower = hasMeaningfulValue(powerItems);
+  const showEnv = hasMeaningfulValue(envItems);
 
   const hasStreams =
     (streams.time_s?.length ?? 0) > 0 ||
@@ -420,9 +381,11 @@ export function ActivitySessionDetail({
 
   const hasCadStream = (streams.cadence_rpm?.length ?? 0) > 0;
 
-  const hasRoute = routePoints.length > 0;
-  const hasSplits = splits.length > 0;
-  const hasLaps = laps.length > 0;
+  const hasSplits = Array.isArray(splits) && splits.length > 1;
+  const hasLaps = Array.isArray(laps) && laps.length > 1;
+
+  // keď nič nemáme, dovolíme userovi explicitne fetchovať
+  const canFetchMore = !hasStreams && !hasSplits && !hasLaps && !!act.activityId;
 
   const canShowActions =
     "onEdit" in act && (act.onEdit || act.onDelete || act.onToggleFavorite);
@@ -450,14 +413,19 @@ export function ActivitySessionDetail({
           )}
 
           {act.onDelete && (
-            <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>
+            <button
+              type="button"
+              onClick={act.onDelete}
+              className={SESSION_PILL}
+              style={SESSION_PILL_DANGER_STYLE}
+            >
               Delete
             </button>
           )}
         </div>
       )}
 
-      {(onOpenActivity || stravaUrl) && (
+      {(onOpenActivity || stravaUrl || canFetchMore) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {onOpenActivity && (
             <button
@@ -470,27 +438,32 @@ export function ActivitySessionDetail({
             </button>
           )}
 
-          {/* ✅ NEW: View on Strava ako náš Button variant */}
           {stravaUrl && (
+            <Button type="button" variant="viewOnStrava" size="sm" onClick={openStrava} title="View on Strava">
+              View on Strava
+            </Button>
+          )}
+
+          {/* ✅ NEW: Fetch more */}
+          {canFetchMore && (
             <Button
               type="button"
-              variant="viewOnStrava"
+              variant="primary"
               size="sm"
-              onClick={openStrava}
-              title="View on Strava"
+              onClick={onFetchMore}
+              disabled={busyFetch}
+              title="Fetch missing details from Strava and cache for a limited time"
             >
-              View on Strava
+              {busyFetch ? "Loading…" : "Load more data"}
             </Button>
           )}
         </div>
       )}
 
-      {/* PREHĽAD – hlavné veci (default otvorené) */}
       {showOverview && (
         <ActivitySectionShell title="Prehľad" defaultOpen={true} items={overviewItems} />
       )}
 
-      {/* HEART RATE – graf HR */}
       {showHr && (
         <ActivitySectionShell title="Heart rate" items={hrItems}>
           {hasStreams && (
@@ -499,22 +472,30 @@ export function ActivitySessionDetail({
         </ActivitySectionShell>
       )}
 
-      {/* ELEVÁCIA & KADENCIA – graf elevation + (ak je) graf kadencie */}
       {showElev && (
         <ActivitySectionShell title="Elevácia & kadencia" items={elevItems}>
           {hasStreams && (
-            <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" sportHint={sportHint} />
+            <ActivityStreamCharts
+              streams={streams}
+              compact={compactChart}
+              metric="elevation"
+              sportHint={sportHint}
+            />
           )}
 
           {hasCadStream && (
             <div className="mt-4">
-              <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
+              <ActivityStreamCharts
+                streams={streams}
+                compact={compactChart}
+                metric="cadence"
+                sportHint={sportHint}
+              />
             </div>
           )}
         </ActivitySectionShell>
       )}
 
-      {/* RÝCHLOSŤ & VÝKON – graf power (príp. neskôr pace) */}
       {showPower && (
         <ActivitySectionShell title="Rýchlosť & výkon" items={powerItems}>
           {hasStreams && (
@@ -523,27 +504,16 @@ export function ActivitySessionDetail({
         </ActivitySectionShell>
       )}
 
-      {/* PROSTREDIE & ŠTATISTIKY – zatiaľ bez grafu */}
-      {showEnv && <ActivitySectionShell title="Prostredie & štatistiky" items={envItems} />}
-
-      {/* TYP TRÉNINGU – bez grafu */}
-      {showWorkout && <ActivitySectionShell title="Typ tréningu" items={workoutItems} />}
-
-      {/* MAPA TRASY */}
-      {hasRoute && (
-        <ActivitySectionShell title="Mapa trasy">
-          <ActivityRouteMap points={routePoints} />
-        </ActivitySectionShell>
+      {showEnv && (
+        <ActivitySectionShell title="Prostredie & štatistiky" items={envItems} />
       )}
 
-      {/* SPLITS */}
       {hasSplits && (
         <ActivitySectionShell title="Splits">
           <ActivitySplitsSection kind={splits} />
         </ActivitySectionShell>
       )}
 
-      {/* LAPS */}
       {hasLaps && (
         <ActivitySectionShell title="Laps">
           <ActivitySplitsSection kind={laps} />

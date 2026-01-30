@@ -13,10 +13,7 @@ import {
   distanceLabel,
 } from "@/app/features/bests/utils/bests";
 
-import type {
-  UserBest,
-  PBRunFormState,
-} from "@/app/features/bests/types/bests";
+import type { UserBest, PBRunFormState } from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
@@ -29,7 +26,6 @@ import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 
-import { NO_X, SURFACE_INLINE } from "@/app/shared/ui/tokens";
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
 
@@ -47,6 +43,11 @@ import {
   SWIPE_ACTIONS,
   SWIPE_CONTENT,
 } from "@/app/shared/ui/tokens";
+
+import {
+  SESSION_INLINE,
+  SESSION_INLINE_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 const EMPTY: PBRunFormState = {
   distance_m: "",
@@ -114,12 +115,9 @@ export default function PBRun() {
           : { time_str: form.time_str.trim() }),
       };
 
-      if (form.activity_id !== "")
-        payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined)
-        payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at)
-        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await apiSaveBest(userId, payload);
       toast.success("Personal best saved");
@@ -152,7 +150,7 @@ export default function PBRun() {
   };
 
   return (
-    <div className={[PANEL_STACK, NO_X].join(" ")}>
+    <div className={PANEL_STACK}>
       <div className={PANEL_SECTION}>
         <div className={PANEL_SECTION_LABEL}>Favorite distance</div>
         <div className={PANEL_SECTION_TEXT}>
@@ -161,11 +159,7 @@ export default function PBRun() {
       </div>
 
       {/* FORM */}
-      <div
-        className={[SURFACE_INLINE, PANEL_PAD, PANEL_INNER_STACK, NO_X].join(
-          " "
-        )}
-      >
+      <div className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")} style={SESSION_INLINE_STYLE}>
         <div className="grid gap-3 sm:grid-cols-12 items-start">
           <div className="sm:col-span-3">
             <SelectField
@@ -219,27 +213,15 @@ export default function PBRun() {
           </div>
 
           <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
-            <Button
-              onClick={handleSave}
-              disabled={!canSave}
-              variant="success"
-              size="xs"
-            >
+            <Button onClick={handleSave} disabled={!canSave} variant="success" size="xs">
               {saving ? "Ukladám…" : "Uložiť"}
             </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setForm(EMPTY)}
-              size="xs"
-            >
+
+            <Button variant="secondary" onClick={() => setForm(EMPTY)} size="xs">
               Clear
             </Button>
-            <Button
-              variant="ghost"
-              onClick={refresh}
-              disabled={loading}
-              size="xs"
-            >
+
+            <Button variant="ghost" onClick={refresh} disabled={loading} size="xs">
               {loading ? "Načítavam…" : "Refresh"}
             </Button>
           </div>
@@ -247,25 +229,21 @@ export default function PBRun() {
       </div>
 
       {/* LIST */}
-      <ul className={[PANEL_LIST, NO_X].join(" ")}>
+      <ul className={PANEL_LIST}>
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
           .map((b) => {
             const actId = b.activity_id != null ? Number(b.activity_id) : null;
             const timeDB =
-              b.best_time_s != null
-                ? secToHHMMSS(b.best_time_s)
-                : (b.time_str ?? "—");
+              b.best_time_s != null ? secToHHMMSS(b.best_time_s) : (b.time_str ?? "—");
             const dist = distanceLabel(b.distance_m, "run");
             const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
                 distance_m: String(b.distance_m),
-                time_str:
-                  b.time_str ??
-                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",
@@ -328,7 +306,6 @@ export default function PBRun() {
   );
 }
 
-/* --- SwipeRow unchanged --- */
 function SwipeRow({
   children,
   onEdit,
@@ -350,8 +327,7 @@ function SwipeRow({
   const THRESHOLD = 8;
 
   const clamp = (v: number) => Math.max(SNAP_OPEN, Math.min(SNAP_CLOSED, v));
-  const snap = (v: number) =>
-    setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (v: number) => setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   function onTouchStart(e: React.TouchEvent) {
     if (!enableSwipe) return;
@@ -375,7 +351,7 @@ function SwipeRow({
 
   return (
     <li
-      className={[SWIPE_ROW, NO_X].join(" ")}
+      className={SWIPE_ROW}
       style={{ touchAction: "pan-y" }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -399,11 +375,8 @@ function SwipeRow({
       </div>
 
       <div
-        className={SWIPE_CONTENT}
-        style={{
-          transform: `translateX(${tx}px)`,
-          transition: "transform 160ms ease-out",
-        }}
+        className={[SWIPE_CONTENT, "transition-transform duration-150 ease-out"].join(" ")}
+        style={{ transform: `translateX(${tx}px)` }}
       >
         {children}
       </div>

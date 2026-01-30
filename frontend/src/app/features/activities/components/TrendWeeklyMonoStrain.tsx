@@ -1,5 +1,4 @@
 // src/features/activity/components/TrendWeeklyMonoStrain.tsx
-// src/features/activity/components/TrendWeeklyMonoStrain.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,7 +6,7 @@ import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { OPTIONS, LOOKBACK_OPTIONS, SPORT_SELECT_OPTIONS } from "@/app/shared/charts/optionsActivity";
+import { OPTIONS, LOOKBACK_OPTIONS } from "@/app/shared/charts/optionsActivity";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -28,6 +27,7 @@ import { WeekRow } from "@/app/features/activities/types/MonoStrain";
 ensureChartJSRegistered();
 
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
+const DEFAULT_SPORT = "all" as const;
 
 export default function TrendWeeklyMonoStrain({
   onPickWeek,
@@ -41,7 +41,6 @@ export default function TrendWeeklyMonoStrain({
   const { userId } = useUserId();
   const [metric, setMetric] = useState<Metric>("km");
   const [lookback, setLookback] = useState<number>(2);
-  const [sport, setSport] = useState<string>("all");
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -49,9 +48,10 @@ export default function TrendWeeklyMonoStrain({
   const _heightCompact = OPTIONS.HeightCompact;
   const _legendPos = OPTIONS.legendPosition;
 
+  // ak niekde vyššie počúvaš na sport, je to stále "all"
   useEffect(() => {
-    onSportChange?.(sport);
-  }, [sport, onSportChange]);
+    onSportChange?.(DEFAULT_SPORT);
+  }, [onSportChange]);
 
   useEffect(() => {
     if (!userId) return;
@@ -60,7 +60,10 @@ export default function TrendWeeklyMonoStrain({
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyMonoStrain(userId, { weeks: lookback, sport });
+        const rows = await apiGetWeeklyMonoStrain(userId, {
+          weeks: lookback,
+          sport: DEFAULT_SPORT,
+        });
         if (!alive) return;
         setWeeks(rows);
       } catch (e) {
@@ -73,11 +76,17 @@ export default function TrendWeeklyMonoStrain({
     return () => {
       alive = false;
     };
-  }, [userId, lookback, sport]);
+  }, [userId, lookback]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-  const mono = useMemo(() => weeks.map((w) => w.monotony?.[metric] ?? null), [weeks, metric]);
-  const strn = useMemo(() => weeks.map((w) => w.strain?.[metric] ?? null), [weeks, metric]);
+  const mono = useMemo(
+    () => weeks.map((w) => w.monotony?.[metric] ?? null),
+    [weeks, metric],
+  );
+  const strn = useMemo(
+    () => weeks.map((w) => w.strain?.[metric] ?? null),
+    [weeks, metric],
+  );
 
   const monoMax = useMemo(() => {
     const vals = mono.filter((v): v is number => Number.isFinite(v as number));
@@ -124,7 +133,7 @@ export default function TrendWeeklyMonoStrain({
         },
       ],
     }),
-    [labels, mono, strn]
+    [labels, mono, strn],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -154,7 +163,7 @@ export default function TrendWeeklyMonoStrain({
           week: w.week || w.label || w.start || "",
           start: w.start,
           end: w.end,
-          sport,
+          sport: DEFAULT_SPORT,
         });
       },
       scales: {
@@ -188,7 +197,7 @@ export default function TrendWeeklyMonoStrain({
         },
       },
     }),
-    [monoMax, strainMax, weeks, onPickWeek, sport, _legendPos]
+    [monoMax, strainMax, weeks, onPickWeek, _legendPos],
   );
 
   const height = Math.round(_heightCompact * 2);
@@ -199,27 +208,31 @@ export default function TrendWeeklyMonoStrain({
       <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
         <h2 className={PANEL_TITLE}>Monotónnosť & Strain</h2>
 
-        <div className={PANEL_ACTIONS_INLINE}>
+        {/* ✅ vždy vpravo */}
+        <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
           <div className={PANEL_ACTIONS_INLINE}>
-            <Button size="xs" variant={metric === "km" ? "secondary" : "ghost"} onClick={() => setMetric("km")}>
+            <Button
+              size="xs"
+              variant={metric === "km" ? "active" : "editable"}
+              onClick={() => setMetric("km")}
+            >
               Km
             </Button>
-            <Button size="xs" variant={metric === "time" ? "secondary" : "ghost"} onClick={() => setMetric("time")}>
+            <Button
+              size="xs"
+              variant={metric === "time" ? "active" : "editable"}
+              onClick={() => setMetric("time")}
+            >
               Čas
             </Button>
-            <Button size="xs" variant={metric === "trimp" ? "secondary" : "ghost"} onClick={() => setMetric("trimp")}>
+            <Button
+              size="xs"
+              variant={metric === "trimp" ? "active" : "editable"}
+              onClick={() => setMetric("trimp")}
+            >
               TRIMP
             </Button>
           </div>
-
-          <SelectField
-            value={sport}
-            onValueChange={(v) => setSport(v)}
-            options={SPORT_SELECT_OPTIONS}
-            containerClassName="w-[130px]"
-            variant="editable"
-            placeholder="—"
-          />
 
           {showLookback && (
             <SelectField
@@ -234,7 +247,10 @@ export default function TrendWeeklyMonoStrain({
         </div>
       </div>
 
-      <div className={`${SCROLL_X} min-w-0`} style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}>
+      <div
+        className={`${SCROLL_X} min-w-0`}
+        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
+      >
         <div className="relative" style={{ height }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">

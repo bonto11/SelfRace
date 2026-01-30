@@ -72,24 +72,6 @@ export function normalizeActivityRow(r: any): ActivityRow | null {
   const achievement_count = numOrNull(r?.achievement_count);
   const pr_count = numOrNull(r?.pr_count);
 
-  // workout
-  const workout_type = numOrNull(r?.workout_type);
-
-  // map polylines – buď priamo z DB stĺpcov, alebo z vnoreného map objektu
-  const map_summary_polyline =
-    typeof r?.map_summary_polyline === "string"
-      ? r.map_summary_polyline
-      : typeof r?.map?.summary_polyline === "string"
-      ? r.map.summary_polyline
-      : null;
-
-  const map_polyline =
-    typeof r?.map_polyline === "string"
-      ? r.map_polyline
-      : typeof r?.map?.polyline === "string"
-      ? r.map.polyline
-      : null;
-
   // gear
   const gear_id =
     typeof r?.gear_id === "string"
@@ -176,10 +158,6 @@ export function normalizeActivityRow(r: any): ActivityRow | null {
     comment,
     pace_seconds_per_km,
     deleted_at: deleted_at ?? null,
-
-    workout_type,
-    map_summary_polyline,
-    map_polyline,
 
     trimp,
   };

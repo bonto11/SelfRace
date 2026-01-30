@@ -11,7 +11,6 @@ from Modules.Supabase.client import get_service_client
 from Routes_DB.activities_summary import (
     db_upsert_activities_summary,
     db_get_activity_summary_one,
-    db_update_activity_map_and_workout,  # ⬅️ NOVÉ
 )
 from Routes_DB.activities_laps import (
     db_delete_laps_for_activity,
@@ -237,29 +236,11 @@ def service_sync_single_activity(
         print(f"[SYNC:single] failed to fetch activity id={aid}: {e}")
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
 
-    m = detail.get("map") or {}
-    map_summary_polyline = None
-    map_polyline = None
-    if isinstance(m, dict):
-        map_summary_polyline = m.get("summary_polyline")
-        map_polyline = m.get("polyline")
-
-    detail_wt = detail.get("workout_type", None)
-
     # ---------- 2) SUMMARY ROW ----------
     row = _normalize_summary(user_id, detail)
     if not row.get("activity_id"):
         print(f"[SYNC:single] missing activity_id for id={aid}")
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
-
-    if detail_wt is not None:
-        try:
-            row["workout_type"] = int(detail_wt)
-        except Exception:
-            pass
-
-    if map_summary_polyline is not None:
-        row["map_summary_polyline"] = map_summary_polyline
 
     row["deleted_at"] = None
 
@@ -287,18 +268,6 @@ def service_sync_single_activity(
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] summary upsert failed id={aid}: {e}")
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": fetched}
-
-    try:
-        db_update_activity_map_and_workout(
-            activity_id=aid,
-            workout_type=detail_wt,
-            map_summary_polyline=map_summary_polyline,
-            map_polyline=map_polyline,
-            user_jwt=user_jwt,
-            service=service_mode,
-        )
-    except Exception as e:  # noqa: BLE001
-        print(f"[SYNC:single] update map/workout failed id={aid}: {e}")
 
     # ---------- 3) LAPS / SPLITS (voliteľné) ----------
     if fetch_details:
@@ -378,3 +347,4 @@ def service_sync_single_activity(
         "skipped": int(skipped),
         "fetched": int(fetched),
     }
+

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SURFACE_CARD, SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
@@ -9,7 +8,6 @@ import {
   type WeeklyPlanLatest,
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   PANEL_STACK,
@@ -19,10 +17,22 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
-  PANEL_GRID_3,
   PANEL_ACTIONS_INLINE,
   ACCORDION_FOOTER_BAR_MUTED,
+  PANEL_BAR_TRACK,
+  PANEL_BAR_FILL,
+  PANEL_BAR_TRACK_STYLE,
+  PANEL_PHASE_PILL_STYLE,
+  PANEL_PHASE_BAR_STYLE,
 } from "@/app/shared/ui/tokens";
+
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+  SESSION_SUBCARD,
+  SESSION_SUBCARD_STYLE,
+  SESSION_PILL,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 /* ---------- helpery ---------- */
 
@@ -64,21 +74,6 @@ function phaseKey(load_phase?: string | null): PhaseKey {
   return "other";
 }
 
-function phaseColor(phase: PhaseKey): string {
-  switch (phase) {
-    case "base":
-      return appColors.phaseBase;
-    case "build":
-      return appColors.phaseBuild;
-    case "peak":
-      return appColors.phasePeak;
-    case "recovery":
-      return appColors.phaseRecovery;
-    default:
-      return appColors.stateNeutral;
-  }
-}
-
 function phaseLabel(phase: PhaseKey): string {
   switch (phase) {
     case "base":
@@ -94,39 +89,21 @@ function phaseLabel(phase: PhaseKey): string {
   }
 }
 
-// (farby “semantic” – nechávam hardcoded, ale layout je token-first)
-function phasePillClass(k: PhaseKey): string {
-  switch (k) {
-    case "base":
-      return "bg-sky-900/60 text-sky-100 border border-sky-500/60";
-    case "build":
-      return "bg-violet-900/60 text-violet-100 border border-violet-500/60";
-    case "peak":
-      return "bg-emerald-900/60 text-emerald-100 border border-emerald-500/60";
-    case "recovery":
-      return "bg-amber-900/60 text-amber-100 border border-amber-500/60";
-    default:
-      return "bg-slate-800 text-slate-100 border border-slate-600";
-  }
-}
-
 /* ---------- tiny Card wrapper (token-first) ---------- */
 
 function Card({
   title,
   subtitle,
   children,
-  footerTone = "muted",
   headRight,
 }: {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   children: React.ReactNode;
-  footerTone?: "muted" | "accent";
   headRight?: React.ReactNode;
 }) {
   return (
-    <section className={SURFACE_CARD}>
+    <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
       {(title || subtitle || headRight) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
@@ -141,11 +118,7 @@ function Card({
 
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
 
-      {footerTone === "accent" ? (
-        <div className="h-1.5 rounded-b-2xl bg-emerald-500/80" />
-      ) : (
-        <div className={ACCORDION_FOOTER_BAR_MUTED} />
-      )}
+      <div className={ACCORDION_FOOTER_BAR_MUTED} />
     </section>
   );
 }
@@ -240,11 +213,7 @@ export default function DetailWeeklyPlan() {
 
   if (!userId) {
     return (
-      <Card
-        title="Weekly plán"
-        subtitle="Chýba userId (useUserId)."
-        footerTone="muted"
-      >
+      <Card title="Weekly plán" subtitle="Chýba userId (useUserId).">
         <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
       </Card>
     );
@@ -252,7 +221,7 @@ export default function DetailWeeklyPlan() {
 
   if (loading) {
     return (
-      <section className={SURFACE_CARD}>
+      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
           <LoadingSpinner size="widget" />
         </div>
@@ -262,11 +231,7 @@ export default function DetailWeeklyPlan() {
 
   if (error) {
     return (
-      <Card
-        title="Weekly plán"
-        subtitle="Nepodarilo sa načítať weekly plán."
-        footerTone="muted"
-      >
+      <Card title="Weekly plán" subtitle="Nepodarilo sa načítať weekly plán.">
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );
@@ -274,11 +239,7 @@ export default function DetailWeeklyPlan() {
 
   if (!plan || !weeksSorted.length) {
     return (
-      <Card
-        title="Weekly plán"
-        subtitle="Zatiaľ nemáš uložený weekly plán."
-        footerTone="muted"
-      >
+      <Card title="Weekly plán" subtitle="Zatiaľ nemáš uložený weekly plán.">
         <div className={PANEL_PREVIEW}>
           Vygeneruj ho cez widget <strong>Coach — Plan</strong> (tlačidlo
           „Generate Weekly plan“), potom sa tu objaví rozpis týždňov.
@@ -328,21 +289,16 @@ export default function DetailWeeklyPlan() {
             </div>
           </div>
         }
-        footerTone="accent"
       >
         <div className={PANEL_ACTIONS_INLINE}>
           {(Object.keys(phaseCounts) as PhaseKey[])
             .filter((k) => phaseCounts[k] > 0)
             .map((k) => (
-              <div
-                key={k}
-                className={[
-                  "inline-flex items-center justify-between gap-2 rounded-full px-3 py-1 text-xs",
-                  phasePillClass(k),
-                ].join(" ")}
-              >
-                <span>{phaseLabel(k)}</span>
-                <span className="font-semibold">{phaseCounts[k]}×</span>
+              <div key={k} className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[k]}>
+                <span className="opacity-90">{phaseLabel(k)}</span>
+                <span className="font-semibold tabular-nums">
+                  {phaseCounts[k]}×
+                </span>
               </div>
             ))}
         </div>
@@ -351,7 +307,6 @@ export default function DetailWeeklyPlan() {
       <Card
         title="Rozpis týždňov"
         subtitle="Každý blok zobrazuje cieľ týždňa, plánovaný objem a krátke vysvetlenie. Dĺžka pruhu ~ km objemu."
-        footerTone="muted"
       >
         <div className={PANEL_STACK}>
           {weeksSorted.map((w: WeeklyPlanWeek) => {
@@ -371,28 +326,28 @@ export default function DetailWeeklyPlan() {
               return "bez dátumu";
             })();
 
-            const barColor = phaseColor(pk);
-
             return (
-              <div key={w.week_index} className={SURFACE_SUBCARD}>
+              <div
+                key={w.week_index}
+                className={SESSION_SUBCARD}
+                style={SESSION_SUBCARD_STYLE}
+              >
                 <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs uppercase tracking-wide text-slate-400">
+                      <span className="text-[10px] uppercase tracking-wide opacity-70">
                         Week {w.week_index}
                       </span>
 
-                      <span
-                        className={[
-                          "px-2 py-0.5 rounded-full text-[11px] font-medium",
-                          phasePillClass(pk),
-                        ].join(" ")}
-                      >
+                      {/* pill MUST be styled via tokens -> different per phase */}
+                      <span className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[pk]}>
                         {w.load_phase || "phase ?"}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-400">{weekRange}</div>
+                    <div className={[PANEL_SECTION_SUBTITLE, "opacity-70"].join(" ")}>
+                      {weekRange}
+                    </div>
                   </div>
 
                   <div className="text-sm font-semibold">
@@ -400,33 +355,35 @@ export default function DetailWeeklyPlan() {
                   </div>
 
                   {w.focus ? (
-                    <div className="text-xs text-slate-300">
+                    <div className={[PANEL_SECTION_SUBTITLE, "opacity-80"].join(" ")}>
                       Focus: {w.focus}
                     </div>
                   ) : null}
 
                   <div className={PANEL_INNER_STACK}>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Plánovaný objem</span>
-                      <span className="font-semibold">
+                      <span className="opacity-70">Plánovaný objem</span>
+                      <span className="font-semibold tabular-nums">
                         {km ? `${km} km` : "—"}
                         {hours ? ` · ${hours} h` : ""}
                       </span>
                     </div>
 
-                    <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div className={PANEL_BAR_TRACK} style={PANEL_BAR_TRACK_STYLE}>
                       <div
-                        className="h-full rounded-full transition-all"
+                        className={PANEL_BAR_FILL}
                         style={{
+                          ...PANEL_PHASE_BAR_STYLE[pk],
                           width: `${widthPct}%`,
-                          backgroundColor: barColor,
                         }}
                       />
                     </div>
                   </div>
 
                   {w.notes ? (
-                    <div className="text-xs text-slate-300">{w.notes}</div>
+                    <div className={[PANEL_SECTION_SUBTITLE, "opacity-85"].join(" ")}>
+                      {w.notes}
+                    </div>
                   ) : null}
                 </div>
               </div>
