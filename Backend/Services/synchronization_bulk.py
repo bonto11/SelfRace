@@ -43,6 +43,7 @@ def import_activities_bulk(
         trigger=trigger,
     )
 
+    before_epoch = int(now.timestamp())
     after_epoch = int((now - timedelta(days=plan.days_back)).timestamp())
     since_iso = (now - timedelta(days=plan.days_back)).strftime("%Y-%m-%d")
 
@@ -56,10 +57,6 @@ def import_activities_bulk(
             "reason": plan.reason,
         },
     )
-
-    
-    before_epoch = int(now.timestamp())
-
 
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
@@ -82,6 +79,7 @@ def import_activities_bulk(
     while True:
         items = client.fetch_athlete_activities_page(
             after_epoch=after_epoch,
+            before_epoch=before_epoch,
             page=page,
             per_page=100,
         )

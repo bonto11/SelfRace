@@ -551,7 +551,7 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     if connected:
         # rovnaká autorita ako bulk
         last_dt = db_get_last_activity_start(user_id, user_jwt=None, service=True)
-        plan = decide_sync_plan(last_activity_dt=last_dt, trigger="panel_init")
+        plan = decide_sync_plan(last_activity_dt=last_dt, trigger="reconnect")
 
         sync_days = int(plan.days_back)
         sync_max = int(plan.max_activities)
@@ -565,8 +565,6 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         "reconnect_after": reconnect_after,
         "can_connect": can_connect,
         "can_manual_import": can_manual_import,
-
-        # ✅ NOVÉ – len čísla, FE len zobrazí:
         "sync_import_window_days": sync_days,
         "sync_import_max_activities": sync_max,
     }

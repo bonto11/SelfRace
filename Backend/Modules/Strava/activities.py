@@ -37,7 +37,7 @@ class StravaActivitiesClient:
         after_epoch: int,
         page: int,
         per_page: int = 100,
-        before_epoch: Optional[int] = None,   # ✅ NEW
+        before_epoch: int, 
         timeout: int = 30,
     ) -> List[Dict[str, Any]]:
         """
@@ -48,11 +48,10 @@ class StravaActivitiesClient:
         """
         params: Dict[str, Any] = {
             "after": int(after_epoch),
+            "before": int(before_epoch),
             "per_page": int(per_page),
             "page": int(page),
         }
-        if before_epoch is not None:
-            params["before"] = int(before_epoch)
 
         r = self._http.get(
             "/athlete/activities",
