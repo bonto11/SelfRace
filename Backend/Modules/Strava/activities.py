@@ -1,7 +1,7 @@
 # Modules/Strava/activities.py
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from Modules.Strava.http_client import StravaHTTPClient
 from Configs.config import STRAVA_DEBUG_STREAMS
@@ -37,22 +37,30 @@ class StravaActivitiesClient:
         after_epoch: int,
         page: int,
         per_page: int = 100,
+        before_epoch: Optional[int] = None,   # ✅ NEW
         timeout: int = 30,
     ) -> List[Dict[str, Any]]:
         """
         Načíta jednu stránku /athlete/activities.
+
+        - after_epoch  → vracia aktivity po tomto čase (unix epoch seconds)
+        - before_epoch → (optional) vracia len aktivity pred týmto časom
         """
+        params: Dict[str, Any] = {
+            "after": int(after_epoch),
+            "per_page": int(per_page),
+            "page": int(page),
+        }
+        if before_epoch is not None:
+            params["before"] = int(before_epoch)
+
         r = self._http.get(
             "/athlete/activities",
-            params={
-                "after": int(after_epoch),
-                "per_page": int(per_page),
-                "page": int(page),
-            },
+            params=params,
             timeout=timeout,
         )
         data = r.json() or []
-    
+
         if not isinstance(data, list):
             return []
         return [dict(x) for x in data if isinstance(x, dict)]

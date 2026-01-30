@@ -47,6 +47,7 @@ def import_activities_bulk(
 
     after_epoch = int((now - timedelta(days=days_back)).timestamp())
     since_iso = (now - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    before_epoch = int(now.timestamp())
 
     print(
         f"[SYNC][BULK] user={user_id} mode={mode} "
@@ -74,6 +75,7 @@ def import_activities_bulk(
     while True:
         items = client.fetch_athlete_activities_page(
             after_epoch=after_epoch,
+            before_epoch=before_epoch,
             page=page,
             per_page=100,
         )
