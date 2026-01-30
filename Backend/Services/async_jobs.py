@@ -19,7 +19,7 @@ from Services.AI.daily_plan import (
     service_auto_extend_daily_plan,
 )  # daily_generate, daily_extend
 from Services.plan_activity_match import auto_map_plans_for_activities  # plan_match
-from Services.synchronization_bulk import import_activities_bulk
+
 from Services.users import require_jwt
 
 
@@ -461,6 +461,8 @@ def service_run_job_now(
 
             trigger = str(input_payload.get("trigger") or "manual")
 
+            from Services.synchronization_bulk import import_activities_bulk
+            
             # voliteľné override z FE (fallback), ale ty chceš primárne decide_sync_plan
             # takže v import_activities_bulk to môžeš ignorovať, alebo si to nechaj pre budúcnosť
             result_payload = import_activities_bulk(

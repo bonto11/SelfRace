@@ -17,7 +17,7 @@ from Routes_DB.activities_summary import (
 )
 
 from Services.users import require_jwt
-from Services.async_jobs import service_enqueue_job, service_run_job_now
+
 from dataclasses import dataclass
 
 
@@ -464,7 +464,11 @@ def enrich_activities_for_ids(
         )
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
 
+
         try:
+
+            from Services.async_jobs import service_enqueue_job, service_run_job_now
+            
             enqueue = service_enqueue_job(
                 user_id=user_id,
                 user_uid="",
