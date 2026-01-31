@@ -1,11 +1,7 @@
 name: Cleanup deleted activities (DEV)
 
 on:
-  # manuálne spustenie z GitHub UI
   workflow_dispatch:
-  # denný cron – 03:00 UTC
-  schedule:
-    - cron: "0 3 * * *"
 
 jobs:
   run-cleanup:

@@ -3,7 +3,6 @@ name: Cleanup expired activity details (PROD)
 on:
   workflow_dispatch:
   schedule:
-    # TODO: nastav si vlastný čas
     - cron: "15 3 * * *"
 
 jobs:

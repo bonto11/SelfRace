@@ -1,8 +1,6 @@
 name: Account hard delete cron (DEV)
 
 on:
-  schedule:
-    - cron: "0 4 * * *"    # každý deň o 04:00 UTC
   workflow_dispatch:
 
 jobs:
