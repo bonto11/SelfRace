@@ -4,94 +4,56 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from Services.AI.types import AiResult, ai_err
+from Services.AI.types import AiResult, AiError
 
-def _get_provider_name() -> str:
+def _provider() -> str:
     return (os.getenv("AI_PROVIDER") or "openai").strip().lower()
 
-def _get_default_model(provider: str) -> str:
+def _default_model(provider: str) -> Optional[str]:
+    if provider == "openai":
+        return os.getenv("OPENAI_MODEL_DEFAULT") or None
     if provider == "gemini":
-        return os.getenv("GEMINI_MODEL_DEFAULT") or "gemini-1.5-flash"
-    return os.getenv("OPENAI_MODEL_DEFAULT") or "gpt-4o-mini"
+        return os.getenv("GEMINI_MODEL_DEFAULT") or None
+    return None
 
 
-def ai_generate_json(
+def ai_call_json_model(
     *,
-    system: str,
-    user: str,
-    schema: Optional[Dict[str, Any]] = None,
+    context_payload: Dict[str, Any],
+    system_prompt: str,
+    user_instructions: str,
     model: Optional[str] = None,
+    max_tokens: int = 2000,
+    debug_raw: bool = False,
     temperature: float = 0.2,
-    max_output_tokens: int = 1200,
 ) -> AiResult[Dict[str, Any]]:
-    """
-    Vráti JSON dict. schema je voliteľná (pre neskorší strict mode).
-    """
-    provider = _get_provider_name()
-    use_model = model or _get_default_model(provider)
+    p = _provider()
+    m = model or _default_model(p)
 
-    try:
-        if provider == "gemini":
-            from Services.AI.clients.gemini_client import gemini_generate_json
-            return gemini_generate_json(
-                system=system,
-                user=user,
-                schema=schema,
-                model=use_model,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-            )
+    if p == "openai":
+        from Services.AI.clients.openai_client import openai_call_json_model
+        return openai_call_json_model(
+            context_payload=context_payload,
+            system_prompt=system_prompt,
+            user_instructions=user_instructions,
+            model=m,
+            max_tokens=max_tokens,
+            debug_raw=debug_raw,
+            temperature=temperature,
+        )
 
-        if provider == "openai":
-            from Services.AI.clients.openai_client import openai_generate_json
-            return openai_generate_json(
-                system=system,
-                user=user,
-                schema=schema,
-                model=use_model,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-            )
+    if p == "gemini":
+        # doplníme v ďalšom kroku
+        return AiResult(
+            ok=False,
+            error=AiError(code="ai_not_implemented", message="Gemini provider not wired yet"),
+            provider="gemini",
+            model=(m or "unknown"),
+        )
 
-        return ai_err("ai_invalid_provider", f"Unsupported AI_PROVIDER: {provider}")
-
-    except Exception as e:  # noqa: BLE001
-        return ai_err("ai_provider_error", str(e))
-
-
-def ai_generate_text(
-    *,
-    system: str,
-    user: str,
-    model: Optional[str] = None,
-    temperature: float = 0.2,
-    max_output_tokens: int = 800,
-) -> AiResult[str]:
-    provider = _get_provider_name()
-    use_model = model or _get_default_model(provider)
-
-    try:
-        if provider == "gemini":
-            from Services.AI.clients.gemini_client import gemini_generate_text
-            return gemini_generate_text(
-                system=system,
-                user=user,
-                model=use_model,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-            )
-
-        if provider == "openai":
-            from Services.AI.clients.openai_client import openai_generate_text
-            return openai_generate_text(
-                system=system,
-                user=user,
-                model=use_model,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-            )
-
-        return ai_err("ai_invalid_provider", f"Unsupported AI_PROVIDER: {provider}")
-
-    except Exception as e:  # noqa: BLE001
-        return ai_err("ai_provider_error", str(e))
+    return AiResult(
+        ok=False,
+        error=AiError(code="ai_invalid_provider", message=f"Unsupported AI_PROVIDER: {p}"),
+        provider=p,
+        model=(m or "unknown"),
+    )
