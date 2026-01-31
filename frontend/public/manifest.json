@@ -4,20 +4,20 @@
   "description": "Training and recovery insights with help of AI",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "icons": [
-  {
-    "src": "/logo/Selfrace_noname.png",
-    "sizes": "512x512",
-    "type": "image/png",
-    "purpose": "any"
-  },
-  {
-    "src": "/logo/Selfrace_noname.png",
-    "sizes": "192x192",
-    "type": "image/png",
-    "purpose": "maskable"
-  }
-]
+    {
+      "src": "/logo/Selfrace_noname.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo/Selfrace_noname.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }
