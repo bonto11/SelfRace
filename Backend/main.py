@@ -35,9 +35,9 @@ origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
 # fallback pre lokálny dev, ak by ENV chýbalo
 if not origins:
     origins = [
-        "https://patrikmbontar.eu",
-        "https://www.patrikmbontar.eu",
-        "https://dev.patrikmbontar.eu",
+        "https://selfrace.com",
+        "https://www.selfrace.com",
+        "https://dev.selfrace.com",
         "http://localhost:3000",
         "https://hoppscotch.io",
     ]

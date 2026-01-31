@@ -20,4 +20,4 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{"cutoff_days": 1}' \
-            https://api-dev.patrikmbontar.eu/maintenance/cleanup-deleted-activities
+            https://api.selfrace.com/maintenance/cleanup-deleted-activities

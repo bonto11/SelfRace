@@ -19,4 +19,4 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{}' \
-            https://api-dev.patrikmbontar.eu/maintenance/cleanup-expired-activity-details
+            https://api.selfrace.com/maintenance/cleanup-expired-activity-details

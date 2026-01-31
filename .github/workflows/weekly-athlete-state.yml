@@ -19,4 +19,4 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{"max_users": 5}' \
-            https://api-dev.patrikmbontar.eu/maintenance/weekly-athlete-state-refresh
+            https://api.selfrace.com/maintenance/weekly-athlete-state-refresh

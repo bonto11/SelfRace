@@ -17,4 +17,4 @@ jobs:
         run: |
           curl -X POST \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
-            https://api-dev.patrikmbontar.eu/maintenance/app-subscriptions/apply-due
+            https://api.selfrace.com/maintenance/app-subscriptions/apply-due
