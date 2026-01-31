@@ -14,8 +14,8 @@
       "purpose": "any"
     },
     {
-      "src": "/logo/selfrace_logo_black_230.png",
-      "sizes": "230x230",
+      "src": "/logo/selfrace_logo_black_260.png",
+      "sizes": "260x260",
       "type": "image/png",
       "purpose": "maskable"
     }
