@@ -9,6 +9,7 @@ T = TypeVar("T")
 class AiError:
     code: str
     message: str
+    trace: Optional[Dict[str, Any]] = None
 
 @dataclass(frozen=True)
 class AiUsage:
@@ -23,7 +24,3 @@ class AiResult(Generic[T]):
     usage: Optional[AiUsage] = None
     provider: str = "unknown"
     model: str = "unknown"
-
-
-def ai_err(code: str, message: str) -> AiResult[Any]:
-    return AiResult(ok=False, error=AiError(code=code, message=message))
