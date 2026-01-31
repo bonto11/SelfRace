@@ -13,8 +13,8 @@ jobs:
     steps:
       - name: Call maintenance /app-subscriptions/apply-due (dev)
         env:
-          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
         run: |
           curl -X POST \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
-            https://api.selfrace.com/maintenance/app-subscriptions/apply-due
+            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/app-subscriptions/apply-due

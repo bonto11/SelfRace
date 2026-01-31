@@ -13,10 +13,10 @@ jobs:
     steps:
       - name: Call weekly athlete state endpoint (dev)
         env:
-          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
         run: |
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{"max_users": 5}' \
-            https://api.selfrace.com/maintenance/weekly-athlete-state-refresh
+            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/weekly-athlete-state-refresh

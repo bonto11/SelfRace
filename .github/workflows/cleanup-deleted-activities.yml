@@ -14,10 +14,10 @@ jobs:
     steps:
       - name: Call maintenance endpoint (dev)
         env:
-          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY }}
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
         run: |
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{"cutoff_days": 1}' \
-            https://api.selfrace.com/maintenance/cleanup-deleted-activities
+            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/cleanup-deleted-activities
