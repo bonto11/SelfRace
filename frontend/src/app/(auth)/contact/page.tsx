@@ -22,7 +22,7 @@ export default function ContactPage() {
               If you have questions about SelfRace, privacy, or Strava integration, reach out:
             </p>
             <p className="font-medium" style={{ color: appColors.textPrimary }}>
-              patrikmbontar@gmail.com
+              support@selfrace.com
             </p>
           </div>
         </div>
