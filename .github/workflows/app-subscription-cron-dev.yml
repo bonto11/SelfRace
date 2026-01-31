@@ -1,4 +1,4 @@
-name: Cron – apply subscription changes (dev)
+name: Cron – apply subscription changes (DEV)
 
 on:
   # raz denne o 00:00 UTC
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call maintenance /app-subscriptions/apply-due (dev)
+      - name: Call maintenance /app-subscriptions/apply-due (DEV)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}

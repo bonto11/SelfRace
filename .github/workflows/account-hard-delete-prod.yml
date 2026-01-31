@@ -1,4 +1,4 @@
-name: Account hard delete cron
+name: Account hard delete cron (PROD)
 
 on:
   schedule:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call backend account hard delete endpoint
+      - name: Call backend account hard delete endpoint (PROD)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_PROD_GITHUB }}

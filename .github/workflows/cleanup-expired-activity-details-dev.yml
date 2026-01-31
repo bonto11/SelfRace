@@ -1,4 +1,4 @@
-name: Cleanup expired activity details (dev)
+name: Cleanup expired activity details (DEV)
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ jobs:
   run-cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Call cleanup-expired-activity-details endpoint (dev)
+      - name: Call cleanup-expired-activity-details endpoint (DEV)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}

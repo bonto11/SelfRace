@@ -1,4 +1,4 @@
-name: Cleanup deleted activities (dev)
+name: Cleanup deleted activities (DEV)
 
 on:
   # manuálne spustenie z GitHub UI
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call maintenance endpoint (dev)
+      - name: Call maintenance endpoint (DEV)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}

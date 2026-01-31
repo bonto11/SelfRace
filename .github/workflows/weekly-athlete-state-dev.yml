@@ -1,4 +1,4 @@
-name: Weekly athlete state (PROD)
+name: Weekly athlete state (DEV)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
   run-weekly-athlete-state:
     runs-on: ubuntu-latest
     steps:
-      - name: Call weekly athlete state endpoint (PROD)
+      - name: Call weekly athlete state endpoint (DEV)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
