@@ -1,0 +1,17 @@
+{
+  "name": "SelfRace",
+  "short_name": "SelfRace",
+  "description": "Training and recovery insights with help of AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "logo/Selfrace_noname.png",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
