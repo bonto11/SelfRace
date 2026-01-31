@@ -14,7 +14,8 @@ jobs:
       - name: Call maintenance /app-subscriptions/apply-due (dev)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
         run: |
           curl -X POST \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
-            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/app-subscriptions/apply-due
+            $API_BASE_URL_GITHUB/maintenance/app-subscriptions/apply-due

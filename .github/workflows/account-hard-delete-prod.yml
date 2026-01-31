@@ -13,9 +13,10 @@ jobs:
       - name: Call backend account hard delete endpoint
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_PROD_GITHUB }}
         run: |
           curl -X POST \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{"dry_run": false, "only_user_id": null}' \
-            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/account-hard-delete
+            $API_BASE_URL_GITHUB/maintenance/account-hard-delete

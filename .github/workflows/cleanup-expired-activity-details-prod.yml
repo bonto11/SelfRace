@@ -13,10 +13,11 @@ jobs:
       - name: Call cleanup-expired-activity-details endpoint (dev)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_PROD_GITHUB }}
         run: |
           set -e
           curl -sS -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{}' \
-            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/cleanup-expired-activity-details
+            $API_BASE_URL_GITHUB/maintenance/cleanup-expired-activity-details

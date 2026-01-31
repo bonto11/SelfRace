@@ -15,9 +15,10 @@ jobs:
       - name: Call maintenance endpoint (dev)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
         run: |
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{"cutoff_days": 1}' \
-            ${{ vars.API_BASE_URL_GITHUB}}/maintenance/cleanup-deleted-activities
+            $API_BASE_URL_GITHUB/maintenance/cleanup-deleted-activities
