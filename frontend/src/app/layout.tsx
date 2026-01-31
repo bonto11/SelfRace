@@ -13,10 +13,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "SelfRace",
-    startupImage: "/logo/Selfrace_noname.png",
+    startupImage: "/logo/selfrace_logo_black_230.png",
   },
   icons: {
-    apple: "/logo/Selfrace_noname.png", // Toto je kľúčové pre iOS
+    apple: "/logo/selfrace_logo_black_230.png", // Toto je kľúčové pre iOS
   },
 };
 

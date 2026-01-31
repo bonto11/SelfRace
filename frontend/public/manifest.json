@@ -8,14 +8,14 @@
   "theme_color": "#FFFFFF",
   "icons": [
     {
-      "src": "/logo/Selfrace_noname.png",
+      "src": "/logo/selfrace_logo_black_512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo/Selfrace_noname.png",
-      "sizes": "192x192",
+      "src": "/logo/selfrace_logo_black_230.png",
+      "sizes": "230x230",
       "type": "image/png",
       "purpose": "maskable"
     }

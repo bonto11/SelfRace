@@ -66,7 +66,7 @@ export default function ClientProtectedShell({
                       aria-label="Go to dashboard"
                     >
                       <Image
-                        src="/logo/Selfrace_noname.png"
+                        src="/logo/selfrace_logo_nocolor_230.png"
                         alt="SelfRace"
                         width={120}
                         height={28}
