@@ -122,14 +122,12 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
     """
     External events: odstráni absolútne dátumy, nahradí ich days_from_today.
     Zachová weekday/priority/sport/title/duration_min.
-    Nechceme posielať veľké nested štruktúry ani interné id.
     """
     if not isinstance(ext, dict):
         return ext
 
-    out: Dict[str, Any] = {"schema_version": ext.get("schema_version") or 1}
+    out: Dict[str, Any] = {"schema_version": int(ext.get("schema_version") or 1)}
 
-    # events môžu byť buď ext["events"], alebo ext["window"]["events"]
     events: List[Dict[str, Any]] = []
     if isinstance(ext.get("events"), list):
         events = [e for e in ext["events"] if isinstance(e, dict)]
@@ -138,12 +136,16 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 
     cleaned_events: List[Dict[str, Any]] = []
     for e in events:
-        dt = e.get("occurrence_date") or e.get("date") or e.get("start_date_local") or e.get("start_date") or e.get("start_date_iso")
-        days = _days_from_today(dt)
-
+        dt = (
+            e.get("occurrence_date")
+            or e.get("date")
+            or e.get("start_date_local")
+            or e.get("start_date")
+            or e.get("start_date_iso")
+        )
         cleaned_events.append(
             {
-                "days_from_today": days,
+                "days_from_today": _days_from_today(dt),
                 "weekday": e.get("weekday"),
                 "sport": e.get("sport"),
                 "duration_min": e.get("duration_min"),
@@ -152,7 +154,6 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
             }
         )
 
-    # window: ak existuje, tiež zrelativizuj
     win = ext.get("window")
     if isinstance(win, dict):
         out["window"] = {
@@ -174,14 +175,15 @@ def build_last_activities_block_for_analysis(
     limit: int = 6,
 ) -> List[Dict[str, Any]]:
     """
-    Vytiahne posledných N aktivít (summary + zóny z enrichment) a preloží ich do jednoduchého listu pre AI.
+    Posledných N aktivít (summary + zóny z enrichment) pre AI.
 
     HARDENING:
       - name = None
       - activity_id = None
       - date = relatívny label: today / today-N
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
+    # service=True -> db layer má ísť cez service client; nepotrebujeme jwt
+    jwt = None if service else require_jwt(user_jwt)
 
     if limit <= 0:
         limit = 4
@@ -228,16 +230,8 @@ def build_last_activities_block_for_analysis(
     def _date_key(row: Dict[str, Any]) -> str:
         return str(row.get("date") or "")[:19]
 
-    def _parse_date_yyyy_mm_dd(s: str) -> Optional[datetime]:
-        try:
-            if not s:
-                return None
-            return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        except Exception:
-            return None
-
     def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
-        dt = _parse_date_yyyy_mm_dd(date_str or "")
+        dt = _parse_yyyy_mm_dd(date_str or "")
         if not dt:
             return None
         today = datetime.now(timezone.utc).date()
@@ -259,8 +253,8 @@ def build_last_activities_block_for_analysis(
         dist_m = _to_float(r.get("distance_m"))
         avg_hr = _to_int(r.get("average_heartrate_bpm"))
 
-        dur_min = moving_s / 60.0 if moving_s and moving_s > 0 else None
-        dist_km = dist_m / 1000.0 if dist_m and dist_m > 0 else None
+        dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
+        dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
 
         sport_src = r.get("sport_type_fe") or r.get("sport_type")
         sport = _canonical_sport(sport_src)
@@ -344,7 +338,7 @@ def build_input_from_db(
     *,
     service: bool = False,
 ) -> Dict[str, Any]:
-    jwt = user_jwt if service else require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     input_data = build_base_input(user_id)
 
@@ -399,7 +393,6 @@ def build_input_from_db(
         service=service,
     )
 
-    # external events -> minify (days_from_today)
     ext = service_build_external_events_block_for_analysis(
         user_id=user_id,
         user_jwt=jwt,
