@@ -13,7 +13,7 @@ from Services.AI.provider import ai_call_json_model
 
 def generate_weekly_plan_json(
     context_payload: dict,
-    model: str,
+    model: Optional[str] = None,
     *,
     debug_raw: bool = False,
     # voliteľné overrides (inak idú env defaulty cez Configs.config)
@@ -26,7 +26,6 @@ def generate_weekly_plan_json(
     - neobsahuje žiadne OpenAI importy ani *_llm helpery
     - vracia (weekly_plan_dict, trace_or_None)
     """
-
     ctx = context_payload if isinstance(context_payload, dict) else {}
 
     # authoritative user_id is always ctx["user_id"]
@@ -64,16 +63,20 @@ def generate_weekly_plan_json(
     except Exception:
         tzinfo = timezone.utc
 
+    # resolve defaults
+    resolved_max_tokens = int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2000))
+    resolved_temperature = float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2))
+
     # provider call (OpenAI/Gemini)
-    # Dôležité: context_payload sem neposielame ako "context_payload" pre LLM prompt,
-    # lebo ho už máme v user_txt (CONTEXT_JSON). Tu sa používa len pre debug/paritu API.
+    # Pozn.: ctx sem posielame kvôli debug/parite + prípadným provider pravidlám,
+    # prompt obsahuje CONTEXT_JSON už v user_txt.
     res = ai_call_json_model(
         context_payload=ctx,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,
-        max_tokens=int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2000)),
-        temperature=float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)),
+        model=(model.strip() if isinstance(model, str) and model.strip() else None),
+        max_tokens=resolved_max_tokens,
+        temperature=resolved_temperature,
         debug_raw=debug_raw,
     )
 
@@ -96,6 +99,8 @@ def generate_weekly_plan_json(
         now_local = datetime.now(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
         parsed["generated_at"] = now_local.isoformat()
+
+        # reálny model z providera (gpt-... / gemini-...)
         parsed["model"] = str(getattr(res, "model", None) or model or "Trainalyze Coach")
 
         plan_meta = parsed.get("plan_meta")
