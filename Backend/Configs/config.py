@@ -240,3 +240,6 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
     5: "Sat",
     6: "Sun",
 }
+
+
+DEFAULT_MODEL = ""
