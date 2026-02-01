@@ -2,18 +2,13 @@
 from __future__ import annotations
 
 from zoneinfo import ZoneInfo
-import os
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
-from fastapi import HTTPException
-from openai import OpenAI
-
-from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
 from Services.user_prefs import service_load_user_settings
 from Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
-from Routes_AI.weekly_plan_llm import llm_models_priority, call_openai_raw, parse_ai_json
+
+from Services.AI.provider import ai_call_json_model
 
 
 def generate_weekly_plan_json(
@@ -22,13 +17,17 @@ def generate_weekly_plan_json(
     *,
     debug_raw: bool = False,
 ) -> Tuple[dict, Optional[dict]]:
-    if not OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
+    """
+    Provider-agnostic weekly plan generator.
+    - používa Services.AI.provider.ai_call_json_model()
+    - neobsahuje žiadne OpenAI importy ani token budget logiku
+    - vracia (weekly_plan_dict, trace_or_None)
+    """
 
     # authoritative user_id is always context_payload.user_id
     user_id: Optional[int] = None
     try:
-        if context_payload.get("user_id") is not None:
+        if isinstance(context_payload, dict) and context_payload.get("user_id") is not None:
             user_id = int(context_payload["user_id"])
     except Exception:
         user_id = None
@@ -45,125 +44,88 @@ def generate_weekly_plan_json(
         settings=settings,
     )
 
-    retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
-    timeout_s = max(int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 25))), 45)
-
-    client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
-    models = llm_models_priority(model)
-    token_budgets = [1800, 1500, 1200]
-
-    tz_name = settings.get("timezone") or "Europe/Bratislava"
-    try:
-        tzinfo = ZoneInfo(tz_name)
-    except Exception:
-        tzinfo = timezone.utc
-
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": [], "usage": {}}
-    last_raw: Optional[str] = None
-    last_cleaned: Optional[str] = None
-    last_err: Optional[str] = None
-
     # authoritative weeks horizon
     horizon_weeks: int = 6
     try:
-        horizon_weeks = int(context_payload.get("weeks") or 6)
+        horizon_weeks = int((context_payload or {}).get("weeks") or 6)
     except Exception:
         horizon_weeks = 6
 
-    for m in models:
-        for attempt in range(1, retries + 1):
-            started = time.time()
-            budget = token_budgets[min(attempt - 1, len(token_budgets) - 1)]
-            try:
-                raw, usage = call_openai_raw(client, m, system_txt, user_txt, budget)
-                dur_ms = int((time.time() - started) * 1000)
+    tz_name = (settings.get("timezone") or "Europe/Bratislava") if isinstance(settings, dict) else "Europe/Bratislava"
+    try:
+        tzinfo = ZoneInfo(str(tz_name))
+    except Exception:
+        tzinfo = timezone.utc
 
-                parsed, cleaned, raw_keep = parse_ai_json(raw)
-                last_raw, last_cleaned = raw_keep, cleaned
+    # Provider call (OpenAI/Gemini)
+    res = ai_call_json_model(
+        context_payload=context_payload if isinstance(context_payload, dict) else {},
+        system_prompt=system_txt,
+        user_instructions=user_txt,
+        model=model,
+        debug_raw=debug_raw,
+        # max_tokens/temperature berie provider/client z env defaultov,
+        # ale ponechávame parametre aby si to vedel override-núť z call site neskôr.
+    )
 
-                attempt_row: Dict[str, Any] = {
-                    "model": m,
-                    "attempt": attempt,
-                    "ok": parsed is not None,
-                    "duration_ms": dur_ms,
-                }
-                if debug_raw:
-                    attempt_row["raw_preview"] = raw[:600] + (
-                        "…[truncated]" if len(raw) > 600 else ""
-                    )
-                trace["attempts"].append(attempt_row)
+    trace: Optional[dict] = None
+    if debug_raw:
+        trace = {
+            "ok": bool(res.ok),
+            "provider": getattr(res, "provider", None),
+            "model": getattr(res, "model", None),
+            "error": (res.error.message if getattr(res, "error", None) else None),
+            "error_code": (res.error.code if getattr(res, "error", None) else None),
+            "provider_trace": (res.error.trace if getattr(res, "error", None) else None),
+        }
 
-                if not parsed:
-                    last_err = "AI returned invalid JSON"
-                    continue
+    # Success path
+    if res.ok and isinstance(res.data, dict):
+        parsed = res.data
 
-                trace["usage"] = {
-                    "model": m,
-                    "prompt_tokens": int(usage.get("prompt_tokens", 0)),
-                    "completion_tokens": int(usage.get("completion_tokens", 0)),
-                    "total_tokens": int(usage.get("total_tokens", 0)),
-                }
+        now_local = datetime.now(tzinfo)
+        parsed["schema_version"] = int(parsed.get("schema_version") or 1)
+        parsed["generated_at"] = now_local.isoformat()
+        # model = reálny model z providera (napr. gpt-4o-mini / gemini-1.5-flash-latest)
+        parsed["model"] = str(getattr(res, "model", None) or model or "Trainalyze Coach")
 
-                now_local = datetime.now(tzinfo)
+        plan_meta = parsed.get("plan_meta") or {}
+        if not isinstance(plan_meta, dict):
+            plan_meta = {}
 
-                parsed["schema_version"] = int(parsed.get("schema_version") or 1)
-                parsed["generated_at"] = now_local.isoformat()
-                parsed["model"] = m  # always real model
+        # FORCE: weeks must match horizon_weeks (always)
+        plan_meta["weeks"] = horizon_weeks
+        parsed["plan_meta"] = plan_meta
 
-                plan_meta = parsed.get("plan_meta") or {}
-                if not isinstance(plan_meta, dict):
-                    plan_meta = {}
+        return parsed, trace
 
-                # FORCE: weeks must match horizon_weeks (not just when missing)
-                plan_meta["weeks"] = horizon_weeks
-                parsed["plan_meta"] = plan_meta
-
-                if debug_raw:
-                    trace["raw"] = raw_keep
-                    trace["cleaned"] = cleaned
-                    trace["ok_model"] = m
-
-                return parsed, trace
-
-            except Exception as e:  # noqa: BLE001
-                dur_ms = int((time.time() - started) * 1000)
-                last_err = f"{e.__class__.__name__}: {e}"
-                trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": False,
-                        "duration_ms": dur_ms,
-                        "error": last_err,
-                    }
-                )
-                time.sleep(0.5 * attempt)
-                continue
-
-    # Fallback
+    # Fallback (keď provider zlyhá alebo vráti zlý formát)
     now_iso = datetime.now(tzinfo).isoformat()
 
-    prefs_fb = context_payload.get("prefs") or {}
+    prefs_fb = (context_payload or {}).get("prefs") or {}
     if isinstance(prefs_fb, dict) and isinstance(prefs_fb.get("value"), dict):
         prefs_fb = prefs_fb["value"]
 
+    # minimal safe fallback schema
     fallback = {
         "schema_version": 1,
         "generated_at": now_iso,
         "model": "weekly-fallback",
         "plan_meta": {
-            "start_date": (prefs_fb.get("start_date") or prefs_fb.get("plan_start_date")) if isinstance(prefs_fb, dict) else None,
+            "start_date": (
+                (prefs_fb.get("start_date") or prefs_fb.get("plan_start_date"))
+                if isinstance(prefs_fb, dict)
+                else None
+            ),
             "weeks": horizon_weeks,
-            "main_sport": (prefs_fb.get("main_sport") if isinstance(prefs_fb, dict) else None) or "run",
-            "goal_kind": (prefs_fb.get("goal_kind") if isinstance(prefs_fb, dict) else None) or "improve_overall",
+            "main_sport": ((prefs_fb.get("main_sport") if isinstance(prefs_fb, dict) else None) or "run"),
+            "goal_kind": ((prefs_fb.get("goal_kind") if isinstance(prefs_fb, dict) else None) or "improve_overall"),
         },
         "weeks": [],
-        "error": last_err,
+        "error": (res.error.message if getattr(res, "error", None) else "AI provider failed"),
+        "error_code": (res.error.code if getattr(res, "error", None) else "ai_failed"),
+        "provider": getattr(res, "provider", None),
+        "provider_model": getattr(res, "model", None),
     }
 
-    if debug_raw:
-        trace["raw"] = last_raw
-        trace["cleaned"] = last_cleaned
-        trace["error"] = last_err or "unknown"
-
-    return fallback, trace if debug_raw else None
+    return fallback, trace
