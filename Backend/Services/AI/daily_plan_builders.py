@@ -268,24 +268,43 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
 # -------------------------
 # External events -> normalized occurrences
 # -------------------------
-
 def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    service_list_external_events_window returns:
-      {"success": True, "events": [ ... ]}
-
-    We normalize minimal fields and keep DB truth (duration/intensity/title).
+    service_list_external_events_window may return various shapes depending on implementation:
+      - {"success": True, "events": [...]}
+      - {"success": True, "occurrences": [...]}
+      - {"success": True, "window": {"events":[...]}}  (fallback)
+    We normalize to occurrences[] with {date,title,sport_raw,duration_min,...}.
     """
-    occurrences = ext_window.get("occurrences") or []
-    if not isinstance(occurrences, list):
+    if not isinstance(ext_window, dict):
+        return []
+
+    # try common keys
+    raw_list: Any = ext_window.get("occurrences")
+    if not isinstance(raw_list, list):
+        raw_list = ext_window.get("events")
+    if not isinstance(raw_list, list):
+        win = ext_window.get("window")
+        if isinstance(win, dict) and isinstance(win.get("events"), list):
+            raw_list = win.get("events")
+
+    if not isinstance(raw_list, list):
         return []
 
     out: List[Dict[str, Any]] = []
-    for e in occurrences:
+    for e in raw_list:
         if not isinstance(e, dict):
             continue
 
-        occ_date = e.get("occurrence_date") or e.get("date") or e.get("single_date")
+        # accept multiple possible date keys
+        occ_date = (
+            e.get("occurrence_date")
+            or e.get("date")
+            or e.get("start_date_local")
+            or e.get("start_date")
+            or e.get("start_date_iso")
+            or e.get("single_date")
+        )
         if not isinstance(occ_date, str) or not occ_date:
             continue
 
@@ -294,7 +313,7 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         if not wd:
             continue
 
-        sport_raw = e.get("sport")
+        sport_raw = e.get("sport") or e.get("sport_raw")
         duration_min = e.get("duration_min")
         dur_int = int(duration_min) if isinstance(duration_min, (int, float)) else None
         intensity = _normalize_external_intensity(e.get("intensity"))
