@@ -17,9 +17,6 @@ from Services.AI.weekly_plan_builders import (
     build_weekly_rows_from_ai,
 )
 
-# NOTE:
-# weekly_plan_generate.py si upravíme tak, aby používal Services.AI.provider (openai/gemini).
-# Zatiaľ iba prestávame spoliehať sa na DEFAULT_MODEL tu.
 from Routes_AI.weekly_plan_generate import generate_weekly_plan_json
 
 from Routes_DB.coach_plan_weekly import (
@@ -42,6 +39,27 @@ def _safe_error_payload(code: str, message: str, extra: Optional[Dict[str, Any]]
     if isinstance(extra, dict):
         out.update(extra)
     return out
+
+
+def _normalize_weekly_error(err: Any) -> Optional[Dict[str, Any]]:
+    """
+    Normalize weekly_plan["error"] to a stable dict:
+      - None -> None
+      - str  -> {code:"ai_failed", message:...}
+      - dict -> keep (ensure code/message exist)
+    """
+    if err is None:
+        return None
+    if isinstance(err, str):
+        return {"code": "ai_failed", "message": err}
+    if isinstance(err, dict):
+        code = err.get("code") or "ai_failed"
+        msg = err.get("message") or err.get("detail") or "AI failed"
+        out = dict(err)
+        out["code"] = code
+        out["message"] = msg
+        return out
+    return {"code": "ai_failed", "message": str(err)}
 
 
 def service_generate_weekly_plan(
@@ -106,24 +124,24 @@ def service_generate_weekly_plan(
     context_payload = ctx["context_payload"]
     state_bundle = ctx["state_bundle"]
     horizon_weeks = ctx["horizon_weeks"]
-
     used_state_id = state_bundle["state_id"]
 
     # --- AI call ---
-    # model=None => generator/provider vyberie default podľa AI_PROVIDER
+    # Pozn.: generate_weekly_plan_json u teba musí mať model: Optional[str],
+    # alebo sem posielame string (model or "").
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
-        model=model,          # ✅ pass-through (optional)
-        debug_raw=debug,      # debug -> trace/raw preview
+        model=(model or ""),     # ✅ bezpečné aj keď model=None
+        debug_raw=debug,
     )
 
     if not isinstance(weekly_plan, dict):
         weekly_plan = {}
 
-    # preferuj model, ktorý AI vráti (ak vráti)
+    # preferuj model, ktorý AI vráti (ak vráti), inak "auto" / explicit model
     model_used = str(weekly_plan.get("model") or model or "auto")
 
-    # --- billing (usage v trace; pri gemini možno nebude v rovnakom formáte => usage None) ---
+    # --- billing (best effort) ---
     usage = extract_usage_from_trace(trace) if trace else None
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
@@ -217,7 +235,8 @@ def service_generate_weekly_plan(
     )
 
     # --- SAFE RESPONSE (default) ---
-    error_obj = weekly_plan.get("error") if isinstance(weekly_plan, dict) else None
+    error_norm = _normalize_weekly_error(weekly_plan.get("error"))
+
     resp: Dict[str, Any] = {
         "plan_id": plan_id,
         "state_id": used_state_id,
@@ -227,7 +246,7 @@ def service_generate_weekly_plan(
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
         "archived_meta": archived_meta,
-        "error": error_obj,
+        "error": error_norm,
     }
     if meta_row is not None:
         resp["plan_meta"] = meta_row
@@ -280,9 +299,9 @@ def service_get_latest_weekly_plan(
     if not rows:
         return None
 
-    weeks: List[Dict[str, Any]] = []
+    weeks_out: List[Dict[str, Any]] = []
     for r in sorted(rows, key=lambda x: int(x.get("week_index") or 0)):
-        weeks.append(
+        weeks_out.append(
             {
                 "week_index": int(r.get("week_index") or 0),
                 "week_start": r.get("week_start"),
@@ -295,11 +314,10 @@ def service_get_latest_weekly_plan(
                 "completed_km": r.get("completed_km"),
                 "completed_minutes": r.get("completed_minutes"),
                 "notes": r.get("notes"),
-                # "raw_json": r.get("raw_json"),
             }
         )
 
     return {
         "plan_id": plan_id,
-        "weeks": weeks,
+        "weeks": weeks_out,
     }
