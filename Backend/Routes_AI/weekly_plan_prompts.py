@@ -17,6 +17,15 @@ def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
     return _as_dict(d.get(key))
 
 
+def _safe_date_yyyy_mm_dd(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    s = str(v).strip()
+    if not s:
+        return None
+    return s[:10]
+
+
 def _derive_key_slots_from_weekly_template(
     wt: Dict[str, Any],
     max_fixed: int = 10,
@@ -53,24 +62,41 @@ def _derive_key_slots_from_weekly_template(
     return out
 
 
+def _extract_prefs_source(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Preferuj prefs z analyze_input_min/analyze_input (to je "ground truth" z DB buildera),
+    fallback na ctx["prefs"] (ktoré môže byť už prefiltrované).
+    """
+    analyze_src = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
+    prefs_any = analyze_src.get("prefs")
+    if isinstance(prefs_any, dict):
+        return prefs_any
+
+    prefs_any = ctx.get("prefs")
+    if isinstance(prefs_any, dict):
+        return prefs_any
+
+    return {}
+
+
 def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
     Orezaný context pre WEEKLY LLM:
     - drop user_id / internal ids
     - keep only what weekly meta plan needs
-    - ✅ dôležité: recent_load/zones/thresholds/recovery berieme z TOP-LEVEL alebo z analyze_input_min/analyze_input
-      (lebo weekly_context_from_db ich typicky nedáva na top-level)
+    - recent_load/zones/thresholds/recovery berieme z TOP-LEVEL alebo z analyze_input_min/analyze_input
+    - external_events podporuje oba tvary: date string aj days_from_today (z buildera)
     """
     ctx = _as_dict(ctx)
     ctx2: Dict[str, Any] = {}
 
-    # Source of "big blocks" (builder posiela analyze_input_min / analyze_input)
+    # Source of "big blocks"
     analyze_src = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
 
     # --- prefs (flatten + trim) ---
-    raw_prefs = _as_dict(ctx.get("prefs"))
+    raw_prefs = _extract_prefs_source(ctx)
     prefs_val = raw_prefs.get("value")
-    prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else raw_prefs
+    prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else _as_dict(raw_prefs)
 
     preferences = _get_dict(prefs, "preferences")
     volume = _get_dict(prefs, "volume")
@@ -90,7 +116,9 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
                 continue
             races_min.append(
                 {
-                    "date": r2.get("date") or r2.get("start_date") or r2.get("race_date"),
+                    "date": _safe_date_yyyy_mm_dd(
+                        r2.get("date") or r2.get("start_date") or r2.get("race_date")
+                    ),
                     "name": r2.get("name") or r2.get("title"),
                     "type": r2.get("type") or r2.get("race_type"),
                 }
@@ -101,7 +129,7 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     prefs2: Dict[str, Any] = {
         "main_sport": prefs.get("main_sport"),
         "weeks": prefs.get("weeks"),
-        "start_date": prefs.get("start_date") or prefs.get("plan_start_date"),
+        "start_date": _safe_date_yyyy_mm_dd(prefs.get("start_date") or prefs.get("plan_start_date")),
         "goal_kind": prefs.get("goal_kind"),
         "volume": {"mode": volume.get("mode"), "value": volume.get("value")} if volume else {},
         "preferences": {
@@ -149,7 +177,6 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         ctx2["athlete_state"] = {"ai_state": ai_state}
 
     # --- recent_load / zones / thresholds / recovery ---
-    # Prefer TOP-LEVEL (ak niekedy dáš), inak z analyze_src (analyze_input_min)
     for key in ("recent_load", "zones", "thresholds", "recovery"):
         v = ctx.get(key)
         if not isinstance(v, dict):
@@ -157,7 +184,10 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(v, dict):
             ctx2[key] = v
 
-    # --- external_events (strip internal ids, keep occurrences) ---
+    # --- external_events ---
+    # Podporujeme:
+    #  A) ext["events"] alebo ext["window"]["events"]
+    #  B) event date buď ako occurrence_date/date/start_date..., alebo ako days_from_today (int)
     ext = _as_dict(ctx.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
@@ -171,6 +201,7 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
 
         cleaned_events: List[Dict[str, Any]] = []
         for e in events:
+            # prefer explicit date
             dt = (
                 e.get("occurrence_date")
                 or e.get("date")
@@ -178,12 +209,29 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
                 or e.get("start_date")
                 or e.get("start_date_iso")
             )
-            if not dt:
+            dt_ymd = _safe_date_yyyy_mm_dd(dt)
+
+            # or relative
+            dft = e.get("days_from_today")
+            if dt_ymd is None and isinstance(dft, (int, float)):
+                # keep relative when no date string exists
+                cleaned_events.append(
+                    {
+                        "days_from_today": int(dft),
+                        "sport": e.get("sport"),
+                        "duration_min": e.get("duration_min"),
+                        "priority": e.get("priority"),
+                        "title": e.get("title"),
+                    }
+                )
+                continue
+
+            if not dt_ymd:
                 continue
 
             cleaned_events.append(
                 {
-                    "occurrence_date": str(dt)[:10],
+                    "occurrence_date": dt_ymd,
                     "sport": e.get("sport"),
                     "duration_min": e.get("duration_min"),
                     "priority": e.get("priority"),
@@ -195,8 +243,8 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         if win2:
             ctx2["external_events"] = {
                 "window": {
-                    "from": (str(win2.get("from"))[:10] if win2.get("from") else None),
-                    "to": (str(win2.get("to"))[:10] if win2.get("to") else None),
+                    "from": _safe_date_yyyy_mm_dd(win2.get("from")),
+                    "to": _safe_date_yyyy_mm_dd(win2.get("to")),
                     "events": cleaned_events,
                 }
             }
@@ -248,7 +296,7 @@ def build_prompts_for_weekly(
     prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else raw_prefs
 
     weeks = int(prefs.get("weeks") or ctx.get("weeks") or 6)
-    start_date = (
+    start_date = _safe_date_yyyy_mm_dd(
         prefs.get("start_date")
         or prefs.get("plan_start_date")
         or _as_dict(ctx.get("plan_meta")).get("start_date")
@@ -257,7 +305,7 @@ def build_prompts_for_weekly(
     main_sport = prefs.get("main_sport") or "run"
     goal_kind = prefs.get("goal_kind") or "improve_overall"
 
-    # attach settings safely (avoid leaking extra fields)
+    # attach settings safely
     safe_settings = {
         "language": settings.get("language"),
         "timezone": settings.get("timezone"),
@@ -268,7 +316,7 @@ def build_prompts_for_weekly(
     # ✅ MINIFY HERE
     context_for_ai = minify_weekly_context_for_ai(ctx2)
 
-    # derive volume hint from MINIFIED prefs (so it matches what LLM sees)
+    # derive volume hint from MINIFIED prefs
     prefs_min = _as_dict(context_for_ai.get("prefs"))
     vol = _get_dict(prefs_min, "volume")
     volume_mode = vol.get("mode")
@@ -277,7 +325,7 @@ def build_prompts_for_weekly(
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON with athlete preferences (including volume preferences), "
-        "AI analysis state, recent load, thresholds, zones and external events. "
+        "AI analysis state, recent load, thresholds, zones, recovery and external events. "
         "External events are fixed activities like football matches, club runs or other regular trainings, "
         "which already create load and must be counted into total weekly volume or at least reduce the room for training. "
         "The AI analysis (athlete_state.ai_state) also includes a plan_adjustment block that can suggest "
