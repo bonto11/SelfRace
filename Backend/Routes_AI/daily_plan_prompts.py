@@ -77,9 +77,11 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(pref_obj, dict):
         pref_obj = {}
 
-    # normalize the new nested fields so AI always sees them
+    # normalize nested fields so AI always sees stable values
     intensity_model = (
-        "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
+        "pyramidal"
+        if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal"
+        else "polarized"
     )
 
     tb = pref_obj.get("training_blocks") or {}
@@ -91,7 +93,6 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "threshold": bool(tb.get("threshold")),
     }
 
-    # build canonical prefs snapshot for the model
     ctx2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "start_date": prefs.get("start_date"),
@@ -113,9 +114,17 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     ai_state = athlete_state.get("ai_state") or {}
     ctx2["athlete_state"] = {"ai_state": ai_state}
 
-    for k in ("last_activities", "user_settings"):
+    for k in ("last_activities",):
         if k in ctx:
             ctx2[k] = ctx[k]
+
+    # keep only minimal user_settings if present
+    us = ctx.get("user_settings") or {}
+    if isinstance(us, dict):
+        ctx2["user_settings"] = {
+            "language": us.get("language"),
+            "timezone": us.get("timezone"),
+        }
 
     try:
         wk = ctx2.get("week") or {}
@@ -200,11 +209,7 @@ def _build_prompts_for_daily(
     if not isinstance(two, dict):
         two = {}
     two_enabled = bool(two.get("enabled"))
-    two_cap = (
-        _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2)
-        if two_enabled
-        else 0
-    )
+    two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
 
     # ---------------- long run days ----------------
     long_run_days = pref_obj.get("long_run_days") or []
@@ -215,9 +220,11 @@ def _build_prompts_for_daily(
     # ---------------- avoid back-to-back hard ----------------
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    # ---------------- intensity model + blocks (NEW, inside preferences) ----------------
+    # ---------------- intensity model + blocks ----------------
     intensity_model = (
-        "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
+        "pyramidal"
+        if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal"
+        else "polarized"
     )
 
     tb = pref_obj.get("training_blocks") or {}
@@ -242,12 +249,7 @@ def _build_prompts_for_daily(
         except Exception:
             strength_target_int = None
     else:
-        # fallback legacy
-        legacy = (
-            (targets.get("strength") or {}).get("sessions_per_week")
-            if isinstance(targets, dict)
-            else None
-        )
+        legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
         if isinstance(legacy, (int, float, str)):
             try:
                 strength_target_int = int(legacy)
@@ -265,27 +267,20 @@ def _build_prompts_for_daily(
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
 
     if isinstance(planned_minutes, (int, float)):
-        weekly_volume_line = (
-            f"- Weekly intent: planned_minutes ≈ {planned_minutes} min (soft).\n"
-        )
+        weekly_volume_line = f"- Weekly intent: planned_minutes ≈ {planned_minutes} min (soft).\n"
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         weekly_volume_line = f"- Weekly intent: prefs.volume weekly_hours ≈ {volume_value * 60:.0f} min (soft).\n"
     else:
         weekly_volume_line = "- Weekly intent: infer from recent_load (soft).\n"
 
     back_to_back_rule = (
-        "- Do NOT schedule two hard sessions on consecutive days.\n"
+        "- AVOID BACK-TO-BACK HARD (HARD): Do NOT schedule two hard sessions on consecutive days.\n"
         if avoid_back_to_back_hard
-        else "- Avoid back-to-back hard days when possible (soft).\n"
+        else "- AVOID BACK-TO-BACK HARD (SOFT): Avoid back-to-back hard days when possible.\n"
     )
 
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
-    strength_str = (
-        f"{strength_target_int}× per week"
-        if strength_target_int is not None
-        else "not specified"
-    )
-
+    strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
 
     _dprint(
@@ -352,31 +347,38 @@ def _build_prompts_for_daily(
 }
 """.strip()
 
+    date_integrity_rule = (
+        "- DATE INTEGRITY (HARD):\n"
+        "  Only use dates inside the given Week range (week_start..week_end inclusive).\n"
+        "  Do NOT invent dates outside this range.\n"
+        "\n"
+    )
+
     # External events rules: enforce exact keys & no duplicates
     external_rules = (
         "- EXTERNAL EVENTS (HARD):\n"
         "  CONTEXT_JSON.external_events.occurrences contains date-based external events from DB.\n"
         "  You MUST include EVERY occurrence EXACTLY ONCE, on the SAME date.\n"
-        "  Do NOT move them. Do NOT duplicate them.\n"
-        "  For each external event session:\n"
-        "    - sport: occurrence.session_sport\n"
-        "    - title: occurrence.title\n"
-        "    - duration_min: occurrence.duration_min (if missing, pick a reasonable default and say it in notes)\n"
-        "    - intensity: occurrence.intensity if present (easy|medium|hard)\n"
-        "    - session_type: 'external_event'\n"
-        "    - payload.external_event must include EXACTLY these keys:\n"
+        "  Do NOT move them. Do NOT duplicate them. Do NOT rename titles.\n"
+        "  For each external event session you MUST set ALL of these:\n"
+        "    - session_type = 'external_event'\n"
+        "    - sport = occurrence.session_sport\n"
+        "    - title = occurrence.title (exact)\n"
+        "    - duration_min = occurrence.duration_min (if missing, choose a reasonable default AND say you guessed it in notes)\n"
+        "    - intensity = occurrence.intensity if present (easy|medium|hard), otherwise null\n"
+        "    - structure = null\n"
+        "    - zone_text = null (unless the external event explicitly contains zone info, which it usually does NOT)\n"
+        "    - payload.external_event (HARD REQUIRED for external_event sessions) with EXACTLY these keys:\n"
         "        date, title, sport_raw, start_time_local, duration_min, priority, intensity\n"
         "      where:\n"
         "        date = occurrence.date\n"
+        "        title = occurrence.title\n"
         "        sport_raw = occurrence.sport_raw\n"
+        "        start_time_local = occurrence.start_time_local\n"
+        "        duration_min = occurrence.duration_min\n"
+        "        priority = occurrence.priority\n"
+        "        intensity = occurrence.intensity\n"
         "  Notes: say what it is and whether you add other training the same day.\n"
-        "\n"
-    )
-
-    date_integrity_rule = (
-        "- DATE INTEGRITY (HARD):\n"
-        "  Only use dates inside the given Week range (week_start..week_end inclusive).\n"
-        "  Do NOT invent dates outside this range.\n"
         "\n"
     )
 
@@ -453,8 +455,13 @@ def _build_prompts_for_daily(
         _dprint("build_prompts: FALLBACK MODE active (missing week_start/week_end)")
 
     context_for_ai = _minify_context_for_ai(context_payload)
-    if settings:
-        context_for_ai["user_settings"] = settings
+
+    # attach settings safely (minify)
+    safe_settings = {
+        "language": settings.get("language"),
+        "timezone": settings.get("timezone"),
+    }
+    context_for_ai["user_settings"] = safe_settings
 
     user_txt = (
         "Generate a full weekly training plan (calendar dates + sessions) based on the context JSON.\n"
@@ -483,9 +490,8 @@ def _build_prompts_for_daily(
         + f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
         + "- Do NOT invent extreme workloads.\n"
         + "- Do NOT omit any external event occurrence.\n"
+        + "- For EVERY session_type='external_event', payload.external_event is REQUIRED and must match the exact keys/rules above.\n"
     )
 
-    _dprint(
-        "prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt)
-    )
+    _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
     return system_txt, user_txt, [], strength_target_int
