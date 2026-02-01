@@ -131,7 +131,7 @@ def service_generate_weekly_plan(
     # alebo sem posielame string (model or "").
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
-        model=(model or ""),     # ✅ bezpečné aj keď model=None
+        model=model,     # ✅ bezpečné aj keď model=None
         debug_raw=debug,
     )
 
