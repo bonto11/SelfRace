@@ -31,11 +31,26 @@ from Services.AI.billing import (
     is_user_over_token_quota,
 )
 
-from Configs.config import DEFAULT_MODEL
+from Configs.config import (
+    AI_PROVIDER,
+    OPENAI_DEFAULT_MODEL,
+    GEMINI_DEFAULT_MODEL,
+)
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _default_ai_model() -> str:
+    """
+    Default model podľa aktuálneho providera.
+    Toto je len fallback pre prípady, keď caller nedá explicit model.
+    """
+    p = (AI_PROVIDER or "openai").strip().lower()
+    if p == "gemini":
+        return (GEMINI_DEFAULT_MODEL or "gemini-1.5-flash-latest").strip()
+    return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
 
 
 # -------------------- STORAGE --------------------
@@ -198,6 +213,9 @@ def service_analyze_athlete(
     else:
         jwt = require_jwt(user_jwt)
 
+    # resolve model (provider-aware default)
+    model_to_use = (model or _default_ai_model()).strip()
+
     # 0) QUOTA CHECK – obmedzenie pre user-trigger volania
     if not service and is_user_over_token_quota(
         user_id,
@@ -207,7 +225,7 @@ def service_analyze_athlete(
         used = get_user_monthly_usage_tokens(user_id)
         return {
             "state_id": None,
-            "model": model or DEFAULT_MODEL,
+            "model": model_to_use,
             "analysis": None,
             "input": None,
             "error": {
@@ -249,14 +267,12 @@ def service_analyze_athlete(
     except Exception:
         pass
 
-    # 2) AI CALL – čistý výstup z AI = "analysis"
-    model_to_use = model or DEFAULT_MODEL
-
-    # ⚠️ dôležité: aby billing mal usage, pýtaj trace pri debug alebo vždy
+    # 2) AI CALL – generator nech sa postará o provider (ďalší krok),
+    # my už len posielame model_to_use a neschovávame staré DEFAULT_MODEL.
     analysis, trace = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model_to_use,
-        debug_raw=debug,  # ✅ umožní usage v trace (a aj raw_preview)
+        debug_raw=debug,
     )
 
     if not isinstance(analysis, dict):
@@ -264,7 +280,7 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
-    analysis.setdefault("model", model_to_use)
+    analysis["model"] = str(analysis.get("model") or model_to_use)
 
     # === AI BILLING – usage za ANALYZE =====================
     usage = extract_usage_from_trace(trace)
@@ -337,7 +353,7 @@ def service_analyze_athlete(
 
     resp: Dict[str, Any] = {
         "state_id": state_id,
-        "model": model_to_use,
+        "model": str(analysis.get("model") or model_to_use),
         "analysis": analysis,
         "input": input_data,
     }
@@ -367,6 +383,8 @@ def service_compare_latest_athlete_states(
         jwt = None
     else:
         jwt = require_jwt(user_jwt)
+
+    model_to_use = (model or _default_ai_model()).strip()
 
     if not service and is_user_over_token_quota(
         user_id,
@@ -404,8 +422,6 @@ def service_compare_latest_athlete_states(
     current_state = current.get("state_json") or {}
     previous_state = previous.get("state_json") or {}
 
-    model_to_use = model or DEFAULT_MODEL
-
     report, trace = generate_athlete_progress_report(
         previous_state=previous_state,
         current_state=current_state,
@@ -413,6 +429,11 @@ def service_compare_latest_athlete_states(
         user_id=user_id,
         debug_raw=debug,
     )
+
+    if not isinstance(report, dict):
+        report = {}
+
+    report["model"] = str(report.get("model") or model_to_use)
 
     # === AI BILLING – usage za PROGRESS REPORT ============
     usage = extract_usage_from_trace(trace)
