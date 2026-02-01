@@ -36,7 +36,7 @@ def ai_call_json_model(
     m = model or _default_model(p)
 
     if p == "openai":
-        from Services.AI.clients.openai_client import openai_call_json_model
+        from Services.AI.openai_client import openai_call_json_model
 
         return openai_call_json_model(
             context_payload=context_payload,
@@ -49,7 +49,7 @@ def ai_call_json_model(
         )
 
     if p == "gemini":
-        from Services.AI.clients.gemini_client import gemini_call_json_model
+        from Services.AI.gemini_client import gemini_call_json_model
 
         return gemini_call_json_model(
             context_payload=context_payload,
