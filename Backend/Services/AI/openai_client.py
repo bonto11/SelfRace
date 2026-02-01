@@ -1,4 +1,3 @@
-# Services/AI/clients/openai_client.py
 from __future__ import annotations
 
 import json
@@ -18,29 +17,35 @@ from Services.AI.types import AiResult, AiError
 from Services.AI.json_parse import parse_ai_json
 
 
+def _uniq_keep_order(items: List[str]) -> List[str]:
+    out: List[str] = []
+    for x in items:
+        x = (x or "").strip()
+        if x and x not in out:
+            out.append(x)
+    return out
+
+
 def _models_priority(explicit_model: Optional[str]) -> List[str]:
     """
     Poradie:
       1) explicit_model (ak je)
-      2) OPENAI_DEFAULT_MODEL (ak nie je už v fallbackoch)
-      3) OPENAI_MODEL_FALLBACKS (z configu; uniq keep order)
+      2) OPENAI_DEFAULT_MODEL
+      3) OPENAI_MODEL_FALLBACKS
     """
     base: List[str] = []
     if OPENAI_DEFAULT_MODEL:
-        base.append(OPENAI_DEFAULT_MODEL)
+        base.append(str(OPENAI_DEFAULT_MODEL))
 
     if isinstance(OPENAI_MODEL_FALLBACKS, list):
-        for m in OPENAI_MODEL_FALLBACKS:
-            if m and m not in base:
-                base.append(m)
+        base.extend([str(m) for m in OPENAI_MODEL_FALLBACKS if m])
 
-    if not base:
-        base = ["gpt-4o-mini"]
+    base = _uniq_keep_order(base) or ["gpt-4o-mini"]
 
     if explicit_model:
-        if explicit_model in base:
-            return [explicit_model] + [m for m in base if m != explicit_model]
-        return [explicit_model] + base
+        em = str(explicit_model).strip()
+        if em:
+            return _uniq_keep_order([em] + base)
 
     return base
 
@@ -114,8 +119,8 @@ def openai_call_json_model(
                     model=m,
                     system_txt=system_prompt,
                     user_txt=user_txt,
-                    max_tokens=int(max_tokens),
-                    temperature=float(temperature),
+                    max_tokens=max_tokens,
+                    temperature=temperature,
                 )
                 dur_ms = int((time.time() - started) * 1000)
 
@@ -126,13 +131,13 @@ def openai_call_json_model(
                     {
                         "model": m,
                         "attempt": attempt,
-                        "ok": parsed is not None,
+                        "ok": isinstance(parsed, dict),
                         "duration_ms": dur_ms,
                         "raw_preview": raw[:800] + ("…[truncated]" if len(raw) > 800 else ""),
                     }
                 )
 
-                if parsed is None or not isinstance(parsed, dict):
+                if not isinstance(parsed, dict):
                     last_err = "OpenAI returned invalid JSON"
                     continue
 
@@ -164,17 +169,17 @@ def openai_call_json_model(
                 )
                 time.sleep(0.3 * attempt)
 
+    msg = f"AI call failed: {last_err or 'unknown error'}"
     if debug_raw:
         trace["raw"] = last_raw
         trace["cleaned"] = last_cleaned
 
-    detail = f"AI call failed: {last_err or 'unknown error'}"
     return AiResult(
         ok=False,
         data=None,
         error=AiError(
             code="ai_openai_failed",
-            message=detail,
+            message=msg,
             trace=(trace if debug_raw else None),
         ),
         provider="openai",
