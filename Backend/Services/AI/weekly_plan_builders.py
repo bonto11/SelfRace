@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, List
 
 from Configs.config import (
     COACH_PLAN_MIN_WEEKS,
-    COACH_PLAN_DEAFULT_WEEKS,
+    COACH_PLAN_DEAFULT_WEEKS,  # pozn.: historický názov, nechávame
     COACH_PLAN_MAX_WEEKS,
 )
 
@@ -113,11 +113,7 @@ def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
 
 def _extract_prefs_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     raw_prefs = analyze_input.get("prefs") or {}
-    if (
-        isinstance(raw_prefs, dict)
-        and "value" in raw_prefs
-        and isinstance(raw_prefs["value"], dict)
-    ):
+    if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
         return raw_prefs["value"]
     if isinstance(raw_prefs, dict):
         return raw_prefs
@@ -141,22 +137,40 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
         u2.pop("name", None)
         ai["user"] = u2
 
-    # last_activities: často obsahujú názvy a timestampy -> nechaj len agregácie
+    # last_activities: nechaj len agregácie, bez názvov/id
     la = ai.get("last_activities")
     if isinstance(la, list):
         trimmed: List[Dict[str, Any]] = []
         for a in la:
             if not isinstance(a, dict):
                 continue
+
+            # NOTE: v athlete_state_builders ukladáš "duration_min" + "distance_km"
+            dur_min = (
+                a.get("duration_min")
+                or a.get("moving_time_min")
+                or a.get("moving_time")  # legacy
+            )
+
             trimmed.append(
                 {
                     "sport": a.get("sport") or a.get("type"),
                     "distance_km": a.get("distance_km") or a.get("distance"),
-                    "moving_time_min": a.get("moving_time_min") or a.get("moving_time"),
+                    "duration_min": dur_min,
+                    "avg_hr": a.get("avg_hr"),
                     "load": a.get("load") or a.get("trimp"),
                     "day_offset": a.get("day_offset"),
+                    # ak máš relatívne dátumy (today/today-N), nechaj to
+                    "date": a.get("date"),
+                    # basic zone mins ak sú (benefit pre weekly)
+                    "z1_min": a.get("z1_min"),
+                    "z2_min": a.get("z2_min"),
+                    "z3_min": a.get("z3_min"),
+                    "z4_min": a.get("z4_min"),
+                    "z5_min": a.get("z5_min"),
                 }
             )
+
             if len(trimmed) >= 20:
                 break
         ai["last_activities"] = trimmed
@@ -256,7 +270,6 @@ def build_weekly_context_from_db(
         "state_bundle": state_bundle,
         "prefs_ai": prefs_ai,
         "horizon_weeks": horizon_weeks,
-        # vraciaš aj pre debug/logiku
         "analyze_input": analyze_input,
         "analyze_input_min": analyze_input_min,
     }
