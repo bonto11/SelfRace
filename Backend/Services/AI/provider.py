@@ -43,12 +43,15 @@ def ai_call_json_model(
         )
 
     if p == "gemini":
-        # doplníme v ďalšom kroku
-        return AiResult(
-            ok=False,
-            error=AiError(code="ai_not_implemented", message="Gemini provider not wired yet"),
-            provider="gemini",
-            model=(m or "unknown"),
+        from Services.AI.clients.gemini_client import gemini_call_json_model
+        return gemini_call_json_model(
+            context_payload=context_payload,
+            system_prompt=system_prompt,
+            user_instructions=user_instructions,
+            model=m,
+            max_tokens=max_tokens,
+            debug_raw=debug_raw,
+            temperature=temperature,
         )
 
     return AiResult(
