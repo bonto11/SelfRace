@@ -4,8 +4,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 from uuid import uuid4
 
-from Configs.config import DEFAULT_MODEL
-
 from Services.AI.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
@@ -19,7 +17,11 @@ from Services.AI.weekly_plan_builders import (
     build_weekly_rows_from_ai,
 )
 
+# NOTE:
+# weekly_plan_generate.py si upravíme tak, aby používal Services.AI.provider (openai/gemini).
+# Zatiaľ iba prestávame spoliehať sa na DEFAULT_MODEL tu.
 from Routes_AI.weekly_plan_generate import generate_weekly_plan_json
+
 from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
@@ -56,16 +58,20 @@ def service_generate_weekly_plan(
     """
     Hlavná service pre weekly plán.
 
+    Nový štýl:
+      - model je voliteľný (keď None, provider/generator si vyberie default)
+      - DEFAULT_MODEL už nepoužívame tu
+      - resp["model"] preferuje model z AI výstupu, ak ho AI vráti
+
     SAFE pravidlá:
-      - keď debug=False → nevraciame FE celý weekly_plan (len meta: plan_id, weeks, state_id, model, error...)
-      - keď debug=True → môžeš dostať aj weekly_plan + trace (na lokálny debug)
+      - debug=False → nevraciame FE celý weekly_plan (len meta)
+      - debug=True  → weekly_plan + trace
     """
+    # --- auth ---
     if service:
         jwt = user_jwt
     else:
         jwt = require_jwt(user_jwt)
-
-    plan_model = model or DEFAULT_MODEL or "gpt-4o-mini"
 
     # --- quota (len user-trigger) ---
     if not service and is_user_over_token_quota(
@@ -77,7 +83,7 @@ def service_generate_weekly_plan(
         return {
             "plan_id": None,
             "state_id": None,
-            "model": plan_model,
+            "model": (model or "auto"),
             "overwrite": overwrite,
             "weeks": weeks,
             "error": _safe_error_payload(
@@ -103,17 +109,25 @@ def service_generate_weekly_plan(
 
     used_state_id = state_bundle["state_id"]
 
+    # --- AI call ---
+    # model=None => generator/provider vyberie default podľa AI_PROVIDER
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
-        model=plan_model,
-        debug_raw=debug,
+        model=model,          # ✅ pass-through (optional)
+        debug_raw=debug,      # debug -> trace/raw preview
     )
 
-    # --- billing (usage je v trace aj bez debug, ak ho generate vracia) ---
-    usage = extract_usage_from_trace(trace)
+    if not isinstance(weekly_plan, dict):
+        weekly_plan = {}
+
+    # preferuj model, ktorý AI vráti (ak vráti)
+    model_used = str(weekly_plan.get("model") or model or "auto")
+
+    # --- billing (usage v trace; pri gemini možno nebude v rovnakom formáte => usage None) ---
+    usage = extract_usage_from_trace(trace) if trace else None
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
-        usage["model"] = str(plan_model)
+        usage["model"] = model_used
         try:
             billing_result = log_ai_usage_for_user(
                 user_id=user_id,
@@ -132,10 +146,7 @@ def service_generate_weekly_plan(
             print("[AI_BILLING] weekly_plan billing error:", repr(e))
 
     # --- plan_id ---
-    if isinstance(weekly_plan, dict) and weekly_plan.get("plan_id"):
-        plan_id = str(weekly_plan["plan_id"])
-    else:
-        plan_id = str(uuid4())
+    plan_id = str(weekly_plan.get("plan_id") or uuid4())
 
     # --- overwrite: archive + clear previous weekly rows ---
     deleted_rows = 0
@@ -210,7 +221,7 @@ def service_generate_weekly_plan(
     resp: Dict[str, Any] = {
         "plan_id": plan_id,
         "state_id": used_state_id,
-        "model": plan_model,
+        "model": model_used,
         "overwrite": overwrite,
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
@@ -284,7 +295,6 @@ def service_get_latest_weekly_plan(
                 "completed_km": r.get("completed_km"),
                 "completed_minutes": r.get("completed_minutes"),
                 "notes": r.get("notes"),
-                # raw_json typicky netreba do UI; nechávam OFF.
                 # "raw_json": r.get("raw_json"),
             }
         )
