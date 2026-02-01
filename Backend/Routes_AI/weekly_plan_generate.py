@@ -5,9 +5,9 @@ from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
+from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Services.user_prefs import service_load_user_settings
 from Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
-
 from Services.AI.provider import ai_call_json_model
 
 
@@ -16,22 +16,28 @@ def generate_weekly_plan_json(
     model: str,
     *,
     debug_raw: bool = False,
+    # voliteľné overrides (inak idú env defaulty cez Configs.config)
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
 ) -> Tuple[dict, Optional[dict]]:
     """
     Provider-agnostic weekly plan generator.
     - používa Services.AI.provider.ai_call_json_model()
-    - neobsahuje žiadne OpenAI importy ani token budget logiku
+    - neobsahuje žiadne OpenAI importy ani *_llm helpery
     - vracia (weekly_plan_dict, trace_or_None)
     """
 
-    # authoritative user_id is always context_payload.user_id
+    ctx = context_payload if isinstance(context_payload, dict) else {}
+
+    # authoritative user_id is always ctx["user_id"]
     user_id: Optional[int] = None
     try:
-        if isinstance(context_payload, dict) and context_payload.get("user_id") is not None:
-            user_id = int(context_payload["user_id"])
+        if ctx.get("user_id") is not None:
+            user_id = int(ctx["user_id"])
     except Exception:
         user_id = None
 
+    # user settings (lang/tz)
     settings: Dict[str, Any] = {}
     if user_id:
         try:
@@ -40,32 +46,35 @@ def generate_weekly_plan_json(
             settings = {}
 
     system_txt, user_txt = build_prompts_for_weekly(
-        context_payload,
+        ctx,
         settings=settings,
     )
 
     # authoritative weeks horizon
     horizon_weeks: int = 6
     try:
-        horizon_weeks = int((context_payload or {}).get("weeks") or 6)
+        horizon_weeks = int(ctx.get("weeks") or 6)
     except Exception:
         horizon_weeks = 6
 
+    # timezone for generated_at
     tz_name = (settings.get("timezone") or "Europe/Bratislava") if isinstance(settings, dict) else "Europe/Bratislava"
     try:
         tzinfo = ZoneInfo(str(tz_name))
     except Exception:
         tzinfo = timezone.utc
 
-    # Provider call (OpenAI/Gemini)
+    # provider call (OpenAI/Gemini)
+    # Dôležité: context_payload sem neposielame ako "context_payload" pre LLM prompt,
+    # lebo ho už máme v user_txt (CONTEXT_JSON). Tu sa používa len pre debug/paritu API.
     res = ai_call_json_model(
-        context_payload=context_payload if isinstance(context_payload, dict) else {},
+        context_payload=ctx,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
+        max_tokens=int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2000)),
+        temperature=float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)),
         debug_raw=debug_raw,
-        # max_tokens/temperature berie provider/client z env defaultov,
-        # ale ponechávame parametre aby si to vedel override-núť z call site neskôr.
     )
 
     trace: Optional[dict] = None
@@ -74,8 +83,9 @@ def generate_weekly_plan_json(
             "ok": bool(res.ok),
             "provider": getattr(res, "provider", None),
             "model": getattr(res, "model", None),
-            "error": (res.error.message if getattr(res, "error", None) else None),
             "error_code": (res.error.code if getattr(res, "error", None) else None),
+            "error_message": (res.error.message if getattr(res, "error", None) else None),
+            # provider-specific trace (len keď debug_raw=True to provider plní)
             "provider_trace": (res.error.trace if getattr(res, "error", None) else None),
         }
 
@@ -86,15 +96,14 @@ def generate_weekly_plan_json(
         now_local = datetime.now(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
         parsed["generated_at"] = now_local.isoformat()
-        # model = reálny model z providera (napr. gpt-4o-mini / gemini-1.5-flash-latest)
         parsed["model"] = str(getattr(res, "model", None) or model or "Trainalyze Coach")
 
-        plan_meta = parsed.get("plan_meta") or {}
+        plan_meta = parsed.get("plan_meta")
         if not isinstance(plan_meta, dict):
             plan_meta = {}
 
         # FORCE: weeks must match horizon_weeks (always)
-        plan_meta["weeks"] = horizon_weeks
+        plan_meta["weeks"] = int(horizon_weeks)
         parsed["plan_meta"] = plan_meta
 
         return parsed, trace
@@ -102,11 +111,10 @@ def generate_weekly_plan_json(
     # Fallback (keď provider zlyhá alebo vráti zlý formát)
     now_iso = datetime.now(tzinfo).isoformat()
 
-    prefs_fb = (context_payload or {}).get("prefs") or {}
+    prefs_fb = ctx.get("prefs") or {}
     if isinstance(prefs_fb, dict) and isinstance(prefs_fb.get("value"), dict):
         prefs_fb = prefs_fb["value"]
 
-    # minimal safe fallback schema
     fallback = {
         "schema_version": 1,
         "generated_at": now_iso,
@@ -117,7 +125,7 @@ def generate_weekly_plan_json(
                 if isinstance(prefs_fb, dict)
                 else None
             ),
-            "weeks": horizon_weeks,
+            "weeks": int(horizon_weeks),
             "main_sport": ((prefs_fb.get("main_sport") if isinstance(prefs_fb, dict) else None) or "run"),
             "goal_kind": ((prefs_fb.get("goal_kind") if isinstance(prefs_fb, dict) else None) or "improve_overall"),
         },
