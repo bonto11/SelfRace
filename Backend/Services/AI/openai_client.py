@@ -2,25 +2,46 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
-from Configs.config import OPENAI_API_KEY, LLM_TIMEOUT_S
+from Configs.config import (
+    OPENAI_API_KEY,
+    LLM_TIMEOUT_S,
+    LLM_RETRIES,
+    OPENAI_DEFAULT_MODEL,
+    OPENAI_MODEL_FALLBACKS,
+)
 from Services.AI.types import AiResult, AiError
 from Services.AI.json_parse import parse_ai_json
 
-def _llm_models_priority(explicit_model: Optional[str]) -> List[str]:
-    env_list = os.getenv("OPENAI_MODEL_FALLBACKS", "gpt-4.1-mini,gpt-4o-mini")
-    env_models = [m.strip() for m in env_list.split(",") if m.strip()]
 
-    base = env_models or ["gpt-4.1-mini", "gpt-4o-mini"]
-    if explicit_model and explicit_model not in base:
-        return [explicit_model] + base
+def _models_priority(explicit_model: Optional[str]) -> List[str]:
+    """
+    Poradie:
+      1) explicit_model (ak je)
+      2) OPENAI_DEFAULT_MODEL (ak nie je už v fallbackoch)
+      3) OPENAI_MODEL_FALLBACKS (z configu; uniq keep order)
+    """
+    base: List[str] = []
+    if OPENAI_DEFAULT_MODEL:
+        base.append(OPENAI_DEFAULT_MODEL)
+
+    if isinstance(OPENAI_MODEL_FALLBACKS, list):
+        for m in OPENAI_MODEL_FALLBACKS:
+            if m and m not in base:
+                base.append(m)
+
+    if not base:
+        base = ["gpt-4o-mini"]
+
     if explicit_model:
-        return [explicit_model] + [m for m in base if m != explicit_model]
+        if explicit_model in base:
+            return [explicit_model] + [m for m in base if m != explicit_model]
+        return [explicit_model] + base
+
     return base
 
 
@@ -31,7 +52,7 @@ def _call_openai_once(
     system_txt: str,
     user_txt: str,
     max_tokens: int,
-    temperature: float = 0.2,
+    temperature: float,
 ) -> str:
     resp = client.chat.completions.create(
         model=model,
@@ -56,24 +77,20 @@ def openai_call_json_model(
     debug_raw: bool = False,
     temperature: float = 0.2,
 ) -> AiResult[Dict[str, Any]]:
-    """
-    Provider-friendly verzia tvojho call_json_model:
-      - neháže HTTPException
-      - vracia AiResult[dict]
-    """
     if not OPENAI_API_KEY:
         return AiResult(
             ok=False,
+            data=None,
             error=AiError(code="ai_missing_key", message="Missing OPENAI_API_KEY"),
             provider="openai",
             model=model or "unknown",
         )
 
-    timeout_s = int(os.getenv("OPENAI_TIMEOUT_S", str(LLM_TIMEOUT_S or 30)) or "30")
-    retries = int(os.getenv("OPENAI_RETRIES", "2") or "2")
+    timeout_s = int(LLM_TIMEOUT_S or 30)
+    retries = int(LLM_RETRIES or 2)
 
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
-    models = _llm_models_priority(model)
+    models = _models_priority(model)
 
     trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
     last_err: Optional[str] = None
@@ -82,7 +99,6 @@ def openai_call_json_model(
     ok_model: Optional[str] = None
 
     ctx_json = json.dumps(context_payload, ensure_ascii=False)
-
     user_txt = (
         user_instructions.rstrip()
         + "\n\n---\nContext JSON (ground truth):\n"
@@ -98,8 +114,8 @@ def openai_call_json_model(
                     model=m,
                     system_txt=system_prompt,
                     user_txt=user_txt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
+                    max_tokens=int(max_tokens),
+                    temperature=float(temperature),
                 )
                 dur_ms = int((time.time() - started) * 1000)
 
@@ -117,7 +133,7 @@ def openai_call_json_model(
                 )
 
                 if parsed is None or not isinstance(parsed, dict):
-                    last_err = "AI returned invalid JSON"
+                    last_err = "OpenAI returned invalid JSON"
                     continue
 
                 ok_model = m
@@ -148,15 +164,19 @@ def openai_call_json_model(
                 )
                 time.sleep(0.3 * attempt)
 
-    detail = f"AI call failed: {last_err or 'unknown error'}"
     if debug_raw:
         trace["raw"] = last_raw
         trace["cleaned"] = last_cleaned
 
+    detail = f"AI call failed: {last_err or 'unknown error'}"
     return AiResult(
         ok=False,
         data=None,
-        error=AiError(code="ai_openai_failed", message=detail, trace=(trace if debug_raw else None)),
+        error=AiError(
+            code="ai_openai_failed",
+            message=detail,
+            trace=(trace if debug_raw else None),
+        ),
         provider="openai",
         model=(ok_model or (models[0] if models else "unknown")),
     )
