@@ -57,11 +57,15 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
     Orezaný context pre WEEKLY LLM:
     - drop user_id / internal ids
-    - drop full analyze_input (posielame len min veci)
     - keep only what weekly meta plan needs
+    - ✅ dôležité: recent_load/zones/thresholds/recovery berieme z TOP-LEVEL alebo z analyze_input_min/analyze_input
+      (lebo weekly_context_from_db ich typicky nedáva na top-level)
     """
     ctx = _as_dict(ctx)
     ctx2: Dict[str, Any] = {}
+
+    # Source of "big blocks" (builder posiela analyze_input_min / analyze_input)
+    analyze_src = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
 
     # --- prefs (flatten + trim) ---
     raw_prefs = _as_dict(ctx.get("prefs"))
@@ -105,19 +109,27 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             "long_run_days": preferences.get("long_run_days"),
             "avoid_two_a_day": preferences.get("avoid_two_a_day"),
             "avoid_back_to_back_hard": preferences.get("avoid_back_to_back_hard"),
-        } if preferences else {},
+        }
+        if preferences
+        else {},
         "targets": {
             "run": {
                 "race_goal": run_t.get("race_goal"),
                 "race_type": run_t.get("race_type"),
                 "target_time": run_t.get("target_time"),
                 "races": races_min,
-            } if run_t else {},
+            }
+            if run_t
+            else {},
             "strength": {
                 "focus": strength_t.get("focus"),
                 "sessions_per_week": strength_t.get("sessions_per_week"),
-            } if strength_t else {},
-        } if targets else {},
+            }
+            if strength_t
+            else {},
+        }
+        if targets
+        else {},
     }
 
     # weekly_template: posli len key slots
@@ -136,9 +148,12 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         ai_state = _as_dict(athlete_state.get("ai_state"))
         ctx2["athlete_state"] = {"ai_state": ai_state}
 
-    # --- recent_load / zones / thresholds ---
-    for key in ("recent_load", "zones", "thresholds"):
+    # --- recent_load / zones / thresholds / recovery ---
+    # Prefer TOP-LEVEL (ak niekedy dáš), inak z analyze_src (analyze_input_min)
+    for key in ("recent_load", "zones", "thresholds", "recovery"):
         v = ctx.get(key)
+        if not isinstance(v, dict):
+            v = analyze_src.get(key)
         if isinstance(v, dict):
             ctx2[key] = v
 
