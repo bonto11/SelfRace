@@ -115,8 +115,8 @@ def _validate_dates_in_range(
 
 def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Daily používa occurrences (nie window/events).
-    Očakávané: context_payload["external_events"]["occurrences"] = [{date,title,sport_raw,duration_min,...}]
+    Expected shape (from daily builder):
+      context_payload["external_events"]["occurrences"] = [{date,title,sport_raw,duration_min,...}]
     """
     ext = context_payload.get("external_events") or {}
     if not isinstance(ext, dict):
@@ -136,7 +136,7 @@ def _norm_sport_raw(v: Any) -> str:
 def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]) -> bool:
     """
     Match external occurrence by payload.external_event first (preferred).
-    Fallback is stricter: date + title must match and session_type must be external_event.
+    Fallback: date + title must match and session_type must be external_event.
     """
     if not isinstance(plan, dict) or not isinstance(occ, dict):
         return True  # don't block on garbage
@@ -232,17 +232,13 @@ def generate_daily_week_json(
     temperature: Optional[float] = None,
 ) -> Tuple[dict, Optional[dict]]:
     """
-    AI client for DAILY PLAN of one week.
-    Returns (daily_dict, debug_trace_or_None).
-
-    Provider-agnostic:
-      - používa Services.AI.provider.ai_call_json_model()
-      - žiadne OpenAI importy ani *_llm helpery
-      - max 2 attempts (retry) keď failne validácia (dates/external events)
+    Provider-agnostic daily generator:
+      - používa ai_call_json_model()
+      - bez OpenAI importov a bez daily_plan_llm helperov
+      - max 2 attempts, keď zlyhá hard validácia (dates/ext events)
     """
     ctx = context_payload if isinstance(context_payload, dict) else {}
 
-    # debug_raw override via env
     if str(os.getenv("DAILY_DEBUG_RAW", "0") or "").strip().lower() in {"1", "true", "yes", "on"}:
         debug_raw = True
 
@@ -257,22 +253,17 @@ def generate_daily_week_json(
         settings=settings,
     )
 
-    _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
-
-    # week meta for validation + defaults
     week = ctx.get("week") or {}
     week_index = int(week.get("week_index") or ctx.get("week_index") or 1)
     week_start = week.get("week_start") or ctx.get("week_start") or None
     week_end = week.get("week_end") or ctx.get("week_end") or None
 
-    # timezone for generated_at
     tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
         tzinfo = ZoneInfo(str(tz_name))
     except Exception:
         tzinfo = timezone.utc
 
-    # attempts: 2 max (useful if validation fails)
     attempts = 2
 
     trace: Optional[Dict[str, Any]] = None
@@ -324,7 +315,6 @@ def generate_daily_week_json(
 
         parsed = res.data
 
-        # attach meta
         now_local = datetime.now(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 2)
         parsed["generated_at"] = now_local.isoformat()
@@ -338,7 +328,6 @@ def generate_daily_week_json(
 
         parsed = _basic_shape_sanitize(parsed)
 
-        # hard safety: dates must stay inside the week range (when available)
         ok_dates, bad_dates = _validate_dates_in_range(parsed, week_start=week_start, week_end=week_end)
         if not ok_dates:
             last_err_code = "dates_out_of_week_range"
@@ -346,7 +335,6 @@ def generate_daily_week_json(
             _dprint("validation FAILED: dates out of range:", bad_dates[:12])
             continue
 
-        # hard integrity: external events must be present
         ok_ext, missing = _validate_external_events_included(parsed, ctx)
         if not ok_ext:
             last_err_code = "missing_external_events_in_output"
@@ -357,7 +345,6 @@ def generate_daily_week_json(
         _dprint("return ok | days=", len(parsed.get("days") or []))
         return parsed, trace
 
-    # fallback
     now_fallback = datetime.now(tzinfo).isoformat()
     fallback = {
         "schema_version": 2,
