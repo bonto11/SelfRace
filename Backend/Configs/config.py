@@ -126,3 +126,39 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
 STRAVA_MANUAL_IMPORT_DEFAULT_DAYS = 10
 STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS = 1200
 STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
+
+
+import os
+from typing import List, Optional
+
+def _csv_list(env_value: Optional[str], default: str) -> List[str]:
+    raw = (env_value or default).strip()
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    # uniq keep order
+    out = []
+    for p in parts:
+        if p not in out:
+            out.append(p)
+    return out
+
+AI_PROVIDER = (os.getenv("AI_PROVIDER", "openai") or "openai").strip().lower()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+LLM_TIMEOUT_S = int(os.getenv("LLM_TIMEOUT_S", "30") or "30")
+LLM_RETRIES = int(os.getenv("LLM_RETRIES", "2") or "2")
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "2000") or "2000")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2") or "0.2")
+
+OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
+OPENAI_MODEL_FALLBACKS = _csv_list(
+    os.getenv("OPENAI_MODEL_FALLBACKS"),
+    default=OPENAI_DEFAULT_MODEL,
+)
+
+GEMINI_DEFAULT_MODEL = os.getenv("GEMINI_DEFAULT_MODEL", "gemini-1.5-flash-latest") or "gemini-1.5-flash-latest"
+GEMINI_MODEL_FALLBACKS = _csv_list(
+    os.getenv("GEMINI_MODEL_FALLBACKS"),
+    default=GEMINI_DEFAULT_MODEL,
+)
