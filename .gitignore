@@ -42,3 +42,7 @@ Frontend/.env.*.local
 Frontend/.vscode/
 Frontend/.idea/
 Frontend/.DS_Store
+
+supabase/.temp/
+supabase/.branches/
+supabase/.cache/
