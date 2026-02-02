@@ -12,9 +12,7 @@ from Routes_DB.account import (
 
 # ✅ NEW: okamžité odpojenie Stravy pri delete requeste
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
-
-DELETE_GRACE_DAYS = int(os.getenv("DELETE_GRACE_DAYS", "7"))
-
+from Configs.config import DELETE_GRACE_DAYS
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
