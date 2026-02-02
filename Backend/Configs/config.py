@@ -217,6 +217,17 @@ MAX_FULL_DETAILS_PER_RUN = 150
 # koľko dní čakať, kým cron spraví hard delete
 DELETE_GRACE_DAYS = 30
 
+FIRST_SYNC_DAYS = 365
+FIRST_SYNC_MAX = 200
+
+RECONNECT_DAYS = 30
+RECONNECT_MAX = 20
+
+QUICK_DAYS = 14
+QUICK_MAX = 10
+
+MANUAL_DAYS = 30        # alebo si to natiahni z configu
+MANUAL_MAX = 100        # nech manuál nikdy nespadne na 10 (ak chceš len days, daj 9999)
 
 # =============================================================================
 # WEEKDAY MAPS (UI/logic helpers)

@@ -15,6 +15,9 @@ from Services.activity_zones import (
 from Routes_DB.activities_summary import (
     db_get_recent_activity_ids,
 )
+from Configs.config import (
+FIRST_SYNC_DAYS, FIRST_SYNC_MAX,RECONNECT_DAYS, RECONNECT_MAX, QUICK_DAYS, QUICK_MAX, MANUAL_DAYS, MANUAL_MAX
+)
 
 from Services.users import require_jwt
 
@@ -28,18 +31,6 @@ class SyncPlan:
     max_activities: int
     reason: str
 
-
-FIRST_SYNC_DAYS = 365
-FIRST_SYNC_MAX = 200
-
-RECONNECT_DAYS = 30
-RECONNECT_MAX = 20
-
-QUICK_DAYS = 14
-QUICK_MAX = 10
-
-MANUAL_DAYS = 30        # alebo si to natiahni z configu
-MANUAL_MAX = 100        # nech manuál nikdy nespadne na 10 (ak chceš len days, daj 9999)
 
 def decide_sync_plan(
     *,
