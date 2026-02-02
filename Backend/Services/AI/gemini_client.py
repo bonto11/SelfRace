@@ -4,8 +4,8 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 
-import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
+from google import genai
+from google.genai import types
 
 from Configs.config import (
     GEMINI_API_KEY,
