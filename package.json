@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "sb:version": "npx supabase@latest --version",
+    "sb:status": "npx supabase@latest status",
+    "sb:link:dev": "npx supabase@latest link --project-ref mjgppschgzshqwfmkngw",
+    "sb:link:prod": "npx supabase@latest link --project-ref lljkdgkbrgzsrssgejuy",
+    "sb:diff": "npx supabase@latest db diff -f change",
+    "sb:push": "npx supabase@latest db push"
+  }
+}
