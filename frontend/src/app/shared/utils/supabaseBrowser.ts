@@ -3,9 +3,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
-
+import { SUPABASE_URL,SUPABASE_ANON_KEY } from "@/app/shared/config";
 // vlastný kľúč v localStorage – ľahko ho nájdeš v DevTools
 const STORAGE_KEY = "sb-selfrace-auth-token";
 

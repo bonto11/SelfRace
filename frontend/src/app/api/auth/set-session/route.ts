@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
-
+import { SUPABASE_URL,SUPABASE_ANON_KEY, NODE_ENV } from "@/app/shared/config";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function serverClient(req: NextRequest, res: NextResponse) {
   return createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     {
       cookies: {
         get: (name: string) => req.cookies.get(name)?.value,
@@ -32,7 +32,7 @@ const SR_ID = "sr_id";     // app users.id
 const cookieOpts = {
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  secure: NODE_ENV === "production",
   path: "/",
   maxAge: 60 * 60 * 24 * 30, // 30 dní
 };

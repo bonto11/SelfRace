@@ -23,7 +23,7 @@ import {
   AUTH_NOTICE_SUCCESS_STYLE,
   AUTH_NOTICE_ERROR_STYLE,
 } from "@/app/shared/ui/tokens/auth";
-
+import { FRONTEND_URL } from "@/app/shared/config";
 export default function ForgotPasswordPage() {
   const sb = getSupabaseBrowser();
   const [email, setEmail] = useState("");
@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
 
     setSending(true);
     try {
-      const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const origin = FRONTEND_URL || window.location.origin;
       const redirectTo = `${origin}/update-password`;
 
       const { error } = await sb.auth.resetPasswordForEmail(email, {

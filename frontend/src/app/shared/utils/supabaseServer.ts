@@ -3,13 +3,13 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
+import { SUPABASE_URL,SUPABASE_ANON_KEY } from "@/app/shared/config";
 export async function getSupabaseServer(): Promise<SupabaseClient> {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
