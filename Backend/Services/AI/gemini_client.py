@@ -21,11 +21,14 @@ _CLIENT: Optional[genai.Client] = None
 
 
 def _get_client() -> genai.Client:
+    """
+    google-genai Python SDK:
+      client = genai.Client(api_key=...)
+    """
     global _CLIENT
     if _CLIENT is None:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY")
-        # google-genai: Client(api_key=...)
         _CLIENT = genai.Client(api_key=GEMINI_API_KEY)
     return _CLIENT
 
@@ -40,15 +43,19 @@ def _uniq_keep_order(items: List[str]) -> List[str]:
 
 
 def _models_priority(explicit_model: Optional[str]) -> List[str]:
+    """
+    Dôležité: nepoužívaj "*-latest" aliasy. Tie ti presne teraz robia 404.
+    """
     base: List[str] = []
+
     if GEMINI_DEFAULT_MODEL:
         base.append(str(GEMINI_DEFAULT_MODEL))
 
     if isinstance(GEMINI_MODEL_FALLBACKS, list):
         base.extend([str(m) for m in GEMINI_MODEL_FALLBACKS if m])
 
-    # sane default
-    base = _uniq_keep_order(base) or ["gemini-1.5-flash"]
+    # hard fallback
+    base = _uniq_keep_order(base) or ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
 
     if explicit_model:
         em = str(explicit_model).strip()
@@ -56,6 +63,12 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             return _uniq_keep_order([em] + base)
 
     return base
+
+
+def _is_model_not_found_error(e: Exception) -> bool:
+    msg = str(e) or ""
+    # tvoja chyba: ClientError: 404 NOT_FOUND ... "is not found for API version ..."
+    return ("404" in msg and "NOT_FOUND" in msg) or ("is not found for API version" in msg)
 
 
 def gemini_call_json_model(
@@ -83,7 +96,11 @@ def gemini_call_json_model(
     retries = int(LLM_RETRIES or 2)
     timeout_s = int(LLM_TIMEOUT_S or 30)
 
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
+    trace: Dict[str, Any] = {
+        "models_tried": models,
+        "attempts": [],
+        "timeout_s": timeout_s,
+    }
     last_err: Optional[str] = None
     last_raw: Optional[str] = None
     last_cleaned: Optional[str] = None
@@ -95,7 +112,6 @@ def gemini_call_json_model(
         + ctx_json
     )
 
-    # google-genai: system instruction ide do config
     cfg = types.GenerateContentConfig(
         system_instruction=system_prompt,
         temperature=float(temperature),
@@ -107,6 +123,7 @@ def gemini_call_json_model(
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
+                # SDK call
                 resp = client.models.generate_content(
                     model=m_name,
                     contents=full_user_query,
@@ -157,16 +174,24 @@ def gemini_call_json_model(
 
             except Exception as e:  # noqa: BLE001
                 dur_ms = int((time.time() - started) * 1000)
-                last_err = f"{e.__class__.__name__}: {e}"
+                msg = f"{e.__class__.__name__}: {e}"
+                last_err = msg
+
                 trace["attempts"].append(
                     {
                         "model": m_name,
                         "attempt": attempt,
                         "ok": False,
                         "duration_ms": dur_ms,
-                        "error": last_err,
+                        "error": msg,
+                        "kind": ("model_not_found" if _is_model_not_found_error(e) else "exception"),
                     }
                 )
+
+                # ak model neexistuje, nemá zmysel retry-ovať ten istý model
+                if _is_model_not_found_error(e):
+                    break
+
                 time.sleep(0.4 * attempt)
 
     if debug_raw:

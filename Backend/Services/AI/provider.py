@@ -6,6 +6,7 @@ from Configs.config import (
     AI_PROVIDER,
     OPENAI_DEFAULT_MODEL,
     GEMINI_DEFAULT_MODEL,
+    GEMINI_API_KEY,
 )
 from Services.AI.types import AiResult, AiError
 
@@ -49,6 +50,15 @@ def ai_call_json_model(
         )
 
     if p == "gemini":
+        if not GEMINI_API_KEY:
+            return AiResult(
+                ok=False,
+                data=None,
+                error=AiError(code="ai_missing_key", message="Missing GEMINI_API_KEY"),
+                provider="gemini",
+                model=(m or "unknown"),
+            )
+
         from Services.AI.gemini_client import gemini_call_json_model
 
         return gemini_call_json_model(
