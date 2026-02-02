@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
-import { SUPABASE_URL,SUPABASE_ANON_KEY, NODE_ENV } from "@/app/shared/config";
+import { SUPABASE_URL,SUPABASE_ANON_KEY } from "@/app/shared/config";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ const SR_ID = "sr_id";     // app users.id
 const cookieOpts = {
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: NODE_ENV === "production",
+  secure: true,
   path: "/",
   maxAge: 60 * 60 * 24 * 30, // 30 dní
 };

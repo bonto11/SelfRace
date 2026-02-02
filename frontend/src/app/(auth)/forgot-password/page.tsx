@@ -24,6 +24,7 @@ import {
   AUTH_NOTICE_ERROR_STYLE,
 } from "@/app/shared/ui/tokens/auth";
 import { FRONTEND_URL } from "@/app/shared/config";
+
 export default function ForgotPasswordPage() {
   const sb = getSupabaseBrowser();
   const [email, setEmail] = useState("");
