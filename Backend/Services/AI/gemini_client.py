@@ -17,17 +17,17 @@ from Configs.config import (
 from Services.AI.types import AiResult, AiError
 from Services.AI.json_parse import parse_ai_json
 
+_CLIENT: Optional[genai.Client] = None
 
-_GEMINI_CONFIGURED = False
 
-
-def _configure_gemini_once() -> None:
-    global _GEMINI_CONFIGURED
-    if _GEMINI_CONFIGURED:
-        return
-    if GEMINI_API_KEY:
-        genai.configure(api_key=GEMINI_API_KEY)
-        _GEMINI_CONFIGURED = True
+def _get_client() -> genai.Client:
+    global _CLIENT
+    if _CLIENT is None:
+        if not GEMINI_API_KEY:
+            raise RuntimeError("Missing GEMINI_API_KEY")
+        # google-genai: Client(api_key=...)
+        _CLIENT = genai.Client(api_key=GEMINI_API_KEY)
+    return _CLIENT
 
 
 def _uniq_keep_order(items: List[str]) -> List[str]:
@@ -40,12 +40,6 @@ def _uniq_keep_order(items: List[str]) -> List[str]:
 
 
 def _models_priority(explicit_model: Optional[str]) -> List[str]:
-    """
-    Poradie:
-      1) explicit_model (ak je)
-      2) GEMINI_DEFAULT_MODEL
-      3) GEMINI_MODEL_FALLBACKS
-    """
     base: List[str] = []
     if GEMINI_DEFAULT_MODEL:
         base.append(str(GEMINI_DEFAULT_MODEL))
@@ -53,7 +47,8 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
     if isinstance(GEMINI_MODEL_FALLBACKS, list):
         base.extend([str(m) for m in GEMINI_MODEL_FALLBACKS if m])
 
-    base = _uniq_keep_order(base) or ["gemini-1.5-flash-latest"]
+    # sane default
+    base = _uniq_keep_order(base) or ["gemini-1.5-flash"]
 
     if explicit_model:
         em = str(explicit_model).strip()
@@ -82,7 +77,7 @@ def gemini_call_json_model(
             model=model or "unknown",
         )
 
-    _configure_gemini_once()
+    client = _get_client()
 
     models = _models_priority(model)
     retries = int(LLM_RETRIES or 2)
@@ -100,51 +95,55 @@ def gemini_call_json_model(
         + ctx_json
     )
 
+    # google-genai: system instruction ide do config
+    cfg = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        temperature=float(temperature),
+        max_output_tokens=int(max_tokens),
+        response_mime_type="application/json",
+    )
+
     for m_name in models:
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
-                gen_model = genai.GenerativeModel(
-                    model_name=m_name,
-                    system_instruction=system_prompt,
+                resp = client.models.generate_content(
+                    model=m_name,
+                    contents=full_user_query,
+                    config=cfg,
                 )
 
-                config = GenerationConfig(
-                    temperature=float(temperature),
-                    max_output_tokens=int(max_tokens),
-                    response_mime_type="application/json",
-                )
-
-                response = gen_model.generate_content(
-                    full_user_query,
-                    generation_config=config,
-                    request_options={"timeout": timeout_s},
-                )
-
-                raw = (getattr(response, "text", None) or "").strip()
+                raw = (getattr(resp, "text", None) or "").strip()
                 dur_ms = int((time.time() - started) * 1000)
 
                 if not raw:
                     last_err = "Gemini returned empty response"
                     trace["attempts"].append(
-                        {"model": m_name, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err}
+                        {
+                            "model": m_name,
+                            "attempt": attempt,
+                            "ok": False,
+                            "duration_ms": dur_ms,
+                            "error": last_err,
+                        }
                     )
                     continue
 
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
                 last_raw, last_cleaned = raw_keep, cleaned
 
+                ok = isinstance(parsed, dict)
                 trace["attempts"].append(
                     {
                         "model": m_name,
                         "attempt": attempt,
-                        "ok": isinstance(parsed, dict),
+                        "ok": ok,
                         "duration_ms": dur_ms,
                         "raw_preview": raw[:800] + ("…[truncated]" if len(raw) > 800 else ""),
                     }
                 )
 
-                if not isinstance(parsed, dict):
+                if not ok:
                     last_err = "Gemini returned invalid JSON"
                     continue
 
@@ -160,7 +159,13 @@ def gemini_call_json_model(
                 dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{e.__class__.__name__}: {e}"
                 trace["attempts"].append(
-                    {"model": m_name, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err}
+                    {
+                        "model": m_name,
+                        "attempt": attempt,
+                        "ok": False,
+                        "duration_ms": dur_ms,
+                        "error": last_err,
+                    }
                 )
                 time.sleep(0.4 * attempt)
 
