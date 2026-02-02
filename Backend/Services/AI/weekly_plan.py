@@ -78,7 +78,6 @@ def service_generate_weekly_plan(
 
     Nový štýl:
       - model je voliteľný (keď None, provider/generator si vyberie default)
-      - DEFAULT_MODEL už nepoužívame tu
       - resp["model"] preferuje model z AI výstupu, ak ho AI vráti
 
     SAFE pravidlá:

@@ -129,19 +129,19 @@ STRAVA_CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
 REDIRECT_URI = env_optional("STRAVA_REDIRECT_URI", "http://localhost:5000/exchange_token")
 TOKENS_FILE = env_optional("STRAVA_TOKENS_FILE", "data/tokens.json")
 
-USE_STRAVA_CACHE = env_bool("USE_STRAVA_CACHE", default=True)
-CACHE_DIR = env_optional("STRAVA_CACHE_DIR", "data/strava_cache") or "data/strava_cache"
+USE_STRAVA_CACHE = False
+CACHE_DIR = "data/strava_cache"
 STRAVA_DEBUG_STREAMS = env_bool("STRAVA_DEBUG_STREAMS", default=False)
 
 # Dobrovoľný globálny delay medzi requestami (sekundy)
-REQUEST_DELAY_SECS = env_float("REQUEST_DELAY_SECS", 0.3)
+REQUEST_DELAY_SECS = 0.3
 
 # Limity / pravidlá okolo reconnect a manuálneho importu (FE iba zobrazuje číslo zo statusu)
-STRAVA_RECONNECT_COOLDOWN_SECONDS = env_int("STRAVA_RECONNECT_COOLDOWN_SECONDS", 24 * 3600)
+STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
 
 # (ak si tieto dva už odstránil z logiky, nechaj ich tu len ak niekde ešte svietia)
-STRAVA_MANUAL_IMPORT_DEFAULT_DAYS = env_int("STRAVA_MANUAL_IMPORT_DEFAULT_DAYS", 10)
-STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS = env_int("STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS", 1200)
+STRAVA_MANUAL_IMPORT_DEFAULT_DAYS = 10
+STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS = 1200
 
 
 # =============================================================================
@@ -241,6 +241,4 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
     6: "Sun",
 }
 
-
-DEFAULT_MODEL = ""
 COACH_PLAN_DEAFULT_WEEKS = 10

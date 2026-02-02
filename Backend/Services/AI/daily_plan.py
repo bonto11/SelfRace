@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 import os
 import json
 
-from Configs.config import DEFAULT_MODEL, COACH_PLAN_SCAN_HORIZON_DAYS
+from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS
 from Routes_AI.daily_plan_generate import generate_daily_week_json
 from Routes_DB.coach_plan_daily import (
     db_clear_daily_for_user_week,
@@ -191,7 +191,7 @@ def service_generate_daily_week(
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
-    daily_model = model or DEFAULT_MODEL or "gpt-4o-mini"
+    daily_model = model
 
     _dprint("=== service_generate_daily_week start ===")
     _dprint(

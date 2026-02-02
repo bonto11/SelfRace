@@ -9,7 +9,6 @@ from Services.AI.athlete_state import (
     service_get_latest_athlete_progress,
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
-from Configs.config import DEFAULT_MODEL
 from Modules.HTTP.auth_deps import require_user_jwt
 
 router = APIRouter(
@@ -34,7 +33,6 @@ def analyze_athlete(
             if not payload or payload.save_to_db is None
             else bool(payload.save_to_db)
         )
-        model = DEFAULT_MODEL
         if payload and payload.model:
             model = payload.model
 

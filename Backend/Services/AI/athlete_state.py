@@ -268,7 +268,6 @@ def service_analyze_athlete(
         pass
 
     # 2) AI CALL – generator nech sa postará o provider (ďalší krok),
-    # my už len posielame model_to_use a neschovávame staré DEFAULT_MODEL.
     analysis, trace = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model_to_use,
