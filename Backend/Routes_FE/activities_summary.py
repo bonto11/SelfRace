@@ -36,7 +36,6 @@ def activities_in_range(
             user_jwt=user_jwt,
         )
 
-        print("activities_in_range payload",payload)
         return {
             "success": True,
             **payload,
