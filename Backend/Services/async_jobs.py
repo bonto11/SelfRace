@@ -28,6 +28,7 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "sync",
     "uspert_enrichment_zones",
     "ai_analyze",
+    "activity_review",
     "weekly_generate",
     "daily_generate",
     "daily_extend",
@@ -453,6 +454,23 @@ def service_run_job_now(
                 user_id=user_id,
                 user_jwt=payload_jwt,
                 min_horizon_days=min_horizon_days,
+            )
+
+        elif job_type == "activity_review":
+            activity_id = input_payload.get("activity_id")
+            if activity_id is None:
+                raise ValueError("activity_review: activity_id is required")
+        
+            run_as_service = bool(input_payload.get("service", True))
+        
+            result_payload = service_review_activity(
+                user_id=user_id,
+                activity_id=int(activity_id),
+                user_jwt=None if run_as_service else payload_jwt,
+                service=run_as_service,
+                debug=bool(input_payload.get("debug", False)),
+                save_to_db=True,
+                model=input_payload.get("model"),
             )
 
         elif job_type == "sync":
