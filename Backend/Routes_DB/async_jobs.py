@@ -196,3 +196,52 @@ def db_update_job_finished(
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] update_finished error:", repr(e))
         return None
+        
+        
+def db_claim_next_queued_job(
+    *,
+    user_id: Optional[int] = None,
+    worker_id: str = "worker",
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """
+    Nájde najstarší queued job (voliteľne pre usera) a pokúsi sa ho zamknúť (status->running).
+    Robustnejšie je spraviť to cez Postgres RPC, ale toto je OK pre 1-2 workery.
+
+    Vracia už "locked" job row alebo None.
+    """
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+
+        q = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("status", "queued")
+            .order("created_at", desc=False)
+            .limit(1)
+        )
+        if user_id is not None:
+            q = q.eq("user_id", int(user_id))
+
+        res = q.execute()
+        rows = res.data or []
+        job = rows[0] if rows else None
+        if not job:
+            return None
+
+        jid = job.get("id")
+        attempts = int(job.get("attempts") or 0)
+
+        locked = db_mark_job_running(
+            int(jid),
+            worker_id=worker_id,
+            attempts=attempts + 1,
+            user_jwt=user_jwt,
+            service=service,
+        )
+        return locked
+
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] claim_next error:", repr(e))
+        return None
