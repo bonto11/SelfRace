@@ -25,14 +25,13 @@ def _get_client() -> genai.Client:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY")
         
-        timeout_val = int(LLM_TIMEOUT_S)
-        
+        raw_timeout = int(LLM_TIMEOUT_S)
+        timeout_val = max(raw_timeout, 60)
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
             http_options={'timeout': timeout_val}
         )
-
-        # Nahraď svojím kľúčom alebo načítaj z env   
+ 
         # print("Dostupné modely pre tvoj účet: ")
         # for model in _CLIENT.models.list():
             # print(f" - {model.name}")
