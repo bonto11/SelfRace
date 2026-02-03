@@ -1,4 +1,3 @@
-# Modules/Strava/webhook_strava_processor.py
 """
 Webhook processor:
  - mapuje athlete_id -> user_id cez strava_accounts
@@ -15,7 +14,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Optional
 
 from Modules.Supabase.client import get_service_client
 from Services.synchronization_single import service_sync_single_activity
@@ -68,6 +67,36 @@ async def _run_coach_autoadjust_service(user_id: int) -> dict:
     return await loop.run_in_executor(None, fn)
 
 
+def _enqueue_activity_review_job(*, user_id: int, user_uid: str, activity_id: int) -> None:
+    """
+    Enqueue AI activity review ako samostatný async job.
+    Nech je to best-effort a nikdy neblokuje webhook.
+    """
+    try:
+        service_enqueue_job(
+            user_id=int(user_id),
+            user_uid=user_uid or "00000000-0000-0000-0000-000000000000",
+            job_type="activity_review",
+            payload={
+                "activity_id": int(activity_id),
+                "service": True,   # webhook = service mode
+                "save_to_db": True,
+            },
+            user_jwt=None,
+            service=True,
+            # priority/dedupe_key sem zatiaľ nedávam do DB (často nemáš stĺpce)
+            priority=150,
+            dedupe_key=f"activity_review:{user_id}:{activity_id}",
+        )
+    except Exception as e:
+        print(
+            "[ACTIVITY-REVIEW][enqueue] failed",
+            "user_id=", user_id,
+            "activity_id=", activity_id,
+            "err=", repr(e),
+        )
+
+
 async def _process_single_event(row: Mapping[str, Any]) -> None:
     event_id_raw = row.get("id")
     if not event_id_raw:
@@ -104,6 +133,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     # 3) nájsť prepojený strava_account (len aktívny)
+    # ⚠️ NEselectuj user_uid ak ho nemáš v tabuľke -> padne to.
     acc_resp = (
         supabase.table("strava_accounts")
         .select("user_id, athlete_id")
@@ -125,6 +155,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     user_id = int(account["user_id"])
+    user_uid = "00000000-0000-0000-0000-000000000000"
 
     # 4) DELETE → označiť activity ako deleted
     if aspect_type == "delete":
@@ -139,36 +170,19 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         _mark_event(event_id, status="processed", error=None, processed_at_iso=now_iso)
         return
 
-    # 5) CREATE / UPDATE → sync + auto-adjust
+    # 5) CREATE / UPDATE → sync + enqueue review + auto-adjust
     if aspect_type not in ("create", "update"):
         _mark_event(event_id, status="ignored", error="unknown_aspect_type", processed_at_iso=now_iso)
         return
 
     try:
+        # 5a) sync single activity (blokujúca časť, ale beží v executor)
         await _sync_activity(user_id=user_id, strava_activity_id=object_id)
 
-        # 🔥 enqueue AI activity review (ASYNC, non-blocking)
-        try:
-            service_enqueue_job(
-                user_id=user_id,
-                user_uid=str(account.get("athlete_id") or ""),
-                job_type="activity_review",
-                payload={
-                    "activity_id": object_id,
-                    "service": True,   # webhook = service mode
-                },
-                service=True,
-                priority=150,
-                dedupe_key=f"activity_review:{user_id}:{object_id}",
-            )
-        except Exception as e:
-            print(
-                "[ACTIVITY-REVIEW][enqueue] failed",
-                "user_id=", user_id,
-                "activity_id=", object_id,
-                "err=", repr(e),
-            )
-    
+        # 5b) enqueue review job (non-blocking, best-effort)
+        _enqueue_activity_review_job(user_id=user_id, user_uid=user_uid, activity_id=object_id)
+
+        # 5c) best-effort auto-adjust
         try:
             auto_res = await _run_coach_autoadjust_service(user_id=user_id)
             print(
