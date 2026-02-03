@@ -38,7 +38,7 @@ def db_get_enrichment_for_activities(
         .select(
             "activity_id,"
             "z1_min,z2_min,z3_min,z4_min,z5_min,"
-            "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m"
+            "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m","ai_review"
         )
         .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))
@@ -72,3 +72,18 @@ def db_upsert_enrichment_rows(
         saved += len(chunk)
 
     return saved
+    
+def db_get_enrichment_for_activity(
+    user_id: int,
+    activity_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
+    rows = db_get_enrichment_for_activities(
+        user_id=user_id,
+        activity_ids=[activity_id],
+        user_jwt=user_jwt,
+        service=service,
+    )
+    return rows[0] if rows else None
