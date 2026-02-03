@@ -1,7 +1,6 @@
+// src/app/features/activities/api/activity_review.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
-
-/* ---------- spoločné typy (rovnaké ako weekly) ---------- */
 
 type AsyncJobRow = {
   id: number;
@@ -31,30 +30,21 @@ type RunJobResponse = {
   error?: string | null;
 };
 
-/* ---------- options ---------- */
-
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean; // default true
   debug?: boolean; // default false
   model?: string | null;
+  service?: boolean; // default false (FE mode)
 };
 
-/**
- * POST /jobs/enqueue/{user_id} (activity_review)
- * POST /jobs/run/{user_id}/{job_id}
- *
- * Pozn:
- * - dočasne posielame aj user_uuid, lebo BE schema ho vyžaduje (inak 422).
- * - service=false => user-trigger, worker použije user_jwt z job.input (BE si ho doplní v enqueue).
- */
 export async function apiEnqueueActivityReview(
   userId: number,
-  userUuid: string, // ✅ DOČASNE povinné kvôli BE schema
+  userUid: string,      // ✅ povinné pre BE schema (body.user_uid)
   activityId: number,
   opts: ActivityReviewEnqueueOpts = {}
 ): Promise<{ success: true; job: AsyncJobRow; result: any }> {
   if (!userId) throw new Error("userId is required");
-  if (!userUuid) throw new Error("userUuid is required (BE schema needs it for now)");
+  if (!userUid) throw new Error("userUid is required");
   if (!activityId) throw new Error("activityId is required");
 
   const runNow = opts.runNow ?? true;
@@ -64,12 +54,12 @@ export async function apiEnqueueActivityReview(
 
   const enqueueBody = {
     job_type: "activity_review",
-    user_uuid: userUuid, // ✅ FIX: BE vyžaduje
+    user_uid: userUid, // ✅ FIX: BE chce user_uid (nie user_uuid)
     payload: {
       activity_id: activityId,
       debug: Boolean(opts.debug ?? false),
       model: opts.model ?? null,
-      service: false, // user-trigger (quota check platí)
+      service: Boolean(opts.service ?? false), // FE → false (worker použije user_jwt)
     },
     priority: 150,
     max_attempts: 1,
@@ -100,14 +90,12 @@ export async function apiEnqueueActivityReview(
 
   const job = enqueueJson.job;
 
-  // 2) RUN (optional)
+  // 2) RUN (optional) – rovnako ako weekly
   if (!runNow) {
     return { success: true, job, result: job.result };
   }
 
-  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(
-    String(job.id)
-  )}`;
+  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(job.id))}`;
 
   let runJson: RunJobResponse;
   try {
@@ -128,7 +116,7 @@ export async function apiEnqueueActivityReview(
 
   const result = runJson.job.result;
 
-  // kvóta (ak BE vracia ai_quota_exceeded v result.error)
+  // ak BE vracia quota error v result-e, vyhodí to exception
   maybeThrowAiQuotaError(result);
 
   return { success: true, job: runJson.job, result };
