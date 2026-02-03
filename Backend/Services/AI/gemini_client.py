@@ -25,7 +25,7 @@ def _get_client() -> genai.Client:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY")
         
-        timeout_val = int(LLM_TIMEOUT_S or 30)
+        timeout_val = int(LLM_TIMEOUT_S)
         
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
