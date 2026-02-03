@@ -123,13 +123,14 @@ def gemini_call_json_model(
             started = time.time()
             try:
                 # Vytvoríme si config objekt dopredu pre lepšiu čitateľnosť
+                # Uprav túto časť v cykle:
                 gen_config = types.GenerateContentConfig(
-                    system_instruction=system_prompt,
+                    # Skús zmeniť system_instruction na zoznam častí obsahu, niekedy to pomôže stabilite
+                    system_instruction=[types.Part.from_text(text=system_prompt)],
                     temperature=float(temperature),
                     max_output_tokens=int(max_tokens),
                     response_mime_type="application/json",
-                    # Ak chceš timeout aj tu, musí to byť v správnom formáte:
-                    http_options=types.HttpOptions(timeout=90) 
+                    http_options=types.HttpOptions(timeout=90)
                 )
 
                 resp = client.models.generate_content(
