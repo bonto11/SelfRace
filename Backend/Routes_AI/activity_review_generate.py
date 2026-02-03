@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, Optional, Tuple, Any
+from typing import Any, Dict, Optional, Tuple
 
 from zoneinfo import ZoneInfo
 
@@ -23,6 +23,93 @@ def _now_local_iso(tzinfo: timezone | ZoneInfo) -> str:
     return datetime.now(tzinfo).isoformat()
 
 
+def _lang_from_settings(settings: Dict[str, Any]) -> str:
+    v = (settings.get("language") or "sk").strip().lower()
+    if v.startswith("en"):
+        return "en"
+    if v.startswith("cs"):
+        return "cs"
+    return "sk"
+
+
+def _fallback_copy(lang: str) -> Dict[str, Any]:
+    if lang == "en":
+        return {
+            "headline": "We couldn't generate the activity review.",
+            "bullets": ["Try again later."],
+        }
+    if lang == "cs":
+        return {
+            "headline": "Nepodařilo se získat hodnocení aktivity.",
+            "bullets": ["Zkus to později."],
+        }
+    return {
+        "headline": "Nepodarilo sa získať AI hodnotenie aktivity.",
+        "bullets": ["Skús to znova neskôr."],
+    }
+
+
+def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
+    try:
+        act = context_payload.get("activity")
+        if not isinstance(act, dict):
+            return None
+        v = act.get("activity_id")
+        if v is None:
+            return None
+        return int(v)
+    except Exception:
+        return None
+
+
+def _trace_base(
+    *,
+    provider: str,
+    model: str,
+    debug_raw: bool,
+    ai_debug_trace: Optional[Dict[str, Any]] = None,
+    error: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Normalizovaný trace objekt (kompatibilný s athlete_state_generate):
+      - models_tried: list
+      - attempts: list
+      - usage: dict
+      - ok_model: string
+      - raw/cleaned len ak debug_raw
+    """
+    t: Dict[str, Any] = {
+        "provider": provider,
+        "models_tried": [],
+        "attempts": [],
+        "usage": {},
+        "ok_model": model,
+    }
+
+    if isinstance(ai_debug_trace, dict):
+        mt = ai_debug_trace.get("models_tried")
+        at = ai_debug_trace.get("attempts")
+        if isinstance(mt, list):
+            t["models_tried"] = mt
+        if isinstance(at, list):
+            t["attempts"] = at
+
+        u = ai_debug_trace.get("usage")
+        if isinstance(u, dict):
+            t["usage"] = u
+
+        if debug_raw:
+            if "raw" in ai_debug_trace:
+                t["raw"] = ai_debug_trace.get("raw")
+            if "cleaned" in ai_debug_trace:
+                t["cleaned"] = ai_debug_trace.get("cleaned")
+
+    if debug_raw and error:
+        t["error"] = error
+
+    return t
+
+
 def generate_activity_review_json(
     *,
     context_payload: Dict[str, Any],
@@ -32,18 +119,19 @@ def generate_activity_review_json(
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
     """
     Provider-agnostic generator pre Activity Review.
-    Neobsahuje žiadny prompt text ani schema – to je výhradne v prompts.
+    Prompt text + schema musia byť výhradne v prompts.
     """
 
     # --- user settings (jazyk, timezone) ---
     settings: Dict[str, Any] = {}
     if user_id:
         try:
-            settings = service_load_user_settings(user_id) or {}
+            settings = service_load_user_settings(int(user_id)) or {}
         except Exception:
             settings = {}
 
     tzinfo = _tzinfo_from_settings(settings)
+    lang = _lang_from_settings(settings)
 
     # --- PROMPTS ---
     system_txt, user_txt = build_prompts_for_activity_review(
@@ -56,8 +144,8 @@ def generate_activity_review_json(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=model,
-        debug_raw=debug_raw,
+        model=str(model),
+        debug_raw=bool(debug_raw),
     )
 
     # --- SUCCESS ---
@@ -68,41 +156,47 @@ def generate_activity_review_json(
         parsed.setdefault("generated_at", _now_local_iso(tzinfo))
         parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
 
+        # ak si chceš vynútiť activity_id, tak ho doplň (safe)
+        parsed.setdefault("activity_id", _safe_activity_id(context_payload))
+
         trace = None
         if debug_raw:
-            trace = {
-                "provider": getattr(res, "provider", None),
-                "model": getattr(res, "model", None),
-                "trace": getattr(getattr(res, "error", None), "trace", None),
-            }
+            ai_tr = getattr(getattr(res, "error", None), "trace", None)
+            trace = _trace_base(
+                provider=str(getattr(res, "provider", None) or "unknown"),
+                model=str(getattr(res, "model", None) or model),
+                debug_raw=True,
+                ai_debug_trace=(ai_tr if isinstance(ai_tr, dict) else None),
+            )
 
         return parsed, trace
 
     # --- FAILURE / FALLBACK ---
-    err_msg = None
+    err_msg: Optional[str] = None
     try:
         err_msg = getattr(getattr(res, "error", None), "message", None)
     except Exception:
-        pass
+        err_msg = None
 
-    fallback = {
+    fallback_copy = _fallback_copy(lang)
+    fallback: Dict[str, Any] = {
         "schema_version": 1,
         "generated_at": _now_local_iso(tzinfo),
         "model": "activity-review-fallback",
-        "summary": {
-            "headline": "Nepodarilo sa získať AI hodnotenie aktivity.",
-            "bullets": ["Skús to znova neskôr."],
-        },
-        "activity_id": context_payload.get("activity", {}).get("activity_id"),
+        "summary": fallback_copy,
+        "activity_id": _safe_activity_id(context_payload),
         "error": err_msg or "AI provider call failed",
     }
 
     trace = None
     if debug_raw:
-        trace = {
-            "provider": getattr(res, "provider", None),
-            "model": getattr(res, "model", None),
-            "error": err_msg,
-        }
+        ai_tr = getattr(getattr(res, "error", None), "trace", None)
+        trace = _trace_base(
+            provider=str(getattr(res, "provider", None) or "unknown"),
+            model=str(getattr(res, "model", None) or model),
+            debug_raw=True,
+            ai_debug_trace=(ai_tr if isinstance(ai_tr, dict) else None),
+            error=(err_msg or "AI provider call failed"),
+        )
 
     return fallback, trace

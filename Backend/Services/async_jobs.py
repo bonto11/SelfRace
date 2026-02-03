@@ -11,7 +11,7 @@ from Routes_DB.async_jobs import (
     db_mark_job_running,
     db_update_job_finished,
 )
-
+from Services.AI.activity_review import service_review_activity
 from Services.AI.athlete_state import service_analyze_athlete  # ai_analyze
 from Services.AI.weekly_plan import service_generate_weekly_plan  # weekly_generate
 from Services.AI.daily_plan import (
