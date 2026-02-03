@@ -25,6 +25,8 @@ import { ActivitySplitsSection } from "./ActivitySplitsSection";
 
 import type { ActivitySession } from "./SessionCard";
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
+import { apiEnqueueActivityReview } from "@/app/features/activities/api/activity_review";
+import { useUserId } from "@/app/shared/hooks/useUserId";
 
 /** ================= helpers ================= */
 
@@ -40,11 +42,7 @@ function valOrDash(v: string | number | null): string {
 
 function safeText(value: any): string {
   if (value == null) return "";
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   try {
@@ -94,9 +92,7 @@ function hasMeaningfulValue(items?: InfoItem[]): boolean {
 
 function formatCadenceSummary(s: any | null): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
-  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
-    .toString()
-    .toLowerCase();
+  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "").toString().toLowerCase();
 
   const rpm = s.average_cadence_rpm;
 
@@ -161,18 +157,13 @@ function ActivitySectionShell({ title, defaultOpen, items, children }: SectionPr
         </button>
 
         {open && (
-          <div
-            className={[SESSION_DIVIDER, "px-3 py-2 text-sm"].join(" ")}
-            style={SESSION_DIVIDER_STYLE}
-          >
+          <div className={[SESSION_DIVIDER, "px-3 py-2 text-sm"].join(" ")} style={SESSION_DIVIDER_STYLE}>
             {hasItems && items && items.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {items.map((t) => (
                   <div key={t.label} className={INFO_TILE_CLASS} style={INFO_TILE_STYLE}>
                     <div className="text-[10px] opacity-70 leading-tight">{t.label}</div>
-                    <div className="text-sm font-semibold tabular-nums leading-tight">
-                      {valOrDash(t.value)}
-                    </div>
+                    <div className="text-sm font-semibold tabular-nums leading-tight">{valOrDash(t.value)}</div>
                   </div>
                 ))}
               </div>
@@ -204,19 +195,24 @@ export function ActivitySessionDetail({
 }: ActivitySessionDetailProps) {
   const act = item;
 
+  // ✅ userId (nepoužívame uuid)
+  const { userId: hookUserId } = useUserId();
+
   // ✅ zmena: používame getExtras
-  const { getSummary, getExtras } = useActivityData();
+  const activityData: any = useActivityData() as any;
+  const { getSummary, getExtras } = activityData;
 
-  const s: any | null =
-    act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
+  const userIdForAi: number | null =
+    Number(activityData?.userId ?? activityData?.user_id ?? hookUserId ?? NaN) || null;
 
-  const distTxt = s ? formatDistance(s.distance_m ?? null) : (act.distanceStr ?? "—");
+  const s: any | null = act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
-  const timeTxt =
-    s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : (act.timeStr ?? "—");
+  const distTxt = s ? formatDistance(s.distance_m ?? null) : act.distanceStr ?? "—";
 
-  const avgHrTxt = s ? (s.average_heartrate_bpm ?? "—") : (act.avgHr ?? "—");
-  const maxHrTxt = s ? (s.max_heartrate_bpm ?? "—") : (act.maxHr ?? "—");
+  const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : act.timeStr ?? "—";
+
+  const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
+  const maxHrTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
 
   const cadenceLabel = formatCadenceSummary(s);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps);
@@ -226,8 +222,7 @@ export function ActivitySessionDetail({
   const stravaActivityId = (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
 
   const stravaUrl =
-    stravaActivityId !== null &&
-    (typeof stravaActivityId === "number" || typeof stravaActivityId === "string")
+    stravaActivityId !== null && (typeof stravaActivityId === "number" || typeof stravaActivityId === "string")
       ? getStravaActivityUrl(stravaActivityId)
       : null;
 
@@ -251,8 +246,10 @@ export function ActivitySessionDetail({
 
   const [busyFetch, setBusyFetch] = useState(false);
 
-  const applyExtrasToState = (ex: any) => {
+  // ✅ NEW: activity review button busy state
+  const [busyReview, setBusyReview] = useState(false);
 
+  const applyExtrasToState = (ex: any) => {
     const rawStreams: any = ex?.streams ?? null;
 
     if (rawStreams && Array.isArray(rawStreams.time_s)) {
@@ -318,6 +315,29 @@ export function ActivitySessionDetail({
       console.error("[ActivitySessionDetail] fetchMore error", e);
     } finally {
       setBusyFetch(false);
+    }
+  };
+
+  // ✅ NEW: enqueue + run activity_review (bez uuid)
+  const onGenerateAiReview = async () => {
+    if (!act.activityId || busyReview) return;
+
+    if (!userIdForAi) {
+      console.error("[ActivitySessionDetail] missing userId for activity_review");
+      return;
+    }
+
+    setBusyReview(true);
+    try {
+      const out = await apiEnqueueActivityReview(userIdForAi, Number(act.activityId), {
+        runNow: true,
+        debug: false,
+      });
+      console.log("[ActivitySessionDetail] activity_review result:", out?.result);
+    } catch (e) {
+      console.error("[ActivitySessionDetail] activity_review error", e);
+    } finally {
+      setBusyReview(false);
     }
   };
 
@@ -387,8 +407,7 @@ export function ActivitySessionDetail({
   // keď nič nemáme, dovolíme userovi explicitne fetchovať
   const canFetchMore = !hasStreams && !hasSplits && !hasLaps && !!act.activityId;
 
-  const canShowActions =
-    "onEdit" in act && (act.onEdit || act.onDelete || act.onToggleFavorite);
+  const canShowActions = "onEdit" in act && (act.onEdit || act.onDelete || act.onToggleFavorite);
 
   return (
     <div>
@@ -425,7 +444,7 @@ export function ActivitySessionDetail({
         </div>
       )}
 
-      {(onOpenActivity || stravaUrl || canFetchMore) && (
+      {(onOpenActivity || stravaUrl || canFetchMore || !!act.activityId) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {onOpenActivity && (
             <button
@@ -444,7 +463,21 @@ export function ActivitySessionDetail({
             </Button>
           )}
 
-          {/* ✅ NEW: Fetch more */}
+          {/* ✅ NEW: AI review */}
+          {!!act.activityId && (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onGenerateAiReview}
+              disabled={busyReview || !userIdForAi}
+              title={!userIdForAi ? "Missing userId" : "Generate AI activity review (async job)"}
+            >
+              {busyReview ? "Generating…" : "AI review"}
+            </Button>
+          )}
+
+          {/* ✅ Fetch more */}
           {canFetchMore && (
             <Button
               type="button"
@@ -460,37 +493,23 @@ export function ActivitySessionDetail({
         </div>
       )}
 
-      {showOverview && (
-        <ActivitySectionShell title="Prehľad" defaultOpen={true} items={overviewItems} />
-      )}
+      {showOverview && <ActivitySectionShell title="Prehľad" defaultOpen={true} items={overviewItems} />}
 
       {showHr && (
         <ActivitySectionShell title="Heart rate" items={hrItems}>
-          {hasStreams && (
-            <ActivityStreamCharts streams={streams} compact={compactChart} metric="hr" sportHint={sportHint} />
-          )}
+          {hasStreams && <ActivityStreamCharts streams={streams} compact={compactChart} metric="hr" sportHint={sportHint} />}
         </ActivitySectionShell>
       )}
 
       {showElev && (
         <ActivitySectionShell title="Elevácia & kadencia" items={elevItems}>
           {hasStreams && (
-            <ActivityStreamCharts
-              streams={streams}
-              compact={compactChart}
-              metric="elevation"
-              sportHint={sportHint}
-            />
+            <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" sportHint={sportHint} />
           )}
 
           {hasCadStream && (
             <div className="mt-4">
-              <ActivityStreamCharts
-                streams={streams}
-                compact={compactChart}
-                metric="cadence"
-                sportHint={sportHint}
-              />
+              <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
             </div>
           )}
         </ActivitySectionShell>
@@ -498,15 +517,11 @@ export function ActivitySessionDetail({
 
       {showPower && (
         <ActivitySectionShell title="Rýchlosť & výkon" items={powerItems}>
-          {hasStreams && (
-            <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" sportHint={sportHint} />
-          )}
+          {hasStreams && <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" sportHint={sportHint} />}
         </ActivitySectionShell>
       )}
 
-      {showEnv && (
-        <ActivitySectionShell title="Prostredie & štatistiky" items={envItems} />
-      )}
+      {showEnv && <ActivitySectionShell title="Prostredie & štatistiky" items={envItems} />}
 
       {hasSplits && (
         <ActivitySectionShell title="Splits">
