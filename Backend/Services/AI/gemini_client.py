@@ -32,6 +32,13 @@ def _get_client() -> genai.Client:
             # Odstránime akékoľvek pochybnosti o verzii API
             http_options={'timeout': timeout_val}
         )
+
+        # Nahraď svojím kľúčom alebo načítaj z env
+        print("GEMINI_API_KEY: " + GEMINI_API_KEY)     
+        print("Dostupné modely pre tvoj účet: ")
+        for model in _CLIENT.models.list():
+            print(f" - {model.name}")
+
     return _CLIENT
 
 def _clean_model_name(name: str) -> str:
