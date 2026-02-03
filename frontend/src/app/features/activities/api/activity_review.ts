@@ -1,10 +1,9 @@
-// src/app/features/activities/api/activity_review.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
 
-/* ============ minimal async_jobs types (only what we need) ============ */
+/* ---------- spoločné typy (rovnaké ako weekly) ---------- */
 
-export type AsyncJobRow = {
+type AsyncJobRow = {
   id: number;
   user_id: number;
   job_type: string;
@@ -32,7 +31,7 @@ type RunJobResponse = {
   error?: string | null;
 };
 
-/* ============ api ============ */
+/* ---------- options ---------- */
 
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean; // default true
@@ -41,21 +40,21 @@ export type ActivityReviewEnqueueOpts = {
 };
 
 /**
- * Enqueue (and optionally run) activity_review via universal async_jobs routes.
+ * POST /jobs/enqueue/{user_id} (activity_review)
+ * POST /jobs/run/{user_id}/{job_id}
  *
- * POST /jobs/enqueue/{user_id}
- * POST /jobs/run/{user_id}/{job_id}   (optional)
- *
- * NOTE:
- * - no user_uuid
- * - FE mode => service=false (quota applies; worker needs user_jwt in BE service)
+ * Pozn:
+ * - dočasne posielame aj user_uuid, lebo BE schema ho vyžaduje (inak 422).
+ * - service=false => user-trigger, worker použije user_jwt z job.input (BE si ho doplní v enqueue).
  */
 export async function apiEnqueueActivityReview(
   userId: number,
+  userUuid: string, // ✅ DOČASNE povinné kvôli BE schema
   activityId: number,
   opts: ActivityReviewEnqueueOpts = {}
 ): Promise<{ success: true; job: AsyncJobRow; result: any }> {
   if (!userId) throw new Error("userId is required");
+  if (!userUuid) throw new Error("userUuid is required (BE schema needs it for now)");
   if (!activityId) throw new Error("activityId is required");
 
   const runNow = opts.runNow ?? true;
@@ -65,12 +64,14 @@ export async function apiEnqueueActivityReview(
 
   const enqueueBody = {
     job_type: "activity_review",
+    user_uuid: userUuid, // ✅ FIX: BE vyžaduje
     payload: {
       activity_id: activityId,
       debug: Boolean(opts.debug ?? false),
       model: opts.model ?? null,
-      service: false, // FE trigger (quota applies)
+      service: false, // user-trigger (quota check platí)
     },
+    priority: 150,
     max_attempts: 1,
     dedupe_key: `activity_review:${userId}:${activityId}`,
   };
@@ -104,7 +105,9 @@ export async function apiEnqueueActivityReview(
     return { success: true, job, result: job.result };
   }
 
-  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(job.id))}`;
+  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(
+    String(job.id)
+  )}`;
 
   let runJson: RunJobResponse;
   try {
@@ -125,7 +128,7 @@ export async function apiEnqueueActivityReview(
 
   const result = runJson.job.result;
 
-  // AI quota helper (keeps behavior consistent with other AI calls)
+  // kvóta (ak BE vracia ai_quota_exceeded v result.error)
   maybeThrowAiQuotaError(result);
 
   return { success: true, job: runJson.job, result };
