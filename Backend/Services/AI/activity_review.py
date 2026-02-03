@@ -24,7 +24,7 @@ from Services.AI.activity_review_builders import build_input_from_db as build_re
 from Routes_AI.activity_review_generate import generate_activity_review_json
 
 from Routes_DB.activities_enrichment import (
-    db_upsert_activity_ai_review,   # doplníme nižšie
+    db_upsert_enrichment_rows,
     db_get_enrichment_for_activities,
 )
 
@@ -169,15 +169,19 @@ def service_review_activity(
     if save_to_db:
         try:
             # ensure enrichment row exists (ak nemáš, upsert spraví)
-            db_upsert_activity_ai_review(
-                user_id=user_id,
-                activity_id=activity_id,
-                ai_review=review,
+            db_upsert_enrichment_rows(
+                [
+                    {
+                        "user_id": user_id,
+                        "activity_id": activity_id,
+                        "ai_review": review,
+                    }
+                ],
                 user_jwt=jwt if not service else None,
                 service=service,
             )
         except Exception as e:  # noqa: BLE001
-            print("[service_review_activity] db_upsert_activity_ai_review error:", repr(e))
+            print("[service_review_activity] db_upsert_enrichment_rows error:", repr(e))
 
     resp: Dict[str, Any] = {
         "ok": True,
