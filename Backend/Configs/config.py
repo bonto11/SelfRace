@@ -1,4 +1,4 @@
-# Configs/config.py
+# backend/Configs/config.py
 from __future__ import annotations
 
 import os
@@ -107,7 +107,6 @@ TABLE_APP_USER_SUBSCRIPTIONS = "app_user_subscriptions"
 # =============================================================================
 # CORE URLS + SECRETS (required)
 # =============================================================================
-# NOTE: ak niečo z tohto nechceš required v local, zmeň env_required -> env_optional
 BACKEND_URL: str = env_required("BACKEND_URL")
 FRONTEND_URL: str = env_required("FRONTEND_URL")
 MAINTENANCE_API_KEY: str = env_required("MAINTENANCE_API_KEY")
@@ -125,7 +124,6 @@ STRAVA_BASE = "https://www.strava.com/api/v3"
 STRAVA_CLIENT_ID: str = env_required("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
 
-# (Legacy dev-only; v produkcii riešiš redirect cez ROUTE + FRONTEND_URL/BACKEND_URL)
 REDIRECT_URI = env_optional("STRAVA_REDIRECT_URI", "http://localhost:5000/exchange_token")
 TOKENS_FILE = env_optional("STRAVA_TOKENS_FILE", "data/tokens.json")
 
@@ -133,13 +131,9 @@ USE_STRAVA_CACHE = False
 CACHE_DIR = "data/strava_cache"
 STRAVA_DEBUG_STREAMS = env_bool("STRAVA_DEBUG_STREAMS", default=False)
 
-# Dobrovoľný globálny delay medzi requestami (sekundy)
 REQUEST_DELAY_SECS = 0.3
-
-# Limity / pravidlá okolo reconnect a manuálneho importu (FE iba zobrazuje číslo zo statusu)
 STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
 
-# (ak si tieto dva už odstránil z logiky, nechaj ich tu len ak niekde ešte svietia)
 STRAVA_MANUAL_IMPORT_DEFAULT_DAYS = 10
 STRAVA_MANUAL_IMPORT_AFTER_RECONNECT_DAYS = 1200
 
@@ -154,12 +148,8 @@ GEMINI_API_KEY = env_optional("GEMINI_API_KEY")
 
 
 # =============================================================================
-# GLOBAL LLM TUNING (prefer new names; fallback to legacy OpenAI-specific envs)
+# GLOBAL LLM TUNING
 # =============================================================================
-# Prefer:
-#   LLM_TIMEOUT_S, LLM_RETRIES, LLM_MAX_TOKENS, LLM_TEMPERATURE
-# Backward compatible:
-#   OPENAI_TIMEOUT_S, OPENAI_RETRIES
 LLM_TIMEOUT_S = env_int("LLM_TIMEOUT_S", 90)
 LLM_RETRIES = env_int("LLM_RETRIES", 2)
 LLM_MAX_TOKENS = env_int("LLM_MAX_TOKENS", 4000)
@@ -169,12 +159,9 @@ LLM_TEMPERATURE = env_float("LLM_TEMPERATURE", 0.2)
 # =============================================================================
 # MODEL DEFAULTS + FALLBACKS
 # =============================================================================
-# OpenAI:
-# - Prefer: OPENAI_DEFAULT_MODEL + OPENAI_MODEL_FALLBACKS (csv)
-# - Legacy: OPENAI_MODEL + OPENAI_MODEL_FALLBACKS
 OPENAI_DEFAULT_MODEL = (
     env_optional("OPENAI_DEFAULT_MODEL")
-    or env_optional("OPENAI_MODEL")  # legacy name
+    or env_optional("OPENAI_MODEL")
     or "gpt-4o-mini"
 )
 
@@ -183,8 +170,11 @@ OPENAI_MODEL_FALLBACKS = _csv_list(
     default=OPENAI_DEFAULT_MODEL,
 )
 
-# Gemini:
-GEMINI_DEFAULT_MODEL = env_optional("GEMINI_DEFAULT_MODEL", "gemini-1.5-flash-latest") or "gemini-1.5-flash-latest"
+GEMINI_DEFAULT_MODEL = (
+    env_optional("GEMINI_DEFAULT_MODEL", "gemini-1.5-flash-latest")
+    or "gemini-1.5-flash-latest"
+)
+
 GEMINI_MODEL_FALLBACKS = _csv_list(
     env_optional("GEMINI_MODEL_FALLBACKS"),
     default=GEMINI_DEFAULT_MODEL,
@@ -192,20 +182,17 @@ GEMINI_MODEL_FALLBACKS = _csv_list(
 
 
 # =============================================================================
-# COACH / PLANS (business rules)
+# COACH / PLANS
 # =============================================================================
 COACH_PLAN_MIN_WEEKS = 2
-COACH_PLAN_DEFAULT_WEEKS = 6  # fix typo: DEAFULT -> DEFAULT
+COACH_PLAN_DEFAULT_WEEKS = 6
 COACH_PLAN_MAX_WEEKS = 16
 
 COACH_PLAN_GENERATE_MIN_HORIZON_DAYS = 4
 COACH_PLAN_SCAN_HORIZON_DAYS = 120
 COACH_PLAN_OVERVIEW_HORIZON_DAYS = 20
 
-# Ochrana pred spamom weekly replanu
 WEEKLY_REPLAN_COOLDOWN_DAYS = 3
-
-# Koľko dní dopredu chceme mať po weekly repláne
 MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
 
 
@@ -213,8 +200,6 @@ MIN_DAILY_HORIZON_AFTER_WEEKLY = 6
 # SYNC / ENRICHMENT LIMITS
 # =============================================================================
 MAX_FULL_DETAILS_PER_RUN = 150
-
-# koľko dní čakať, kým cron spraví hard delete
 DELETE_GRACE_DAYS = env_int("DELETE_GRACE_DAYS", 7)
 
 FIRST_SYNC_DAYS = 365
@@ -226,11 +211,12 @@ RECONNECT_MAX = 20
 QUICK_DAYS = 14
 QUICK_MAX = 10
 
-MANUAL_DAYS = 30        # alebo si to natiahni z configu
-MANUAL_MAX = 100        # nech manuál nikdy nespadne na 10 (ak chceš len days, daj 9999)
+MANUAL_DAYS = 30
+MANUAL_MAX = 100
+
 
 # =============================================================================
-# WEEKDAY MAPS (UI/logic helpers)
+# WEEKDAY MAPS
 # =============================================================================
 WEEKDAY_ORDER: Dict[str, int] = {
     "Mon": 0,
@@ -252,4 +238,5 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
     6: "Sun",
 }
 
-COACH_PLAN_DEAFULT_WEEKS = 10
+# legacy typo alias (ak niekde ešte svieti)
+COACH_PLAN_DEAFULT_WEEKS = COACH_PLAN_DEFAULT_WEEKS

@@ -1,8 +1,9 @@
+# backend/Services/AI/gemini_client.py
 from __future__ import annotations
 
 import json
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from google import genai
 from google.genai import types
@@ -20,26 +21,34 @@ from Services.AI.json_parse import parse_ai_json
 _CLIENT: Optional[genai.Client] = None
 
 
+def _timeout_s() -> int:
+    """
+    Gemini minimum deadline je 10s (inak 400).
+    Reálne odporúčam aspoň 30s.
+    """
+    try:
+        t = int(LLM_TIMEOUT_S or 0)
+    except Exception:
+        t = 0
+    return max(t, 30)
+
+
 def _get_client() -> genai.Client:
     """
-    Používame google-genai SDK.
-    Dôležité: v praxi je najkompatibilnejšie nechať api_version na default
-    alebo explicitne v1beta. v1 ti momentálne hádže "unknown field" pre niektoré config polia.
+    google-genai SDK.
+    Poznámka: api_version nechávam na v1beta, lebo je zatiaľ najkompatibilnejšie
+    s rôznymi modelmi/endpointmi; ak by sa to menilo, vyhoď api_version úplne.
     """
     global _CLIENT
     if _CLIENT is None:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
 
-        raw_timeout = int(LLM_TIMEOUT_S) if LLM_TIMEOUT_S else 60
-        timeout_sec = max(raw_timeout, 30)
-
-        # Skúsime v1beta. Ak by sa to niekedy zmenilo, vieš to dať na None (vyhodiť api_version).
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
             http_options={
                 "api_version": "v1beta",
-                "timeout": timeout_sec,
+                "timeout": _timeout_s(),
             },
         )
     return _CLIENT
@@ -67,13 +76,11 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
     base: List[str] = []
 
     if GEMINI_DEFAULT_MODEL:
-        base.append(_clean_model_name(str(GEMINI_DEFAULT_MODEL)))
+        base.append(_clean_model_name(GEMINI_DEFAULT_MODEL))
 
-    fb: Union[List[str], str, None] = GEMINI_MODEL_FALLBACKS
-    if isinstance(fb, list):
-        base.extend([_clean_model_name(str(m)) for m in fb if m])
-    elif isinstance(fb, str) and fb.strip():
-        base.extend([_clean_model_name(x) for x in fb.split(",") if x.strip()])
+    # GEMINI_MODEL_FALLBACKS je u teba vždy List[str] (z _csv_list)
+    if isinstance(GEMINI_MODEL_FALLBACKS, list):
+        base.extend([_clean_model_name(m) for m in GEMINI_MODEL_FALLBACKS if m])
 
     base = _uniq_keep_order([m for m in base if m]) or ["gemini-1.5-flash"]
 
@@ -87,8 +94,8 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
 
 def _build_contents(system_prompt: str, user_txt: str) -> List[types.Content]:
     """
-    Najkompatibilnejší spôsob: poslať system ako samostatný content s role="system"
-    (nie cez config.system_instruction).
+    Najkompatibilnejšie: poslať system prompt ako role="system" content
+    (nepchať ho do config.system_instruction).
     """
     return [
         types.Content(role="system", parts=[types.Part(text=system_prompt)]),
@@ -112,9 +119,7 @@ def gemini_call_json_model(
             data=None,
             provider="gemini",
             model=model or "unknown",
-            error=AiError(
-                code="ai_missing_key", message="GEMINI_API_KEY is not defined"
-            ),
+            error=AiError(code="ai_missing_key", message="GEMINI_API_KEY is not defined"),
         )
 
     client = _get_client()
@@ -124,7 +129,11 @@ def gemini_call_json_model(
     trace: Dict[str, Any] = {
         "models_tried": models,
         "attempts": [],
-        "config": {"retries": retries, "timeout_s": int(LLM_TIMEOUT_S or 60)},
+        "config": {
+            "retries": retries,
+            "timeout_s_effective": _timeout_s(),
+            "timeout_s_env": int(LLM_TIMEOUT_S or 0),
+        },
     }
 
     last_err: Optional[str] = None
@@ -132,7 +141,9 @@ def gemini_call_json_model(
     last_cleaned: Optional[str] = None
 
     ctx_json = json.dumps(context_payload, ensure_ascii=False)
-    # JSON output natlačíme promptom (nie response_mime_type, aby to nepadalo na verziách)
+
+    # Dôležité: JSON output vyžiadame promptom (nie response_mime_type),
+    # aby to nepadalo na "unknown field" pri rôznych API verziách.
     user_txt = (
         f"{user_instructions.rstrip()}\n\n"
         f"---\n"
@@ -142,7 +153,7 @@ def gemini_call_json_model(
 
     contents = _build_contents(system_prompt, user_txt)
 
-    # Minimal config: temperature + max tokens (bez system_instruction, bez response_mime_type)
+    # Minimal config (bez system_instruction, bez response_mime_type, bez per-call timeout override)
     cfg = types.GenerateContentConfig(
         temperature=float(temperature),
         max_output_tokens=int(max_tokens),
@@ -164,13 +175,7 @@ def gemini_call_json_model(
                 if not raw:
                     last_err = "Gemini returned empty response"
                     trace["attempts"].append(
-                        {
-                            "model": m,
-                            "attempt": attempt,
-                            "ok": False,
-                            "duration_ms": dur_ms,
-                            "error": last_err,
-                        }
+                        {"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err}
                     )
                     continue
 
@@ -184,8 +189,7 @@ def gemini_call_json_model(
                         "attempt": attempt,
                         "ok": ok,
                         "duration_ms": dur_ms,
-                        "raw_preview": raw[:400]
-                        + ("…[truncated]" if len(raw) > 400 else ""),
+                        "raw_preview": raw[:400] + ("…[truncated]" if len(raw) > 400 else ""),
                     }
                 )
 
@@ -199,20 +203,14 @@ def gemini_call_json_model(
 
                 return AiResult(ok=True, data=parsed, provider="gemini", model=m)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{e.__class__.__name__}: {e}"
                 trace["attempts"].append(
-                    {
-                        "model": m,
-                        "attempt": attempt,
-                        "ok": False,
-                        "duration_ms": dur_ms,
-                        "error": last_err,
-                    }
+                    {"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err}
                 )
 
-                # 404/NOT_FOUND: ďalšie retry nemá zmysel pre tento model
+                # 404/NOT_FOUND: ďalšie retry pre tento model nemá zmysel
                 if "404" in last_err or "not_found" in last_err.lower():
                     break
 
