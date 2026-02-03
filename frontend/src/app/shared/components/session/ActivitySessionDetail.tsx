@@ -196,14 +196,11 @@ export function ActivitySessionDetail({
   const act = item;
 
   // ✅ userId (nepoužívame uuid)
-  const { userId: hookUserId } = useUserId();
+  const { userId, userUuid } = useUserId();
 
   // ✅ zmena: používame getExtras
   const activityData: any = useActivityData() as any;
   const { getSummary, getExtras } = activityData;
-
-  const userIdForAi: number | null =
-    Number(activityData?.userId ?? activityData?.user_id ?? hookUserId ?? NaN) || null;
 
   const s: any | null = act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
@@ -322,14 +319,9 @@ export function ActivitySessionDetail({
   const onGenerateAiReview = async () => {
     if (!act.activityId || busyReview) return;
 
-    if (!userIdForAi) {
-      console.error("[ActivitySessionDetail] missing userId for activity_review");
-      return;
-    }
-
     setBusyReview(true);
     try {
-      const out = await apiEnqueueActivityReview(userIdForAi, Number(act.activityId), {
+      const out = await apiEnqueueActivityReview(Number(userId), String(userUuid), Number(act.activityId), {
         runNow: true,
         debug: false,
       });
@@ -470,8 +462,8 @@ export function ActivitySessionDetail({
               variant="primary"
               size="sm"
               onClick={onGenerateAiReview}
-              disabled={busyReview || !userIdForAi}
-              title={!userIdForAi ? "Missing userId" : "Generate AI activity review (async job)"}
+              disabled={busyReview || !userId}
+              title={!userId ? "Missing userId" : "Generate AI activity review (async job)"}
             >
               {busyReview ? "Generating…" : "AI review"}
             </Button>
