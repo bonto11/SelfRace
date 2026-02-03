@@ -23,19 +23,21 @@ def _get_client() -> genai.Client:
     global _CLIENT
     if _CLIENT is None:
         if not GEMINI_API_KEY:
-            raise RuntimeError("Missing GEMINI_API_KEY")
+            raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
         
-        raw_timeout = int(LLM_TIMEOUT_S)
-        timeout_val = max(raw_timeout, 60)
+        # Uisti sa, že timeout sú SEKUNDY (nie milisekundy)
+        # Google vyžaduje int, minimum 10
+        raw_val = int(LLM_TIMEOUT_S) if LLM_TIMEOUT_S else 60
+        timeout_sec = max(raw_val, 60)
+
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
-            http_options={'timeout': timeout_val}
+            # Tu bola chyba - nepoužívaj config={}, ale priamo http_options
+            http_options={
+                'timeout': timeout_sec, 
+                'api_version': 'v1'
+            }
         )
- 
-        # print("Dostupné modely pre tvoj účet: ")
-        # for model in _CLIENT.models.list():
-            # print(f" - {model.name}")
-
     return _CLIENT
 
 def _clean_model_name(name: str) -> str:
@@ -120,16 +122,20 @@ def gemini_call_json_model(
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
-                # Konfigurácia podľa najnovšej dokumentácie google-genai
+                # Vytvoríme si config objekt dopredu pre lepšiu čitateľnosť
+                gen_config = types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=float(temperature),
+                    max_output_tokens=int(max_tokens),
+                    response_mime_type="application/json",
+                    # Ak chceš timeout aj tu, musí to byť v správnom formáte:
+                    http_options=types.HttpOptions(timeout=90) 
+                )
+
                 resp = client.models.generate_content(
                     model=m,
                     contents=user_txt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=float(temperature),
-                        max_output_tokens=int(max_tokens),
-                        response_mime_type="application/json",
-                    ),
+                    config=gen_config
                 )
                 
                 dur_ms = int((time.time() - started) * 1000)
