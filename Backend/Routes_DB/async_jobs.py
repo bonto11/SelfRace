@@ -1,213 +1,198 @@
-# Routes/jobs.py (alebo Routes_API/async_jobs.py – tam kde to máš)
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Depends, status
+from Modules.Supabase.client import get_sb
+from Configs.config import TABLE_ASYNC_JOBS
 
-from Schemas.async_jobs import (
-    EnqueueJobPayload,
-    EnqueueJobResponse,
-    RunJobResponse,
-)
-from Services.async_jobs import (
-    service_enqueue_job,
-    service_list_active_jobs,
-    service_run_job_now,
-)
-from Routes_DB.async_jobs import (
-    db_get_recent_jobs,
-    db_get_job_by_id,
-)
-from Modules.HTTP.auth_deps import require_user_jwt  # JWT z FE
-
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-def _forbid_if_user_mismatch(request_user_id: int, url_user_id: int) -> None:
+def db_insert_job(
+    row: Dict[str, Any],
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
     """
-    Minimal security guard:
-    - bez možnosti vyčítať user_id z JWT (tvoj auth_deps ho nedáva),
-      tak aspoň nedovolíme robiť nič s "iným" user_id než tým,
-      ktorý FE posiela konzistentne v appke.
+    INSERT do async_jobs.
 
-    POZOR: Toto NIE JE kryptograficky silné overenie identity.
-    Reálnu autoritu aj tak drží Supabase RLS, lebo DB calls idú cez get_sb(user_jwt=...).
-    Tento guard ale zabráni náhodným cross-user volaniam v rámci UI.
-    """
-    if int(request_user_id) != int(url_user_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="forbidden_for_user",
-        )
-
-
-@router.post("/enqueue/{user_id}", response_model=EnqueueJobResponse)
-def enqueue_job(
-    user_id: int,
-    payload: EnqueueJobPayload,
-    user_jwt: str = Depends(require_user_jwt),
-) -> Dict[str, Any]:
-    """
-    Vytvorí nový async job pre daného usera.
-
-    Dôležité:
-    - user_jwt NEBERIEME z payloadu, iba z auth.
-    - user_uuid berieme z payloadu (lebo auth_deps nevie user_uid),
-      ale FE by ho malo posielať konzistentne. RLS aj tak stráži user_id pri čítaní.
+    Typicky:
+      - service_enqueue_job → service=True (default)
     """
     try:
-        # soft guard: payload.user_id by bolo lepšie, ale nemáš ho v schema.
-        # aspoň netolerujeme "prázdny" user_uuid
-        user_uid = (payload.user_uuid or "").strip()
-        if not user_uid:
-            raise HTTPException(status_code=400, detail="missing_user_uuid")
-
-        out = service_enqueue_job(
-            user_id=int(user_id),
-            user_uid=user_uid,
-            job_type=payload.job_type,
-            payload=payload.payload,
-            priority=payload.priority,
-            run_after=payload.run_after,
-            max_attempts=payload.max_attempts,
-            dedupe_key=payload.dedupe_key,
-            user_jwt=user_jwt,
-            service=False,  # FE call
-        )
-        return {"success": True, "job": out.get("job"), "note": out.get("note")}
-    except HTTPException:
-        raise
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        res = sb.table(TABLE_ASYNC_JOBS).insert(row).execute()
+        data = res.data or []
+        return data[0] if data else None
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        print("[DB-JOBS] insert error:", repr(e))
+        return None
 
 
-@router.get("/active/{user_id}")
-def list_active_jobs(
+def db_get_active_jobs(
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),  # ✅ auth added
-    job_types: Optional[str] = Query(
-        default=None,
-        description="Comma-separated job_types, napr. 'sync,ai_analyze'",
-    ),
+    job_types: Optional[List[str]] = None,
     limit: int = 50,
-) -> Dict[str, Any]:
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> List[Dict[str, Any]]:
     """
-    Vráti aktívne joby (queued/running) pre usera.
+    Aktívne joby pre usera – status v ('queued', 'running').
     """
     try:
-        # bez user_id z JWT nevieme na 100% overiť identitu,
-        # ale DB calls cez get_sb(user_jwt=...) + RLS sú autorita.
-        # Napriek tomu necháme aspoň konzistenciu v FE.
-        # (ak chceš, môžeš tento guard vyhodiť)
-        _forbid_if_user_mismatch(request_user_id=user_id, url_user_id=user_id)
-
-        job_types_list: Optional[List[str]] = None
-        if job_types:
-            job_types_list = [k.strip() for k in job_types.split(",") if k.strip()]
-
-        rows = service_list_active_jobs(
-            user_id=int(user_id),
-            job_types=job_types_list,
-            limit=int(limit),
-            user_jwt=user_jwt,  # ✅ pass jwt so service can use correct client if needed later
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        q = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("status", ["queued", "running"])
+            .order("created_at", desc=True)
+            .limit(limit)
         )
-        return {"success": True, "jobs": rows}
-    except HTTPException:
-        raise
+        if job_types:
+            q = q.in_("job_type", job_types)
+
+        res = q.execute()
+        return res.data or []
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        print("[DB-JOBS] get_active error:", repr(e))
+        return []
 
 
-@router.get("/recent/{user_id}")
-def list_recent_jobs(
+def db_get_recent_jobs(
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),  # ✅ auth added
-    job_types: Optional[str] = Query(
-        default=None,
-        description="Comma-separated job_types, napr. 'sync,ai_analyze'",
-    ),
+    job_types: Optional[List[str]] = None,
     limit: int = 20,
-) -> Dict[str, Any]:
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> List[Dict[str, Any]]:
     """
     Posledné joby (akýkoľvek status) pre usera.
     """
     try:
-        _forbid_if_user_mismatch(request_user_id=user_id, url_user_id=user_id)
-
-        job_types_list: Optional[List[str]] = None
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        q = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
         if job_types:
-            job_types_list = [k.strip() for k in job_types.split(",") if k.strip()]
+            q = q.in_("job_type", job_types)
 
-        # ⚠️ db_get_recent_jobs default service=True → to by obišlo RLS.
-        # Tu MUSÍME použiť user_jwt + service=False.
-        rows = db_get_recent_jobs(
-            user_id=int(user_id),
-            job_types=job_types_list,
-            limit=int(limit),
-            user_jwt=user_jwt,
-            service=False,
-        )
-        return {"success": True, "jobs": rows}
-    except HTTPException:
-        raise
+        res = q.execute()
+        return res.data or []
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        print("[DB-JOBS] get_recent error:", repr(e))
+        return []
 
 
-@router.get("/{user_id}/{job_id}")
-def get_job(
+def db_get_job_by_id(
     user_id: int,
     job_id: int,
-    user_jwt: str = Depends(require_user_jwt),  # ✅ auth added
-) -> Dict[str, Any]:
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
     """
-    Detail konkrétneho jobu podľa ID.
+    Jednotlivý job podľa ID – istíme sa aj user_id.
     """
     try:
-        _forbid_if_user_mismatch(request_user_id=user_id, url_user_id=user_id)
-
-        # ⚠️ db_get_job_by_id default service=True → obišlo by RLS.
-        row = db_get_job_by_id(
-            user_id=int(user_id),
-            job_id=int(job_id),
-            user_jwt=user_jwt,
-            service=False,
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        res = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("id", job_id)
+            .limit(1)
+            .execute()
         )
-        return {"success": True, "job": row}
-    except HTTPException:
-        raise
+        data = res.data or []
+        return data[0] if data else None
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        print("[DB-JOBS] get_by_id error:", repr(e))
+        return None
 
 
-@router.post("/run/{user_id}/{job_id}", response_model=RunJobResponse)
-def run_job(
-    user_id: int,
+def db_mark_job_running(
     job_id: int,
-    user_jwt: str = Depends(require_user_jwt),
-) -> Dict[str, Any]:
+    *,
+    worker_id: str,
+    attempts: int,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
     """
-    Manuálne spracovanie jedného jobu (mini-worker).
+    Pokúsi sa označiť job ako 'running'.
+
+    Upraví len ak je aktuálne 'queued' – ochrana pred race conditions.
     """
     try:
-        _forbid_if_user_mismatch(request_user_id=user_id, url_user_id=user_id)
-
-        out = service_run_job_now(
-            user_id=int(user_id),
-            job_id=int(job_id),
-            worker_id="api_run",
-            user_jwt=user_jwt,
-            service=False,
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        res = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .update(
+                {
+                    "status": "running",
+                    "attempts": attempts,
+                    "locked_at": _now_iso(),
+                    "locked_by": worker_id,
+                    "started_at": _now_iso(),
+                    "updated_at": _now_iso(),
+                }
+            )
+            .eq("id", job_id)
+            .eq("status", "queued")
+            .execute()
         )
-        return {
-            "success": out.get("error") is None,
-            "job": out.get("job"),
-            "error": out.get("error"),
-        }
-    except HTTPException:
-        raise
+        data = res.data or []
+        return data[0] if data else None
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
+        print("[DB-JOBS] mark_running error:", repr(e))
+        return None
+
+
+def db_update_job_finished(
+    job_id: int,
+    *,
+    status: str,
+    result: Optional[Dict[str, Any]] = None,
+    error: Optional[str] = None,
+    progress: Optional[int] = None,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """
+    Označí job ako dokončený (succeeded/failed), uloží result/error.
+    """
+    fields: Dict[str, Any] = {
+        "status": status,
+        "updated_at": _now_iso(),
+        "finished_at": _now_iso(),
+    }
+    if result is not None:
+        fields["result"] = result
+    if error is not None:
+        fields["error"] = error
+    if progress is not None:
+        fields["progress"] = int(progress)
+
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        res = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .update(fields)
+            .eq("id", job_id)
+            .execute()
+        )
+        data = res.data or []
+        return data[0] if data else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] update_finished error:", repr(e))
+        return None

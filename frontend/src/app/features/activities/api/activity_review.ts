@@ -1,7 +1,10 @@
+// src/app/features/activities/api/activity_review.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
 
-type AsyncJobRow = {
+/* ============ minimal async_jobs types (only what we need) ============ */
+
+export type AsyncJobRow = {
   id: number;
   user_id: number;
   job_type: string;
@@ -29,17 +32,29 @@ type RunJobResponse = {
   error?: string | null;
 };
 
+/* ============ api ============ */
+
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean; // default true
   debug?: boolean; // default false
   model?: string | null;
 };
 
+/**
+ * Enqueue (and optionally run) activity_review via universal async_jobs routes.
+ *
+ * POST /jobs/enqueue/{user_id}
+ * POST /jobs/run/{user_id}/{job_id}   (optional)
+ *
+ * NOTE:
+ * - no user_uuid
+ * - FE mode => service=false (quota applies; worker needs user_jwt in BE service)
+ */
 export async function apiEnqueueActivityReview(
   userId: number,
   activityId: number,
   opts: ActivityReviewEnqueueOpts = {}
-): Promise<{ success: true; job: AsyncJobRow; result: any }>{
+): Promise<{ success: true; job: AsyncJobRow; result: any }> {
   if (!userId) throw new Error("userId is required");
   if (!activityId) throw new Error("activityId is required");
 
@@ -54,9 +69,8 @@ export async function apiEnqueueActivityReview(
       activity_id: activityId,
       debug: Boolean(opts.debug ?? false),
       model: opts.model ?? null,
-      service: false, // ✅ FE mode (worker použije user_jwt)
+      service: false, // FE trigger (quota applies)
     },
-    priority: 150,
     max_attempts: 1,
     dedupe_key: `activity_review:${userId}:${activityId}`,
   };
@@ -111,7 +125,7 @@ export async function apiEnqueueActivityReview(
 
   const result = runJson.job.result;
 
-  // kvóta (ak to používaš aj tu)
+  // AI quota helper (keeps behavior consistent with other AI calls)
   maybeThrowAiQuotaError(result);
 
   return { success: true, job: runJson.job, result };

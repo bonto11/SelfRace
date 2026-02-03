@@ -18,7 +18,7 @@ from Routes_DB.async_jobs import (
     db_get_recent_jobs,
     db_get_job_by_id,
 )
-from Modules.HTTP.auth_deps import require_user_jwt  # JWT z FE
+from Modules.HTTP.auth_deps import require_user_jwt  # ⬅️ JWT z FE
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -27,28 +27,27 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 def enqueue_job(
     user_id: int,
     payload: EnqueueJobPayload,
-    user_jwt: str = Depends(require_user_jwt),
+    user_jwt: str = Depends(require_user_jwt),   # ⬅️ vezmeme JWT z hlavičky
 ) -> Dict[str, Any]:
     """
     Vytvorí nový async job pre daného usera.
 
     FE posiela:
-      - job_type
-      - payload (ľubovoľný JSON)
-      - voliteľne: dedupe_key, run_after, max_attempts, priority
+      - job_type (napr. 'ai_analyze')
+      - payload (ľubovoľný JSON – sem nebudeme veriť user_jwt z FE)
+      - voliteľne: dedupe_key, run_after, max_attempts
     """
     try:
         out = service_enqueue_job(
             user_id=user_id,
-            user_uid="00000000-0000-0000-0000-000000000000",  # ✅ už uuid neriešime
+            user_uid=payload.user_uuid,
             job_type=payload.job_type,
             payload=payload.payload,
             priority=payload.priority,
             run_after=payload.run_after,
             max_attempts=payload.max_attempts,
             dedupe_key=payload.dedupe_key,
-            user_jwt=user_jwt,
-            service=False,
+            user_jwt=user_jwt,  # ⬅️ toto je kľúčové
         )
         return {"success": True, "job": out.get("job"), "note": out.get("note")}
     except ValueError as ve:
@@ -60,9 +59,15 @@ def enqueue_job(
 @router.get("/active/{user_id}")
 def list_active_jobs(
     user_id: int,
-    job_types: Optional[str] = Query(default=None, description="Comma-separated job_types"),
+    job_types: Optional[str] = Query(
+        default=None,
+        description="Comma-separated job_types, napr. 'sync,ai_analyze'",
+    ),
     limit: int = 50,
 ) -> Dict[str, Any]:
+    """
+    Vráti aktívne joby (status queued/running) pre daného usera.
+    """
     try:
         job_types_list: Optional[List[str]] = None
         if job_types:
@@ -81,9 +86,15 @@ def list_active_jobs(
 @router.get("/recent/{user_id}")
 def list_recent_jobs(
     user_id: int,
-    job_types: Optional[str] = Query(default=None, description="Comma-separated job_types"),
+    job_types: Optional[str] = Query(
+        default=None,
+        description="Comma-separated job_types, napr. 'sync,ai_analyze'",
+    ),
     limit: int = 20,
 ) -> Dict[str, Any]:
+    """
+    Posledné joby (akýkoľvek status) pre daného usera.
+    """
     try:
         job_types_list: Optional[List[str]] = None
         if job_types:
@@ -100,7 +111,13 @@ def list_recent_jobs(
 
 
 @router.get("/{user_id}/{job_id}")
-def get_job(user_id: int, job_id: int) -> Dict[str, Any]:
+def get_job(
+    user_id: int,
+    job_id: int,
+) -> Dict[str, Any]:
+    """
+    Detail konkrétneho jobu podľa ID.
+    """
     try:
         row = db_get_job_by_id(user_id=user_id, job_id=job_id)
         return {"success": True, "job": row}
@@ -112,15 +129,17 @@ def get_job(user_id: int, job_id: int) -> Dict[str, Any]:
 def run_job(
     user_id: int,
     job_id: int,
-    user_jwt: str = Depends(require_user_jwt),
+    user_jwt: str = Depends(require_user_jwt),  # ⬅️ JWT z FE
 ) -> Dict[str, Any]:
+    """
+    Manuálne spracovanie jedného jobu (mini-worker).
+    """
     try:
         out = service_run_job_now(
             user_id=user_id,
             job_id=job_id,
             worker_id="api_run",
-            user_jwt=user_jwt,
-            service=False,
+            user_jwt=user_jwt,  # ⬅️ POSIELAME ĎALEJ
         )
         return {
             "success": out.get("error") is None,
