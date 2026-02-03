@@ -20,19 +20,16 @@ from Services.AI.json_parse import parse_ai_json
 _CLIENT: Optional[genai.Client] = None
 
 def _get_client() -> genai.Client:
-    """Inicializuje Google GenAI klienta s korektným nastavením timeoutu."""
     global _CLIENT
     if _CLIENT is None:
         if not GEMINI_API_KEY:
-            raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
+            raise RuntimeError("Missing GEMINI_API_KEY")
         
-        # Oprava: V google-genai SDK sa timeout nastavuje cez HttpOptions
-        # SDK očakáva sekundy ako int alebo float
         timeout_val = int(LLM_TIMEOUT_S or 30)
         
-        # Správny spôsob inicializácie s konfiguráciou pre http
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
+            # Odstránime akékoľvek pochybnosti o verzii API
             http_options={'timeout': timeout_val}
         )
     return _CLIENT
