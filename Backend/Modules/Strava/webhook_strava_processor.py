@@ -20,6 +20,7 @@ from typing import Any, Mapping, Sequence
 from Modules.Supabase.client import get_service_client
 from Services.synchronization_single import service_sync_single_activity
 from Services.coach_plan_adjustment import service_coach_autoadjust_after_update
+from Services.async_jobs import service_enqueue_job
 
 supabase = get_service_client()
 
@@ -144,9 +145,30 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     try:
-        await _sync_activity(user_id=user_id, strava_activity_id=object_id)
+    await _sync_activity(user_id=user_id, strava_activity_id=object_id)
 
-        # best-effort auto-adjust
+        # 🔥 enqueue AI activity review (ASYNC, non-blocking)
+        try:
+            service_enqueue_job(
+                user_id=user_id,
+                user_uid=str(account.get("athlete_id") or ""),
+                job_type="activity_review",
+                payload={
+                    "activity_id": object_id,
+                    "service": True,   # webhook = service mode
+                },
+                service=True,
+                priority=150,
+                dedupe_key=f"activity_review:{user_id}:{object_id}",
+            )
+        except Exception as e:
+            print(
+                "[ACTIVITY-REVIEW][enqueue] failed",
+                "user_id=", user_id,
+                "activity_id=", object_id,
+                "err=", repr(e),
+            )
+    
         try:
             auto_res = await _run_coach_autoadjust_service(user_id=user_id)
             print(
