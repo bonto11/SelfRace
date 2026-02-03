@@ -145,7 +145,7 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     try:
-    await _sync_activity(user_id=user_id, strava_activity_id=object_id)
+        await _sync_activity(user_id=user_id, strava_activity_id=object_id)
 
         # 🔥 enqueue AI activity review (ASYNC, non-blocking)
         try:
