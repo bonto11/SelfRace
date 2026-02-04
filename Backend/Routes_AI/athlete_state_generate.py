@@ -62,7 +62,7 @@ def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
     """
     provider = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or requested_model)
-    print("MBP model", used_model)
+
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
         # doplň povinné polia, ak by chýbali
