@@ -23,7 +23,7 @@ def db_get_enrichment_for_activities(
         "activity_id,"
         "z1_min,z2_min,z3_min,z4_min,z5_min,"
         "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
-        "ai_review,updated_at"
+        "ai_review"
     )
 
     res = (
