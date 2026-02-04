@@ -80,9 +80,13 @@ def _enqueue_activity_review_job(*, user_id: int, user_uid: str, activity_id: in
             payload={
                 "activity_id": int(activity_id),
                 "service": True,   # webhook = service mode
+                "save_to_db": True,
             },
             user_jwt=None,
             service=True,
+            # priority/dedupe_key sem zatiaľ nedávam do DB (často nemáš stĺpce)
+            priority=150,
+            dedupe_key=f"activity_review:{user_id}:{activity_id}",
         )
     except Exception as e:
         print(
