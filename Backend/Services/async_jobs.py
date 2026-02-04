@@ -181,13 +181,18 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
     payload = _as_dict(job.get("input"))
     jwt = payload.get("user_jwt")
 
+    # ✅ bezpečné prepínanie režimu
+    run_as_service = bool(payload.get("service")) and (jwt is None)
+
     try:
         if job_type == "ai_analyze":
             result = service_analyze_athlete(
                 user_id=user_id,
                 user_jwt=jwt,
-                service=(jwt is None),
+                service=run_as_service,
                 model=payload.get("model"),
+                debug=bool(payload.get("debug", False)),
+                save_to_db=bool(payload.get("save_to_db", True)),
             )
 
         elif job_type == "weekly_generate":
