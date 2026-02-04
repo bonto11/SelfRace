@@ -23,7 +23,7 @@ from Services.AI.activity_review_builders import build_input_from_db as build_re
 from Routes_AI.activity_review_generate import generate_activity_review_json
 
 from Routes_DB.activities_enrichment import (
-    db_upsert_enrichment_rows,
+    db_update_ai_review_one,
     db_get_enrichment_for_activities,
 )
 
@@ -62,7 +62,6 @@ def service_activity_review(
     *,
     user_jwt: Optional[str] = None,
     service: bool = False,
-    debug: bool = False,   # nechávam v signatúre kvôli kompatibilite, ale prints idú vždy
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
     jwt = None if service else require_jwt(user_jwt)
@@ -147,10 +146,8 @@ def service_activity_review(
     review["model"] = str(review.get("model") or model_to_use)
     review.setdefault("activity_id", activity_id)
 
-    print("[AR][service] ai_review_keys", sorted(list(review.keys())))
-    print("[AR][service] ai_summary", review.get("summary"))
-
     # billing
+    print("[AR][service] trace", trace)
     usage = extract_usage_from_trace(trace)
     print("[AR][service] usage", usage)
 
@@ -170,14 +167,16 @@ def service_activity_review(
             print("[AI_BILLING] activity_review billing error:", repr(e))
 
     try:
-        db_upsert_enrichment_rows(
-            [{"user_id": user_id, "activity_id": activity_id, "ai_review": review}],
+        ok = db_update_ai_review_one(
+            user_id=user_id,
+            activity_id=activity_id,
+            ai_review=review,  # iba AI output JSON
             user_jwt=jwt if not service else None,
             service=service,
         )
-        print("[AR][service] saved_ai_review", {"activity_id": activity_id})
+        print("[AR][service] db_update_ai_review_one ok:", ok)
     except Exception as e:  # noqa: BLE001
-        print("[AR][service] db_upsert_enrichment_rows error:", repr(e))
+        print("[AR][service] db_update_ai_review_one error:", repr(e))
 
     return {
         "ok": True,
@@ -193,9 +192,7 @@ def service_activity_review(
         "ai_usage": usage,
     }
 
-
 service_review_activity = service_activity_review
-
 
 def service_get_activity_review(
     user_id: int,

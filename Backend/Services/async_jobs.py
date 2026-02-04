@@ -508,7 +508,6 @@ def service_run_job_now(
                 user_jwt=None if run_as_service else payload_jwt,
                 service=run_as_service,
                 model=input_payload.get("model"),
-                debug=bool(input_payload.get("debug", False)),
             )
             
             print("[JOB][activity_review] input keys:", list(input_payload.keys()))
