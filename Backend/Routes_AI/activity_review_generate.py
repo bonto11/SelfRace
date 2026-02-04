@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Mapping
 
 from zoneinfo import ZoneInfo
 
@@ -10,6 +10,24 @@ from Services.user_prefs import service_load_user_settings
 from Services.AI.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
 
+def _as_dict_str_any(x: Any) -> Dict[str, Any]:
+    # už je to dict so string keymi
+    if isinstance(x, dict):
+        out: Dict[str, Any] = {}
+        for k, v in x.items():
+            # key môže byť bytes/čokoľvek
+            if isinstance(k, bytes):
+                kk = k.decode("utf-8", errors="ignore")
+            else:
+                kk = str(k)
+            out[kk] = v
+        return out
+
+    # mapping-like (napr. pydantic / custom)
+    if isinstance(x, Mapping):
+        return {str(k): v for k, v in x.items()}
+
+    return {}
 
 def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
     tz_name = settings.get("timezone") or "Europe/Bratislava"
@@ -34,32 +52,34 @@ def _lang_from_settings(settings: Dict[str, Any]) -> str:
 
 def _fallback_copy(lang: str) -> Dict[str, Any]:
     if lang == "en":
-        return {
-            "headline": "We couldn't generate the activity review.",
-            "bullets": ["Try again later."],
-        }
+        return {"headline": "We couldn't generate the activity review.", "bullets": ["Try again later."]}
     if lang == "cs":
-        return {
-            "headline": "Nepodařilo se získat hodnocení aktivity.",
-            "bullets": ["Zkus to později."],
-        }
-    return {
-        "headline": "Nepodarilo sa získať AI hodnotenie aktivity.",
-        "bullets": ["Skús to znova neskôr."],
-    }
+        return {"headline": "Nepodařilo se získat hodnocení aktivity.", "bullets": ["Zkus to později."]}
+    return {"headline": "Nepodarilo sa získať AI hodnotenie aktivity.", "bullets": ["Skús to znova neskôr."]}
 
 
-def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
+def _to_int_safe(v: Any) -> Optional[int]:
+    if v is None:
+        return None
     try:
-        act = context_payload.get("activity")
-        if not isinstance(act, dict):
-            return None
-        v = act.get("activity_id")
-        if v is None:
-            return None
-        return int(v)
+        # str() kvôli "123" aj kvôli Any
+        return int(str(v))
     except Exception:
         return None
+
+
+def _safe_activity_id(context_payload: dict[str, Any]) -> Optional[int]:
+    act = context_payload.get("activity")
+    if not isinstance(act, dict):
+        return None
+    return _to_int_safe(act.get("activity_id"))
+
+
+def _safe_user_id(context_payload: dict[str, Any]) -> Optional[int]:
+    u = context_payload.get("user")
+    if not isinstance(u, dict):
+        return None
+    return _to_int_safe(u.get("id"))
 
 
 def _trace_base(
@@ -70,14 +90,6 @@ def _trace_base(
     ai_debug_trace: Optional[Dict[str, Any]] = None,
     error: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Normalizovaný trace objekt (kompatibilný s athlete_state_generate):
-      - models_tried: list
-      - attempts: list
-      - usage: dict
-      - ok_model: string
-      - raw/cleaned len ak debug_raw
-    """
     t: Dict[str, Any] = {
         "provider": provider,
         "models_tried": [],
@@ -118,15 +130,18 @@ def generate_activity_review_json(
     debug_raw: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
     """
-    Provider-agnostic generator pre Activity Review.
-    Prompt text + schema musia byť výhradne v prompts.
+    Provider-agnostic generator for Activity Review.
+    Prompt text + schema must live in prompts.
     """
 
-    # --- user settings (jazyk, timezone) ---
+    # infer user_id if not provided
+    uid = _safe_user_id(context_payload)
+
+    # --- user settings (language, timezone) ---
     settings: Dict[str, Any] = {}
-    if user_id:
+    if uid is not None:
         try:
-            settings = service_load_user_settings(int(user_id)) or {}
+            settings = service_load_user_settings(int(uid)) or {}
         except Exception:
             settings = {}
 
@@ -149,27 +164,26 @@ def generate_activity_review_json(
     )
 
     # --- SUCCESS ---
-    if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
-        parsed: Dict[str, Any] = dict(res.data)
+    if getattr(res, "ok", False):
+        parsed: Dict[str, Any] = _as_dict_str_any(getattr(res, "data", None))
 
-        parsed.setdefault("schema_version", 1)
-        parsed.setdefault("generated_at", _now_local_iso(tzinfo))
-        parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
+        if parsed:
+            parsed.setdefault("schema_version", 1)
+            parsed.setdefault("generated_at", _now_local_iso(tzinfo))
+            parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
+            parsed.setdefault("activity_id", _safe_activity_id(context_payload))
 
-        # ak si chceš vynútiť activity_id, tak ho doplň (safe)
-        parsed.setdefault("activity_id", _safe_activity_id(context_payload))
+            trace = None
+            if debug_raw:
+                ai_tr = getattr(getattr(res, "error", None), "trace", None)
+                trace = _trace_base(
+                    provider=str(getattr(res, "provider", None) or "unknown"),
+                    model=str(getattr(res, "model", None) or model),
+                    debug_raw=True,
+                    ai_debug_trace=(ai_tr if isinstance(ai_tr, dict) else None),
+                )
 
-        trace = None
-        if debug_raw:
-            ai_tr = getattr(getattr(res, "error", None), "trace", None)
-            trace = _trace_base(
-                provider=str(getattr(res, "provider", None) or "unknown"),
-                model=str(getattr(res, "model", None) or model),
-                debug_raw=True,
-                ai_debug_trace=(ai_tr if isinstance(ai_tr, dict) else None),
-            )
-
-        return parsed, trace
+            return parsed, trace
 
     # --- FAILURE / FALLBACK ---
     err_msg: Optional[str] = None

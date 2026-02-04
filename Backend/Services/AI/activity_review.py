@@ -47,7 +47,7 @@ def _default_ai_model() -> str:
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Deep copy + drop internals (PII / internal ids).
-    Konzistentné s athlete_state.
+    NOTE: finálne "skutočné" minify (7d horizon) spravíme v builder/prompts.
     """
     ctx = json.loads(json.dumps(payload, default=str))
 
@@ -86,11 +86,7 @@ def service_activity_review(
         - no JWT
         - no quota check
     """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
-
+    jwt = None if service else require_jwt(user_jwt)
     model_to_use = (model or _default_ai_model()).strip()
 
     # --------------------------------------------------
@@ -107,7 +103,9 @@ def service_activity_review(
             "activity_id": activity_id,
             "model": model_to_use,
             "review": None,
-            "input": None,
+            "summary": None,
+            "highlights": None,
+            "recommendations": None,
             "error": {
                 "code": "ai_quota_exceeded",
                 "message": "Mesačný limit AI bol vyčerpaný.",
@@ -137,13 +135,17 @@ def service_activity_review(
                 "activity_id": activity_id,
                 "model": model_to_use,
                 "review": None,
-                "input": input_data,
+                "summary": None,
+                "highlights": None,
+                "recommendations": None,
                 "error": {
                     "code": "missing_activity_data",
                     "message": "Missing activity summary/enrichment",
                 },
+                **({"input": input_data} if debug else {}),
             }
     except Exception:
+        # necháme prejsť, AI si poradí / alebo fallback
         pass
 
     # --------------------------------------------------
@@ -152,12 +154,14 @@ def service_activity_review(
     review, trace = generate_activity_review_json(
         context_payload=context_for_ai,
         model=model_to_use,
+        user_id=user_id,          # ✅ dôležité pre timezone/jazyk (settings)
         debug_raw=debug,
     )
 
     if not isinstance(review, dict):
         review = {}
 
+    # normalize review meta (neprepisuj, ak už existuje z generatora)
     review.setdefault("schema_version", 1)
     review.setdefault("generated_at", _now_iso())
     review["model"] = str(review.get("model") or model_to_use)
@@ -201,15 +205,25 @@ def service_activity_review(
         except Exception as e:  # noqa: BLE001
             print("[service_activity_review] db_upsert_enrichment_rows error:", repr(e))
 
+    # --------------------------------------------------
+    # 4) RESPONSE (FE-friendly)
+    # --------------------------------------------------
     resp: Dict[str, Any] = {
         "ok": True,
         "activity_id": activity_id,
-        "model": review["model"],
+        "model": review.get("model"),
         "review": review,
-        "input": input_data,
+        # ✅ tieto polia očakáva tvoj async job minify
+        "summary": review.get("summary"),
+        "highlights": review.get("highlights"),
+        # v schema sa to volá next_steps → mapni to sem (alebo neskôr premenuj schema)
+        "recommendations": review.get("next_steps"),
+        "error": None,
     }
 
+    # input + trace len keď debug (inak zbytočne nafukuje payload a DB)
     if debug:
+        resp["input"] = input_data
         resp["debug_trace"] = trace
         resp["ai_usage"] = usage
 
@@ -220,7 +234,6 @@ def service_activity_review(
 # BACKWARD COMPAT (safe alias)
 # ---------------------------------------------------------------------
 
-# ak niekde ešte voláš starý názov
 service_review_activity = service_activity_review
 
 
@@ -238,10 +251,7 @@ def service_get_activity_review(
     """
     Load stored review from activities_enrichment.ai_review
     """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     rows = db_get_enrichment_for_activities(
         user_id=user_id,

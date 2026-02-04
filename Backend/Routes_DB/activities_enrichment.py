@@ -31,14 +31,15 @@ def db_get_enrichment_for_activities(
     if not activity_ids:
         return []
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_enrichment")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
         .select(
             "activity_id,"
             "z1_min,z2_min,z3_min,z4_min,z5_min,"
-            "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m","ai_review"
+            "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m",
+            "ai_review",
         )
         .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))
@@ -59,8 +60,9 @@ def db_upsert_enrichment_rows(
     if not rows:
         return 0
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="activities_enrichment")
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
+    print("[db_upsert_enrichment_rows] rows:", rows)
     saved = 0
     BATCH = 200
     for i in range(0, len(rows), BATCH):
@@ -70,9 +72,10 @@ def db_upsert_enrichment_rows(
             on_conflict="activity_id",  # ak chceš, môžeš zmeniť na "user_id,activity_id"
         ).execute()
         saved += len(chunk)
-
+    print("[db_upsert_enrichment_rows] chunk:", chunk)
     return saved
-    
+
+
 def db_get_enrichment_for_activity(
     user_id: int,
     activity_id: int,
