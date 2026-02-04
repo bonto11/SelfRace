@@ -354,16 +354,12 @@ def service_run_job_now(
             if not run_as_service and payload_jwt is None:
                 raise ValueError("ai_analyze: job.input.user_jwt is required unless service=True")
 
-            debug_flag = bool(input_payload.get("debug", False))
-            save_flag = bool(input_payload.get("save_to_db", True))
             model_override = input_payload.get("model")
 
             result_payload = service_analyze_athlete(
                 user_id=user_id,
                 user_jwt=None if run_as_service else payload_jwt,
                 service=run_as_service,
-                debug=debug_flag,
-                save_to_db=save_flag,
                 model=model_override,
             )
 
@@ -378,7 +374,6 @@ def service_run_job_now(
                 state_id=input_payload.get("state_id"),
                 weeks=input_payload.get("weeks"),
                 model=input_payload.get("model"),
-                debug=bool(input_payload.get("debug", False)),
             )
 
         elif job_type == "daily_generate":
@@ -396,7 +391,6 @@ def service_run_job_now(
                 plan_id=input_payload.get("plan_id"),
                 overwrite=bool(input_payload.get("overwrite", True)),
                 model=input_payload.get("model"),
-                debug=bool(input_payload.get("debug", True)),
             )
 
         elif job_type == "plan_match":

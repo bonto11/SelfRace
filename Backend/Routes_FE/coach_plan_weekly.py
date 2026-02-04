@@ -62,7 +62,6 @@ def generate_weekly_plan(
             state_id=payload.state_id,
             weeks=payload.weeks,
             model=payload.model,
-            debug=payload.debug,
         )
         return {"success": True, **result}
     except ValueError as ve:
